@@ -3008,13 +3008,15 @@ void main() {
     test('a login that is no login names no file, and what a crash left is swept at start', () async {
       final root = _cardsRoot();
       final cards = PrivateCards(root: root);
-      final leftover = Directory(path.join(root, '${PrivateCards.prefix}crashed'))..createSync();
+      // On Windows the copies' folders are made in the private root inside [root], and only that is swept.
+      final home = Platform.isWindows ? path.join(root, PrivateCards.windowsRoot) : root;
+      final leftover = Directory(path.join(home, '${PrivateCards.prefix}crashed'))..createSync(recursive: true);
 
       for (final login in ['a/b', '../b', 'B', '']) {
         await expectLater(cards.copy(login, _cardOf(_newKey)), throwsA(isA<RecoveryRefused>()), reason: login);
       }
       expect(leftover.existsSync(), isTrue, reason: 'nothing was made, so nothing was swept');
-      expect(Directory(root).listSync().map((entry) => path.basename(entry.path)), [
+      expect(Directory(home).listSync().map((entry) => path.basename(entry.path)), [
         '${PrivateCards.prefix}crashed',
       ], reason: 'no folder was made for a refused login');
 

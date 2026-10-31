@@ -6,7 +6,6 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart' show ChangeNotifier;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as path;
-import 'package:porelo_frontend/src/app/desk.dart';
 import 'package:porelo_frontend/src/app/host_access.dart';
 import 'package:porelo_frontend/src/app/host_access_adapters.dart';
 import 'package:porelo_frontend/src/app/host_access_contract.dart';
@@ -264,7 +263,8 @@ void main() {
         gitPort: 3001,
         matrixPort: 8448,
       );
-      config = card.configPath(environment: environment, windows: desk.isWindows);
+      // The suite's desk is Linux on every runner; the config file itself is written on this runner's own file system.
+      config = card.configPath(environment: environment, windows: Platform.isWindows);
       await card.publish(config, environment: environment);
       me = HostAdminIdentity('alice', _fingerprintOf(hostKey));
       proven = _Proof()..next = me;
