@@ -35,6 +35,9 @@ class FakeJoinHost implements JoinHost {
   /// The revision the daemon confirms instead of the verified one.
   String? confirms;
 
+  /// Whether the daemon confirms the follow as unverified.
+  bool unverified = false;
+
   @override
   Future<Machine> connect(PreparedHost host) async {
     calls.add('connect ${host.name}');
@@ -42,13 +45,23 @@ class FakeJoinHost implements JoinHost {
       tunnelFails = null;
       throw failure;
     }
-    return Machine(
-      name: 'alice on ${host.name}',
-      kind: 'host',
-      hostProject: host.name,
-      host: 'alice@${host.address}',
+    await Future<void>.delayed(Duration.zero);
+    return Machine.fromHostCard(
+      HostCardSsh(
+        name: host.name,
+        address: host.address,
+        sshPort: host.sshPort,
+        hostKey: host.sshHostKey,
+        login: 'porelo-alice',
+        publicKey: host.sshHostKey,
+        uid: 1007,
+        returnSocket: '/run/porelo-host/people/porelo-alice/return.sock',
+        webPort: 3000,
+        gitPort: 3001,
+        matrixPort: 8448,
+      ),
       socketPath: '/unused',
-      remoteSocket: '/run/user/1007/porelo',
+      sshConfig: '/unused/${host.name}.conf',
     );
   }
 
@@ -66,6 +79,7 @@ class FakeJoinHost implements JoinHost {
       name: offer.project,
       url: offer.source,
       commit: confirms ?? offer.revision,
+      unverified: unverified,
     );
   }
 }

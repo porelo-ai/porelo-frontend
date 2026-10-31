@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_host/porelo_host.dart';
 
+import 'access_checkout.dart';
+import 'run_here.dart' show WorkspaceRefused;
 import 'machines.dart';
 import 'registry.dart';
 import 'settings.dart';
@@ -49,14 +51,30 @@ class JoinOffered extends JoinAdmission {
   /// Refuses an incomplete verdict before anything is followed, written or connected.
   void check() {
     if (!RegExp(r'^[a-z][a-z0-9-]{0,62}$').hasMatch(project) ||
-        source.isEmpty ||
-        RegExp(r'[\s\x00-\x1f\x7f]').hasMatch(source) ||
-        Uri.tryParse(source)?.userInfo.isNotEmpty == true ||
+        !_repository(source) ||
         signers.isEmpty ||
+        signers.any((signer) => !RegExp(r'^ssh-ed25519 [A-Za-z0-9+/]{68}$').hasMatch(signer)) ||
         !RegExp(r'^(?:[0-9a-f]{40}|[0-9a-f]{64})$').hasMatch(revision)) {
       throw const RegistryRefusal('Core did not verify this admission completely, so nothing was joined.');
     }
   }
+
+  /// Whether [machine] is the watched account reached through this admission's host card, never a rental record.
+  bool reaches(Machine machine) {
+    final card = machine.hostCard;
+    return machine.kind == 'host' &&
+        !machine.legacyHost &&
+        machine.identity.isEmpty &&
+        card != null &&
+        card.name == host.name &&
+        card.address == host.address &&
+        card.sshPort == host.sshPort &&
+        card.hostKey == host.sshHostKey;
+  }
+
+  /// Whether [followed] is the host's verified, in-force follow of this admission.
+  bool confirms(Followed followed) =>
+      followed.name == project && followed.url == source && followed.commit == revision && !followed.unverified;
 
   /// Whether [other] is the same verified admission, unchanged.
   bool same(JoinOffered other) =>
@@ -89,6 +107,19 @@ class JoinUnreadable extends JoinAdmission {
   ).toString();
 }
 
+final _connecting = Expando<Map<String, Future<Machine>>>();
+final _pending = Expando<Map<String, Machine>>();
+final _additions = Expando<Map<String, Future<void>>>();
+
+bool _repository(String repository) {
+  try {
+    AccessCheckout.checkRepository(repository);
+    return true;
+  } on WorkspaceRefused {
+    return false;
+  }
+}
+
 /// Reads the answer of `porelo registry joinable --json`, or refuses it whole so it never shows as an empty list.
 List<JoinAdmission> readJoinable(Object? json) {
   try {
@@ -101,7 +132,7 @@ List<JoinAdmission> readJoinable(Object? json) {
       for (final entry in refused.cast<Map<String, Object?>>())
         JoinUnreadable(
           host: _text(entry, 'host'),
-          repository: _text(entry, 'access_repository'),
+          repository: _checked(_text(entry, 'access_repository')),
           whoMay: _contacts(entry['admins']),
         ),
     ];
@@ -124,6 +155,9 @@ JoinOffered _offered(Map<String, Object?> entry) {
     signers: signers.cast<String>(),
   );
 }
+
+String _checked(String repository) =>
+    _repository(repository) ? repository : throw const FormatException('an access repository with credentials');
 
 String _text(Map<String, Object?> entry, String key) {
   final value = entry[key];
@@ -211,19 +245,19 @@ class ProjectJoin extends ChangeNotifier {
       if (latest.length != 1 || !latest.single.same(offer)) {
         throw const RegistryRefusal('Core no longer verifies this admission as shown. Look at the list again.');
       }
-      final machine = _machine ?? _watched() ?? await host.connect(offer.host);
-      if (machine.kind != 'host' || machine.hostProject != offer.host.name || machine.identity.isNotEmpty) {
+      final machine = _machine ?? _watched() ?? await _connect();
+      if (!offer.reaches(machine)) {
         throw const RegistryRefusal('The tunnel did not confirm this host and your identity.');
       }
       _machine = machine;
       progress = 'Connected to ${offer.host.name}; not joined yet.';
       _notify();
       final before = await host.followed(machine, offer.project);
-      final followed = before != null && before.commit == offer.revision ? before : await host.follow(machine, offer);
-      if (followed.name != offer.project || followed.commit != offer.revision) {
+      final followed = before != null && offer.confirms(before) ? before : await host.follow(machine, offer);
+      if (!offer.confirms(followed)) {
         throw const RegistryRefusal('The host did not confirm the verified project revision. Nothing was saved.');
       }
-      if (!machines.all.contains(machine)) await machines.add(machine);
+      await _adding(machine);
       await settings.rememberProjectHost(offer.project, offer.host.name);
       joined = true;
       progress = null;
@@ -237,12 +271,37 @@ class ProjectJoin extends ChangeNotifier {
     }
   }
 
-  /// The account already watched on this host, shared by every project there.
+  /// The account already watched, or being connected, on this host, shared by every project there.
   Machine? _watched() {
-    for (final machine in machines.all) {
-      if (machine.kind == 'host' && machine.hostProject == offer.host.name && machine.identity.isEmpty) return machine;
+    for (final machine in [...machines.all, ..._pending[machines]?.values.whereType<Machine>() ?? <Machine>[]]) {
+      if (offer.reaches(machine)) return machine;
     }
     return null;
+  }
+
+  /// Opens one tunnel per host even when two rows join at once.
+  Future<Machine> _connect() async {
+    final connecting = _connecting[machines] ??= {};
+    final key = offer.host.name;
+    final running = connecting[key] ??= host.connect(offer.host);
+    try {
+      final machine = await running;
+      (_pending[machines] ??= {})[key] = machine;
+      return machine;
+    } finally {
+      if (identical(connecting[key], running)) connecting.remove(key);
+    }
+  }
+
+  /// Adds the account once, even when two rows confirm at once.
+  Future<void> _adding(Machine machine) async {
+    final adding = _additions[machines] ??= {};
+    final key = offer.host.name;
+    await (adding[key] ??= () async {
+      if (!machines.all.contains(machine)) await machines.add(machine);
+    }());
+    adding.remove(key);
+    _pending[machines]?.remove(key);
   }
 
   void _notify() {
