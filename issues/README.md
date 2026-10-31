@@ -94,6 +94,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f285"></a>[F285](F285-A-Recovery-Run-Ended-Pushed-And-On-Its-Own-Base.md) | — | — | A recovery run always ended, its own pushed commit finished, a project backup key on its own base, the reviewed card filed, terminals closed without freezing. |
 | <a id="f284"></a>[F284](F284-The-Subagent-Number-Chosen-When-Starting.md) | — | — | How many subagents the agent may run at once, chosen when starting, with the number that applies and Core's refusal said before anything is made. |
 | <a id="f282"></a>[F282](F282-The-Providers-Usage-In-A-Status-Line.md) | — | — | A status line with one traffic light for the providers' usage, a popup per provider, and a *Needs you* warning past a set threshold. |
 | <a id="f281"></a>[F281](F281-A-Kept-Recovery-Commit-Finished-Not-Made-Again.md) | — | — | A key replacement or backup key committed but not pushed finished under the same request, never made twice; each harm guarded by a test. |
