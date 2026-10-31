@@ -119,7 +119,8 @@ class Machine {
     socketPath: _text(stored['socket']),
     host: _text(stored['host']),
     remoteSocket: _text(stored['remoteSocket']),
-    kind: _text(stored['kind']),
+    // A card host is stored without its kind, so the plugin, which reads this file, takes it as a machine.
+    kind: stored.containsKey('hostCard') && _text(stored['kind']).isEmpty ? 'host' : _text(stored['kind']),
     distribution: _text(stored['distribution']),
     identity: _text(stored['identity']),
     hostProject: _text(stored['hostProject']),
@@ -310,7 +311,7 @@ class Machine {
     if (kind.isEmpty || socketPath.isNotEmpty) 'socket': socketPath,
     if (host.isNotEmpty) 'host': host,
     if (remoteSocket.isNotEmpty) 'remoteSocket': remoteSocket,
-    if (kind.isNotEmpty) 'kind': kind,
+    if (kind.isNotEmpty && hostCard == null) 'kind': kind,
     if (distribution.isNotEmpty) 'distribution': distribution,
     if (identity.isNotEmpty && hostCard == null) 'identity': identity,
     if (hostCard != null) 'hostCard': hostCard!.stored,

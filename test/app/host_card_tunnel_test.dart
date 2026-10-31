@@ -93,6 +93,17 @@ void main() {
   });
 
   // Prevents SSH from using personal trust, another identity or externally bound services.
+  // Guards a card host the IDE plugin, which reads the same file, would drop as of an unknown kind.
+  test('a card host is stored without a kind and read back as a host', () {
+    final stored = host.stored;
+
+    expect(stored.containsKey('kind'), isFalse, reason: 'the plugin shows an entry with a kind as not reached');
+    expect(stored['host'], 'alpha');
+    expect(stored['remoteSocket'], host.remoteSocket);
+    expect(stored['socket'], host.socketPath);
+    expect(Machine.fromStored(stored).kind, 'host');
+  });
+
   test('a card never reuses or drops a same-name non-card tunnel', () async {
     final other = Machine(name: host.name, socketPath: '${folder.path}/other', host: 'alice@other', remoteSocket: '/d');
     final server = await ServerSocket.bind(InternetAddress(other.socketPath, type: InternetAddressType.unix), 0);
