@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_host/porelo_host.dart';
@@ -72,9 +73,14 @@ class JoinOffered extends JoinAdmission {
         card.hostKey == host.sshHostKey;
   }
 
-  /// Whether [followed] is the host's verified, in-force follow of this admission.
+  /// Whether [followed] is the host's verified, in-force follow of this admission, pinned to exactly Core's signers.
   bool confirms(Followed followed) =>
-      followed.name == project && followed.url == source && followed.commit == revision && !followed.unverified;
+      followed.name == project &&
+      followed.url == source &&
+      followed.commit == revision &&
+      !followed.unverified &&
+      followed.signers.length == signers.length &&
+      setEquals(followed.signers.toSet(), {for (final signer in signers) _fingerprint(signer)});
 
   /// Whether [other] is the same verified admission, unchanged.
   bool same(JoinOffered other) =>
@@ -110,6 +116,10 @@ class JoinUnreadable extends JoinAdmission {
 final _connecting = Expando<Map<String, Future<Machine>>>();
 final _pending = Expando<Map<String, Machine>>();
 final _additions = Expando<Map<String, Future<void>>>();
+
+/// A key's `SHA256:` fingerprint, as the daemon names the keys a follow pinned.
+String _fingerprint(String key) =>
+    'SHA256:${base64Encode(sha256.convert(base64Decode(key.split(' ')[1])).bytes).replaceAll('=', '')}';
 
 bool _repository(String repository) {
   try {
@@ -186,13 +196,14 @@ JoinOffered _offered(Map<String, Object?> entry) {
   final card = entry['host_card'];
   if (card is! Map<String, Object?>) throw const FormatException('no host card');
   final name = _text(entry, 'host');
+  _text(card, 'homeserver');
   final host = PreparedHost.read({'name': name, ...card});
   if (host.name != name) throw const FormatException('the host card names another host');
   if (!RegExp(r'^[a-z_][a-z0-9_-]{0,31}$').hasMatch(_text(entry, 'host_account'))) {
     throw const FormatException('no host account');
   }
   _checked(_text(entry, 'access_repository'));
-  _contacts(entry['admins']);
+  if (_contacts(entry['admins']).isEmpty) throw const FormatException('nobody may grant it');
   final signers = entry['signers'];
   if (signers is! List) throw const FormatException('no signers');
   return JoinOffered(
@@ -209,7 +220,7 @@ String _checked(String repository) =>
 
 String _text(Map<String, Object?> entry, String key) {
   final value = entry[key];
-  if (value is! String) throw FormatException('no $key');
+  if (value is! String || value.trim().isEmpty) throw FormatException('no $key');
   return value;
 }
 

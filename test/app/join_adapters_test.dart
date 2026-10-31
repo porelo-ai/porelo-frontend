@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/join_adapters.dart';
@@ -15,6 +16,7 @@ import '../support/host_admin.dart';
 import '../support/project_join.dart';
 import '../support/signed_host.dart';
 
+const _revokedSigner = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC';
 const _otherSigner = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB';
 
 /// Core's `registry joinable` answer, exactly in the agreed shape, as decoded JSON.
@@ -49,6 +51,20 @@ final _answer = {
   ],
 };
 
+/// A key's `SHA256:` fingerprint, as the daemon names what it pinned.
+String _fingerprint(String key) =>
+    'SHA256:${base64Encode(sha256.convert(base64Decode(key.split(' ')[1])).bytes).replaceAll('=', '')}';
+
+/// Changes one projects[] or refused[] entry of Core's answer, or one of its admins or its host card.
+Ran Function() _with(void Function(Map<String, Object?> json) change) => () {
+  final json = _joinable();
+  change(json);
+  return (code: 0, out: jsonEncode(json), err: '');
+};
+
+Map<String, Object?> _project(Map<String, Object?> json) => (json['projects'] as List).single as Map<String, Object?>;
+Map<String, Object?> _refused(Map<String, Object?> json) => (json['refused'] as List).single as Map<String, Object?>;
+
 /// Core's command line, answering what a test sets and recording every call.
 class _Core {
   final calls = <List<String>>[];
@@ -82,6 +98,9 @@ class _Daemon extends FakeBackend {
   /// Whether the next follow is recorded but its answer lost with the connection.
   bool dropsAnswer = false;
 
+  /// The keys the daemon answers as pinned instead of those it was given.
+  List<String>? answersPinned;
+
   @override
   Future<ServiceInfo> open() async {
     if (opensFail > 0) {
@@ -104,7 +123,13 @@ class _Daemon extends FakeBackend {
     bool? acceptRewrite,
   }) async {
     asked.add((name: name, url: url, signedBy: signedBy, signers: signers, unverified: unverified));
-    final followed = kept[name] = Followed(name: name, url: url, commit: 'a' * 40, unverified: unverified == true);
+    final followed = kept[name] = Followed(
+      name: name,
+      url: url,
+      commit: 'a' * 40,
+      unverified: unverified == true,
+      signers: [for (final key in answersPinned ?? signers ?? const <String>[]) _fingerprint(key)],
+    );
     if (dropsAnswer) {
       dropsAnswer = false;
       throw const VarlinkDisconnected('the connection went away');
@@ -180,6 +205,20 @@ void main() {
         return (code: 0, out: jsonEncode(json), err: '');
       },
     ),
+    ('a host card without its homeserver', _with((json) => (_project(json)['host_card'] as Map).remove('homeserver'))),
+    ('a blank homeserver', _with((json) => (_project(json)['host_card'] as Map)['homeserver'] = '  ')),
+    ('an admitted project nobody may grant', _with((json) => _project(json)['admins'] = [])),
+    ('a blank refused project', _with((json) => _refused(json)['project'] = ' ')),
+    ('a blank refused host', _with((json) => _refused(json)['host'] = '')),
+    ('a blank why', _with((json) => _refused(json)['why'] = '\t')),
+    (
+      'a blank admin login',
+      _with((json) => (_refused(json)['admins'] as List)[0] = {'login': ' ', 'name': 'Carol', 'email': null}),
+    ),
+    (
+      'a blank admin name',
+      _with((json) => (_project(json)['admins'] as List)[0] = {'login': 'bob', 'name': '  ', 'email': null}),
+    ),
     ('a typed refusal', () => (code: 65, out: '{"reason":"registry-not-verified","words":"no"}', err: '')),
     ('an internal failure', () => (code: 70, out: jsonEncode(_joinable()), err: '')),
   ]) {
@@ -234,6 +273,36 @@ void main() {
       expect(asked.signers, [personKey, _otherSigner]);
       expect(asked.signedBy, isNull);
       expect(asked.unverified, isNot(isTrue));
+    });
+
+    // Harm: a follow already at the revision but pinned to only some, or to removed or revoked, signers is taken as joined.
+    for (final (name, pinned) in [
+      ('only some of', [personKey]),
+      ('more than', [personKey, _otherSigner, _revokedSigner]),
+      ('other than', [_revokedSigner]),
+    ]) {
+      test('a follow there pinned to $name Core\'s signers is followed again with them', () async {
+        daemon.kept['demo'] = Followed(
+          name: 'demo',
+          url: 'https://forge.example/team/demo.git',
+          commit: 'a' * 40,
+          signers: [for (final key in pinned) _fingerprint(key)],
+        );
+        final join = await joining();
+        await join.join();
+        expect(daemon.asked.single.signers, [personKey, _otherSigner]);
+        expect(join.joined, isTrue);
+      });
+    }
+
+    // Harm: a follow the daemon answers as pinned to other signers than Core's is taken as joined.
+    test('a follow answered with other signers saves nothing', () async {
+      daemon.answersPinned = [personKey];
+      final join = await joining();
+      await join.join();
+      expect(join.joined, isFalse);
+      expect(settings.projectHost('demo'), isNull);
+      expect(machines.all.where((m) => m.kind == 'host'), isEmpty);
     });
 
     // Harm: a retry after the host connection failed follows the project a second time.

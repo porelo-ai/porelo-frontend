@@ -1,7 +1,14 @@
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/project_join.dart';
 import 'package:porelo_host/porelo_host.dart';
+
+/// A key's `SHA256:` fingerprint, as the daemon answers the keys a follow pinned.
+String pinnedAs(String key) =>
+    'SHA256:${base64Encode(sha256.convert(base64Decode(key.split(' ')[1])).bytes).replaceAll('=', '')}';
 
 /// Core's discovery as a test tells it.
 class FakeDiscovery implements JoinDiscovery {
@@ -80,6 +87,7 @@ class FakeJoinHost implements JoinHost {
       url: offer.source,
       commit: confirms ?? offer.revision,
       unverified: unverified,
+      signers: [for (final signer in offer.signers) pinnedAs(signer)],
     );
   }
 }

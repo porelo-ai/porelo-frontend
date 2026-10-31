@@ -133,7 +133,12 @@ void main() {
   test('a project followed already at the verified revision is not followed again', () async {
     final shown = offer();
     core.answer = [shown];
-    host.following['demo'] = Followed(name: 'demo', url: shown.source, commit: shown.revision);
+    host.following['demo'] = Followed(
+      name: 'demo',
+      url: shown.source,
+      commit: shown.revision,
+      signers: [pinnedAs(personKey)],
+    );
     final join = joining(shown);
     await join.join();
     expect(join.joined, isTrue);
