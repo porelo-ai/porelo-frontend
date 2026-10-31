@@ -231,7 +231,7 @@ void main() {
     expect(kept?['personIdentity'], isTrue);
     expect(kept.toString(), isNot(contains('PRIVATE')));
     run.dispose();
-  });
+  }, skip: Platform.isWindows ? "the Linux desk takes only POSIX paths, and Windows' temporary folder is none" : null);
 
   test('a run picked up again starts where it can go on, and root logs in again first', () {
     final key = File('${home.path}/porelo-x')..writeAsStringSync('key');

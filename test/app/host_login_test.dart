@@ -80,7 +80,7 @@ void main() {
       expect(effective, contains(setting), reason: 'the card pin must apply when the alias does not match');
     }
     expect(command, containsAll(['KnownHostsCommand=none', 'ControlPath=none']));
-  });
+  }, skip: Platform.isWindows ? "runs this computer's OpenSSH on a Linux path" : null);
 
   // Harm: a refused legacy account or missing config must not open a relay or crash startup.
   test('Windows relay refuses unreachable host entries before building SSH options', () {

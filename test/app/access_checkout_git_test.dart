@@ -347,17 +347,21 @@ void main() {
         '$keys/task.pub',
       ]);
       final revision = await originCommit('task-cert.pub', date: DateTime.now().subtract(const Duration(hours: 2)));
-      expect((await gitVerifies(revision)).exitCode, 0, reason: 'Git alone believes the time the commit claims');
+      final alone = await gitVerifies(revision);
+      expect(alone.exitCode, 0, reason: 'Git alone believes the time the commit claims: ${alone.stderr}');
       await isRefused();
     });
 
     // Harm: a retired or stolen key signs new access changes by backdating them before its retirement.
     test('signed by a retired key and backdated is refused unless Core recorded it as accepted', () async {
-      final retired = DateTime.now().toUtc().subtract(const Duration(days: 1));
-      final stamp = '${retired.toIso8601String().replaceAll(RegExp(r'[-:T]'), '').split('.').first}Z';
+      // Local time without a zone, the form every OpenSSH that reads valid-before takes; a day either side of it
+      // leaves no doubt about which side of it each time lies.
+      final retired = DateTime.now().subtract(const Duration(days: 1));
+      final stamp = retired.toIso8601String().replaceAll(RegExp(r'[-:T]'), '').split('.').first;
       core.allowedSigners.add('alice namespaces="git",valid-before="$stamp" ${pub('old')}');
       final revision = await originCommit('old', date: DateTime.now().subtract(const Duration(days: 2)));
-      expect((await gitVerifies(revision)).exitCode, 0, reason: 'Git alone believes the time the commit claims');
+      final alone = await gitVerifies(revision);
+      expect(alone.exitCode, 0, reason: 'Git alone believes the time the commit claims: ${alone.stderr}');
       await isRefused();
       core.verdicts[revision] = 'accepted';
       await advancesTo(revision);
