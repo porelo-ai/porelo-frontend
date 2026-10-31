@@ -94,6 +94,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f284"></a>[F284](F284-The-Subagent-Number-Chosen-When-Starting.md) | — | — | How many subagents the agent may run at once, chosen when starting, with the number that applies and Core's refusal said before anything is made. |
 | <a id="f282"></a>[F282](F282-The-Providers-Usage-In-A-Status-Line.md) | — | — | A status line with one traffic light for the providers' usage, a popup per provider, and a *Needs you* warning past a set threshold. |
 | <a id="f281"></a>[F281](F281-A-Kept-Recovery-Commit-Finished-Not-Made-Again.md) | — | — | A key replacement or backup key committed but not pushed finished under the same request, never made twice; each harm guarded by a test. |
 | <a id="f233"></a>[F233](F233-The-Server-Type-And-Zone-Chosen-When-Renting.md) | — | — | The server type and zone chosen in *Prepare a server…*, stock shown before renting, the zone kept for down and give back. |
