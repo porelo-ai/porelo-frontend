@@ -770,7 +770,10 @@ Command prepareServerCommand({VoidCallback? open, HostAccess? access}) => Comman
   run: () {
     final reason = access?.unavailable() ?? (access == null ? 'The verified host admins are unavailable.' : null);
     if (reason != null) throw RegistryRefusal(reason);
-    open?.call();
+    // Opened only once the identity was read again; a refusal then shows on the command, which the read rebuilt.
+    unawaited(
+      access!.prepare(() async => open?.call()).catchError((Object _) {}, test: (error) => error is RegistryRefusal),
+    );
   },
   unavailable: access == null
       ? 'The verified host admins are unavailable.'
@@ -845,7 +848,13 @@ List<Command> preparedHostCommands({
               (access == null ? 'The verified host admins are unavailable.' : null) ??
               (action == 'admit' ? null : HostAccess.noHostWideChange);
           if (reason != null) throw RegistryRefusal(reason);
-          open?.call(action);
+          if (action != 'admit' || access?.proof == null) return open?.call(action);
+          // The admission opens only for a person still proven now; otherwise the rebuilt command says why.
+          unawaited(
+            access!.proveAgain().then((_) {
+              if (access.admitUnavailable(machine.hostProject) == null) open?.call(action);
+            }),
+          );
         },
         // A person who is no host admin learns that no request can be made, and whom to ask.
         unavailable: action == 'admit' && reason != null

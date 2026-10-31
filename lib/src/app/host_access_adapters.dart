@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart' show sha256;
+import 'package:flutter/foundation.dart' show ChangeNotifier;
 import 'package:path/path.dart' as path;
 import 'package:porelo_host/porelo_host.dart' show HostCardSsh, HostFileWriter, HostFilesRefused, checkHostName;
 
@@ -18,13 +20,16 @@ import 'settings.dart';
 ///
 /// Usable means what `identity show --json` answers: the key not revoked, the card verified (`card_refused` null) and
 /// the agent holding the key. Otherwise nobody is proven, and [whyNone] says why.
-class CoreHostAdminProof implements HostAdminProof {
+class CoreHostAdminProof extends ChangeNotifier implements HostAdminProof {
   /// Constructor taking Core's identity verbs, or a process runner for them.
   CoreHostAdminProof({Identity? identity, RunHere? run}) : _identity = identity ?? Identity(run: run);
 
   final Identity _identity;
   HostAdminIdentity? _current;
   String _why = 'Your identity has not been read yet.';
+
+  // Only the newest read is kept: an older one that ends later never brings back a key since taken away.
+  int _generation = 0;
 
   /// The proven login and card key fingerprint as last read, or null.
   HostAdminIdentity? current() => _current;
@@ -34,22 +39,24 @@ class CoreHostAdminProof implements HostAdminProof {
 
   @override
   Future<void> readAgain() async {
+    final read = ++_generation;
+    HostAdminIdentity? proven;
+    String why;
     try {
       final card = await _identity.show();
-      if (card.whyKeyUnusable case final why?) return _none(why);
-      _current = HostAdminIdentity(card.login, card.fingerprint);
+      why = card.whyKeyUnusable ?? '';
+      if (why.isEmpty) proven = HostAdminIdentity(card.login, card.fingerprint);
     } on NoIdentity catch (none) {
-      _none(none.words);
+      why = none.words;
     } on RegistryRefusal catch (refused) {
-      _none(refused.words);
+      why = refused.words;
     } on Exception {
-      _none("Porelo's answer on your identity could not be read. Try again.");
+      why = "Porelo's answer on your identity could not be read. Try again.";
     }
-  }
-
-  void _none(String why) {
-    _current = null;
-    _why = why;
+    if (read != _generation) return;
+    _current = proven;
+    if (proven == null) _why = why;
+    notifyListeners();
   }
 }
 
@@ -66,6 +73,8 @@ class SshHostRegistryTransport implements HostRegistryTransport {
     required this.machines,
     required this.settings,
     required this.scratch,
+    required this.identity,
+    this.proof,
     RunHere? run,
     RunHereWithBytes? send,
     HostFileWriter? writer,
@@ -86,6 +95,12 @@ class SshHostRegistryTransport implements HostRegistryTransport {
   /// A private folder each bundle's temporary folder is made in.
   final String scratch;
 
+  /// The proven host admin, whose joined card alone reaches root.
+  final HostAdminIdentity? Function() identity;
+
+  /// Read again before root is reached, so a key revoked or taken out of the agent reaches nothing.
+  final HostAdminProof? proof;
+
   final RunHere _run;
   final RunHereWithBytes _send;
   final HostFileWriter _writer;
@@ -103,9 +118,11 @@ class SshHostRegistryTransport implements HostRegistryTransport {
   @override
   Future<HostRegistryStatus> status(String host) async {
     checkHostName(host);
+    final registry = this.registry() ?? (throw const RegistryRefusal(HostAccess.noRegistry));
+    final config = await _refusedInWords(() => _config(host, registry));
     final Ran answer;
     try {
-      answer = await _run('ssh', [..._root(_config(host), host), statusVerb]);
+      answer = await _run('ssh', [..._root(config, host), statusVerb]);
     } on ProcessException {
       throw const RegistryRefusal('SSH could not run on this computer.');
     }
@@ -210,6 +227,8 @@ class SshHostRegistryTransport implements HostRegistryTransport {
     'ControlMaster=no',
     '-o',
     'ControlPath=none',
+    '-o',
+    'ProxyCommand=none',
     'root@$host',
   ];
 
@@ -218,44 +237,108 @@ class SshHostRegistryTransport implements HostRegistryTransport {
     checkHostName(host);
     checkedRegistryRevision(revision);
     final registry = this.registry() ?? (throw const RegistryRefusal(HostAccess.noRegistry));
-    final config = _config(host);
-    final pinned = _pinned(registry, host);
-    final since = settings.hostRegistryState(host).lastAppliedRevision;
-    await privateDirectory(Directory(scratch), writer: _writer);
-    final temporary = await _writer.createPrivateTemporary(Directory(scratch), prefix: 'registry-bundle-');
+    // Only what Core accepted now leaves this computer: a fetched commit it refused never does.
+    if (registry.problem != null || revision != registry.accepted?.revision) {
+      throw const RegistryRefusal(
+        'Only the registry revision Porelo accepted now is brought to a host. Refresh the registry and try again.',
+      );
+    }
+    await _refusedInWords(() async {
+      final config = await _config(host, registry);
+      final pinned = _pinned(registry, host);
+      final since = settings.hostRegistryState(host).lastAppliedRevision;
+      await privateDirectory(Directory(scratch), writer: _writer);
+      final temporary = await _writer.createPrivateTemporary(Directory(scratch), prefix: 'registry-bundle-');
+      try {
+        final bundle = await _bundle(registry, temporary.path, revision);
+        await _verify(
+          bundle,
+          host: host,
+          revision: revision,
+          pinned: pinned,
+          since: since,
+          card: _card(registry, host),
+        );
+        final answer = await _send('ssh', [..._root(config, host), intake], input: await File(bundle).readAsBytes());
+        if (answer.code != 0) throw RegistryRefusal(_hostWords(answer));
+        _checkTaken(answer.out, revision, host);
+      } finally {
+        // A folder that cannot be removed now never hides why the upload stopped.
+        try {
+          await temporary.delete(recursive: true);
+        } on FileSystemException {
+          // Left in the private scratch folder.
+        }
+      }
+    });
+  }
+
+  /// Runs [work], saying a refused workspace or host file in words, as every refusal here is said.
+  static Future<T> _refusedInWords<T>(Future<T> Function() work) async {
     try {
-      final bundle = await _bundle(registry, temporary.path, revision);
-      await _verify(bundle, host: host, revision: revision, pinned: pinned, since: since);
-      final answer = await _send('ssh', [..._root(config, host), intake], input: await File(bundle).readAsBytes());
-      if (answer.code != 0) throw RegistryRefusal(_hostWords(answer));
-      _checkTaken(answer.out, revision, host);
-    } finally {
-      await temporary.delete(recursive: true);
+      return await work();
+    } on WorkspaceRefused catch (refused) {
+      throw RegistryRefusal(refused.words);
+    } on HostFilesRefused catch (refused) {
+      throw RegistryRefusal(refused.message);
     }
   }
 
-  /// The pinned config the host's card published here, checked to lie where Core and the join put it.
-  String _config(String host) {
-    final card = machines()
-        .where((machine) => machine.hostCard?.name == host && machine.sshConfig.isNotEmpty)
-        .firstOrNull;
+  /// The registry's verified card of [host], which the joined card and Core's verification must both match.
+  static Map<String, dynamic> _card(Registry registry, String host) {
+    final card = registry.hosts.where((each) => each.host == host).firstOrNull?.card;
     if (card == null) {
+      throw RegistryRefusal('The accepted registry holds no card of $host yet. Publish it first.');
+    }
+    return card;
+  }
+
+  /// The pinned config the host's card published here: the card the registry verified, joined with the proven
+  /// admin's own login and key, and its files exactly as the join wrote them.
+  Future<String> _config(String host, Registry registry) async {
+    await proof?.readAgain();
+    final me = identity();
+    if (me == null) {
+      throw RegistryRefusal(proof?.whyNone ?? 'Your identity is not proven, so no host is reached as root.');
+    }
+    final verified = _card(registry, host);
+    final joined = machines().where((machine) => machine.hostCard?.name == host && machine.sshConfig.isNotEmpty);
+    if (joined.isEmpty) {
       throw RegistryRefusal(
         'No pinned SSH config for $host is kept here. Join $host with your card first: its root is reached with '
         'that card’s key.',
       );
     }
-    try {
-      HostCardSsh.checkConfigPath(
-        host,
-        card.sshConfig,
-        environment: _environment ?? desk.environment,
-        windows: desk.isWindows,
+    final same = joined.where((machine) {
+      final card = machine.hostCard!;
+      return card.address == verified['address'] &&
+          card.sshPort == verified['ssh_port'] &&
+          card.hostKey == verified['ssh_host_key'];
+    }).firstOrNull;
+    if (same == null) {
+      throw RegistryRefusal(
+        'The card joined here for $host names another address, SSH port or host key than the registry’s verified '
+        'card. Join $host again.',
       );
-    } on HostFilesRefused catch (refused) {
-      throw RegistryRefusal(refused.message);
     }
-    return card.sshConfig;
+    final card = same.hostCard!;
+    if (card.login != me.login || _fingerprintOf(card.publicKey) != me.fingerprint) {
+      throw RegistryRefusal(
+        'The card joined here for $host uses another login or key than your proven card. Join $host again with it.',
+      );
+    }
+    final environment = _environment ?? desk.environment;
+    HostCardSsh.checkConfigPath(host, same.sshConfig, environment: environment, windows: desk.isWindows);
+    await card.checkPublished(same.sshConfig, writer: _writer, environment: environment);
+    return same.sshConfig;
+  }
+
+  static String _fingerprintOf(String key) {
+    try {
+      return 'SHA256:${base64Encode(sha256.convert(base64Decode(key.split(' ')[1])).bytes).replaceAll('=', '')}';
+    } on FormatException {
+      return '';
+    }
   }
 
   /// The key that signed the host's accepted card, which Core verifies the bundle against.
@@ -307,6 +390,7 @@ class SshHostRegistryTransport implements HostRegistryTransport {
     required String host,
     required String revision,
     required String pinned,
+    required Map<String, dynamic> card,
     String? since,
   }) async {
     final Ran result;
@@ -337,8 +421,14 @@ class SshHostRegistryTransport implements HostRegistryTransport {
     } on FormatException {
       throw const RegistryRefusal('Porelo answered the registry verification incompletely.');
     }
-    final card = answer is Map ? answer['host_card'] : null;
-    if (answer is! Map || answer['commit'] != revision || card is! Map || card['host'] != host) {
+    final verified = answer is Map ? answer['host_card'] : null;
+    if (answer is! Map ||
+        answer['commit'] != revision ||
+        verified is! Map ||
+        verified['host'] != host ||
+        verified['address'] != card['address'] ||
+        verified['ssh_port'] != card['ssh_port'] ||
+        verified['ssh_host_key'] != card['ssh_host_key']) {
       throw const RegistryRefusal('Porelo verified another registry state than the one to bring. Nothing was sent.');
     }
   }

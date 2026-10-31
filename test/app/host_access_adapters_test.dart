@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart' show ChangeNotifier;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as path;
 import 'package:porelo_frontend/src/app/desk.dart';
@@ -36,11 +38,15 @@ Map<String, Object?> _shown({bool revoked = false, String? cardRefused, String a
   'pending': <Object?>[],
 };
 
+/// The `SHA256:` fingerprint of an ssh public key line.
+String _fingerprintOf(String key) =>
+    'SHA256:${base64Encode(sha256.convert(base64Decode(key.split(' ')[1])).bytes).replaceAll('=', '')}';
+
 /// One process run, as the fake runner saw it.
 typedef _Call = ({String program, List<String> arguments, Map<String, String> environment, List<int>? input});
 
 /// A proof whose next reads answer what the test says.
-class _Proof implements HostAdminProof {
+class _Proof extends ChangeNotifier implements HostAdminProof {
   HostAdminIdentity? next = const HostAdminIdentity('alice', adminFingerprint);
   HostAdminIdentity? current;
   int reads = 0;
@@ -49,6 +55,7 @@ class _Proof implements HostAdminProof {
   Future<void> readAgain() async {
     reads++;
     current = next;
+    notifyListeners();
   }
 
   @override
@@ -108,6 +115,36 @@ void main() {
         expect(proof.whyNone, isNotEmpty);
       });
     }
+  });
+
+  // Harm: an older read that ends last brings back a key revoked or taken out of the agent since.
+  test('only the newest identity read is kept, and every read is announced', () async {
+    final first = Completer<Ran>();
+    var asked = 0;
+    final proof = CoreHostAdminProof(
+      run: (program, arguments, {inDirectory, environment = const {}, input}) async {
+        asked++;
+        return asked == 1 ? first.future : (code: 0, out: jsonEncode(_shown(revoked: true)), err: '');
+      },
+    );
+    var announced = 0;
+    proof.addListener(() => announced++);
+    final older = proof.readAgain();
+    await proof.readAgain();
+    first.complete((code: 0, out: jsonEncode(_shown()), err: ''));
+    await older;
+    expect(proof.current(), isNull);
+    expect(announced, 1);
+  });
+
+  // Harm: runHereWithBytes loses ssh's words: a program that stops reading, or answers bytes that are no UTF-8.
+  test('a program that stops reading, or answers other bytes, keeps its exit and words', () async {
+    final stopped = await runHereWithBytes('git', ['--version'], input: List.filled(8 << 20, 65));
+    expect(stopped.code, 0);
+    expect(stopped.out, startsWith('git version'));
+    final odd = await runHereWithBytes('git', ['stripspace'], input: [0xff, 0x41, 0x0a]);
+    expect(odd.code, 0);
+    expect(odd.out, '�A\n');
   });
 
   group('host access with a proof', () {
@@ -190,9 +227,13 @@ void main() {
     late SshHostRegistryTransport transport;
     final bundleBytes = [0, 1, 2, 255, 254, 10, 13, 0x80];
     late String config;
+    late HostAdminIdentity? me;
+    late _Proof proven;
+    late HostCardSsh card;
 
     setUp(() async {
       fixture = RegistryFixture()
+        ..registryRevision = registryAfter
         ..hostCard = {
           'host': 'orchard',
           'address': '203.0.113.7',
@@ -212,7 +253,7 @@ void main() {
       addTearDown(() => home.delete(recursive: true));
       environment = {'XDG_CONFIG_HOME': path.join(home.path, 'config'), 'APPDATA': path.join(home.path, 'config')};
       scratch = path.join(home.path, 'scratch');
-      final card = HostCardSsh(
+      card = HostCardSsh(
         name: 'orchard',
         address: '203.0.113.7',
         sshPort: 22,
@@ -224,6 +265,9 @@ void main() {
         matrixPort: 8448,
       );
       config = card.configPath(environment: environment, windows: desk.isWindows);
+      await card.publish(config, environment: environment);
+      me = HostAdminIdentity('alice', _fingerprintOf(hostKey));
+      proven = _Proof()..next = me;
       watched = [Machine.fromHostCard(card, socketPath: path.join(home.path, 'orchard.sock'), sshConfig: config)];
       calls = [];
       statuses = [];
@@ -233,7 +277,13 @@ void main() {
         code: 0,
         out: jsonEncode({
           'commit': registryAfter,
-          'host_card': {'host': 'orchard', 'signed_by': adminFingerprint},
+          'host_card': {
+            'host': 'orchard',
+            'address': '203.0.113.7',
+            'ssh_port': 22,
+            'ssh_host_key': hostKey,
+            'signed_by': adminFingerprint,
+          },
           'admins': <String, Object?>{},
           'projects': <Object?>[],
           'persons': <Object?>[],
@@ -252,6 +302,8 @@ void main() {
         settings: settings,
         scratch: scratch,
         environment: environment,
+        identity: () => proven.current,
+        proof: proven,
         run: (program, arguments, {inDirectory, environment = const {}, input}) async {
           calls.add((program: program, arguments: arguments, environment: environment, input: null));
           if (program == 'git') {
@@ -321,6 +373,8 @@ void main() {
           'ControlMaster=no',
           '-o',
           'ControlPath=none',
+          '-o',
+          'ProxyCommand=none',
           'root@orchard',
           '/usr/local/sbin/porelo-host-person registry --stdin',
         ]);
@@ -480,6 +534,8 @@ void main() {
       'ControlMaster=no',
       '-o',
       'ControlPath=none',
+      '-o',
+      'ProxyCommand=none',
       'root@orchard',
       command,
     ];
@@ -640,35 +696,112 @@ void main() {
         identity: () => const HostAdminIdentity('alice', adminFingerprint),
         transport: transport,
       );
-      verified = (
-        code: 0,
-        out: jsonEncode({
-          'commit': registryBefore,
-          'host_card': {'host': 'orchard'},
-        }),
-        err: '',
-      );
-      taken = (
-        code: 0,
-        out: jsonEncode({
-          'commit': registryBefore,
-          'pinned': adminFingerprint,
-          'projects': <String>[],
-          'dropped': <String>[],
-          'revoked': <String>[],
-          'refused': <String>[],
-          'unchanged': false,
-        }),
-        err: '',
-      );
-      statuses = [status(commit: null), status(commit: registryBefore)];
+      statuses = [status(commit: null), status(commit: registryAfter)];
       await access.bringToHost('orchard');
-      expect(settings.hostRegistry('orchard')!.confirmedRevision, registryBefore);
+      expect(settings.hostRegistry('orchard')!.confirmedRevision, registryAfter);
       expect(calls.where((call) => call.program == 'ssh').map((call) => call.arguments.last), [
         '/usr/local/sbin/porelo-host-person registry status',
         '/usr/local/sbin/porelo-host-person registry --stdin',
         '/usr/local/sbin/porelo-host-person registry status',
       ]);
     });
+
+    // Harm: root of another or an older machine is reached, or reached through a changed or missing config file.
+    for (final (name, change) in <(String, Future<void> Function())>[
+      (
+        'the registry card names another address',
+        () async {
+          fixture.hostCard = {...fixture.hostCard!, 'address': '198.51.100.1'};
+          await fixture.registry.refresh();
+        },
+      ),
+      (
+        'the registry card names another host key',
+        () async {
+          fixture.hostCard = {...fixture.hostCard!, 'ssh_host_key': 'ssh-ed25519 ${'A' * 68}'};
+          await fixture.registry.refresh();
+        },
+      ),
+      ('the published config was changed', () => File(config).writeAsString('Host orchard\n  ProxyCommand nc x 22\n')),
+      ('the pinned host key file is missing', () => File('$config.known_hosts').delete()),
+      (
+        'the card was joined under another login',
+        () async => watched = [
+          Machine.fromHostCard(
+            HostCardSsh.fromStored({...card.stored, 'login': 'bob'}),
+            socketPath: watched.single.socketPath,
+            sshConfig: config,
+          ),
+        ],
+      ),
+      ('the proven key is another', () async => proven.next = HostAdminIdentity('alice', adminFingerprint)),
+      ('nobody is proven now', () async => proven.next = null),
+    ]) {
+      test('$name: neither status nor upload reaches root', () async {
+        await change();
+        statuses = [status()];
+        await expectLater(transport.status('orchard'), throwsA(isA<RegistryRefusal>()));
+        await expectLater(transport.upload('orchard', registryAfter), throwsA(isA<RegistryRefusal>()));
+        expect(calls, isEmpty);
+      });
+    }
+
+    // Harm: Core verifies a bundle whose host card is not the one root is reached at, and it is sent anyway.
+    for (final field in ['address', 'ssh_port', 'ssh_host_key']) {
+      test('Core verifying a card of another $field sends nothing', () async {
+        final answer = jsonDecode(verified.out) as Map<String, Object?>;
+        (answer['host_card'] as Map<String, Object?>)[field] = field == 'ssh_port' ? 2222 : 'other';
+        verified = (code: 0, out: jsonEncode(answer), err: '');
+        await expectLater(transport.upload('orchard', registryAfter), throwsA(isA<RegistryRefusal>()));
+        expect(calls.where((call) => call.program == 'ssh'), isEmpty);
+      });
+    }
+
+    // Harm: a commit Core did not accept, or one it accepted earlier, is brought to root.
+    test('only the revision accepted now is brought, and none while the registry has a problem', () async {
+      await expectLater(transport.upload('orchard', registryBefore), throwsA(isA<RegistryRefusal>()));
+      fixture.fetchRefused = true;
+      await fixture.registry.refresh();
+      expect(fixture.registry.problem, isNotNull);
+      await expectLater(transport.upload('orchard', registryAfter), throwsA(isA<RegistryRefusal>()));
+      expect(calls, isEmpty);
+    });
+
+    // Harm: a scratch folder that cannot be used escapes as an untyped error instead of a refusal with words.
+    test('an unusable scratch folder is refused in words', () async {
+      await File(scratch).writeAsString('not a folder');
+      await expectLater(transport.upload('orchard', registryAfter), throwsA(isA<RegistryRefusal>()));
+    });
+
+    // Harm: a folder that cannot be removed hides the host's refusal behind a file error.
+    test('a temporary folder that cannot be removed never hides the host refusal', () async {
+      taken = (code: 65, out: '', err: 'porelo-host-person: the host refuses\n');
+      final send = transport;
+      transport = SshHostRegistryTransport(
+        registry: () => fixture.registry,
+        machines: () => watched,
+        settings: settings,
+        scratch: scratch,
+        environment: environment,
+        identity: () => proven.current,
+        proof: proven,
+        run: (program, arguments, {inDirectory, environment = const {}, input}) async {
+          if (arguments.contains('bundle')) {
+            await File(arguments[arguments.indexOf('--quiet') + 1]).writeAsBytes(bundleBytes);
+          }
+          return program == 'porelo' ? verified : (code: 0, out: '', err: '');
+        },
+        send: (program, arguments, {required input}) async {
+          await Process.run('chmod', ['0500', scratch]);
+          return taken;
+        },
+      );
+      addTearDown(() => Process.run('chmod', ['0700', scratch]));
+      await expectLater(
+        transport.upload('orchard', registryAfter),
+        throwsA(isA<RegistryRefusal>().having((refused) => refused.words, 'words', contains('the host refuses'))),
+      );
+      transport = send;
+    }, skip: Platform.isWindows ? 'a folder made unremovable by its mode needs POSIX permissions' : false);
   });
 }

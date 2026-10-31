@@ -250,6 +250,17 @@ class HostCardSsh {
     }
   }
 
+  /// Refuses unless every file [publish] writes for this card at [config] is there and holds exactly its bytes.
+  Future<void> checkPublished(String config, {HostFileWriter? writer, Map<String, String>? environment}) async {
+    checkConfigPath(name, config, environment: environment, windows: Platform.isWindows);
+    final files = writer ?? HostFileWriter();
+    for (final entry in _contents(config).entries) {
+      if (!await files.check(File(entry.key), utf8.encode(entry.value))) {
+        throw HostFilesRefused('${entry.key} is missing. Join $name again to publish its card.');
+      }
+    }
+  }
+
   /// Removes what [publish] wrote for this card at [config], only while every file there holds exactly this card's
   /// bytes.
   ///

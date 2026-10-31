@@ -161,7 +161,20 @@ class _HostDialogState extends State<HostDialog> {
       settings: _settings,
       access: widget.hostAccess ?? widget.hostRuns?.hostAccess,
     );
+    // Root's bootstrap line names the card key, so it is shown only once the identity was read again.
+    final access = widget.hostAccess ?? widget.hostRuns?.hostAccess;
+    if (access?.proof == null) {
+      _proven = true;
+    } else {
+      unawaited(
+        access!.proveAgain().whenComplete(() {
+          if (mounted) setState(() => _proven = true);
+        }),
+      );
+    }
   }
+
+  bool _proven = false;
 
   // Only a named host's own admins may prepare it, so nothing is offered before the name.
   String? _refusal(HostAccess access) {
@@ -200,6 +213,9 @@ class _HostDialogState extends State<HostDialog> {
       }
       final runs = widget.hostRuns;
       if (runs == null) throw StateError('The host preparation owner is unavailable.');
+      // Nothing is registered for a key revoked or taken out of the agent since the dialog opened.
+      await runs.hostAccess?.proveAgain();
+      if (!mounted) return;
       final existing = runs.of(name);
       if (_settings.hostUp(name) != null || existing != null && (existing.running || existing.waiting)) {
         throw const FormatException(
@@ -347,7 +363,7 @@ class _HostDialogState extends State<HostDialog> {
                     }
                   },
                 ),
-                if (access != null && _refusal(access) == null) ...[
+                if (access != null && _proven && _refusal(access) == null) ...[
                   const Text(
                     'Before setup, run this in a separate terminal on the server. It replaces root’s authorized keys with your host admin card key.',
                   ),

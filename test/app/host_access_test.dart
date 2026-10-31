@@ -885,6 +885,8 @@ void main() {
     final prepare = prepareServerCommand(access: access, open: () => prepares++);
     expect(prepare.home, Home.machineRow);
     prepare.run();
+    // Prepare opens once the identity was read again.
+    await pumpEventQueue();
     expect(prepares, 1);
     final actions = <String>[];
     List<Command> commands() => preparedHostCommands(
@@ -954,6 +956,78 @@ void main() {
       expect(() => HostRegistryProgress.read({...valid, ...fields}), throwsFormatException);
     }
     expect(HostRegistryProgress.read(valid).change.host, 'orchard');
+  });
+
+  group('with a proof read again', () {
+    late FixtureProof proof;
+    late HostAccess proven;
+    setUp(() {
+      proof = FixtureProof(fixture);
+      proven = HostAccess(
+        registry: () => fixture.registry,
+        settings: settings,
+        identity: () => fixture.actor,
+        transport: fixture,
+        proof: proof,
+      );
+    });
+
+    // Harm: a key revoked or taken out of the agent since the last read still opens server preparation.
+    test('Prepare reads the identity again before it opens', () async {
+      var opened = 0;
+      final command = prepareServerCommand(access: proven, open: () => opened++);
+      expect(command.available, isTrue);
+      proof.next = null;
+      command.run();
+      await pumpEventQueue();
+      expect(proof.reads, 1);
+      expect(opened, 0);
+      proof.next = const HostAdminIdentity('alice', adminFingerprint);
+      await proof.readAgain();
+      command.run();
+      await pumpEventQueue();
+      expect(opened, 1);
+    });
+
+    // Harm: an admission opens for a key no longer proven.
+    test('Admit reads the identity again before it opens', () async {
+      await settings.rememberHostUp('orchard', _readyRecord());
+      final machines = Machines(settings, reach: (_) => FakeBackend(const []));
+      final runs = HostRuns(machines, hostAccess: proven);
+      addTearDown(runs.dispose);
+      addTearDown(machines.dispose);
+      final opened = <String>[];
+      final command = preparedHostCommands(
+        machine: const Machine(name: 'orchard', kind: 'host', hostProject: 'orchard', socketPath: ''),
+        settings: settings,
+        hostRuns: runs,
+        open: opened.add,
+      ).singleWhere((command) => command.id == 'host.admitAdmin');
+      expect(command.available, isTrue);
+      proof.next = null;
+      command.run();
+      await pumpEventQueue();
+      expect(proof.reads, 1);
+      expect(opened, isEmpty);
+    });
+
+    // Harm: a give-back is recorded for a person whose key is no longer proven, before the identity was read again.
+    test('a confirmed give-back reads the identity again before it records anything', () async {
+      await settings.rememberHostUp('orchard', _readyRecord());
+      final given = HostProcess()
+        ..line(const Step('give-back', StepState.done))
+        ..end(0);
+      final session = HostSession(executable: 'fake', arguments: const [], start: (_, _) async => given);
+      addTearDown(session.dispose);
+      await session.down();
+      proof.hold = Completer<void>();
+      final pending = proven.confirmGivenBack('orchard', session).catchError((Object _) {});
+      await pumpEventQueue();
+      expect(settings.hostReturned('orchard'), isFalse);
+      proof.hold!.complete();
+      await pending;
+      expect(proof.reads, greaterThanOrEqualTo(1));
+    });
   });
 }
 

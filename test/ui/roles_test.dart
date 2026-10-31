@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/services.dart';
@@ -143,4 +145,24 @@ void main() {
       );
     });
   }
+
+  // Harm: a host admin whose identity read ends after the registry's is kept from Prepare until something else redraws.
+  testWidgets('the shell shows Prepare a server… once a late identity read proves a host admin', (tester) async {
+    roles = Roles.fromArguments(const ['--roles', 'host-admin']);
+    final fixture = RegistryFixture();
+    final proof = FixtureProof(fixture)..hold = Completer<void>();
+    fixture.actor = null;
+    await World.startBackend(World.work);
+    await World.startApp(tester, hostAccess: (settings) => fixture.access(settings, proof: proof));
+    addTearDown(fixture.registry.dispose);
+    World.shell.goTo(Section.machines);
+    await World.settle(tester);
+    final control = find.byKey(const Key('host.prepare'));
+    expect(tester.widget<OutlinedButton>(control).onPressed, isNull);
+    final late = proof.readAgain();
+    proof.hold!.complete();
+    await late;
+    await tester.pump();
+    expect(tester.widget<OutlinedButton>(control).onPressed, isNotNull);
+  });
 }

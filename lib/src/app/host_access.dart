@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart' show Listenable;
+
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_host/porelo_host.dart';
 
@@ -22,8 +24,8 @@ class HostAdminIdentity {
   final String fingerprint;
 }
 
-/// Where the proven identity is read again from, and why there is none.
-abstract interface class HostAdminProof {
+/// Where the proven identity is read again from, and why there is none; it notifies after every read.
+abstract interface class HostAdminProof implements Listenable {
   /// Reads the proven identity again; what it found is what [HostAccess.identity] answers next.
   Future<void> readAgain();
 
@@ -154,6 +156,9 @@ class HostAccess {
     return null;
   }
 
+  /// Reads the proven identity again, before a step that shows or registers something for it.
+  Future<void> proveAgain() async => proof?.readAgain();
+
   /// Rechecks a retained Prepare callback immediately before it can rent a server.
   Future<void> prepare(Future<void> Function() start) async {
     await proof?.readAgain();
@@ -255,6 +260,7 @@ class HostAccess {
   /// Deletes a card only after the provider's checked give-back confirmation.
   Future<void> confirmGivenBack(String host, HostSession session) async {
     if (!hostGivenBack(session)) return;
+    await proof?.readAgain();
     await settings.rememberHostReturned(host);
     await _exclusive(host, () => _deleteReturned(host));
   }

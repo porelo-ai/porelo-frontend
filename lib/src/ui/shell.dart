@@ -316,6 +316,8 @@ class _ShellState extends State<Shell> {
     // Where the person may join is asked once the registry's read has ended, never beside a fetch of its checkout.
     unawaited(_registry.refresh().then((_) => _discoverJoins()));
     _hostRuns = HostRuns(widget.machines, hostAccess: widget.hostAccess);
+    // A read of the proven identity that ends after the registry's changes what a host admin is offered at once.
+    widget.hostAccess?.proof?.addListener(_homeserversChanged);
     _attention = Attention(widget.machines, widget.settings, widget.operations)..hostRuns = _hostRuns;
     _homeservers = HomeserverForwards(widget.settings);
     // One that cannot be raised is said under Needs you; the project's page says the address.
@@ -3740,6 +3742,7 @@ class _ShellState extends State<Shell> {
     _refreshing?.cancel();
     _leaving.dispose();
     _homeservers.removeListener(_homeserversChanged);
+    widget.hostAccess?.proof?.removeListener(_homeserversChanged);
     _check.removeListener(_homeserversChanged);
     _check.dispose();
     _attention.dispose();

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 /// What one local command answered.
@@ -35,8 +36,9 @@ typedef RunHereWithBytes = Future<Ran> Function(String program, List<String> arg
 /// Runs a process with this computer's environment and [input]'s bytes on its standard input.
 Future<Ran> runHereWithBytes(String program, List<String> arguments, {required List<int> input}) async {
   final process = await Process.start(program, arguments);
-  final out = process.stdout.transform(const SystemEncoding().decoder).join();
-  final err = process.stderr.transform(const SystemEncoding().decoder).join();
+  // Read from the start, whatever bytes come: a program's words are never lost to a decoding error.
+  final out = process.stdout.transform(const Utf8Decoder(allowMalformed: true)).join()..ignore();
+  final err = process.stderr.transform(const Utf8Decoder(allowMalformed: true)).join()..ignore();
   try {
     process.stdin.add(input);
     await process.stdin.close();

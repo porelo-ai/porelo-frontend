@@ -116,6 +116,8 @@ HostAccess _hostAccess(Settings settings, Machines machines, RegistryReadSource 
       machines: () => machines.all,
       settings: settings,
       scratch: '${desk.data}/registry-bundles',
+      identity: proven.current,
+      proof: proven,
     ),
   );
 }

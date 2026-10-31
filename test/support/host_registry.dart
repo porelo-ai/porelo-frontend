@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show ChangeNotifier;
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/host_access.dart';
 import 'package:porelo_frontend/src/app/host_access_contract.dart';
@@ -100,11 +101,20 @@ class RegistryFixture implements RegistryCore, RegistryCheckout, HostRegistryTra
   late Registry registry;
   HostAdminIdentity? actor = const HostAdminIdentity('alice', adminFingerprint);
 
-  Future<HostAccess> access(Settings settings) async {
+  Future<HostAccess> access(Settings settings, {HostAdminProof? proof}) async {
     registry = Registry(checkout: this, core: this);
     await registry.refresh();
-    return HostAccess(registry: () => registry, settings: settings, identity: () => actor, transport: this);
+    return HostAccess(
+      registry: () => registry,
+      settings: settings,
+      identity: () => actor,
+      transport: this,
+      proof: proof,
+    );
   }
+
+  /// Whether the next fetch of the checkout is refused, leaving the registry with a problem.
+  bool fetchRefused = false;
 
   @override
   String get root => '/private/registry';
@@ -113,7 +123,11 @@ class RegistryFixture implements RegistryCore, RegistryCheckout, HostRegistryTra
   @override
   String get folder => '/private/registry/checkout';
   @override
-  Future<String> fetch() async => registryRevision;
+  Future<String> fetch() async {
+    if (fetchRefused) throw const WorkspaceRefused('The registry could not be fetched.');
+    return registryRevision;
+  }
+
   @override
   Future<void> prepareRetry({required String base, required String file, required String content}) =>
       throw UnimplementedError('nothing is filed again');
@@ -283,4 +297,24 @@ class RegistryFixture implements RegistryCore, RegistryCheckout, HostRegistryTra
     await holdStatus;
     return answer();
   }
+}
+
+/// Core's proven identity as the fixture's [RegistryFixture.actor]: each read answers [next], after [hold] if set.
+class FixtureProof extends ChangeNotifier implements HostAdminProof {
+  FixtureProof(this.fixture) : next = fixture.actor;
+  final RegistryFixture fixture;
+  HostAdminIdentity? next;
+  Completer<void>? hold;
+  int reads = 0;
+
+  @override
+  Future<void> readAgain() async {
+    reads++;
+    await hold?.future;
+    fixture.actor = next;
+    notifyListeners();
+  }
+
+  @override
+  String? get whyNone => fixture.actor == null ? 'Your key is revoked.' : null;
 }

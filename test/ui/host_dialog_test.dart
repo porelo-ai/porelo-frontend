@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/host_runs.dart';
@@ -318,6 +320,69 @@ void main() {
     await tester.enterText(name, 'orchard');
     await World.settle(tester);
     expect(find.textContaining('Before setup, run this'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  // Harm: root's bootstrap line, or a registered run, for a card key revoked or taken out of the agent since the read.
+  testWidgets('the bootstrap line and a run wait for the identity read again, and none follows a failed one', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final settings = Settings(MemorySettingsStore());
+    final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: RecordingTunnels());
+    final fixture = RegistryFixture();
+    final proof = FixtureProof(fixture)..hold = Completer<void>();
+    final access = await fixture.access(settings, proof: proof);
+    final runs = HostRuns(machines, hostAccess: access);
+    addTearDown(() {
+      runs.dispose();
+      machines.dispose();
+      settings.dispose();
+      fixture.registry.dispose();
+    });
+    var starts = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HostDialog(
+          project: '',
+          machines: machines,
+          hostRuns: runs,
+          pickFile: ({initialDirectory, title}) async => '/collections/host.tar.gz',
+          start: (_, _) async {
+            starts++;
+            return HostProcess();
+          },
+        ),
+      ),
+    );
+    for (final field in {
+      'Host name': 'orchard',
+      'Server address': '203.0.113.7',
+      'SSH host key': hostKey,
+      'Collection SHA-256': 'a' * 64,
+    }.entries) {
+      final finder = find.widgetWithText(TextField, field.key);
+      await tester.ensureVisible(finder);
+      await World.settle(tester);
+      await tester.enterText(finder, field.value);
+    }
+    await tester.ensureVisible(find.text('Choose collection'));
+    await World.settle(tester);
+    await tester.tap(find.text('Choose collection'));
+    await World.settle(tester);
+    expect(find.textContaining('Before setup, run this'), findsNothing, reason: 'the read has not ended');
+    proof.hold!.complete();
+    proof.hold = null;
+    await World.settle(tester);
+    expect(find.textContaining('Before setup, run this'), findsOneWidget);
+    final button = tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Prepare the host'));
+    proof.next = null;
+    button.onPressed!();
+    await World.settle(tester);
+    expect(starts, 0);
+    expect(runs.of('orchard'), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 }
