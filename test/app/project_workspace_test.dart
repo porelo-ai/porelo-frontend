@@ -184,6 +184,55 @@ void main() {
     expect('${onMain.stdout}', isNot(contains('First words')));
   });
 
+  // Harm: the person's own Git configuration chooses another key, format or program, and the commit is pushed
+  // signed some other way, or not at all.
+  test('a commit is signed with the chosen key through the agent, whatever Git is set to sign with', () async {
+    _ran(await Process.run('ssh-keygen', <String>['-q', '-t', 'ed25519', '-N', '', '-f', '${here.path}/other']));
+    final refuse = File('${here.path}/refuse-to-sign')..writeAsStringSync('#!/bin/sh\nexit 1\n');
+    _ran(await Process.run('chmod', <String>['700', refuse.path]));
+    await File('${here.path}/.gitconfig').writeAsString(
+      '[user]\n\tsigningkey = ${here.path}/other\n[gpg]\n\tformat = openpgp\n[gpg "ssh"]\n\tprogram = ${refuse.path}\n'
+      '[commit]\n\tgpgsign = false\n',
+    );
+    final work = workspace();
+    await work.open();
+    await work.write('project:\n  name: "api"\n');
+    final key = (await work.signingKeys()).single;
+    final commit = await work.commitAndPush('Make api a Porelo project', key, login: 'alice');
+    await File('${here.path}/allowed').writeAsString('alice ${key.publicKey}\n');
+    final verified = await Process.run(
+      'git',
+      <String>['-c', 'gpg.ssh.allowedSignersFile=${here.path}/allowed', 'verify-commit', commit],
+      workingDirectory: '${here.path}/forge.git',
+      environment: <String, String>{..._alone(here.path), 'GIT_CONFIG_GLOBAL': '/dev/null'},
+    );
+    expect(verified.exitCode, 0, reason: '${verified.stderr}');
+  });
+
+  // Harm: the agent no longer holds the chosen key, and a commit signed otherwise, or unsigned, reaches the forge.
+  test('an agent without the chosen key pushes nothing and leaves the forge unchanged', () async {
+    final work = workspace();
+    await work.open();
+    await work.write('project:\n  name: "api"\n');
+    final key = (await work.signingKeys()).single;
+    _ran(await Process.run('ssh-add', <String>['-D'], environment: <String, String>{'SSH_AUTH_SOCK': agentSocket}));
+    _ran(await Process.run('ssh-keygen', <String>['-q', '-t', 'ed25519', '-N', '', '-f', '${here.path}/other']));
+    _ran(
+      await Process.run(
+        'ssh-add',
+        <String>['${here.path}/other'],
+        environment: <String, String>{'SSH_AUTH_SOCK': agentSocket},
+      ),
+    );
+    Future<String> main() async =>
+        '${(await Process.run('git', <String>['rev-parse', 'main'], workingDirectory: '${here.path}/forge.git', environment: _alone(here.path))).stdout}'
+            .trim();
+    final before = await main();
+    await expectLater(work.commitAndPush('x', key, login: 'alice'), throwsA(isA<WorkspaceRefused>()));
+    expect(await main(), before);
+    expect(seen.where((each) => each.contains('push')), isEmpty);
+  });
+
   test('the token never appears on a command line', () async {
     final work = workspace();
     await work.open();

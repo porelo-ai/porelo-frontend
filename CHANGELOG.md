@@ -9,6 +9,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Access commits are signed with Core's key for the person through their SSH agent, ignoring any Git
+  signing configuration, and an origin commit is accepted only by Core's allowed signers or by Core's
+  recorded verdict. Workspace commits and merges are pushed only when signed by the chosen key.
+
 - Existing-server preparation runs the checked collection over pinned, agent-only SSH as root,
   retains callback refusal words, and saves the dialog's public settings for retry and card publication.
   Teardown excludes disk identities, checks given-host pins, and isolates concurrent pins. Malformed

@@ -25,6 +25,17 @@ One-click joining from signed state (operator, 2026-10-30), building blocks 1 an
 - Historical reads use Core's prior acceptance verdict. A newly arriving commit with a retired key fails even with a backdated timestamp. Missing Core policy or an unsupported method fails closed.
 - Registry operations report the signed revision Core confirms. Inspect process arguments and checkout files: only public keys and public verification policy leave Core; no private key file is used for ordinary commits and no secret is recorded.
 
+## Plan as built
+
+- `AccessCheckout` and `CommitSigning` are built as planned, and `SignerPolicy` is the one interface to Core's signers. In the code, `AccessCheckout` is no longer made by `project_developers_dialog.dart` or `project_bring.dart`: project access goes through Core's `project access` verbs ([F272](README.md#f272)). So the planned changes in those two files do not apply.
+- `ProjectWorkspace.commitAndPush` and `mergeAndPush` now set every signing option themselves (`gpg.format`, `gpg.ssh.program`, `user.signingkey key::`, `commit.gpgsign`). Before a push, they check that the commit is signed in namespace `git` by the chosen key alone; otherwise nothing is pushed.
+
+## Deferred
+
+- The workspace's commits and merges checked against Core's lines for the project, not only against the chosen key. This needs Core's project name for a forge repository and a `SignerPolicy` passed down through `forge_connection.dart`.
+- The key choice in `binding_view.dart` and `project_forge_view.dart`, and the forge-derived signer list in `machine_binding.dart`, replaced by Core's key and lines. This waits until the binding path on the host forge (git over `git.sock`) is settled.
+- Registry operations report the signed revision Core confirms: registry writes are Core's operations ([F268](README.md#f268), [F280](README.md#f280)), and no Dart checkout signs them.
+
 ## To be checked
 
 - Confirm Core's signer-policy reply and how it separates current acceptance from historical verdicts, including KRL handling. The design agrees behavior, not a wire schema.

@@ -3,7 +3,10 @@ import 'dart:io';
 import 'machines.dart';
 import 'desk.dart';
 import 'forge.dart';
+import 'commit_signing.dart';
 import 'run_here.dart';
+
+import 'package:porelo_frontend/client.dart' show ProjectSigners;
 
 export 'run_here.dart';
 
@@ -187,10 +190,7 @@ class ProjectWorkspace {
   Future<String> mergeAndPush(String name, String message, SigningKey key, {required String login}) async {
     final named = await _run('git', <String>['config', 'user.email'], inDirectory: folder);
     await _git(<String>[
-      '-c',
-      'gpg.format=ssh',
-      '-c',
-      'user.signingkey=key::${key.publicKey}',
+      ..._signingWith(key),
       if (named.out.trim().isEmpty) ...<String>[
         '-c',
         'user.name=$login',
@@ -205,8 +205,36 @@ class ProjectWorkspace {
       'refs/porelo/incoming/$name',
     ]);
     final commit = (await _git(<String>['rev-parse', 'HEAD'])).out.trim();
+    await _signedBy(key, commit, login: login);
     await _git(<String>['push', 'origin', 'HEAD:${repository.defaultBranch}'], withToken: true);
     return commit;
+  }
+
+  /// The options that sign a commit with [key] through the agent, whatever the person's or the repository's Git
+  /// configuration says about signing.
+  static List<String> _signingWith(SigningKey key) => <String>[
+    '-c',
+    'gpg.format=ssh',
+    '-c',
+    'gpg.ssh.program=${openSsh('ssh-keygen')}',
+    '-c',
+    'user.signingkey=key::${key.publicKey}',
+    '-c',
+    'commit.gpgsign=true',
+  ];
+
+  /// Refuses [commit] before it is pushed unless it is signed, in namespace `git`, by [key] alone.
+  Future<void> _signedBy(SigningKey key, String commit, {required String login}) async {
+    final plain = key.publicKey.trim().split(RegExp(r'\s+')).take(2).join(' ');
+    final signers = ProjectSigners(login: login, key: plain, allowedSigners: ['$login namespaces="git" $plain']);
+    try {
+      await CommitSigning(null, run: _run).checkOwn(folder, commit, signers, scratchIn: Directory(root));
+    } on WorkspaceRefused {
+      // The commit stays here, unpushed, where the next try makes it again over itself.
+      throw const WorkspaceRefused(
+        'The commit is not signed with the chosen key, so nothing was pushed. Check that your ssh agent holds it.',
+      );
+    }
   }
 
   /// What would be committed, as `git diff` shows it, against the last commit.
@@ -291,8 +319,7 @@ class ProjectWorkspace {
     ], inDirectory: folder);
     final again = staged.code == 0 && (int.tryParse(ahead.out.trim()) ?? 0) > 0;
     await _git(<String>[
-      '-c', 'gpg.format=ssh',
-      '-c', 'user.signingkey=key::${key.publicKey}',
+      ..._signingWith(key),
       // The person's own name and address where git knows them; the forge's no-reply address where not.
       if (named.out.trim().isEmpty) ...<String>[
         '-c',
@@ -303,6 +330,7 @@ class ProjectWorkspace {
       'commit', '-S', if (again) '--amend', '-m', message, if (!again) ...<String>['--', ...files],
     ]);
     final commit = (await _git(<String>['rev-parse', 'HEAD'])).out.trim();
+    await _signedBy(key, commit, login: login);
     await _git(<String>['push', 'origin', 'HEAD:${repository.defaultBranch}'], withToken: true);
     return commit;
   }
