@@ -293,6 +293,11 @@ class ProjectAccess implements ProjectPersonActions {
   }
 
   Future<Never> _supersede(ProjectAccessProgress receipt, _SupersessionReason reason) async {
+    // Given back while Core was asked: nothing is left to discard or deliver to.
+    if (settings.hostReturned(receipt.change.host)) {
+      await settings.forgetReturnedProjectAccess(project);
+      throw const _GivenBack();
+    }
     if (receipt.state == ProjectAccessState.filed) {
       await settings.rememberProjectAccess(
         ProjectAccessProgress(
