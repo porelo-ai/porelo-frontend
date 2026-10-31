@@ -29,6 +29,7 @@ import 'src/app/operations.dart';
 import 'src/app/backups.dart';
 import 'src/app/connections.dart';
 import 'src/app/project_following.dart';
+import 'src/app/project_access_wiring.dart';
 import 'src/app/project_deletion.dart';
 import 'src/app/desk.dart';
 import 'src/app/registry.dart';
@@ -192,6 +193,7 @@ Future<PoreloApp> _compose() async {
     joinHost: joins.host,
     forgeKeyCheck: ForgeKeyCheckCli(),
     hostAccess: _hostAccess(settings, machines, registry),
+    projectAccess: appProjectAccess(registry: registry, settings: settings, machines: machines),
     // A development build started with PORELO_WALK=<folder>; a release build never has one.
     walk: _walk(),
   );
