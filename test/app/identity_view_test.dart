@@ -204,6 +204,59 @@ void main() {
     expect(calls.where((call) => call[1] == 'rotate'), hasLength(1));
   });
 
+  testWidgets('a card kept before the wizard opened is never taken as the one made', (tester) async {
+    // Harm: after a failed create, reading again shows an older card already on disk as the new working one.
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    Future<Ran> run(
+      String program,
+      List<String> arguments, {
+      String? inDirectory,
+      Map<String, String> environment = const {},
+      String? input,
+    }) async => switch (arguments[1]) {
+      'keys' => (code: 0, out: jsonEncode(_keys), err: ''),
+      'create' => (code: 65, out: '{"reason":"key-not-in-agent","words":"the agent does not serve it"}', err: ''),
+      _ => (code: 0, out: jsonEncode({..._shown(), 'fingerprint': 'SHA256:NewNewNew'}), err: ''),
+    };
+
+    // The wizard opens before anything was read, as on a first start.
+    final model = IdentityModel(Identity(run: run));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () => showDialog<void>(
+                context: context,
+                builder: (_) => FirstStartWizard(model: model),
+              ),
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      ),
+    );
+    Future<void> tap(String key) async {
+      await tester.tap(find.byKey(Key(key)));
+      await World.settle(tester);
+    }
+
+    await tester.tap(find.text('Open'));
+    await World.settle(tester);
+    await tester.enterText(find.byKey(const Key('identity-login')), 'ms-test-reviewer');
+    await tester.enterText(find.byKey(const Key('identity-name')), 'MS Test Reviewer');
+    await World.settle(tester);
+    await tap('wizard-next');
+    await tap('identity-use-existing');
+    await tap('identity-key SHA256:NewNewNew');
+    await tap('wizard-next');
+    await tap('identity-wizard-make');
+    await tap('identity-reread');
+    expect(find.text('Your card is made.'), findsNothing);
+  });
+
   testWidgets('the first start is done only for the new key, served by the agent', (tester) async {
     // Harm: a card the agent does not serve reads as a working first start.
     tester.view.physicalSize = const Size(1280, 800);

@@ -740,6 +740,9 @@ class _FirstStartWizardState extends State<FirstStartWizard> {
   Future<void> _make() async {
     // Once made or tried, only a read follows: a second create could make a second key.
     if (_ran) return _model.load();
+    // The key before making is read now, so a card read later than the wizard opened is never taken as new.
+    await _model.load();
+    if (!mounted || _model.problem != null) return;
     _ran = true;
     _before = _model.card?.fingerprint;
     final email = _email.text.trim();
@@ -770,6 +773,7 @@ class _FirstStartWizardState extends State<FirstStartWizard> {
   String? get _whyNotMade =>
       _model.problem ??
       _model.whyNotMade(
+        login: _login.text.trim(),
         fingerprint: _choice.value == _KeyChoice.existing ? _chosen.value?.fingerprint : null,
         before: _before,
       );

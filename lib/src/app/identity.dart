@@ -1001,7 +1001,7 @@ class IdentityModel extends ChangeNotifier {
   CardFiled? lastFiled;
 
   // A filing whose answer was lost, kept per registry so a Retry sends the same ID on the same base.
-  final _filing = <String, ({String id, String base})>{};
+  final _filing = <String, ({String id, String base, String fingerprint})>{};
 
   /// The agent's keys, once read.
   List<AgentKey>? keys;
@@ -1192,15 +1192,16 @@ class IdentityModel extends ChangeNotifier {
     }
   }
 
-  /// Why the card read is not the one just made, or null when it is: its key is [fingerprint] (an agent key picked)
-  /// or another than [before] (a new KeePassXC key), and the agent serves it, unrevoked and verified.
-  String? whyNotMade({String? fingerprint, String? before}) {
+  /// Why the card read is not the one just made for [login], or null when it is: its key is [fingerprint] (an agent
+  /// key picked) and in any case another than [before], the key read before making, and the agent serves it.
+  String? whyNotMade({required String login, String? fingerprint, String? before}) {
     final read = card;
     if (read == null) return problem ?? 'No card is read.';
+    if (read.login != login) return 'The card read is ${read.login}’s, not one made for $login.';
     if (fingerprint != null && read.fingerprint != fingerprint) {
       return 'The card read names another key than the one picked.';
     }
-    if (fingerprint == null && read.fingerprint == before) return 'The card read is the earlier one, not a new one.';
+    if (read.fingerprint == before) return 'The card read is the earlier one, not a new one.';
     return read.whyKeyUnusable;
   }
 
@@ -1287,15 +1288,17 @@ class IdentityModel extends ChangeNotifier {
     await _runOperation(() => core.replaceLostKey(fingerprint: fingerprint, id: reviewed.id), reviewed.id);
   }
 
-  // A kept filing ends once Core says the card is filed, or once the key may no longer sign it.
+  // A kept filing ends once Core names the registry's card in any other state than absent, or the card or its key changed.
   void _dropSettledFilings(IdentityCard read) {
     if (read.revoked || read.cardRefused != null) {
       _filing.clear();
       return;
     }
-    for (final registry in read.registry) {
-      if (registry.filed == FiledState.done) _filing.remove(registry.address);
-    }
+    final absent = {
+      for (final registry in read.registry)
+        if (registry.filed == FiledState.absent) registry.address,
+    };
+    _filing.removeWhere((address, kept) => !absent.contains(address) || kept.fingerprint != read.fingerprint);
   }
 
   /// Whether a filing in [registry] lost its answer, so its button retries the same request.
@@ -1309,9 +1312,13 @@ class IdentityModel extends ChangeNotifier {
     if (!registry.mayFile) return 'Only an owner may file it here.';
     if (read.whyKeyUnusable case final why?) return why;
     if (checkoutFor?.call(registry.address) == null) return 'No checkout of this registry is on this computer.';
-    // A kept request is retried as it was, against its own base.
-    if (_filing.containsKey(registry.address)) return null;
     if (registry.filed != FiledState.absent && registry.filed != FiledState.refused) return 'It is filed already.';
+    // A kept request is retried as it was, against its own base, only while Core still reads no card there.
+    if (_filing[registry.address] case final kept?) {
+      return registry.filed == FiledState.absent && kept.fingerprint == read.fingerprint
+          ? null
+          : 'Read your card again: Core no longer names the request that lost its answer.';
+    }
     final revision = registry.revision;
     if (revision == null) return 'Core named no registry revision to file against.';
     try {
@@ -1327,7 +1334,9 @@ class IdentityModel extends ChangeNotifier {
     if (whyNotFile(registry) != null) return;
     final checkout = checkoutFor?.call(registry.address);
     if (checkout == null) return;
-    final request = _filing[registry.address] ?? (id: newOperationId('card'), base: registry.revision!);
+    final request =
+        _filing[registry.address] ??
+        (id: newOperationId('card'), base: registry.revision!, fingerprint: card!.fingerprint);
     _filing[registry.address] = request;
     final filed = await _step(
       () => core.fileCard(checkout: checkout, card: Identity.cardFile(environment), id: request.id, base: request.base),

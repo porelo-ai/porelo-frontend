@@ -13,11 +13,12 @@ Map<String, Object?> _shown({
   bool revoked = false,
   String? cardRefused,
   List<Map<String, Object?>> pending = const [],
+  String fingerprint = _old,
 }) => {
   'login': 'ms-test-reviewer',
   'name': 'MS Test Reviewer',
   'email': null,
-  'fingerprint': _old,
+  'fingerprint': fingerprint,
   'key': _key,
   'created': '2026-10-31',
   'expires': '2026-11-30',
@@ -668,8 +669,8 @@ void main() {
   group('a kept filing never outlives the right to file it', () {
     // Harm: a card filed with a revoked or refused key, or filed again after the registry accepted it.
     const first = '1111111111111111111111111111111111111111';
-    Map<String, Object?> absent({bool revoked = false, String filed = 'absent'}) => {
-      ..._shown(revoked: revoked),
+    Map<String, Object?> absent({bool revoked = false, String filed = 'absent', String fingerprint = _old}) => {
+      ..._shown(revoked: revoked, fingerprint: fingerprint),
       'registry': [
         {
           'address': 'https://github.com/porelo-ai/registry',
@@ -716,6 +717,25 @@ void main() {
       await filing.fileCard(filing.card!.registry.single);
       expect(core.named('registry file'), hasLength(1));
     });
+
+    for (final filed in ['pending', 'unknown']) {
+      test('a card Core reads as $filed is never filed again under the kept request', () async {
+        await lostAnswer();
+        core.answer('identity show', absent(filed: filed));
+        await filing.load();
+        expect(filing.filingUnanswered(filing.card!.registry.single), isFalse);
+        expect(filing.whyNotFile(filing.card!.registry.single), isNotNull);
+        await filing.fileCard(filing.card!.registry.single);
+        expect(core.named('registry file'), hasLength(1));
+      });
+    }
+
+    test('a card with another key since the lost answer drops the kept request', () async {
+      await lostAnswer();
+      core.answer('identity show', absent(fingerprint: _new));
+      await filing.load();
+      expect(filing.filingUnanswered(filing.card!.registry.single), isFalse);
+    });
   });
 
   group('a made card is the one asked for', () {
@@ -723,12 +743,16 @@ void main() {
     test('another key, an unserved key or a failed run is not made', () async {
       core.answer('identity show', _shown());
       await model.load();
-      expect(model.whyNotMade(fingerprint: _new), isNotNull);
-      expect(model.whyNotMade(before: _old), isNotNull);
-      expect(model.whyNotMade(fingerprint: _old), isNull);
+      const login = 'ms-test-reviewer';
+      expect(model.whyNotMade(login: login, fingerprint: _new), isNotNull);
+      expect(model.whyNotMade(login: login, before: _old), isNotNull);
+      expect(model.whyNotMade(login: login, fingerprint: _old), isNull);
+      // A card of another login, or the picked key's card read before making, is not the one made now.
+      expect(model.whyNotMade(login: 'someone-else', fingerprint: _old), isNotNull);
+      expect(model.whyNotMade(login: login, fingerprint: _old, before: _old), isNotNull);
       core.answer('identity show', _shown(agent: 'not-held'));
       await model.load();
-      expect(model.whyNotMade(fingerprint: _old), isNotNull);
+      expect(model.whyNotMade(login: login, fingerprint: _old), isNotNull);
       core.answer('identity show', _shown());
       await model.terminalEnded(code: 65, lastLine: '{"reason":"key-not-served","words":"not served"}');
       expect(model.card, isNotNull);
