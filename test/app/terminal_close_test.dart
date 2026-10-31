@@ -55,9 +55,15 @@ void main() {
     expect(watch.elapsed, lessThan(bound * 2), reason: 'the bound passed while the console was let go');
   });
 
-  ({ConsoleRelease release, List<String> calls}) released({required bool? jobEnds}) {
+  ({ConsoleRelease release, List<String> calls}) released({
+    required bool? jobEnds,
+    Future<void> Function()? closeAway,
+    Duration lastResort = const Duration(milliseconds: 20),
+  }) {
     final calls = <String>[];
     final release = ConsoleRelease(
+      closeInput: () => calls.add('close input'),
+      lastResort: lastResort,
       endJob: jobEnds == null
           ? null
           : () {
@@ -66,7 +72,7 @@ void main() {
             },
       closeJob: () => calls.add('close job'),
       closeConsole: () => calls.add('close console here'),
-      closeConsoleAway: () async => calls.add('close console away'),
+      closeConsoleAway: closeAway ?? () async => calls.add('close console away'),
     );
     return (release: release, calls: calls);
   }
@@ -95,6 +101,61 @@ void main() {
     console.release.close();
     expect(console.calls.where((call) => call == 'close job'), hasLength(1));
     expect(console.calls.where((call) => call.startsWith('close console')), hasLength(1), reason: 'closed once');
+  });
+
+  // Harm: a console whose close on an isolate of its own failed counted as closed, so it is never closed, its output
+  // never ends and the program's end is never said; or closed here at once, freezing the window before any bound.
+  test('a console whose close away failed is closed here, once, only after the bound', () async {
+    final failing = Completer<void>();
+    final console = released(jobEnds: false, closeAway: () => failing.future);
+
+    final letGo = console.release.letGo();
+    expect(console.release.closed, isFalse, reason: 'not closed before it was');
+    failing.completeError(StateError('no isolate'));
+    await pumpEventQueue();
+    console.release.close();
+    expect(console.calls, isNot(contains('close console here')), reason: 'not closed here before the bound');
+    await letGo;
+
+    expect(console.calls.where((call) => call == 'close console here'), hasLength(1));
+    expect(console.release.closed, isTrue);
+  });
+
+  // Harm: the way input reaches a console left open after its program ended, a handle leaked for each terminal, or
+  // closed twice when the terminal is closed from this side too.
+  test('the input is closed once the program ended, and only once', () async {
+    final ended = released(jobEnds: true);
+    ended.release.close();
+    expect(ended.calls.where((call) => call == 'close input'), hasLength(1));
+
+    final both = released(jobEnds: true);
+    both.release.endInput();
+    await both.release.letGo();
+    both.release.close();
+    expect(both.calls.where((call) => call == 'close input'), hasLength(1));
+  });
+
+  // Harm: a job that cannot be asked holding the program's end for good, though its own handle says it ended.
+  test('a job that cannot be asked leaves the end to the program alone', () {
+    int? ended({required bool process, required int? Function()? job}) =>
+        ConPty.endedFrom(processEnded: () => process, activeInJob: job, exitCode: () => 3);
+
+    expect(ended(process: true, job: () => null), 3, reason: 'the job could not be asked');
+    expect(ended(process: true, job: () => 1), isNull, reason: 'a process of its job still runs');
+    expect(ended(process: true, job: () => 0), 3);
+    expect(ended(process: true, job: null), 3, reason: 'no job');
+    expect(ended(process: false, job: () => null), isNull);
+  });
+
+  // Harm: the first pipe of a terminal left open when the second could not be made, two handles leaked each time.
+  test('a pipe made before one that failed is closed', () {
+    final made = <({int read, int write})?>[(read: 1, write: 2), null];
+    final closed = <int>[];
+
+    final pipes = ConPty.openPipes(() => made.removeAt(0), closed.add);
+
+    expect(pipes, isNull);
+    expect(closed, unorderedEquals([1, 2]));
   });
 
   // Harm: the waiter asking twice for an end it was told once, and dying on the second answer, so the end is never said.
@@ -154,6 +215,40 @@ void main() {
     );
 
     expect(await watching.ended.future.timeout(const Duration(seconds: 5)), 3);
+  });
+
+  // Harm: a reader whose isolate died without saying the output ended keeping the program's end unsaid for ever.
+  test('a reader that died counts as drained', () async {
+    final watching = watched(
+      read: (to) async {
+        to.send(Uint8List.fromList([0x41]));
+        // What an isolate's onExit port receives once it is gone.
+        to.send(null);
+        return null;
+      },
+      wait: (to) async => to.send(3),
+    );
+
+    expect(await watching.ended.future.timeout(const Duration(seconds: 5)), 3);
+  });
+
+  // Harm: a throw while the program is asked for, or while its console is closed, raised as an error nobody handles,
+  // every poll, and the end never said.
+  test('a throw while asking or closing counts as still running', () async {
+    var asked = 0;
+    final output = StreamController<List<int>>.broadcast();
+    final ended = Completer<int>();
+    ConPty.watch(
+      closeConsole: () => throw StateError('closing failed'),
+      output: output,
+      ended: ended,
+      read: (to) async => to.send('drained'),
+      wait: (to) async => throw StateError('no waiter'),
+      endedNow: () => ++asked < 3 ? throw StateError('cannot ask') : 3,
+      poll: const Duration(milliseconds: 5),
+    );
+
+    expect(await ended.future.timeout(const Duration(seconds: 5)), 3);
   });
 
   // Harm: a waiter that started and then failed leaving the program's end unsaid for ever, so Forget and Retry wait on

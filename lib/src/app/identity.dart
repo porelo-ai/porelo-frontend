@@ -5,7 +5,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 
 import 'host_access_contract.dart' show checkedRegistryRevision;
-import 'registry.dart' show RegistryContact, RegistryRefusal;
+import 'registry.dart' show Registry, RegistryContact, RegistryRefusal;
 import 'run_here.dart';
 
 /// Whether the agent `SSH_AUTH_SOCK` names serves the card's key, as Core answers it.
@@ -989,12 +989,48 @@ class Identity implements AgentKeyList {
 /// **A change starts once**: an operation whose answer was lost is retried by its ID, never started again.
 class IdentityModel extends ChangeNotifier {
   /// Constructor taking Core's verbs and the agent's key list, fakes in tests.
-  IdentityModel(this.core, {AgentKeyList? keys, this.checkoutFor, Map<String, String>? environment})
+  IdentityModel(this.core, {AgentKeyList? keys, this.checkoutFor, this.registry, Map<String, String>? environment})
     : agentKeys = keys ?? core,
       environment = environment ?? Platform.environment;
 
   /// The local checkout folder of the registry at an address, or null when none is here.
   final String? Function(String address)? checkoutFor;
+
+  /// The registry read here, whose checkout a card filing or a key change writes: each holds it while it runs, so no
+  /// key recovery run or registry read meets it half made; absent where none is read here.
+  final Registry? Function()? registry;
+
+  // The hold a key change in a terminal keeps until its terminal ended.
+  ({Registry? registry, Object token})? _terminalHold;
+
+  /// Holds the registry checkout for one change under a token of its own: null, with its words said, while a key
+  /// recovery run holds it or a registry read or filing runs; a hold of nothing where no registry is read here.
+  ({Registry? registry, Object token})? _take() {
+    final registry = this.registry?.call();
+    if (registry == null) return (registry: null, token: Object());
+    final token = Object();
+    try {
+      registry.hold(token);
+    } on RegistryRefusal catch (refused) {
+      problem = refused.words;
+      problemReason = null;
+      problemCode = null;
+      notifyListeners();
+      return null;
+    }
+    return (registry: registry, token: token);
+  }
+
+  /// Runs [work] holding the registry checkout, and lets go of it by its own token alone.
+  Future<void> _holding(Future<void> Function() work) async {
+    final hold = _take();
+    if (hold == null) return;
+    try {
+      await work();
+    } finally {
+      hold.registry?.release(hold.token);
+    }
+  }
 
   /// Where `XDG_CONFIG_HOME` and `HOME` are read, for the card's file.
   final Map<String, String> environment;
@@ -1136,16 +1172,18 @@ class IdentityModel extends ChangeNotifier {
   /// Changes the key to [successor] once; a lost answer leaves only Retry.
   Future<void> rotate(AgentKey successor) async {
     if (whyNotChange != null || whyNotSuccessor(successor) != null) return;
-    final id = newOperationId('rot');
-    _started(id, 'rotate');
-    await _runOperation(() => core.rotate(fingerprint: successor.fingerprint, id: id), id);
+    await _holding(() async {
+      final id = newOperationId('rot');
+      _started(id, 'rotate');
+      await _runOperation(() => core.rotate(fingerprint: successor.fingerprint, id: id), id);
+    });
   }
 
   /// Takes a rotation to a new KeePassXC key once and answers the command its terminal runs; null when refused.
   ///
   /// The ID is kept before the terminal opens, so afterwards only [terminalEnded] reads it back.
   ({List<String> command, String id})? rotateInTerminal({required String database, String? entry}) {
-    if (whyNotChange != null) return null;
+    if (whyNotChange != null || _terminalHold != null) return null;
     final id = newOperationId('rot');
     final List<String> command;
     try {
@@ -1155,8 +1193,19 @@ class IdentityModel extends ChangeNotifier {
       notifyListeners();
       return null;
     }
+    // Held until its terminal ended: Core changes the key in the registry checkout there.
+    final hold = _take();
+    if (hold == null) return null;
+    _terminalHold = hold;
     _started(id, 'rotate');
     return (command: command, id: id);
+  }
+
+  /// Lets go of the registry checkout a key change in a terminal held, once that terminal ended or went away.
+  void terminalGone() {
+    final hold = _terminalHold;
+    _terminalHold = null;
+    if (hold != null) hold.registry?.release(hold.token);
   }
 
   void _started(String id, String action) {
@@ -1196,7 +1245,7 @@ class IdentityModel extends ChangeNotifier {
   /// Sends the places of rotation [id] not done, never a second change.
   Future<void> retry(String id) async {
     if (whyNotRetry(id) != null) return;
-    await _runOperation(() => core.publish(id), id);
+    await _holding(() => _runOperation(() => core.publish(id), id));
   }
 
   /// Reads [id] back, changing nothing.
@@ -1247,6 +1296,7 @@ class IdentityModel extends ChangeNotifier {
   ///
   /// [id] is the rotation's ID, absent for create; [lastLine] is the terminal's last line, Core's JSON when it fits.
   Future<void> terminalEnded({required int code, required String lastLine, String? id}) async {
+    terminalGone();
     final typed = code == 0 ? null : Identity.typedRefusal(lastLine);
     if (id != null) {
       if (typed != null && nothingMade.contains(typed.reason)) {
@@ -1375,6 +1425,11 @@ class IdentityModel extends ChangeNotifier {
     if (whyNotFile(registry) != null) return;
     final checkout = checkoutFor?.call(registry.address);
     if (checkout == null) return;
+    // Core commits in the registry checkout: held meanwhile, so no recovery run or registry read meets it half made.
+    await _holding(() => _fileCard(registry, checkout));
+  }
+
+  Future<void> _fileCard(IdentityRegistry registry, String checkout) async {
     final request =
         _filing[registry.address] ??
         (id: newOperationId('card'), base: registry.revision!, fingerprint: card!.fingerprint);

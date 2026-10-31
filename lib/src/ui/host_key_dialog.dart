@@ -10,8 +10,8 @@ import 'unlock_terminal.dart';
 
 /// Sets the provider key in its hidden terminal prompt and retains the acceptance or refusal.
 Future<bool> openHostKeyDialog(BuildContext context, {OpenTerminal? open, Map<String, String>? environment}) async {
-  var accepted = false;
-  await runInATerminal(
+  // The end includes a code that arrived while the terminal closed.
+  final end = await runInATerminal(
     context,
     title: 'Set Scaleway key',
     explanation: 'Enter the Scaleway secret key (a UUID) in the terminal. Scaleway checks it before it is kept in this computer’s system secret store.',
@@ -24,11 +24,10 @@ Future<bool> openHostKeyDialog(BuildContext context, {OpenTerminal? open, Map<St
     ],
     shownCommand: 'porelo-host key set scaleway',
     open: open,
-    onExit: (code) => accepted = code == 0,
     completed: 'accepted',
     stillWorking: 'Waiting for the secret key and Scaleway’s answer in this terminal.',
   );
-  return accepted;
+  return end.code == 0;
 }
 
 /// Shows a host's keys the first time it is reached and asks whether to trust them.

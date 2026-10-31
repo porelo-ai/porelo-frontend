@@ -50,10 +50,21 @@ RecoverySituation _situation({required bool backup, String base = _base, String 
       soleAdmin: backup ? 'bob' : 'alice',
       backupRegistered: backup,
       backupBase: project,
+      cardTexts: {'bob': _bobCard},
     );
 
+/// Bob's new card as the checkout holds it.
+final _bobCard = 'login: "bob"\nkey: "${_key(2)}"\n';
+
+/// Core's side as the dialog sees it; it holds the registry checkout as the registry does, one token at a time.
 class _Core implements KeyRecoveryCore {
   final calls = <String>[];
+
+  /// The token the registry checkout is held by now.
+  Object? holder;
+
+  /// The card copies handed to Core and not removed.
+  final copies = <String>{};
 
   /// Held open while given: Core's checks before a run take that long.
   Completer<void>? holding;
@@ -66,32 +77,56 @@ class _Core implements KeyRecoveryCore {
   }
 
   @override
-  Future<String?> fileFor(RecoveryReview review) async => null;
+  Future<String?> fileFor(RecoveryReview review, {Object? holder}) async => _bobCard;
 
   @override
-  Future<void> checkReviewed(RecoveryReview review) async {}
+  Future<void> checkReviewed(RecoveryReview review, {Object? holder}) async {}
 
   @override
-  Future<RecoveryFiled> replace(RecoveryReview review, String id, {String? content, bool again = false}) async {
+  Future<RecoveryFiled> replace(
+    RecoveryReview review,
+    String id, {
+    String? content,
+    bool again = false,
+    Object? holder,
+  }) async {
     calls.add('replace');
     return const RecoveryFiled(revision: _revision, published: true);
   }
 
   @override
-  Future<void> prepare(RecoveryScope scope) async {
+  Future<void> prepare(RecoveryScope scope, {Object? holder}) async {
+    if (scope.inRegistry && !identical(holder, this.holder)) throw StateError('prepared without the hold');
     calls.add('prepare');
     await holding?.future;
   }
 
   @override
-  Future<void> publish(RecoveryScope scope, String revision, {required String base}) async =>
-      calls.add('publish $revision $base');
+  Future<void> publish(RecoveryScope scope, String revision, {required String base, Object? holder}) async {
+    if (scope.inRegistry && !identical(holder, this.holder)) throw StateError('pushed without the hold');
+    calls.add('publish $revision $base');
+  }
 
   @override
-  void hold(Object holder) {}
+  void hold(Object holder) {
+    if (this.holder != null) throw const RegistryRefusal(Registry.heldWords);
+    this.holder = holder;
+  }
 
   @override
-  void release(Object holder) {}
+  void release(Object holder) {
+    if (identical(this.holder, holder)) this.holder = null;
+  }
+
+  @override
+  Future<String> copyCard(String login, String content) async {
+    final file = path.join('copies', '${copies.length}', '$login.card');
+    copies.add(file);
+    return file;
+  }
+
+  @override
+  Future<void> dropCard(String file) async => copies.remove(file);
 }
 
 class _Hosts implements RevocationHosts {
@@ -101,7 +136,12 @@ class _Hosts implements RevocationHosts {
 
 /// The dialog's entry: the list as read when it opened, or a refused read.
 class _Entry implements KeyRecoveryEntry {
-  _Entry(this.receipts, {this.read, this.refused});
+  _Entry(this.receipts, {this.read, this.refused}) {
+    _made.add(this);
+  }
+
+  /// Every entry made in the running test, each checked for a hold or a card copy left behind as it ends.
+  static final _made = <_Entry>[];
 
   RecoverySituation? read;
   final RegistryRefusal? refused;
@@ -135,6 +175,7 @@ class _Entry implements KeyRecoveryEntry {
       madeHere: made == read.base ? null : made,
       madeHereReplaced: made == read.base ? null : madeInForceReplaced(receipts, scope, read.base),
       backupBase: own,
+      cardTexts: read.cardTexts,
     );
   }
 
@@ -246,6 +287,18 @@ void main() {
     receipts = SettingsReceipts(settings);
     opened = [];
     openRefused = false;
+  });
+
+  // Harm: a dialog that went away, or a run that ended, leaving the registry checkout held for good, or a card copy
+  // behind; a terminal still running at the test's end holds it rightly.
+  tearDown(() {
+    final made = [..._Entry._made];
+    _Entry._made.clear();
+    for (final entry in made) {
+      if (RecoveryRuns.of(entry.receipts).keys.isNotEmpty) continue;
+      expect(entry.core.holder, isNull, reason: 'the registry checkout was let go of');
+      expect(entry.core.copies, isEmpty, reason: 'every card copy was removed');
+    }
   });
 
   SessionChannel open(String executable, List<String> arguments, {int columns = 80, int rows = 24}) {

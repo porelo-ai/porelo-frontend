@@ -109,23 +109,23 @@ class HostFileWriter {
     }
   }
 
-  /// Creates a staging directory on the destination filesystem.
-  Future<Directory> createTemporary(Directory parent) async {
-    if (!Platform.isLinux) return parent.createTemp('.porelo-writing-');
+  /// Creates a staging directory on the destination filesystem, its name starting with [prefix].
+  Future<Directory> createTemporary(Directory parent, {String prefix = '.porelo-writing-'}) async {
+    if (!Platform.isLinux) return parent.createTemp(prefix);
     // Dart createTemp uses the process umask; mkdtemp makes the directory private at creation.
     return using((arena) {
       final make = DynamicLibrary.process()
           .lookupFunction<Pointer<Utf8> Function(Pointer<Utf8>), Pointer<Utf8> Function(Pointer<Utf8>)>('mkdtemp');
-      final template = path.join(parent.absolute.path, '.porelo-writing-XXXXXX').toNativeUtf8(allocator: arena);
+      final template = path.join(parent.absolute.path, '${prefix}XXXXXX').toNativeUtf8(allocator: arena);
       final made = make(template);
       if (made == nullptr) throw FileSystemException('Cannot create a private staging directory', parent.path);
       return Directory(made.toDartString());
     });
   }
 
-  /// Restricts a scratch directory before any project history is placed inside it.
-  Future<Directory> createPrivateTemporary(Directory parent) async {
-    final temporary = await createTemporary(parent);
+  /// Restricts a scratch directory, its name starting with [prefix], before any project history is placed inside it.
+  Future<Directory> createPrivateTemporary(Directory parent, {String prefix = '.porelo-writing-'}) async {
+    final temporary = await createTemporary(parent, prefix: prefix);
     try {
       if (isWindows) {
         await _windowsPrivate(temporary.absolute.path, directory: true);

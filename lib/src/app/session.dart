@@ -14,6 +14,7 @@ import 'login_forward.dart';
 import 'machines.dart';
 import 'modified_keys.dart';
 import 'pty.dart';
+import 'quiet_after_dispose.dart';
 import 'shell_model.dart';
 import 'wsl.dart';
 
@@ -74,7 +75,7 @@ enum SessionState {
 /// running, and opening it again finds the same session rather than a new one. Everything on
 /// screen has to keep saying so, because the opposite assumption — that leaving ends things — is
 /// what stops people leaving.
-class Session extends ChangeNotifier {
+class Session extends ChangeNotifier with QuietAfterDispose {
   /// Opens one against [task] on [machine].
   Session({
     required this.task,
@@ -179,6 +180,8 @@ class Session extends ChangeNotifier {
   static const int _mostCopied = 1 << 20;
 
   void _hyperlink(String code, List<String> arguments) {
+    // Left or put away: what the closing program still prints is read for its last line, never acted on here.
+    if (_gone) return;
     if (code == '5379') return _forwardTheReply(arguments);
     if (code == '52') return _copied(arguments);
     final link = hyperlinkOf(code, arguments);

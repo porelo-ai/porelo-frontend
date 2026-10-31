@@ -1,7 +1,11 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as path;
+import 'package:porelo_frontend/client.dart' show RegistryFiled, RegistryRead;
 import 'package:porelo_frontend/src/app/identity.dart';
+import 'package:porelo_frontend/src/app/registry.dart';
+import 'package:porelo_frontend/src/app/registry_checkout.dart';
 import 'package:porelo_frontend/src/app/run_here.dart';
 
 const _old = 'SHA256:BvxPEqOldOldOldOldOldOldOldOldOldOldOldOld';
@@ -109,6 +113,15 @@ class _Core {
   }
 
   List<List<String>> named(String verb) => calls.where((call) => call.take(2).join(' ') == verb).toList();
+}
+
+/// A registry whose checkout is only held here: nothing in these tests reads or files through it.
+class _Unread implements RegistryCore {
+  @override
+  Future<RegistryRead> read(String checkout) => throw UnimplementedError('nothing is read');
+
+  @override
+  Future<RegistryFiled> file(String checkout, RegistryFiling filing) => throw UnimplementedError('nothing is filed');
 }
 
 AgentKey _usable() => const AgentKey(
@@ -505,6 +518,77 @@ void main() {
       final files = core.named('registry file');
       expect(files.last[files.last.indexOf('--base') + 1], moved);
       expect(files.last[files.last.indexOf('--id') + 1], isNot(files.first[files.first.indexOf('--id') + 1]));
+    });
+
+    // Harm: a card filing or a key change committing in the registry checkout while a key replacement or backup key
+    // commits there, so one meets the other's commit half made; or the checkout left held after it.
+    group('beside a recovery run', () {
+      late Registry registry;
+      late IdentityModel holding;
+      final heldWhile = <String, bool>{};
+
+      setUp(() {
+        registry = Registry(
+          checkout: RegistryCheckout(root: path.join('nowhere', 'registry'), repository: 'git@example.org:t/r.git'),
+          core: _Unread(),
+        );
+        addTearDown(registry.dispose);
+        heldWhile.clear();
+        holding = IdentityModel(
+          Identity(
+            run: (program, arguments, {inDirectory, environment = const {}, input}) {
+              heldWhile[arguments.take(2).join(' ')] = registry.held;
+              return core.run(program, arguments, inDirectory: inDirectory, environment: environment, input: input);
+            },
+          ),
+          checkoutFor: (address) => address == 'https://github.com/porelo-ai/registry' ? checkout : null,
+          registry: () => registry,
+          environment: const {'XDG_CONFIG_HOME': '/home/ms/.config', 'HOME': '/home/ms'},
+        );
+      });
+
+      test('filing, a key change and its retry refuse with its words while a run holds the checkout', () async {
+        core.answer('identity show', absent());
+        await holding.load();
+        final run = Object();
+        registry.hold(run);
+
+        await holding.fileCard(holding.card!.registry.single);
+        expect(holding.problem, Registry.heldWords);
+        await holding.rotate(_usable());
+        expect(holding.problem, Registry.heldWords);
+        expect(holding.rotateInTerminal(database: '/home/ms/Passwords.kdbx'), isNull);
+        expect(holding.problem, Registry.heldWords);
+        expect(core.named('registry file'), isEmpty);
+        expect(core.named('identity rotate'), isEmpty);
+        registry.release(run);
+        expect(registry.held, isFalse);
+
+        final started = holding.rotateInTerminal(database: '/home/ms/Passwords.kdbx');
+        expect(started, isNotNull);
+        expect(registry.held, isTrue, reason: 'held until its terminal ended');
+        await holding.terminalEnded(code: 0, lastLine: '', id: started!.id);
+        expect(registry.held, isFalse);
+      });
+
+      test('filing and a key change hold the checkout while Core runs, and let go of it after', () async {
+        core.answer('identity show', absent());
+        await holding.load();
+        core.answer('registry file', {'commit': commit, 'path': 'people/ms-test-reviewer.card'});
+        await holding.fileCard(holding.card!.registry.single);
+        expect(heldWhile['registry file'], isTrue);
+        expect(registry.held, isFalse);
+
+        core.answer('identity rotate', '{"id": "rot-', code: 0);
+        await holding.rotate(_usable());
+        expect(heldWhile['identity rotate'], isTrue);
+        expect(registry.held, isFalse);
+        final id = holding.unfinishedId!;
+        core.answer('identity publish', _operation(id));
+        await holding.retry(id);
+        expect(heldWhile['identity publish'], isTrue);
+        expect(registry.held, isFalse);
+      });
     });
 
     test('two presses at once file once', () async {

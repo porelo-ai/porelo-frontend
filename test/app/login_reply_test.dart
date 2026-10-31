@@ -1,8 +1,11 @@
+import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/login_forward.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
+import 'package:porelo_frontend/src/app/pty.dart';
 import 'package:porelo_frontend/src/app/session.dart';
 
 import '../features/support/world.dart';
@@ -106,6 +109,40 @@ void main() {
     expect(session.forwardProblem, contains('already in use'));
   });
 
+  // Harm: a terminal whose window went away still acting on what its closing program prints: a use of the disposed
+  // session thrown into its output, the desktop's clipboard overwritten, or a forward raised for nobody.
+  test(
+    'a session that was disposed takes no link, copy or forward from what its program prints while it closes',
+    () async {
+      final before = copyToClipboard;
+      final copied = <String>[];
+      copyToClipboard = (text) async => copied.add(text);
+      addTearDown(() => copyToClipboard = before);
+      final closing = _SlowToClose();
+      final session = Session(
+        task: 'login',
+        machine: vm,
+        run: const <String>['porelo', 'vault', 'login', 'claude'],
+        forwardsALoginReply: true,
+        open: (executable, arguments, {columns = 80, rows = 24}) => closing,
+      );
+      var told = 0;
+      session.addListener(() => told++);
+
+      session.dispose();
+      closing.prints(
+        '\x1b]8;;https://example.org/login\x1b\\here\x1b]8;;\x1b\\'
+        '\x1b]52;c;${base64.encode(utf8.encode('secret'))}\x1b\\'
+        '\x1b]5379;forward;42017\x1b\\',
+      );
+      await pumpEventQueue();
+      closing.closed.complete();
+      await pumpEventQueue();
+
+      expect([told, copied, raised, session.links], [0, isEmpty, isEmpty, isEmpty]);
+    },
+  );
+
   // Measured: a forward still held when the run ended kept its ssh, and its port,
   // after the interface was gone.
   test('the window closing takes down every forward still held, and one taken down already only once', () async {
@@ -128,4 +165,33 @@ class _Recorded implements HeldForward {
 
   @override
   Future<void> close() async => _onClose();
+}
+
+/// A terminal whose close takes until the test lets it end, as a program printing its last answer does.
+class _SlowToClose implements SessionChannel {
+  final _output = StreamController<List<int>>.broadcast();
+  final _ended = Completer<int>();
+
+  /// Completed by the test: the close has ended.
+  final closed = Completer<void>();
+
+  void prints(String words) => _output.add(utf8.encode(words));
+
+  @override
+  Stream<List<int>> get output => _output.stream;
+
+  @override
+  Future<int> get ended => _ended.future;
+
+  @override
+  void send(String input) {}
+
+  @override
+  void resize({required int columns, required int rows}) {}
+
+  @override
+  Future<void> close() async {
+    await closed.future;
+    if (!_ended.isCompleted) _ended.complete(129);
+  }
 }

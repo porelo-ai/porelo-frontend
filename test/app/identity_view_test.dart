@@ -73,28 +73,53 @@ class _Core implements KeyRecoveryCore {
   @override
   Future<RegistryRefusal?> refusal(RecoveryScope scope, {bool backup = false}) async => null;
 
-  @override
-  Future<String?> fileFor(RecoveryReview review) => throw UnimplementedError('nothing is replaced');
+  /// The token the registry checkout is held by now.
+  Object? holder;
 
   @override
-  Future<void> checkReviewed(RecoveryReview review) => throw UnimplementedError('nothing is replaced');
+  Future<String?> fileFor(RecoveryReview review, {Object? holder}) => throw UnimplementedError('nothing is replaced');
 
   @override
-  Future<RecoveryFiled> replace(RecoveryReview review, String id, {String? content, bool again = false}) =>
+  Future<void> checkReviewed(RecoveryReview review, {Object? holder}) =>
       throw UnimplementedError('nothing is replaced');
 
   @override
-  Future<void> prepare(RecoveryScope scope) async => calls.add('prepare');
+  Future<RecoveryFiled> replace(
+    RecoveryReview review,
+    String id, {
+    String? content,
+    bool again = false,
+    Object? holder,
+  }) => throw UnimplementedError('nothing is replaced');
 
   @override
-  Future<void> publish(RecoveryScope scope, String revision, {required String base}) async =>
-      calls.add('publish $revision $base');
+  Future<void> prepare(RecoveryScope scope, {Object? holder}) async {
+    if (!identical(holder, this.holder)) throw StateError('prepared without the hold');
+    calls.add('prepare');
+  }
 
   @override
-  void hold(Object holder) {}
+  Future<void> publish(RecoveryScope scope, String revision, {required String base, Object? holder}) async {
+    if (!identical(holder, this.holder)) throw StateError('pushed without the hold');
+    calls.add('publish $revision $base');
+  }
 
   @override
-  void release(Object holder) {}
+  void hold(Object holder) {
+    if (this.holder != null) throw const RegistryRefusal(Registry.heldWords);
+    this.holder = holder;
+  }
+
+  @override
+  void release(Object holder) {
+    if (identical(this.holder, holder)) this.holder = null;
+  }
+
+  @override
+  Future<String> copyCard(String login, String content) => throw UnimplementedError('nothing is replaced');
+
+  @override
+  Future<void> dropCard(String file) => throw UnimplementedError('nothing is replaced');
 }
 
 /// The registry as after a restart: nothing read yet.

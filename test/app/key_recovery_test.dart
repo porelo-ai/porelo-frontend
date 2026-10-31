@@ -14,7 +14,7 @@ import 'package:porelo_frontend/src/app/registry.dart';
 import 'package:porelo_frontend/src/app/registry_checkout.dart';
 import 'package:porelo_frontend/src/app/run_here.dart';
 import 'package:porelo_frontend/src/app/settings.dart';
-import 'package:porelo_host/porelo_host.dart' show PreparedHost;
+import 'package:porelo_host/porelo_host.dart' show HostFileWriter, PreparedHost;
 
 import '../support/host_registry.dart' show sshCompletion;
 
@@ -75,10 +75,18 @@ RecoverySituation _situation({
   resumeOnly: resumeOnly,
   // A project's backup key changes its own repository, read at another commit than its access file.
   backupBase: scope.kind == RecoveryKind.project ? _project : null,
+  cardTexts: {'bob': _cardOf(_newKey)},
 );
 
 /// The interface's settings over a store the test reads back whole.
 class _Kept {
+  _Kept() {
+    _made.add(this);
+  }
+
+  /// Every store made in the running test, whose runs say whether one is left running as it ends.
+  static final _made = <_Kept>[];
+
   final store = MemorySettingsStore();
   late final settings = Settings(store);
   late final receipts = SettingsReceipts(settings);
@@ -94,11 +102,38 @@ class _Kept {
 }
 
 /// Core's side as the controller sees it; every call is recorded.
+///
+/// It holds the registry checkout as the registry does: one token at a time, let go of only by that token, and a
+/// change in the registry checkout, or its push, without the hold is refused as the registry refuses it.
 class _Core implements KeyRecoveryCore {
+  _Core() {
+    _made.add(this);
+  }
+
+  /// Every fake made in the running test, each checked for a hold left behind as it ends.
+  static final _made = <_Core>[];
+
   final calls = <String>[];
+
+  /// The token the registry checkout is held by now, and each hold and release in order.
+  Object? holder;
+  final holds = <String>[];
+
+  /// The card copies made and not removed, by path, and every copy's text.
+  final copies = <String, String>{};
+  final copied = <String>[];
+
+  void _held(RecoveryScope scope, Object? by, String what) {
+    if (scope.inRegistry && (by == null || !identical(by, holder))) {
+      throw StateError('$what in the registry checkout without its hold');
+    }
+  }
+
   RegistryRefusal? refuse;
   final answers = <Object>[];
   Exception? publishFails;
+  // A push that takes this long.
+  Completer<void>? publishing;
   // An answer that never comes: the program ends while Core runs.
   Completer<RecoveryFiled>? holdAnswer;
   // The list or card as read now moved past the review; how often it was checked.
@@ -111,18 +146,31 @@ class _Core implements KeyRecoveryCore {
     return refuse;
   }
 
-  @override
-  Future<String?> fileFor(RecoveryReview review) async =>
-      review.scope.inRegistry ? 'the file for ${review.login}' : null;
+  /// The card the checkout holds for the reviewed person now.
+  String card = _cardOf(_newKey);
 
   @override
-  Future<void> checkReviewed(RecoveryReview review) async {
+  Future<String?> fileFor(RecoveryReview review, {Object? holder}) async {
+    if (!review.backup && review.scope.inRegistry) return 'the file for ${review.login}';
+    if (!review.isReviewedCard(card)) throw const RecoveryRefused(reviewMoved, code: 0);
+    return card;
+  }
+
+  @override
+  Future<void> checkReviewed(RecoveryReview review, {Object? holder}) async {
     checks++;
     if (moved case final refused?) throw refused;
   }
 
   @override
-  Future<RecoveryFiled> replace(RecoveryReview review, String id, {String? content, bool again = false}) async {
+  Future<RecoveryFiled> replace(
+    RecoveryReview review,
+    String id, {
+    String? content,
+    bool again = false,
+    Object? holder,
+  }) async {
+    _held(review.scope, holder, 'replace');
     calls.add('replace $id ${review.base}');
     if (holdAnswer case final held?) return held.future;
     final answer = answers.isEmpty ? const RecoveryFiled(revision: _revision, published: true) : answers.removeAt(0);
@@ -131,19 +179,43 @@ class _Core implements KeyRecoveryCore {
   }
 
   @override
-  Future<void> prepare(RecoveryScope scope) async => calls.add('prepare');
+  Future<void> prepare(RecoveryScope scope, {Object? holder}) async {
+    _held(scope, holder, 'prepare');
+    calls.add('prepare');
+  }
 
   @override
-  Future<void> publish(RecoveryScope scope, String revision, {required String base}) async {
+  Future<void> publish(RecoveryScope scope, String revision, {required String base, Object? holder}) async {
+    _held(scope, holder, 'publish');
     calls.add('publish $revision $base');
+    await publishing?.future;
     if (publishFails case final failure?) throw failure;
   }
 
   @override
-  void hold(Object holder) {}
+  void hold(Object holder) {
+    if (this.holder != null) throw const RegistryRefusal(Registry.heldWords);
+    this.holder = holder;
+    holds.add('hold');
+  }
 
   @override
-  void release(Object holder) {}
+  void release(Object holder) {
+    if (!identical(this.holder, holder)) return;
+    this.holder = null;
+    holds.add('release');
+  }
+
+  @override
+  Future<String> copyCard(String login, String content) async {
+    final file = path.join('copies', '${copied.length}', '$login.card');
+    copies[file] = content;
+    copied.add(content);
+    return file;
+  }
+
+  @override
+  Future<void> dropCard(String file) async => copies.remove(file);
 }
 
 /// The hosts, answering per host what the test says: a [HostLock], or a throw for one not reached or broken.
@@ -172,6 +244,9 @@ class _Porelo {
 
   /// Runs as a replacement starts, before Core reads its card: what moves meanwhile.
   void Function()? onReplace;
+
+  /// Runs once Core read the card it was handed, with that card's path.
+  void Function(String card)? onHanded;
 
   Map<String, Object?> get _verified => {
     'project': 'demo',
@@ -215,6 +290,7 @@ class _Porelo {
       onReplace?.call();
       final card = arguments[arguments.indexOf('--card') + 1];
       handed.add((file: card, text: File(card).readAsStringSync(), folderMode: File(card).parent.statSync().mode));
+      onHanded?.call(card);
       if (replaceAnswers.isNotEmpty) return replaceAnswers.removeAt(0);
       return (code: 0, out: jsonEncode({'revision': _revision}), err: '');
     }
@@ -242,6 +318,19 @@ Future<CliKeyRecoveryCore> _cliProject(_Porelo porelo) async {
   return _cliProjectOver(porelo, registry);
 }
 
+/// A folder of the test's own that card copies are made under, removed after it.
+String _cardsRoot() {
+  final root = Directory.systemTemp.createTempSync('cards-');
+  addTearDown(() async {
+    await Process.run('chmod', ['-R', 'u+rwx', root.path]);
+    await root.delete(recursive: true);
+  });
+  return root.path;
+}
+
+/// Bob's new card for the same key as [_cardOf], but another card: it names a predecessor.
+String _rotatedCardOf(String key) => _cardOf(key).replaceFirst('created:', 'predecessor: "$_old"\ncreated:');
+
 /// Bob's new card as the registry checkout holds it: its body, then its signature.
 String _cardOf(String key) =>
     'login: "bob"\nname: "Name of bob"\nkey: "$key"\ncreated: "2026-10-31"\nexpires: "2026-11-30"\n'
@@ -251,6 +340,7 @@ CliKeyRecoveryCore _cliProjectOver(_Porelo porelo, Registry registry, {String Fu
   actor: () => HostAdminIdentity('alice', _admin),
   registry: registry,
   run: porelo.run,
+  cards: PrivateCards(root: _cardsRoot()),
   readFile: (file) async => file == _bobCard ? (card?.call() ?? _cardOf(_newKey)) : throw FileSystemException(file),
   project: (project) => ProjectAccessCoreAdapter(
     directory: '/workspace/$project',
@@ -405,6 +495,10 @@ String _used({
   'by': by ?? _new,
 });
 
+/// Runs [work] on [making] within one attempt of its own, which holds the registry checkout as the dialog's does.
+Future<T> _within<T>(BackupKeyMaking making, Future<T> Function(BackupKeyMaking making) work) =>
+    making.attempt(() => work(making));
+
 String _idOf(List<String> command) => command[command.indexOf('--id') + 1];
 
 /// The host's registry intake: records what it is given and answers what the test says it applied.
@@ -435,6 +529,21 @@ class _Transport implements HostRegistryTransport {
 }
 
 void main() {
+  // Harm: a run that leaves the registry checkout held, which locks every registry read and filing for good, or a card
+  // copy left behind.
+  tearDown(() {
+    final made = [..._Core._made];
+    final stores = [..._Kept._made];
+    _Core._made.clear();
+    _Kept._made.clear();
+    // A test may end while a terminal still runs, which holds until its program ended.
+    if (stores.any((kept) => RecoveryRuns.of(kept.receipts).keys.isNotEmpty)) return;
+    for (final core in made) {
+      expect(core.holder, isNull, reason: 'a run let go of the registry checkout');
+      expect(core.copies, isEmpty, reason: 'every card copy was removed');
+    }
+  });
+
   group('the backup key replaces only its own entry, after review', () {
     late _Kept kept;
     setUp(() => kept = _Kept());
@@ -629,13 +738,14 @@ void main() {
         '--use',
         backupFile,
         '--card',
-        _bobCard,
+        core.copies.keys.single,
         '--base',
         _project,
         '--id',
         _idOf(command),
         '--json',
       ]);
+      expect(core.copies.values.single, _cardOf(_newKey), reason: 'Core is handed a copy of the reviewed card');
       final unread = isNot(anyOf(contains(folder.path), contains('SECRET')));
       expect(await kept.written(), contains(_idOf(command)), reason: 'the request is kept');
       expect(await kept.written(), unread);
@@ -797,26 +907,29 @@ void main() {
       BackupKeyMaking making() =>
           BackupKeyMaking(scope: const RecoveryScope.owner(), base: _base, core: core, receipts: kept.receipts);
 
-      final first = await making().start('/media/usb/bk');
+      final first = await _within(making(), (m) => m.start('/media/usb/bk'));
       expect(first.sublist(first.indexOf('--base'), first.indexOf('--base') + 2), ['--base', _base]);
       // The file's place is never in the kept request, checked while it is kept.
       expect(await kept.written(), allOf(contains(_idOf(first)), isNot(contains('/media/usb'))));
-      await expectLater(making().ended(code: 70, lastLine: '', out: '/media/usb/bk'), throwsA(isA<RecoveryRefused>()));
+      await expectLater(
+        _within(making(), (m) => m.ended(code: 70, lastLine: '', out: '/media/usb/bk')),
+        throwsA(isA<RecoveryRefused>()),
+      );
       expect(await kept.written(), allOf(contains(_idOf(first)), isNot(contains('/media/usb'))));
-      final second = await making().start('/media/usb/bk');
+      final second = await _within(making(), (m) => m.start('/media/usb/bk'));
       expect(_idOf(second), _idOf(first));
       expect(core.calls, ['prepare'], reason: 'the checkout is readied once');
 
       core.publishFails = const WorkspaceRefused('push refused');
       final answer = made().replaceFirst('"ID"', '"${_idOf(first)}"');
       await expectLater(
-        making().ended(code: 0, lastLine: answer, out: '/media/usb/bk'),
+        _within(making(), (m) => m.ended(code: 0, lastLine: answer, out: '/media/usb/bk')),
         throwsA(isA<WorkspaceRefused>()),
       );
       expect(making().unpublished, _revision);
       expect(await kept.written(), allOf(contains(_revision), isNot(contains('/media/usb'))));
       core.publishFails = null;
-      await making().publish();
+      await _within(making(), (m) => m.publish());
       expect(core.calls.where((call) => call == 'publish $_revision $_base'), hasLength(2));
       expect(making().pending, isFalse);
       expect(await kept.written(), isNot(contains('/media/usb')));
@@ -867,25 +980,25 @@ void main() {
         BackupKeyMaking making({String? base = _base}) =>
             BackupKeyMaking(scope: const RecoveryScope.owner(), base: base, core: core, receipts: kept.receipts);
 
-        final first = await making().start('/media/usb/bk1');
+        final first = await _within(making(), (m) => m.start('/media/usb/bk1'));
         await expectLater(
-          making().ended(code: 69, lastLine: '', out: '/media/usb/bk1'),
+          _within(making(), (m) => m.ended(code: 69, lastLine: '', out: '/media/usb/bk1')),
           throwsA(isA<RecoveryRefused>()),
         );
         expect(making().uncertain, isTrue);
-        final second = await making().start('/media/usb/bk2');
+        final second = await _within(making(), (m) => m.start('/media/usb/bk2'));
         final other = made(
           kind: 'host',
           name: 'walk1',
           file: '/media/usb/bk2',
         ).replaceFirst('"ID"', '"${_idOf(second)}"');
         await expectLater(
-          making().ended(code: code, lastLine: out ?? other, out: '/media/usb/bk2'),
+          _within(making(), (m) => m.ended(code: code, lastLine: out ?? other, out: '/media/usb/bk2')),
           throwsA(isA<RecoveryRefused>()),
         );
 
         expect(making().pending, isTrue);
-        final third = await making(base: _other).start('/media/usb/bk1');
+        final third = await _within(making(base: _other), (m) => m.start('/media/usb/bk1'));
         expect([_idOf(second), _idOf(third)], [_idOf(first), _idOf(first)]);
         expect(third.sublist(third.indexOf('--base'), third.indexOf('--base') + 2), ['--base', _base]);
         expect(core.calls, ['prepare'], reason: 'the checkout is readied once');
@@ -907,16 +1020,22 @@ void main() {
         final kept = _Kept();
         BackupKeyMaking making() =>
             BackupKeyMaking(scope: const RecoveryScope.owner(), base: _base, core: _Core(), receipts: kept.receipts);
-        final first = await making().start(asked);
+        final first = await _within(making(), (m) => m.start(asked));
         if (code != null) {
           await expectLater(
-            making().ended(code: code, lastLine: out.replaceFirst('"ID"', '"${_idOf(first)}"'), out: asked),
+            _within(
+              making(),
+              (m) => m.ended(code: code, lastLine: out.replaceFirst('"ID"', '"${_idOf(first)}"'), out: asked),
+            ),
             throwsA(anything),
           );
         }
 
-        final second = await making().start('/media/usb/bk2');
-        await expectLater(making().ended(code: -1, lastLine: '', out: '/media/usb/bk2'), throwsA(anything));
+        final second = await _within(making(), (m) => m.start('/media/usb/bk2'));
+        await expectLater(
+          _within(making(), (m) => m.ended(code: -1, lastLine: '', out: '/media/usb/bk2')),
+          throwsA(anything),
+        );
 
         expect(_idOf(second), _idOf(first));
         expect(making().pending, isTrue);
@@ -930,12 +1049,18 @@ void main() {
         final kept = _Kept();
         BackupKeyMaking making() =>
             BackupKeyMaking(scope: const RecoveryScope.owner(), base: _base, core: _Core(), receipts: kept.receipts);
-        await making().start('/media/usb/bk');
-        await expectLater(making().ended(code: 70, lastLine: '', out: '/media/usb/bk'), throwsA(anything));
-        await making().start('/media/usb/bk');
+        await _within(making(), (m) => m.start('/media/usb/bk'));
+        await expectLater(
+          _within(making(), (m) => m.ended(code: 70, lastLine: '', out: '/media/usb/bk')),
+          throwsA(anything),
+        );
+        await _within(making(), (m) => m.start('/media/usb/bk'));
 
         await expectLater(
-          making().ended(code: 65, lastLine: '{"reason":"$reason","words":"no"}', out: '/media/usb/bk'),
+          _within(
+            making(),
+            (m) => m.ended(code: 65, lastLine: '{"reason":"$reason","words":"no"}', out: '/media/usb/bk'),
+          ),
           throwsA(isA<RecoveryRefused>()),
         );
 
@@ -950,19 +1075,22 @@ void main() {
       final core = _Core();
       BackupKeyMaking making() =>
           BackupKeyMaking(scope: const RecoveryScope.owner(), base: _base, core: core, receipts: kept.receipts);
-      final refused = await making().start('/media/usb/bk1');
+      final refused = await _within(making(), (m) => m.start('/media/usb/bk1'));
       final elsewhere = made(file: '/elsewhere').replaceFirst('"ID"', '"${_idOf(refused)}"');
       await expectLater(
-        making().ended(code: 0, lastLine: elsewhere, out: '/media/usb/bk1'),
+        _within(making(), (m) => m.ended(code: 0, lastLine: elsewhere, out: '/media/usb/bk1')),
         throwsA(isA<RecoveryRefused>()),
       );
       expect(core.calls, ['prepare'], reason: 'nothing of a first attempt for another file is pushed');
 
-      final first = await making().start('/media/usb/bk1');
-      await expectLater(making().ended(code: 70, lastLine: '', out: '/media/usb/bk1'), throwsA(anything));
-      final second = await making().start('/media/usb/bk2');
+      final first = await _within(making(), (m) => m.start('/media/usb/bk1'));
+      await expectLater(
+        _within(making(), (m) => m.ended(code: 70, lastLine: '', out: '/media/usb/bk1')),
+        throwsA(anything),
+      );
+      final second = await _within(making(), (m) => m.start('/media/usb/bk2'));
       final answer = made(file: '/media/usb/bk1').replaceFirst('"ID"', '"${_idOf(second)}"');
-      final key = await making().ended(code: 0, lastLine: answer, out: '/media/usb/bk2');
+      final key = await _within(making(), (m) => m.ended(code: 0, lastLine: answer, out: '/media/usb/bk2'));
 
       expect(_idOf(second), _idOf(first));
       expect([key.file, key.revision, key.published], ['/media/usb/bk1', _revision, true]);
@@ -977,16 +1105,22 @@ void main() {
       final core = _Core()..publishFails = const WorkspaceRefused('push refused');
       BackupKeyMaking making() =>
           BackupKeyMaking(scope: const RecoveryScope.owner(), base: _base, core: core, receipts: kept.receipts);
-      final first = await making().start('/media/usb/bk');
-      await expectLater(making().ended(code: 70, lastLine: '', out: '/media/usb/bk'), throwsA(anything));
+      final first = await _within(making(), (m) => m.start('/media/usb/bk'));
+      await expectLater(
+        _within(making(), (m) => m.ended(code: 70, lastLine: '', out: '/media/usb/bk')),
+        throwsA(anything),
+      );
 
       await making().forget();
       expect(making().pending, isFalse);
 
-      final second = await making().start('/media/usb/bk');
+      final second = await _within(making(), (m) => m.start('/media/usb/bk'));
       expect(_idOf(second), isNot(_idOf(first)));
       final answer = made().replaceFirst('"ID"', '"${_idOf(second)}"');
-      await expectLater(making().ended(code: 0, lastLine: answer, out: '/media/usb/bk'), throwsA(anything));
+      await expectLater(
+        _within(making(), (m) => m.ended(code: 0, lastLine: answer, out: '/media/usb/bk')),
+        throwsA(anything),
+      );
       await making().forget();
       await making().forget(made: _other);
       expect(making().unpublished, _revision, reason: 'a made commit is dropped only when its confirmation named it');
@@ -1000,8 +1134,11 @@ void main() {
       final kept = _Kept();
       BackupKeyMaking making() =>
           BackupKeyMaking(scope: const RecoveryScope.owner(), base: _base, core: _Core(), receipts: kept.receipts);
-      final first = await making().start('/media/usb/bk');
-      await expectLater(making().ended(code: 70, lastLine: '', out: '/media/usb/bk'), throwsA(anything));
+      final first = await _within(making(), (m) => m.start('/media/usb/bk'));
+      await expectLater(
+        _within(making(), (m) => m.ended(code: 70, lastLine: '', out: '/media/usb/bk')),
+        throwsA(anything),
+      );
       final ending = Completer<void>();
       final running = making().attempt(() => ending.future);
 
@@ -2029,6 +2166,7 @@ void main() {
         actor: () => HostAdminIdentity('alice', _admin),
         receipts: kept.receipts,
         projectView: (_) => view(),
+        readFile: (file) async => file == _bobCard ? _cardOf(_newKey) : throw FileSystemException(file),
       );
     });
 
@@ -2097,6 +2235,29 @@ void main() {
       projectRead = _other;
       expect((await services.situation(demo)).backupBase, _other);
       expect(kept.receipts.keys, isEmpty, reason: 'each read shows what was made here');
+    });
+
+    // Harm: a project backup key's replacement, kept in the project repository's record, read as nothing made here:
+    // its pushed commit is hidden, the replaced key shown as in force, and a second replacement reviewed on it.
+    test('a backup key’s replacement made here holds the next until the project repository is read again', () async {
+      await keepMadeInForce(
+        kept.receipts,
+        demo,
+        base: _project,
+        revision: _other,
+        replaced: 'bob',
+        projectRepository: true,
+      );
+
+      final later = await services.situation(demo);
+      expect([later.madeHere, later.madeHereReplaced, later.backupBase], [_other, 'bob', _other]);
+      expect((await open()).whyNotReview('bob', backup: true), KeyRecovery.refreshProjectBeforeReplacing);
+      expect((await open()).whyNotReview('bob'), KeyRecovery.refreshProjectBeforeReplacing);
+
+      projectRead = _other;
+      final caught = await services.situation(demo);
+      expect([caught.madeHere, caught.madeHereReplaced], [null, null]);
+      expect(kept.receipts.keys, isEmpty);
     });
 
     // Harm: a commit kept as made here after Core said the project moved past it, handed out as the base for good; or
@@ -2203,9 +2364,11 @@ void main() {
           receipts: kept.receipts,
         );
         final out = path.join('media', 'usb', 'bk');
-        final command = await making.start(out);
-
-        await expectLater(making.ended(code: code, lastLine: '', out: out), throwsA(isA<RecoveryRefused>()));
+        late List<String> command;
+        await making.attempt(() async {
+          command = await making.start(out);
+          await expectLater(making.ended(code: code, lastLine: '', out: out), throwsA(isA<RecoveryRefused>()));
+        });
 
         expect([making.requestId, making.uncertain], [_idOf(command), true]);
       });
@@ -2321,6 +2484,308 @@ void main() {
 
       expect(kept.receipts.keys, isNot(contains('owner')));
       expect(recovery.started, isFalse);
+    });
+  });
+
+  group('each run holds the registry checkout by a token of its own, and hands Core the card reviewed', () {
+    late _Kept kept;
+    setUp(() => kept = _Kept());
+
+    KeyRecovery recoveryOver(_Core core, {RecoveryScope scope = const RecoveryScope.owner(), bool backup = true}) {
+      final recovery = KeyRecovery(
+        situation: _situation(
+          scope: scope,
+          hosts: const [],
+          sole: 'bob',
+          backup: backup,
+          actor: backup ? 'bob' : 'alice',
+        ),
+        core: core,
+        hosts: _Hosts(),
+        receipts: kept.receipts,
+      );
+      addTearDown(recovery.dispose);
+      return recovery;
+    }
+
+    // Harm: a backup key's run counted as ended while its answer is still pushed and delivered, so a second run on the
+    // same request starts and takes the checkout beside it, and the first's release frees the checkout under it.
+    test('a backup key’s run holds and counts as running until its answer was pushed and delivered', () async {
+      final core = _Core();
+      final recovery = recoveryOver(core)..reviewFor('bob', backup: true);
+      final command = (await recovery.startBackup(_backupFile))!;
+      final pushing = core.publishing = Completer<void>();
+
+      final ending = recovery.backupEnded(
+        code: 0,
+        lastLine: _used(id: _idOf(command), kind: 'registry', name: null, pushed: false),
+      );
+      await pumpEventQueue();
+      expect(core.calls.last, 'publish $_revision $_base');
+      expect(recovery.backupRunning, isTrue, reason: 'its answer is still pushed');
+      expect(core.holder, isNotNull, reason: 'the checkout stays held meanwhile');
+      final second = KeyRecovery(
+        situation: _situation(
+          scope: const RecoveryScope.owner(),
+          hosts: const [],
+          sole: 'bob',
+          backup: true,
+          actor: 'bob',
+        ),
+        core: core,
+        hosts: _Hosts(),
+        receipts: kept.receipts,
+      );
+      addTearDown(second.dispose);
+      expect(second.whyNotRetry, isNotNull, reason: 'no second run starts on its request');
+      expect(await second.startBackup(_backupFile), isNull);
+
+      pushing.complete();
+      await ending;
+      expect(recovery.filed?.published, isTrue);
+      expect([recovery.backupRunning, core.holder], [false, null]);
+      expect(core.holds, ['hold', 'release'], reason: 'one hold, let go of once');
+    });
+
+    // Harm: a project's backup key, which never writes the registry checkout, holding it, so a terminal that outlives
+    // its dialog and never ends locks every registry read and filing for good.
+    test('a project’s backup key holds nothing, also while its terminal outlives its dialog', () async {
+      final core = _Core();
+      final recovery = recoveryOver(core, scope: const RecoveryScope.project('demo'))..reviewFor('bob', backup: true);
+      expect(await recovery.startBackup(_backupFile), isNotNull);
+      expect(core.holds, isEmpty);
+
+      unawaited(recovery.backupOutlived(Completer<Object?>().future));
+      await pumpEventQueue();
+      expect(core.holder, isNull);
+      expect(recovery.backupRunning, isTrue, reason: 'Core may still run in it');
+    });
+
+    // Harm: a backup key's retry handing Core the checkout's card, which a refresh may have made another since the
+    // review: for the same key with a predecessor, Core keeps the old key out of revoked.
+    test(
+      'a backup key’s retry hands Core the same copy of the reviewed card, whatever the checkout holds now',
+      () async {
+        final core = _Core();
+        final recovery = recoveryOver(core)..reviewFor('bob', backup: true);
+        final first = (await recovery.startBackup(_backupFile))!;
+        expect(core.copied, [_cardOf(_newKey)]);
+        await recovery.backupEnded(code: 70, lastLine: '');
+        expect(core.copies, isEmpty, reason: 'its copy goes once its program ended');
+        expect(await kept.written(), contains('BEGIN SSH SIGNATURE'), reason: 'the card is kept with its request');
+
+        core.card = _rotatedCardOf(_newKey);
+        final again = (await recovery.startBackup(_backupFile))!;
+        expect(_idOf(again), _idOf(first));
+        expect(core.copied, [_cardOf(_newKey), _cardOf(_newKey)], reason: 'the reviewed card on every attempt');
+        expect(again[again.indexOf('--card') + 1], isNot(_bobCard));
+        await recovery.backupEnded(code: 70, lastLine: '');
+
+        // Kept with the request, so a program started again hands the same.
+        final restarted = KeyRecovery(
+          situation: _situation(
+            scope: const RecoveryScope.owner(),
+            hosts: const [],
+            sole: 'bob',
+            backup: true,
+            actor: 'bob',
+          ),
+          core: core,
+          hosts: _Hosts(),
+          receipts: await kept.restarted(),
+        );
+        addTearDown(restarted.dispose);
+        expect(await restarted.startBackup(_backupFile), isNotNull);
+        expect(core.copied.last, _cardOf(_newKey));
+        await restarted.backupEnded(code: 70, lastLine: '');
+      },
+    );
+
+    // Harm: a backup key's first attempt, or a project replacement, made with a card for the reviewed key that is not
+    // the card reviewed: one naming a predecessor leaves the old key out of revoked.
+    test('a card for the reviewed key that is not the reviewed card starts nothing', () async {
+      final core = _Core()..card = _rotatedCardOf(_newKey);
+      final recovery = recoveryOver(core)..reviewFor('bob', backup: true);
+      expect(await recovery.startBackup(_backupFile), isNull);
+      expect(recovery.problem, reviewMoved);
+      expect([recovery.started, core.copied, core.holder], [false, isEmpty, null]);
+
+      final porelo = _Porelo();
+      final registry = Registry(checkout: _Checkout(), core: _RegistryCore());
+      addTearDown(registry.dispose);
+      await registry.refresh();
+      final replacing = KeyRecovery(
+        situation: _situation(),
+        core: _cliProjectOver(porelo, registry, card: () => _rotatedCardOf(_newKey)),
+        hosts: _Hosts(),
+        receipts: kept.receipts,
+      );
+      addTearDown(replacing.dispose);
+      replacing.reviewFor('bob');
+      await replacing.confirm();
+      expect(replacing.problem, reviewMoved);
+      expect(porelo.replaces, isEmpty);
+    });
+
+    // Harm: a request kept before its card was, retried with whatever card the checkout holds now.
+    for (final moved in [false, true]) {
+      test('a request kept without its card is retried only while the checkout’s card is the reviewed one, '
+          'moved: $moved', () async {
+        final core = _Core()..answers.add(const RecoveryRefused('lost', code: 70));
+        final recovery = recoveryOver(core, scope: const RecoveryScope.project('demo'), backup: false)
+          ..reviewFor('bob');
+        await recovery.confirm();
+        expect(recovery.uncertain, isTrue);
+        final receipt = Map<String, Object?>.of(kept.receipts.read('project/demo')!);
+        final review = Map<String, Object?>.of((receipt['review']! as Map).cast<String, Object?>())..remove('cardText');
+        await kept.receipts.keep('project/demo', {...receipt, 'review': review, 'content': null});
+        if (moved) core.moved = const RecoveryRefused(reviewMoved, code: 0);
+
+        final again = recoveryOver(core, scope: const RecoveryScope.project('demo'), backup: false);
+        await again.retry();
+
+        if (moved) {
+          expect(again.problem, contains('Forget'));
+          expect(core.calls.where((call) => call.startsWith('replace')), hasLength(1), reason: 'not tried again');
+          expect(again.whyNotForget, isNull);
+        } else {
+          expect(core.calls.where((call) => call.startsWith('replace')), hasLength(2));
+          expect(again.filed?.revision, _revision);
+        }
+      });
+    }
+
+    // Harm: a run's own read again and a refresh that waited for its release run side by side, or a release by a
+    // token that does not hold the checkout freeing it under the run that does.
+    test('a run’s own read goes before the refresh that waited, and only its own token lets go', () async {
+      final checkout = _Checkout();
+      final registry = Registry(checkout: checkout, core: _RegistryCore());
+      addTearDown(registry.dispose);
+      await registry.refresh();
+      final fetched = checkout.fetches;
+      final run = Object();
+      registry.hold(run);
+      registry.release(Object());
+      expect(registry.held, isTrue, reason: 'another token lets go of nothing');
+      expect(() => registry.hold(Object()), throwsA(isA<RegistryRefusal>()));
+
+      final reading = checkout.fetching = Completer<void>();
+      final own = registry.readAgainHeld(run);
+      final refreshing = registry.refresh();
+      await pumpEventQueue();
+      expect(checkout.fetches, fetched + 1, reason: 'its own read does not wait for its release');
+      registry.release(run);
+      await pumpEventQueue();
+      expect(checkout.fetches, fetched + 1, reason: 'the refresh waits for the run’s own read');
+
+      reading.complete();
+      await Future.wait([own, refreshing]);
+      expect(checkout.fetches, fetched + 2);
+      expect([registry.held, registry.busy], [false, false]);
+    });
+
+    // Harm: a backup key's making whose start, end or push, called outside an attempt, leaves the checkout held for
+    // good; or a check of a reviewed card passing while another run holds the checkout and changes it.
+    test('a making’s steps called alone leave nothing held, and a check refuses while another run holds', () async {
+      final checkout = _Checkout();
+      final registry = Registry(checkout: checkout, core: _RegistryCore());
+      addTearDown(registry.dispose);
+      await registry.refresh();
+      final core = CliKeyRecoveryCore(actor: () => HostAdminIdentity('bob', _new), registry: registry);
+      final making = BackupKeyMaking(
+        scope: const RecoveryScope.owner(),
+        base: _base,
+        core: core,
+        receipts: kept.receipts,
+      );
+      final out = path.join('media', 'usb', 'bk');
+
+      final command = await making.start(out);
+      expect(registry.held, isFalse);
+      final answer = jsonEncode({
+        'id': _idOf(command),
+        'scope': {'kind': 'registry', 'name': null},
+        'fingerprint': 'SHA256:${'B' * 43}',
+        'file': out,
+        'revision': _revision,
+        'pushed': false,
+      });
+      await making.ended(code: 0, lastLine: answer, out: out);
+      expect(checkout.calls, contains('push $_revision $_base'));
+      expect([registry.held, registry.busy], [false, false]);
+
+      final other = Object();
+      registry.hold(other);
+      final recovery = recoveryOver(_Core())..reviewFor('bob', backup: true);
+      await expectLater(
+        core.checkReviewed(recovery.review!),
+        throwsA(isA<RecoveryRefused>().having((refused) => refused.words, 'words', Registry.heldWords)),
+      );
+      registry.release(other);
+    });
+
+    // Harm: a card copy others may read or change before Core does: a folder made with the process umask and made
+    // private only later, or the card written before its file is restricted; or one left behind.
+    test('a card copy is private from its folder’s creation and restricted before its text is written', () async {
+      final root = _cardsRoot();
+      final seen = <({int folder, int length})>[];
+      final cards = PrivateCards(
+        root: root,
+        writer: HostFileWriter(
+          run: (executable, arguments) async {
+            if (executable == 'chmod' && arguments.first == '600') {
+              final file = File(arguments.last);
+              seen.add((folder: file.parent.statSync().mode & 0x1ff, length: file.lengthSync()));
+            }
+            return Process.run(executable, arguments);
+          },
+        ),
+      );
+      final leftover = Directory(path.join(root, '${PrivateCards.prefix}crashed'))..createSync();
+      final other = Directory(path.join(root, 'kept-apart'))..createSync();
+
+      final kept = await cards.copy('bob', _cardOf(_newKey));
+      expect(leftover.existsSync(), isFalse, reason: 'a copy a crash left behind is swept');
+      expect(other.existsSync(), isTrue);
+      final second = await cards.copy('bob', _cardOf(_newKey));
+      expect(File(kept).existsSync(), isTrue, reason: 'a copy Core may still read is never swept');
+
+      expect(seen, [(folder: 0x1c0, length: 0), (folder: 0x1c0, length: 0)]);
+      expect(File(kept).statSync().mode & 0x1ff, 0x180);
+      expect(File(kept).readAsStringSync(), _cardOf(_newKey));
+      expect(path.basename(path.dirname(kept)), startsWith(PrivateCards.prefix));
+      await cards.drop(kept);
+      await cards.drop(second);
+      expect([File(kept).parent.existsSync(), File(second).parent.existsSync()], [false, false]);
+    }, skip: Platform.isWindows ? 'mode bits and chmod are POSIX; Windows restricts by ACL' : null);
+
+    // Harm: a copy that cannot be removed right after Core ran throwing over Core's answer, so a pushed replacement
+    // is left uncertain.
+    test('a card copy that cannot be removed loses nothing of Core’s answer', () async {
+      final porelo = _Porelo();
+      final registry = Registry(checkout: _Checkout(), core: _RegistryCore());
+      addTearDown(registry.dispose);
+      await registry.refresh();
+      String? locked;
+      porelo.onHanded = (card) {
+        locked = path.dirname(card);
+        Process.runSync('chmod', ['500', locked!]);
+      };
+      final recovery = KeyRecovery(
+        situation: _situation(),
+        core: _cliProjectOver(porelo, registry),
+        hosts: _Hosts(),
+        receipts: kept.receipts,
+      );
+      addTearDown(recovery.dispose);
+      recovery.reviewFor('bob');
+
+      await recovery.confirm();
+
+      expect(recovery.problem, isNull);
+      expect(recovery.filed?.revision, _revision);
+      expect(recovery.uncertain, isFalse);
+      expect(Directory(locked!).existsSync(), isTrue, reason: 'left for the next sweep');
     });
   });
 }

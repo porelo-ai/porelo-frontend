@@ -298,6 +298,55 @@ void main() {
     });
   }
 
+  // Harm: a commit that is not the request's own taken as pushed, so the hosts are told of a replacement the registry
+  // never got: the base itself, a commit before it, one Core never reads as merged in beside the first-parent line, or
+  // one with a commit of the checkout above it that the next push would take along.
+  for (final named in ['the base', 'a commit before the base', 'a merged side commit', 'one with a commit above it']) {
+    test('a made commit is never taken as pushed when it is $named', () async {
+      final first = checkout();
+      final start = await first.fetch();
+      if (named == 'a commit before the base') {
+        await run(['pull', '-q', '--ff-only', 'origin', 'main'], author);
+        await commitCentral('next.yml', 'next\n');
+        final base = await first.fetch();
+        final publishing = checkout().publishMade(start, base: base);
+        await expectLater(publishing, throwsA(isA<WorkspaceRefused>()));
+        return;
+      }
+      if (named == 'the base') {
+        await expectLater(checkout().publishMade(start, base: start), throwsA(isA<WorkspaceRefused>()));
+        return;
+      }
+      await first.prepareFiling();
+      final made = await commitCheckout(first.folder, 'owners-change.yml');
+      if (named == 'a merged side commit') {
+        await run(['pull', '-q', '--ff-only', 'origin', 'main'], author);
+        await commitCentral('beside.yml', 'beside\n');
+        await run(['fetch', '-q', first.folder, made], author);
+        await run([
+          '-c',
+          'user.name=Fixture',
+          '-c',
+          'user.email=fixture@example.invalid',
+          'merge',
+          '-q',
+          '--no-ff',
+          '-m',
+          'merge',
+          'FETCH_HEAD',
+        ], author);
+        await run(['push', '-q', 'origin', 'HEAD:main'], author);
+      } else {
+        await run(['push', '-q', central, '$made:refs/heads/main'], first.folder);
+        await commitCheckout(first.folder, 'unreviewed.card');
+      }
+      final tip = await centralRevision();
+
+      await expectLater(checkout().publishMade(made, base: start), throwsA(isA<WorkspaceRefused>()));
+      expect(await centralRevision(), tip, reason: 'nothing is pushed anew');
+    });
+  }
+
   // Harm: a filing whose answer was lost never retried under its request, because the checkout refuses the commit that
   // request made; or a retry passing anyone else's unpublished work, or a fresh filing passing that commit.
   for (final held in ['nothing', 'its own commit', 'other content', 'another file too', 'a commit before it', 'two']) {

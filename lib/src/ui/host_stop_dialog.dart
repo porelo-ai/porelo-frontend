@@ -72,19 +72,18 @@ class _HostStopDialogState extends State<HostStopDialog> {
 
   Future<void> _open(Machine machine, List<String> command) async {
     setState(() => _opening = true);
-    var completed = false;
-    await runInATerminal(
+    // The end includes a code that arrived while the terminal closed.
+    final end = await runInATerminal(
       context,
       title: 'Provider sign-in',
       explanation: 'Enter provider credentials only in this terminal or the provider’s own login.',
       machine: machine,
       command: command,
       open: widget.openTerminal,
-      onExit: (code) => completed = code == 0,
     );
     if (!mounted) return;
     setState(() => _opening = false);
-    if (completed) await widget.hostRuns.resume(widget.run);
+    if (end.code == 0) await widget.hostRuns.resume(widget.run);
   }
 
   @override

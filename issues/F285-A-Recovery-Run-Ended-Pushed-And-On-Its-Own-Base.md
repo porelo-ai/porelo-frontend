@@ -49,35 +49,72 @@ against the code before it was fixed.
   path that marks a backup key's use started ends it: a dialog that went away, or a terminal that threw, ends it as
   never started when no terminal opened, and as uncertain when one did. A backup key's making whose window went away
   before its terminal opened ends as never started, which restores its request as it was before.
-- Pushing a made registry commit fetches first and is done, with nothing pushed, when the published branch holds it
-  already, as that commit or one before the tip; it is refused only when the branch moved on without it. Forget's
-  confirmation of a made commit not pushed from here says that Retry pushes it or finds it pushed, and names the hosts
-  it then tells.
-- A project replacement hands Core a private copy of the card, never the checkout's file: read once right after the
-  check, its key compared with the reviewed one, kept with the request, and written for each attempt into a folder of
-  its own only this user reaches, removed once Core ran. A card file naming another key refuses the replacement with
-  nothing started. The check on a `by` field Core never answers is gone, and so is its test.
-- Key recovery runs and the registry's own reads and filings exclude each other through one hold on the registry:
-  a run takes it before it checks, readies or files, and lets go once its program ended; a hold is refused with words
+- Pushing a made registry commit fetches first and takes nothing from a commit whose only parent is not its own base,
+  the base itself included. It is done, with nothing pushed, when the published branch holds it on its first-parent
+  line, the only one Core reads, as that commit or one before the tip; a commit merged in beside that line is not
+  taken, and a commit of the checkout above it is refused with words, as it would go with the next push. It is refused
+  when the branch moved on without it. Forget's confirmation of a made commit not pushed from here says that Retry
+  pushes it or finds it pushed, and names the hosts it then tells.
+- A review keeps the new card's exact text as the checkout held it when the list was read, read only while no
+  registry read, filing or run moves the checkout. A project replacement and a backup key's use hand Core a private
+  copy of that card, never the checkout's file: read once right after the check, compared with the reviewed text, not
+  only its key, kept with the request, and handed again on every retry, also after a restart. A card for the reviewed
+  key that is another card, such as one naming a predecessor, refuses the run with nothing started. A request kept
+  before its card was is retried only while the list still reads as reviewed and the checkout's card is the reviewed
+  one; otherwise it is refused with words, and Forget is the way out. The check on a `by` field Core never answers is
+  gone, and so is its test.
+- Each copy is written into a folder of its own made private at its creation, its file created exclusively and
+  restricted before its text is written, on Windows too. It is removed once Core ran, and a removal that fails never
+  throws over Core's answer; a folder a crash left behind is swept when the next copy is made.
+- Key recovery runs and the registry's own reads and filings exclude each other through one hold on the registry,
+  taken by a token made for each run and let go of only by that token. A replacement holds it from its check to the
+  end of its push and delivery, a backup key's use until its program ended and its answer was read, pushed and
+  delivered, and counts as running as long; a backup key's making holds it for its whole attempt, whose start, end and
+  push take no hold of their own. A project's run never holds it, as it never writes the checkout. A run reads the
+  registry again one read after another, before the refresh that waited for its release. A hold is refused with words
   while a read or filing runs, a filing is refused with words while a run holds it, and a refresh waits for the
-  release. A retry of a lost answer and a backup key's making take the same hold.
+  release; a check of a reviewed card refuses while another run holds the checkout. Filing the person's card, changing
+  their key and publishing that change take the same hold, and refuse with its words while a run holds it.
 - A project's backup key, made or used, is made on the project repository's own commit: a list read carries it as the
-  backup key's base, the newest made here on that read. Its commit is kept apart from the access file's, so neither
-  holds the other's replacements, and Core's `base-moved` for a backup key forgets only the project repository's.
+  backup key's base, the newest made here on that read. Its commit is kept apart from the access file's, and Core's
+  `base-moved` for a backup key forgets only the project repository's. A replacement its backup key made is read back
+  from that record as made here, so the dialog shows its commit and the key it replaced, and no new replacement is
+  reviewed until the project's own repository is read again.
 - On Windows, a console whose job could not be ended, or that has none, is closed on an isolate of its own; the job's
   handle stays open for the waiter until the program's end was seen; the waiter reads each answer once; and a waiter
-  that fails after it started counts as still running, while the program is asked for every poll on this side.
+  that fails after it started counts as still running, while the program is asked for every poll on this side. A job
+  that cannot be asked leaves the program's end to its own handle. A console counts as closed only once it was, and
+  one whose close on its own isolate failed is closed on this isolate after the close's bound. A reader isolate that
+  dies counts as drained. The first pipe is closed when the second cannot be made, the input once the program ended,
+  and a throw while the program is asked for or its console closed counts as still running.
 - A session that is left keeps reading its terminal until the channel has closed or its bound passed, so a program's
-  last answer printed while it closes is the line read. The key wizard takes the exit code the terminal saw, also one
-  seen while it closed. A terminal whose window goes away while its program still runs raises nothing unhandled.
+  last answer printed while it closes is the line read; it takes no link, copy or forward from it, and is quiet once
+  disposed. The key wizard, the forge token, the provider key and the provider sign-in take the exit code the terminal
+  saw, also one seen while it closed. A terminal whose window goes away while its program still runs raises nothing
+  unhandled.
 - The tests that stayed green with their harm present now fail with it: the close bound is measured from before
   letting go without blocking, and the cancel test's terminal ends with a real code, with tests for an answer printed
-  while closing and for a terminal that never started.
+  while closing and for a terminal that never started. The recovery tests' Core holds the registry checkout as the
+  registry does and refuses a change or push without the hold, and every test that ended its runs checks that nothing
+  stays held and no card copy stays behind. The card copy's folder and file are checked as they are made, and a made
+  commit is tried as the base, as a commit before it, merged in beside the first-parent line, and with a commit above
+  it.
 
 ## To be checked
 
 - Point 4's third harm, a project read with no access revision forgetting the kept commit, cannot happen today: a
   project view's access and project revisions are both non-nullable, and no view means no read at all. Nothing was
   changed for it.
-- The Windows changes are tested through their seams only; closing a console on its own isolate and the waiter's
-  failure report still want a run on Windows.
+- The Windows changes are tested through their seams only; closing a console on its own isolate, the waiter's failure
+  report and the reader's end still want a run on Windows. A reader isolate that dies before its first read still
+  leaves its output handle open.
+- A backup key made here in a project's own repository that replaced no key does not hold a new review: the people
+  and roles a replacement is reviewed on are the access file's, which that commit does not change. Only one that
+  replaced a key does.
+- A key change in a KeePassXC terminal lets go of the registry checkout once its terminal returned, which may be
+  before its program ended when the window was put away.
+- The sweep of card copies left behind takes every `porelo-card-` folder of this user that this program is not using,
+  so a second instance of the program running a replacement at the same moment could lose its copy; Core then cannot
+  read the card and makes nothing.
+- A request kept by the first build of this issue, with its card but without the review's card text, is compared by
+  the card's key alone.

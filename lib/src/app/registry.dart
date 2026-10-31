@@ -243,38 +243,58 @@ class Registry extends ChangeNotifier with QuietAfterDispose {
 
   Object? _holder;
   Completer<void>? _released;
+  Future<void> _heldReads = Future<void>.value();
 
-  /// Whether a key replacement or backup key holds the checkout, as Core changes it there outside this class.
+  /// Whether a key replacement, a backup key or a card filing holds the checkout, as Core changes it there outside this
+  /// class.
   bool get held => _holder != null;
+
+  /// Whether [holder] is the run that holds the checkout now.
+  bool holds(Object? holder) => holder != null && identical(_holder, holder);
 
   /// What a filing is refused with while a key replacement or backup key holds the checkout.
   static const heldWords = 'A key replacement or backup key runs in the registry checkout; wait until it has ended.';
 
-  /// Takes the checkout for [holder], whose change Core makes in it outside this class, until [release].
+  /// Takes the checkout for [holder], a token made for one run alone, whose change Core makes in it outside this class,
+  /// until [release] with the same token.
   ///
   /// Refused with words while a fetch, a read or a filing runs or is asked, or another holds it; meanwhile a refresh
   /// waits for the release and a filing is refused, so neither meets the change half made.
   void hold(Object holder) {
-    if (_holder == holder) return;
+    if (holds(holder)) return;
     if (_holder != null) throw const RegistryRefusal(heldWords);
     if (busy) throw const RegistryRefusal('A registry read or filing still runs; try again once it has ended.');
     _holder = holder;
+    _heldReads = Future<void>.value();
     final released = _released = Completer<void>();
     _tail = _tail.then((_) => released.future);
     notifyListeners();
   }
 
-  /// Lets go of the checkout [holder] took; what waited for it runs now.
+  /// Lets go of the checkout [holder] took, and nothing else's; what waited for it runs once the holder's own reads
+  /// ended.
   void release(Object holder) {
-    if (_holder != holder) return;
+    if (!holds(holder)) return;
     _holder = null;
-    _released?.complete();
+    final released = _released;
     _released = null;
+    _heldReads.whenComplete(() => released?.complete());
     notifyListeners();
   }
 
-  /// Reads the registry again for the change [holder] holds the checkout for, without waiting for its own release.
-  Future<void> readAgainHeld(Object holder) => _holder == holder ? _readAgain() : refresh();
+  /// Reads the registry again for the run [holder], without waiting for its own release: one read after another, before
+  /// anything that waits for that release. A token that holds nothing reads as a refresh does.
+  Future<void> readAgainHeld(Object holder) {
+    if (!holds(holder)) return refresh();
+    _running++;
+    notifyListeners();
+    final result = _heldReads.then((_) => _readAgain());
+    _heldReads = result.then<void>((_) {}, onError: (Object _) {});
+    return result.whenComplete(() {
+      _running--;
+      notifyListeners();
+    });
+  }
 
   /// Every person card, refused ones included.
   List<RegistryCard> get people => _accepted?.people ?? const <RegistryCard>[];
@@ -302,7 +322,7 @@ class Registry extends ChangeNotifier with QuietAfterDispose {
 
   /// Why [filing] cannot be made now, or null when it can; [holder] is the change that holds the checkout and makes it.
   String? unavailable(RegistryFiling filing, {Object? holder}) {
-    if (_holder != null && _holder != holder) return heldWords;
+    if (_holder != null && !holds(holder)) return heldWords;
     if (_holder == null && busy) return 'Another registry operation is still running.';
     return _whyNot(filing);
   }

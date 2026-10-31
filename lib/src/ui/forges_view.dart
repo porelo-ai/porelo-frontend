@@ -277,8 +277,8 @@ class _ForgeFormState extends State<ForgeForm> {
       }
       return;
     }
-    int? exit;
-    await runInATerminal(
+    // The end includes a code that arrived while the terminal closed.
+    final end = await runInATerminal(
       context,
       title: 'Connect $address',
       explanation: 'Enter your own token at the terminal prompt. It is not echoed and goes into this computer’s system secret store.',
@@ -286,10 +286,9 @@ class _ForgeFormState extends State<ForgeForm> {
       command: <String>[poreloHost(), 'key', 'set', address],
       shownCommand: 'porelo-host key set $address',
       open: forges.openTerminal,
-      onExit: (code) => exit = code,
       stillWorking: 'Waiting for the token in this terminal on this computer.',
     );
-    if (!mounted || exit != 0) return;
+    if (!mounted || end.code != 0) return;
     try {
       if (!await forges.hasToken(address)) {
         if (mounted) setState(() => _problem = 'No token is kept for $address. Enter it in the terminal.');

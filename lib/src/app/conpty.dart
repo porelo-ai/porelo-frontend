@@ -45,16 +45,17 @@ class ConPty implements SessionChannel {
     Map<String, String> environment = const <String, String>{},
   }) {
     final k = _Kernel32();
-    final handles = k.alloc(4 * sizeOf<IntPtr>()).cast<IntPtr>();
-    // 0 and 1: the pseudoconsole reads what is typed from the first pipe; 2 and 3: it writes what
-    // the program printed to the second.
-    if (k.createPipe(handles, handles + 1, nullptr, 0) == 0 ||
-        k.createPipe(handles + 2, handles + 3, nullptr, 0) == 0) {
-      k.free(handles.cast());
-      throw const PtyRefused('Windows would not open the pipes of a terminal');
-    }
-    final inputRead = handles[0], inputWrite = handles[1], outputRead = handles[2], outputWrite = handles[3];
-    k.free(handles.cast());
+    // The first pipe: the pseudoconsole reads what is typed from it; the second: it writes what the program printed.
+    final pipes = openPipes(() {
+      final ends = k.alloc(2 * sizeOf<IntPtr>()).cast<IntPtr>();
+      try {
+        return k.createPipe(ends, ends + 1, nullptr, 0) == 0 ? null : (read: ends[0], write: ends[1]);
+      } finally {
+        k.free(ends.cast());
+      }
+    }, (handle) => k.closeHandle(handle));
+    if (pipes == null) throw const PtyRefused('Windows would not open the pipes of a terminal');
+    final (input: (read: inputRead, write: inputWrite), output: (read: outputRead, write: outputWrite)) = pipes;
 
     final console = k.alloc(sizeOf<IntPtr>()).cast<IntPtr>();
     final made = k.createPseudoConsole(_coord(columns, rows), inputRead, outputWrite, 0, console);
@@ -137,6 +138,7 @@ class ConPty implements SessionChannel {
         hpc,
         job,
         ConsoleRelease(
+          closeInput: () => _Kernel32().closeHandle(inputWrite),
           endJob: job == 0 ? null : () => _Kernel32().terminateJobObject(job, _closedFromHere) != 0,
           closeJob: () {
             if (job != 0) _Kernel32().closeHandle(job);
@@ -172,7 +174,7 @@ class ConPty implements SessionChannel {
   /// Sends input to the far end, all of it: `WriteFile` on a pipe may take part of it.
   @override
   void send(String input) {
-    if (_shut) return;
+    if (_shut || _console.release.inputEnded) return;
     final k = _Kernel32();
     final bytes = utf8.encode(input);
     final buffer = k.alloc(bytes.length).cast<Uint8>();
@@ -191,7 +193,7 @@ class ConPty implements SessionChannel {
   @override
   void resize({required int columns, required int rows}) {
     if (_shut) return;
-    if (!_console.closed) _Kernel32().resizePseudoConsole(_console.handle, _coord(columns, rows));
+    if (!_console.release.closing) _Kernel32().resizePseudoConsole(_console.handle, _coord(columns, rows));
   }
 
   Future<void>? _closing;
@@ -200,8 +202,7 @@ class ConPty implements SessionChannel {
   @override
   Future<void> close() => _closing ??= letGoAndWait(() {
     _shut = true;
-    final k = _Kernel32();
-    k.closeHandle(_input);
+    _console.release.endInput();
     // Ends `wsl.exe` or `ssh.exe` and whatever they started; the waiter then sees the end and closes the console.
     return _console.release.letGo();
   }, _ended);
@@ -237,7 +238,8 @@ class ConPty implements SessionChannel {
     },
     output: output,
     ended: ended,
-    read: (to) => Isolate.spawn(_readUntilItEnds, <Object>[to, outputRead]).catchError((Object error) {
+    // A reader that dies, whatever it posted last, says so on the same port, after its output, as null.
+    read: (to) => Isolate.spawn(_readUntilItEnds, <Object>[to, outputRead], onExit: to).catchError((Object error) {
       // Nothing reads the output: closed, so the console writes into nothing rather than blocking.
       _Kernel32().closeHandle(outputRead);
       throw error;
@@ -252,7 +254,8 @@ class ConPty implements SessionChannel {
   /// Where [wait] cannot start, or fails after it started (an error posted as a list of two strings, as an isolate's
   /// `onError` port receives it), the program is asked for here every [poll] through [endedNow], its exit code once
   /// every process of it has ended, and counts as running until then; where [read] cannot start, its end is not waited
-  /// for.
+  /// for, nor where its isolate ended (null posted, as an isolate's `onExit` port receives it) without saying the output
+  /// ended. A throw while asking or closing counts as still running, never as an error nobody handles.
   @visibleForTesting
   static void watch({
     required void Function() closeConsole,
@@ -280,24 +283,39 @@ class ConPty implements SessionChannel {
       // Nothing waits for the program: it is asked for here, and counts as running until it is seen gone.
       if (code != null || asking != null) return;
       asking = Timer.periodic(poll, (_) {
-        if (endedNow() case final value?) port.sendPort.send(value);
+        int? value;
+        try {
+          value = endedNow();
+        } on Object {
+          // Not known: still running, asked again at the next poll.
+          value = null;
+        }
+        if (value != null) port.sendPort.send(value);
       });
     }
 
     listening = port.listen((dynamic message) async {
-      if (message is Uint8List) {
-        if (!output.isClosed) output.add(message);
-      } else if (message == _drained) {
-        drained = true;
-        await finishWhenBoth();
-      } else if (message is int && code == null) {
-        asking?.cancel();
-        code = message;
-        // The output ends only now: the program has exited, and the pseudoconsole lets go.
-        closeConsole();
-        await finishWhenBoth();
-      } else if (message is List) {
-        askHere();
+      try {
+        if (message is Uint8List) {
+          if (!output.isClosed) output.add(message);
+        } else if (message == _drained || message == null) {
+          drained = true;
+          await finishWhenBoth();
+        } else if (message is int && code == null) {
+          asking?.cancel();
+          code = message;
+          try {
+            // The output ends only now: the program has exited, and the pseudoconsole lets go.
+            closeConsole();
+          } on Object {
+            // Its end was seen all the same; what could not be closed is not waited on.
+          }
+          await finishWhenBoth();
+        } else if (message is List) {
+          askHere();
+        }
+      } on Object {
+        // A message that could not be taken leaves the program counted as running until its end is seen.
       }
     });
     unawaited(
@@ -351,26 +369,69 @@ class ConPty implements SessionChannel {
 
   /// The program's exit code once it and every process in its [job] have ended, or null while one runs; -1 for an
   /// exit code Windows would not give.
-  static int? _endedNow(_Kernel32 k, int process, int job) {
-    if (k.waitForSingleObject(process, 0) != _waitObject0) return null;
-    if (job != 0) {
-      final accounting = k.alloc(_basicAccountingBytes);
+  static int? _endedNow(_Kernel32 k, int process, int job) => endedFrom(
+    processEnded: () => k.waitForSingleObject(process, 0) == _waitObject0,
+    activeInJob: job == 0
+        ? null
+        : () {
+            final accounting = k.alloc(_basicAccountingBytes);
+            try {
+              if (k.queryInformationJobObject(
+                    job,
+                    _basicAccountingInformation,
+                    accounting,
+                    _basicAccountingBytes,
+                    nullptr,
+                  ) ==
+                  0) {
+                return null;
+              }
+              return (accounting.cast<Uint8>() + _activeProcessesOffset).cast<Uint32>().value;
+            } finally {
+              k.free(accounting);
+            }
+          },
+    exitCode: () {
+      final code = k.alloc(sizeOf<Uint32>()).cast<Uint32>();
       try {
-        // A job that cannot be asked is counted as still running: ended is said only once it is known.
-        if (k.queryInformationJobObject(job, _basicAccountingInformation, accounting, _basicAccountingBytes, nullptr) ==
-                0 ||
-            (accounting.cast<Uint8>() + _activeProcessesOffset).cast<Uint32>().value != 0) {
-          return null;
-        }
+        return k.getExitCodeProcess(process, code) == 0 ? -1 : code.value;
       } finally {
-        k.free(accounting);
+        k.free(code.cast());
       }
+    },
+  );
+
+  /// The program's [exitCode] once it [processEnded] and no process is [activeInJob], or null while one runs.
+  ///
+  /// [activeInJob] is null where the program is in no job; it answers null where the job cannot be asked, and the
+  /// program's own handle alone then says whether it ended: a job that is never answered would hold its end for good.
+  @visibleForTesting
+  static int? endedFrom({
+    required bool Function() processEnded,
+    required int? Function()? activeInJob,
+    required int Function() exitCode,
+  }) {
+    if (!processEnded()) return null;
+    if (activeInJob?.call() case final active? when active != 0) return null;
+    return exitCode();
+  }
+
+  /// The two pipes of a terminal, each made by [pipe], null where it could not make one; a pipe made before one that
+  /// failed is closed with [close].
+  @visibleForTesting
+  static ({({int read, int write}) input, ({int read, int write}) output})? openPipes(
+    ({int read, int write})? Function() pipe,
+    void Function(int handle) close,
+  ) {
+    final input = pipe();
+    if (input == null) return null;
+    final output = pipe();
+    if (output == null) {
+      close(input.read);
+      close(input.write);
+      return null;
     }
-    final code = k.alloc(sizeOf<Uint32>()).cast<Uint32>();
-    final got = k.getExitCodeProcess(process, code);
-    final value = got == 0 ? -1 : code.value;
-    k.free(code.cast());
-    return value;
+    return (input: input, output: output);
   }
 
   /// A job object that kills [process], and whatever it starts, when the job's handle closes; 0
@@ -413,21 +474,25 @@ class _Console {
 
   /// How it is let go and closed.
   final ConsoleRelease release;
-
-  bool get closed => release.closed;
 }
 
 /// How a pseudoconsole is let go from this side and closed once its program ended, apart from the Windows calls it is
 /// made of.
 @visibleForTesting
 class ConsoleRelease {
-  /// Takes the calls: [endJob] null where the program is in no job.
+  /// Takes the calls: [endJob] null where the program is in no job; [lastResort] is how long a console whose close on
+  /// an isolate of its own failed is left before it is closed on this one.
   ConsoleRelease({
+    required this.closeInput,
     required this.endJob,
     required this.closeJob,
     required this.closeConsole,
     required this.closeConsoleAway,
+    this.lastResort = closeBound,
   });
+
+  /// Closes the way input reaches the console.
+  final void Function() closeInput;
 
   /// Ends every process in the job, which does not block; false where Windows would not.
   final bool Function()? endJob;
@@ -441,28 +506,61 @@ class ConsoleRelease {
   /// Closes the console on an isolate of its own.
   final Future<void> Function() closeConsoleAway;
 
-  /// Whether the console is closed or being closed.
+  /// How long a console whose close away failed is left before it is closed here: past the close's bound, so whoever
+  /// waits on it was told the program still runs before this isolate may wait on it.
+  final Duration lastResort;
+
+  /// Whether the console is closed.
   bool closed = false;
 
+  bool _closingAway = false;
   bool _jobClosed = false;
+
+  /// Whether the console is closed or being closed, so nothing more is asked of it.
+  bool get closing => closed || _closingAway;
+
+  /// Whether the way input reaches the console is closed.
+  bool get inputEnded => _inputEnded;
+  bool _inputEnded = false;
+
+  /// Closes the way input reaches the console, once.
+  void endInput() {
+    if (_inputEnded) return;
+    _inputEnded = true;
+    closeInput();
+  }
 
   /// Ends the program from this side: every process in its job, which does not block, so closing the console after
   /// it waits on nothing. Without a job, or where ending it failed, only closing the console ends it, which may block,
-  /// so it is closed on an isolate of its own; the job stays open for the waiter that asks it.
-  Future<void> letGo() {
-    if (closed) return Future<void>.value();
-    if (endJob?.call() ?? false) return Future<void>.value();
-    closed = true;
-    return closeConsoleAway();
+  /// so it is closed on an isolate of its own, and counted closed only once it was; where that failed, it is closed on
+  /// this isolate after [lastResort]. The job stays open for the waiter that asks it.
+  Future<void> letGo() async {
+    if (closing) return;
+    if (endJob?.call() ?? false) return;
+    _closingAway = true;
+    try {
+      await closeConsoleAway();
+      closed = true;
+    } on Object {
+      await Future<void>.delayed(lastResort);
+      if (!closed) {
+        closed = true;
+        closeConsole();
+      }
+    } finally {
+      _closingAway = false;
+    }
   }
 
-  /// Once the program's end was seen: closes the job, ending whatever is still in it, then the console.
+  /// Once the program's end was seen: closes the input and the job, ending whatever is still in it, then the console,
+  /// unless it is being closed away already, which closes it either way.
   void close() {
+    endInput();
     if (!_jobClosed) {
       _jobClosed = true;
       closeJob();
     }
-    if (closed) return;
+    if (closing) return;
     closed = true;
     closeConsole();
   }

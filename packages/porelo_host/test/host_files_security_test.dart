@@ -356,8 +356,8 @@ class _ArrivingFile extends HostFileWriter {
 
 class _PublicTemporary extends HostFileWriter {
   @override
-  Future<Directory> createTemporary(Directory parent) async {
-    final directory = await super.createTemporary(parent);
+  Future<Directory> createTemporary(Directory parent, {String prefix = '.porelo-writing-'}) async {
+    final directory = await super.createTemporary(parent, prefix: prefix);
     await Process.run('chmod', ['755', directory.path]);
     return directory;
   }

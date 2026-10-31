@@ -144,7 +144,7 @@ Future<(BackupKeyMade?, String?)> _makeBackupKey(
     // A backup key touches only its own entry, so it is made on the newest commit made here in what it changes.
     final read = situation.backupBase;
     if (read == null) return (null, 'The commit in force is not read. Read it again.');
-    making = BackupKeyMaking(scope: scope, base: read, core: entry.core, receipts: entry.receipts);
+    making = making.on(read);
   }
   String words;
   BackupKeyMade? made;
