@@ -271,7 +271,7 @@ void main() {
         ],
       },
     ],
-    'refused': [
+    'refused': <Map<String, Object?>>[
       {
         'project': 'billing',
         'host': 'orchard',
@@ -313,6 +313,31 @@ void main() {
       expect(() => readJoinable(json), throwsA(isA<RegistryRefusal>()));
     });
   }
+
+  // Harm: a host whose access file the registry refused makes the whole answer unreadable, or leaves its projects
+  // offered as though their file had been read.
+  test('a host whose access file was refused closes its projects and names the host', () {
+    final json = joinable();
+    (json['refused'] as List).add({
+      'project': null,
+      'host': 'orchard',
+      'access_repository': null,
+      'why': 'hosts/orchard/access.yml in 1111111: not signed by a host admin',
+      'admins': [
+        {'login': 'carol', 'name': 'Carol', 'email': null},
+      ],
+    });
+    final rows = readJoinable(json);
+    expect(rows.whereType<JoinOffered>(), isEmpty, reason: 'nothing on a refused host is offered');
+    final host = rows.whereType<JoinUnreadable>().where((row) => row.repository == null).single;
+    expect(host.words, allOf(contains('orchard'), contains('Carol (carol)')));
+  });
+
+  test('a refused row with only one of project and access repository refuses the answer whole', () {
+    final json = joinable();
+    ((json['refused'] as List).single as Map)['project'] = null;
+    expect(() => readJoinable(json), throwsA(isA<RegistryRefusal>()));
+  });
 
   test('an unreadable access repository with a credential refuses the answer whole', () {
     final json = joinable();

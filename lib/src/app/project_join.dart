@@ -105,15 +105,17 @@ class JoinUnreadable extends JoinAdmission {
   /// The host whose access entries name the repository.
   final String host;
 
-  /// The access repository's address.
-  final String repository;
+  /// The access repository's address, or null when the registry refused the host's own access file.
+  final String? repository;
 
-  /// The verified admins who may grant reading it.
+  /// The verified admins who may grant reading it, or the host's admins for its own access file.
   final List<RegistryContact> whoMay;
 
   /// What the row says.
   String get words => RegistryRefusal(
-    'The access file in $repository for $host cannot be read, so its projects are not known here.',
+    repository == null
+        ? 'The registry refused the access file of $host, so no project on it is known here.'
+        : 'The access file in $repository for $host cannot be read, so its projects are not known here.',
     whoMay: whoMay,
   ).toString();
 }
@@ -145,10 +147,15 @@ List<JoinAdmission> readJoinable(Object? json) {
     final refused = json['refused'];
     if (projects is! List || refused is! List) throw const FormatException('no projects or refused');
     final closed = <String>{};
+    final closedHosts = <String>{};
     final unreadable = <String, JoinUnreadable>{};
     for (final entry in refused) {
       final (key, row) = _unreadable(_object(entry));
-      closed.add(key);
+      if (key == null) {
+        closedHosts.add(row.host);
+      } else {
+        closed.add(key);
+      }
       // One row per repository and host, as several refused projects may share one access repository.
       final same = unreadable['${row.repository} ${row.host}'];
       unreadable['${row.repository} ${row.host}'] = same == null
@@ -171,7 +178,7 @@ List<JoinAdmission> readJoinable(Object? json) {
     }
     return [
       for (final offer in offered.values)
-        if (!closed.contains(offer.key)) offer,
+        if (!closed.contains(offer.key) && !closedHosts.contains(offer.host.name)) offer,
       ...unreadable.values,
     ];
   } on Object catch (error) {
@@ -183,15 +190,18 @@ List<JoinAdmission> readJoinable(Object? json) {
 Map<String, Object?> _object(Object? entry) =>
     entry is Map<String, Object?> ? entry : throw const FormatException('not an object');
 
-(String, JoinUnreadable) _unreadable(Map<String, Object?> entry) {
-  final project = _text(entry, 'project');
+/// A refused project's key and row; a host whose own access file the registry refused has no key, as all its
+/// projects are closed.
+(String?, JoinUnreadable) _unreadable(Map<String, Object?> entry) {
   final host = _text(entry, 'host');
   _text(entry, 'why');
+  final ofTheHost = entry['project'] == null;
+  if (ofTheHost != (entry['access_repository'] == null)) throw const FormatException('half a host row');
   return (
-    '$project@$host',
+    ofTheHost ? null : '${_text(entry, 'project')}@$host',
     JoinUnreadable(
       host: host,
-      repository: _checked(_text(entry, 'access_repository')),
+      repository: ofTheHost ? null : _checked(_text(entry, 'access_repository')),
       whoMay: _contacts(entry['admins']),
     ),
   );

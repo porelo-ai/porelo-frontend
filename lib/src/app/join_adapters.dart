@@ -42,7 +42,9 @@ class CoreJoinDiscovery implements JoinDiscovery {
         }
         return readJoinable(json);
       case 65:
-        throw const RegistryRefusal('Core refused to say which projects you may join: the registry did not verify.');
+        throw const RegistryRefusal(
+          'Core refused to say which projects you may join: the registry did not verify, or accepted no commit yet.',
+        );
       case 66:
         throw const RegistryRefusal('The registry has not been read here yet, so no project you may join is known.');
       case 69:

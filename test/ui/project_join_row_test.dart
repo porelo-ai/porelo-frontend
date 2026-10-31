@@ -52,7 +52,7 @@ void main() {
         home: Scaffold(body: Builder(builder: _unreadable)),
       ),
     );
-    expect(find.text(unreadable.repository), findsOneWidget);
+    expect(find.text(unreadable.repository!), findsOneWidget);
     expect(find.textContaining('Bob (bob)'), findsOneWidget);
   });
 }
