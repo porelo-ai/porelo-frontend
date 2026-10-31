@@ -48,8 +48,8 @@ void main() {
     });
   }
 
-  // Harm: local persistence failure must not invalidate already applied signed work.
-  test('a delivered registration survives a recording refusal and returned server', () async {
+  // Harm: a delivered change whose server was given back stays as a Retry that can never succeed.
+  test('a delivered registration whose server was given back is forgotten and ends', () async {
     final base = await fixture.access(settings);
     var refuse = true;
     final access = ProjectAccess(
@@ -67,10 +67,12 @@ void main() {
     final receipt = settings.projectAccess('demo')!;
     expect(receipt.state, ProjectAccessState.delivered);
     await settings.rememberHostReturned('orchard');
-    await expectLater(access.retry(), throwsA(isA<RegistryRefusal>()));
-    expect(settings.projectAccess('demo')!.stored, receipt.stored);
+    fixture.calls.clear();
+    await access.retry();
+    expect(settings.projectAccess('demo'), isNull);
+    expect(access.pending, isFalse);
     expect(access.supersededChangeId, isNull);
-    expect(access.unavailable(delivery: true), isNull);
+    expect(fixture.calls, isEmpty);
     refuse = false;
   });
 
@@ -265,7 +267,7 @@ void main() {
     });
   }
 
-  // Harm: only a returned server permits local discard; admission refresh must retain signed work.
+  // Harm: a returned server leaves a Retry stuck; an admission refresh must retain signed work.
   for (final refusal in ['returned', 'admission']) {
     test('a filed $refusal refusal keeps the correct recovery choice', () async {
       final store = MemorySettingsStore();
@@ -283,26 +285,27 @@ void main() {
         await fixture.registry.refresh();
       }
       fixture.calls.clear();
+      if (refusal == 'returned') {
+        await access.retry();
+        expect(first.projectAccess('demo'), isNull);
+        expect(access.supersededChangeId, isNull);
+        expect(fixture.calls, isEmpty);
+        return;
+      }
       await expectLater(access.retry(), throwsA(isA<RegistryRefusal>()));
-      expect(access.supersededChangeId, refusal == 'returned' ? id : isNull);
+      expect(access.supersededChangeId, isNull);
       final restored = Settings(store);
       addTearDown(restored.dispose);
       await restored.load();
       final resumed = await fixture.access(restored);
       await resumed.read('demo');
-      expect(resumed.unavailable(), contains(refusal == 'returned' ? 'given back' : 'not admitted'));
-      if (refusal == 'returned') {
-        await resumed.discard(id);
-        expect(restored.projectAccess('demo'), isNull);
-        expect(fixture.calls, isEmpty);
-      } else {
-        expect(resumed.unavailable(delivery: true), isNull);
-        fixture.registrySource.admitted = true;
-        await fixture.registry.refresh();
-        await resumed.retry();
-        expect(restored.projectAccess('demo')!.confirmed, isTrue);
-        expect(restored.projectAccess('demo')!.change.id, id);
-      }
+      expect(resumed.unavailable(), contains('not admitted'));
+      expect(resumed.unavailable(delivery: true), isNull);
+      fixture.registrySource.admitted = true;
+      await fixture.registry.refresh();
+      await resumed.retry();
+      expect(restored.projectAccess('demo')!.confirmed, isTrue);
+      expect(restored.projectAccess('demo')!.change.id, id);
     });
   }
 

@@ -17,6 +17,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   The join asks Core again, follows with Core's signers through the host's tunnel, and saves only what
   the host confirmed. An access repository that cannot be read names who may grant it.
 
+- A project change whose server was given back before it was recorded is forgotten, so Retry ends
+  cleanly instead of repeating "The server was given back".
+
 - Existing-server preparation runs the checked collection over pinned, agent-only SSH as root,
   retains callback refusal words, and saves the dialog's public settings for retry and card publication.
   Teardown excludes disk identities, checks given-host pins, and isolates concurrent pins. Malformed

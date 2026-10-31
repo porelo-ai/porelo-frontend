@@ -940,6 +940,13 @@ class Settings extends ChangeNotifier {
     await _forgetProjectAccess(project, previous);
   }
 
+  /// Forgets an unconfirmed signed receipt whose server was given back, as nothing remains to deliver it to.
+  Future<void> forgetReturnedProjectAccess(String project) async {
+    final previous = _projectAccess[project];
+    if (previous == null || previous.confirmed || !hostReturned(previous.change.host)) return;
+    await _forgetProjectAccess(project, previous);
+  }
+
   /// Discards only the selected superseded receipt, preserving confirmed records.
   Future<void> forgetSupersededProjectAccess(String project, String changeId) async {
     final previous = _projectAccess[project];

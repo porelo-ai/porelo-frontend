@@ -456,6 +456,12 @@ class ProjectAccess implements ProjectPersonActions {
   Future<ProjectAccessProgress?> _reconcile() async {
     var progress = settings.projectAccess(project);
     if (progress == null || progress.confirmed) return null;
+    // A server given back before Core's change was recorded leaves nothing to deliver to: the receipt is forgotten
+    // and the operation ends.
+    if (progress.revision != null && settings.hostReturned(progress.change.host)) {
+      await settings.forgetReturnedProjectAccess(project);
+      return null;
+    }
     if (progress.state == ProjectAccessState.superseded) throw RegistryRefusal(_supersededReason);
     progress = await _resolve(progress);
     if (progress.state == ProjectAccessState.unfiled) {
