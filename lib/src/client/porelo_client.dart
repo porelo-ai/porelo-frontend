@@ -316,6 +316,21 @@ class PoreloClient {
         }),
       );
 
+  // --------------------------------------------------------------------- signing
+
+  /// Core's signing policy for [project]: the person's own public key and the allowed-signers lines in force.
+  ///
+  /// Throws a [FormatException] when the answer names no key or no usable line. The method's name and its
+  /// parameter are assumed until Core serves them.
+  Future<ProjectSigners> projectSigners(String project) async =>
+      ProjectSigners.from(await _call('ProjectSigners', <String, dynamic>{'project': project}));
+
+  /// Core's recorded verdict on [revision], a commit of [project]'s access repository that already arrived.
+  ///
+  /// The method's name and its parameters are assumed until Core serves them.
+  Future<CommitVerdict> commitVerdict(String project, String revision) async =>
+      CommitVerdict.from(await _call('CommitVerdict', <String, dynamic>{'project': project, 'revision': revision}));
+
   // --------------------------------------------------------------------- running tasks
 
   /// Starts a task, streaming the build as it happens.

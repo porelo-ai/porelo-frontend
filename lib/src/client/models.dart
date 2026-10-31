@@ -5266,3 +5266,71 @@ String _registryRevision(Object? value, String field) {
   }
   return value;
 }
+
+/// Core's public signing policy for one project: the person's own key and the signers in force.
+///
+/// The fields are assumed until Core serves them.
+class ProjectSigners {
+  /// Constructor taking every field.
+  const ProjectSigners({required this.login, required this.key, required this.allowedSigners});
+
+  /// The person's login, as their card names it.
+  final String login;
+
+  /// The person's public `ssh-ed25519` key, without a comment: the one a commit made here is signed with.
+  final String key;
+
+  /// Git's allowed-signers lines in force for a new commit, verbatim, never rewritten here.
+  final List<String> allowedSigners;
+
+  /// Reads Core's answer, refusing one that names no person, no plain key or no usable signer line.
+  factory ProjectSigners.from(Map<String, dynamic> map) {
+    final login = map['login'];
+    final key = map['key'];
+    final lines = map['allowedSigners'];
+    if (login is! String || !RegExp(r'^[a-z][a-z0-9-]{0,31}$').hasMatch(login)) {
+      throw const FormatException('The signer answer names no person.');
+    }
+    if (key is! String || !RegExp(r'^ssh-ed25519 AAAA[A-Za-z0-9+/]+={0,2}$').hasMatch(key)) {
+      throw const FormatException('The signer answer has no plain ssh-ed25519 key.');
+    }
+    if (lines is! List<dynamic> || lines.isEmpty || !lines.every(_isAllowedSignersLine)) {
+      throw const FormatException('The signer answer has no usable allowed-signers lines.');
+    }
+    return ProjectSigners(login: login, key: key, allowedSigners: List<String>.unmodifiable(lines.cast<String>()));
+  }
+}
+
+/// One line of Git's allowed-signers file: principals, optional options, a key type and its key, on a line of its own.
+bool _isAllowedSignersLine(Object? line) =>
+    line is String &&
+    RegExp(
+      r'^[^\s#]\S*(?: \S+)? (?:ssh-ed25519|sk-ssh-ed25519@openssh\.com|ssh-rsa|ecdsa-sha2-nistp(?:256|384|521)|'
+      r'sk-ecdsa-sha2-nistp256@openssh\.com) [A-Za-z0-9+/]+={0,2}(?: [^\x00-\x1f\x7f]*)?$',
+    ).hasMatch(line);
+
+/// Core's recorded verdict on a commit that already arrived, judged when it arrived rather than by the time it claims.
+///
+/// The field is assumed until Core serves it. A word Core adds later is kept, and is neither accepted nor unrecorded.
+class CommitVerdict {
+  /// Constructor taking Core's word.
+  const CommitVerdict(this.verdict);
+
+  /// `accepted`, `refused` or `unrecorded`, as Core says it.
+  final String verdict;
+
+  /// Whether Core accepted the commit when it arrived.
+  bool get accepted => verdict == 'accepted';
+
+  /// Whether Core has no verdict for it, so it is judged as arriving now.
+  bool get unrecorded => verdict == 'unrecorded';
+
+  /// Reads Core's answer, refusing one without a verdict.
+  factory CommitVerdict.from(Map<String, dynamic> map) {
+    final verdict = map['verdict'];
+    if (verdict is! String || verdict.isEmpty || RegExp(r'[\x00-\x20\x7f]').hasMatch(verdict)) {
+      throw const FormatException('The verdict answer has no verdict.');
+    }
+    return CommitVerdict(verdict);
+  }
+}

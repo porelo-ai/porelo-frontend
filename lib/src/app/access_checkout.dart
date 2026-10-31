@@ -2,24 +2,27 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as path;
+import 'package:porelo_frontend/client.dart';
 import 'package:porelo_host/porelo_host.dart';
 
+import 'commit_signing.dart';
 import 'run_here.dart';
-import 'read_public_signing_key.dart';
+import 'signer_policy.dart';
 
-/// The person's private access checkout, signed and pushed through their own Git configuration.
+/// The person's private access checkout, signed with their key through their agent and accepted as Core says.
 class AccessCheckout {
-  /// Names the signed project's access repository and the public key trusted for this bring.
+  /// Names the signed project's access repository and Core's signer policy for it.
   AccessCheckout({
     required this.root,
     required this.project,
     required this.repository,
-    required this.signingKey,
-    required this.adminSigners,
+    required this.signers,
     RunHere? run,
     HostFileWriter? writer,
+    CommitSigning? signing,
   }) : _run = run ?? runHere,
-       _writer = writer ?? HostFileWriter();
+       _writer = writer ?? HostFileWriter(),
+       _signing = signing ?? CommitSigning(signers, run: run);
 
   /// The private directory containing the per-project checkouts.
   final String root;
@@ -30,16 +33,13 @@ class AccessCheckout {
   /// The credential-free repository address from the verified project file.
   final String repository;
 
-  /// The public key that must verify access commits before they leave this computer.
-  final File signingKey;
-
-  /// Core's verified project-admin public signer set.
-  final List<String> adminSigners;
+  /// Core's signer policy: who signs a commit made here, and which commits are accepted; none refuses everything.
+  final SignerPolicy? signers;
   final RunHere _run;
   final HostFileWriter _writer;
+  final CommitSigning _signing;
   String? _branch;
-  String? _allowedSigners;
-  String? _fingerprint;
+  ProjectSigners? _signers;
   Directory? _work;
 
   String get _cache => path.join(root, project);
@@ -66,7 +66,10 @@ class AccessCheckout {
   Future<void> open() async {
     await close();
     _branch = null;
+    _signers = null;
     checkRepository(repository);
+    // Core's signers come first: without them nothing is cloned, moved or signed.
+    final signers = await _signing.signersFor(project);
     await privateDirectory(Directory(root), writer: _writer);
     final directory = Directory(folder);
     final type = await FileSystemEntity.type(folder, followLinks: false);
@@ -79,7 +82,7 @@ class AccessCheckout {
     }
     try {
       if (fresh) await _git(['clone', '--no-tags', '--', repository, folder], inCheckout: false);
-      await _verifyAndAdvance(directory);
+      await _verifyAndAdvance(directory, signers);
     } on Exception {
       // A fresh clone holds nothing of the person's, so one that failed any check leaves nothing behind.
       if (fresh && await directory.exists()) await directory.delete(recursive: true);
@@ -96,7 +99,7 @@ class AccessCheckout {
   }
 
   /// Checks the clean checkout, its origin and its signing, then fast-forwards it to the verified origin commit.
-  Future<void> _verifyAndAdvance(Directory directory) async {
+  Future<void> _verifyAndAdvance(Directory directory, ProjectSigners signers) async {
     await _writer.protectDirectory(directory);
     if ((await _git(['status', '--porcelain'])).out.isNotEmpty) {
       throw const WorkspaceRefused(
@@ -105,13 +108,6 @@ class AccessCheckout {
     }
     if ((await _git(['config', '--get', 'remote.origin.url'])).out.trim() != repository) {
       throw const WorkspaceRefused('The access checkout origin differs from access.repository.');
-    }
-    final signing = await _git(['config', '--bool', '--get', 'commit.gpgsign'], optional: true);
-    final key = await _git(['config', '--get', 'user.signingkey'], optional: true);
-    if (signing.code != 0 || signing.out.trim() != 'true' || key.code != 0 || key.out.trim().isEmpty) {
-      throw const WorkspaceRefused(
-        'Set up your own Git commit signing (commit.gpgsign and user.signingkey) before bringing this project.',
-      );
     }
     // The full ref name, as a tag named like origin/<branch> would shadow the short one.
     final branch = (await _git(['symbolic-ref', 'refs/remotes/origin/HEAD'])).out.trim();
@@ -133,17 +129,12 @@ class AccessCheckout {
         'The access checkout has commits its origin does not hold. Publish or drop them with your own Git first.',
       );
     }
-    final signingPublic = readPublicSigningKey(signingKey);
-    _fingerprint = HostFiles.signingFingerprint(signingPublic);
-    _allowedSigners = '$folder/.git/porelo-bring-signers';
-    if (adminSigners.isEmpty || !adminSigners.map(HostFiles.signingFingerprint).contains(_fingerprint)) {
-      throw const WorkspaceRefused('The person is not a verified project-admin signer.');
-    }
-    await File(_allowedSigners!).writeAsString(adminSigners.map((key) => 'porelo namespaces="git" $key\n').join());
-    // The origin's commit is verified before the checkout moves to it, so an untrusted one never lands here.
-    await _verifyHead(branch);
-    await _git(['merge', '--ff-only', branch]);
-    await _verifyHead();
+    // The origin's commit is accepted as Core says before the checkout moves to it, so an untrusted one never lands
+    // here: by Core's verdict from when it arrived, or, where Core recorded none, as arriving now.
+    final tip = (await _git(['rev-parse', '--verify', '$branch^{commit}'])).out.trim();
+    await _signing.checkArrived(project, folder, tip, signers, scratchIn: Directory(root));
+    await _git(['merge', '--ff-only', tip]);
+    _signers = signers;
     await _plainAccessFile();
   }
 
@@ -154,25 +145,6 @@ class AccessCheckout {
     _work = null;
     await _git(['worktree', 'remove', '--force', work.path]);
     if (await work.exists()) await work.delete(recursive: true);
-  }
-
-  Future<void> _verifyHead([String revision = 'HEAD']) async {
-    final signature = (await _git([
-      '-c',
-      'gpg.ssh.allowedSignersFile=$_allowedSigners',
-      'log',
-      '--no-show-signature',
-      '-1',
-      '--format=%G?%n%GF',
-      revision,
-    ])).out.trim().split('\n');
-    if (signature.length != 2 ||
-        signature[0] != 'G' ||
-        !adminSigners.map(HostFiles.signingFingerprint).contains(signature[1])) {
-      throw const WorkspaceRefused(
-        'The access commit must be signed by the verified project-admin signer set. Nothing was pushed.',
-      );
-    }
   }
 
   Future<File> _plainAccessFile() async {
@@ -212,7 +184,8 @@ class AccessCheckout {
     }
   }
 
-  /// Signs through the person's Git, verifies the signer, pushes, and only then creates the bundle.
+  /// Signs with the person's key through their agent, checks it against Core's lines, pushes, and only then creates the
+  /// bundle.
   ///
   /// The persistent checkout moves to the published commit only after the push, and the bundle carries it both as
   /// the default branch and as HEAD, so a follow finds it by either.
@@ -223,17 +196,29 @@ class AccessCheckout {
     void Function(String revision)? onPublished,
   }) async {
     final branch = _branch;
-    if (branch == null || _work == null) throw const WorkspaceRefused('Open and verify the access checkout first.');
+    final signers = _signers;
+    if (branch == null || signers == null || _work == null) {
+      throw const WorkspaceRefused('Open and verify the access checkout first.');
+    }
     final String published;
     try {
       await _git(['add', '--', 'access.yml']);
       final changed = await _git(['diff', '--cached', '--quiet', '--', 'access.yml'], optional: true);
       if (changed.code == 1) {
-        await _git(['commit', '-S', '-m', message, '--', 'access.yml']);
+        await _git([
+          ...CommitSigning.signingOptions(signers, login: signers.login),
+          'commit',
+          '-S',
+          '-m',
+          message,
+          '--',
+          'access.yml',
+        ]);
+        // Signed with the person's key and accepted by Core's lines now, or nothing leaves this computer.
+        await _signing.checkOwn(folder, 'HEAD', signers, scratchIn: Directory(root));
       } else if (changed.code != 0) {
         throw const WorkspaceRefused('Git could not check the staged access settings.');
       }
-      await _verifyHead();
       published = await revision();
       if (changed.code == 1) await _git(['push', 'origin', 'HEAD:$branch']);
       onPublished?.call(published);
@@ -262,12 +247,11 @@ class AccessCheckout {
         'git',
         arguments,
         inDirectory: inCheckout ? folder : null,
-        environment: const {'GIT_TERMINAL_PROMPT': '0'},
+        // None of the person's or the system's Git configuration chooses how a commit is signed or checked.
+        environment: isolatedGit,
       );
     } on Exception {
-      throw const WorkspaceRefused(
-        'Git could not run for the private access checkout. Check your own Git credentials and signing setup.',
-      );
+      throw const WorkspaceRefused('Git could not run for the private access checkout.');
     }
     if (result.code != 0 && !optional) {
       throw const WorkspaceRefused(

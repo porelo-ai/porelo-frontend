@@ -995,6 +995,12 @@ class PoreloBackend implements FleetBackend {
   Future<RegistryFiled> registryFile(String checkout, {required String kind, String? host, String? person}) =>
       _opened().registryFile(checkout, kind: kind, host: host, person: person);
 
+  /// Core's signing policy for a project; see [PoreloClient.projectSigners]. Asked only of this computer's daemon.
+  Future<ProjectSigners> projectSigners(String project) => _opened().projectSigners(project);
+
+  /// Core's recorded verdict on an arrived commit; see [PoreloClient.commitVerdict].
+  Future<CommitVerdict> commitVerdict(String project, String revision) => _opened().commitVerdict(project, revision);
+
   PoreloClient _opened() {
     final client = _client;
     if (client == null) throw StateError('open() has not answered yet');

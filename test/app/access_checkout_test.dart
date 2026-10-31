@@ -5,16 +5,34 @@ library;
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/access_checkout.dart';
+import 'package:porelo_frontend/src/app/commit_signing.dart';
 import 'package:porelo_frontend/src/app/run_here.dart';
-import 'package:porelo_host/porelo_host.dart';
 
+import '../support/fake_signer_policy.dart';
 import '../support/host_admin.dart';
+
+/// Signing that accepts every commit: these tests prove the checkout's order, the Git test proves its signatures.
+class _Trusting extends CommitSigning {
+  _Trusting(super.policy);
+
+  @override
+  Future<void> checkOwn(String folder, String revision, ProjectSigners signers, {required Directory scratchIn}) async {}
+
+  @override
+  Future<void> checkArrived(
+    String project,
+    String folder,
+    String revision,
+    ProjectSigners signers, {
+    required Directory scratchIn,
+  }) async {}
+}
 
 void main() {
   late Directory scratch;
   late List<List<String>> commands;
-  late bool signing;
   late bool dirty;
   late bool pushFails;
   late bool bundleFails;
@@ -24,7 +42,6 @@ void main() {
   setUp(() async {
     scratch = await Directory.systemTemp.createTemp('access-checkout-');
     commands = [];
-    signing = true;
     dirty = false;
     pushFails = false;
     bundleFails = false;
@@ -40,6 +57,10 @@ void main() {
     Map<String, String> environment = const {},
     String? input,
   }) async {
+    // Past the signing options a commit carries, as Git reads them.
+    while (args.first == '-c') {
+      args = args.sublist(2);
+    }
     commands.add(List.of(args));
     expect(environment['GIT_TERMINAL_PROMPT'], '0');
     if (args.first == 'clone') {
@@ -61,8 +82,6 @@ void main() {
       heads[inDirectory!] = staged[inDirectory]!;
     }
     final out = switch (args.join(' ')) {
-      'config --bool --get commit.gpgsign' => signing ? 'true\n' : '',
-      'config --get user.signingkey' => signing ? 'own-agent-key\n' : '',
       'status --porcelain' => dirty ? ' M access.yml\n' : '',
       'config --get remote.origin.url' => 'https://example.org/team/access.git\n',
       'symbolic-ref refs/remotes/origin/HEAD' => 'refs/remotes/origin/main\n',
@@ -70,15 +89,9 @@ void main() {
       'rev-list --left-right --count HEAD...refs/remotes/origin/main' => '0\t0\n',
       'diff --cached --quiet -- access.yml' => '',
       'rev-parse --verify HEAD^{commit}' => '${'b' * 40}\n',
+      'rev-parse --verify refs/remotes/origin/main^{commit}' => '${'b' * 40}\n',
       _ => '',
     };
-    if (args.contains('log')) {
-      return (
-        code: 0,
-        out: 'G\n${HostFiles.signingFingerprint(File('${scratch.path}/signer.pub').readAsStringSync())}\n',
-        err: '',
-      );
-    }
     if (args.contains('push') && pushFails) return (code: 1, out: '', err: 'private credential fixture');
     if (args.first == 'bundle' && bundleFails) return (code: 1, out: '', err: 'local bundle failure');
     if (args.contains('bundle')) await File(args[2]).writeAsString('bundle fixture');
@@ -86,13 +99,17 @@ void main() {
   }
 
   Future<AccessCheckout> checkout() async {
-    await File('${scratch.path}/signer.pub').writeAsString(hostValues()['ssh_host_key']! as String);
+    final core = FakeSignerPolicy(
+      login: 'alice',
+      key: (hostValues()['ssh_host_key']! as String).trim(),
+      allowedSigners: ['alice namespaces="git" ${(hostValues()['ssh_host_key']! as String).trim()}'],
+    );
     return AccessCheckout(
       root: '${scratch.path}/access',
       project: 'demo',
       repository: 'https://example.org/team/access.git',
-      signingKey: File('${scratch.path}/signer.pub'),
-      adminSigners: [File('${scratch.path}/signer.pub').readAsStringSync()],
+      signers: core,
+      signing: _Trusting(core),
       run: git,
     );
   }
@@ -166,16 +183,5 @@ void main() {
     await expectLater(access.bundlePublished(bundle, 'c' * 40), throwsA(isA<WorkspaceRefused>()));
     expect(await File(bundle).exists(), isFalse);
     expect(commands.where((args) => args.first == 'bundle'), isEmpty);
-  });
-
-  // Harm: an unsigned access update fails verification only after it leaves this computer.
-  test('missing git signing is refused before any access edit', () async {
-    final access = await checkout();
-    signing = false;
-    await expectLater(
-      access.open(),
-      throwsA(isA<WorkspaceRefused>().having((e) => e.words, 'signing', contains('signing'))),
-    );
-    expect(commands.any((args) => args.contains('commit')), isFalse);
   });
 }
