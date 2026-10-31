@@ -66,7 +66,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f74"></a>[F74](F74-A-Waiting-Pushs-Tests-Run-In-A-Container-Of-Its-Own.md) | M | — | A waiting push's tests run in a container of their own on the machine, pinned to the reviewed commit under its source-level and risk-class isolation. | — |
 | <a id="f112"></a>[F112](F112-What-A-Piece-Of-Work-Did-In-Words.md) | M | — | What a piece of work did, in words, at its top: last answer, commits as a list with their highest risk class, what waits with its checks, messages, firewall stops; no diff. | — |
 | <a id="f190"></a>[F190](F190-Approved-Work-Brought-To-The-Central-Forge.md) | M | — | A host pull request's state and approval, and approved work brought on to the central forge bound to commit, repository and pull request, with level, class and checks in one line. | — |
-| <a id="f191"></a>[F191](F191-Held-And-Outgoing-Forge-Comments-Released.md) | M | — | Held inbound forge comments and outgoing ones in *Needs you*, each released, dismissed, sent or kept back alone, bound to commit and pull request. | — |
+| <a id="f191"></a>[F191](F191-Held-And-Outgoing-Forge-Comments-Released.md) | M | — | Held inbound forge comments and outgoing ones in *Needs you*, each released, dismissed, sent or refused alone, a person's own from IntelliJ too, bound to commit and pull request. | — |
 
 ### Accepted
 
