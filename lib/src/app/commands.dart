@@ -880,7 +880,7 @@ List<Command> hostMachineCommands({
       unavailable:
           _setupAgainUnavailable(hostRuns, machine.hostProject) ??
           (settings.hostUp(machine.hostProject) == null
-              ? 'nothing was kept from putting it on a server; use Put this project on a server…'
+              ? 'nothing was kept from putting it on a server; use Register the project'
               : null),
     ),
   ],

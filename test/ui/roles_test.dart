@@ -21,7 +21,7 @@ void main() {
     World.shell.goTo(Section.project);
     await World.settle(tester);
     await World.tapInView(tester, 'project-menu');
-    expect(find.text('Put this project on a server…'), findsNothing);
+    expect(find.text('Register the project'), findsNothing);
   });
 
   testWidgets('the project menu offers server placement to a project administrator', (tester) async {
@@ -33,10 +33,7 @@ void main() {
     await World.settle(tester);
     await World.tapInView(tester, 'project-menu');
     expect(
-      find.descendant(
-        of: find.byKey(const Key('project.server')),
-        matching: find.text('Put this project on a server…'),
-      ),
+      find.descendant(of: find.byKey(const Key('project.server')), matching: find.text('Register the project')),
       findsOneWidget,
     );
   });

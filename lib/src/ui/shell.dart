@@ -1622,7 +1622,7 @@ class _ShellState extends State<Shell> {
                   const SizedBox(height: Space.normal),
                   const Text(
                     'The server keeps running and billing at the provider. '
-                    'To add it back, use Put this project on a server… again; it finds the existing server by its tag.',
+                    'To add it back, use Register the project again; it finds the existing server by its tag.',
                   ),
                   if (takeDown.unavailable != null)
                     Text('Take this server down is unavailable: ${takeDown.unavailable}'),

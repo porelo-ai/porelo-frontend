@@ -103,7 +103,8 @@ class HostAccess {
   }
 
   void _authorize([String? host]) {
-    if (unavailable(host) case final reason?) throw RegistryRefusal(reason, whoMay: whoMay);
+    // The reason names who may already; the refusal carries no second list to be said again.
+    if (unavailable(host) case final reason?) throw RegistryRefusal(reason);
   }
 
   void _authorizeExisting(String host) {

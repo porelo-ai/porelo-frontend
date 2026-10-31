@@ -15,7 +15,8 @@ void main() {
   tearDown(() => roles = const Roles());
 
   // Harm: a retained callback must act on the project whose availability was checked.
-  for (final commandId in ['project.server', 'project.developers']) {
+  // The project's persons are its page's list now, not a menu command.
+  for (final commandId in ['project.server']) {
     testWidgets('$commandId keeps its project after selection changes', (tester) async {
       await World.startBackend(World.work);
       await World.startApp(tester);
