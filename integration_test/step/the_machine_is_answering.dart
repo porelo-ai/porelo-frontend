@@ -10,9 +10,9 @@ Future<void> theMachineIsAnswering(WidgetTester tester) async {
   if (!walkingAsANewPerson) return;
   await pumpUntil(
     tester,
-    () => find.byKey(ValueKey<String>('waiting-count ${E2e.name}')).evaluate().isNotEmpty,
+    () => find.byKey(ValueKey<String>('rail-machine ${E2e.name}')).evaluate().isNotEmpty,
     timeout: const Duration(seconds: 30),
-    what: 'the machine to be in the switcher',
+    what: 'the machine to be among the machines',
   );
   await switchTo(tester, E2e.name);
   await pumpFor(tester, const Duration(seconds: 3));
