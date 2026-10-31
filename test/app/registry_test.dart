@@ -48,7 +48,10 @@ Map<String, dynamic> _answer({
     {
       'host': 'walk9server',
       'card': <String, dynamic>{},
-      'admins': ['alice', 'bob'],
+      'admins': [
+        {'login': 'alice', 'fingerprint': _fingerprint('A')},
+        {'login': 'bob', 'fingerprint': _fingerprint('B')},
+      ],
       'projects': [
         {'name': 'demo', 'admin': 'bob', 'access_repository': 'git@example.org:team/demo-access.git'},
       ],
@@ -257,7 +260,9 @@ void main() {
     ];
     answer['owners_signer'] = 'alice-smith';
     final host = (answer['hosts'] as List).single as Map<String, dynamic>;
-    host['admins'] = ['alice-smith'];
+    host['admins'] = [
+      {'login': 'alice-smith', 'fingerprint': _fingerprint('A')},
+    ];
     (host['projects'] as List).single['admin'] = 'alice-smith';
     expect(RegistryRead.from(answer).people.single.login, 'alice-smith');
     for (final login in ['Alice', '1alice', 'alice.smith', 'alice_smith', 'a' * 33]) {
@@ -265,10 +270,31 @@ void main() {
     }
   });
 
+  // Harm: a host admin is taken by login alone, or a malformed admin list becomes an empty one.
+  test('host admins are read with their fingerprints, and a bare login or a repeat refuses the answer', () {
+    final host = RegistryRead.from(_answer()).hosts.single;
+    expect(host.admins, ['alice', 'bob']);
+    expect(host.adminFingerprints['bob'], _fingerprint('B'));
+    for (final admins in [
+      ['alice'],
+      [
+        {'login': 'alice', 'fingerprint': _fingerprint('A')},
+        {'login': 'alice', 'fingerprint': _fingerprint('B')},
+      ],
+      [
+        {'login': 'alice'},
+      ],
+    ]) {
+      final answer = _answer();
+      (answer['hosts'] as List).single['admins'] = admins;
+      expect(() => RegistryRead.from(answer), throwsFormatException, reason: '$admins');
+    }
+  });
+
   // Harm: an unassigned host has no contact for the owner who can assign its admins.
   test('a host without admins falls back to registry owners and their contact addresses', () async {
     final answer = _answer();
-    (answer['hosts'] as List).single['admins'] = <String>[];
+    (answer['hosts'] as List).single['admins'] = <Object>[];
     core.next = answer;
     await registry.refresh();
     const filing = RegistryFiling(RegistryFilingKind.hostAccess, host: 'walk9server', person: 'bob');

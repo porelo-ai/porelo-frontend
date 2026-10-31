@@ -5140,24 +5140,44 @@ class RegistryOwner {
 /// One host in the registry, with its admins and the projects admitted there.
 class RegistryHost {
   /// Constructor taking every field.
-  const RegistryHost({required this.host, required this.admins, this.projects = const <RegistryProject>[]});
+  const RegistryHost({
+    required this.host,
+    required this.admins,
+    this.adminFingerprints = const <String, String>{},
+    this.projects = const <RegistryProject>[],
+  });
 
   /// The host's name.
   final String host;
 
-  /// The logins of the host admins `owners.yml` names for it.
+  /// The logins of the host admins `owners.yml` names for it, in the order of the host's `access.yml`.
   final List<String> admins;
+
+  /// Each host admin's key fingerprint, by login, as the host checks them.
+  final Map<String, String> adminFingerprints;
 
   /// The projects admitted on the host.
   final List<RegistryProject> projects;
 
-  /// Reads one host, refusing one without a name or an admin list.
+  /// Reads one host, refusing one without a name or a list of admins by login and fingerprint.
   factory RegistryHost.from(Map<String, dynamic> map) {
     final admins = map['admins'];
     if (admins is! List<dynamic>) throw const FormatException('A host in the registry answer has no admins.');
+    final fingerprints = <String, String>{};
+    for (final each in admins) {
+      if (each is! Map<String, dynamic>) {
+        throw const FormatException('A host admin in the registry answer is no object.');
+      }
+      final login = _registryLogin(each['login'], 'hosts.admins.login');
+      if (fingerprints.containsKey(login)) {
+        throw const FormatException('A host in the registry answer repeats an admin.');
+      }
+      fingerprints[login] = _registryFingerprint(each['fingerprint'], 'hosts.admins.fingerprint');
+    }
     return RegistryHost(
       host: _registryHostName(map['host']),
-      admins: [for (final each in admins) _registryLogin(each, 'hosts.admins')],
+      admins: List.unmodifiable(fingerprints.keys),
+      adminFingerprints: Map.unmodifiable(fingerprints),
       projects: _registryList(map, 'projects', RegistryProject.from),
     );
   }

@@ -49,6 +49,11 @@ Only the change: tests against a fake Core and a local bare repository. No VM ru
 - Findings 1–6 and 8–10 are corrected in the registry model, checkout and client models; finding 7's requested uppercase behavior is declined above. Initial-read failure wording describes the absence of accepted state without adding a wording test.
 - Contract assumptions remain behind `RegistryCore` and the registry readers: local-daemon `RegistryRead(checkout)` and `RegistryFile(checkout, kind, host?, person?)`; read `revision` is the verified last-good hash, or absent/null only beside `refused_commit` when no commit was accepted; file `revision` is one signed child commit of the checked base. Refused `people` entries may omit key or fingerprint metadata. Existing read fields and filing kinds remain as documented in the client.
 
+## Contract confirmed by Core (2026-10-31)
+
+- `revision` is the commit the registry was read up to, each path at its last good version (Core's rule works per path, so one refused commit does not freeze the rest); `null` when no commit was accepted. `refused_commit` `{commit, path, why}` is the last refusal still in force, `null` when none; every refusal is also in `warnings`.
+- `hosts[].admins` are objects `{login, fingerprint}` in the order of the host's `access.yml`; `RegistryHost` keeps both, and a bare login or a repeated admin refuses the answer whole.
+
 ## Estimate
 
 `F269 size=M est=60 basis=median M 61 (24 records)`
