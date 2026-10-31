@@ -115,11 +115,18 @@ void main() {
   Future<Process> Function(List<String>) failsSaying(String words) =>
       (_) => Process.start('sh', <String>['-c', 'echo "$words" >&2; exit 255']);
 
-  // Prevents a queued consumer from silently losing its connection during earlier teardown.
-  test('a queued consumer raises a missing tunnel after earlier teardown', () async {
+  // Prevents a forward nobody holds any more from being raised by a reconnect queued behind its drop.
+  test('a reconnect queued behind a drop raises nothing', () async {
     final socket = '${where.path}/queued.sock';
     final machine = machineAt(socket);
-    final tunnels = Tunnels(start: bindsAndStays(socket));
+    var started = 0;
+    final binds = bindsAndStays(socket);
+    final tunnels = Tunnels(
+      start: (command) {
+        started++;
+        return binds(command);
+      },
+    );
     addTearDown(tunnels.dispose);
     addTearDown(tunnels.dropEverything);
     expect(await tunnels.raiseFor(machine), isTrue);
@@ -129,9 +136,8 @@ void main() {
     await dropping;
     await reconnecting;
 
-    expect(tunnels.of(machine)?.state, TunnelState.up, reason: 'the queued consumer still needs its connection');
-    final connection = await Socket.connect(InternetAddress(socket, type: InternetAddressType.unix), 0);
-    connection.destroy();
+    expect(tunnels.of(machine)?.state, isNot(TunnelState.up), reason: 'the machine was let go');
+    expect(started, 1, reason: 'only the first raise started ssh');
   });
 
   // Measured: under a person's ControlMaster the forward lived in their master, and

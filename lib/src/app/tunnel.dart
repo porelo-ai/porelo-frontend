@@ -663,7 +663,7 @@ class Tunnels extends ChangeNotifier {
         try {
           if (_closing || request.canceled) return false;
           request.started = true;
-          if (machine.hostCard != null) _retained.add(_key(machine));
+          _retained.add(_key(machine));
           return await _raiseShared(machine, request);
         } finally {
           _requests.remove(request);
@@ -784,8 +784,7 @@ class Tunnels extends ChangeNotifier {
   ///
   /// Without being asked, because a forward that goes away is not a decision anybody made — but
   /// only for one this interface raised, and only while it is still wanted.
-  /// A queued consumer raises a missing forward from the state at its step's start;
-  /// card hosts still require a retained watcher.
+  /// Only a machine [raiseFor] holds and no [dropFor] has let go, judged when its own step starts.
   Future<void> raiseAgainIfItDropped(Machine machine) {
     final request = _TunnelRequest(machine);
     _requests.add(request);
@@ -795,7 +794,7 @@ class Tunnels extends ChangeNotifier {
           final tunnel = _mine[_key(machine)];
           if (_closing ||
               request.canceled ||
-              (machine.hostCard != null && !_retained.contains(_key(machine))) ||
+              !_retained.contains(_key(machine)) ||
               (tunnel != null && tunnel.state != TunnelState.down && tunnel.state != TunnelState.waitingForKey)) {
             return;
           }

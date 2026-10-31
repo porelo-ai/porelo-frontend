@@ -9,8 +9,6 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
-- A queued card-less reconnect raises a new tunnel when earlier teardown removed its forward.
-
 - Host-card retries leave trial-only masters unretained, waiting drops finish old-master teardown
   before later probes start, and card registration keeps its fixed ports until explicit drop.
   Queued replacements read the current machine list when they run.
