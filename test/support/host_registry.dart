@@ -64,11 +64,15 @@ class RegistryFixture implements RegistryCore, RegistryCheckout, HostRegistryTra
   bool refusedPerson = false;
   bool applyMembership = true;
   bool listedHost = true;
-  List<String> assignedAdmins = ['alice'];
   String selectedFingerprint = personFingerprint;
   bool requireStaged = false;
   final staged = <String>{};
   final parents = <String, String>{};
+
+  /// The host admins a project-access fixture lists for its own host; this fixture answers [pins].
+  List<String> assignedAdmins = ['alice'];
+
+  /// The admitted admins `access.yml` pins, `hosts[].admins` in Core's answer.
   final pins = <String, String>{};
   final projects = <RegistryProject>[];
   String applied = registryBefore;
@@ -108,39 +112,54 @@ class RegistryFixture implements RegistryCore, RegistryCheckout, HostRegistryTra
     if (unpublished != null) throw const WorkspaceRefused('The registry checkout holds an unpublished change.');
   }
 
+  /// The accepted host card, as `registry read` answers `hosts[].card`, or null before one was filed.
+  Map<String, Object?>? hostCard;
+
+  /// Core's `registry read --json` answer, read through the same parser as the real one.
   @override
-  Future<RegistryRead> read(String checkout) async => RegistryRead(
-    revision: registryRevision,
-    people: [
-      const RegistryCard(
-        login: 'alice',
-        name: 'Alice',
-        email: 'alice@example.org',
-        key: hostKey,
-        fingerprint: adminFingerprint,
-        state: 'trusted',
-      ),
-      RegistryCard(
-        login: 'bob',
-        name: 'Bob',
-        key: hostKey,
-        fingerprint: selectedFingerprint,
-        state: refusedPerson ? 'refused' : 'trusted',
-        why: refusedPerson ? 'Untrusted key' : '',
-      ),
+  Future<RegistryRead> read(String checkout) async => RegistryRead.from(<String, dynamic>{
+    'revision': registryRevision,
+    'refused_commit': null,
+    'people': [
+      {
+        'login': 'alice',
+        'name': 'Alice',
+        'email': 'alice@example.org',
+        'key': hostKey,
+        'fingerprint': adminFingerprint,
+        'state': 'trusted',
+        'why': null,
+      },
+      {
+        'login': 'bob',
+        'name': 'Bob',
+        'email': null,
+        'key': hostKey,
+        'fingerprint': selectedFingerprint,
+        'state': refusedPerson ? 'refused' : 'trusted',
+        'why': refusedPerson ? 'Untrusted key' : null,
+      },
     ],
-    owners: const [],
-    hostAdmins: [if (admin) const RegistryOwner(login: 'alice', fingerprint: adminFingerprint)],
-    hosts: [
+    'owners': <Object?>[],
+    'host_admins': [
+      if (admin) {'login': 'alice', 'fingerprint': adminFingerprint, 'backup': false},
+    ],
+    'warnings': <Object?>[],
+    'hosts': [
       if (listedHost)
-        RegistryHost(
-          host: 'orchard',
-          admins: assignedAdmins,
-          adminFingerprints: Map.of(pins),
-          projects: List.of(projects),
-        ),
+        {
+          'host': 'orchard',
+          'card': hostCard,
+          'admins': [
+            for (final MapEntry(:key, :value) in pins.entries) {'login': key, 'fingerprint': value},
+          ],
+          'projects': [
+            for (final each in projects)
+              {'name': each.name, 'admin': each.admin, 'access_repository': each.accessRepository},
+          ],
+        },
     ],
-  );
+  });
 
   @override
   Future<RegistryFiled> file(String checkout, RegistryFiling filing) async {
@@ -172,6 +191,17 @@ class RegistryFixture implements RegistryCore, RegistryCheckout, HostRegistryTra
   void _accept(String revision) {
     registryRevision = revision;
     final change = changes.firstWhere((each) => each.revision == revision);
+    if (change.action == 'host-card') {
+      final card = change.card;
+      hostCard = {
+        'host': card['name'],
+        'address': card['address'],
+        'ssh_port': card['ssh_port'],
+        'ssh_host_key': card['ssh_host_key'],
+        'services': card['services'],
+        'signed_by': adminFingerprint,
+      };
+    }
     if (change.action == 'admit') {
       pins[change.person!] = change.fingerprint!;
       projects.add(

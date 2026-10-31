@@ -5145,10 +5145,14 @@ class RegistryHost {
     required this.admins,
     this.adminFingerprints = const <String, String>{},
     this.projects = const <RegistryProject>[],
+    this.card,
   });
 
   /// The host's name.
   final String host;
+
+  /// The accepted host card as `registry verify` answers `host_card`, or null when none is filed.
+  final Map<String, dynamic>? card;
 
   /// The logins of the host admins `owners.yml` names for it, in the order of the host's `access.yml`.
   final List<String> admins;
@@ -5179,6 +5183,11 @@ class RegistryHost {
       admins: List.unmodifiable(fingerprints.keys),
       adminFingerprints: Map.unmodifiable(fingerprints),
       projects: _registryList(map, 'projects', RegistryProject.from),
+      card: switch (map['card']) {
+        null => null,
+        final Map<String, dynamic> card => Map.unmodifiable(card),
+        _ => throw const FormatException('A host card in the registry answer is no object.'),
+      },
     );
   }
 }

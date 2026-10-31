@@ -65,14 +65,7 @@ class HostAccess {
     if (reason == null || registry.accepted == null || registry.problem != null || registry.busy) {
       return reason == null ? null : RegistryRefusal(reason);
     }
-    final assigned = registry.hosts.where((item) => item.host == host).firstOrNull;
-    return RegistryRefusal(
-      '$noRequests Only a host admin of $host may admit a project.',
-      whoMay: [
-        for (final contact in whoMay)
-          if (assigned == null || assigned.admins.contains(contact.login)) contact,
-      ],
-    );
+    return RegistryRefusal('$noRequests Only a host admin of $host may admit a project.', whoMay: whoMay);
   }
 
   /// Why preparation or admission is unavailable, including who may do it.
@@ -87,10 +80,9 @@ class HostAccess {
         actor != null &&
         card?.fingerprint == actor.fingerprint &&
         admins.any((admin) => !admin.backup && admin.login == actor.login && admin.fingerprint == actor.fingerprint);
-    final assigned = host == null ? null : registry.hosts.where((item) => item.host == host).firstOrNull;
-    if (!permitted || assigned != null && !assigned.admins.contains(actor.login)) {
-      final contacts = whoMay.where((contact) => assigned == null || assigned.admins.contains(contact.login));
-      final names = contacts
+    // The right comes from owners.yml alone; a host's `admins` are the admitted pins of its access file.
+    if (!permitted) {
+      final names = whoMay
           .map((contact) => '${contact.name} (${contact.login})${contact.email == null ? '' : ', ${contact.email}'}')
           .join('; ');
       return 'Only a host admin named in owners.yml may do this.${names.isEmpty ? '' : ' Ask $names.'}';
@@ -121,8 +113,8 @@ class HostAccess {
   void _authorizeExisting(String host) {
     checkHostName(host);
     _authorize(host);
-    if (!registry.hosts.any((item) => item.host == host && item.admins.isNotEmpty)) {
-      throw const RegistryRefusal('Choose a host with an assigned admin in the registry.');
+    if (!registry.hosts.any((item) => item.host == host)) {
+      throw const RegistryRefusal('Choose a host the registry lists.');
     }
     if (settings.hostReturned(host)) throw const RegistryRefusal('The server was given back.');
   }
@@ -425,15 +417,20 @@ class HostAccess {
   /// Files [change] once through the registry, at its ID and base; a retry never makes a second commit.
   Future<String> _file(HostRegistryChange change) async {
     final accepted = registry.accepted?.revision;
-    // A push whose receipt was lost: the accepted registry holds the admission already, so nothing is filed.
-    if (change.action == 'admit' && _holds(change) && accepted != null) return checkedRegistryRevision(accepted);
+    // A push whose receipt was lost: the accepted registry holds the change already, so nothing is filed.
+    if (accepted != null &&
+        (change.action == 'admit' && _holds(change) || change.action == 'host-card' && _holdsCard(change))) {
+      return checkedRegistryRevision(accepted);
+    }
+    // An unfiled change without its base cannot be filed safely; it is chosen again on what is accepted now.
+    if (change.base == null || change.base != accepted) return _readAgainAndAsk(change.host);
     final filing = switch (change.action) {
       'admit' => RegistryFiling(
         RegistryFilingKind.hostAccess,
         host: change.host,
         person: change.person,
         id: change.id,
-        base: change.base ?? accepted,
+        base: change.base,
         content: hostAccessFile(
           registry.hosts.firstWhere((each) => each.host == change.host),
           person: change.person!,
@@ -446,13 +443,12 @@ class HostAccess {
         RegistryFilingKind.hostCard,
         host: change.host,
         id: change.id,
-        base: change.base ?? accepted,
+        base: change.base,
         content: hostCardBody(change.card!),
       ),
       'delete-card' => throw const RegistryRefusal('No Core verb removes a host card from the registry yet.'),
       _ => throw const RegistryRefusal(noHostWideChange),
     };
-    if (change.base != null && change.base != accepted) return _readAgainAndAsk(change.host);
     try {
       return checkedRegistryRevision((await registry.file(filing)).revision);
     } on RegistryRefusal {
@@ -465,6 +461,7 @@ class HostAccess {
   /// The registry moved past the change's base: the change is dropped, never filed on another base.
   Future<Never> _readAgainAndAsk(String host) async {
     await settings.forgetUnfiledHostRegistry(host);
+    await registry.refresh();
     throw const RegistryRefusal('The registry changed since this was chosen. It was read again; choose again.');
   }
 
@@ -479,6 +476,25 @@ class HostAccess {
               each.admin == change.person &&
               each.accessRepository == change.accessRepository,
         );
+  }
+
+  /// Whether the accepted registry's card for [change]'s host is the card [change] files.
+  bool _holdsCard(HostRegistryChange change) {
+    final accepted = registry.hosts.where((each) => each.host == change.host).firstOrNull?.card;
+    final card = change.card;
+    if (accepted == null || card == null) return false;
+    final services = accepted['services'];
+    final forge = services is Map ? services['forge'] : null;
+    final matrix = services is Map ? services['matrix'] : null;
+    return accepted['host'] == card.name &&
+        accepted['address'] == card.address &&
+        accepted['ssh_port'] == card.sshPort &&
+        accepted['ssh_host_key'] == card.sshHostKey &&
+        forge is Map &&
+        forge['web_port'] == card.services['forge']!['web_port'] &&
+        forge['git_port'] == card.services['forge']!['git_port'] &&
+        matrix is Map &&
+        matrix['port'] == card.services['matrix']!['port'];
   }
 
   bool _staleSelection(HostRegistryProgress progress) =>

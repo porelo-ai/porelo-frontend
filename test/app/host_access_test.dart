@@ -253,18 +253,21 @@ void main() {
   // Harm: retained host actions contact unpinned or no-longer-authorized hosts.
   for (final missing in [false, true]) {
     for (final operation in ['membership', 'bring', 'status']) {
-      test('$operation refuses ${missing ? 'absent' : 'unassigned'} hosts before transport', () async {
-        fixture.listedHost = !missing;
-        fixture.assignedAdmins = [];
-        await fixture.registry.refresh();
-        final action = switch (operation) {
-          'membership' => access.membership(host: 'orchard', person: 'bob', action: 'lock'),
-          'bring' => access.bringToHost('orchard'),
-          _ => access.refreshStatus('orchard'),
-        };
-        await expectLater(action, throwsA(isA<RegistryRefusal>()));
-        expect(fixture.calls, isEmpty);
-      });
+      test(
+        '$operation refuses ${missing ? 'an absent host' : 'without a host admin in owners.yml'} before transport',
+        () async {
+          fixture.listedHost = !missing;
+          fixture.admin = missing;
+          await fixture.registry.refresh();
+          final action = switch (operation) {
+            'membership' => access.membership(host: 'orchard', person: 'bob', action: 'lock'),
+            'bring' => access.bringToHost('orchard'),
+            _ => access.refreshStatus('orchard'),
+          };
+          await expectLater(action, throwsA(isA<RegistryRefusal>()));
+          expect(fixture.calls, isEmpty);
+        },
+      );
     }
   }
   test('status validates host name and current admin before transport', () async {
@@ -452,9 +455,51 @@ void main() {
     await expectLater(access.publishReady('orchard', card), throwsA(isA<WorkspaceRefused>()));
     fixture.pushByHand();
     await fixture.registry.refresh();
-    await expectLater(access.publishReady('orchard', card), throwsA(isA<RegistryRefusal>()));
+    await access.publishReady('orchard', card);
+    expect(settings.hostRegistry('orchard')!.complete, isTrue);
+    expect(settings.hostRegistry('orchard')!.revision, fixture.registryRevision);
+    expect(settings.hostRegistryState('orchard').publishedCard!.stored, card.stored);
+    await access.publishReady('orchard', card);
     expect(fixture.changes, hasLength(1));
+    expect(
+      fixture.calls.where((call) => call == 'file'),
+      hasLength(1),
+      reason: 'the unpublished commit stopped the second ask',
+    );
     expect(fixture.calls.where((call) => call.startsWith('upload')), isEmpty);
+  });
+
+  // Harm: an unfiled change kept without its base is filed onto whatever registry is current.
+  test('an unfiled change without a recorded base is dropped and asked again, never filed', () async {
+    fixture.fail = 'file';
+    await expectLater(admit(), throwsException);
+    fixture.fail = null;
+    final raw = await store.read();
+    final progress = Map<String, Object?>.from((raw['hostRegistry'] as Map)['orchard'] as Map);
+    progress['change'] = Map<String, Object?>.from(progress['change'] as Map)..remove('base');
+    raw['hostRegistry'] = {'orchard': progress};
+    await store.write(raw);
+    final restored = await restart();
+    await expectLater(
+      restored.bringToHost('orchard'),
+      throwsA(isA<RegistryRefusal>().having((refusal) => refusal.words, 'words', contains('choose again'))),
+    );
+    expect(restored.settings.hostRegistry('orchard'), isNull);
+    expect(fixture.calls.where((call) => call == 'file'), hasLength(1));
+    expect(fixture.changes, isEmpty);
+  });
+
+  // Harm: the host-admin right is taken from the host's admitted pins instead of owners.yml.
+  test('host admins come from owners.yml, never from the pins of the host access file', () async {
+    expect(fixture.registry.hosts.single.admins, isEmpty, reason: 'access.yml pins nobody yet');
+    expect(access.unavailable('orchard'), isNull);
+    await admit();
+    expect(fixture.changes.single.content, isNot(contains('alice')));
+    expect(fixture.registry.hosts.single.admins, ['bob']);
+    fixture.actor = const HostAdminIdentity('bob', personFingerprint);
+    final refused = access.admitUnavailable('orchard');
+    expect(refused, allOf(contains(HostAccess.noRequests), contains('alice@example.org')));
+    expect(access.unavailable('orchard'), isNotNull, reason: 'an admitted project admin is no host admin');
   });
 
   // Harm: a change chosen against an older registry is filed onto a newer one.
