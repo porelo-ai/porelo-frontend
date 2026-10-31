@@ -667,6 +667,9 @@ void main() {
       throwsA(isA<RegistryRefusal>()),
     );
     expect(fixture.calls, isNot(contains('file')));
+    // The admission refusal keeps why: nobody is named for demo, and the owners named are those who name them.
+    expect(access.admitUnavailable('demo'), contains('names no host admin for demo'));
+    expect(access.whoMay('orchard').map((who) => who.login), isNot(contains('alice')));
   });
 
   // Harm: an answer in the old flat shape, or naming an unreadable host, is read as host admins.
@@ -680,6 +683,7 @@ void main() {
     };
     final alice = {'login': 'alice', 'fingerprint': 'SHA256:${'A' * 43}', 'backup': false};
     expect(() => RegistryRead.from(answer([alice])), throwsFormatException);
+    expect(() => RegistryRead.from({...answer({}), 'host_admins': null}), throwsFormatException);
     expect(
       () => RegistryRead.from(
         answer({

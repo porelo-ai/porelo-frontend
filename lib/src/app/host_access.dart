@@ -53,9 +53,12 @@ class HostAccess {
             for (final owner in registry.accepted?.owners ?? const <RegistryOwner>[])
               if (!owner.backup) owner.login,
           ];
+    // The person asking is never told to ask themselves.
+    final asking = identity()?.login;
     return [
       for (final login in {...logins})
-        RegistryContact(login: login, name: _person(login)?.name ?? login, email: _person(login)?.contactEmail),
+        if (login != asking)
+          RegistryContact(login: login, name: _person(login)?.name ?? login, email: _person(login)?.contactEmail),
     ];
   }
 
@@ -69,7 +72,12 @@ class HostAccess {
 
   RegistryRefusal? _admitRefusal(String host) {
     final reason = unavailable(host);
-    if (reason == null || registry.accepted == null || registry.problem != null || registry.busy) {
+    // A host without named admins keeps its own reason: the owners named are those who name its admins.
+    if (reason == null ||
+        registry.accepted == null ||
+        registry.problem != null ||
+        registry.busy ||
+        registry.accepted!.adminsOf(host).isEmpty) {
       return reason == null ? null : RegistryRefusal(reason);
     }
     return RegistryRefusal('$noRequests Only a host admin of $host may admit a project.', whoMay: whoMay(host));
@@ -101,7 +109,7 @@ class HostAccess {
         return 'owners.yml names no host admin for $host yet; a registry owner names them first.$ask';
       }
       return host == null
-          ? 'Only a host admin named in owners.yml may do this.$ask'
+          ? 'Only a host admin named in owners.yml may do this; registry owners name them there.$ask'
           : 'Only a host admin owners.yml names for $host may do this.$ask';
     }
     return null;

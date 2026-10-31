@@ -5032,7 +5032,7 @@ class RegistryRead {
       owners: _registryList(map, 'owners', RegistryOwner.from),
       hosts: _registryList(map, 'hosts', RegistryHost.from),
       ownersSigner: signer == null ? null : _registryLogin(signer, 'owners_signer'),
-      hostAdmins: _registryHostAdmins(map['host_admins']),
+      hostAdmins: map.containsKey('host_admins') ? _registryHostAdmins(map['host_admins']) : const {},
       warnings: [
         if (map['warnings'] case final List<dynamic> warnings)
           for (final each in warnings) _registryText(each, 'warnings'),
@@ -5255,9 +5255,8 @@ class RegistryFiled {
       RegistryFiled(revision: _registryRevision(map['revision'], 'revision'));
 }
 
-// Absent means nobody may change any host; any other shape than {label: [owner]} is refused.
+// Any other shape than {label: [owner]}, null included, is refused; an absent key means nobody may change any host.
 Map<String, List<RegistryOwner>> _registryHostAdmins(Object? value) {
-  if (value == null) return const {};
   if (value is! Map<String, dynamic>) throw const FormatException('The registry answer has unreadable host_admins.');
   final label = RegExp(r'^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$');
   return {

@@ -163,8 +163,13 @@ class _HostDialogState extends State<HostDialog> {
     );
   }
 
-  // The host typed so far, checked against its own admins once named.
-  String? get _named => _name.text.trim().isEmpty ? null : _name.text.trim();
+  // Only a named host's own admins may prepare it, so nothing is offered before the name.
+  String? _refusal(HostAccess access) {
+    final name = _name.text.trim();
+    return name.isEmpty
+        ? 'Name the host first: only the admins owners.yml names for it may prepare it.'
+        : access.unavailable(name);
+  }
 
   Future<void> _prepare() async {
     if (_busy) return;
@@ -297,7 +302,7 @@ class _HostDialogState extends State<HostDialog> {
               if (!widget.takeDownOnly && run == null) ...[
                 if (access == null)
                   const Text('Verified host-admin identity and registry state are unavailable.')
-                else if (access.unavailable(_named) case final reason? when reason != _problem)
+                else if (_refusal(access) case final reason? when reason != _problem)
                   Text(reason),
                 for (final field in [
                   (_name, 'Host name', 'One lower-case server name, such as orchard.'),
@@ -342,7 +347,7 @@ class _HostDialogState extends State<HostDialog> {
                     }
                   },
                 ),
-                if (access != null && access.unavailable(_named) == null) ...[
+                if (access != null && _refusal(access) == null) ...[
                   const Text(
                     'Before setup, run this in a separate terminal on the server. It replaces root’s authorized keys with your host admin card key.',
                   ),
@@ -375,7 +380,7 @@ class _HostDialogState extends State<HostDialog> {
         TextButton(onPressed: _busy ? null : () => Navigator.pop(context), child: const Text('Close')),
         if (!widget.takeDownOnly && run == null)
           FilledButton(
-            onPressed: _busy || access == null || access.unavailable(_named) != null ? null : _prepare,
+            onPressed: _busy || access == null || _refusal(access) != null ? null : _prepare,
             child: const Text('Prepare the host'),
           ),
         if (!widget.takeDownOnly && run != null && !run.ready && !run.running && !run.legacy)

@@ -276,6 +276,50 @@ void main() {
     expect(find.textContaining('Only a host admin'), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
   });
+
+  testWidgets('nothing is prepared or shown for a host before its name, nor for a host alice is no admin of', (
+    tester,
+  ) async {
+    // Harm: the admin of one host prepares another, or gets its root-key setup line before naming it.
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final settings = Settings(MemorySettingsStore());
+    final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: RecordingTunnels());
+    final fixture = RegistryFixture()..adminHosts = {'orchard'};
+    final access = await fixture.access(settings);
+    final runs = HostRuns(machines, hostAccess: access);
+    addTearDown(() {
+      runs.dispose();
+      machines.dispose();
+      settings.dispose();
+      fixture.registry.dispose();
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HostDialog(
+          project: '',
+          machines: machines,
+          hostRuns: runs,
+          pickFile: ({initialDirectory, title}) async => '/collections/host.tar.gz',
+          start: (_, _) async => HostProcess(),
+        ),
+      ),
+    );
+    await World.settle(tester);
+    FilledButton prepare() => tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Prepare the host'));
+    expect(prepare().onPressed, isNull);
+    expect(find.textContaining('Name the host first'), findsOneWidget);
+    final name = find.widgetWithText(TextField, 'Host name');
+    await tester.enterText(name, 'pear');
+    await World.settle(tester);
+    expect(find.textContaining('names no host admin for pear'), findsOneWidget);
+    expect(find.textContaining('Before setup, run this'), findsNothing);
+    await tester.enterText(name, 'orchard');
+    await World.settle(tester);
+    expect(find.textContaining('Before setup, run this'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 }
 
 HostUpRecord hostUpRestored(HostUpRecord record) => HostUpRecord.fromStored(record.stored)!;
