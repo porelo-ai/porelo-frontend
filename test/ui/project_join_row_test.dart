@@ -4,10 +4,11 @@ import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/project_join.dart';
 import 'package:porelo_frontend/src/app/registry.dart';
 import 'package:porelo_frontend/src/app/settings.dart';
+import 'package:porelo_frontend/src/app/shell_model.dart';
 import 'package:porelo_frontend/src/ui/projects_page.dart';
 import 'package:porelo_host/porelo_host.dart';
 
-import '../features/support/world.dart' show FakeBackend;
+import '../features/support/world.dart' show FakeBackend, World;
 import '../support/host_admin.dart';
 import '../support/project_join.dart';
 import '../support/signed_host.dart';
@@ -22,6 +23,7 @@ void main() {
     final offer = JoinOffered(
       project: 'demo',
       host: PreparedHost.read(hostValues()),
+      login: 'porelo-alice',
       source: 'https://forge.example/team/demo.git',
       revision: 'a' * 40,
       signers: [personKey],
@@ -38,6 +40,24 @@ void main() {
     expect(join.joined, isTrue);
     expect(find.textContaining('Joined'), findsOneWidget);
     expect(find.byKey(ValueKey('join ${offer.key}')), findsNothing);
+  });
+
+  // Harm: Core verified where the person may join, and the window shows them no way in.
+  testWidgets('the shell shows the row Core\'s discovery answers, with its join', (tester) async {
+    final offer = JoinOffered(
+      project: 'demo',
+      host: PreparedHost.read(hostValues()),
+      login: 'porelo-alice',
+      source: 'https://forge.example/team/demo.git',
+      revision: 'a' * 40,
+      signers: [personKey],
+    );
+    await World.startBackend(World.work);
+    await World.startApp(tester, joinDiscovery: FakeDiscovery()..answer = [offer], joinHost: FakeJoinHost());
+    World.shell.goTo(Section.projects);
+    await World.settle(tester);
+    expect(find.textContaining('in project demo on host ${offer.host.name}'), findsOneWidget);
+    expect(find.byKey(ValueKey('join ${offer.key}')), findsOneWidget);
   });
 
   // Harm: an access file that cannot be read looks like a person with no projects.

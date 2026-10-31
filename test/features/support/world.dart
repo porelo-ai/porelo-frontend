@@ -45,6 +45,7 @@ import 'package:porelo_frontend/src/app/narrowing.dart';
 import 'package:porelo_frontend/src/app/connections.dart';
 import 'package:porelo_frontend/src/ui/choice_field.dart';
 import 'package:porelo_frontend/src/app/project_following.dart';
+import 'package:porelo_frontend/src/app/project_join.dart' show JoinDiscovery, JoinHost;
 import 'package:porelo_frontend/src/app/newer_version.dart';
 import 'package:porelo_frontend/src/app/where_you_were.dart';
 import 'package:porelo_frontend/src/app/notifications.dart';
@@ -2920,7 +2921,12 @@ class World {
   ///
   /// At a desktop size, because that is what this is: the default 800x600 test surface is a
   /// narrow window, and every scenario would have been judging the fallback layout by accident.
-  static Future<void> startApp(WidgetTester tester, {RegistryPages? registryPages}) async {
+  static Future<void> startApp(
+    WidgetTester tester, {
+    RegistryPages? registryPages,
+    JoinDiscovery? joinDiscovery,
+    JoinHost? joinHost,
+  }) async {
     // The view rather than the surface, at a pixel ratio of one: the surface is set in *physical*
     // pixels, so a default ratio quietly turns a desktop window into a narrow one and every
     // scenario judges the fallback layout without saying so.
@@ -3076,6 +3082,8 @@ class World {
         connections: connections,
         forges: forges,
         registryPages: registryPages,
+        joinDiscovery: joinDiscovery,
+        joinHost: joinHost,
         pickAFile: ({String? initialDirectory, String? title}) async => pickedFile,
         backups: backups,
         narrowing: narrowing,

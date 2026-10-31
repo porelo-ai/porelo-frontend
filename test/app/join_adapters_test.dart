@@ -1,15 +1,22 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as path;
 import 'package:porelo_frontend/client.dart';
+import 'package:porelo_frontend/src/app/fleet_backend.dart';
 import 'package:porelo_frontend/src/app/join_adapters.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/project_join.dart';
 import 'package:porelo_frontend/src/app/registry.dart';
 import 'package:porelo_frontend/src/app/registry_checkout.dart';
+import 'package:porelo_frontend/src/app/registry_read_source.dart';
 import 'package:porelo_frontend/src/app/run_here.dart';
 import 'package:porelo_frontend/src/app/settings.dart';
+import 'package:porelo_frontend/src/app/tunnel.dart';
+import 'package:porelo_host/porelo_host.dart';
 
 import '../features/support/world.dart' show FakeBackend;
 import '../support/host_admin.dart';
@@ -27,7 +34,7 @@ final _answer = {
     {
       'project': 'demo',
       'host': 'orchard',
-      'host_account': 'porelo-alice',
+      'host_account': 'alice',
       'host_card': {...hostValues()..remove('name')},
       'homeserver': 'matrix.orchard.porelo.internal',
       'source': 'https://forge.example/team/demo.git',
@@ -65,6 +72,59 @@ Ran Function() _with(void Function(Map<String, Object?> json) change) => () {
 
 Map<String, Object?> _project(Map<String, Object?> json) => (json['projects'] as List).single as Map<String, Object?>;
 Map<String, Object?> _refused(Map<String, Object?> json) => (json['refused'] as List).single as Map<String, Object?>;
+
+/// Core's `identity show --json` answer for the person `alice`, in its full shape.
+final _shown = {
+  'login': 'alice',
+  'name': 'Alice',
+  'email': null,
+  'fingerprint': _fingerprint(personKey),
+  'key': personKey,
+  'created': '2026-10-31',
+  'expires': '2026-11-30',
+  'predecessor': null,
+  'card': 'login: "alice"\n',
+  'agent': 'holds',
+  'agent_holds_key': true,
+  'revoked': false,
+  'card_refused': null,
+  'registry': <Object?>[],
+  'forge': null,
+  'pending': <Object?>[],
+};
+
+/// An ssh master that stays up until it is stopped.
+class _Master extends Fake implements Process {
+  final _exit = Completer<int>();
+
+  @override
+  Stream<List<int>> get stdout => const Stream.empty();
+  @override
+  Stream<List<int>> get stderr => const Stream.empty();
+  @override
+  Future<int> get exitCode => _exit.future;
+  @override
+  bool kill([ProcessSignal signal = ProcessSignal.sigterm]) {
+    if (!_exit.isCompleted) _exit.complete(255);
+    return true;
+  }
+}
+
+/// The host vault, opened at once.
+class _Unlocked implements HostUnlocker {
+  @override
+  Future<HostUnlockResult> unlock(HostCardSsh card, String config) async =>
+      const HostUnlockResult(HostUnlockState.unlocked);
+
+  @override
+  Future<void> cancel(String host) async {}
+}
+
+/// The words after each [flag] in [command].
+List<String> _after(String flag, List<String> command) => [
+  for (var i = 0; i < command.length - 1; i++)
+    if (command[i] == flag) command[i + 1],
+];
 
 /// Core's command line, answering what a test sets and recording every call.
 class _Core {
@@ -146,7 +206,7 @@ void main() {
 
   setUp(() {
     core = _Core();
-    discovery = CoreJoinDiscovery(checkout: checkout, login: () async => 'alice', run: core.run);
+    discovery = CoreJoinDiscovery(checkout: () => checkout, login: () async => 'alice', run: core.run);
   });
 
   // Harm: a project whose access file names no homeserver is dropped, or another homeserver is taken for it.
@@ -241,10 +301,125 @@ void main() {
   // Harm: Core is asked for someone else, or for nobody, so another person's admissions are offered.
   test('without a known login Core is not asked and nothing is offered', () async {
     for (final login in [null, '--json', 'Alice Smith']) {
-      discovery = CoreJoinDiscovery(checkout: checkout, login: () async => login, run: core.run);
+      discovery = CoreJoinDiscovery(checkout: () => checkout, login: () async => login, run: core.run);
       await expectLater(discovery.admissions(), throwsA(isA<RegistryRefusal>()));
     }
     expect(core.calls, isEmpty);
+  });
+
+  // Harm: a host account Core would never admit becomes a path on the host, or a tunnel is raised for it.
+  test('a joinable row whose host account breaks Core\'s rule offers nothing', () async {
+    for (final account in ['porelo_alice', 'Alice', '-alice', '../bob', 'a' * 33]) {
+      core.answer = _with((json) => _project(json)['host_account'] = account)();
+      await expectLater(discovery.admissions(), throwsA(isA<RegistryRefusal>()), reason: account);
+    }
+  });
+
+  group('the card tunnel of a joinable row', () {
+    late Directory folder;
+    late List<List<String>> launches;
+    late Machines machines;
+
+    setUp(() {
+      folder = Directory.systemTemp.createTempSync('j-');
+      launches = [];
+      final tunnels = Tunnels(
+        configEnvironment: {'XDG_CONFIG_HOME': folder.path},
+        start: (command) async {
+          launches.add(command);
+          return _Master();
+        },
+        run: (_) async => ProcessResult(0, 0, '', ''),
+        keyAvailable: (_) async => true,
+        portsAvailable: (_) async {},
+        unlocker: _Unlocked(),
+        messengerSocket: path.join(folder.path, 'm'),
+      );
+      final settings = Settings(MemorySettingsStore());
+      machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: tunnels);
+      addTearDown(() async {
+        await tunnels.dropEverything();
+        machines.dispose();
+        settings.dispose();
+        folder.deleteSync(recursive: true);
+      });
+    });
+
+    Future<Machine> Function(JoinOffered) connect() =>
+        cardTunnel(machines, publicKey: () async => personKey, endpoint: (_) => path.join(folder.path, 'd'));
+
+    // Harm: the tunnel forwards another account's daemon, or lets the host write into another person's directory.
+    test('forwards the daemon and return sockets of the row\'s host account', tags: ['linux'], () async {
+      final offer = (await discovery.admissions()).whereType<JoinOffered>().single;
+      final machine = await connect()(offer);
+      final command = launches.single;
+      expect(_after('-L', command).last, '${path.join(folder.path, 'd')}:/run/porelo-host/people/alice/porelod.sock');
+      expect(_after('-R', command), ['/run/porelo-host/people/alice/return.sock:${path.join(folder.path, 'm')}']);
+      expect(command.last, 'orchard');
+      expect(offer.reaches(machine), isTrue, reason: 'the join reuses the account this tunnel reaches');
+    });
+
+    // Harm: a login Core would never admit reaches the host as a path in a tunnel's forwards.
+    test('a row with a login outside Core\'s rule raises nothing', () async {
+      final shown = (await discovery.admissions()).whereType<JoinOffered>().single;
+      final offer = JoinOffered(
+        project: shown.project,
+        host: shown.host,
+        login: 'porelo_alice',
+        source: shown.source,
+        revision: shown.revision,
+        signers: shown.signers,
+      );
+      await expectLater(connect()(offer), throwsA(isA<HostFilesRefused>()));
+      expect(launches, isEmpty);
+    });
+  });
+
+  // Harm: joining reads another checkout than the registry pages, offering admissions from a registry not chosen here.
+  test('the app\'s join adapters read the pages\' own registry checkout, as the person Core names', () async {
+    String? address;
+    final root = path.join(Directory.systemTemp.path, 'private');
+    final registry = RegistryReadSource(
+      repository: () => address,
+      open: (repository) => Registry(
+        checkout: RegistryCheckout(root: path.join(root, 'registry'), repository: repository),
+        core: CliRegistryCore(scratch: path.join(root, 'registry-filing')),
+      ),
+      machines: () => const [],
+    );
+    final calls = <List<String>>[];
+    Future<Ran> run(
+      String program,
+      List<String> arguments, {
+      String? inDirectory,
+      Map<String, String> environment = const {},
+      String? input,
+    }) async {
+      calls.add([program, ...arguments]);
+      return arguments.first == 'identity'
+          ? (code: 0, out: jsonEncode(_shown), err: '')
+          : (code: 0, out: jsonEncode(_joinable()), err: '');
+    }
+
+    final settings = Settings(MemorySettingsStore());
+    final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: RecordingTunnels());
+    addTearDown(machines.dispose);
+    addTearDown(settings.dispose);
+    final joins = appJoins(registry: registry, machines: machines, run: run);
+    await expectLater(joins.discovery.admissions(), throwsA(isA<RegistryRefusal>()));
+    expect(calls.where((call) => call.contains('joinable')), isEmpty, reason: 'no registry was chosen yet');
+    address = 'https://forge.example/team/registry.git';
+    final rows = await joins.discovery.admissions();
+    expect(calls.last, [
+      'porelo',
+      'registry',
+      'joinable',
+      registry.registry!.checkout.folder,
+      '--login',
+      'alice',
+      '--json',
+    ]);
+    expect(rows.whereType<JoinOffered>().single.login, 'alice');
   });
 
   group('on the account daemon', () {

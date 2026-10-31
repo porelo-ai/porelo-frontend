@@ -31,17 +31,21 @@ One-click joining from signed state (operator, 2026-10-30), the flow's step 6.
 - A join reaches the host only through a watched account made from its host card (name, address, SSH port and host key as Core verified them), never a rental record by the same name. A follow counts only when the daemon answers it verified, from the verified source, at the verified revision. Rows joined at once on one host share one tunnel and one watched account. A source or access repository with credentials is refused.
 - *Projects you may join* on `ProjectsPage` shows "in project P on host X" with *Join*, and an unreadable access repository as its own row naming its address and who may grant it.
 - The join dialog, `AccessJoin`, the *Join this project on its host…* command and `SignedHostActions.join` are removed. The rest of the join wizard was already taken out ([F276](README.md#f276)).
+- The app supplies both adapters (`appJoins` in `lib/src/app/join_adapters.dart`, used by `lib/main.dart`). Discovery asks Core on the registry checkout the registry pages read (one `RegistryReadSource`, never a second checkout), for the login `identity show` names, and refuses with its own sentence before a registry is chosen. The connect builds the card (`joinCard`) from the row: the host card's name, address, SSH port, host key and service ports as Core verified them, the login from `host_account`, and the person's own public key from `identity show`; it raises the card tunnel through `Machines.tunnels` and watches nothing before the join is confirmed.
+- The card names no uid: the host links the account's daemon at `/run/porelo-host/people/<login>/porelod.sock` and takes the return socket at `/run/porelo-host/people/<login>/return.sock`, in the person's own directory, so the tunnel forwards `-L <local>:…/porelod.sock` and `-R …/return.sock:<messenger>`. The login is checked against Core's rule `[a-z][a-z0-9-]{0,31}` in the row and in `HostCardSsh` before it reaches a path. A card saved with `uid` and `return_socket` still reads: both are read past, its daemon endpoint is taken from the login, and it is saved again without them.
 
 ## Deferred
 
-- Supplying the built adapters (`CoreJoinDiscovery`, `DaemonJoinHost`) in the app: they need the person's login from Core's identity and a connect built from the joinable answer's host card, which today lacks the person's login, the host account's uid and the daemon's return socket. Until both exist no join row is shown.
+- The return forward: the app's tunnels have no local messenger socket to give, so the card tunnel raised for a join carries no `-R` until the messenger supplies one.
 - Whether a follow already there is pinned to Core's signers: the daemon's follow answer names no signers, so a follow at the verified revision, from the verified source and not unverified, is taken as confirmed.
 - A tunnel that drops after it was opened for a join is kept for that host's retries; noticing the drop and opening it again is the tunnel's own watch ([F270](README.md#f270)).
 - The real join rehearsal from a configured identity, once Machines admits the person's card key.
 
 ## To be checked
 
-- Confirm Core's discovery fields for project source, current login, trusted signer list, verified revision, host account and grant contacts. Confirm the served follow response can distinguish verified in-force state from a held or rewritten project.
+- Discovery runs once when the window opens; a registry chosen later shows its join rows only after the next start. Measure whether the rows should follow the registry choice.
+- Confirm on a host that admits by the card's key that `/run/porelo-host/people/<login>/porelod.sock` answers through the tunnel and that the return socket binds in the person's directory.
+- Confirm the served follow response can distinguish verified in-force state from a held or rewritten project.
 - Trace remaining callers before deleting `AccessJoin`, `JoinKeys` or VPN helpers; project registration and host setup currently share them. Identify obsolete wizard tests to remove and retain guards for forged admission and failed confirmation.
 - Confirm how retry observes a successful follow when host connection failed, and how a later revoked admission affects an already displayed join row. Measure Linux and Windows behavior against the card tunnel implementation.
 

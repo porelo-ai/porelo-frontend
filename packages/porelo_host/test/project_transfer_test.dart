@@ -162,8 +162,6 @@ HostCardSsh _card() => HostCardSsh(
   hostKey: _publicKey,
   login: 'alice',
   publicKey: _publicKey,
-  uid: 1001,
-  returnSocket: '/run/porelo-host/people/alice/messenger.sock',
   webPort: 18080,
   gitPort: 18081,
   matrixPort: 18082,

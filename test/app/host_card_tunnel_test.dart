@@ -46,8 +46,6 @@ void main() {
       hostKey: publicKey,
       login: 'alice',
       publicKey: publicKey,
-      uid: 1001,
-      returnSocket: '/run/porelo-host/people/alice/messenger.sock',
       webPort: 18080,
       gitPort: 18081,
       matrixPort: 18082,
@@ -102,6 +100,24 @@ void main() {
     expect(stored['remoteSocket'], host.remoteSocket);
     expect(stored['socket'], host.socketPath);
     expect(Machine.fromStored(stored).kind, 'host');
+  });
+
+  // Harm: a host watched before its daemon was linked under the login is lost, or forwards a socket the host no
+  // longer serves.
+  test('an older card record with a uid reaches the daemon under the login and is saved without the uid', () {
+    final older = Machine.fromStored({
+      ...host.stored,
+      'remoteSocket': '/run/user/1001/porelo/porelod.sock',
+      'hostCard': {
+        ...host.hostCard!.stored,
+        'uid': 1001,
+        'return_socket': '/run/porelo-host/people/alice/messenger.sock',
+      },
+    });
+    expect(older.remoteSocket, '/run/porelo-host/people/alice/porelod.sock');
+    expect(older.whyNotReachableOn(windows: false), isNull);
+    expect(older, host);
+    expect(older.stored['hostCard'], isNot(anyOf(contains('uid'), contains('return_socket'))));
   });
 
   test('a card never reuses or drops a same-name non-card tunnel', () async {
@@ -435,7 +451,7 @@ void main() {
       await machines.add(beta);
       await machines.of(beta).untilAsked();
       final changed = Machine.fromHostCard(
-        HostCardSsh.fromStored({...host.hostCard!.stored, 'uid': 1002}),
+        HostCardSsh.fromStored({...host.hostCard!.stored, 'services': _moved}),
         socketPath: '${folder.path}/changed',
         sshConfig: host.sshConfig,
       );
@@ -686,7 +702,7 @@ void main() {
     });
     await entered.future;
     final changed = Machine.fromHostCard(
-      HostCardSsh.fromStored({...host.hostCard!.stored, 'uid': 1002}),
+      HostCardSsh.fromStored({...host.hostCard!.stored, 'services': _moved}),
       socketPath: '${folder.path}/changed',
       sshConfig: host.sshConfig,
     );
@@ -917,7 +933,7 @@ void main() {
     final trial = tryAMachine(host, reach: (_) => backend, tunnels: tunnels);
     await backend.entered.future;
     final changed = Machine.fromHostCard(
-      HostCardSsh.fromStored({...host.hostCard!.stored, 'uid': 1002}),
+      HostCardSsh.fromStored({...host.hostCard!.stored, 'services': _moved}),
       socketPath: '${folder.path}/changed',
       sshConfig: host.sshConfig,
     );
@@ -939,7 +955,7 @@ void main() {
     expect(processes.first.killed, isTrue);
     expect(tunnels.of(changed)!.state, TunnelState.up);
     final beta = Machine.fromHostCard(
-      HostCardSsh.fromStored({...host.hostCard!.stored, 'name': 'beta'}),
+      HostCardSsh.fromStored({...changed.hostCard!.stored, 'name': 'beta'}),
       socketPath: '${folder.path}/b',
     );
     expect(() => tunnels.registerCards([beta]), throwsA(isA<HostFilesRefused>()));
@@ -994,14 +1010,14 @@ void main() {
     expect(machines.of(changed), isNotNull);
   });
 
-  test('replacing a card drops its old master and accepts its changed admitted uid', () async {
+  test('replacing a card drops its old master and accepts its changed local ports', () async {
     final machines = Machines(Settings(MemorySettingsStore()), tunnels: tunnels, reach: (_) => _StoppedBackend());
     addTearDown(machines.dispose);
     await machines.add(host);
     await machines.of(host).untilAsked();
     final old = processes.single;
     final changed = Machine.fromHostCard(
-      HostCardSsh.fromStored({...host.hostCard!.stored, 'uid': 1002}),
+      HostCardSsh.fromStored({...host.hostCard!.stored, 'services': _moved}),
       socketPath: '${folder.path}/new',
       sshConfig: host.sshConfig,
     );
@@ -1177,7 +1193,7 @@ void main() {
       '127.0.0.1:18080:/run/porelo-forge/web.sock',
       '127.0.0.1:18081:/run/porelo-forge/git.sock',
       '127.0.0.1:18082:/run/porelo-matrix/client.sock',
-      '${host.socketPath}:/run/user/1001/porelo/porelod.sock',
+      '${host.socketPath}:/run/porelo-host/people/alice/porelod.sock',
     ]);
     expect(command.where((word) => word == '-R'), hasLength(1));
     expect(command[command.indexOf('-R') + 1], '${host.hostCard!.returnSocket}:${folder.path}/m');
@@ -1605,6 +1621,12 @@ void main() {
     expect(FileSystemEntity.typeSync(control), FileSystemEntityType.notFound);
   });
 }
+
+/// A card's local service ports moved, which leaves its published files as they were.
+const _moved = {
+  'forge': {'web_port': 18090, 'git_port': 18091},
+  'matrix': {'port': 18092},
+};
 
 class _Unlock implements HostUnlocker {
   final calls = <(String, String)>[];

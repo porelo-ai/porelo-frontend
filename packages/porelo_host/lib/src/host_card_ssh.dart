@@ -11,8 +11,9 @@ import 'ssh.dart';
 
 /// Public transport values supplied by Core after verifying a signed host card.
 ///
-/// This boundary does not verify signatures or infer admission. The login, uid,
-/// selected public key and return socket accompany Core's verified card.
+/// This boundary does not verify signatures or infer admission. The login and the
+/// selected public key accompany Core's verified card; the host links the login's
+/// daemon and return sockets at fixed paths in that person's own directory.
 class HostCardSsh {
   /// Validates all values before they can enter OpenSSH configuration.
   HostCardSsh({
@@ -22,8 +23,6 @@ class HostCardSsh {
     required this.hostKey,
     required this.login,
     required this.publicKey,
-    required this.uid,
-    required this.returnSocket,
     required this.webPort,
     required this.gitPort,
     required this.matrixPort,
@@ -32,8 +31,9 @@ class HostCardSsh {
       throw const HostFilesRefused('A host name must be a lower-case DNS label.');
     }
     if (!_address(address)) throw const HostFilesRefused('The host address must be an IP address or DNS name.');
-    if (!RegExp(r'^[a-z_][a-z0-9_-]{0,31}$').hasMatch(login) || uid < 1) {
-      throw const HostFilesRefused('The host needs an admitted login and a positive uid.');
+    // Core's rule for a login, checked here too because the login becomes a path on the host.
+    if (!RegExp(r'^[a-z][a-z0-9-]{0,31}$').hasMatch(login)) {
+      throw const HostFilesRefused('The host needs an admitted login.');
     }
     _key(hostKey);
     _key(publicKey);
@@ -43,15 +43,11 @@ class HostCardSsh {
     if (ports.toSet().length != ports.length) {
       throw HostFilesRefused('Host $name repeats a local service port.');
     }
-    final prefix = '/run/porelo-host/people/$login/';
-    if (!returnSocket.startsWith(prefix) ||
-        !RegExp(r'^[a-zA-Z0-9_-][a-zA-Z0-9_.-]*$').hasMatch(returnSocket.substring(prefix.length)) ||
-        utf8.encode(returnSocket).length > 100) {
-      throw const HostFilesRefused('The return socket must be one socket in the admitted login directory.');
-    }
   }
 
   /// Reads the public adapter shape, checking every field without casts.
+  ///
+  /// An older record's `uid` and `return_socket` are read past: both sockets now follow from the login.
   factory HostCardSsh.fromStored(Object? value) {
     if (value is! Map) throw const HostFilesRefused('The verified host card must be an object.');
     String text(String key) {
@@ -77,8 +73,6 @@ class HostCardSsh {
       hostKey: text('host_key'),
       login: text('login'),
       publicKey: text('public_key'),
-      uid: number(value, 'uid'),
-      returnSocket: text('return_socket'),
       webPort: number(forge, 'web_port'),
       gitPort: number(forge, 'git_port'),
       matrixPort: number(matrix, 'port'),
@@ -103,12 +97,6 @@ class HostCardSsh {
   /// The selected public identity, whose private half stays in the local agent.
   final String publicKey;
 
-  /// The admitted account's uid, supplied by Core.
-  final int uid;
-
-  /// The only permitted remote messenger endpoint.
-  final String returnSocket;
-
   /// The fixed local forge web port.
   final int webPort;
 
@@ -128,8 +116,11 @@ class HostCardSsh {
     '/run/porelo-matrix/client.sock',
   ];
 
-  /// The daemon endpoint inside the admitted account's private runtime directory.
-  String get daemonSocket => '/run/user/$uid/porelo/porelod.sock';
+  /// The host's link to the admitted account's daemon, in that person's own directory.
+  String get daemonSocket => '/run/porelo-host/people/$login/porelod.sock';
+
+  /// The only permitted remote messenger endpoint, in that person's own directory.
+  String get returnSocket => '/run/porelo-host/people/$login/return.sock';
 
   /// The forge web address advertised to browsers.
   String get forgeUrl => 'http://$name.localhost:$webPort/';
@@ -151,8 +142,6 @@ class HostCardSsh {
     'host_key': hostKey,
     'login': login,
     'public_key': publicKey,
-    'uid': uid,
-    'return_socket': returnSocket,
     'services': {
       'forge': {'web_port': webPort, 'git_port': gitPort},
       'matrix': {'port': matrixPort},
@@ -331,6 +320,5 @@ class HostCardSsh {
   bool operator ==(Object other) => other is HostCardSsh && jsonEncode(other.stored) == jsonEncode(stored);
 
   @override
-  int get hashCode =>
-      Object.hash(name, address, sshPort, hostKey, login, publicKey, uid, returnSocket, webPort, gitPort, matrixPort);
+  int get hashCode => Object.hash(name, address, sshPort, hostKey, login, publicKey, webPort, gitPort, matrixPort);
 }

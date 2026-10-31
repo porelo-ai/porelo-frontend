@@ -33,6 +33,7 @@ import 'src/app/desk.dart';
 import 'src/app/registry.dart';
 import 'src/app/registry_checkout.dart';
 import 'src/app/forge_key_check.dart';
+import 'src/app/join_adapters.dart';
 import 'src/app/registry_pages.dart';
 import 'src/app/registry_read_source.dart';
 import 'src/app/session.dart';
@@ -86,16 +87,19 @@ WalkSession? _walk() {
 
 Future<PoreloApp>? _composed;
 
-/// Every registry list, read by this computer's daemon from a private checkout of the address chosen once.
-RegistryPages _registryPages(Settings settings, Machines machines) => RegistryPages(
-  source: RegistryReadSource(
-    repository: () => settings.registryRepository,
-    open: (repository) => Registry(
-      checkout: RegistryCheckout(root: '${desk.data}/registry', repository: repository),
-      core: CliRegistryCore(scratch: '${desk.data}/registry-filing'),
-    ),
-    machines: () => machines.all,
+/// The registry read from a private checkout of the address chosen once, shared by its lists and by joining.
+RegistryReadSource _registrySource(Settings settings, Machines machines) => RegistryReadSource(
+  repository: () => settings.registryRepository,
+  open: (repository) => Registry(
+    checkout: RegistryCheckout(root: '${desk.data}/registry', repository: repository),
+    core: CliRegistryCore(scratch: '${desk.data}/registry-filing'),
   ),
+  machines: () => machines.all,
+);
+
+/// Every registry list, read by this computer's daemon from [source].
+RegistryPages _registryPages(Settings settings, RegistryReadSource source) => RegistryPages(
+  source: source,
   features: const RegistryPageFeatures(operations: {RegistryOperation.refresh}),
   address: () => settings.registryRepository,
 );
@@ -132,6 +136,8 @@ Future<PoreloApp> _compose() async {
   await operations.load();
   final notifications = Notifications(DesktopNotifier(), settings)..watchOperations(operations, open: (_) {});
   await notifications.load();
+  final registry = _registrySource(settings, machines);
+  final joins = appJoins(registry: registry, machines: machines);
   final app = PoreloApp(
     machines: machines,
     shell: shell,
@@ -157,7 +163,9 @@ Future<PoreloApp> _compose() async {
     backups: Backups(),
     narrowing: Narrowing(),
     held: WorkHeld(),
-    registryPages: _registryPages(settings, machines),
+    registryPages: _registryPages(settings, registry),
+    joinDiscovery: joins.discovery,
+    joinHost: joins.host,
     forgeKeyCheck: ForgeKeyCheckCli(),
     // A development build started with PORELO_WALK=<folder>; a release build never has one.
     walk: _walk(),

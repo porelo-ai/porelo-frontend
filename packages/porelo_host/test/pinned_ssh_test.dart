@@ -464,8 +464,6 @@ void main() {
       hostKey: key,
       login: 'alice',
       publicKey: key,
-      uid: 1001,
-      returnSocket: '/run/porelo-host/people/alice/messenger.sock',
       webPort: 18080,
       gitPort: 18081,
       matrixPort: 18082,

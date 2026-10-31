@@ -46,7 +46,8 @@ class FakeJoinHost implements JoinHost {
   bool unverified = false;
 
   @override
-  Future<Machine> connect(PreparedHost host) async {
+  Future<Machine> connect(JoinOffered offer) async {
+    final host = offer.host;
     calls.add('connect ${host.name}');
     if (tunnelFails case final failure?) {
       tunnelFails = null;
@@ -59,10 +60,8 @@ class FakeJoinHost implements JoinHost {
         address: host.address,
         sshPort: host.sshPort,
         hostKey: host.sshHostKey,
-        login: 'porelo-alice',
+        login: offer.login,
         publicKey: host.sshHostKey,
-        uid: 1007,
-        returnSocket: '/run/porelo-host/people/porelo-alice/return.sock',
         webPort: 3000,
         gitPort: 3001,
         matrixPort: 8448,

@@ -114,24 +114,30 @@ class Machine {
   /// read by `porelo-intellij`, and written by later versions of this program: dropping what is not
   /// understood here would lose a machine somebody set up elsewhere, the next time this list is
   /// saved.
-  factory Machine.fromStored(Map<String, Object?> stored, {bool legacyHost = false}) => Machine(
-    name: _text(stored['name']),
-    socketPath: _text(stored['socket']),
-    host: _text(stored['host']),
-    remoteSocket: _text(stored['remoteSocket']),
-    // A card host is stored without its kind, so the plugin, which reads this file, takes it as a machine.
-    kind: stored.containsKey('hostCard') && _text(stored['kind']).isEmpty ? 'host' : _text(stored['kind']),
-    distribution: _text(stored['distribution']),
-    identity: _text(stored['identity']),
-    hostProject: _text(stored['hostProject']),
-    hostCard: stored.containsKey('hostCard') ? HostCardSsh.fromStored(stored['hostCard']) : null,
-    sshConfig: _text(stored['sshConfig']),
-    legacyHost: legacyHost,
-    unknownFields: <String, Object?>{
-      for (final entry in stored.entries)
-        if (!_knownFields.contains(entry.key)) entry.key: entry.value,
-    },
-  );
+  factory Machine.fromStored(Map<String, Object?> stored, {bool legacyHost = false}) {
+    final card = stored.containsKey('hostCard') ? HostCardSsh.fromStored(stored['hostCard']) : null;
+    final hostCard = stored['hostCard'];
+    // A card saved with the account's uid named the daemon by it; the host now links it under the login.
+    final older = card != null && hostCard is Map && hostCard.containsKey('uid');
+    return Machine(
+      name: _text(stored['name']),
+      socketPath: _text(stored['socket']),
+      host: _text(stored['host']),
+      remoteSocket: older ? card.daemonSocket : _text(stored['remoteSocket']),
+      // A card host is stored without its kind, so the plugin, which reads this file, takes it as a machine.
+      kind: card != null && _text(stored['kind']).isEmpty ? 'host' : _text(stored['kind']),
+      distribution: _text(stored['distribution']),
+      identity: _text(stored['identity']),
+      hostProject: _text(stored['hostProject']),
+      hostCard: card,
+      sshConfig: _text(stored['sshConfig']),
+      legacyHost: legacyHost,
+      unknownFields: <String, Object?>{
+        for (final entry in stored.entries)
+          if (!_knownFields.contains(entry.key)) entry.key: entry.value,
+      },
+    );
+  }
 
   static const Set<String> _knownFields = <String>{
     'name',

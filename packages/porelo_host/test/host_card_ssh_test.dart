@@ -16,8 +16,6 @@ Map<String, Object?> cardValues() => {
   'host_key': publicKey,
   'login': 'alice',
   'public_key': publicKey,
-  'uid': 1001,
-  'return_socket': '/run/porelo-host/people/alice/messenger.sock',
   'services': {
     'forge': {'web_port': 18080, 'git_port': 18081},
     'matrix': {'port': 18082},
@@ -83,8 +81,6 @@ void main() {
     'host_key': '$publicKey\nHost *',
     'login': 'alice/root',
     'public_key': 'ssh-ed25519 AAAA',
-    'uid': 0,
-    'return_socket': '/run/porelo-host/people/bob/messenger.sock',
     'services': <String, Object?>{},
   }.entries) {
     test('refuses malformed ${change.key} before publication', () {
@@ -111,14 +107,47 @@ void main() {
     }
   });
 
-  test('refuses return socket traversal and nested endpoints', () {
-    for (final suffix in ['../bob/m.sock', 'other/m.sock', '.', '..', 'm.sock\n']) {
+  // Harm: the tunnel forwards another account's daemon, or lets the host write into another person's directory.
+  test('the daemon and return sockets are the admitted login\'s own', () {
+    final card = HostCardSsh.fromStored({...cardValues(), 'login': 'porelo-alice'});
+    expect(card.daemonSocket, '/run/porelo-host/people/porelo-alice/porelod.sock');
+    expect(card.returnSocket, '/run/porelo-host/people/porelo-alice/return.sock');
+  });
+
+  // Harm: a login Core would never admit reaches a host path, walking out of the person's directory.
+  test('refuses a login outside Core\'s rule before it reaches a path', () {
+    for (final login in [
+      '',
+      'Alice',
+      'a_b',
+      '_alice',
+      '1alice',
+      '-alice',
+      'a' * 33,
+      'alice/root',
+      '../bob',
+      'al ice',
+    ]) {
       expect(
-        () => HostCardSsh.fromStored({...cardValues(), 'return_socket': '/run/porelo-host/people/alice/$suffix'}),
-        throwsException,
-        reason: suffix,
+        () => HostCardSsh.fromStored({...cardValues(), 'login': login}),
+        throwsA(isA<HostFilesRefused>()),
+        reason: login,
       );
     }
+    expect(HostCardSsh.fromStored({...cardValues(), 'login': 'a${'-' * 31}'}).login, 'a${'-' * 31}');
+  });
+
+  // Harm: a watched host saved with its uid and return socket is lost, or keeps a socket the host no longer serves.
+  test('an older record with a uid and return socket reads, its sockets taken from the login', () {
+    final card = HostCardSsh.fromStored({
+      ...cardValues(),
+      'uid': 1001,
+      'return_socket': '/run/porelo-host/people/alice/messenger.sock',
+    });
+    expect(card.daemonSocket, '/run/porelo-host/people/alice/porelod.sock');
+    expect(card.returnSocket, '/run/porelo-host/people/alice/return.sock');
+    expect(card.stored.keys, isNot(anyOf(contains('uid'), contains('return_socket'))));
+    expect(card, HostCardSsh.fromStored(cardValues()));
   });
 
   test('an occupied fixed port names the host and port without selecting another', () async {

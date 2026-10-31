@@ -21,6 +21,7 @@ void main() {
       JoinOffered(
         project: project,
         host: PreparedHost.read(hostValues()),
+        login: 'porelo-alice',
         source: 'https://forge.example/team/$project.git',
         revision: revision,
         signers: [personKey],
@@ -73,6 +74,7 @@ void main() {
     final shown = JoinOffered(
       project: 'demo',
       host: PreparedHost.read(hostValues()),
+      login: 'porelo-alice',
       source: 'https://user:secret@forge.example/team/demo.git',
       revision: 'a' * 40,
       signers: [personKey],
@@ -230,6 +232,7 @@ void main() {
       final shown = JoinOffered(
         project: 'demo',
         host: PreparedHost.read(hostValues()),
+        login: 'porelo-alice',
         source: address,
         revision: 'a' * 40,
         signers: [personKey],

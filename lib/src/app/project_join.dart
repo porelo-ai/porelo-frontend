@@ -26,6 +26,7 @@ class JoinOffered extends JoinAdmission {
   JoinOffered({
     required this.project,
     required this.host,
+    required this.login,
     required this.source,
     required this.revision,
     required List<String> signers,
@@ -37,6 +38,9 @@ class JoinOffered extends JoinAdmission {
 
   /// The accepted host card.
   final PreparedHost host;
+
+  /// The person's account on [host], Core's `host_account`: a person's host account is their login.
+  final String login;
 
   /// The project repository's address, credential-free.
   final String source;
@@ -56,6 +60,7 @@ class JoinOffered extends JoinAdmission {
   /// Refuses an incomplete verdict before anything is followed, written or connected.
   void check() {
     if (!RegExp(r'^[a-z][a-z0-9-]{0,62}$').hasMatch(project) ||
+        !RegExp(r'^[a-z][a-z0-9-]{0,31}$').hasMatch(login) ||
         !_repository(source) ||
         signers.isEmpty ||
         signers.any((signer) => !RegExp(r'^ssh-ed25519 [A-Za-z0-9+/]{68}$').hasMatch(signer)) ||
@@ -71,6 +76,8 @@ class JoinOffered extends JoinAdmission {
         !machine.legacyHost &&
         machine.identity.isEmpty &&
         card != null &&
+        card.login == login &&
+        machine.remoteSocket == card.daemonSocket &&
         card.name == host.name &&
         card.address == host.address &&
         card.sshPort == host.sshPort &&
@@ -89,6 +96,7 @@ class JoinOffered extends JoinAdmission {
   /// Whether [other] is the same verified admission, unchanged.
   bool same(JoinOffered other) =>
       other.key == key &&
+      other.login == login &&
       other.source == source &&
       other.revision == revision &&
       other.homeserver == homeserver &&
@@ -215,9 +223,6 @@ JoinOffered _offered(Map<String, Object?> entry) {
   final homeserver = entry['homeserver'] == null ? null : _text(entry, 'homeserver');
   final host = PreparedHost.read({'name': name, ...card});
   if (host.name != name) throw const FormatException('the host card names another host');
-  if (!RegExp(r'^[a-z_][a-z0-9_-]{0,31}$').hasMatch(_text(entry, 'host_account'))) {
-    throw const FormatException('no host account');
-  }
   _checked(_text(entry, 'access_repository'));
   if (_contacts(entry['admins']).isEmpty) throw const FormatException('nobody may grant it');
   final signers = entry['signers'];
@@ -225,6 +230,7 @@ JoinOffered _offered(Map<String, Object?> entry) {
   return JoinOffered(
     project: _text(entry, 'project'),
     host: host,
+    login: _text(entry, 'host_account'),
     source: _text(entry, 'source'),
     revision: _text(entry, 'revision'),
     signers: signers.cast<String>(),
@@ -261,8 +267,9 @@ abstract interface class JoinDiscovery {
 
 /// The host side of joining: the card tunnel and the account daemon's follow.
 abstract interface class JoinHost {
-  /// Opens, or reuses, the one tunnel to [host] through the person's agent, and names the watched account.
-  Future<Machine> connect(PreparedHost host);
+  /// Opens, or reuses, the one tunnel to [offer]'s host as its login through the person's agent, and names the
+  /// watched account.
+  Future<Machine> connect(JoinOffered offer);
 
   /// What the account daemon follows as [project], or null when it follows nothing by that name.
   Future<Followed?> followed(Machine machine, String project);
@@ -362,7 +369,7 @@ class ProjectJoin extends ChangeNotifier {
   Future<Machine> _connect() async {
     final connecting = _connecting[machines] ??= {};
     final key = offer.host.name;
-    final running = connecting[key] ??= host.connect(offer.host);
+    final running = connecting[key] ??= host.connect(offer);
     try {
       final machine = await running;
       (_pending[machines] ??= {})[key] = machine;
