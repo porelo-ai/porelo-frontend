@@ -382,14 +382,21 @@ class RegistryPages extends ChangeNotifier {
     _applied.clear();
     _failures.clear();
     loaded = false;
+    _readFor = null;
     problem = null;
     notifyListeners();
     await _reading;
     await refresh();
   }
 
+  String? _readFor;
+
+  /// Whether the lists shown were read from the address chosen now, not from one chosen before.
+  bool get loadedForAddress => loaded && _readFor == address;
+
   Future<void> _read() async {
     final generation = _generation;
+    final reading = address;
     busy = true;
     notifyListeners();
     try {
@@ -411,6 +418,7 @@ class RegistryPages extends ChangeNotifier {
       _failures.removeWhere((target, _) => item(target) == null || !pending(target));
       problem = next.problem;
       loaded = true;
+      _readFor = reading;
     } on RegistryRefusal catch (refused) {
       if (generation == _generation) problem = refused.words;
     } on Exception {

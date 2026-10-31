@@ -148,9 +148,10 @@ void main() {
         ],
       ),
     );
+    var address = _registry;
     final registry = RegistryPages(
       source: source,
-      address: () => _registry,
+      address: () => address,
       features: const RegistryPageFeatures(operations: {RegistryOperation.refresh}),
     );
     addTearDown(registry.dispose);
@@ -159,5 +160,10 @@ void main() {
     await World.tapInView(tester, 'registry.refresh');
     expect(registry.loaded, isTrue);
     expect(_subtitle(tester, 'forge-registry-chosen'), '2 persons · hosts h1');
+
+    // Harm: another registry's counts shown as verified under a newly chosen address before it is read.
+    address = 'https://forge.example.org/acme/other-registry';
+    await _forgePage(tester, registry);
+    expect(_subtitle(tester, 'forge-registry-chosen'), contains('Not read yet'));
   });
 }

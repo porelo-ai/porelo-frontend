@@ -464,7 +464,7 @@ class _ForgePageState extends State<ForgePage> {
     return ItemListRow(
       key: const Key('forge-registry-chosen'),
       title: registry.address!,
-      subtitle: !registry.loaded
+      subtitle: !registry.loadedForAddress
           ? (registry.busy ? 'Reading the registry…' : 'Not read yet: Refresh to read it.')
           : '${registry.people.length} persons · ${hosts.isEmpty ? 'no hosts' : 'hosts ${hosts.join(', ')}'}',
       leading: const Icon(Icons.folder_shared_outlined),
