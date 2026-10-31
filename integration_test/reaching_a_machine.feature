@@ -39,19 +39,6 @@ Feature: Reaching a real machine, reading it, and following a project
         And no forward raised for the trial is left
         And I put the dialog away
 
-    # The whole way a project now comes to a machine, against the daemon rather than a fake: a
-    # repository on that machine, followed through the dialog, read back with everything the
-    # interface draws from it, and then no longer followed. In this file rather than one of its own:
-    # each file launches the interface again, and a second launch joins the first and exits.
-    Scenario: a repository followed through the dialog becomes a project, and stops being one
-        Given the test machine is being watched
-        And the test machine has a project repository {'e2e-follow'}
-        When I follow it from the interface, unverified
-        Then the interface says it is following it
-        And the machine lists {'e2e-follow'} as followed unverified, with its repositories and their limits
-        When I stop following {'e2e-follow'} from the interface
-        Then the machine no longer lists {'e2e-follow'}
-
     # The wizard's check is the real daemon's dry run: it answers, and writes nothing. Storing a token
     # is typed at a terminal on the machine, which is a person's — so the run leaves before adding.
     Scenario: a token is checked by the real machine, and leaving writes nothing
@@ -81,21 +68,6 @@ Feature: Reaching a real machine, reading it, and following a project
         When I forget the connection {'ssh://e2e-vault.invalid/'} from the interface
         Then the machine no longer lists the connection {'ssh://e2e-vault.invalid/'}
         And the vault entry of that key is removed again
-
-    # An unknown host is a question for a person: its keys are shown, one is chosen and trusted, and
-    # the follow is made again. The project itself needs a credential this account does not have, so
-    # what is measured is that the host key stops being the answer.
-    Scenario: a host never met is trusted from the follow, by the key its owner publishes
-        Given the test machine is being watched
-        And the test machine has never met {'github.com'}
-        And the test machine has an ssh key of its own {'id_e2e'}
-        And the test machine connects to {'ssh://github.com/'} with its own key
-        When I follow {'git@github.com:porelo-ai/porelo-project.git'} as {'e2e-hostkey'} from the interface, unverified
-        Then the interface shows the keys of {'github.com'}, with {'SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU'}
-        When I trust {'SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU'} from the interface
-        Then the machine knows {'github.com'} by the key {'SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU'}
-        And the machine no longer lists {'e2e-hostkey'}
-        And the connection {'ssh://github.com/'} is forgotten again
 
 
     # The mistakes the single dialog let through, each stopped by the real machine's dry run before

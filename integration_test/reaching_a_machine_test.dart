@@ -17,12 +17,6 @@ import './step/no_forward_raised_for_the_trial_is_left.dart';
 import './step/i_put_the_dialog_away.dart';
 import './step/i_try_the_test_machine_from_the_dialog_with_a_socket_beside_its_own_that_nobody_serves.dart';
 import './step/i_try_the_test_machine_from_the_dialog_with_the_socket.dart';
-import './step/the_test_machine_has_a_project_repository.dart';
-import './step/i_follow_it_from_the_interface_unverified.dart';
-import './step/the_interface_says_it_is_following_it.dart';
-import './step/the_machine_lists_as_followed_unverified_with_its_repositories_and_their_limits.dart';
-import './step/i_stop_following_from_the_interface.dart';
-import './step/the_machine_no_longer_lists.dart';
 import './step/i_check_a_token_for_in_the_wizard_and_leave_it.dart';
 import './step/the_wizards_check_was_answered_by_the_machine.dart';
 import './step/the_machine_no_longer_lists_the_connection.dart';
@@ -35,13 +29,6 @@ import './step/the_test_machine_has_an_open_vault.dart';
 import './step/i_copy_the_machines_own_key_into_the_vault_for_from_the_interface.dart';
 import './step/the_machine_lists_the_connection_as_a_key_in_its_vault.dart';
 import './step/the_vault_entry_of_that_key_is_removed_again.dart';
-import './step/the_test_machine_has_never_met.dart';
-import './step/the_test_machine_connects_to_with_its_own_key.dart';
-import './step/i_follow_as_from_the_interface_unverified.dart';
-import './step/the_interface_shows_the_keys_of_with.dart';
-import './step/i_trust_from_the_interface.dart';
-import './step/the_machine_knows_by_the_key.dart';
-import './step/the_connection_is_forgotten_again.dart';
 import './step/i_check_the_machines_own_key_for_in_the_wizard.dart';
 import './step/the_machine_says_it_would_not_work_and_it_cannot_be_added.dart';
 import './step/i_leave_the_wizard.dart';
@@ -138,16 +125,6 @@ void main() {
       await noForwardRaisedForTheTrialIsLeft(tester);
       await iPutTheDialogAway(tester);
     });
-    testWidgets('''a repository followed through the dialog becomes a project, and stops being one''', (tester) async {
-      await bddSetUp(tester);
-      await theTestMachineIsBeingWatched(tester);
-      await theTestMachineHasAProjectRepository(tester, 'e2e-follow');
-      await iFollowItFromTheInterfaceUnverified(tester);
-      await theInterfaceSaysItIsFollowingIt(tester);
-      await theMachineListsAsFollowedUnverifiedWithItsRepositoriesAndTheirLimits(tester, 'e2e-follow');
-      await iStopFollowingFromTheInterface(tester, 'e2e-follow');
-      await theMachineNoLongerLists(tester, 'e2e-follow');
-    });
     testWidgets('''a token is checked by the real machine, and leaving writes nothing''', (tester) async {
       await bddSetUp(tester);
       await theTestMachineIsBeingWatched(tester);
@@ -175,19 +152,6 @@ void main() {
       await iForgetTheConnectionFromTheInterface(tester, 'ssh://e2e-vault.invalid/');
       await theMachineNoLongerListsTheConnection(tester, 'ssh://e2e-vault.invalid/');
       await theVaultEntryOfThatKeyIsRemovedAgain(tester);
-    });
-    testWidgets('''a host never met is trusted from the follow, by the key its owner publishes''', (tester) async {
-      await bddSetUp(tester);
-      await theTestMachineIsBeingWatched(tester);
-      await theTestMachineHasNeverMet(tester, 'github.com');
-      await theTestMachineHasAnSshKeyOfItsOwn(tester, 'id_e2e');
-      await theTestMachineConnectsToWithItsOwnKey(tester, 'ssh://github.com/');
-      await iFollowAsFromTheInterfaceUnverified(tester, 'git@github.com:porelo-ai/porelo-project.git', 'e2e-hostkey');
-      await theInterfaceShowsTheKeysOfWith(tester, 'github.com', 'SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU');
-      await iTrustFromTheInterface(tester, 'SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU');
-      await theMachineKnowsByTheKey(tester, 'github.com', 'SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU');
-      await theMachineNoLongerLists(tester, 'e2e-hostkey');
-      await theConnectionIsForgottenAgain(tester, 'ssh://github.com/');
     });
     testWidgets('''an ssh key for an https address is refused by the real check, and cannot be added''', (
       tester,

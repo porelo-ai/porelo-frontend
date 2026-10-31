@@ -13,8 +13,12 @@ Future<void> iWriteToTheAgentOfFromTheInterface(WidgetTester tester, String word
   }
   // Every machine's work is on the work page.
   await toThePlace(tester, 'work');
+  // The work page draws each tile as a list row, a Material rather than a Card: found by its key alone.
   final tile = find.byWidgetPredicate(
-    (widget) => widget is Card && '${widget.key}'.contains("'tile ") && '${widget.key}'.endsWith(" $task'>]"),
+    (widget) =>
+        widget.key is ValueKey<String> &&
+        (widget.key! as ValueKey<String>).value.startsWith('tile ') &&
+        (widget.key! as ValueKey<String>).value.endsWith(' $task'),
   );
   final page = find.descendant(of: find.byKey(const Key('work-page')), matching: find.byType(Scrollable));
   for (var i = 0; i < 40 && tile.evaluate().isEmpty && page.evaluate().isNotEmpty; i++) {

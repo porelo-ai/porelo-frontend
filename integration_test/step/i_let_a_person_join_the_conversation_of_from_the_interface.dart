@@ -13,7 +13,8 @@ Future<void> iLetAPersonJoinTheConversationOfFromTheInterface(WidgetTester teste
   await toTheMachines(tester);
   if (noConversationHere != null) return;
   await switchTo(tester, E2e.name);
-  final row = find.byKey(ValueKey<String>('project $project'));
+  // Keyed by its machine as well: the same project can be on more than one.
+  final row = find.byKey(ValueKey<String>('project ${E2e.name}/$project'));
   for (var i = 0; i < 12 && row.evaluate().isEmpty; i++) {
     await showOnTheMachines(tester, row);
     await pumpFor(tester, const Duration(seconds: 5));
