@@ -58,6 +58,8 @@ Only the change: tests against a fake Core and the host stand-in. One VM check w
 
 ## Deferred
 
+- The production `ProjectAccessCore` that maps `ProjectAdminStanding` (admin, holds a pinned key, the admins as who may) onto the view, and the sources of `ProjectVerifySource` (project and access copies, pinned keys) and of the registry checkout for `--card`: the adapter is built against Core's verbs, its callers in the app are not yet supplied.
+- A project with no access file yet answers `access_commit: ""`, which the verify reader refuses; `init` therefore relies on host admission and Core's own refusal instead of the admin check.
 - Automatic central-forge collaborator grants and revocations; central-forge access remains a prerequisite.
 - New list and item pages; the shared project commands and minimal dialog wiring are available for page integration.
 - A filed registration is still held to the project state it names before Core is asked, so a registration Core refused after a project commit is retried rather than superseded.

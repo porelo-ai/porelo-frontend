@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:path/path.dart' as path;
 import 'package:porelo_host/porelo_host.dart';
 
 import 'access_developers.dart';
@@ -10,15 +11,109 @@ import 'machines.dart';
 import 'registry.dart';
 import 'run_here.dart';
 
+/// The public keys the person's SSH agent holds, as `ssh-ed25519 AAAA...` without comments.
+typedef AgentKeys = Future<List<String>> Function();
+
+/// The local project copies and pinned keys Core's `project verify` checks, never a secret.
+class ProjectVerifySource {
+  /// Takes the project repository, the keys this machine pins for it and its access repository copy.
+  ProjectVerifySource({required this.repository, required List<String> signedBy, this.accessRepository})
+    : signedBy = List.unmodifiable(signedBy);
+
+  /// The project repository as a local path or bundle.
+  final String repository;
+
+  /// The keys this machine pins for the project, each `ssh-ed25519 AAAA...`.
+  final List<String> signedBy;
+
+  /// The access repository as a local path or bundle, absent for a project naming none.
+  final String? accessRepository;
+}
+
+/// Whether a login may change this project's access here, from Core's verified admins and the agent's keys.
+class ProjectAdminStanding {
+  /// Keeps both halves of the check and the admins to ask otherwise.
+  ProjectAdminStanding({required this.admin, required this.holdsPinnedKey, required List<String> admins})
+    : admins = List.unmodifiable(admins);
+
+  /// Reads the standing from a checked `project verify` answer and the agent's public keys.
+  factory ProjectAdminStanding.of(Map<String, Object?> verified, String login, Iterable<String> agentKeys) {
+    final admins = (verified['admins'] as List).cast<String>();
+    final signers = (verified['signers'] as List).cast<String>().toSet();
+    return ProjectAdminStanding(
+      admin: admins.contains(login),
+      holdsPinnedKey: agentKeys.any(signers.contains),
+      admins: admins,
+    );
+  }
+
+  /// Whether the login is among the admins neither locked nor revoked.
+  final bool admin;
+
+  /// Whether the agent holds a key this machine pins for the project.
+  final bool holdsPinnedKey;
+
+  /// The active project admins, in access-file order.
+  final List<String> admins;
+
+  /// Whether a project access change may be sent at all.
+  bool get may => admin && holdsPinnedKey;
+
+  /// The active admins as contacts; names and addresses are filled from registry cards by the caller.
+  List<RegistryContact> get whoMay => [for (final login in admins) RegistryContact(login: login, name: login)];
+}
+
+/// A project access change refused before any command, because the actor is no project admin here.
+class ProjectAccessNotAdmin extends RegistryRefusal {
+  /// Names what is missing and who may instead.
+  ProjectAccessNotAdmin(this.standing)
+    : super(
+        standing.admin
+            ? 'Your SSH agent holds no key this machine pins for the project.'
+            : 'Only an active project admin may change this project.',
+        whoMay: standing.whoMay,
+      );
+
+  /// The standing that refused the change.
+  final ProjectAdminStanding standing;
+}
+
+/// Core's refusal of a filing other than a stale base, by exit code and with its typed reason where given.
+class ProjectAccessFilingRefused extends WorkspaceRefused {
+  /// Keeps the exit code and Core's typed reason; the words are safe to show.
+  const ProjectAccessFilingRefused(this.code, super.words, {this.reason});
+
+  /// Core's exit code: 64 wrong use, 65 refused, 66 not followed or not reached, 69 push failed.
+  final int code;
+
+  /// Core's fixed kebab-case reason, when its answer named one.
+  final String? reason;
+}
+
 /// Adapts the named Core commands while unserved trust and receipt reads stay in [ProjectAccessCore].
 class ProjectAccessCoreAdapter {
   /// Uses the selected project's directory and an argument-list process runner.
-  ProjectAccessCoreAdapter({required this.directory, RunHere? run, this._delivery}) : _run = run ?? runHere;
+  ProjectAccessCoreAdapter({
+    required this.directory,
+    RunHere? run,
+    this._delivery,
+    this.source,
+    this.registryCheckout,
+    this._agentKeys,
+  }) : _run = run ?? runHere;
 
   /// The selected project's local working directory for Core's verification.
   final String directory;
+
+  /// The project copies and pinned keys `project verify` checks; verification is refused without them.
+  final ProjectVerifySource? source;
+
+  /// The accepted registry checkout whose `people/LOGIN.card` Core takes as `--card`.
+  final String? registryCheckout;
+
   final RunHere _run;
   final ProjectAccessDeliveryCheck? _delivery;
+  final AgentKeys? _agentKeys;
 
   /// Reads the exact filing verdict through the supplied Core trust boundary.
   Future<ProjectAccessDelivery> delivery(ProjectAccessChange change, String revision) async {
@@ -39,27 +134,66 @@ class ProjectAccessCoreAdapter {
     }
   }
 
+  /// Whether [login] is project admin here: an active admin whose key the agent holds and this machine pins.
+  Future<ProjectAdminStanding> standing(String project, {required String login}) async {
+    checkAdminName(login);
+    final verified = await verify(project);
+    final keys = await _retryOnFailure(_agentKeys ?? _listAgentKeys);
+    return ProjectAdminStanding.of(verified, login, keys);
+  }
+
+  Future<List<String>> _listAgentKeys() async {
+    final listed = await _run(openSsh('ssh-add'), ['-L']);
+    // ssh-add answers 1 for an agent holding no key, which holds no pinned key either.
+    if (listed.code == 1) return const [];
+    if (listed.code != 0) throw const WorkspaceRefused('The SSH agent could not be asked for its keys.');
+    return [
+      for (final line in const LineSplitter().convert(listed.out))
+        if (line.trim().isNotEmpty) line.trim().split(RegExp(r'\s+')).take(2).join(' '),
+    ];
+  }
+
+  String _card(String login) {
+    final checkout = registryCheckout;
+    if (checkout == null || checkout.isEmpty) {
+      throw const FormatException('The registry checkout holding the person card is unknown.');
+    }
+    return path.join(checkout, 'people', '$login.card');
+  }
+
   /// Files one idempotent change, using the verified presence of a persons access file.
   ///
   /// Registration initializes absent access or adds the admin on this host. Removal
-  /// drops the person everywhere; locks apply to the whole project. Core owns ID
-  /// deduplication. A stale base rereads verified state and requires a new decision.
+  /// drops the person everywhere; locks apply to the whole project; a replacement puts
+  /// the person's new registry card in. Every action but `init` is sent only for an
+  /// active admin whose key the agent holds. Core owns ID deduplication. A stale base
+  /// rereads verified state and requires a new decision.
   Future<String> file(ProjectAccessChange change, {required bool hasAccessFile}) async {
     // Constructors are public; validate even requests that did not come from stored receipts.
     checkAdminName(change.project);
     checkAdminName(change.actor);
     checkHostName(change.host);
-    final person = change.action == 'register' ? change.actor : change.person?.login;
+    final register = change.action == 'register';
+    final person = register ? change.actor : change.person?.login;
     if (person == null) throw const FormatException('Choose a project person.');
     checkAdminName(person);
     if (!RegExp(r'^[a-f0-9]{32}$').hasMatch(change.id)) {
       throw const FormatException('Invalid project request ID.');
     }
-    if (!const ['register', 'add', 'remove', 'lock', 'unlock'].contains(change.action)) {
+    if (!projectAccessActions.contains(change.action)) {
       throw const FormatException('Unknown project action.');
     }
-    final action = change.action == 'register' ? (hasAccessFile ? 'add' : 'init') : change.action;
+    final action = register ? (hasAccessFile ? 'add' : 'init') : change.action;
     if (action != 'init') checkedRegistryRevision(change.baseRevision);
+    final role = action == 'add' ? (register ? 'admin' : change.person!.role) : null;
+    if (role != null && !const ['admin', 'developer'].contains(role)) {
+      throw const FormatException('Unknown project role.');
+    }
+    final card = const ['init', 'add', 'replace'].contains(action) ? _card(person) : null;
+    if (action != 'init') {
+      final standing = await this.standing(change.project, login: change.actor);
+      if (!standing.may) throw ProjectAccessNotAdmin(standing);
+    }
     final result = await _run('porelo', [
       'project',
       'access',
@@ -69,6 +203,8 @@ class ProjectAccessCoreAdapter {
       '--person',
       person,
       if (action == 'init' || action == 'add') ...['--host', change.host],
+      if (card != null) ...['--card', card],
+      if (role != null) ...['--role', role],
       if (action != 'init') ...['--base', change.baseRevision],
       '--id',
       change.id,
@@ -76,12 +212,38 @@ class ProjectAccessCoreAdapter {
     ], inDirectory: directory);
     if (result.code == 65 && action != 'init') {
       final current = await verify(change.project);
-      throw ProjectAccessConflict(change.baseRevision, current);
+      if (current['access_commit'] != change.baseRevision) throw ProjectAccessConflict(change.baseRevision, current);
     }
-    if (result.code != 0) throw const WorkspaceRefused('Core refused the project access change.');
+    if (result.code != 0) throw _refused(result);
     final revision = _object(result.out)['revision'];
     if (revision is! String) throw const FormatException('Core did not return an access revision.');
     return checkedRegistryRevision(revision);
+  }
+
+  static ProjectAccessFilingRefused _refused(Ran result) {
+    String? reason;
+    String? words;
+    try {
+      final typed = _object(result.out);
+      if (typed['reason'] case final String named when RegExp(r'^[a-z0-9]+(-[a-z0-9]+)*$').hasMatch(named)) {
+        reason = named;
+        if (typed['words'] case final String said when said.trim().isNotEmpty) words = said.trim();
+      }
+    } on FormatException {
+      // An untyped refusal keeps the fixed words of its exit code.
+    }
+    return ProjectAccessFilingRefused(
+      result.code,
+      words ??
+          switch (result.code) {
+            64 => 'Core refused the project access request as wrong use.',
+            65 => 'Core refused the project access change.',
+            66 => 'The project is not followed here, or its access repository was not reached. Retry.',
+            69 => 'The project access change could not be pushed. Retry; the same request answers the same revision.',
+            _ => 'Core could not make the project access change.',
+          },
+      reason: reason,
+    );
   }
 
   /// Reads the persons-form verification in this selected project's directory.
@@ -92,7 +254,24 @@ class ProjectAccessCoreAdapter {
 
   Future<Map<String, Object?>> _verify(String project) async {
     checkAdminName(project);
-    final result = await _run('porelo', ['project', 'verify', '--json'], inDirectory: directory);
+    final source = this.source;
+    if (source == null || source.repository.isEmpty || source.signedBy.isEmpty) {
+      throw const FormatException('The project copy and its pinned keys are unknown.');
+    }
+    for (final key in source.signedBy) {
+      checkedEd25519(key);
+    }
+    final result = await _run('porelo', [
+      'project',
+      'verify',
+      '--repository',
+      source.repository,
+      for (final key in source.signedBy) ...['--signed-by', key],
+      '--project',
+      project,
+      if (source.accessRepository case final access?) ...['--access-repository', access],
+      '--json',
+    ], inDirectory: directory);
     if (result.code != 0) throw const WorkspaceRefused('Core refused project verification.');
     final value = _object(result.out);
     if (value['project'] != project) throw const FormatException('The verified state names another project.');
@@ -309,6 +488,9 @@ class ProjectAccessView {
   BringProjectFile get source => BringProjectFile.read(projectYaml);
 }
 
+/// The project-scoped actions a [ProjectAccessChange] names; `replace` accepts a person's new key.
+const projectAccessActions = ['register', 'add', 'remove', 'lock', 'unlock', 'replace'];
+
 /// One immutable, idempotent project access edit or registration request.
 class ProjectAccessChange {
   /// Retains the identity, scope and base commits selected before signing.
@@ -353,7 +535,7 @@ class ProjectAccessChange {
   /// The admin key that authorized this request.
   final String actorFingerprint;
 
-  /// `register`, `add`, `remove`, `lock` or `unlock`, always project scoped.
+  /// One of [projectAccessActions], always project scoped.
   final String action;
 
   /// The selected person and retained role, absent for registration.
@@ -408,9 +590,7 @@ class ProjectAccessChange {
       throw const FormatException('A private access repository address is required.');
     }
     final action = text('action');
-    if (!const ['register', 'add', 'remove', 'lock', 'unlock'].contains(action)) {
-      throw const FormatException('Unknown project action.');
-    }
+    if (!projectAccessActions.contains(action)) throw const FormatException('Unknown project action.');
     AccessDeveloper? person;
     final selected = value['person'];
     if (selected != null) {

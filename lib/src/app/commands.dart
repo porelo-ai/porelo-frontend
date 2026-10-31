@@ -1932,6 +1932,18 @@ List<Command> projectPersonCommands({required ProjectDevelopers developers, Stri
         }
       },
     ),
+    if (selected != null && actions?.newKey(selected.login) != null)
+      Command(
+        id: 'project.acceptKey',
+        label: 'Accept the new key of ${selected.login}',
+        group: 'Project',
+        home: Home.projectMenu,
+        role: Role.projectAdmin,
+        unavailable: reason(selecting: true),
+        run: () {
+          if (person != null && canRun(selecting: true)) unawaited(developers.acceptKey(person));
+        },
+      ),
     Command(
       id: 'project.retryAccess',
       label: 'Retry project delivery',

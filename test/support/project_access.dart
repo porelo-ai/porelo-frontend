@@ -202,7 +202,7 @@ class ProjectAccessFixture implements ProjectAccessCore, ProjectAccessTransport 
       }
       currentAccess = revision;
       final person = change.person;
-      if (change.action == 'add') members[person!.login] = person;
+      if (change.action == 'add' || change.action == 'replace') members[person!.login] = person;
       if (change.action == 'remove') members.remove(person!.login);
       if (change.action == 'lock' || change.action == 'unlock') {
         members[person!.login] = AccessDeveloper(
@@ -247,12 +247,16 @@ class ProjectAccessFixture implements ProjectAccessCore, ProjectAccessTransport 
     final selected = changes[accessRevision]!.person;
     final people = hostPeople[change.project]!;
     if (selected != null) {
-      if (change.action == 'remove') {
+      if (change.action == 'replace') {
+        people[selected.login] = selected.locked ? 'locked' : 'active';
+      } else if (change.action == 'remove') {
         people.remove(selected.login);
       } else {
         people[selected.login] = change.action == 'lock' ? 'locked' : 'active';
       }
-      if (change.action == 'remove' || change.action == 'lock') {
+      if (change.action == 'replace') {
+        // A new key changes neither repositories nor rooms.
+      } else if (change.action == 'remove' || change.action == 'lock') {
         repositories[change.project]!.remove(selected.login);
         rooms[change.project]!.remove(selected.login);
       } else {

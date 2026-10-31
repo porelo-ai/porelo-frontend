@@ -398,6 +398,26 @@ class ProjectAccess implements ProjectPersonActions {
     await _begin(locked ? 'lock' : 'unlock', person);
   }
 
+  /// The person's registry card whose key differs from the one this project pins for them, absent otherwise.
+  @override
+  RegistryCard? newKey(String login) => _newKey(current, login);
+
+  RegistryCard? _newKey(ProjectAccessView? view, String login) {
+    if (!_registryReady || view?.project != project) return null;
+    final pinned = view!.access.developers[login];
+    final card = registry.people.where((card) => card.login == login).firstOrNull;
+    if (pinned == null || card == null || card.refused || card.fingerprint.isEmpty) return null;
+    return card.fingerprint == pinned.fingerprint ? null : card;
+  }
+
+  /// Accepts the person's new registry key in this project's access file, as an admin vouching for it.
+  @override
+  Future<void> acceptKey(String login, {AccessDeveloper? selected}) async {
+    final person = selected ?? current?.access.developers[login];
+    if (person == null) throw const RegistryRefusal('Choose a person in this project.');
+    await _begin('replace', person);
+  }
+
   /// Runs one change; false when its server was given back on the way and the change ended without effect.
   Future<bool> _begin(
     String action,
@@ -418,7 +438,7 @@ class ProjectAccess implements ProjectPersonActions {
         await _authorize(receipt: pendingReceipt, expected: expected);
         throw const RegistryRefusal('Retry the pending project change before making another.');
       }
-      if ((action == 'lock' || action == 'unlock') && person == null) {
+      if ((action == 'lock' || action == 'unlock' || action == 'replace') && person == null) {
         throw const RegistryRefusal('Choose a person in this project.');
       }
       final view = await _authorize(expected: expected);
@@ -444,6 +464,17 @@ class ProjectAccess implements ProjectPersonActions {
       if ((action == 'lock' || action == 'unlock') && person!.locked == (action == 'lock')) {
         throw const RegistryRefusal('Refresh the selected project person before changing access.');
       }
+      var selected = person;
+      if (action == 'replace') {
+        final card = _newKey(view, person!.login);
+        if (card == null) throw const RegistryRefusal('No new key of this person is waiting in the registry.');
+        selected = AccessDeveloper(
+          login: person.login,
+          role: person.role,
+          fingerprint: card.fingerprint,
+          locked: person.locked,
+        );
+      }
       final random = Random.secure();
       final change = ProjectAccessChange.read(
         ProjectAccessChange(
@@ -457,7 +488,7 @@ class ProjectAccess implements ProjectPersonActions {
           actor: view.actor.login,
           actorFingerprint: view.actor.fingerprint,
           action: action,
-          person: person,
+          person: selected,
         ).stored,
       );
       final receipt = ProjectAccessProgress(change: change);
@@ -563,6 +594,7 @@ class ProjectAccess implements ProjectPersonActions {
     final expectedPersonState = switch (change.action) {
       'add' || 'unlock' => 'active',
       'lock' => 'locked',
+      'replace' => change.person!.locked ? 'locked' : 'active',
       _ => null,
     };
     final person = change.person?.login;

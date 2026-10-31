@@ -129,7 +129,10 @@ class _ProjectDevelopersDialogState extends State<ProjectDevelopersDialog> {
                           value: person.login,
                           enabled: !developers.busy,
                           title: Text(person.login),
-                          subtitle: Text('${person.role}${person.locked ? ' · locked in this project' : ''}'),
+                          subtitle: Text(
+                            '${person.role}${person.locked ? ' · locked in this project' : ''}'
+                            '${access?.newKey(person.login) != null ? ' · a new key waits' : ''}',
+                          ),
                         ),
                     ],
                   ),

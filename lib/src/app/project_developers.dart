@@ -22,6 +22,12 @@ abstract interface class ProjectPersonActions implements ProjectPeople {
   /// Changes the selected person's project lock without changing their host account.
   Future<void> lock(String login, {required bool locked, AccessDeveloper? selected});
 
+  /// The person's new registry card waiting to be accepted in this project, absent when none waits.
+  RegistryCard? newKey(String login);
+
+  /// Accepts the person's new key in this project's access file, signed by this admin.
+  Future<void> acceptKey(String login, {AccessDeveloper? selected});
+
   /// Retries the durable signed revision without another edit.
   Future<void> retry();
 
@@ -92,6 +98,16 @@ class ProjectDevelopers extends ChangeNotifier {
     final person = access?.developers[login];
     if (person == null) throw const RegistryRefusal('Choose a person in this project.');
     await actions.lock(login, locked: locked, selected: person);
+    access = await people.read(project);
+  });
+
+  /// Accepts only the selected person's new key in this project.
+  Future<void> acceptKey(String login) => _doing(() async {
+    final actions = scoped;
+    if (actions == null) throw const RegistryRefusal('Accepting a new key is unavailable.');
+    final person = access?.developers[login];
+    if (person == null) throw const RegistryRefusal('Choose a person in this project.');
+    await actions.acceptKey(login, selected: person);
     access = await people.read(project);
   });
 
