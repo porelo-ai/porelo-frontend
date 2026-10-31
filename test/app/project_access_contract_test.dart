@@ -414,6 +414,42 @@ void main() {
     }
   }
 
+  // Harm: with several admin signers pinned, Core would sign alice's change with carol's key the agent holds.
+  for (final action in ['add', 'remove', 'lock', 'unlock', 'replace']) {
+    test('an admin whose own key the agent does not hold sends no $action though it holds another signer', () async {
+      const carolKey = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgY';
+      final command = _CoreCommand();
+      (command.verification['persons'] as List).add(<String, Object?>{
+        'login': 'carol',
+        'ssh': carolKey,
+        'role': 'admin',
+        'hosts': ['orchard'],
+        'expires': '2030-01-01T00:00:00Z',
+        'revoked': false,
+        'locked': false,
+      });
+      command.verification['admins'] = ['alice', 'carol'];
+      command.verification['signers'] = [hostKey, carolKey];
+      final adapter = _adapter(command, agentKeys: const [carolKey]);
+      await expectLater(
+        adapter.file(_change(action: action), hasAccessFile: true),
+        throwsA(isA<ProjectAccessNotAdmin>()),
+      );
+      expect(command.filings, isEmpty);
+    });
+  }
+
+  // Harm: an admin whose own key is held but not pinned for the project would have Core refuse or sign otherwise.
+  test('an admin whose own key is not a pinned signer sends nothing', () async {
+    final command = _CoreCommand();
+    command.verification['signers'] = [
+      'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgY',
+    ];
+    final adapter = _adapter(command);
+    await expectLater(adapter.file(_change(), hasAccessFile: true), throwsA(isA<ProjectAccessNotAdmin>()));
+    expect(command.filings, isEmpty);
+  });
+
   // Harm: a refused admin must learn whom to ask rather than meet a silent dead end.
   test('a refused admin is told the active admins', () async {
     final command = _CoreCommand();

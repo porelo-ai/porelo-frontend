@@ -39,10 +39,15 @@ class ProjectAdminStanding {
   /// Reads the standing from a checked `project verify` answer and the agent's public keys.
   factory ProjectAdminStanding.of(Map<String, Object?> verified, String login, Iterable<String> agentKeys) {
     final admins = (verified['admins'] as List).cast<String>();
-    final signers = (verified['signers'] as List).cast<String>().toSet();
+    final signers = (verified['signers'] as List).cast<String>();
+    final own = (verified['persons'] as List)
+        .cast<Map<String, Object?>>()
+        .where((person) => person['login'] == login)
+        .firstOrNull?['ssh'];
+    // Only the login's own key counts: with several admin signers, another admin's key would sign in their name.
     return ProjectAdminStanding(
       admin: admins.contains(login),
-      holdsPinnedKey: agentKeys.any(signers.contains),
+      holdsPinnedKey: own is String && own.isNotEmpty && signers.contains(own) && agentKeys.contains(own),
       admins: admins,
     );
   }
@@ -50,7 +55,7 @@ class ProjectAdminStanding {
   /// Whether the login is among the admins neither locked nor revoked.
   final bool admin;
 
-  /// Whether the agent holds a key this machine pins for the project.
+  /// Whether the agent holds the login's own verified key, and this machine pins it for the project.
   final bool holdsPinnedKey;
 
   /// The active project admins, in access-file order.
