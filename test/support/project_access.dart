@@ -78,6 +78,7 @@ class ProjectAccessFixture implements ProjectAccessCore, ProjectAccessTransport 
   bool failRememberMachine = false;
   bool selfRevokes = false;
   bool deliveryAuthorized = true;
+  String? deliveryRevision;
   PreparedHost host = PreparedHost.read(sshCompletion());
   void Function()? onUpload;
   bool authorized = true;
@@ -133,11 +134,15 @@ class ProjectAccessFixture implements ProjectAccessCore, ProjectAccessTransport 
   Future<ProjectAccessView> read(String project) async {
     onRead?.call();
     if (readFailure case final failure?) throw failure;
+    return _view();
+  }
+
+  ProjectAccessView _view({String? accessRevision}) {
     return ProjectAccessView(
       project: verifiedProject,
       host: host,
       projectRevision: verifiedRevision,
-      accessRevision: currentAccess,
+      accessRevision: accessRevision ?? currentAccess,
       projectYaml: source,
       actor: actor,
       admittedFingerprint: actor.fingerprint,
@@ -152,13 +157,11 @@ class ProjectAccessFixture implements ProjectAccessCore, ProjectAccessTransport 
 
   @override
   Future<ProjectAccessView> delivery(ProjectAccessChange change, String revision) async {
-    if (!deliveryAuthorized ||
-        !published.contains(revision) ||
-        filed[change.id] != revision ||
-        changes[revision]?.project != change.project) {
-      throw const FormatException('The exact published change is not authorized for delivery.');
+    if (!deliveryAuthorized || filed[change.id] != revision || changes[revision]?.project != change.project) {
+      throw const FormatException('The exact filed change is not authorized for delivery.');
     }
-    return read(change.project);
+    await read(change.project);
+    return _view(accessRevision: deliveryRevision ?? revision);
   }
 
   @override

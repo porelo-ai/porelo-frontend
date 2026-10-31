@@ -93,7 +93,7 @@ void main() {
   });
 
   // Harm: Retry in the person dialog must finish local registration without another commit.
-  test('direct registration retry records the host and avoids duplicate registration', () async {
+  test('registration retry signs once and a later registration files a fresh change', () async {
     final fixture = ProjectAccessFixture()..fail = 'upload';
     addTearDown(fixture.registry.dispose);
     final access = await fixture.access(settings);
@@ -101,8 +101,9 @@ void main() {
     fixture.fail = null;
     await access.retry();
     expect(settings.projectHost('demo'), 'orchard');
-    await access.register();
     expect(fixture.filed.length, 1);
+    await access.register();
+    expect(fixture.filed.length, 2);
   });
 
   // Harm: a wrong or refused host revision cannot become saved access to a project.

@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/access_developers.dart';
 import 'package:porelo_frontend/src/app/commands.dart';
 import 'package:porelo_frontend/src/app/host_access.dart';
+import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/project_access.dart';
 import 'package:porelo_frontend/src/app/project_access_contract.dart';
 import 'package:porelo_frontend/src/app/project_developers.dart';
@@ -605,20 +606,172 @@ void main() {
     expect(access.admission, isNull);
   });
 
-  // Harm: a refused key must not regain access by retrying an already signed unlock.
-  test('an unlock retry rechecks key eligibility before delivery', () async {
+  // Harm: picker changes must not lose an already signed unlock.
+  test('a signed unlock retries its own accepted revision after eligibility changes', () async {
     final access = await fixture.access(settings);
     await access.change('demo', bob, remove: false);
     await access.lock('bob', locked: true);
     fixture.fail = 'upload';
     await expectLater(access.lock('bob', locked: false), throwsFormatException);
+    final receipt = settings.projectAccess('demo')!;
     fixture.fail = null;
     fixture.eligible = false;
     fixture.calls.clear();
-    await expectLater(access.retry(), throwsA(isA<RegistryRefusal>()));
-    expect(fixture.calls, isEmpty);
-    expect(fixture.hostPeople['demo'], {'bob': 'locked'});
+    await access.retry();
+    expect(settings.projectAccess('demo')!.change.id, receipt.change.id);
+    expect(settings.projectAccess('demo')!.confirmed, isTrue);
+    expect(fixture.calls, ['connect', 'upload', 'apply']);
+    expect(fixture.hostPeople['demo'], {'bob': 'active'});
   });
+
+  // Harm: an adapter's stale Machine must not prevent resolution of durable work.
+  for (final signed in [false, true]) {
+    test('adapter resolves ${signed ? 'filed' : 'unfiled'} before checking a mismatched machine', () async {
+      final access = await fixture.access(settings);
+      fixture.fail = signed ? 'upload' : 'file';
+      await expectLater(access.register(), throwsFormatException);
+      final old = settings.projectAccess('demo')!;
+      fixture.fail = null;
+      final registration = RegistryProjectRegistration(access);
+      final expected = await registration.verify('demo', registering: true);
+      if (signed) fixture.verifiedRevision = 'c' * 40;
+      fixture.lookups.clear();
+      fixture.calls.clear();
+      await expectLater(
+        registration.register(
+          expected,
+          const Machine(name: 'wrong host', kind: 'host', hostProject: 'other', socketPath: '/unused'),
+        ),
+        throwsA(isA<RegistryRefusal>()),
+      );
+      if (signed) {
+        expect(access.supersededChangeId, old.change.id);
+      } else {
+        expect(fixture.lookups, [old.change.id]);
+        expect(settings.projectAccess('demo'), isNull);
+      }
+      expect(fixture.calls, isEmpty);
+    });
+  }
+
+  // Harm: an absent cached person must not bypass reconciliation of durable work.
+  for (final signed in [false, true]) {
+    test('lock resolves ${signed ? 'filed' : 'unfiled'} before checking a missing person', () async {
+      final access = await fixture.access(settings);
+      fixture.fail = signed ? 'upload' : 'file';
+      await expectLater(access.register(), throwsFormatException);
+      final old = settings.projectAccess('demo')!;
+      fixture.fail = null;
+      access.current = null;
+      if (signed) fixture.verifiedRevision = 'c' * 40;
+      fixture.lookups.clear();
+      fixture.calls.clear();
+      await expectLater(access.lock('bob', locked: true), throwsA(isA<RegistryRefusal>()));
+      if (signed) {
+        expect(access.supersededChangeId, old.change.id);
+      } else {
+        expect(fixture.lookups, [old.change.id]);
+        expect(settings.projectAccess('demo'), isNull);
+      }
+      expect(fixture.calls, isEmpty);
+    });
+  }
+
+  // Harm: current eligibility or signer loss must not strand any filed action.
+  for (final action in ['add', 'unlock', 'lock', 'remove', 'register']) {
+    for (final head in ['base', 'filed']) {
+      test('filed $action uses exact Core authority before publication with $head head', () async {
+        if (action != 'add' && action != 'register') {
+          fixture.members['bob'] = AccessDeveloper(
+            login: 'bob',
+            role: 'developer',
+            fingerprint: personFingerprint,
+            locked: action == 'unlock',
+          );
+        }
+        final access = await fixture.access(settings);
+        fixture.afterFile = (revision) {
+          if (head == 'filed') fixture.currentAccess = revision;
+          fixture.authorized = false;
+          fixture.eligible = false;
+        };
+        switch (action) {
+          case 'register':
+            await access.register();
+          case 'add':
+            await access.change('demo', bob, remove: false);
+          case 'remove':
+            await access.change('demo', fixture.members['bob']!, remove: true);
+          case 'lock':
+            await access.lock('bob', locked: true, selected: fixture.members['bob']);
+          case 'unlock':
+            await access.lock('bob', locked: false, selected: fixture.members['bob']);
+        }
+        expect(fixture.deliveryBeforePublish, isTrue, reason: 'Core must judge the filed request before publishing');
+        expect(settings.projectAccess('demo')!.confirmed, isTrue);
+        expect(fixture.filed, hasLength(1));
+        expect(fixture.hostPeople['demo'], switch (action) {
+          'add' || 'unlock' => {'bob': 'active'},
+          'lock' => {'bob': 'locked'},
+          _ => isEmpty,
+        });
+      });
+    }
+  }
+
+  // Harm: Core must never substitute a different revision for the filed request.
+  test('a delivery verdict at another revision cannot publish or reach the host', () async {
+    final access = await fixture.access(settings);
+    fixture.fail = 'publish';
+    await expectLater(access.register(), throwsFormatException);
+    fixture.fail = null;
+    fixture.deliveryRevision = registryBefore;
+    fixture.calls.clear();
+    await expectLater(access.retry(), throwsA(isA<RegistryRefusal>()));
+    expect(access.supersededChangeId, settings.projectAccess('demo')!.change.id);
+    expect(fixture.calls, isEmpty);
+  });
+
+  // Harm: permanent refusals must permit Discard; temporary failures must permit Retry.
+  for (final stage in ['delivery', 'publication lookup', 'publish', 'upload', 'apply']) {
+    for (final transient in [false, true]) {
+      test('$stage ${transient ? 'transient' : 'permanent'} refusal preserves the recovery choice', () async {
+        final store = MemorySettingsStore();
+        final first = Settings(store);
+        addTearDown(first.dispose);
+        final access = await fixture.access(first);
+        await access.register();
+        final history = first.projectRegistration('demo')!.stored;
+        fixture.refusalStage = stage;
+        fixture.refusal = RegistryRefusal(
+          transient
+              ? 'Unlock your signing agent before changing this project.'
+              : 'The filed project change is permanently refused.',
+        );
+        await expectLater(access.register(), throwsA(isA<RegistryRefusal>()));
+        final receipt = first.projectAccess('demo')!;
+        final restored = Settings(store);
+        addTearDown(restored.dispose);
+        await restored.load();
+        final resumed = await fixture.access(restored);
+        if (transient) {
+          expect(receipt.state, ProjectAccessState.filed);
+          expect(resumed.supersededChangeId, isNull);
+          expect(resumed.unavailable(delivery: true), isNull);
+          fixture.refusalStage = null;
+          await resumed.retry();
+          expect(restored.projectAccess('demo')!.change.id, receipt.change.id);
+          expect(restored.projectAccess('demo')!.confirmed, isTrue);
+        } else {
+          expect(resumed.supersededChangeId, receipt.change.id);
+          expect(restored.projectAccessReason('demo'), fixture.refusal!.words);
+          await resumed.discard(receipt.change.id);
+          expect(restored.projectAccess('demo'), isNull);
+          expect(restored.projectRegistration('demo')!.stored, history);
+        }
+      });
+    }
+  }
 
   // Harm: concurrent controls must update availability and preserve the explicit refusal.
   test('project mutation lock notifies listeners on acquisition and release', () async {
@@ -646,6 +799,44 @@ class _AssociationStore extends MemorySettingsStore {
 
 class _FilingFixture extends ProjectAccessFixture {
   void Function(String revision)? afterFile;
+  String? refusalStage;
+  RegistryRefusal? refusal;
+  bool deliveryBeforePublish = false;
+
+  void _refuse(String stage) {
+    if (refusalStage == stage) throw refusal!;
+  }
+
+  @override
+  Future<ProjectAccessView> delivery(ProjectAccessChange change, String revision) async {
+    deliveryBeforePublish |= !published.contains(revision);
+    _refuse('delivery');
+    return super.delivery(change, revision);
+  }
+
+  @override
+  Future<bool> publishedRevision(ProjectAccessChange change, String revision) async {
+    _refuse('publication lookup');
+    return super.publishedRevision(change, revision);
+  }
+
+  @override
+  Future<void> publish(ProjectAccessChange change, String revision) async {
+    _refuse('publish');
+    await super.publish(change, revision);
+  }
+
+  @override
+  Future<void> upload(ProjectAccessChange change, String revision) async {
+    _refuse('upload');
+    await super.upload(change, revision);
+  }
+
+  @override
+  Future<ProjectAccessStatus> apply(ProjectAccessChange change, String revision) async {
+    _refuse('apply');
+    return super.apply(change, revision);
+  }
 
   @override
   Future<String> file(ProjectAccessChange change) async {

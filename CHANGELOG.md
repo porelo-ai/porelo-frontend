@@ -9,6 +9,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Project registration resolves receipts before checking a stale Machine. All filed access actions use
+  their exact Core-authorized revision for publication and delivery; permanent refusals retain their
+  reason and offer Discard, while temporary failures retain Retry.
+
 - Project access adapts Core's person-based verification and idempotent access commands,
   initializes first registration, and rereads stale access without automatically retrying an edit.
 

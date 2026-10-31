@@ -234,11 +234,11 @@ void main() {
   });
 
   // Harm: signing-time authority must come from Core's exact accepted commit verdict.
-  test('Core refusal of published delivery prevents connection and upload', () async {
+  test('Core refusal of filed delivery prevents publication and upload', () async {
     fixture.deliveryAuthorized = false;
     final access = await fixture.access(settings);
     await expectLater(access.register(), throwsFormatException);
-    expect(fixture.calls, ['file', 'publish']);
+    expect(fixture.calls, ['file']);
     expect(settings.projectAccess('demo')!.confirmed, isFalse);
   });
 
