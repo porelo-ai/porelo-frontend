@@ -190,6 +190,9 @@ class _IdentityDialogState extends State<IdentityDialog> {
     builder: (_) => FirstStartWizard(model: _model, open: widget.open),
   );
 
+  // A backup key made here and not pushed is no longer listed as missing, yet is still owed its push.
+  List<RecoveryScope> get _keptBackups => widget.recovery?.keptBackups ?? const <RecoveryScope>[];
+
   List<Command> _commands(IdentityCard? card) => [
     Command(
       id: 'identity.changeKey',
@@ -209,18 +212,42 @@ class _IdentityDialogState extends State<IdentityDialog> {
     ),
     Command(
       id: 'identity.backupKey',
-      label: 'Make a backup key…',
+      label: _keptBackups.isEmpty ? 'Make a backup key…' : 'Push the backup key again…',
       group: 'My key',
       home: Home.openedView,
       unavailable: switch (card?.soleWithoutBackup) {
+        _ when _keptBackups.isNotEmpty => _model.whyNotChange,
         null => backupKeyRefusal,
         _ when widget.recovery == null => keyRecoveryNotConnected,
         final lists when lists.isEmpty => 'You are the single admin or owner of no list without a backup key.',
         _ => _model.whyNotChange,
       },
-      run: () => unawaited(_makeBackup(card?.soleWithoutBackup ?? const [])),
+      run: () => unawaited(
+        _keptBackups.isEmpty ? _makeBackup(card?.soleWithoutBackup ?? const []) : _finishBackup(_keptBackups),
+      ),
     ),
   ];
+
+  /// Finishes a backup key kept here under its own request, chosen when there are several; a new one waits for it.
+  Future<void> _finishBackup(List<RecoveryScope> kept) async {
+    final entry = widget.recovery;
+    if (entry == null || kept.isEmpty || _model.whyNotChange != null) return;
+    final chosen = kept.length == 1
+        ? kept.single
+        : await showDialog<RecoveryScope>(
+            context: context,
+            builder: (context) => SimpleDialog(
+              title: const Text('Push the backup key of which list?'),
+              children: [
+                for (final scope in kept)
+                  SimpleDialogOption(onPressed: () => Navigator.pop(context, scope), child: Text(scope.words)),
+              ],
+            ),
+          );
+    if (chosen == null || !mounted) return;
+    await makeBackupKey(context, entry: entry, scope: chosen, open: widget.open, chooseNewFile: widget.chooseNewFile);
+    await _model.load();
+  }
 
   /// Makes a backup key for one list the person alone administers, chosen when there are several.
   Future<void> _makeBackup(List<SoleWithoutBackup> lists) async {

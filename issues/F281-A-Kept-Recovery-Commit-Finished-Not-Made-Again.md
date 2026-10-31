@@ -7,21 +7,24 @@ again under the same request, never made a second time and never blocked by its 
 project action after a replacement starts from the new revision; and each harm is guarded by a test that goes red
 when it is there.
 
+## Built so far
+
+- Built on 2026-10-31, the same night it was found. After an uncertain end, a request is kept through a cancelled,
+  refused or mismatched retry, both for a key replacement and for a backup key.
+- A backup key whose commit was kept but not pushed stays offered in the identity dialog as *Push the backup key
+  again…*.
+- A replacement or backup key kept here is resumed from its own receipt when the registry read refuses.
+- *Make a new backup key…* after a project replacement starts from the replacing commit.
+- Core's `not-in-this-release` is shown in its words and nothing is kept.
+- Tests for each, each seen red: through the dialog and its commands, with a real unreadable backup file, and with
+  the receipt read while it is still stored. Also a test that `owners` is handed to Core as `--file`.
+
 ## To be checked
 
-- From the second reading of [F280](README.md#f280) (2026-10-31), all in `lib/src/app/key_recovery.dart`,
-  `lib/src/ui/key_recovery_dialog.dart`, `lib/src/ui/identity_view.dart` and `test/app/key_recovery_test.dart`:
-  - An uncertain end (exit 69, 70, or 0 with an unreadable answer) followed by a cancelled, mistyped or refused retry
-    (-1, 64, 65, 66, or `backup-only-own`) clears the kept request id: the next attempt mints a new `--id` and makes
-    a second commit or backup key. `KeyRecovery.uncertain` is written and never read; `BackupKeyMaking` keeps none.
-  - *Make a backup key…* in the identity dialog disables itself after a local commit that did not push, because
-    `identity show` already omits the scope from `sole_without_backup`; the kept `backup-make/<scope>` receipt must
-    keep it offered as *Push it again*.
-  - After a restart or a registry refresh, a kept unpublished registry commit makes `KeyRecoveryServices.situation`
-    refuse with "Refresh the registry …", and the refresh refuses on that same commit: nothing can publish it.
-  - After a project replacement, `projectView` is not refreshed, so *Make a new backup key…* passes the old `--base`
-    and Core refuses `base-moved`.
-  - Tests that stay green with the harm present: the kept receipt checked for the backup file's path only after it
-    is forgotten; the review-before-terminal and told-in-person rule tested on the controller only (no dialog or
-    command test); no `CliRegistryCore.file` test for `owners … --file`; the "path kept nowhere" test against stubs
-    whose strings can never hold it.
+- A host-access replacement opened from the registry persons page may be hidden by that page's own gate after a
+  restart.
+- A registry replacement through the agent key whose answer was lost has no commit to push yet. Its Retry still
+  needs a clean registry read.
+- A first attempt put away while Core may already be pushing still forgets its request.
+- Making a backup key from the identity dialog after a project replacement reads the project view, which nothing
+  refreshes yet. Core refuses `base-moved` and nothing is made.

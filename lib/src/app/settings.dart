@@ -814,6 +814,9 @@ class Settings extends ChangeNotifier {
   /// The pending key replacement or backup-key request kept under [key], or null; never a backup file's place.
   Map<String, Object?>? keyRecovery(String key) => _keyRecoveries[key];
 
+  /// Every key a pending key replacement or backup-key request is kept under.
+  List<String> get keyRecoveryKeys => List.unmodifiable(_keyRecoveries.keys);
+
   /// Keeps a pending key replacement or backup-key request, so reopening resumes it under the same request ID.
   Future<void> rememberKeyRecovery(String key, Map<String, Object?> receipt) async {
     _keyRecoveries[key] = Map.unmodifiable(receipt);

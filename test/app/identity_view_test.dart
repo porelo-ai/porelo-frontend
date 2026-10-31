@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/identity.dart';
+import 'package:porelo_frontend/src/app/key_recovery.dart';
+import 'package:porelo_frontend/src/app/registry.dart';
 import 'package:porelo_frontend/src/app/run_here.dart';
 import 'package:porelo_frontend/src/ui/identity_view.dart';
 
@@ -53,7 +55,61 @@ Future<void> _open(WidgetTester tester, Ran shown, List<List<String>> calls) asy
   await tester.pump();
 }
 
+/// Where the identity dialog finds a backup key kept here and not pushed; nothing else is asked of it.
+class _KeptBackup implements KeyRecoveryEntry {
+  @override
+  List<RecoveryScope> get keptBackups => const [RecoveryScope.owner()];
+
+  @override
+  Future<RecoverySituation> situation(RecoveryScope scope) async =>
+      throw const RegistryRefusal('Refresh the registry before replacing a key.');
+
+  @override
+  List<RecoveryScope> get registryScopes => const [];
+
+  @override
+  KeyRecoveryCore get core => throw UnimplementedError();
+
+  @override
+  RevocationHosts get hosts => throw UnimplementedError();
+
+  @override
+  RecoveryReceipts get receipts => throw UnimplementedError();
+}
+
 void main() {
+  // Harm: a backup key's commit made here and not pushed, which `identity show` already counts as filed, leaving
+  // nothing that pushes it.
+  testWidgets('a kept backup key not pushed keeps its action offered as a push again', (tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final shown = {..._shown(), 'sole_without_backup': <Object?>[]};
+    Future<Ran> run(
+      String program,
+      List<String> arguments, {
+      String? inDirectory,
+      Map<String, String> environment = const {},
+      String? input,
+    }) async => arguments[1] == 'show' ? (code: 0, out: jsonEncode(shown), err: '') : (code: 70, out: '', err: '');
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: IdentityDialog(
+            model: IdentityModel(Identity(run: run)),
+            recovery: _KeptBackup(),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    final backup = tester.widget<TextButton>(find.byKey(const Key('identity.backupKey')));
+    expect(backup.onPressed, isNotNull);
+    expect(find.text('Push the backup key again…'), findsOneWidget);
+  });
+
   testWidgets('a revoked key offers no change of key, only the lost-key replacement', (tester) async {
     // Harm: a successor card signed by a revoked key is offered from the page.
     final calls = <List<String>>[];

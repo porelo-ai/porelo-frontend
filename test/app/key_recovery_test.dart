@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
@@ -190,6 +191,7 @@ CliKeyRecoveryCore _cliProject(_Porelo porelo) => CliKeyRecoveryCore(
 class _Checkout implements RegistryCheckout {
   final calls = <String>[];
   WorkspaceRefused? refusePush;
+  WorkspaceRefused? refuseFetch;
 
   @override
   String get root => '/private/registry';
@@ -201,7 +203,10 @@ class _Checkout implements RegistryCheckout {
   String get folder => _checkout;
 
   @override
-  Future<String> fetch() async => _base;
+  Future<String> fetch() async {
+    if (refuseFetch case final refused?) throw refused;
+    return _base;
+  }
 
   @override
   Future<void> prepareFiling() async => calls.add('prepare');
@@ -441,6 +446,35 @@ void main() {
       });
     }
 
+    // Harm: after an end that may have made the commit, a cancelled, refused or mismatched retry dropping the request,
+    // so the next attempt mints a new request and makes a second commit.
+    for (final (what, code, out) in [
+      ('put away', -1, ''),
+      ('wrong passphrase', 65, '{"reason":"wrong-passphrase","words":"no"}'),
+      ('unreadable file', 66, ''),
+      ('answer for another key', 0, null),
+    ]) {
+      test('after an uncertain end, a $what retry keeps the request and its base', () async {
+        final (recovery, core, hosts, command) = await started(scope: const RecoveryScope.owner());
+        await recovery.backupEnded(code: 70, lastLine: '');
+
+        final again = await recovery.startBackup(_backupFile);
+        expect(_idOf(again!), _idOf(command));
+        final wrong = _used(id: _idOf(command), kind: 'registry', name: null, replaced: _admin, pushed: false);
+        await recovery.backupEnded(code: code, lastLine: out ?? wrong);
+
+        expect(recovery.requestId, _idOf(command));
+        expect(recovery.retriesInTerminal, isTrue);
+        expect(recovery.problem, contains('request is kept'));
+        expect(await kept.written(), contains(_idOf(command)));
+        final third = await recovery.startBackup(_backupFile);
+        expect(_idOf(third!), _idOf(command));
+        expect(third.sublist(third.indexOf('--base'), third.indexOf('--base') + 2), ['--base', _base]);
+        expect(core.calls.where((call) => call == 'prepare'), hasLength(1), reason: 'a made commit is not refused');
+        expect(hosts.calls, isEmpty);
+      });
+    }
+
     // Harm: the exact reviewed replacement left unpublished or undelivered.
     test('exactly the reviewed replacement is published and delivered', () async {
       final (recovery, core, hosts, command) = await started(scope: const RecoveryScope.owner());
@@ -455,9 +489,20 @@ void main() {
       expect(recovery.allConfirmed, isTrue);
     });
 
-    // Harm: the backup file's place kept anywhere after the command, or more than its path reaching Core.
+    // Harm: the backup file read here, its place kept anywhere after the command, or more than its path reaching Core.
     test('only the backup file’s path reaches the command, and it is kept nowhere', () async {
-      final (recovery, core, hosts, command) = await started();
+      // A real backup file this program cannot read: any read of it here fails the attempt.
+      final folder = await Directory.systemTemp.createTemp('backup-');
+      addTearDown(() => folder.delete(recursive: true));
+      final backupFile = '${folder.path}/porelo-backup';
+      await File(backupFile).writeAsString('SECRET-BACKUP-KEY');
+      await Process.run('chmod', ['000', backupFile]);
+      final core = _Core();
+      final hosts = _Hosts();
+      final recovery = backupRecovery(core, hosts);
+      recovery.reviewFor('bob', backup: true);
+      final command = (await recovery.startBackup(backupFile))!;
+      expect(recovery.problem, isNull);
 
       expect(command, [
         'porelo',
@@ -466,7 +511,7 @@ void main() {
         '--project',
         'demo',
         '--use',
-        _backupFile,
+        backupFile,
         '--card',
         '$_checkout/people/bob.card',
         '--base',
@@ -475,15 +520,18 @@ void main() {
         _idOf(command),
         '--json',
       ]);
+      final unread = isNot(anyOf(contains(folder.path), contains('SECRET')));
       expect(await kept.written(), contains(_idOf(command)), reason: 'the request is kept');
-      expect(await kept.written(), isNot(contains('/media/usb')));
+      expect(await kept.written(), unread);
       await recovery.backupEnded(code: 69, lastLine: '');
-      expect(await kept.written(), isNot(contains('/media/usb')));
-      await recovery.startBackup(_backupFile);
+      expect(await kept.written(), unread);
+      expect(recovery.problem, unread);
+      expect(await recovery.startBackup(''), isNull, reason: 'the retry asks the file again; none is remembered');
+      await recovery.startBackup(backupFile);
       await recovery.backupEnded(code: 0, lastLine: _used(id: _idOf(command)));
+      expect(recovery.problem, isNull);
       expect(recovery.allConfirmed, isTrue);
-      expect(await kept.written(), isNot(contains('/media/usb')));
-      expect([...core.calls, ...hosts.calls].join(' '), isNot(contains('/media/usb')));
+      expect(await kept.written(), unread);
     });
 
     // Harm: the backup key offered to someone who is not the list's single admin, or for another's entry.
@@ -545,7 +593,10 @@ void main() {
 
       final first = await making().start('/media/usb/bk');
       expect(first.sublist(first.indexOf('--base'), first.indexOf('--base') + 2), ['--base', _base]);
+      // The file's place is never in the kept request, checked while it is kept.
+      expect(await kept.written(), allOf(contains(_idOf(first)), isNot(contains('/media/usb'))));
       await expectLater(making().ended(code: 70, lastLine: '', out: '/media/usb/bk'), throwsA(isA<RecoveryRefused>()));
+      expect(await kept.written(), allOf(contains(_idOf(first)), isNot(contains('/media/usb'))));
       final second = await making().start('/media/usb/bk');
       expect(_idOf(second), _idOf(first));
       expect(core.calls, ['prepare'], reason: 'the checkout is readied once');
@@ -557,12 +608,79 @@ void main() {
         throwsA(isA<WorkspaceRefused>()),
       );
       expect(making().unpublished, _revision);
+      expect(await kept.written(), allOf(contains(_revision), isNot(contains('/media/usb'))));
       core.publishFails = null;
       await making().publish();
       expect(core.calls.where((call) => call == 'publish $_revision $_base'), hasLength(2));
       expect(making().pending, isFalse);
       expect(await kept.written(), isNot(contains('/media/usb')));
     });
+
+    // Harm: a backup key for a project, which this release of Core refuses, kept as a request or shown without
+    // Core's words, so the next attempt repeats a request that made nothing.
+    test('a project backup key this release refuses keeps nothing and says Core’s words', () async {
+      final kept = _Kept();
+      final core = _Core();
+      final making = BackupKeyMaking(
+        scope: const RecoveryScope.project('demo'),
+        base: _base,
+        core: core,
+        receipts: kept.receipts,
+      );
+      final first = await making.start('/media/usb/bk');
+      await expectLater(
+        making.ended(
+          code: 65,
+          lastLine: '{"reason":"not-in-this-release","words":"Project backup keys come in the next release."}',
+          out: '/media/usb/bk',
+        ),
+        throwsA(
+          isA<RecoveryRefused>().having(
+            (refused) => refused.words,
+            'words',
+            contains('Project backup keys come in the next release.'),
+          ),
+        ),
+      );
+      expect(making.pending, isFalse);
+      expect(await kept.written(), isNot(contains(_idOf(first))));
+      expect(core.calls, isEmpty);
+    });
+
+    // Harm: after an end that may have made the key, a cancelled, refused or mismatched retry dropping the request,
+    // so the next attempt makes a second backup key under a new request.
+    for (final (what, code, out) in [
+      ('put away', -1, ''),
+      ('wrong passphrase', 65, '{"reason":"wrong-passphrase","words":"no"}'),
+      ('unreadable', 66, ''),
+      ('for another file', 0, null),
+    ]) {
+      test('after an uncertain end, a $what retry keeps the request and its base', () async {
+        final kept = _Kept();
+        final core = _Core();
+        BackupKeyMaking making({String? base = _base}) =>
+            BackupKeyMaking(scope: const RecoveryScope.owner(), base: base, core: core, receipts: kept.receipts);
+
+        final first = await making().start('/media/usb/bk1');
+        await expectLater(
+          making().ended(code: 69, lastLine: '', out: '/media/usb/bk1'),
+          throwsA(isA<RecoveryRefused>()),
+        );
+        expect(making().uncertain, isTrue);
+        final second = await making().start('/media/usb/bk2');
+        final other = made(file: '/media/usb/bk1').replaceFirst('"ID"', '"${_idOf(second)}"');
+        await expectLater(
+          making().ended(code: code, lastLine: out ?? other, out: '/media/usb/bk2'),
+          throwsA(isA<RecoveryRefused>()),
+        );
+
+        expect(making().pending, isTrue);
+        final third = await making(base: _other).start('/media/usb/bk1');
+        expect([_idOf(second), _idOf(third)], [_idOf(first), _idOf(first)]);
+        expect(third.sublist(third.indexOf('--base'), third.indexOf('--base') + 2), ['--base', _base]);
+        expect(core.calls, ['prepare'], reason: 'the checkout is readied once');
+      });
+    }
   });
 
   group('a host is confirmed only by its own answer', () {
@@ -660,6 +778,38 @@ void main() {
   });
 
   group('a started replacement is resumed, never started again', () {
+    // Harm: a refused retry after a commit that may exist dropping its request, so the next one commits again.
+    test('after a lost answer, a refused retry keeps the request for the next', () async {
+      final kept = _Kept();
+      final porelo = _Porelo()
+        ..replaceAnswers.addAll([
+          (code: 69, out: '{"reason":"push-failed","words":"push failed"}', err: ''),
+          (code: 66, out: '', err: ''),
+        ]);
+      final recovery = KeyRecovery(
+        situation: _situation(hosts: const []),
+        core: _cliProject(porelo),
+        hosts: _Hosts(),
+        receipts: kept.receipts,
+      );
+      addTearDown(recovery.dispose);
+      recovery.reviewFor('bob');
+
+      await recovery.confirm();
+      await recovery.retry();
+      expect(recovery.problem, contains('request is kept'));
+      expect(recovery.whyNotRetry, isNull);
+      await recovery.retry();
+
+      expect(porelo.replaces, hasLength(3));
+      expect(
+        porelo.replaces.map((call) => call.join(' ')).toSet(),
+        hasLength(1),
+        reason: 'the same id on the same base each time',
+      );
+      expect(recovery.allConfirmed, isTrue);
+    });
+
     // Harm: a dialog closed and opened again making a second commit under a fresh request.
     test('reopening after a failed push repeats the same request on the same base', () async {
       final kept = _Kept();
@@ -720,6 +870,67 @@ void main() {
       expect(checkout.calls.where((call) => call == 'push $_revision $_base'), hasLength(2));
       expect(recovery.allConfirmed, isTrue);
     });
+  });
+
+  group('a kept unpushed registry commit is pushed without a clean read', () {
+    // Harm: a replacement's own unpushed commit making the registry refuse every read, and the refused read
+    // refusing that commit's push: nothing could ever publish it. Nor may anyone else's change pass unread.
+    for (final restarted in [false, true]) {
+      test('${restarted ? 'after a restart' : 'after a refused refresh'} the kept commit is pushed', () async {
+        final kept = _Kept();
+        final checkout = _Checkout()..refusePush = const WorkspaceRefused('push refused');
+        final first = Registry(checkout: checkout, core: _RegistryCore());
+        addTearDown(first.dispose);
+        await first.refresh();
+        final core = CliKeyRecoveryCore(
+          actor: () => HostAdminIdentity('alice', _admin),
+          registry: first,
+          readFile: (_) async => _owners,
+        );
+        final recovery = KeyRecovery(
+          situation: _situation(scope: const RecoveryScope.owner(), hosts: const []),
+          core: core,
+          hosts: _Hosts(),
+          receipts: kept.receipts,
+        );
+        recovery.reviewFor('bob');
+        await recovery.confirm();
+        recovery.dispose();
+        expect(recovery.filed?.published, isFalse);
+
+        checkout
+          ..refusePush = null
+          ..refuseFetch = const WorkspaceRefused('The registry checkout holds a commit the repository does not.');
+        final registry = restarted ? Registry(checkout: checkout, core: _RegistryCore()) : first;
+        if (restarted) addTearDown(registry.dispose);
+        await registry.refresh();
+        expect(registry.problem, isNotNull);
+        final services = KeyRecoveryServices(
+          core: CliKeyRecoveryCore(actor: () => HostAdminIdentity('alice', _admin), registry: registry),
+          hosts: _Hosts(),
+          registry: registry,
+          actor: () => HostAdminIdentity('alice', _admin),
+          receipts: kept.receipts,
+        );
+
+        expect(services.registryScopes, contains(const RecoveryScope.owner()));
+        await expectLater(services.situation(const RecoveryScope.hostAdmin('walk1')), throwsA(isA<RegistryRefusal>()));
+        final again = KeyRecovery(
+          situation: await services.situation(const RecoveryScope.owner()),
+          core: services.core,
+          hosts: services.hosts,
+          receipts: kept.receipts,
+        );
+        addTearDown(again.dispose);
+        expect(again.whyNotReview('bob'), isNotNull, reason: 'nothing new is reviewed without a clean read');
+        await again.retry();
+
+        expect(checkout.calls.where((call) => call == 'push $_revision $_base'), hasLength(2));
+        expect(again.allConfirmed, isTrue);
+        await kept.receipts.forget(const RecoveryScope.owner().receiptKey);
+        await expectLater(services.situation(const RecoveryScope.owner()), throwsA(isA<RegistryRefusal>()));
+      });
+    }
   });
 
   group('only the person reviewed, in the scope reviewed, by who may', () {

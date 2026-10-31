@@ -91,25 +91,32 @@ Future<void> showRegistryKeyRecovery(
 /// The request is kept until its commit is pushed: a terminal that ended without a readable answer is made again under
 /// the same ID and base, and a registry commit is pushed from the app's checkout. Only the new file's path reaches Core,
 /// and it is never kept; the key and its passphrase never pass through this program.
+///
+/// A kept request needs no fresh read of the list, whose own unpushed commit may be what keeps that read from passing;
+/// [base], when given, is the commit this program just made in force, which a list read earlier does not show yet.
 Future<BackupKeyMade?> makeBackupKey(
   BuildContext context, {
   required KeyRecoveryEntry entry,
   required RecoveryScope scope,
+  String? base,
   OpenTerminal? open,
   ChooseNewFile chooseNewFile = chooseWithTheDesktop,
 }) async {
-  final String? base;
-  try {
-    base = (await entry.situation(scope)).base;
-  } on RegistryRefusal catch (refused) {
-    if (context.mounted) await _say(context, 'Make a backup key', refused.toString());
-    return null;
+  var making = BackupKeyMaking(scope: scope, base: base, core: entry.core, receipts: entry.receipts);
+  if (!making.pending && base == null) {
+    final String? read;
+    try {
+      read = (await entry.situation(scope)).base;
+    } on RegistryRefusal catch (refused) {
+      if (context.mounted) await _say(context, 'Make a backup key', refused.toString());
+      return null;
+    }
+    if (read == null) {
+      if (context.mounted) await _say(context, 'Make a backup key', 'The commit in force is not read. Read it again.');
+      return null;
+    }
+    making = BackupKeyMaking(scope: scope, base: read, core: entry.core, receipts: entry.receipts);
   }
-  if (base == null) {
-    if (context.mounted) await _say(context, 'Make a backup key', 'The commit in force is not read. Read it again.');
-    return null;
-  }
-  final making = BackupKeyMaking(scope: scope, base: base, core: entry.core, receipts: entry.receipts);
   String words;
   BackupKeyMade? made;
   try {
@@ -147,6 +154,10 @@ Future<BackupKeyMade?> makeBackupKey(
       words =
           '$words The commit is made in the registry checkout and not pushed: make a backup key again to push '
           'it. Nothing else is filed into the registry until then.';
+    } else if (making.uncertain) {
+      words =
+          '$words Core may have made the backup key already, so its request is kept: make a backup key again, into '
+          'the same file, to finish it under the same request.';
     }
   } on WorkspaceRefused catch (refused) {
     words = '${refused.words} Make a backup key again to push it; nothing else is filed into the registry until then.';
@@ -239,13 +250,18 @@ class _KeyRecoveryDialogState extends State<KeyRecoveryDialog> {
     await _recovery.backupEnded(code: code, lastLine: last);
   }
 
-  Future<void> _makeBackup() => makeBackupKey(
-    context,
-    entry: widget.entry,
-    scope: _recovery.situation.scope,
-    open: widget.open,
-    chooseNewFile: widget.chooseNewFile,
-  );
+  Future<void> _makeBackup() {
+    final scope = _recovery.situation.scope;
+    return makeBackupKey(
+      context,
+      entry: widget.entry,
+      scope: scope,
+      // The project's access read when the dialog opened is older than the commit just made; the registry is read again.
+      base: scope.kind == RecoveryKind.project ? _recovery.filed?.revision : null,
+      open: widget.open,
+      chooseNewFile: widget.chooseNewFile,
+    );
+  }
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(

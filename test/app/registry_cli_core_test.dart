@@ -52,6 +52,30 @@ void main() {
     expect(scratch.listSync(recursive: true).whereType<File>(), isEmpty, reason: 'nothing handed stays behind');
   });
 
+  // Guards an owners.yml change handed to Core as a card, which files it at the wrong path or is refused.
+  test('an owners.yml change is handed to Core as its file, with its id and base', () async {
+    await core().file(
+      '/private/registry/checkout',
+      const RegistryFiling(RegistryFilingKind.owners, person: 'bob', id: 'ab12', base: _base, content: 'owners: []\n'),
+    );
+
+    expect(calls.single, [
+      'porelo',
+      'registry',
+      'file',
+      'owners',
+      '/private/registry/checkout',
+      '--file',
+      calls.single[6],
+      '--id',
+      'ab12',
+      '--base',
+      _base,
+      '--json',
+    ]);
+    expect(handedText, ['owners: []\n']);
+  });
+
   // Guards a host card removal that hands Core a file or loses its host, id or base, and so removes another.
   test('a host card removal is handed to Core with its host, id and base and no file', () async {
     final filed = await core().file(
