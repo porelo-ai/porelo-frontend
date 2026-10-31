@@ -133,7 +133,7 @@ void main() {
     final priorProtocol = List<String>.of(recovered.session.protocol);
     final resumed = restored.resume(recovered);
     next.line(Step('check', StepState.done, text: 'Check the project', at: start));
-    next.line(Step('person', StepState.waiting, text: 'Sign in on the server', at: start));
+    next.line(Step('ssh', StepState.started, text: 'Wait for the server to accept SSH', at: start));
     next.end(75);
     await resumed;
     expect(
@@ -143,7 +143,7 @@ void main() {
     );
     expect(recovered.session.steps.map((step) => step.step), [
       'check',
-      'person',
+      'ssh',
     ], reason: 'past completion must never count as the resumed attempt completing');
     final afterResume = Settings(store);
     await afterResume.load();
@@ -152,7 +152,7 @@ void main() {
     expect(reread.protocol, recovered.session.protocol, reason: 'all attempts must survive the next restart');
     expect(reread.steps.map((step) => step.step), [
       'check',
-      'person',
+      'ssh',
     ], reason: 'restoring must keep prior attempts out of active completion checks');
     reread.dispose();
     afterResume.dispose();
