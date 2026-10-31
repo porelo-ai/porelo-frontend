@@ -150,4 +150,153 @@ void main() {
     expect(calls.where((call) => call[1] == 'create'), hasLength(1));
     expect(calls.last, ['identity', 'show', '--json']);
   });
+
+  testWidgets('picking a new key shows what changes and runs nothing before the confirmation', (tester) async {
+    // Harm: a key change that rewrites the registry, projects and hosts from a single tap in a list.
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final calls = <List<String>>[];
+    Future<Ran> run(
+      String program,
+      List<String> arguments, {
+      String? inDirectory,
+      Map<String, String> environment = const {},
+      String? input,
+    }) async {
+      calls.add(arguments);
+      return switch (arguments[1]) {
+        'show' => (code: 0, out: jsonEncode(_shown()), err: ''),
+        'keys' => (code: 0, out: jsonEncode(_keys), err: ''),
+        _ => (code: 70, out: '', err: ''),
+      };
+    }
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: IdentityDialog(model: IdentityModel(Identity(run: run))),
+        ),
+      ),
+    );
+    await World.settle(tester);
+    Future<void> tap(String key) async {
+      await tester.ensureVisible(find.byKey(Key(key)));
+      await World.settle(tester);
+      await tester.tap(find.byKey(Key(key)));
+      await World.settle(tester);
+    }
+
+    await tap('identity.changeKey');
+    await tap('identity-new-in-keepassxc');
+    await tester.enterText(find.byKey(const Key('identity-database')), '/home/ms/Passwords.kdbx');
+    await World.settle(tester);
+    await tap('identity-open-terminal');
+    expect(find.byKey(const Key('identity-rotation-review')), findsOneWidget);
+    expect(find.byKey(const Key('identity-unfinished')), findsNothing);
+    await tap('identity-rotation-cancel');
+
+    await tap('identity.changeKey');
+    await tap('identity-key SHA256:NewNewNew');
+    expect(calls.where((call) => call[1] == 'rotate'), isEmpty);
+    expect(find.byKey(const Key('identity-rotation-review')), findsOneWidget);
+    await tap('identity-rotation-confirm');
+    expect(calls.where((call) => call[1] == 'rotate'), hasLength(1));
+  });
+
+  testWidgets('the first start is done only for the new key, served by the agent', (tester) async {
+    // Harm: a card the agent does not serve reads as a working first start.
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    var made = false;
+    Future<Ran> run(
+      String program,
+      List<String> arguments, {
+      String? inDirectory,
+      Map<String, String> environment = const {},
+      String? input,
+    }) async {
+      switch (arguments[1]) {
+        case 'keys':
+          return (code: 0, out: jsonEncode(_keys), err: '');
+        case 'create':
+          made = true;
+          return (
+            code: 0,
+            out: jsonEncode({
+              'login': 'ms-test-reviewer',
+              'fingerprint': 'SHA256:NewNewNew',
+              'key': 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINew',
+              'card': 'c',
+              'agent': 'holds',
+              'forge': null,
+              'next': ['file-card'],
+            }),
+            err: '',
+          );
+        default:
+          return made
+              ? (
+                  code: 0,
+                  out: jsonEncode({
+                    ..._shown(),
+                    'fingerprint': 'SHA256:NewNewNew',
+                    'agent': 'not-held',
+                    'agent_holds_key': false,
+                  }),
+                  err: '',
+                )
+              : (code: 65, out: '{"reason":"no-identity","words":"no card is kept"}', err: '');
+      }
+    }
+
+    final model = IdentityModel(Identity(run: run));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () => showDialog<void>(
+                context: context,
+                builder: (_) => FirstStartWizard(model: model),
+              ),
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      ),
+    );
+    Future<void> tap(String key) async {
+      await tester.tap(find.byKey(Key(key)));
+      await World.settle(tester);
+    }
+
+    await tester.tap(find.text('Open'));
+    await World.settle(tester);
+    await tester.enterText(find.byKey(const Key('identity-login')), 'ms-test-reviewer');
+    await tester.enterText(find.byKey(const Key('identity-name')), 'MS Test Reviewer');
+    await World.settle(tester);
+    await tap('wizard-next');
+    await tap('identity-use-existing');
+    await tap('identity-key SHA256:NewNewNew');
+    await tap('wizard-next');
+    await tap('identity-wizard-make');
+    expect(made, isTrue);
+    expect(model.card?.fingerprint, 'SHA256:NewNewNew');
+    expect(tester.widget<FilledButton>(find.byKey(const Key('wizard-next'))).onPressed, isNull);
+  });
 }
+
+const _keys = {
+  'keys': [
+    {
+      'fingerprint': 'SHA256:NewNewNew',
+      'key': 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINew',
+      'comment': 'laptop',
+      'usable': true,
+      'reason': null,
+      'key_listed': null,
+    },
+  ],
+};

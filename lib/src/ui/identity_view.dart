@@ -77,6 +77,11 @@ class _IdentityDialogState extends State<IdentityDialog> {
   _Picking _picking = _Picking.none;
   bool _newKey = false;
 
+  /// The rotation under review: an agent key, or a new KeePassXC key when [_reviewNew] is set; nothing runs before
+  /// the person confirms it.
+  AgentKey? _reviewKey;
+  bool _reviewNew = false;
+
   @override
   void initState() {
     super.initState();
@@ -109,7 +114,10 @@ class _IdentityDialogState extends State<IdentityDialog> {
     setState(() => _picking = _Picking.none);
     switch (what) {
       case _Picking.rotate:
-        await _model.rotate(key);
+        setState(() {
+          _reviewKey = key;
+          _reviewNew = false;
+        });
       case _Picking.lost:
         await _model.planLostKey(key);
       case _Picking.none:
@@ -117,19 +125,25 @@ class _IdentityDialogState extends State<IdentityDialog> {
     }
   }
 
-  /// Changes to a new key in KeePassXC in a terminal; the ID is kept first so only Retry follows.
-  Future<void> _rotateToNewKey() async {
-    final id = newOperationId('rot');
-    final List<String> command;
-    try {
-      command = Identity.rotateInKeepassxc(database: _database.text.trim(), entry: _entry.text.trim(), id: id);
-    } on FormatException catch (error) {
-      setState(() => _model.problem = error.message);
-      return;
-    }
-    _model.startedInTerminal(id);
-    await _inTerminal('Change your key', command, id);
+  /// Runs the reviewed rotation once; the model's guard decides whether it may start.
+  Future<void> _confirmRotation() async {
+    final key = _reviewKey;
+    final viaKeepassxc = _reviewNew;
+    setState(() {
+      _reviewKey = null;
+      _reviewNew = false;
+    });
+    if (key != null) return _model.rotate(key);
+    if (!viaKeepassxc) return;
+    final started = _model.rotateInTerminal(database: _database.text.trim(), entry: _entry.text.trim());
+    if (started == null) return;
+    await _inTerminal('Change your key', started.command, started.id);
   }
+
+  void _cancelRotation() => setState(() {
+    _reviewKey = null;
+    _reviewNew = false;
+  });
 
   Future<void> _inTerminal(String title, List<String> command, String id) async {
     setState(() => _picking = _Picking.none);
@@ -174,13 +188,7 @@ class _IdentityDialogState extends State<IdentityDialog> {
       label: 'I lost my key…',
       group: 'My key',
       home: Home.openedView,
-      unavailable: card == null
-          ? 'No card is read.'
-          : _model.busy
-          ? 'Still working.'
-          : _model.unfinishedId != null
-          ? 'An earlier change has not answered. Retry it first.'
-          : null,
+      unavailable: _model.whyNotStart,
       run: () => _pick(_Picking.lost),
     ),
     const Command(
@@ -215,6 +223,7 @@ class _IdentityDialogState extends State<IdentityDialog> {
               if (_model.card case final card?) ..._card(context, card),
               if (_model.unfinishedId case final id?) _Unfinished(id: id, model: _model),
               if (_model.operation case final operation?) _OperationView(operation, model: _model),
+              if (_reviewKey != null || _reviewNew) _rotationReview(context),
               if (_model.lostKeyPlan case final reviewed?)
                 _PlanView(
                   reviewed.plan,
@@ -273,11 +282,12 @@ class _IdentityDialogState extends State<IdentityDialog> {
           Row(
             children: [
               Expanded(child: Text('${pending.action} ${pending.id}')),
-              TextButton(
-                key: Key('identity-retry ${pending.id}'),
-                onPressed: _model.busy ? null : () => unawaited(_model.retry(pending.id)),
-                child: const Text('Retry'),
-              ),
+              if (_model.whyNotRetry(pending.id) == null)
+                TextButton(
+                  key: Key('identity-retry ${pending.id}'),
+                  onPressed: () => unawaited(_model.retry(pending.id)),
+                  child: const Text('Retry'),
+                ),
               TextButton(
                 key: Key('identity-read-back ${pending.id}'),
                 onPressed: _model.busy ? null : () => unawaited(_model.readBack(pending.id)),
@@ -317,16 +327,51 @@ class _IdentityDialogState extends State<IdentityDialog> {
                   },
             ),
             // An unusable key is shown with its reason and never offered.
-            enabled:
-                key.usable &&
-                !_model.busy &&
-                (_picking != _Picking.rotate || key.fingerprint != _model.card?.fingerprint),
+            // The current key is never its own successor, least of all when it is lost or stolen.
+            enabled: _model.whyNotSuccessor(key) == null && !_model.busy,
             onTap: () => unawaited(_picked(key)),
           ),
         TextButton(
           key: const Key('identity-new-in-keepassxc'),
           onPressed: () => _chooseNewKey(_picking),
           child: const Text('Make a new key in KeePassXC instead'),
+        ),
+      ],
+    );
+  }
+
+  Widget _rotationReview(BuildContext context) {
+    final card = _model.card;
+    final to = _reviewKey?.fingerprint ?? 'a new key KeePassXC keeps in ${_database.text.trim()}';
+    return Column(
+      key: const Key('identity-rotation-review'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: Space.small),
+        Text('What changing your key does', style: Theme.of(context).textTheme.titleSmall),
+        Text('Your key ${card?.fingerprint ?? ''} is replaced by $to.'),
+        const Text('Core signs the new card with both keys and publishes it to:'),
+        for (final registry in card?.registry ?? const <IdentityRegistry>[]) Text('the registry ${registry.address}'),
+        const Text(
+          'every project whose access file names you, where a project admin accepts it, and every host those '
+          'projects or the registry name, at its next sync. Core lists each place and its state once it answers.',
+        ),
+        if (_reviewNew) const Text('A terminal opens where KeePassXC asks for its master password.'),
+        if (_model.whyNotChange case final why?) Text(why),
+        Wrap(
+          spacing: Space.small,
+          children: [
+            TextButton(
+              key: const Key('identity-rotation-cancel'),
+              onPressed: _cancelRotation,
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              key: const Key('identity-rotation-confirm'),
+              onPressed: _model.whyNotChange == null ? () => unawaited(_confirmRotation()) : null,
+              child: const Text('Change my key'),
+            ),
+          ],
         ),
       ],
     );
@@ -358,8 +403,14 @@ class _IdentityDialogState extends State<IdentityDialog> {
         key: const Key('identity-open-terminal'),
         onPressed: _model.busy
             ? null
-            : () => unawaited(_picking == _Picking.lost ? _planLostInKeepassxc() : _rotateToNewKey()),
-        child: Text(_picking == _Picking.lost ? 'Show what it does' : 'Open the terminal'),
+            : _picking == _Picking.lost
+            ? () => unawaited(_planLostInKeepassxc())
+            : () => setState(() {
+                _picking = _Picking.none;
+                _reviewKey = null;
+                _reviewNew = true;
+              }),
+        child: const Text('Show what it does'),
       ),
     ],
   );
@@ -524,11 +575,12 @@ class _Unfinished extends StatelessWidget {
     key: const Key('identity-unfinished'),
     children: [
       Expanded(child: Text('The change $id has not answered yet. Retry sends only what is not done.')),
-      TextButton(
-        key: const Key('identity-unfinished-retry'),
-        onPressed: model.busy ? null : () => unawaited(model.retry(id)),
-        child: const Text('Retry'),
-      ),
+      if (model.whyNotRetry(id) == null)
+        TextButton(
+          key: const Key('identity-unfinished-retry'),
+          onPressed: () => unawaited(model.retry(id)),
+          child: const Text('Retry'),
+        ),
       TextButton(
         key: const Key('identity-unfinished-read-back'),
         onPressed: model.busy ? null : () => unawaited(model.readBack(id)),
@@ -580,11 +632,17 @@ class _OperationView extends StatelessWidget {
       Text('From ${operation.predecessor} to ${operation.fingerprint}'),
       for (final place in operation.published) _PlaceRow(place),
       if (!operation.finished)
-        TextButton(
-          key: const Key('identity-operation-retry'),
-          onPressed: model.busy ? null : () => unawaited(model.retry(operation.id)),
-          child: const Text('Retry what is not done'),
-        ),
+        model.whyNotRetry(operation.id) == null
+            ? TextButton(
+                key: const Key('identity-operation-retry'),
+                onPressed: () => unawaited(model.retry(operation.id)),
+                child: const Text('Retry what is not done'),
+              )
+            : TextButton(
+                key: const Key('identity-operation-read-back'),
+                onPressed: model.busy ? null : () => unawaited(model.readBack(operation.id)),
+                child: const Text('Read it back'),
+              ),
     ],
   );
 }
@@ -661,6 +719,9 @@ class _FirstStartWizardState extends State<FirstStartWizard> {
   late final _changes = Listenable.merge([_model, _login, _name, _email, _database, _entry, _choice, _chosen]);
   bool _ran = false;
 
+  /// The card's fingerprint before making, so a new KeePassXC key is told from an older card.
+  String? _before;
+
   @override
   void dispose() {
     for (final field in [_login, _name, _email, _database, _entry]) {
@@ -680,6 +741,7 @@ class _FirstStartWizardState extends State<FirstStartWizard> {
     // Once made or tried, only a read follows: a second create could make a second key.
     if (_ran) return _model.load();
     _ran = true;
+    _before = _model.card?.fingerprint;
     final email = _email.text.trim();
     if (_choice.value == _KeyChoice.existing) {
       final key = _chosen.value;
@@ -700,9 +762,17 @@ class _FirstStartWizardState extends State<FirstStartWizard> {
 
   WizardActionState get _state => !_ran || _model.busy
       ? WizardActionState.running
-      : _model.card != null
+      : _whyNotMade == null
       ? WizardActionState.done
       : WizardActionState.refused;
+
+  /// Why the card read is not the newly made, working one; a failed run's problem counts too.
+  String? get _whyNotMade =>
+      _model.problem ??
+      _model.whyNotMade(
+        fingerprint: _choice.value == _KeyChoice.existing ? _chosen.value?.fingerprint : null,
+        before: _before,
+      );
 
   @override
   Widget build(BuildContext context) => Wizard(
@@ -851,7 +921,7 @@ class _FirstStartWizardState extends State<FirstStartWizard> {
 
   Widget _result(BuildContext context) {
     final card = _model.card;
-    if (card != null) {
+    if (_ran && !_model.busy && card != null && _whyNotMade == null) {
       return Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -862,9 +932,7 @@ class _FirstStartWizardState extends State<FirstStartWizard> {
         ],
       );
     }
-    if (_model.problem case final problem?) {
-      return _Problem(problem, reason: _model.problemReason, reread: _model.load);
-    }
-    return const LinearProgressIndicator();
+    if (!_ran || _model.busy) return const LinearProgressIndicator();
+    return _Problem(_whyNotMade ?? 'No card is read.', reason: _model.problemReason, reread: _model.load);
   }
 }

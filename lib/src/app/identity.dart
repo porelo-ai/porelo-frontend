@@ -541,8 +541,8 @@ class Identity implements AgentKeyList {
       fingerprint: _fingerprint(_text(answer, 'fingerprint')),
       key: _key(_text(answer, 'key')),
       card: _text(answer, 'card'),
-      agent: _agent(answer['agent']),
-      forge: _forge(answer['forge']),
+      agent: _knownAgent(answer['agent']),
+      forge: _forge(_field(answer, 'forge')),
       next: _strings(answer['next']),
     );
   }
@@ -751,6 +751,20 @@ class Identity implements AgentKeyList {
     return text as String?;
   }
 
+  static Object? _field(Map<String, dynamic> value, String field) {
+    if (!value.containsKey(field)) throw FormatException('Core did not answer $field.');
+    return value[field];
+  }
+
+  // A made card's agent word must be one this interface knows; an unknown one is an incomplete answer.
+  static AgentState _knownAgent(Object? word) {
+    final agent = _agent(word);
+    if (agent == AgentState.unknown) {
+      throw const FormatException('Core answered an agent word this interface does not know.');
+    }
+    return agent;
+  }
+
   static bool _bool(Map<String, dynamic> value, String field) {
     final flag = value[field];
     if (flag is! bool) throw FormatException('Core did not answer $field.');
@@ -921,7 +935,8 @@ class Identity implements AgentKeyList {
     if (comment != null && comment is! String) throw const FormatException('Invalid key comment.');
     return AgentKey(
       fingerprint: _fingerprint(_text(value, 'fingerprint')),
-      key: _text(value, 'key'),
+      // A usable key must be the Ed25519 key it claims to be; an unusable one is shown as Core names it.
+      key: usable ? _key(_text(value, 'key')) : _text(value, 'key'),
       comment: (comment as String?) ?? '',
       usable: usable,
       reason: reason as String?,
@@ -972,6 +987,9 @@ class IdentityModel extends ChangeNotifier {
 
   /// An operation started whose answer was not read; Retry and read-back use its ID.
   String? unfinishedId;
+
+  /// The action of [unfinishedId]: `rotate` or `revoke-lost`.
+  String? unfinishedAction;
 
   /// The lost-key plan awaiting confirmation, with the new key (an agent's or KeePassXC's) and ID it was made for.
   ({LostKeyPlan plan, String? fingerprint, String? database, String? entry, String id})? lostKeyPlan;
@@ -1025,6 +1043,7 @@ class IdentityModel extends ChangeNotifier {
     if (read != null) {
       card = read;
       firstStart = false;
+      _dropSettledFilings(read);
     } else if (problem != null) {
       card = null;
     }
@@ -1053,55 +1072,136 @@ class IdentityModel extends ChangeNotifier {
     if (made != null) await load();
   }
 
-  /// Why "change my key" cannot be offered now, or null when it can.
-  String? get whyNotChange {
+  /// Why no new change of key (rotate or lost-key replacement) may start now, or null when one may.
+  ///
+  /// An unfinished operation, here or in Core's pending list, is finished by its own ID; a second one would make a
+  /// second key.
+  String? get whyNotStart {
     final read = card;
     if (read == null) return 'No card is read.';
     if (busy) return 'Still working.';
-    if (unfinishedId != null) return 'An earlier change has not answered. Retry it first.';
-    // An interrupted change is finished by its own ID; a second one would make a second key.
+    if (unfinishedId != null) return 'An earlier change has not answered. Retry it or read it back first.';
     if (read.pending.isNotEmpty) return 'A change is still pending. Retry it or read it back first.';
-    return read.whyKeyUnusable;
+    return null;
+  }
+
+  /// Why "change my key" cannot be offered now, or null when it can: it also needs the current key.
+  String? get whyNotChange => whyNotStart ?? card?.whyKeyUnusable;
+
+  /// Why [successor] cannot replace the current key, or null when it can.
+  String? whyNotSuccessor(AgentKey successor) {
+    if (!successor.usable) return successor.whyNot;
+    if (successor.fingerprint == card?.fingerprint) return 'This is your current key.';
+    return null;
   }
 
   /// Changes the key to [successor] once; a lost answer leaves only Retry.
   Future<void> rotate(AgentKey successor) async {
-    if (whyNotChange != null || !successor.usable) return;
+    if (whyNotChange != null || whyNotSuccessor(successor) != null) return;
     final id = newOperationId('rot');
-    unfinishedId = id;
+    _started(id, 'rotate');
     await _runOperation(() => core.rotate(fingerprint: successor.fingerprint, id: id), id);
   }
 
-  /// Marks [id] as a change whose answer a terminal holds, so only Retry and read-back follow.
-  void startedInTerminal(String id) {
+  /// Takes a rotation to a new KeePassXC key once and answers the command its terminal runs; null when refused.
+  ///
+  /// The ID is kept before the terminal opens, so afterwards only [terminalEnded] reads it back.
+  ({List<String> command, String id})? rotateInTerminal({required String database, String? entry}) {
+    if (whyNotChange != null) return null;
+    final id = newOperationId('rot');
+    final List<String> command;
+    try {
+      command = Identity.rotateInKeepassxc(database: database, entry: entry, id: id);
+    } on FormatException catch (error) {
+      problem = error.message;
+      notifyListeners();
+      return null;
+    }
+    _started(id, 'rotate');
+    return (command: command, id: id);
+  }
+
+  void _started(String id, String action) {
     unfinishedId = id;
+    unfinishedAction = action;
     notifyListeners();
   }
 
-  /// Sends the places of [id] not done, never a second change.
-  Future<void> retry(String id) => _runOperation(() => core.publish(id), id);
+  void _settled(String id) {
+    if (unfinishedId == id) {
+      unfinishedId = null;
+      unfinishedAction = null;
+    }
+  }
+
+  /// The action of operation [id] as far as this interface knows it, or null.
+  String? actionOf(String id) {
+    if (id == unfinishedId) return unfinishedAction;
+    for (final pending in card?.pending ?? const <PendingIdentityOperation>[]) {
+      if (pending.id == id) return pending.action;
+    }
+    return operation?.id == id ? operation!.action : null;
+  }
+
+  /// Why operation [id] cannot be retried by publishing now, or null when it can.
+  ///
+  /// Only a rotation is published again, and only while the current key may sign; a lost-key replacement waits for
+  /// the people named and is only read back.
+  String? whyNotRetry(String id) {
+    if (busy) return 'Still working.';
+    if (actionOf(id) != 'rotate') return 'Only read back: it waits for the people named to accept it.';
+    final read = card;
+    if (read == null) return 'No card is read.';
+    return read.whyKeyUnusable;
+  }
+
+  /// Sends the places of rotation [id] not done, never a second change.
+  Future<void> retry(String id) async {
+    if (whyNotRetry(id) != null) return;
+    await _runOperation(() => core.publish(id), id);
+  }
 
   /// Reads [id] back, changing nothing.
   Future<void> readBack(String id) => _runOperation(() => core.status(id), id);
 
   Future<void> _runOperation(Future<IdentityOperation> Function() call, String id) async {
-    try {
-      final answer = await _step(call);
-      if (answer != null) {
-        // An answer for another operation is not this one's.
-        if (answer.id != id) {
-          problem = 'Core answered for operation ${answer.id}, not $id. Nothing is assumed from it.';
-          return;
-        }
-        operation = answer;
-        unfinishedId = null;
-      } else if (nothingMade.contains(problemReason)) {
-        // A typed refusal before anything was made: no operation exists under this ID.
-        if (operation?.id != id) unfinishedId = null;
+    final answer = await _step(call);
+    if (answer != null) {
+      // An answer for another operation is not this one's.
+      if (answer.id != id) {
+        problem = 'Core answered for operation ${answer.id}, not $id. Nothing is assumed from it.';
+        notifyListeners();
+        return;
       }
-    } finally {
+      operation = answer;
+      _settled(id);
+    } else if (nothingMade.contains(problemReason) && operation?.id != id) {
+      // A typed refusal before anything was made: no operation exists under this ID.
+      _settled(id);
+    } else {
+      return;
+    }
+    // Core's pending list, not this answer, says what is still open.
+    final words = problem;
+    final reason = problemReason;
+    await load();
+    if (words != null && problem == null) {
+      problem = words;
+      problemReason = reason;
       notifyListeners();
     }
+  }
+
+  /// Why the card read is not the one just made, or null when it is: its key is [fingerprint] (an agent key picked)
+  /// or another than [before] (a new KeePassXC key), and the agent serves it, unrevoked and verified.
+  String? whyNotMade({String? fingerprint, String? before}) {
+    final read = card;
+    if (read == null) return problem ?? 'No card is read.';
+    if (fingerprint != null && read.fingerprint != fingerprint) {
+      return 'The card read names another key than the one picked.';
+    }
+    if (fingerprint == null && read.fingerprint == before) return 'The card read is the earlier one, not a new one.';
+    return read.whyKeyUnusable;
   }
 
   /// Takes what a terminal running create or rotate ended with, reading Core back and never running it again.
@@ -1111,7 +1211,8 @@ class IdentityModel extends ChangeNotifier {
     final typed = code == 0 ? null : Identity.typedRefusal(lastLine);
     if (id != null) {
       if (typed != null && nothingMade.contains(typed.reason)) {
-        unfinishedId = null;
+        _settled(id);
+        await load();
         problem = typed.words;
         problemReason = typed.reason;
         notifyListeners();
@@ -1121,7 +1222,8 @@ class IdentityModel extends ChangeNotifier {
       return;
     }
     await load();
-    if (code != 0 && card == null && problem == null) {
+    // A failed create is said even when a card is read: it may be an older one, not the one asked for.
+    if (code != 0) {
       problem = typed?.words ?? 'Making the key ended with exit $code. The terminal says why.';
       problemReason = typed?.reason;
       notifyListeners();
@@ -1131,7 +1233,7 @@ class IdentityModel extends ChangeNotifier {
   /// Shows what replacing a lost key by [successor] would do, before any confirmation.
   Future<void> planLostKey(AgentKey successor) async {
     lostKeyPlan = null;
-    if (!successor.usable || unfinishedId != null) return;
+    if (whyNotStart != null || whyNotSuccessor(successor) != null) return;
     final plan = await _step(() => core.planLostKey(fingerprint: successor.fingerprint));
     if (plan != null) {
       lostKeyPlan = (
@@ -1148,7 +1250,7 @@ class IdentityModel extends ChangeNotifier {
   /// Shows what replacing a lost key by a new one in KeePassXC [database] would do, before any confirmation.
   Future<void> planLostKeyInKeepassxc({required String database, String? entry}) async {
     lostKeyPlan = null;
-    if (unfinishedId != null) return;
+    if (whyNotStart != null) return;
     final plan = await _step(() => core.planLostKey(database: database, entry: entry));
     if (plan != null) {
       lostKeyPlan = (plan: plan, fingerprint: null, database: database, entry: entry, id: newOperationId('lost'));
@@ -1162,10 +1264,10 @@ class IdentityModel extends ChangeNotifier {
   ({List<String> command, String id})? confirmLostKeyInTerminal() {
     final reviewed = lostKeyPlan;
     final database = reviewed?.database;
-    if (reviewed == null || database == null || unfinishedId != null) return null;
+    if (reviewed == null || database == null || whyNotStart != null) return null;
     final command = Identity.replaceLostKeyInKeepassxc(database: database, entry: reviewed.entry, id: reviewed.id);
     lostKeyPlan = null;
-    startedInTerminal(reviewed.id);
+    _started(reviewed.id, 'revoke-lost');
     return (command: command, id: reviewed.id);
   }
 
@@ -1179,10 +1281,21 @@ class IdentityModel extends ChangeNotifier {
   Future<void> confirmLostKey() async {
     final reviewed = lostKeyPlan;
     final fingerprint = reviewed?.fingerprint;
-    if (reviewed == null || fingerprint == null || unfinishedId != null) return;
+    if (reviewed == null || fingerprint == null || whyNotStart != null || fingerprint == card?.fingerprint) return;
     lostKeyPlan = null;
-    unfinishedId = reviewed.id;
+    _started(reviewed.id, 'revoke-lost');
     await _runOperation(() => core.replaceLostKey(fingerprint: fingerprint, id: reviewed.id), reviewed.id);
+  }
+
+  // A kept filing ends once Core says the card is filed, or once the key may no longer sign it.
+  void _dropSettledFilings(IdentityCard read) {
+    if (read.revoked || read.cardRefused != null) {
+      _filing.clear();
+      return;
+    }
+    for (final registry in read.registry) {
+      if (registry.filed == FiledState.done) _filing.remove(registry.address);
+    }
   }
 
   /// Whether a filing in [registry] lost its answer, so its button retries the same request.
@@ -1191,11 +1304,14 @@ class IdentityModel extends ChangeNotifier {
   /// Why the card cannot be filed in [registry] now, or null when it can.
   String? whyNotFile(IdentityRegistry registry) {
     if (busy) return 'Still working.';
+    final read = card;
+    if (read == null) return 'No card is read.';
     if (!registry.mayFile) return 'Only an owner may file it here.';
+    if (read.whyKeyUnusable case final why?) return why;
+    if (checkoutFor?.call(registry.address) == null) return 'No checkout of this registry is on this computer.';
+    // A kept request is retried as it was, against its own base.
     if (_filing.containsKey(registry.address)) return null;
     if (registry.filed != FiledState.absent && registry.filed != FiledState.refused) return 'It is filed already.';
-    if (card?.whyKeyUnusable case final why?) return why;
-    if (checkoutFor?.call(registry.address) == null) return 'No checkout of this registry is on this computer.';
     final revision = registry.revision;
     if (revision == null) return 'Core named no registry revision to file against.';
     try {
