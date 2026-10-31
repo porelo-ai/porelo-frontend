@@ -76,6 +76,9 @@ import './step/the_unlock_terminal_ends.dart';
 import './step/the_terminal_ends_saying.dart';
 import './step/no_link_is_offered_any_more.dart';
 import './step/the_form_no_longer_asks_to_sign_in.dart';
+import './step/the_agent_signs_in_by_the_flow.dart';
+import './step/the_terminal_is_headed_by.dart';
+import './step/the_terminal_ends_with.dart';
 import './step/logging_in_is_not_offered.dart';
 import './step/starting_says_the_credential_is_stored_by.dart';
 import './step/starting_says_the_upstream_refused_the_key_with.dart';
@@ -461,6 +464,43 @@ void main() {
       await noLinkIsOfferedAnyMore(tester);
       await iPress(tester, 'Done');
       await theFormNoLongerAsksToSignIn(tester);
+    });
+    testWidgets('''a paste-code sign-in says above the terminal what to do''', (tester) async {
+      await bddSetUp(tester);
+      await theVaultHoldsNoCredentialForWhatARunWouldUse(tester);
+      await theAgentLogsInByItsOwnLogin(tester, 'an-agent');
+      await theAgentSignsInByTheFlow(tester, 'an-agent', 'paste-code');
+      await iStartWorkInThisProject(tester);
+      await iChooseTheAgent(tester, 'An Agent');
+      await iLogInWithTheAgentFromTheStart(tester);
+      await aTerminalRunsOnTheMachine(tester, 'porelo vault login --agent an-agent');
+      await theTerminalIsHeadedBy(tester, 'Paste the code shown in your browser');
+    });
+    testWidgets('''a device-code sign-in says above the terminal what to do''', (tester) async {
+      await bddSetUp(tester);
+      await theVaultHoldsNoCredentialForWhatARunWouldUse(tester);
+      await theAgentLogsInByItsOwnLogin(tester, 'an-agent');
+      await theAgentSignsInByTheFlow(tester, 'an-agent', 'device-code');
+      await iStartWorkInThisProject(tester);
+      await iChooseTheAgent(tester, 'An Agent');
+      await iLogInWithTheAgentFromTheStart(tester);
+      await aTerminalRunsOnTheMachine(tester, 'porelo vault login --agent an-agent');
+      await theTerminalIsHeadedBy(tester, 'Confirm on the device page');
+    });
+    testWidgets('''a loopback sign-in the host refuses stores nothing and starts nothing''', (tester) async {
+      await bddSetUp(tester);
+      await theVaultHoldsNoCredentialForWhatARunWouldUse(tester);
+      await theAgentLogsInByItsOwnLogin(tester, 'an-agent');
+      await theAgentSignsInByTheFlow(tester, 'an-agent', 'loopback');
+      await iStartWorkInThisProject(tester);
+      await iChooseTheAgent(tester, 'An Agent');
+      await iLogInWithTheAgentFromTheStart(tester);
+      await aTerminalRunsOnTheMachine(tester, 'porelo vault login --agent an-agent');
+      await theTerminalEndsWith(tester, 65);
+      await theTerminalEndsSaying(tester, 'Nothing was stored for An Agent');
+      await iPress(tester, 'Done');
+      await theFormAsksToSignInToFirstAboveEverythingElse(tester, 'An Agent');
+      await nothingWasStarted(tester);
     });
     testWidgets('''an agent that declares no login is not offered one''', (tester) async {
       await bddSetUp(tester);

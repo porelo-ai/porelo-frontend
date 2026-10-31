@@ -315,6 +315,42 @@ Feature: Starting work with an agent, a mode and a credential
         When I press {'Done'}
         Then the form no longer asks to sign in
 
+    Scenario: a paste-code sign-in says above the terminal what to do
+        Given the vault holds no credential for what a run would use
+        And the agent {'an-agent'} logs in by its own login
+        And the agent {'an-agent'} signs in by the flow {'paste-code'}
+        When I start work in this project
+        And I choose the agent {'An Agent'}
+        And I log in with the agent from the start
+        Then a terminal runs {'porelo vault login --agent an-agent'} on the machine
+        And the terminal is headed by {'Paste the code shown in your browser'}
+
+    Scenario: a device-code sign-in says above the terminal what to do
+        Given the vault holds no credential for what a run would use
+        And the agent {'an-agent'} logs in by its own login
+        And the agent {'an-agent'} signs in by the flow {'device-code'}
+        When I start work in this project
+        And I choose the agent {'An Agent'}
+        And I log in with the agent from the start
+        Then a terminal runs {'porelo vault login --agent an-agent'} on the machine
+        And the terminal is headed by {'Confirm on the device page'}
+
+    # Core refuses a loopback sign-in in a host account before it starts: its words stay in the terminal,
+    # nothing is stored, and the start stays behind the sign-in.
+    Scenario: a loopback sign-in the host refuses stores nothing and starts nothing
+        Given the vault holds no credential for what a run would use
+        And the agent {'an-agent'} logs in by its own login
+        And the agent {'an-agent'} signs in by the flow {'loopback'}
+        When I start work in this project
+        And I choose the agent {'An Agent'}
+        And I log in with the agent from the start
+        Then a terminal runs {'porelo vault login --agent an-agent'} on the machine
+        When the terminal ends with {65}
+        Then the terminal ends saying {'Nothing was stored for An Agent'}
+        When I press {'Done'}
+        Then the form asks to sign in to {'An Agent'} first, above everything else
+        And nothing was started
+
     Scenario: an agent that declares no login is not offered one
         Given the vault holds no credential for what a run would use
         When I start work in this project

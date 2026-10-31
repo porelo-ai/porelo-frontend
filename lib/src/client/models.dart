@@ -839,8 +839,14 @@ class Agent {
   /// cannot log in, and from a Porelo older than the field.
   final List<String> loginCommand;
 
+  /// How its sign-in hands the answer back, from `login.flow` in its definition: [LoginFlow.pasteCode],
+  /// [LoginFlow.deviceCode] or [LoginFlow.loopback]; null when the definition names none, when the value
+  /// is one this build does not know, and from a Porelo older than the field.
+  final LoginFlow? loginFlow;
+
   /// Constructor taking every field.
   const Agent({
+    this.loginFlow,
     this.canLogIn = false,
     this.loginArguments = const <String>[],
     this.loginDocumentation = '',
@@ -873,7 +879,28 @@ class Agent {
     loginArguments: _strings(map, 'loginArguments'),
     loginDocumentation: _string(map, 'loginDocumentation'),
     loginCommand: _strings(map, 'loginCommand'),
+    loginFlow: LoginFlow.named(map['loginFlow']),
   );
+}
+
+/// How an agent's sign-in hands its answer back, as its definition's `login.flow` names it.
+enum LoginFlow {
+  /// The page shows a code, which is pasted into the terminal.
+  pasteCode('paste-code'),
+
+  /// The terminal shows a code, which is confirmed on the provider's device page.
+  deviceCode('device-code'),
+
+  /// The page sends the answer back to a port on the machine that started the sign-in.
+  loopback('loopback');
+
+  const LoginFlow(this.wire);
+
+  /// The value on the wire.
+  final String wire;
+
+  /// The flow [value] names, or null for a missing value or one this build does not know.
+  static LoginFlow? named(Object? value) => values.where((each) => each.wire == value).firstOrNull;
 }
 
 /// Who an agent's commits are attributed to.
