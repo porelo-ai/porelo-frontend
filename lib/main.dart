@@ -30,7 +30,6 @@ import 'src/app/connections.dart';
 import 'src/app/project_following.dart';
 import 'src/app/project_deletion.dart';
 import 'src/app/desk.dart';
-import 'src/app/fleet_backend.dart';
 import 'src/app/registry.dart';
 import 'src/app/registry_checkout.dart';
 import 'src/app/forge_key_check.dart';
@@ -93,7 +92,7 @@ RegistryPages _registryPages(Settings settings, Machines machines) => RegistryPa
     repository: () => settings.registryRepository,
     open: (repository) => Registry(
       checkout: RegistryCheckout(root: '${desk.data}/registry', repository: repository),
-      core: DaemonRegistryCore(PoreloBackend(Machines.backendFor(Machine.local()))),
+      core: CliRegistryCore(scratch: '${desk.data}/registry-filing'),
     ),
     machines: () => machines.all,
   ),

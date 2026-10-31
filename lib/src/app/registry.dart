@@ -1,9 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as path;
 import 'package:porelo_frontend/client.dart';
 
-import 'fleet_backend.dart';
+import 'access_checkout.dart' show privateDirectory;
 import 'quiet_after_dispose.dart';
 import 'registry_checkout.dart';
 import 'run_here.dart';
@@ -17,32 +20,73 @@ abstract interface class RegistryCore {
   Future<RegistryFiled> file(String checkout, RegistryFiling filing);
 }
 
-/// Asks Core through this computer's own daemon, the one whose machine holds the checkout.
-class DaemonRegistryCore implements RegistryCore {
-  /// Constructor taking this computer's daemon.
-  DaemonRegistryCore(this.backend);
+/// Asks Core's `porelo registry read|file` on this computer, where the checkout is a folder.
+class CliRegistryCore implements RegistryCore {
+  /// Constructor taking a private folder for the file a change hands Core, and an argument-list runner.
+  CliRegistryCore({required this.scratch, RunHere? run}) : _run = run ?? runHere;
 
-  /// This computer's daemon, never a forwarded one: the checkout is a folder here.
-  final PoreloBackend backend;
+  /// A private folder the file a change hands Core is written to, and removed from afterwards.
+  final String scratch;
+
+  final RunHere _run;
 
   @override
   Future<RegistryRead> read(String checkout) async {
-    await backend.open();
-    return backend.registryRead(checkout);
+    final result = await _porelo(['registry', 'read', checkout, '--json']);
+    if (result.code != 0) throw RegistryRefusal(_words(result, 'Porelo could not read the registry.'));
+    return RegistryRead.from(_object(result.out));
   }
 
   @override
   Future<RegistryFiled> file(String checkout, RegistryFiling filing) async {
-    await backend.open();
-    return backend.registryFile(
-      checkout,
-      kind: filing.kind.word,
-      host: filing.host,
-      person: filing.person,
-      id: filing.id,
-      base: filing.base,
-      content: filing.content,
-    );
+    final content = filing.content;
+    if (content == null) throw const FormatException('A registry change names no file to file.');
+    await privateDirectory(Directory(scratch));
+    final handed = File(path.join(scratch, 'filing-${filing.id ?? DateTime.now().microsecondsSinceEpoch}'));
+    try {
+      await handed.writeAsString(content, flush: true);
+      final result = await _porelo([
+        'registry',
+        'file',
+        filing.kind.word,
+        checkout,
+        if (filing.kind == RegistryFilingKind.hostAccess) ...['--file', handed.path] else ...['--card', handed.path],
+        if (filing.host case final host?) ...['--host', host],
+        if (filing.id case final id?) ...['--id', id],
+        if (filing.base case final base?) ...['--base', base],
+        '--json',
+      ]);
+      if (result.code != 0) throw RegistryRefusal(_words(result, 'Porelo refused this registry change.'));
+      final commit = _object(result.out)['commit'];
+      return RegistryFiled.from(<String, dynamic>{'revision': commit});
+    } finally {
+      if (await handed.exists()) await handed.delete();
+    }
+  }
+
+  Future<Ran> _porelo(List<String> arguments) async {
+    try {
+      return await _run('porelo', arguments);
+    } on ProcessException {
+      throw const RegistryRefusal('Porelo is not installed on this computer.');
+    }
+  }
+
+  static Map<String, dynamic> _object(String out) {
+    final value = jsonDecode(out);
+    if (value is! Map<String, dynamic>) throw const FormatException('Core answered no JSON object.');
+    return value;
+  }
+
+  /// Core's typed words for a refusal, or [otherwise] when it gave none; never its error output.
+  static String _words(Ran result, String otherwise) {
+    try {
+      final words = _object(result.out)['words'];
+      if (words is String && words.isNotEmpty) return words;
+    } on FormatException {
+      // No typed answer: the fixed sentence says it.
+    }
+    return otherwise;
   }
 }
 

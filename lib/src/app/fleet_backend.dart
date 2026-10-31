@@ -1025,23 +1025,6 @@ class PoreloBackend implements FleetBackend {
     }
   }
 
-  /// Core's verdict on the registry checkout; see [PoreloClient.registryRead].
-  ///
-  /// Only on [PoreloBackend], not on [FleetBackend]: the checkout is a folder on this computer, so only the
-  /// daemon on this computer is ever asked about it.
-  Future<RegistryRead> registryRead(String checkout) => _opened().registryRead(checkout);
-
-  /// One registry change written and signed by Core; see [PoreloClient.registryFile].
-  Future<RegistryFiled> registryFile(
-    String checkout, {
-    required String kind,
-    String? host,
-    String? person,
-    String? id,
-    String? base,
-    String? content,
-  }) => _opened().registryFile(checkout, kind: kind, host: host, person: person, id: id, base: base, content: content);
-
   /// Core's signing policy for a project; see [PoreloClient.projectSigners]. Asked only of this computer's daemon.
   Future<ProjectSigners> projectSigners(String project) => _opened().projectSigners(project);
 
