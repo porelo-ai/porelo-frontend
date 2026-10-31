@@ -280,6 +280,32 @@ void main() {
       expect(model.problem, isNotNull);
     });
 
+    // Harm: Core names the registry by its origin address, and a parser that wants null loses the whole card.
+    test('a sole registry owner without a backup is read with the registry named by its address', () async {
+      core.answer('identity show', {
+        ..._shown(),
+        'sole_without_backup': [
+          {
+            'role': 'registry-owner',
+            'scope': {'kind': 'registry', 'name': 'git@github.com:porelo-ai-test/registry.git'},
+          },
+        ],
+      });
+      await model.load();
+      expect(model.card?.soleWithoutBackup?.single.kind, 'registry');
+      core.answer('identity show', {
+        ..._shown(),
+        'sole_without_backup': [
+          {
+            'role': 'project-admin',
+            'scope': {'kind': 'project', 'name': null},
+          },
+        ],
+      });
+      await model.load();
+      expect(model.card, isNull, reason: 'a project or host is always named');
+    });
+
     test('two agent fields that disagree are refused', () async {
       core.answer('identity show', {..._shown(agent: 'not-held'), 'agent_holds_key': true});
       await model.load();

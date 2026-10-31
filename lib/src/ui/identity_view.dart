@@ -227,8 +227,8 @@ class _IdentityDialogState extends State<IdentityDialog> {
     final entry = widget.recovery;
     if (entry == null || lists.isEmpty || _model.whyNotChange != null) return;
     RecoveryScope scopeOf(SoleWithoutBackup list) => switch (list.kind) {
-      'project' => RecoveryScope.project(list.name!),
-      'host' => RecoveryScope.hostAdmin(list.name!),
+      'project' => RecoveryScope.project(list.name),
+      'host' => RecoveryScope.hostAdmin(list.name),
       _ => const RecoveryScope.owner(),
     };
     final chosen = lists.length == 1

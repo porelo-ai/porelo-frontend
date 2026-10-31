@@ -257,8 +257,8 @@ class SoleWithoutBackup {
   /// `project`, `host` or `registry`.
   final String kind;
 
-  /// The project or host, absent for the registry.
-  final String? name;
+  /// The project or host, or the registry's origin address.
+  final String name;
 }
 
 /// One place an identity operation publishes to.
@@ -897,8 +897,8 @@ class Identity implements AgentKeyList {
           throw const FormatException('Invalid sole_without_backup entry.');
         }
         final kind = _text(scope, 'kind');
-        final name = _textOrNull(scope, 'name');
-        if (!const {'project', 'host', 'registry'}.contains(kind) || (kind == 'registry') != (name == null)) {
+        final name = _text(scope, 'name');
+        if (!const {'project', 'host', 'registry'}.contains(kind)) {
           throw const FormatException('Invalid sole_without_backup scope.');
         }
         return SoleWithoutBackup(role: _text(entry, 'role'), kind: kind, name: name);
