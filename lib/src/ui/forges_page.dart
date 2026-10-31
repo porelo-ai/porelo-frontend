@@ -562,7 +562,7 @@ class _ForgePageState extends State<ForgePage> {
             ),
           Command(
             id: 'repository.tools',
-            label: 'Machines whose messages it trusts…',
+            label: 'Changes waiting, or stop working on it…',
             group: 'Forges',
             home: Home.forgeRow,
             unavailable: widget.machine != null && forges.workspace(repository) != null

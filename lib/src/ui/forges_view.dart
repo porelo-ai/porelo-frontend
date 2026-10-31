@@ -14,8 +14,8 @@ import 'unlock_terminal.dart';
 
 /// The rights a token needs, said once for every place that asks for one.
 String tokenRightsWords(String forge) =>
-    'Enter your own $forge token in the terminal, without echo. It needs Contents (read and write) '
-    'to update machine-signers. This computer keeps it in the system secret store for the forge API. '
+    'Enter your own $forge token in the terminal, without echo. It needs Contents (read and write). '
+    'This computer keeps it in the system secret store for the forge API. '
     'Each machine keeps your token in its vault for git over https.';
 
 /// Where a person makes a token at [address].

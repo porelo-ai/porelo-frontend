@@ -1005,9 +1005,6 @@ class PoreloClient {
     );
   }
 
-  /// This machine's message key, for writing its `machine-signers` line into a project.
-  Future<MachineKey> messageKey() async => MachineKey.from(await _call('MessageKey'));
-
   /// The repositories worked on without a project, in [defaultProject].
   Future<List<DefaultRepository>> defaultRepositories() async {
     final reply = await _call('DefaultRepositories');

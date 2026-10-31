@@ -400,9 +400,8 @@ class _RepositoriesDialogState extends State<RepositoriesDialog> {
           TextButton(
             key: ValueKey<String>('repository-tools ${repository.fullName}'),
             onPressed: () => unawaited(_tools(context, forges, repository)),
-            child: const Text('Machines whose messages it trusts'),
+            child: const Text('Changes waiting, or stop working on it'),
           ),
-        // The signed machine-signers commit needs push access.
         if (repository.push)
           FilledButton(
             key: ValueKey<String>('bind ${repository.fullName}'),

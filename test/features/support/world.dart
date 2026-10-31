@@ -1857,16 +1857,13 @@ class FakeBackend implements FleetBackend {
     return made;
   }
 
-  /// This machine's message key.
+  /// This machine's message key, as the daemon still names it in an unfollow's answer.
   MachineKey theMessageKey = const MachineKey(
     principal: 'porelo@vm',
     key: 'ssh-ed25519 AAAAmsg',
     line: 'porelo@vm ssh-ed25519 AAAAmsg',
     fingerprint: 'SHA256:msg',
   );
-
-  @override
-  Future<MachineKey> messageKey() async => theMessageKey;
 
   /// The repositories worked on without a project, as `DefaultRepositories` answers them.
   List<DefaultRepository> inDefault = <DefaultRepository>[];

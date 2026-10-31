@@ -151,9 +151,6 @@ class _Wedged implements FleetBackend {
   }) async => throw UnimplementedError();
 
   @override
-  Future<MachineKey> messageKey() async => throw UnimplementedError();
-
-  @override
   Future<String> contract() async => '';
 
   @override
@@ -511,9 +508,6 @@ class _Machine implements FleetBackend {
     bool? readOnly,
     bool renew = false,
   }) async => throw UnimplementedError();
-
-  @override
-  Future<MachineKey> messageKey() async => throw UnimplementedError();
 
   @override
   Future<String> contract() async => '';

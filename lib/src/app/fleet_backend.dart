@@ -404,9 +404,6 @@ abstract class FleetBackend {
   /// Removes a joined person and reports any account the transport kept.
   Future<MessageMemberRemoved> removeMessageMember(String project, String person);
 
-  /// This machine's message key, for its `machine-signers` line.
-  Future<MachineKey> messageKey();
-
   /// The repositories worked on without a project, in `default`.
   Future<List<DefaultRepository>> defaultRepositories();
 
@@ -855,9 +852,6 @@ class PoreloBackend implements FleetBackend {
   @override
   Future<MessageMemberRemoved> removeMessageMember(String project, String person) =>
       _opened().removeMessageMember(project, person);
-
-  @override
-  Future<MachineKey> messageKey() => _opened().messageKey();
 
   @override
   Future<List<DefaultRepository>> defaultRepositories() => _opened().defaultRepositories();
