@@ -23,6 +23,7 @@ import 'package:porelo_host/porelo_host.dart';
 import '../features/support/world.dart' show FakeTerminal;
 
 const publicKey = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+const hostKeyFingerprint = 'SHA256:kmYcvdi2GkPeWxB6XLjrZB8JHsy2Hm8luHMFp9GMvqk';
 
 void main() {
   late Directory folder;
@@ -1462,7 +1463,7 @@ void main() {
         return process;
       },
     );
-    final result = await core.unlock('alpha', '${folder.path}/alpha.conf');
+    final result = await core.unlock(host.hostCard!, '${folder.path}/alpha.conf');
     expect(commands, isEmpty);
     expect(result.state, HostUnlockState.refused);
   });
@@ -1478,14 +1479,37 @@ void main() {
         return process;
       },
     );
-    final result = await core.unlock('alpha', host.sshConfig);
+    final result = await core.unlock(host.hostCard!, host.sshConfig);
     expect(commands, [
-      ['porelo', 'host', 'unlock', 'alpha'],
+      ['porelo', 'host', 'unlock', 'alpha', '--host-key', hostKeyFingerprint, '--login', 'alice', '--json'],
     ]);
     expect(process.killed, isTrue);
     expect(result.state, HostUnlockState.refused);
     expect(result.words, 'Core host unlock timed out.');
   });
+
+  for (final (code, answer, state) in const [
+    (0, '{"vault":"open"}', HostUnlockState.unlocked),
+    (77, '{"vault":"other-key"}', HostUnlockState.otherKey),
+    (0, '{"vault":"other-key"}', HostUnlockState.refused),
+    (77, '{"vault":"open"}', HostUnlockState.refused),
+  ]) {
+    // Prevents a vault opened by another key from being shown open or reset without the person's yes.
+    test('Core unlock answers $state for exit $code with $answer and never says yes', () async {
+      final commands = <List<String>>[];
+      final core = CoreHostUnlocker(
+        environment: {'XDG_CONFIG_HOME': folder.path},
+        start: (command) async {
+          commands.add(command);
+          return _Answered(code, answer);
+        },
+      );
+      final result = await core.unlock(host.hostCard!, host.sshConfig);
+      expect(result.state, state);
+      expect(commands.single, isNot(contains('--yes')));
+      if (state == HostUnlockState.otherKey) expect(result.words, contains('kept'));
+    });
+  }
 
   // Prevents a busy service port from producing a misleading usable host or public config.
   test('a busy fixed port prevents config publication and SSH launch', () async {
@@ -1575,13 +1599,25 @@ class _Unlock implements HostUnlocker {
   final calls = <(String, String)>[];
   HostUnlockResult result = const HostUnlockResult(HostUnlockState.unlocked);
   @override
-  Future<HostUnlockResult> unlock(String host, String config) async {
-    calls.add((host, config));
+  Future<HostUnlockResult> unlock(HostCardSsh card, String config) async {
+    calls.add((card.name, config));
     return result;
   }
 
   @override
   Future<void> cancel(String host) async {}
+}
+
+class _Answered extends Fake implements Process {
+  _Answered(this.code, this.answer);
+  final int code;
+  final String answer;
+  @override
+  Stream<List<int>> get stdout => Stream.value(utf8.encode(answer));
+  @override
+  Stream<List<int>> get stderr => const Stream.empty();
+  @override
+  Future<int> get exitCode async => code;
 }
 
 class _Process extends Fake implements Process {

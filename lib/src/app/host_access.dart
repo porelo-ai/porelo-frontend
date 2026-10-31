@@ -9,7 +9,6 @@ import 'host_runs.dart' show hostGivenBack;
 import 'host_session.dart';
 import 'registry.dart';
 import 'settings.dart';
-import 'signed_publication.dart';
 
 /// The current identity proven by Core, never a typed account name.
 class HostAdminIdentity {
@@ -26,13 +25,7 @@ class HostAdminIdentity {
 /// Publishes signed host state and retains every unconfirmed step across restarts.
 class HostAccess {
   /// Uses the shared verified registry and isolated write and delivery boundaries.
-  HostAccess({
-    required this.registry,
-    required this.settings,
-    required this.identity,
-    required this.writer,
-    required this.transport,
-  });
+  HostAccess({required this.registry, required this.settings, required this.identity, required this.transport});
 
   /// The shared registry whose accepted state controls every selection.
   final Registry registry;
@@ -42,9 +35,6 @@ class HostAccess {
 
   /// The current proven identity, read again before every side effect.
   final HostAdminIdentity? Function() identity;
-
-  /// Core’s signing boundary and the registry’s publication boundary.
-  final HostRegistryWriter writer;
 
   /// The pinned host’s checked registry intake and sync boundary.
   final HostRegistryTransport transport;
@@ -63,6 +53,27 @@ class HostAccess {
   ];
 
   RegistryCard? _person(String login) => registry.selectable.where((card) => card.login == login).firstOrNull;
+
+  /// No Core verb takes a person's request to a host admin; only a host admin files access.
+  static const noRequests = 'No Core issue covers host access requests yet.';
+
+  /// Why admission is unavailable; a person who is no host admin of [host] learns whom to ask instead.
+  String? admitUnavailable(String host) => _admitRefusal(host)?.toString();
+
+  RegistryRefusal? _admitRefusal(String host) {
+    final reason = unavailable(host);
+    if (reason == null || registry.accepted == null || registry.problem != null || registry.busy) {
+      return reason == null ? null : RegistryRefusal(reason);
+    }
+    final assigned = registry.hosts.where((item) => item.host == host).firstOrNull;
+    return RegistryRefusal(
+      '$noRequests Only a host admin of $host may admit a project.',
+      whoMay: [
+        for (final contact in whoMay)
+          if (assigned == null || assigned.admins.contains(contact.login)) contact,
+      ],
+    );
+  }
 
   /// Why preparation or admission is unavailable, including who may do it.
   String? unavailable([String? host]) {
@@ -200,6 +211,8 @@ class HostAccess {
     required String project,
     required String accessRepository,
   }) => _exclusive(host, () async {
+    checkHostName(host);
+    if (_admitRefusal(host) case final refused?) throw refused;
     _authorizeExisting(host);
     final card = _person(person);
     if (card == null) throw const RegistryRefusal('Choose a person whose card Core trusts.');
@@ -213,7 +226,12 @@ class HostAccess {
     );
   });
 
-  /// Changes only a host membership; purge is a separate confirmed decision after lock.
+  /// No Core verb locks, lets back in or deletes a host account: `access.yml` names projects only.
+  static const noHostWideChange =
+      'No Core issue covers a host-wide lock, let back in or account deletion yet. Lock the person in each '
+      "project's access instead.";
+
+  /// Refuses a host-wide membership change after the usual host admin check, filing nothing.
   Future<void> membership({
     required String host,
     required String person,
@@ -224,19 +242,7 @@ class HostAccess {
     if (!const ['lock', 'unlock', 'purge'].contains(action)) {
       throw const FormatException('Unknown host membership action.');
     }
-    final status = await transport.status(host);
-    _checkStatus(host, status);
-    _authorizeExisting(host);
-    if (!const ['active', 'locked'].contains(status.people[person])) {
-      throw const RegistryRefusal('Choose an active or locked person on this host.');
-    }
-    if (action == 'unlock' && _person(person) == null) {
-      throw const RegistryRefusal('Choose a person whose card Core trusts.');
-    }
-    if (action == 'purge' && (!confirmed || status.people[person] != 'locked')) {
-      throw const RegistryRefusal('Lock first. Deleting the account is a separate permanent decision.');
-    }
-    await _begin(host, action, person: person);
+    throw const RegistryRefusal(noHostWideChange);
   });
 
   /// Brings only unconfirmed work to the host, or the newest accepted revision.
@@ -285,6 +291,7 @@ class HostAccess {
       id: List.generate(16, (_) => Random.secure().nextInt(256).toRadixString(16).padLeft(2, '0')).join(),
       host: host,
       action: action,
+      base: registry.accepted?.revision,
       person: person,
       fingerprint: fingerprint,
       project: project,
@@ -334,23 +341,24 @@ class HostAccess {
         await settings.forgetUnfiledHostRegistry(host);
         throw const RegistryRefusal('The selected card changed. Refresh the admission.');
       }
-    }
-    final wasPublished = progress.published;
-    final revision = await resumeSignedPublication(
-      revision: progress.revision,
-      published: progress.published,
-      authorize: () async => _authorizeChange(progress.change),
-      file: () => writer.file(progress.change),
-      publish: writer.publish,
-      keep: (revision, published) async {
-        progress = HostRegistryProgress(change: progress.change, revision: revision, published: published);
-        await _keep(progress);
-      },
-    );
-    if (!wasPublished) {
+      final revision = await _file(progress.change);
+      progress = HostRegistryProgress(change: progress.change, revision: revision, published: true);
+      await _keep(progress);
+      _authorizeChange(progress.change);
+    } else if (!progress.published) {
+      // An older record kept a signed commit whose push was never confirmed; only an accepted read proves it.
       await registry.refresh();
       _authorizeChange(progress.change);
+      if (registry.accepted?.revision != progress.revision) {
+        throw const RegistryRefusal(
+          'An earlier registry change was signed but never confirmed published. Publish it from the registry '
+          'checkout with Git, then bring it to the host again.',
+        );
+      }
+      progress = HostRegistryProgress(change: progress.change, revision: progress.revision, published: true);
+      await _keep(progress);
     }
+    final revision = progress.revision!;
     if (const ['host-card', 'delete-card'].contains(progress.change.action)) {
       await _keep(
         HostRegistryProgress(change: progress.change, revision: revision, published: true, confirmedRevision: revision),
@@ -360,25 +368,15 @@ class HostAccess {
     _authorizeExisting(host);
     await registry.refresh();
     _authorizeExisting(host);
-    var target = progress.deliveryRevision ?? revision;
-    final current = checkedRegistryRevision(registry.accepted!.revision!);
-    if (current != target) {
-      if (await writer.descendsFrom(current, target)) {
-        target = current;
-      } else if (!await writer.descendsFrom(target, current)) {
-        throw const RegistryRefusal('The current registry does not descend from the pending change.');
-      }
+    // The host's own intake refuses anything that does not descend from what it applied.
+    final target = checkedRegistryRevision(registry.accepted!.revision!);
+    if (progress.change.action == 'admit' && !_holds(progress.change)) {
+      throw const RegistryRefusal('The accepted registry no longer holds this admission. Admit the person again.');
     }
-    _authorizeExisting(host);
     var answer = await transport.status(host);
     _checkStatus(host, answer);
     _authorizeExisting(host);
-    if (answer.revision != target && await writer.descendsFrom(answer.revision, target)) target = answer.revision;
     if (answer.revision != target) {
-      if (!await writer.descendsFrom(target, answer.revision)) {
-        throw const RegistryRefusal('The registry does not descend from the host state. Refresh it before delivery.');
-      }
-      _authorizeExisting(host);
       _checkNotReturned(progress.change);
       // Intake can disappear across host restarts, so a saved upload receipt is insufficient.
       await transport.upload(host, target);
@@ -424,11 +422,69 @@ class HostAccess {
     _statuses[host] = answer;
   }
 
+  /// Files [change] once through the registry, at its ID and base; a retry never makes a second commit.
+  Future<String> _file(HostRegistryChange change) async {
+    final accepted = registry.accepted?.revision;
+    // A push whose receipt was lost: the accepted registry holds the admission already, so nothing is filed.
+    if (change.action == 'admit' && _holds(change) && accepted != null) return checkedRegistryRevision(accepted);
+    final filing = switch (change.action) {
+      'admit' => RegistryFiling(
+        RegistryFilingKind.hostAccess,
+        host: change.host,
+        person: change.person,
+        id: change.id,
+        base: change.base ?? accepted,
+        content: hostAccessFile(
+          registry.hosts.firstWhere((each) => each.host == change.host),
+          person: change.person!,
+          fingerprint: change.fingerprint!,
+          project: change.project!,
+          accessRepository: change.accessRepository!,
+        ),
+      ),
+      'host-card' => RegistryFiling(
+        RegistryFilingKind.hostCard,
+        host: change.host,
+        id: change.id,
+        base: change.base ?? accepted,
+        content: hostCardBody(change.card!),
+      ),
+      'delete-card' => throw const RegistryRefusal('No Core verb removes a host card from the registry yet.'),
+      _ => throw const RegistryRefusal(noHostWideChange),
+    };
+    if (change.base != null && change.base != accepted) return _readAgainAndAsk(change.host);
+    try {
+      return checkedRegistryRevision((await registry.file(filing)).revision);
+    } on RegistryRefusal {
+      await registry.refresh();
+      if (registry.accepted?.revision != filing.base) return _readAgainAndAsk(change.host);
+      rethrow;
+    }
+  }
+
+  /// The registry moved past the change's base: the change is dropped, never filed on another base.
+  Future<Never> _readAgainAndAsk(String host) async {
+    await settings.forgetUnfiledHostRegistry(host);
+    throw const RegistryRefusal('The registry changed since this was chosen. It was read again; choose again.');
+  }
+
+  /// Whether the accepted registry admits [change]'s project for its person under its fingerprint.
+  bool _holds(HostRegistryChange change) {
+    final host = registry.hosts.where((each) => each.host == change.host).firstOrNull;
+    return host != null &&
+        host.adminFingerprints[change.person] == change.fingerprint &&
+        host.projects.any(
+          (each) =>
+              each.name == change.project &&
+              each.admin == change.person &&
+              each.accessRepository == change.accessRepository,
+        );
+  }
+
   bool _staleSelection(HostRegistryProgress progress) =>
       progress.revision == null &&
-      (progress.change.action == 'admit' &&
-              _person(progress.change.person!)?.fingerprint != progress.change.fingerprint ||
-          progress.change.action == 'unlock' && _person(progress.change.person!) == null);
+      progress.change.action == 'admit' &&
+      _person(progress.change.person!)?.fingerprint != progress.change.fingerprint;
 
   void _checkStatus(String host, HostRegistryStatus answer) {
     if (answer.host != host) throw const FormatException('The registry answer names another host.');

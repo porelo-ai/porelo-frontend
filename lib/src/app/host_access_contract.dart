@@ -1,15 +1,19 @@
+import 'dart:convert';
+
+import 'package:porelo_frontend/client.dart' show RegistryHost;
 import 'package:porelo_host/porelo_host.dart';
 
 import 'registry_checkout.dart';
 import 'run_here.dart' show WorkspaceRefused;
 
-/// A signed registry change whose request ID makes filing safe to retry.
+/// A host admin's registry change, whose ID and base make filing safe to retry.
 class HostRegistryChange {
-  /// Keeps the public request whose ID Core uses to deduplicate signing.
+  /// Keeps the public change whose ID and base Core uses to answer the same commit again.
   const HostRegistryChange({
     required this.id,
     required this.host,
     required this.action,
+    this.base,
     this.person,
     this.fingerprint,
     this.project,
@@ -17,8 +21,11 @@ class HostRegistryChange {
     this.card,
   });
 
-  /// The durable random request ID.
+  /// The durable random change ID, passed to Core as `--id`.
   final String id;
+
+  /// The accepted registry commit the change was chosen against, passed as `--base`; absent in older records.
+  final String? base;
 
   /// The host this state belongs to.
   final String host;
@@ -41,11 +48,12 @@ class HostRegistryChange {
   /// The checked public completion, present only for host-card publication.
   final PreparedHost? card;
 
-  /// The single adapter shape for Core's signed host changes.
+  /// The durable record of the change, kept with its pending progress.
   Map<String, Object?> get stored => {
     'id': id,
     'host': host,
     'action': action,
+    'base': ?base,
     'person': ?person,
     'fingerprint': ?fingerprint,
     'project': ?project,
@@ -53,7 +61,7 @@ class HostRegistryChange {
     'card': ?card?.stored,
   };
 
-  /// Reads a persisted request without accepting shell words or arbitrary actions.
+  /// Reads a persisted change without accepting shell words or arbitrary actions.
   factory HostRegistryChange.read(Object? value) {
     if (value is! Map) throw const FormatException('The pending host change must be an object.');
     String text(String key) {
@@ -94,6 +102,7 @@ class HostRegistryChange {
     if (const ['lock', 'unlock', 'purge'].contains(action) && person == null) {
       throw const FormatException('Choose a host membership.');
     }
+    final base = value['base'] == null ? null : checkedRegistryRevision(text('base'));
     final card = value['card'] == null ? null : PreparedHost.read(value['card']);
     if (action == 'host-card' && (card == null || card.values['name'] != host)) {
       throw const FormatException('Choose the completed SSH host card.');
@@ -102,6 +111,7 @@ class HostRegistryChange {
       id: id,
       host: host,
       action: action,
+      base: base,
       person: person,
       fingerprint: fingerprint,
       project: project,
@@ -111,17 +121,55 @@ class HostRegistryChange {
   }
 }
 
-/// Core signs and commits once per request ID; publication retries the same commit.
-abstract interface class HostRegistryWriter {
-  /// Signs and commits once per request ID, returning its exact revision.
-  Future<String> file(HostRegistryChange change);
-
-  /// Publishes the existing signed revision without creating another commit.
-  Future<void> publish(String revision);
-
-  /// Checks verified registry ancestry; an unknown or forked commit returns false.
-  Future<bool> descendsFrom(String revision, String ancestor);
+/// The host's `access.yml` with one project admitted: [host]'s entries kept, the admin's fingerprint pinned.
+///
+/// Refuses a project the host lists already, or an admin pinned under another fingerprint.
+String hostAccessFile(
+  RegistryHost host, {
+  required String person,
+  required String fingerprint,
+  required String project,
+  required String accessRepository,
+}) {
+  if (host.projects.any((each) => each.name.toLowerCase() == project.toLowerCase())) {
+    throw const FormatException('The host admits this project already.');
+  }
+  if (host.adminFingerprints[person] case final pinned? when pinned != fingerprint) {
+    throw const FormatException('The host pins this admin under another key.');
+  }
+  final admins = {...host.adminFingerprints, person: fingerprint};
+  final projects = [
+    for (final each in host.projects) (each.name, each.admin, each.accessRepository),
+    (project, person, accessRepository),
+  ];
+  // JSON strings are YAML scalars, so no value can break out of its line.
+  return [
+    'admins:',
+    for (final MapEntry(:key, :value) in admins.entries) '  ${jsonEncode(key)}: ${jsonEncode(value)}',
+    'projects:',
+    for (final (name, admin, repository) in projects) ...[
+      '  - name: ${jsonEncode(name)}',
+      '    admin: ${jsonEncode(admin)}',
+      '    access_repository: ${jsonEncode(repository)}',
+    ],
+    '',
+  ].join('\n');
 }
+
+/// The host card's body as Core's `card make-host` writes it, before the host admin's signature.
+String hostCardBody(PreparedHost card) => [
+  'host: ${jsonEncode(card.name)}',
+  'address: ${jsonEncode(card.address)}',
+  'ssh_port: ${card.sshPort}',
+  'ssh_host_key: ${jsonEncode(card.sshHostKey)}',
+  'services:',
+  '  forge:',
+  '    web_port: ${card.services['forge']!['web_port']}',
+  '    git_port: ${card.services['forge']!['git_port']}',
+  '  matrix:',
+  '    port: ${card.services['matrix']!['port']}',
+  '',
+].join('\n');
 
 /// The public result of registry sync or status from the pinned host.
 class HostRegistryStatus {

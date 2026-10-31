@@ -1,12 +1,14 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:porelo_frontend/client.dart' show RegistryHost, RegistryProject;
 import 'package:porelo_frontend/src/app/host_access.dart';
 import 'package:porelo_frontend/src/app/commands.dart';
 import 'package:porelo_frontend/src/app/host_runs.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/host_access_contract.dart';
 import 'package:porelo_frontend/src/app/registry.dart';
+import 'package:porelo_frontend/src/app/run_here.dart' show WorkspaceRefused;
 import 'package:porelo_frontend/src/app/settings.dart';
 import 'package:porelo_frontend/src/app/host_session.dart';
 import 'package:porelo_host/porelo_host.dart';
@@ -34,6 +36,17 @@ void main() {
     project: 'demo',
     accessRepository: 'git@example.org:team/demo-access.git',
   );
+  Future<HostAccess> restart() async {
+    final reopened = Settings(store);
+    addTearDown(reopened.dispose);
+    await reopened.load();
+    return HostAccess(
+      registry: fixture.registry,
+      settings: reopened,
+      identity: () => fixture.actor,
+      transport: fixture,
+    );
+  }
 
   // Harm: discarding an unfiled selection loses the published card and re-files it.
   for (final direct in [false, true]) {
@@ -52,49 +65,24 @@ void main() {
       } else {
         await expectLater(access.bringToHost('orchard'), throwsA(isA<RegistryRefusal>()));
       }
-      final reopened = Settings(store);
-      addTearDown(reopened.dispose);
-      await reopened.load();
-      final restored = HostAccess(
-        registry: fixture.registry,
-        settings: reopened,
-        identity: () => fixture.actor,
-        writer: WriterFixture(fixture),
-        transport: fixture,
-      );
+      final restored = await restart();
       final filed = fixture.changes.length;
       await restored.bringToHost('orchard');
       expect(fixture.changes, hasLength(filed), reason: 'Bring must deliver without re-filing the unchanged card');
-      expect(reopened.hostRegistry('orchard')!.lastAppliedRevision, fixture.registryRevision);
+      expect(restored.settings.hostRegistry('orchard')!.lastAppliedRevision, fixture.registryRevision);
     });
   }
 
-  // Harm: forgetting a refused unlock re-files a previously published card.
-  test('discarded unlock retains confirmed host facts across restart', () async {
-    await settings.rememberHostUp('orchard', _readyRecord());
-    await access.publishReady('orchard', PreparedHost.read(sshCompletion()));
-    await access.bringToHost('orchard');
-    fixture.people['bob'] = 'locked';
-    fixture.fail = 'file';
-    await expectLater(access.membership(host: 'orchard', person: 'bob', action: 'unlock'), throwsException);
-    fixture.fail = null;
-    fixture.refusedPerson = true;
-    await fixture.registry.refresh();
-    await expectLater(access.bringToHost('orchard'), throwsA(isA<RegistryRefusal>()));
-    final reopened = Settings(store);
-    addTearDown(reopened.dispose);
-    await reopened.load();
-    expect(reopened.hostRegistryState('orchard').lastAppliedRevision, fixture.applied);
-    final restored = HostAccess(
-      registry: fixture.registry,
-      settings: reopened,
-      identity: () => fixture.actor,
-      writer: WriterFixture(fixture),
-      transport: fixture,
-    );
-    await restored.bringToHost('orchard');
-    expect(fixture.changes.map((change) => change.action), ['host-card']);
-    expect(fixture.people['bob'], 'locked');
+  // Harm: a host-wide lock, let back in or deletion is claimed although no Core verb carries it.
+  test('host-wide membership changes are refused without filing or contacting the host', () async {
+    for (final action in ['lock', 'unlock', 'purge']) {
+      await expectLater(
+        access.membership(host: 'orchard', person: 'bob', action: action, confirmed: true),
+        throwsA(isA<RegistryRefusal>().having((refusal) => refusal.words, 'words', HostAccess.noHostWideChange)),
+      );
+    }
+    expect(fixture.calls, isEmpty);
+    expect(settings.hostRegistry('orchard'), isNull);
   });
 
   // Harm: retrying publication after another operation creates a duplicate card commit.
@@ -113,17 +101,22 @@ void main() {
     });
   }
 
-  // Harm: a returned host publication destroys deletion recovery and blocks name reuse.
-  test('publication on a returned host preserves its completed deletion', () async {
+  // Harm: a returned host's card is claimed deleted, or its name is rented again while the card still points at it.
+  test('a returned host keeps its deletion pending while no Core verb removes a host card', () async {
     await settings.rememberHostReturned('orchard');
-    await access.bringToHost('orchard');
+    await expectLater(
+      access.bringToHost('orchard'),
+      throwsA(isA<RegistryRefusal>().having((refusal) => refusal.words, 'words', contains('removes a host card'))),
+    );
     await expectLater(
       access.publishReady('orchard', PreparedHost.read(sshCompletion())),
       throwsA(isA<RegistryRefusal>()),
     );
-    await access.beginPreparation('orchard');
-    expect(settings.hostReturned('orchard'), isFalse);
-    expect(fixture.changes.map((change) => change.action), ['delete-card']);
+    await expectLater(access.beginPreparation('orchard'), throwsA(isA<RegistryRefusal>()));
+    expect(settings.hostReturned('orchard'), isTrue);
+    expect(access.notOnHostYet('orchard'), isTrue);
+    expect(fixture.changes, isEmpty);
+    expect(fixture.calls, isEmpty);
   });
 
   // Harm: old membership progress without card metadata re-files an unchanged host card.
@@ -133,22 +126,15 @@ void main() {
       await admit();
       final raw = await store.read();
       final progress = Map<String, Object?>.from((raw['hostRegistry'] as Map)['orchard'] as Map);
-      final change = Map<String, Object?>.from(progress['change'] as Map)..['action'] = action;
+      final change = Map<String, Object?>.from(progress['change'] as Map)
+        ..['action'] = action
+        ..remove('base');
       progress['change'] = change;
       progress.remove('published_card');
       raw['hostRegistry'] = {'orchard': progress};
       raw.remove('hostRegistryState');
       await store.write(raw);
-      final reopened = Settings(store);
-      addTearDown(reopened.dispose);
-      await reopened.load();
-      final restored = HostAccess(
-        registry: fixture.registry,
-        settings: reopened,
-        identity: () => fixture.actor,
-        writer: WriterFixture(fixture),
-        transport: fixture,
-      );
+      final restored = await restart();
       final filed = fixture.changes.length;
       await restored.bringToHost('orchard');
       expect(fixture.changes, hasLength(filed));
@@ -164,16 +150,7 @@ void main() {
     final raw = await store.read();
     raw.remove('hostRegistryState');
     await store.write(raw);
-    final reopened = Settings(store);
-    addTearDown(reopened.dispose);
-    await reopened.load();
-    final restored = HostAccess(
-      registry: fixture.registry,
-      settings: reopened,
-      identity: () => fixture.actor,
-      writer: WriterFixture(fixture),
-      transport: fixture,
-    );
+    final restored = await restart();
     fixture.fail = null;
     fixture.selectedFingerprint = 'SHA256:${'C' * 43}';
     await fixture.registry.refresh();
@@ -190,19 +167,10 @@ void main() {
     final raw = await store.read();
     raw.remove('hostRegistryState');
     await store.write(raw);
-    final reopened = Settings(store);
-    addTearDown(reopened.dispose);
-    await reopened.load();
-    final restored = HostAccess(
-      registry: fixture.registry,
-      settings: reopened,
-      identity: () => fixture.actor,
-      writer: WriterFixture(fixture),
-      transport: fixture,
-    );
+    final restored = await restart();
     await restored.bringToHost('orchard');
     expect(
-      reopened.hostRegistryState('orchard').publishedCard,
+      restored.settings.hostRegistryState('orchard').publishedCard,
       isNull,
       reason: 'a saved replacement is not evidence of its publication',
     );
@@ -210,31 +178,25 @@ void main() {
     expect(fixture.changes.map((change) => change.action), ['admit']);
   });
 
-  // Harm: an interrupted operation or setup without a card blocks the returned name forever.
-  for (final action in ['none', 'host-card', 'deliver', 'admit', 'lock']) {
-    test('return supersedes interrupted $action and permits reuse after deletion', () async {
-      if (action == 'host-card') {
-        fixture.fail = 'publish';
-        await expectLater(access.publishReady('orchard', PreparedHost.read(sshCompletion())), throwsException);
-      } else if (action == 'deliver') {
+  // Harm: an interrupted operation is resumed on a returned server, or its return loses deletion recovery.
+  for (final action in ['none', 'deliver', 'admit']) {
+    test('return supersedes interrupted $action and keeps its deletion recovery', () async {
+      if (action == 'deliver') {
         await admit();
         fixture.applied = registryBefore;
         fixture.fail = 'upload';
         await expectLater(access.bringToHost('orchard'), throwsException);
-      } else if (action == 'admit' || action == 'lock') {
-        fixture.fail = 'publish';
-        if (action == 'admit') {
-          await expectLater(admit(), throwsException);
-        } else {
-          await expectLater(access.membership(host: 'orchard', person: 'bob', action: 'lock'), throwsException);
-        }
+      } else if (action == 'admit') {
+        fixture.fail = 'file';
+        await expectLater(admit(), throwsException);
       }
       fixture.fail = null;
+      final calls = fixture.calls.length;
       await settings.rememberHostReturned('orchard');
-      await access.bringToHost('orchard');
-      await access.beginPreparation('orchard');
-      expect(settings.hostReturned('orchard'), isFalse);
-      expect(fixture.changes.last.action, 'delete-card');
+      await expectLater(access.bringToHost('orchard'), throwsA(isA<RegistryRefusal>()));
+      expect(settings.hostRegistry('orchard')!.change.action, 'delete-card');
+      expect(settings.hostReturned('orchard'), isTrue);
+      expect(fixture.calls, hasLength(calls), reason: 'a returned server is never contacted');
     });
   }
 
@@ -254,7 +216,7 @@ void main() {
     await fixture.registry.refresh();
     await access.bringToHost('orchard');
     expect(fixture.changes.map((change) => change.action), ['host-card']);
-    expect(fixture.changes.single.card!.stored, sshCompletion());
+    expect(fixture.changes.single.card, sshCompletion());
     expect(fixture.calls.where((call) => call.startsWith('sync')), isEmpty);
   });
 
@@ -270,12 +232,12 @@ void main() {
     fixture.actor = const HostAdminIdentity('alice', adminFingerprint);
     await access.bringToHost('orchard');
     expect(fixture.changes.map((change) => change.action), ['host-card', 'host-card']);
-    expect(fixture.changes.last.card!.values['address'], '203.0.113.7');
+    expect(fixture.changes.last.card['address'], '203.0.113.7');
   });
 
   // Harm: an unfiled admission of a changed or refused card blocks all later changes.
   for (final refused in [false, true]) {
-    test('unfiled admission can be replaced after card ${refused ? 'refusal' : 'rotation'}', () async {
+    test('unfiled admission is dropped after card ${refused ? 'refusal' : 'rotation'}', () async {
       fixture.fail = 'file';
       await expectLater(admit(), throwsException);
       fixture.fail = null;
@@ -283,9 +245,8 @@ void main() {
       fixture.selectedFingerprint = 'SHA256:${'C' * 43}';
       await fixture.registry.refresh();
       await expectLater(access.bringToHost('orchard'), throwsA(isA<RegistryRefusal>()));
-      await access.membership(host: 'orchard', person: 'bob', action: 'lock');
-      expect(fixture.changes.map((change) => change.action), ['lock']);
-      expect(fixture.people['bob'], 'locked');
+      expect(settings.hostRegistry('orchard'), isNull);
+      expect(fixture.changes, isEmpty);
     });
   }
 
@@ -313,33 +274,7 @@ void main() {
     expect(fixture.calls, isEmpty);
   });
 
-  // Harm: a deleted account is resurrected or a refused key regains access.
-  for (final action in ['lock', 'unlock']) {
-    test('$action refuses a purged membership without filing', () async {
-      fixture.people['bob'] = 'purged';
-      await expectLater(
-        access.membership(host: 'orchard', person: 'bob', action: action),
-        throwsA(isA<RegistryRefusal>()),
-      );
-      expect(fixture.changes, isEmpty);
-    });
-  }
-  test('unlock refuses a registry card refused during the status read', () async {
-    fixture.people['bob'] = 'locked';
-    fixture.statusStarted = Completer<void>();
-    final release = Completer<void>();
-    fixture.holdStatus = release.future;
-    final pending = access.membership(host: 'orchard', person: 'bob', action: 'unlock');
-    final refusal = expectLater(pending, throwsA(isA<RegistryRefusal>()));
-    await fixture.statusStarted!.future;
-    fixture.refusedPerson = true;
-    await fixture.registry.refresh();
-    release.complete();
-    await refusal;
-    expect(fixture.changes, isEmpty);
-  });
-
-  // Harm: retrying an ancestor wedges delivery or restores superseded access.
+  // Harm: retrying an older signed state wedges delivery or restores superseded access.
   for (final advancedHost in [false, true]) {
     test('pending delivery advances safely when ${advancedHost ? 'host' : 'registry'} is newer', () async {
       fixture.fail = 'sync';
@@ -372,7 +307,7 @@ void main() {
   });
 
   // Harm: a returned server still accepts retained admin commands.
-  test('confirmed return disables memberships and clears stale ready completion', () async {
+  test('confirmed return disables admission and clears stale ready completion', () async {
     await settings.rememberHostUp('orchard', _readyRecord());
     await access.publishReady('orchard', PreparedHost.read(sshCompletion()));
     final machines = Machines(settings, reach: (_) => FakeBackend(const []));
@@ -391,24 +326,21 @@ void main() {
       settings: settings,
       hostRuns: runs,
       open: (_) => opened = true,
-    ).singleWhere((command) => command.id == 'host.lockAdmin');
+    ).singleWhere((command) => command.id == 'host.admitAdmin');
     await settings.rememberHostReturned('orchard');
     expect(command.run, throwsA(isA<RegistryRefusal>()));
     expect(opened, isFalse);
-    await access.bringToHost('orchard');
-    expect(access.notOnHostYet('orchard'), isFalse);
+    await expectLater(access.bringToHost('orchard'), throwsA(isA<RegistryRefusal>()));
     expect(settings.hostUp('orchard')!.preparedHost, isNull);
-    await expectLater(
-      access.membership(host: 'orchard', person: 'bob', action: 'lock'),
-      throwsA(isA<RegistryRefusal>()),
-    );
+    await expectLater(admit(), throwsA(isA<RegistryRefusal>()));
   });
 
-  // Harm: a forked registry restores access removed on another branch.
-  test('a forked delivery is refused without upload or sync', () async {
+  // Harm: a registry that no longer holds the admission is delivered as if it confirmed it.
+  test('delivery refuses a registry that dropped the admission, without upload or sync', () async {
     fixture.fail = 'sync';
     await expectLater(admit(), throwsException);
     fixture.fail = null;
+    fixture.projects.clear();
     fixture.registryRevision = 'f' * 40;
     await fixture.registry.refresh();
     fixture.calls.clear();
@@ -417,8 +349,8 @@ void main() {
     expect(access.pendingRevision('orchard'), registryAfter);
   });
 
-  // Harm: a restarted retry forgets its original signature or rolls back a newer lock.
-  test('descendant retry survives restart and preserves the original signed operation', () async {
+  // Harm: a restarted retry forgets its original commit or rolls back a newer state.
+  test('newer registry retry survives restart and preserves the original commit', () async {
     fixture.fail = 'sync';
     await expectLater(admit(), throwsException);
     const newer = '3333333333333333333333333333333333333333';
@@ -427,22 +359,13 @@ void main() {
     fixture.people['bob'] = 'locked';
     await fixture.registry.refresh();
     await expectLater(access.bringToHost('orchard'), throwsException);
-    final reopened = Settings(store);
-    addTearDown(reopened.dispose);
-    await reopened.load();
-    final restored = HostAccess(
-      registry: fixture.registry,
-      settings: reopened,
-      identity: () => fixture.actor,
-      writer: WriterFixture(fixture),
-      transport: fixture,
-    );
+    final restored = await restart();
     fixture.fail = null;
     await restored.bringToHost('orchard');
     expect(fixture.people['bob'], 'locked');
     expect(fixture.changes, hasLength(1));
-    expect(reopened.hostRegistry('orchard')!.revision, registryAfter);
-    expect(reopened.hostRegistry('orchard')!.lastAppliedRevision, newer);
+    expect(restored.settings.hostRegistry('orchard')!.revision, registryAfter);
+    expect(restored.settings.hostRegistry('orchard')!.lastAppliedRevision, newer);
     expect(restored.notOnHostYet('orchard'), isFalse);
   });
 
@@ -464,7 +387,7 @@ void main() {
     final replacement = PreparedHost.read({...sshCompletion(), 'address': '203.0.113.8'});
     await access.publishReady('orchard', replacement);
     expect(fixture.changes, hasLength(2));
-    expect(fixture.changes.last.card!.values['address'], '203.0.113.8');
+    expect(fixture.changes.last.card['address'], '203.0.113.8');
   });
 
   // Harm: a refused upload or stale sync grants access from a different signed state.
@@ -480,32 +403,103 @@ void main() {
     expect(access.notOnHostYet('orchard'), isTrue);
   });
 
-  // Harm: restarting repeats a signed admission or loses delivery after intake disappears.
-  for (final failure in ['publish', 'upload', 'sync']) {
+  // Harm: restarting repeats a filed admission or loses delivery after intake disappears.
+  for (final failure in ['upload', 'sync']) {
     test('restart after $failure retries only unconfirmed work', () async {
       fixture.fail = failure;
       await expectLater(admit(), throwsA(isA<Exception>()));
       final calls = List.of(fixture.calls);
       fixture.fail = null;
-      final reopened = Settings(store);
-      addTearDown(reopened.dispose);
-      await reopened.load();
-      final restored = HostAccess(
-        registry: fixture.registry,
-        settings: reopened,
-        identity: () => fixture.actor,
-        writer: WriterFixture(fixture),
-        transport: fixture,
-      );
+      final restored = await restart();
       await restored.bringToHost('orchard');
       expect(fixture.changes, hasLength(1));
       expect(fixture.calls.where((call) => call == 'file'), hasLength(1));
       if (failure == 'sync') expect(fixture.calls.where((call) => call.startsWith('upload')), hasLength(2));
-      expect(reopened.hostRegistry('orchard')!.complete, isTrue);
+      expect(restored.settings.hostRegistry('orchard')!.complete, isTrue);
       expect(restored.statusFor('orchard')!.words, 'Host result.');
       expect(calls.last, startsWith(failure));
     });
   }
+
+  // Harm: a retry after an interrupted push files the admission a second time.
+  test('a retry after an interrupted push never files a second commit', () async {
+    fixture.fail = 'publish';
+    await expectLater(admit(), throwsA(isA<WorkspaceRefused>()));
+    fixture.fail = null;
+    final id = settings.hostRegistry('orchard')!.change.id;
+    expect(fixture.changes.single.id, id);
+    expect(fixture.changes.single.base, registryBefore);
+    final restored = await restart();
+    await fixture.registry.refresh();
+    await expectLater(restored.bringToHost('orchard'), throwsA(isA<WorkspaceRefused>()));
+    expect(fixture.calls.where((call) => call == 'file'), hasLength(1), reason: 'an unpublished commit stops filing');
+    fixture.pushByHand();
+    await fixture.registry.refresh();
+    await restored.bringToHost('orchard');
+    expect(fixture.changes, hasLength(1));
+    expect(fixture.calls.where((call) => call == 'file'), hasLength(1));
+    expect(restored.settings.hostRegistry('orchard')!.complete, isTrue);
+    expect(fixture.people['bob'], 'active');
+  });
+
+  // Harm: a retried card publication after an interrupted push files the same card twice.
+  test('ready card publication retry never files a second card commit', () async {
+    final card = PreparedHost.read(sshCompletion());
+    fixture.fail = 'publish';
+    await expectLater(access.publishReady('orchard', card), throwsA(isA<WorkspaceRefused>()));
+    fixture.fail = null;
+    await fixture.registry.refresh();
+    await expectLater(access.publishReady('orchard', card), throwsA(isA<WorkspaceRefused>()));
+    fixture.pushByHand();
+    await fixture.registry.refresh();
+    await expectLater(access.publishReady('orchard', card), throwsA(isA<RegistryRefusal>()));
+    expect(fixture.changes, hasLength(1));
+    expect(fixture.calls.where((call) => call.startsWith('upload')), isEmpty);
+  });
+
+  // Harm: a change chosen against an older registry is filed onto a newer one.
+  test('a registry moved while the change was kept is read again, not filed', () async {
+    final held = _HoldingStore();
+    final durable = Settings(held);
+    addTearDown(durable.dispose);
+    final guarded = HostAccess(
+      registry: fixture.registry,
+      settings: durable,
+      identity: () => fixture.actor,
+      transport: fixture,
+    );
+    final pending = guarded.admit(
+      host: 'orchard',
+      person: 'bob',
+      project: 'demo',
+      accessRepository: 'git@example.org:team/demo-access.git',
+    );
+    final refusal = expectLater(
+      pending,
+      throwsA(isA<RegistryRefusal>().having((refusal) => refusal.words, 'words', contains('read again'))),
+    );
+    await held.started.future;
+    fixture.registryRevision = '3' * 40;
+    await fixture.registry.refresh();
+    held.release.complete();
+    await refusal;
+    expect(durable.hostRegistry('orchard'), isNull);
+    expect(fixture.calls, isEmpty);
+    expect(fixture.changes, isEmpty);
+  });
+
+  // Harm: Core's refusal of another HEAD is retried on the newer registry without the person choosing again.
+  test('a base Core refuses is read again and dropped, never filed again', () async {
+    fixture.registryRevision = '3' * 40;
+    await expectLater(
+      admit(),
+      throwsA(isA<RegistryRefusal>().having((refusal) => refusal.words, 'words', contains('read again'))),
+    );
+    expect(settings.hostRegistry('orchard'), isNull);
+    expect(fixture.registry.accepted!.revision, '3' * 40);
+    expect(fixture.calls.where((call) => call == 'file'), hasLength(1));
+    expect(fixture.changes, isEmpty);
+  });
 
   // Harm: failed signing or publication delivers an unsigned or unpublished state.
   for (final failure in ['file', 'publish']) {
@@ -525,7 +519,6 @@ void main() {
       registry: fixture.registry,
       settings: durable,
       identity: () => fixture.actor,
-      writer: WriterFixture(fixture),
       transport: fixture,
     );
     final pending = guarded.admit(
@@ -541,22 +534,6 @@ void main() {
     held.release.complete();
     await refusal;
     expect(fixture.calls, isEmpty);
-  });
-
-  // Harm: host removal while signing still publishes a now-unauthorized membership.
-  test('host removed during filing prevents publication', () async {
-    final release = Completer<void>();
-    fixture.holdFile = release.future;
-    fixture.fileStarted = Completer<void>();
-    final pending = admit();
-    final refusal = expectLater(pending, throwsA(isA<RegistryRefusal>()));
-    await fixture.fileStarted!.future;
-    fixture.listedHost = false;
-    await fixture.registry.refresh();
-    release.complete();
-    await refusal;
-    expect(fixture.calls.where((call) => call.startsWith('publish')), isEmpty);
-    expect(fixture.calls.where((call) => call.startsWith('upload')), isEmpty);
   });
 
   // Harm: permission lost during a status read still reaches the privileged sync.
@@ -616,19 +593,10 @@ void main() {
     release.complete();
     await pending;
     expect(access.givenBack('orchard'), isTrue);
-    final reopened = Settings(store);
-    addTearDown(reopened.dispose);
-    await reopened.load();
-    final restored = HostAccess(
-      registry: fixture.registry,
-      settings: reopened,
-      identity: () => fixture.actor,
-      writer: WriterFixture(fixture),
-      transport: fixture,
-    );
+    final restored = await restart();
     expect(restored.givenBack('orchard'), isTrue);
-    await restored.bringToHost('orchard');
-    expect(fixture.changes.last.action, 'delete-card');
+    await expectLater(restored.bringToHost('orchard'), throwsA(isA<RegistryRefusal>()));
+    expect(restored.settings.hostRegistry('orchard')!.change.action, 'delete-card');
   });
 
   // Harm: a response from another host confirms access on the intended one.
@@ -657,20 +625,44 @@ void main() {
     expect(fixture.calls, isEmpty);
   });
 
-  test('refused people are never written and admission carries the selected fingerprint', () async {
+  // Harm: a person who is no host admin files host access, or is left without anyone to ask.
+  test('a person who is no host admin cannot file host access and is shown who may', () async {
+    fixture.actor = const HostAdminIdentity('bob', personFingerprint);
+    await expectLater(
+      admit(),
+      throwsA(
+        isA<RegistryRefusal>().having((refusal) => refusal.words, 'words', startsWith(HostAccess.noRequests)).having(
+          (refusal) => [for (final who in refusal.whoMay) (who.login, who.email)],
+          'who may',
+          [('alice', 'alice@example.org')],
+        ),
+      ),
+    );
+    expect(access.admitUnavailable('orchard'), allOf(contains(HostAccess.noRequests), contains('alice@example.org')));
+    expect(fixture.calls, isEmpty);
+    expect(fixture.changes, isEmpty);
+    expect(settings.hostRegistry('orchard'), isNull);
+  });
+
+  // Harm: an admission names a card Core does not trust, or another key than the selected card's.
+  test('an admission names only a trusted card and files its fingerprint in the host access file', () async {
     fixture.refusedPerson = true;
     await fixture.registry.refresh();
     await expectLater(admit(), throwsA(isA<RegistryRefusal>()));
     expect(fixture.changes, isEmpty);
+    expect(fixture.calls, isEmpty);
     fixture.refusedPerson = false;
     await fixture.registry.refresh();
     await admit();
     final change = fixture.changes.single;
+    expect(change.filing.kind, RegistryFilingKind.hostAccess);
+    expect(change.filing.host, 'orchard');
     expect(change.person, 'bob');
     expect(change.fingerprint, personFingerprint);
     expect(change.project, 'demo');
     expect(change.accessRepository, 'git@example.org:team/demo-access.git');
-    expect(change.stored.keys, isNot(contains('secret')));
+    expect(change.base, registryBefore);
+    expect(change.content, isNot(contains('alice')));
   });
 
   // Harm: partial sync or a purged account accepted again reads as successful admission.
@@ -679,53 +671,6 @@ void main() {
     fixture.applyMembership = false;
     await expectLater(admit(), throwsFormatException);
     expect(settings.hostRegistry('orchard')!.complete, isFalse);
-  });
-
-  // Harm: an account is purged without its separate lock and explicit decision.
-  test('membership changes are host scoped and purge needs lock and confirmation', () async {
-    for (final confirmed in [false, true]) {
-      await expectLater(
-        access.membership(host: 'orchard', person: 'bob', action: 'purge', confirmed: confirmed),
-        throwsA(isA<RegistryRefusal>()),
-      );
-    }
-    await expectLater(
-      access.membership(host: 'orchard', person: 'absent', action: 'lock'),
-      throwsA(isA<RegistryRefusal>()),
-    );
-    fixture.people['bob'] = 'locked';
-    await access.membership(host: 'orchard', person: 'bob', action: 'lock');
-    expect(fixture.changes.single.stored, containsPair('host', 'orchard'));
-    fixture.people['bob'] = 'active';
-    fixture.applied = registryBefore;
-    await access.membership(host: 'orchard', person: 'bob', action: 'unlock');
-    expect(fixture.changes.last.action, 'unlock');
-    fixture.people['bob'] = 'locked';
-    fixture.fail = 'sync';
-    fixture.applied = registryBefore;
-    await expectLater(
-      access.membership(host: 'orchard', person: 'bob', action: 'purge', confirmed: true),
-      throwsA(isA<Exception>()),
-    );
-    fixture.fail = null;
-    fixture.people['bob'] = 'purged';
-    await access.bringToHost('orchard');
-    expect(access.statusFor('orchard')!.people, {'bob': 'purged'});
-  });
-
-  // Harm: publication retry rents again or corrupts public SSH service endpoints.
-  test('ready card publication retries the same signed card without host sync', () async {
-    final card = PreparedHost.read(sshCompletion());
-    fixture.fail = 'publish';
-    await expectLater(access.publishReady('orchard', card), throwsA(isA<Exception>()));
-    fixture.fail = null;
-    await access.publishReady('orchard', card);
-    expect(fixture.changes, hasLength(1));
-    expect(fixture.changes.single.card!.stored, sshCompletion());
-    expect(fixture.calls.where((call) => call.startsWith('upload')), isEmpty);
-    fixture.registryRevision = registryAfter;
-    await fixture.registry.refresh();
-    expect(access.notOnHostYet('orchard'), isTrue, reason: 'publishing a card does not confirm host sync');
   });
 
   // Harm: a credential-bearing or unsafe repository address is persisted in public access state.
@@ -741,6 +686,35 @@ void main() {
       );
     }
     expect(fixture.changes, isEmpty);
+  });
+
+  // Harm: the access file loses an admitted project, or a value breaks out of its YAML line.
+  test('the host access file keeps admitted projects and quotes every value', () {
+    final file = hostAccessFile(
+      const RegistryHost(
+        host: 'orchard',
+        admins: ['alice'],
+        adminFingerprints: {'carol': adminFingerprint},
+        projects: [RegistryProject(name: 'old', admin: 'carol', accessRepository: 'git@example.org:a/old.git')],
+      ),
+      person: 'bob',
+      fingerprint: personFingerprint,
+      project: 'demo',
+      accessRepository: 'git@example.org:team/demo-access.git',
+    );
+    expect(
+      file,
+      'admins:\n'
+      '  "carol": "$adminFingerprint"\n'
+      '  "bob": "$personFingerprint"\n'
+      'projects:\n'
+      '  - name: "old"\n'
+      '    admin: "carol"\n'
+      '    access_repository: "git@example.org:a/old.git"\n'
+      '  - name: "demo"\n'
+      '    admin: "bob"\n'
+      '    access_repository: "git@example.org:team/demo-access.git"\n',
+    );
   });
 
   // Harm: an expected upload refusal escapes the action instead of reaching its displayed result.
@@ -832,28 +806,21 @@ void main() {
       reason: 'no membership command is offered before checked completion',
     );
     await settings.rememberHostUp('orchard', _readyRecord());
-    final selected = commands()
-        .where(
-          (command) =>
-              const ['host.admitAdmin', 'host.lockAdmin', 'host.unlockAdmin', 'host.purgeAdmin'].contains(command.id),
-        )
-        .toList();
-    expect(
-      selected.every((command) => command.unavailable == null),
-      isTrue,
-      reason: 'one-click host actions require no per-machine private key',
-    );
-    for (final command in selected) {
-      command.run();
+    Command named(String id) => commands().singleWhere((command) => command.id == id);
+    expect(named('host.admitAdmin').unavailable, isNull, reason: 'admission requires no per-machine private key');
+    for (final id in ['host.lockAdmin', 'host.unlockAdmin', 'host.purgeAdmin']) {
+      expect(named(id).unavailable, HostAccess.noHostWideChange);
+      expect(named(id).run, throwsA(isA<RegistryRefusal>()));
     }
-    expect(actions, ['admit', 'lock', 'unlock', 'purge']);
+    final admitting = named('host.admitAdmin');
+    admitting.run();
+    expect(actions, ['admit']);
     fixture.actor = const HostAdminIdentity('bob', personFingerprint);
     expect(prepare.run, throwsA(isA<RegistryRefusal>()));
-    for (final command in selected) {
-      expect(command.run, throwsA(isA<RegistryRefusal>()));
-    }
+    expect(admitting.run, throwsA(isA<RegistryRefusal>()));
+    expect(named('host.admitAdmin').unavailable, allOf(contains(HostAccess.noRequests), contains('alice@example.org')));
     expect(prepares, 1);
-    expect(actions, ['admit', 'lock', 'unlock', 'purge']);
+    expect(actions, ['admit']);
   });
 
   // Harm: malformed persisted progress silently drops work or selects another host.
@@ -875,6 +842,9 @@ void main() {
       },
       {
         'change': {...change.stored, 'host': '../other'},
+      },
+      {
+        'change': {...change.stored, 'base': 'HEAD'},
       },
     ]) {
       expect(() => HostRegistryProgress.read({...valid, ...fields}), throwsFormatException);

@@ -34,7 +34,15 @@ class DaemonRegistryCore implements RegistryCore {
   @override
   Future<RegistryFiled> file(String checkout, RegistryFiling filing) async {
     await backend.open();
-    return backend.registryFile(checkout, kind: filing.kind.word, host: filing.host, person: filing.person);
+    return backend.registryFile(
+      checkout,
+      kind: filing.kind.word,
+      host: filing.host,
+      person: filing.person,
+      id: filing.id,
+      base: filing.base,
+      content: filing.content,
+    );
   }
 }
 
@@ -59,7 +67,7 @@ enum RegistryFilingKind {
 @immutable
 class RegistryFiling {
   /// Constructor taking what the change writes, the host it is for and the person it names.
-  const RegistryFiling(this.kind, {this.host, this.person});
+  const RegistryFiling(this.kind, {this.host, this.person, this.id, this.base, this.content});
 
   /// What the change writes.
   final RegistryFilingKind kind;
@@ -69,6 +77,15 @@ class RegistryFiling {
 
   /// The login an access change names, which must be a card Core trusts.
   final String? person;
+
+  /// The change's stable ID: the same ID on the same base answers the same commit, never a second one.
+  final String? id;
+
+  /// The accepted registry commit the change was made against; Core refuses it on another `HEAD`.
+  final String? base;
+
+  /// The file's public text, the access file or the host card, which Core files at its path.
+  final String? content;
 }
 
 /// Somebody who may make a change another person may not, with their address when their card has one.

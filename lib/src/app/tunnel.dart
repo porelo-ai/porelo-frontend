@@ -361,7 +361,7 @@ class Tunnel {
   Future<void> unlockVault() async {
     if (machine.hostCard == null || state != TunnelState.up) return;
     final generation = _generation;
-    final unlocked = await _unlocker.unlock(machine.hostCard!.name, machine.sshConfig);
+    final unlocked = await _unlocker.unlock(machine.hostCard!, machine.sshConfig);
     if (generation != _generation || state != TunnelState.up) return;
     vaultState = unlocked.state;
     vaultProblem = switch (unlocked.state) {

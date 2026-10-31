@@ -13,7 +13,8 @@ import '../support/host_process.dart';
 import '../support/host_registry.dart';
 
 void main() {
-  // Harm: failed give-back deletes a still-rented host, or publication failure causes a second give-back.
+  // Harm: failed give-back deletes a still-rented host, publication failure causes a second give-back,
+  // or a card is claimed deleted although no Core verb removes it.
   for (final outcome in [
     'refused',
     'unconfirmed',
@@ -86,16 +87,12 @@ void main() {
       await tester.tap(find.byKey(const Key('host-confirm-down')));
       await World.settle(tester);
       expect(downs, 1);
-      expect(
-        fixture.changes.map((change) => change.action),
-        confirmed && outcome != 'confirmed revoked' ? ['delete-card'] : isEmpty,
-      );
+      expect(fixture.changes, isEmpty, reason: 'no Core verb removes a host card');
       expect(settings.hostRegistry('orchard')?.change.action, confirmed ? 'delete-card' : isNull);
       if (confirmed) {
         expect(find.textContaining('registry card still needs deletion'), findsOneWidget);
-        if (outcome == 'confirmed contact refusal') {
-          expect(find.textContaining('Signing was refused.'), findsOneWidget);
-          expect(find.textContaining('carol@example.org'), findsOneWidget);
+        if (outcome != 'confirmed revoked') {
+          expect(find.textContaining('No Core verb removes a host card'), findsOneWidget);
         }
         if (outcome == 'confirmed revoked') {
           expect(find.textContaining('alice@example.org'), findsOneWidget);
@@ -103,12 +100,12 @@ void main() {
         final reopened = Settings(store);
         await reopened.load();
         expect(reopened.hostRegistry('orchard')!.published, isFalse);
+        expect(reopened.hostRegistry('orchard')!.change.action, 'delete-card');
         await tester.pumpWidget(const SizedBox.shrink());
         final restored = HostAccess(
           registry: fixture.registry,
           settings: reopened,
           identity: () => fixture.actor,
-          writer: WriterFixture(fixture),
           transport: fixture,
         );
         final restoredMachines = Machines(reopened, reach: (_) => FakeBackend(const []), tunnels: FakeTunnels());
@@ -141,8 +138,9 @@ void main() {
         fixture.actor = const HostAdminIdentity('alice', adminFingerprint);
         fixture.fail = null;
         fixture.publicationRefusal = null;
-        await restored.bringToHost('orchard');
-        expect(fixture.changes, hasLength(1), reason: 'deletion publication reuses its commit');
+        await expectLater(restored.bringToHost('orchard'), throwsA(isA<RegistryRefusal>()));
+        expect(fixture.changes, isEmpty);
+        expect(reopened.hostReturned('orchard'), isTrue);
         expect(downs, 1, reason: 'publication does not call down');
         await tester.pumpWidget(const SizedBox.shrink());
         restoredOwner?.dispose();

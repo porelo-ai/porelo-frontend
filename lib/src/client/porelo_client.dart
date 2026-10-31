@@ -305,16 +305,27 @@ class PoreloClient {
   ///
   /// [kind] is `card`, `host-card` or `host-access`; [host] names the host a host change is for and
   /// [person] the login an access change names. Nothing is pushed: publishing is the caller's. The
-  /// method's name and its parameters are assumed until Core serves them.
-  Future<RegistryFiled> registryFile(String checkout, {required String kind, String? host, String? person}) async =>
-      RegistryFiled.from(
-        await _call('RegistryFile', <String, dynamic>{
-          'checkout': checkout,
-          'kind': kind,
-          'host': ?host,
-          'person': ?person,
-        }),
-      );
+  /// method's name and its parameters are assumed until Core serves them. [id] and [base] are
+  /// `--id` and `--base`: the same id on the same base answers the same commit.
+  Future<RegistryFiled> registryFile(
+    String checkout, {
+    required String kind,
+    String? host,
+    String? person,
+    String? id,
+    String? base,
+    String? content,
+  }) async => RegistryFiled.from(
+    await _call('RegistryFile', <String, dynamic>{
+      'checkout': checkout,
+      'kind': kind,
+      'host': ?host,
+      'person': ?person,
+      'id': ?id,
+      'base': ?base,
+      'content': ?content,
+    }),
+  );
 
   // --------------------------------------------------------------------- signing
 

@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/host_access.dart';
 import 'package:porelo_frontend/src/app/host_access_contract.dart';
 import 'package:porelo_frontend/src/app/registry.dart';
 import 'package:porelo_frontend/src/app/registry_checkout.dart';
+import 'package:porelo_frontend/src/app/run_here.dart' show WorkspaceRefused;
 import 'package:porelo_frontend/src/app/settings.dart';
 
 const registryBefore = '1111111111111111111111111111111111111111';
@@ -23,6 +25,40 @@ Map<String, Object?> sshCompletion() => {
   },
 };
 
+/// One commit Core made for a filing, read back from the file it carries.
+class FiledChange {
+  FiledChange(this.filing, this.revision);
+  final RegistryFiling filing;
+  final String revision;
+
+  String get action => filing.kind == RegistryFilingKind.hostCard ? 'host-card' : 'admit';
+  String? get person => filing.person;
+  String? get id => filing.id;
+  String? get base => filing.base;
+  String get content => filing.content!;
+  String? _value(String key) {
+    final found = RegExp('${RegExp.escape(key)}: ("[^"\n]*"|[0-9]+)').allMatches(content).lastOrNull?.group(1);
+    return found == null ? null : '${jsonDecode(found)}';
+  }
+
+  String? get fingerprint => person == null ? null : _value('"$person"');
+  String? get project => _value('- name');
+  String? get accessRepository => _value('access_repository');
+
+  /// The host card's fields in the completion's shape.
+  Map<String, Object?> get card => {
+    'name': _value('host'),
+    'address': _value('address'),
+    'ssh_port': int.parse(_value('ssh_port')!),
+    'ssh_host_key': _value('ssh_host_key'),
+    'services': {
+      'forge': {'web_port': int.parse(_value('web_port')!), 'git_port': int.parse(_value('git_port')!)},
+      'matrix': {'port': int.parse(_value('    port')!)},
+    },
+  };
+}
+
+/// Core, the checkout and the host's intake at once: `--id` on the same `--base` answers the same commit.
 class RegistryFixture implements RegistryCore, RegistryCheckout, HostRegistryTransport {
   bool admin = true;
   bool refusedPerson = false;
@@ -33,22 +69,22 @@ class RegistryFixture implements RegistryCore, RegistryCheckout, HostRegistryTra
   bool requireStaged = false;
   final staged = <String>{};
   final parents = <String, String>{};
-  final signedChanges = <String, HostRegistryChange>{};
+  final pins = <String, String>{};
+  final projects = <RegistryProject>[];
   String applied = registryBefore;
   String registryRevision = registryBefore;
   String answerHost = 'orchard';
   String? syncRevision;
   String? fail;
+  String? unpublished;
   RegistryRefusal? publicationRefusal;
   Future<void>? holdStatus;
   Future<void>? holdUpload;
-  Future<void>? holdFile;
-  Completer<void>? fileStarted;
   Completer<void>? uploadStarted;
   Completer<void>? statusStarted;
   final calls = <String>[];
-  final changes = <HostRegistryChange>[];
-  final filedById = <String, String>{};
+  final changes = <FiledChange>[];
+  final _commits = <String, FiledChange>{};
   final people = <String, String>{'bob': 'active'};
   late Registry registry;
   HostAdminIdentity? actor = const HostAdminIdentity('alice', adminFingerprint);
@@ -56,13 +92,7 @@ class RegistryFixture implements RegistryCore, RegistryCheckout, HostRegistryTra
   Future<HostAccess> access(Settings settings) async {
     registry = Registry(checkout: this, core: this);
     await registry.refresh();
-    return HostAccess(
-      registry: registry,
-      settings: settings,
-      identity: () => actor,
-      writer: WriterFixture(this),
-      transport: this,
-    );
+    return HostAccess(registry: registry, settings: settings, identity: () => actor, transport: this);
   }
 
   @override
@@ -72,9 +102,12 @@ class RegistryFixture implements RegistryCore, RegistryCheckout, HostRegistryTra
   @override
   String get folder => '/private/registry/checkout';
   @override
-  Future<String> fetch() async => registryBefore;
+  Future<String> fetch() async => registryRevision;
   @override
-  Future<void> prepareFiling() async {}
+  Future<void> prepareFiling() async {
+    if (unpublished != null) throw const WorkspaceRefused('The registry checkout holds an unpublished change.');
+  }
+
   @override
   Future<RegistryRead> read(String checkout) async => RegistryRead(
     revision: registryRevision,
@@ -98,34 +131,62 @@ class RegistryFixture implements RegistryCore, RegistryCheckout, HostRegistryTra
     ],
     owners: const [],
     hostAdmins: [if (admin) const RegistryOwner(login: 'alice', fingerprint: adminFingerprint)],
-    hosts: [if (listedHost) RegistryHost(host: 'orchard', admins: assignedAdmins)],
+    hosts: [
+      if (listedHost)
+        RegistryHost(
+          host: 'orchard',
+          admins: assignedAdmins,
+          adminFingerprints: Map.of(pins),
+          projects: List.of(projects),
+        ),
+    ],
   );
 
   @override
-  Future<RegistryFiled> file(String checkout, RegistryFiling filing) => throw UnimplementedError();
-
-  // Dart has no overloads: the host writer is provided through WriterFixture.
-  Future<String> fileHost(HostRegistryChange change) async {
+  Future<RegistryFiled> file(String checkout, RegistryFiling filing) async {
     calls.add('file');
-    if (fail == 'file') throw Exception('filing refused');
-    if (fileStarted?.isCompleted == false) fileStarted!.complete();
-    await holdFile;
-    if (!filedById.containsKey(change.id)) {
-      changes.add(change);
-      final revision = (changes.length + 1).toRadixString(16) * 40;
-      filedById[change.id] = revision;
-      signedChanges[revision] = change;
-      parents[revision] = registryRevision;
+    if (fail == 'file') throw const VarlinkException('org.fuin.porelo.Registry1.Refused');
+    if (filing.base != registryRevision) throw const VarlinkException('org.fuin.porelo.Registry1.BaseMoved');
+    final key = '${filing.id}@${filing.base}';
+    if (_commits[key] case final known?) return RegistryFiled(revision: known.revision);
+    final current = changes.where((each) => each.revision == registryRevision).firstOrNull;
+    if (current != null && current.filing.kind == filing.kind && current.content == filing.content) {
+      throw const VarlinkException('org.fuin.porelo.Registry1.AlreadyAccepted');
     }
-    return filedById[change.id]!;
+    final revision = (changes.length + 2).toRadixString(16) * 40;
+    final change = FiledChange(filing, revision);
+    changes.add(change);
+    _commits[key] = change;
+    parents[revision] = registryRevision;
+    unpublished = revision;
+    return RegistryFiled(revision: revision);
+  }
+
+  /// What a person's own `git push` of the unpublished commit does.
+  void pushByHand() {
+    final revision = unpublished!;
+    unpublished = null;
+    _accept(revision);
+  }
+
+  void _accept(String revision) {
+    registryRevision = revision;
+    final change = changes.firstWhere((each) => each.revision == revision);
+    if (change.action == 'admit') {
+      pins[change.person!] = change.fingerprint!;
+      projects.add(
+        RegistryProject(name: change.project!, admin: change.person!, accessRepository: change.accessRepository!),
+      );
+    }
   }
 
   @override
   Future<void> publish(String revision) async {
     calls.add('publish $revision');
     if (publicationRefusal case final refusal?) throw refusal;
-    if (fail == 'publish') throw Exception('publication refused');
-    registryRevision = revision;
+    if (fail == 'publish') throw const WorkspaceRefused('publication refused');
+    unpublished = null;
+    _accept(revision);
   }
 
   @override
@@ -144,19 +205,12 @@ class RegistryFixture implements RegistryCore, RegistryCheckout, HostRegistryTra
     if (requireStaged && !staged.remove(revision)) throw Exception('staged registry missing');
     if (!descendsFrom(revision, applied)) throw Exception('older or forked registry refused');
     applied = syncRevision ?? revision;
-    final change = signedChanges[revision];
-    if (applyMembership && applied == revision && change?.person != null) {
-      final state = switch (change!.action) {
-        'admit' || 'unlock' => 'active',
-        'lock' => 'locked',
-        'purge' => 'purged',
-        _ => null,
-      };
-      if (state != null) people[change.person!] = state;
-    }
+    final change = changes.where((each) => each.revision == revision).firstOrNull;
+    if (applyMembership && applied == revision && change?.action == 'admit') people[change!.person!] = 'active';
     return answer();
   }
 
+  /// The host's own ancestry check of its intake.
   bool descendsFrom(String revision, String ancestor) {
     final seen = <String>{};
     for (String? cursor = revision; cursor != null && seen.add(cursor); cursor = parents[cursor]) {
@@ -174,16 +228,4 @@ class RegistryFixture implements RegistryCore, RegistryCheckout, HostRegistryTra
     await holdStatus;
     return answer();
   }
-}
-
-class WriterFixture implements HostRegistryWriter {
-  WriterFixture(this.fixture);
-  final RegistryFixture fixture;
-  @override
-  Future<String> file(HostRegistryChange change) => fixture.fileHost(change);
-  @override
-  Future<void> publish(String revision) => fixture.publish(revision);
-
-  @override
-  Future<bool> descendsFrom(String revision, String ancestor) async => fixture.descendsFrom(revision, ancestor);
 }

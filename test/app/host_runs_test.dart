@@ -5,6 +5,7 @@ import 'package:porelo_frontend/src/app/host_runs.dart';
 import 'package:porelo_frontend/src/app/host_access.dart';
 import 'package:porelo_frontend/src/app/host_session.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
+import 'package:porelo_frontend/src/app/registry.dart' show RegistryRefusal;
 import 'package:porelo_frontend/src/app/settings.dart';
 import 'package:porelo_host/porelo_host.dart';
 
@@ -34,7 +35,7 @@ void main() {
   });
 
   // Harm: an unready rental is published, or a still-rented host loses its card.
-  test('SSH host card is filed only after checked ready and deleted after confirmed give-back', () async {
+  test('SSH host card is filed only after checked ready and its deletion waits for confirmed give-back', () async {
     final fixture = RegistryFixture();
     final access = await fixture.access(settings);
     addTearDown(fixture.registry.dispose);
@@ -63,11 +64,13 @@ void main() {
     downProcess.end(0);
     await future;
     await owner.confirmDown('orchard', down);
-    expect(fixture.changes.map((change) => change.action), ['host-card', 'delete-card']);
+    expect(settings.hostReturned('orchard'), isTrue);
+    expect(settings.hostRegistry('orchard')!.change.action, 'delete-card');
+    expect(fixture.changes.map((change) => change.action), ['host-card'], reason: 'no Core verb removes a host card');
   });
 
   // Harm: name reuse rents a server before pending registry deletion is resolved.
-  test('reusing a returned host waits for deletion then starts a fresh lifecycle', () async {
+  test('reusing a returned host waits for its card deletion before renting', () async {
     final fixture = RegistryFixture();
     final access = await fixture.access(settings);
     addTearDown(fixture.registry.dispose);
@@ -94,13 +97,12 @@ void main() {
     expect(starts, 0, reason: 'pending deletion must be resolved before renting');
     await owner.resume(blocked);
     expect(starts, 0, reason: 'resuming a refused setup must also wait for deletion');
-    await access.bringToHost('orchard');
+    await expectLater(access.bringToHost('orchard'), throwsA(isA<RegistryRefusal>()));
     final fresh = owner.start(project: 'orchard', record: record, session: session(), settings: settings);
     await fresh.finished;
-    expect(starts, 1);
-    expect(fresh.problem, isNull);
-    expect(settings.hostReturned('orchard'), isFalse);
-    expect(fixture.changes.map((change) => change.action), ['delete-card', 'host-card']);
+    expect(starts, 0, reason: 'no Core verb removes the card yet, so the name stays returned');
+    expect(settings.hostReturned('orchard'), isTrue);
+    expect(fixture.changes, isEmpty);
   });
 
   // Harm: a retained replacement callback can change a rented server after admin access is revoked.

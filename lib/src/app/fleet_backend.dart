@@ -1,5 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
+
+import 'package:crypto/crypto.dart' show sha256;
 
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_host/porelo_host.dart' show HostCardSsh, HostFilesRefused;
@@ -16,6 +19,9 @@ enum HostUnlockState {
 
   /// Core refused to unlock this host vault.
   refused,
+
+  /// The host vault was opened by another key; it was kept, never reset without the person's yes.
+  otherKey,
 
   /// This installation cannot perform the agreed operation.
   unsupported,
@@ -35,8 +41,8 @@ class HostUnlockResult {
 
 /// Delegates signing and host vault delivery entirely to Core.
 abstract interface class HostUnlocker {
-  /// Opens the host vault through the host's published SSH configuration.
-  Future<HostUnlockResult> unlock(String host, String config);
+  /// Opens the host vault of [card] through the host's published SSH configuration.
+  Future<HostUnlockResult> unlock(HostCardSsh card, String config);
 
   /// Cancels this host's in-flight signing or secret delivery and awaits cleanup.
   Future<void> cancel(String host);
@@ -63,20 +69,33 @@ class CoreHostUnlocker implements HostUnlocker {
   static Future<Process> _startCore(List<String> command) => Process.start(command.first, command.sublist(1));
 
   @override
-  Future<HostUnlockResult> unlock(String host, String config) => _pending.putIfAbsent(
-    host,
-    () => _unlock(host, config).whenComplete(() {
-      _pending.remove(host);
+  Future<HostUnlockResult> unlock(HostCardSsh card, String config) => _pending.putIfAbsent(
+    card.name,
+    () => _unlock(card, config).whenComplete(() {
+      _pending.remove(card.name);
     }),
   );
 
-  Future<HostUnlockResult> _unlock(String host, String config) async {
+  Future<HostUnlockResult> _unlock(HostCardSsh card, String config) async {
+    final host = card.name;
     final generation = _generations[host] ?? 0;
     Process? process;
     try {
       HostCardSsh.checkConfigPath(host, config, environment: environment, windows: Platform.isWindows);
-      process = await _start(['porelo', 'host', 'unlock', host]);
-      unawaited(process.stdout.drain<void>());
+      // Never --yes: a vault opened by another key is reset only after the person's own yes.
+      process = await _start([
+        'porelo',
+        'host',
+        'unlock',
+        host,
+        '--host-key',
+        _fingerprint(card.hostKey),
+        '--login',
+        card.login,
+        '--json',
+      ]);
+      // The answer is one short JSON line; anything longer is no answer and is only drained.
+      final answer = process.stdout.fold(<int>[], (all, part) => all.length > 4096 ? all : (all..addAll(part)));
       unawaited(process.stderr.drain<void>());
       if (generation != (_generations[host] ?? 0)) {
         await stopOwnedProcess(process);
@@ -84,9 +103,16 @@ class CoreHostUnlocker implements HostUnlocker {
       }
       _children[host] = process;
       final code = await process.exitCode.timeout(deadline);
-      return code == 0
-          ? const HostUnlockResult(HostUnlockState.unlocked)
-          : const HostUnlockResult(HostUnlockState.refused, 'Core could not unlock the host vault.');
+      final vault = _vault(await answer.timeout(deadline));
+      return switch ((code, vault)) {
+        (0, 'open') => const HostUnlockResult(HostUnlockState.unlocked),
+        (77, 'other-key') => const HostUnlockResult(
+          HostUnlockState.otherKey,
+          'The host vault was opened by another key. It was kept; resetting it needs your yes in a terminal '
+          'and every sign-in again.',
+        ),
+        _ => const HostUnlockResult(HostUnlockState.refused, 'Core could not unlock the host vault.'),
+      };
     } on TimeoutException {
       if (process != null) await stopOwnedProcess(process);
       return const HostUnlockResult(HostUnlockState.refused, 'Core host unlock timed out.');
@@ -98,6 +124,20 @@ class CoreHostUnlocker implements HostUnlocker {
       if (identical(_children[host], process)) _children.remove(host);
     }
   }
+
+  /// Core's `vault` word, or null for any other answer.
+  static String? _vault(List<int> bytes) {
+    try {
+      final answer = jsonDecode(utf8.decode(bytes));
+      return answer is Map && answer['vault'] is String ? answer['vault'] as String : null;
+    } on FormatException {
+      return null;
+    }
+  }
+
+  /// The pinned host key's `SHA256:` fingerprint, as `ssh-keygen -l` names it.
+  static String _fingerprint(String key) =>
+      'SHA256:${base64Encode(sha256.convert(base64Decode(key.split(' ')[1])).bytes).replaceAll('=', '')}';
 
   @override
   Future<void> cancel(String host) async {
@@ -992,8 +1032,15 @@ class PoreloBackend implements FleetBackend {
   Future<RegistryRead> registryRead(String checkout) => _opened().registryRead(checkout);
 
   /// One registry change written and signed by Core; see [PoreloClient.registryFile].
-  Future<RegistryFiled> registryFile(String checkout, {required String kind, String? host, String? person}) =>
-      _opened().registryFile(checkout, kind: kind, host: host, person: person);
+  Future<RegistryFiled> registryFile(
+    String checkout, {
+    required String kind,
+    String? host,
+    String? person,
+    String? id,
+    String? base,
+    String? content,
+  }) => _opened().registryFile(checkout, kind: kind, host: host, person: person, id: id, base: base, content: content);
 
   /// Core's signing policy for a project; see [PoreloClient.projectSigners]. Asked only of this computer's daemon.
   Future<ProjectSigners> projectSigners(String project) => _opened().projectSigners(project);

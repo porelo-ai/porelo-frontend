@@ -54,6 +54,10 @@ None.
 
 ## Deferred
 
+- Removing a host card from the registry after a confirmed give-back: no Core verb removes `hosts/HOST/card`, so the removal is refused, its recovery stays pending, and the host's name cannot be prepared again until one exists.
+- A host card filed through the agent: Core's `registry file host-card` needs a card the host admin signed, and the interface hands it the unsigned body.
+- Host-wide lock, letting back in and deleting an account are refused: no Core verb covers them, and a project's own access file locks a person there.
+- The daemon's `RegistryFile` takes the file's text as `content`; the command line takes `--file`. The interface follows the daemon's shape once Core confirms it.
 - Scaleway preparation remains refused until Core’s verified rental and identity adapter is available.
 - Registry pinning after preparation and signed-card publication remain behind their existing Core/host interfaces.
 - Forcing `IdentitiesOnly=yes` without selecting a public identity is not applied: it excludes the agent keys too. `IdentityFile=none` and `-F /dev/null` exclude disk identities and ambient configuration while keeping the local agent available.

@@ -838,12 +838,20 @@ List<Command> preparedHostCommands({
           final access = hostRuns?.hostAccess;
           final reason =
               (settings.hostReturned(machine.hostProject) ? 'The server was given back.' : null) ??
-              access?.unavailable(machine.hostProject) ??
-              (access == null ? 'The verified host admins are unavailable.' : null);
+              (action == 'admit'
+                  ? access?.admitUnavailable(machine.hostProject)
+                  : access?.unavailable(machine.hostProject)) ??
+              (access == null ? 'The verified host admins are unavailable.' : null) ??
+              (action == 'admit' ? null : HostAccess.noHostWideChange);
           if (reason != null) throw RegistryRefusal(reason);
           open?.call(action);
         },
-        unavailable: reason ?? (open == null ? 'the host helpers are unavailable here' : null),
+        // A person who is no host admin learns that no request can be made, and whom to ask.
+        unavailable: action == 'admit' && reason != null
+            ? hostRuns?.hostAccess?.admitUnavailable(machine.hostProject) ?? reason
+            : reason ??
+                  (action == 'admit' ? null : HostAccess.noHostWideChange) ??
+                  (open == null ? 'the host helpers are unavailable here' : null),
       ),
   ];
 }
