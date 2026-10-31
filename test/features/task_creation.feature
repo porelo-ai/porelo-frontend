@@ -335,6 +335,20 @@ Feature: Starting work with an agent, a mode and a credential
         Then a terminal runs {'porelo vault login --agent an-agent'} on the machine
         And the terminal is headed by {'Confirm on the device page'}
 
+    # A definition naming no flow, or one this interface does not know, is promised none of them.
+    Scenario: a sign-in of an unknown flow says only to follow the terminal
+        Given the vault holds no credential for what a run would use
+        And the agent {'an-agent'} logs in by its own login
+        And the agent {'an-agent'} signs in by the flow {'qr-code'}
+        When I start work in this project
+        And I choose the agent {'An Agent'}
+        And I log in with the agent from the start
+        Then a terminal runs {'porelo vault login --agent an-agent'} on the machine
+        And the terminal is headed by {'Then follow what the terminal below says'}
+        And the terminal is not headed by {'Paste the code'}
+        And the terminal is not headed by {'Confirm on the device page'}
+        And the terminal is not headed by {'hands the answer back'}
+
     # Core refuses a loopback sign-in in a host account before it starts: its words stay in the terminal,
     # nothing is stored, and the start stays behind the sign-in.
     Scenario: a loopback sign-in the host refuses stores nothing and starts nothing
@@ -345,8 +359,10 @@ Feature: Starting work with an agent, a mode and a credential
         And I choose the agent {'An Agent'}
         And I log in with the agent from the start
         Then a terminal runs {'porelo vault login --agent an-agent'} on the machine
-        When the terminal ends with {65}
+        When the terminal prints {'porelo: a loopback sign-in cannot run in a host account'}
+        And the terminal ends with {65}
         Then the terminal ends saying {'Nothing was stored for An Agent'}
+        And the sign-in terminal still shows {'a loopback sign-in cannot run in a host account'}
         When I press {'Done'}
         Then the form asks to sign in to {'An Agent'} first, above everything else
         And nothing was started

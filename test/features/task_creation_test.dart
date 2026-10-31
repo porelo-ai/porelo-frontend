@@ -78,7 +78,10 @@ import './step/no_link_is_offered_any_more.dart';
 import './step/the_form_no_longer_asks_to_sign_in.dart';
 import './step/the_agent_signs_in_by_the_flow.dart';
 import './step/the_terminal_is_headed_by.dart';
+import './step/the_terminal_is_not_headed_by.dart';
+import './step/the_terminal_prints.dart';
 import './step/the_terminal_ends_with.dart';
+import './step/the_signin_terminal_still_shows.dart';
 import './step/logging_in_is_not_offered.dart';
 import './step/starting_says_the_credential_is_stored_by.dart';
 import './step/starting_says_the_upstream_refused_the_key_with.dart';
@@ -487,6 +490,20 @@ void main() {
       await aTerminalRunsOnTheMachine(tester, 'porelo vault login --agent an-agent');
       await theTerminalIsHeadedBy(tester, 'Confirm on the device page');
     });
+    testWidgets('''a sign-in of an unknown flow says only to follow the terminal''', (tester) async {
+      await bddSetUp(tester);
+      await theVaultHoldsNoCredentialForWhatARunWouldUse(tester);
+      await theAgentLogsInByItsOwnLogin(tester, 'an-agent');
+      await theAgentSignsInByTheFlow(tester, 'an-agent', 'qr-code');
+      await iStartWorkInThisProject(tester);
+      await iChooseTheAgent(tester, 'An Agent');
+      await iLogInWithTheAgentFromTheStart(tester);
+      await aTerminalRunsOnTheMachine(tester, 'porelo vault login --agent an-agent');
+      await theTerminalIsHeadedBy(tester, 'Then follow what the terminal below says');
+      await theTerminalIsNotHeadedBy(tester, 'Paste the code');
+      await theTerminalIsNotHeadedBy(tester, 'Confirm on the device page');
+      await theTerminalIsNotHeadedBy(tester, 'hands the answer back');
+    });
     testWidgets('''a loopback sign-in the host refuses stores nothing and starts nothing''', (tester) async {
       await bddSetUp(tester);
       await theVaultHoldsNoCredentialForWhatARunWouldUse(tester);
@@ -496,8 +513,10 @@ void main() {
       await iChooseTheAgent(tester, 'An Agent');
       await iLogInWithTheAgentFromTheStart(tester);
       await aTerminalRunsOnTheMachine(tester, 'porelo vault login --agent an-agent');
+      await theTerminalPrints(tester, 'porelo: a loopback sign-in cannot run in a host account');
       await theTerminalEndsWith(tester, 65);
       await theTerminalEndsSaying(tester, 'Nothing was stored for An Agent');
+      await theSigninTerminalStillShows(tester, 'a loopback sign-in cannot run in a host account');
       await iPress(tester, 'Done');
       await theFormAsksToSignInToFirstAboveEverythingElse(tester, 'An Agent');
       await nothingWasStarted(tester);
