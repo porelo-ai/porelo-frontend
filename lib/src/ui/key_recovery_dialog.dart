@@ -141,8 +141,8 @@ Future<(BackupKeyMade?, String?)> _makeBackupKey(
     }
     // A list known only from a kept replacement's record is no read to make a new key on.
     if (situation.resumeOnly) return (null, 'Refresh the registry before making a backup key.');
-    // A backup key touches only its own entry, so it is made on the newest commit made here.
-    final read = situation.madeHere ?? situation.base;
+    // A backup key touches only its own entry, so it is made on the newest commit made here in what it changes.
+    final read = situation.backupBase;
     if (read == null) return (null, 'The commit in force is not read. Read it again.');
     making = BackupKeyMaking(scope: scope, base: read, core: entry.core, receipts: entry.receipts);
   }
@@ -159,21 +159,28 @@ Future<(BackupKeyMade?, String?)> _makeBackupKey(
       );
       if (out == null || !context.mounted) return (null, null);
       final command = await making.start(out);
-      if (!context.mounted) return (null, null);
-      var last = '';
-      final end = await runInATerminal(
-        context,
-        title: 'Make a backup key',
-        explanation:
-            'Porelo asks for the backup key’s passphrase twice in this terminal. It never passes through this program. '
-            'Keep the file offline, on a stick in a drawer, not on this computer.',
-        machine: Machine.local(),
-        command: command,
-        open: open,
-        lastLine: (line) => last = line,
-        waitsOnItsProgram: true,
-      );
-      made = await making.ended(code: end.code, lastLine: last, out: out, started: end.started);
+      // From here the request is kept as uncertain: a terminal that never opened restores what it was before.
+      var opened = false;
+      TerminalEnd? end;
+      try {
+        if (!context.mounted) return (null, null);
+        var last = '';
+        end = await runInATerminal(
+          context,
+          title: 'Make a backup key',
+          explanation:
+              'Porelo asks for the backup key’s passphrase twice in this terminal. It never passes through this '
+              'program. Keep the file offline, on a stick in a drawer, not on this computer.',
+          machine: Machine.local(),
+          command: command,
+          open: _toldWhenOpened(open, () => opened = true),
+          lastLine: (line) => last = line,
+          waitsOnItsProgram: true,
+        );
+        made = await making.ended(code: end.code, lastLine: last, out: out, started: end.started);
+      } finally {
+        if (end == null && !opened) await _neverStarted(making, out);
+      }
       words = 'The backup key ${made.fingerprint} is filed in commit ${made.revision}, and pushed.';
       if (made.file != out) {
         words = '$words Its file is ${made.file}, where an earlier attempt under this request wrote it, not $out.';
@@ -203,6 +210,22 @@ Future<(BackupKeyMade?, String?)> _makeBackupKey(
         'request.';
   }
   return (made, words);
+}
+
+/// [open], or the terminal a session opens by default, calling [opened] before it opens one.
+OpenTerminal _toldWhenOpened(OpenTerminal? open, void Function() opened) =>
+    (executable, arguments, {int columns = 80, int rows = 24}) {
+      opened();
+      return (open ?? openHere)(executable, arguments, columns: columns, rows: rows);
+    };
+
+/// Ends [making]'s attempt into [out] as one whose terminal never opened, which restores its request as it was.
+Future<void> _neverStarted(BackupKeyMaking making, String out) async {
+  try {
+    await making.ended(code: null, lastLine: '', out: out, started: false);
+  } on RegistryRefusal {
+    // Its words say nothing ran, and nobody waits for them.
+  }
 }
 
 /// Asks whether a kept request whose answer was lost is dropped, after [words] said what may be committed under it.
@@ -303,8 +326,9 @@ class _KeyRecoveryDialogState extends State<KeyRecoveryDialog> {
   String? _login;
   bool _stolen = false;
   bool _toldInPerson = false;
-  // Whether the backup file is being asked for: a second picker would start a second terminal.
-  bool _picking = false;
+  // Whether the backup key's use is under way, from asking for its file until its terminal was put away: a second would
+  // start a second terminal, and the dialog stays meanwhile, as the run it starts ends only here.
+  bool _using = false;
 
   @override
   void initState() {
@@ -316,37 +340,58 @@ class _KeyRecoveryDialogState extends State<KeyRecoveryDialog> {
 
   /// Opens the backup key's terminal for the reviewed and confirmed replacement, or for its Retry.
   Future<void> _useBackup() async {
-    if (_picking || _recovery.whyNotBackup(toldInPerson: _toldInPerson) != null) return;
-    final String? file;
-    _picking = true;
+    if (_using || _recovery.whyNotBackup(toldInPerson: _toldInPerson) != null) return;
+    setState(() => _using = true);
     try {
-      file = await widget.pickAFile(title: 'Use this backup key');
+      final file = await widget.pickAFile(title: 'Use this backup key');
+      if (file == null || !mounted) return;
+      final command = await _recovery.startBackup(file, toldInPerson: _toldInPerson);
+      if (command == null) return;
+      await _runBackup(command);
     } finally {
-      _picking = false;
+      if (mounted) {
+        setState(() => _using = false);
+      } else {
+        _using = false;
+      }
     }
-    if (file == null || !mounted) return;
-    final command = await _recovery.startBackup(file, toldInPerson: _toldInPerson);
-    if (command == null || !mounted) return;
-    var last = '';
-    final TerminalEnd end;
+  }
+
+  /// Runs the backup key's [command], which [KeyRecovery.startBackup] counted as running: it ends here on every path,
+  /// as never started when no terminal opened.
+  Future<void> _runBackup(List<String> command) async {
+    var opened = false;
+    var ended = false;
     try {
-      end = await runInATerminal(
-        context,
-        title: 'Use the backup key',
-        explanation:
-            'Porelo reads the backup file once and asks its passphrase in this terminal. Neither passes through this '
-            'program, and nothing here keeps the file’s place.',
-        machine: Machine.local(),
-        command: command,
-        open: widget.open,
-        lastLine: (line) => last = line,
-        waitsOnItsProgram: true,
-      );
-    } on TerminalStillRunning catch (still) {
-      await _recovery.backupOutlived(still.ended);
-      return;
+      if (!mounted) return;
+      var last = '';
+      final TerminalEnd end;
+      try {
+        end = await runInATerminal(
+          context,
+          title: 'Use the backup key',
+          explanation:
+              'Porelo reads the backup file once and asks its passphrase in this terminal. Neither passes through '
+              'this program, and nothing here keeps the file’s place.',
+          machine: Machine.local(),
+          command: command,
+          open: _toldWhenOpened(widget.open, () => opened = true),
+          lastLine: (line) => last = line,
+          waitsOnItsProgram: true,
+        );
+      } on TerminalStillRunning catch (still) {
+        ended = true;
+        // Counted as running until its program ended, which needs no dialog: this one may be put away meanwhile.
+        if (mounted) setState(() => _using = false);
+        await _recovery.backupOutlived(still.ended);
+        return;
+      }
+      ended = true;
+      await _recovery.backupEnded(code: end.code, lastLine: last, started: end.started);
+    } finally {
+      // Nothing seen of its end: an opened terminal may have run Core, so the request stays uncertain.
+      if (!ended) await _recovery.backupEnded(code: null, lastLine: '', started: opened);
     }
-    await _recovery.backupEnded(code: end.code, lastLine: last, started: end.started);
   }
 
   /// Drops a kept request whose answer was lost, once the person read what Core may have committed under it.
@@ -370,11 +415,13 @@ class _KeyRecoveryDialogState extends State<KeyRecoveryDialog> {
       return;
     }
     if (_recovery.filed case RecoveryFiled(:final revision, published: false)) {
+      final told = reviewed.hosts.isEmpty ? '' : ' and tells ${reviewed.hosts.join(', ')}';
       final sure = await _confirmForget(
         context,
-        'The replacement of ${reviewed.login}’s key in ${reviewed.scope.words} is made in commit $revision, which is '
-        'not pushed. Forgetting it here leaves that commit in the registry checkout, which refuses every other registry '
-        'change until you push it or drop it there with your own Git.',
+        'The replacement of ${reviewed.login}’s key in ${reviewed.scope.words} is made in commit $revision, which was '
+        'not pushed from here: Retry pushes it, or finds the registry holds it already$told. Forgetting it here leaves '
+        'that commit in the registry checkout, which refuses every other registry change until you push it or drop it '
+        'there with your own Git${reviewed.hosts.isEmpty ? '' : ', and tells no host'}.',
       );
       if (sure && mounted) await _recovery.forget(made: revision);
       return;
@@ -419,69 +466,71 @@ class _KeyRecoveryDialogState extends State<KeyRecoveryDialog> {
         makeBackup: () => unawaited(_makeBackup()),
         forget: () => unawaited(_forgetAttempt()),
       );
-      return AlertDialog(
-        key: const Key('key-recovery-dialog'),
-        title: const Text('Replace a lost or stolen key'),
-        content: SizedBox(
-          width: Sizes.dialog,
-          child: DialogScroll(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              spacing: Space.small,
-              children: [
-                if (_recovery.busy) const LinearProgressIndicator(),
-                Text('In ${situation.scope.words}. Only ${situation.scope.whoWords} signs it; the login stays.'),
-                DropdownButtonFormField<String>(
-                  key: ValueKey('recovery-person $_login'),
-                  initialValue: _login,
-                  decoration: const InputDecoration(labelText: 'Person whose key is lost or stolen'),
-                  items: [
-                    for (final login in situation.people.keys) DropdownMenuItem(value: login, child: Text(login)),
-                  ],
-                  onChanged: started || reviewed != null ? null : (value) => setState(() => _login = value),
-                ),
-                SegmentedButton<bool>(
-                  segments: const [
-                    ButtonSegment(value: false, label: Text('Lost')),
-                    ButtonSegment(value: true, label: Text('Stolen')),
-                  ],
-                  selected: {_stolen},
-                  onSelectionChanged: reviewed != null ? null : (value) => setState(() => _stolen = value.single),
-                ),
-                if (_stolen)
-                  const Text(
-                    'A stolen key is revoked by an admin first: the person alone cannot, as the key may be in '
-                    'another’s hands. Replacing it here names the old key revoked in the same signed commit. A new '
-                    'card signed by the stolen key is never offered. Where no new key waits yet, lock the person in '
-                    'the project or on the server now, and replace the key once their new card arrives.',
+      final holding = _recovery.busy || _using;
+      return PopScope(
+        canPop: !holding,
+        child: AlertDialog(
+          key: const Key('key-recovery-dialog'),
+          title: const Text('Replace a lost or stolen key'),
+          content: SizedBox(
+            width: Sizes.dialog,
+            child: DialogScroll(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                spacing: Space.small,
+                children: [
+                  if (_recovery.busy) const LinearProgressIndicator(),
+                  Text('In ${situation.scope.words}. Only ${situation.scope.whoWords} signs it; the login stays.'),
+                  DropdownButtonFormField<String>(
+                    key: ValueKey('recovery-person $_login'),
+                    initialValue: _login,
+                    decoration: const InputDecoration(labelText: 'Person whose key is lost or stolen'),
+                    items: [
+                      for (final login in situation.people.keys) DropdownMenuItem(value: login, child: Text(login)),
+                    ],
+                    onChanged: started || reviewed != null ? null : (value) => setState(() => _login = value),
                   ),
-                if (situation.madeHere case final made? when _recovery.filed == null)
-                  ..._madeHere(made, situation.madeHereReplaced)
-                else if (_login case final login?)
-                  Text(
-                    card == null
-                        ? 'No new key of $login waits in the registry. They make one with “I lost my key” under My '
-                              'key and card.'
-                        : 'Now ${situation.people[login]} · new ${card.fingerprint} (${card.state})',
+                  SegmentedButton<bool>(
+                    segments: const [
+                      ButtonSegment(value: false, label: Text('Lost')),
+                      ButtonSegment(value: true, label: Text('Stolen')),
+                    ],
+                    selected: {_stolen},
+                    onSelectionChanged: reviewed != null ? null : (value) => setState(() => _stolen = value.single),
                   ),
-                if (reviewed != null) ..._review(reviewed),
-                if (_recovery.filed case final filed?) ..._results(filed),
-                if (_recovery.problem case final problem?) Text(problem, style: TextStyle(color: error)),
-                for (final command in commands)
-                  if (switch (command.id) {
-                    'keyRecovery.makeBackup' => _recovery.replaced || situation.madeHereReplaced != null,
-                    'keyRecovery.forget' => _recovery.forgettable,
-                    _ => true,
-                  })
-                    _CommandButton(command),
-              ],
+                  if (_stolen)
+                    const Text(
+                      'A stolen key is revoked by an admin first: the person alone cannot, as the key may be in '
+                      'another’s hands. Replacing it here names the old key revoked in the same signed commit. A new '
+                      'card signed by the stolen key is never offered. Where no new key waits yet, lock the person in '
+                      'the project or on the server now, and replace the key once their new card arrives.',
+                    ),
+                  if (situation.madeHere case final made? when _recovery.filed == null)
+                    ..._madeHere(made, situation.madeHereReplaced)
+                  else if (_login case final login?)
+                    Text(
+                      card == null
+                          ? 'No new key of $login waits in the registry. They make one with “I lost my key” under My '
+                                'key and card.'
+                          : 'Now ${situation.people[login]} · new ${card.fingerprint} (${card.state})',
+                    ),
+                  if (reviewed != null) ..._review(reviewed),
+                  if (_recovery.filed case final filed?) ..._results(filed),
+                  if (_recovery.problem case final problem?) Text(problem, style: TextStyle(color: error)),
+                  for (final command in commands)
+                    if (switch (command.id) {
+                      'keyRecovery.makeBackup' => _recovery.replaced || situation.madeHereReplaced != null,
+                      'keyRecovery.forget' => _recovery.forgettable,
+                      _ => true,
+                    })
+                      _CommandButton(command),
+                ],
+              ),
             ),
           ),
+          actions: [TextButton(onPressed: holding ? null : () => Navigator.pop(context), child: const Text('Close'))],
         ),
-        actions: [
-          TextButton(onPressed: _recovery.busy ? null : () => Navigator.pop(context), child: const Text('Close')),
-        ],
       );
     },
   );

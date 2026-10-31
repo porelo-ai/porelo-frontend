@@ -26,6 +26,11 @@ CopyToClipboard copyToClipboard = (text) => Clipboard.setData(ClipboardData(text
 /// How a terminal is opened. Injectable, so everything above it runs without a process.
 typedef OpenTerminal = SessionChannel Function(String executable, List<String> arguments, {int columns, int rows});
 
+/// The terminal a session opens on this computer when it is given none.
+SessionChannel openHere(String executable, List<String> arguments, {int columns = 80, int rows = 24}) => desk.isWindows
+    ? ConPty.start(executable, arguments, columns: columns, rows: rows)
+    : Pty.start(executable, arguments, columns: columns, rows: rows);
+
 /// Why work cannot be worked in by hand, decided before anything is started.
 ///
 /// **Predicted rather than discovered.** `Task` says whether a task is running and how somebody
@@ -80,7 +85,7 @@ class Session extends ChangeNotifier {
     this.run,
     this.forwardsALoginReply = false,
     this.startedAt,
-  }) : _open = open ?? (desk.isWindows ? ConPty.start : Pty.start) {
+  }) : _open = open ?? openHere {
     terminal = Terminal(maxLines: scrollback)
       ..inputHandler = CascadeInputHandler(<TerminalInputHandler>[_modifiedKeys, defaultInputHandler])
       ..onOutput = _typed
@@ -250,18 +255,21 @@ class Session extends ChangeNotifier {
   /// *stop*.
   Future<void> leave() async {
     _gone = true;
-    // **The cancel is not waited on and the close is.** Canceling a subscription to a broadcast
-    // stream settles a turn later, and waiting for it put the closing of the channel behind the
-    // frame that had already reported the session gone — a window that says it has left while
-    // the far end is still attached.
-    unawaited(_reading?.cancel());
+    final reading = _reading;
     _reading = null;
     final channel = _channel;
     _channel = null;
     final forward = _forward;
     _forward = null;
-    await forward?.close();
-    await channel?.close();
+    try {
+      await forward?.close();
+      await channel?.close();
+    } finally {
+      // Read until the channel closed or its bound passed: a program that answers as it ends prints its last line
+      // then. **The cancel is not waited on.** Canceling a subscription to a broadcast stream settles a turn later,
+      // and waiting for it put whatever follows behind the frame that had already reported the session gone.
+      unawaited(reading?.cancel());
+    }
   }
 
   @override

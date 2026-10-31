@@ -8,15 +8,18 @@ import 'package:path/path.dart' as path;
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/host_access.dart';
 import 'package:porelo_frontend/src/app/key_recovery.dart';
+import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/registry.dart';
 import 'package:porelo_frontend/src/app/registry_checkout.dart';
 import 'package:porelo_frontend/src/app/pty.dart';
 import 'package:porelo_frontend/src/app/settings.dart';
 import 'package:porelo_frontend/src/ui/key_recovery_dialog.dart';
+import 'package:porelo_frontend/src/ui/unlock_terminal.dart';
 
 const _base = '1111111111111111111111111111111111111111';
 const _revision = '2222222222222222222222222222222222222222';
 const _other = '3333333333333333333333333333333333333333';
+const _project = '4444444444444444444444444444444444444444';
 
 String _key(int byte) =>
     'ssh-ed25519 ${base64.encode([
@@ -33,25 +36,32 @@ final _admin = sshFingerprint(_key(3));
 RegistryCard _card(String login, String key) =>
     RegistryCard(login: login, name: login, key: key, fingerprint: sshFingerprint(key), state: 'trusted', why: '');
 
-/// Bob alone administers project demo with a backup key, or Alice administers it beside him; read at [base].
-RecoverySituation _situation({required bool backup, String base = _base}) => RecoverySituation(
-  scope: const RecoveryScope.project('demo'),
-  people: {'alice': _admin, 'bob': _old},
-  cards: [_card('alice', _key(3)), _card('bob', _key(2))],
-  base: base,
-  actor: backup ? HostAdminIdentity('bob', _new) : HostAdminIdentity('alice', _admin),
-  hosts: const {'alice': [], 'bob': []},
-  checkout: '/private/registry/checkout',
-  soleAdmin: backup ? 'bob' : 'alice',
-  backupRegistered: backup,
-);
+/// Bob alone administers project demo with a backup key, or Alice administers it beside him; its access read at
+/// [base], its own repository at [project].
+RecoverySituation _situation({required bool backup, String base = _base, String project = _project}) =>
+    RecoverySituation(
+      scope: const RecoveryScope.project('demo'),
+      people: {'alice': _admin, 'bob': _old},
+      cards: [_card('alice', _key(3)), _card('bob', _key(2))],
+      base: base,
+      actor: backup ? HostAdminIdentity('bob', _new) : HostAdminIdentity('alice', _admin),
+      hosts: const {'alice': [], 'bob': []},
+      checkout: '/private/registry/checkout',
+      soleAdmin: backup ? 'bob' : 'alice',
+      backupRegistered: backup,
+      backupBase: project,
+    );
 
 class _Core implements KeyRecoveryCore {
   final calls = <String>[];
 
+  /// Held open while given: Core's checks before a run take that long.
+  Completer<void>? holding;
+
   @override
   Future<RegistryRefusal?> refusal(RecoveryScope scope, {bool backup = false}) async {
     calls.add('refusal');
+    await holding?.future;
     return null;
   }
 
@@ -68,11 +78,20 @@ class _Core implements KeyRecoveryCore {
   }
 
   @override
-  Future<void> prepare(RecoveryScope scope) async => calls.add('prepare');
+  Future<void> prepare(RecoveryScope scope) async {
+    calls.add('prepare');
+    await holding?.future;
+  }
 
   @override
   Future<void> publish(RecoveryScope scope, String revision, {required String base}) async =>
       calls.add('publish $revision $base');
+
+  @override
+  void hold(Object holder) {}
+
+  @override
+  void release(Object holder) {}
 }
 
 class _Hosts implements RevocationHosts {
@@ -102,6 +121,7 @@ class _Entry implements KeyRecoveryEntry {
     final read = this.read!;
     // As the real entry reads it: a commit made here on this read is in force, which the read does not show yet.
     final made = madeInForce(receipts, scope, read.base);
+    final own = madeInForce(receipts, scope, read.backupBase, projectRepository: true);
     return RecoverySituation(
       scope: read.scope,
       people: read.people,
@@ -114,6 +134,7 @@ class _Entry implements KeyRecoveryEntry {
       backupRegistered: read.backupRegistered,
       madeHere: made == read.base ? null : made,
       madeHereReplaced: made == read.base ? null : madeInForceReplaced(receipts, scope, read.base),
+      backupBase: own,
     );
   }
 
@@ -171,11 +192,14 @@ Map<String, Object?> _keptReplacement(
 
 /// A terminal that runs nothing: it records the command and ends when the test says.
 ///
-/// With [outlives], its program does not end when it is closed, but when the test completes that.
+/// With [outlives], its program does not end when it is closed, but when the test completes that. Otherwise a close
+/// ends it with [closingCode], as a program hung up ends, after it printed [closingLine] when one is given.
 class _Channel implements SessionChannel {
   final _output = StreamController<List<int>>.broadcast();
   final _ended = Completer<int>();
   Completer<int>? outlives;
+  int closingCode = 129;
+  String? closingLine;
 
   void end(int code, String last) {
     _output.add(utf8.encode('$last\r\n'));
@@ -197,7 +221,9 @@ class _Channel implements SessionChannel {
   @override
   Future<void> close() async {
     if (outlives case final program?) throw TerminalStillRunning(program.future, closeBound);
-    if (!_ended.isCompleted) _ended.complete(-1);
+    if (_ended.isCompleted) return;
+    if (closingLine case final line?) _output.add(utf8.encode('$line\r\n'));
+    _ended.complete(closingCode);
   }
 }
 
@@ -213,15 +239,18 @@ void main() {
   late Settings settings;
   late List<List<String>> opened;
   late _Channel channel;
+  late bool openRefused;
 
   setUp(() {
     settings = Settings(MemorySettingsStore());
     receipts = SettingsReceipts(settings);
     opened = [];
+    openRefused = false;
   });
 
   SessionChannel open(String executable, List<String> arguments, {int columns = 80, int rows = 24}) {
     opened.add([executable, ...arguments]);
+    if (openRefused) throw const PtyRefused('there is no terminal here');
     return channel;
   }
 
@@ -377,6 +406,125 @@ void main() {
     await settle(tester);
   }
 
+  // Harm: a terminal whose window goes away while its program outlives the close raising an error nobody handles,
+  // which ends the interface's zone with an uncaught exception.
+  testWidgets('a terminal whose window goes away while its program runs raises nothing unhandled', (tester) async {
+    await openWith(
+      tester,
+      (context) => runInATerminal(
+        context,
+        title: 'Make a backup key',
+        explanation: 'Its program outlives the window.',
+        machine: Machine.local(),
+        command: const ['porelo', 'identity', 'backup-key'],
+        open: open,
+        waitsOnItsProgram: true,
+      ),
+    );
+    final program = channel.outlives = Completer<int>();
+    expect(opened, hasLength(1));
+
+    await tester.pumpWidget(const SizedBox());
+    await settle(tester);
+    program.complete(0);
+    await settle(tester);
+  });
+
+  // Harm: the replacement dialog put away by a pop asked from outside it (a back, an ancestor) while the backup key's
+  // use is being readied, so the run it marks started is never ended and holds Forget, Retry and every registry
+  // recovery until a restart.
+  testWidgets('the dialog stays while the backup key’s use is readied, and its run ends with its terminal', (
+    tester,
+  ) async {
+    final entry = _Entry(receipts, read: _situation(backup: true));
+    await openWith(
+      tester,
+      (context) => showKeyRecovery(
+        context,
+        entry: entry,
+        scope: const RecoveryScope.project('demo'),
+        login: 'bob',
+        open: open,
+        pickAFile: ({String? initialDirectory, String? title}) async => path.join('media', 'usb', 'porelo-backup'),
+      ),
+    );
+    final readying = entry.core.holding = Completer<void>();
+    await tap(tester, 'keyRecovery.reviewBackup');
+    await tap(tester, 'keyRecovery.replace');
+    expect(tester.widget<TextButton>(find.widgetWithText(TextButton, 'Close')).onPressed, isNull);
+
+    await tester.state<NavigatorState>(find.byType(Navigator)).maybePop();
+    await settle(tester);
+    expect(find.byKey(const Key('key-recovery-dialog')), findsOneWidget, reason: 'a pop is refused meanwhile');
+    readying.complete();
+    await settle(tester);
+    expect(opened, hasLength(1));
+    await tap(tester, 'unlock-cancel');
+    await tap(tester, 'unlock-cancel-yes');
+
+    expect(RecoveryRuns.of(receipts).keys, isEmpty);
+    expect(pressable(tester, 'keyRecovery.retry'), isNotNull);
+  });
+
+  // Harm: the replacement dialog taken away from above while the backup key's use is readied, leaving its run started
+  // for good, and its request kept as uncertain although no terminal ever opened.
+  testWidgets('a backup key’s use whose dialog went away before its terminal opened ends as never started', (
+    tester,
+  ) async {
+    final entry = _Entry(receipts, read: _situation(backup: true));
+    await openWith(
+      tester,
+      (context) => showKeyRecovery(
+        context,
+        entry: entry,
+        scope: const RecoveryScope.project('demo'),
+        login: 'bob',
+        open: open,
+        pickAFile: ({String? initialDirectory, String? title}) async => path.join('media', 'usb', 'porelo-backup'),
+      ),
+    );
+    final readying = entry.core.holding = Completer<void>();
+    await tap(tester, 'keyRecovery.reviewBackup');
+    await tap(tester, 'keyRecovery.replace');
+
+    tester.state<NavigatorState>(find.byType(Navigator)).pop();
+    await settle(tester);
+    readying.complete();
+    await settle(tester);
+
+    expect(opened, isEmpty);
+    expect(RecoveryRuns.of(receipts).keys, isEmpty);
+    expect(settings.keyRecoveryKeys, isEmpty, reason: 'nothing ran under the request');
+  });
+
+  // Harm: a new backup key's making whose window went away before its terminal opened, leaving its request kept as
+  // uncertain, so Core is said to have perhaps made a key that nothing could have made.
+  testWidgets('a backup key’s making whose window went away before its terminal opened restores its request', (
+    tester,
+  ) async {
+    final entry = _Entry(receipts, read: _situation(backup: true));
+    final readying = entry.core.holding = Completer<void>();
+    await openWith(
+      tester,
+      (context) => makeBackupKey(
+        context,
+        entry: entry,
+        scope: const RecoveryScope.owner(),
+        open: open,
+        chooseNewFile: ({String? title}) async => path.join('media', 'usb', 'bk'),
+      ),
+    );
+    expect(entry.core.calls, ['prepare'], reason: 'the making waits on Core’s prepare');
+    await tester.pumpWidget(const SizedBox());
+    await settle(tester);
+    readying.complete();
+    await settle(tester);
+
+    expect(opened, isEmpty);
+    expect(RecoveryRuns.of(receipts).keys, isEmpty);
+    expect(settings.keyRecoveryKeys, isEmpty, reason: 'no terminal ran Core under it');
+  });
+
   // Harm: a registry replacement's own unpushed commit unreachable after a restart, so nothing ever pushes it.
   testWidgets('the registry’s list choice resumes a kept unpushed replacement after a restart', (tester) async {
     await receipts.keep('owner', _keptReplacement(const RecoveryScope.owner(), revision: _revision));
@@ -455,9 +603,9 @@ void main() {
     expect(settings.keyRecoveryKeys, ['project/demo']);
   });
 
-  // Harm: the new backup key after a project replacement made on the access commit read before it, which Core
-  // refuses as moved.
-  testWidgets('a new backup key after a project replacement starts from the replacing commit', (tester) async {
+  // Harm: the new backup key after a project replacement made on the access repository's commit, which Core compares
+  // with the project repository's head and always refuses as moved.
+  testWidgets('a new backup key after a project replacement starts from the project’s own commit', (tester) async {
     final entry = _Entry(receipts, read: _situation(backup: false));
     await pump(tester, entry, situation: _situation(backup: false), choose: ({String? title}) async => '/media/usb/bk');
 
@@ -467,7 +615,7 @@ void main() {
     await tap(tester, 'keyRecovery.makeBackup');
 
     final command = opened.single;
-    expect(command.sublist(command.indexOf('--base'), command.indexOf('--base') + 2), ['--base', _revision]);
+    expect(command.sublist(command.indexOf('--base'), command.indexOf('--base') + 2), ['--base', _project]);
     channel.end(65, '{"reason":"not-in-this-release","words":"Not yet."}');
     await settle(tester);
     await tap(tester, 'unlock-done');
@@ -610,7 +758,7 @@ void main() {
     await tap(tester, 'keyRecovery.review');
     await tap(tester, 'keyRecovery.replace');
 
-    entry.read = _situation(backup: false, base: _other);
+    entry.read = _situation(backup: false, base: _other, project: _other);
     await tap(tester, 'keyRecovery.makeBackup');
 
     final command = opened.single;
@@ -636,6 +784,48 @@ void main() {
     expect(recovery.requestId, isNotNull);
     expect(settings.keyRecoveryKeys, ['project/demo']);
     expect(pressable(tester, 'keyRecovery.retry'), isNotNull);
+  });
+
+  // Harm: Core's refusal printed while the backup key's terminal closes lost, so its exit code or its last line is not
+  // the program's own: a proven nothing-made end is kept as uncertain, or said in the words of another line.
+  testWidgets('a backup key refused while its terminal closes is read from its own last line and code', (tester) async {
+    final recovery = await pump(
+      tester,
+      _Entry(receipts),
+      situation: _situation(backup: true),
+      pick: () => path.join('media', 'usb', 'porelo-backup'),
+    );
+    await tap(tester, 'keyRecovery.reviewBackup');
+    await tap(tester, 'keyRecovery.replace');
+    channel
+      ..closingCode = 65
+      ..closingLine = '{"reason":"wrong-passphrase","words":"the file did not open"}';
+
+    await tap(tester, 'unlock-cancel');
+    await tap(tester, 'unlock-cancel-yes');
+
+    expect(recovery.problem, contains('did not open with that passphrase'));
+    expect(recovery.requestId, isNull, reason: 'Core refused it: nothing was made');
+    expect(settings.keyRecoveryKeys, isEmpty);
+  });
+
+  // Harm: a backup key's terminal that never started counted as one whose end was not seen, so its request is kept as
+  // uncertain and locks Forget's words and every later attempt on a commit nothing could have made.
+  testWidgets('a backup key whose terminal never started drops its request', (tester) async {
+    final recovery = await pump(
+      tester,
+      _Entry(receipts),
+      situation: _situation(backup: true),
+      pick: () => path.join('media', 'usb', 'porelo-backup'),
+    );
+    openRefused = true;
+    await tap(tester, 'keyRecovery.reviewBackup');
+    await tap(tester, 'keyRecovery.replace');
+    await tap(tester, 'unlock-done');
+
+    expect(recovery.problem, contains('did not start Core'));
+    expect(recovery.requestId, isNull);
+    expect(settings.keyRecoveryKeys, isEmpty);
   });
 
   // Harm: the replacement dialog closed and opened again while the backup key's terminal still runs Core offering

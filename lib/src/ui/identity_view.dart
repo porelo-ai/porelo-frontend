@@ -38,9 +38,8 @@ Future<({int code, String last})> _keyTerminal(
   required List<String> command,
   OpenTerminal? open,
 }) async {
-  var code = -1;
   var last = '';
-  await runInATerminal(
+  final end = await runInATerminal(
     context,
     title: title,
     explanation:
@@ -49,11 +48,11 @@ Future<({int code, String last})> _keyTerminal(
     machine: Machine.local(),
     command: command,
     open: open,
-    onExit: (exit) => code = exit,
     lastLine: (line) => last = line,
     stillWorking: 'Waiting for KeePassXC and its SSH agent.',
   );
-  return (code: code, last: last);
+  // The end includes a code that arrived while the terminal closed; none seen is -1.
+  return (code: end.code ?? -1, last: last);
 }
 
 /// The person's one key and card: its state, where it is filed, and the changes to it.

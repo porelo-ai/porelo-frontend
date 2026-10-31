@@ -72,6 +72,9 @@ Future<TerminalEnd> runInATerminal(
   Key? key,
 }) async {
   final closed = Completer<TerminalEnd>();
+  // Handled from the start: a navigator that goes away with the terminal open never returns from the dialog, and its
+  // program outliving the close would otherwise be an error nobody handles.
+  unawaited(closed.future.then<void>((_) {}, onError: (Object _) {}));
   await showDialog<void>(
     context: context,
     barrierDismissible: false,

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:isolate';
 import 'dart:typed_data';
 
@@ -15,7 +14,7 @@ void main() {
     var letGo = false;
     var closed = false;
 
-    final closing = ConPty.letGoAndWait(() => letGo = true, ended.future).then((_) => closed = true);
+    final closing = ConPty.letGoAndWait(() async => letGo = true, ended.future).then((_) => closed = true);
     await pumpEventQueue();
 
     expect([letGo, closed], [true, false], reason: 'the console is let go, and its program has not ended');
@@ -29,7 +28,7 @@ void main() {
     final ended = Completer<int>();
 
     final outlived = await ConPty.letGoAndWait(
-      () {},
+      () async {},
       ended.future,
       bound: const Duration(milliseconds: 10),
     ).then<Object?>((_) => null, onError: (Object error) => error);
@@ -39,23 +38,73 @@ void main() {
     expect(await (outlived! as TerminalStillRunning).ended, 70);
   });
 
-  // Harm: a console whose letting go blocks the interface counted against no bound, so its close waits a whole bound
-  // more after the block before the program is said still running, or for ever where the block never ends.
+  // Harm: a console whose letting go takes long counted against no bound, so its close waits a whole bound more after
+  // it before the program is said still running, or for ever where letting go never ends.
   test('the bound runs from before the console is let go', () async {
     const bound = Duration(milliseconds: 300);
     final ended = Completer<int>();
+    final watch = Stopwatch()..start();
 
-    final outcome = ConPty.letGoAndWait(
-      () => sleep(bound * 2),
+    final outcome = await ConPty.letGoAndWait(
+      () => Future<void>.delayed(bound * 4),
       ended.future,
       bound: bound,
     ).then<Object?>((_) => null, onError: (Object error) => error);
 
-    expect(
-      await outcome.timeout(bound ~/ 2, onTimeout: () => 'still waiting'),
-      isA<TerminalStillRunning>(),
-      reason: 'the bound passed while the console was let go',
+    expect(outcome, isA<TerminalStillRunning>());
+    expect(watch.elapsed, lessThan(bound * 2), reason: 'the bound passed while the console was let go');
+  });
+
+  ({ConsoleRelease release, List<String> calls}) released({required bool? jobEnds}) {
+    final calls = <String>[];
+    final release = ConsoleRelease(
+      endJob: jobEnds == null
+          ? null
+          : () {
+              calls.add('end job');
+              return jobEnds;
+            },
+      closeJob: () => calls.add('close job'),
+      closeConsole: () => calls.add('close console here'),
+      closeConsoleAway: () async => calls.add('close console away'),
     );
+    return (release: release, calls: calls);
+  }
+
+  // Harm: a console closed on the interface's own isolate, which waits on what still runs in it and freezes the window
+  // past every bound, for ever where it never returns.
+  test('a console whose job cannot be ended is closed off this isolate', () async {
+    for (final jobEnds in [false, null]) {
+      final console = released(jobEnds: jobEnds);
+
+      await console.release.letGo();
+
+      expect(console.calls, isNot(contains('close console here')), reason: 'job ends: $jobEnds');
+      expect(console.calls, contains('close console away'), reason: 'job ends: $jobEnds');
+    }
+  });
+
+  // Harm: the job's handle closed under the waiter that asks it whether its processes have ended, which then never
+  // hears they did, so the program counts as running for good.
+  test('the job stays open until the program was seen to end', () async {
+    final console = released(jobEnds: false);
+
+    await console.release.letGo();
+    expect(console.calls, isNot(contains('close job')), reason: 'the waiter still asks the job');
+
+    console.release.close();
+    expect(console.calls.where((call) => call == 'close job'), hasLength(1));
+    expect(console.calls.where((call) => call.startsWith('close console')), hasLength(1), reason: 'closed once');
+  });
+
+  // Harm: the waiter asking twice for an end it was told once, and dying on the second answer, so the end is never said.
+  test('the waiter takes the end it was told, asking once per turn', () {
+    final answers = <int?>[null, 3, null];
+    var asked = 0;
+
+    final code = ConPty.waitUntilEnded(() => answers[asked++], () {});
+
+    expect([code, asked], [3, 2]);
   });
 
   ({StreamController<List<int>> output, Completer<int> ended}) watched({
@@ -104,6 +153,23 @@ void main() {
       wait: (to) async => to.send(3),
     );
 
+    expect(await watching.ended.future.timeout(const Duration(seconds: 5)), 3);
+  });
+
+  // Harm: a waiter that started and then failed leaving the program's end unsaid for ever, so Forget and Retry wait on
+  // a terminal whose program may have ended long ago.
+  test('a waiter that fails after it started counts as running and the program is asked for here', () async {
+    var gone = false;
+    final watching = watched(
+      read: (to) async => to.send('drained'),
+      // What an isolate's onError port receives: the error and its stack, as two strings.
+      wait: (to) async => to.send(<String>['Null check operator used on a null value', '']),
+      endedNow: () => gone ? 3 : null,
+    );
+
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    expect(watching.ended.isCompleted, isFalse, reason: 'nothing has seen it end');
+    gone = true;
     expect(await watching.ended.future.timeout(const Duration(seconds: 5)), 3);
   });
 }

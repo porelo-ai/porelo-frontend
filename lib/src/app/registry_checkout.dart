@@ -170,14 +170,18 @@ class RegistryCheckout {
 
   /// Pushes [revision], a commit made earlier on [base] that a push did not take, without any filing state.
   ///
-  /// Refused unless the checkout is clean, on its default branch, at [revision], whose only parent is [base], the
-  /// published tip: pushed on any other base, an unreviewed commit would go with it.
+  /// Done without a push when the published branch, fetched first, holds [revision] already: its push went through
+  /// before its answer was read, or by hand. Otherwise refused unless the checkout is clean, on its default branch, at
+  /// [revision], whose only parent is [base], the published tip: pushed on any other base, an unreviewed commit would
+  /// go with it.
   Future<void> publishMade(String revision, {required String base}) async {
     if (!_commit.hasMatch(revision) || !_commit.hasMatch(base)) {
       throw const WorkspaceRefused('Core did not name a valid registry commit.');
     }
     await _checkClean();
     final branch = await _defaultBranch();
+    await _git(['fetch', '--no-tags', '--prune', 'origin'], refusal: _fetchRefused);
+    if (await _holds('refs/remotes/origin/$branch', revision)) return;
     if (await _published(branch) != base) {
       throw const WorkspaceRefused(
         'The registry moved past the commit this change was made on. Nothing was published.',
@@ -195,6 +199,23 @@ class RegistryCheckout {
       'origin',
       '$revision:refs/heads/$branch',
     ], refusal: 'Git could not publish the registry change with your access. It stays in the private checkout.');
+  }
+
+  /// Whether [ref]'s history holds [revision]: it is that commit, or one before it.
+  ///
+  /// Any answer but Git's yes counts as no, which leaves the push to the checks that refuse anything else.
+  Future<bool> _holds(String ref, String revision) async {
+    try {
+      final result = await _run(
+        'git',
+        ['-c', 'core.autocrlf=false', 'merge-base', '--is-ancestor', revision, ref],
+        inDirectory: folder,
+        environment: const {'GIT_TERMINAL_PROMPT': '0'},
+      );
+      return result.code == 0;
+    } on Exception {
+      return false;
+    }
   }
 
   static final _commit = RegExp(r'^(?:[0-9a-f]{40}|[0-9a-f]{64})$');

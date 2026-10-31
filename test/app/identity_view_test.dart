@@ -89,6 +89,12 @@ class _Core implements KeyRecoveryCore {
   @override
   Future<void> publish(RecoveryScope scope, String revision, {required String base}) async =>
       calls.add('publish $revision $base');
+
+  @override
+  void hold(Object holder) {}
+
+  @override
+  void release(Object holder) {}
 }
 
 /// The registry as after a restart: nothing read yet.
@@ -245,6 +251,34 @@ class _Outliving implements SessionChannel {
 
   @override
   Future<void> close() => throw TerminalStillRunning(program.future, closeBound);
+}
+
+/// A terminal whose program ends with [code] and prints [last] while the terminal closes, before nothing else.
+class _AnswersOnClose implements SessionChannel {
+  _AnswersOnClose(this.code, this.last);
+
+  final int code;
+  final String last;
+  final _output = StreamController<List<int>>.broadcast();
+  final _ended = Completer<int>();
+
+  @override
+  Stream<List<int>> get output => _output.stream;
+
+  @override
+  void send(String input) {}
+
+  @override
+  void resize({required int columns, required int rows}) {}
+
+  @override
+  Future<int> get ended => _ended.future;
+
+  @override
+  Future<void> close() async {
+    _output.add(utf8.encode('$last\r\n'));
+    if (!_ended.isCompleted) _ended.complete(code);
+  }
 }
 
 bool _pressable(WidgetTester tester, String id) => tester.widget<TextButton>(find.byKey(Key(id))).onPressed != null;
@@ -528,6 +562,69 @@ void main() {
     await tap('identity-wizard-make');
     expect(calls.where((call) => call[1] == 'create'), hasLength(1));
     expect(calls.last, ['identity', 'show', '--json']);
+  });
+
+  // Harm: a card made in KeePassXC while its terminal was put away said to have failed with exit -1, so the person
+  // makes another key over a card that is there.
+  testWidgets('a key made while its terminal closes is taken with its own exit code', (tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    var made = false;
+    Future<Ran> run(
+      String program,
+      List<String> arguments, {
+      String? inDirectory,
+      Map<String, String> environment = const {},
+      String? input,
+    }) async => switch (arguments[1]) {
+      'show' when made => (code: 0, out: jsonEncode(_shown()), err: ''),
+      _ => (code: 65, out: '{"reason":"no-identity","words":"no card is kept"}', err: ''),
+    };
+    final channel = _AnswersOnClose(0, jsonEncode({'login': 'ms-test-reviewer'}));
+    final model = IdentityModel(Identity(run: run));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () => showDialog<void>(
+                context: context,
+                builder: (_) => FirstStartWizard(
+                  model: model,
+                  open: (executable, arguments, {columns = 80, rows = 24}) {
+                    made = true;
+                    return channel;
+                  },
+                ),
+              ),
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      ),
+    );
+    Future<void> tap(String key) async {
+      await tester.tap(find.byKey(Key(key)));
+      await World.settle(tester);
+    }
+
+    await tester.tap(find.text('Open'));
+    await World.settle(tester);
+    await tester.enterText(find.byKey(const Key('identity-login')), 'ms-test-reviewer');
+    await tester.enterText(find.byKey(const Key('identity-name')), 'MS Test Reviewer');
+    await World.settle(tester);
+    await tap('wizard-next');
+    await tap('identity-make-new');
+    await tester.enterText(find.byKey(const Key('identity-database')), path.join('home', 'ms', 'Passwords.kdbx'));
+    await World.settle(tester);
+    await tap('wizard-next');
+    await tap('identity-wizard-make');
+    await tap('unlock-cancel');
+    await tap('unlock-cancel-yes');
+
+    expect(model.problem, isNull, reason: 'the program ended with 0 while its terminal closed');
+    expect(model.card?.login, 'ms-test-reviewer');
   });
 
   testWidgets('picking a new key shows what changes and runs nothing before the confirmation', (tester) async {

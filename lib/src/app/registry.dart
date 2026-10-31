@@ -238,8 +238,43 @@ class Registry extends ChangeNotifier with QuietAfterDispose {
   /// Why the newest state is not the one shown, or null when it is.
   String? get problem => _problem;
 
-  /// Whether a fetch, a read or a change is running.
+  /// Whether a fetch, a read or a change is running or asked.
   bool get busy => _running > 0;
+
+  Object? _holder;
+  Completer<void>? _released;
+
+  /// Whether a key replacement or backup key holds the checkout, as Core changes it there outside this class.
+  bool get held => _holder != null;
+
+  /// What a filing is refused with while a key replacement or backup key holds the checkout.
+  static const heldWords = 'A key replacement or backup key runs in the registry checkout; wait until it has ended.';
+
+  /// Takes the checkout for [holder], whose change Core makes in it outside this class, until [release].
+  ///
+  /// Refused with words while a fetch, a read or a filing runs or is asked, or another holds it; meanwhile a refresh
+  /// waits for the release and a filing is refused, so neither meets the change half made.
+  void hold(Object holder) {
+    if (_holder == holder) return;
+    if (_holder != null) throw const RegistryRefusal(heldWords);
+    if (busy) throw const RegistryRefusal('A registry read or filing still runs; try again once it has ended.');
+    _holder = holder;
+    final released = _released = Completer<void>();
+    _tail = _tail.then((_) => released.future);
+    notifyListeners();
+  }
+
+  /// Lets go of the checkout [holder] took; what waited for it runs now.
+  void release(Object holder) {
+    if (_holder != holder) return;
+    _holder = null;
+    _released?.complete();
+    _released = null;
+    notifyListeners();
+  }
+
+  /// Reads the registry again for the change [holder] holds the checkout for, without waiting for its own release.
+  Future<void> readAgainHeld(Object holder) => _holder == holder ? _readAgain() : refresh();
 
   /// Every person card, refused ones included.
   List<RegistryCard> get people => _accepted?.people ?? const <RegistryCard>[];
@@ -265,8 +300,12 @@ class Registry extends ChangeNotifier with QuietAfterDispose {
   /// Core supplies the verified state before it, including any newer accepted revocations.
   Future<void> refresh() => _oneAtATime(_readAgain);
 
-  /// Why [filing] cannot be made now, or null when it can.
-  String? unavailable(RegistryFiling filing) => busy ? 'Another registry operation is still running.' : _whyNot(filing);
+  /// Why [filing] cannot be made now, or null when it can; [holder] is the change that holds the checkout and makes it.
+  String? unavailable(RegistryFiling filing, {Object? holder}) {
+    if (_holder != null && _holder != holder) return heldWords;
+    if (_holder == null && busy) return 'Another registry operation is still running.';
+    return _whyNot(filing);
+  }
 
   /// The owners or host admins who may make [filing], with the addresses their trusted cards give.
   ///
@@ -294,7 +333,12 @@ class Registry extends ChangeNotifier with QuietAfterDispose {
   ///
   /// Throws a [RegistryRefusal] naming who may when the change is not allowed now or Core refuses it,
   /// and a [WorkspaceRefused] when Git cannot publish it.
-  Future<RegistryFiled> file(RegistryFiling filing) => _oneAtATime(() async {
+  Future<RegistryFiled> file(RegistryFiling filing) {
+    if (held) return Future.error(RegistryRefusal(heldWords, whoMay: whoMay(filing)));
+    return _filed(filing);
+  }
+
+  Future<RegistryFiled> _filed(RegistryFiling filing) => _oneAtATime(() async {
     if (_whyNot(filing) case final reason?) throw RegistryRefusal(reason, whoMay: whoMay(filing));
     final RegistryFiled filed;
     try {

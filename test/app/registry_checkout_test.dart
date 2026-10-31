@@ -268,6 +268,36 @@ void main() {
     });
   }
 
+  // Harm: a request's own commit that reached the registry already (its push went through before a crash or a lost
+  // answer, or was made by hand) refused for good, so the hosts are never told; or a published branch that moved on
+  // without it taken as holding it.
+  for (final after in ['nothing', 'a fetch', 'a later commit', 'another commit instead']) {
+    test('a made commit the registry holds already is taken as pushed, after $after', () async {
+      final first = checkout();
+      final base = await first.fetch();
+      await first.prepareFiling();
+      final made = await commitCheckout(first.folder, 'owners-change.yml');
+      if (after != 'another commit instead') await run(['push', '-q', central, '$made:refs/heads/main'], first.folder);
+      if (after == 'a fetch') await first.fetch();
+      if (after == 'a later commit') {
+        await run(['pull', '-q', '--ff-only', 'origin', 'main'], author);
+        await commitCentral('later.yml', 'later\n');
+        await first.fetch();
+      }
+      if (after == 'another commit instead') await commitCentral('other.yml', 'other\n');
+      final tip = await centralRevision();
+
+      final publishing = checkout().publishMade(made, base: base);
+
+      if (after == 'another commit instead') {
+        await expectLater(publishing, throwsA(isA<WorkspaceRefused>()));
+      } else {
+        await publishing;
+      }
+      expect(await centralRevision(), tip, reason: 'nothing is pushed anew');
+    });
+  }
+
   // Harm: a filing whose answer was lost never retried under its request, because the checkout refuses the commit that
   // request made; or a retry passing anyone else's unpublished work, or a fresh filing passing that commit.
   for (final held in ['nothing', 'its own commit', 'other content', 'another file too', 'a commit before it', 'two']) {
