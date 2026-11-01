@@ -252,6 +252,16 @@ class Registry extends ChangeNotifier with QuietAfterDispose {
   /// Whether a fetch, a read or a change is running or asked.
   bool get busy => _running > 0;
 
+  /// Completes once no fetch, read or change of this registry runs or is asked any more, so a change waits for a
+  /// refresh to end instead of being refused for it.
+  Future<void> settled() async {
+    while (busy) {
+      await _tail;
+      // The count drops just after the work's own future completes.
+      await Future<void>.delayed(Duration.zero);
+    }
+  }
+
   Object? _holder;
   Completer<void>? _released;
   Future<void> _heldReads = Future<void>.value();

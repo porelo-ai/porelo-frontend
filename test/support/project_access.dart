@@ -28,8 +28,10 @@ class ProjectRegistryFixture extends RegistryFixture {
   String projectAdmin = 'alice';
   String? rotatedAdminFingerprint;
   String accessRepository = accessAddress;
+  Future<void>? holdRead;
   @override
   Future<RegistryRead> read(String checkout) async {
+    await holdRead;
     if (fail == 'read') throw const FormatException('registry read refused');
     final base = await super.read(checkout);
     return RegistryRead(

@@ -361,6 +361,7 @@ class CoreProjectAccess implements ProjectAccessCore {
     if (change.action != 'register' && change.action != 'add') throw const RegistryRefusal(notConnected);
     final registry = this.registry();
     if (registry == null) throw const RegistryRefusal(noRegistry);
+    await registry.settled();
     _atRest(registry);
     var last = _last[change.project];
     if (last == null) {

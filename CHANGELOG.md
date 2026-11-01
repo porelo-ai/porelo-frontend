@@ -9,6 +9,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Adding, locking or removing a project's developer while the interface reads the registry again (every minute by
+  default) waits for that read to end instead of being refused with "Refresh the verified registry before changing
+  this project", and the person picked in the developers dialog is no longer cleared while the read runs.
+
 - A project's ⋮ offers *Project settings: Developers…* again, where a project admin adds, locks, lets back in and
   removes developers. It had been taken off the menus in favour of the registry's person lists, which offer no such
   change yet, so *Add a developer* was reachable nowhere.

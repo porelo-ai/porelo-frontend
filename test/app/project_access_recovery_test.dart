@@ -583,6 +583,28 @@ void main() {
     }
   });
 
+  // Harm: a person added while the periodic registry refresh runs is refused, and the pick is lost.
+  test('a person added while the registry is read again waits for that read and is added', () async {
+    final access = await fixture.access(settings);
+    await access.register();
+    fixture.calls.clear();
+    final release = Completer<void>();
+    fixture.registrySource.holdRead = release.future;
+    final refreshing = fixture.registry.refresh();
+    expect(fixture.registry.busy, isTrue);
+    expect(access.candidates, isNotEmpty, reason: 'the pick stays while the registry is read again');
+    expect(access.unavailable(), isNull);
+    final adding = access.change('demo', bob, remove: false);
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    expect(fixture.calls, isNot(contains('file')), reason: 'nothing is filed while the registry is read');
+    release.complete();
+    await refreshing;
+    await adding;
+    final receipt = settings.projectAccess('demo')!;
+    expect(receipt.change.action, 'add');
+    expect(receipt.confirmed, isTrue);
+  });
+
   // Harm: a filed registration whose project moved on since stays refused for good, or Retry puts the host back on
   // the filed project and access commits.
   for (final entry in ['retry', 'dialog']) {

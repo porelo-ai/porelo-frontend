@@ -104,7 +104,7 @@ class ProjectAccess implements ProjectPersonActions {
     // Recovery must resolve uncertain receipts before it can check mutation authority; a receipt on a server given
     // back is offered to Retry, which forgets it.
     if (delivery && pending) return null;
-    if (registry.accepted == null || registry.problem != null || registry.busy) {
+    if (registry.accepted == null || registry.problem != null) {
       return 'Refresh the verified registry before changing this project.';
     }
     if (view == null) return 'Read the verified project admission first.';
@@ -188,8 +188,10 @@ class ProjectAccess implements ProjectPersonActions {
   Future<ProjectAccessView> _read() async {
     current = null;
     checkAdminName(project);
+    await _settled();
     if (!_registryReady) throw const RegistryRefusal('Refresh the verified registry before changing this project.');
     final view = await core.read(project);
+    await _settled();
     if (!_registryReady) throw const RegistryRefusal('Refresh the verified registry before changing this project.');
     if (view.project != project) throw const RegistryRefusal('The verified state names another project.');
     current = view;
@@ -258,6 +260,7 @@ class ProjectAccess implements ProjectPersonActions {
       await settings.forgetReturnedProjectAccess(project);
       throw const _GivenBack();
     }
+    await _settled();
     if (!_registryReady) throw const RegistryRefusal('Refresh the verified registry before changing this project.');
     final change = receipt?.change;
     final recording = authorized || receipt?.state == ProjectAccessState.delivered;
@@ -346,7 +349,11 @@ class ProjectAccess implements ProjectPersonActions {
     }
   }
 
-  bool get _registryReady => registry.accepted != null && registry.problem == null && !registry.busy;
+  // The accepted read stays in force while a refresh runs; a change waits for the refresh to end ([_settled]).
+  bool get _registryReady => registry.accepted != null && registry.problem == null;
+
+  /// Waits for a registry fetch or read running now, so the check after it sees what that read accepted.
+  Future<void> _settled() => registry.settled();
 
   bool _eligible(ProjectAccessView? view, String login, String fingerprint) {
     if (!_registryReady || view?.project != project) return false;
