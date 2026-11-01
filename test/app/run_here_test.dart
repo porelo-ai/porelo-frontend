@@ -16,11 +16,11 @@ void main() {
 
   test('a command that never ends is ended at the limit and says what to do', () async {
     final started = DateTime.now();
-    final ran = await runHere('sleep', ['30']);
+    final refused = await runHere('sleep', ['30']).then<Object?>((ran) => ran, onError: (Object error) => error);
     expect(DateTime.now().difference(started), lessThan(const Duration(seconds: 10)), reason: 'it must not wait 30 s');
-    expect(ran.code, 124, reason: 'an ended command answers as timeout(1) does');
-    expect(ran.err, contains('sleep'), reason: 'the sentence names the command that hung');
-    expect(ran.err, contains('was ended'), reason: 'the sentence says it was stopped');
+    expect(refused, isA<WorkspaceRefused>(), reason: 'every caller shows a refusal, not a bare exit code');
+    expect('$refused', contains('sleep'), reason: 'the sentence names the command that hung');
+    expect('$refused', contains('was ended'), reason: 'the sentence says it was stopped');
   });
 
   test('a command whose child keeps its output open is answered all the same', () async {
@@ -33,10 +33,14 @@ void main() {
 
   test('a command fed bytes that never ends is ended at the limit too', () async {
     final started = DateTime.now();
-    final ran = await runHereWithBytes('sh', ['-c', 'cat >/dev/null; sleep 30'], input: [1, 2, 3]);
+    final refused = await runHereWithBytes(
+      'sh',
+      ['-c', 'cat >/dev/null; sleep 30'],
+      input: [1, 2, 3],
+    ).then<Object?>((ran) => ran, onError: (Object error) => error);
     expect(DateTime.now().difference(started), lessThan(const Duration(seconds: 10)), reason: 'it must not wait 30 s');
-    expect(ran.code, 124, reason: 'an ended command answers as timeout(1) does');
-    expect(ran.err, contains('was ended'), reason: 'the sentence says it was stopped');
+    expect(refused, isA<WorkspaceRefused>(), reason: 'every caller shows a refusal, not a bare exit code');
+    expect('$refused', contains('was ended'), reason: 'the sentence says it was stopped');
   });
 
   test('a quick command answers as before', () async {

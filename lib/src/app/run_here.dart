@@ -20,7 +20,7 @@ typedef RunHere = Future<Ran> Function(
 /// for nothing. Set at the start for an instance acting for the organization, so a token renewed meanwhile is taken.
 Future<Map<String, String>> Function()? registryEnvironment;
 
-/// How long one local command may run before it is ended and answered as `timeout(1)` answers, exit code 124.
+/// How long one local command may run before it is ended and refused as [WorkspaceRefused].
 Duration runHereLimit = const Duration(minutes: 5);
 
 /// Runs a process with this computer's environment plus [environment].
@@ -46,7 +46,8 @@ Future<Ran> runHere(
   return _answered(process, program, arguments, out: out, err: err);
 }
 
-/// [process]'s answer, or exit code 124 with a sentence once it outlived [runHereLimit] and was ended.
+/// [process]'s answer; once it outlived [runHereLimit] it is ended and refused with a sentence that says so, which
+/// every caller shows, where an exit code would be worded as the command's own refusal.
 ///
 /// Its output is waited for only briefly after it ended: a child it left behind, such as ssh's master, can hold the
 /// pipes open long after.
@@ -64,8 +65,8 @@ Future<Ran> _answered(
     await stopOwnedProcess(process).catchError((Object _) {});
   }
   final said = (out: await out.soFar(), err: await err.soFar());
-  if (code != null) return (code: code, out: said.out, err: said.err);
-  return (code: 124, out: said.out, err: '${said.err}${_hung(program, arguments)}\n');
+  if (code == null) throw WorkspaceRefused(_hung(program, arguments));
+  return (code: code, out: said.out, err: said.err);
 }
 
 /// One output stream's words as they arrive, so what came before a child held the pipe open is never lost.
