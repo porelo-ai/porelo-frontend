@@ -454,6 +454,33 @@ void main() {
     expect(answer.stderr, contains('unconfirmed'));
   });
 
+  // Harm: a stalled copy to a host keeps the interface waiting without end.
+  test('a shared-host copy that hangs is ended at its deadline and says so', () async {
+    const key = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+    final child = _WaitingProcess();
+    final ssh = OpenSsh.sharedHost(
+      card: HostCardSsh(
+        name: 'alpha',
+        address: 'alpha.example.org',
+        sshPort: 22,
+        hostKey: key,
+        login: 'alice',
+        publicKey: key,
+        webPort: 18080,
+        gitPort: 18081,
+        matrixPort: 18082,
+      ),
+      config: '/config/porelo/ssh/alpha.conf',
+      environment: {'XDG_CONFIG_HOME': '/config'},
+      start: (_, _) async => child,
+      deadline: Duration.zero,
+    );
+    final answer = await ssh.copy('alpha', '', '/from', '/to').timeout(const Duration(seconds: 10));
+    expect(child.killed, isTrue, reason: 'the hung copy is ended');
+    expect(answer.exitCode, 255, reason: 'an ended copy is a failure');
+    expect(answer.stderr, contains('was ended'), reason: 'the sentence says it was stopped and what to do');
+  });
+
   // Harm: a transfer switches accounts or falls back to a new connection outside its owned tunnel.
   test('shared-host transfers use only the imported config and captured admitted alias', () async {
     const key = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';

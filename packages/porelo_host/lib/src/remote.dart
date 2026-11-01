@@ -233,13 +233,37 @@ class OpenSsh implements Remote {
       if (code == 0 && inputFailure != null) throw inputFailure;
       return RemoteResult(code, words);
     }
-    final done = await _runProcess('scp', <String>[
+    final arguments = <String>[
       ..._options(host, user),
       '-q',
       '--',
       from,
       '${_card != null ? host : configHost ?? _account(host, user)}:$to',
-    ]);
+    ];
+    if (deadline case final limit?) return _copyWithin(limit, arguments);
+    final done = await _runProcess('scp', arguments);
     return RemoteResult(done.exitCode, '${done.stderr}'.trim());
+  }
+
+  /// Runs `scp` with [arguments], ended once it outlives [limit]: a stalled copy never holds its caller without end.
+  Future<RemoteResult> _copyWithin(Duration limit, List<String> arguments) async {
+    final process = await _start('scp', arguments);
+    final out = process.stdout.drain<void>()..ignore();
+    final err = process.stderr.transform(const Utf8Decoder(allowMalformed: true)).join()..ignore();
+    await process.stdin.close();
+    try {
+      final code = await process.exitCode.timeout(limit);
+      await out;
+      return RemoteResult(code, (await err).trim());
+    } on TimeoutException {
+      process.kill(ProcessSignal.sigkill);
+      await process.exitCode;
+      final within = limit.inMinutes >= 1 ? '${limit.inMinutes} minutes' : '${limit.inSeconds} seconds';
+      return RemoteResult(
+        255,
+        'Copying to the host gave no answer within $within and was ended; nothing it copied is confirmed. '
+        'Check that this computer reaches the host, then try again.',
+      );
+    }
   }
 }
