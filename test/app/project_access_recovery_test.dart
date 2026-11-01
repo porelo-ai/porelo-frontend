@@ -583,6 +583,25 @@ void main() {
     }
   });
 
+  // Harm: a registry read that never ends holds the project's change lock for good.
+  test('a registry read that does not end stops the change with words and frees the project', () async {
+    final access = await fixture.access(settings);
+    await access.register();
+    final release = Completer<void>();
+    addTearDown(() {
+      if (!release.isCompleted) release.complete();
+      ProjectAccess.settleLimit = const Duration(seconds: 90);
+    });
+    ProjectAccess.settleLimit = const Duration(milliseconds: 50);
+    fixture.registrySource.holdRead = release.future;
+    unawaited(fixture.registry.refresh());
+    await expectLater(
+      access.change('demo', bob, remove: false),
+      throwsA(isA<RegistryRefusal>().having((e) => e.words, 'words', contains('has not ended within'))),
+    );
+    expect(settings.projectChangeRunning('demo'), isFalse);
+  });
+
   // Harm: the person is told to refresh the registry, a step the interface can take itself.
   test('a person change reads a registry whose last read failed again itself, and goes on', () async {
     final access = await fixture.access(settings);

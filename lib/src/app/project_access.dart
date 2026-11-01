@@ -347,8 +347,18 @@ class ProjectAccess implements ProjectPersonActions {
   // The accepted read stays in force while a refresh runs; a change waits for the refresh to end ([_settled]).
   bool get _registryReady => registry.accepted != null && registry.problem == null;
 
-  /// Waits for a registry fetch or read running now, so the check after it sees what that read accepted.
-  Future<void> _settled() => registry.settled();
+  /// Waits for a registry fetch or read running now, so the check after it sees what that read accepted; a read that
+  /// does not end within [settleLimit] is said, so the change ends and its receipt stays for Retry.
+  Future<void> _settled() => registry.settled().timeout(
+    settleLimit,
+    onTimeout: () => throw RegistryRefusal(
+      'A registry read has not ended within ${settleLimit.inSeconds} seconds, so this change stopped here. What it '
+      'did is kept; Retry goes on from there.',
+    ),
+  );
+
+  /// How long a change waits for a registry read running beside it.
+  static Duration settleLimit = const Duration(seconds: 90);
 
   /// The registry as accepted now: waited for while a read runs, and read again here where none was accepted or the
   /// last read had a problem, never left to the person; refused in the registry's own words if that read fails too.

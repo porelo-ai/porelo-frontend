@@ -9,6 +9,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- A person change waiting for a registry read that does not end stops after 90 seconds with words and frees the
+  project, keeping its receipt for Retry, instead of holding "An earlier change for this project has not ended yet"
+  for good.
+
 - A project's person change and the developers dialog read the registry again themselves where its last read failed
   or none was accepted, instead of telling the person to refresh it; the dialog shows "Reading the registry…" or
   "Reading the project from Core…" with a progress bar while it reads, and *Read again* where a read failed.
