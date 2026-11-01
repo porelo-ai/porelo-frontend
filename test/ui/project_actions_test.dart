@@ -265,6 +265,7 @@ void main() {
       ]),
     );
     expect(ids.length, ids.toSet().length, reason: 'each operation has one unambiguous menu destination');
-    expect(ids, isNot(contains('project.developers')), reason: 'person actions belong to verified-card lists');
+    // Harm: a project admin finds no way to add a developer, as the registry's person lists offer no change yet.
+    expect(ids, contains('project.developers'));
   });
 }

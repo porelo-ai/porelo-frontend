@@ -418,7 +418,7 @@ class _ShellState extends State<Shell> {
       ..._unscopedCommands(),
       if (_openRegistryItem case final item?) ..._registryPageCommands(item),
     ])
-      if (command.id != 'project.developers') _commandForItem(command).unless(_itemScopeProblem(command)),
+      _commandForItem(command).unless(_itemScopeProblem(command)),
   ];
 
   RegistryPageItem? get _openRegistryItem {
@@ -738,12 +738,12 @@ class _ShellState extends State<Shell> {
       startTheAgents: () => unawaited(_startTheAgents(project.name)),
     ))
       // Run on the project's own machine, with it chosen there: a row on Projects can be another
-      // machine's than the one acted on.
-      if (command.id != 'project.developers')
-        command.after(() {
-          if (on != null) widget.machines.select(on);
-          _fleet.selectProject(project.name);
-        }),
+      // machine's than the one acted on. Its developers are reached here too: the registry's own person lists offer
+      // no change of their own yet.
+      command.after(() {
+        if (on != null) widget.machines.select(on);
+        _fleet.selectProject(project.name);
+      }),
   ];
 
   /// A tile's actions, judged on the tile's own machine and run with its work selected there.

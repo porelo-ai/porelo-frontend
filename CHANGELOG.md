@@ -9,6 +9,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- A project's ⋮ offers *Project settings: Developers…* again, where a project admin adds, locks, lets back in and
+  removes developers. It had been taken off the menus in favour of the registry's person lists, which offer no such
+  change yet, so *Add a developer* was reachable nowhere.
+
 - A project whose access file names its homeserver as a socket on its host (`unix:/run/porelo-matrix/client.sock`,
   behind the host's gate) can be joined again instead of showing "its homeserver is not an https base URL this
   interface reaches". The interface reaches such a homeserver through the host card's fixed Matrix port, never by that
