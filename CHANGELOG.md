@@ -9,6 +9,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- A host tunnel's ssh master left running after its configuration was removed is ended when the host is raised
+  again, with the endpoints it left, instead of refusing the host for good with "an endpoint already exists". A
+  master whose configuration is there is still left alone.
+
 - A host whose tunnel port is busy names the program and pid holding it, such as a tunnel started by hand, and how
   to end it, instead of only that the port is busy.
 

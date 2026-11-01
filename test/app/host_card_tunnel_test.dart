@@ -192,6 +192,39 @@ void main() {
     expect(launches, hasLength(1));
   });
 
+  // Harm: a master whose configuration was removed keeps its endpoints, and the host can never be raised again.
+  test('a master left without its configuration is ended, and the host is raised again', () async {
+    final card = host.hostCard!;
+    final control = card.controlSocket(host.sshConfig);
+    Directory(File(control).parent.path).createSync(recursive: true);
+    final orphan = await ServerSocket.bind(InternetAddress(control, type: InternetAddressType.unix), 0);
+    final forward = await ServerSocket.bind(InternetAddress(host.socketPath, type: InternetAddressType.unix), 0);
+    checkControl = () async {
+      if (runs.last.contains('exit')) {
+        await orphan.close();
+        await forward.close();
+      }
+      return ProcessResult(0, 0, '', '');
+    };
+    expect(await tunnels.raiseFor(host), isTrue, reason: tunnels.of(host)?.problem);
+    expect(runs.first, ['ssh', '-F', '/dev/null', '-o', 'ControlPath=$control', '-O', 'exit', 'alpha']);
+    expect(launches, hasLength(1));
+  });
+
+  // Harm: a master whose configuration is there, somebody's working tunnel, is ended from here.
+  test('a master with its configuration is left alone, and nothing is raised over it', () async {
+    final card = host.hostCard!;
+    final control = card.controlSocket(host.sshConfig);
+    Directory(File(control).parent.path).createSync(recursive: true);
+    File(host.sshConfig).writeAsStringSync('Host alpha\n');
+    final live = await ServerSocket.bind(InternetAddress(control, type: InternetAddressType.unix), 0);
+    addTearDown(live.close);
+    expect(await tunnels.raiseFor(host), isFalse);
+    expect(tunnels.of(host)!.problem, contains('an endpoint already exists'));
+    expect(runs.where((run) => run.contains('exit')), isEmpty);
+    expect(launches, isEmpty);
+  });
+
   // Prevents path validation from escaping as an unhandled future and leaving the host raising.
   test('an invalid local endpoint returns a refusal and never launches', () async {
     final bad = host.withSocketPath('relative');

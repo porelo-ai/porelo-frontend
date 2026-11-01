@@ -286,6 +286,8 @@ class Tunnel {
       HostCardSsh.checkLocalSocket(machine.socketPath);
       HostCardSsh.checkLocalSocket(card.controlSocket(machine.sshConfig));
       if (messengerSocket != null) HostCardSsh.checkMessengerSocket(messengerSocket!);
+      await _endOrphanedMaster(card);
+      if (generation != _generation) return;
       for (final endpoint in [machine.socketPath, card.controlSocket(machine.sshConfig)]) {
         if (FileSystemEntity.typeSync(endpoint, followLinks: false) != FileSystemEntityType.notFound) {
           state = TunnelState.down;
@@ -354,6 +356,40 @@ class Tunnel {
         await _stopWhatWeStarted();
         _clearOwnedCardEndpoints();
       }
+    }
+  }
+
+  /// Ends a master of this card whose configuration is gone, and the endpoints it left: its control socket lies where
+  /// only this desktop's card puts one, and a master with no configuration file is no tunnel anybody can use or raise
+  /// again. A master whose configuration is there is left alone, as before.
+  Future<void> _endOrphanedMaster(HostCardSsh card) async {
+    final control = card.controlSocket(machine.sshConfig);
+    if (FileSystemEntity.typeSync(control, followLinks: false) != FileSystemEntityType.unixDomainSock) return;
+    if (FileSystemEntity.typeSync(machine.sshConfig, followLinks: false) != FileSystemEntityType.notFound) return;
+    await _tighten([openSsh('ssh'), '-F', '/dev/null', '-o', 'ControlPath=$control', '-O', 'exit', card.name])
+        .timeout(_untilExplained);
+    // The master ends after it answered; its endpoints stop answering within a moment.
+    for (var wait = 0; wait < 20 && await _answers(control); wait++) {
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
+    for (final endpoint in [control, machine.socketPath]) {
+      if (FileSystemEntity.typeSync(endpoint, followLinks: false) != FileSystemEntityType.unixDomainSock) continue;
+      if (await _answers(endpoint)) continue;
+      File(endpoint).deleteSync();
+    }
+  }
+
+  static Future<bool> _answers(String endpoint) async {
+    try {
+      final socket = await Socket.connect(
+        InternetAddress(endpoint, type: InternetAddressType.unix),
+        0,
+        timeout: const Duration(seconds: 1),
+      );
+      socket.destroy();
+      return true;
+    } on SocketException {
+      return false;
     }
   }
 
