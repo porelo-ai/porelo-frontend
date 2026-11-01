@@ -94,6 +94,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f294"></a>[F294](F294-A-Registry-Host-Listed-For-Its-Host-Admin.md) | M | — | A registry host listed under Machines for its host admin, with Admit and Bring, without a setup record here; the forge row counting Core's hosts. |
 | <a id="f293"></a>[F293](F293-Host-Deliveries-Hardened.md) | M | — | Host deliveries hardened: git in a clean environment, one ssh call to copy and place, bundles placed at once, sudo without the login shell, the registry held while sending. |
 | <a id="f292"></a>[F292](F292-A-Developer-Confirmed-By-The-Hosts-Registry-Status.md) | M | — | Add a developer confirmed by the host's registry status, and Lock and Let back in offered and confirmed the same way. |
 | <a id="f291"></a>[F291](F291-A-Host-Card-With-A-Name-Or-An-IPv6-Address-Read.md) | S | — | Register and Add for a host whose card names a host name or an IPv6 address, not only IPv4. |
