@@ -243,19 +243,31 @@ class CardProjectAccessTransport implements ProjectAccessTransport {
         if (refused.startsWith('$person: ')) throw RegistryRefusal('The host refused $refused.');
       }
     }
+    final changed = change.action == 'add' || change.action == 'unlock' ? change.person?.login : null;
+    final takenEarlier = changed != null && answer.accessCommit == accessRevision && !answer.dropped.contains(changed)
+        ? changed
+        : null;
     return ProjectAccessStatus(
       host: card.name,
       project: answer.project,
       projectRevision: answer.commit,
       accessRevision: answer.accessCommit,
-      // The answer names whom this sync added; a person it added is active in the project.
-      people: {for (final login in answer.added) login: 'active'},
+      // The answer names whom this sync added; a person it added is active in the project. A person this change adds
+      // or lets back in whom an earlier sync of the same access commit took is active too: the host answers that
+      // commit, refused nobody and dropped nobody of that name, so the person is in.
+      people: {for (final login in answer.added) login: 'active', ?takenEarlier: 'active'},
     );
   }
 
-  static ({String project, String commit, String accessCommit, List<String> added, List<String> refused}) _answer(
-    List<String> lines,
-  ) {
+  static ({
+    String project,
+    String commit,
+    String accessCommit,
+    List<String> added,
+    List<String> dropped,
+    List<String> refused,
+  })
+  _answer(List<String> lines) {
     const unreadable = RegistryRefusal('The host\'s answer to the sync could not be read.');
     final said = lines.where((line) => line.trim().isNotEmpty).toList();
     if (said.isEmpty) throw unreadable;
@@ -277,12 +289,12 @@ class CardProjectAccessTransport implements ProjectAccessTransport {
     if (project is! String || commit is! String || accessCommit is! String || json['unchanged'] is! bool) {
       throw unreadable;
     }
-    strings(json['dropped']);
     return (
       project: project,
       commit: commit,
       accessCommit: accessCommit,
       added: strings(json['added']),
+      dropped: strings(json['dropped']),
       refused: strings(json['refused']),
     );
   }

@@ -441,6 +441,30 @@ void main() {
     expect(status.people, {'bob': 'active'});
   });
 
+  // Harm: a person an earlier sync of the same access commit took in is never confirmed, and Retry stays for good.
+  for (final (case_, access, dropped, confirmed) in [
+    ('took in by an earlier sync', _filed, <String>[], true),
+    ('answered at another access commit', 'c' * 40, <String>[], false),
+    ('dropped by name', _filed, ['bob'], false),
+  ]) {
+    test('an added person $case_ is ${confirmed ? '' : 'not '}confirmed active', () async {
+      await transport.connect(_view());
+      remote.said = [
+        jsonEncode({
+          'project': 'demo',
+          'commit': _project,
+          'access_commit': access,
+          'added': <String>[],
+          'dropped': dropped,
+          'refused': <String>[],
+          'unchanged': true,
+        }),
+      ];
+      final status = await transport.apply(_change, _filed);
+      expect(status.people, confirmed ? {'bob': 'active'} : isEmpty);
+    });
+  }
+
   // Harm: the host's refusal is hidden, or success is taken from an exit code or an answer that does not say it.
   for (final entry in <String, (RemoteResult, List<String>, String)>{
     'the host refuses the sync': (

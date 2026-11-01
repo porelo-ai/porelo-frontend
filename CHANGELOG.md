@@ -9,6 +9,11 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Adding a developer, or letting one back in, is confirmed when the host's sync answers the change's access commit
+  without naming the person as added, because an earlier sync of the same commit took them in already, as long as it
+  neither refused nor dropped them; Retry no longer stays with "The host did not confirm this project membership
+  change".
+
 - A host card's ssh master left by an earlier run of the interface for the same login, such as before a restart, is
   ended when the host is raised again, also while its configuration file is there, instead of refusing the host with
   "an endpoint already exists and was left alone". A master configured for another login, another instance's live
