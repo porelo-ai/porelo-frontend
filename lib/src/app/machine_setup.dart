@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:porelo_host/porelo_host.dart' show checkedEd25519;
 
 import 'machines.dart';
+import 'owned_process.dart';
 import 'connections.dart';
 
 import 'host_keys.dart';
@@ -66,6 +67,9 @@ class MachineSetup {
     return identity;
   }
 
+  /// How long one command on a machine may run before it is ended, a setup script's installs included.
+  static Duration limit = const Duration(minutes: 20);
+
   final RunWith _run;
   final Future<Process> Function(String executable, List<String> arguments) _start;
   final Desk _desk;
@@ -78,13 +82,15 @@ class MachineSetup {
   }
 
   static Future<ProcessResult> _runForReal(List<String> command, {String? input}) async {
-    if (input == null) return Process.run(command.first, command.sublist(1));
     final process = await Process.start(command.first, command.sublist(1));
-    process.stdin.write(input);
-    await process.stdin.close();
-    final out = process.stdout.transform(const SystemEncoding().decoder).join();
-    final err = process.stderr.transform(const SystemEncoding().decoder).join();
-    return ProcessResult(process.pid, await process.exitCode, await out, await err);
+    final result = _resultOf(process);
+    try {
+      if (input != null) process.stdin.write(input);
+      await process.stdin.close();
+    } on SocketException {
+      // The program ended before taking all of it; its exit code and its words say why.
+    }
+    return result;
   }
 
   /// Where Porelo publishes its setup script, for a machine that has nothing installed yet.
@@ -271,8 +277,23 @@ systemctl reload ssh 2>/dev/null || systemctl reload sshd
           into.writeln(line);
           onLine?.call(line);
         });
-    await Future.wait(<Future<void>>[follow(process.stdout, out), follow(process.stderr, err)]);
-    return ProcessResult(process.pid, await process.exitCode, '$out', '$err');
+    final streams = Future.wait(<Future<void>>[follow(process.stdout, out), follow(process.stderr, err)])..ignore();
+    final int code;
+    try {
+      code = await process.exitCode.timeout(limit);
+    } on TimeoutException {
+      await stopOwnedProcess(process).catchError((Object _) {});
+      await streams.timeout(const Duration(seconds: 2), onTimeout: () => const <void>[]);
+      final within = limit.inMinutes >= 1 ? '${limit.inMinutes} minutes' : '${limit.inSeconds} seconds';
+      err.writeln(
+        'The machine gave no answer within $within and the command was ended. '
+        'Check that this computer still reaches it, then try again.',
+      );
+      return ProcessResult(process.pid, 124, '$out', '$err');
+    }
+    // A child the command left behind may hold its output open; what came until then is its answer.
+    await streams.timeout(const Duration(seconds: 2), onTimeout: () => const <void>[]);
+    return ProcessResult(process.pid, code, '$out', '$err');
   }
 
   /// Runs [command] as the work user through the `Host` entry [alias].

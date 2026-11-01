@@ -24,6 +24,21 @@ void main() {
 
   int mode(String path) => FileStat.statSync(path).mode & 0x1FF;
 
+  // Harm: an ssh to a machine that stops answering keeps the setup waiting without end.
+  test('a machine command that outlives the limit is ended and says what to do', () async {
+    final before = MachineSetup.limit;
+    MachineSetup.limit = const Duration(milliseconds: 500);
+    addTearDown(() => MachineSetup.limit = before);
+    final hung = MachineSetup(home: home.path, start: (_, _) => Process.start('sleep', ['30']));
+    final started = DateTime.now();
+    final live = await hung.asUserLive('alias', 'true', (_) {});
+    final quiet = await setup.storeOnTheMachine(['sleep', '30'], 'value');
+    expect(DateTime.now().difference(started), lessThan(const Duration(seconds: 10)), reason: 'neither waits 30 s');
+    expect(live.exitCode, 124, reason: 'an ended command answers as timeout(1) does');
+    expect('${live.stderr}', contains('was ended'), reason: 'the followed run says it was stopped');
+    expect(quiet, contains('was ended'), reason: 'the quiet run says it was stopped');
+  });
+
   // Harm: padding between base64 blocks truncates or corrupts the installer sent to the machine.
 
   // Harm: an ssh that ends early, as on a refused login, throws the interface's own broken pipe instead of saying why.
