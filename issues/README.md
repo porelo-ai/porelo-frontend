@@ -94,6 +94,8 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f297"></a>[F297](F297-Register-Progress-With-Its-Steps-And-Usual-Time.md) | M | — | Register's dialog shows which step of how many runs, with a progress bar and the usual time per step. |
+| <a id="f298"></a>[F298](F298-No-Null-In-A-Project-Row.md) | S | — | No "null" in a project row when its tunnel has nothing to say. |
 | <a id="f296"></a>[F296](F296-Card-Endpoints-Per-Login.md) | M | — | Card endpoints per login, so two instances of one account each hold a tunnel to one host; a master this person left ended on raise. |
 | <a id="f295"></a>[F295](F295-No-Ask-Line-Naming-The-Viewer.md) | S | — | No refusal ends with "Ask <name>" when the named person is the one at this interface. |
 | <a id="f294"></a>[F294](F294-A-Registry-Host-Listed-For-Its-Host-Admin.md) | M | — | A registry host listed under Machines for its host admin, with Admit and Bring, without a setup record here; the forge row counting Core's hosts. |
