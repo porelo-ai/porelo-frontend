@@ -104,10 +104,8 @@ class ProjectAccess implements ProjectPersonActions {
     // Recovery must resolve uncertain receipts before it can check mutation authority; a receipt on a server given
     // back is offered to Retry, which forgets it.
     if (delivery && pending) return null;
-    if (registry.accepted == null || registry.problem != null) {
-      return 'Refresh the verified registry before changing this project.';
-    }
-    if (view == null) return 'Read the verified project admission first.';
+    // A registry not read yet, or read with a problem, is read again by the change itself.
+    if (view == null) return 'The project has not been read from Core yet.';
     if (_reason(view) case final reason?) {
       return _withContacts(reason, view);
     }
@@ -188,11 +186,9 @@ class ProjectAccess implements ProjectPersonActions {
   Future<ProjectAccessView> _read() async {
     current = null;
     checkAdminName(project);
-    await _settled();
-    if (!_registryReady) throw const RegistryRefusal('Refresh the verified registry before changing this project.');
+    await _registryRead();
     final view = await core.read(project);
-    await _settled();
-    if (!_registryReady) throw const RegistryRefusal('Refresh the verified registry before changing this project.');
+    await _registryRead();
     if (view.project != project) throw const RegistryRefusal('The verified state names another project.');
     current = view;
     return view;
@@ -260,8 +256,7 @@ class ProjectAccess implements ProjectPersonActions {
       await settings.forgetReturnedProjectAccess(project);
       throw const _GivenBack();
     }
-    await _settled();
-    if (!_registryReady) throw const RegistryRefusal('Refresh the verified registry before changing this project.');
+    await _registryRead();
     final change = receipt?.change;
     final recording = authorized || receipt?.state == ProjectAccessState.delivered;
     if (change != null) {
@@ -354,6 +349,21 @@ class ProjectAccess implements ProjectPersonActions {
 
   /// Waits for a registry fetch or read running now, so the check after it sees what that read accepted.
   Future<void> _settled() => registry.settled();
+
+  /// The registry as accepted now: waited for while a read runs, and read again here where none was accepted or the
+  /// last read had a problem, never left to the person; refused in the registry's own words if that read fails too.
+  Future<void> _registryRead() async {
+    await _settled();
+    if (_registryReady) return;
+    await registry.refresh();
+    await _settled();
+    if (!_registryReady) {
+      throw RegistryRefusal(
+        registry.problem ??
+            'The registry could not be read, so this project cannot be changed now. Nothing was changed.',
+      );
+    }
+  }
 
   bool _eligible(ProjectAccessView? view, String login, String fingerprint) {
     if (!_registryReady || view?.project != project) return false;

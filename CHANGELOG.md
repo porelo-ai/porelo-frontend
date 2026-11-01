@@ -9,6 +9,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- A project's person change and the developers dialog read the registry again themselves where its last read failed
+  or none was accepted, instead of telling the person to refresh it; the dialog shows "Reading the registry…" or
+  "Reading the project from Core…" with a progress bar while it reads, and *Read again* where a read failed.
+
 - Adding, locking or removing a project's developer while the interface reads the registry again (every minute by
   default) waits for that read to end instead of being refused with "Refresh the verified registry before changing
   this project", and the person picked in the developers dialog is no longer cleared while the read runs.

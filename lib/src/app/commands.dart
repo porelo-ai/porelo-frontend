@@ -1883,10 +1883,10 @@ List<Command> centralReviewCommands({
 /// The selected project's person actions, with current availability and stale callbacks guarded.
 List<Command> projectPersonCommands({required ProjectDevelopers developers, String? person, VoidCallback? add}) {
   final actions = developers.scoped;
-  final unavailable = developers.access == null || developers.problem != null
-      ? 'Refresh the verified project person list.'
-      : developers.busy
-      ? 'A person change is still running.'
+  final unavailable = developers.busy
+      ? 'Reading or changing the project; this ends by itself.'
+      : developers.access == null || developers.problem != null
+      ? 'The project\'s persons could not be read; Read again reads them.'
       : actions == null
       ? 'Verified project person changes are unavailable.'
       : actions.unavailable();

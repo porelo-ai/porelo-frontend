@@ -129,6 +129,19 @@ class _ProjectDevelopersDialogState extends State<ProjectDevelopersDialog> {
             spacing: Space.small,
             children: [
               if (access == null) const Text('Verified registry person changes are not available yet.'),
+              if (developers?.busy ?? false) ...[
+                const LinearProgressIndicator(),
+                Text(
+                  access?.registry.busy ?? false ? 'Reading the registry…' : 'Reading the project from Core…',
+                  key: const Key('developers-reading'),
+                ),
+              ],
+              if (developers != null && !developers.busy && (developers.access == null || developers.problem != null))
+                TextButton(
+                  key: const Key('developers-read-again'),
+                  onPressed: () => unawaited(developers.load()),
+                  child: const Text('Read again'),
+                ),
               if (access?.admission case final words?) Text(words),
               if (developers?.problem case final problem?) Text(problem),
               if (access?.unavailable() case final reason?) Text(reason),

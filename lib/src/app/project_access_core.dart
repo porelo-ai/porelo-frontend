@@ -394,7 +394,7 @@ class CoreProjectAccess implements ProjectAccessCore {
       throw const RegistryRefusal('A registry read or filing still runs; try again once it has ended.');
     }
     if (registry.accepted?.revision == null || registry.problem != null) {
-      throw const RegistryRefusal('Refresh the verified registry before changing this project.');
+      throw RegistryRefusal(registry.problem ?? 'The registry has no accepted state yet, so nothing was filed.');
     }
   }
 

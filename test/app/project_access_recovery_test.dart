@@ -583,6 +583,21 @@ void main() {
     }
   });
 
+  // Harm: the person is told to refresh the registry, a step the interface can take itself.
+  test('a person change reads a registry whose last read failed again itself, and goes on', () async {
+    final access = await fixture.access(settings);
+    await access.register();
+    fixture.registrySource.fail = 'read';
+    await fixture.registry.refresh();
+    expect(fixture.registry.problem, isNotNull);
+    expect(access.unavailable(), isNull, reason: 'no step is asked of the person');
+    fixture.registrySource.fail = null;
+    await access.change('demo', bob, remove: false);
+    expect(fixture.registry.problem, isNull);
+    expect(settings.projectAccess('demo')!.change.action, 'add');
+    expect(settings.projectAccess('demo')!.confirmed, isTrue);
+  });
+
   // Harm: a person added while the periodic registry refresh runs is refused, and the pick is lost.
   test('a person added while the registry is read again waits for that read and is added', () async {
     final access = await fixture.access(settings);
