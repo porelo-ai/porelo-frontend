@@ -26,9 +26,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="f287"></a>[F287](F287-A-Join-Confirmed-By-What-The-Host-Follows.md) | — | — | A first join confirmed by what the host follows, healthy hosts offered beside a refused commit, no credential kept or shown, an unconfirmed join undoing only its own. |
-| <a id="f286"></a>[F286](F286-A-Recovery-Hold-Never-Stuck-And-Its-Commit-Its-Own.md) | — | — | A recovery run never holding the registry for good, its made commit taken only when its own, the reviewed card copied privately, terminals closed without hang or leak. |
-| <a id="f285"></a>[F285](F285-A-Recovery-Run-Ended-Pushed-And-On-Its-Own-Base.md) | — | — | A recovery run always ended, its own pushed commit finished, a project backup key on its own base, the reviewed card filed, terminals closed without freezing. |
-| <a id="f283"></a>[F283](F283-A-Recovery-Request-Never-Locked-Lost-Or-Misfiled.md) | — | — | A kept key replacement or backup key always finishable or droppable, never dropped while made or running, never filed unread or on a stale base. |
 | <a id="f280"></a>[F280](F280-A-Lost-Or-Stolen-Key-Replaced.md) | M | [F268](README.md#f268), [F269](README.md#f269); porelo: revoke and backup-key commits | A lost or stolen key replaced by an admin; an admin's own by another admin or the backup key. |
 | <a id="f268"></a>[F268](F268-One-Key-And-One-Card-Per-Person.md) | M | porelo: identity verbs (key, card, rotate, revoke, backup-key) | One Ed25519 key and one card per person, filed in the registry; key changed, lost or backed up. |
 | <a id="f279"></a>[F279](F279-The-Steps-Of-One-Click-Joining.md) | S | [F268](README.md#f268)–[F278](README.md#f278) | One Markdown file of numbered steps of the one-click flow, from first start to first work. |
@@ -97,10 +94,10 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f289"></a>[F289](F289-A-Key-Recovered-In-One-Run-With-Named-States.md) | L | — | A key replaced, or a backup key made or used, in one run at a time with named states, one hold owner and no background retry; replaces the recovery fix chain. |
 | <a id="f288"></a>[F288](F288-Small-Leftovers-Of-Sprint-6m.md) | — | — | The small edge cases of sprint 6m's last night gathered in one place for the operator to place: address forms, test gaps, texts. |
 | <a id="f284"></a>[F284](F284-The-Subagent-Number-Chosen-When-Starting.md) | — | — | How many subagents the agent may run at once, chosen when starting, with the number that applies and Core's refusal said before anything is made. |
 | <a id="f282"></a>[F282](F282-The-Providers-Usage-In-A-Status-Line.md) | — | — | A status line with one traffic light for the providers' usage, a popup per provider, and a *Needs you* warning past a set threshold. |
-| <a id="f281"></a>[F281](F281-A-Kept-Recovery-Commit-Finished-Not-Made-Again.md) | — | — | A key replacement or backup key committed but not pushed finished under the same request, never made twice; each harm guarded by a test. |
 | <a id="f233"></a>[F233](F233-The-Server-Type-And-Zone-Chosen-When-Renting.md) | — | — | The server type and zone chosen in *Prepare a server…*, stock shown before renting, the zone kept for down and give back. |
 | <a id="f234"></a>[F234](F234-No-Back-Once-The-Server-Is-Being-Prepared.md) | — | — | No *Back* in *Prepare a server…* once *Prepare the server* has started. |
 | <a id="f235"></a>[F235](F235-Leaving-The-Server-Wizard-While-Machines-Shows-It.md) | — | — | *Finish* usable in *Prepare a server…* once the server is being prepared, closing at once to *Machines*; *Leave* the same. |
@@ -258,6 +255,10 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Title | Why |
 |---|---|---|
+| <a id="f286"></a>F286 | A Recovery Hold Never Stuck And Its Commit Its Own | Superseded by [F289](README.md#f289) (operator, 2026-11-01): one recovery run at a time with named states and one hold owner replaces this fix of the earlier design. |
+| <a id="f285"></a>F285 | A Recovery Run Ended, Pushed And On Its Own Base | Superseded by [F289](README.md#f289) (operator, 2026-11-01): one recovery run at a time with named states and one hold owner replaces this fix of the earlier design. |
+| <a id="f283"></a>F283 | A Recovery Request Never Locked, Lost Or Misfiled | Superseded by [F289](README.md#f289) (operator, 2026-11-01): one recovery run at a time with named states and one hold owner replaces this fix of the earlier design. |
+| <a id="f281"></a>F281 | A Kept Recovery Commit Finished, Not Made Again | Superseded by [F289](README.md#f289) (operator, 2026-11-01): one recovery run at a time with named states and one hold owner replaces this fix of the earlier design. |
 | <a id="f258"></a>F258 | The Join's Secrets File Prepared By The Dialog | Replaced by one-click joining from signed state (operator, 2026-10-30): No secrets file is prepared for a join with one-click joining: the join is one click, the vault unlocks by the person's key. |
 | <a id="f256"></a>F256 | Another Machine Of The Same Developer Added By Choice | Replaced by one-click joining from signed state (operator, 2026-10-30): Laptops go with one-click joining: a person reaches the host with their one key from any machine. |
 | <a id="f255"></a>F255 | A Laptop Refusal Shown In The Dialog | Replaced by one-click joining from signed state (operator, 2026-10-30): Laptops and their addresses go with one-click joining; developers are added by a pick from the registry. |
