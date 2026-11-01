@@ -20,6 +20,15 @@ it is fixed.
    to reach EOF" timed out once on a Linux runner (Build 41235532851). It did not fail here in 5 single runs or in 24
    runs with 8 in parallel, and the close code had not changed. If it recurs, the test's bound is to be looked at
    against a loaded runner.
+3. **A SHA-256 registry:** the registry bundle for a host is built in a bare repository made as SHA-1, so a registry
+   whose commits are SHA-256 cannot be brought; it is to be made in the registry's own object format.
+4. **`--since` per registry address:** the last revision a host applied is kept per host alone, so after switching to
+   another registry sharing an ancestor, the local verification skips history up to it; it is to be kept per registry
+   address and host.
+5. **Registry bundle folders swept at start:** a crash while sending leaves a `registry-bundle-` folder under the
+   app's data that nothing removes; the start sweeps them as it sweeps card copies.
+6. **A test of `main.dart`'s composition:** the shell's host access test hands its own host access in, so it stays
+   green when `main.dart` composes none; a test of the composed app is to hold it.
 
 ## Idea
 

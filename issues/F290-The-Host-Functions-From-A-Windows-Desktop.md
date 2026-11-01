@@ -29,8 +29,10 @@ The card connection of today, adapted; no new design.
   there is no local socket to wait for.
 - `Machine` (`lib/src/app/machines.dart`): a card machine on Windows gets the relay above, and `whyNotReachableOn`
   stops refusing it ("Host card tunnels require OpenSSH Unix socket and master support on this platform").
-- `join_adapters.dart`, `host_access_adapters.dart`: no change expected; their own ssh calls already take
-  `ControlMaster=no` and the card's `-F` file.
+- `join_adapters.dart`: no change expected; its ssh calls already take `ControlMaster=no` and the card's `-F` file.
+- `host_access_adapters.dart`: the registry's send to root starts `ssh` by name, so on Windows another `ssh.exe` on
+  `PATH` or in the current folder is taken, and a missing one throws past the refusal. It takes `openSsh('ssh')`,
+  Windows' own OpenSSH, and turns a `ProcessException` into a refusal with words, as its git and verify calls do.
 - **Red first:** in `test/app/tunnel_test.dart`, with the Windows desk and the ssh stand-in, the arguments hold no
   `-M`, no local unix path and a `-R` to `127.0.0.1`; in `test/app/wsl_test.dart`, a card machine on Windows is
   reached through the relay instead of refused. The Windows skip in `test/app/host_access_adapters_test.dart` is

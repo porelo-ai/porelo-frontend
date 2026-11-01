@@ -94,6 +94,9 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f293"></a>[F293](F293-Host-Deliveries-Hardened.md) | M | — | Host deliveries hardened: git in a clean environment, one ssh call to copy and place, bundles placed at once, sudo without the login shell, the registry held while sending. |
+| <a id="f292"></a>[F292](F292-A-Developer-Confirmed-By-The-Hosts-Registry-Status.md) | M | — | Add a developer confirmed by the host's registry status, and Lock and Let back in offered and confirmed the same way. |
+| <a id="f291"></a>[F291](F291-A-Host-Card-With-A-Name-Or-An-IPv6-Address-Read.md) | S | — | Register and Add for a host whose card names a host name or an IPv6 address, not only IPv4. |
 | <a id="f290"></a>[F290](F290-The-Host-Functions-From-A-Windows-Desktop.md) | M | — | Join, Prepare, Admit and Add from a Windows desktop: one ssh per host card with loopback TCP ends, the daemon through the relay, no master. |
 | <a id="f289"></a>[F289](F289-A-Key-Recovered-In-One-Run-With-Named-States.md) | L | — | A key replaced, or a backup key made or used, in one run at a time with named states, one hold owner and no background retry; replaces the recovery fix chain. |
 | <a id="f288"></a>[F288](F288-Small-Leftovers-Of-Sprint-6m.md) | — | — | The small edge cases of sprint 6m's last night gathered in one place for the operator to place: address forms, test gaps, texts. |
