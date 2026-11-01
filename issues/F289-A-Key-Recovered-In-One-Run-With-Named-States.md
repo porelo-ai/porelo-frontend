@@ -89,7 +89,7 @@ few states removes those ways instead of guarding each.
   - 4, the project backup key's base: the project repository's own head, read fresh.
   - 5 and 6, Windows close and other terminals: these fixes are kept, as every terminal needs them, not only
     recovery's.
-  - 7, its tests: replaced as for F283.
+  - 7, its tests: replaced as for [F283](README.md#f283).
 - **[F286](README.md#f286)**
   - 1, the registry hold: one owner, released in `finally`; identity writes ask the same owner.
   - 2, the made commit as its own: the change id, file and parent checks, kept as built and used by every transition
@@ -97,7 +97,7 @@ few states removes those ways instead of guarding each.
   - 3, the card copy: kept as built.
   - 4, project backup-key records: gone; nothing made here is kept as a base.
   - 5 and 6, Windows close and terminals: kept.
-  - 7, its tests: replaced as for F283.
+  - 7, its tests: replaced as for [F283](README.md#f283).
   - Its open points: the backup-key commit's change id line is confirmed on a real Core before building; a two-commit
     `registry file` answer is checked by *Check again* as one; the start sweep of card copies is kept.
 
