@@ -9,6 +9,11 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Retry on a filed project registration whose project moved on since no longer stays refused with "The pending
+  project selection differs from the verified state". While Core still names the person, with that key, as a signing
+  project admin on that host, the host gets the project and access as they are now, and the registration is recorded
+  at those commits; the filed commits are never sent again, so a host already running newer ones is not put back.
+
 - A host tunnel's ssh master left running after its configuration was removed is ended when the host is raised
   again, with the endpoints it left, instead of refusing the host for good with "an endpoint already exists". A
   master whose configuration is there is still left alone.

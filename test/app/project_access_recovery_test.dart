@@ -213,7 +213,12 @@ void main() {
                   const Machine(name: 'host', kind: 'host', hostProject: 'orchard', socketPath: '/unused'),
                 )
               : access.register(expected: selected);
-          if (signed) {
+          if (signed && entry == 'retry' && moved == 'project') {
+            // Retry ends a filed registration at the project as it is now; the dialog's pin to the older one cannot.
+            await work;
+            expect(settings.projectAccess('demo')!.confirmed, isTrue);
+            expect(settings.projectAccess('demo')!.change.projectRevision, 'c' * 40);
+          } else if (signed) {
             await expectLater(work, throwsA(isA<RegistryRefusal>()));
             expect(access.supersededChangeId, isNull);
             expect(settings.projectAccess('demo')!.stored, old.stored);
@@ -576,6 +581,58 @@ void main() {
     ]) {
       expect(() => ProjectAccessProgress.read({...confirmed.stored, ...invalid}), throwsFormatException);
     }
+  });
+
+  // Harm: a filed registration whose project moved on since stays refused for good, or Retry puts the host back on
+  // the filed project and access commits.
+  for (final entry in ['retry', 'dialog']) {
+    for (final access in ['unchanged', 'moved']) {
+      test('$entry ends a filed registration whose project moved on at the current commits, access $access', () async {
+        final projectAccess = await fixture.access(settings);
+        fixture.fail = 'upload';
+        await expectLater(projectAccess.register(), throwsFormatException);
+        final receipt = settings.projectAccess('demo')!;
+        fixture.fail = null;
+        fixture.verifiedRevision = 'c' * 40;
+        if (access == 'moved') {
+          fixture.currentAccess = 'd' * 40;
+          fixture.published.add('d' * 40);
+          fixture.changes['d' * 40] = receipt.change;
+        }
+        fixture.calls.clear();
+        if (entry == 'retry') {
+          await projectAccess.retry();
+        } else {
+          final registration = RegistryProjectRegistration(projectAccess);
+          final state = await registration.verify('demo', registering: true);
+          expect(state.revision, 'c' * 40);
+          await registration.register(state, await registration.connect(state));
+        }
+        final done = settings.projectAccess('demo')!;
+        expect(done.confirmed, isTrue);
+        expect(done.change.id, receipt.change.id);
+        expect(done.change.projectRevision, 'c' * 40);
+        expect(done.revision, fixture.currentAccess);
+        expect(fixture.filed, hasLength(1), reason: 'nothing is signed or filed again');
+        expect(fixture.calls.where((call) => call == 'upload' || call == 'apply'), ['upload', 'apply']);
+        expect(settings.projectHost('demo'), 'orchard');
+        expect(fixture.savedMachines, isNotEmpty);
+      });
+    }
+  }
+
+  // Harm: a registration is carried to a project state that no longer names this person as a signing admin.
+  test('a filed registration is not carried on once its admin no longer signs for the project', () async {
+    final access = await fixture.access(settings);
+    fixture.fail = 'upload';
+    await expectLater(access.register(), throwsFormatException);
+    fixture.fail = null;
+    fixture.verifiedRevision = 'c' * 40;
+    fixture.signers = [];
+    fixture.calls.clear();
+    await expectLater(access.retry(), throwsA(isA<RegistryRefusal>()));
+    expect(fixture.calls, isEmpty);
+    expect(settings.projectAccess('demo')!.confirmed, isFalse);
   });
 
   // Harm: pending registration must not deliver an older project than the dialog approved.

@@ -52,6 +52,10 @@ class ProjectAccess implements ProjectPersonActions {
   /// The latest verified project, retained for availability and contact words.
   ProjectAccessView? current;
 
+  // The project revision a filed registration was carried to on this run, so the dialog's own Register step after it
+  // files nothing more.
+  String? _carriedTo;
+
   /// The pending exact access revision, absent once confirmed.
   String? get pendingRevision =>
       settings.projectAccess(project)?.confirmed == false ? settings.projectAccess(project)?.revision : null;
@@ -361,7 +365,7 @@ class ProjectAccess implements ProjectPersonActions {
 
   /// Rechecks admission without starting publication, for a visible command.
   Future<ProjectAccessView> verify() => _withChange(() async {
-    final receipt = await _reconcile();
+    final receipt = await _reconcile(carry: true);
     return receipt == null ? _authorize() : current!;
   });
 
@@ -445,6 +449,11 @@ class ProjectAccess implements ProjectPersonActions {
       final pendingReceipt = await _reconcile();
       if (registrationMachine != null && registrationMachine.hostProject != expected!.host.name) {
         throw const RegistryRefusal('The verified project admission changed.');
+      }
+      if (action == 'register' && pendingReceipt == null && _carriedTo != null) {
+        final carried = _carriedTo;
+        _carriedTo = null;
+        if (expected?.revision == carried && settings.projectAccess(project)?.confirmed == true) return;
       }
       if (pendingReceipt != null) {
         if (action == 'register' && pendingReceipt.change.action == 'register') {
@@ -538,7 +547,7 @@ class ProjectAccess implements ProjectPersonActions {
     }
   }
 
-  Future<ProjectAccessProgress?> _reconcile() async {
+  Future<ProjectAccessProgress?> _reconcile({bool carry = false}) async {
     var progress = settings.projectAccess(project);
     if (progress == null || progress.confirmed) return null;
     // A server given back before Core's change was recorded leaves nothing to deliver to: the receipt is forgotten
@@ -553,13 +562,51 @@ class ProjectAccess implements ProjectPersonActions {
       await settings.forgetUnfiledProjectAccess(project);
       return null;
     }
+    if (carry && await _carriedFurther(progress)) return null;
     await _authorize(receipt: progress);
     return progress;
   }
 
   Future<void> _resume() async {
-    final progress = await _reconcile();
+    final progress = await _reconcile(carry: true);
     if (progress != null) await _continue(progress);
+  }
+
+  /// Ends a filed, not yet delivered registration whose project has moved on since: the host gets the project and
+  /// access as Core verifies them now, and the registration is recorded at those. Sending the filed commits again
+  /// would put the host behind what it may run already. Only while Core still names this person, with this key, as a
+  /// signing project admin on this host; false where the project has not moved.
+  Future<bool> _carriedFurther(ProjectAccessProgress receipt) async {
+    final change = receipt.change;
+    if (change.action != 'register' || receipt.revision == null || receipt.state == ProjectAccessState.delivered) {
+      return false;
+    }
+    final view = await _read();
+    if (view.projectRevision == change.projectRevision) return false;
+    if (!_matches(change, view, recording: true)) {
+      throw RegistryRefusal(
+        'The pending project selection differs from the verified state. Retry.',
+        whoMay: _contacts(view),
+      );
+    }
+    if (_reason(view) case final reason?) throw RegistryRefusal(reason, whoMay: _contacts(view));
+    final now = ProjectAccessChange.read({...change.stored, 'project_revision': view.projectRevision});
+    final machine = await transport.connect(view);
+    if (machine.kind != 'host' || machine.hostProject != change.host || machine.identity.isNotEmpty) {
+      throw const RegistryRefusal('The shared tunnel did not confirm this host and person identity.');
+    }
+    await transport.upload(now, view.accessRevision);
+    final answer = await transport.apply(now, view.accessRevision);
+    if (answer.host != change.host ||
+        answer.project != project ||
+        answer.projectRevision != view.projectRevision ||
+        answer.accessRevision != view.accessRevision) {
+      throw const RegistryRefusal('The host did not confirm the intended project and access revisions.');
+    }
+    await _recordRegistration(machine, now);
+    await _confirm(ProjectAccessProgress(change: now, revision: view.accessRevision, state: ProjectAccessState.filed));
+    _carriedTo = view.projectRevision;
+    return true;
   }
 
   Future<void> _continue(ProjectAccessProgress receipt, {VerifiedHostProject? expected}) async {
