@@ -9,6 +9,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- A project under *Projects you may join* that Core refused says Core's reason, such as an access file that names
+  no project repository, instead of only that its access file cannot be read.
+
 - *Register the project* says what it does while it runs: checking the project with Core, opening the connection
   to the host, registering there. Before, it said only that a change for the project was still running.
 

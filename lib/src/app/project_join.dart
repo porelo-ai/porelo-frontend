@@ -108,7 +108,13 @@ class JoinOffered extends JoinAdmission {
 @immutable
 class JoinUnreadable extends JoinAdmission {
   /// Retains the repository and who may grant it.
-  const JoinUnreadable({required this.host, required this.repository, this.project, this.whoMay = const []});
+  const JoinUnreadable({
+    required this.host,
+    required this.repository,
+    this.project,
+    this.whoMay = const [],
+    this.why = '',
+  });
 
   /// The host whose access entries name the repository.
   final String host;
@@ -123,16 +129,18 @@ class JoinUnreadable extends JoinAdmission {
   /// The verified admins who may grant reading it, or the host's admins for its own access file.
   final List<RegistryContact> whoMay;
 
-  /// What the row says.
-  String get words => RegistryRefusal(
-    repository != null
-        ? 'The access file in $repository for $host cannot be read, so its projects are not known here.'
-        : project == null
-        ? 'The registry refused the access file of $host, so no project on it is known here.'
-        : 'The access repository of project $project on $host cannot be read, so its projects are not known here. '
-              'Its address is not shown, as it may hold a credential.',
-    whoMay: whoMay,
-  ).toString();
+  /// Core's reason, as `registry joinable` answers it; empty where none was given.
+  final String why;
+
+  /// What the row says, Core's reason included: "cannot be read" alone also covers an access file that was read.
+  String get words => RegistryRefusal('${_what()}${why.isEmpty ? '' : ' Core says: $why.'}', whoMay: whoMay).toString();
+
+  String _what() => repository != null
+      ? 'The access file in $repository for $host cannot be read, so its projects are not known here.'
+      : project == null
+      ? 'The registry refused the access file of $host, so no project on it is known here.'
+      : 'The access repository of project $project on $host cannot be read, so its projects are not known here. '
+            'Its address is not shown, as it may hold a credential.';
 }
 
 /// A project Core answered for the person in a form this interface cannot use, said as that row's own refusal.
@@ -312,7 +320,7 @@ Map<String, Object?> _object(Object? entry) =>
 /// projects are closed.
 (String?, JoinUnreadable) _unreadable(Map<String, Object?> entry) {
   final host = _text(entry, 'host');
-  _text(entry, 'why');
+  final why = _text(entry, 'why');
   final ofTheHost = entry['project'] == null;
   if (ofTheHost != (entry['access_repository'] == null)) throw const FormatException('half a host row');
   final project = ofTheHost ? null : _text(entry, 'project');
@@ -325,6 +333,7 @@ Map<String, Object?> _object(Object? entry) =>
       repository: repository == null || _credential(repository) ? null : repository,
       project: project,
       whoMay: _contacts(entry['admins']),
+      why: why,
     ),
   );
 }

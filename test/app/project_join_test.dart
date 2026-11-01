@@ -560,6 +560,7 @@ void main() {
     final unreadable = rows.whereType<JoinUnreadable>().single;
     expect(unreadable.words, contains('billing-access.git'));
     expect(unreadable.words, contains('Bob (bob), bob@example.org'));
+    expect(unreadable.words, contains('Core says: not signed by a verified admin.'), reason: 'why it was refused');
   });
 
   // Harm: a broken answer, or a card for another host, shows as an empty list or a row to click.
