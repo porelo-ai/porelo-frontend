@@ -9,6 +9,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- An instance started with a person's own forge token entry, such as a developer's, also hands Core's registry calls
+  the organization's GitHub App installation token from the test secrets file, as Core's owner check of the registry
+  asks the organization; the person's own token is never handed to Core for it.
+
 - Adding a developer, or letting one back in, is confirmed when the host's sync answers the change's access commit
   without naming the person as added, because an earlier sync of the same commit took them in already, as long as it
   neither refused nor dropped them; Retry no longer stays with "The host did not confirm this project membership

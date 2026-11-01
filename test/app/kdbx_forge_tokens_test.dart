@@ -114,9 +114,7 @@ void main() {
     'Core\'s registry calls of the organization\'s instance get the installation token, read anew each time',
     () async {
       entries = {'github-app-5539409-installation': 'ghs_first'};
-      expect(registryEnvironmentFor(null), isNull);
-      expect(registryEnvironmentFor('github-ms-test-reviewer'), isNull, reason: 'a person\'s token is no App token');
-      final environment = registryEnvironmentFor('github-app-5539409-installation', secrets: () => secrets, run: run)!;
+      final environment = registryEnvironmentFor('github-app-5539409-installation', secrets: () => secrets, run: run);
       expect(await environment(), isEmpty, reason: 'no test secrets file: Core takes its vault');
       prepared();
       expect(await environment(), {'PORELO_GITHUB_APP_TOKEN': 'ghs_first'});
@@ -124,6 +122,19 @@ void main() {
       expect(await environment(), {'PORELO_GITHUB_APP_TOKEN': 'ghs_renewed'});
     },
   );
+
+  // Harm: a developer's instance cannot read the registry, as Core's owner check asks the organization, or Core gets
+  // the developer's own token for it.
+  test('an instance started with a person\'s own entry gives Core the organization\'s installation token', () async {
+    prepared();
+    entries = {'github-ms-test-reviewer': 'ghp_person', 'github-app-5539409-installation': 'ghs_app'};
+    for (final entry in ['github-ms-test-reviewer', null]) {
+      final environment = registryEnvironmentFor(entry, secrets: () => secrets, run: run);
+      expect(await environment(), {'PORELO_GITHUB_APP_TOKEN': 'ghs_app'}, reason: '$entry');
+    }
+    entries = {'github-ms-test-reviewer': 'ghp_person'};
+    expect(await registryEnvironmentFor('github-ms-test-reviewer', secrets: () => secrets, run: run)(), isEmpty);
+  });
 
   // Harm: the token reaches some other program, or never reaches Core's registry call.
   test('only porelo registry gets the registry environment', () async {

@@ -34,21 +34,23 @@ String? forgeTokenEntryFromArguments(List<String> arguments) {
 const registryTokenVariable = 'PORELO_GITHUB_APP_TOKEN';
 
 /// The environment for Core's `porelo registry …` of an instance started with [entry]: the token of a GitHub App's
-/// installation entry (`github-app-…`), read from the test secrets file at each call and kept nowhere; nothing for any
-/// other entry, or while the test secrets file is not there, when Core takes its vault as before.
-Future<Map<String, String>> Function()? registryEnvironmentFor(
+/// installation entry (`github-app-<id>-installation`), read from the test secrets file at each call and kept nowhere.
+/// An instance started with a person's own entry, or none, takes the organization's installation entry the file holds:
+/// Core's owner check of the registry asks the organization, which a developer's own token cannot answer. Nothing
+/// while the test secrets file is not there, when Core takes its vault as before.
+Future<Map<String, String>> Function() registryEnvironmentFor(
   String? entry, {
   KeyFileSecrets? Function()? secrets,
   RunHere? run,
-}) {
-  if (entry == null || !entry.startsWith('github-app-')) return null;
-  return () async {
-    final test = (secrets ?? KeyFileSecrets.test)();
-    if (test == null || !test.present) return const {};
-    final token = await KeyFileForgeTokens(test, MemoryForgeTokens(), entry: entry, run: run).read('github.com');
-    return token == null ? const {} : {registryTokenVariable: token};
-  };
-}
+}) => () async {
+  final test = (secrets ?? KeyFileSecrets.test)();
+  if (test == null || !test.present) return const {};
+  final tokens = KeyFileForgeTokens(test, MemoryForgeTokens(), entry: entry, run: run);
+  final app = entry != null && entry.startsWith('github-app-') ? entry : await tokens.installationEntry();
+  if (app == null) return const {};
+  final token = await KeyFileForgeTokens(test, MemoryForgeTokens(), entry: app, run: run).read('github.com');
+  return token == null ? const {} : {registryTokenVariable: token};
+};
 
 /// A KeePassXC file opened by its key file alone, with no master password: the test secrets file that
 /// `prepare-github-test-token.sh` writes and `drop-github-test-token.sh` deletes.
@@ -128,6 +130,20 @@ class KeyFileForgeTokens implements ForgeTokens {
     if (shown.code != 0) throw ForgeRefused('$entry in ${secrets.file} could not be read.');
     final token = shown.out.endsWith('\n') ? shown.out.substring(0, shown.out.length - 1) : shown.out;
     return token.isEmpty ? null : token;
+  }
+
+  /// The organization's GitHub App installation entry the test secrets file holds, `github-app-<id>-installation`, or
+  /// null where it holds none.
+  Future<String?> installationEntry() async {
+    if (!secrets.present) return null;
+    final listed = await _cli(['ls', '-q', '-R', '-f', ...secrets.opening, secrets.file]);
+    if (listed.code != 0) {
+      throw ForgeRefused('${secrets.file} did not open with its key file ${secrets.keyFile}.');
+    }
+    return listed.out
+        .split('\n')
+        .where((name) => RegExp(r'^github-app-[0-9]+-installation$').hasMatch(name))
+        .firstOrNull;
   }
 
   @override
