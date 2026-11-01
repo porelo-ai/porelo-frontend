@@ -41,7 +41,10 @@ a project's edits reaches into a host.
 - The dialog is replaced by the page's section: the members as a list with each one's actions on the member's own row
   (⋮), and *Add a developer…* as one button that opens a picker titled "Add a developer to <project>" with a search
   over the directory's persons, those already in the project shown and not pickable.
-- The section shows a loading line while Core reads the access file; nothing is locked while it reads.
+- The section shows a loading line while Core reads the access file; nothing is locked while it reads, and the
+  words of a running change ("An earlier change for this project has not ended yet", "A person change is still
+  running") never stand beside a read that is no change. Seen after Retry delivery confirmed the Add: the reads after it
+  took long with those words shown, and looked like a hang.
 - An action that cannot run now is hidden, or said once for the section ("Changes need Core's verified access; it is
   being read"), never as a row of disabled buttons with the same words.
 - As machines and projects are separate, adding a developer files and publishes the access change only; no step of it connects to a host,
