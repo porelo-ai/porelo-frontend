@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -75,7 +76,11 @@ class SignedHostAction extends ChangeNotifier {
     required this.settings,
     required this.actions,
     required this.registering,
+    this.stepLimit = const Duration(minutes: 3),
   });
+
+  /// How long one step may take before the dialog says so and lets go; what the step did is kept.
+  final Duration stepLimit;
 
   /// The selected project, captured before the operation starts.
   final String project;
@@ -110,21 +115,22 @@ class SignedHostAction extends ChangeNotifier {
     if (busy || completed) return;
     busy = true;
     problem = null;
-    _at('Checking the project with Core…');
     try {
       final service = actions;
       if (service == null) {
         throw const RegistryRefusal('Verified registry joining is not available yet.');
       }
-      final state = await service.verify(project, registering: registering);
+      final state = await _within('Checking the project with Core', service.verify(project, registering: registering));
       state.check(project);
-      _at('Opening the connection to ${state.host.name}…');
-      final machine = await service.connect(state);
+      final machine = await _within('Opening the connection to ${state.host.name}', service.connect(state));
       if (machine.kind != 'host' || machine.hostProject != state.host.name || machine.identity.isNotEmpty) {
         throw const RegistryRefusal('The shared SSH tunnel did not confirm this host and person identity.');
       }
       if (registering) {
-        final latest = await service.verify(project, registering: true);
+        final latest = await _within(
+          'Checking the project with Core again',
+          service.verify(project, registering: true),
+        );
         latest.check(project);
         if (latest.host.name != state.host.name ||
             latest.revision != state.revision ||
@@ -133,8 +139,10 @@ class SignedHostAction extends ChangeNotifier {
           throw const RegistryRefusal('The verified project admission changed. Try again.');
         }
       }
-      _at('Registering on ${state.host.name}: Core files the access change and the host takes it…');
-      final observed = await service.register(state, machine);
+      final observed = await _within(
+        'Registering on ${state.host.name}: Core files the access change and the host takes it',
+        service.register(state, machine),
+      );
       if (observed != state.revision) {
         throw const RegistryRefusal('The host did not confirm the intended verified project revision.');
       }
@@ -152,9 +160,19 @@ class SignedHostAction extends ChangeNotifier {
     }
   }
 
-  void _at(String words) {
-    step = words;
+  /// Shows [words] while [work] runs, and ends with them once it took longer than [stepLimit]. The step itself is not
+  /// stopped: what it finishes is kept, and the dialog can be closed or tried again.
+  Future<T> _within<T>(String words, Future<T> work) async {
+    step = '$words…';
     _notify();
+    try {
+      return await work.timeout(stepLimit);
+    } on TimeoutException {
+      throw RegistryRefusal(
+        '$words did not end within ${stepLimit.inMinutes} minutes. What it did is kept; '
+        'close this and try again later.',
+      );
+    }
   }
 
   void _notify() {

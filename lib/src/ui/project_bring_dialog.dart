@@ -108,7 +108,8 @@ class _ProjectBringDialogState extends State<ProjectBringDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: _action.busy ? null : () => Navigator.pop(context), child: const Text('Close')),
+        // Always: a step that runs on is not stopped by closing, and what it finishes is kept.
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
         if (!_action.completed && (widget.actions != null || widget.access != null))
           FilledButton(
             onPressed: _action.busy || _reading || _admissionProblem != null || widget.access?.unavailable() != null

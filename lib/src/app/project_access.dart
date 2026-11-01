@@ -93,7 +93,9 @@ class ProjectAccess implements ProjectPersonActions {
   @override
   String? unavailable({bool delivery = false}) {
     final view = current;
-    if (settings.projectChangeRunning(project)) return 'A change for this project is still running.';
+    if (settings.projectChangeRunning(project)) {
+      return 'An earlier change for this project has not ended yet. Try again once it has.';
+    }
     if (supersededChangeId != null) return _supersededReason;
     // Recovery must resolve uncertain receipts before it can check mutation authority; a receipt on a server given
     // back is offered to Retry, which forgets it.

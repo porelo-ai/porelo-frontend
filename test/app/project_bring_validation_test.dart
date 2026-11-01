@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -60,9 +61,28 @@ void main() {
     expect(said, [
       'Checking the project with Core…',
       'Opening the connection to $host…',
+      'Checking the project with Core again…',
       'Registering on $host: Core files the access change and the host takes it…',
     ]);
     expect(action.step, isNull);
+  });
+
+  // Harm: a step that never answers keeps the dialog busy with no word, and it cannot be closed.
+  test('a step that does not end in time ends with words, and the action is free again', () async {
+    final hanging = _HangingConnect();
+    final action = ProjectBring(
+      project: 'demo',
+      machines: machines,
+      settings: settings,
+      actions: hanging,
+      stepLimit: const Duration(milliseconds: 20),
+    );
+    addTearDown(action.dispose);
+    await action.bring();
+    expect(action.busy, isFalse);
+    expect(action.step, isNull);
+    expect(action.problem, contains('Opening the connection to ${hanging.state.host.name} did not end within'));
+    expect(settings.projectHost('demo'), isNull);
   });
 
   // Harm: a retained Register callback must not bypass revoked host admission.
@@ -229,4 +249,10 @@ class _Ssh implements Remote {
   @override
   Future<RemoteResult> copy(String host, String user, String from, String to) =>
       throw StateError('The replacement contract must not upload an old installer.');
+}
+
+/// Opens no connection, ever.
+class _HangingConnect extends SignedHostFake {
+  @override
+  Future<Machine> connect(VerifiedHostProject state) => Completer<Machine>().future;
 }
