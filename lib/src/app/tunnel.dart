@@ -313,6 +313,13 @@ class Tunnel {
         return;
       }
       _process = process;
+      _mastersHere[card.controlSocket(machine.sshConfig)] = this;
+      process.exitCode.then((_) {
+        if (identical(_mastersHere[card.controlSocket(machine.sshConfig)], this) &&
+            (_process == null || identical(_process, process))) {
+          _mastersHere.remove(card.controlSocket(machine.sshConfig));
+        }
+      }).ignore();
       _ownsEndpoints = true;
       raised++;
       unawaited(process.stdout.drain<void>());
@@ -359,13 +366,19 @@ class Tunnel {
     }
   }
 
-  /// Ends a master of this card whose configuration is gone, and the endpoints it left: its control socket lies where
-  /// only this desktop's card puts one, and a master with no configuration file is no tunnel anybody can use or raise
-  /// again. A master whose configuration is there is left alone, as before.
+  /// Ends a master of this card that no tunnel of this program started, and the endpoints it left: its control socket
+  /// lies where only this desktop's card puts one. One whose configuration is gone is no tunnel anybody can use or
+  /// raise again; one whose configuration names this card's own login was left by an earlier run of this interface for
+  /// the same person, such as before a restart. A master whose configuration names another login is another instance's
+  /// live tunnel and is left alone, as is one a tunnel here runs.
   Future<void> _endOrphanedMaster(HostCardSsh card) async {
     final control = card.controlSocket(machine.sshConfig);
     if (FileSystemEntity.typeSync(control, followLinks: false) != FileSystemEntityType.unixDomainSock) return;
-    if (FileSystemEntity.typeSync(machine.sshConfig, followLinks: false) != FileSystemEntityType.notFound) return;
+    if (_mastersHere.containsKey(control)) return;
+    if (FileSystemEntity.typeSync(machine.sshConfig, followLinks: false) != FileSystemEntityType.notFound &&
+        !_namesLogin(machine.sshConfig, card.login)) {
+      return;
+    }
     await _tighten([openSsh('ssh'), '-F', '/dev/null', '-o', 'ControlPath=$control', '-O', 'exit', card.name])
         .timeout(_untilExplained);
     // The master ends after it answered; its endpoints stop answering within a moment.
@@ -376,6 +389,15 @@ class Tunnel {
       if (FileSystemEntity.typeSync(endpoint, followLinks: false) != FileSystemEntityType.unixDomainSock) continue;
       if (await _answers(endpoint)) continue;
       File(endpoint).deleteSync();
+    }
+  }
+
+  /// Whether the card configuration at [config] names [login] as its `User`.
+  static bool _namesLogin(String config, String login) {
+    try {
+      return File(config).readAsLinesSync().any((line) => line.trim() == 'User $login');
+    } on FileSystemException {
+      return false;
     }
   }
 
@@ -458,9 +480,14 @@ class Tunnel {
   Future<void> _stopWhatWeStarted() async {
     final process = _process;
     _process = null;
+    _mastersHere.removeWhere((_, tunnel) => identical(tunnel, this));
     if (process == null) return;
     await stopOwnedProcess(process);
   }
+
+  // The card masters a tunnel of this program started and still runs, by control socket: a master on a control socket
+  // not among them was left by an earlier run of this interface, or is another instance's.
+  static final Map<String, Tunnel> _mastersHere = {};
 
   /// Whether something answers at the endpoint. A leftover socket does not.
   Future<bool> _somebodyIsServing() async {

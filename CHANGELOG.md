@@ -9,6 +9,11 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- A host card's ssh master left by an earlier run of the interface for the same login, such as before a restart, is
+  ended when the host is raised again, also while its configuration file is there, instead of refusing the host with
+  "an endpoint already exists and was left alone". A master configured for another login, another instance's live
+  tunnel, and one a tunnel of this run holds are still left alone.
+
 - A person change waiting for a registry read that does not end stops after 90 seconds with words and frees the
   project, keeping its receipt for Retry, instead of holding "An earlier change for this project has not ended yet"
   for good.

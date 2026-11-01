@@ -211,6 +211,30 @@ void main() {
     expect(launches, hasLength(1));
   });
 
+  // Harm: after a restart of the interface, its own earlier master refuses the host until it is ended by hand.
+  for (final same in [true, false]) {
+    test('a master no tunnel here started, configured for ${same ? 'this' : 'another'} login, is '
+        '${same ? 'ended and the host raised' : 'left alone'}', () async {
+      final card = host.hostCard!;
+      final control = card.controlSocket(host.sshConfig);
+      Directory(File(control).parent.path).createSync(recursive: true);
+      // The configuration as the earlier run published it, for this card's login or another's.
+      await (same ? card : HostCardSsh.fromStored({...card.stored, 'login': 'someone-else'})).publish(
+        host.sshConfig,
+        environment: {'XDG_CONFIG_HOME': folder.path},
+      );
+      final left = await ServerSocket.bind(InternetAddress(control, type: InternetAddressType.unix), 0);
+      addTearDown(() => left.close());
+      checkControl = () async {
+        if (runs.last.contains('exit')) await left.close();
+        return ProcessResult(0, 0, '', '');
+      };
+      expect(await tunnels.raiseFor(host), same, reason: tunnels.of(host)?.problem);
+      expect(runs.where((run) => run.contains('exit')), same ? hasLength(1) : isEmpty);
+      expect(launches, same ? hasLength(1) : isEmpty);
+    });
+  }
+
   // Harm: a master whose configuration is there, somebody's working tunnel, is ended from here.
   test('a master with its configuration is left alone, and nothing is raised over it', () async {
     final card = host.hostCard!;
