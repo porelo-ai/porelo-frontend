@@ -170,7 +170,8 @@ class _Here {
     'url': _url,
     'commit': _project,
     'verified': true,
-    'signed_by': [_alice],
+    // Core names the pinned keys by fingerprint only (PinnedSigners).
+    'signed_by': [HostFiles.signingFingerprint(_alice)],
     'access_commit': _base,
   };
 
@@ -621,6 +622,16 @@ void main() {
     expect(view.whoMay.single.login, 'alice');
     expect(view.whoMay.single.name, 'alice');
     expect(view.whoMay.single.email, isNull);
+  });
+
+  // Harm: a pinned fingerprint whose key no card carries is verified against some other key, or fails unexplained.
+  test('a pinned key no registry card holds is refused in words, and nothing is verified', () async {
+    here.follow['signed_by'] = [HostFiles.signingFingerprint(_key(9))];
+    await expectLater(
+      core.read('demo'),
+      throwsA(isA<RegistryRefusal>().having((e) => e.words, 'words', contains('no card of the registry holds'))),
+    );
+    expect(here.named('porelo', 'project').where((call) => call[2] == 'verify'), isEmpty);
   });
 
   // Harm: why the project's address was refused is replaced by a generic failure.

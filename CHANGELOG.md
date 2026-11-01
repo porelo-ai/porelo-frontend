@@ -9,6 +9,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- *Register the project* and the other project access reads verify against the keys this computer pins, which
+  Core's follow names by fingerprint: each key is taken from the registry card that holds it. Before, every read
+  failed with "Core verification is incomplete or unsupported".
+
 - *Follow a project by its address* takes the project's signers from the registry: the keys of the project
   admins it names for that project, from cards it trusts. Before, following by address was never possible.
 

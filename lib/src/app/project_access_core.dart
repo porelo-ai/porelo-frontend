@@ -11,6 +11,7 @@ import 'host_access.dart' show HostAdminIdentity;
 import 'host_access_contract.dart' show checkedRegistryRevision;
 import 'identity.dart';
 import 'key_recovery.dart' show cardFingerprint;
+import 'machine_binding.dart' show keyPart;
 import 'project_access_contract.dart';
 import 'project_copies.dart';
 import 'registry.dart';
@@ -146,7 +147,7 @@ class CoreProjectAccess implements ProjectAccessCore {
         run: _run,
         source: ProjectVerifySource(
           repository: projectCopy,
-          signedBy: followed.signedBy,
+          signedBy: _pinnedKeys(project, followed.signedBy, registry),
           accessRepository: accessSource,
           since: followed.commit,
           accessSince: accessSince,
@@ -218,6 +219,35 @@ class CoreProjectAccess implements ProjectAccessCore {
     } finally {
       if (scratch != null && await scratch.exists()) await scratch.delete(recursive: true);
     }
+  }
+
+  /// The keys pinned for [project] themselves: Core's follow names each by its fingerprint, and `project verify`
+  /// takes the key, so each is taken from a registry card holding it. The pinned fingerprint vouches for the key, as
+  /// in Core's `SignedBy`; the card only carries its bytes, so it need not be trusted.
+  static List<String> _pinnedKeys(String project, List<String> pinned, Registry registry) {
+    String? keyOf(String fingerprint) {
+      for (final card in registry.people) {
+        final key = keyPart(card.key);
+        try {
+          if (HostFiles.signingFingerprint(key) == fingerprint) return key;
+        } on FormatException {
+          continue;
+        }
+      }
+      return null;
+    }
+
+    return [
+      for (final said in pinned)
+        if (!said.startsWith('SHA256:'))
+          said
+        else
+          keyOf(said) ??
+              (throw RegistryRefusal(
+                'This computer pins $said for $project, and no card of the registry holds that key. Refresh the '
+                'registry, then read it again.',
+              )),
+    ];
   }
 
   String? _krlHere() => krl != null && File(krl!).existsSync() ? krl : null;
