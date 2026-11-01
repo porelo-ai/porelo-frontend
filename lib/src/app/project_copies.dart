@@ -108,6 +108,8 @@ class ProjectCopies {
   /// Every commit of [copy]'s default branch, among its last 1000 first parents and newest first, carrying the
   /// `Porelo-Change-Id` trailer [id] Core writes for a filing.
   Future<List<String>> changeCommits(String copy, String id) async {
+    // A repository still holding no commit has none under any id, and git cannot list an unborn HEAD.
+    if (await head(copy) == null) return const [];
     final listed = await _git(
       [
         'log',

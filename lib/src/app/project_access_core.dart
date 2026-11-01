@@ -439,7 +439,7 @@ class CoreProjectAccess implements ProjectAccessCore {
     if (!RegExp(r'^[a-f0-9]{32}$').hasMatch(change.id)) return null;
     final parents = await copies.parents(copy, revision);
     final onItsBase = change.baseRevision.isEmpty
-        ? parents.isEmpty
+        ? change.action == 'register' && parents.isEmpty
         : parents.length == 1 && parents.single == change.baseRevision;
     if (!onItsBase) return null;
     final ids = await copies.changeIds(copy, revision);

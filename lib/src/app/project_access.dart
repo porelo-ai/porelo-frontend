@@ -495,6 +495,9 @@ class ProjectAccess implements ProjectPersonActions {
           locked: person.locked,
         );
       }
+      if (action != 'register' && view.accessRevision.isEmpty) {
+        throw const RegistryRefusal('The project has no access file yet. Register the project first.');
+      }
       final random = Random.secure();
       final change = ProjectAccessChange.read(
         ProjectAccessChange(

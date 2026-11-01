@@ -27,6 +27,25 @@ void main() {
     expect(people.changes, isEmpty);
   });
 
+  // Harm: an edit started before the project has any access file would be filed on no access state at all, or fail
+  // without saying why.
+  test('a person is added only once the project has an access file', () async {
+    final settings = Settings(MemorySettingsStore());
+    final fixture = ProjectAccessFixture()..currentAccess = '';
+    addTearDown(settings.dispose);
+    addTearDown(fixture.registry.dispose);
+    final access = await fixture.access(settings);
+    await expectLater(
+      access.change(
+        'demo',
+        AccessDeveloper(login: 'bob', role: 'developer', fingerprint: personFingerprint),
+        remove: false,
+      ),
+      throwsA(isA<RegistryRefusal>().having((e) => e.words, 'words', contains('Register the project first'))),
+    );
+    expect(fixture.filed, isEmpty);
+  });
+
   // Harm: failed delivery must remain reachable through Retry even while its refusal is visible.
   test('the retry command finishes failed registration delivery', () async {
     final settings = Settings(MemorySettingsStore());

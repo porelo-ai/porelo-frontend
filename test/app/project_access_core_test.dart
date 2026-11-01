@@ -264,6 +264,7 @@ class _Here {
         out: '${history.where((each) => each.$1 == arguments.last).firstOrNull?.$2 ?? ''}\n',
         err: '',
       ),
+      'log' when head == null && !project => (code: 128, out: '', err: 'fatal: bad revision HEAD'),
       'log' => (code: 0, out: [for (final (commit, id) in history) '$commit $id'].join('\n'), err: ''),
       _ => (code: 0, out: '', err: ''),
     };
@@ -493,6 +494,13 @@ void main() {
     final init = here.named('porelo', 'project').last;
     expect(init.sublist(0, 4), ['porelo', 'project', 'access', 'init']);
     expect(init, isNot(contains('--base')), reason: 'the first access commit has no base');
+  });
+
+  // Harm: a registration whose filing failed before Core made the first commit is stuck for good, as its lookup
+  // cannot read an access repository that still holds no commit.
+  test('no filed commit is found in an access repository that still holds no commit', () async {
+    here.history = [];
+    expect(await core.filedRevision(_change('register', base: '')), isNull);
   });
 
   // Harm: an empty base let through for an edit would file it on no access state at all.
@@ -744,6 +752,16 @@ void main() {
       expect(await core.delivery(_change('register', base: ''), _filed), isA<ProjectAccessAuthorized>());
       here.history = [(_filed, _id), (_base, '')];
       expect(await core.delivery(_change('register', base: ''), _filed), isA<ProjectAccessRevisionRefused>());
+    });
+
+    // Harm: a commit without a parent taken as an edit's own, though only a registration starts an access file.
+    test('a commit without a parent is never adopted for an edit with no base', () async {
+      here.follow['access_commit'] = '';
+      here.history = [(_filed, _id)];
+      here.verification
+        ..['access_commit'] = _filed
+        ..['persons'] = [_person('alice', _alice, 'admin'), _person('bob', _bob, 'developer')];
+      expect(await core.delivery(_change('add', base: ''), _filed), isA<ProjectAccessRevisionRefused>());
     });
 
     // Harm: a filing the access repository moved past without holding is retried forever, or one still on its way is
