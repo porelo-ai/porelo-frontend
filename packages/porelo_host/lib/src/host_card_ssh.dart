@@ -178,14 +178,22 @@ class HostCardSsh {
   }
 
   /// Checks all fixed binds, retaining them together until the check finishes.
-  Future<void> checkPortsAvailable() async {
+  Future<void> checkPortsAvailable({Future<({String program, int pid})?> Function(int port)? holder}) async {
     final held = <ServerSocket>[];
     try {
       for (final port in ports) {
         try {
           held.add(await ServerSocket.bind(InternetAddress.loopbackIPv4, port, shared: false));
         } on SocketException {
-          throw HostFilesRefused('Host $name cannot start: port $port is busy on 127.0.0.1.');
+          // Who holds it, so a tunnel started by hand is found and ended; only its program's name and pid, never its
+          // command line, which may carry anything.
+          final who = await (holder ?? portHolder)(port);
+          throw HostFilesRefused(
+            who == null
+                ? 'Host $name cannot start: port $port is busy on 127.0.0.1.'
+                : 'Host $name cannot start: port $port is busy on 127.0.0.1, held by ${who.program} (pid ${who.pid}), not by '
+                      'this interface. If you started it by hand, end it with kill ${who.pid}, then try again.',
+          );
         }
       }
     } finally {
@@ -193,6 +201,26 @@ class HostCardSsh {
         await socket.close();
       }
     }
+  }
+
+  /// The program listening on [port] on 127.0.0.1 and its pid, as `ss` names them, or null where it cannot say.
+  static Future<({String program, int pid})?> portHolder(int port) async {
+    try {
+      final listed = await Process.run('ss', ['-ltnpH', 'sport = :$port']);
+      if (listed.exitCode != 0) return null;
+      return holderIn('${listed.stdout}');
+    } on ProcessException {
+      return null;
+    }
+  }
+
+  /// The first `users:(("program",pid=N,…))` in `ss -p` output, or null.
+  static ({String program, int pid})? holderIn(String listed) {
+    final found = RegExp(r'users:\(\("([^"]{1,64})",pid=(\d+),').firstMatch(listed);
+    if (found == null) return null;
+    final program = found.group(1)!;
+    if (RegExp(r'[^A-Za-z0-9._ :/+-]').hasMatch(program)) return null;
+    return (program: program, pid: int.parse(found.group(2)!));
   }
 
   /// The platform's public host config path used by the interface and plugins.

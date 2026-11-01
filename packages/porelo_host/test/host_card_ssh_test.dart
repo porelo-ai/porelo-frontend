@@ -173,6 +173,35 @@ void main() {
     expect(occupied.address.address, '127.0.0.1');
   });
 
+  // Harm: a tunnel started by hand on a fixed port blocks the host's own, and nobody can tell which process to end.
+  test('an occupied fixed port names the program and pid that hold it', () async {
+    final occupied = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(occupied.close);
+    final card = HostCardSsh.fromStored({
+      ...cardValues(),
+      'services': {
+        'forge': {'web_port': occupied.port, 'git_port': occupied.port == 18081 ? 18084 : 18081},
+        'matrix': {'port': occupied.port == 18082 ? 18085 : 18082},
+      },
+    });
+    await expectLater(
+      card.checkPortsAvailable(holder: (port) async => port == occupied.port ? (program: 'ssh', pid: 1209613) : null),
+      throwsA(
+        isA<HostFilesRefused>().having(
+          (error) => error.message,
+          'who holds it',
+          allOf(contains('held by ssh (pid 1209613)'), contains('kill 1209613')),
+        ),
+      ),
+    );
+    expect(HostCardSsh.holderIn('LISTEN 0 128 127.0.0.1:8448 0.0.0.0:* users:(("ssh",pid=1209613,fd=5))'), (
+      program: 'ssh',
+      pid: 1209613,
+    ));
+    expect(HostCardSsh.holderIn('LISTEN 0 128 127.0.0.1:8448 0.0.0.0:*'), isNull, reason: 'another account\'s');
+    expect(HostCardSsh.holderIn('users:(("a\$(x)",pid=1,fd=5))'), isNull, reason: 'a name not shown as it is');
+  });
+
   test('config paths use XDG config and Windows APPDATA', () {
     final card = HostCardSsh.fromStored(cardValues());
     expect(card.configPath(environment: {'XDG_CONFIG_HOME': '/config'}), '/config/porelo/ssh/alpha.conf');

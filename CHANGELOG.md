@@ -9,6 +9,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- A host whose tunnel port is busy names the program and pid holding it, such as a tunnel started by hand, and how
+  to end it, instead of only that the port is busy.
+
 - A project under *Projects you may join* that Core refused says Core's reason, such as an access file that names
   no project repository, instead of only that its access file cannot be read.
 
