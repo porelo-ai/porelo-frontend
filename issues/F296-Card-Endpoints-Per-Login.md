@@ -1,0 +1,46 @@
+# F296 — Card Endpoints Per Login
+
+**Status:** Idea.
+**Severity:** medium.
+**Size:** M - the card's ssh paths and local ports, the card tunnel, the join and the homeserver forwards, with their
+tests; no contract with another repository.
+
+**What must be true.** Two people of one desktop account, such as two instances of this interface, each reach their
+own account on the same host through their own card tunnel at once. A card master left by an earlier run of the
+same person on the same host is ended when that person's tunnel is raised again, also while its configuration file
+is there.
+
+## Why
+
+Seen in the sprint 6m walk (2026-11-01):
+- A card's ssh configuration (`~/.config/porelo/ssh/<host>.conf`), control socket (`c-<sha of the host name>`), daemon
+  endpoint (`/run/user/<uid>/porelo-tunnel-<host>.sock`) and local ports (forge web and git, Matrix) are named after
+  the host only.
+- michi's main instance (michael-schnell) and dev instance (ms-test-reviewer) share them on walk6m, so only one can
+  hold a walk6m tunnel; the dev instance's Join is refused while main's is up.
+- A master started before a restart of the interface was left running (pid 4089042, 13:29Z). Register's connect wrote
+  the configuration again before raising, so the orphan check of the earlier fix (control socket there,
+  configuration gone) no longer held, and Retry was refused with "an endpoint already exists and was left alone".
+- Ending or adopting a master this instance did not start is unsafe while paths are shared: it could end the other
+  instance's live tunnel, or reach another person's daemon.
+
+## The shape
+
+- The configuration, control socket and daemon endpoint are named `<host>-<login>`; the local ports are chosen per
+  card tunnel and kept with the machine, and the Matrix forward reads them from there.
+- With per-login paths, a master on this card's control socket that no tunnel here started can only be one this
+  person left; it is ended with `ssh -O exit` and its endpoints removed before the tunnel is raised.
+
+## Plan
+
+- `packages/porelo_host/lib/src/host_card_ssh.dart` (`configPath`, `controlSocket`, ports), `lib/src/app/tunnel.dart`
+  (`_endOrphanedMaster`), `lib/src/app/machines.dart` (`endpointFor`), `lib/src/app/join_adapters.dart`,
+  `lib/src/app/homeserver_forwards.dart`, and the reading of machines kept with the old names.
+- **Red first:** two card machines of one host and two logins raise their tunnels side by side; a live master of the
+  same login with its configuration present is ended on raise.
+
+## Acceptance
+
+- Two instances of one account, each with its own login, hold tunnels to one host at the same time.
+- Retry after a restart of the interface raises the tunnel without a hand-ended process.
+- A machine kept with the old host-only names is still reached, or moved to the new names once.

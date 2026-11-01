@@ -94,6 +94,8 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f296"></a>[F296](F296-Card-Endpoints-Per-Login.md) | M | — | Card endpoints per login, so two instances of one account each hold a tunnel to one host; a master this person left ended on raise. |
+| <a id="f295"></a>[F295](F295-No-Ask-Line-Naming-The-Viewer.md) | S | — | No refusal ends with "Ask <name>" when the named person is the one at this interface. |
 | <a id="f294"></a>[F294](F294-A-Registry-Host-Listed-For-Its-Host-Admin.md) | M | — | A registry host listed under Machines for its host admin, with Admit and Bring, without a setup record here; the forge row counting Core's hosts. |
 | <a id="f293"></a>[F293](F293-Host-Deliveries-Hardened.md) | M | — | Host deliveries hardened: git in a clean environment, one ssh call to copy and place, bundles placed at once, sudo without the login shell, the registry held while sending. |
 | <a id="f292"></a>[F292](F292-A-Developer-Confirmed-By-The-Hosts-Registry-Status.md) | M | — | Add a developer confirmed by the host's registry status, and Lock and Let back in offered and confirmed the same way. |
