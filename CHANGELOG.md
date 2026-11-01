@@ -112,6 +112,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Forge tokens come from the test secrets file, `/run/user/<uid>/porelo-test/secrets.kdbx`, opened by its key
+  file `secrets.key` with no master password, while that file is there. Nothing is written to it from here; without
+  it, tokens stay in this computer's system store as before.
+
 - Project registration and person management use verified registry admission, project-scoped card eligibility,
   and active admin signers. Signed access changes retain durable publication and delivery receipts across
   restarts; add, remove, lock and let-back-in require exact host revision and membership confirmation.

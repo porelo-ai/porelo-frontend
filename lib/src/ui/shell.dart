@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:guided_walk/guided_walk.dart';
 
+import '../app/kdbx_forge_tokens.dart';
 import '../app/desk.dart';
 import '../app/homeserver_forwards.dart';
 import '../app/host_access.dart';
@@ -912,11 +913,15 @@ class _ShellState extends State<Shell> {
     await widget.readiness.look(_fleet.backend);
   }
 
-  /// The person's forge login: the one the app was given, or the platform's own keychain.
+  /// The person's forge login: the one the app was given, or the test secrets file while it is there, otherwise the
+  /// platform's own keychain.
   late final ForgeConnection _forges =
       widget.forges ??
       ForgeConnection(
-        PlatformForgeTokens(),
+        switch (KeyFileSecrets.test()) {
+          final test? => KeyFileForgeTokens(test, PlatformForgeTokens()),
+          null => PlatformForgeTokens(),
+        },
         entries: _ForgesInSettings(widget.settings),
         openTerminal: widget.sessions.openTerminal,
       );
