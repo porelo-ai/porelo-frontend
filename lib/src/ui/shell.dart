@@ -919,7 +919,7 @@ class _ShellState extends State<Shell> {
       widget.forges ??
       ForgeConnection(
         switch (KeyFileSecrets.test()) {
-          final test? => KeyFileForgeTokens(test, PlatformForgeTokens()),
+          final test? => KeyFileForgeTokens(test, PlatformForgeTokens(), entry: forgeTokenEntry),
           null => PlatformForgeTokens(),
         },
         entries: _ForgesInSettings(widget.settings),

@@ -5,6 +5,30 @@ import 'package:porelo_host/porelo_host.dart';
 import 'forge.dart';
 import 'run_here.dart';
 
+/// The entry of the test secrets file this instance reads its forge token from, named by `--forge-token-entry`; null
+/// for the system store's own name of the forge.
+String? forgeTokenEntry;
+
+/// Reads `--forge-token-entry NAME` or `--forge-token-entry=NAME`, refusing a missing or unusable name.
+String? forgeTokenEntryFromArguments(List<String> arguments) {
+  String? entry;
+  for (var index = 0; index < arguments.length; index++) {
+    final argument = arguments[index];
+    if (argument == '--forge-token-entry') {
+      if (++index == arguments.length || arguments[index].startsWith('--')) {
+        throw const FormatException('Expected an entry name after --forge-token-entry.');
+      }
+      entry = arguments[index];
+    } else if (argument.startsWith('--forge-token-entry=')) {
+      entry = argument.substring('--forge-token-entry='.length);
+    }
+  }
+  if (entry != null && !RegExp(r'^[A-Za-z0-9][A-Za-z0-9._:/@-]*$').hasMatch(entry)) {
+    throw FormatException('"$entry" is no entry name: letters, digits and ".", "_", ":", "/", "@", "-".');
+  }
+  return entry;
+}
+
 /// A KeePassXC file opened by its key file alone, with no master password: the test secrets file that
 /// `prepare-github-test-token.sh` writes and `drop-github-test-token.sh` deletes.
 class KeyFileSecrets {
@@ -52,8 +76,12 @@ class KeyFileSecrets {
 /// The test secrets file is written only by `prepare-github-test-token.sh`: nothing is written to it from here, and a
 /// token typed for a forge then goes to the system store as before.
 class KeyFileForgeTokens implements ForgeTokens {
-  /// Reads [secrets] while it is present, falling back to [otherwise]; [run] runs `keepassxc-cli`.
-  KeyFileForgeTokens(this.secrets, this.otherwise, {RunHere? run}) : _run = run ?? runHere;
+  /// Reads [secrets] while it is present, falling back to [otherwise]; [run] runs `keepassxc-cli`. [entry] names the
+  /// entry read for every forge, where this instance was started with one.
+  KeyFileForgeTokens(this.secrets, this.otherwise, {this.entry, RunHere? run}) : _run = run ?? runHere;
+
+  /// The one entry this instance reads, or null for each forge's own name.
+  final String? entry;
 
   /// The test secrets file.
   final KeyFileSecrets secrets;
@@ -69,7 +97,7 @@ class KeyFileForgeTokens implements ForgeTokens {
   @override
   Future<String?> read(String forge) async {
     if (!secrets.present) return otherwise.read(forge);
-    final entry = providerKeyName(forgeAddress(forge));
+    final entry = this.entry ?? providerKeyName(forgeAddress(forge));
     final listed = await _cli(['ls', '-q', '-R', '-f', ...secrets.opening, secrets.file]);
     if (listed.code != 0) {
       throw ForgeRefused('${secrets.file} did not open with its key file ${secrets.keyFile}.');

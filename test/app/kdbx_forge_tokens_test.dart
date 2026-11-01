@@ -88,6 +88,27 @@ void main() {
     );
   });
 
+  // Harm: the developer's instance acts with the organization's token, or the admin's with the developer's.
+  test('an instance started with its own entry reads that entry for the forge', () async {
+    prepared();
+    entries = {'porelo-forge-token:github.com': 'the-app', 'ms-test-reviewer': 'the-reviewer'};
+    final tokens = KeyFileForgeTokens(secrets, platform, entry: 'ms-test-reviewer', run: run);
+    expect(await tokens.read('github.com'), 'the-reviewer');
+    expect(
+      forgeTokenEntryFromArguments(['--roles=user', '--forge-token-entry', 'ms-test-reviewer']),
+      'ms-test-reviewer',
+    );
+    expect(forgeTokenEntryFromArguments(['--forge-token-entry=github/app']), 'github/app');
+    expect(forgeTokenEntryFromArguments(['--roles=user']), isNull);
+    for (final wrong in [
+      ['--forge-token-entry'],
+      ['--forge-token-entry', '--roles=user'],
+      ["--forge-token-entry=a'b"],
+    ]) {
+      expect(() => forgeTokenEntryFromArguments(wrong), throwsFormatException, reason: '$wrong');
+    }
+  });
+
   // Harm: a second instance with its own runtime folder looks for the test file somewhere prepare never wrote it.
   test('the test secrets file is named by the account id, not the runtime folder', () {
     final status = File('${folder.path}/status')..writeAsStringSync('Name:\tx\nUid:\t1000\t1000\t1000\t1000\n');

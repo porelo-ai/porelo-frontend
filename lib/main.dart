@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:guided_walk/guided_walk.dart';
 
+import 'src/app/kdbx_forge_tokens.dart' show forgeTokenEntry, forgeTokenEntryFromArguments;
 import 'src/app/egress.dart';
 import 'src/app/gate.dart';
 import 'src/app/host_readiness.dart';
@@ -54,6 +55,7 @@ import 'src/ui/walk_texts.dart';
 Future<void> main(List<String> arguments) async {
   try {
     roles = Roles.fromArguments(arguments);
+    forgeTokenEntry = forgeTokenEntryFromArguments(arguments);
   } on FormatException catch (error) {
     stderr.writeln(error.message);
     exitCode = 64;
