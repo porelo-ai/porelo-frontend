@@ -174,7 +174,8 @@ class _Here {
     'access_commit': _base,
   };
 
-  /// The access repository's default branch, newest first, each with its change id or none.
+  /// The access repository's default branch, newest first, each with its change id or none; empty before its first
+  /// commit.
   List<(String, String)> history = [(_base, '')];
   Ran? filing;
   Ran? verifying;
@@ -192,7 +193,7 @@ class _Here {
   /// The card file Core was handed, as it read it.
   String? cardSent;
 
-  String get head => history.first.$1;
+  String? get head => history.firstOrNull?.$1;
 
   int _at(String commit) => commit == 'HEAD' ? 0 : history.indexWhere((each) => each.$1 == commit);
 
@@ -230,9 +231,10 @@ class _Here {
     return switch (arguments.first) {
       'fetch' when fetchFails => (code: 128, out: '', err: 'private diagnostic'),
       'config' => (code: 0, out: '${inDirectory!.endsWith('access.git') ? _accessUrl : _url}\n', err: ''),
-      'ls-remote' => (code: 0, out: 'ref: refs/heads/main\tHEAD\n$head\tHEAD\n', err: ''),
+      'ls-remote' => (code: 0, out: head == null ? '' : 'ref: refs/heads/main\tHEAD\n$head\tHEAD\n', err: ''),
       'show' => (code: 0, out: projectFiles[arguments[1].split(':').first] ?? _projectYaml, err: ''),
-      'rev-parse' => (code: 0, out: '$head\n', err: ''),
+      'rev-parse' when head == null && !project => (code: 1, out: '', err: ''),
+      'rev-parse' => (code: 0, out: '${head ?? _project}\n', err: ''),
       'cat-file' when arguments[1] == 'blob' => (
         code: 0,
         out: () {
@@ -473,6 +475,31 @@ void main() {
     ]);
   });
 
+  // Harm: a project whose access repository was just made, holding no commit, can never get its first access file
+  // from here, or gets it filed on a base it does not have.
+  test('an access repository holding no commit yet is read as no access file, and Register initializes it', () async {
+    here.history = [];
+    here.follow['access_commit'] = '';
+    here.verification
+      ..['access_commit'] = ''
+      ..['persons'] = <Object?>[]
+      ..['admins'] = <String>[];
+    final view = await core.read('demo');
+    expect(view.accessRevision, '', reason: 'no commit to write the first access file on');
+    expect(view.canAdmin, isTrue, reason: 'Alice holds a key the project pins');
+    final change = ProjectAccessChange.read(_change('register', base: '').stored);
+    expect(change.baseRevision, '', reason: 'a registration kept and read back keeps its empty base');
+    expect(await core.file(change), _filed);
+    final init = here.named('porelo', 'project').last;
+    expect(init.sublist(0, 4), ['porelo', 'project', 'access', 'init']);
+    expect(init, isNot(contains('--base')), reason: 'the first access commit has no base');
+  });
+
+  // Harm: an empty base let through for an edit would file it on no access state at all.
+  test('only a registration may be kept without a base', () {
+    expect(() => ProjectAccessChange.read(_change('add', base: '').stored), throwsA(isA<FormatException>()));
+  });
+
   test('Add a developer sends the person\'s registry card, the role, the base and the durable id', () async {
     await core.read('demo');
     expect(await core.file(_change('add')), _filed);
@@ -705,6 +732,19 @@ void main() {
         }
       });
     }
+
+    // Harm: the first access commit, which has no parent, is never adopted, or a commit with a parent is taken as
+    // the first.
+    test('the first access commit of an empty repository is adopted only without a parent', () async {
+      here.follow['access_commit'] = '';
+      here.history = [(_filed, _id)];
+      here.verification
+        ..['access_commit'] = _filed
+        ..['persons'] = [_person('alice', _alice, 'admin')];
+      expect(await core.delivery(_change('register', base: ''), _filed), isA<ProjectAccessAuthorized>());
+      here.history = [(_filed, _id), (_base, '')];
+      expect(await core.delivery(_change('register', base: ''), _filed), isA<ProjectAccessRevisionRefused>());
+    });
 
     // Harm: a filing the access repository moved past without holding is retried forever, or one still on its way is
     // discarded.

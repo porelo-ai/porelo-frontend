@@ -9,6 +9,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- *Register the project* writes the first access file into an access repository that holds no commit yet,
+  instead of refusing it, and takes that first commit only when it has no parent.
+
 - Access commits are signed with Core's key for the person through their SSH agent, ignoring any Git
   signing configuration, and an origin commit is accepted only by Core's allowed signers or by Core's
   recorded verdict. Workspace commits and merges are pushed only when signed by the chosen key.

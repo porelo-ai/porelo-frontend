@@ -664,7 +664,10 @@ class ProjectAccessChange {
       hostCard: hostCard,
       repository: repository,
       projectRevision: checkedRegistryRevision(text('project_revision')),
-      baseRevision: checkedRegistryRevision(text('base_revision')),
+      // Only a registration starts from an access repository holding no commit, so only it has no base.
+      baseRevision: action == 'register' && value['base_revision'] == ''
+          ? ''
+          : checkedRegistryRevision(text('base_revision')),
       actor: actor,
       actorFingerprint: fingerprint,
       action: action,

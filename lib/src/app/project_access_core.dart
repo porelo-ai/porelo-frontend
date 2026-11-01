@@ -161,13 +161,8 @@ class CoreProjectAccess implements ProjectAccessCore {
       if (_accessOf(projectYaml) != named) {
         throw const RegistryRefusal('The verified project names another access repository. Read it again.');
       }
-      final accessRevision = hasAccessFile ? verified['access_commit'] as String : await copies.head(accessCopy);
-      if (accessRevision == null) {
-        throw RegistryRefusal(
-          'The access repository $named holds no commit yet. Its first commit, signed by a project signer, comes '
-          'before the project can be registered.',
-        );
-      }
+      // An access repository holding no commit yet is one without an access file: its first commit has no base.
+      final accessRevision = hasAccessFile ? verified['access_commit'] as String : await copies.head(accessCopy) ?? '';
       final host = _admittingHost(registry, project, card.login);
       final persons = (verified['persons'] as List).cast<Map<String, Object?>>();
       final admins = (verified['admins'] as List).cast<String>();
@@ -443,7 +438,10 @@ class CoreProjectAccess implements ProjectAccessCore {
   Future<ProjectAccessView?> _adopted(ProjectAccessChange change, String copy, String revision) async {
     if (!RegExp(r'^[a-f0-9]{32}$').hasMatch(change.id)) return null;
     final parents = await copies.parents(copy, revision);
-    if (parents.length != 1 || parents.single != change.baseRevision) return null;
+    final onItsBase = change.baseRevision.isEmpty
+        ? parents.isEmpty
+        : parents.length == 1 && parents.single == change.baseRevision;
+    if (!onItsBase) return null;
     final ids = await copies.changeIds(copy, revision);
     if (ids.length != 1 || ids.single != change.id) return null;
     final (:view, :persons) = await _verified(change.project, accessAt: revision);
