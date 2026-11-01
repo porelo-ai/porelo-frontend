@@ -47,6 +47,24 @@ void main() {
     });
   }
 
+  // Harm: a long registration shows nothing but "a change is still running", so the person cannot tell it works.
+  test('a running registration says what it does now, and nothing once it ended', () async {
+    final action = ProjectBring(project: 'demo', machines: machines, settings: settings, actions: service);
+    addTearDown(action.dispose);
+    final said = <String>[];
+    action.addListener(() {
+      if (action.step case final step?) said.add(step);
+    });
+    await action.bring();
+    final host = service.state.host.name;
+    expect(said, [
+      'Checking the project with Core…',
+      'Opening the connection to $host…',
+      'Registering on $host: Core files the access change and the host takes it…',
+    ]);
+    expect(action.step, isNull);
+  });
+
   // Harm: a retained Register callback must not bypass revoked host admission.
   test('a stale registry register callback cannot publish or upload', () async {
     final fixture = ProjectAccessFixture();

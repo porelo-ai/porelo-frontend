@@ -93,7 +93,9 @@ class _ProjectBringDialogState extends State<ProjectBringDialog> {
             if (_admissionProblem == null)
               if (widget.access?.admission case final words?) Text(words),
             Text(
-              _action.problem ??
+              // While it runs, what it does now: the access lock it holds would only say a change is running.
+              _action.step ??
+                  _action.problem ??
                   _admissionProblem ??
                   widget.access?.unavailable() ??
                   (_action.completed

@@ -98,6 +98,9 @@ class SignedHostAction extends ChangeNotifier {
   /// Whether the intended revision was confirmed and kept.
   bool completed = false;
 
+  /// What the running operation does now, in words; null while none runs.
+  String? step;
+
   /// The public refusal, without dependency errors or credential values.
   String? problem;
   bool _disposed = false;
@@ -107,7 +110,7 @@ class SignedHostAction extends ChangeNotifier {
     if (busy || completed) return;
     busy = true;
     problem = null;
-    _notify();
+    _at('Checking the project with Core…');
     try {
       final service = actions;
       if (service == null) {
@@ -115,6 +118,7 @@ class SignedHostAction extends ChangeNotifier {
       }
       final state = await service.verify(project, registering: registering);
       state.check(project);
+      _at('Opening the connection to ${state.host.name}…');
       final machine = await service.connect(state);
       if (machine.kind != 'host' || machine.hostProject != state.host.name || machine.identity.isNotEmpty) {
         throw const RegistryRefusal('The shared SSH tunnel did not confirm this host and person identity.');
@@ -129,6 +133,7 @@ class SignedHostAction extends ChangeNotifier {
           throw const RegistryRefusal('The verified project admission changed. Try again.');
         }
       }
+      _at('Registering on ${state.host.name}: Core files the access change and the host takes it…');
       final observed = await service.register(state, machine);
       if (observed != state.revision) {
         throw const RegistryRefusal('The host did not confirm the intended verified project revision.');
@@ -142,8 +147,14 @@ class SignedHostAction extends ChangeNotifier {
       problem = 'The host operation could not be confirmed. The saved rental and project state were kept.';
     } finally {
       busy = false;
+      step = null;
       _notify();
     }
+  }
+
+  void _at(String words) {
+    step = words;
+    _notify();
   }
 
   void _notify() {

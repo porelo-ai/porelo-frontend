@@ -9,6 +9,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- *Register the project* says what it does while it runs: checking the project with Core, opening the connection
+  to the host, registering there. Before, it said only that a change for the project was still running.
+
 - *Register the project* and the other project access reads verify against the keys this computer pins, which
   Core's follow names by fingerprint: each key is taken from the registry card that holds it. Before, every read
   failed with "Core verification is incomplete or unsupported".
