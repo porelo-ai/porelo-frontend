@@ -1,9 +1,9 @@
 # F301 — Persons Of A Project In One Place
 
 **Status:** Idea.
-**Severity:** medium.
-**Size:** M - the project page's persons section, the developers dialog and the registry persons, with their tests;
-no contract with another repository.
+**Severity:** high.
+**Size:** L - the project page's persons section, a redesign of the developers dialog, and the registry persons, with
+their tests; no contract with another repository.
 
 **What must be true.** A project page shows one *Persons* section: the project's developers and admins as the access
 file Core verifies names them, with *Add a developer…* beside its heading for a project admin. It shows the same on
@@ -19,6 +19,18 @@ Seen in the sprint 6m walk (2026-11-01, step 18):
 - The project's developers, with *Add a developer*, live in a dialog behind ⋮ → *Project settings: Developers…*
   (`lib/src/ui/project_developers_dialog.dart`), which nothing on the page points to.
 
+The developers dialog itself, opened in the walk after it was put back on the menu (michi: "Das ist völlig unklar. Der
+Dialog ist nicht gut => Redesign"):
+- It opens frozen for several seconds, every control locked, with no sign that it is loading.
+- Its field "Registry person" reads as "choose a registry"; it is the person to add.
+- The radio list of current members sits between that field and *Add a developer*, so michi picked michael-schnell
+  there and expected *Add* to add him.
+- Four disabled buttons, each "not connected to Core and the host yet", crowd it.
+
+The operator's decision (2026-11-01, in the sprint 6m walk): machines and projects are two separate processes. Who belongs
+to a project is edited on the project and names no host; a host follows its projects' state by itself, and no step of
+a project's edits reaches into a host.
+
 ## The shape
 
 - The page's *Persons* section reads the project's verified access (`ProjectAccess`), shows each developer with
@@ -26,7 +38,14 @@ Seen in the sprint 6m walk (2026-11-01, step 18):
   dialog does today.
 - The registry admission's members, where the host is watched, are a line under the host's own row, not a second
   persons list.
-- The dialog stays reachable from ⋮ for keyboard use, or is folded into the page.
+- The dialog is replaced by the page's section: the members as a list with each one's actions on the member's own row
+  (⋮), and *Add a developer…* as one button that opens a picker titled "Add a developer to <project>" with a search
+  over the directory's persons, those already in the project shown and not pickable.
+- The section shows a loading line while Core reads the access file; nothing is locked while it reads.
+- An action that cannot run now is hidden, or said once for the section ("Changes need Core's verified access; it is
+  being read"), never as a row of disabled buttons with the same words.
+- As machines and projects are separate, adding a developer files and publishes the access change only; no step of it connects to a host,
+  and the hosts the project is on follow by themselves.
 
 ## Plan
 

@@ -94,10 +94,10 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f301"></a>[F301](F301-Persons-Of-A-Project-In-One-Place.md) | L | — | One Persons section on a project page replacing the developers dialog: members with their own menus, a clear Add picker, no host step in a project edit. |
 | <a id="f297"></a>[F297](F297-Register-Progress-With-Its-Steps-And-Usual-Time.md) | M | — | Register's dialog shows which step of how many runs, with a progress bar and the usual time per step. |
 | <a id="f303"></a>[F303](F303-Menus-Beside-What-They-Act-On.md) | M | — | Each ⋮ menu placed with the row, section or title it acts on. |
 | <a id="f302"></a>[F302](F302-Refresh-Shows-What-It-Did.md) | S | — | Refresh shows that it runs and ends with what it read or what failed. |
-| <a id="f301"></a>[F301](F301-Persons-Of-A-Project-In-One-Place.md) | M | — | One Persons section on a project page, from the verified access file, with Add a developer beside it, on every machine. |
 | <a id="f300"></a>[F300](F300-One-Project-One-Entry-Across-Machines.md) | M | — | One project read as one entry under Projects, with the machines it is on under it. |
 | <a id="f299"></a>[F299](F299-A-Registry-Row-With-The-Hosts-Confirmed-State.md) | S | — | A registry row says the revision its host confirmed, never "not confirmed" for an applied decision. |
 | <a id="f298"></a>[F298](F298-No-Null-In-A-Project-Row.md) | S | — | No "null" in a project row when its tunnel has nothing to say. |
