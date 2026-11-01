@@ -11,8 +11,8 @@ copied, and again on the host before `ansible-galaxy collection install`, saying
 
 Ubuntu 26.04's `ansible-core` 2.20.1 carries CVE-2026-89091: `ansible-galaxy collection install`
 resolves member paths without following symlinks, so a crafted tarball can write outside its
-target. The operator accepted that risk while the tarball is our own (porelo-host's
-`doc/decisions.md`) and asked for this check, so that only that tarball reaches the installer.
+target. That risk is accepted while the tarball is our own (porelo-host's `doc/decisions.md`), and
+this check ensures that only that tarball reaches the installer.
 
 ## Plan
 

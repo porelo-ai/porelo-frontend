@@ -11,9 +11,9 @@ command line.
 
 ## Why
 
-A guide script must not ssh to a server that was given back, whose address may already be somebody else's. Seen in
-the operator's round: a server given back from a terminal (`down --give-back-anyway`) stayed listed in the interface,
-and `porelo-host`'s `known_hosts` keeps a key after a give-back, so neither tells a given-back server from a live one.
+A guide script must not ssh to a server that was given back, whose address may already be somebody else's. A server
+given back from a terminal (`down --give-back-anyway`) stays listed in the interface, and `porelo-host`'s `known_hosts`
+keeps a key after a give-back, so neither tells a given-back server from a live one.
 Only the provider does, and its key is `porelo-host`'s alone; the operator guides' libraries then refuse unless `find`
 names the address they are about to use.
 

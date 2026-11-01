@@ -9,11 +9,10 @@ program in their place, as the rules ask of a binary run with more rights than i
 
 ## Why
 
-Found by the harm reading of [F197](README.md#f197) (2026-10-27): the upload of the setup's files runs its own tools
-by path now, but the older commands of `up` in `packages/porelo_host/lib/src/host_run.dart` (the inventory's
-`mkdir -p`, the collection's `sha256sum`, `sudo env … ansible-playbook`) still go by `PATH`. On a rented image the
-login user's `PATH` is the distribution's, so nothing is known to be wrong today; on a machine given with `--given`
-it is whatever that account holds.
+The upload of the setup's files ([F197](README.md#f197)) runs its own tools by path, while the older commands of `up`
+in `packages/porelo_host/lib/src/host_run.dart` (the inventory's `mkdir -p`, the collection's `sha256sum`,
+`sudo env … ansible-playbook`) still go by `PATH`. On a rented image the login user's `PATH` is the distribution's, so
+nothing is known to be wrong today; on a machine given with `--given` it is whatever that account holds.
 
 ## Plan
 

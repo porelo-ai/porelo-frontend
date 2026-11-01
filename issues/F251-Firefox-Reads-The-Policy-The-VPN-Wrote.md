@@ -7,7 +7,7 @@
 
 ## Why
 
-Operator's walk 23 on VM A (2026-10-30): *about:policies* said "The Enterprise Policies service is inactive". The VPN's root step had left `/etc/firefox` as `root:root 0700`, so Firefox running as walkadmin could read neither `/etc/firefox/policies/policies.json` nor `/etc/firefox/porelo/`. The operator imported the CA by hand (Porelo walk9server CA, SHA-256 `42:AF:8E…B4:AA:78`), to be removed in the walk's cleanup.
+After the VPN's root step, *about:policies* in Firefox can say "The Enterprise Policies service is inactive" because the step leaves `/etc/firefox` as `root:root 0700`, so Firefox running under a user account can read neither `/etc/firefox/policies/policies.json` nor `/etc/firefox/porelo/` and does not trust the server's CA without a manual import.
 
 `install -d -m 0755 /etc/firefox/policies /etc/firefox/porelo` (`lib/src/app/host_vpn.dart`) sets the mode of the two named folders only; the parent it creates on the way takes the process's umask, and an existing parent keeps whatever mode it has.
 

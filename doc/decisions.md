@@ -683,7 +683,7 @@ back, deletion at the provider, billing stops, server vault and room history los
 
 **What it costs:** a host kept goes on billing until somebody looks, and the person who closed the
 window may not. The other way, giving back whatever the play answered, ends the bill but can take
-the only copy of a project's data with it. The operator chose the data, with the bill said plainly.
+the only copy of a project's data with it. The data is kept, with the bill said plainly.
 `down` cannot tell a failed copy from another failed step, so any failure keeps the host; the down
 play itself must finish for what `up` never made.
 

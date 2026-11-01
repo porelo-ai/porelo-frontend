@@ -7,7 +7,7 @@
 
 ## Why
 
-Operator's walk 23, step 9-3 (2026-10-30): *Follow it* did nothing visible when no credential was in the vault, for a public repository.
+*Follow it* does nothing visible when no credential is in the vault for a public repository.
 
 ## Plan
 

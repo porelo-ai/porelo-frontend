@@ -1,13 +1,13 @@
 # F234 — No Back Once The Server Is Being Prepared
 
-**Status:** Idea. Held as an Idea (operator, 2026-10-30, after walk 23): wizard changes wait until he has gone through the whole flow again.
+**Status:** Idea. Held: wizard changes wait until the whole flow has been gone through again.
 **Size:** S - the wizard frame's Back, switched off for an action that cannot be taken back.
 
 **What must be true.** In *Prepare a server…*, once *Prepare the server* has started, *Back* is no longer active: the step that rents and prepares the server cannot be left backwards to change what it was started with.
 
 ## Why
 
-Operator's finding in walk 23, step 2-7 (2026-10-30): "Back must not be active any more once Prepare the server has started." Today the shared wizard frame (`lib/src/ui/wizard.dart`, `_back`) keeps *Back* on Step 7 of 7 and only asks "Go back while work is unfinished?" while the action runs; going back offers values to change for a server already being rented.
+Today the shared wizard frame (`lib/src/ui/wizard.dart`, `_back`) keeps *Back* active on Step 7 of 7 once *Prepare the server* has started and only asks "Go back while work is unfinished?" while the action runs; going back offers values to change for a server already being rented.
 
 ## Plan
 

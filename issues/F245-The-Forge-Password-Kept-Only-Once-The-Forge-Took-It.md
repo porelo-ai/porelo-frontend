@@ -7,7 +7,7 @@
 
 ## Why
 
-Operator's walk 23, the first bring on VM A (2026-10-30): about 6 characters were chosen. `SecretsFile.forgePasswordLine` (`packages/porelo_host/lib/src/secrets_file.dart`) kept them before sending, and every later try sent them again without asking. Forgejo on the prepared host answered `PATCH /api/v1/admin/users/<account>` with 400, twice, and the terminal said only "the forge answered 400 setting <account>'s password" (`porelo-host-forge-password` in porelo-host).
+When a forge password shorter than 8 characters (such as 6 characters) is chosen during a bring, `SecretsFile.forgePasswordLine` (`packages/porelo_host/lib/src/secrets_file.dart`) keeps it before sending, and every later try sends it again without asking. Forgejo on the prepared host answers `PATCH /api/v1/admin/users/<account>` with 400, and the terminal says only "the forge answered 400 setting <account>'s password" (`porelo-host-forge-password` in porelo-host).
 
 ## Plan
 

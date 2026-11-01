@@ -11,6 +11,6 @@ project's own repository; an issue's state is never written, since it stays its 
 
 ## Why
 
-The operator plans each release by grouping issues into sprints of functions to test, and wants to
-do it where the work is started rather than by asking the coordinator to edit a file. Built for any
-project whose repositories keep issues in the same form, not only Porelo's own.
+A release is planned by grouping issues into sprints of functions to test, in the interface where the work is
+started, rather than in a plan file edited apart. Built for any project whose repositories keep
+issues in the same form, not only Porelo's own.

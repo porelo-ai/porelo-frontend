@@ -16,7 +16,7 @@ forge's own API is the interface's; the backend is short of nothing known.
 
 ## Bitbucket Data Center first
 
-The operator chose it on 2026-10-11, Bitbucket Cloud later. The build side, a push's builds read
+Bitbucket Data Center comes first, Bitbucket Cloud later. The build side, a push's builds read
 from Bitbucket Data Center and Jenkins, is not this issue.
 
 - **On the organisation's own host:** its REST API is `https://<host>/rest/api/1.0/…`, so a forge is

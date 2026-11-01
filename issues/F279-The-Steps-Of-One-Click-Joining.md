@@ -1,13 +1,13 @@
 # F279 — The Steps Of One-Click Joining
 
-**Status:** Implementing. Estimated and Backlog (operator, 2026-10-30, sprint 6m).
+**Status:** Implementing.
 **Size:** S - one Markdown file of numbered steps, put together from every repository's part; no walk engine work.
 
 **What must be true.** One Markdown file of numbered steps covers the one-click flow from the first start to a developer's first work: key and card, server prepared and filed, admit, register, add, join, a task started, lock, let back in and give-back. Each step reads "Step X/Y" with *Where* (which machine and window), *Do*, *You see* and *If not* (what to look at, or whom to tell); no value is copied by hand. The operator goes through it with the Coordinator; there is no walk JSON and no panel.
 
 ## Why
 
-One-click joining from signed state (operator, 2026-10-30): the steps replace walks 17–23, which [F276](README.md#f276) deletes. No guided walk this time; plain step-by-step instructions (operator, 2026-10-30, sprint 6m).
+One-click joining from signed state: the steps replace walks 17–23, which [F276](README.md#f276) deletes, as plain step-by-step instructions without a guided walk.
 
 ## Plan
 

@@ -7,7 +7,7 @@
 
 ## Why
 
-Walk 23, steps 8-x (2026-10-30): GitHub answered 500 to the grant for a user who already had read access.
+GitHub answers 500 when granting read access to a user who already has read access on the repository.
 
 ## Plan
 

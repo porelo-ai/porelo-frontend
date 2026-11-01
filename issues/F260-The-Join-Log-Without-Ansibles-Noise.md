@@ -7,7 +7,7 @@
 
 ## Why
 
-Walk 23, step 9-6 (2026-10-30): the join log showed a "no provider … is declared" note and Ansible's localhost `[WARNING]` lines, which looked like failures.
+The join log shows a "no provider … is declared" note and Ansible's localhost `[WARNING]` lines, which look like failures.
 
 ## Plan
 

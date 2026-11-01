@@ -10,9 +10,9 @@ person sees at once which thing a menu belongs to.
 
 ## Why
 
-Seen in the sprint 6m walk (2026-11-01, michi): the ⋮ buttons sit at the far right edge, detached from the row or
-section they belong to: the page ⋮ far from its title, a row's ⋮ far from its text on a wide window. michi looked for
-*Add a developer* and did not connect the page's ⋮ with the project.
+The ⋮ buttons sit at the far right edge, detached from the row or section they belong to: the page ⋮ far from its
+title, and a row's ⋮ far from its text on a wide window, so a person looking for a project action such as *Add a
+developer* does not connect the page's ⋮ with the project.
 
 ## The shape
 

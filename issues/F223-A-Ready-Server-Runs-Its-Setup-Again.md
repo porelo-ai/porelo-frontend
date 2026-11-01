@@ -11,10 +11,9 @@ first setup, and the server stays ready in Machines while it runs.
 
 ## Why
 
-Seen in two operator rounds: the guides say "run `up` again from the interface" on a ready server,
-and the interface has no such action: *Try again* is unavailable with "preparation has ended" once the server is
-ready, and nothing else runs `up`. The round ran it from a terminal with a script built from the interface's own
-argument list, which the interface does not see, so a stop in it would have had nowhere to be completed.
+On a ready server, the guides say "run `up` again from the interface", and the interface has no such action: *Try
+again* is unavailable with "preparation has ended" once the server is ready, and nothing else runs `up`. Running it
+from a terminal outside the interface hides the run from the interface, so a stop in it has nowhere to be completed.
 
 ## Plan
 

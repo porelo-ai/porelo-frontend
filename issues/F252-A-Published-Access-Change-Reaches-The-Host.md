@@ -7,7 +7,7 @@
 
 ## Why
 
-Operator's walk 23 on VM A (2026-10-30): the dialog made `access.bundle` in a temporary folder and deleted it (`lib/src/app/project_developers.dart`, `commitPushAndBundle` then `temporary.delete`). Nothing uploaded it, so the sync verified the old access commit (96818f8 while GitHub had f01b5cd, then 40f59d1). The coordinator rebuilt the bundle on the host from GitHub by hand and synced, again at every later change (dropping `l2` in 10-10, removing walkdev in 11-1).
+The dialog makes `access.bundle` in a temporary folder and deletes it (`lib/src/app/project_developers.dart`, `commitPushAndBundle` then `temporary.delete`). Nothing uploads it, so the host's sync verifies the old access commit instead of the commit just pushed.
 
 ## Plan
 

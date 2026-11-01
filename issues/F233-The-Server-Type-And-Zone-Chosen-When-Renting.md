@@ -1,13 +1,13 @@
 # F233 — The Server Type And Zone Chosen When Renting
 
-**Status:** Idea. Held as an Idea (operator, 2026-10-30, after walk 23): wizard changes wait until he has gone through the whole flow again.
+**Status:** Idea. Held: wizard changes wait until the whole flow has been gone through again.
 **Size:** M - a choice in the wizard's first step, the stock read before renting, and the zone kept with the host for every later call.
 
 **What must be true.** *Prepare a server…* offers a choice of server types, preconfigured, with the default selected; another zone or another server type can be chosen. Before *Prepare the server* the wizard shows whether the chosen type is in stock in the chosen zone. The zone the server was rented in is kept with the host, and every later call for that host (find, the state poll, down and give back) asks that zone, never the default.
 
 ## Why
 
-Decided (operator, 2026-10-30): walk 23's step 2-7 was refused with "Rent the server — EM-I220E-NVME is out of stock in fr-par-1", and nothing in the wizard could choose another. `hostArguments` passes only `--scaleway-project` (`lib/src/app/settings.dart`), so `porelo-host` always rents its default offer in its default zone.
+When a rental is refused with "Rent the server — EM-I220E-NVME is out of stock in fr-par-1", nothing in the wizard can choose another offer or zone. `hostArguments` passes only `--scaleway-project` (`lib/src/app/settings.dart`), so `porelo-host` always rents its default offer in its default zone.
 
 The zone matters after renting: `porelo-host` lists, reads and gives back servers under `/baremetal/v1/zones/<zone>/servers` (`packages/porelo_host/lib/src/scaleway.dart`). Down asked in another zone finds no server and reports the give-back as done ("no host carries the project tag"), while the server keeps running and costing. The offer is read only when renting.
 

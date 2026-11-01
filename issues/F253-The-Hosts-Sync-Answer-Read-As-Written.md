@@ -7,7 +7,7 @@
 
 ## Why
 
-Operator's walk 23 on VM A (2026-10-30): the host answered `"unchanged": true` (and `false` after a change). `DeveloperSyncAnswer.read` (`lib/src/app/project_developers.dart`) requires `unchanged` to be a list of account names, so every answer was "malformed" and the dialog said "The host sync did not confirm the published access change", although the sync ran (14:18:26 and 14:20:40, `access_commit` 40f59d1).
+The host answers `"unchanged": true` (and `false` after a change), whereas `DeveloperSyncAnswer.read` (`lib/src/app/project_developers.dart`) requires `unchanged` to be a list of account names. Every answer is treated as malformed and the dialog says "The host sync did not confirm the published access change", even when the sync ran.
 
 The boolean is the host's contract: its own timer play reads it (`changed_when: not (... | from_json).unchanged` in porelo-host's `roles/porelo/tasks/own_sync.yml`), and its unit and molecule tests check it. So the interface changes, not the host.
 

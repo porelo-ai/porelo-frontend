@@ -11,9 +11,9 @@ the viewer is the only one, the line says what they can do themselves instead, o
 
 ## Why
 
-Seen in the sprint 6m walk (2026-11-01): michael-schnell, the project's own admin, read "… Retry. Ask Michael
-Schnell (michael-schnell)." in *Register the project* and in *Projects you may join*. `RegistryRefusal.toString`
-(`lib/src/app/registry.dart`) appends " Ask $contacts." from `whoMay` without knowing who is asking.
+The project's own admin reads "… Retry. Ask <name> (<login>)." naming themselves in *Register the project* and in
+*Projects you may join*. `RegistryRefusal.toString` (`lib/src/app/registry.dart`) appends " Ask $contacts." from
+`whoMay` without knowing who is asking.
 
 ## The shape
 

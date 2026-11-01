@@ -7,7 +7,7 @@
 
 ## Why
 
-Walk 23, step 12-15 (2026-10-30): the give-back was refused with "server c4bd76ba-… carries no porelo-project tag, so it is not this package's to give back", and the server stayed rented. `HostPlan.tag` tags a server with no project `porelo-host=<name>` (`packages/porelo_host/lib/src/host_run.dart`), while `Scaleway.release` accepts only `porelo-project=` (`packages/porelo_host/lib/src/scaleway.dart`). The dialog had run the VPN-down steps first and reported them done, yet `porelo-1` and the `/etc/hosts` line stayed on the Laptop.
+Giving back a server prepared without a project is refused with "server <id> carries no porelo-project tag, so it is not this package's to give back", leaving the server rented. `HostPlan.tag` tags a server with no project `porelo-host=<name>` (`packages/porelo_host/lib/src/host_run.dart`), while `Scaleway.release` accepts only `porelo-project=` (`packages/porelo_host/lib/src/scaleway.dart`). Meanwhile the dialog runs the VPN-down steps first and reports them done even when the interface and `/etc/hosts` line remain on this computer.
 
 ## Plan
 

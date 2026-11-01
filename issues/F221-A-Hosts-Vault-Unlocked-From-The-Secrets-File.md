@@ -12,11 +12,10 @@ keeps today's terminal, where its passphrase is typed.
 
 ## Why
 
-Seen in an operator's round, after the reboot: Needs you showed *Messages wait · Vault locked*; *Unlock the vault
-on <project> server* ran `porelo vault unlock` over ssh and asked *Vault passphrase:*. That passphrase was made by this
-interface's stop and kept in the secrets file, where the person had never looked; the unlock dialog did not say where
-it is. The operator: the interface made it, so the interface should take it from the file with the master password
-typed once.
+After a server reboot, Needs you shows *Messages wait · Vault locked*, and *Unlock the vault on <project> server*
+runs `porelo vault unlock` over ssh and asks *Vault passphrase:*. That passphrase was made by this interface's stop and
+kept in the secrets file, where the person has never looked, and the unlock dialog does not say where it is. Since the
+interface made it, the interface takes it from the file with the master password typed once.
 
 ## Every place a value of the secrets file reaches a rented server
 

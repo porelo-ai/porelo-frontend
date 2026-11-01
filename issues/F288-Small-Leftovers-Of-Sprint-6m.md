@@ -2,12 +2,10 @@
 
 **Status:** Idea.
 
-**What must be true.** Every small edge case found in sprint 6m's last night is kept in one place, for the operator to
-place: address forms, quoting, encodings, texts and test gaps. A grave finding never goes here; it gets an issue of
-its own.
+**What must be true.** Small edge cases left over from sprint 6m are kept in one place, for the operator to place:
+address forms, quoting, encodings, texts and test gaps. A grave finding never goes here; it gets an issue of its own.
 
-Gathered from 2026-10-31 on, by the operator's rule of that night. Each point is to be checked against the code before
-it is fixed.
+Each point is to be checked against the code before it is fixed.
 
 ## Gathered
 

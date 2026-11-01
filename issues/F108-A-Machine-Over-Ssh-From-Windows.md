@@ -1,6 +1,6 @@
 # F108 — A Machine Over Ssh From Windows
 
-**Status:** Review. Built; the operator runs its Windows test (operator, 2026-11-01).
+**Status:** Review. Built; its Windows test is the operator's.
 **Size:** M - several modules (the machine list, the relay, the trial, commands, the wizard) and
 the operator's Windows test; no contract changes.
 

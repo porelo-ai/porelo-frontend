@@ -9,10 +9,9 @@ nothing to the row.
 
 ## Why
 
-Seen in the sprint 6m walk (2026-11-01): the new walk6m row read "on walk6m · null · Environment not prepared". In
-`lib/src/ui/projects_page.dart` the subtitle takes `tunnel.words` whenever a tunnel exists, and `Tunnel.words`
-(`lib/src/app/tunnel.dart`) is null for a tunnel that is up with no vault problem; `join(' · ')` writes that as
-"null".
+A project row on a card host reads "on <host> · null · Environment not prepared". In `lib/src/ui/projects_page.dart`
+the subtitle takes `tunnel.words` whenever a tunnel exists, and `Tunnel.words` (`lib/src/app/tunnel.dart`) is null for
+a tunnel that is up with no vault problem; `join(' · ')` writes that as "null".
 
 ## Plan
 

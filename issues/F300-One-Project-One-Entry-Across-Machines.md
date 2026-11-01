@@ -11,15 +11,14 @@ once per machine in the same way.
 
 ## Why
 
-Seen in the sprint 6m walk (2026-11-01, michi): after Register, *Projects* listed sprint6m-demo twice and "Without a
-project" twice, one row for picard ("on this machine") and one for walk6m. The rows differ only in "on <machine>" in
-their subtitles.
+After *Register the project*, *Projects* lists the project twice and "Without a project" twice, one row for this
+machine ("on this machine") and one for the host. The rows differ only in "on <machine>" in their subtitles.
 
 ## The shape
 
 - Grouped by project: the project's name as a heading, one line per machine under it, each with that machine's state
-  and actions as today. Alternatively grouped by machine with a heading per machine; the walk asked for one project as
-  one entry, so by project is the first choice.
+  and actions as today. Alternatively grouped by machine with a heading per machine; reading one project as one entry
+  makes grouping by project the first choice.
 - The navigation count counts projects, not rows.
 
 ## Plan

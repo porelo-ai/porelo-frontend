@@ -7,9 +7,9 @@
 hidden as the project's own, because default has no own repository: with `utils4j` and `units4j` in
 default, both can be chosen.
 
-Found on 2026-10-22 on the operator's computer with Porelo 0.5.1~snapshot.317. The daemon answers
-`Projects` for default with both repositories `"own": false`. The dialog *Start work in default*
-offered only `units4j`, and *Start work on it* beside `utils4j` opened it with no repository chosen.
+With Porelo 0.5.1~snapshot.317, the daemon answers `Projects` for default with both repositories
+`"own": false`. The dialog *Start work in default* offers only `units4j`, and *Start work on it*
+beside `utils4j` opens it with no repository chosen.
 
 ## Plan
 

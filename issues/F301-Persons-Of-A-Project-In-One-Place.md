@@ -11,25 +11,22 @@ every machine the project is on, not only on the host whose registry admission i
 
 ## Why
 
-Seen in the sprint 6m walk (2026-11-01, step 18):
-- michi, the project's admin, opened sprint6m-demo "on this machine" and found "Persons (0) … Verified access state
-  has not been supplied" and no *Add a developer*.
+- Opening a project "on this machine" as the project admin shows "Persons (0) … Verified access state has not been
+  supplied" and no *Add a developer*.
 - That section (`lib/src/ui/registry_persons.dart`) lists the *registry admission's* members. `RegistryReadSource`
   attaches an admission only to the watched machine of its host, so the page on this computer never has one.
 - The project's developers, with *Add a developer*, live in a dialog behind ⋮ → *Project settings: Developers…*
   (`lib/src/ui/project_developers_dialog.dart`), which nothing on the page points to.
 
-The developers dialog itself, opened in the walk after it was put back on the menu (michi: "Das ist völlig unklar. Der
-Dialog ist nicht gut => Redesign"):
+The developers dialog itself is unclear and needs to be replaced:
 - It opens frozen for several seconds, every control locked, with no sign that it is loading.
 - Its field "Registry person" reads as "choose a registry"; it is the person to add.
-- The radio list of current members sits between that field and *Add a developer*, so michi picked michael-schnell
-  there and expected *Add* to add him.
+- The radio list of current members sits between that field and *Add a developer*, making a selection in that list
+  look like the person *Add* will add.
 - Four disabled buttons, each "not connected to Core and the host yet", crowd it.
 
-The operator's decision (2026-11-01, in the sprint 6m walk): machines and projects are two separate processes. Who belongs
-to a project is edited on the project and names no host; a host follows its projects' state by itself, and no step of
-a project's edits reaches into a host.
+Machines and projects are two separate processes. Who belongs to a project is edited on the project and names no host;
+a host follows its projects' state by itself, and no step of a project's edits reaches into a host.
 
 ## The shape
 
@@ -43,8 +40,8 @@ a project's edits reaches into a host.
   over the directory's persons, those already in the project shown and not pickable.
 - The section shows a loading line while Core reads the access file; nothing is locked while it reads, and the
   words of a running change ("An earlier change for this project has not ended yet", "A person change is still
-  running") never stand beside a read that is no change. Seen after Retry delivery confirmed the Add: the reads after it
-  took long with those words shown, and looked like a hang.
+  running") never stand beside a read that is no change. Otherwise a slow read after a confirmed delivery shows those
+  words and looks like a hang.
 - An action that cannot run now is hidden, or said once for the section ("Changes need Core's verified access; it is
   being read"), never as a row of disabled buttons with the same words.
 - As machines and projects are separate, adding a developer files and publishes the access change only; no step of it connects to a host,

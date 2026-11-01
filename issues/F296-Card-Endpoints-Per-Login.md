@@ -12,18 +12,17 @@ is there.
 
 ## Why
 
-Seen in the sprint 6m walk (2026-11-01):
 - A card's ssh configuration (`~/.config/porelo/ssh/<host>.conf`), control socket (`c-<sha of the host name>`), daemon
   endpoint (`/run/user/<uid>/porelo-tunnel-<host>.sock`) and local ports (forge web and git, Matrix) are named after
   the host only.
-- michi's main instance (michael-schnell) and dev instance (ms-test-reviewer) share them on walk6m, so only one can
-  hold a walk6m tunnel; the dev instance's Join is refused while main's is up.
-- A master started before a restart of the interface was left running (pid 4089042, 13:29Z). Register's connect wrote
-  the configuration again before raising, so the orphan check of the earlier fix (control socket there,
-  configuration gone) no longer held, and Retry was refused with "an endpoint already exists and was left alone".
-- Quitting the interface (`q` in `flutter run`, 2026-11-01 Step 19) left its walk6m master running (pid 2314745),
-  holding the local ports; the Coordinator ended it by hand before the dev instance could join. Commit c5aea871 ends a
-  same-login leftover on the next raise, but not one of a person who does not open the interface again.
+- Two instances on one desktop — one for the project admin and one for a developer — share those paths on the same
+  host, so only one can hold a tunnel to it; the developer instance's Join is refused while the admin instance's is up.
+- When a master started before a restart of the interface is left running and Register's connect writes the
+  configuration again before raising, an orphan check requiring the control socket to exist while the configuration is
+  gone no longer holds, and Retry is refused with "an endpoint already exists and was left alone".
+- Quitting the interface (`q` in `flutter run`) can leave its card master running and holding the local ports until
+  ended by hand. Ending a same-login leftover on the next raise (commit c5aea871) does not release ports held by an
+  account that does not open the interface again.
 - Ending or adopting a master this instance did not start is unsafe while paths are shared: it could end the other
   instance's live tunnel, or reach another person's daemon.
 

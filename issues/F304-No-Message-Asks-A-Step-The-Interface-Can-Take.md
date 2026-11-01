@@ -12,10 +12,10 @@ decide or provide: a choice, a key in their agent, a confirmation, an operator's
 
 ## Why
 
-Seen in the sprint 6m walk (2026-11-01). Adding a developer refused with "Refresh the verified registry before
-changing this project. Read the verified project admission first." while a periodic registry read ran. michi:
-"Toll, dass mich die Oberfläche anweist etwas zu tun was sie selber machen kann...". Commit b8fa381e and 5090e9e5 fixed
-it for a project's person changes; the same pattern remains elsewhere.
+Several refusals instruct the person to run a refresh, read or retry that the interface can perform itself — for
+example, adding a developer refused with "Refresh the verified registry before changing this project. Read the verified
+project admission first." while a periodic registry read ran. Commits b8fa381e and 5090e9e5 fixed that case for a
+project's person changes; the same pattern remains elsewhere.
 
 ## The shape
 

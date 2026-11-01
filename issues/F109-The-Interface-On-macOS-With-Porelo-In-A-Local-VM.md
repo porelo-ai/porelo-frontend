@@ -143,8 +143,8 @@ Three issues, in this order; this one is split before any is built:
 
 ## To be checked
 
-- **Porelo is published for amd64 only** (the deb repository's `Architectures: amd64 i386`,
-  read on 2026-10-21), so until arm64 packages are published there is nothing to install in
+- **Porelo is published for amd64 only** (the deb repository's `Architectures: amd64 i386`), so
+  until arm64 packages are published there is nothing to install in
   an ARM VM. A gap the probe below shows in an ARM VM is closed before the arm64 build is made.
   Porelo's amd64 build answers `--version` under Rosetta, as measured; whether its daemon runs a
   task there is not, and it stays a stop-gap only. (Agent Frontend's)

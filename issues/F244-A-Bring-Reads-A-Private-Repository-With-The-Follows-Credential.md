@@ -7,7 +7,7 @@
 
 ## Why
 
-Operator's finding in walk 23, Step 7 of 7 of *Put walk6-demo on a server* on VM A (2026-10-30): "The drive: Git could not read the followed repository and its verified commit or create the project bundle." `HostFiles.bundle` (`packages/porelo_host/lib/src/host_files.dart`) clones the followed URL with plain git and `GIT_TERMINAL_PROMPT=0`. walkadmin's git has no credential for github.com, while the follow read the same repository with the token in the machine's vault. Walk 22 passed most likely because its repository could be read without a token.
+In Step 7 of 7 of *Put <project> on a server*, a private repository fails with "The drive: Git could not read the followed repository and its verified commit or create the project bundle." `HostFiles.bundle` (`packages/porelo_host/lib/src/host_files.dart`) clones the followed URL with plain git and `GIT_TERMINAL_PROMPT=0`. The local account's git has no credential for github.com, while the follow reads the same repository with the token in the machine's vault.
 
 ## Plan
 

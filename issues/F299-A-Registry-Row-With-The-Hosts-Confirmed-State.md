@@ -11,10 +11,10 @@ the host has applied.
 
 ## Why
 
-Seen in the sprint 6m walk (2026-11-01): after Register was confirmed on walk6m, the row read "registry b4257326… ·
-host state unknown · change not confirmed on the host". `RegistryReadSource.snapshotOf`
-(`lib/src/app/registry_read_source.dart`) builds `RegistryPageSnapshot` without `applied`, so `registryStateWords`
-(`lib/src/ui/projects_page.dart`) says this on every row read from the registry, before and after any change.
+Even after Register is confirmed on a host, the row reads "registry <revision>… · host state unknown · change not
+confirmed on the host". `RegistryReadSource.snapshotOf` (`lib/src/app/registry_read_source.dart`) builds
+`RegistryPageSnapshot` without `applied`, so `registryStateWords` (`lib/src/ui/projects_page.dart`) says this on every
+row read from the registry, before and after any change.
 
 ## The shape
 

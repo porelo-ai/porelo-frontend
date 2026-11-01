@@ -11,9 +11,9 @@ takes here; a step running well past its usual time says so before the step limi
 
 ## Why
 
-Seen in the sprint 6m walk (2026-11-01, michi): Retry showed only "Opening the connection to walk6m…" for a long
-while, with no sign of how far along it was or how long to wait. The step words and the per-step limit of the earlier
-fix (commit 31de8694, three minutes per step) say what runs and stop a hang, but not where it stands.
+During *Register the project* or *Retry*, the dialog shows only the current step's line (such as "Opening the
+connection to <host>…") with no sign of how far along the run is or how long to wait. The step words and the per-step
+limit (commit 31de8694, three minutes per step) say what runs and stop a hang, but not where it stands.
 
 ## The shape
 

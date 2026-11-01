@@ -1,13 +1,13 @@
 # F241 — A Project Followed From A Connected Forge
 
-**Status:** Idea. Held as an Idea (operator, 2026-10-30, after walk 23): wizard changes wait until he has gone through the whole flow again.
+**Status:** Idea. Held: wizard changes wait until the whole flow has been gone through again.
 **Size:** M - *Follow a project* chooses from the connected forges' repositories, reads name and signers from the project file, and gives the daemon the forge's kept token without typing it again.
 
 **What must be true.** *Follow a project* offers the forges connected on this computer. After one is chosen, a searchable list shows the repositories its token reaches, those holding a `project.yml` first. The project name and the signers come from the chosen repository's `project.yml`, and the signing key to pin is chosen from those signers. The machine's follow uses the forge's kept token: it reaches the machine's vault as `git.token.<forge host>` from the system secret store, with no second typing and no typed address. Typing an address stays, for a repository on no connected forge.
 
 ## Why
 
-Operator's finding in walk 23, step 6-1 on VM A (2026-10-30): "I set up a forge with my personal token. Then I should be able to choose everything in the GUI. Why type everything by hand again when the forge can deliver it directly (with a nice dropdown and maybe a search)?"
+Even after a forge is connected with a personal token, *Follow a project* still requires typing every value by hand instead of choosing from a searchable list of repositories delivered by that forge.
 
 Today the forge list (`lib/src/ui/repositories_view.dart`) already lists the token's repositories and marks those with a `project.yml`. But it leads only to *Work on it on <machine>*, which needs push access, commits to `machine-signers`, and asks the person to type the token into the machine's vault in a terminal (`MachineBinding`, `lib/src/app/machine_binding.dart`). *Follow a project by its address* asks for name, address and key by hand.
 

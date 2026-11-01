@@ -7,7 +7,7 @@
 
 ## Why
 
-Operator's walk 23 on VM A (2026-10-30): a failed bring left `~/.local/share/porelo-host/setup/walk6-demo/` on the prepared host. The next try refused with "The project setup folder already exists; it was preserved." (`uploadSetupFiles` in `packages/porelo_host/lib/src/host_run.dart`). Removing the folder when a bring fails is not the answer: a bring that waits at a stop needs its files when it goes on.
+A failed bring leaves `~/.local/share/porelo-host/setup/<project>/` on the prepared host, and the next try refuses with "The project setup folder already exists; it was preserved." (`uploadSetupFiles` in `packages/porelo_host/lib/src/host_run.dart`). Removing the folder when a bring fails is not the answer: a bring that waits at a stop needs its files when it goes on.
 
 ## Plan
 

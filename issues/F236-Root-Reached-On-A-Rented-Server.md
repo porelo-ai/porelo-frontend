@@ -1,15 +1,15 @@
 # F236 — Root Reached On A Rented Server
 
-**Status:** Idea. Held as an Idea (operator, 2026-10-30, after walk 23): wizard changes wait until he has gone through the whole flow again.
+**Status:** Idea. Held: wizard changes wait until the whole flow has been gone through again.
 **Size:** S - root's login allowed in the rental's cloud-config, and the "login as" answer refused at once with words that name it.
 
 **What must be true.** A server prepared with no project (`up --host-name … --login-user root`) on Scaleway's Ubuntu takes the person's key for root, so *Wait for the server to accept SSH* ends as soon as sshd answers. Where a server still refuses root with "Please login as the user …", `up` stops at once on that answer and says which user the image offers, instead of waiting out its twenty minutes.
 
 ## Why
 
-Operator's walk 23, step 2-7 (2026-10-30): `up --login-user root` waited 18 minutes in *Wait for the server to accept SSH* on a ready host. Scaleway's Ubuntu 26.04.1 install writes `/etc/cloud/cloud.cfg.d/92-scaleway-baremetal.cfg` with `disable_root: True`. So root's `authorized_keys` holds only `Please login as the user "ubuntu" rather than the user "root".`, and the ssh loop in `host_run.dart` asks again until `sshWithin`, because `_keyRefused` knows only "Host key verification failed".
+Scaleway's Ubuntu 26.04.1 install writes `/etc/cloud/cloud.cfg.d/92-scaleway-baremetal.cfg` with `disable_root: True`. So root's `authorized_keys` holds only `Please login as the user "ubuntu" rather than the user "root".`, and `up --login-user root` waits in *Wait for the server to accept SSH* (18 minutes measured on a ready host) until `sshWithin`, because `_keyRefused` in `host_run.dart` knows only "Host key verification failed".
 
-Root is the login only of the server-only path, since [F211](README.md#f211) on 2026-10-29. A project's host logs in as `ubuntu`, the default.
+Root is the login only of the server-only path ([F211](README.md#f211)). A project's host logs in as `ubuntu`, the default.
 
 ## Plan
 

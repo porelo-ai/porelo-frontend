@@ -1,13 +1,13 @@
 # F238 — A Server With No Project Is Not Silent
 
-**Status:** Idea. Held as an Idea (operator, 2026-10-30, after walk 23): wizard changes wait until he has gone through the whole flow again.
+**Status:** Idea. Held: wizard changes wait until the whole flow has been gone through again.
 **Size:** XS - a host prepared with no project left out of *Needs you*'s silent machines, and its row saying "no project yet".
 
 **What must be true.** A server prepared with no project, which by design has no project account and no daemon, is not raised under *Needs you* as *Not answering*. Its row in *Machines* says "No project yet", with *Register a project* in its menu as today.
 
 ## Why
 
-Operator's walk 23 on walk9server, network 1, after setup and the VPN (2026-10-30): *Needs you* showed "walk9server · walk9server — Not answering: This machine cannot be reached, and anything it is asking waits unseen. Cannot reach walk9server: This server is prepared without a project account or daemon. Register a project from its menu." Nothing there waits on the person: no daemon is the expected state of such a host. The rows come from `lib/src/app/attention.dart` (the loop over `silent`), which counts every machine its fleet cannot reach. The words come from `Machine.whyNotReachableOn` in `lib/src/app/machines.dart` (`kind == 'host'` with no socket).
+After setup of a server with no project, *Needs you* shows "<server> · <server> — Not answering: This machine cannot be reached, and anything it is asking waits unseen. Cannot reach <server>: This server is prepared without a project account or daemon. Register a project from its menu." Nothing there waits on the person: no daemon is the expected state of such a host. The rows come from `lib/src/app/attention.dart` (the loop over `silent`), which counts every machine its fleet cannot reach. The words come from `Machine.whyNotReachableOn` in `lib/src/app/machines.dart` (`kind == 'host'` with no socket).
 
 ## Plan
 

@@ -1,26 +1,25 @@
 # F278 — The Machines, Projects And Forges Pages
 
-**Status:** Implementing. Estimated and Backlog (operator, 2026-10-30, sprint 6m).
+**Status:** Implementing.
 **Size:** L - several days to replace three lists and their item pages, wire registry actions and permissions, and remove tiles without losing commands.
 
-**What must be true.** The *Machines*, *Projects* and *Forges* pages are laid out as the operator agreed on draft 2 (`~/.porelo/handover/porelo-frontend/layout-pj83-v2/layout-pj83-v2.html`, 2026-10-30), as listed under *Decided in the talk*: lists of rows with a ⋮ menu, a page per item with collapsible, filtered lists, no tiles. Each row shows the person's role and the state from the registry, the host's synced state and the tunnel; actions come from the person lists, not from forms with typed names; an action the person may not do names who may, with their email where their card names one.
+**What must be true.** The *Machines*, *Projects* and *Forges* pages are laid out as listed under *Layout*: lists of rows with a ⋮ menu, a page per item with collapsible, filtered lists, no tiles. Each row shows the person's role and the state from the registry, the host's synced state and the tunnel; actions come from the person lists, not from forms with typed names; an action the person may not do names who may, with their email where their card names one.
 
 ## Why
 
-One-click joining from signed state (operator, 2026-10-30), the flow's step 7, and the operator's wish to design these pages together (2026-10-30).
+One-click joining from signed state, the flow's step 7, designing these pages together.
 
 Folded in: [F262](README.md#f262), [F263](README.md#f263), [F265](README.md#f265), [F266](README.md#f266), [F267](README.md#f267), and [F239](README.md#f239)'s lists.
 
-## Decided in the talk so far
+## Layout
 
-- *Machines* stays the umbrella: this computer and the remote machines, rented or provided by someone; the proposal's *Hosts* page is the *Machines* page, with the remote machines as its rows (operator, 2026-10-30).
+- *Machines* stays the umbrella: this computer and the remote machines, rented or provided by someone; the proposal's *Hosts* page is the *Machines* page, with the remote machines as its rows.
 - A project admin may lock a developer in their project, beside the host admin's lock ([F272](README.md#f272)).
 - The own identity stays under Settings ([F268](README.md#f268)).
-- No tiles anywhere: every page is lists of rows, each row with a ⋮ menu holding its operations; a click on a row opens the item's own page, not a side panel (operator, draft 2, 2026-10-30).
-- An item's page shows its own information with one ⋮ on top, then collapsible lists styled like the main list: a machine's *Projects* and *Persons*, a project's *Persons* and *Machines*, a forge's *Registry* and *Repositories* (operator, draft 2, 2026-10-30).
-- Every list has a filter field in its header, filtering the rows below it: the top lists *Machines*, *Projects* and *Forges* and each collapsible list on an item's page (operator, 2026-10-30).
-- The default project *Without a project*, for starting something by hand outside a real project, always exists on this computer and on every machine, so it always shows: in the *Projects* list as one row per machine and in each machine's *Projects* list, its ⋮ holding *Open* and *Start work*. It is never taken off a machine or locked, so its ⋮ offers neither (operator, 2026-10-30).
-- Further remarks follow as the operator goes through the pages.
+- No tiles anywhere: every page is lists of rows, each row with a ⋮ menu holding its operations; a click on a row opens the item's own page, not a side panel.
+- An item's page shows its own information with one ⋮ on top, then collapsible lists styled like the main list: a machine's *Projects* and *Persons*, a project's *Persons* and *Machines*, a forge's *Registry* and *Repositories*.
+- Every list has a filter field in its header, filtering the rows below it: the top lists *Machines*, *Projects* and *Forges* and each collapsible list on an item's page.
+- The default project *Without a project*, for starting something by hand outside a real project, always exists on this computer and on every machine, so it always shows: in the *Projects* list as one row per machine and in each machine's *Projects* list, its ⋮ holding *Open* and *Start work*. It is never taken off a machine or locked, so its ⋮ offers neither.
 
 ## Plan
 

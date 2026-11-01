@@ -1,13 +1,13 @@
 # F280 — A Lost Or Stolen Key Replaced
 
-**Status:** Implementing. Estimated and Backlog (operator, 2026-10-30, sprint 6m).
+**Status:** Implementing.
 **Size:** M - recovery spans project, host, and registry roles, a restricted Core backup operation, and confirmed results for every affected host.
 
 **What must be true.** A project admin can revoke another person's key in the project's access file and enter their new key, and a host admin can do the same in `hosts/<host>/access.yml`, chosen from the person list; the person keeps their login. A successor card signed by a revoked key is never offered; a registry owner can do the same in `owners.yml` for a host admin or another owner. A revoked key's person is shown locked on every host at once. Where a project, a host or the registry has a single admin or owner, *Use the backup key…* takes the offline backup key's file for this one commit: it may only replace the lost key's entry among the signers or in `owners.yml`, and the interface refuses any other change with it, in Core's words. The backup key file is read once, never copied and never kept; a new backup key is offered afterwards ([F268](README.md#f268)).
 
 ## Why
 
-One-click joining from signed state (operator, 2026-10-30): an admin's own key is replaced by another admin or by the backup key; a stolen key is revoked first and locks the person's host accounts at once.
+One-click joining from signed state: an admin's own key is replaced by another admin or by the backup key; a stolen key is revoked first and locks the person's host accounts at once.
 
 ## Plan
 

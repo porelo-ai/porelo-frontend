@@ -7,7 +7,7 @@
 
 ## Why
 
-Operator's walk 23, step 12-1 (2026-10-30): the take-off asked the master password, then failed with "no entry shared/forge-central-token" on the host admin's laptop.
+The take-off asks the master password first and only afterwards fails with "no entry shared/forge-central-token" when that entry is missing from the secrets file.
 
 Taking the project off from its own menu is [F267](README.md#f267), held as an Idea with the other GUI changes.
 

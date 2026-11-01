@@ -191,7 +191,7 @@ The packaging requirement is met and retired; this is what it is made of.
 - **Build machine:** Ubuntu, never Fedora, because the bundle links glibc dynamically — the
   backend's own rule. Flutter adds one the CLI never had: the bundle links the GTK3 stack too,
   so the build machine's GTK is the oldest GTK the package can run against, and the build runs on
-  the oldest distribution that must be supported. That is `ubuntu-22.04`: measured on 2026-10-10,
+  the oldest distribution that must be supported. That is `ubuntu-22.04`: measured,
   its packages install on every system Porelo supports, Ubuntu 26.04, Debian 13, Fedora 43 and
   Fedora 44, and the workflow proves that on each build in those four images, pinned by digest.
 - **The C library floor:** both packages declare the oldest glibc they need, the `.deb` as
@@ -244,8 +244,8 @@ distribution.
 - **`--exec`, not `--`:** after `--`, `wsl.exe` hands the words to the distribution's shell, which
   splits them again; `--exec` runs the program with exactly the arguments given.
 - **A process, never a shell pipe:** `wsl.exe` is started with byte streams of its own
-  (`Process.start`). Windows PowerShell 5.1 has no `<` and re-encodes text in its pipes; measured on
-  2026-10-10, `wsl.exe` itself carries Varlink's framing both ways, the closing `\0` included.
+  (`Process.start`). Windows PowerShell 5.1 has no `<` and re-encodes text in its pipes; measured,
+  `wsl.exe` itself carries Varlink's framing both ways, the closing `\0` included.
 - **The distributions** come from `wsl.exe -l -q`, those running from `-l --running -q`, the WSL
   version from the last column of `-l -v`, whose state column is in Windows' language. Each call into
   a distribution is preceded by that reading.

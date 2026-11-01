@@ -1,13 +1,13 @@
 # F272 — A Project Admin Registers And Adds From The Registry
 
-**Status:** Implementing. Estimated and Backlog (operator, 2026-10-30, sprint 6m).
+**Status:** Implementing.
 **Size:** M - about a day adapting the existing bring, signed access edits and sync retries to registry people and project-scoped actions.
 
 **What must be true.** A project admin whom `hosts/<host>/access.yml` admits sees "admitted on host X" and *Register the project*, which brings the project to the host in one click (today's bring without pasted values or key paths). *Add a developer* is a pick from the registry's persons; it commits the access file signed by the project admin, brings it to the host and asks for the sync ([F252](README.md#f252), [F253](README.md#f253)). *Remove from the project* is chosen from the project's person list. *Lock in this project* marks the person `locked` in the access file, signed, brought to the host and synced: their access to this project's repositories and rooms goes, their account and other projects stay; *Let back in* undoes it. A person whose key changed without the predecessor's signature cannot be picked, unless an admin replaced their lost or stolen key in the access file ([F280](README.md#f280)). A project admin who may not do something sees who may, with their email where their card names one.
 
 ## Why
 
-One-click joining from signed state (operator, 2026-10-30), the flow's steps 4, 5 and 7.
+One-click joining from signed state, the flow's steps 4, 5 and 7.
 
 ## Plan
 
@@ -58,7 +58,7 @@ Only the change: tests against a fake Core and the host stand-in. One VM check w
 - `ProjectAccessCore` supplies the verified followed project YAML, project/access revisions, actor login/fingerprint, pinned admission fingerprint, active signer keys, signing availability, scoped eligible fingerprints and authorized lost-key replacements. The accepted registry must independently name the same host, project admin and access repository.
 - A `ProjectAccessChange` carries a durable request ID, host and immutable host card, project, access repository, project/base-access revisions, actor login/fingerprint, action, and optional person login/role/fingerprint/locked state. Core signs once per ID, resolves already-filed IDs without requiring current signing authority, and rejects stale bases; publication retries that exact revision. Core separately authorizes publication and delivery of that exact filed request using its signing-time authority, so a self-removal can finish delivery without retaining authority to sign further changes. Revoked identities and removed host admission still refuse delivery. A read-only exact-publication check reconciles a lost push receipt before requiring authority to publish again.
 - `ProjectAccessTransport` connects through the accepted card and agent, confirms private project/access bundle intake, and returns observed host, project, project revision, access revision and project-only membership states. No command or additional socket format is assumed.
-- A change whose server was given back before Core's change was recorded is forgotten when the server is marked given back, in whatever state it reached (unfiled, filed, delivered or superseded, and also mid-run); Retry ends cleanly, and a registration that ended so says nothing was registered instead of saying "The server was given back" (operator's decision, 2026-10-31).
+- A change whose server was given back before Core's change was recorded is forgotten when the server is marked given back, in whatever state it reached (unfiled, filed, delivered or superseded, and also mid-run); Retry ends cleanly, and a registration that ended so says nothing was registered instead of saying "The server was given back".
 - `ProjectAccess.rememberMachine` is an injected idempotent local recording operation (the application's `Machines.add`), shared by registration and direct delivery retry. `Settings.projectRegistrations` stores the confirmed registration independently of `projectAccess`; both use the checked explicit lifecycle shape. Legacy boolean receipts migrate on read, retaining their request ID and exact revision. Superseded-receipt cleanup never changes the separate confirmed record.
 - The stand-in measures project repository and room removal while retaining the account and other project membership. Preservation of unrelated access settings belongs to Core and remains to be verified with its actual adapter; a fixture that never edits those settings cannot measure it. Served Core fields, actual HostRun delivery and the targeted VM effects still need confirmation before live use.
 

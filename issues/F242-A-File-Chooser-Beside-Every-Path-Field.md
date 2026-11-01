@@ -1,13 +1,13 @@
 # F242 — A File Chooser Beside Every Path Field
 
-**Status:** Idea. Held as an Idea (operator, 2026-10-30, after walk 23): wizard changes wait until he has gone through the whole flow again.
+**Status:** Idea. Held: wizard changes wait until the whole flow has been gone through again.
 **Size:** S - one path field with a *Choose…* button and its default, shared by every wizard that asks for a file on this computer.
 
 **What must be true.** Every wizard field that names a file on this computer has a *Choose…* button beside it that opens a file chooser in the field's folder. The field keeps typing as a way, and holds the known default where there is one. A chosen file is checked as a typed one is.
 
 ## Why
 
-Operator's finding in walk 23, step 6-7 on VM A (2026-10-30), in *Put walk6-demo on a server*, Step 5 of 7 — *Your secrets file*: the secrets file needs a button that opens a file chooser, instead of typing the path.
+In *Put <project> on a server*, Step 5 of 7 — *Your secrets file*, the secrets file field has no button that opens a file chooser and requires typing the path.
 
 The fields differ today:
 - *Prepare a server…* has *Choose…* beside each path (`_pathField` in `lib/src/ui/host_dialog.dart`).

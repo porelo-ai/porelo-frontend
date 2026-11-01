@@ -1,13 +1,13 @@
 # F269 — The Registry Read For Every List
 
-**Status:** Implementing. Estimated and Backlog (operator, 2026-10-30, sprint 6m).
+**Status:** Implementing.
 **Size:** M - about a day across checkout storage, the Core client, shared list state and its interface.
 
 **What must be true.** The interface asks once for the organisation's registry repository (an `git@` or `https` address) and reads it with the person's own access: SSH through the agent, or a token from the vault through Core's credential helper. It keeps a private checkout, fetched at start and on *Refresh*. Every list of persons, hosts, admitted project admins and projects comes from Core's `registry read` of that checkout: each person with login, name, email, fingerprint and state (trusted, first seen, refused with why). A refused card is shown in red, naming the login and why, and is never offered. A commit Core refuses is named, and the last good state stays shown. The registry's `owners.yml` (its owners and the host admins) is shown as Core reads it, with who signed it; the "who may" lines take registry owners and host admins from it. Writes go through Core's `registry file`, never through the forge's contents API.
 
 ## Why
 
-One-click joining from signed state (operator, 2026-10-30), building block 3: the state lies signed in Git on the central forge, and Porelo reads instead of asking.
+One-click joining from signed state, building block 3: the state lies signed in Git on the central forge, and Porelo reads instead of asking.
 
 ## Plan
 
@@ -49,7 +49,7 @@ Only the change: tests against a fake Core and a local bare repository. No VM ru
 - Findings 1–6 and 8–10 are corrected in the registry model, checkout and client models; finding 7's requested uppercase behavior is declined above. Initial-read failure wording describes the absence of accepted state without adding a wording test.
 - Contract assumptions remain behind `RegistryCore` and the registry readers: local-daemon `RegistryRead(checkout)` and `RegistryFile(checkout, kind, host?, person?)`; read `revision` is the verified last-good hash, or absent/null only beside `refused_commit` when no commit was accepted; file `revision` is one signed child commit of the checked base. Refused `people` entries may omit key or fingerprint metadata. Existing read fields and filing kinds remain as documented in the client.
 
-## Contract confirmed by Core (2026-10-31)
+## Contract confirmed by Core
 
 - `revision` is the commit the registry was read up to, each path at its last good version (Core's rule works per path, so one refused commit does not freeze the rest); `null` when no commit was accepted. `refused_commit` `{commit, path, why}` is the last refusal still in force, `null` when none; every refusal is also in `warnings`.
 - `hosts[].admins` are objects `{login, fingerprint}` in the order of the host's `access.yml`; `RegistryHost` keeps both, and a bare login or a repeated admin refuses the answer whole.

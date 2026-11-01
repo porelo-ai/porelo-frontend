@@ -7,7 +7,7 @@
 
 ## Why
 
-A walk the operator met before an agent had walked it stalled on values it never gave, a second machine it never named and steps already done; the operator broke it off. A walk is walked by the agent before it reaches the operator, and on the central machines that walking cannot depend on a display somebody set up by hand.
+An unwalked walk can stall on values it never gives, a second machine it never names, or steps already done. A walk is walked by the agent before it reaches the operator, and on the central machines that walking cannot depend on a display somebody set up by hand.
 
 ## Plan
 

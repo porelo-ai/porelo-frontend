@@ -1,13 +1,13 @@
 # F247 — The Bring And Join Log Copied At One Click
 
-**Status:** Idea. Held as an Idea (operator, 2026-10-30, after walk 23): GUI changes wait until he has gone through the whole flow again.
+**Status:** Idea. Held: GUI changes wait until the whole flow has been gone through again.
 **Size:** XS - a *Copy* button beside the bring's and the join's last lines, as the terminal panels have.
 
 **What must be true.** The last lines a bring or a join shows in its last step have a *Copy* button that puts all of them on the clipboard, as the terminal panels do. The lines stay selectable.
 
 ## Why
 
-Operator's finding in walk 23, Step 7 of 7 of *Put walk6-demo on a server* on VM A (2026-10-30): the bring's log (`bring-last-lines`, `lib/src/ui/project_bring_dialog.dart`) has no *Copy* button. Selecting the lines by hand is slow and loses some. The join's lines (`lib/src/ui/project_join_dialog.dart`) have none either.
+In Step 7 of 7 of *Put <project> on a server*, the bring's log (`bring-last-lines`, `lib/src/ui/project_bring_dialog.dart`) has no *Copy* button; selecting the lines by hand is slow and loses some. The join's lines (`lib/src/ui/project_join_dialog.dart`) have none either.
 
 ## Plan
 

@@ -10,10 +10,10 @@ words as well.
 
 ## Why
 
-Seen in the sprint 6m walk (2026-11-01, michi): Refresh seemed to do nothing. `_refreshAll`
-(`lib/src/ui/shell.dart`) reads the registry, the joinable projects and each connected machine. On the *Projects*
-list there is no status bar, so Refresh there shows nothing at all; only a project page has the bottom bar, which
-said "Refreshed: 0 tasks." (`lib/src/app/fleet_model.dart`), reading as if nothing was looked at.
+Pressing *Refresh* gives no visible feedback on list pages. `_refreshAll` (`lib/src/ui/shell.dart`) reads the
+registry, the joinable projects and each connected machine, yet on the *Projects* list there is no status bar, so
+Refresh shows nothing at all; only a project page has the bottom bar, which says "Refreshed: 0 tasks."
+(`lib/src/app/fleet_model.dart`), reading as if nothing was looked at.
 
 ## The shape
 

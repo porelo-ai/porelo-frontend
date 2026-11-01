@@ -1,13 +1,13 @@
 # F263 — The Give-Back Confirmation Says What Is Lost
 
-**Status:** Idea. Held as an Idea (operator, 2026-10-30, after walk 23): GUI changes wait until he has gone through the whole flow again.
+**Status:** Idea. Held: GUI changes wait until the whole flow has been gone through again.
 **Size:** XS - *Take the server down?* shows only the server's name and what is lost, and keeps still while shown.
 
 **What must be true.** The confirmation of taking a server down names the server and says what is lost (the server, its disk, the projects on it, and its VPN on this computer). It shows none of the host's public values (address, keys, `ca_sha256`) and no copy buttons. Its layout does not change while it is open.
 
 ## Why
 
-Operator's walk 23, step 12-15 (2026-10-30): the confirmation showed the host's public values with copy buttons, and the list jumped while shown.
+The confirmation dialog shows the host's public values with copy buttons, and its layout jumps while open.
 
 ## Plan
 

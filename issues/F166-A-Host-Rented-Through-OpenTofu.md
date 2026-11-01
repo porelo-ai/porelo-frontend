@@ -10,10 +10,10 @@ any provider the module covers. `--given` stays for a machine one has, which `to
 
 ## Why
 
-The operator decided on 2026-10-24 that `porelo-host` calls `tofu` itself, rather than the
-administrator running it apart. Today `packages/porelo_host` rents at Scaleway by its own API calls
-(`lib/src/scaleway.dart`), one adapter per provider in Dart; that issue moves the renting into one
-OpenTofu module per provider, and this is the package's half of that contract.
+`porelo-host` calls `tofu` itself, rather than the administrator running it apart. Today
+`packages/porelo_host` rents at Scaleway by its own API calls (`lib/src/scaleway.dart`), one adapter
+per provider in Dart; that issue moves the renting into one OpenTofu module per provider, and this
+is the package's half of that contract.
 
 ## To be checked
 
@@ -32,13 +32,13 @@ OpenTofu module per provider, and this is the package's half of that contract.
   `known_hosts`; the private half then lies in the state, encrypted.
 - **The secrets:** the Scaleway key from the system's secret store (`porelo-host/scaleway`) and the
   state's passphrase passed only in `tofu`'s environment, never an argument, a file or a line it
-  prints; the module needs `SCW_ACCESS_KEY` as well (Agent Machines, 2026-10-24),
+  prints; the module needs `SCW_ACCESS_KEY` as well,
   which `key set scaleway` does not keep today: kept beside the secret key, or as a plain setting,
   since it is no secret; and `tofu`'s own output read for anything secret before it is relayed as a step.
 - **The module's arrival:** the release's `porelo-host-tofu-<version>.tar.gz` checked against its
   `SHA256SUMS` before it is unpacked, as the collection is; the `tofu` on `PATH` refused unless
   `tofu version -json` names the pinned version, before anything is rented.
-- **The state and its key,** as the operator decided on 2026-10-24: the state in the person's
+- **The state and its key:** the state in the person's
   drive, in the project's folder there (the one the dialog's *Its synced folder on this computer*
   names), encrypted; its key in the system's secret store beside the Scaleway key, entered once on
   another computer, never in a file, an argument or the drive. What `up` says when that key is

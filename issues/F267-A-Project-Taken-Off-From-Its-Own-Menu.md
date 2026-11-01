@@ -1,12 +1,12 @@
 # F267 — A Project Taken Off From Its Own Menu
 
-**Status:** Idea. Held as an Idea (operator, 2026-10-30, after walk 23): GUI changes wait until he has gone through the whole flow again.
+**Status:** Idea. Held: GUI changes wait until the whole flow has been gone through again.
 
 **What must be true.** On a computer where the project is configured, its own menu's *Take this project off the server* is available to the host admin as to the project admin, and takes the project off the server it is on. The server menu's *Take a project off* stays for projects not configured here.
 
 ## Why
 
-Operator's walk 23, step 12-1 (2026-10-30): the project's own *Take this project off the server* was unavailable for the host admin and pointed to the server menu. Checking the secrets entries first is [F261](README.md#f261).
+On a computer where the project is configured, the project's own *Take this project off the server* is unavailable for the host admin and points to the server menu instead. Checking the secrets entries first is [F261](README.md#f261).
 
 ## Plan
 

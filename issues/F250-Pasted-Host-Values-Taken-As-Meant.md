@@ -7,7 +7,7 @@
 
 ## Why
 
-Operator's walk 23 on VM A (2026-10-30): the JSON copied from a chat held two blanks after `ssh-ed25519` in `ssh_host_key`. The field said only "Paste the complete public host values", which did not say which value was wrong or why.
+When the public host values JSON copied from a chat holds extra blanks (such as two blanks after `ssh-ed25519` in `ssh_host_key`), the field says only "Paste the complete public host values", without naming which value is wrong or why.
 
 ## Plan
 
