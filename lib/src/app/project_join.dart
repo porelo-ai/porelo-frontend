@@ -251,8 +251,13 @@ bool _usable(String address) {
 }
 
 /// Whether a homeserver Core answered is an `https://` base URL with a real host, as Core's rule has it: no user part,
-/// query or fragment, a port of 1 to 65535, and at most a path.
+/// query or fragment, a port of 1 to 65535, and at most a path. A `unix:` socket on the host itself, behind its gate,
+/// is one too: this interface reaches it through the host card's fixed Matrix port, never by this address.
 bool _homeserver(String url) {
+  if (url.startsWith('unix:')) {
+    final socket = url.substring('unix:'.length);
+    return RegExp(r'^(/[A-Za-z0-9._-]+)+$').hasMatch(socket) && !socket.split('/').any((part) => part == '..');
+  }
   final https = RegExp('^https://($_addressHost|\\[[0-9A-Fa-f:.]+\\])(?::([0-9]{1,5}))?(/[^\\s]*)?\$').firstMatch(url);
   return https != null && !_credential(url) && _host(https.group(1)!) && _port(https.group(2));
 }
@@ -364,7 +369,7 @@ Map<String, Object?> _object(Object? entry) =>
   if (!_usable(source)) return (key, unusable('its project repository address is in a form not followed here'));
   if (!_usable(access)) return (key, unusable('its access repository address is in a form not read here'));
   if (homeserver != null && !_homeserver(homeserver)) {
-    return (key, unusable('its homeserver is not an https base URL this interface reaches'));
+    return (key, unusable('its homeserver is neither an https base URL nor a socket on its host'));
   }
   final PreparedHost host;
   try {

@@ -9,6 +9,11 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- A project whose access file names its homeserver as a socket on its host (`unix:/run/porelo-matrix/client.sock`,
+  behind the host's gate) can be joined again instead of showing "its homeserver is not an https base URL this
+  interface reaches". The interface reaches such a homeserver through the host card's fixed Matrix port, never by that
+  address; a relative socket path or one with `..` is still refused.
+
 - Retry on a filed project registration whose project moved on since no longer stays refused with "The pending
   project selection differs from the verified state". While Core still names the person, with that key, as a signing
   project admin on that host, the host gets the project and access as they are now, and the registration is recorded

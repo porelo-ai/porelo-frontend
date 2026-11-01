@@ -663,6 +663,8 @@ void main() {
     ('source', 'https://forge.example:65536/team/demo.git'),
     ('homeserver', 'matrix.example'),
     ('homeserver', 'https://matrix.example:0'),
+    ('homeserver', 'unix:run/porelo-matrix/client.sock'),
+    ('homeserver', 'unix:/run/../etc/client.sock'),
   ]) {
     test('a joinable $field $value is its own refusal, never offered', () {
       final json = joinable();
@@ -672,6 +674,15 @@ void main() {
       expect(rows.whereType<JoinUnusable>().single.key, 'demo@orchard');
     });
   }
+
+  // Harm: a project whose homeserver is a socket behind its host's gate can never be joined from here.
+  test('a homeserver socket on the host is read', () {
+    final json = joinable();
+    _first(json)['homeserver'] = 'unix:/run/porelo-matrix/client.sock';
+    final offer = readJoinable(json, login: 'porelo-alice').whereType<JoinOffered>().single;
+    expect(offer.homeserver, 'unix:/run/porelo-matrix/client.sock');
+    offer.check();
+  });
 
   test('a homeserver base URL with a port and a path is read', () {
     final json = joinable();
