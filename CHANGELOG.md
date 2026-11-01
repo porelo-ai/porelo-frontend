@@ -9,6 +9,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- *Follow a project by its address* takes the project's signers from the registry: the keys of the project
+  admins it names for that project, from cards it trusts. Before, following by address was never possible.
+
 - *Register the project* writes the first access file into an access repository that holds no commit yet,
   instead of refusing it, and takes that first commit only when it has no parent. A failed first filing can be
   retried, and adding a person before the project is registered is refused in words.

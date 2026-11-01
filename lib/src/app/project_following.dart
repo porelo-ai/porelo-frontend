@@ -3,9 +3,36 @@ import 'package:porelo_frontend/client.dart';
 import 'package:porelo_host/porelo_host.dart' show quoteForAShell, checkedEd25519;
 
 import 'fleet_backend.dart';
+import 'machine_binding.dart' show keyPart;
+import 'registry.dart';
 
 /// Reads Core's verified project-admin public keys for this exact project and repository.
 typedef ResolveProjectAdminSigners = Future<List<String>> Function(String name, String url);
+
+/// The project admins the accepted registry names for the project, by the keys of their trusted cards: the signers a
+/// follow by address checks the project's commits against. The address itself is checked by those signatures.
+ResolveProjectAdminSigners registryAdminSigners(Registry? Function() registry) => (name, url) async {
+  final read = registry();
+  if (read == null) {
+    throw const RegistryRefusal('Choose the registry repository first, so its project admins are known.');
+  }
+  if (read.accepted == null || read.problem != null || read.busy) {
+    throw const RegistryRefusal('Refresh the registry, then verify the signers again.');
+  }
+  final admins = {
+    for (final host in read.hosts)
+      for (final project in host.projects)
+        if (project.name == name) project.admin,
+  };
+  final keys = {
+    for (final card in read.people)
+      if (card.trusted && admins.contains(card.login)) keyPart(card.key),
+  };
+  if (keys.isEmpty) {
+    throw RegistryRefusal('The registry names no project admin of $name with a trusted card. Nothing was followed.');
+  }
+  return keys.toList();
+};
 
 /// Following a project's repository, which is the only way a project comes to a machine.
 ///
@@ -107,6 +134,8 @@ class ProjectFollowing extends ChangeNotifier {
         checkedEd25519(signer);
       }
       adminSigners = List.unmodifiable(signers);
+    } on RegistryRefusal catch (refused) {
+      if (_current(request, selected)) problem = refused.words;
     } catch (_) {
       if (_current(request, selected)) {
         problem = 'Project-admin signer verification was not confirmed. Nothing was followed.';

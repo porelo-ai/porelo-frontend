@@ -185,7 +185,7 @@ Future<PoreloApp> _compose() async {
     deleting: ProjectDeletion(),
     readiness: HostReadiness(),
     authentication: Authentication(),
-    following: ProjectFollowing(),
+    following: ProjectFollowing(resolveAdminSigners: registryAdminSigners(() => registry.registry)),
     connections: Connections(),
     backups: Backups(),
     narrowing: Narrowing(),
