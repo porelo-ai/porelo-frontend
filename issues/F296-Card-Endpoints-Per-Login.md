@@ -21,6 +21,9 @@ Seen in the sprint 6m walk (2026-11-01):
 - A master started before a restart of the interface was left running (pid 4089042, 13:29Z). Register's connect wrote
   the configuration again before raising, so the orphan check of the earlier fix (control socket there,
   configuration gone) no longer held, and Retry was refused with "an endpoint already exists and was left alone".
+- Quitting the interface (`q` in `flutter run`, 2026-11-01 Step 19) left its walk6m master running (pid 2314745),
+  holding the local ports; the Coordinator ended it by hand before the dev instance could join. Commit c5aea871 ends a
+  same-login leftover on the next raise, but not one of a person who does not open the interface again.
 - Ending or adopting a master this instance did not start is unsafe while paths are shared: it could end the other
   instance's live tunnel, or reach another person's daemon.
 
@@ -40,6 +43,8 @@ Seen in the sprint 6m walk (2026-11-01):
   same login with its configuration present is ended on raise.
 
 ## Acceptance
+
+- Quitting the interface, or its window closing, ends every card master it started and removes their endpoints.
 
 - Two instances of one account, each with its own login, hold tunnels to one host at the same time.
 - Retry after a restart of the interface raises the tunnel without a hand-ended process.
