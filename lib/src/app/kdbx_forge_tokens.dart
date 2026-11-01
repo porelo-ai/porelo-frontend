@@ -29,6 +29,27 @@ String? forgeTokenEntryFromArguments(List<String> arguments) {
   return entry;
 }
 
+/// The variable Core's registry check takes the organization's installation token from, declared once by
+/// `prepare-github-test-token.sh` with `porelo credentials declare … --env`.
+const registryTokenVariable = 'PORELO_GITHUB_APP_TOKEN';
+
+/// The environment for Core's `porelo registry …` of an instance started with [entry]: the token of a GitHub App's
+/// installation entry (`github-app-…`), read from the test secrets file at each call and kept nowhere; nothing for any
+/// other entry, or while the test secrets file is not there, when Core takes its vault as before.
+Future<Map<String, String>> Function()? registryEnvironmentFor(
+  String? entry, {
+  KeyFileSecrets? Function()? secrets,
+  RunHere? run,
+}) {
+  if (entry == null || !entry.startsWith('github-app-')) return null;
+  return () async {
+    final test = (secrets ?? KeyFileSecrets.test)();
+    if (test == null || !test.present) return const {};
+    final token = await KeyFileForgeTokens(test, MemoryForgeTokens(), entry: entry, run: run).read('github.com');
+    return token == null ? const {} : {registryTokenVariable: token};
+  };
+}
+
 /// A KeePassXC file opened by its key file alone, with no master password: the test secrets file that
 /// `prepare-github-test-token.sh` writes and `drop-github-test-token.sh` deletes.
 class KeyFileSecrets {

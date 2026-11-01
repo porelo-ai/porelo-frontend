@@ -116,6 +116,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   file `secrets.key` with no master password, while that file is there. Nothing is written to it from here; without
   it, tokens stay in this computer's system store as before.
   `--forge-token-entry NAME` names the one entry an instance reads, so each person's instance reads its own token.
+  An instance started with a GitHub App's installation entry (`github-app-…`) hands that token to Core's
+  `porelo registry …` as `PORELO_GITHUB_APP_TOKEN`, read anew at each call.
 
 - Project registration and person management use verified registry admission, project-scoped card eligibility,
   and active admin signers. Signed access changes retain durable publication and delivery receipts across

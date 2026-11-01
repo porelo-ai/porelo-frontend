@@ -109,6 +109,35 @@ void main() {
     }
   });
 
+  // Harm: Core's registry check runs without the organization's token, with the developer's, or with an expired one.
+  test(
+    'Core\'s registry calls of the organization\'s instance get the installation token, read anew each time',
+    () async {
+      entries = {'github-app-5539409-installation': 'ghs_first'};
+      expect(registryEnvironmentFor(null), isNull);
+      expect(registryEnvironmentFor('github-ms-test-reviewer'), isNull, reason: 'a person\'s token is no App token');
+      final environment = registryEnvironmentFor('github-app-5539409-installation', secrets: () => secrets, run: run)!;
+      expect(await environment(), isEmpty, reason: 'no test secrets file: Core takes its vault');
+      prepared();
+      expect(await environment(), {'PORELO_GITHUB_APP_TOKEN': 'ghs_first'});
+      entries = {'github-app-5539409-installation': 'ghs_renewed'};
+      expect(await environment(), {'PORELO_GITHUB_APP_TOKEN': 'ghs_renewed'});
+    },
+  );
+
+  // Harm: the token reaches some other program, or never reaches Core's registry call.
+  test('only porelo registry gets the registry environment', () async {
+    final bin = Directory('${folder.path}/bin')..createSync();
+    final fake = File('${bin.path}/porelo')
+      ..writeAsStringSync('#!/bin/sh\nprintf "%s" "\${PORELO_GITHUB_APP_TOKEN:-none}"\n');
+    await Process.run('/bin/chmod', ['+x', fake.path]);
+    registryEnvironment = () async => {'PORELO_GITHUB_APP_TOKEN': 'ghs_x'};
+    addTearDown(() => registryEnvironment = null);
+    final path = {'PATH': '${bin.path}:/usr/bin:/bin'};
+    expect((await runHere('porelo', ['registry', 'read'], environment: path)).out, 'ghs_x');
+    expect((await runHere('porelo', ['project', 'verify'], environment: path)).out, 'none');
+  });
+
   // Harm: a second instance with its own runtime folder looks for the test file somewhere prepare never wrote it.
   test('the test secrets file is named by the account id, not the runtime folder', () {
     final status = File('${folder.path}/status')..writeAsStringSync('Name:\tx\nUid:\t1000\t1000\t1000\t1000\n');

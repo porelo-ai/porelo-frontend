@@ -13,6 +13,10 @@ typedef RunHere = Future<Ran> Function(
   String? input,
 });
 
+/// What a call of Core's `porelo registry …` gets in its environment beside [runHere]'s own, read anew at each call; null
+/// for nothing. Set at the start for an instance acting for the organization, so a token renewed meanwhile is taken.
+Future<Map<String, String>> Function()? registryEnvironment;
+
 /// Runs a process with this computer's environment plus [environment].
 Future<Ran> runHere(
   String program,
@@ -21,6 +25,9 @@ Future<Ran> runHere(
   Map<String, String> environment = const <String, String>{},
   String? input,
 }) async {
+  if (registryEnvironment case final extra? when program == 'porelo' && arguments.firstOrNull == 'registry') {
+    environment = {...environment, ...await extra()};
+  }
   final process = await Process.start(program, arguments, workingDirectory: inDirectory, environment: environment);
   if (input != null) process.stdin.write(input);
   await process.stdin.close();
