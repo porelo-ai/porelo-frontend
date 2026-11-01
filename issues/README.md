@@ -95,6 +95,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="f301"></a>[F301](F301-Persons-Of-A-Project-In-One-Place.md) | L | — | One Persons section on a project page replacing the developers dialog: members with their own menus, a clear Add picker, no host step in a project edit. |
+| <a id="f304"></a>[F304](F304-No-Message-Asks-A-Step-The-Interface-Can-Take.md) | M | — | No message tells the person to do a step the interface can take itself; actions read what they need and say so. |
 | <a id="f297"></a>[F297](F297-Register-Progress-With-Its-Steps-And-Usual-Time.md) | M | — | Register's dialog shows which step of how many runs, with a progress bar and the usual time per step. |
 | <a id="f303"></a>[F303](F303-Menus-Beside-What-They-Act-On.md) | M | — | Each ⋮ menu placed with the row, section or title it acts on. |
 | <a id="f302"></a>[F302](F302-Refresh-Shows-What-It-Did.md) | S | — | Refresh shows that it runs and ends with what it read or what failed. |
