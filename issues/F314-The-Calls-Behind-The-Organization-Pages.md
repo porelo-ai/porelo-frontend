@@ -7,6 +7,7 @@
 
 ## Plan
 
+- `lib/src/ui/machine_details_page.dart`, `lib/src/app/registry_pages.dart`: a machine's page offers no action on a person any more: *Admit*, the host lock and unlock, *Delete the account* and *Replace a lost key* on a host go with the registry's operations. A person is locked in their project by its admins; a person no longer a member of any project a host carries is locked there and their account deleted by the host itself.
 - `lib/src/app/organization_source.dart`: an implementation over `porelo org …` and `porelo project …`, each answer read field by field, as `doc/Backend-API.md` will say.
 - `lib/src/ui/forges_page.dart`: the *Registry* section and *Choose the registry repository…* go; signed in as, Git over ssh, the check, disconnect and used by stay.
 - `registry_pages.dart`, `registry_persons.dart`, `registry_read_source.dart` and the `registryRepository` setting go; "registry" leaves texts, commands and documents, except where a GitHub organization or a forge organization is meant, which is always spelled out.
