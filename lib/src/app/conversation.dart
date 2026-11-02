@@ -214,7 +214,7 @@ class ProjectConversation extends ChangeNotifier {
         case 'ConversationRefused':
           problem = 'The transport refused it: ${said['message'] ?? ''}';
         case 'NoSuchProject':
-          problem = 'This machine does not follow ${project.name}.';
+          problem = '${project.name} is not on this machine.';
         default:
           problem = 'The machine refused it: ${said['message'] ?? refusal.simpleName}.';
       }

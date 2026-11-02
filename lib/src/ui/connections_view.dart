@@ -94,7 +94,7 @@ class ConnectionsView extends StatelessWidget {
                 Text(
                   'Only the description is kept here; a value is stored on the machine and '
                   'never passes through this program. A key or a token reaches everything its '
-                  'owner can — a restricted, read-only token is enough to follow a repository.',
+                  'owner can — a restricted, read-only token is enough to fetch a repository.',
                   key: const Key('connections-explained'),
                   style: text.bodySmall,
                 ),

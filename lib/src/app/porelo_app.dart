@@ -28,14 +28,11 @@ import 'operations.dart';
 import 'connections.dart';
 import '../ui/pick_a_file.dart';
 import '../ui/walk_texts.dart';
-import 'project_following.dart';
 import 'project_deletion.dart';
 import 'session.dart';
 import 'settings.dart';
 import 'shell_model.dart';
-import 'project_join.dart' show JoinDiscovery, JoinHost;
-import 'project_access.dart' show ProjectAccess;
-import 'registry_pages.dart';
+import 'organization_source.dart';
 import 'forge_key_check.dart';
 
 /// The application: one window, one frame, one backend at a time.
@@ -61,13 +58,12 @@ class PoreloApp extends StatelessWidget {
     required this.deleting,
     required this.readiness,
     required this.authentication,
-    required this.following,
     required this.connections,
     this.forges,
-    this.registryPages,
-    this.joinDiscovery,
-    this.joinHost,
-    this.projectAccess,
+    this.settingsDropped = false,
+    this.organizationSource,
+    this.hostConnections,
+    this.connectionsFor,
     this.forgeKeyCheck,
     this.hostAccess,
     this.pickAFile = pickWithTheDesktop,
@@ -81,23 +77,22 @@ class PoreloApp extends StatelessWidget {
   /// A guided walk beside the window, in a development build started with one; else null.
   final WalkSession? walk;
 
-  /// The optional verified registry adapter used by item pages.
-  final RegistryPages? registryPages;
+  /// Whether this start dropped settings from before the organization model, which the person is told once.
+  final bool settingsDropped;
 
-  /// Core's discovery of where the person may join, once it is served; without it no join row is shown.
-  final JoinDiscovery? joinDiscovery;
+  /// Where the organization is read and changed, absent while this computer reads none.
+  final OrganizationSource? organizationSource;
 
-  /// The card tunnel and the account daemon's follow a join goes through.
-  final JoinHost? joinHost;
+  /// This person's connection to each host of the organization, absent while this computer reads none.
+  final HostConnections? hostConnections;
 
-  /// Each project's Register and Add a developer, absent while not composed; without it they are listed unavailable.
-  final ProjectAccess? Function(String project)? projectAccess;
+  /// Makes the connections from the organization the shell reads, where [hostConnections] gives none.
+  final HostConnections Function(Organization organization)? connectionsFor;
 
   /// Whether the person's key is listed on their central forge account.
   final ForgeKeyCheck? forgeKeyCheck;
 
-  /// A host admin's registry changes and their delivery to hosts, checked against `owners.yml` and Core's proven
-  /// identity; without it no host may be prepared or admitted to.
+  /// Who may prepare a host, judged on what `porelo org` answers; without it no host may be prepared.
   final HostAccess? hostAccess;
 
   /// Every machine being watched.
@@ -157,9 +152,6 @@ class PoreloApp extends StatelessWidget {
   /// What the machine being acted on can authenticate against.
   final Authentication authentication;
 
-  /// Following a repository, which is how a project comes to a machine.
-  final ProjectFollowing following;
-
   /// How a machine connects out.
   final Connections connections;
 
@@ -212,7 +204,6 @@ class PoreloApp extends StatelessWidget {
           deleting,
           readiness,
           authentication,
-          following,
           connections,
           backups,
           narrowing,
@@ -238,13 +229,12 @@ class PoreloApp extends StatelessWidget {
           deleting: deleting,
           readiness: readiness,
           authentication: authentication,
-          following: following,
           connections: connections,
           forges: forges,
-          registryPages: registryPages,
-          joinDiscovery: joinDiscovery,
-          joinHost: joinHost,
-          projectAccess: projectAccess,
+          settingsDropped: settingsDropped,
+          organizationSource: organizationSource,
+          hostConnections: hostConnections,
+          connectionsFor: connectionsFor,
           forgeKeyCheck: forgeKeyCheck,
           hostAccess: hostAccess,
           pickAFile: pickAFile,

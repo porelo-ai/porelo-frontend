@@ -24,8 +24,6 @@ Future<void> naming(WidgetTester tester, String name, Map<String, String> creden
               preparedState: project.preparedState,
               repositories: project.repositories,
               repositoryStates: project.repositoryStates,
-              following: project.following,
-              followingAnswered: project.followingAnswered,
               credentials: credentials,
               credentialsAnswered: true,
             )

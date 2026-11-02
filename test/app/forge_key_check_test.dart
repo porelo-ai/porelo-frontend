@@ -5,8 +5,8 @@ import 'package:porelo_frontend/src/app/forge_key_check.dart';
 import 'package:porelo_frontend/src/app/run_here.dart';
 
 Map<String, Object?> _answer({Object? keyListed = true, bool revoked = false, String? cardRefused}) => {
-  'login': 'ms-test-reviewer',
-  'name': 'MS Test Reviewer',
+  'login': 'rowan-example',
+  'name': 'Rowan Example',
   'email': null,
   'fingerprint': 'SHA256:BvxPEq',
   'key': 'ssh-ed25519 AAAA',
@@ -14,11 +14,11 @@ Map<String, Object?> _answer({Object? keyListed = true, bool revoked = false, St
   'agent_holds_key': true,
   'revoked': revoked,
   'card_refused': cardRefused,
-  'registry': <Object?>[],
+  'organization': <Object?>[],
   'forge': {
-    'login': 'ms-test-reviewer',
+    'login': 'rowan-example',
     'key_listed': keyListed,
-    'keys_url': 'https://github.com/ms-test-reviewer.keys',
+    'keys_url': 'https://github.com/rowan-example.keys',
     'account_url': 'https://github.com/settings/keys',
   },
   'pending': <Object?>[],
@@ -94,7 +94,7 @@ void main() {
     expect(reading.good, isTrue);
     final forge = (reading as ForgeKeyAnswered).forge!;
     expect(forge.accountUrl, Uri.parse('https://github.com/settings/keys'));
-    expect(forge.keysUrl, Uri.parse('https://github.com/ms-test-reviewer.keys'));
+    expect(forge.keysUrl, Uri.parse('https://github.com/rowan-example.keys'));
   });
 
   // Harm: without a known forge the page must say so instead of showing a check.

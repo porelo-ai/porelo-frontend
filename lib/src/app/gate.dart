@@ -71,8 +71,8 @@ class Gate extends ChangeNotifier {
     if (!project.canBeActedOn) {
       waiting = const <PendingPush>[];
       problem =
-          '${project.name} is not a project this machine follows, so it has no gate to '
-          'ask. Following its repository makes it one.';
+          '${project.name} is not on this machine, so it has no gate to '
+          'ask.';
       notifyListeners();
       return;
     }

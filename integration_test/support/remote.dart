@@ -93,9 +93,23 @@ String removingTheWork(String task, String project) =>
     '''
 porelo task stop "$task" >/dev/null 2>&1 || true
 porelo task remove --force "$task" >/dev/null 2>&1 || true
-porelo project unfollow --force "$project" >/dev/null 2>&1 || true
-rm -rf "\$HOME/$project" "\$HOME/$project-backend.git"
+porelo project remove "$project" >/dev/null 2>&1 || true
+${removingTheProjectFiles(project)}
 ''';
+
+/// What registers the project [name] on this account alone: [file], in the place Porelo reads such a project from.
+/// The heredoc is unquoted, so a shell variable in [file] is expanded.
+String writingTheProjectFile(String name, String file) =>
+    '''
+mkdir -p "\${XDG_CONFIG_HOME:-\$HOME/.config}/porelo/projects/$name"
+cat > "\${XDG_CONFIG_HOME:-\$HOME/.config}/porelo/projects/$name/project.yml" <<YAML
+$file
+YAML
+''';
+
+/// What removes what a scenario wrote for the project [name], once `porelo project remove` has taken it away.
+String removingTheProjectFiles(String name) =>
+    'rm -rf "\${XDG_CONFIG_HOME:-\$HOME/.config}/porelo/projects/$name" "\$HOME/$name-backend.git"';
 
 /// What [removeAfterwards] reads to say what is left of work: every task and every project.
 const listingTheWork = 'porelo task list 2>/dev/null; porelo project list 2>/dev/null; ls "\$HOME"';

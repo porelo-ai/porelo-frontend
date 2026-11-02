@@ -292,8 +292,6 @@ class PoreloClient {
     return keys is List ? keys.whereType<Map<String, dynamic>>().map(SshKey.from).toList() : const <SshKey>[];
   }
 
-  // --------------------------------------------------------------------- the registry
-
   // --------------------------------------------------------------------- signing
 
   /// Core's signing policy for [project]: the person's own public key and the allowed-signers lines in force.
@@ -722,72 +720,23 @@ class PoreloClient {
     return id is String ? id : '';
   }
 
-  /// Which project repositories this account follows, and how far each has got.
-  Future<List<Followed>> following() async {
-    final reply = await _call('Following', const <String, dynamic>{});
-    final projects = reply['projects'];
-    return projects is List
-        ? projects.whereType<Map<String, dynamic>>().map(Followed.from).toList()
-        : const <Followed>[];
-  }
-
   /// Brings [task]'s repository at the gate up to its source and tells its agent what moved.
   Future<TaskRefreshed> refreshTask(String task) async =>
       TaskRefreshed.from(await _call('RefreshTask', {'task': task}));
 
-  /// Fetches a followed project's repository now, or every one's when [project] is null, rather than at
-  /// the machine's next round, and answers their records as they are afterwards.
-  ///
-  /// A fetch that failed is a record with its outcome, never an error; a named project this account
-  /// does not follow raises `NoSuchProject`.
-  Future<List<Followed>> refreshProjects({String? project}) async {
-    final reply = await _call('RefreshProjects', {'project': ?project});
-    final projects = reply['projects'];
-    return projects is List
-        ? projects.whereType<Map<String, dynamic>>().map(Followed.from).toList()
-        : const <Followed>[];
-  }
-
-  /// Starts following a project's repository, and reconciles once, now — so a project that comes
-  /// back as taken can have work started in it at once.
-  ///
-  /// [signedBy] is the public key its commits must be signed with; [unverified] follows without
-  /// one. Porelo refuses both together: they are two instructions, not a stricter setting.
-  /// [acceptRewrite] is **only ever** a person's answer to `REWRITTEN`, never a retry.
-  Future<Followed> follow(
-    String name,
-    String url, {
-    String? signedBy,
-    List<String>? signers,
-    bool? unverified,
-    bool? acceptRewrite,
-    bool? dryRun,
-  }) async => Followed.from(<String, dynamic>{
-    'name': name,
-    'url': url,
-    ...await _call('Follow', {
-      'name': name,
-      'url': url,
-      'signedBy': ?signedBy,
-      'signers': ?signers,
-      'unverified': ?unverified,
-      'acceptRewrite': ?acceptRewrite,
-      'dryRun': ?dryRun,
-    }),
-  });
-
   /// Clears this machine of a project, or of every project with none named: its tasks, workspaces,
-  /// gate, mirrors, follow and conversation, leaving what only a person's credentials remove named.
+  /// gate, mirrors and conversation, leaving what only a person's credentials remove named.
   Future<Cleared> clear({String? project, bool? dryRun, bool? force}) async =>
       Cleared.from(await _call('Clear', {'project': ?project, 'dryRun': ?dryRun, 'force': ?force}));
 
-  /// Stops following a project, and removes it and everything Porelo built for it from this machine.
+  /// Removes a project registered on this machine alone, and everything Porelo built for it here.
   ///
   /// It **refuses rather than decides**: unreviewed pushes exist only in the mirror and a running
   /// task is work cut off mid-flight. [force] is how somebody says they meant it. The project's own
-  /// repository is not on this machine and is never touched.
-  Future<Deletion> unfollow(String name, {bool? dryRun, bool? force}) async =>
-      Deletion.from(await _call('Unfollow', {'name': name, 'dryRun': ?dryRun, 'force': ?force}));
+  /// repository is not on this machine and is never touched. A project of the organization and
+  /// `default` are refused. An older daemon raises [FeatureNotSupported], for this call alone.
+  Future<Deletion> removeProject(String name, {bool? dryRun, bool? force}) async =>
+      Deletion.from(await _call('RemoveProject', {'name': name, 'dryRun': ?dryRun, 'force': ?force}));
 
   /// Which logs a task has.
   ///

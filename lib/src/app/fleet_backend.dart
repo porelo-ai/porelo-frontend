@@ -317,9 +317,6 @@ abstract class FleetBackend {
   /// Asks the upstream how far behind a project's mirror is, now.
   Future<Synced> syncUpstream(String project, {String? repository});
 
-  /// Fetches a followed project's repository now, rather than at the machine's next round.
-  Future<List<Followed>> refreshProjects({String? project});
-
   /// Brings a task's repository at the gate up to its source, and tells its agent what moved.
   Future<TaskRefreshed> refreshTask(String task);
 
@@ -351,7 +348,7 @@ abstract class FleetBackend {
   ///
   /// **Never the project file, the checkout or the upstream**: those are the operator's, and
   /// `Deletion.keeps` names them so a confirmation can say so.
-  Future<Deletion> unfollow(String project, {bool? dryRun, bool? force});
+  Future<Deletion> removeProject(String project, {bool? dryRun, bool? force});
 
   /// Clears this machine of [project], or of everything with none; a dry run says what would go.
   Future<Cleared> clear({String? project, bool? dryRun, bool? force});
@@ -379,19 +376,6 @@ abstract class FleetBackend {
 
   /// Records the one key of [host] a person confirmed, if the host still offers it.
   Future<HostKeyTrusted> trustHostKey(String host, String fingerprint);
-
-  /// The repository and verified commit each project follows on this machine.
-  Future<List<Followed>> following();
-
-  /// Follows a project's repository and reconciles once; what came of it is the answer.
-  Future<Followed> follow(
-    String name,
-    String url, {
-    String? signedBy,
-    List<String>? signers,
-    bool? unverified,
-    bool? acceptRewrite,
-  });
 
   /// Blocked connections from every task on this machine, as they happen.
   ///
@@ -526,7 +510,7 @@ abstract class FleetBackend {
   /// What is waiting at a project's gate.
   ///
   /// [projectFile] is `Project.name`: every method takes a project's name, never a path on a
-  /// machine this end cannot see. A project the machine does not follow is listed and not asked
+  /// machine this end cannot see. A project with no file here is listed and not asked
   /// about — a state to render, never a call to make anyway.
   ///
   /// [repository] names one of the project's repositories; without one the daemon answers the
@@ -749,8 +733,6 @@ class PoreloBackend implements FleetBackend {
       _opened().syncUpstream(project, repository: repository);
 
   @override
-  Future<List<Followed>> refreshProjects({String? project}) => _opened().refreshProjects(project: project);
-
   @override
   Future<TaskRefreshed> refreshTask(String task) => _opened().refreshTask(task);
 
@@ -780,8 +762,8 @@ class PoreloBackend implements FleetBackend {
   Future<String> node() => _opened().node();
 
   @override
-  Future<Deletion> unfollow(String project, {bool? dryRun, bool? force}) =>
-      _opened().unfollow(project, dryRun: dryRun, force: force);
+  Future<Deletion> removeProject(String project, {bool? dryRun, bool? force}) =>
+      _opened().removeProject(project, dryRun: dryRun, force: force);
 
   @override
   Future<Cleared> clear({String? project, bool? dryRun, bool? force}) =>
@@ -820,26 +802,6 @@ class PoreloBackend implements FleetBackend {
 
   @override
   Future<HostKeyTrusted> trustHostKey(String host, String fingerprint) => _opened().trustHostKey(host, fingerprint);
-
-  @override
-  Future<List<Followed>> following() => _opened().following();
-
-  @override
-  Future<Followed> follow(
-    String name,
-    String url, {
-    String? signedBy,
-    List<String>? signers,
-    bool? unverified,
-    bool? acceptRewrite,
-  }) => _opened().follow(
-    name,
-    url,
-    signedBy: signedBy,
-    signers: signers,
-    unverified: unverified,
-    acceptRewrite: acceptRewrite,
-  );
 
   @override
   Stream<Prompt> prompts() => _opened().prompts();

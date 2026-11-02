@@ -20,7 +20,7 @@ import 'package:porelo_host/porelo_host.dart' as host;
 
 import '../features/support/world.dart' show FakeBackend, World;
 import '../support/host_process.dart';
-import '../support/host_registry.dart';
+import '../support/host_organization.dart';
 import '../support/host_rental.dart';
 import '../support/host_admin.dart';
 
@@ -74,9 +74,8 @@ Future<({Settings settings, Machines machines, HostRuns runs, _Tunnels tunnels})
   final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: tunnels);
 
   await machines.load();
-  final fixture = RegistryFixture();
+  final fixture = HostFixture();
   final access = await fixture.access(settings);
-  addTearDown(fixture.registry.dispose);
   final runs = _RestoredRuns(
     machines,
     hostAccess: access,

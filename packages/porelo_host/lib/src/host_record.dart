@@ -90,7 +90,7 @@ String checkedEd25519(String value) {
 
 /// The checked SSH completion of a server, before Core signs its host card.
 class PreparedHost {
-  PreparedHost._(this.name, this.address, this.sshPort, this.sshHostKey, this.services);
+  PreparedHost._(this.name, this.address, this.sshPort, this.sshHostKey, this.services, this.hostServices);
 
   /// Reads a saved card, or completes Machines' result using preparation choices.
   ///
@@ -113,12 +113,7 @@ class PreparedHost {
       throw const FormatException('The host completion needs valid ssh_port and ssh_host_key.');
     }
     checkedEd25519(key);
-    if (hostName != null) {
-      final forge = remoteServices is Map ? remoteServices['forge'] : null;
-      if (forge is! Map || [forge['web_port'], forge['git_port']].any((p) => p is! int || p < 1 || p > 65535)) {
-        throw const FormatException('The host completion needs valid forge service ports.');
-      }
-    }
+    final hostServices = _hostServices(hostName == null ? json['host_services'] : remoteServices);
     final services = hostName == null ? remoteServices : localServices ?? defaultLocalServices;
     if (services is! Map<String, Object?>) {
       throw const FormatException('The host completion needs services with port numbers.');
@@ -141,10 +136,35 @@ class PreparedHost {
         'forge': Map<String, int>.unmodifiable({'web_port': ports[0] as int, 'git_port': ports[1] as int}),
         'matrix': Map<String, int>.unmodifiable({'port': ports[2] as int}),
       }),
+      hostServices,
     );
   }
 
-  /// Reads a host card as Core's registry answers it: `host`, `address`, `ssh_port`, `ssh_host_key`, `services` and
+  /// The service ports the host itself reported: a host with no forge or homeserver names none.
+  static Map<String, Map<String, int>> _hostServices(Object? value) {
+    if (value == null) return const {};
+    const wrong = FormatException('The host completion needs valid forge service ports.');
+    if (value is! Map) throw wrong;
+    final kept = <String, Map<String, int>>{};
+    for (final (service, names) in const [
+      ('forge', ['web_port', 'git_port']),
+      ('matrix', ['port']),
+    ]) {
+      final ports = value[service];
+      if (ports == null) continue;
+      if (ports is! Map) throw wrong;
+      kept[service] = Map.unmodifiable({
+        for (final name in names)
+          name: switch (ports[name]) {
+            final int port when port >= 1 && port <= 65535 => port,
+            _ => throw wrong,
+          },
+      });
+    }
+    return Map.unmodifiable(kept);
+  }
+
+  /// Reads a host card as the organization answers it: `host`, `address`, `ssh_port`, `ssh_host_key`, `services` and
   /// `signed_by`, with the address in any form Core's card takes (a host name, an IPv4 or an IPv6 address).
   factory PreparedHost.card(Object? json) {
     if (json is! Map<String, Object?>) throw const FormatException('The host card needs an object.');
@@ -180,6 +200,7 @@ class PreparedHost {
         'forge': Map<String, int>.unmodifiable({'web_port': ports[0] as int, 'git_port': ports[1] as int}),
         'matrix': Map<String, int>.unmodifiable({'port': ports[2] as int}),
       }),
+      const {},
     );
   }
 
@@ -189,7 +210,7 @@ class PreparedHost {
     if (!isUsableHostAddress(address)) {
       throw const FormatException('The host completion needs a usable host name or IP address.');
     }
-    return PreparedHost._(name, address, sshPort, sshHostKey, services);
+    return PreparedHost._(name, address, sshPort, sshHostKey, services, hostServices);
   }
 
   /// The server's DNS label.
@@ -207,6 +228,9 @@ class PreparedHost {
   /// The fixed local service ports, grouped as in the signed host card.
   final Map<String, Map<String, int>> services;
 
+  /// The service ports the host itself reported, by service; what its card in the organization names.
+  final Map<String, Map<String, int>> hostServices;
+
   /// The person's default local ends of the SSH forwards.
   static const defaultLocalServices = {
     'forge': {'web_port': 3000, 'git_port': 3001},
@@ -220,6 +244,7 @@ class PreparedHost {
     'ssh_port': sshPort,
     'ssh_host_key': sshHostKey,
     'services': services,
+    if (hostServices.isNotEmpty) 'host_services': hostServices,
   };
 
   /// The same checked completion shape retained for publication and retry.

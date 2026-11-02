@@ -11,6 +11,7 @@ porelo-host up|down (--host-name NAME | --project NAME --account NAME)
             [--legacy-rental] [--rental-tag TAG]
             [--give-back-anyway]
             [--collection FILE --collection-sha256 HEX]
+            [--machine-file FILE]
 porelo-host find --project NAME --scaleway-project ID [--zone fr-par-1]
 porelo-host key set|forget PROVIDER
 porelo-host key set scaleway [--from-file FILE]
@@ -33,6 +34,7 @@ Exit: 0 done, 64 usage, 65 refused, 69 unreachable, 70 an unforeseen fault, 75 w
 --scaleway-project rents from Scaleway Elastic Metal, with the key `key set scaleway` kept; --offer names
             another Elastic Metal offer than EM-I220E-NVME.
 --given names a machine that exists already, with its host key; nothing is rented or given back.
+--machine-file names the file whose organization part a server's up takes; up of a server refuses without it.
 --give-back-anyway gives the host back after a down play that did not finish; what it held is gone.''';
 
 // Ends with the run's code at once: an HTTPS connection to the provider, kept for reuse, would hold
@@ -119,7 +121,7 @@ Future<int> runHostCommand(
       return wrong('unknown or incomplete option');
     }
   }
-  if (options.containsKey('machine-file') != options.containsKey('bundle')) {
+  if (!options.containsKey('host-name') && options.containsKey('machine-file') != options.containsKey('bundle')) {
     err.writeln('porelo-host: --machine-file needs --bundle and vice versa');
     return Exit.refused;
   }
@@ -137,8 +139,8 @@ Future<int> runHostCommand(
     if (!legacyRental && verb == 'up' && !options.containsKey('given')) 'public-key',
   ];
   if (serverOnly &&
-      (options.containsKey('project') || options.containsKey('account') || options.containsKey('machine-file'))) {
-    return wrong('a server takes no project or account');
+      (options.containsKey('project') || options.containsKey('account') || options.containsKey('bundle'))) {
+    return wrong('a server takes no project, account or bundle');
   }
   if (options['forge'] != null && !const ['true', 'false'].contains(options['forge'])) {
     return wrong('--forge needs true or false');
@@ -155,6 +157,7 @@ Future<int> runHostCommand(
     err.writeln('Verified SSH-only preparation requires the served Core and host setup contracts.');
     return Exit.refused;
   }
+  if (verb == 'up' && !options.containsKey('machine-file')) return wrong('a server needs --machine-file');
   final HostPreparationSettings choices;
   try {
     choices = HostPreparationSettings.fromArguments([

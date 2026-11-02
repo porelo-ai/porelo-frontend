@@ -1,19 +1,14 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:porelo_host/porelo_host.dart' show PreparedHost, HostPreparationSettings;
+import 'package:porelo_host/porelo_host.dart' show HostPreparationSettings;
 
-import '../app/fleet_backend.dart';
 import '../app/host_runs.dart';
 import '../app/host_access.dart';
 import '../app/host_session.dart';
 import '../app/machines.dart';
 import '../app/session.dart';
 import '../app/settings.dart';
-import '../app/signed_host_actions.dart';
-import '../app/project_access.dart';
-import 'project_bring_dialog.dart';
 import 'tokens.dart';
 import 'host_preparation_settings.dart';
 import 'pick_a_file.dart';
@@ -40,28 +35,6 @@ Future<void> openHostTakeDownDialog(
     hostAccess: hostAccess,
     start: start,
     takeDownOnly: true,
-  ),
-);
-
-/// Opens registration using verified state from Core.
-Future<void> openHostDialog(
-  BuildContext context, {
-  required String project,
-  required Machines machines,
-  required Settings settings,
-  required FleetBackend backend,
-  OpenTerminal? openTerminal,
-  SignedHostActions? actions,
-  ProjectAccess? access,
-}) => showDialog<void>(
-  context: context,
-  builder: (_) => ProjectBringDialog(
-    project: project,
-    machines: machines,
-    settings: settings,
-    backend: backend,
-    actions: actions,
-    access: access,
   ),
 );
 
@@ -118,7 +91,7 @@ class HostDialog extends StatefulWidget {
   /// The setup owner, retained when this dialog closes.
   final HostRuns? hostRuns;
 
-  /// Registry lifecycle operations for standalone give-back.
+  /// Who may prepare a host, for a dialog with no setup owner.
   final HostAccess? hostAccess;
 
   /// The public protocol opened from its row.
@@ -155,19 +128,13 @@ class _HostDialogState extends State<HostDialog> {
   void initState() {
     super.initState();
     _choices = _record?.preparationSettings ?? widget.existingRun?.record.preparationSettings ?? _choices;
-    _givenBack = _settings.hostReturned(widget.project);
-    _problem = pendingHostRegistryGiveBack(
-      host: widget.project,
-      settings: _settings,
-      access: widget.hostAccess ?? widget.hostRuns?.hostAccess,
-    );
     // Root's bootstrap line names the card key, so it is shown only once the identity was read again.
     final access = widget.hostAccess ?? widget.hostRuns?.hostAccess;
     if (access?.proof == null) {
       _proven = true;
     } else {
       unawaited(
-        access!.proveAgain().whenComplete(() {
+        access!.readAgain().whenComplete(() {
           if (mounted) setState(() => _proven = true);
         }),
       );
@@ -179,9 +146,7 @@ class _HostDialogState extends State<HostDialog> {
   // Only a named host's own admins may prepare it, so nothing is offered before the name.
   String? _refusal(HostAccess access) {
     final name = _name.text.trim();
-    return name.isEmpty
-        ? 'Name the host first: only the admins owners.yml names for it may prepare it.'
-        : access.unavailable(name);
+    return name.isEmpty ? 'Name the host first: only its host admins may prepare it.' : access.unavailable(name);
   }
 
   Future<void> _prepare() async {
@@ -192,6 +157,13 @@ class _HostDialogState extends State<HostDialog> {
     });
     try {
       final name = _name.text.trim();
+      final runs = widget.hostRuns;
+      if (runs == null) throw StateError('The host preparation owner is unavailable.');
+      final access = runs.hostAccess;
+      if (access == null) throw const HostAccessRefused('The verified host admins are unavailable.');
+      // Read anew here: nothing is rented for a key revoked since the dialog opened, nor for a pin that cannot hold.
+      final machineFile = await access.machineFile(name);
+      if (!mounted) return;
       final record = HostUpRecord.fromStored(
         HostUpRecord(
           hostName: name,
@@ -201,6 +173,7 @@ class _HostDialogState extends State<HostDialog> {
           preparationSettings: _choices,
           collection: _collection ?? '',
           collectionSha256: _digest.text.trim(),
+          machineFile: machineFile,
         ).stored,
       );
       if (record == null ||
@@ -211,11 +184,6 @@ class _HostDialogState extends State<HostDialog> {
           'Choose a host name, a server address, SSH host key, collection and its published SHA-256.',
         );
       }
-      final runs = widget.hostRuns;
-      if (runs == null) throw StateError('The host preparation owner is unavailable.');
-      // Nothing is registered for a key revoked or taken out of the agent since the dialog opened.
-      await runs.hostAccess?.proveAgain();
-      if (!mounted) return;
       final existing = runs.of(name);
       if (_settings.hostUp(name) != null || existing != null && (existing.running || existing.waiting)) {
         throw const FormatException(
@@ -231,6 +199,8 @@ class _HostDialogState extends State<HostDialog> {
       setState(() {});
       await _started!.finished;
       if (mounted) setState(() => _problem = _started!.problem);
+    } on HostAccessRefused catch (refused) {
+      if (mounted) setState(() => _problem = refused.words);
     } on StateError catch (error) {
       if (mounted) setState(() => _problem = error.message.toString());
     } on Exception catch (error) {
@@ -264,12 +234,7 @@ class _HostDialogState extends State<HostDialog> {
       if (owner != null) {
         _problem = await owner.confirmDown(widget.project, session);
       } else {
-        _problem = await confirmHostRegistryGiveBack(
-          host: widget.project,
-          session: session,
-          settings: _settings,
-          access: widget.hostAccess,
-        );
+        _problem = widget.hostAccess?.cardLeftBehind(widget.project);
         await _settings.forgetHostUp(widget.project);
       }
       for (final machine
@@ -317,7 +282,7 @@ class _HostDialogState extends State<HostDialog> {
                 ),
               if (!widget.takeDownOnly && run == null) ...[
                 if (access == null)
-                  const Text('Verified host-admin identity and registry state are unavailable.')
+                  const Text('Verified host-admin identity and the organization are unavailable.')
                 else if (_refusal(access) case final reason? when reason != _problem)
                   Text(reason),
                 for (final field in [
@@ -380,13 +345,7 @@ class _HostDialogState extends State<HostDialog> {
                   'Giving back without a backup deletes everything still on the server. Confirm only when its contents are no longer needed.',
                 ),
               if (!widget.takeDownOnly)
-                if (record?.preparedHost case final host?)
-                  PreparedHostPanel(
-                    host: host,
-                    published:
-                        jsonEncode(_settings.hostRegistryState(run?.project ?? widget.project).publishedCard?.stored) ==
-                        jsonEncode(host.stored),
-                  ),
+                if (record?.preparedHost != null) const PreparedHostPanel(),
               if (_givenBack) const Text('The provider confirmed give-back.'),
               if (run != null)
                 ListenableBuilder(listenable: run.session, builder: (_, _) => SelectableText(run.session.protocolText)),
@@ -437,27 +396,12 @@ class _HostDialogState extends State<HostDialog> {
   }
 }
 
-/// The checked completion's registry publication state.
+/// Says that the checked completion reached the organization.
 class PreparedHostPanel extends StatelessWidget {
-  /// Shows whether the signed completion has reached the registry.
-  const PreparedHostPanel({required this.host, this.published = false, super.key});
-
-  /// The checked public completion retained for publication retry.
-  final PreparedHost host;
-
-  /// Whether the signed card has reached the registry.
-  final bool published;
+  /// Shown once the host's card holds its real address, host key and ports.
+  const PreparedHostPanel({super.key});
 
   @override
-  Widget build(BuildContext context) => Column(
-    mainAxisSize: MainAxisSize.min,
-    crossAxisAlignment: CrossAxisAlignment.start,
-    spacing: Space.small,
-    children: [
-      Text('Host registry', style: Theme.of(context).textTheme.titleMedium),
-      Text(
-        published ? 'The signed host card is published in the registry.' : 'The host is ready. Publish its signed card in the registry; retrying publication does not prepare another server.',
-      ),
-    ],
-  );
+  Widget build(BuildContext context) =>
+      const Text("The host is ready, and its address, host key and ports stand on its card in the organization.");
 }

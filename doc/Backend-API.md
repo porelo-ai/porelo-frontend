@@ -23,6 +23,20 @@ or, without `varlinkctl`, `dart tool/contract.dart` in this repository, which pr
 thing and works against a forwarded socket too. A copy checked in here would be a second source
 of truth that nothing keeps honest.
 
+## A project's source, address and removal
+
+No method says where a project comes from: `porelo project list --json` answers each project's `source`
+(`organization`, `local` or `built-in`), `role`, `locked`, `host` and `opened`, and `porelo project show
+PROJECT --json` its `address`. Every read fetches, so *Refresh* simply reads again; a host's effect is
+`org refresh`, on the host's page. These answers are kept in `Organization`, read only when a person's
+view needs one, one at a time, and for five minutes or until *Refresh*. A project with no readable
+address matches no forge, and says so.
+
+`RemoveProject(name, dryRun?, force?)` answers a `Deletion`. It is offered only for a project whose `source`
+is `local`, and not while the source cannot be read or the answer is `stale`; the daemon refuses a project
+of the organization and `default` all the same. A daemon without it is `FeatureNotSupported`, for that
+feature alone.
+
 ## Connecting
 
 Locally, the socket is at `$XDG_RUNTIME_DIR/porelo/porelod.sock` — normally

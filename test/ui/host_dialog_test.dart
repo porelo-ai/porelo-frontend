@@ -11,7 +11,7 @@ import 'package:porelo_host/porelo_host.dart' as host;
 
 import '../features/support/world.dart' show FakeBackend, World;
 import '../support/host_process.dart';
-import '../support/host_registry.dart';
+import '../support/host_organization.dart';
 import '../support/host_rental.dart';
 import '../support/signed_host.dart';
 
@@ -20,9 +20,8 @@ void main() {
   testWidgets('the retained setup protocol remains visible without starting another command', (tester) async {
     final settings = Settings(MemorySettingsStore());
     final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: RecordingTunnels());
-    final fixture = RegistryFixture();
+    final fixture = HostFixture();
     final access = await fixture.access(settings);
-    addTearDown(fixture.registry.dispose);
     final runs = HostRuns(machines, hostAccess: access);
     final process = HostProcess();
     var starts = 0;
@@ -38,6 +37,7 @@ void main() {
     process.line(const host.Step('up', host.StepState.refused, fix: 'The signed state was refused.'));
     process.end(65);
     await run.finished;
+    final startsBefore = starts;
     addTearDown(() {
       runs.dispose();
       machines.dispose();
@@ -52,103 +52,108 @@ void main() {
       ),
     );
     await World.settle(tester);
-    expect(starts, 1);
+    expect(starts, startsBefore);
     expect(find.byType(SelectableText), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
   });
   // Harm: preparation must use the chosen pinned host, collection and limits, and retain readiness when signing is unavailable.
   // Harm: a server this computer reaches by name or IPv6 address cannot be prepared or read back after a restart.
   for (final address in ['203.0.113.7', 'orchard.example.org', '2001:db8::7']) {
-    testWidgets('Prepare the host passes public choices and retains the ready host before publication at $address', (
-      tester,
-    ) async {
-      tester.view.physicalSize = const Size(1280, 800);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
-      final settings = Settings(MemorySettingsStore());
-      final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: RecordingTunnels());
-      final fixture = RegistryFixture()..fail = 'file';
-      final access = await fixture.access(settings);
-      final runs = HostRuns(machines, hostAccess: access);
-      addTearDown(() {
-        runs.dispose();
-        machines.dispose();
-        settings.dispose();
-        fixture.registry.dispose();
-      });
-      final process = HostProcess();
-      List<String>? arguments;
-      await tester.pumpWidget(
-        MaterialApp(
-          home: HostDialog(
-            project: '',
-            machines: machines,
-            settings: settings,
-            hostRuns: runs,
-            pickFile: ({initialDirectory, title}) async => '/collections/host.tar.gz',
-            start: (_, args) async {
-              arguments = args;
-              return process;
-            },
+    testWidgets(
+      'Prepare the host passes public choices and the machine file, and keeps the host on its card at $address',
+      (tester) async {
+        tester.view.physicalSize = const Size(1280, 800);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final settings = Settings(MemorySettingsStore());
+        final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: RecordingTunnels());
+        final fixture = HostFixture();
+        final access = await fixture.access(settings);
+        final runs = HostRuns(machines, hostAccess: access);
+        addTearDown(() {
+          runs.dispose();
+          machines.dispose();
+          settings.dispose();
+        });
+        final process = HostProcess();
+        List<String>? arguments;
+        await tester.pumpWidget(
+          MaterialApp(
+            home: HostDialog(
+              project: '',
+              machines: machines,
+              settings: settings,
+              hostRuns: runs,
+              pickFile: ({initialDirectory, title}) async => '/collections/host.tar.gz',
+              start: (_, args) async {
+                arguments = args;
+                return process;
+              },
+            ),
           ),
-        ),
-      );
-      Future<void> type(String label, String value) async {
-        final field = find.widgetWithText(TextField, label);
-        await tester.ensureVisible(field);
-        await World.settle(tester);
-        await tester.enterText(field, value);
-      }
+        );
+        Future<void> type(String label, String value) async {
+          final field = find.widgetWithText(TextField, label);
+          await tester.ensureVisible(field);
+          await World.settle(tester);
+          await tester.enterText(field, value);
+        }
 
-      await type('Host name', 'orchard');
-      await type('Server address', address);
-      await type('SSH host key', hostKey);
-      await tester.ensureVisible(find.text('Choose collection'));
-      await World.settle(tester);
-      await tester.tap(find.text('Choose collection'));
-      await tester.pump();
-      await type('Collection SHA-256', 'a' * 64);
-      await tester.ensureVisible(find.text('More settings'));
-      await World.settle(tester);
-      await tester.tap(find.text('More settings'));
-      await World.settle(tester);
-      for (final entry in {'forge_runner_capacity': '1', 'forge_job_cpus': '1', 'forge_job_memory': '768m'}.entries) {
-        await tester.ensureVisible(find.byKey(Key(entry.key)));
+        await type('Host name', 'orchard');
+        await type('Server address', address);
+        await type('SSH host key', hostKey);
+        await tester.ensureVisible(find.text('Choose collection'));
         await World.settle(tester);
-        await tester.enterText(find.byKey(Key(entry.key)), entry.value);
-      }
-      await tester.ensureVisible(find.text('Use settings'));
-      await World.settle(tester);
-      await tester.tap(find.text('Use settings'));
-      await tester.tap(find.text('Prepare the host'));
-      await World.settle(tester);
-      final run = runs.of('orchard')!;
-      expect(arguments, ['up', ...hostArguments(run.record, 'orchard')]);
-      expect(arguments, containsAllInOrder(['--given', address, '--host-key', hostKey]));
-      expect(
-        arguments,
-        containsAllInOrder(['--forge-runner-capacity', '1', '--forge-job-cpus', '1', '--forge-job-memory', '768m']),
-      );
-      expect(
-        arguments,
-        containsAllInOrder(['--collection', '/collections/host.tar.gz', '--collection-sha256', 'a' * 64]),
-      );
-      process.line(host.Step('up', host.StepState.done, address: address, admin: 'root'));
-      process.line(
-        host.Step('host', host.StepState.host, host: host.PreparedHost.read({...sshCompletion(), 'address': address})),
-      );
-      process.end(0);
-      await run.finished;
-      await World.settle(tester);
-      expect(run.ready, isTrue);
-      expect(settings.hostUp('orchard')!.preparedHost!.address, address);
-      expect(find.textContaining('The host is ready.'), findsWidgets);
-      final restored = hostUpRestored(settings.hostUp('orchard')!);
-      expect(restored.givenAddress, address);
-      expect(restored.givenHostKey, hostKey);
-      expect(hostArguments(restored, 'orchard'), contains('/collections/host.tar.gz'));
-      await tester.pumpWidget(const SizedBox.shrink());
-    });
+        await tester.tap(find.text('Choose collection'));
+        await tester.pump();
+        await type('Collection SHA-256', 'a' * 64);
+        await tester.ensureVisible(find.text('More settings'));
+        await World.settle(tester);
+        await tester.tap(find.text('More settings'));
+        await World.settle(tester);
+        for (final entry in {'forge_runner_capacity': '1', 'forge_job_cpus': '1', 'forge_job_memory': '768m'}.entries) {
+          await tester.ensureVisible(find.byKey(Key(entry.key)));
+          await World.settle(tester);
+          await tester.enterText(find.byKey(Key(entry.key)), entry.value);
+        }
+        await tester.ensureVisible(find.text('Use settings'));
+        await World.settle(tester);
+        await tester.tap(find.text('Use settings'));
+        await tester.tap(find.text('Prepare the host'));
+        await World.settle(tester);
+        final run = runs.of('orchard')!;
+        expect(arguments, ['up', ...hostArguments(run.record, 'orchard')]);
+        expect(arguments, containsAllInOrder(['--given', address, '--host-key', hostKey]));
+        expect(arguments, contains('--machine-file'));
+        expect(
+          arguments,
+          containsAllInOrder(['--forge-runner-capacity', '1', '--forge-job-cpus', '1', '--forge-job-memory', '768m']),
+        );
+        expect(
+          arguments,
+          containsAllInOrder(['--collection', '/collections/host.tar.gz', '--collection-sha256', 'a' * 64]),
+        );
+        process.line(host.Step('up', host.StepState.done, address: address, admin: 'root'));
+        process.line(
+          host.Step(
+            'host',
+            host.StepState.host,
+            host: host.PreparedHost.read({...sshCompletion(), 'address': address}),
+          ),
+        );
+        process.end(0);
+        await run.finished;
+        await World.settle(tester);
+        expect(run.ready, isTrue);
+        expect(settings.hostUp('orchard')!.preparedHost!.address, address);
+        expect(fixture.writes.single.input['address'], address);
+        final restored = hostUpRestored(settings.hostUp('orchard')!);
+        expect(restored.givenAddress, address);
+        expect(restored.givenHostKey, hostKey);
+        expect(hostArguments(restored, 'orchard'), contains('/collections/host.tar.gz'));
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
   }
 
   // Harm: a reused name must not erase rental recovery or crash an active setup dialog.
@@ -159,13 +164,12 @@ void main() {
       addTearDown(tester.view.reset);
       final settings = Settings(MemorySettingsStore());
       final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: RecordingTunnels());
-      final fixture = RegistryFixture();
+      final fixture = HostFixture();
       final runs = HostRuns(machines, hostAccess: await fixture.access(settings));
       addTearDown(() {
         runs.dispose();
         machines.dispose();
         settings.dispose();
-        fixture.registry.dispose();
       });
       final process = HostProcess();
       HostPreparation? previous;
@@ -237,14 +241,13 @@ void main() {
     addTearDown(tester.view.reset);
     final settings = Settings(MemorySettingsStore());
     final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: RecordingTunnels());
-    final fixture = RegistryFixture();
+    final fixture = HostFixture();
     final access = await fixture.access(settings);
     final runs = HostRuns(machines, hostAccess: access);
     addTearDown(() {
       runs.dispose();
       machines.dispose();
       settings.dispose();
-      fixture.registry.dispose();
     });
     var starts = 0;
     await tester.pumpWidget(
@@ -277,7 +280,7 @@ void main() {
     await tester.tap(find.text('Choose collection'));
     await World.settle(tester);
     final button = tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Prepare the host'));
-    fixture.actor = null;
+    fixture.admin = false;
     button.onPressed!();
     await World.settle(tester);
     expect(starts, 0);
@@ -295,14 +298,13 @@ void main() {
     addTearDown(tester.view.reset);
     final settings = Settings(MemorySettingsStore());
     final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: RecordingTunnels());
-    final fixture = RegistryFixture()..adminHosts = {'orchard'};
+    final fixture = HostFixture()..adminHosts = {'orchard'};
     final access = await fixture.access(settings);
     final runs = HostRuns(machines, hostAccess: access);
     addTearDown(() {
       runs.dispose();
       machines.dispose();
       settings.dispose();
-      fixture.registry.dispose();
     });
     await tester.pumpWidget(
       MaterialApp(
@@ -322,7 +324,7 @@ void main() {
     final name = find.widgetWithText(TextField, 'Host name');
     await tester.enterText(name, 'pear');
     await World.settle(tester);
-    expect(find.textContaining('names no host admin for pear'), findsOneWidget);
+    expect(prepare().onPressed, isNull);
     expect(find.textContaining('Before setup, run this'), findsNothing);
     await tester.enterText(name, 'orchard');
     await World.settle(tester);
@@ -339,7 +341,7 @@ void main() {
     addTearDown(tester.view.reset);
     final settings = Settings(MemorySettingsStore());
     final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: RecordingTunnels());
-    final fixture = RegistryFixture();
+    final fixture = HostFixture();
     final proof = FixtureProof(fixture)..hold = Completer<void>();
     final access = await fixture.access(settings, proof: proof);
     final runs = HostRuns(machines, hostAccess: access);
@@ -347,7 +349,6 @@ void main() {
       runs.dispose();
       machines.dispose();
       settings.dispose();
-      fixture.registry.dispose();
     });
     var starts = 0;
     await tester.pumpWidget(

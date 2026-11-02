@@ -3,13 +3,12 @@ import 'package:porelo_frontend/client.dart';
 
 import 'fleet_backend.dart';
 
-/// Stopping following a project, which removes it from this machine.
+/// Removing a project registered on this machine alone, and what Porelo built for it here.
 ///
-/// **Not "deleting the project", and the difference is the whole reason this is safe to offer.**
-/// The project is its repository, which is not on this machine and is never touched. What goes is
-/// what this machine made of it — the clone it verified, the mirror, the image, the build
-/// directory, the recorded upstream distance, and every task with its container, state and logs —
-/// and following the repository again brings the project back.
+/// **Not "deleting the repository", and the difference is the whole reason this is safe to offer.**
+/// The repository is not on this machine and is never touched. What goes is what this machine made
+/// of it: the mirror, the image, the build directory, the recorded upstream distance, and every task
+/// with its container, state and logs. Only what `project list` calls `local` may be asked for at all.
 ///
 /// It **refuses rather than decides**. Two things stop it, and they are not the same weight: a
 /// running task is work cut off mid-flight, and an unreviewed push exists only in the mirror,
@@ -47,14 +46,14 @@ class ProjectDeletion extends ChangeNotifier {
   Future<void> consider(FleetBackend backend, String name) async {
     project = name;
     answer = null;
-    await _asking(() => backend.unfollow(name, dryRun: true));
+    await _asking(() => backend.removeProject(name, dryRun: true));
   }
 
   /// Removes it. With [force], despite unreviewed work or running tasks.
   Future<void> remove(FleetBackend backend, {bool force = false}) async {
     final name = project;
     if (name == null) return;
-    await _asking(() => backend.unfollow(name, force: force ? true : null));
+    await _asking(() => backend.removeProject(name, force: force ? true : null));
   }
 
   /// Puts what is on screen away.
@@ -72,10 +71,10 @@ class ProjectDeletion extends ChangeNotifier {
     if (said == null || name == null) return '';
     return switch (said.outcome.name) {
       'PREVIEWED' =>
-        'This stops following $name and removes it from this machine. '
+        'This removes $name from this machine. '
             'Its repository is not touched.',
       'DELETED' =>
-        '$name is no longer followed here, and what Porelo built for it is gone. '
+        '$name is no longer on this machine, and what Porelo built for it is gone. '
             'Its repository is not touched.',
       'HOLDS_WORK' =>
         'Work reached the gate for $name and nobody has reviewed it. '
@@ -116,11 +115,11 @@ class ProjectDeletion extends ChangeNotifier {
       answer = await ask();
     } on VarlinkException catch (refusal) {
       problem = refusal.simpleName == 'NoSuchProject'
-          // A project left from before following: the machine lists it and follows nothing by that
-          // name, so it cannot say what clearing it would take — and nothing goes without that.
-          ? 'Nothing follows $project here, so the machine cannot say what clearing it away would '
+          // The machine lists nothing by that name, so it cannot say what removing it would take,
+          // and nothing goes without that.
+          ? 'The machine knows no project called $project, so it cannot say what removing it would '
                 'take. Nothing was removed.'
-          : 'Refused: ${refusal.simpleName}.';
+          : 'Refused: ${refusal.parameters['message'] ?? refusal.simpleName}.';
     } on VarlinkDisconnected catch (ex) {
       // Deliberately does not say whether it happened. A removal that may or may not have run is
       // the one case where claiming either way sends somebody to the wrong place.

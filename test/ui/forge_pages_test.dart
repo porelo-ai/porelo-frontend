@@ -6,6 +6,7 @@ import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
 import 'package:porelo_frontend/src/app/desk.dart';
 import 'package:porelo_frontend/src/app/links.dart';
+import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/host_session.dart';
 import 'package:porelo_frontend/src/app/forge.dart';
 import 'package:porelo_frontend/src/app/forge_connection.dart';
@@ -36,6 +37,90 @@ const _repository = ForgeRepository(
 );
 
 void main() {
+  group('a forge\'s token in the machine\'s vault', () {
+    Future<List<List<String>>> pump(WidgetTester tester, String address, {ForgeTokenVault? vault}) async {
+      tester.view
+        ..physicalSize = const Size(1280, 1200)
+        ..devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final terminals = <List<String>>[];
+      final forges = ForgeConnection(MemoryForgeTokens());
+      addTearDown(forges.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => forgeMenu(
+                context,
+                forges,
+                ForgeEntry(id: 'f', kind: 'github', name: 'Central', address: address),
+                (_) => [],
+                said: (_) {},
+                tokenVault:
+                    vault ??
+                    ForgeTokenVault(
+                      machine: Machine.local(),
+                      answers: true,
+                      open: (executable, arguments, {int columns = 80, int rows = 24}) {
+                        terminals.add([executable, ...arguments]);
+                        return FakeTerminal([]);
+                      },
+                    ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await World.settle(tester);
+      await World.tapInView(tester, 'forges-menu Central');
+      return terminals;
+    }
+
+    PopupMenuItem<String> item(WidgetTester tester) =>
+        tester.widget<PopupMenuItem<String>>(find.byKey(const ValueKey<String>('forge.storeToken')));
+
+    // Harm: the token entered in a form of this interface, or stored under a name no Git transfer finds.
+    testWidgets('is typed in a terminal on the machine, under the forge\'s own entry', (tester) async {
+      final terminals = await pump(tester, 'Forge.Example.org');
+      await World.tapInView(tester, 'forge.storeToken');
+      expect(terminals, [
+        ['porelo', 'vault', 'put', 'git.token.forge.example.org'],
+      ]);
+      expect(find.byType(TextField), findsNothing);
+    });
+
+    // Harm: a hostile address becomes an option of the command, or names another forge's entry.
+    for (final hostile in [
+      '--help',
+      '--help.example.org',
+      '-x.example.org',
+      'forge.example.org other.example.org',
+      'forge.example.org/../other',
+      'forge.example.org\nother',
+      'forge.example.org:3000',
+      'user@forge.example.org',
+      'forge.example.org;reboot',
+      r'$(reboot).example.org',
+      '',
+      'nodots',
+    ]) {
+      testWidgets('the address "$hostile" names no entry and no command', (tester) async {
+        final terminals = await pump(tester, hostile);
+        expect(item(tester).enabled, isFalse);
+        expect(find.textContaining('no plain host name'), findsOneWidget);
+        await tester.tap(find.byKey(const ValueKey<String>('forge.storeToken')), warnIfMissed: false);
+        await World.settle(tester);
+        expect(terminals, isEmpty);
+      });
+    }
+
+    testWidgets('says why when the selected machine does not answer', (tester) async {
+      await pump(tester, 'forge.example.org', vault: ForgeTokenVault(machine: Machine.local(), answers: false));
+      expect(item(tester).enabled, isFalse);
+      expect(find.textContaining('does not answer'), findsOneWidget);
+    });
+  });
+
   // Harm: a removed menu entry strands a repository in default with no way to stop working on it.
   testWidgets('the repository menu removes work without a project and preserves other repositories', (tester) async {
     await World.startBackend(World.work);
@@ -145,13 +230,15 @@ void main() {
   });
 
   // Harm: matching owner/repository names on another forge must not open the wrong project.
-  testWidgets('a repository menu does not offer a project followed from another forge', (tester) async {
+  testWidgets('a repository menu does not offer a project on another forge', (tester) async {
     await World.startBackend(World.work);
     World.backend.theProjectsItHas = [
       Project.from({
         'name': 'checkout',
         'file': '/srv/checkout/project.yml',
-        'following': {'url': 'git@other.example.org:acme/api.git'},
+        'repositories': [
+          {'name': 'checkout', 'own': true, 'upstream': 'git@other.example.org:acme/api.git'},
+        ],
       }),
     ];
     await World.startApp(tester);

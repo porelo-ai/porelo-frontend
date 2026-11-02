@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'package:porelo_host/porelo_host.dart' show forgeAddress;
 
 import 'session.dart';
-import 'registry_pages.dart';
 
 import 'desk.dart';
 import 'forge.dart';
@@ -53,6 +52,15 @@ class ForgeEntry {
 
   /// The transport-confirmed HTTP Git endpoint, using its separate forwarded port.
   final Uri? gitAddress;
+
+  /// The vault entry a machine finds this forge's token under, or null where its address names no plain host.
+  String? get vaultTokenEntry {
+    try {
+      return 'git.token.${forgeAddress(address)}';
+    } on FormatException {
+      return null;
+    }
+  }
 
   /// Whether this is a host forge supplied by its tunnel adapter.
   bool get isHost => hostMachine != null;
@@ -198,9 +206,6 @@ class ForgeConnection extends ChangeNotifier with QuietAfterDispose {
 
   /// Tunnel-confirmed host forges, kept out of the stored central-forge configuration.
   List<ForgeEntry> hostEntries = [];
-
-  /// Verified registry projections supplied by the registry adapter, scoped to a forge.
-  List<({String forgeId, String name, int? persons, int? machines, RegistryTarget target})> registryRows = [];
 
   /// The central and host forges shown by the pages.
   List<ForgeEntry> get allEntries => [...entries, ...hostEntries];

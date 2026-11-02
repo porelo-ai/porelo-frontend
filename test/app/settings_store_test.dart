@@ -66,4 +66,72 @@ void main() {
 
     expect(await FileSettingsStore(file: file).read(), isEmpty);
   });
+
+  group('settings from before the organization model', () {
+    late File dropped;
+
+    setUp(() {
+      dropped = File('${file.path}.dropped');
+      file.parent.createSync(recursive: true);
+    });
+
+    // Harm: a person's old hosts and organization address stay in force under a model that no longer reads them, unsaid.
+    test('a file with no mark is put aside whole, and the person told once', () async {
+      const old = '{"machines":[{"name":"build"}],"registryRepository":"git@forge.example.org:acme/registry.git"}';
+      file.writeAsStringSync(old);
+      final store = FileSettingsStore(file: file);
+      expect(await store.dropOldForm(), isTrue);
+      expect(dropped.readAsStringSync(), old);
+      expect(await store.read(), {'form': settingsForm});
+      expect(await store.dropOldForm(), isFalse, reason: 'a second start says nothing');
+      expect(dropped.readAsStringSync(), old, reason: 'and leaves what was kept');
+    });
+
+    // Harm: a person's settings are dropped again at every start.
+    test('a file of the new form keeps all it holds', () async {
+      final store = FileSettingsStore(file: file);
+      final settings = Settings(store);
+      await settings.load();
+      await settings.setRefreshSeconds(45);
+      settings.dispose();
+      final written = file.readAsStringSync();
+      expect(await store.dropOldForm(), isFalse);
+      expect(file.readAsStringSync(), written);
+      expect(dropped.existsSync(), isFalse);
+      final again = Settings(store);
+      await again.load();
+      expect(again.refreshSeconds, 45);
+      again.dispose();
+    });
+
+    // Harm: a damaged file is reported as an old one, or a first run is told of settings it never had.
+    test('an unreadable file and no file are no old form', () async {
+      final store = FileSettingsStore(file: file);
+      expect(await store.dropOldForm(), isFalse);
+      expect(file.existsSync(), isFalse);
+      file.writeAsStringSync('{"machines":[');
+      expect(await store.dropOldForm(), isFalse);
+      expect(file.readAsStringSync(), '{"machines":[');
+      expect(dropped.existsSync(), isFalse);
+    });
+
+    // Harm: other programs read the machines from this file, and find no list after the drop.
+    test('the machines are written in their shape again after the drop', () async {
+      file.writeAsStringSync('{"machines":[{"name":"build"}]}');
+      final store = FileSettingsStore(file: file);
+      await store.dropOldForm();
+      final settings = Settings(store);
+      await settings.load();
+      await settings.setRefreshSeconds(45);
+      settings.dispose();
+      final kept = await store.read();
+      expect(kept['form'], settingsForm);
+      expect(kept['machines'], isA<List<Object?>>());
+      expect(
+        kept['machines'],
+        isNot(contains(containsPair('name', 'build'))),
+        reason: 'what was dropped stays dropped',
+      );
+    });
+  });
 }

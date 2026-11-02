@@ -14,8 +14,6 @@ import 'expandable_list_row.dart';
 import 'host_dialog.dart';
 import 'tokens.dart';
 import 'filtered_list_section.dart';
-import 'projects_page.dart';
-import '../app/registry_pages.dart';
 
 /// Lists preparations and machines once for both the page and its navigation count.
 ({List<HostPreparation> preparations, List<Machine> machines}) machinesPageRows(Machines machines, HostRuns? hostRuns) {
@@ -27,7 +25,7 @@ import '../app/registry_pages.dart';
   );
 }
 
-/// Machines and verified admissions, with navigation and operations on every row.
+/// Machines, with navigation and operations on every row.
 class MachinesPage extends StatelessWidget {
   /// Creates the Machines list and its setup entry points.
   const MachinesPage({
@@ -39,9 +37,8 @@ class MachinesPage extends StatelessWidget {
     this.hostRuns,
     this.onHostProtocol,
     this.openTerminal,
-    this.registry,
-    this.onAdmission,
     this.prepareServer,
+    this.organizationHosts,
     super.key,
   });
 
@@ -69,14 +66,11 @@ class MachinesPage extends StatelessWidget {
   /// The injected terminal boundary for machine operations.
   final OpenTerminal? openTerminal;
 
-  /// The verified registry decisions and separate host confirmations.
-  final RegistryPages? registry;
-
-  /// Opens the exact host admission, including its registry identity.
-  final void Function(RegistryPageItem item)? onAdmission;
-
   /// The server preparation command and its refusal.
   final Command? prepareServer;
+
+  /// The hosts of the organization this person has to do with, where this computer reads one.
+  final Widget? organizationHosts;
 
   @override
   Widget build(BuildContext context) {
@@ -85,7 +79,7 @@ class MachinesPage extends StatelessWidget {
       key: const Key('machine-tree'),
       padding: const EdgeInsets.all(Space.normal),
       children: [
-        if (registry?.problem case final problem?) Text(problem),
+        ?organizationHosts,
         FilteredListSection(
           title: 'Machines',
           storageId: 'machines',
@@ -131,34 +125,22 @@ class MachinesPage extends StatelessWidget {
                   ),
                 ),
               ),
-            for (final row in scopedMachineRows(machines, registry))
-              if (!rows.preparations.any((run) => run.name == row.machine.name))
-                (
-                  words:
-                      '${row.machine.name} ${row.machine.where} ${row.admission?.role ?? ''} ${row.admission?.target.registry ?? ''}',
-                  child: _row(context, row.machine, admission: row.admission),
-                ),
+            for (final machine in listedMachines(machines))
+              if (!rows.preparations.any((run) => run.name == machine.name))
+                (words: '${machine.name} ${machine.where}', child: _row(context, machine)),
           ],
         ),
       ],
     );
   }
 
-  Widget _row(BuildContext context, Machine machine, {RegistryPageItem? admission}) {
+  Widget _row(BuildContext context, Machine machine) {
     final watched = machines.all.contains(machine);
     final fleet = watched ? machines.of(machine) : null;
     final tunnel = watched ? machines.tunnels.of(machine) : null;
-    admission ??= registry?.host(machine);
-    final item = admission;
-    void open() {
-      if (item != null && onAdmission != null) {
-        onAdmission!(item);
-      } else {
-        onDetails(machine);
-      }
-    }
+    void open() => onDetails(machine);
 
-    final identity = item == null ? machine.name : '${item.target.registry}/${item.target.host}';
+    final identity = machine.name;
     final local = Machine.local();
     final thisComputer = machine.name == local.name && machine.socketPath == local.socketPath;
     final actions = <Command>[
@@ -184,7 +166,6 @@ class MachinesPage extends StatelessWidget {
       title: thisComputer ? 'This computer' : machine.name,
       subtitle: [
         machine.where,
-        if (admission != null) ...[admission.role, admission.state, registryStateWords(registry!, admission)],
         if (tunnel != null)
           tunnel.words
         else if (fleet?.reachability == Reachability.connected)

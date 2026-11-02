@@ -1,37 +1,31 @@
 import 'dart:async';
+import 'dart:io' show File, FileSystemException;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../app/commands.dart';
 import '../app/identity.dart';
-import '../app/key_recovery.dart' show BackupKeyMaking, KeyRecoveryEntry, RecoveryRuns, RecoveryScope;
+import '../app/key_recovery.dart' show BackupScope;
 import '../app/links.dart';
 import '../app/machines.dart';
-import '../app/registry.dart' show RegistryCheckouts, RegistryContact;
 import '../app/session.dart';
-import 'key_recovery_dialog.dart';
+import 'pick_a_file.dart';
 import 'tokens.dart';
 import 'unlock_terminal.dart';
 import 'wizard.dart';
 
-/// Opens the person's key and card over the frame; [checkoutFor] names a registry's local checkout folder, and
-/// [registries] every registry read here, whose checkouts each change to the card holds while it runs.
-Future<void> showIdentity(
-  BuildContext context, {
-  IdentityModel? model,
-  OpenTerminal? open,
-  String? Function(String address)? checkoutFor,
-  RegistryCheckouts? Function()? registries,
-  KeyRecoveryEntry? recovery,
-}) => showDialog<void>(
+/// Opens the person's key and card over the frame.
+Future<void> showIdentity(BuildContext context, {IdentityModel? model, OpenTerminal? open}) => showDialog<void>(
   context: context,
-  builder: (_) => IdentityDialog(
-    model: model ?? IdentityModel(Identity(), checkoutFor: checkoutFor, registries: registries),
-    open: open,
-    recovery: recovery,
-  ),
+  builder: (_) => IdentityDialog(model: model ?? IdentityModel(Identity()), open: open),
 );
+
+/// Writes a person's new card to [file]; a card is public, so nothing more is asked of the file.
+typedef WriteCard = Future<void> Function(String file, String card);
+
+/// Writes the card to a file of this computer.
+Future<void> writeCardFile(String file, String card) => File(file).writeAsString(card);
 
 /// Runs [command] in a terminal the person sees on this computer; answers its exit code and last line.
 Future<({int code, String last})> _keyTerminal(
@@ -57,19 +51,16 @@ Future<({int code, String last})> _keyTerminal(
   return (code: end.code ?? -1, last: last);
 }
 
-/// The person's one key and card: its state, where it is filed, and the changes to it.
+/// The person's one key and card: its state, where it is filed, and the change of its key.
 class IdentityDialog extends StatefulWidget {
   /// Constructor taking the model, a fake-backed one in tests, and the terminal opener.
   const IdentityDialog({
     required this.model,
     this.open,
     this.chooseNewFile = chooseWithTheDesktop,
-    this.recovery,
+    this.writeCard = writeCardFile,
     super.key,
   });
-
-  /// Where a backup key's commit is read against and pushed, absent until Core's verbs are connected here.
-  final KeyRecoveryEntry? recovery;
 
   /// The identity as Core answers it.
   final IdentityModel model;
@@ -77,21 +68,21 @@ class IdentityDialog extends StatefulWidget {
   /// Opens the terminal a key is made in; a stand-in in tests.
   final OpenTerminal? open;
 
-  /// Asks where a new backup key's file goes; a stand-in in tests.
+  /// Asks where a lost key's new card is saved.
   final ChooseNewFile chooseNewFile;
+
+  /// Writes a lost key's new card.
+  final WriteCard writeCard;
 
   @override
   State<IdentityDialog> createState() => _IdentityDialogState();
 }
 
-/// What the key picker is choosing a key for.
-enum _Picking { none, rotate, lost }
-
 class _IdentityDialogState extends State<IdentityDialog> {
   IdentityModel get _model => widget.model;
   final _database = TextEditingController();
   final _entry = TextEditingController();
-  _Picking _picking = _Picking.none;
+  bool _picking = false;
   bool _newKey = false;
 
   /// The rotation under review: an agent key, or a new KeePassXC key when [_reviewNew] is set; nothing runs before
@@ -99,69 +90,38 @@ class _IdentityDialogState extends State<IdentityDialog> {
   AgentKey? _reviewKey;
   bool _reviewNew = false;
 
-  // What runs Core for key recovery, seen by this dialog however often it was opened while it ran.
-  RecoveryRuns? get _runs => switch (widget.recovery) {
-    final entry? => RecoveryRuns.of(entry.receipts),
-    null => null,
-  };
-  bool _wasMaking = false;
-  // Whether this dialog waits on the making itself, and reads the card again once it ended.
-  bool _makingHere = false;
-
   @override
   void initState() {
     super.initState();
-    _wasMaking = _backupRunning;
-    _runs?.addListener(_runsChanged);
     unawaited(_model.load());
-  }
-
-  /// Shows a backup key being made or not, and reads the card again once one has ended, whichever dialog started it.
-  void _runsChanged() {
-    if (!mounted) return;
-    final making = _backupRunning;
-    setState(() {});
-    if (_wasMaking && !making && !_makingHere) unawaited(_model.load());
-    _wasMaking = making;
   }
 
   @override
   void dispose() {
-    _runs?.removeListener(_runsChanged);
     for (final field in [_database, _entry]) {
       field.dispose();
     }
     super.dispose();
   }
 
-  void _pick(_Picking what) {
+  void _pick() {
     setState(() {
-      _picking = what;
+      _picking = true;
       _newKey = false;
     });
     unawaited(_model.readKeys());
   }
 
-  void _chooseNewKey(_Picking what) => setState(() {
-    _picking = what;
-    _newKey = true;
-  });
-
-  Future<void> _picked(AgentKey key) async {
-    final what = _picking;
-    setState(() => _picking = _Picking.none);
-    switch (what) {
-      case _Picking.rotate:
-        setState(() {
-          _reviewKey = key;
-          _reviewNew = false;
-        });
-      case _Picking.lost:
-        await _model.planLostKey(key);
-      case _Picking.none:
-        break;
-    }
+  void _useAnother(PendingIdentityOperation row) {
+    _model.startReplacing(row);
+    _pick();
   }
+
+  void _picked(AgentKey key) => setState(() {
+    _picking = false;
+    _reviewKey = key;
+    _reviewNew = false;
+  });
 
   /// Runs the reviewed rotation once; the model's guard decides whether it may start.
   Future<void> _confirmRotation() async {
@@ -175,40 +135,15 @@ class _IdentityDialogState extends State<IdentityDialog> {
     if (!viaKeepassxc) return;
     final started = _model.rotateInTerminal(database: _database.text.trim(), entry: _entry.text.trim());
     if (started == null) return;
-    await _inTerminal('Change your key', started.command, started.id);
+    await _inTerminal(context, _model, 'Change your key', started.command, started.id, widget.open);
   }
 
-  void _cancelRotation() => setState(() {
-    _reviewKey = null;
-    _reviewNew = false;
-  });
-
-  Future<void> _inTerminal(String title, List<String> command, String id) async {
-    setState(() => _picking = _Picking.none);
-    try {
-      final ended = await _keyTerminal(context, title: title, command: command, open: widget.open);
-      await _model.terminalEnded(code: ended.code, lastLine: ended.last, id: id);
-    } finally {
-      // The registry checkouts its change held are let go of however the terminal ended.
-      await _model.terminalGone();
-    }
-  }
-
-  /// Shows what a new key in KeePassXC would do for a lost one; nothing is made yet.
-  Future<void> _planLostInKeepassxc() async {
-    if (_database.text.trim().isEmpty) {
-      setState(() => _model.problem = 'Name your KeePassXC database file.');
-      return;
-    }
-    setState(() => _picking = _Picking.none);
-    await _model.planLostKeyInKeepassxc(database: _database.text.trim(), entry: _entry.text.trim());
-  }
-
-  /// Runs the reviewed lost-key plan once in a terminal, then reads it back by its ID.
-  Future<void> _confirmLostInTerminal() async {
-    final started = _model.confirmLostKeyInTerminal();
-    if (started == null) return;
-    await _inTerminal('Replace your lost key', started.command, started.id);
+  void _cancelRotation() {
+    _model.stopReplacing();
+    setState(() {
+      _reviewKey = null;
+      _reviewNew = false;
+    });
   }
 
   Future<void> _makeMyCard() => showDialog<void>(
@@ -217,142 +152,16 @@ class _IdentityDialogState extends State<IdentityDialog> {
     builder: (_) => FirstStartWizard(model: _model, open: widget.open),
   );
 
-  // A backup key made here and not pushed is no longer listed as missing, yet is still owed its push.
-  List<RecoveryScope> get _keptBackups => widget.recovery?.keptBackups ?? const <RecoveryScope>[];
-
-  // While a backup key is being made, from its file's place to its terminal's end, nothing drops or repeats it.
-  bool get _backupRunning => switch (widget.recovery) {
-    final entry? => BackupKeyMaking.anyRunning(entry.receipts),
-    null => false,
-  };
-
-  static const _backupRunningWords = 'A backup key is being made; wait until its terminal has ended.';
-
-  List<Command> _commands(IdentityCard? card) => [
+  List<Command> _commands() => [
     Command(
       id: 'identity.changeKey',
       label: 'Change my key…',
       group: 'My key',
       home: Home.openedView,
       unavailable: _model.whyNotChange,
-      run: () => _pick(_Picking.rotate),
+      run: _pick,
     ),
-    Command(
-      id: 'identity.lostKey',
-      label: 'I lost my key…',
-      group: 'My key',
-      home: Home.openedView,
-      unavailable: _model.whyNotStart,
-      run: () => _pick(_Picking.lost),
-    ),
-    Command(
-      id: 'identity.backupKey',
-      label: _keptBackups.isEmpty ? 'Make a backup key…' : 'Push the backup key again…',
-      group: 'My key',
-      home: Home.openedView,
-      unavailable: switch (card?.soleWithoutBackup) {
-        _ when _backupRunning => _backupRunningWords,
-        _ when _keptBackups.isNotEmpty => _model.whyNotChange,
-        null => backupKeyRefusal,
-        _ when widget.recovery == null => keyRecoveryNotConnected,
-        final lists when lists.isEmpty => 'You are the single admin or owner of no list without a backup key.',
-        _ => _model.whyNotChange,
-      },
-      run: () => unawaited(
-        _keptBackups.isEmpty ? _makeBackup(card?.soleWithoutBackup ?? const []) : _finishBackup(_keptBackups),
-      ),
-    ),
-    // A kept backup key may be dropped on the person's word; a made commit only once its confirmation named it.
-    if (_keptBackups case final kept when kept.isNotEmpty)
-      Command(
-        id: 'identity.forgetBackup',
-        label: 'Forget this attempt…',
-        group: 'My key',
-        home: Home.openedView,
-        unavailable: _backupRunning ? _backupRunningWords : null,
-        run: () => unawaited(_forgetBackup(kept)),
-      ),
   ];
-
-  /// One of [kept], chosen when there are several.
-  Future<RecoveryScope?> _chooseKept(List<RecoveryScope> kept, String title) async => kept.length == 1
-      ? kept.single
-      : await showDialog<RecoveryScope>(
-          context: context,
-          builder: (context) => SimpleDialog(
-            title: Text(title),
-            children: [
-              for (final scope in kept)
-                SimpleDialogOption(onPressed: () => Navigator.pop(context, scope), child: Text(scope.words)),
-            ],
-          ),
-        );
-
-  /// Finishes a backup key kept here under its own request, chosen when there are several; a new one waits for it.
-  Future<void> _finishBackup(List<RecoveryScope> kept) async {
-    final entry = widget.recovery;
-    if (entry == null || kept.isEmpty || _model.whyNotChange != null) return;
-    final chosen = await _chooseKept(kept, 'Push the backup key of which list?');
-    if (chosen == null || !mounted) return;
-    await _whileMaking(
-      makeBackupKey(context, entry: entry, scope: chosen, open: widget.open, chooseNewFile: widget.chooseNewFile),
-    );
-  }
-
-  /// Shows [making] as running until it ended, then reads the card again.
-  Future<void> _whileMaking(Future<Object?> making) async {
-    setState(() => _makingHere = true);
-    try {
-      await making;
-    } finally {
-      _makingHere = false;
-    }
-    if (mounted) setState(() {});
-    await _model.load();
-  }
-
-  /// Drops a kept backup-key request once the person read what may be made under it, or which made commit stays.
-  Future<void> _forgetBackup(List<RecoveryScope> kept) async {
-    final entry = widget.recovery;
-    if (entry == null || kept.isEmpty || _backupRunning) return;
-    final chosen = await _chooseKept(kept, 'Forget the backup key attempt of which list?');
-    if (chosen == null || !mounted) return;
-    await forgetBackupKeyAttempt(context, entry: entry, scope: chosen);
-    if (mounted) setState(() {});
-  }
-
-  /// Makes a backup key for one list the person alone administers, chosen when there are several.
-  Future<void> _makeBackup(List<SoleWithoutBackup> lists) async {
-    final entry = widget.recovery;
-    if (entry == null || lists.isEmpty || _model.whyNotChange != null) return;
-    RecoveryScope scopeOf(SoleWithoutBackup list) => switch (list.kind) {
-      'project' => RecoveryScope.project(list.name),
-      'host' => RecoveryScope.hostAdmin(list.name),
-      _ => const RecoveryScope.owner(),
-    };
-    final chosen = lists.length == 1
-        ? lists.single
-        : await showDialog<SoleWithoutBackup>(
-            context: context,
-            builder: (context) => SimpleDialog(
-              title: const Text('A backup key for which list?'),
-              children: [
-                for (final list in lists)
-                  SimpleDialogOption(onPressed: () => Navigator.pop(context, list), child: Text(scopeOf(list).words)),
-              ],
-            ),
-          );
-    if (chosen == null || !mounted) return;
-    await _whileMaking(
-      makeBackupKey(
-        context,
-        entry: entry,
-        scope: scopeOf(chosen),
-        open: widget.open,
-        chooseNewFile: widget.chooseNewFile,
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) => AlertDialog(
@@ -372,16 +181,33 @@ class _IdentityDialogState extends State<IdentityDialog> {
                 _Problem(problem, reason: _model.problemReason, reread: _model.load),
               if (_model.firstStart) ..._firstStart(context),
               if (_model.card case final card?) ..._card(context, card),
-              if (_model.unfinishedId case final id?) _Unfinished(id: id, model: _model),
-              if (_model.operation case final operation?) _OperationView(operation, model: _model),
-              if (_reviewKey != null || _reviewNew) _rotationReview(context),
-              if (_model.lostKeyPlan case final reviewed?)
-                _PlanView(
-                  reviewed.plan,
-                  model: _model,
-                  confirm: reviewed.database == null ? _model.confirmLostKey : _confirmLostInTerminal,
+              if (_model.unfinishedId case final id?) _Unfinished(id: id, model: _model, open: widget.open),
+              if (_model.operation case final operation?)
+                _OperationView(
+                  operation,
+                  plan: _model.handoverPlan,
+                  chooseNewFile: widget.chooseNewFile,
+                  writeCard: widget.writeCard,
                 ),
-              if (_picking != _Picking.none) _newKey ? _keepassxc(context) : _keyPicker(context),
+              if (_reviewKey != null || _reviewNew) _rotationReview(context),
+              if (_picking)
+                _newKey
+                    ? _KeepassxcFields(
+                        database: _database,
+                        entry: _entry,
+                        busy: _model.busy,
+                        onShow: () => setState(() {
+                          _picking = false;
+                          _reviewKey = null;
+                          _reviewNew = true;
+                        }),
+                      )
+                    : _KeyPicker(
+                        model: _model,
+                        title: 'Pick your new key',
+                        onPicked: _picked,
+                        onNewKey: () => setState(() => _newKey = true),
+                      ),
             ],
           ),
         ),
@@ -418,11 +244,9 @@ class _IdentityDialogState extends State<IdentityDialog> {
       if (card.revoked) Text('This key is revoked.', style: TextStyle(color: error)),
       if (card.cardRefused case final why?) Text('Your card does not verify: $why', style: TextStyle(color: error)),
       const SizedBox(height: Space.small),
-      Text('Registries', style: text.titleSmall),
-      if (card.registry.isEmpty) const Text('No registry is read on this computer yet.'),
-      for (final registry in card.registry) _RegistryRow(registry, model: _model),
-      if (_model.lastFiled case final filed?)
-        Text('Your card is committed as ${filed.commit} (${filed.path}) in your registry checkout, not pushed yet.'),
+      Text('Organization', style: text.titleSmall),
+      if (card.organization.isEmpty) const Text('No organization is read on this computer yet.'),
+      for (final organization in card.organization) _OrganizationRow(organization),
       const SizedBox(height: Space.small),
       Text('Central forge', style: text.titleSmall),
       _ForgeRow(card.forge),
@@ -430,65 +254,16 @@ class _IdentityDialogState extends State<IdentityDialog> {
         const SizedBox(height: Space.small),
         Text('Unfinished changes', style: text.titleSmall),
         for (final pending in card.pending)
-          Row(
-            children: [
-              Expanded(child: Text('${pending.action} ${pending.id}')),
-              if (_model.whyNotRetry(pending.id) == null)
-                TextButton(
-                  key: Key('identity-retry ${pending.id}'),
-                  onPressed: () => unawaited(_model.retry(pending.id)),
-                  child: const Text('Retry'),
-                ),
-              TextButton(
-                key: Key('identity-read-back ${pending.id}'),
-                onPressed: _model.busy ? null : () => unawaited(_model.readBack(pending.id)),
-                child: const Text('Read it back'),
-              ),
-            ],
+          _PendingChange(
+            pending,
+            model: _model,
+            onUseAnother: pending.action == 'rotate' ? () => _useAnother(pending) : null,
+            elsewhere: 'Another key for a lost key is chosen under “Replace a lost key…” on the Organization page.',
           ),
       ],
       const SizedBox(height: Space.small),
-      for (final command in _commands(card)) _CommandButton(command),
+      for (final command in _commands()) _CommandButton(command),
     ];
-  }
-
-  Widget _keyPicker(BuildContext context) {
-    final keys = _model.keys;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: Space.small),
-        Text(switch (_picking) {
-          _Picking.rotate => 'Pick your new key',
-          _Picking.lost => 'Pick the key that replaces the lost one',
-          _ => 'Pick your key',
-        }, style: Theme.of(context).textTheme.titleSmall),
-        if (keys == null && !_model.busy) const Text('Your SSH agent’s keys could not be read.'),
-        if (keys != null && keys.isEmpty) const Text('Your SSH agent serves no key.'),
-        for (final key in keys ?? const <AgentKey>[])
-          ListTile(
-            key: Key('identity-key ${key.fingerprint}'),
-            title: Text(key.comment.isEmpty ? key.fingerprint : '${key.comment} · ${key.fingerprint}'),
-            subtitle: Text(
-              key.whyNot ??
-                  switch (key.keyListed) {
-                    true => 'Listed at your forge.',
-                    false => 'Not listed at your forge yet.',
-                    null => 'Your forge was not asked.',
-                  },
-            ),
-            // An unusable key is shown with its reason and never offered.
-            // The current key is never its own successor, least of all when it is lost or stolen.
-            enabled: _model.whyNotSuccessor(key) == null && !_model.busy,
-            onTap: () => unawaited(_picked(key)),
-          ),
-        TextButton(
-          key: const Key('identity-new-in-keepassxc'),
-          onPressed: () => _chooseNewKey(_picking),
-          child: const Text('Make a new key in KeePassXC instead'),
-        ),
-      ],
-    );
   }
 
   Widget _rotationReview(BuildContext context) {
@@ -501,12 +276,12 @@ class _IdentityDialogState extends State<IdentityDialog> {
         const SizedBox(height: Space.small),
         Text('What changing your key does', style: Theme.of(context).textTheme.titleSmall),
         Text('Your key ${card?.fingerprint ?? ''} is replaced by $to.'),
-        const Text('Core signs the new card with both keys and publishes it to:'),
-        for (final registry in card?.registry ?? const <IdentityRegistry>[]) Text('the registry ${registry.address}'),
-        const Text(
-          'every project whose access file names you, where a project admin accepts it, and every host those '
-          'projects or the registry name, at its next sync. Core lists each place and its state once it answers.',
-        ),
+        if (_model.replacing case final row?)
+          Text(
+            'This starts again under a new ID, in place of the pending change ${row.id}. If that one has reached your '
+            'organization, Porelo refuses this and its first card stands.',
+          ),
+        const Text('Porelo signs the new card with both keys and files it in your organization.'),
         if (_reviewNew) const Text('A terminal opens where KeePassXC asks for its master password.'),
         if (_model.whyNotChange case final why?) Text(why),
         Wrap(
@@ -527,15 +302,92 @@ class _IdentityDialogState extends State<IdentityDialog> {
       ],
     );
   }
+}
 
-  Widget _keepassxc(BuildContext context) => Column(
+/// Runs a change of key in a terminal the person sees, then takes what it answered.
+Future<void> _inTerminal(
+  BuildContext context,
+  IdentityModel model,
+  String title,
+  List<String> command,
+  String id,
+  OpenTerminal? open,
+) async {
+  final ended = await _keyTerminal(context, title: title, command: command, open: open);
+  await model.terminalEnded(code: ended.code, lastLine: ended.last, id: id);
+}
+
+/// The keys the agent serves, to choose one from.
+class _KeyPicker extends StatelessWidget {
+  const _KeyPicker({
+    required this.model,
+    required this.title,
+    required this.onPicked,
+    required this.onNewKey,
+    this.forLostKey = false,
+  });
+
+  final IdentityModel model;
+  final bool forLostKey;
+  final String title;
+  final ValueChanged<AgentKey> onPicked;
+  final VoidCallback onNewKey;
+
+  @override
+  Widget build(BuildContext context) {
+    final keys = model.keys;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: Space.small),
+        Text(title, style: Theme.of(context).textTheme.titleSmall),
+        if (keys == null && !model.busy) const Text('Your SSH agent’s keys could not be read.'),
+        if (keys != null && keys.isEmpty) const Text('Your SSH agent serves no key.'),
+        for (final key in keys ?? const <AgentKey>[])
+          ListTile(
+            key: Key('identity-key ${key.fingerprint}'),
+            title: Text(key.comment.isEmpty ? key.fingerprint : '${key.comment} · ${key.fingerprint}'),
+            subtitle: Text(
+              model.whyNotSuccessor(key, forLostKey: forLostKey) ??
+                  switch (key.keyListed) {
+                    true => 'Listed at your forge.',
+                    false => 'Not listed at your forge yet.',
+                    null => 'Your forge was not asked.',
+                  },
+            ),
+            // An unusable key is shown with its reason and never offered.
+            // The current key is never its own successor, least of all when it is lost or stolen.
+            enabled: model.whyNotSuccessor(key, forLostKey: forLostKey) == null && !model.busy,
+            onTap: () => onPicked(key),
+          ),
+        TextButton(
+          key: const Key('identity-new-in-keepassxc'),
+          onPressed: onNewKey,
+          child: const Text('Make a new key in KeePassXC instead'),
+        ),
+      ],
+    );
+  }
+}
+
+/// Where a new key in KeePassXC goes.
+class _KeepassxcFields extends StatelessWidget {
+  const _KeepassxcFields({required this.database, required this.entry, required this.busy, required this.onShow});
+
+  final TextEditingController database;
+  final TextEditingController entry;
+  final bool busy;
+  final VoidCallback onShow;
+
+  @override
+  Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       const SizedBox(height: Space.small),
       const Text('Porelo makes the key and hands it to KeePassXC; it is never written to a file.'),
       TextField(
         key: const Key('identity-database'),
-        controller: _database,
+        controller: database,
         decoration: const InputDecoration(
           labelText: 'Your KeePassXC database',
           helperText: 'The .kdbx file KeePassXC opens, for example ~/Passwords.kdbx',
@@ -543,7 +395,7 @@ class _IdentityDialogState extends State<IdentityDialog> {
       ),
       TextField(
         key: const Key('identity-entry'),
-        controller: _entry,
+        controller: entry,
         decoration: const InputDecoration(
           labelText: 'Entry (optional)',
           helperText: 'GROUP/NAME of the entry to keep the key in; Porelo names one when empty',
@@ -552,19 +404,226 @@ class _IdentityDialogState extends State<IdentityDialog> {
       const SizedBox(height: Space.small),
       FilledButton(
         key: const Key('identity-open-terminal'),
-        onPressed: _model.busy
-            ? null
-            : _picking == _Picking.lost
-            ? () => unawaited(_planLostInKeepassxc())
-            : () => setState(() {
-                _picking = _Picking.none;
-                _reviewKey = null;
-                _reviewNew = true;
-              }),
+        onPressed: busy ? null : onShow,
         child: const Text('Show what it does'),
       ),
     ],
   );
+}
+
+/// Replaces the person's own lost key: what it does first, then a new key signed by nothing else, or their backup key.
+class ReplaceLostKeyDialog extends StatefulWidget {
+  /// Constructor taking the model, the places a backup key may serve and how it is used.
+  const ReplaceLostKeyDialog({
+    required this.model,
+    required this.places,
+    required this.useBackup,
+    this.open,
+    this.chooseNewFile = chooseWithTheDesktop,
+    this.writeCard = writeCardFile,
+    super.key,
+  });
+
+  /// The identity as Core answers it.
+  final IdentityModel model;
+
+  /// The places the person holds, for which they may have a backup key.
+  final List<BackupScope> places;
+
+  /// Opens the terminal that uses the backup key of a place.
+  final Future<void> Function(BackupScope scope) useBackup;
+
+  /// Opens the terminal a key is made in; a stand-in in tests.
+  final OpenTerminal? open;
+
+  /// Asks where the new card is saved.
+  final ChooseNewFile chooseNewFile;
+
+  /// Writes the new card.
+  final WriteCard writeCard;
+
+  @override
+  State<ReplaceLostKeyDialog> createState() => _ReplaceLostKeyDialogState();
+}
+
+class _ReplaceLostKeyDialogState extends State<ReplaceLostKeyDialog> {
+  IdentityModel get _model => widget.model;
+  final _database = TextEditingController();
+  final _entry = TextEditingController();
+  bool _newKey = false;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_read());
+  }
+
+  Future<void> _read() async {
+    await _model.load();
+    if (mounted && _model.card != null) await _model.readKeys();
+  }
+
+  @override
+  void dispose() {
+    _database.dispose();
+    _entry.dispose();
+    super.dispose();
+  }
+
+  Future<void> _planInKeepassxc() async {
+    if (_database.text.trim().isEmpty) {
+      setState(() => _model.problem = 'Name your KeePassXC database file.');
+      return;
+    }
+    await _model.planLostKeyInKeepassxc(database: _database.text.trim(), entry: _entry.text.trim());
+  }
+
+  Future<void> _confirmInTerminal() async {
+    final started = _model.confirmLostKeyInTerminal();
+    if (started == null) return;
+    await _inTerminal(context, _model, 'Replace your lost key', started.command, started.id, widget.open);
+  }
+
+  void _useAnother(PendingIdentityOperation row) {
+    _model.startReplacing(row);
+    setState(() => _newKey = false);
+    unawaited(_model.readKeys());
+  }
+
+  Future<void> _useBackup(BackupScope scope) async {
+    await widget.useBackup(scope);
+    await _model.load();
+  }
+
+  List<Command> get _backupCommands => [
+    for (final place in widget.places)
+      Command(
+        id: 'identity.useBackup ${place.receiptKey}',
+        label: 'Use my backup key for ${place.words}…',
+        group: 'My key',
+        home: Home.openedView,
+        unavailable: _model.lostKeyCardMade
+            ? null
+            : 'First make your new key above: the backup key puts that card in place of the lost key.',
+        run: () => unawaited(_useBackup(place)),
+      ),
+  ];
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    key: const Key('replace-lost-key'),
+    title: const Text('Replace a lost key'),
+    content: SizedBox(
+      width: Sizes.dialog,
+      child: SingleChildScrollView(
+        child: ListenableBuilder(
+          listenable: _model,
+          builder: (context, _) => Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (_model.busy) const LinearProgressIndicator(),
+              if (_model.problem case final problem?)
+                _Problem(problem, reason: _model.problemReason, reread: _model.load),
+              if (_model.firstStart) const Text('You have no card on this computer yet, so no key can be replaced.'),
+              if (_model.unfinishedId case final id?) _Unfinished(id: id, model: _model, open: widget.open),
+              if (_model.operation case final operation?)
+                _OperationView(
+                  operation,
+                  plan: _model.handoverPlan,
+                  chooseNewFile: widget.chooseNewFile,
+                  writeCard: widget.writeCard,
+                ),
+              for (final pending in _model.card?.pending ?? const <PendingIdentityOperation>[])
+                _PendingChange(
+                  pending,
+                  model: _model,
+                  onUseAnother: pending.action == 'revoke-lost' ? () => _useAnother(pending) : null,
+                  elsewhere: 'Another key for this change is chosen under “My key and card”.',
+                ),
+              if (_model.lostKeyPlan case final reviewed?)
+                _PlanView(
+                  reviewed.plan,
+                  model: _model,
+                  confirm: reviewed.database == null ? _model.confirmLostKey : _confirmInTerminal,
+                )
+              else if (_model.card != null && (_model.operation == null || _model.replacing != null)) ...[
+                if (_model.whyNotLostKey case final why? when !_model.busy) Text(why),
+                if (_model.whyNotLostKey == null || _model.busy)
+                  _newKey
+                      ? _KeepassxcFields(
+                          database: _database,
+                          entry: _entry,
+                          busy: _model.busy,
+                          onShow: () => unawaited(_planInKeepassxc()),
+                        )
+                      : _KeyPicker(
+                          model: _model,
+                          title: 'Pick the key that replaces the lost one',
+                          forLostKey: true,
+                          onPicked: (key) => unawaited(_model.planLostKey(key)),
+                          onNewKey: () => setState(() => _newKey = true),
+                        ),
+              ],
+              if (_model.card != null)
+                for (final command in _backupCommands) _CommandButton(command),
+            ],
+          ),
+        ),
+      ),
+    ),
+    actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close'))],
+  );
+}
+
+/// A change left pending: its state, and the two ways on, or Core's words where the organization already holds it.
+class _PendingChange extends StatelessWidget {
+  const _PendingChange(this.row, {required this.model, required this.onUseAnother, required this.elsewhere});
+
+  final PendingIdentityOperation row;
+  final IdentityModel model;
+
+  /// Starts choosing another key here; null where this dialog does not choose one for this change.
+  final VoidCallback? onUseAnother;
+
+  /// Where another key is chosen when not here.
+  final String elsewhere;
+
+  @override
+  Widget build(BuildContext context) {
+    final stands = model.standing(row);
+    return Column(
+      key: Key('identity-pending ${row.id}'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('${row.action} ${row.id}${row.fingerprint == null ? '' : ', to the key ${row.fingerprint}'}'),
+        if (stands != null)
+          Text(stands, style: TextStyle(color: Theme.of(context).colorScheme.error))
+        else ...[
+          _CommandButton(
+            Command(
+              id: 'identity.tryAgain ${row.id}',
+              label: 'Try again',
+              group: 'My key',
+              home: Home.openedView,
+              unavailable: model.whyNotTryAgain(row),
+              run: () => unawaited(model.tryAgain(row)),
+            ),
+          ),
+          _CommandButton(
+            Command(
+              id: 'identity.useAnotherKey ${row.id}',
+              label: 'Use another key…',
+              group: 'My key',
+              home: Home.openedView,
+              unavailable: model.whyNotReplace(row) ?? (onUseAnother == null ? elsewhere : null),
+              run: onUseAnother ?? () {},
+            ),
+          ),
+        ],
+      ],
+    );
+  }
 }
 
 class _CommandButton extends StatelessWidget {
@@ -612,11 +671,10 @@ class _Problem extends StatelessWidget {
   }
 }
 
-class _RegistryRow extends StatelessWidget {
-  const _RegistryRow(this.registry, {required this.model});
+class _OrganizationRow extends StatelessWidget {
+  const _OrganizationRow(this.organization);
 
-  final IdentityRegistry registry;
-  final IdentityModel model;
+  final IdentityOrganization organization;
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -624,32 +682,18 @@ class _RegistryRow extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(registry.address),
-        Text(switch (registry.filed) {
+        Text(organization.address),
+        Text(switch (organization.filed) {
           FiledState.done => 'Your card is filed and accepted.',
           FiledState.pending => 'Filed, waiting to be accepted.',
-          FiledState.refused => 'Refused: ${registry.why}',
+          FiledState.refused => 'Refused: ${organization.why}',
           FiledState.absent => 'Not filed yet.',
-          FiledState.unknown => 'Core says “${registry.filedWord}”, which this interface does not know.',
+          FiledState.unknown => 'Core says “${organization.filedWord}”, which this interface does not know.',
         }),
-        if (registry.mayFile &&
-            (model.filingUnanswered(registry) ||
-                registry.filed == FiledState.absent ||
-                registry.filed == FiledState.refused))
-          _CommandButton(
-            Command(
-              id: 'identity.fileCard ${registry.address}',
-              label: model.filingUnanswered(registry) ? 'Retry filing my card' : 'File my card',
-              group: 'My key',
-              home: Home.openedView,
-              unavailable: model.whyNotFile(registry),
-              run: () => unawaited(model.fileCard(registry)),
-            ),
-          ),
-        if (!registry.mayFile) ...[
+        if (!organization.mayFile) ...[
           const Text('Your own key may not file it here. Ask one of them:'),
-          for (final person in registry.whoMay) _ContactRow(person),
-          if (registry.whoMay.isEmpty) const Text('Core names nobody who may.'),
+          for (final person in organization.whoMay) _ContactRow(person),
+          if (organization.whoMay.isEmpty) const Text('Core names nobody who may.'),
         ],
       ],
     ),
@@ -659,7 +703,7 @@ class _RegistryRow extends StatelessWidget {
 class _ContactRow extends StatelessWidget {
   const _ContactRow(this.person);
 
-  final RegistryContact person;
+  final PersonContact person;
 
   @override
   Widget build(BuildContext context) => Row(
@@ -687,7 +731,7 @@ class _ForgeRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final listing = forge;
-    if (listing == null) return const Text('No registry is read yet, so no forge is known.');
+    if (listing == null) return const Text('No organization is read yet, so no forge is known.');
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -716,26 +760,29 @@ class _ForgeRow extends StatelessWidget {
 }
 
 class _Unfinished extends StatelessWidget {
-  const _Unfinished({required this.id, required this.model});
+  const _Unfinished({required this.id, required this.model, required this.open});
 
   final String id;
   final IdentityModel model;
+  final OpenTerminal? open;
+
+  Future<void> _retry(BuildContext context) async {
+    final command = model.unfinishedCommand;
+    if (command == null) return model.retry();
+    await _inTerminal(context, model, 'Ask again under the same ID', command, id, open);
+  }
 
   @override
   Widget build(BuildContext context) => Row(
     key: const Key('identity-unfinished'),
     children: [
-      Expanded(child: Text('The change $id has not answered yet. Retry sends only what is not done.')),
-      if (model.whyNotRetry(id) == null)
-        TextButton(
-          key: const Key('identity-unfinished-retry'),
-          onPressed: () => unawaited(model.retry(id)),
-          child: const Text('Retry'),
-        ),
+      Expanded(
+        child: Text('The change $id has not answered yet. Retry asks under the same ID, which makes no second.'),
+      ),
       TextButton(
-        key: const Key('identity-unfinished-read-back'),
-        onPressed: model.busy ? null : () => unawaited(model.readBack(id)),
-        child: const Text('Read it back'),
+        key: const Key('identity-unfinished-retry'),
+        onPressed: model.whyNotRetry == null ? () => unawaited(_retry(context)) : null,
+        child: const Text('Retry'),
       ),
     ],
   );
@@ -765,35 +812,122 @@ class _PlaceRow extends StatelessWidget {
 }
 
 class _OperationView extends StatelessWidget {
-  const _OperationView(this.operation, {required this.model});
+  const _OperationView(this.operation, {required this.plan, required this.chooseNewFile, required this.writeCard});
 
   final IdentityOperation operation;
-  final IdentityModel model;
+  final LostKeyPlan? plan;
+  final ChooseNewFile chooseNewFile;
+  final WriteCard writeCard;
+
+  @override
+  Widget build(BuildContext context) {
+    final again = operation.again ? ', as Porelo had already made it' : '';
+    return Padding(
+      key: const Key('identity-operation'),
+      padding: const EdgeInsets.only(top: Space.small),
+      child: operation.action == 'revoke-lost'
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Your new card is made (${operation.id})$again. Nothing is filed and nothing is accepted yet.'),
+                if (operation.card case final card?)
+                  _NewCard(card, chooseNewFile: chooseNewFile, writeCard: writeCard)
+                else
+                  const Text(
+                    'Core answered no new card, so there is nothing to hand over. Read your card again; Try again asks '
+                    'for it under the same ID.',
+                    key: Key('identity-lost-no-card'),
+                  ),
+                if (plan case final plan?)
+                  _PlanWords(plan)
+                else
+                  const Text(
+                    'No plan was read in this window, so nobody is named here. An organization owner accepts the '
+                    'card; the Organization page lists them.',
+                  ),
+              ],
+            )
+          : Text('Your key is changed (${operation.id})$again.'),
+    );
+  }
+}
+
+/// A lost key's new card, public, to hand to an owner outside Porelo; nothing here accepts it.
+class _NewCard extends StatefulWidget {
+  const _NewCard(this.card, {required this.chooseNewFile, required this.writeCard});
+
+  final String card;
+  final ChooseNewFile chooseNewFile;
+  final WriteCard writeCard;
+
+  @override
+  State<_NewCard> createState() => _NewCardState();
+}
+
+class _NewCardState extends State<_NewCard> {
+  String? _said;
+
+  Future<void> _copy() async {
+    await Clipboard.setData(ClipboardData(text: widget.card));
+    if (mounted) setState(() => _said = 'Copied.');
+  }
+
+  Future<void> _save() async {
+    final file = await widget.chooseNewFile(title: 'Save my new card');
+    if (file == null) return;
+    String said;
+    try {
+      await widget.writeCard(file, widget.card);
+      said = 'Saved to $file.';
+    } on FileSystemException catch (error) {
+      said = 'It could not be saved to $file: ${error.osError?.message ?? error.message}.';
+    }
+    if (mounted) setState(() => _said = said);
+  }
 
   @override
   Widget build(BuildContext context) => Column(
-    key: const Key('identity-operation'),
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      const SizedBox(height: Space.small),
-      Text(
-        '${operation.action == 'revoke-lost' ? 'Replacing your lost key' : 'Changing your key'} (${operation.id})',
-        style: Theme.of(context).textTheme.titleSmall,
+      const Text('Hand this card to an organization owner outside Porelo. A card is public, so any way will do.'),
+      SelectableText(widget.card, key: const Key('identity-lost-card')),
+      Wrap(
+        spacing: Space.small,
+        children: [
+          TextButton(
+            key: const Key('identity-lost-copy'),
+            onPressed: () => unawaited(_copy()),
+            child: const Text('Copy the card'),
+          ),
+          TextButton(
+            key: const Key('identity-lost-save'),
+            onPressed: () => unawaited(_save()),
+            child: const Text('Save the card…'),
+          ),
+        ],
       ),
-      Text('From ${operation.predecessor} to ${operation.fingerprint}'),
-      for (final place in operation.published) _PlaceRow(place),
-      if (!operation.finished)
-        model.whyNotRetry(operation.id) == null
-            ? TextButton(
-                key: const Key('identity-operation-retry'),
-                onPressed: () => unawaited(model.retry(operation.id)),
-                child: const Text('Retry what is not done'),
-              )
-            : TextButton(
-                key: const Key('identity-operation-read-back'),
-                onPressed: model.busy ? null : () => unawaited(model.readBack(operation.id)),
-                child: const Text('Read it back'),
-              ),
+      if (_said case final said?) Text(said, key: const Key('identity-lost-said')),
+    ],
+  );
+}
+
+/// What a lost key's plan says: who must accept the new card at each place, and what is made again.
+class _PlanWords extends StatelessWidget {
+  const _PlanWords(this.plan);
+
+  final LostKeyPlan plan;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const Text(
+        'Your new card is not signed by the lost key, so each place below waits until someone named accepts it. '
+        'If your key was stolen, ask them to revoke it first.',
+      ),
+      for (final place in plan.places) _PlaceRow(place),
+      for (final host in plan.hosts) Text('Your vault on ${host.host} is deleted and made again.'),
+      for (final signIn in plan.signIns) Text('On ${signIn.host}, sign in again for: ${signIn.entries.join(', ')}'),
     ],
   );
 }
@@ -812,13 +946,8 @@ class _PlanView extends StatelessWidget {
     children: [
       const SizedBox(height: Space.small),
       Text('What replacing your lost key does', style: Theme.of(context).textTheme.titleSmall),
-      const Text(
-        'Your new card is not signed by the lost key, so each place below waits until someone named accepts it. '
-        'If your key was stolen, ask them to revoke it first.',
-      ),
-      for (final place in plan.places) _PlaceRow(place),
-      for (final host in plan.hosts) Text('Your vault on ${host.host} is deleted and made again.'),
-      for (final signIn in plan.signIns) Text('On ${signIn.host}, sign in again for: ${signIn.entries.join(', ')}'),
+      _PlanWords(plan),
+      const Text('Porelo files nothing: you hand the new card to one of them yourself, outside Porelo.'),
       Wrap(
         spacing: Space.small,
         children: [

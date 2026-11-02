@@ -38,7 +38,8 @@ class AttentionView extends StatefulWidget {
     required this.actionsFor,
     required this.onReview,
     this.unlockFor,
-    this.onStopFollowing,
+    this.onRemoveProject,
+    this.whyNoRemoval,
     this.onPutAway,
     this.onSelect,
     this.onOpenOperation,
@@ -50,7 +51,10 @@ class AttentionView extends StatefulWidget {
   final VoidCallback? Function(Machine machine)? unlockFor;
 
   /// Opens a removal preview on the row's machine, without changing the selected project.
-  final void Function(Machine machine, Project project)? onStopFollowing;
+  final void Function(Machine machine, Project project)? onRemoveProject;
+
+  /// Why a project cannot be removed, or null where it can; every project is refused without one.
+  final String? Function(Machine machine, String project)? whyNoRemoval;
 
   /// Every tile, most urgent first.
   final Attention attention;
@@ -223,11 +227,6 @@ extension on _AttentionViewState {
         state = 'Not answering';
         icon = Icons.cloud_off_outlined;
         primary = retrySilentMachine(each.machine, attention.fleetOf(each.machine)).unless(reason);
-      case AttentionKind.following:
-        final each = row.value as ({Machine machine, Project project, Followed followed});
-        title = each.project.name;
-        state = 'Not following';
-        icon = Icons.folder_outlined;
       case AttentionKind.forward:
         final each = row.value as ({String machine, String project, String words});
         final machine = attention.machineNamed(each.machine);
@@ -389,15 +388,6 @@ extension on _AttentionViewState {
           retry: retrySilentMachine(each.machine, attention.fleetOf(each.machine)).unless(reason),
           onSeen: resolved ? null : () => attention.markSeen(each.machine),
         );
-      case AttentionKind.following:
-        final each = row.value as ({Machine machine, Project project, Followed followed});
-        return _NotFollowing(
-          machine: each.machine,
-          project: each.project,
-          followed: each.followed,
-          fleet: attention.fleetOf(each.machine),
-          resolved: resolved,
-        );
       case AttentionKind.forward:
         final each = row.value as ({String machine, String project, String words});
         final machine = attention.machineNamed(each.machine);
@@ -456,11 +446,14 @@ extension on _AttentionViewState {
                 if (each.waitsOn == 'vault')
                   for (final project in each.projects)
                     _RowCommand(
-                      stopFollowingWaitingProject(
+                      removeWaitingProject(
                         each.machine,
                         attention.fleetOf(each.machine),
                         project,
-                        widget.onStopFollowing == null ? null : () => widget.onStopFollowing!(each.machine, project),
+                        widget.onRemoveProject == null ? null : () => widget.onRemoveProject!(each.machine, project),
+                        whyNoRemoval:
+                            widget.whyNoRemoval?.call(each.machine, project.name) ??
+                            (widget.whyNoRemoval == null ? 'not from here' : null),
                       ).unless(reason),
                     ),
               ],
@@ -576,105 +569,6 @@ class _ResolvedRow extends StatelessWidget {
       ),
       child: child,
     );
-  }
-}
-
-/// A followed project whose newest commit was not taken, and will not be until somebody acts.
-///
-/// **The key's fingerprint is shown whole**: it is not a secret, and comparing it with the key
-/// somebody meant to pin is the whole of what a person can do about a refused signature.
-class _NotFollowing extends StatelessWidget {
-  const _NotFollowing({
-    required this.machine,
-    required this.project,
-    required this.followed,
-    required this.fleet,
-    this.resolved = false,
-  });
-
-  final bool resolved;
-
-  final Machine machine;
-
-  /// Where the project is followed, to take a rewritten history from.
-  final FleetModel fleet;
-
-  final Project project;
-
-  final Followed followed;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final text = Theme.of(context).textTheme;
-    return Card(
-      key: ValueKey<String>('not-following ${machine.name}/${project.name}'),
-      color: scheme.surfaceContainerLow,
-      child: Padding(
-        padding: const EdgeInsets.all(Space.normal),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text(project.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-            NeedsMachine(machine.name),
-            const SizedBox(height: Space.tight),
-            Text(followed.words),
-            if (followed.signer.isNotEmpty) SelectableText('Signed by ${followed.signer}', style: text.bodySmall),
-            if (followed.detail.isNotEmpty) Text(followed.detail, style: text.bodySmall),
-            if (followed.url.isNotEmpty) SelectableText(followed.url, style: text.bodySmall),
-            // Walk 10: the card said what to do, with nothing to do it with. A rewritten
-            // history is taken only by a second, deliberate act; a refused signature has no button.
-            if (followed.outcome == 'REWRITTEN' && followed.url.isNotEmpty) ...<Widget>[
-              const SizedBox(height: Space.small),
-              OutlinedButton(
-                key: ValueKey<String>('accept-rewrite ${machine.name}/${project.name}'),
-                onPressed: resolved
-                    ? null
-                    : acceptAttentionRewriteCommand(run: () => unawaited(_acceptTheRewrite(context))).run,
-                child: const Text('Take the rewritten history'),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-extension on _NotFollowing {
-  /// Takes the rewritten history once the person agreed, with what the machine says about it.
-  Future<void> _acceptTheRewrite(BuildContext context) async {
-    final agreed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        key: const Key('accept-rewrite-dialog'),
-        title: Text('Take the rewritten history of ${project.name}?'),
-        content: SizedBox(
-          width: Sizes.dialogMedium,
-          child: Text(
-            '${machine.name} then works with ${followed.refused.isEmpty ? 'the newest commit' : followed.refused}, '
-            'which does not descend from what it took before. Do this only if you rewrote the history '
-            'yourself (an amend and a force push); otherwise somebody else did.',
-          ),
-        ),
-        actions: <Widget>[
-          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Leave it')),
-          FilledButton(
-            key: const Key('accept-rewrite-confirm'),
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Take it'),
-          ),
-        ],
-      ),
-    );
-    if (agreed != true) return;
-    try {
-      final answer = await fleet.backend.follow(project.name, followed.url, acceptRewrite: true);
-      fleet.say('${project.name}: ${answer.words}');
-    } on VarlinkException catch (refusal) {
-      fleet.say('${project.name}: ${refusal.parameters['message'] ?? refusal.simpleName}');
-    }
-    await fleet.refresh();
   }
 }
 

@@ -10,14 +10,13 @@ Future<void> iLookAtTheForgesRepository(WidgetTester tester, String name) async 
 
 /// The command in a repository's menu that each older choice of its card now is.
 const Map<String, String> _commandFor = <String, String>{
-  'bind': 'repository.follow',
   'repository-tools': 'repository.tools',
   'open-at-forge': 'repository.open',
   'default-add': 'repository.default',
   'default-remove': 'repository.defaultRemove',
 };
 
-/// Chooses [what] (`bind`, `repository-tools`, `open-at-forge`, `default-add`, `default-remove`)
+/// Chooses [what] (`repository-tools`, `open-at-forge`, `default-add`, `default-remove`)
 /// from [repository]'s menu on its forge's page.
 Future<void> fromTheRepositorysMenu(WidgetTester tester, String repository, String what) async {
   await tester.tap(find.byKey(ValueKey<String>('forge-repository-menu $repository')));

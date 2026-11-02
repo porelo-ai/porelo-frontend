@@ -44,7 +44,7 @@ sealed class ForgeKeyReading {
   bool get good => false;
 }
 
-/// A card is kept here; [forge] is null when no registry has been read, so no forge is known.
+/// A card is kept here; [forge] is null when no organization has been read, so no forge is known.
 class ForgeKeyAnswered extends ForgeKeyReading {
   /// Keeps the checked answer.
   const ForgeKeyAnswered({required this.forge, this.cardProblem});

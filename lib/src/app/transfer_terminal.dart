@@ -65,7 +65,7 @@ class TransferTerminal implements CentralTransferSource {
       repositories: selection.repositories,
       card: card,
       config: selection.machine.sshConfig,
-      secretsFile: SecretsFile(file, cli: cli),
+      token: SecretsFile(file, cli: cli),
       environment: environment ?? desk.environment,
       windows: desk.isWindows,
     );

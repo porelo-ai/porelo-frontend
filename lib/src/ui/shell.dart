@@ -6,15 +6,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:guided_walk/guided_walk.dart';
 
-import '../app/kdbx_forge_tokens.dart';
 import '../app/desk.dart';
+import '../app/environment_tokens.dart';
 import '../app/homeserver_forwards.dart';
 import '../app/host_access.dart';
 import '../app/host_runs.dart';
 import '../app/product.dart';
-import '../app/project_access.dart';
-import '../app/project_join.dart';
-import '../app/registry.dart' show RegistryCheckouts, RegistryRefusal;
 import '../app/forge.dart';
 import '../app/forge_connection.dart';
 import '../app/forge_key_check.dart';
@@ -26,11 +23,11 @@ import '../app/attention.dart';
 import '../app/commands.dart';
 import '../app/fleet_backend.dart';
 import '../app/fleet_model.dart';
+import '../app/organization_source.dart';
 import '../app/egress.dart';
 import '../app/agent_inventory.dart';
 import '../app/authentication.dart';
 import '../app/backups.dart';
-import '../app/project_check.dart';
 import '../app/emergency_stop.dart';
 import '../app/start_agents.dart';
 import '../app/start_work.dart';
@@ -48,7 +45,6 @@ import '../app/narrowing.dart';
 import '../app/newer_version.dart';
 import '../app/operations.dart';
 import '../app/connections.dart';
-import '../app/project_following.dart';
 import '../app/vault_unlock.dart';
 import '../app/project_deletion.dart';
 import '../app/hand_in.dart';
@@ -62,7 +58,14 @@ import '../app/shell_model.dart';
 
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_host/porelo_host.dart'
-    show HostFilesRefused, ProjectTransfer, RemoteNotStarted, SecretsFile, projectTransferFeedCommand;
+    show
+        CentralToken,
+        HostFilesRefused,
+        ProjectTransfer,
+        organizationRefreshFeedCommand,
+        RemoteNotStarted,
+        SecretsFile,
+        projectTransferFeedCommand;
 
 import '../app/project_transfers.dart';
 
@@ -77,16 +80,12 @@ import 'emergency_stop_view.dart';
 import 'connection_wizard.dart';
 import 'connections_view.dart';
 import 'pick_a_file.dart';
-import 'project_following_view.dart';
 import 'unlock_terminal.dart';
 import 'project_deletion_view.dart';
 import 'projects_page.dart';
 import 'machine_details_page.dart';
 import 'project_details_page.dart';
-import 'registry_address_dialog.dart';
-import 'registry_persons.dart';
-import '../app/registry_pages.dart';
-import '../app/registry_read_source.dart';
+import '../app/project_standing.dart';
 import 'session_view.dart';
 import 'shell_rail.dart';
 import 'vault_actions.dart';
@@ -112,7 +111,9 @@ import 'grant_view.dart';
 import 'messages_view.dart';
 import 'repositories_view.dart';
 import 'project_forge_view.dart';
-import 'project_developers_dialog.dart';
+import 'organization_host_pages.dart';
+import 'organization_page.dart';
+import 'organization_project_pages.dart';
 import 'default_view.dart';
 import 'forges_page.dart';
 import 'peers_view.dart';
@@ -156,16 +157,14 @@ class Shell extends StatefulWidget {
     required this.deleting,
     required this.readiness,
     required this.authentication,
-    required this.following,
     required this.connections,
     this.forges,
-    this.registryPages,
+    this.settingsDropped = false,
+    this.organizationSource,
+    this.hostConnections,
+    this.connectionsFor,
     this.forgeKeyCheck,
-    this.joinDiscovery,
-    this.joinHost,
     this.hostAccess,
-    this.projectAccess,
-    this.keyRecovery,
     this.pickAFile = pickWithTheDesktop,
     required this.backups,
     required this.narrowing,
@@ -178,26 +177,25 @@ class Shell extends StatefulWidget {
   /// it was put away.
   final WalkSession? walk;
 
-  /// Verified registry decisions and separately confirmed host state.
-  final RegistryPages? registryPages;
+  /// Whether this start dropped settings from before the organization model, which the person is told once.
+  final bool settingsDropped;
+
+  /// Where the organization is read and changed, absent while this computer reads none.
+  final OrganizationSource? organizationSource;
+
+  /// This person's connection to each host of the organization, absent while this computer reads none.
+  final HostConnections? hostConnections;
+
+  /// Makes the connections from the organization read here, where [hostConnections] gives none.
+  final HostConnections Function(Organization organization)? connectionsFor;
 
   /// Whether the person's key is listed on their central forge account, absent until supplied.
   final ForgeKeyCheck? forgeKeyCheck;
 
-  /// Core's verified discovery of where the person may join, once Core serves it.
-  final JoinDiscovery? joinDiscovery;
-
-  /// The card tunnel and the account daemon a join goes through.
-  final JoinHost? joinHost;
-
-  /// A host admin's registry changes and their delivery, given to host setup and its dialogs.
+  /// Who may prepare a host and what goes to the organization, given to host setup and its dialogs.
   final HostAccess? hostAccess;
 
   /// The project-scoped Core and host adapters, supplied once their contracts are served.
-  final ProjectAccess? Function(String project)? projectAccess;
-
-  /// Where a lost or stolen key is replaced, absent until Core's replacement verbs are connected.
-  final KeyRecoveryEntry? keyRecovery;
 
   /// Every machine being watched, and which one is being acted on.
   final Machines machines;
@@ -256,9 +254,6 @@ class Shell extends StatefulWidget {
   /// What the machine being acted on can authenticate against.
   final Authentication authentication;
 
-  /// Following a repository, which is how a project comes to a machine.
-  final ProjectFollowing following;
-
   /// How a machine connects out.
   final Connections connections;
 
@@ -305,9 +300,6 @@ class _ShellState extends State<Shell> {
   /// A file being handed to work, and the last one's outcome.
   final _handing = HandingIn();
 
-  /// A followed project checked now, at a person's word, rather than at the machine's next round.
-  final _check = ProjectCheck();
-
   /// What the open work's name has been handed, asked when it opens.
   final _handIns = HandInRecord();
 
@@ -322,18 +314,36 @@ class _ShellState extends State<Shell> {
   @override
   void initState() {
     super.initState();
-    _registry.addListener(_homeserversChanged);
-    // Where the person may join is asked once the registry's read has ended, never beside a fetch of its checkout.
-    unawaited(_registry.refresh().then((_) => _discoverJoins()));
-    _hostRuns = HostRuns(widget.machines, hostAccess: widget.hostAccess);
-    // A read of the proven identity that ends after the registry's changes what a host admin is offered at once.
-    widget.hostAccess?.proof?.addListener(_homeserversChanged);
+    if (widget.settingsDropped) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            key: Key('settings-dropped'),
+            content: Text(settingsDroppedWords),
+            duration: Duration(minutes: 1),
+            showCloseIcon: true,
+          ),
+        );
+      });
+    }
+    _standings.addListener(_homeserversChanged);
+    unawaited(_standings.read());
+    _organization?.addListener(_readStandings);
+    _hostRuns = HostRuns(
+      widget.machines,
+      hostAccess: widget.hostAccess,
+      onReady: _hostReady,
+      say: (words) => _fleet.say(words),
+    );
+    // A read of the organization or the proven identity changes what a host admin is offered at once.
+    widget.hostAccess?.addListener(_homeserversChanged);
     _attention = Attention(widget.machines, widget.settings, widget.operations)..hostRuns = _hostRuns;
     _homeservers = HomeserverForwards(widget.settings);
     // One that cannot be raised is said under Needs you; the project's page says the address.
     _attention.homeservers = _homeservers;
     _homeservers.addListener(_homeserversChanged);
-    _check.addListener(_homeserversChanged);
+    _organization?.addListener(_homeserversChanged);
     // What was joined before is reachable again from the start, at the same port.
     unawaited(_homeservers.restore(widget.machines));
     // Which forges are set up is read now, asking none of them anything, so a project's menu can say
@@ -347,7 +357,10 @@ class _ShellState extends State<Shell> {
     _keepRefreshing();
   }
 
-  late final RegistryPages _registry = widget.registryPages ?? RegistryPages();
+  /// How this person stands in each project, which decides whether they may move its work.
+  late final ProjectStandings _standings = ProjectStandings(widget.organizationSource);
+
+  void _readStandings() => unawaited(_standings.read());
 
   Timer? _refreshing;
   int _refreshingEvery = -1;
@@ -365,10 +378,10 @@ class _ShellState extends State<Shell> {
 
   /// Asks every answering machine again. Only the one open says so, and only when asked by hand.
   Future<void> _refreshAll({bool quietly = false}) async {
-    await _registry.refresh();
+    await _standings.read();
+    if (!quietly) _organization?.readAnswersAgain();
     // A key loaded into the agent, or revoked, since the last read changes what a host admin is offered.
-    await widget.hostAccess?.proof?.readAgain();
-    unawaited(_discoverJoins());
+    await widget.hostAccess?.readAgain();
     for (final machine in widget.machines.all) {
       final fleet = widget.machines.of(machine);
       if (fleet.reachability != Reachability.connected) continue;
@@ -423,31 +436,8 @@ class _ShellState extends State<Shell> {
   }
 
   List<Command> _commands() => [
-    for (final command in [
-      ..._unscopedCommands(),
-      if (_openRegistryItem case final item?) ..._registryPageCommands(item),
-    ])
-      _commandForItem(command).unless(_itemScopeProblem(command)),
+    for (final command in _unscopedCommands()) _commandForItem(command).unless(_itemScopeProblem(command)),
   ];
-
-  RegistryPageItem? get _openRegistryItem {
-    final shell = widget.shell;
-    if (shell.anythingOpen || _fleet.refusal != null || _consoleIsHere) return null;
-    if (shell.section != Section.machine && shell.section != Section.project) return null;
-    final machine = shell.itemMachine;
-    if (machine == null) return null;
-    final project = shell.section == Section.project ? shell.itemProject : null;
-    if (shell.section == Section.project && (project == null || project == defaultProject)) return null;
-    if (shell.itemRegistryTarget case final target?) {
-      final item = _registry.item(target);
-      return item?.machine.name == machine.name &&
-              item?.machine.socketPath == machine.socketPath &&
-              item?.target.project == project
-          ? item
-          : null;
-    }
-    return project == null ? _registry.host(machine) : _registry.project(machine, project);
-  }
 
   Command _commandForItem(Command command) {
     if (command.id != 'project.default' ||
@@ -467,7 +457,6 @@ class _ShellState extends State<Shell> {
   }
 
   String? _itemScopeProblem(Command command) {
-    final target = widget.shell.itemRegistryTarget;
     final scoped =
         {
           Home.machineTitle,
@@ -478,10 +467,6 @@ class _ShellState extends State<Shell> {
           Home.templateTile,
         }.contains(command.home) ||
         command.id == 'project.default';
-    if (scoped && target != null && _registry.item(target) == null) {
-      return 'This verified admission is no longer available. Return to its list.';
-    }
-    if (command.id.startsWith('registry.')) return null;
     if (scoped &&
         {Section.machine, Section.project}.contains(widget.shell.section) &&
         widget.shell.itemMachine != null &&
@@ -495,35 +480,13 @@ class _ShellState extends State<Shell> {
         !(widget.shell.itemProject == defaultProject && _fleet.selectedProject == null)) {
       return 'Open this project again before running its commands.';
     }
-    if (target != null && {'project.server', 'project.takeOffServer'}.contains(command.id)) {
-      return 'Use the operation on the verified item page.';
-    }
     return null;
   }
 
   List<Command> _unscopedCommands() => commandsFor(
     viewActions: [
       ..._viewActions(),
-      myKeyCommand(
-        open: () => unawaited(
-          showIdentity(
-            context,
-            checkoutFor: _registryCheckout,
-            registries: _registryCheckouts,
-            recovery: widget.keyRecovery,
-          ),
-        ),
-      ),
-      replaceKeyCommand(
-        id: 'registry.replaceKey',
-        label: 'Replace a lost or stolen key in owners.yml…',
-        group: 'Options',
-        home: Home.appBar,
-        unavailable: widget.keyRecovery == null ? keyRecoveryNotConnected : null,
-        open: () {
-          if (widget.keyRecovery case final entry?) unawaited(showRegistryKeyRecovery(context, entry: entry));
-        },
-      ),
+      myKeyCommand(open: () => unawaited(showIdentity(context))),
     ],
     fleet: _fleet,
     machine: widget.machines.current,
@@ -572,13 +535,8 @@ class _ShellState extends State<Shell> {
     openTheGate: _openTheGate,
     openEgress: _openEgress,
     removeWhatWasBuilt: _removeWhatWasBuilt,
+    whyNoRemoval: _whyNoRemoval(widget.machines.current, _fleet.selectedProject?.name ?? ''),
     clearTheProject: _clearTheProject,
-    registryAccessUnavailable: widget.projectAccess?.call(_fleet.selectedProject?.name ?? '') == null
-        ? 'Verified registry project access is not available yet.'
-        : null,
-    putOnAServer: desk.isWindows ? null : _registerCallback(_fleet.selectedProject),
-    openDevelopers: desk.isWindows ? null : _developersCallback(_fleet.selectedProject),
-    takeOffServerBusy: _takeOffServerBusy(_fleet.selectedProject?.name),
     startTheAgents: switch (_fleet.selectedProject?.project.name) {
       final name? => () => unawaited(_startTheAgents(name)),
       null => null,
@@ -587,8 +545,6 @@ class _ShellState extends State<Shell> {
     startThenCheck: () => unawaited(_startThenCheck()),
     showTheProviders: _showTheProviders,
     prepareTheProject: _prepareTheProject,
-    followARepository: _followARepository,
-    fromARepository: _fromARepository,
     showTheForges: _showTheForges,
     showTheBackups: _showTheBackups,
     syncTheUpstream: _syncTheUpstream,
@@ -733,13 +689,8 @@ class _ShellState extends State<Shell> {
       showTheBackups: _showTheBackups,
       checkWorkCanStart: _checkWorkCanStart,
       removeWhatWasBuilt: _removeWhatWasBuilt,
+      whyNoRemoval: _whyNoRemoval(on ?? widget.machines.current, project.name),
       clearTheProject: _clearTheProject,
-      registryAccessUnavailable: widget.projectAccess?.call(project.name) == null
-          ? 'Verified registry project access is not available yet.'
-          : null,
-      putOnAServer: desk.isWindows ? null : _registerCallback(project),
-      openDevelopers: desk.isWindows ? null : _developersCallback(project),
-      takeOffServerBusy: _takeOffServerBusy(project.name),
       showTheMessages: () => unawaited(_showTheMessages()),
       openItsForge: () => unawaited(_openItsForge()),
       itsForgeIsMissing: _itsForgeIsMissing(project),
@@ -747,8 +698,7 @@ class _ShellState extends State<Shell> {
       startTheAgents: () => unawaited(_startTheAgents(project.name)),
     ))
       // Run on the project's own machine, with it chosen there: a row on Projects can be another
-      // machine's than the one acted on. Its developers are reached here too: the registry's own person lists offer
-      // no change of their own yet.
+      // machine's than the one acted on.
       command.after(() {
         if (on != null) widget.machines.select(on);
         _fleet.selectProject(project.name);
@@ -849,43 +799,18 @@ class _ShellState extends State<Shell> {
           openTerminal: widget.sessions.openTerminal,
         );
 
-  VoidCallback? _registerCallback(ProjectOnScreen? project) =>
-      project == null ? null : () => unawaited(_putOnAServer(project));
-
-  VoidCallback? _developersCallback(ProjectOnScreen? project) =>
-      project == null ? null : () => unawaited(_openDevelopers(project));
-
-  Future<void> _putOnAServer(ProjectOnScreen project) async {
-    if (project.name == defaultProject || !project.canBeActedOn || widget.projectAccess?.call(project.name) == null) {
-      return;
-    }
-    await openHostDialog(
-      context,
-      access: widget.projectAccess?.call(project.name),
-      backend: _fleet.backend,
-      project: project.name,
-      machines: widget.machines,
-      settings: widget.settings,
-      openTerminal: widget.sessions.openTerminal,
-    );
-  }
-
-  /// Why the project's server cannot take a removal now: its own setup is preparing, running, waiting or interrupted.
-  String? _takeOffServerBusy(String? project) {
-    final host = project == null ? null : widget.settings.projectHost(project);
-    final record = host == null ? null : widget.settings.hostUp(host);
-    if (record == null) return null;
-    final run = _hostRuns.of(record.hostName);
-    return record.preparing || run != null && (run.running || run.needsYou || run.interrupted)
-        ? 'its server’s setup is under way; see its protocol'
-        : null;
-  }
-
-  /// Clears the machine and removes its trusted message signer from followed projects.
+  /// Clears the machine and removes its trusted message signer from its projects.
   Future<void> _clearTheMachine() async {
     await openClearing(context, MachineClearing(_fleet.backend, _forges, machineName: widget.machines.current.name));
     unawaited(_fleet.refresh(quietly: true));
   }
+
+  /// Why [project] cannot be removed here, or null where Porelo lists it as registered here alone.
+  String? _whyNoRemoval(Machine machine, String project) => !machine.isThisComputer
+      // `project list` answers for this computer alone, and an equal name elsewhere says nothing of that project.
+      ? 'Porelo on this computer cannot say whose a project on ${machine.name} is.'
+      : _organization?.whyNoRemoval(project) ??
+            (_organization == null ? 'Porelo cannot be asked here whose it is.' : null);
 
   /// Asks what removing what Porelo built for this project would take, then offers to do it.
   ///
@@ -913,7 +838,10 @@ class _ShellState extends State<Shell> {
     await widget.deleting.remove(fleet.backend, force: force);
     final said = widget.deleting.words;
     if (said.isNotEmpty) fleet.say(said);
-    if (widget.deleting.removed) await fleet.refresh();
+    if (widget.deleting.removed) {
+      _organization?.readAnswersAgain();
+      await fleet.refresh();
+    }
   }
 
   /// Asks whether this machine can run anything, and shows what it said. Asked, never polled.
@@ -922,15 +850,12 @@ class _ShellState extends State<Shell> {
     await widget.readiness.look(_fleet.backend);
   }
 
-  /// The person's forge login: the one the app was given, or the test secrets file while it is there, otherwise the
+  /// The person's forge login: the one the app was given, or the token this instance was started with, otherwise the
   /// platform's own keychain.
   late final ForgeConnection _forges =
       widget.forges ??
       ForgeConnection(
-        switch (KeyFileSecrets.test()) {
-          final test? => KeyFileForgeTokens(test, PlatformForgeTokens(), entry: forgeTokenEntry),
-          null => PlatformForgeTokens(),
-        },
+        EnvironmentForgeTokens(desk.environment, PlatformForgeTokens()),
         entries: _ForgesInSettings(widget.settings),
         openTerminal: widget.sessions.openTerminal,
       );
@@ -956,7 +881,6 @@ class _ShellState extends State<Shell> {
         context,
         _forges,
         machine: _fleet.backend,
-        terminalMachine: widget.machines.current,
         machineName: widget.machines.current.name,
         usedBy: _usedBy,
         onPick: (repository, forge) => picked = (repository: repository, forge: forge),
@@ -966,24 +890,30 @@ class _ShellState extends State<Shell> {
     onStartWork: onStartWork,
   );
 
-  Future<void> _openDevelopers(ProjectOnScreen project) async {
-    if (project.name == defaultProject || !project.canBeActedOn || widget.projectAccess?.call(project.name) == null) {
-      return;
-    }
-    await showProjectDevelopers(
-      context,
-      project: project.name,
-      backend: _fleet.backend,
-      forges: _forges,
-      access: widget.projectAccess?.call(project.name),
-      recovery: widget.keyRecovery,
-    );
+  /// [project]'s address as last read, empty where none is known: it then matches no forge.
+  ///
+  /// Called while the forge pages are drawn; [Organization.addressOf] reads each project once, one at a time.
+  String _addressOf(String project) =>
+      project == defaultProject ? '' : _organization?.addressOf(project)?.address ?? '';
+
+  /// Why [project]'s forge cannot be opened from here, or null where it can, or where pressing it will find out.
+  ///
+  /// Only the selected project's address is read for this: every row's menu is built on every frame.
+  String? _itsForgeIsMissing([ProjectOnScreen? project]) {
+    final name = (project ?? _fleet.selectedProject)?.name;
+    if (name == null) return null;
+    if (name == defaultProject) return 'it has no repository of its own';
+    final organization = _organization;
+    if (organization == null) return 'its address cannot be asked for here';
+    final known = organization.addressOf(name, ask: name == _fleet.selectedProject?.name);
+    return known == null ? null : _whyNoForgeFor(known);
   }
 
-  /// Why the selected project's forge cannot be opened from here, or null where it can.
-  String? _itsForgeIsMissing([ProjectOnScreen? project]) {
-    final url = (project ?? _fleet.selectedProject)?.project.following?.url ?? '';
-    if (url.isEmpty) return 'it is not followed from a repository';
+  /// Why [known] leads to no forge set up here, or null where it leads to one.
+  String? _whyNoForgeFor(KnownAddress known) {
+    if (known.problem case final problem?) return 'its address could not be read: $problem';
+    final url = known.address;
+    if (url == null || url.isEmpty) return 'it has no address yet';
     if (fullNameOf(url) == null) return 'its repository is not on a forge';
     if (_forges.holding(url) == null) {
       return 'its repository is on ${hostOf(url) ?? 'a forge'}, which is not set up here';
@@ -991,10 +921,17 @@ class _ShellState extends State<Shell> {
     return null;
   }
 
-  /// The selected project at its forge and on this machine: its keys, the machines it trusts,
-  /// changes waiting here, and stopping work here.
+  /// The selected project at its forge and on this machine: changes waiting here.
   Future<void> _openItsForge() async {
-    final url = _fleet.selectedProject?.project.following?.url ?? '';
+    final name = _fleet.selectedProject?.name;
+    final organization = _organization;
+    if (name == null || organization == null) return;
+    final known = await organization.readAddress(name);
+    if (_whyNoForgeFor(known) case final why?) {
+      _fleet.say('$name: $why.');
+      return;
+    }
+    final url = known.address!;
     final entry = _forges.holding(url);
     final fullName = fullNameOf(url);
     if (entry == null || fullName == null) return;
@@ -1054,21 +991,6 @@ class _ShellState extends State<Shell> {
     await widget.backups.restore(_fleet.backend, force: force);
     final said = widget.backups.restoreWords;
     if (said.isNotEmpty) _fleet.say(said);
-  }
-
-  /// Fetches [project] now and asks its repositories' upstream; the page says what came back.
-  Future<void> _checkNow(ProjectOnScreen project) async {
-    final repositories = <String>[
-      for (final each in project.project.repositoryStates)
-        if (!each.own || project.project.repositoryStates.length == 1) each.name,
-    ];
-    await _check.checkNow(
-      _fleet.backend,
-      project.name,
-      repositories,
-      joinedHost: widget.machines.current.hostCard != null,
-    );
-    await _fleet.refresh(quietly: true);
   }
 
   /// Asks the upstream how far behind this project is, now.
@@ -1165,33 +1087,6 @@ class _ShellState extends State<Shell> {
           : 'Copying the key into the vault did not work: $failed',
     );
     if (failed == null) await widget.connections.lookAt(_fleet.backend, machine.name);
-  }
-
-  /// Sets up a connection for the address being followed, in the machine's connections — where its
-  /// value is then stored — rather than inventing one here.
-  Future<void> _setUpTheConnectionOfTheFollow() async {
-    final url = widget.following.url.trim();
-    await _showConnections();
-    if (!mounted) return;
-    await _addAConnection(match: url);
-  }
-
-  /// Stores the value the check found missing, by the command it named, in a terminal there.
-  Future<void> _storeWhatTheCheckNamed() async {
-    final check = widget.following.check;
-    final machine = widget.machines.current;
-    final command = check == null ? null : onTheMachine(machine, check.storeCommand, terminal: true);
-    if (command == null) return;
-    await runInATerminal(
-      context,
-      title: 'Store the value for ${widget.following.url.trim()}',
-      explanation:
-          'Type or paste the value into the terminal. It goes straight to the machine '
-          'and never through this program, and nothing here keeps it. Then follow it again.',
-      machine: machine,
-      command: command,
-      open: widget.sessions.openTerminal,
-    );
   }
 
   /// Whether a value can be stored on the current machine from here: its own `porelo` is reachable.
@@ -1346,19 +1241,6 @@ class _ShellState extends State<Shell> {
     if (mounted && minutes != null) await widget.settings.setKeepResolvedMinutes(minutes);
   }
 
-  /// The person's own repositories on a forge: made a project, and this machine bound to one.
-  /// A project from a repository the person has: their forges, or the one forge's repositories
-  /// straight away where there is only one (walk 10: forges are a place of their own).
-  void _fromARepository() => unawaited(() async {
-    await _forges.readList();
-    if (_forges.entries.length == 1) return _openTheForge(_forges.entries.single);
-    widget.shell.goTo(Section.forges);
-    // None yet: the first is set up at once, and its repositories shown once it connects.
-    if (_forges.entries.isNotEmpty || !mounted) return;
-    await showForgeForm(context, _forges, onFollowByAddress: () => unawaited(_followARepository()));
-    if (_forges.connected && mounted) widget.shell.goTo(Section.forge);
-  }());
-
   /// The forges set up on this computer.
   void _showTheForges() => widget.shell.goTo(Section.forges);
 
@@ -1368,45 +1250,93 @@ class _ShellState extends State<Shell> {
     if (_forges.current?.id != entry.id || !_forges.connected) await _forges.choose(entry);
   }
 
+  /// The organization this computer reads, kept while the shell lives so that its last list outlives the page.
+  /// Whether *Projects* shows those of the watched machines rather than the organization's own.
+  bool _machineProjects = false;
+
+  /// The host whose page is open under *Machines*, where this computer reads an organization.
+  String? _organizationHost;
+
+  late final Organization? _organization = widget.organizationSource == null
+      ? null
+      : Organization(widget.organizationSource!);
+
+  late final HostConnections? _hostConnections =
+      widget.hostConnections ?? (_organization == null ? null : widget.connectionsFor?.call(_organization));
+
+  /// The project whose page is open under *Projects*, where this computer reads an organization.
+  String? _organizationProject;
+
+  /// A person's own projects, and one's page, read from the organization.
+  Widget _organizationProjects(Organization organization) => _organizationProject == null
+      ? OrganizationProjectsPage(
+          organization: organization,
+          onProject: (name) => setState(() => _organizationProject = name),
+          onHost: (project, host) {
+            final machine = widget.machines.all.where((machine) => machine.name == host).firstOrNull;
+            if (machine == null) {
+              setState(() => _organizationHost = host);
+              widget.shell.goTo(Section.machines);
+            } else {
+              widget.shell.openProject(machine, project);
+            }
+          },
+          onOthers: () => setState(() => _machineProjects = true),
+        )
+      : OrganizationProjectPage(
+          key: ValueKey(_organizationProject),
+          organization: organization,
+          project: _organizationProject!,
+          onBack: () => setState(() => _organizationProject = null),
+        );
+
+  /// The organization's people, projects, hosts and owners.
+  /// A person's key commands, run through the terminal.
+  late final _keys = KeyCommands(receipts: SettingsReceipts(widget.settings));
+
+  Widget _organizationPage() {
+    final organization = _organization;
+    return _opened() ??
+        (organization == null
+            ? const SizedBox.shrink()
+            : OrganizationPage(
+                organization: organization,
+                keys: _keys,
+                onProject: (name) {
+                  setState(() => _organizationProject = name);
+                  widget.shell.goTo(Section.projects);
+                },
+                onHost: (host) {
+                  setState(() => _organizationHost = host);
+                  widget.shell.goTo(Section.machines);
+                },
+              ));
+  }
+
+  /// The selected machine's vault, where a forge's token is stored.
+  ForgeTokenVault get _forgeTokenVault => ForgeTokenVault(
+    machine: widget.machines.current,
+    answers: _fleet.reachability == Reachability.connected,
+    open: widget.sessions.openTerminal,
+  );
+
   /// Every forge set up here, as a page beside Machines and Projects.
   Widget _forgesPage() =>
       _opened() ??
-      ForgesPage(
-        forges: _forges,
-        usedBy: _usedBy,
-        onMachine: (name) {
-          final machine = widget.machines.all.where((machine) => machine.name == name).firstOrNull;
-          if (machine != null) _openPageMachine(machine);
-        },
-        onOpen: (entry) => unawaited(_openTheForge(entry)),
-        keyCheck: widget.forgeKeyCheck,
+      ListenableBuilder(
+        listenable: _fleet,
+        builder: (context, _) => ForgesPage(
+          forges: _forges,
+          usedBy: _usedBy,
+          onMachine: (name) {
+            final machine = widget.machines.all.where((machine) => machine.name == name).firstOrNull;
+            if (machine != null) _openPageMachine(machine);
+          },
+          onOpen: (entry) => unawaited(_openTheForge(entry)),
+          keyCheck: widget.forgeKeyCheck,
+          tokenVault: _forgeTokenVault,
+        ),
       );
-
-  /// Every registry read here, whose checkouts a change to the person's card holds while it runs, or null.
-  RegistryCheckouts? _registryCheckouts() => switch (_registry.source) {
-    final RegistryReadSource source => source,
-    _ => null,
-  };
-
-  /// The private checkout of [address] when it is the registry read here, else null.
-  String? _registryCheckout(String address) {
-    final source = _registry.source;
-    if (source is! RegistryReadSource) return null;
-    final registry = source.registry;
-    return registry != null && registry.checkout.repository == address ? registry.checkout.folder : null;
-  }
-
-  /// Keeps the registry repository the person names and reads it at once.
-  Future<void> _chooseRegistry() async {
-    final address = await chooseRegistryAddress(context, current: widget.settings.registryRepository);
-    if (address == null || !mounted) return;
-    await widget.settings.setRegistryRepository(address);
-    // The rows and joins of the registry chosen before never show under this one.
-    _joinsFor++;
-    if (mounted) setState(_forgetJoins);
-    await _registry.readAfresh();
-    unawaited(_discoverJoins());
-  }
 
   /// One forge's repositories, as a page.
   Widget _forgePage() {
@@ -1417,9 +1347,6 @@ class _ShellState extends State<Shell> {
             for (final machine in widget.machines.all) widget.machines.of(machine),
           ]),
           builder: (context, _) => ForgePage(
-            registry: _registry,
-            registryAddress: widget.settings.registryRepository,
-            onChooseRegistry: () => unawaited(_chooseRegistry()),
             onBack: () => widget.shell.goTo(Section.forges),
             onMachine: (name) {
               final machine = widget.machines.all.where((machine) => machine.name == name).firstOrNull;
@@ -1436,9 +1363,9 @@ class _ShellState extends State<Shell> {
                 ),
             onDefaultChanged: () => unawaited(_fleet.refresh(quietly: true)),
             machine: _fleet.reachability == Reachability.connected ? _fleet.backend : null,
-            terminalMachine: widget.machines.current,
             machineName: widget.machines.current.name,
-            onOpenProject: (entry, fullName) => unawaited(_openFollowedRepository(entry, fullName)),
+            tokenVault: _forgeTokenVault,
+            onOpenProject: (entry, fullName) => unawaited(_openProjectOfRepository(entry, fullName)),
             usedOnAt: _machinesWorkingOnAt,
             onStartWork: (project) {
               widget.machines.select(machineAtOpen);
@@ -1448,22 +1375,21 @@ class _ShellState extends State<Shell> {
         );
   }
 
-  Future<void> _openFollowedRepository(ForgeEntry entry, String fullName) async {
-    final matches = <RegistryProjectRow>[
-      for (final machine in registryMachines(widget.machines, _registry))
-        for (final row in scopedProjectRows(widget.machines, machine, registry: _registry))
-          if ((forgeHoldsUrl(entry, row.project.project.following?.url ?? '') &&
-                  fullNameOf(row.project.project.following?.url ?? '') == fullName) ||
-              row.project.project.repositoryStates.any(
+  Future<void> _openProjectOfRepository(ForgeEntry entry, String fullName) async {
+    final matches = <({Machine machine, ProjectOnScreen project})>[
+      for (final machine in listedMachines(widget.machines))
+        for (final project in projectsOnMachine(widget.machines, machine))
+          if ((forgeHoldsUrl(entry, _addressOf(project.name)) && fullNameOf(_addressOf(project.name)) == fullName) ||
+              project.project.repositoryStates.any(
                 (repository) =>
                     forgeHoldsUrl(entry, repository.upstream) && fullNameOf(repository.upstream) == fullName,
               ))
-            row,
+            (machine: machine, project: project),
     ];
     if (matches.isEmpty) return;
     final chosen = matches.length == 1
         ? matches.single
-        : await showDialog<RegistryProjectRow>(
+        : await showDialog<({Machine machine, ProjectOnScreen project})>(
             context: context,
             builder: (context) => SimpleDialog(
               title: const Text('Open the project on which machine?'),
@@ -1471,14 +1397,12 @@ class _ShellState extends State<Shell> {
                 for (final row in matches)
                   SimpleDialogOption(
                     onPressed: () => Navigator.pop(context, row),
-                    child: Text(
-                      '${row.project.label} on ${row.machine.name}${row.admission == null ? '' : ' · ${row.admission!.target.registry}'}',
-                    ),
+                    child: Text('${row.project.label} on ${row.machine.name}'),
                   ),
               ],
             ),
           );
-    if (chosen != null && mounted) _openPageProject(chosen.machine, chosen.project.name, admission: chosen.admission);
+    if (chosen != null && mounted) _openPageProject(chosen.machine, chosen.project.name);
   }
 
   List<String> _machinesWorkingOnAt(ForgeEntry entry, String fullName) => [
@@ -1488,8 +1412,7 @@ class _ShellState extends State<Shell> {
           .projects
           .any(
             (project) =>
-                (forgeHoldsUrl(entry, project.project.following?.url ?? '') &&
-                    fullNameOf(project.project.following?.url ?? '') == fullName) ||
+                (forgeHoldsUrl(entry, _addressOf(project.name)) && fullNameOf(_addressOf(project.name)) == fullName) ||
                 project.project.repositoryStates.any(
                   (repository) =>
                       forgeHoldsUrl(entry, repository.upstream) && fullNameOf(repository.upstream) == fullName,
@@ -1507,43 +1430,23 @@ class _ShellState extends State<Shell> {
           .projects
           .any(
             (each) =>
-                fullNameOf(each.project.following?.url ?? '') == fullName ||
+                fullNameOf(_addressOf(each.name)) == fullName ||
                 each.project.repositoryStates.any((repository) => fullNameOf(repository.upstream) == fullName),
           ))
         machine.name,
   ];
 
-  /// The repositories of the projects the watched machines follow on [entry]'s forge: what keys
+  /// The repositories of the watched machines' projects on [entry]'s forge: what keys
   /// were given there, which removing the entry would leave without a way to take them off.
   List<String> _usedBy(ForgeEntry entry) => <String>{
     for (final machine in widget.machines.all)
       for (final project in widget.machines.of(machine).projects)
         for (final url in <String>[
-          project.project.following?.url ?? '',
+          _addressOf(project.name),
           for (final each in project.project.repositoryStates) each.upstream,
         ])
           if (hostOf(url) == entry.address) ?fullNameOf(url),
   }.toList()..sort();
-
-  /// Follows a repository in the machine's place — the only way a project comes to a machine.
-  Future<void> _followARepository() async {
-    widget.following.startOn(_fleet.backend);
-    widget.shell
-      ..goTo(Section.projects)
-      ..openProjectFollowing();
-  }
-
-  /// Puts it away; a project that is now followed is then the one selected.
-  Future<void> _doneFollowing(bool taken) async {
-    final name = widget.following.name.trim();
-    widget.shell.close();
-    widget.following.letItBe();
-    if (!taken) return;
-    await _fleet.refresh();
-    _fleet.selectProject(name);
-    // The project it made, opened on its page, as Projects opens one.
-    widget.shell.goTo(Section.project);
-  }
 
   /// Builds a project's environment without starting anything, at a depth somebody chooses.
   Future<void> _prepareTheProject() async {
@@ -1705,10 +1608,7 @@ class _ShellState extends State<Shell> {
                 children: [
                   const Text(_forgetting),
                   const SizedBox(height: Space.normal),
-                  const Text(
-                    'The server keeps running and billing at the provider. '
-                    'To add it back, use Register the project again; it finds the existing server by its tag.',
-                  ),
+                  const Text('The server keeps running and billing at the provider.'),
                   if (takeDown.unavailable != null)
                     Text('Take this server down is unavailable: ${takeDown.unavailable}'),
                 ],
@@ -2707,23 +2607,10 @@ class _ShellState extends State<Shell> {
     widget.shell.openOperation(operation.id);
   }
 
-  /// Finds a command and opens its home, running registry actions on their captured item page.
+  /// Finds a command and opens its home.
   Future<void> _openFinder() async {
-    final registryItem = _openRegistryItem;
     final chosen = await showCommandFinder(context, _commands());
     if (chosen == null || !mounted) return;
-    if (chosen.id.startsWith('registry.')) {
-      if (registryItem == null) return;
-      final target = registryItem.target;
-      if (target.project case final project?) {
-        _openPageProject(registryItem.machine, project, admission: registryItem);
-      } else {
-        _openPageMachine(registryItem.machine, admission: registryItem);
-      }
-      await WidgetsBinding.instance.endOfFrame;
-      if (mounted && _openRegistryItem?.target == target) chosen.run();
-      return;
-    }
     // Something with no single place on screen runs at once; everything else is shown where it
     // lives, so the next time it is found there.
     if (chosen.home == Home.none || chosen.home == Home.appBar || chosen.home == Home.openedView) {
@@ -2736,10 +2623,10 @@ class _ShellState extends State<Shell> {
         section: switch (chosen.home) {
           Home.tileMenu => Section.work,
           Home.projectMenu || Home.repositoryRow || Home.startTile || Home.templateTile => Section.project,
-          Home.followRepository => Section.projects,
           Home.attentionRow => Section.attention,
           Home.machineRow => Section.machines,
           Home.forgeRow => Section.forges,
+          Home.organizationRow => Section.organization,
           Home.projectRow => Section.projects,
           _ => Section.machine,
         },
@@ -2825,9 +2712,21 @@ class _ShellState extends State<Shell> {
                           child: switch (widget.shell.section) {
                             Section.work => _workArea(),
                             Section.attention => _needsYou(),
-                            Section.machines => _machinesPage(),
+                            Section.machines =>
+                              _organizationHost == null || _organization == null
+                                  ? _machinesPage()
+                                  : OrganizationHostPage(
+                                      key: ValueKey(_organizationHost),
+                                      organization: _organization,
+                                      connections: _hostConnections,
+                                      onGiveToken: _giveHostToken,
+                                      keys: _keys,
+                                      host: _organizationHost!,
+                                      onBack: () => setState(() => _organizationHost = null),
+                                    ),
                             Section.projects => _projectsPage(),
                             Section.forges => _forgesPage(),
+                            Section.organization => _organizationPage(),
                             Section.forge => _forgePage(),
                             Section.machine || Section.project => ListenableBuilder(
                               listenable: _hostRuns,
@@ -2967,14 +2866,11 @@ class _ShellState extends State<Shell> {
         needing: _attention.openRows.length,
         machines:
             rows.preparations.length +
-            scopedMachineRows(
-              widget.machines,
-              _registry,
-            ).where((row) => !rows.preparations.any((run) => run.name == row.machine.name)).length,
-        projects: registryMachines(widget.machines, _registry).fold<int>(
-          0,
-          (count, machine) => count + scopedProjectRows(widget.machines, machine, registry: _registry).length,
-        ),
+            listedMachines(widget.machines)
+                .where((row) => !rows.preparations.any((run) => run.name == row.name))
+                .length,
+        projects: listedMachines(widget.machines)
+            .fold<int>(0, (count, machine) => count + projectsOnMachine(widget.machines, machine).length),
         forges: _forges.entries.length,
         width: width,
         onGo: (section) {
@@ -2999,10 +2895,15 @@ class _ShellState extends State<Shell> {
       for (final machine in widget.machines.all) widget.machines.of(machine),
     ]),
     builder: (context, _) => MachinesPage(
+      organizationHosts: _organization == null
+          ? null
+          : OrganizationHostsSection(
+              organization: _organization,
+              connections: _hostConnections,
+              onHost: (host) => setState(() => _organizationHost = host),
+            ),
       machines: widget.machines,
       hostCommands: _hostCommands,
-      registry: _registry,
-      onAdmission: (item) => _openPageMachine(item.machine, admission: item),
       prepareServer: _commands().where((command) => command.id == 'host.prepare').firstOrNull,
       hostRuns: _hostRuns,
       onHostProtocol: (run) => unawaited(_openHostRun(run)),
@@ -3019,30 +2920,42 @@ class _ShellState extends State<Shell> {
   );
 
   /// Every project on every machine, and the ways to set one up: setting up, out of the daily way.
+  /// Today's list of a machine's projects, with the way back to the organization's where it is opened from there.
+  Widget _withWayBack(Widget page) => !_machineProjects
+      ? page
+      : Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextButton.icon(
+              key: const Key('projects-of-organization'),
+              onPressed: () => setState(() => _machineProjects = false),
+              icon: const Icon(Icons.arrow_back),
+              label: const Text('Projects of the organization'),
+            ),
+            Expanded(child: page),
+          ],
+        );
+
   Widget _projectsPage() =>
       _opened() ??
-      ListenableBuilder(
-        listenable: Listenable.merge(<Listenable>[
-          _attention,
-          widget.notifications,
-          for (final machine in widget.machines.all) widget.machines.of(machine),
-        ]),
-        builder: (context, _) => ProjectsPage(
-          machines: widget.machines,
-          registry: _registry,
-          onAdmission: (item) => _openPageProject(item.machine, item.target.project!, admission: item),
-          menuForAdmission: (machine, project, admission) =>
-              _pageProjectCommands(machine, project, admission: admission),
-          muted: widget.notifications.muted,
-          highlight: widget.shell.highlight,
-          onShown: widget.shell.shown,
-          onProject: (machine, project) {
-            _openPageProject(machine, project);
-          },
-          menuFor: _pageProjectCommands,
-          onFromARepository: _fleet.reachability == Reachability.connected ? _fromARepository : null,
-          onFollow: _fleet.reachability == Reachability.connected ? () => unawaited(_followARepository()) : null,
-          joins: _joinRows,
+      (_organization == null || _machineProjects ? null : _organizationProjects(_organization)) ??
+      _withWayBack(
+        ListenableBuilder(
+          listenable: Listenable.merge(<Listenable>[
+            _attention,
+            widget.notifications,
+            for (final machine in widget.machines.all) widget.machines.of(machine),
+          ]),
+          builder: (context, _) => ProjectsPage(
+            machines: widget.machines,
+            muted: widget.notifications.muted,
+            highlight: widget.shell.highlight,
+            onShown: widget.shell.shown,
+            onProject: (machine, project) {
+              _openPageProject(machine, project);
+            },
+            menuFor: _pageProjectCommands,
+          ),
         ),
       );
 
@@ -3071,7 +2984,6 @@ class _ShellState extends State<Shell> {
                 ? () => unawaited(_newWork())
                 : null,
             onAddAMachine: _addAMachine,
-            onSetUpAProject: _fleet.reachability == Reachability.connected ? _fromARepository : null,
             tile: (tile) => TaskTile(
               listRow: true,
               tile: tile,
@@ -3211,8 +3123,9 @@ class _ShellState extends State<Shell> {
           if (run != null) unawaited(_openHostRun(run));
         },
         unlockFor: _unlockFor,
-        onStopFollowing: (machine, project) =>
+        onRemoveProject: (machine, project) =>
             unawaited(_previewProjectRemoval(widget.machines.of(machine), project.name)),
+        whyNoRemoval: _whyNoRemoval,
         onDecide: (tile, prompt, {required allow}) =>
             tile.fleet.clearance.decide(tile.fleet.backend, prompt, allow: allow),
         onPutAway: (tile, prompt) => tile.fleet.clearance.forget(prompt),
@@ -3276,19 +3189,19 @@ class _ShellState extends State<Shell> {
   }
 
   /// Running work on every project, or the selected project with its work under its header.
-  void _openPageMachine(Machine machine, {RegistryPageItem? admission}) {
+  void _openPageMachine(Machine machine) {
     machine = _pageMachine(machine);
     if (widget.machines.all.contains(machine)) widget.machines.select(machine);
-    widget.shell.openMachine(machine, target: admission?.target);
+    widget.shell.openMachine(machine);
   }
 
-  void _openPageProject(Machine machine, String project, {RegistryPageItem? admission}) {
+  void _openPageProject(Machine machine, String project) {
     machine = _pageMachine(machine);
     if (widget.machines.all.contains(machine)) {
       widget.machines.select(machine);
       widget.machines.of(machine).selectProject(project);
     }
-    widget.shell.openProject(machine, project, target: admission?.target);
+    widget.shell.openProject(machine, project);
   }
 
   Machine _pageMachine(Machine machine) =>
@@ -3297,13 +3210,7 @@ class _ShellState extends State<Shell> {
           .firstOrNull ??
       machine;
 
-  List<Command> _pageProjectCommands(
-    Machine machine,
-    ProjectOnScreen project, {
-    RegistryPageItem? admission,
-    bool registryActions = true,
-  }) {
-    final item = registryActions ? admission ?? _registry.project(machine, project.name) : null;
+  List<Command> _pageProjectCommands(Machine machine, ProjectOnScreen project) {
     final watched = widget.machines.all.contains(machine);
     final answering = watched && widget.machines.of(machine).reachability == Reachability.connected;
     final openWork = Command(
@@ -3317,9 +3224,9 @@ class _ShellState extends State<Shell> {
           ? null
           : project.canBeActedOn
           ? StartWork.whyNot(project.project)
-          : 'This project is not followed on this machine.',
+          : 'This project is not on this machine.',
       run: () {
-        _openPageProject(machine, project.name, admission: item);
+        _openPageProject(machine, project.name);
         unawaited(project.name == defaultProject ? _startInDefault() : _startWork());
       },
     );
@@ -3334,35 +3241,39 @@ class _ShellState extends State<Shell> {
         },
       ),
       if (watched)
-        ..._projectMenu(project, on: machine).where(
-          (command) =>
-              (project.name != defaultProject ||
-                  !{'project.server', 'project.takeOffServer', 'project.clear'}.contains(command.id)) &&
-              (item == null || !{'project.server', 'project.takeOffServer'}.contains(command.id)),
-        ),
+        ..._projectMenu(
+          project,
+          on: machine,
+        ).where((command) => project.name != defaultProject || command.id != 'project.clear'),
       if (watched)
         ...cardHostTransferCommands(
           transfers: _transfers,
           machine: machine,
           project: project.name,
-          followed: project.canBeActedOn,
-          hasSecrets: hasCentralTransferSecrets(widget.settings.secretsFile),
+          whyNoRight: _standings.whyNoRight(project.name),
+          hasSecrets: centralToken(widget.settings.secretsFile, desk.environment) != null,
           running: _transfersRunning.contains('${machine.name}/${project.name}'),
           start: (direction) => unawaited(_transferInATerminal(machine, project.name, direction)),
         ),
-      if (project.name != defaultProject && item != null) ..._registryPageCommands(item),
     ];
   }
 
   /// Pushes the approved main, or takes the central state, in a terminal here: the terminal reads the central token
-  /// from the secrets file (the test one by its key file, or the person's own after its master password is typed
-  /// there) and hands it to the host's own command on its standard input, so the token never passes through this
+  /// from the variable this instance was started with, or from the person's secrets file after its master password
+  /// is typed there, and hands it to the host's own command on its standard input, so the token never passes through this
   /// program.
   Future<void> _transferInATerminal(Machine machine, String project, ProjectTransfer direction) async {
     final key = '${machine.name}/$project';
     if (!_transfersRunning.add(key)) return;
     setState(() {});
     try {
+      // The menu was built from an earlier read; a lock since then must stop this run.
+      await _standings.read();
+      if (!mounted) return;
+      if (_standings.whyNoRight(project) case final why?) {
+        _fleet.say(why);
+        return;
+      }
       await _transferOnce(machine, project, direction);
     } finally {
       _transfersRunning.remove(key);
@@ -3370,13 +3281,71 @@ class _ShellState extends State<Shell> {
     }
   }
 
+  /// A server just prepared: connects to it from its new card and gives it the host admin's central token, once.
+  Future<void> _hostReady(String host) async {
+    await _organization?.refresh();
+    final connections = _hostConnections;
+    if (connections == null) return;
+    try {
+      await connections.connect(host);
+    } on OrganizationRefused catch (refused) {
+      _fleet.say('$host is ready, but no token could be given to it yet: ${refused.words}');
+      return;
+    }
+    await _giveHostToken(host);
+  }
+
+  /// Feeds the host admin's central token to [host]'s `org refresh`, in a terminal: nothing here sees or keeps it.
+  Future<void> _giveHostToken(String host) async {
+    final machine = widget.machines.all.where((machine) => machine.hostCard?.name == host).firstOrNull;
+    final card = machine?.hostCard;
+    if (machine == null || card == null) {
+      _fleet.say('Connect to $host first.');
+      return;
+    }
+    final List<String> command;
+    final CentralToken? secrets;
+    try {
+      secrets = centralToken(widget.settings.secretsFile, desk.environment);
+      if (secrets == null) {
+        _fleet.say('Choose your secrets file first: your central forge token is read from it, in a terminal.');
+        return;
+      }
+      command = organizationRefreshFeedCommand(card: card, config: machine.sshConfig, token: secrets);
+    } on HostFilesRefused catch (refused) {
+      _fleet.say(refused.message);
+      return;
+    } on FormatException catch (refused) {
+      _fleet.say(refused.message);
+      return;
+    }
+    if (!mounted) return;
+    await runInATerminal(
+      context,
+      title: 'Give $host your central forge token',
+      explanation: _centralTokenWords(secrets, host),
+      machine: machine,
+      command: command,
+      open: widget.sessions.openTerminal,
+      showCommand: false,
+      completed: '$host took the token.',
+    );
+  }
+
+  /// What a terminal feeding the central token to [target] will ask of the person.
+  String _centralTokenWords(CentralToken token, String target) => token is SecretsFile
+      ? 'Type the master password of your secrets file into the terminal. The terminal reads the central forge token '
+            'from that file and sends it to $target on its standard input; nothing here sees or keeps it.'
+      : 'The terminal sends the central forge token this instance was started with to $target on its standard input, '
+            'and asks nothing.';
+
   Future<void> _transferOnce(Machine machine, String project, ProjectTransfer direction) async {
     final card = machine.hostCard;
     if (card == null) return;
     final List<String> command;
-    final SecretsFile? secrets;
+    final CentralToken? secrets;
     try {
-      secrets = await centralTransferSecrets(widget.settings.secretsFile, entry: forgeTokenEntry);
+      secrets = centralToken(widget.settings.secretsFile, desk.environment);
       if (secrets == null) return;
       command = projectTransferFeedCommand(
         direction: direction,
@@ -3384,12 +3353,9 @@ class _ShellState extends State<Shell> {
         repositories: const [],
         card: card,
         config: machine.sshConfig,
-        secretsFile: secrets,
+        token: secrets,
         marked: false,
       );
-    } on ForgeRefused catch (refused) {
-      _fleet.say(refused.words);
-      return;
     } on HostFilesRefused catch (refused) {
       _fleet.say(refused.message);
       return;
@@ -3402,12 +3368,7 @@ class _ShellState extends State<Shell> {
     await runInATerminal(
       context,
       title: push ? 'Push the approved main of $project' : 'Take the central state of $project',
-      explanation: secrets.keyFile == null
-          ? 'Type the master password of your secrets file into the terminal. The terminal reads the central forge '
-                'token from that file and sends it to ${machine.name} on its standard input; nothing here sees or '
-                'keeps it.'
-          : 'The terminal reads the central forge token from the test secrets file with its key file and sends it to '
-                '${machine.name} on its standard input; nothing here sees or keeps it.',
+      explanation: _centralTokenWords(secrets, machine.name),
       machine: machine,
       command: command,
       open: widget.sessions.openTerminal,
@@ -3416,48 +3377,15 @@ class _ShellState extends State<Shell> {
     );
   }
 
-  List<Command> _registryPageCommands(RegistryPageItem item) => registryItemCommands(
-    context,
-    _registry,
-    item,
-    item.target.project == null
-        ? [RegistryOperation.bringState]
-        : [
-            RegistryOperation.register,
-            RegistryOperation.join,
-            RegistryOperation.push,
-            RegistryOperation.pull,
-            RegistryOperation.backupKey,
-          ],
-  );
-
   Widget _machineBody(Machine selected, FleetModel fleet, String? highlight) {
     final machine = widget.shell.itemMachine ?? selected;
     final watched = widget.machines.all.contains(machine);
-    final admission = _openRegistryItem;
-    if (widget.shell.itemRegistryTarget != null && admission == null) {
-      return ListView(
-        padding: const EdgeInsets.all(Space.normal),
-        children: [
-          const Text(
-            'This verified admission is no longer available. Return to the list to choose another item.',
-            key: Key('registry-selection-unavailable'),
-          ),
-          TextButton(
-            onPressed: () =>
-                widget.shell.goTo(widget.shell.section == Section.project ? Section.projects : Section.machines),
-            child: const Text('Back to the list'),
-          ),
-        ],
-      );
-    }
     final projectName = widget.shell.itemProject ?? fleet.selectedProject?.name;
     final project = projectsOnMachine(
       widget.machines,
       machine,
-      registry: _registry,
     ).where((project) => project.name == projectName).firstOrNull;
-    // A project's page whose project went - deleted, cleared, no longer followed - goes back to the
+    // A project's page whose project went - removed, cleared - goes back to the
     // list of projects rather than showing its machine's page under the project's name (walk 9).
     if (widget.shell.section == Section.project && project == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -3469,13 +3397,11 @@ class _ShellState extends State<Shell> {
       });
     }
     if (widget.shell.section == Section.project && project != null) {
-      final commands = _pageProjectCommands(machine, project, admission: admission, registryActions: admission != null);
+      final commands = _pageProjectCommands(machine, project);
       return ProjectDetailsPage(
-        key: ValueKey('project ${projectRowIdentity(machine, project.name, admission)}'),
+        key: ValueKey('project ${machine.name}/${project.name}'),
         machine: machine,
         project: project,
-        admission: admission,
-        registry: _registry,
         commands: commands,
         onBack: () => widget.shell.goTo(Section.projects),
         onMachine: () => _openPageMachine(machine),
@@ -3487,26 +3413,23 @@ class _ShellState extends State<Shell> {
           menu: commands,
           showTitle: false,
           onSync: (repository) {
-            _openPageProject(machine, project.name, admission: admission);
+            _openPageProject(machine, project.name);
             unawaited(_syncTheUpstream(repository: repository));
           },
-          onCheck: project.project.following == null ? null : () => unawaited(_checkNow(project)),
-          checking: _check.isChecking(project.name),
-          checked: _check.saidAbout(project.name),
           onBackups: (repository) {
-            _openPageProject(machine, project.name, admission: admission);
+            _openPageProject(machine, project.name);
             unawaited(_showTheBackups(repository: repository));
           },
           onOpens: (repository) {
-            _openPageProject(machine, project.name, admission: admission);
+            _openPageProject(machine, project.name);
             _checkWorkCanStart(repository: repository);
           },
           onReach: (repository) {
-            _openPageProject(machine, project.name, admission: admission);
+            _openPageProject(machine, project.name);
             unawaited(_openEgress(repository: repository));
           },
           onStart: (repository) {
-            _openPageProject(machine, project.name, admission: admission);
+            _openPageProject(machine, project.name);
             unawaited(_startWork(repository: repository));
           },
           homeserver: _homeserverWords(machine, project.name),
@@ -3538,10 +3461,6 @@ class _ShellState extends State<Shell> {
       key: ValueKey('machine ${machine.name}'),
       machine: machine,
       machines: widget.machines,
-      registry: _registry,
-      admission: admission,
-      onAdmission: (item) => _openPageProject(item.machine, item.target.project!, admission: item),
-      menuForAdmission: (machine, project, admission) => _pageProjectCommands(machine, project, admission: admission),
       commands: watched
           ? [
               for (final command in [
@@ -3667,25 +3586,6 @@ class _ShellState extends State<Shell> {
         final tail = widget.logs.find(task, log, formatted: formatted);
         if (tail == null) return null;
         return LogView(tail: tail, logs: widget.logs, onClose: widget.shell.close);
-      case ProjectFollowingOpened():
-        return ProjectFollowingPanel(
-          following: widget.following,
-          onFollow: ({bool acceptRewrite = false}) async {
-            await widget.following.follow(acceptRewrite: acceptRewrite);
-            final said = widget.following.answer?.words;
-            if (said != null) _fleet.say('${widget.following.name.trim()}: $said');
-          },
-          onDone: (taken) => unawaited(_doneFollowing(taken)),
-          onUnlockHere: _canUnlockHere ? () => unawaited(_unlockHere()) : null,
-          onSetUpItsConnection: () => unawaited(_setUpTheConnectionOfTheFollow()),
-          onShowItsConnection: () => unawaited(_showConnections()),
-          onStoreInATerminal: _storesHere ? () => unawaited(_storeWhatTheCheckNamed()) : null,
-          onFromARepository: () {
-            widget.shell.close();
-            widget.following.letItBe();
-            _fromARepository();
-          },
-        );
       case OperationsOpened():
         return OperationsList(
           operations: widget.operations,
@@ -3725,130 +3625,12 @@ class _ShellState extends State<Shell> {
     widget.shell.close();
   }
 
-  /// Where Core verified that the person is admitted, each row with its own join.
-  List<({JoinAdmission admission, ProjectJoin? join})> _joinRows = const [];
-  final Map<String, ProjectJoin> _joins = {};
-
-  Future<void>? _discovering;
-  String? _joinsSaid;
-
-  /// The running joins to be replaced when they end, as Core answered their rows anew meanwhile.
-  final Set<ProjectJoin> _replacing = {};
-
-  /// Counts the registries chosen, so an answer about one chosen before never shows under this one.
-  int _joinsFor = 0;
-
-  /// Asks Core where the person may join, once the registry pages' read has ended; a refusal leaves no row, and says
-  /// itself once. One ask at a time: one asked while another runs follows it.
-  Future<void> _discoverJoins() {
-    final running = _discovering;
-    final next = _discovering = (running ?? Future<void>.value()).then((_) => _discover());
-    return next.whenComplete(() {
-      if (identical(_discovering, next)) _discovering = null;
-    });
-  }
-
-  Future<void> _discover() async {
-    final discovery = widget.joinDiscovery;
-    final host = widget.joinHost;
-    if (discovery == null || host == null || !mounted) return;
-    // Never beside a read of the checkout discovery reads; that read asks again when it ends. Whether the registry
-    // was read far enough to join through it is Core's discovery's to say.
-    if (_registry.source != null && _registry.busy) return;
-    final asked = _joinsFor;
-    try {
-      final admissions = await discovery.admissions();
-      if (!mounted || asked != _joinsFor) return;
-      setState(() {
-        _joinRows = [
-          for (final admission in admissions)
-            (
-              admission: admission,
-              join: switch (admission) {
-                JoinOffered offer => _joinOf(offer, discovery, host),
-                JoinUnreadable() || JoinUnusable() => null,
-              },
-            ),
-        ];
-        final shown = {for (final row in _joinRows) ?row.join};
-        for (final MapEntry(:key, value: join) in _joins.entries.toList()) {
-          if (!shown.contains(join)) _retire(_joins.remove(key)!);
-        }
-      });
-      _joinsSaid = null;
-    } on Exception catch (error) {
-      if (!mounted || asked != _joinsFor) return;
-      final words = error is RegistryRefusal ? error.toString() : 'Core could not say where you may join.';
-      setState(_forgetJoins);
-      if (words != _joinsSaid) _fleet.say(_joinsSaid = words);
-    }
-  }
-
-  /// The join of [offer]'s row: the one it had while Core answers it unchanged, else a new one; a join still running
-  /// for what Core answered before is replaced when it ends.
-  ProjectJoin _joinOf(JoinOffered offer, JoinDiscovery discovery, JoinHost host) {
-    final kept = _joins[offer.key];
-    if (kept != null && kept.offer.same(offer)) return kept;
-    if (kept != null && kept.busy) {
-      if (!_replacing.add(kept)) return kept;
-      void ended() {
-        if (kept.busy) return;
-        kept.removeListener(ended);
-        _replacing.remove(kept);
-        if (!mounted || !identical(_joins[offer.key], kept)) return;
-        final now = _joinRows.where((row) => row.join == kept).firstOrNull?.admission;
-        setState(() {
-          if (now is JoinOffered && !now.same(kept.offer)) {
-            final fresh = _joinOf(now, discovery, host);
-            _joinRows = [for (final row in _joinRows) row.join == kept ? (admission: now, join: fresh) : row];
-          }
-        });
-      }
-
-      kept.addListener(ended);
-      return kept;
-    }
-    if (kept != null) _retire(kept);
-    return _joins[offer.key] = ProjectJoin(
-      offer: offer,
-      discovery: discovery,
-      host: host,
-      machines: widget.machines,
-      settings: widget.settings,
-    );
-  }
-
-  /// Takes every row and join away, as when the registry read failed or another registry was chosen.
-  void _forgetJoins() {
-    _joinRows = const [];
-    for (final join in _joins.values) {
-      _retire(join);
-    }
-    _joins.clear();
-  }
-
-  /// Lets go of a join no row shows any more, once it has ended, never cutting off one that runs.
-  void _retire(ProjectJoin join) {
-    void ended() {
-      if (join.busy) return;
-      join.removeListener(ended);
-      // Never inside its own notification.
-      scheduleMicrotask(join.dispose);
-    }
-
-    if (join.busy) {
-      join.addListener(ended);
-    } else {
-      scheduleMicrotask(join.dispose);
-    }
-  }
-
   @override
   void dispose() {
+    if (widget.hostConnections == null) _hostConnections?.dispose();
+    _organization?.removeListener(_readStandings);
+    _organization?.dispose();
     _transfers.dispose();
-    for (final join in _joins.values) {
-      join.dispose();
-    }
     for (final run in _runs.values) {
       run.dispose();
     }
@@ -3858,9 +3640,7 @@ class _ShellState extends State<Shell> {
     _refreshing?.cancel();
     _leaving.dispose();
     _homeservers.removeListener(_homeserversChanged);
-    widget.hostAccess?.proof?.removeListener(_homeserversChanged);
-    _check.removeListener(_homeserversChanged);
-    _check.dispose();
+    widget.hostAccess?.removeListener(_homeserversChanged);
     _attention.dispose();
     _workView.dispose();
     _hostRuns.dispose();
@@ -3871,8 +3651,8 @@ class _ShellState extends State<Shell> {
     _handIns.dispose();
     _startingAgents.dispose();
     // Only the one made here: a connection the app handed in is the app's.
-    _registry.removeListener(_homeserversChanged);
-    if (widget.registryPages == null) _registry.dispose();
+    _standings.removeListener(_homeserversChanged);
+    _standings.dispose();
     if (widget.forges == null) _forges.dispose();
     super.dispose();
   }

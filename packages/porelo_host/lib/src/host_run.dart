@@ -68,10 +68,8 @@ class HostPlan {
     if (hostName == null) return;
     checkHostName(hostName!);
     if (recoveryOnly) return;
-    if (project.isNotEmpty || account.isNotEmpty || machineFile != null || bundle != null) {
-      throw const FormatException(
-        'A server prepared without a project takes no account, project, machine file or bundle.',
-      );
+    if (project.isNotEmpty || account.isNotEmpty || bundle != null) {
+      throw const FormatException('A server prepared without a project takes no account, project or bundle.');
     }
     if (loginUser != 'root') throw const FormatException('A prepared server uses root with the rental key.');
     if (forSetup) {
@@ -111,7 +109,7 @@ class HostPlan {
   /// Porelo carries `vault status`, which the host's plays ask; 0.5.0 has none.
   final String distribution;
 
-  /// This desktop's `machine.yml`, uploaded into the setup's place on the host; null where the drive still carries it.
+  /// This desktop's `machine.yml`, uploaded into the setup's place on the host; a server's holds its organization part.
   final String? machineFile;
 
   /// The project's bundle, uploaded beside it as `<project>.bundle`.
@@ -388,6 +386,7 @@ class HostRun {
       if (sha256.convert(bytes).toString() != expected.toLowerCase()) {
         throw const FormatException('The collection is not a regular file with the expected SHA-256.');
       }
+      final machineFile = plan.machineFile == null ? null : _uploadFile(plan.machineFile!);
       checkedCollection = await Directory.systemTemp.createTemp('porelo-collection-');
       final checkedSource = File(path.join(checkedCollection.path, 'collection.tar.gz'));
       await checkedSource.writeAsBytes(bytes);
@@ -411,7 +410,7 @@ fi
 test -d "$work" && test ! -L "$work" &&
   test "$(stat -c '%u:%a' "$work")" = '0:700' ||
   refuse_path "$work" 'a plain root-owned directory with mode 0700'
-for file in "$work/collection.tar.gz" "$work/inventory.yml"; do
+for file in "$work/collection.tar.gz" "$work/inventory.yml" "$work/machine.yml"; do
   test ! -L "$file" || refuse_path "$file" 'a plain root-owned single-link file'
   if test -e "$file"; then
     test -f "$file" && test "$(stat -c '%u:%h' "$file")" = '0:1' ||
@@ -424,6 +423,23 @@ done''',
       if (result.exitCode != 0) return _refused('copy', result, 'The collection could not be copied.');
       result = await remote.run(address, 'root', 'cat > $_workdir/inventory.yml', input: _inventory(plan));
       if (result.exitCode != 0) return _refused('copy', result, 'The inventory could not be copied.');
+      if (machineFile != null) {
+        result = await remote.copy(address, 'root', machineFile.path, '$_workdir/machine.yml');
+        if (result.exitCode != 0) return _refused('copy', result, 'The machine file could not be copied.');
+        final place = HostAct.root.setupPlace();
+        result = await remote.run(
+          address,
+          'root',
+          'set -e\n'
+              'install -d -o root -g root -m 0755 ${path.posix.dirname(place)}\n'
+              'install -d -o root -g root -m 0700 $place\n'
+              'install -o root -g root -m 0600 $_workdir/machine.yml $place/machine.yml\n'
+              'rm -f $_workdir/machine.yml\n'
+              'sha256sum -c - >/dev/null',
+          input: '${machineFile.digest}  $place/machine.yml\n',
+        );
+        if (result.exitCode != 0) return _refused('copy', result, 'The machine file did not arrive as it was sent.');
+      }
       _write(const Step('copy', StepState.done));
       _write(const Step('ansible', StepState.started));
       result = await remote.run(

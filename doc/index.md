@@ -122,8 +122,8 @@ is only as trustworthy as the ZIP or the MSIX it came in, which is why the check
    kept in the machine's vault.
 5. **Review what the agent did**: what it changed, the most far-reaching first, and what it was
    asked. Forward it to the repository's origin, or drop it.
-6. **Follow a project** under *Projects* when work needs settings of its own: a repository holding a
-   `project.yml`, whose settings are changed in that repository.
+6. **Work in a project of your organization** under *Projects* when work needs settings of its own: a
+   repository holding a `project.yml`, whose settings are changed in that repository.
 
 *Needs you* lists everything a person has to answer, on every machine, the most urgent first.
 

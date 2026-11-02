@@ -15,7 +15,7 @@ abstract interface class SignerPolicy {
   Future<CommitVerdict> verdict(String project, String revision);
 }
 
-/// Asks Core through this computer's own daemon, the one that holds the person's registry state.
+/// Asks Core through this computer's own daemon, the one that holds the person's organization state.
 class DaemonSignerPolicy implements SignerPolicy {
   /// Constructor taking this computer's daemon.
   DaemonSignerPolicy(this.backend);

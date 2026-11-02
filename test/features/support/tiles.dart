@@ -218,6 +218,11 @@ Finder _thePage() => find.byKey(const Key('machine-tree')).evaluate().isNotEmpty
 Future<void> toTheProjects(WidgetTester tester, {bool timePasses = true}) async {
   if (find.byKey(const Key('projects-page')).evaluate().isNotEmpty) return;
   await toThePlace(tester, 'projects', timePasses: timePasses);
+  // Where an organization is read, the machines' projects are a step away from its own.
+  if (find.byKey(const Key('projects-of-machines')).evaluate().isNotEmpty) {
+    await tester.tap(find.byKey(const Key('projects-of-machines')));
+    await World.settle(tester);
+  }
 }
 
 /// Looks at the page of projects, then goes back to where the window was, as

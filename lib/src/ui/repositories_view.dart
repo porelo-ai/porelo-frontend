@@ -6,9 +6,6 @@ import '../app/fleet_backend.dart';
 import '../app/forge.dart';
 import '../app/forge_connection.dart';
 import '../app/machine_binding.dart';
-import '../app/machines.dart';
-import '../app/project_workspace.dart';
-import 'binding_view.dart';
 import 'dialog_scroll.dart';
 import 'forges_view.dart';
 import 'project_forge_view.dart';
@@ -21,26 +18,15 @@ Future<void> showRepositories(
   BuildContext context,
   ForgeConnection forges, {
   FleetBackend? machine,
-  Machine? terminalMachine,
   String machineName = 'the machine',
-  Future<void> Function(String project)? onStartWork,
-  VoidCallback? onFollowByAddress,
   List<String> Function(ForgeEntry entry)? usedBy,
   void Function(ForgeRepository repository, Forge forge)? onPick,
 }) async {
   if (!forges.connected) unawaited(forges.load());
   await showDialog<void>(
     context: context,
-    builder: (_) => RepositoriesDialog(
-      forges: forges,
-      machine: machine,
-      terminalMachine: terminalMachine,
-      machineName: machineName,
-      onStartWork: onStartWork,
-      onFollowByAddress: onFollowByAddress,
-      usedBy: usedBy,
-      onPick: onPick,
-    ),
+    builder: (_) =>
+        RepositoriesDialog(forges: forges, machine: machine, machineName: machineName, usedBy: usedBy, onPick: onPick),
   );
 }
 
@@ -50,10 +36,7 @@ class RepositoriesDialog extends StatefulWidget {
   const RepositoriesDialog({
     required this.forges,
     this.machine,
-    this.terminalMachine,
     this.machineName = 'the machine',
-    this.onStartWork,
-    this.onFollowByAddress,
     this.usedBy,
     this.onPick,
     super.key,
@@ -63,23 +46,14 @@ class RepositoriesDialog extends StatefulWidget {
   /// closes the dialog and hands it, with the forge it is on, here.
   final void Function(ForgeRepository repository, Forge forge)? onPick;
 
-  /// Follows a project by its address instead, for a repository no forge set up here holds.
-  final VoidCallback? onFollowByAddress;
-
-  /// The repositories of followed projects on a forge, for removing it.
+  /// The repositories of the projects on a forge, for removing it.
   final List<String> Function(ForgeEntry entry)? usedBy;
-
-  /// Opens the start dialog on the project called by name, on [machine]; null where not offered.
-  final Future<void> Function(String project)? onStartWork;
 
   /// The forge whose repositories these are.
   final ForgeConnection forges;
 
   /// The machine that checks a project file, or null where none is watched.
   final FleetBackend? machine;
-
-  /// Where the binding’s token prompt runs.
-  final Machine? terminalMachine;
 
   /// What the person calls it.
   final String machineName;
@@ -132,15 +106,6 @@ class _RepositoriesDialogState extends State<RepositoriesDialog> {
                   ..._connect(context, forges)
                 else
                   ..._chooseAForge(context, forges),
-                if (widget.onFollowByAddress case final byAddress?)
-                  TextButton(
-                    key: const Key('follow-by-address'),
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                      byAddress();
-                    },
-                    child: const Text('Not on a forge? Follow a project by its address'),
-                  ),
               ],
             ),
           ),
@@ -247,20 +212,7 @@ class _RepositoriesDialogState extends State<RepositoriesDialog> {
     ];
   }
 
-  /// Changing the token from a dialog over this one: the forges open, and the dialog goes on with
-  /// the forge and a clone reached with the token then in use.
-  Future<({Forge forge, ProjectWorkspace workspace})?> Function() _changingTheToken(
-    BuildContext context,
-    ForgeConnection forges,
-    ForgeRepository repository,
-  ) => () async {
-    await showForges(context, forges, usedBy: widget.usedBy);
-    final changed = forges.forge;
-    final clone = forges.workspace(repository);
-    return changed == null || clone == null ? null : (forge: changed, workspace: clone);
-  };
-
-  /// The project's machines and keys at the forge, its changes waiting, and stopping work.
+  /// The project's changes waiting at the machine.
   Future<void> _tools(BuildContext context, ForgeConnection forges, ForgeRepository repository) async {
     final workspace = forges.workspace(repository);
     final machine = widget.machine;
@@ -270,14 +222,6 @@ class _RepositoriesDialogState extends State<RepositoriesDialog> {
       context,
       MachineBinding(forge, workspace, machine, machineName: widget.machineName, login: forges.account?.login ?? ''),
     );
-  }
-
-  /// Binds the machine to [repository] from its line, once the token is known to be allowed to;
-  /// where it is not, the reason is what shows under the line.
-  Future<void> _use(BuildContext context, ForgeConnection forges, ForgeRepository repository) async {
-    await _choose(forges, repository);
-    if (!context.mounted || !repository.push) return;
-    await _bind(context, forges, repository);
   }
 
   /// Chooses [repository], and asks the forge what it holds and what the token may do there.
@@ -297,31 +241,8 @@ class _RepositoriesDialogState extends State<RepositoriesDialog> {
     }
   }
 
-  Future<void> _bind(BuildContext context, ForgeConnection forges, ForgeRepository repository) async {
-    final workspace = forges.workspace(repository);
-    final machine = widget.machine;
-    final forge = forges.forge;
-    if (workspace == null || machine == null || forge == null) return;
-    final start = widget.onStartWork;
-    final project = await showBinding(
-      context,
-      MachineBinding(forge, workspace, machine, machineName: widget.machineName, login: forges.account?.login ?? ''),
-      changeToken: _changingTheToken(context, forges, repository),
-      startFollows: start != null,
-      terminalMachine: widget.terminalMachine,
-      openTerminal: forges.openTerminal,
-    );
-    // Bound, and asked to start: the start dialog on that project, with this list out of the way.
-    if (project != null && start != null && context.mounted) {
-      Navigator.of(context).pop();
-      await start(project);
-    }
-  }
-
   Widget _row(BuildContext context, ForgeConnection forges, ForgeRepository repository, TextTheme text) {
     final isProject = forges.isProject[repository.fullName];
-    // A project already: used straight from its line, where the person can bind a machine at all.
-    final usable = isProject == true && repository.push && widget.machine != null;
     final chosen = _chosen == repository.fullName;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -354,12 +275,6 @@ class _RepositoriesDialogState extends State<RepositoriesDialog> {
                         },
                   child: const Text('Work on it without a project'),
                 )
-              : usable
-              ? FilledButton(
-                  key: ValueKey<String>('use-as-project ${repository.fullName}'),
-                  onPressed: () => unawaited(_use(context, forges, repository)),
-                  child: const Text('Work on it here'),
-                )
               : null,
           onTap: forges.forge == null || widget.onPick != null ? null : () => unawaited(_choose(forges, repository)),
         ),
@@ -391,23 +306,13 @@ class _RepositoriesDialogState extends State<RepositoriesDialog> {
           'choose it again here.';
       actions = const <Widget>[];
     } else {
-      says =
-          'It is a Porelo project. ${widget.machineName} uses your own token in its vault, and work can start there.';
+      says = 'It is a Porelo project. A project comes to a machine from the organization.';
       actions = <Widget>[
-        // The tools for later, also for a project no machine here follows: a machine that is gone is
-        // still removed from what grants it access.
-        if (repository.push)
-          TextButton(
-            key: ValueKey<String>('repository-tools ${repository.fullName}'),
-            onPressed: () => unawaited(_tools(context, forges, repository)),
-            child: const Text('Changes waiting, or stop working on it'),
-          ),
-        if (repository.push)
-          FilledButton(
-            key: ValueKey<String>('bind ${repository.fullName}'),
-            onPressed: () => _bind(context, forges, repository),
-            child: Text('Work on it on ${widget.machineName}'),
-          ),
+        TextButton(
+          key: ValueKey<String>('repository-tools ${repository.fullName}'),
+          onPressed: () => unawaited(_tools(context, forges, repository)),
+          child: const Text('Changes waiting'),
+        ),
       ];
     }
     return Container(

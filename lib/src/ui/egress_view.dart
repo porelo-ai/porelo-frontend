@@ -51,7 +51,7 @@ class EgressView extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(Space.normal, Space.small, Space.normal, 0),
                 child: Text(
                   'Changed only in project.yml in the project\'s repository, under egress; '
-                  'a machine following it takes the change at its next look. Work already running keeps '
+                  'a machine with it takes the change at its next look. Work already running keeps '
                   'what it started with.',
                   key: const Key('egress-where-changed'),
                   style: Theme.of(context).textTheme.bodySmall,

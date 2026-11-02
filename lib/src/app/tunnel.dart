@@ -164,10 +164,7 @@ class Tunnel {
       'ServerAliveInterval=15',
       '-o',
       'ServerAliveCountMax=2',
-      for (var i = 0; i < card.ports.length; i++) ...[
-        '-L',
-        '127.0.0.1:${card.ports[i]}:${HostCardSsh.serviceSockets[i]}',
-      ],
+      for (final (port, socket) in card.forwards) ...['-L', '127.0.0.1:$port:$socket'],
       '-L',
       '${machine.socketPath}:${card.daemonSocket}',
       if (messengerSocket != null) ...['-R', '${card.returnSocket}:$messengerSocket'],

@@ -1051,7 +1051,7 @@ class Credential {
 const String defaultProject = 'default';
 
 /// A repository worked on in [defaultProject]: added by its address, and worked on with Porelo's own
-/// fixed settings until a followed project names it.
+/// fixed settings until a project names it.
 class DefaultRepository {
   /// What its tasks name it by.
   final String name;
@@ -1070,7 +1070,7 @@ class DefaultRepository {
   /// Where it is checked out on the machine, where it was added from one, or empty.
   final String checkout;
 
-  /// The followed project that names the same repository, or empty. Where it is set, that project's
+  /// The project that names the same repository, or empty. Where it is set, that project's
   /// tasks are the ones to start, and the repository can be taken out of `default`.
   final String claimedBy;
 
@@ -1856,7 +1856,7 @@ class Project {
   /// [name]. This says where the verified file is, and never offer a file picker for it — over a
   /// forwarded socket there is no filesystem on that machine to pick from.
   ///
-  /// **Empty is a project the machine does not follow**, known only from tasks left behind: it is
+  /// **Empty is a project known only from tasks left behind**: it is
   /// listed and never acted on, which is what [canBeActedOn] says.
   final String file;
 
@@ -1953,15 +1953,6 @@ class Project {
   /// names only fills in nothing but the name.
   final List<Repository> repositoryStates;
 
-  /// Where this account has got following the project's repository, or null when it follows
-  /// nothing here — the ordinary case, and never the same as followed with nothing known yet.
-  final Followed? following;
-
-  /// Whether the machine said anything about following at all. A Porelo that knows following answers
-  /// `following` on every project, and an empty one for a project nothing follows; an older Porelo
-  /// answers nothing, and its projects are acted on as they always were.
-  final bool followingAnswered;
-
   /// What its `project.yml` names under `credentials:`: a vault entry's name to the destination
   /// or provider it is for. Every task of the project holds these, and a start cannot point one
   /// elsewhere.
@@ -2014,8 +2005,6 @@ class Project {
     this.behindDetail = '',
     this.repositories = const <String>[],
     this.repositoryStates = const <Repository>[],
-    this.following,
-    this.followingAnswered = false,
     this.credentials = const <String, String>{},
     this.credentialsAnswered = false,
     this.messages,
@@ -2039,8 +2028,6 @@ class Project {
     behindDetail: _string(map, 'behindDetail'),
     repositories: <String>[for (final each in Repository.allIn(map)) each.name],
     repositoryStates: Repository.allIn(map),
-    following: Followed.of(map['following']),
-    followingAnswered: map.containsKey('following'),
     credentials: _stringMap(map, 'credentials'),
     credentialsAnswered: map.containsKey('credentials'),
     messages: ProjectMessages.of(map['messages']),
@@ -2064,15 +2051,9 @@ class Project {
 
   /// Whether anything can be done to it beyond looking at it.
   ///
-  /// Every method that acts on a project takes its **name**, and accepts only a project this
-  /// machine follows. **A file is not enough**: a project left from before projects were followed
-  /// still carries the path the old registry recorded, and the machine refuses every call about it.
-  /// So where the machine says what it follows, only a followed one is acted on; one known only
-  /// from what was left behind is listed and not acted on — a state to render, never an error.
-  ///
-  /// **`default` is the exception**: followed by nobody, and acted on by its name like
-  /// any followed project — work starts there, and waits at its gate.
-  bool get canBeActedOn => file.isNotEmpty && (!followingAnswered || following != null || name == defaultProject);
+  /// Every method that acts on a project takes its **name**, and a project with no file is one known
+  /// only from what was left behind: listed and not acted on, a state to render, never an error.
+  bool get canBeActedOn => file.isNotEmpty;
 }
 
 /// One host a project's work may reach, and what granted it.
@@ -4039,157 +4020,6 @@ String _behindWords(String reason, int behind, String measured, String detail) {
   };
 }
 
-/// How far this account has got following a project's repository.
-///
-/// **What is in force and what was turned away are two fields**, because a screen asks both: a
-/// project whose newest commit was refused goes on running what it had.
-class Followed {
-  /// The project's name.
-  final String name;
-
-  /// Where its repository is. Not a secret.
-  final String url;
-
-  /// The commit verified and in force, or empty when none ever was.
-  final String commit;
-
-  /// The project's access commit verified and in force, or empty when none is.
-  final String accessCommit;
-
-  /// When it last tried, RFC 3339, or empty.
-  final String at;
-
-  /// Why it is where it is. Not an enum: new values may appear, and one this build does not know
-  /// is rendered rather than thrown on.
-  final String outcome;
-
-  /// The commit turned away, or empty. Never the same field as [commit].
-  final String refused;
-
-  /// The fingerprint of the key that signed [refused], or empty. Only a fingerprint: not a secret.
-  final String signer;
-
-  /// The daemon's own words about it. Never parsed.
-  final String detail;
-
-  /// Whether nothing changes until somebody acts. **The daemon's answer, never worked out here**:
-  /// an unreachable repository may answer on the next pass by itself, a refused signature never
-  /// will, and which is which is the daemon's knowledge.
-  final bool needsAPerson;
-
-  /// What to type on that machine to store the credential a follow needs, with `NO_CREDENTIAL`; empty
-  /// otherwise. On a follow's answer only.
-  final String storeCommand;
-
-  /// Whether the follow wrote anything: false for a check, and for a first follow that was refused —
-  /// nothing of that project is on the machine then. On a follow's answer only.
-  final bool recorded;
-
-  /// Whether it is followed with no key pinned, so whoever can push to its repository decides
-  /// what this machine runs. A state beside [outcome], never one of its values: a project can be
-  /// unverified and unreachable at once.
-  final bool unverified;
-
-  /// With `UNKNOWN_HOST_KEY` and `HOST_KEY_CHANGED`, the host those keys belong to, as the machine
-  /// names it — passed back to `TrustHostKey` unchanged, never worked out here from the URL.
-  final String host;
-
-  /// With those two outcomes, every key the host offers right now; empty otherwise.
-  final List<HostKey> hostKeys;
-
-  /// Constructor taking every field.
-  const Followed({
-    this.host = '',
-    this.hostKeys = const <HostKey>[],
-    required this.name,
-    this.url = '',
-    this.commit = '',
-    this.accessCommit = '',
-    this.at = '',
-    this.outcome = '',
-    this.refused = '',
-    this.signer = '',
-    this.detail = '',
-    this.needsAPerson = false,
-    this.unverified = false,
-    this.storeCommand = '',
-    this.recorded = false,
-    this.signers = const <String>[],
-    this.pinned = const <String>[],
-  });
-
-  /// Every key pinned for the project, by fingerprint: a commit signed by any of them is accepted.
-  final List<String> signers;
-
-  /// The fingerprints this follow pinned, or with a dry run would pin.
-  final List<String> pinned;
-
-  /// Reads one from a reply.
-  factory Followed.from(Map<String, dynamic> map) => Followed(
-    name: _string(map, 'name'),
-    url: _string(map, 'url'),
-    commit: _string(map, 'commit'),
-    accessCommit: _string(map, 'accessCommit'),
-    at: _string(map, 'at'),
-    outcome: _string(map, 'outcome'),
-    refused: _string(map, 'refused'),
-    signer: _string(map, 'signer'),
-    detail: _string(map, 'detail'),
-    needsAPerson: map['needsAPerson'] == true,
-    unverified: map['unverified'] == true,
-    storeCommand: _string(map, 'storeCommand'),
-    recorded: map['recorded'] == true,
-    signers: map['signers'] is List ? <String>[for (final each in map['signers'] as List) '$each'] : const <String>[],
-    pinned: map['pinned'] is List ? <String>[for (final each in map['pinned'] as List) '$each'] : const <String>[],
-    host: _string(map, 'host'),
-    hostKeys: map['hostKeys'] is List
-        ? (map['hostKeys'] as List).whereType<Map<String, dynamic>>().map(HostKey.from).toList()
-        : const <HostKey>[],
-  );
-
-  /// A project's `following`, or null when it follows nothing: absent, or an empty object — the
-  /// contract has said both, and neither is a follow.
-  static Followed? of(Object? value) {
-    if (value is! Map<String, dynamic>) return null;
-    final followed = Followed.from(value);
-    final nothing = followed.name.isEmpty && followed.url.isEmpty && followed.outcome.isEmpty;
-    return nothing ? null : followed;
-  }
-
-  /// Whether the newest commit it checked is the one in force.
-  bool get inForce => outcome == 'APPLIED' || outcome == 'UNCHANGED';
-
-  /// What its state is, in one line: the reason first, then what is still running.
-  String get words {
-    final turnedAway = refused.isEmpty ? 'the newest commit' : 'commit ${_short(refused)}';
-    final why = switch (outcome) {
-      'APPLIED' || 'UNCHANGED' => commit.isEmpty ? 'Following' : 'Following, at ${_short(commit)}',
-      'NOT_SIGNED' => 'Not taken: $turnedAway is not signed',
-      'UNKNOWN_KEY' => 'Not taken: $turnedAway is signed by a key this machine was never given',
-      'NO_ANCHOR' => 'Not taken: no key is pinned here, so nothing can be verified',
-      'UNREADABLE' => 'Not taken: the commit or the repository could not be read',
-      'REWRITTEN' => 'Not taken: $turnedAway rewrites the history in force',
-      'UNREACHABLE' => 'The repository cannot be reached',
-      'NO_CREDENTIAL' => 'Not taken: the machine says nothing it holds reaches the repository',
-      'UNUSABLE_VALUE' => 'Not taken: the credential for it is there, and cannot be used',
-      'UNKNOWN_HOST_KEY' => 'Not taken: this machine has never met that host, and trusts no key of it yet',
-      // Never "trust this instead": a key that changed may be somebody in between.
-      'HOST_KEY_CHANGED' =>
-        'Not taken: the host offered a different key from the one this machine remembers — this can '
-            'be somebody in between',
-      'VAULT_LOCKED' => "This account's store is shut, and the repository needs a credential from it",
-      'UNUSABLE' => 'Not taken: the project file in $turnedAway does not read as a project',
-      'FAILED' => 'The last attempt did not work',
-      '' => 'Followed, and not tried yet',
-      _ => outcome.toLowerCase().replaceAll('_', ' '),
-    };
-    final still = !inForce && commit.isNotEmpty ? ' · still running ${_short(commit)}' : '';
-    return '$why$still';
-  }
-
-  static String _short(String commit) => commit.length > 7 ? commit.substring(0, 7) : commit;
-}
-
 /// What a task on one repository may consume, and which block each key came from.
 ///
 /// **A repository's limits replace the project's key by key**, so the part worth saying is which
@@ -5009,359 +4839,6 @@ class Cleared {
     signer: _string(map, 'signer'),
     refused: map['refused'] == true,
   );
-}
-
-/// What Core accepted from the organisation's registry checkout, beside the one commit it refused.
-///
-/// **Every field name of Core's answer is read here and nowhere else.** `people` (`login`, `name`,
-/// `email`, `key`, `fingerprint`, `state`, `why`), `owners` (`login`, `fingerprint`, `backup`) and `hosts`
-/// (`host`, `admins`, `projects` with `name`, `admin`, `access_repository`) are the answer Core agreed;
-/// `revision`, `refused_commit` (`commit`, `path`, `why`), `owners_signer` and `admins` as a list of logins
-/// are assumed until Core serves them.
-///
-/// A missing or null `revision` beside `refused_commit` means Core accepted no commit. A revision
-/// present beside a refusal still names Core's verified last-good snapshot, including revocations.
-/// Refused cards can lack usable key metadata; their login and reason remain required.
-///
-/// Read strictly: an answer missing a list, an accepted revision or any field a decision rests on throws a
-/// [FormatException], so an incomplete answer never reads as an empty registry. Unknown fields are ignored.
-class RegistryRead {
-  /// Constructor taking every field.
-  const RegistryRead({
-    required this.revision,
-    required this.people,
-    required this.owners,
-    required this.hosts,
-    this.ownersSigner,
-    this.hostAdmins = const <String, List<RegistryOwner>>{},
-    this.warnings = const <String>[],
-    this.refusedCommit,
-  });
-
-  /// The last commit Core accepted, or null when it refused the first commit.
-  final String? revision;
-
-  /// Every person card, refused ones included so their reason can be shown.
-  final List<RegistryCard> people;
-
-  /// The registry's owners as `owners.yml` names them, backup keys included.
-  final List<RegistryOwner> owners;
-
-  /// The login of the registry owner who signed `owners.yml`, or null when Core did not say.
-  final String? ownersSigner;
-
-  /// The host admins `owners.yml` names per host label, backup keys included; a host without an entry has none.
-  final Map<String, List<RegistryOwner>> hostAdmins;
-
-  /// The working (non-backup) host admins `owners.yml` names for [host]; empty when it names none.
-  List<RegistryOwner> adminsOf(String host) => [
-    for (final admin in hostAdmins[host] ?? const <RegistryOwner>[])
-      if (!admin.backup) admin,
-  ];
-
-  /// Every host with its admins and the projects admitted there.
-  final List<RegistryHost> hosts;
-
-  /// Core's own sentences about the checkout, shown verbatim.
-  final List<String> warnings;
-
-  /// The first commit after [revision] that Core refused, or null when it accepted everything fetched.
-  final RegistryRefusedCommit? refusedCommit;
-
-  /// Reads Core's answer, refusing an incomplete one.
-  factory RegistryRead.from(Map<String, dynamic> map) {
-    final signer = map['owners_signer'];
-    final refused = map['refused_commit'];
-    return RegistryRead(
-      revision: map['revision'] == null && refused is Map<String, dynamic>
-          ? null
-          : _registryRevision(map['revision'], 'revision'),
-      people: _registryList(map, 'people', RegistryCard.from),
-      owners: _registryList(map, 'owners', RegistryOwner.from),
-      hosts: _registryList(map, 'hosts', RegistryHost.from),
-      ownersSigner: signer == null ? null : _registryLogin(signer, 'owners_signer'),
-      hostAdmins: map.containsKey('host_admins') ? _registryHostAdmins(map['host_admins']) : const {},
-      warnings: [
-        if (map['warnings'] case final List<dynamic> warnings)
-          for (final each in warnings) _registryText(each, 'warnings'),
-      ],
-      refusedCommit: switch (refused) {
-        null => null,
-        final Map<String, dynamic> commit => RegistryRefusedCommit.from(commit),
-        _ => throw const FormatException('The registry answer has an unreadable refused_commit.'),
-      },
-    );
-  }
-}
-
-/// One person card as Core judged it.
-class RegistryCard {
-  /// Constructor taking every field.
-  const RegistryCard({
-    required this.login,
-    required this.name,
-    required this.key,
-    required this.fingerprint,
-    required this.state,
-    this.email,
-    this.why = '',
-  });
-
-  /// The person's login on the central forge.
-  final String login;
-
-  /// The display name on the card.
-  final String name;
-
-  /// The optional address on the card, absent when the card has none.
-  final String? email;
-
-  /// The card's public key; empty or malformed when Core refused its key metadata.
-  final String key;
-
-  /// The key's fingerprint, or empty when Core could not fingerprint a refused key.
-  final String fingerprint;
-
-  /// `trusted`, `first-seen` or `refused`. Not an enum: a value added later is rendered, never offered.
-  final String state;
-
-  /// Why Core refused the card, verbatim; empty for a card it did not refuse.
-  final String why;
-
-  /// Whether Core trusts the card, the only state that may be picked for a change.
-  bool get trusted => state == 'trusted';
-
-  /// Whether Core refused the card.
-  bool get refused => state == 'refused';
-
-  /// The card's address when it is safe to hand to a mail program, without headers or other URI parts.
-  String? get contactEmail => switch (email) {
-    final String address when RegExp(r'^[^\s@?&#:/<>"]+@[^\s@?&#:/<>"]+\.[^\s@?&#:/<>"]+$').hasMatch(address) =>
-      address,
-    _ => null,
-  };
-
-  /// Reads one card, refusing one without the fields a decision rests on.
-  factory RegistryCard.from(Map<String, dynamic> map) {
-    final state = _registryText(map['state'], 'people.state');
-    final why = map['why'] == null ? '' : _registryText(map['why'], 'people.why', allowEmpty: true);
-    if (state == 'refused' && why.isEmpty) {
-      throw const FormatException('A refused card in the registry answer has no why.');
-    }
-    final email = map['email'];
-    final key = state == 'refused'
-        ? _registryText(map['key'] ?? '', 'people.key', allowEmpty: true)
-        : _registryText(map['key'], 'people.key');
-    if (state != 'refused' && !RegExp(r'^ssh-ed25519 AAAA[A-Za-z0-9+/]+={0,2}$').hasMatch(key)) {
-      throw const FormatException('A card in the registry answer has no plain ssh-ed25519 key.');
-    }
-    return RegistryCard(
-      login: _registryLogin(map['login'], 'people.login'),
-      name: _registryText(map['name'], 'people.name'),
-      email: email == null || email == '' ? null : _registryText(email, 'people.email'),
-      key: key,
-      fingerprint: state == 'refused'
-          ? _registryText(map['fingerprint'] ?? '', 'people.fingerprint', allowEmpty: true)
-          : _registryFingerprint(map['fingerprint'], 'people.fingerprint'),
-      state: state,
-      why: why,
-    );
-  }
-}
-
-/// One entry of `owners.yml`'s registry owners.
-class RegistryOwner {
-  /// Constructor taking every field.
-  const RegistryOwner({required this.login, required this.fingerprint, this.backup = false});
-
-  /// The owner's login on the central forge.
-  final String login;
-
-  /// The fingerprint of the key `owners.yml` names for them.
-  final String fingerprint;
-
-  /// Whether this entry is an offline backup key rather than the owner's working key.
-  final bool backup;
-
-  /// Reads one owner, refusing one without login or fingerprint.
-  factory RegistryOwner.from(Map<String, dynamic> map) => RegistryOwner(
-    login: _registryLogin(map['login'], 'owners.login'),
-    fingerprint: _registryFingerprint(map['fingerprint'], 'owners.fingerprint'),
-    backup: map['backup'] == true,
-  );
-}
-
-/// One host in the registry, with its admins and the projects admitted there.
-class RegistryHost {
-  /// Constructor taking every field.
-  const RegistryHost({
-    required this.host,
-    required this.admins,
-    this.adminFingerprints = const <String, String>{},
-    this.projects = const <RegistryProject>[],
-    this.card,
-  });
-
-  /// The host's name.
-  final String host;
-
-  /// The accepted host card as `registry verify` answers `host_card`, or null when none is filed.
-  final Map<String, dynamic>? card;
-
-  /// The logins of the host admins `owners.yml` names for it, in the order of the host's `access.yml`.
-  final List<String> admins;
-
-  /// Each host admin's key fingerprint, by login, as the host checks them.
-  final Map<String, String> adminFingerprints;
-
-  /// The projects admitted on the host.
-  final List<RegistryProject> projects;
-
-  /// Reads one host, refusing one without a name or a list of admins by login and fingerprint.
-  factory RegistryHost.from(Map<String, dynamic> map) {
-    final admins = map['admins'];
-    if (admins is! List<dynamic>) throw const FormatException('A host in the registry answer has no admins.');
-    final fingerprints = <String, String>{};
-    for (final each in admins) {
-      if (each is! Map<String, dynamic>) {
-        throw const FormatException('A host admin in the registry answer is no object.');
-      }
-      final login = _registryLogin(each['login'], 'hosts.admins.login');
-      if (fingerprints.containsKey(login)) {
-        throw const FormatException('A host in the registry answer repeats an admin.');
-      }
-      fingerprints[login] = _registryFingerprint(each['fingerprint'], 'hosts.admins.fingerprint');
-    }
-    return RegistryHost(
-      host: _registryHostName(map['host']),
-      admins: List.unmodifiable(fingerprints.keys),
-      adminFingerprints: Map.unmodifiable(fingerprints),
-      projects: _registryList(map, 'projects', RegistryProject.from),
-      card: switch (map['card']) {
-        null => null,
-        final Map<String, dynamic> card => Map.unmodifiable(card),
-        _ => throw const FormatException('A host card in the registry answer is no object.'),
-      },
-    );
-  }
-}
-
-/// One project admitted on a host, with the project admin who was admitted for it.
-class RegistryProject {
-  /// Constructor taking every field.
-  const RegistryProject({required this.name, required this.admin, required this.accessRepository});
-
-  /// The project's name.
-  final String name;
-
-  /// The login of the admitted project admin.
-  final String admin;
-
-  /// The address of the project's access repository.
-  final String accessRepository;
-
-  /// Reads one project, refusing one without name, admin or access repository.
-  factory RegistryProject.from(Map<String, dynamic> map) => RegistryProject(
-    name: _registryText(map['name'], 'projects.name'),
-    admin: _registryLogin(map['admin'], 'projects.admin'),
-    accessRepository: _registryText(map['access_repository'], 'projects.access_repository'),
-  );
-}
-
-/// The commit Core refused, with the path that broke its rule and why.
-class RegistryRefusedCommit {
-  /// Constructor taking every field.
-  const RegistryRefusedCommit({required this.commit, required this.path, required this.why});
-
-  /// The refused commit.
-  final String commit;
-
-  /// The path the commit changed against its signer rule.
-  final String path;
-
-  /// Core's sentence, verbatim.
-  final String why;
-
-  /// Reads one, refusing one without commit, path or reason.
-  factory RegistryRefusedCommit.from(Map<String, dynamic> map) => RegistryRefusedCommit(
-    commit: _registryRevision(map['commit'], 'refused_commit.commit'),
-    path: _registryText(map['path'], 'refused_commit.path'),
-    why: _registryText(map['why'], 'refused_commit.why'),
-  );
-}
-
-/// What Core answered for one registry write: the signed commit it made in the checkout.
-class RegistryFiled {
-  /// Constructor taking the commit.
-  const RegistryFiled({required this.revision});
-
-  /// The signed commit, not yet published.
-  final String revision;
-
-  /// Reads one, refusing one without a commit.
-  factory RegistryFiled.from(Map<String, dynamic> map) =>
-      RegistryFiled(revision: _registryRevision(map['revision'], 'revision'));
-}
-
-// Any other shape than {label: [owner]}, null included, is refused; an absent key means nobody may change any host.
-Map<String, List<RegistryOwner>> _registryHostAdmins(Object? value) {
-  if (value is! Map<String, dynamic>) throw const FormatException('The registry answer has unreadable host_admins.');
-  final label = RegExp(r'^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$');
-  return {
-    for (final MapEntry(:key, value: admins) in value.entries)
-      _registryHostLabel(key, label): _registryList({'host_admins': admins}, 'host_admins', RegistryOwner.from),
-  };
-}
-
-String _registryHostLabel(String host, RegExp label) => label.hasMatch(host)
-    ? host
-    : throw const FormatException('The registry answer names host admins for an unreadable host label.');
-
-List<T> _registryList<T>(Map<String, dynamic> map, String key, T Function(Map<String, dynamic>) read) {
-  final list = map[key];
-  if (list is! List<dynamic>) throw FormatException('The registry answer has no $key list.');
-  return [
-    for (final each in list)
-      if (each is Map<String, dynamic>)
-        read(each)
-      else
-        throw FormatException('The registry answer has an unreadable $key entry.'),
-  ];
-}
-
-String _registryText(Object? value, String field, {bool allowEmpty = false}) {
-  if (value is! String || (!allowEmpty && value.trim().isEmpty) || RegExp(r'[\x00-\x1f\x7f]').hasMatch(value)) {
-    throw FormatException('The registry answer has no readable $field.');
-  }
-  return value;
-}
-
-String _registryLogin(Object? value, String field) {
-  if (value is! String || !RegExp(r'^[a-z][a-z0-9-]{0,31}$').hasMatch(value)) {
-    throw FormatException('The registry answer has no readable $field.');
-  }
-  return value;
-}
-
-String _registryHostName(Object? value) {
-  if (value is! String || !RegExp(r'^[a-z0-9][a-z0-9._-]{0,63}$').hasMatch(value)) {
-    throw const FormatException('The registry answer has no readable hosts.host.');
-  }
-  return value;
-}
-
-String _registryFingerprint(Object? value, String field) {
-  if (value is! String || !RegExp(r'^SHA256:[A-Za-z0-9+/]{43}$').hasMatch(value)) {
-    throw FormatException('The registry answer has no readable $field.');
-  }
-  return value;
-}
-
-String _registryRevision(Object? value, String field) {
-  if (value is! String || !RegExp(r'^(?:[0-9a-f]{40}|[0-9a-f]{64})$').hasMatch(value)) {
-    throw FormatException('The registry answer has no readable $field.');
-  }
-  return value;
 }
 
 /// Core's public signing policy for one project: the person's own key and the signers in force.

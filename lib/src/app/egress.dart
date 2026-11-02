@@ -52,8 +52,8 @@ class Egress extends ChangeNotifier {
       reachable = const <EgressHost>[];
       refused = const <String>[];
       problem =
-          '${project.name} is not a project this machine follows, so nothing can be asked '
-          'about its egress. Following its repository makes it one.';
+          '${project.name} is not on this machine, so nothing can be asked '
+          'about its egress.';
       notifyListeners();
       return;
     }

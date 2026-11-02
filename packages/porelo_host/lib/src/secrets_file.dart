@@ -6,15 +6,11 @@ import 'host_file_name.dart' show HostFilesRefused;
 /// This builds the script that runs there and holds no secret itself: the master password is typed into that
 /// terminal once and reaches `keepassxc-cli` on standard input only, and every entry stays inside the script's
 /// own shell.
-class SecretsFile {
-  /// Names the file and the `keepassxc-cli` that opens it. With [keyFile] the file opens by that key file alone and
-  /// no master password is asked; [entry] names the central token's entry where it is not [centralTransferToken].
-  SecretsFile(this.file, {this.cli = keepassxcCli, this.keyFile, String? entry})
-    : entry = entry ?? centralTransferToken {
+class SecretsFile implements CentralToken {
+  /// Names the file and the `keepassxc-cli` that opens it.
+  SecretsFile(this.file, {this.cli = keepassxcCli}) {
     checkPath(file);
     checkPath(cli);
-    if (keyFile case final key?) checkPath(key);
-    checkKeyName(this.entry);
   }
 
   /// The packaged `keepassxc-cli`, run by its absolute path.
@@ -25,12 +21,6 @@ class SecretsFile {
 
   /// The `keepassxc-cli` that opens it.
   final String cli;
-
-  /// The key file that opens [file] with no master password, or null where a master password is asked.
-  final String? keyFile;
-
-  /// The entry the central token is read from.
-  final String entry;
 
   /// Refuses unsafe legacy rental identifiers.
   static void checkHost(String host) {
@@ -62,15 +52,15 @@ class SecretsFile {
   /// form is kept only so the terminal's redaction cuts that form out too.
   ///
   /// Both scripts run in one terminal shell; no secret is returned to Dart.
+  @override
   ({String check, String feed}) projectTransferScripts() => (
     check: [
       // The transfer owns terminal echo and signal cleanup through SSH completion.
       ..._opened.skip(_shellStart.length),
       _listEntries,
-      ..._requireEntries([entry]),
-      ..._readEntry(entry, 'transfer_token'),
-      r'''if [[ "$transfer_token" =~ [[:space:][:cntrl:]] ]]; then echo "The central forge token must hold one nonempty line; nothing was sent." >&2; exit 1; fi''',
-      r'''transfer_encoded="$(printf '%s' "$transfer_token" | /usr/bin/base64 -w0)" || { echo "The central token could not be encoded; nothing was sent." >&2; exit 1; }''',
+      ..._requireEntries([centralTransferToken]),
+      ..._readEntry(centralTransferToken, 'transfer_token'),
+      ..._checkedToken,
       'unset MASTER entries',
     ].join('\n'),
     // porelo-host-push reads the bare token as its one line of standard input.
@@ -113,22 +103,14 @@ class SecretsFile {
     'unset cli_found',
     // A file that cannot be read is said as such, never asked about three times as a wrong password.
     r'if ! [ -r "$file" ]; then echo "$file cannot be read; nothing was sent." >&2; exit 1; fi',
-    if (keyFile != null) ...[
-      'key=${_word(keyFile!)}',
-      r'if ! [ -r "$key" ]; then echo "$key, the key file of $file, cannot be read; nothing was sent." >&2; exit 1; fi',
-      // Opened by its key file alone: nothing is asked and nothing is read from the terminal.
-      r'''kp() { local command=$1; shift; "$cli" "$command" --no-password --key-file "$key" "$@" </dev/null; }''',
-      r'if ! kp ls "$file" >/dev/null 2>&1; then echo "$file did not open with its key file $key; nothing was sent." >&2; exit 1; fi',
-    ] else ...[
-      // A mistyped password is asked again, three times at most; an empty one or the end of input ends it at once.
-      'for try in 1 2 3; do',
-      r'  IFS= read -rs -p "The master password of $file: " MASTER; echo >&2',
-      r'  if [ -z "$MASTER" ]; then echo "A master password cannot be empty; nothing was sent." >&2; exit 1; fi',
-      r'  if kp ls "$file" >/dev/null 2>&1; then break; fi',
-      r'  if [ "$try" = 3 ]; then echo "$file did not open with that password three times; nothing was sent." >&2; exit 1; fi',
-      r'  echo "$file did not open with that password; type it again." >&2',
-      'done',
-    ],
+    // A mistyped password is asked again, three times at most; an empty one or the end of input ends it at once.
+    'for try in 1 2 3; do',
+    r'  IFS= read -rs -p "The master password of $file: " MASTER; echo >&2',
+    r'  if [ -z "$MASTER" ]; then echo "A master password cannot be empty; nothing was sent." >&2; exit 1; fi',
+    r'  if kp ls "$file" >/dev/null 2>&1; then break; fi',
+    r'  if [ "$try" = 3 ]; then echo "$file did not open with that password three times; nothing was sent." >&2; exit 1; fi',
+    r'  echo "$file did not open with that password; type it again." >&2',
+    'done',
   ];
 
   // No echo from the first byte, and none of the caller's tracing: neither may draw a secret on the terminal.
@@ -142,4 +124,43 @@ class SecretsFile {
 
   // Every call reads the master password from standard input; the builtin printf runs no other program.
   static const _kp = r'''kp() { printf '%s\n' "$MASTER" | "$cli" "$@"; }''';
+}
+
+/// The two lines that take `transfer_token` as it is to be sent: one line with nothing odd in it, and its encoded form.
+final _checkedToken = <String>[
+  r'''if [[ "$transfer_token" =~ [[:space:][:cntrl:]] ]]; then echo "The central forge token must hold one nonempty line; nothing was sent." >&2; exit 1; fi''',
+  r'''transfer_encoded="$(printf '%s' "$transfer_token" | /usr/bin/base64 -w0)" || { echo "The central token could not be encoded; nothing was sent." >&2; exit 1; }''',
+];
+
+/// Where a terminal takes the central token from, with no secret returned to Dart.
+abstract interface class CentralToken {
+  /// The script that takes the token into `transfer_token` before anything is sent, and the one that feeds it.
+  ({String check, String feed}) projectTransferScripts();
+}
+
+/// The central token of an instance started with it in [variable], read by the terminal's own shell, by that name.
+///
+/// The variable leaves the shell's environment at once, so that nothing the terminal starts inherits it.
+class EnvironmentCentralToken implements CentralToken {
+  /// Names the variable, which must be a plain shell name.
+  EnvironmentCentralToken(this.variable) {
+    if (!RegExp(r'^[A-Z_][A-Z0-9_]*$').hasMatch(variable)) {
+      throw const FormatException('An environment variable holds only capital letters, digits and "_".');
+    }
+  }
+
+  /// The variable's name.
+  final String variable;
+
+  @override
+  ({String check, String feed}) projectTransferScripts() => (
+    check: [
+      'transfer_token="\${$variable:-}"',
+      'unset $variable',
+      'if [ -z "\$transfer_token" ]; then echo "$variable is empty; nothing was sent." >&2; exit 1; fi',
+      ..._checkedToken,
+    ].join('\n'),
+    feed: r'''printf '%s
+' "$transfer_token"''',
+  );
 }

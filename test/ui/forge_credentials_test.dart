@@ -2,12 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/host_session.dart';
-import 'package:porelo_frontend/src/app/machines.dart';
-import 'package:porelo_frontend/src/app/connections.dart';
-import 'package:porelo_frontend/src/ui/binding_view.dart';
 import 'package:porelo_frontend/src/app/forge.dart';
 import 'package:porelo_frontend/src/app/forge_connection.dart';
-import 'package:porelo_frontend/src/app/machine_binding.dart';
 import 'package:porelo_frontend/src/app/machine_clearing.dart';
 import 'package:porelo_frontend/src/ui/forges_view.dart';
 
@@ -157,125 +153,6 @@ void main() {
     expect(saved, isFalse, reason: 'exit zero cannot replace checking the stored entry');
     expect(forges.entries, isEmpty);
   });
-
-  // Harm: binding must not grant separate repository access through deploy keys.
-  test('binding and unbinding leave forge keys alone', () async {
-    final backend = FakeBackend([]);
-    await backend.open();
-    backend.theStoreIs = const VaultState(
-      vault: '',
-      exists: true,
-      readable: true,
-      credentials: [Credential(name: 'git.token.github.com', type: 'api-key', characters: 12)],
-    );
-    final forge = FakeForge()..repositoriesHere.add(repository);
-    final workspace = FakeWorkspace()
-      ..repository = repository
-      ..onTheForge =
-          'project:\n  name: api\nrepositories:\n  backend:\n    upstream: https://github.com/acme/backend.git\n';
-    final binding = MachineBinding(forge, workspace, backend, machineName: 'vm', login: 'alice');
-    addTearDown(binding.dispose);
-    await binding.bind(workspace.agentKeys.single);
-    expect(binding.problem, isNull);
-    expect(binding.bound, 'api');
-    expect(backend.deployKeysMade, isEmpty, reason: 'binding must never ask the daemon for a deploy key');
-    expect(forge.keysOf, isEmpty, reason: 'binding must never register a deploy key');
-    await binding.remove(workspace.agentKeys.single);
-    expect(binding.problem, isNull);
-    expect(binding.bound, isNull);
-    expect(forge.keyCalls, isEmpty, reason: 'no deploy-key read, check, creation or removal may run');
-  });
-
-  // Harm: binding must not send a secret over the socket or follow before the vault confirms it.
-  testWidgets('binding prompts on the chosen machine and confirms the entry by name', (tester) async {
-    tester.view.physicalSize = const Size(1280, 800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    final backend = FakeBackend([])
-      ..theStoreIs = const VaultState(vault: '', exists: true, readable: true, credentials: []);
-    final forge = FakeForge()..repositoriesHere.add(repository);
-    final workspace = FakeWorkspace()
-      ..repository = repository
-      ..onTheForge = 'project:\n  name: api\n';
-    final binding = MachineBinding(forge, workspace, backend, machineName: 'runner', login: 'alice');
-    addTearDown(binding.dispose);
-    const machine = Machine(
-      name: 'runner',
-      socketPath: '/forwarded',
-      host: 'person@runner.example.org',
-      remoteSocket: '/run/user/1000/porelo.sock',
-    );
-    final terminal = FakeTerminal([]);
-    final commands = <List<String>>[];
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: BindingDialog(
-            binding: binding,
-            terminalMachine: machine,
-            openTerminal: (executable, arguments, {int columns = 80, int rows = 24}) {
-              commands.add([executable, ...arguments]);
-              return terminal;
-            },
-          ),
-        ),
-      ),
-    );
-    await World.settle(tester);
-    await tester.tap(find.byKey(const Key('binding-bind')));
-    await World.settle(tester);
-    expect(commands.single.skip(1), [
-      '-t',
-      'person@runner.example.org',
-      inTheLoginShell('porelo vault put git.token.github.com'),
-    ]);
-    expect(terminal.typed, isEmpty);
-    expect(backend.follows, isEmpty, reason: 'a running terminal has not confirmed a vault entry');
-    backend.theStoreIs = const VaultState(
-      vault: '',
-      exists: true,
-      readable: true,
-      credentials: [Credential(name: 'git.token.github.com', type: 'token', characters: 12)],
-    );
-    terminal.endsWith(0);
-    await World.settle(tester);
-    await tester.tap(find.byKey(const Key('unlock-done')));
-    await World.settle(tester);
-    expect(binding.problem, isNull);
-    expect(binding.bound, 'api');
-    expect(backend.follows.single.url, repository.httpsUrl);
-    expect(
-      backend.storeAsked.where((each) => each == 'credentials').length,
-      2,
-      reason: 'the vault is listed before and after the terminal',
-    );
-    expect(backend.deployKeysMade, isEmpty);
-    expect(forge.keyCalls, isEmpty);
-  });
-
-  for (final readable in [false, true]) {
-    // Harm: an unreadable vault or absent token must never be treated as usable credentials.
-    test('binding refuses an unconfirmed vault entry when readable is $readable', () async {
-      final backend = FakeBackend([])
-        ..theStoreIs = VaultState(vault: '', exists: true, readable: readable, credentials: []);
-      final workspace = FakeWorkspace()
-        ..repository = repository
-        ..onTheForge = 'project:\n  name: api\n';
-      final binding = MachineBinding(FakeForge(), workspace, backend, machineName: 'vm', login: 'alice');
-      addTearDown(binding.dispose);
-      var prompts = 0;
-      await binding.bind(
-        workspace.agentKeys.single,
-        storeToken: () async {
-          prompts++;
-        },
-      );
-      expect(binding.problem, isNotNull);
-      expect(backend.follows, isEmpty);
-      expect(prompts, readable ? 1 : 0);
-      expect(backend.deployKeysMade, isEmpty);
-    });
-  }
 
   // Harm: clearing must not revoke forge access outside the machine being cleared.
   test('clearing leaves legacy deploy keys at the forge', () async {

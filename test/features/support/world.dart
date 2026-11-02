@@ -1,4 +1,4 @@
-import 'package:porelo_frontend/src/app/registry_pages.dart';
+import 'package:porelo_frontend/src/app/organization_source.dart';
 
 import 'dart:async';
 import 'dart:convert';
@@ -44,8 +44,6 @@ import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/narrowing.dart';
 import 'package:porelo_frontend/src/app/connections.dart';
 import 'package:porelo_frontend/src/ui/choice_field.dart';
-import 'package:porelo_frontend/src/app/project_following.dart';
-import 'package:porelo_frontend/src/app/project_join.dart' show JoinDiscovery, JoinHost;
 import 'package:porelo_frontend/src/app/newer_version.dart';
 import 'package:porelo_frontend/src/app/where_you_were.dart';
 import 'package:porelo_frontend/src/app/notifications.dart';
@@ -62,6 +60,27 @@ import 'package:porelo_frontend/src/app/porelo_app.dart';
 /// This proves the *frame*, which is judged on what a person sees — including when the backend
 /// refuses, has no `Watch`, or goes away. A widget test runs on a fake clock and real socket
 /// input never completes under it, so the frame has to be reachable without one.
+/// An organization that lists every project on the machine as registered there alone.
+class EveryProjectLocal implements OrganizationSource {
+  @override
+  Future<List<ListedProject>> myProjects() async => <ListedProject>[
+    for (final project in World.fleet.projects) ListedProject(name: project.name, source: 'local'),
+  ];
+
+  @override
+  Future<OrganizationView> read() async =>
+      const OrganizationView(name: 'none', keptIn: '', vouchedBy: '', revision: 'r1', me: 'me');
+
+  @override
+  Future<ProjectView> readProject(String project) async => ProjectView(name: project, revision: 'r1');
+
+  @override
+  Future<List<OrganizationKey>> myKeys() async => const <OrganizationKey>[];
+
+  @override
+  Future<void> apply(OrganizationWrite write) async {}
+}
+
 class FakeBackend implements FleetBackend {
   /// Constructor taking what the machine has on it.
   FakeBackend(this._tasks);
@@ -251,8 +270,6 @@ class FakeBackend implements FleetBackend {
           behindDetail: project.behindDetail,
           repositories: project.repositories,
           repositoryStates: <Repository>[for (final each in project.repositoryStates) change(project, each)],
-          following: project.following,
-          followingAnswered: project.followingAnswered,
           credentials: project.credentials,
           credentialsAnswered: project.credentialsAnswered,
           messages: project.messages,
@@ -279,7 +296,6 @@ class FakeBackend implements FleetBackend {
           'name': defaultProject,
           'securityClass': each.securityClass,
           'file': each.file,
-          'following': null,
           'repositories': <Map<String, dynamic>>[
             for (final repository in inDefault)
               <String, dynamic>{'name': repository.name, 'own': false, 'upstream': repository.upstream},
@@ -1294,39 +1310,6 @@ class FakeBackend implements FleetBackend {
     return taskRefreshAnswers;
   }
 
-  /// Every project a refresh was asked for, null for all of them.
-  final List<String?> refreshes = <String?>[];
-
-  /// Held open by a scenario so a refresh is seen under way; completed when the machine answers.
-  Completer<void>? refreshHeld;
-
-  /// What the next refresh finds instead of the commit in force, by outcome. Set by the scenario.
-  String? nextRefreshFinds;
-
-  /// Projects this account no longer follows, so a refresh of one is refused.
-  final Set<String> noLongerFollowed = <String>{};
-
-  /// Acts like Porelo: fetches now and answers the records as they are afterwards.
-  @override
-  Future<List<Followed>> refreshProjects({String? project}) async {
-    refreshes.add(project);
-    if (project != null && noLongerFollowed.contains(project)) {
-      throw VarlinkException('org.fuin.porelo.Tasks1.NoSuchProject', {'project': project});
-    }
-    await refreshHeld?.future;
-    return <Followed>[
-      for (final each in theProjectsItHas)
-        if (each.following case final followed? when project == null || each.name == project)
-          Followed(
-            name: each.name,
-            url: followed.url,
-            commit: 'c0ffee1d2e3f',
-            outcome: nextRefreshFinds ?? 'UNCHANGED',
-            needsAPerson: nextRefreshFinds != null,
-          ),
-    ];
-  }
-
   /// Refs a restore would destroy, or empty when it would destroy none. Set by the scenario.
   List<String> theRestoreWouldDestroy = const <String>[];
 
@@ -1527,78 +1510,8 @@ class FakeBackend implements FleetBackend {
   /// project is exactly the failure this guards.
   final List<({String project, bool preview, bool force})> deletions = <({String project, bool preview, bool force})>[];
 
-  /// What the next [follow] answers, or null for a project taken at once.
-  Followed? nextFollow;
-
-  /// Every follow asked for, and how its commits were to be checked.
-  final List<({String name, String url, String? signedBy, List<String>? signers, bool unverified, bool acceptRewrite})>
-  follows =
-      <({String name, String url, String? signedBy, List<String>? signers, bool unverified, bool acceptRewrite})>[];
-
-  /// Acts like Porelo: a follow that is taken makes the project, listed with its follow state.
-  @override
-  Future<Followed> follow(
-    String name,
-    String url, {
-    String? signedBy,
-    List<String>? signers,
-    bool? unverified,
-    bool? acceptRewrite,
-  }) async {
-    follows.add((
-      name: name,
-      url: url,
-      signedBy: signedBy,
-      signers: signers,
-      unverified: unverified == true,
-      acceptRewrite: acceptRewrite == true,
-    ));
-    final unmet = hostsOffer.keys.where((host) => url.contains(host) && !trustedHostKeys.containsKey(host));
-    // A host never met is refused until a person trusts one of its keys, as the machine does.
-    final answer = unmet.isNotEmpty
-        ? Followed(
-            name: name,
-            url: url,
-            outcome: changedHost == unmet.first ? 'HOST_KEY_CHANGED' : 'UNKNOWN_HOST_KEY',
-            host: unmet.first,
-            hostKeys: hostsOffer[unmet.first]!,
-            needsAPerson: true,
-          )
-        : acceptRewrite == true || nextFollow == null
-        ? Followed(
-            name: name,
-            url: url,
-            commit: 'c0ffee1d2e3f',
-            outcome: 'APPLIED',
-            // Pinned to the key it was given, as the machine answers it: by fingerprint.
-            signer: signedBy == null ? '' : pinsInstead ?? 'SHA256:person',
-            // Several keys are all pinned, each by its fingerprint, in the order given.
-            pinned: <String>[for (final each in signers ?? const <String>[]) 'SHA256:${each.split(' ').last}'],
-          )
-        : nextFollow!;
-    if (answer.inForce && !theProjectsItHas.any((each) => each.name == name)) {
-      theProjectsItHas = <Project>[
-        ...theProjectsItHas,
-        Project(
-          name: name,
-          securityClass: 'guarded',
-          file: '/srv/$name/project.yml',
-          mirror: '/srv/$name/.porelo/mirror',
-          pending: 0,
-          tasks: 0,
-          running: 0,
-          following: answer,
-        ),
-      ];
-    }
-    return answer;
-  }
-
-  @override
-  Future<List<Followed>> following() async => [for (final project in theProjectsItHas) ?project.following];
-
-  /// Set to refuse the next [unfollow] the way the daemon refuses one.
-  VarlinkException? refuseToUnfollow;
+  /// Set to refuse the next [removeProject] the way the daemon refuses one.
+  VarlinkException? refuseToRemove;
 
   /// What `Clear` was asked, in order.
   final List<({String? project, bool dryRun, bool force})> clears = <({String? project, bool dryRun, bool force})>[];
@@ -1649,8 +1562,8 @@ class FakeBackend implements FleetBackend {
   }
 
   @override
-  Future<Deletion> unfollow(String project, {bool? dryRun, bool? force}) async {
-    final refusal = refuseToUnfollow;
+  Future<Deletion> removeProject(String project, {bool? dryRun, bool? force}) async {
+    final refusal = refuseToRemove;
     if (refusal != null) throw refusal;
     deletions.add((project: project, preview: dryRun == true, force: force == true));
     final refused = deletionAnswers.canBeForced && force != true;
@@ -1673,7 +1586,7 @@ class FakeBackend implements FleetBackend {
           ? const <String>['porelo-checkout-shell']
           : const <String>[],
       detail: refused ? 'nothing was removed' : '',
-      // What it forgot with the project, as Unfollow answers: its deploy keys and its signer.
+      // What it forgot with the project, as RemoveProject answers: its deploy keys and its signer.
       keys: dryRun == true || refused ? const <MachineDeployKey>[] : List<MachineDeployKey>.of(deployKeysMade),
       signer: dryRun == true || refused ? null : theMessageKey,
     );
@@ -1828,9 +1741,6 @@ class FakeBackend implements FleetBackend {
   Future<List<MessageMember>> messageMembers(String project) async =>
       List<MessageMember>.of(membersOf[project] ?? const <MessageMember>[]);
 
-  /// A fingerprint the machine answers as pinned instead of the one it was given, or null.
-  String? pinsInstead;
-
   /// The deploy keys this machine made, in order, as it answers them.
   final List<MachineDeployKey> deployKeysMade = <MachineDeployKey>[];
 
@@ -1860,7 +1770,7 @@ class FakeBackend implements FleetBackend {
     return made;
   }
 
-  /// This machine's message key, as the daemon still names it in an unfollow's answer.
+  /// This machine's message key, as the daemon still names it in a removal's answer.
   MachineKey theMessageKey = const MachineKey(
     principal: 'porelo@vm',
     key: 'ssh-ed25519 AAAAmsg',
@@ -1908,14 +1818,9 @@ class FakeBackend implements FleetBackend {
     return (removed: inDefault.length != before, keys: forgotten);
   }
 
-  /// What the machine's contract says of binding: a Porelo that can, unless a scenario says it is older.
-  bool canBind = true;
-
   @override
-  Future<String> contract() async => canBind
-      ? 'method Follow(name: string, url: string, signedBy: ?string, signers: ?[]string) -> ()\n'
-            'method Approve(project: string, name: string, branch: string, repository: ?string, commit: ?string) -> ()\n'
-      : 'method Follow(name: string, url: string) -> ()\n';
+  Future<String> contract() async =>
+      'method Approve(project: string, name: string, branch: string, repository: ?string, commit: ?string) -> ()\n';
 
   /// Pending work handed out as a bundle, and what was asked whether it landed.
   final List<String> bundlesTaken = <String>[];
@@ -2723,9 +2628,6 @@ class World {
   /// What the machine being acted on can authenticate against.
   static late Authentication authentication;
 
-  /// Following a repository.
-  static late ProjectFollowing following;
-
   /// How a machine connects out.
   static late Connections connections;
 
@@ -2915,9 +2817,13 @@ class World {
 
   /// Puts a backend behind the interface, and closes it when the scenario ends.
   static Future<void> startBackend(List<Task> tasks) async {
+    organizationAtStart = null;
     backend = FakeBackend(tasks);
     addTearDown(backend.stop);
   }
+
+  /// The organization the next [startApp] reads, where a scenario set one before it.
+  static OrganizationSource? organizationAtStart;
 
   /// Builds the interface against that backend and connects it.
   ///
@@ -2925,9 +2831,9 @@ class World {
   /// narrow window, and every scenario would have been judging the fallback layout by accident.
   static Future<void> startApp(
     WidgetTester tester, {
-    RegistryPages? registryPages,
-    JoinDiscovery? joinDiscovery,
-    JoinHost? joinHost,
+    bool settingsDropped = false,
+    OrganizationSource? organizationSource,
+    HostConnections? hostConnections,
     Future<HostAccess> Function(Settings settings)? hostAccess,
   }) async {
     // The view rather than the surface, at a pixel ratio of one: the surface is set in *physical*
@@ -2971,8 +2877,6 @@ class World {
     addTearDown(readiness.dispose);
     authentication = Authentication();
     addTearDown(authentication.dispose);
-    following = ProjectFollowing();
-    addTearDown(following.dispose);
     connections = Connections();
     forge = FakeForge();
     forgeTokens = MemoryForgeTokens();
@@ -3082,12 +2986,11 @@ class World {
         deleting: deleting,
         readiness: readiness,
         authentication: authentication,
-        following: following,
         connections: connections,
         forges: forges,
-        registryPages: registryPages,
-        joinDiscovery: joinDiscovery,
-        joinHost: joinHost,
+        settingsDropped: settingsDropped,
+        organizationSource: organizationSource ?? organizationAtStart,
+        hostConnections: hostConnections,
         hostAccess: composedHostAccess,
         pickAFile: ({String? initialDirectory, String? title}) async => pickedFile,
         backups: backups,
@@ -3157,7 +3060,6 @@ class World {
         deleting: deleting,
         readiness: readiness,
         authentication: authentication,
-        following: following,
         connections: connections,
         forges: forges,
         pickAFile: ({String? initialDirectory, String? title}) async => pickedFile,
@@ -3192,7 +3094,6 @@ class World {
         deleting: deleting,
         readiness: readiness,
         authentication: authentication,
-        following: following,
         connections: connections,
         forges: forges,
         pickAFile: ({String? initialDirectory, String? title}) async => pickedFile,

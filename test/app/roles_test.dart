@@ -9,7 +9,7 @@ void main() {
   });
 
   test('the comma list accepts every known role and always includes user', () {
-    final roles = Roles.fromArguments(const ['--roles', 'host-admin,project-admin,access-admin']);
+    final roles = Roles.fromArguments(const ['--roles', 'host-admin,access-admin']);
     expect(Role.values.where(roles.holds).toSet(), Role.values.toSet());
   });
 
@@ -19,8 +19,8 @@ void main() {
   });
 
   test('repeated roles and whitespace do not change which roles are held', () {
-    final roles = Roles.fromArguments(const ['--roles', ' project-admin,user,project-admin ']);
-    expect(Role.values.where(roles.holds).toSet(), {Role.user, Role.projectAdmin});
+    final roles = Roles.fromArguments(const ['--roles', ' host-admin,user,host-admin ']);
+    expect(Role.values.where(roles.holds).toSet(), {Role.user, Role.hostAdmin});
   });
 
   test('other startup arguments leave ordinary work available', () {
@@ -29,8 +29,8 @@ void main() {
   });
 
   test('the equals form and repeated options combine roles', () {
-    final roles = Roles.fromArguments(const ['--roles=host-admin', '--roles', 'project-admin']);
-    expect(Role.values.where(roles.holds).toSet(), {Role.user, Role.hostAdmin, Role.projectAdmin});
+    final roles = Roles.fromArguments(const ['--roles=host-admin', '--roles', 'access-admin']);
+    expect(Role.values.where(roles.holds).toSet(), {Role.user, Role.hostAdmin, Role.accessAdmin});
   });
 
   // Harm: a misspelled role silently starts an interface with unintended commands.
@@ -41,11 +41,7 @@ void main() {
         throwsA(
           isA<FormatException>()
               .having((error) => error.message, 'refused role', contains(argument.split(',').last))
-              .having(
-                (error) => error.message,
-                'known roles',
-                contains('user, host-admin, project-admin, access-admin'),
-              ),
+              .having((error) => error.message, 'known roles', contains('user, host-admin, access-admin')),
         ),
       );
     });

@@ -10,11 +10,9 @@ void checkAdminName(String value) {
 
 /// The agreed server-setup boundary, implemented when the host serves its final contract.
 abstract interface class ServerPreparation {
-  /// Prepares this existing SSH host and pins the proven admin after up.
+  /// Prepares this existing SSH host for the proven admin.
   ///
-  /// The adapter runs root's `porelo-host-person registry pin <login> <key>`
-  /// with [adminLogin] and [adminKey]. It accepts no root needs. The person's
-  /// bootstrap of root's authorized keys happens in a separate terminal.
+  /// It accepts no root needs. The person's bootstrap of root's authorized keys happens in a separate terminal.
   Future<PreparedHost> prepare({
     required Remote remote,
     required String name,

@@ -1,27 +1,30 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 
-import 'package:flutter/foundation.dart' show Listenable;
-
-import 'package:porelo_frontend/client.dart';
+import 'package:flutter/foundation.dart' show ChangeNotifier, Listenable;
+import 'package:path/path.dart' as path;
 import 'package:porelo_host/porelo_host.dart';
 
-import 'host_access_contract.dart';
-import 'host_runs.dart' show hostGivenBack;
-import 'host_session.dart';
-import 'registry.dart';
-import 'settings.dart';
+import 'desk.dart';
+import 'host_organization.dart';
+import 'organization_source.dart';
 
-/// The current identity proven by Core, never a typed account name.
+export 'host_organization.dart' show HostAccessRefused;
+
+/// The current identity proven by Porelo, never a typed account name.
 class HostAdminIdentity {
-  /// Keeps Core’s proven login and current key fingerprint.
-  const HostAdminIdentity(this.login, this.fingerprint);
+  /// Keeps Porelo's proven login, current key fingerprint and public key.
+  const HostAdminIdentity(this.login, this.fingerprint, this.key);
 
   /// The central-forge login.
   final String login;
 
   /// The current proven public key fingerprint.
   final String fingerprint;
+
+  /// The current proven public key.
+  final String key;
 }
 
 /// Where the proven identity is read again from, and why there is none; it notifies after every read.
@@ -33,637 +36,202 @@ abstract interface class HostAdminProof implements Listenable {
   String? get whyNone;
 }
 
-/// Publishes signed host state and retains every unconfirmed step across restarts.
-class HostAccess {
-  /// Uses the shared verified registry and isolated write and delivery boundaries.
-  ///
-  /// [registry] answers the registry of the address chosen now, the one the registry pages read, or null before one was
-  /// chosen.
+/// Who may prepare which host, judged on what `porelo org` answers, and what goes to the organization and to `up`.
+class HostAccess extends ChangeNotifier {
+  /// Reads and writes the organization through [source].
   HostAccess({
-    required this._registry,
-    required this.settings,
+    required this.source,
     required this.identity,
-    required this.transport,
+    required this.scratch,
     this.proof,
-  });
+    Future<String> Function()? knownHosts,
+    Future<void> Function(File file, String text)? keepFile,
+  }) : _knownHosts = knownHosts ?? _ownKnownHosts,
+       _keepFile = keepFile ?? _keepPrivately;
 
-  final Registry? Function() _registry;
-
-  /// Said while no registry address was chosen.
-  static const noRegistry = 'Choose the registry repository first.';
-
-  /// The registry of the address chosen now, or null before one was chosen.
-  Registry? get chosenRegistry => _registry();
-
-  /// The shared registry whose accepted state controls every selection; refused before one was chosen.
-  Registry get registry => _registry() ?? (throw const RegistryRefusal(noRegistry));
-
-  /// Reads [identity] again before every side effect, and says why none is proven; absent where [identity] is given
-  /// whole, as in tests.
-  final HostAdminProof? proof;
-
-  /// The durable public progress store.
-  final Settings settings;
+  /// Where the organization is read and changed.
+  final OrganizationSource source;
 
   /// The current proven identity, read again before every side effect.
   final HostAdminIdentity? Function() identity;
 
-  /// The pinned host’s checked registry intake and sync boundary.
-  final HostRegistryTransport transport;
-  final _busy = <String>{};
-  final _statuses = <String, HostRegistryStatus>{};
+  /// A private folder the machine files `up` hands on are kept in.
+  final String scratch;
 
-  /// Who may change [host]: its host admins from owners.yml, or, while owners.yml names none for it, the registry
-  /// owners who name them; without a host, the owners too.
-  List<RegistryContact> whoMay([String? host]) {
-    final admins = host == null
-        ? const <RegistryOwner>[]
-        : chosenRegistry?.accepted?.adminsOf(host) ?? const <RegistryOwner>[];
-    final logins = admins.isNotEmpty
-        ? [for (final admin in admins) admin.login]
-        : [
-            for (final owner in chosenRegistry?.accepted?.owners ?? const <RegistryOwner>[])
-              if (!owner.backup) owner.login,
-          ];
-    // The person asking is never told to ask themselves.
-    final asking = identity()?.login;
-    return [
-      for (final login in {...logins})
-        if (login != asking)
-          RegistryContact(login: login, name: _person(login)?.name ?? login, email: _person(login)?.contactEmail),
-    ];
+  /// Reads [identity] again, and says why none is proven; absent where [identity] is given whole, as in tests.
+  final HostAdminProof? proof;
+
+  final Future<String> Function() _knownHosts;
+  final Future<void> Function(File file, String text) _keepFile;
+
+  OrganizationView? _view;
+  String? _whyNoView;
+  int _reading = 0;
+
+  /// Said when Porelo's answer names no organization settings or forge to hand a host.
+  static const noAddress =
+      "Porelo's answer does not name the organization's settings and forge, and a new host needs them to follow it, "
+      'so no server can be prepared.';
+
+  static Future<String> _ownKnownHosts() async {
+    final file = File(path.join(desk.home, '.ssh', 'known_hosts'));
+    return await file.exists() ? file.readAsString() : '';
   }
 
-  RegistryCard? _person(String login) => chosenRegistry?.selectable.where((card) => card.login == login).firstOrNull;
+  static Future<void> _keepPrivately(File file, String text) async {
+    final writer = HostFileWriter();
+    await file.parent.create(recursive: true);
+    await writer.protectDirectory(file.parent);
+    // Each try hands on what the organization says now, never an older try's pin.
+    if (await file.exists()) await file.delete();
+    await writer.write(file, utf8.encode(text));
+  }
 
-  /// No Core verb takes a person's request to a host admin; only a host admin files access.
-  static const noRequests = 'No Core issue covers host access requests yet.';
-
-  /// Why admission is unavailable; a person who is no host admin of [host] learns whom to ask instead.
-  String? admitUnavailable(String host) => _admitRefusal(host)?.toString();
-
-  RegistryRefusal? _admitRefusal(String host) {
-    final reason = unavailable(host);
-    final registry = chosenRegistry;
-    // A host without named admins keeps its own reason: the owners named are those who name its admins; nobody proven
-    // is told why.
-    if (reason == null ||
-        identity() == null && proof?.whyNone != null ||
-        registry?.accepted == null ||
-        registry!.problem != null ||
-        registry.busy ||
-        registry.accepted!.adminsOf(host).isEmpty) {
-      return reason == null ? null : RegistryRefusal(reason);
+  /// Reads the organization and the proven identity again; only the newest read is kept.
+  Future<void> readAgain() async {
+    final read = ++_reading;
+    await proof?.readAgain();
+    OrganizationView? view;
+    String? why;
+    try {
+      view = await source.read();
+    } on OrganizationRefused catch (refused) {
+      why = refused.words;
+    } on Exception {
+      why = 'The organization could not be read.';
     }
-    return RegistryRefusal('$noRequests Only a host admin of $host may admit a project.', whoMay: whoMay(host));
+    if (read != _reading) return;
+    _view = view;
+    _whyNoView = why;
+    notifyListeners();
   }
 
-  /// Why preparation or admission is unavailable, including who may do it.
+  /// Why preparing [host], or any host, is unavailable now, naming whom to ask; null when it is available.
   String? unavailable([String? host]) {
-    final registry = chosenRegistry;
-    if (registry == null) return noRegistry;
-    if (registry.accepted == null || registry.problem != null || registry.busy) {
-      return 'Refresh the registry before changing a host.';
+    if (_whyNoView case final why?) return why;
+    final view = _view;
+    if (view == null) return 'The organization has not been read yet.';
+    // No security check rests on a state read earlier: a pin from one could trust the wrong people.
+    if (view.stale) {
+      return 'Porelo could not reach the organization just now, and no host is prepared on an older state. Try again.';
     }
     final actor = identity();
-    // Nobody proven is told why, before anyone is named who may.
-    if (actor == null) {
-      if (proof?.whyNone case final why?) return why;
+    if (actor == null) return proof?.whyNone ?? 'Your identity is not proven.';
+    if (view.me != actor.login) return 'The organization holds no card of yours, ${actor.login}, yet.';
+    if (!view.holdsRoles) return 'The organization does not take your card, ${actor.login}, so it holds no role.';
+    // A login is only a name: the place is held by the key on the accepted card.
+    if (view.myCard?.key != actor.fingerprint) {
+      return 'Your key ${actor.fingerprint} is not the one the organization holds for ${actor.login}.';
     }
-    final card = actor == null ? null : _person(actor.login);
-    final accepted = registry.accepted!;
-    // Without a host, being a host admin of any host opens the way; each host is checked again by its own label.
-    final admins = host == null
-        ? [for (final label in accepted.hostAdmins.keys) ...accepted.adminsOf(label)]
-        : accepted.adminsOf(host);
-    final permitted =
-        actor != null &&
-        card?.fingerprint == actor.fingerprint &&
-        admins.any((admin) => admin.login == actor.login && admin.fingerprint == actor.fingerprint);
-    // The right comes from owners.yml alone; a host's `admins` are the admitted pins of its access file.
+    final named = host == null ? null : view.hosts.where((each) => each.name == host).firstOrNull;
+    final permitted = host == null
+        ? view.hosts.any((each) => each.admins.contains(actor.login))
+        : named?.admins.contains(actor.login) == true;
     if (!permitted) {
-      final names = whoMay(host)
-          .map((contact) => '${contact.name} (${contact.login})${contact.email == null ? '' : ', ${contact.email}'}')
-          .join('; ');
-      final ask = names.isEmpty ? '' : ' Ask $names.';
-      if (host != null && accepted.adminsOf(host).isEmpty) {
-        return 'owners.yml names no host admin for $host yet; a registry owner names them first.$ask';
+      if (host == null) return 'Only a host admin of this organization may do this.${_ask(view, _owners(view))}';
+      if (named == null) {
+        return 'The organization lists no host $host yet: an organization owner adds it first.${_ask(view, _owners(view))}';
       }
-      return host == null
-          ? 'Only a host admin named in owners.yml may do this; registry owners name them there.$ask'
-          : 'Only a host admin owners.yml names for $host may do this.$ask';
+      return 'Only a host admin of $host may do this.${_ask(view, named.admins)}';
     }
-    return null;
+    return (view.settings ?? '').isEmpty || (view.forge ?? '').isEmpty ? noAddress : null;
   }
 
-  /// Reads the proven identity again, before a step that shows or registers something for it.
-  Future<void> proveAgain() async => proof?.readAgain();
+  static List<String> _owners(OrganizationView view) => view.owners;
 
-  /// Rechecks a retained Prepare callback immediately before it can rent a server.
+  /// The person asking is never told to ask themselves.
+  static String _ask(OrganizationView view, List<String> logins) {
+    final others = {...logins}.where((login) => login != view.me);
+    return others.isEmpty ? '' : ' Ask ${others.join(', ')}.';
+  }
+
+  /// Rechecks a retained Prepare callback immediately before it can open the way to a server.
   Future<void> prepare(Future<void> Function() start) async {
-    await proof?.readAgain();
-    _authorize();
+    await readAgain();
+    requireAdmin();
     await start();
   }
 
-  /// Refuses a stale callback before it can change or rent a host.
-  void requireAdmin([String? host]) => _authorize(host);
+  /// Reads again and refuses a stale callback before it can change a host.
+  Future<void> check(String host) async {
+    checkHostName(host);
+    await readAgain();
+    requireAdmin(host);
+  }
 
-  /// Shows the verified card key's bootstrap instruction for a separate terminal.
+  /// Refuses a stale callback before it can change a host.
+  void requireAdmin([String? host]) {
+    if (unavailable(host) case final reason?) throw HostAccessRefused(reason);
+  }
+
+  /// Shows the proven key's bootstrap instruction for a separate terminal.
   String bootstrapCommand() {
-    _authorize();
-    return hostRootBootstrapCommand(_person(identity()!.login)!.key);
+    requireAdmin();
+    return hostRootBootstrapCommand(identity()!.key);
   }
 
-  void _authorize([String? host]) {
-    // The reason names who may already; the refusal carries no second list to be said again.
-    if (unavailable(host) case final reason?) throw RegistryRefusal(reason);
-  }
-
-  void _authorizeExisting(String host) {
-    checkHostName(host);
-    _authorize(host);
-    if (!registry.hosts.any((item) => item.host == host)) {
-      throw const RegistryRefusal('Choose a host the registry lists.');
-    }
-    if (settings.hostReturned(host)) throw const RegistryRefusal('The server was given back.');
-  }
-
-  void _authorizeChange(HostRegistryChange change) {
-    if (const ['host-card', 'delete-card'].contains(change.action)) {
-      _authorize(change.host);
-    } else {
-      _authorizeExisting(change.host);
-    }
-  }
-
-  /// Rechecks setup authorization and resolves a completed return before renting again.
-  Future<void> beginPreparation(String host) => _exclusive(host, () async {
-    _authorize(host);
-    if (!settings.hostReturned(host)) return;
-    if (settings.hostRegistry(host)?.change.action != 'delete-card' || settings.hostRegistry(host)?.complete != true) {
-      throw const RegistryRefusal('Publish the returned host card deletion before preparing this name again.');
-    }
-    await settings.reuseReturnedHost(host);
-    _statuses.remove(host);
-  });
-
-  /// The exact intended revision waiting for this host, if any.
-  String? pendingRevision(String host) {
-    final progress = settings.hostRegistry(host);
-    return progress?.complete == true ? null : progress?.revision;
-  }
-
-  /// The last host-confirmed answer, independent of the registry's newest commit.
-  HostRegistryStatus? statusFor(String host) => _statuses[host];
-
-  /// Whether Git is ahead of what this host has confirmed.
-  bool notOnHostYet(String host) {
-    final progress = settings.hostRegistry(host);
-    if (settings.hostReturned(host)) return progress?.change.action != 'delete-card' || progress?.complete != true;
-    if (progress != null && !progress.complete) return true;
-    final applied = _statuses[host]?.revision ?? settings.hostRegistryState(host).lastAppliedRevision;
-    if (progress?.complete == true &&
-        applied == progress?.confirmedRevision &&
-        chosenRegistry?.accepted?.revision == progress?.revision) {
-      return false;
-    }
-    final newest = chosenRegistry?.accepted?.revision;
-    return newest != null && applied != newest;
-  }
-
-  /// Files the checked SSH completion once; a retry never runs setup again.
-  Future<void> publishReady(String host, PreparedHost card) => _exclusive(host, () => _publishReady(host, card));
-
-  Future<void> _publishReady(String host, PreparedHost card) async {
-    _authorize(host);
-    if (settings.hostReturned(host)) throw const RegistryRefusal('The server was given back.');
-    if (settings.hostRegistryState(host).cardNeedsVerification) {
-      throw const RegistryRefusal(
-        'The saved registry record lacks verified host card values. Verify the published card before replacing it.',
-      );
-    }
-    final existing = settings.hostRegistry(host);
-    if (existing?.change.action == 'host-card') {
-      final same = jsonEncode(existing!.change.card?.stored) == jsonEncode(card.stored);
-      if (!existing.complete) {
-        if (!same) throw const FormatException('The completed host card changed during publication.');
-        await _resume(host);
-        return;
-      }
-      if (same) return;
-    }
-    if (jsonEncode(settings.hostRegistryState(host).publishedCard?.stored) == jsonEncode(card.stored)) return;
-    await _begin(host, 'host-card', card: card);
-  }
-
-  /// Deletes a card only after the provider's checked give-back confirmation.
-  Future<void> confirmGivenBack(String host, HostSession session) async {
-    if (!hostGivenBack(session)) return;
-    await proof?.readAgain();
-    await settings.rememberHostReturned(host);
-    await _exclusive(host, () => _deleteReturned(host));
-  }
-
-  /// Whether a confirmed give-back is already awaiting publication or complete.
-  bool givenBack(String host) => settings.hostReturned(host);
-
-  /// Admits only a selected trusted card with its project and access address.
-  Future<void> admit({
-    required String host,
-    required String person,
-    required String project,
-    required String accessRepository,
-  }) => _exclusive(host, () async {
-    checkHostName(host);
-    if (_admitRefusal(host) case final refused?) throw refused;
-    _authorizeExisting(host);
-    final card = _person(person);
-    if (card == null) throw const RegistryRefusal('Choose a person whose card Core trusts.');
-    await _begin(
-      host,
-      'admit',
-      person: card.login,
-      fingerprint: card.fingerprint,
-      project: project,
-      accessRepository: accessRepository,
+  /// Writes what `up` hands [host] of the organization, from a fresh read, and answers its path.
+  ///
+  /// Refuses in words before anything is rented: a host that could not trust the forge or its admins is worth nothing.
+  Future<String> machineFile(String host) async {
+    await check(host);
+    final view = _view!;
+    final text = hostMachineFile(
+      settings: view.settings!,
+      knownHosts: centralForgeKnownHosts(view.forge!, await _knownHosts()),
+      pin: hostPin(view.hosts.firstWhere((each) => each.name == host)),
     );
-  });
-
-  /// No Core verb locks, lets back in or deletes a host account: `access.yml` names projects only.
-  static const noHostWideChange =
-      'No Core issue covers a host-wide lock, let back in or account deletion yet. Lock the person in each '
-      "project's access instead.";
-
-  /// Refuses a host-wide membership change after the usual host admin check, filing nothing.
-  Future<void> membership({
-    required String host,
-    required String person,
-    required String action,
-    bool confirmed = false,
-  }) => _exclusive(host, () async {
-    _authorizeExisting(host);
-    if (!const ['lock', 'unlock', 'purge'].contains(action)) {
-      throw const FormatException('Unknown host membership action.');
-    }
-    throw const RegistryRefusal(noHostWideChange);
-  });
-
-  /// Brings only unconfirmed work to the host, or the newest accepted revision.
-  Future<void> bringToHost(String host) => _exclusive(host, () async {
-    _authorize(host);
-    if (settings.hostReturned(host)) {
-      await _deleteReturned(host);
-    } else if (settings.hostUp(host)?.preparedHost case final card?
-        when (settings.hostRegistry(host) == null || settings.hostRegistry(host)!.complete) &&
-            !settings.hostRegistryState(host).cardNeedsVerification &&
-            jsonEncode(settings.hostRegistryState(host).publishedCard?.stored) != jsonEncode(card.stored)) {
-      await _publishReady(host, card);
-    } else if (settings.hostRegistry(host) case final progress? when !progress.complete) {
-      if (!const ['host-card', 'delete-card'].contains(progress.change.action)) _authorizeExisting(host);
-      await _resume(host);
-    } else {
-      _authorizeExisting(host);
-      await registry.refresh();
-      _authorizeExisting(host);
-      final revision = checkedRegistryRevision(registry.accepted!.revision!);
-      final change = _change(host, 'deliver');
-      await _keep(HostRegistryProgress(change: change, revision: revision, published: true));
-      await _resume(host);
-    }
-  });
-
-  /// Reads the host's applied registry after reconnecting, without changing it.
-  Future<void> refreshStatus(String host) async {
-    await proof?.readAgain();
-    _authorizeExisting(host);
-    final status = await transport.status(host);
-    _checkStatus(host, status);
-    _authorizeExisting(host);
-    _statuses[host] = status;
+    final file = File(path.join(scratch, '$host.yml'));
+    await _keepFile(file, text);
+    return file.path;
   }
 
-  HostRegistryChange _change(
-    String host,
-    String action, {
-    String? person,
-    String? fingerprint,
-    String? project,
-    String? accessRepository,
-    PreparedHost? card,
-  }) => HostRegistryChange.read(
-    HostRegistryChange(
-      id: List.generate(16, (_) => Random.secure().nextInt(256).toRadixString(16).padLeft(2, '0')).join(),
-      host: host,
-      action: action,
-      base: registry.accepted?.revision,
-      person: person,
-      fingerprint: fingerprint,
-      project: project,
-      accessRepository: accessRepository,
-      card: card,
-    ).stored,
-  );
-
-  Future<void> _begin(
-    String host,
-    String action, {
-    String? person,
-    String? fingerprint,
-    String? project,
-    String? accessRepository,
-    PreparedHost? card,
-  }) async {
-    if (settings.hostRegistry(host) case final pending? when !pending.complete) {
-      if (!_staleSelection(pending)) {
-        throw const RegistryRefusal('Bring the pending registry change to the host before another change.');
-      }
-      await settings.forgetUnfiledHostRegistry(host);
-    }
-    await _keep(
-      HostRegistryProgress(
-        change: _change(
-          host,
-          action,
-          person: person,
-          fingerprint: fingerprint,
-          project: project,
-          accessRepository: accessRepository,
-          card: card,
-        ),
-      ),
-    );
-    await _resume(host);
-  }
-
-  Future<void> _resume(String host) async {
-    var progress = settings.hostRegistry(host)!;
-    if (progress.complete) return;
-    _authorizeChange(progress.change);
-    _checkNotReturned(progress.change);
-    if (progress.revision == null) {
-      if (_staleSelection(progress)) {
-        await settings.forgetUnfiledHostRegistry(host);
-        throw const RegistryRefusal('The selected card changed. Refresh the admission.');
-      }
-      final revision = await _file(progress.change);
-      progress = HostRegistryProgress(change: progress.change, revision: revision, published: true);
-      await _keep(progress);
-      _authorizeChange(progress.change);
-    } else if (!progress.published) {
-      // An older record kept a signed commit whose push was never confirmed; only an accepted read proves it.
-      await registry.refresh();
-      _authorizeChange(progress.change);
-      if (registry.accepted?.revision != progress.revision) {
-        throw const RegistryRefusal(
-          'An earlier registry change was signed but never confirmed published. Publish it from the registry '
-          'checkout with Git, then bring it to the host again.',
-        );
-      }
-      progress = HostRegistryProgress(change: progress.change, revision: progress.revision, published: true);
-      await _keep(progress);
-    }
-    final revision = progress.revision!;
-    if (const ['host-card', 'delete-card'].contains(progress.change.action)) {
-      await _keep(
-        HostRegistryProgress(change: progress.change, revision: revision, published: true, confirmedRevision: revision),
-      );
-      return;
-    }
-    _authorizeExisting(host);
-    await registry.refresh();
-    _authorizeExisting(host);
-    // The host's own intake refuses anything that does not descend from what it applied.
-    final target = checkedRegistryRevision(registry.accepted!.revision!);
-    if (progress.change.action == 'admit' && !_holds(progress.change)) {
-      throw const RegistryRefusal('The accepted registry no longer holds this admission. Admit the person again.');
-    }
-    var answer = await transport.status(host);
-    _checkStatus(host, answer);
-    _authorizeExisting(host);
-    if (answer.revision != target) {
-      _checkNotReturned(progress.change);
-      // Intake can disappear across host restarts, so a saved upload receipt is insufficient.
-      await transport.upload(host, target);
-      await _keep(
-        HostRegistryProgress(
-          change: progress.change,
-          revision: revision,
-          published: true,
-          uploaded: true,
-          deliveryRevision: target == revision ? null : target,
-        ),
-      );
-      _authorizeExisting(host);
-      _checkNotReturned(progress.change);
-      answer = await transport.sync(host, target);
-    }
-    _checkStatus(host, answer);
-    if (answer.revision != target) {
-      throw const FormatException('The host did not confirm the intended registry revision.');
-    }
-    final person = progress.change.person;
-    final expected = switch (progress.change.action) {
-      'admit' || 'unlock' => 'active',
-      'lock' => 'locked',
-      'purge' => 'purged',
-      _ => null,
-    };
-    if (target == revision && expected != null && answer.people[person] != expected) {
-      throw const FormatException('The host did not confirm the selected membership change.');
-    }
-    await _keep(
-      HostRegistryProgress(
-        change: progress.change,
-        revision: revision,
-        published: true,
-        uploaded: true,
-        confirmedRevision: target,
-        deliveryRevision: target == revision ? null : target,
-        lastAppliedRevision: target,
-        words: answer.words,
-      ),
-    );
-    _statuses[host] = answer;
-  }
-
-  /// Files [change] once through the registry, at its ID and base; a retry never makes a second commit.
-  Future<String> _file(HostRegistryChange change) async {
-    final accepted = registry.accepted?.revision;
-    // A push whose receipt was lost: the accepted registry holds the change already, so nothing is filed.
-    if (accepted != null &&
-        (change.action == 'admit' && _holds(change) ||
-            change.action == 'host-card' && _holdsCard(change) ||
-            change.action == 'delete-card' && _holdsNoCard(change))) {
-      return checkedRegistryRevision(accepted);
-    }
-    // An unfiled change without its base cannot be filed safely; it is chosen again on what is accepted now.
-    if (change.base == null || change.base != accepted) return _readAgainAndAsk(change.host);
-    final filing = switch (change.action) {
-      'admit' => RegistryFiling(
-        RegistryFilingKind.hostAccess,
-        host: change.host,
-        person: change.person,
-        id: change.id,
-        base: change.base,
-        content: hostAccessFile(
-          registry.hosts.firstWhere((each) => each.host == change.host),
-          person: change.person!,
-          fingerprint: change.fingerprint!,
-          project: change.project!,
-          accessRepository: change.accessRepository!,
-        ),
-      ),
-      'host-card' => RegistryFiling(
-        RegistryFilingKind.hostCard,
-        host: change.host,
-        id: change.id,
-        base: change.base,
-        content: hostCardBody(change.card!),
-      ),
-      'delete-card' => RegistryFiling(
-        RegistryFilingKind.hostCardRemove,
-        host: change.host,
-        id: change.id,
-        base: change.base,
-      ),
-      _ => throw const RegistryRefusal(noHostWideChange),
-    };
+  /// Files [prepared]'s real address, ssh port, host key and service ports on its card by `org host change`.
+  ///
+  /// Answers why it could not be written, or null when it was.
+  Future<String?> writeCard(PreparedHost prepared) async {
     try {
-      return checkedRegistryRevision((await registry.file(filing)).revision);
-    } on RegistryRefusal {
-      await registry.refresh();
-      if (registry.accepted?.revision != filing.base) return _readAgainAndAsk(change.host);
-      rethrow;
+      await check(prepared.name);
+      final view = _view!;
+      final forge = prepared.hostServices['forge'];
+      final matrix = prepared.hostServices['matrix'];
+      await source.apply(
+        OrganizationWrite(
+          change: OrganizationChange.changeHost,
+          input: {
+            'host': prepared.name,
+            'address': prepared.address,
+            'port': '${prepared.sshPort}',
+            'hostKey': prepared.sshHostKey,
+            if (forge?['web_port'] case final port?) 'webPort': '$port',
+            if (forge?['git_port'] case final port?) 'gitPort': '$port',
+            if (matrix?['port'] case final port?) 'matrixPort': '$port',
+          },
+          person: view.me,
+          base: view.revision,
+          id: _newId(),
+        ),
+      );
+      await readAgain();
+      return null;
+    } on HostAccessRefused catch (refused) {
+      return refused.words;
+    } on OrganizationRefused catch (refused) {
+      return refused.words;
+    } on Exception {
+      return 'The change could not be asked for.';
     }
   }
 
-  /// The registry moved past the change's base: the change is dropped, never filed on another base.
-  Future<Never> _readAgainAndAsk(String host) async {
-    await settings.forgetUnfiledHostRegistry(host);
-    await registry.refresh();
-    throw const RegistryRefusal('The registry changed since this was chosen. It was read again; choose again.');
+  /// What is said after [host] was given back while its card still names it; null where no card does.
+  String? cardLeftBehind(String host) {
+    final named = _view?.hosts.where((each) => each.name == host).firstOrNull;
+    if (named?.address == null) return null;
+    return 'The organization still names $host at ${named!.address}: a host admin enters its new address, or an '
+        'organization owner removes the host.';
   }
 
-  /// Whether the accepted registry admits [change]'s project for its person under its fingerprint.
-  bool _holds(HostRegistryChange change) {
-    final host = registry.hosts.where((each) => each.host == change.host).firstOrNull;
-    return host != null &&
-        host.adminFingerprints[change.person] == change.fingerprint &&
-        host.projects.any(
-          (each) =>
-              each.name == change.project &&
-              each.admin == change.person &&
-              each.accessRepository == change.accessRepository,
-        );
-  }
+  static final _random = Random.secure();
 
-  /// Whether the accepted registry holds no card for [change]'s host, as its removal leaves it.
-  bool _holdsNoCard(HostRegistryChange change) =>
-      registry.hosts.where((each) => each.host == change.host).firstOrNull?.card == null;
-
-  /// Whether the accepted registry's card for [change]'s host is the card [change] files.
-  bool _holdsCard(HostRegistryChange change) {
-    final accepted = registry.hosts.where((each) => each.host == change.host).firstOrNull?.card;
-    final card = change.card;
-    if (accepted == null || card == null) return false;
-    final services = accepted['services'];
-    final forge = services is Map ? services['forge'] : null;
-    final matrix = services is Map ? services['matrix'] : null;
-    return accepted['host'] == card.name &&
-        accepted['address'] == card.address &&
-        accepted['ssh_port'] == card.sshPort &&
-        accepted['ssh_host_key'] == card.sshHostKey &&
-        forge is Map &&
-        forge['web_port'] == card.services['forge']!['web_port'] &&
-        forge['git_port'] == card.services['forge']!['git_port'] &&
-        matrix is Map &&
-        matrix['port'] == card.services['matrix']!['port'];
-  }
-
-  bool _staleSelection(HostRegistryProgress progress) =>
-      progress.revision == null &&
-      progress.change.action == 'admit' &&
-      _person(progress.change.person!)?.fingerprint != progress.change.fingerprint;
-
-  void _checkStatus(String host, HostRegistryStatus answer) {
-    if (answer.host != host) throw const FormatException('The registry answer names another host.');
-    if (answer.revision case final revision?) checkedRegistryRevision(revision);
-    for (final person in answer.people.keys) {
-      checkAdminName(person);
-    }
-  }
-
-  void _checkNotReturned(HostRegistryChange change) {
-    if (settings.hostReturned(change.host) && change.action != 'delete-card') {
-      throw const RegistryRefusal('The server was given back. Only its pending registry deletion may continue.');
-    }
-  }
-
-  Future<void> _deleteReturned(String host) async {
-    if (settings.hostRegistry(host)?.change.action != 'delete-card') {
-      await _keep(HostRegistryProgress(change: _change(host, 'delete-card')));
-    }
-    _authorize(host);
-    await _resume(host);
-  }
-
-  Future<void> _keep(HostRegistryProgress progress) {
-    _checkNotReturned(progress.change);
-    return settings.rememberHostRegistry(progress);
-  }
-
-  Future<void> _exclusive(String host, Future<void> Function() work) async {
-    checkHostName(host);
-    if (!_busy.add(host)) throw const RegistryRefusal('A change for this host is still running.');
-    try {
-      // A key revoked or taken out of the agent since the last read never acts.
-      await proof?.readAgain();
-      await work();
-    } finally {
-      _busy.remove(host);
-    }
-  }
-}
-
-/// Keeps provider success before attempting card deletion, for both teardown paths.
-///
-/// Returns an unfinished publication message while retaining the deletion request.
-Future<String?> confirmHostRegistryGiveBack({
-  required String host,
-  required HostSession session,
-  required Settings settings,
-  HostAccess? access,
-}) async {
-  if (!hostGivenBack(session)) return null;
-  final record = settings.hostUp(host);
-  if (record?.hostName.isNotEmpty != true) return null;
-  await settings.rememberHostReturned(host);
-  try {
-    if (access == null) return _registryDeletionProblem();
-    await access.confirmGivenBack(host, session);
-    return null;
-  } on RegistryRefusal catch (refused) {
-    return _registryDeletionProblem(refused);
-  } on Exception {
-    return _registryDeletionProblem();
-  }
-}
-
-/// Reconstructs pending deletion recovery from provider success after a restart.
-String? pendingHostRegistryGiveBack({required String host, required Settings settings, HostAccess? access}) {
-  if (!settings.hostReturned(host)) return null;
-  final progress = settings.hostRegistry(host);
-  if (progress?.change.action == 'delete-card' && progress?.complete == true) return null;
-  final reason = access?.unavailable(host);
-  return _registryDeletionProblem(reason == null ? null : RegistryRefusal(reason, whoMay: access!.whoMay(host)));
-}
-
-String _registryDeletionProblem([RegistryRefusal? refused]) {
-  final contacts = (refused?.whoMay ?? <RegistryContact>[])
-      .map((person) => '${person.name} (${person.login})${person.email == null ? '' : ', ${person.email}'}')
-      .join('; ');
-  return 'The server was given back; its registry card still needs deletion. '
-      '${refused?.words ?? 'Retry publication without giving it back again.'}'
-      '${contacts.isEmpty ? '' : ' Ask $contacts.'}';
+  String _newId() => [for (var i = 0; i < 16; i++) _random.nextInt(256).toRadixString(16).padLeft(2, '0')].join();
 }

@@ -3,16 +3,13 @@ import 'package:porelo_frontend/client.dart';
 
 import '../app/fleet_model.dart';
 import '../app/machines.dart';
-import '../app/project_join.dart';
 import '../app/commands.dart';
-import '../app/registry_pages.dart';
 import 'command_menu.dart';
 import 'expandable_list_row.dart';
 import 'filtered_list_section.dart';
-import 'machine_view.dart';
 import 'tokens.dart';
 
-/// Every project and admission on its own machine, including each permanent default.
+/// Every project on its own machine, including each permanent default.
 class ProjectsPage extends StatelessWidget {
   /// Creates the list without merging equal project names across machines.
   const ProjectsPage({
@@ -20,19 +17,10 @@ class ProjectsPage extends StatelessWidget {
     required this.muted,
     required this.onProject,
     required this.menuFor,
-    required this.onFromARepository,
-    required this.onFollow,
-    this.registry,
-    this.onAdmission,
-    this.menuForAdmission,
     this.highlight,
     this.onShown,
-    this.joins = const [],
     super.key,
   });
-
-  /// Where Core verified that the person is admitted, each with its join, and what Core could not read.
-  final List<({JoinAdmission admission, ProjectJoin? join})> joins;
 
   /// The watched machines and their daemon state.
   final Machines machines;
@@ -46,21 +34,6 @@ class ProjectsPage extends StatelessWidget {
   /// Creates commands for one project on one machine.
   final List<Command> Function(Machine machine, ProjectOnScreen project) menuFor;
 
-  /// Opens repository setup when a machine can answer.
-  final VoidCallback? onFromARepository;
-
-  /// Opens following a project by its address.
-  final VoidCallback? onFollow;
-
-  /// The verified registry decisions and separate host confirmations.
-  final RegistryPages? registry;
-
-  /// Opens an admission with its complete registry identity.
-  final void Function(RegistryPageItem item)? onAdmission;
-
-  /// Creates commands with the row's exact registry scope.
-  final List<Command> Function(Machine machine, ProjectOnScreen project, RegistryPageItem? admission)? menuForAdmission;
-
   /// The command the finder is revealing.
   final String? highlight;
 
@@ -69,76 +42,29 @@ class ProjectsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final rows = <RegistryProjectRow>[
-      for (final machine in registryMachines(machines, registry))
-        ...scopedProjectRows(machines, machine, registry: registry),
+    final rows = [
+      for (final machine in listedMachines(machines))
+        for (final project in projectsOnMachine(machines, machine)) (machine: machine, project: project),
     ];
     return ListView(
       key: const Key('projects-page'),
       padding: const EdgeInsets.all(Space.normal),
       children: [
-        if (registry?.problem case final problem?) Text(problem),
-        if (joins.isNotEmpty)
-          FilteredListSection(
-            storageId: 'joins',
-            title: 'Projects you may join',
-            rows: [
-              for (final row in joins)
-                (
-                  words: switch (row.admission) {
-                    JoinOffered(:final project, :final host) => '$project ${host.name}',
-                    JoinUnreadable(:final repository, :final project, :final host) => '${repository ?? project} $host',
-                    JoinUnusable(:final project, :final host) => '$project $host',
-                  },
-                  child: joinRow(row.admission, row.join),
-                ),
-            ],
-          ),
         FilteredListSection(
           storageId: 'projects',
           title: 'Projects',
-          actions: [
-            Highlight(
-              active: highlight == 'project.fromRepository',
-              child: FilledButton.icon(
-                key: const Key('from-a-repository'),
-                onPressed: onFromARepository,
-                icon: const Icon(Icons.cloud_download_outlined),
-                label: const Text('Set up a project from a repository'),
-              ),
-            ),
-            Highlight(
-              active: highlight == 'project.follow',
-              child: OutlinedButton.icon(
-                key: const Key('follow-a-repository'),
-                onPressed: onFollow,
-                icon: const Icon(Icons.add_link),
-                label: const Text('Follow a project by its address'),
-              ),
-            ),
-          ],
           rows: [
             for (final row in rows)
               (
                 words:
-                    '${row.project.name == defaultProject ? 'Without a project' : row.project.label} ${row.machine.name} ${row.admission?.role ?? ''} ${row.admission?.target.registry ?? ''}',
+                    '${row.project.name == defaultProject ? 'Without a project' : row.project.label} ${row.machine.name}',
                 child: projectListRow(
                   machine: row.machine,
                   project: row.project,
                   machines: machines,
-                  registry: registry,
-                  admission: row.admission,
                   muted: muted.contains(row.project.name),
-                  onOpen: () {
-                    if (row.admission != null && onAdmission != null) {
-                      onAdmission!(row.admission!);
-                    } else {
-                      onProject(row.machine, row.project.name);
-                    }
-                  },
-                  commands:
-                      menuForAdmission?.call(row.machine, row.project, row.admission) ??
-                      menuFor(row.machine, row.project),
+                  onOpen: () => onProject(row.machine, row.project.name),
+                  commands: menuFor(row.machine, row.project),
                 ),
               ),
           ],
@@ -155,13 +81,10 @@ Widget projectListRow({
   required Machines machines,
   required VoidCallback onOpen,
   required List<Command> commands,
-  RegistryPages? registry,
-  RegistryPageItem? admission,
   bool muted = false,
 }) {
   final isDefault = project.name == defaultProject;
-  admission ??= registry?.project(machine, project.name);
-  final identity = projectRowIdentity(machine, project.name, admission);
+  final identity = '${machine.name}/${project.name}';
   final watched = machines.all.contains(machine);
   final connected = watched && machines.of(machine).reachability == Reachability.connected;
   final tunnel = watched ? machines.tunnels.of(machine) : null;
@@ -176,20 +99,13 @@ Widget projectListRow({
     subtitle: [
       'on ${machine.name}',
       if (isDefault) 'always there',
-      if (admission != null) ...[
-        admission.target.registry,
-        admission.role,
-        admission.state,
-        registryStateWords(registry!, admission),
-      ],
       if (!connected) 'Not connected; last known state',
       if (tunnel != null) tunnel.words else if (machine.needsATunnel) 'Tunnel not reached' else 'No SSH tunnel needed',
       ?tunnel?.problem,
       if (project.project.pending > 0) '${project.project.pending} waiting for review',
       if (!isDefault && !project.project.prepared) 'Environment not prepared',
       if (project.project.environmentIsStale) 'Environment older than its project file',
-      if (!isDefault && !project.canBeActedOn) 'Not followed on this machine',
-      if (project.project.following?.unverified ?? false) 'Followed unverified',
+      if (!isDefault && !project.canBeActedOn) 'Not on this machine',
       if (muted) 'Notifications off',
     ].join(' · '),
     leading: Icon(selected ? Icons.folder : Icons.folder_outlined),
@@ -204,54 +120,3 @@ Widget projectListRow({
     ),
   );
 }
-
-/// Words that keep the registry's decision separate from host confirmation.
-String registryStateWords(RegistryPages registry, RegistryPageItem item) {
-  final applied = registry.applied(item.target);
-  return [
-    'registry ${registry.decidedRevision(item.target)}',
-    applied == null ? 'host state unknown' : 'host ${applied.revision}',
-    if (registry.pending(item.target)) 'change not confirmed on the host',
-    ?registry.failure(item.target),
-  ].join(' · ');
-}
-
-/// One admission's row: the project and host with *Join*, the access repository that cannot be read, or a row Core
-/// answered in a form not joined here.
-Widget joinRow(JoinAdmission admission, ProjectJoin? join) => switch (admission) {
-  JoinOffered(:final project, :final host, :final key) => ListenableBuilder(
-    listenable: join ?? const AlwaysStoppedAnimation<double>(0),
-    builder: (context, _) => ListTile(
-      key: ValueKey('join-row $key'),
-      leading: const Icon(Icons.group_add_outlined),
-      title: Text(project),
-      subtitle: Text(
-        [
-          'in project $project on host ${host.name}',
-          if (join?.joined ?? false) 'Joined',
-          ?join?.progress,
-          ?join?.problem,
-        ].join(' · '),
-      ),
-      trailing: join == null || join.joined
-          ? null
-          : FilledButton(
-              key: ValueKey('join $key'),
-              onPressed: join.busy ? null : join.join,
-              child: const Text('Join'),
-            ),
-    ),
-  ),
-  JoinUnreadable(:final repository, :final project, :final host, :final words) => ListTile(
-    key: ValueKey('join-unreadable ${repository ?? project} $host'),
-    leading: const Icon(Icons.lock_outline),
-    title: Text(repository ?? (project == null ? 'The access file of $host' : 'The access repository of $project')),
-    subtitle: Text(words),
-  ),
-  JoinUnusable(:final project, :final key, :final words) => ListTile(
-    key: ValueKey('join-unusable $key'),
-    leading: const Icon(Icons.block_outlined),
-    title: Text(project),
-    subtitle: Text(words),
-  ),
-};

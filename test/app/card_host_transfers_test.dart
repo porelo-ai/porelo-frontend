@@ -28,7 +28,7 @@ void main() {
   List<Command> commands({
     Machine? on,
     String project = 'example',
-    bool followed = true,
+    String? whyNoRight,
     bool hasSecrets = true,
     bool running = false,
     List<ProjectTransfer>? started,
@@ -36,13 +36,13 @@ void main() {
     transfers: transfers,
     machine: on ?? card,
     project: project,
-    followed: followed,
+    whyNoRight: whyNoRight,
     hasSecrets: hasSecrets,
     running: running,
     start: (direction) => started?.add(direction),
   );
 
-  test('a project followed on a card host offers the push and the pull, each starting its own direction', () {
+  test('a project in which the person holds a role on a card host offers the push and the pull, each starting its own direction', () {
     final started = <ProjectTransfer>[];
     final offered = commands(started: started);
     expect(offered.map((command) => command.label), ['Push the approved main…', 'Take the central state…']);
@@ -71,17 +71,25 @@ void main() {
     expect(offered.map((command) => command.unavailable), everyElement(contains('secrets file')));
   });
 
-  test(
-    'a project the host does not follow is refused, and no machine without a card nor the default project offers them',
-    () {
-      expect(commands(followed: false).map((command) => command.unavailable), everyElement(isNotNull));
-      expect(
-        commands(
-          on: const Machine(name: 'local', socketPath: '/run/porelo.sock'),
-        ),
-        isEmpty,
-      );
-      expect(commands(project: defaultProject), isEmpty, reason: 'Without a project is no project to transfer');
-    },
-  );
+  // Harm: work leaves the host for the central forge at the hand of a person with no right to move it.
+  test('without the right both are listed with the reason, and neither starts a transfer', () {
+    final started = <ProjectTransfer>[];
+    final offered = commands(whyNoRight: 'You are locked in example.', started: started);
+    expect(offered, hasLength(2));
+    expect(offered.map((command) => command.unavailable), everyElement('You are locked in example.'));
+    for (final command in offered) {
+      command.run();
+    }
+    expect(started, isEmpty);
+  });
+
+  test('no machine without a card nor the default project offers them', () {
+    expect(
+      commands(
+        on: const Machine(name: 'local', socketPath: '/run/porelo.sock'),
+      ),
+      isEmpty,
+    );
+    expect(commands(project: defaultProject), isEmpty, reason: 'Without a project is no project to transfer');
+  });
 }

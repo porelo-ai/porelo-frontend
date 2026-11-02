@@ -40,7 +40,7 @@ class ProjectDeletionDialog extends StatelessWidget {
       final answer = deleting.answer;
 
       return AlertDialog(
-        title: Text(deleting.removed ? 'No longer followed' : 'Stop following ${deleting.project}?'),
+        title: Text(deleting.removed ? 'Removed' : 'Remove ${deleting.project}?'),
         content: SizedBox(
           width: Sizes.dialogMedium,
           child: DialogScroll(
@@ -57,10 +57,6 @@ class ProjectDeletionDialog extends StatelessWidget {
                   const Text('Asking what it would remove…')
                 else if (answer != null) ...<Widget>[
                   Text(deleting.words, key: const Key('deletion-says'), style: Theme.of(context).textTheme.titleSmall),
-                  const SizedBox(height: Space.normal),
-                  // Said before the list, because it is the fact that decides whether
-                  // somebody dares at all — and the one they would otherwise get wrong.
-                  const Text('Following its repository again brings it back.', key: Key('it-can-be-built-again')),
                   if (deleting.refused) ...<Widget>[
                     const SizedBox(height: Space.wide),
                     _Block(
@@ -143,7 +139,7 @@ class ProjectDeletionDialog extends StatelessWidget {
               style: TextButton.styleFrom(foregroundColor: scheme.error),
               // The word changes with what it now means. Pressing past a refusal is a second
               // decision about something the machine declined, not a retry of the first.
-              child: Text(deleting.refused ? 'Stop following anyway' : 'Stop following'),
+              child: Text(deleting.refused ? 'Remove it anyway' : 'Remove it'),
             ),
           ],
         ],

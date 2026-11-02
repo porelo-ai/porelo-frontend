@@ -17,9 +17,6 @@ class _Wedged implements FleetBackend {
   Future<List<Task>> tasks() async => const <Task>[];
 
   @override
-  Future<List<Followed>> following() async => const [];
-
-  @override
   Future<List<Project>> projects() async => const <Project>[];
 
   @override
@@ -258,9 +255,6 @@ class _Wedged implements FleetBackend {
       const Synced(outcome: 'MEASURED', behind: 0, measured: true, reason: 'MEASURED', detail: '');
 
   @override
-  Future<List<Followed>> refreshProjects({String? project}) async => const <Followed>[];
-
-  @override
   Future<TaskRefreshed> refreshTask(String task) async => const TaskRefreshed(outcome: 'UNCHANGED');
 
   @override
@@ -288,16 +282,6 @@ class _Wedged implements FleetBackend {
   @override
   Future<Imported> importCredential({String? agent, String? configDirectory}) async =>
       const Imported(outcome: 'IMPORTED', name: '', type: '', length: 0, source: '', detail: '');
-
-  @override
-  Future<Followed> follow(
-    String name,
-    String url, {
-    String? signedBy,
-    List<String>? signers,
-    bool? unverified,
-    bool? acceptRewrite,
-  }) async => Followed(name: name, url: url, outcome: 'APPLIED');
 
   @override
   Future<Cleared> clear({String? project, bool? dryRun, bool? force}) async => const Cleared();
@@ -330,7 +314,7 @@ class _Wedged implements FleetBackend {
   Future<HostKeyTrusted> trustHostKey(String host, String fingerprint) async => const HostKeyTrusted();
 
   @override
-  Future<Deletion> unfollow(String project, {bool? dryRun, bool? force}) async => const Deletion(
+  Future<Deletion> removeProject(String project, {bool? dryRun, bool? force}) async => const Deletion(
     outcome: DeleteOutcome.deleted,
     removes: <Removal>[],
     keeps: <String>[],
@@ -389,9 +373,6 @@ class _Machine implements FleetBackend {
   Future<List<Task>> tasks() async => <Task>[
     Task.from(const <String, dynamic>{'name': 'porelo-orphan', 'project': 'vanished'}),
   ];
-
-  @override
-  Future<List<Followed>> following() async => const [];
 
   @override
   Future<List<Project>> projects() async => <Project>[
@@ -634,9 +615,6 @@ class _Machine implements FleetBackend {
       const Synced(outcome: 'MEASURED', behind: 0, measured: true, reason: 'MEASURED', detail: '');
 
   @override
-  Future<List<Followed>> refreshProjects({String? project}) async => const <Followed>[];
-
-  @override
   Future<TaskRefreshed> refreshTask(String task) async => const TaskRefreshed(outcome: 'UNCHANGED');
 
   @override
@@ -664,16 +642,6 @@ class _Machine implements FleetBackend {
   @override
   Future<Imported> importCredential({String? agent, String? configDirectory}) async =>
       const Imported(outcome: 'IMPORTED', name: '', type: '', length: 0, source: '', detail: '');
-
-  @override
-  Future<Followed> follow(
-    String name,
-    String url, {
-    String? signedBy,
-    List<String>? signers,
-    bool? unverified,
-    bool? acceptRewrite,
-  }) async => Followed(name: name, url: url, outcome: 'APPLIED');
 
   @override
   Future<Cleared> clear({String? project, bool? dryRun, bool? force}) async => const Cleared();
@@ -706,7 +674,7 @@ class _Machine implements FleetBackend {
   Future<HostKeyTrusted> trustHostKey(String host, String fingerprint) async => const HostKeyTrusted();
 
   @override
-  Future<Deletion> unfollow(String project, {bool? dryRun, bool? force}) async => const Deletion(
+  Future<Deletion> removeProject(String project, {bool? dryRun, bool? force}) async => const Deletion(
     outcome: DeleteOutcome.deleted,
     removes: <Removal>[],
     keeps: <String>[],

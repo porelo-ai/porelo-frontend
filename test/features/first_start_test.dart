@@ -8,8 +8,8 @@ import './step/a_backend_with_nothing_on_it.dart';
 import './step/the_app_is_running.dart';
 import './step/the_section_shown_is.dart';
 import './step/the_first_step_is_done.dart';
-import './step/it_says.dart';
 import './step/i_choose_to_work_without_a_project_first.dart';
+import './step/it_says.dart';
 import './step/the_tunnel_drops.dart';
 import './step/it_does_not_say.dart';
 import './step/enough_time_passes_for_another_try.dart';
@@ -23,7 +23,6 @@ void main() {
       await theSectionShownIs(tester, 'Work');
       await theFirstStepIsDone(tester, 'machine', true);
       await theFirstStepIsDone(tester, 'project', false);
-      await itSays(tester, 'From a repository you have');
       await iChooseToWorkWithoutAProjectFirst(tester);
       await theFirstStepIsDone(tester, 'project', true);
       await itSays(tester, 'Start the first work');

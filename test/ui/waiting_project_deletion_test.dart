@@ -20,7 +20,7 @@ void main() {
   Future<void> prepare(WidgetTester tester) async {
     await World.startBackend([]);
     World.backend.theProjectsItHas = heldProjects();
-    await World.startApp(tester);
+    await World.startApp(tester, organizationSource: EveryProjectLocal());
     World.elsewhere.theProjectsItHas = heldProjects();
     await World.machines.add(const Machine(name: 'elsewhere', socketPath: '/tmp/elsewhere.sock'));
     await World.machines.of(World.machines.all.last).untilAsked();
@@ -36,58 +36,51 @@ void main() {
     }
   }
 
-  Finder stopFollowing(String machine, String project) => find.descendant(
+  Finder remove(String machine, String project) => find.descendant(
     of: find.byKey(ValueKey('messages-wait $machine')),
-    matching: find.widgetWithText(TextButton, 'Stop following $project…'),
+    matching: find.widgetWithText(TextButton, 'Remove $project…'),
   );
 
   // Harm: a row action could remove another project or another machine's unreviewed work without confirmation.
-  testWidgets('held projects preview and remove only the chosen project on its own machine', (tester) async {
+  testWidgets('held projects preview and remove only the chosen project', (tester) async {
     await prepare(tester);
     final local = World.machines.all.first;
-    for (final machine in World.machines.all) {
-      for (final project in ['first', 'second']) {
-        World.backend.deletions.clear();
-        World.elsewhere.deletions.clear();
-        final backend = machine == local ? World.backend : World.elsewhere;
-        final other = machine == local ? World.elsewhere : World.backend;
-        final button = stopFollowing(machine.name, project);
-        expect(button, findsOneWidget, reason: 'each held project needs its own preview action');
-        await tester.ensureVisible(button);
-        await tester.tap(button);
-        await World.settle(tester);
-        expect(backend.deletions, [
-          (project: project, preview: true, force: false),
-        ], reason: 'opening the preview must remove nothing and target only the chosen project');
-        expect(other.deletions, isEmpty, reason: 'the other machine must receive no deletion call');
-        expect(World.deleting.project, project, reason: 'the preview must describe the chosen project');
-        await tester.tap(find.byKey(const Key('remove-what-was-built')));
-        await World.settle(tester);
-        expect(backend.deletions, [
-          (project: project, preview: true, force: false),
-          (project: project, preview: false, force: false),
-        ], reason: 'only explicit confirmation may remove the chosen project');
-        expect(other.deletions, isEmpty, reason: 'confirmation must stay on the preview machine');
-        await tester.tap(find.widgetWithText(FilledButton, 'Right'));
-        await World.settle(tester);
-      }
+    for (final project in ['first', 'second']) {
+      World.backend.deletions.clear();
+      final button = remove(local.name, project);
+      expect(button, findsOneWidget, reason: 'each held project needs its own preview action');
+      await tester.ensureVisible(button);
+      await tester.tap(button);
+      await World.settle(tester);
+      expect(World.backend.deletions, [
+        (project: project, preview: true, force: false),
+      ], reason: 'opening the preview must remove nothing and target only the chosen project');
+      expect(World.deleting.project, project, reason: 'the preview must describe the chosen project');
+      await tester.tap(find.byKey(const Key('remove-what-was-built')));
+      await World.settle(tester);
+      expect(World.backend.deletions, [
+        (project: project, preview: true, force: false),
+        (project: project, preview: false, force: false),
+      ], reason: 'only explicit confirmation may remove the chosen project');
+      expect(World.elsewhere.deletions, isEmpty, reason: 'the other machine must receive no deletion call');
+      await tester.tap(find.widgetWithText(FilledButton, 'Right'));
+      await World.settle(tester);
     }
   });
 
   // Harm: canceling a preview must not remove a held project or its unreviewed work.
   testWidgets('leaving a held project preview never removes anything', (tester) async {
     await prepare(tester);
-    final machine = World.machines.all.last;
-    final button = stopFollowing(machine.name, 'second');
+    final button = remove(World.machines.all.first.name, 'second');
     expect(button, findsOneWidget, reason: 'the held project needs a preview action');
     await tester.ensureVisible(button);
     await tester.tap(button);
     await World.settle(tester);
     await tester.tap(find.byKey(const Key('leave-the-project-alone')));
     await World.settle(tester);
-    expect(World.elsewhere.deletions, [
+    expect(World.backend.deletions, [
       (project: 'second', preview: true, force: false),
     ], reason: 'leaving the preview must make no destructive call');
-    expect(World.backend.deletions, isEmpty, reason: 'the selected machine must remain untouched');
+    expect(World.elsewhere.deletions, isEmpty, reason: 'the other machine must remain untouched');
   });
 }

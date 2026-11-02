@@ -42,7 +42,6 @@ import './step/nothing_answers_on_that_machine.dart';
 import './step/it_says.dart';
 import './step/i_agree_to_start_it.dart';
 import './step/the_machine_was_asked_to_start.dart';
-import './step/following_a_repository_on_this_machine_is_not_offered.dart';
 import './step/stopping_everything_everywhere_is_not_offered.dart';
 import './step/stopping_everything_everywhere_is_offered.dart';
 
@@ -135,7 +134,6 @@ void main() {
       await iSelectTheProject(tester, 'checkout');
       await theTunnelDrops(tester);
       await iOpenTheCommandFinder(tester);
-      await theCommandIsUnavailableBecause(tester, 'Follow a project', 'not answering');
       await theCommandIsUnavailableBecause(tester, 'Build the environment for this project', 'not answering');
       await iCloseWhatIsOpen(tester);
       await enoughTimePassesForAnotherTry(tester);
@@ -151,12 +149,9 @@ void main() {
       await theMachineWasAskedToStart(tester, 'systemctl --user');
       await itSays(tester, 'What this machine can run');
     }, tags: ['linux']);
-    testWidgets('''following a repository and the stop for every machine wait for a machine that answers''', (
-      tester,
-    ) async {
+    testWidgets('''the stop for every machine waits for a machine that answers''', (tester) async {
       await bddSetUp(tester);
       await theTunnelDrops(tester);
-      await followingARepositoryOnThisMachineIsNotOffered(tester);
       await stoppingEverythingEverywhereIsNotOffered(tester);
       await enoughTimePassesForAnotherTry(tester);
       await stoppingEverythingEverywhereIsOffered(tester);

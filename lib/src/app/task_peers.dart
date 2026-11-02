@@ -78,7 +78,7 @@ class TaskPeers extends ChangeNotifier with QuietAfterDispose {
         // The daemon's own sentence, which names what refused it.
         'Failed' => '${refusal.parameters['message'] ?? 'The machine refused it.'}',
         'NoSuchProject' =>
-          'This machine does not follow ${task.project}, so it cannot say whom '
+          '${task.project} is not on this machine, so it cannot say whom '
               '${task.name} may talk to.',
         'NoSuchTask' => '${task.name} is not a task on this machine any more.',
         _ => 'The machine refused it: ${refusal.simpleName}.',

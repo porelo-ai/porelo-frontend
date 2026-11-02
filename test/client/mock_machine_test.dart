@@ -726,29 +726,6 @@ void main() {
     expect(said.reason, 'OFFLINE');
   });
 
-  test('following a repository makes a project that is taken at once', () async {
-    await machineIn('work');
-    final client = await connect();
-
-    final followed = await client.follow('payments', 'file:///srv/git/payments', unverified: true);
-    final project = (await client.projects()).singleWhere((each) => each.name == 'payments');
-
-    expect(followed.outcome, 'APPLIED');
-    expect(project.following?.commit, followed.commit);
-    expect(project.canBeActedOn, isTrue, reason: 'a followed project is one work can start in');
-  });
-
-  test('an unsigned commit is refused, needs a person, and is not in force', () async {
-    await machineIn('work');
-    final client = await connect();
-
-    final followed = await client.follow('ledger', 'file:///srv/git/unsigned-ledger', unverified: true);
-
-    expect(followed.outcome, 'NOT_SIGNED');
-    expect(followed.needsAPerson, isTrue);
-    expect(followed.inForce, isFalse);
-  });
-
   test('asking for the enforcement it already has is not reported as a change', () async {
     await machineIn('work');
     final client = await connect();
@@ -842,7 +819,7 @@ void main() {
     await machineIn('work');
     final client = await connect();
 
-    final would = await client.unfollow('billing', dryRun: true);
+    final would = await client.removeProject('billing', dryRun: true);
 
     expect(would.outcome, DeleteOutcome.previewed);
     expect(would.removes.map((each) => each.kind), contains('MIRROR'));
@@ -858,13 +835,13 @@ void main() {
     await machineIn('work');
     final client = await connect();
 
-    final refused = await client.unfollow('checkout');
+    final refused = await client.removeProject('checkout');
 
     expect(refused.outcome, DeleteOutcome.holdsWork);
     expect(refused.unreviewed, isNotEmpty);
     expect((await client.projects()).map((each) => each.name), contains('checkout'));
 
-    final forced = await client.unfollow('checkout', force: true);
+    final forced = await client.removeProject('checkout', force: true);
 
     expect(forced.outcome, DeleteOutcome.deleted);
     expect((await client.projects()).map((each) => each.name), isNot(contains('checkout')));
@@ -874,7 +851,7 @@ void main() {
     await machineIn('work');
     final client = await connect();
 
-    final answer = await client.unfollow('never-existed');
+    final answer = await client.removeProject('never-existed');
 
     expect(answer.outcome, DeleteOutcome.noSuchProject);
     expect(answer.removes, isEmpty);

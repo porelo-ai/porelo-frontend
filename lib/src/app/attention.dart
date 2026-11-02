@@ -79,9 +79,6 @@ enum AttentionKind {
   /// A machine is not answering.
   silent,
 
-  /// A project stopped following its repository.
-  following,
-
   /// A homeserver forward failed.
   forward,
 
@@ -234,14 +231,6 @@ class Attention extends ChangeNotifier {
         words: '$what, and anything it is asking waits unseen.  ${fleet.status}',
       ));
     }
-    for (final row in notFollowing) {
-      yield AttentionRow(
-        AttentionKind.following,
-        'following ${row.machine.name}/${row.project.name}',
-        row.machine.name,
-        row,
-      );
-    }
     for (final row in forwardsRefused) {
       yield AttentionRow(AttentionKind.forward, 'forward ${row.machine}/${row.project}', row.machine, row);
     }
@@ -389,17 +378,6 @@ class Attention extends ChangeNotifier {
           machines[i],
     ];
   }
-
-  /// Every followed project whose repository stopped being taken **and will stay stopped until
-  /// somebody acts**, as the daemon says. Said about the project, never as a tile: it is not work,
-  /// and a refused signature may be somebody putting a project file past the machine.
-  List<({Machine machine, Project project, Followed followed})> get notFollowing =>
-      <({Machine machine, Project project, Followed followed})>[
-        for (final machine in _counted)
-          for (final each in _machines.of(machine).projects)
-            if (each.project.following case final followed? when followed.needsAPerson)
-              (machine: machine, project: each.project, followed: followed),
-      ];
 
   /// Every machine whose messages wait, with the machine's reason and the projects it holds up: the
   /// vault locked stops every conversation at once, and said nowhere a person looked (walk 10).

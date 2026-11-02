@@ -111,6 +111,7 @@ class ShellRail extends StatelessWidget {
                 entry(Section.machines, Icons.dns_outlined, Icons.dns, Text('$machines')),
                 entry(Section.forges, Icons.hub_outlined, Icons.hub, Text('$forges')),
                 entry(Section.projects, Icons.folder_outlined, Icons.folder, Text('$projects')),
+                entry(Section.organization, Icons.apartment_outlined, Icons.apartment, const SizedBox.shrink()),
               ],
             ),
           ),

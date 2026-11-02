@@ -1,8 +1,5 @@
 import 'package:porelo_frontend/src/app/roles.dart';
-import 'package:porelo_frontend/src/app/settings.dart';
 import 'package:porelo_host/porelo_host.dart';
-
-import '../support/host_admin.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -47,28 +44,8 @@ class _UnavailableTerminal implements CentralTransferSource {
 }
 
 void main() {
-  setUp(() => roles = Roles.fromArguments(const ['--roles', 'host-admin,project-admin']));
+  setUp(() => roles = Roles.fromArguments(const ['--roles', 'host-admin']));
   tearDown(() => roles = const Roles());
-  // Harm: take-off must not dispatch an unrelated host-person dialog or lose its association.
-  testWidgets('registered project take-off waits for registry removal', (tester) async {
-    await _project(tester);
-    await World.settings.rememberHostUp(
-      'orchard',
-      HostUpRecord(
-        scalewayProject: 'provider',
-        publicKey: personKey,
-        hostName: 'orchard',
-        preparedHost: PreparedHost.read(hostValues()),
-      ),
-    );
-    await World.settings.rememberProjectHost('checkout', 'orchard');
-    await World.settle(tester);
-    final menu = tester.widget<CommandMenu>(find.byKey(const Key('project-menu')));
-    final command = menu.commands.singleWhere((each) => each.id == 'project.takeOffServer');
-    expect(command.available, isFalse, reason: 'registry removal has no adapter yet');
-    expect(World.settings.projectHost('checkout'), 'orchard');
-  });
-
   // Harm: a changed current machine must not redirect a repository action from the displayed page.
   testWidgets('repository commands reselect the displayed project in the full shell', (tester) async {
     await _project(tester);
@@ -217,7 +194,7 @@ void main() {
     await World.settle(tester);
     final item = tester.widget<PopupMenuItem<String>>(find.byKey(const Key('start-in-payments-api')));
     expect(item.enabled, isFalse);
-    expect(find.textContaining('checkout is not a project this machine follows'), findsOneWidget);
+    expect(find.textContaining('checkout is not on this machine'), findsOneWidget);
   });
 
   // Harm: a tile dispatches an action other than the command shown on it.
@@ -265,7 +242,5 @@ void main() {
       ]),
     );
     expect(ids.length, ids.toSet().length, reason: 'each operation has one unambiguous menu destination');
-    // Harm: a project admin finds no way to add a developer, as the registry's person lists offer no change yet.
-    expect(ids, contains('project.developers'));
   });
 }

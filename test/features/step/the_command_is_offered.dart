@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../support/world.dart';
 
-/// Usage: the command {'Stop following this project'} is offered
+/// Usage: the command {'Remove this project'} is offered
 Future<void> theCommandIsOffered(WidgetTester tester, String command) async {
   await tester.enterText(find.byKey(const Key('command-query')), command);
   await World.settle(tester);

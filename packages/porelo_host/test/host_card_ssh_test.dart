@@ -23,6 +23,29 @@ Map<String, Object?> cardValues() => {
 };
 
 void main() {
+  // Harm: a host with no forge or homeserver cannot be connected to, or a port forward points at no service.
+  test('a host with no forge or homeserver reserves and forwards only what it runs', () {
+    final card = HostCardSsh.fromStored({
+      ...cardValues(),
+      'services': {
+        'forge': null,
+        'matrix': {'port': 18082},
+      },
+    });
+    expect(card.webPort, isNull);
+    expect(card.forgeUrl, isNull);
+    expect(card.ports, [18082]);
+    expect(card.forwards, [(18082, '/run/porelo-matrix/client.sock')]);
+    expect(HostCardSsh.fromStored(card.stored), card);
+    expect(
+      HostCardSsh.fromStored({
+        ...cardValues(),
+        'services': {'forge': null, 'matrix': null},
+      }).ports,
+      isEmpty,
+    );
+  });
+
   // Prevents forwarding the signing agent through aliases before its socket exists.
   test('refuses a missing agent endpoint through a symlinked parent', () async {
     final root = await Directory.systemTemp.createTemp('a-');

@@ -16,9 +16,9 @@ taken, `git log` answers.
 | [An agent's login redirects to localhost, forwarded here, rather than asking for a code](#an-agents-login-redirects-to-localhost-forwarded-here) |
 | [A key sent from this computer goes into the vault, and only the private key is asked for](#a-key-sent-from-this-computer-goes-into-the-vault) |
 | [A unit that refuses is a failure, and a start without one is watched for two seconds](#a-unit-that-refuses-is-a-failure-and-a-start-without-one-is-watched-for-two-seconds) |
-| [A project comes to a machine only by being followed](#a-project-comes-to-a-machine-only-by-being-followed) |
+| [A project comes from the organization, or from a file on one machine](#a-project-comes-from-the-organization-or-from-a-file-on-one-machine) |
 | [A project's settings are changed only in its repository; the window never writes a `project.yml`](#a-projects-settings-are-changed-only-in-its-repository) |
-| [A machine is pinned to every signing key the forge lists for the person](#a-machine-is-pinned-to-every-signing-key-the-forge-lists-for-the-person) |
+| [A person's signing key is found among those the forge lists for them](#a-persons-signing-key-is-found-among-those-the-forge-lists-for-them) |
 | [A refused project signature is a state of the project, and it is put in front of a person](#a-refused-project-signature-is-a-state-of-the-project) |
 | [Work always starts in a repository somebody chose; the project stays the unit of navigation](#work-always-starts-in-a-repository-somebody-chose) |
 | [Daily work in front, setting up apart: the window opens on *Work*](#daily-work-in-front-setting-up-apart) |
@@ -172,12 +172,17 @@ themselves, and then chooses it from the list.
 Measured at a machine with a user unit installed: the start line reports *"started by systemd"* and
 the daemon comes up in `app.slice/porelod.service`.
 
-## A project comes to a machine only by being followed
+## A project comes from the organization, or from a file on one machine
 
-A project is a repository a machine follows. Its `project.yml` lives in the project's own
-repository, and a machine gets the file only by following the repository; what is wrong with it
-comes back as the machine's named reasons, never as rules worked out here. How a followed
-repository's commits are checked against the verified project-admin signers; missing signers refuse following. Removing a project is *Stop following*.
+A project is the organization's, and a person has it because a project admin made them a member and
+a host carries it. Its `project.yml` lives in the project's own repository, and what is wrong with
+it comes back as the machine's named reasons, never as rules worked out here. The interface makes no
+project from a repository.
+
+A project registered on a machine alone comes from a `porelo task start` from a project's file, or
+from `$XDG_CONFIG_HOME/porelo/projects/<name>/project.yml`, written by the person. Only such a project
+is removed here, with `porelo project remove`, and only on this computer: `porelo project list` says
+whose a project is, for this computer alone.
 
 ## A project's settings are changed only in its repository
 
@@ -187,21 +192,16 @@ a project may reach is shown, with where each host comes from, and said to be ch
 `project.yml`.
 
 What stays in the window is what is no setting of the project: letting running work reach a host it
-was refused, for that run or that work; the brake on a project's messages to a peer; and binding a
-machine through the daemon's signed project state.
+was refused, for that run or that work; and the brake on a project's messages to a peer.
 
 **What it costs:** a project is made and changed in YAML, in an editor of the person's own.
 Accepted, because a second way to write the file would be a second source of truth.
 
-## A machine is pinned to every signing key the forge lists for the person
+## A person's signing key is found among those the forge lists for them
 
 The person's signing key is found, never chosen from every key the ssh agent holds: the SSH signing
-keys their forge account lists, and git's `user.signingkey`, marked as theirs. Binding a machine
-pins it to all of them at once, and asks for no key again; any other key is offered only after
-them, as *another key*. Signatures are ssh signatures, never GPG.
-
-**What it costs:** a signing key added at the forge later is trusted by a machine only after the
-project is followed again.
+keys their forge account lists, and git's `user.signingkey`, marked as theirs. Any other key is
+offered only after them, as *another key*. Signatures are ssh signatures, never GPG.
 
 ## A refused project signature is a state of the project
 
@@ -488,7 +488,7 @@ itself.
 
 *Clear this machine…* and *Clear this project from the machine…* list what the machine's dry run
 says will go, then clear it with one press. The machine removes what Porelo put there. The interface never
-contacts the forge's deploy-key API or edits signing policy while clearing. If the daemon names a legacy key in its unfollow or clear
+contacts the forge's deploy-key API or edits signing policy while clearing. If the daemon names a legacy key in its removal or clear
 answer, the interface shows its name and the daemon's words verbatim, leaving its removal to the
 person. The person's token stays in this computer's system secret store and in each machine's
 vault until explicitly forgotten. One report says, thing by thing, what was removed and what was
@@ -573,8 +573,6 @@ with and without a fix proves nothing:
 - Settings written from several places at once: 50 writes started together, three runs, the last one
   landed every time and nothing was left beside the file.
 - A stream whose final reply is followed at once by the peer hanging up: five runs, it ended quietly.
-- The follow form keeping a machine's typed text after switching to another: switching rebuilds the
-  form; on the same machine keeping it is the feature.
 
 **Measured and accepted:**
 

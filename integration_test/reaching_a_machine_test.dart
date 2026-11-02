@@ -85,7 +85,7 @@ import './step/the_repository_is_removed_again_from_the_test_machine.dart';
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  group('''Reaching a real machine, reading it, and following a project''', () {
+  group('''Reaching a real machine, reading it, and working in a project''', () {
     Future<void> bddSetUp(WidgetTester tester) async {
       await theInterfaceIsRunning(tester);
     }

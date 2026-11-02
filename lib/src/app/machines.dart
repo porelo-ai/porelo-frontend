@@ -187,10 +187,16 @@ class Machine {
   final String sshConfig;
 
   /// Makes a watched host from Core's verified values without a private identity.
-  factory Machine.fromHostCard(HostCardSsh card, {required String socketPath, String? sshConfig}) => Machine(
+  factory Machine.fromHostCard(
+    HostCardSsh card, {
+    required String socketPath,
+    String? sshConfig,
+    String hostProject = '',
+  }) => Machine(
     name: card.name,
     kind: 'host',
     host: card.name,
+    hostProject: hostProject,
     socketPath: socketPath,
     remoteSocket: card.daemonSocket,
     hostCard: card,
@@ -220,7 +226,7 @@ class Machine {
     'host' when hostCard != null =>
       windows ? 'Host card tunnels require OpenSSH Unix socket and master support on this platform.' : null,
     'host' when remoteSocket.isEmpty && socketPath.isEmpty =>
-      'This server is prepared without a project account or daemon. Register a project from its menu.',
+      'This server is prepared without a project account or daemon.',
     'host' when hostProject.isEmpty => 'This host has no verified SSH configuration.',
     '' || 'host' when needsATunnel && host.startsWith('-') => 'An ssh host must not start with a dash.',
     '' || 'host' when windows && needsATunnel && !_plainRemoteSocket =>
@@ -842,4 +848,23 @@ class Machines extends ChangeNotifier {
     _watching.clear();
     super.dispose();
   }
+}
+
+/// Every project on [machine], with its permanent default before the daemon's first answer.
+List<ProjectOnScreen> projectsOnMachine(Machines machines, Machine machine) {
+  final local = machines.all.contains(machine) ? machines.of(machine).projects : <ProjectOnScreen>[];
+  final projects = <String, ProjectOnScreen>{for (final project in local) project.name: project};
+  projects.putIfAbsent(
+    defaultProject,
+    () => ProjectOnScreen(project: Project.from({'name': defaultProject}), tasks: const []),
+  );
+  return projects.values.toList();
+}
+
+/// The machines watched, with this computer always among them.
+List<Machine> listedMachines(Machines machines) {
+  final all = <Machine>[...machines.all];
+  final local = Machine.local();
+  if (!all.any((machine) => machine.socketPath == local.socketPath && !machine.needsATunnel)) all.add(local);
+  return all;
 }

@@ -22,7 +22,7 @@ String tokenRightsWords(String forge) =>
 Uri tokenPage(String address) => Uri.parse('https://$address/settings/personal-access-tokens/new');
 
 /// Opens the forges set up on this computer. [usedBy] answers, for an entry, the repositories of
-/// the projects the watched machines follow there, before their API access here is forgotten.
+/// the watched machines' projects there, before their API access here is forgotten.
 Future<void> showForges(
   BuildContext context,
   ForgeConnection forges, {
@@ -183,7 +183,7 @@ Future<String?> removeForge(BuildContext context, ForgeConnection forges, ForgeE
             if (used.isNotEmpty) ...<Widget>[
               const SizedBox(height: Space.small),
               Text(
-                'Projects your machines follow use it: ${used.join(', ')}. Their vault tokens stay on those machines.',
+                'Projects on your machines use it: ${used.join(', ')}. Their vault tokens stay on those machines.',
                 key: const Key('forge-remove-used'),
               ),
             ],

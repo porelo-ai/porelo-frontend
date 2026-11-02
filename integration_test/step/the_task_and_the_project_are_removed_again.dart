@@ -9,10 +9,10 @@ PATH="\$HOME/.local/bin:\$PATH"
 set -e
 porelo task stop "$task" >/dev/null
 porelo task remove --force "$task" >/dev/null
-porelo project unfollow --force "$project" >/dev/null
-rm -rf "\$HOME/$project" "\$HOME/$project-backend.git"
+porelo project remove "$project" >/dev/null
+${removingTheProjectFiles(project)}
 ''');
   final left = await onTheTestMachine('PATH="\$HOME/.local/bin:\$PATH"; porelo task list; porelo project list');
   expect(left, isNot(contains(task)));
-  expect(left, isNot(contains(RegExp('\\b${RegExp.escape(project)}\\b'))), reason: '$project is still followed');
+  expect(left, isNot(contains(RegExp('\\b${RegExp.escape(project)}\\b'))), reason: '$project is still listed');
 }

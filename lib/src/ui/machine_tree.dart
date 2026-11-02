@@ -41,9 +41,6 @@ class ProjectHeader extends StatelessWidget {
     this.highlight,
     this.onShown,
     this.onSync,
-    this.onCheck,
-    this.checking = false,
-    this.checked = const <String>[],
     this.onBackups,
     this.onOpens,
     this.onReach,
@@ -73,15 +70,6 @@ class ProjectHeader extends StatelessWidget {
   /// Asks one repository's upstream how far behind it is, now.
   final void Function(String repository)? onSync;
 
-  /// Fetches the project now and asks its repositories' upstream; null for a project not followed.
-  final VoidCallback? onCheck;
-
-  /// Whether that check runs now.
-  final bool checking;
-
-  /// What the last check found, a line each.
-  final List<String> checked;
-
   /// Shows what has been backed up of one repository.
   final void Function(String repository)? onBackups;
 
@@ -108,8 +96,8 @@ class ProjectHeader extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final p = project.project;
-    // default is no project anybody follows or prepares: Porelo's own settings, fixed. What a
-    // followed project lacks is not missing there, and saying so sent a new person looking for it.
+    // default is no project anybody prepares: Porelo's own settings, fixed. What another
+    // project lacks is not missing there, and saying so sent a new person looking for it.
     final isDefault = project.name == defaultProject;
     // The repositories work is done in, one row each (walk 10): the project's own, which
     // holds its file and planning and is never worked in, is not one of them.
@@ -124,8 +112,7 @@ class ProjectHeader extends StatelessWidget {
       if (p.environmentIsStale) 'environment older than its project file',
       if (p.pending > 0) '${p.pending} waiting at the gate',
       if (muted) 'not notified',
-      if (!project.canBeActedOn && !isDefault) 'not followed here',
-      if (p.following?.unverified ?? false) 'unverified',
+      if (!project.canBeActedOn && !isDefault) 'not on this machine',
     ];
     final counts =
         '${project.running} of ${project.howMuchWork} running'
@@ -173,33 +160,6 @@ class ProjectHeader extends StatelessWidget {
           ),
         if (homeserver case final words?)
           Text(words, key: const Key('project-homeserver'), style: theme.textTheme.bodySmall),
-        // Where this account's following has got, and why it stopped when it did.
-        if (p.following case final followed?)
-          Wrap(
-            spacing: Space.small,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: <Widget>[
-              Text(
-                followed.words,
-                key: const Key('project-following'),
-                style: followed.needsAPerson
-                    ? theme.textTheme.bodySmall?.copyWith(color: scheme.error)
-                    : theme.textTheme.bodySmall,
-              ),
-              // Now rather than at the machine's next round, which can be minutes away - after the
-              // vault was opened, say, or a push to the project's repository.
-              if (checking)
-                Text('checking…', key: const Key('project-checking'), style: theme.textTheme.bodySmall)
-              else if (onCheck != null && project.canBeActedOn)
-                TextButton(key: const Key('project-check-now'), onPressed: onCheck, child: const Text('Check it now')),
-            ],
-          ),
-        if (checked.isNotEmpty)
-          Column(
-            key: const Key('project-check-said'),
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[for (final line in checked) Text(line, style: theme.textTheme.bodySmall)],
-          ),
         if (workRepositories.isNotEmpty) ...<Widget>[
           const SizedBox(height: Space.normal),
           _Repositories(
@@ -308,7 +268,7 @@ class _RepositoryLine extends StatelessWidget {
             group: 'Repositories',
             home: Home.repositoryRow,
             run: () => onSync?.call(name),
-            unavailable: onSync == null ? 'This repository is not followed here.' : null,
+            unavailable: onSync == null ? 'This repository is not on this machine.' : null,
           ),
           Command(
             id: 'backups-$name',
@@ -316,7 +276,7 @@ class _RepositoryLine extends StatelessWidget {
             group: 'Repositories',
             home: Home.repositoryRow,
             run: () => onBackups?.call(name),
-            unavailable: onBackups == null ? 'This repository is not followed here.' : null,
+            unavailable: onBackups == null ? 'This repository is not on this machine.' : null,
           ),
           Command(
             id: 'opens-$name',
@@ -324,7 +284,7 @@ class _RepositoryLine extends StatelessWidget {
             group: 'Repositories',
             home: Home.repositoryRow,
             run: () => onOpens?.call(name),
-            unavailable: onOpens == null ? 'This repository is not followed here.' : null,
+            unavailable: onOpens == null ? 'This repository is not on this machine.' : null,
           ),
           Command(
             id: 'reach-$name',
@@ -332,7 +292,7 @@ class _RepositoryLine extends StatelessWidget {
             group: 'Repositories',
             home: Home.repositoryRow,
             run: () => onReach?.call(name),
-            unavailable: onReach == null ? 'This repository is not followed here.' : null,
+            unavailable: onReach == null ? 'This repository is not on this machine.' : null,
           ),
           if (repository.limits case final limits?)
             Command(

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
 import 'owned_process.dart';
@@ -16,10 +15,6 @@ typedef RunHere = Future<Ran> Function(
   String? input,
 });
 
-/// What a call of Core's `porelo registry …` gets in its environment beside [runHere]'s own, read anew at each call; null
-/// for nothing. Set at the start for an instance acting for the organization, so a token renewed meanwhile is taken.
-Future<Map<String, String>> Function()? registryEnvironment;
-
 /// How long one local command may run before it is ended and refused as [WorkspaceRefused].
 Duration runHereLimit = const Duration(minutes: 5);
 
@@ -31,14 +26,6 @@ Future<Ran> runHere(
   Map<String, String> environment = const <String, String>{},
   String? input,
 }) async {
-  if (registryEnvironment case final extra? when program == 'porelo' && arguments.firstOrNull == 'registry') {
-    try {
-      environment = {...environment, ...await extra()};
-    } on Exception catch (refused) {
-      // The token's own words (a secrets file that did not open), refused as every caller of this expects.
-      throw WorkspaceRefused('$refused');
-    }
-  }
   final process = await Process.start(program, arguments, workingDirectory: inDirectory, environment: environment);
   final out = _Gathered(process.stdout.transform(const SystemEncoding().decoder));
   final err = _Gathered(process.stderr.transform(const SystemEncoding().decoder));
@@ -113,20 +100,6 @@ String _hung(String program, List<String> arguments) {
     _ => 'Try again; if it waits again, run it in a terminal to see what it waits for.',
   };
   return '`$name` gave no answer within $limit and was ended. $what';
-}
-
-/// Runs one program on this computer with [input]'s bytes on its standard input, as a Git bundle needs: [RunHere]'s
-/// text input would encode them again.
-typedef RunHereWithBytes = Future<Ran> Function(String program, List<String> arguments, {required List<int> input});
-
-/// Runs a process with this computer's environment and [input]'s bytes on its standard input.
-Future<Ran> runHereWithBytes(String program, List<String> arguments, {required List<int> input}) async {
-  final process = await Process.start(program, arguments);
-  // Read from the start, whatever bytes come: a program's words are never lost to a decoding error.
-  final out = _Gathered(process.stdout.transform(const Utf8Decoder(allowMalformed: true)));
-  final err = _Gathered(process.stderr.transform(const Utf8Decoder(allowMalformed: true)));
-  _feed(process, (stdin) => stdin.add(input));
-  return _answered(process, program, arguments, out: out, err: err);
 }
 
 /// A local operation's safe refusal, without private command diagnostics.

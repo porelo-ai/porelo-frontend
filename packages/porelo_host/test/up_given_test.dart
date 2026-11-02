@@ -16,6 +16,7 @@ import 'server_contract_test.dart' show sshKey;
 void main() {
   late Directory scratch;
   late File collection;
+  late File machineFile;
   late ScriptedRemote remote;
   late StringBuffer output;
   late StringBuffer errors;
@@ -23,6 +24,7 @@ void main() {
     scratch = await Directory.systemTemp.createTemp('up-given-');
     collection = File('${scratch.path}/collection.tar.gz');
     await collection.writeAsBytes([0, 128, 255, 10]);
+    machineFile = await File('${scratch.path}/machine.yml').writeAsString('organization:\n  pin: "hank key\\n"\n');
     output = StringBuffer();
     errors = StringBuffer();
     remote = ScriptedRemote([
@@ -48,6 +50,7 @@ void main() {
     String? digest,
     List<String> extra = const [],
     String given = '192.0.2.7',
+    String? machine,
   }) async => runHostCommand(
     [
       'up',
@@ -62,6 +65,8 @@ void main() {
       collection.path,
       '--collection-sha256',
       digest ?? sha256.convert(await collection.readAsBytes()).toString(),
+      '--machine-file',
+      machine ?? machineFile.path,
       ...extra,
     ],
     remote: remote,
@@ -108,6 +113,8 @@ void main() {
       remote.commands[1],
       remote.commands[2],
       'cat > /var/tmp/porelo-host/inventory.yml',
+      'copy ${machineFile.path} /var/tmp/porelo-host/machine.yml',
+      remote.commands[5],
       "set -e; if command -v cloud-init >/dev/null; then cloud-init status --wait >/dev/null || [ \$? -le 2 ]; fi\n"
           'DEBIAN_FRONTEND=noninteractive apt-get update -q >/dev/null\n'
           'DEBIAN_FRONTEND=noninteractive apt-get install -y -q ansible-core >/dev/null\n'
@@ -145,6 +152,9 @@ void main() {
       'ssh_port': 22,
       'ssh_host_key': sshKey,
       'services': PreparedHost.defaultLocalServices,
+      'host_services': {
+        'forge': {'web_port': 3000, 'git_port': 3001},
+      },
     });
   });
   // Harm: a reported failure, even with exit 0, must not produce a ready host.
@@ -225,6 +235,62 @@ void main() {
     expect(await up(digest: '0' * 64), Exit.refused);
     expect(remote.commands, isEmpty);
   });
+  // Harm: a server is installed and only then finds no machine file, or takes one that changed on the way.
+  test('the machine file reaches root alone, checked by its digest, before the host is set up', () async {
+    expect(await up(), Exit.done, reason: errors.toString());
+    final place = remote.runs.singleWhere((run) => run.command.contains('/etc/porelo-host/setup/machine.yml'));
+    expect(place.command, contains('install -d -o root -g root -m 0700 /etc/porelo-host/setup'));
+    expect(place.command, contains('-m 0600 /var/tmp/porelo-host/machine.yml /etc/porelo-host/setup/machine.yml'));
+    expect(place.command, contains('rm -f /var/tmp/porelo-host/machine.yml'));
+    expect(place.command, contains('sha256sum -c -'));
+    expect(place.input, '${sha256.convert(await machineFile.readAsBytes())}  /etc/porelo-host/setup/machine.yml\n');
+    expect(
+      remote.commands.indexWhere((command) => command.contains('machine.yml')),
+      lessThan(remote.commands.indexWhere((command) => command.contains('porelo.host.up'))),
+    );
+  });
+
+  // Harm: a server is set up with no organization, or a link leads root to take another file.
+  test('a server with no plain machine file refuses before SSH', () async {
+    expect(await up(machine: '${scratch.path}/absent.yml'), Exit.refused);
+    await Link('${scratch.path}/link.yml').create(machineFile.path);
+    expect(await up(machine: '${scratch.path}/link.yml'), Exit.refused);
+    expect(remote.commands, isEmpty);
+    expect(
+      await runHostCommand(
+        ['up', '--given', '192.0.2.7', '--host-key', sshKey, '--host-name', 'orchard'],
+        remote: remote,
+        output: output,
+        errors: errors,
+      ),
+      Exit.usage,
+    );
+    expect(remote.commands, isEmpty);
+  });
+
+  // Harm: a card names the person's local forwards, which the host never listens on.
+  test("the host's own service ports stay apart from the local forwards, whatever it says of them", () async {
+    expect(await up(extra: ['--forge-web-port', '3100']), Exit.done);
+    final host = Step.fromLine(LineSplitter.split(output.toString()).last)!.host!;
+    expect(host.services['forge']!['web_port'], 3100);
+    expect(host.hostServices, {
+      'forge': {'web_port': 3000, 'git_port': 3001},
+    });
+  });
+
+  test('a host with no forge names no service port, and a broken one is refused', () {
+    PreparedHost read(Object? services) =>
+        PreparedHost.read({'address': '192.0.2.7', 'ssh_host_key': sshKey, 'services': services}, hostName: 'orchard');
+    expect(read(<String, Object?>{}).hostServices, isEmpty);
+    expect(PreparedHost.read(read(<String, Object?>{}).stored).hostServices, isEmpty);
+    expect(
+      () => read({
+        'forge': {'web_port': 3000},
+      }),
+      throwsFormatException,
+    );
+  });
+
   // Harm: invalid settings or endpoint values must not reach privileged commands.
   for (final extra in [
     ['--forge-job-cpus', '0'],
@@ -310,7 +376,7 @@ class _ReplacingRemote extends ScriptedRemote {
 
   @override
   Future<RemoteResult> copy(String host, String user, String from, String to) async {
-    copied = await File(from).readAsBytes();
+    if (to.endsWith('collection.tar.gz')) copied = await File(from).readAsBytes();
     return super.copy(host, user, from, to);
   }
 }

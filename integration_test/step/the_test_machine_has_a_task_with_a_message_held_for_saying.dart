@@ -30,14 +30,12 @@ repo="\$HOME/$name"
 task="porelo-$name-$name"
 porelo task stop "\$task" >/dev/null 2>&1 || true
 porelo task remove "\$task" >/dev/null 2>&1 || true
-porelo project unfollow --force "$name" >/dev/null 2>&1 || true
-rm -rf "\$repo" "\$repo-backend.git"; mkdir -p "\$repo"
+porelo project remove "$name" >/dev/null 2>&1 || true
+${removingTheProjectFiles(name)}
 # Its work repository in the account itself: a task's start meets the host of every repository it
 # works in, and a bare repository here has none to meet.
 git init -q --bare -b main "\$repo-backend.git"
-cd "\$repo"
-git init -q -b main
-cat > project.yml <<YAML
+${writingTheProjectFile(name, '''
 ${projectFile(name, backend: '\$repo-backend.git')}
 mail:
   transports:
@@ -45,11 +43,7 @@ mail:
   peers:
     $peer:
       address: "matrix:"
-      trust: vouched
-YAML
-git add project.yml
-git -c user.name=e2e -c user.email=e2e@example.invalid commit -q -m "The project $name"
-porelo project follow --unverified "$name" "\$repo" >/dev/null
+      trust: vouched''')}
 # The message filter, where the machine has none: without it nothing is passed or held. The Matrix
 # transport the project messages through is made sure of before this runs. Taken unprivileged from the published packages into this account's data
 # directory, where Porelo looks first; never over what is installed.

@@ -7,6 +7,29 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- *Prepare a server…* is judged on the organization: who may is read from `porelo org --json` for that very host,
+  again before anything happens, and a `stale` answer prepares nothing. `up` takes a machine file whose `organization`
+  part holds the settings, the central forge's own keys from the person's `known_hosts` and a pin of every admin key,
+  backup keys included; no forge key or a row with no key stops before a server is touched. A host's real address, port,
+  key and services go on its card with `porelo org host change`, and an `up` that stops or a card refused gives back
+  what was rented and says so. It takes the key on the accepted card, not the login alone, and hands the pin of that
+  moment to a setup taken up again; a forge key your `known_hosts` revokes, by wildcard too, stops it.
+
+- `porelo-host up` of a server refuses without `--machine-file`, and places that file for root alone, checked by its
+  digest, before the host is set up. A host that names no forge now completes; the service ports it reports are kept
+  apart from the person's local forwards.
+
+- A test instance takes its forge token from `PORELO_FORGE_TOKEN`, for the one forge `PORELO_FORGE_TOKEN_FORGE` names,
+  and the central token a terminal hands to a host from `PORELO_CENTRAL_TOKEN`, asking nothing.
+
+### Removed
+
+- The interface's own organization checkout and its reads: the repository setting, the private checkout, the bundle
+  and access contracts behind them, the host's former signed publication and its returned-host memory. The
+  `--roles project-admin` role is gone: a project admin is whoever the organization says.
+
 ### Fixed
 
 - A person who starts work without picking an agent gets the one the machine chooses, as the command line chooses it, and
@@ -27,8 +50,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   choose one first.
 
 - The central push and pull send the token as the bare line the host's `porelo-host-push` reads, instead of a
-  `forge-central-token <encoded>` line it took for the token. While the test secrets file is there they read its
-  GitHub App installation entry with its key file and ask nothing; the terminal no longer shows the interface's own
+  `forge-central-token <encoded>` line it took for the token. The terminal no longer shows the interface's own
   markers.
 
 - A GitHub token named for a test instance is read for GitHub alone, never handed to another forge. A local
@@ -41,10 +63,6 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   minutes is ended and refused with a sentence naming it and what to check, instead of leaving the window waiting
   without end; so is a copy to a host over ssh after five minutes, and a command on a machine being set up after
   twenty.
-
-- An instance started with a person's own forge token entry, such as a developer's, also hands Core's registry calls
-  the organization's GitHub App installation token from the test secrets file, as Core's owner check of the registry
-  asks the organization; the person's own token is never handed to Core for it.
 
 - Adding a developer, or letting one back in, is confirmed when the host's sync answers the change's access commit
   without naming the person as added, because an earlier sync of the same commit took them in already, as long as it
@@ -188,18 +206,63 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Removed
 
+- The registry's pages: its section on a forge's page with *Refresh*, *File my card*, *Choose another registry…* and
+  *Create the registry…*, the admission rows on Projects and Machines, the persons on a machine's and a project's page,
+  and *Take this project off the server*. The organization's, project's and host's pages do what they did; taking a
+  project off its host is on the host's page.
+- *Replacing another person's key in a list* (`owners.yml`, a host's or a project's access file) and the project scope of
+  a backup key are gone with the commands behind them; so are `identity publish`, `identity status` and filing a card
+  from *My key and card…*. A change whose answer was lost is asked again under the same ID.
+- *Follow a project*, by hand and from *Needs you*, *Check it now*, and making a project from a repository on a machine:
+  a project comes from the organization. *Stop following* is now *Remove this project*, offered only for a project
+  registered on this machine alone; a project's forge is found by the address Porelo answers for it.
+
+- *Register the project*, *Add a developer* and the *Project settings: Developers…* dialog with it: a project is
+  added on the organization's page and a person on the project's page.
+- A project's *Join*: a person who belongs to a project finds it ready on a connected host.
 - Retired VPN and local trust installers, host-secret stops, copied laptop keys, project-key setup inputs,
   and the associated walks. Old rentals remain visible for confirmed give-back or setup again without
   reusing obsolete credentials. Signed-state setup and joining require the served replacement adapters.
 
 ### Added
 
-- Forge tokens come from the test secrets file, `/run/user/<uid>/porelo-test/secrets.kdbx`, opened by its key
-  file `secrets.key` with no master password, while that file is there. Nothing is written to it from here; without
-  it, tokens stay in this computer's system store as before.
-  `--forge-token-entry NAME` names the one entry an instance reads, so each person's instance reads its own token.
-  An instance started with a GitHub App's installation entry (`github-app-…`) hands that token to Core's
-  `porelo registry …` as `PORELO_GITHUB_APP_TOKEN`, read anew at each call.
+- A change of key left pending can be gone on with after a restart, where it is listed: *Try again* asks under its own
+  ID and for the key Porelo names for it, and makes no second key; *Use another key…* starts again with a key of your
+  agent or a new one, under a new ID. A change that has reached the organization says so in Porelo's words and offers
+  neither again. A pending change with no key named offers no *Try again*, and says so. A
+  pending rotation does not hold up replacing a lost key, which replaces it.
+
+- Replacing a lost key shows your new card, with the plan's words, and offers to copy or save it. Nothing is filed
+  and nothing here accepts it: you hand it to an organization owner outside Porelo. An answer with no card says so.
+
+- *Store its token in this machine's vault…* on a forge's row or page, under *Forges*, opens a terminal on the selected
+  machine for `porelo vault put git.token.<host>`, for opening a project and for Git transfers. The token is typed in
+  that terminal and never in a form of the interface. It says why when the machine does not answer, or when the
+  forge's address is no plain host name.
+
+- *Replace a lost key…* stands in your own row under *People* on the Organization page, shows what it does first, and
+  can use your backup key for a place you hold; *Make a backup key…* stands in your row under *Organization owners* and
+  on a host's page for its admin. Each runs in a terminal, so its passphrase stays there.
+
+- *Organization* in the rail: what the organization is and where it is kept, its people, projects, hosts and owners,
+  each with the actions of the person's own roles in its row, and *Add me*, *Add a project* and *Add a host*.
+- Saved settings from before the organization model are put aside as `frontend.json.dropped`, not migrated, and the
+  interface says so once, in one sentence. Secrets in the system store and a person's secrets file are not touched.
+- The organization's page says when what it shows is the last state read, and what the store warns of. *Add me* asks
+  for the login, name and email of the card.
+- A computer reading no organization offers *Choose the organization…*, *Create the organization…*, which fills an empty
+  repository the person made on their forge, and *Make my card…*, which creating one needs. A host's service can be
+  taken off its card by emptying its port.
+- A connected host admin reads on the host's page what the host itself says: how far each project has come, why one
+  is held, and "locked, account deleted on <day>", with no action beside it. When something waits for their central
+  token, *Give it the token…* feeds it in a terminal; putting a project on asks the host to fetch at once.
+- *Machines*, where this computer reads an organization, lists the hosts carrying one's projects with one *Connect* each;
+  a host's page holds the projects it carries, its host admins, *Refresh* and one's own connection.
+- *Projects* says when a person is locked in a project, and lists a project of this computer alone beside the
+  organization's.
+- *Projects*, where this computer reads an organization, lists a person's own projects with the host carrying each; a
+  project's page holds its repositories and members, changed by its project admins and read by its members, and opens
+  the project on its host, where work starts.
 
 - Project registration and person management use verified registry admission, project-scoped card eligibility,
   and active admin signers. Signed access changes retain durable publication and delivery receipts across
@@ -400,6 +463,14 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Each Choose… in the server setup dialog starts in the folder of the file or folder chosen before it.
 
 ### Changed
+
+- *Open it on <host>* moves from a project's page to its row under *Projects*, the one place that names a project's host.
+- *Remove this project* is offered only for a project on this computer. Removing a member or revoking a card says when
+  it takes effect on a host: within five minutes, or at once on its *Refresh*.
+
+- *Push the approved main…* and *Take the central state…* are for a person whom `porelo project list` gives a role in
+  the project and does not list as locked, read again when either is chosen. While the role cannot be read both stay
+  listed as unavailable with the reason.
 
 - Machines, Projects, Forges, repository lists, saved jobs, and work use rows with visible menus. Item pages
   have independent collapsible filters, retain registry/host/project identity, and show confirmed host state

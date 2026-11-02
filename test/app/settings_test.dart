@@ -1,33 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:porelo_frontend/src/app/run_here.dart';
 import 'package:porelo_frontend/src/app/settings.dart';
 import 'package:porelo_host/porelo_host.dart' show PreparedHost;
 
-import '../support/host_registry.dart' show hostKey, sshCompletion;
+import '../support/host_organization.dart' show hostKey, sshCompletion;
 
 void main() {
-  // Harm: a registry address with a token in it is kept in the settings file, or the address is lost.
-  test('the registry address survives a restart and one with credentials is never kept', () async {
-    final store = MemorySettingsStore();
-    final settings = Settings(store);
-    await settings.setRegistryRepository(' git@example.org:team/registry.git ');
-
-    final again = Settings(store);
-    await again.load();
-    expect(again.registryRepository, 'git@example.org:team/registry.git');
-
-    final refusal = await again
-        .setRegistryRepository('https://bob:s3cret@example.org/team/registry.git')
-        .then<Object?>((_) => null, onError: (Object e) => e);
-    expect(refusal, isA<WorkspaceRefused>());
-    expect('$refusal', isNot(contains('s3cret')));
-    expect((await store.read())['registryRepository'], 'git@example.org:team/registry.git');
-
-    final handWritten = Settings(MemorySettingsStore({'registryRepository': 'https://t0ken@example.org/r.git'}));
-    await handWritten.load();
-    expect(handWritten.registryRepository, isNull);
-  });
-
   // Harm: dropping a project-mode rental loses the only way to recover a billed server.
   test('project-mode host records retain uppercase dots and underscores on reload', () async {
     for (final project in ['Upper', 'with.dot', 'under_score']) {

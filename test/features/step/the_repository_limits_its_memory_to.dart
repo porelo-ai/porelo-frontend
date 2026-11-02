@@ -21,7 +21,6 @@ Future<void> theRepositoryLimitsItsMemoryTo(WidgetTester tester, String reposito
         behindMeasured: project.behindMeasured,
         behindReason: project.behindReason,
         repositories: project.repositories,
-        following: project.following,
         repositoryStates: <Repository>[
           for (final each in project.repositoryStates)
             Repository(

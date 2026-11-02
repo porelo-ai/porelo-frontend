@@ -6,7 +6,7 @@ import 'package:porelo_host/porelo_host.dart';
 import 'machines.dart';
 import 'quiet_after_dispose.dart';
 
-/// A captured selection from Core's verified admission, independent of UI roles.
+/// A captured selection for a person with a role in the project, independent of startup roles.
 class TransferSelection {
   /// Captures public values before any asynchronous credential read.
   TransferSelection({
@@ -33,7 +33,7 @@ class TransferSelection {
   /// The repositories selected at the start; empty means the whole project.
   final List<String> repositories;
 
-  /// Whether verified admission permits this person to transfer the project.
+  /// Whether the person's role in the project permits them to transfer it.
   final bool canPush;
 }
 
@@ -123,7 +123,7 @@ class ProjectTransfers extends ChangeNotifier with QuietAfterDispose {
     } on FormatException catch (refusal) {
       return refusal.message;
     }
-    if (!selection.canPush) return 'Your verified admission does not allow this transfer.';
+    if (!selection.canPush) return 'Your role in this project does not allow this transfer.';
     if (selection.machine.hostCard == null || selection.machine.hostCard!.login != selection.person) {
       return 'Join this host as the current person before transferring.';
     }

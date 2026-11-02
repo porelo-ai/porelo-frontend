@@ -36,8 +36,6 @@ Future<void> conversing(
               preparedState: project.preparedState,
               repositories: project.repositories,
               repositoryStates: project.repositoryStates,
-              following: project.following,
-              followingAnswered: project.followingAnswered,
               messages: ProjectMessages(
                 transport: transport,
                 conversation: '!room:localhost',

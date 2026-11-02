@@ -19,7 +19,7 @@ void main() {
     );
 
     expect(gate.reachable, isFalse);
-    expect(gate.problem, contains('not a project this machine follows'));
+    expect(gate.problem, contains('is not on this machine'));
     expect(gate.waiting, isEmpty);
   });
 

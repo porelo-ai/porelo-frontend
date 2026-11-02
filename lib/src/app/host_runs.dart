@@ -7,7 +7,6 @@ import 'package:porelo_host/porelo_host.dart';
 
 import 'host_session.dart';
 import 'host_access.dart';
-import 'registry.dart' show RegistryRefusal;
 import 'machines.dart';
 import 'settings.dart';
 
@@ -113,7 +112,7 @@ class HostPreparation {
 /// Owns host setup just as Operations owns other long actions; views only observe it.
 class HostRuns extends ChangeNotifier {
   /// Adds successful runs through the ordinary Machines path.
-  HostRuns(this.machines, {this.environment, this.setupAgain, this.hostAccess}) {
+  HostRuns(this.machines, {this.environment, this.setupAgain, this.hostAccess, this.onReady, this.say}) {
     for (final entry in machines.settings.hostUps.entries) {
       if (!entry.value.preparing && !entry.value.legacy) continue;
       final session = sessionFor(entry.key, entry.value)..restoreProtocol(entry.value.protocol);
@@ -142,8 +141,14 @@ class HostRuns extends ChangeNotifier {
   /// The adapter prepares the existing rental directly and must not reacquire that lock.
   final Future<HostUpRecord> Function(String project, HostUpRecord existingRental)? setupAgain;
 
-  /// Signed registry lifecycle operations supplied by the app composition.
+  /// Who may prepare a host, and what goes to the organization, supplied by the app composition.
   final HostAccess? hostAccess;
+
+  /// Called once a host stands on its card, to give it the host admin's central token.
+  final Future<void> Function(String host)? onReady;
+
+  /// Says what the person must hear with no dialog open: a rental given back after a stop.
+  final void Function(String words)? say;
 
   /// State directory overrides shared with an explicitly configured host command.
   final Map<String, String>? environment;
@@ -330,8 +335,8 @@ class HostRuns extends ChangeNotifier {
           handle = await openProjectLock(file);
           await handle.lock(FileLock.exclusive);
           final access = hostAccess;
-          if (access == null) throw const RegistryRefusal('The verified host admins are unavailable.');
-          await access.beginPreparation(existing.hostName.isEmpty ? project : existing.hostName);
+          if (access == null) throw const HostAccessRefused('The verified host admins are unavailable.');
+          await access.check(existing.hostName.isEmpty ? project : existing.hostName);
           final completed = await setupAgain!(project, existing);
           if (_disposed) return;
           if (completed.legacy ||
@@ -368,7 +373,9 @@ class HostRuns extends ChangeNotifier {
               hostProject: project,
             ),
           );
-          await _publishReady(run, completed.preparedHost!);
+          if (await access.writeCard(completed.preparedHost!) case final refused?) {
+            run.problem = 'The host is ready, but its card could not be written to the organization: $refused';
+          }
         } finally {
           await handle?.close();
         }
@@ -389,7 +396,7 @@ class HostRuns extends ChangeNotifier {
     Settings? settings,
   }) {
     if (record.legacy) throw StateError('Legacy credentials cannot start setup.');
-    if (hostAccess == null) throw const RegistryRefusal('The verified host admins are unavailable.');
+    if (hostAccess == null) throw const HostAccessRefused('The verified host admins are unavailable.');
     hostAccess!.requireAdmin(record.hostName);
     final previous = _runs[project];
     if (_leaving || previous != null && (previous.running || previous.waiting)) {
@@ -441,8 +448,10 @@ class HostRuns extends ChangeNotifier {
       }
       if (run.problem != null) return;
       if (run.record.hostName.isNotEmpty) {
-        if (hostAccess == null) throw const RegistryRefusal('The verified host admins are unavailable.');
-        await hostAccess!.beginPreparation(run.record.hostName);
+        if (hostAccess == null) throw const HostAccessRefused('The verified host admins are unavailable.');
+        await hostAccess!.check(run.record.hostName);
+        // A run taken up again must not hand on the pin of its first start.
+        if (run.record.machineFile.isNotEmpty) await hostAccess!.machineFile(run.record.hostName);
       }
       final settings = run.settings;
       if (settings != null && !run.ready) {
@@ -452,14 +461,18 @@ class HostRuns extends ChangeNotifier {
       if (_disposed || _leaving) return;
       run.interrupted = false;
       if (run.record.hostName.isNotEmpty) {
-        if (hostAccess == null) throw const RegistryRefusal('The verified host admins are unavailable.');
+        if (hostAccess == null) throw const HostAccessRefused('The verified host admins are unavailable.');
         hostAccess!.requireAdmin(run.record.hostName);
       }
       await run.session.up();
       await run.saved;
       if (run._saveFailed) throw const FileSystemException('The setup protocol could not be kept.');
       if (_disposed) return;
-      if (run.session.state == HostRunState.done && !run.ready) await _addHost(run);
+      if (run.session.state == HostRunState.done && !run.ready) {
+        await _addHost(run);
+      } else if (!run.ready && const [HostRunState.refused, HostRunState.unreachable].contains(run.session.state)) {
+        await _giveBackAfterStop(run, 'Setup of ${run.name} stopped: ${run.session.fix ?? run.session.stepText}.');
+      }
       if (run.session.state == HostRunState.busy) _poll(run);
     } on Exception {
       if (!_disposed) {
@@ -479,7 +492,13 @@ class HostRuns extends ChangeNotifier {
         host.values['name'] != run.record.hostName ||
         !run.session.steps.any((step) => step.step == 'up' && step.state == StepState.done) ||
         run.session.steps.any((step) => step.state == StepState.refused)) {
-      run.problem = 'The server did not confirm its SSH completion record.';
+      await _giveBackAfterStop(run, 'The server did not confirm its SSH completion record.');
+      return;
+    }
+    final access = hostAccess;
+    final refused = access == null ? 'The verified host admins are unavailable.' : await access.writeCard(host);
+    if (refused != null) {
+      await _giveBackAfterStop(run, "${run.name}'s card could not be written to the organization: $refused");
       return;
     }
     final settings = run.settings ?? machines.settings;
@@ -497,17 +516,43 @@ class HostRuns extends ChangeNotifier {
       ),
     );
     run.phase = HostPreparationPhase.reachable;
-    await _publishReady(run, host);
+    await onReady?.call(run.record.hostName);
   }
 
-  Future<void> _publishReady(HostPreparation run, PreparedHost host) async {
-    try {
-      final access = hostAccess;
-      if (access == null) throw const RegistryRefusal('The verified host admins are unavailable.');
-      await access.publishReady(run.record.hostName, host);
-    } on Exception {
-      run.problem = 'The host is ready; its registry card still needs publication. Retry publication without running setup again.';
+  /// A stop leaves nothing to resume on a billed server: it is given back as *Give the server back* does, and said.
+  Future<void> _giveBackAfterStop(HostPreparation run, String why) async {
+    final settings = run.settings ?? machines.settings;
+    // A machine the person gave is theirs and bills nobody: taking anything off it stays their own decision.
+    if ((settings.hostUp(run.project) ?? run.record).givenAddress.isNotEmpty) {
+      final words = '$why The machine stays as it is: "Give the server back" on its row takes the setup off it.';
+      run.problem = words;
+      say?.call(words);
+      return;
     }
+    final down = HostSession(
+      executable: run.session.executable,
+      arguments: (settings.hostUp(run.project) ?? run.record).giveBackArguments(run.project),
+      start: run.session.start,
+    );
+    String words;
+    try {
+      await down.down();
+      if (hostGivenBack(down)) {
+        final left = await confirmDown(run.project, down);
+        for (final machine in machines.all.where((m) => m.kind == 'host' && m.hostProject == run.project).toList()) {
+          await machines.forget(machine);
+        }
+        words = '$why The server was given back.${left == null ? '' : ' $left'}';
+      } else {
+        words = '$why The server could not be given back and is still rented: use "Give the server back" on its row.';
+      }
+    } catch (_) {
+      words = '$why The server could not be given back and is still rented: use "Give the server back" on its row.';
+    } finally {
+      down.dispose();
+    }
+    run.problem = words;
+    say?.call(words);
   }
 
   /// Removes recovery only after the provider confirmed give-back and the command succeeded.
@@ -515,12 +560,7 @@ class HostRuns extends ChangeNotifier {
     if (!hostGivenBack(session)) return null;
     final pending = _runs[project];
     await pending?.saved;
-    final registryProblem = await confirmHostRegistryGiveBack(
-      host: project,
-      session: session,
-      settings: machines.settings,
-      access: hostAccess,
-    );
+    final left = hostAccess?.cardLeftBehind(project);
     final kept = machines.settings.hostUp(project);
     if (kept != null) {
       await machines.settings.forgetHostUp(project);
@@ -530,10 +570,10 @@ class HostRuns extends ChangeNotifier {
       run._poll?.cancel();
       run.givenBack = true;
       run.interrupted = false;
-      run.problem = registryProblem;
+      run.problem = left;
     }
     _changed();
-    return registryProblem;
+    return left;
   }
 
   void _listen(HostPreparation run) {

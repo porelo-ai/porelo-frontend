@@ -22,12 +22,11 @@ gap here is a backend method that has to be added, not a workaround waiting to b
   questions only. The backend will observe working and quiet from outside for every agent, and let
   each agent declare waiting where it can; until then a quiet task is shown as a guess.
 
-- **Clearing away a project left from before following** (decided in Porelo, not built).
-  `Unfollow` with `dryRun` answers `NoSuchProject` for a project the machine still lists but does not
-  follow, so *Stop following* has nothing to show and nothing is removed from here; a blind `force`
-  is not offered, because what it destroys includes pushes nobody reviewed. Porelo's change makes the preview
-  answer `PREVIEWED` with `removes`, `keeps` and `unreviewed`, and the refusals a followed project
-  gets.
+- **Removing a project the machine lists but does not know** (decided in Porelo, not built).
+  `RemoveProject` with `dryRun` answers `NoSuchProject` for it, so *Remove this project* has nothing to
+  show and nothing is removed from here; a blind `force` is not offered, because what it destroys
+  includes pushes nobody reviewed. Porelo's change makes the preview answer `PREVIEWED` with `removes`,
+  `keeps` and `unreviewed`, and the refusals any other project gets.
 
 - **Where content Porelo delivered into a task came from.** The ranked review shows what a push
   changes in the machine's order, and would show the origin of what reached the task beside it;
@@ -39,6 +38,9 @@ gap here is a backend method that has to be added, not a workaround waiting to b
 - **A central homeserver shared by several machines**, which `porelo-message-matrix` plans. Until it is
   there, a machine's `Project.messages` says it is not admitted, with its address and the room, and
   a person invites each machine's account from a client of their own.
+
+- **A homeserver's registration token on a host.** `project show` answers `matrix_registration_entry`; the interface
+  does not yet read it or put that entry on `porelo-host-stop --stdin`.
 
 ## On the wire, not used here yet
 

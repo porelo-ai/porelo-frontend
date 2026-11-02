@@ -192,7 +192,7 @@ void main() {
   }
 
   // Harm: a terminal whose navigator went away while it was open never returning to its caller, so whatever the caller
-  // holds for it, the registry checkout, a running mark or a card copy, stays held for good.
+  // holds for it, a running mark or a card copy, stays held for good.
   testWidgets('a terminal whose navigator goes away returns to its caller with its end', (tester) async {
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;

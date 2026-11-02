@@ -301,7 +301,7 @@ class StartWork extends ChangeNotifier {
   static String? whyNot(Project? project) {
     if (project == null) return 'no project is selected';
     if (!project.canBeActedOn) {
-      return '${project.name} is not a project this machine follows';
+      return '${project.name} is not on this machine';
     }
     return null;
   }

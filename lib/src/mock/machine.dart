@@ -24,11 +24,9 @@ class MockMachine {
     this.daemon, {
     this.situation = 'work',
     this.pace = const Duration(milliseconds: 400),
-    List<({String name, String url, String commit})> followedProjects = const [],
+    List<({String name, String url, String commit})> seededProjects = const [],
   }) {
-    for (final source in followedProjects) {
-      _followed[source.name] = {'name': source.name, 'url': source.url, 'commit': source.commit, 'outcome': 'APPLIED'};
-    }
+    _seeded.addAll(seededProjects);
     tasks = const {'empty', 'host'}.contains(situation) ? <Map<String, dynamic>>[] : _aMachineWithWorkOnIt();
     if (situation == 'host') _waiting.clear();
     daemon.version = '0.1.0+mock';
@@ -145,10 +143,7 @@ method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
     daemon.method('Decide', _decide);
     daemon.method('Remove', _remove);
     daemon.method('Panic', _panic);
-    daemon.method('Unfollow', _deleteProject);
-    daemon.method('Following', (_) => <String, dynamic>{'projects': _followed.values.toList()});
-    daemon.method('Follow', _follow);
-    daemon.method('RefreshProjects', _refreshProjects);
+    daemon.method('RemoveProject', _deleteProject);
     daemon.method('RefreshTask', _refreshTask);
     daemon.method('Doctor', _doctor);
     daemon.method('Providers', _providers);
@@ -969,65 +964,8 @@ method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
   /// must answer `NO_CHANGE`, and a widened task must go on being widened.
   final Map<String, Set<String>> _granted = <String, Set<String>>{};
 
-  /// Repositories this mock has been asked to follow, by project name, with what came of it.
-  final Map<String, Map<String, dynamic>> _followed = <String, Map<String, dynamic>>{};
-
-  /// Follows a repository and takes it at once, as Porelo does — so the project can be worked in
-  /// straight after. A URL saying `unsigned` is refused as `NOT_SIGNED`, which needs a person; the
-  /// same name at another address is refused, because that is a different project wearing a name.
-  /// Fetches now, as Porelo does: the records as they are afterwards, and `NoSuchProject` for a name
-  /// this account does not follow. A commit already in force comes back `UNCHANGED`.
-  Map<String, dynamic> _refreshProjects(Map<String, dynamic> parameters) {
-    final name = parameters['project'] as String?;
-    if (name != null && !_followed.containsKey(name)) {
-      throw MockRefusal('org.fuin.porelo.Tasks1.NoSuchProject', <String, dynamic>{'project': name});
-    }
-    final now = DateTime.now().toUtc().toIso8601String();
-    return <String, dynamic>{
-      'projects': <Map<String, dynamic>>[
-        for (final each in _followed.entries)
-          if (name == null || each.key == name)
-            _followed[each.key] = <String, dynamic>{
-              ...each.value,
-              'at': now,
-              if ((each.value['commit'] as String? ?? '').isNotEmpty) 'outcome': 'UNCHANGED',
-            },
-      ],
-    };
-  }
-
-  Map<String, dynamic> _follow(Map<String, dynamic> parameters) {
-    final name = parameters['name'] as String? ?? '';
-    final url = parameters['url'] as String? ?? '';
-    final unverified = parameters['unverified'] == true;
-    if (unverified && (parameters['signedBy'] as String? ?? '').isNotEmpty) {
-      throw const MockRefusal('org.fuin.porelo.Tasks1.Failed', <String, dynamic>{
-        'message': 'signedBy and unverified are two different instructions; give one',
-      });
-    }
-    final before = _followed[name];
-    if (before != null && before['url'] != url) {
-      throw MockRefusal('org.fuin.porelo.Tasks1.Failed', <String, dynamic>{
-        'message': '$name is already followed at ${before['url']}',
-      });
-    }
-    final refused = url.contains('unsigned');
-    final state = <String, dynamic>{
-      'name': name,
-      'url': url,
-      'commit': refused ? '' : 'c0ffee1d2e3f',
-      'at': DateTime.now().toUtc().toIso8601String(),
-      'outcome': refused ? 'NOT_SIGNED' : 'APPLIED',
-      'refused': refused ? 'badc0de4f5a6' : '',
-      'signer': '',
-      'detail': refused ? 'the fetched commit carries no signature' : '',
-      'needsAPerson': refused,
-      'unverified': unverified,
-    };
-    _followed[name] = state;
-    _removedProjects.remove(name);
-    return state;
-  }
+  /// Projects it was started with beside its own, each on the repository it was given.
+  final List<({String name, String url, String commit})> _seeded = <({String name, String url, String commit})>[];
 
   /// Takes names back from a running task.
   ///
@@ -1446,7 +1384,7 @@ method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
   /// What this mock answers when asked which node it is.
   final String _nodeId = 'mock-${DateTime.now().microsecondsSinceEpoch.toRadixString(16)}';
 
-  /// Projects removed by `Unfollow`, which stop being listed.
+  /// Projects removed by `RemoveProject`, which stop being listed.
   final Set<String> _removedProjects = <String>{};
 
   /// Every project on the machine, assembled the way the daemon assembles it.
@@ -1458,21 +1396,19 @@ method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
     'projects': <Map<String, dynamic>>[
       for (final project in _listedProjects)
         if (!_removedProjects.contains(project['name'])) project,
-      // What was followed here and taken is a project, with its follow state on it.
-      for (final MapEntry(key: name, value: state) in _followed.entries)
+      for (final (:name, :url, commit: _) in _seeded)
         if (!_removedProjects.contains(name) && !_listedProjects.any((each) => each['name'] == name))
           <String, dynamic>{
             'name': name,
             'securityClass': 'guarded',
-            'file': (state['commit'] as String).isEmpty ? '' : '/srv/$name/project.yml',
+            'file': '/srv/$name/project.yml',
             'mirror': '/srv/$name/.porelo/mirror',
             'pending': 0,
             'tasks': 0,
             'running': 0,
             'repositories': <Map<String, dynamic>>[
-              <String, dynamic>{'name': name, 'own': true, 'upstream': state['url']},
+              <String, dynamic>{'name': name, 'own': true, 'upstream': url},
             ],
-            'following': state,
           },
     ],
   };

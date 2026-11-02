@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import '../support/matrix.dart';
+import '../support/project_file.dart';
 import '../support/remote.dart';
 
 /// Why this machine cannot hold a conversation at all, or null where it can. Set here, read by the
@@ -25,24 +26,17 @@ set -eu
 PATH="\$HOME/.local/bin:\$PATH"
 porelo task stop porelo-$name-write >/dev/null 2>&1 || true
 porelo task remove porelo-$name-write >/dev/null 2>&1 || true
-porelo project unfollow --force $name >/dev/null 2>&1 || true
-repo="\$HOME/$name"; rm -rf "\$repo"; mkdir -p "\$repo"; cd "\$repo"; git init -q -b main
-cat > project.yml <<'YAML'
-project:
-  name: "$name"
-  security_class: "guarded"
-image:
-  base_image: "ubuntu:24.04"
+porelo project remove $name >/dev/null 2>&1 || true
+${removingTheProjectFiles(name)}
+repo="\$HOME/$name"; git init -q --bare -b main "\$repo-backend.git"
+${writingTheProjectFile(name, '''
+${projectFile(name, backend: '\$repo-backend.git')}
 mail:
   transports:
     matrix: {}
   peers:
-    person: { address: "matrix:", trust: external }
-YAML
-git add project.yml
-git -c user.name=e2e -c user.email=e2e@example.invalid commit -q -m "The project $name"
-porelo project follow --unverified $name "\$repo" >/dev/null
+    person: { address: "matrix:", trust: external }''')}
 agent=\$(porelo agents | awk '\$1 == "NAME" {table = 1; next} table && NF {print \$1; exit}')
-porelo task start -p $name -r $name \${agent:+--agent "\$agent"} --attach shell --no-gate --detach write >/dev/null
+porelo task start -p $name -r backend \${agent:+--agent "\$agent"} --attach shell --no-gate --detach write >/dev/null
 ''');
 }

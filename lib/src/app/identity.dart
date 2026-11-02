@@ -1,12 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io' show Platform;
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 
-import 'host_access_contract.dart' show checkedRegistryRevision;
-import 'registry.dart' show Registry, RegistryCheckouts, RegistryContact, RegistryRefusal;
 import 'run_here.dart';
 
 /// Whether the agent `SSH_AUTH_SOCK` names serves the card's key, as Core answers it.
@@ -24,15 +21,15 @@ enum AgentState {
   unknown,
 }
 
-/// How one registry holds the person's card.
+/// How the organization holds the person's card.
 enum FiledState {
-  /// The registry's accepted card is this card.
+  /// The organization's accepted card is this card.
   done,
 
   /// Filed and not yet accepted.
   pending,
 
-  /// The registry refused it.
+  /// The organization refused it.
   refused,
 
   /// No card for the login.
@@ -85,11 +82,11 @@ PlaceState _place(Object? word) => _enum(word, const {
   'planned': PlaceState.planned,
 }, PlaceState.unknown);
 
-/// One registry this machine reads and how it holds the person's card.
+/// The organization this machine reads and how it holds the person's card.
 @immutable
-class IdentityRegistry {
+class IdentityOrganization {
   /// Constructor taking every field Core answers.
-  const IdentityRegistry({
+  const IdentityOrganization({
     required this.address,
     required this.filed,
     required this.filedWord,
@@ -99,7 +96,7 @@ class IdentityRegistry {
     this.why,
   });
 
-  /// The checkout's `origin` exactly as git answers it.
+  /// Where the organization is kept, as Core answers it.
   final String address;
 
   /// How it holds the card.
@@ -108,16 +105,16 @@ class IdentityRegistry {
   /// Core's own word, shown when [filed] is unknown.
   final String filedWord;
 
-  /// The registry revision read, absent when Core names none.
+  /// The organization's revision read, absent when Core names none.
   final String? revision;
 
   /// Whether the person's own key may file the card here.
   final bool mayFile;
 
   /// The owners who may file it when [mayFile] is false.
-  final List<RegistryContact> whoMay;
+  final List<PersonContact> whoMay;
 
-  /// Why the registry refused it, when it did.
+  /// Why the organization refused it, when it did.
   final String? why;
 }
 
@@ -148,14 +145,17 @@ class ForgeKeyListing {
 /// An identity operation started and not finished.
 @immutable
 class PendingIdentityOperation {
-  /// Constructor taking the operation's ID and action.
-  const PendingIdentityOperation({required this.id, required this.action});
+  /// Constructor taking the operation's ID and action, and the new key where Core names one.
+  const PendingIdentityOperation({required this.id, required this.action, this.fingerprint});
 
   /// The caller's or Core's operation ID.
   final String id;
 
   /// `rotate` or `revoke-lost`, or a word this interface does not know.
   final String action;
+
+  /// The new key's fingerprint, the one a Try again names; absent when Core named none that can be named.
+  final String? fingerprint;
 }
 
 /// The person's card as `identity show` answers it.
@@ -176,14 +176,10 @@ class IdentityCard {
     required this.agentWord,
     required this.revoked,
     required this.cardRefused,
-    required this.registry,
+    required this.organization,
     required this.forge,
     required this.pending,
-    this.soleWithoutBackup,
   });
-
-  /// The lists the person is the single admin or owner of without a backup key; null while Core does not answer it.
-  final List<SoleWithoutBackup>? soleWithoutBackup;
 
   /// The person's login.
   final String login;
@@ -218,25 +214,34 @@ class IdentityCard {
   /// Core's own agent word, shown when [agent] is unknown.
   final String agentWord;
 
-  /// Whether the key is revoked here or by a registry.
+  /// Whether the key is revoked here or by the organization.
   final bool revoked;
 
   /// Why the card does not verify, absent when it does.
   final String? cardRefused;
 
-  /// Every registry this machine reads.
-  final List<IdentityRegistry> registry;
+  /// The organization this machine reads, as its one entry; empty where it reads none.
+  final List<IdentityOrganization> organization;
 
-  /// The forge listing, absent when no registry is read.
+  /// The organization's revision read, the base of a change of key; null where none was accepted yet.
+  String? get revision => organization.firstOrNull?.revision;
+
+  /// The forge listing, absent when no organization is read.
   final ForgeKeyListing? forge;
 
   /// Operations started and not finished.
   final List<PendingIdentityOperation> pending;
 
+  /// Why this card can sign nothing whatever the agent serves, or null when it can.
+  String? get whyCardCannotSign {
+    if (revoked) return 'Your key is revoked. Only “Replace a lost key…” on the Organization page makes a new one now.';
+    if (cardRefused case final why?) return 'Your card does not verify: $why';
+    return null;
+  }
+
   /// Why nothing that needs this card's key may be offered now, or null when it may.
   String? get whyKeyUnusable {
-    if (revoked) return 'Your key is revoked. Only “I lost my key” makes a new one now.';
-    if (cardRefused case final why?) return 'Your card does not verify: $why';
+    if (whyCardCannotSign case final why?) return why;
     return switch (agent) {
       AgentState.holds => null,
       AgentState.notHeld => 'Your SSH agent does not hold your key. Open KeePassXC and load the entry.',
@@ -246,23 +251,7 @@ class IdentityCard {
   }
 }
 
-/// A list whose single admin or owner the person is, with no backup key filed for them.
-@immutable
-class SoleWithoutBackup {
-  /// Constructor taking Core's role and scope.
-  const SoleWithoutBackup({required this.role, required this.kind, required this.name});
-
-  /// `project-admin`, `host-admin` or `registry-owner`.
-  final String role;
-
-  /// `project`, `host` or `registry`.
-  final String kind;
-
-  /// The project or host, or the registry's origin address.
-  final String name;
-}
-
-/// One place an identity operation publishes to.
+/// One place a lost key's replacement reaches.
 @immutable
 class PublishedPlace {
   /// Constructor taking every field Core answers.
@@ -275,10 +264,10 @@ class PublishedPlace {
     required this.whoMay,
   });
 
-  /// `registry`, `project`, `host`, or a word this interface does not know.
+  /// `organization`, `project`, `host`, or a word this interface does not know.
   final String where;
 
-  /// The registry's address, the project's or the host's name.
+  /// The organization's address, the project's or the host's name.
   final String name;
 
   /// Where the place stands.
@@ -291,19 +280,19 @@ class PublishedPlace {
   final String? why;
 
   /// Who must accept it.
-  final List<RegistryContact> whoMay;
+  final List<PersonContact> whoMay;
 }
 
-/// The answer of `identity rotate`, `revoke --lost`, `publish --id` and `status --id`.
+/// The answer of `identity rotate` and `identity revoke --lost`, as every write answers.
 @immutable
 class IdentityOperation {
-  /// Constructor taking every field Core answers.
+  /// Constructor taking what Core answered and the action asked for.
   const IdentityOperation({
     required this.id,
     required this.action,
-    required this.fingerprint,
-    required this.predecessor,
-    required this.published,
+    required this.revision,
+    required this.again,
+    this.card,
   });
 
   /// The operation's ID, the one a Retry sends.
@@ -312,17 +301,14 @@ class IdentityOperation {
   /// `rotate` or `revoke-lost`.
   final String action;
 
-  /// The new key's fingerprint.
-  final String fingerprint;
+  /// The revision it rests on; null when nothing was accepted yet.
+  final String? revision;
 
-  /// The old key's fingerprint.
-  final String predecessor;
+  /// Whether this ID had already made the change.
+  final bool again;
 
-  /// Each place and where it stands.
-  final List<PublishedPlace> published;
-
-  /// Whether every place is done; an unknown word is never done.
-  bool get finished => published.isNotEmpty && published.every((place) => place.status == PlaceState.done);
+  /// A lost key's new card, to hand to an owner outside Porelo; absent when Core answered none.
+  final String? card;
 }
 
 /// A host whose vault a lost key resets.
@@ -396,7 +382,7 @@ class IdentityCreated {
   /// Whether the agent serves the key.
   final AgentState agent;
 
-  /// The forge listing, absent when no registry is read.
+  /// The forge listing, absent when no organization is read.
   final ForgeKeyListing? forge;
 
   /// What Core says comes next, such as `file-card`.
@@ -435,7 +421,7 @@ class AgentKey {
   /// The other card's login for `key-on-another-card`.
   final String? login;
 
-  /// Whether the forge lists it; null without a registry read or a listing.
+  /// Whether the forge lists it; null without an organization read or a listing.
   final bool? keyListed;
 
   /// Why it cannot be used, in words, or null when it can.
@@ -449,19 +435,6 @@ class AgentKey {
         };
 }
 
-/// What `registry file card` answers: the commit made in the checkout, not yet pushed.
-@immutable
-class CardFiled {
-  /// Constructor taking the commit and the card's path in the registry.
-  const CardFiled({required this.commit, required this.path});
-
-  /// The commit made in the checkout.
-  final String commit;
-
-  /// The card's path in the registry.
-  final String path;
-}
-
 /// The agent's keys, read through a small seam so a test can stand in.
 abstract interface class AgentKeyList {
   /// The keys the agent serves, in its order; throws [IdentityRefused] with `agent-absent` when none answers.
@@ -469,9 +442,21 @@ abstract interface class AgentKeyList {
 }
 
 /// Core refused or could not answer; carries its typed reason when it gave one.
-class IdentityRefused extends RegistryRefusal {
+class IdentityRefused implements Exception {
   /// Constructor taking the exit code, the typed reason and Core's words.
-  const IdentityRefused(super.words, {required this.code, this.reason, this.login, super.whoMay});
+  const IdentityRefused(
+    this.words, {
+    required this.code,
+    this.reason,
+    this.login,
+    this.whoMay = const <PersonContact>[],
+  });
+
+  /// Why, in a sentence safe to show.
+  final String words;
+
+  /// The people who may make this change.
+  final List<PersonContact> whoMay;
 
   /// The exit code Core ended with.
   final int code;
@@ -481,6 +466,29 @@ class IdentityRefused extends RegistryRefusal {
 
   /// The other login of `key-on-another-card`.
   final String? login;
+
+  @override
+  String toString() {
+    final contacts = whoMay
+        .map((person) => '${person.name} (${person.login})${person.email == null ? '' : ', ${person.email}'}')
+        .join('; ');
+    return '$words${contacts.isEmpty ? '' : ' Ask $contacts.'}';
+  }
+}
+
+/// A person named as one who may make a change.
+class PersonContact {
+  /// Constructor taking the login, the name and the card's address.
+  const PersonContact({required this.login, required this.name, this.email});
+
+  /// Their login.
+  final String login;
+
+  /// Their name on their card.
+  final String name;
+
+  /// Their card's address, absent when the card has none.
+  final String? email;
 }
 
 /// The person has no card yet: the first start.
@@ -491,20 +499,6 @@ class NoIdentity implements Exception {
   /// Core's words, for a person.
   final String words;
 }
-
-/// Why `identity backup-key` cannot be offered while Core does not name the lists that need one.
-const backupKeyRefusal = 'Core does not name yet which lists you are the single admin or owner of.';
-
-/// Typed refusals Core gives before it made anything, so no operation exists under the ID.
-const nothingMade = {
-  'key-not-in-agent',
-  'key-not-ed25519',
-  'key-on-another-card',
-  'revoked',
-  'key-store-missing',
-  'key-store-refused',
-  'identity-exists',
-};
 
 /// An identity operation ID in Core's pattern.
 final operationIdPattern = RegExp(r'^[A-Za-z0-9._-]{1,64}$');
@@ -588,28 +582,15 @@ class Identity implements AgentKeyList {
     '--json',
   ];
 
-  /// Changes the key to [fingerprint], an existing key the agent serves, under operation [id].
-  Future<IdentityOperation> rotate({required String fingerprint, required String id}) async =>
-      _operation(await _call(['identity', 'rotate', '--key', _fingerprint(fingerprint), '--id', _id(id), '--json']));
-
-  /// The command a terminal runs to change the key to a new one in KeePassXC under operation [id].
-  static List<String> rotateInKeepassxc({required String database, String? entry, required String id}) => [
-    'porelo',
-    'identity',
+  /// Changes the key to [fingerprint], an existing key the agent serves, under operation [id] against [base].
+  Future<IdentityOperation> rotate({required String fingerprint, required String id, String? base}) async => _operation(
+    await _call(['identity', 'rotate', '--key', _fingerprint(fingerprint), ..._write(id, base), '--json']),
     'rotate',
-    ..._keepassxc(database, entry),
-    '--id',
-    _id(id),
-    '--json',
-  ];
+  );
 
-  /// Sends only the places of operation [id] that are not done.
-  Future<IdentityOperation> publish(String id) async =>
-      _operation(await _call(['identity', 'publish', '--id', _id(id), '--json']));
-
-  /// Reads operation [id] back, changing nothing.
-  Future<IdentityOperation> status(String id) async =>
-      _operation(await _call(['identity', 'status', '--id', _id(id), '--json']));
+  /// The command a terminal runs to change the key to a new one in KeePassXC under operation [id] against [base].
+  static List<String> rotateInKeepassxc({required String database, String? entry, required String id, String? base}) =>
+      ['porelo', 'identity', 'rotate', ..._keepassxc(database, entry), ..._write(id, base), '--json'];
 
   /// What replacing a lost key would do, making nothing: by an agent's [fingerprint] or a new key in [database].
   Future<LostKeyPlan> planLostKey({String? fingerprint, String? database, String? entry}) async {
@@ -644,45 +625,34 @@ class Identity implements AgentKeyList {
     );
   }
 
-  /// Replaces a lost key by [fingerprint] under operation [id], after the plan was confirmed.
-  Future<IdentityOperation> replaceLostKey({required String fingerprint, required String id}) async => _operation(
-    await _call(['identity', 'revoke', '--lost', '--key', _fingerprint(fingerprint), '--id', _id(id), '--json']),
-  );
+  /// Replaces a lost key by [fingerprint] under operation [id] against [base], after the plan was confirmed.
+  Future<IdentityOperation> replaceLostKey({required String fingerprint, required String id, String? base}) async =>
+      _operation(
+        await _call([
+          'identity',
+          'revoke',
+          '--lost',
+          '--key',
+          _fingerprint(fingerprint),
+          ..._write(id, base),
+          '--json',
+        ]),
+        'revoke-lost',
+      );
 
-  /// The command a terminal runs to replace a lost key by a new one in KeePassXC under operation [id].
-  static List<String> replaceLostKeyInKeepassxc({required String database, String? entry, required String id}) => [
-    'porelo',
-    'identity',
-    'revoke',
-    '--lost',
-    ..._keepassxc(database, entry),
-    '--id',
-    _id(id),
-    '--json',
-  ];
-
-  /// Commits [card] to the registry [checkout] against [base] under request [id]; pushes nothing.
-  Future<CardFiled> fileCard({
-    required String checkout,
-    required String card,
+  /// The command a terminal runs to replace a lost key by a new one in KeePassXC under operation [id] against [base].
+  static List<String> replaceLostKeyInKeepassxc({
+    required String database,
+    String? entry,
     required String id,
-    required String base,
-  }) async {
-    if (checkout.isEmpty || card.isEmpty) throw const FormatException('No checkout or card file to file.');
-    final answer = await _call([
-      'registry',
-      'file',
-      'card',
-      checkout,
-      '--card',
-      card,
-      '--id',
-      _id(id),
-      '--base',
-      checkedRegistryRevision(base),
-      '--json',
-    ]);
-    return CardFiled(commit: checkedRegistryRevision(_text(answer, 'commit')), path: _text(answer, 'path'));
+    String? base,
+  }) => ['porelo', 'identity', 'revoke', '--lost', ..._keepassxc(database, entry), ..._write(id, base), '--json'];
+
+  /// Reads what a terminal running operation [id] of [action] ended with; refuses an unreadable answer or another's.
+  static IdentityOperation terminalAnswer(String lastLine, {required String id, required String action}) {
+    final answer = _operation(_object(lastLine.trim()), action);
+    if (answer.id != id) throw FormatException('Core answered for operation ${answer.id}, not $id.');
+    return answer;
   }
 
   /// Where Core keeps the person's card: `$XDG_CONFIG_HOME/porelo/identity/card`.
@@ -691,6 +661,13 @@ class Identity implements AgentKeyList {
     final base = config != null && config.isNotEmpty ? config : '${environment['HOME'] ?? ''}/.config';
     return '$base/porelo/identity/card';
   }
+
+  // A write names its revision, except where nothing was accepted yet.
+  static List<String> _write(String id, String? base) => [
+    if (base != null) ...['--base', base],
+    '--id',
+    _id(id),
+  ];
 
   static List<String> _successor(String? fingerprint, String? database, String? entry) {
     if ((fingerprint == null) == (database == null)) throw const FormatException('Name exactly one new key.');
@@ -751,7 +728,12 @@ class Identity implements AgentKeyList {
   }
 
   static Map<String, dynamic> _object(String source) {
-    final value = jsonDecode(source);
+    final Object? value;
+    try {
+      value = jsonDecode(source);
+    } on FormatException {
+      throw const FormatException('Core gave an answer this interface cannot read.');
+    }
     if (value is! Map<String, dynamic>) throw const FormatException('Core did not return a JSON object.');
     return value;
   }
@@ -810,6 +792,16 @@ class Identity implements AgentKeyList {
     return value;
   }
 
+  // A row whose key cannot be named stays readable: it only offers no Try again.
+  static String? _nameableKey(Object? value) {
+    if (value is! String) return null;
+    try {
+      return _fingerprint(value);
+    } on FormatException {
+      return null;
+    }
+  }
+
   static String _key(String value) {
     if (!RegExp(r'^ssh-ed25519 [A-Za-z0-9+/=]+$').hasMatch(value)) {
       throw const FormatException('Core did not answer an Ed25519 key.');
@@ -822,7 +814,7 @@ class Identity implements AgentKeyList {
     return id;
   }
 
-  static List<RegistryContact> _contacts(Object? value) {
+  static List<PersonContact> _contacts(Object? value) {
     if (value is! List) throw const FormatException('Core did not answer who may.');
     return List.unmodifiable(
       value.map((contact) {
@@ -830,7 +822,7 @@ class Identity implements AgentKeyList {
         final login = _text(contact, 'login');
         // Core names a contact without an accepted card with `name` and `email` null; it is named by its login.
         if (!contact.containsKey('name')) throw const FormatException('Core did not answer name.');
-        return RegistryContact(
+        return PersonContact(
           login: login,
           name: contact['name'] == null ? login : _text(contact, 'name'),
           email: _textOrNull(contact, 'email'),
@@ -861,9 +853,10 @@ class Identity implements AgentKeyList {
     if (holds != (agent == AgentState.holds)) {
       throw const FormatException('Core answered the agent twice, differently.');
     }
-    final registry = value['registry'];
+    final organization = value['organization'];
     final pending = value['pending'];
-    if (registry is! List || pending is! List) throw const FormatException('Core did not answer registry or pending.');
+    if (organization is! List) throw const FormatException('Core answered no organization for your card.');
+    if (pending is! List) throw const FormatException('Core did not answer pending.');
     return IdentityCard(
       login: _text(value, 'login'),
       name: _text(value, 'name'),
@@ -878,48 +871,31 @@ class Identity implements AgentKeyList {
       agentWord: agentWord as String,
       revoked: _bool(value, 'revoked'),
       cardRefused: _textOrNull(value, 'card_refused'),
-      registry: List.unmodifiable(registry.map(_registry)),
+      organization: List.unmodifiable(organization.map(_organization)),
       forge: _forge(value['forge']),
       pending: List.unmodifiable(
         pending.map((operation) {
           if (operation is! Map<String, dynamic>) throw const FormatException('Invalid pending operation.');
-          return PendingIdentityOperation(id: _id(_text(operation, 'id')), action: _text(operation, 'action'));
+          return PendingIdentityOperation(
+            id: _id(_text(operation, 'id')),
+            action: _text(operation, 'action'),
+            fingerprint: _nameableKey(operation['fingerprint']),
+          );
         }),
       ),
-      soleWithoutBackup: value.containsKey('sole_without_backup')
-          ? _soleWithoutBackup(value['sole_without_backup'])
-          : null,
     );
   }
 
-  static List<SoleWithoutBackup> _soleWithoutBackup(Object? value) {
-    if (value is! List) throw const FormatException('Core did not answer sole_without_backup as a list.');
-    return List.unmodifiable(
-      value.map((entry) {
-        final scope = entry is Map<String, dynamic> ? entry['scope'] : null;
-        if (entry is! Map<String, dynamic> || scope is! Map<String, dynamic>) {
-          throw const FormatException('Invalid sole_without_backup entry.');
-        }
-        final kind = _text(scope, 'kind');
-        final name = _text(scope, 'name');
-        if (!const {'project', 'host', 'registry'}.contains(kind)) {
-          throw const FormatException('Invalid sole_without_backup scope.');
-        }
-        return SoleWithoutBackup(role: _text(entry, 'role'), kind: kind, name: name);
-      }),
-    );
-  }
-
-  static IdentityRegistry _registry(Object? value) {
-    if (value is! Map<String, dynamic>) throw const FormatException('Invalid registry entry.');
+  static IdentityOrganization _organization(Object? value) {
+    if (value is! Map<String, dynamic>) throw const FormatException('Core answered an organization it cannot name.');
     final mayFile = _bool(value, 'may_file');
     final whoMay = _contacts(value['who_may']);
     if (!value.containsKey('revision')) throw const FormatException('Core did not answer revision.');
     final revision = value['revision'];
-    if (revision != null && revision is! String) throw const FormatException('Invalid registry revision.');
+    if (revision != null && revision is! String) throw const FormatException('Invalid organization revision.');
     final filedWord = _text(value, 'filed');
     final filed = _filed(filedWord);
-    return IdentityRegistry(
+    return IdentityOrganization(
       address: _text(value, 'address'),
       filed: filed,
       filedWord: filedWord,
@@ -934,7 +910,7 @@ class Identity implements AgentKeyList {
     if (value is! Map<String, dynamic>) throw const FormatException('Invalid published place.');
     final where = _text(value, 'where');
     final name = switch (where) {
-      'registry' => _text(value, 'address'),
+      'organization' => _text(value, 'address'),
       'project' => _text(value, 'project'),
       'host' => _text(value, 'host'),
       _ => where,
@@ -953,15 +929,19 @@ class Identity implements AgentKeyList {
     );
   }
 
-  static IdentityOperation _operation(Map<String, dynamic> value) {
-    final published = value['published'];
-    if (published is! List) throw const FormatException('Core did not answer the published places.');
+  static IdentityOperation _operation(Map<String, dynamic> value, String action) {
+    final revision = value['revision'];
+    final again = value['again'];
+    if (revision != null && revision is! String) {
+      throw const FormatException('Core answered revision in another shape.');
+    }
+    final card = value['card'];
     return IdentityOperation(
       id: _id(_text(value, 'id')),
-      action: _text(value, 'action'),
-      fingerprint: _fingerprint(_text(value, 'fingerprint')),
-      predecessor: _fingerprint(_text(value, 'predecessor')),
-      published: List.unmodifiable(published.map(_publishedPlace)),
+      action: action,
+      revision: revision as String?,
+      again: again == true,
+      card: action == 'revoke-lost' && card is String && card.trim().isNotEmpty ? card : null,
     );
   }
 
@@ -988,83 +968,16 @@ class Identity implements AgentKeyList {
   }
 }
 
+/// Whether a write that ended with exit [code] may have been made, so its id is kept: 69, 70, or a process that was
+/// killed, which a terminal reports as absent, negative or above 128. Every other refusal made nothing.
+bool mayHaveMade(int? code) => code == null || code < 0 || code > 128 || code == 69 || code == 70;
+
 /// The person's identity as this interface holds it while the view is open.
 ///
-/// **A change starts once**: an operation whose answer was lost is retried by its ID, never started again.
+/// **A change starts once**: an operation whose answer was lost is asked again under its ID, never started anew.
 class IdentityModel extends ChangeNotifier {
   /// Constructor taking Core's verbs and the agent's key list, fakes in tests.
-  IdentityModel(this.core, {AgentKeyList? keys, this.checkoutFor, this.registries, Map<String, String>? environment})
-    : agentKeys = keys ?? core,
-      environment = environment ?? Platform.environment;
-
-  /// The local checkout folder of the registry at an address, or null when none is here.
-  final String? Function(String address)? checkoutFor;
-
-  /// Every registry read here, whose checkouts a card filing or a key change writes: Core files a key change into each
-  /// checkout it read, so each such change holds them all while it runs, and no key recovery run or registry read meets
-  /// it half made; absent where none is read here.
-  final RegistryCheckouts? Function()? registries;
-
-  // The hold a key change in a terminal keeps until its terminal ended.
-  _Hold? _terminalHold;
-
-  /// Holds every registry checkout read here for one change, under a token of its own: null, with its words said, while
-  /// a key recovery run holds one or a registry read or filing runs.
-  ///
-  /// With no registry read here, nothing is held: no checkout of this program's is then read or written beside the
-  /// change, and Core alone decides on the checkouts it read.
-  _Hold? _take() {
-    final checkouts = registries?.call();
-    final token = Object();
-    if (checkouts == null) return (checkouts: null, held: const <Registry>[], token: token);
-    try {
-      return (checkouts: checkouts, held: checkouts.holdAll(token), token: token);
-    } on RegistryRefusal catch (refused) {
-      problem = refused.words;
-      problemReason = null;
-      problemCode = null;
-      notifyListeners();
-      return null;
-    }
-  }
-
-  /// Reads each registry [hold] holds again through that hold, as Core may have moved its checkout's `HEAD` and card,
-  /// then lets go of them by its own token alone.
-  static Future<void> _letGo(_Hold hold) async {
-    try {
-      for (final registry in hold.held) {
-        // A registry never read has no read to go stale; its first read comes after the release.
-        if (registry.accepted == null && registry.problem == null) continue;
-        try {
-          await registry.readAgainHeld(hold.token);
-        } on Object {
-          // Said by the registry's own problem; the hold is let go of all the same.
-        }
-      }
-    } finally {
-      hold.checkouts?.releaseAll(hold.token);
-    }
-  }
-
-  /// Runs [work] holding the registry checkouts, and lets go of them by its own token alone.
-  Future<void> _holding(Future<void> Function() work) async {
-    final hold = _take();
-    if (hold == null) return;
-    try {
-      await work();
-    } finally {
-      await _letGo(hold);
-    }
-  }
-
-  @override
-  void dispose() {
-    unawaited(terminalGone());
-    super.dispose();
-  }
-
-  /// Where `XDG_CONFIG_HOME` and `HOME` are read, for the card's file.
-  final Map<String, String> environment;
+  IdentityModel(this.core, {AgentKeyList? keys}) : agentKeys = keys ?? core;
 
   /// Core's identity verbs.
   final Identity core;
@@ -1090,23 +1003,32 @@ class IdentityModel extends ChangeNotifier {
   /// The operation shown, from the last answer.
   IdentityOperation? operation;
 
-  /// An operation started whose answer was not read; Retry and read-back use its ID.
+  /// An operation started whose answer was not read; Retry asks it again under this ID.
   String? unfinishedId;
 
   /// The action of [unfinishedId]: `rotate` or `revoke-lost`.
   String? unfinishedAction;
+
+  /// The command a terminal runs again for [unfinishedId], when it was started in one.
+  List<String>? unfinishedCommand;
+
+  // How [unfinishedId] is asked again here, when it was not started in a terminal.
+  Future<IdentityOperation> Function()? _again;
+
+  /// The plan a lost key's new card was made after, for its words; absent when none was read in this window.
+  LostKeyPlan? handoverPlan;
+
+  /// The pending change another key is being chosen for; only it is passed over while the person chooses.
+  PendingIdentityOperation? replacing;
+
+  // Rows the organization holds, with Core's words: their first card stands and nothing more is offered.
+  final _standing = <String, String>{};
 
   /// The lost-key plan awaiting confirmation, with the new key (an agent's or KeePassXC's) and ID it was made for.
   ({LostKeyPlan plan, String? fingerprint, String? database, String? entry, String id})? lostKeyPlan;
 
   /// Core's exit code for [problem], when a call ended with one.
   int? problemCode;
-
-  /// The commit of the card filed last.
-  CardFiled? lastFiled;
-
-  // A filing whose answer was lost, kept per registry so a Retry sends the same ID on the same base.
-  final _filing = <String, ({String id, String base, String fingerprint})>{};
 
   /// The agent's keys, once read.
   List<AgentKey>? keys;
@@ -1130,8 +1052,8 @@ class IdentityModel extends ChangeNotifier {
       problemReason = error.reason;
       problemCode = error.code;
       return null;
-    } on FormatException {
-      problem = 'Core gave an answer this interface cannot read. Nothing is assumed from it.';
+    } on FormatException catch (error) {
+      problem = '${error.message} Nothing is assumed from this answer.';
       return null;
     } on Exception {
       problem = 'Core could not be run.';
@@ -1148,7 +1070,6 @@ class IdentityModel extends ChangeNotifier {
     if (read != null) {
       card = read;
       firstStart = false;
-      _dropSettledFilings(read);
     } else if (problem != null) {
       card = null;
     }
@@ -1179,70 +1100,151 @@ class IdentityModel extends ChangeNotifier {
 
   /// Why no new change of key (rotate or lost-key replacement) may start now, or null when one may.
   ///
-  /// An unfinished operation, here or in Core's pending list, is finished by its own ID; a second one would make a
-  /// second key.
+  /// An unfinished operation, here or in Core's pending list, comes first; a second one would make a second key.
   String? get whyNotStart {
     final read = card;
     if (read == null) return 'No card is read.';
     if (busy) return 'Still working.';
-    if (unfinishedId != null) return 'An earlier change has not answered. Retry it or read it back first.';
-    if (read.pending.isNotEmpty) return 'A change is still pending. Retry it or read it back first.';
+    if (unfinishedId != null) return 'An earlier change has not answered. Retry it first.';
+    if (read.pending.any((row) => row.id != replacing?.id)) {
+      return 'A change is still pending: try it again or use another key where it is listed.';
+    }
+    return null;
+  }
+
+  /// Why replacing a lost key may not start now, or null when it may. Porelo files nothing for it, and it replaces a
+  /// pending rotation, whose key may be the one that was lost, so only a replacement already pending holds it up.
+  String? get whyNotLostKey {
+    final read = card;
+    if (read == null) return 'No card is read.';
+    if (busy) return 'Still working.';
+    if (unfinishedId != null) return 'An earlier change has not answered. Retry it first.';
+    if (read.pending.any((row) => row.action != 'rotate' && row.id != replacing?.id)) {
+      return 'A change is still pending: try it again or use another key where it is listed.';
+    }
     return null;
   }
 
   /// Why "change my key" cannot be offered now, or null when it can: it also needs the current key.
-  String? get whyNotChange => whyNotStart ?? card?.whyKeyUnusable;
+  ///
+  /// A pending change being replaced is the way out when the agent no longer serves a key, so Core decides that one.
+  String? get whyNotChange => whyNotStart ?? (replacing == null ? card?.whyKeyUnusable : card?.whyCardCannotSign);
+
+  /// Core's words for a row whose change the organization already holds, or null while it offers something.
+  String? standing(PendingIdentityOperation row) => _standing[row.id];
+
+  String? _whyNoOffer(PendingIdentityOperation row) {
+    final read = card;
+    if (read == null) return 'No card is read.';
+    if (busy) return 'Still working.';
+    if (unfinishedId != null) return 'An earlier change has not answered. Retry it first.';
+    if (_standing[row.id] case final words?) return words;
+    return switch (row.action) {
+      'rotate' => read.whyCardCannotSign,
+      // Replacing a lost key needs nothing of the old one.
+      'revoke-lost' => null,
+      final word => 'Core calls this change “$word”, which this interface does not know, so nothing is offered for it.',
+    };
+  }
+
+  /// Why [row] cannot be tried again now, or null when it can: only with the key Core names for it.
+  String? whyNotTryAgain(PendingIdentityOperation row) {
+    if (_whyNoOffer(row) case final why?) return why;
+    if (row.fingerprint == null) {
+      return 'Core names no key for this change, so it cannot be asked again. Use another key starts it again.';
+    }
+    return null;
+  }
+
+  /// Why another key cannot be chosen for [row] now, or null when it can.
+  String? whyNotReplace(PendingIdentityOperation row) => _whyNoOffer(row);
+
+  /// Goes on with [row] under its own ID and key, whatever the attempt before answered: never a second change.
+  Future<void> tryAgain(PendingIdentityOperation row) async {
+    final fingerprint = row.fingerprint;
+    if (whyNotTryAgain(row) != null || fingerprint == null) return;
+    replacing = null;
+    final id = row.id;
+    final base = card?.revision;
+    final answer = await _step(
+      () => row.action == 'rotate'
+          ? core.rotate(fingerprint: fingerprint, id: id, base: base)
+          : core.replaceLostKey(fingerprint: fingerprint, id: id, base: base),
+    );
+    if (answer != null && answer.id != id) {
+      problem = 'Core answered for operation ${answer.id}, not $id. Nothing is assumed from it.';
+    } else if (answer != null) {
+      operation = answer;
+    } else if (problemReason == 'exists') {
+      _standing[id] = problem ?? 'The organization already holds this change.';
+    }
+    await _loadKeeping();
+  }
+
+  /// Lets the person choose another key for [row]; what runs then takes a new ID, as any new change does.
+  void startReplacing(PendingIdentityOperation row) {
+    if (whyNotReplace(row) != null) return;
+    replacing = row;
+    notifyListeners();
+  }
+
+  /// Goes back to [replacing] being pending, with no call.
+  void stopReplacing() {
+    replacing = null;
+    notifyListeners();
+  }
+
+  // A replacement came to an end: a row the organization holds stays as it stands and offers nothing more.
+  void _replacementEnded(String? reason, String? words) {
+    final row = replacing;
+    replacing = null;
+    if (row != null && reason == 'exists') _standing[row.id] = words ?? 'The organization already holds this change.';
+  }
 
   /// Why [successor] cannot replace the current key, or null when it can.
-  String? whyNotSuccessor(AgentKey successor) {
+  String? whyNotSuccessor(AgentKey successor, {bool forLostKey = false}) {
     if (!successor.usable) return successor.whyNot;
     if (successor.fingerprint == card?.fingerprint) return 'This is your current key.';
+    if (card?.pending.any(
+          (row) => row.fingerprint == successor.fingerprint && !(forLostKey && row.action == 'rotate'),
+        ) ??
+        false) {
+      return 'A pending change waits for this key: Try again goes on with it.';
+    }
     return null;
   }
 
   /// Changes the key to [successor] once; a lost answer leaves only Retry.
   Future<void> rotate(AgentKey successor) async {
     if (whyNotChange != null || whyNotSuccessor(successor) != null) return;
-    await _holding(() async {
-      final id = newOperationId('rot');
-      _started(id, 'rotate');
-      await _runOperation(() => core.rotate(fingerprint: successor.fingerprint, id: id), id);
-    });
+    final id = newOperationId('rot');
+    final base = card?.revision;
+    await _ask(id, 'rotate', () => core.rotate(fingerprint: successor.fingerprint, id: id, base: base));
   }
 
   /// Takes a rotation to a new KeePassXC key once and answers the command its terminal runs; null when refused.
   ///
-  /// The ID is kept before the terminal opens, so afterwards only [terminalEnded] reads it back.
+  /// The ID is kept before the terminal opens, so afterwards only [terminalEnded] takes it.
   ({List<String> command, String id})? rotateInTerminal({required String database, String? entry}) {
-    if (whyNotChange != null || _terminalHold != null) return null;
+    if (whyNotChange != null) return null;
     final id = newOperationId('rot');
     final List<String> command;
     try {
-      command = Identity.rotateInKeepassxc(database: database, entry: entry, id: id);
+      command = Identity.rotateInKeepassxc(database: database, entry: entry, id: id, base: card?.revision);
     } on FormatException catch (error) {
       problem = error.message;
       notifyListeners();
       return null;
     }
-    // Held until its terminal ended: Core changes the key in the registry checkout there.
-    final hold = _take();
-    if (hold == null) return null;
-    _terminalHold = hold;
-    _started(id, 'rotate');
+    _started(id, 'rotate', command: command);
     return (command: command, id: id);
   }
 
-  /// Lets go of the registry checkouts a key change in a terminal held, once that terminal ended or went away, after
-  /// reading each again.
-  Future<void> terminalGone() async {
-    final hold = _terminalHold;
-    _terminalHold = null;
-    if (hold != null) await _letGo(hold);
-  }
-
-  void _started(String id, String action) {
+  void _started(String id, String action, {List<String>? command, Future<IdentityOperation> Function()? again}) {
     unfinishedId = id;
     unfinishedAction = action;
+    unfinishedCommand = command;
+    _again = again;
     notifyListeners();
   }
 
@@ -1250,38 +1252,35 @@ class IdentityModel extends ChangeNotifier {
     if (unfinishedId == id) {
       unfinishedId = null;
       unfinishedAction = null;
+      unfinishedCommand = null;
+      _again = null;
     }
   }
 
-  /// The action of operation [id] as far as this interface knows it, or null.
-  String? actionOf(String id) {
-    if (id == unfinishedId) return unfinishedAction;
-    for (final pending in card?.pending ?? const <PendingIdentityOperation>[]) {
-      if (pending.id == id) return pending.action;
-    }
-    return operation?.id == id ? operation!.action : null;
-  }
-
-  /// Why operation [id] cannot be retried by publishing now, or null when it can.
-  ///
-  /// Only a rotation is published again, and only while the current key may sign; a lost-key replacement waits for
-  /// the people named and is only read back.
-  String? whyNotRetry(String id) {
+  /// Why the unfinished operation cannot be asked again now, or null when it can; a rotation also needs the current key.
+  String? get whyNotRetry {
     if (busy) return 'Still working.';
-    if (actionOf(id) != 'rotate') return 'Only read back: it waits for the people named to accept it.';
+    if (unfinishedId == null) return 'Nothing is unfinished.';
+    if (unfinishedAction != 'rotate') return null;
     final read = card;
     if (read == null) return 'No card is read.';
-    return read.whyKeyUnusable;
+    return replacing == null ? read.whyKeyUnusable : read.whyCardCannotSign;
   }
 
-  /// Sends the places of rotation [id] not done, never a second change.
-  Future<void> retry(String id) async {
-    if (whyNotRetry(id) != null) return;
-    await _holding(() => _runOperation(() => core.publish(id), id));
+  /// Asks the unfinished operation again under its ID, which answers what it did; never a second change.
+  Future<void> retry() async {
+    final id = unfinishedId;
+    final again = _again;
+    if (whyNotRetry != null || id == null || again == null) return;
+    await _runOperation(again, id);
   }
 
-  /// Reads [id] back, changing nothing.
-  Future<void> readBack(String id) => _runOperation(() => core.status(id), id);
+  Future<void> _ask(String id, String action, Future<IdentityOperation> Function() call) async {
+    _started(id, action, again: call);
+    await _runOperation(call, id);
+  }
+
+  // After 69, 70 or a killed process the change may have been made; every other refusal made nothing.
 
   Future<void> _runOperation(Future<IdentityOperation> Function() call, String id) async {
     final answer = await _step(call);
@@ -1294,13 +1293,18 @@ class IdentityModel extends ChangeNotifier {
       }
       operation = answer;
       _settled(id);
-    } else if (nothingMade.contains(problemReason) && operation?.id != id) {
-      // A typed refusal before anything was made: no operation exists under this ID.
+      _replacementEnded(null, null);
+    } else if (problemReason == 'no-identity' || !mayHaveMade(problemCode)) {
       _settled(id);
+      _replacementEnded(problemReason, problem);
     } else {
       return;
     }
-    // Core's pending list, not this answer, says what is still open.
+    await _loadKeeping();
+  }
+
+  // Core's pending list, not this answer, says what is still open; a refusal's words stay beside it.
+  Future<void> _loadKeeping() async {
     final words = problem;
     final reason = problemReason;
     await load();
@@ -1324,24 +1328,12 @@ class IdentityModel extends ChangeNotifier {
     return read.whyKeyUnusable;
   }
 
-  /// Takes what a terminal running create or rotate ended with, reading Core back and never running it again.
+  /// Takes what a terminal running create or a key change ended with, and never runs it again by itself.
   ///
-  /// [id] is the rotation's ID, absent for create; [lastLine] is the terminal's last line, Core's JSON when it fits.
+  /// [id] is the change's ID, absent for create; [lastLine] is the terminal's last line, Core's JSON when it fits.
   Future<void> terminalEnded({required int code, required String lastLine, String? id}) async {
-    await terminalGone();
     final typed = code == 0 ? null : Identity.typedRefusal(lastLine);
-    if (id != null) {
-      if (typed != null && nothingMade.contains(typed.reason)) {
-        _settled(id);
-        await load();
-        problem = typed.words;
-        problemReason = typed.reason;
-        notifyListeners();
-        return;
-      }
-      await readBack(id);
-      return;
-    }
+    if (id != null) return _changeEnded(id, code: code, lastLine: lastLine, words: typed?.words, reason: typed?.reason);
     await load();
     // A failed create is said even when a card is read: it may be an older one, not the one asked for.
     if (code != 0) {
@@ -1351,10 +1343,44 @@ class IdentityModel extends ChangeNotifier {
     }
   }
 
+  Future<void> _changeEnded(
+    String id, {
+    required int code,
+    required String lastLine,
+    required String? words,
+    required String? reason,
+  }) async {
+    final action = unfinishedAction ?? 'rotate';
+    String? said = words;
+    if (code == 0) {
+      try {
+        operation = Identity.terminalAnswer(lastLine, id: id, action: action);
+        _settled(id);
+        _replacementEnded(null, null);
+      } on FormatException catch (error) {
+        said = '${error.message} It may have been made: Retry asks again under the same ID.';
+      }
+    } else if (mayHaveMade(code)) {
+      said =
+          '${words ?? 'The terminal ended with no answer read.'} It may have been made: Retry asks again under the '
+          'same ID.';
+    } else {
+      said = words ?? 'It ended with exit $code. The terminal says why.';
+      _settled(id);
+      _replacementEnded(reason, said);
+    }
+    await load();
+    if (said != null) {
+      problem = said;
+      problemReason = reason;
+      notifyListeners();
+    }
+  }
+
   /// Shows what replacing a lost key by [successor] would do, before any confirmation.
   Future<void> planLostKey(AgentKey successor) async {
     lostKeyPlan = null;
-    if (whyNotStart != null || whyNotSuccessor(successor) != null) return;
+    if (whyNotLostKey != null || whyNotSuccessor(successor, forLostKey: true) != null) return;
     final plan = await _step(() => core.planLostKey(fingerprint: successor.fingerprint));
     if (plan != null) {
       lostKeyPlan = (
@@ -1371,7 +1397,7 @@ class IdentityModel extends ChangeNotifier {
   /// Shows what replacing a lost key by a new one in KeePassXC [database] would do, before any confirmation.
   Future<void> planLostKeyInKeepassxc({required String database, String? entry}) async {
     lostKeyPlan = null;
-    if (whyNotStart != null) return;
+    if (whyNotLostKey != null) return;
     final plan = await _step(() => core.planLostKey(database: database, entry: entry));
     if (plan != null) {
       lostKeyPlan = (plan: plan, fingerprint: null, database: database, entry: entry, id: newOperationId('lost'));
@@ -1381,20 +1407,27 @@ class IdentityModel extends ChangeNotifier {
 
   /// Takes the reviewed KeePassXC plan once and answers the command its terminal runs; null when none waits.
   ///
-  /// The ID is kept before the terminal opens, so afterwards only [terminalEnded] reads it back.
+  /// The ID is kept before the terminal opens, so afterwards only [terminalEnded] takes it.
   ({List<String> command, String id})? confirmLostKeyInTerminal() {
     final reviewed = lostKeyPlan;
     final database = reviewed?.database;
-    if (reviewed == null || database == null || whyNotStart != null) return null;
-    final command = Identity.replaceLostKeyInKeepassxc(database: database, entry: reviewed.entry, id: reviewed.id);
+    if (reviewed == null || database == null || whyNotLostKey != null) return null;
+    final command = Identity.replaceLostKeyInKeepassxc(
+      database: database,
+      entry: reviewed.entry,
+      id: reviewed.id,
+      base: card?.revision,
+    );
     lostKeyPlan = null;
-    _started(reviewed.id, 'revoke-lost');
+    handoverPlan = reviewed.plan;
+    _started(reviewed.id, 'revoke-lost', command: command);
     return (command: command, id: reviewed.id);
   }
 
   /// Drops the plan without any call.
   void cancelLostKey() {
     lostKeyPlan = null;
+    replacing = null;
     notifyListeners();
   }
 
@@ -1402,95 +1435,18 @@ class IdentityModel extends ChangeNotifier {
   Future<void> confirmLostKey() async {
     final reviewed = lostKeyPlan;
     final fingerprint = reviewed?.fingerprint;
-    if (reviewed == null || fingerprint == null || whyNotStart != null || fingerprint == card?.fingerprint) return;
+    if (reviewed == null || fingerprint == null || whyNotLostKey != null || fingerprint == card?.fingerprint) return;
     lostKeyPlan = null;
-    _started(reviewed.id, 'revoke-lost');
-    await _runOperation(() => core.replaceLostKey(fingerprint: fingerprint, id: reviewed.id), reviewed.id);
-  }
-
-  // A kept filing ends once Core reads the registry's card as filed, pending or unknown, or the card's key changed.
-  void _dropSettledFilings(IdentityCard read) {
-    if (read.revoked || read.cardRefused != null) {
-      _filing.clear();
-      return;
-    }
-    final open = {
-      for (final registry in read.registry)
-        if (_fileable.contains(registry.filed)) registry.address,
-    };
-    _filing.removeWhere((address, kept) => !open.contains(address) || kept.fingerprint != read.fingerprint);
-  }
-
-  // The states in which a card is filed, or a lost filing retried: none there yet, or the last one refused.
-  static const _fileable = {FiledState.absent, FiledState.refused};
-
-  /// Whether a filing in [registry] lost its answer, so its button retries the same request.
-  bool filingUnanswered(IdentityRegistry registry) => _filing.containsKey(registry.address);
-
-  /// Why the card cannot be filed in [registry] now, or null when it can.
-  String? whyNotFile(IdentityRegistry registry) {
-    if (busy) return 'Still working.';
-    final read = card;
-    if (read == null) return 'No card is read.';
-    if (!registry.mayFile) return 'Only an owner may file it here.';
-    if (read.whyKeyUnusable case final why?) return why;
-    if (checkoutFor?.call(registry.address) == null) return 'No checkout of this registry is on this computer.';
-    if (!_fileable.contains(registry.filed)) return 'It is filed already.';
-    // A kept request is retried as it was, against its own base, while Core still reads no accepted card there.
-    if (_filing[registry.address] case final kept?) {
-      return kept.fingerprint == read.fingerprint
-          ? null
-          : 'Read your card again: Core no longer names the request that lost its answer.';
-    }
-    final revision = registry.revision;
-    if (revision == null) return 'Core named no registry revision to file against.';
-    try {
-      checkedRegistryRevision(revision);
-    } on FormatException {
-      return 'Core named no full registry revision to file against.';
-    }
-    return null;
-  }
-
-  /// Files the card once; a lost answer keeps the request, a refusal reads again and asks again.
-  Future<void> fileCard(IdentityRegistry registry) async {
-    if (whyNotFile(registry) != null) return;
-    final checkout = checkoutFor?.call(registry.address);
-    if (checkout == null) return;
-    // Core commits in the registry checkout: held meanwhile, so no recovery run or registry read meets it half made.
-    await _holding(() => _fileCard(registry, checkout));
-  }
-
-  Future<void> _fileCard(IdentityRegistry registry, String checkout) async {
-    final request =
-        _filing[registry.address] ??
-        (id: newOperationId('card'), base: registry.revision!, fingerprint: card!.fingerprint);
-    _filing[registry.address] = request;
-    final filed = await _step(
-      () => core.fileCard(checkout: checkout, card: Identity.cardFile(environment), id: request.id, base: request.base),
+    handoverPlan = reviewed.plan;
+    final base = card?.revision;
+    await _ask(
+      reviewed.id,
+      'revoke-lost',
+      () => core.replaceLostKey(fingerprint: fingerprint, id: reviewed.id, base: base),
     );
-    if (filed != null) {
-      _filing.remove(registry.address);
-      lastFiled = filed;
-      await load();
-      // Core files the card and pushes nothing: until it is pushed, the checkout holds a commit the repository does not.
-      problem =
-          'Your card is committed in the registry checkout as ${filed.commit}, and not pushed: push it with your own '
-          'Git, then refresh the registry. Until then the registry is not read here.';
-      problemReason = null;
-      notifyListeners();
-      return;
-    }
-    if (problemCode == 65) {
-      // Refused, a base conflict too: nothing was filed under this request, so the next one is a new decision.
-      _filing.remove(registry.address);
-      final words = problem;
-      await load();
-      problem = '$words Check your card here again and file it again if it is still missing.';
-      notifyListeners();
-    }
   }
-}
 
-/// A change's hold on the registry checkouts: what it holds them through, which it holds, and its own token.
-typedef _Hold = ({RegistryCheckouts? checkouts, List<Registry> held, Object token});
+  /// Whether a new card waits here for a lost key: one just replaced, or one Core still lists as pending.
+  bool get lostKeyCardMade =>
+      operation?.action == 'revoke-lost' || (card?.pending.any((pending) => pending.action == 'revoke-lost') ?? false);
+}

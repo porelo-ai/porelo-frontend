@@ -210,15 +210,29 @@ is; a second consumer of the client code is what would change that.
 
 ## Projects on prepared hosts
 
-Host and project actions consume Core's verified person, host and admission state. A project follows only
-with the verified project-admin signer set. Register and join run through the shared SSH host connection
-and keep a project-to-host association only after the host confirms the intended revision. No wizard asks
-for host values, project signing keys, laptop keys or host secrets.
+Host and project actions consume Core's verified person, host and admission state. No wizard asks for host
+values, project signing keys, laptop keys or host secrets.
 
-`SignedHostActions` and `ServerPreparation` isolate the pending served contracts. Their default absence is
-reported before registration or setup can proceed. Their tests use fakes; the final adapters and a real
-interoperability check are still required. SSH forwarding and unlock integration belong to the shared host
-transport. Provider sign-ins and the local vault keep their own terminal paths.
+*Push the approved main…* and *Take the central state…* run the host's own commands for a person whom
+`porelo project list` gives a role in that project and does not list as locked. The list is read at start, on
+every refresh and again when either is chosen. While it cannot be read, or where this computer reads no
+organization, both stay listed as unavailable with the reason.
+
+*Prepare a server…* opens for a person the organization names as a host admin of that very host, judged on what
+`porelo org --json` answers, read again before anything happens; a `stale` answer prepares nothing. The dialog
+names the person's own key in the line that lets them in as root, in a terminal of their own. Before `up` starts,
+the interface writes the machine file whose `organization` part the host reads: the organization's `settings`, the
+central forge's lines from the person's own `known_hosts` (first use is not trusted, so none stops here) and a
+`login key` pin from every row of `hosts[].admins`, backup keys included; a row with no key refuses the whole pin.
+Porelo's answers name no organization address yet, so `HostAccess` has no addressing composed and says so: no
+server is prepared from this version until that is settled.
+
+When `up` reports the host, its real address, ssh port, host key and service ports go on its card by `porelo org
+host change`, the machine is added and followed, and the token is handed over once. Should `up` stop, or the card be
+refused, what was rented is given back and that is said in words; a give-back that fails keeps the recovery record.
+After a give-back the card still names the host, which only an organization owner can remove, and the interface
+says that too. SSH forwarding and unlock integration belong to the shared host transport. Provider sign-ins and the
+local vault keep their own terminal paths.
 
 A saved rental made before one-click joining stays visible for give-back or setup again. Its provider
 project and original rental tag remain readable; retired trust and credential metadata is ignored. An old
@@ -226,11 +240,6 @@ machine is never connected with its saved private-key path. Failed or unconfirme
 rental. Explicitly confirmed legacy give-back does not run obsolete backup or teardown credentials and
 clears recovery only after the provider confirms removal. Setup again receives that existing rental,
 without discarding its recovery record while the replacement flow runs.
-
-The private access checkout and bundle utilities still verify signatures before advancing a checkout or
-publishing. The accepted project-admin signer set replaces a selected project key. Publication failures
-preserve the clean persistent checkout and never produce an unpublished access bundle. The interface no
-longer generates a machine file containing its own signing or trust schema; the served contract owns it.
 
 ## Windows
 
@@ -309,7 +318,7 @@ distribution with Porelo. On a Windows 10 2004 or later, or Windows 11, with WSL
 2. **Add the distribution** with *Watch another machine…* → WSL: the setup is offered, every line
    shown, the snapshot channel chosen as Porelo's `doc/getting-started.md` says under "Snapshots";
    the distribution is reached afterwards.
-3. **Follow a project, start work, attach its terminal**: type, resize, scroll, and go back.
+3. **Start work in a project, attach its terminal**: type, resize, scroll, and go back.
 4. **Approve a push at the gate**; it arrives at the upstream.
 5. **No ssh and no port:** in the distribution, `ss -ltnp` shows no `sshd` and no `porelod` on TCP
    while the interface works with it.

@@ -23,9 +23,9 @@ class HostCardSsh {
     required this.hostKey,
     required this.login,
     required this.publicKey,
-    required this.webPort,
-    required this.gitPort,
-    required this.matrixPort,
+    this.webPort,
+    this.gitPort,
+    this.matrixPort,
   }) {
     if (!RegExp(r'^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$').hasMatch(name)) {
       throw const HostFilesRefused('A host name must be a lower-case DNS label.');
@@ -65,7 +65,13 @@ class HostCardSsh {
     final services = value['services'];
     final forge = services is Map ? services['forge'] : null;
     final matrix = services is Map ? services['matrix'] : null;
-    if (forge is! Map || matrix is! Map) throw const HostFilesRefused('The host card needs forge and matrix services.');
+    // Both are named, a service the host does not run as null: a card that says neither was not written from this shape.
+    if (services is! Map || !services.containsKey('forge') || !services.containsKey('matrix')) {
+      throw const HostFilesRefused('The host card needs forge and matrix services.');
+    }
+    if ((forge != null && forge is! Map) || (matrix != null && matrix is! Map)) {
+      throw const HostFilesRefused('The host card names its services unreadably.');
+    }
     return HostCardSsh(
       name: text('name'),
       address: text('address'),
@@ -73,9 +79,9 @@ class HostCardSsh {
       hostKey: text('host_key'),
       login: text('login'),
       publicKey: text('public_key'),
-      webPort: number(forge, 'web_port'),
-      gitPort: number(forge, 'git_port'),
-      matrixPort: number(matrix, 'port'),
+      webPort: forge is Map ? number(forge, 'web_port') : null,
+      gitPort: forge is Map ? number(forge, 'git_port') : null,
+      matrixPort: matrix is Map ? number(matrix, 'port') : null,
     );
   }
 
@@ -97,17 +103,24 @@ class HostCardSsh {
   /// The selected public identity, whose private half stays in the local agent.
   final String publicKey;
 
-  /// The fixed local forge web port.
-  final int webPort;
+  /// The fixed local forge web port, or null on a host running no forge.
+  final int? webPort;
 
-  /// The fixed local Git-over-HTTP port.
-  final int gitPort;
+  /// The fixed local Git-over-HTTP port, or null on a host running no forge.
+  final int? gitPort;
 
-  /// The fixed local Matrix port.
-  final int matrixPort;
+  /// The fixed local Matrix port, or null on a host running no homeserver.
+  final int? matrixPort;
 
   /// The local ports reserved by this card.
-  List<int> get ports => [webPort, gitPort, matrixPort];
+  List<int> get ports => [for (final (port, _) in forwards) port];
+
+  /// Each local port with the service endpoint on the host it reaches: only what the host runs.
+  List<(int, String)> get forwards => [
+    if (webPort case final port?) (port, serviceSockets[0]),
+    if (gitPort case final port?) (port, serviceSockets[1]),
+    if (matrixPort case final port?) (port, serviceSockets[2]),
+  ];
 
   /// The agreed Unix service endpoints on the host.
   static const serviceSockets = [
@@ -122,11 +135,11 @@ class HostCardSsh {
   /// The only permitted remote messenger endpoint, in that person's own directory.
   String get returnSocket => '/run/porelo-host/people/$login/return.sock';
 
-  /// The forge web address advertised to browsers.
-  String get forgeUrl => 'http://$name.localhost:$webPort/';
+  /// The forge web address advertised to browsers, or null with no forge.
+  String? get forgeUrl => webPort == null ? null : 'http://$name.localhost:$webPort/';
 
-  /// The homeserver address advertised to Element.
-  String get matrixUrl => 'http://$name.localhost:$matrixPort/';
+  /// The homeserver address advertised to Element, or null with no homeserver.
+  String? get matrixUrl => matrixPort == null ? null : 'http://$name.localhost:$matrixPort/';
 
   /// The short control endpoint inside the private config directory.
   String controlSocket(String config) => path.join(
@@ -143,8 +156,8 @@ class HostCardSsh {
     'login': login,
     'public_key': publicKey,
     'services': {
-      'forge': {'web_port': webPort, 'git_port': gitPort},
-      'matrix': {'port': matrixPort},
+      'forge': webPort == null || gitPort == null ? null : {'web_port': webPort, 'git_port': gitPort},
+      'matrix': matrixPort == null ? null : {'port': matrixPort},
     },
   };
 

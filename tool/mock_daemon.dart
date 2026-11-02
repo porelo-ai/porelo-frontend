@@ -37,7 +37,7 @@ Future<void> main(List<String> args) async {
     return;
   }
 
-  final followedProjects = <({String name, String url, String commit})>[];
+  final seededProjects = <({String name, String url, String commit})>[];
   if (args.length > 2) {
     if (args.length != 5 ||
         !RegExp(r'^[A-Za-z0-9][A-Za-z0-9_-]*$').hasMatch(args[2]) ||
@@ -47,12 +47,12 @@ Future<void> main(List<String> args) async {
       exitCode = 64;
       return;
     }
-    followedProjects.add((name: args[2], url: File(args[3]).absolute.path, commit: args[4]));
+    seededProjects.add((name: args[2], url: File(args[3]).absolute.path, commit: args[4]));
   }
 
   final daemon = MockDaemon();
   await daemon.start();
-  final machine = MockMachine(daemon, situation: situation, followedProjects: followedProjects);
+  final machine = MockMachine(daemon, situation: situation, seededProjects: seededProjects);
 
   // The daemon picks a fresh temporary path every run, which makes the one instruction anybody
   // needs impossible to copy. A link at a stable name fixes that; a unix socket connects through

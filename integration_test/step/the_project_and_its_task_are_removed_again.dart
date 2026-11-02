@@ -21,11 +21,11 @@ PATH="\$HOME/.local/bin:\$PATH"
 set -e
 porelo task stop porelo-$name-write >/dev/null
 porelo task remove --force porelo-$name-write >/dev/null
-porelo project unfollow --force $name >/dev/null
-rm -rf "\$HOME/$name"
+porelo project remove $name >/dev/null
+${removingTheProjectFiles(name)}
 porelo task list
 porelo project list
 ''');
   expect(left, isNot(contains('porelo-$name-')));
-  expect(left, isNot(contains(RegExp('\\b${RegExp.escape(name)}\\b'))), reason: '$name is still followed');
+  expect(left, isNot(contains(RegExp('\\b${RegExp.escape(name)}\\b'))), reason: '$name is still listed');
 }

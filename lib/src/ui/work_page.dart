@@ -67,7 +67,6 @@ class WorkPage extends StatefulWidget {
     required this.view,
     this.reveal,
     this.onAddAMachine,
-    this.onSetUpAProject,
     super.key,
   });
 
@@ -80,9 +79,6 @@ class WorkPage extends StatefulWidget {
 
   /// Adds a machine: this computer, or one reached over ssh.
   final VoidCallback? onAddAMachine;
-
-  /// Sets up a project from a repository the person has; null where no machine answers.
-  final VoidCallback? onSetUpAProject;
 
   /// Every machine watched.
   final Machines machines;
@@ -202,15 +198,11 @@ class _WorkPageState extends State<WorkPage> {
           2,
           'project',
           'A project, or none',
-          'How work runs: its repositories, who reviews what it pushes. Work can also run without one.',
+          'How work runs: its repositories, who reviews what it pushes. A project comes from your organization; '
+              'work can also run without one.',
           projectReady,
           machineReady,
           <Widget>[
-            FilledButton(
-              key: const Key('first-set-up-project'),
-              onPressed: widget.onSetUpAProject,
-              child: const Text('From a repository you have'),
-            ),
             OutlinedButton(
               key: const Key('first-no-project'),
               onPressed: () => setState(() => _withoutAProject = true),

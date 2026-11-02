@@ -4,12 +4,9 @@ import 'package:porelo_frontend/client.dart';
 import '../app/commands.dart';
 import '../app/fleet_model.dart';
 import '../app/machines.dart';
-import '../app/registry_pages.dart';
 import 'command_menu.dart';
 import 'expandable_list_row.dart';
 import 'filtered_list_section.dart';
-import 'projects_page.dart';
-import 'registry_persons.dart';
 import 'tokens.dart';
 
 /// One project on one machine, without transferring selection on matching names.
@@ -18,14 +15,12 @@ class ProjectDetailsPage extends StatelessWidget {
   const ProjectDetailsPage({
     required this.machine,
     required this.project,
-    required this.registry,
     required this.commands,
     required this.onBack,
     required this.onMachine,
     this.highlight,
     this.onShown,
     this.details,
-    this.admission,
     this.jobs = const [],
     super.key,
   });
@@ -35,12 +30,6 @@ class ProjectDetailsPage extends StatelessWidget {
 
   /// The project on this specific machine.
   final ProjectOnScreen project;
-
-  /// The verified registry decisions and separate host confirmations.
-  final RegistryPages registry;
-
-  /// The exact registry admission opened by the row.
-  final RegistryPageItem? admission;
 
   /// The commands scoped to this item.
   final List<Command> commands;
@@ -65,7 +54,6 @@ class ProjectDetailsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final item = admission;
     final isDefault = project.name == defaultProject;
     return ListView(
       key: ValueKey('project-details ${machine.name}/${project.name}'),
@@ -92,10 +80,8 @@ class ProjectDetailsPage extends StatelessWidget {
             ),
           ],
         ),
-        Text('on ${machine.name}${item == null ? '' : ' · ${item.target.registry}'}'),
-        if (item != null) Text('${item.role} · ${item.state} · ${registryStateWords(registry, item)}'),
+        Text('on ${machine.name}'),
         ?details,
-        if (!isDefault) RegistryPersons(registry: registry, item: item),
         FilteredListSection(
           title: 'Machines',
           storageId: 'project-machines ${machine.name}/${project.name}',
@@ -105,16 +91,12 @@ class ProjectDetailsPage extends StatelessWidget {
               words: machine.name,
               child: ItemListRow(
                 title: machine.name,
-                subtitle: item == null ? 'Host application state unknown' : registryStateWords(registry, item),
+                subtitle: machine.where,
                 leading: const Icon(Icons.dns_outlined),
                 onOpen: onMachine,
                 menu: CommandMenu(
                   tooltip: 'Machine for ${project.label}',
-                  commands: [
-                    listOpenCommand(label: 'Open the machine', home: Home.machineRow, open: onMachine),
-                    if (!isDefault && item != null)
-                      ...registryItemCommands(context, registry, item, [RegistryOperation.takeOffHost]),
-                  ],
+                  commands: [listOpenCommand(label: 'Open the machine', home: Home.machineRow, open: onMachine)],
                 ),
               ),
             ),

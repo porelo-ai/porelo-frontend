@@ -8,9 +8,6 @@ import 'package:porelo_frontend/client.dart';
 import 'fleet_model.dart';
 import 'host_runs.dart';
 import 'host_access.dart';
-import 'key_recovery.dart';
-import 'registry.dart';
-import 'project_developers.dart';
 import 'desk.dart';
 import 'product.dart';
 import 'roles.dart';
@@ -20,7 +17,6 @@ import 'narrowing.dart';
 import 'notifications.dart';
 import 'operations.dart';
 import 'session.dart';
-import 'registry_pages.dart';
 import 'settings.dart';
 import 'shell_model.dart';
 import 'start_agents.dart';
@@ -52,9 +48,6 @@ enum Home {
   /// The start button and menu on a repository's row on its project page.
   repositoryRow,
 
-  /// The entry that follows a repository, which is how a project comes to a machine.
-  followRepository,
-
   /// The tile that starts work.
   startTile,
 
@@ -73,6 +66,9 @@ enum Home {
   /// An action on a forge row.
   forgeRow,
 
+  /// An action in a row or a section of the organization's page.
+  organizationRow,
+
   /// An action on a Needs you row.
   attentionRow,
 
@@ -85,6 +81,10 @@ enum Home {
   /// Actions in the view open over the frame.
   openedView,
 }
+
+/// One action on the organization's page, which offers it only to the person whose role it belongs to.
+Command organizationCommand({required String id, required String label, required VoidCallback run}) =>
+    Command(id: 'organization.$id', label: label, group: 'Organization', home: Home.organizationRow, run: run);
 
 /// Leaves a view onto work without interrupting the work itself.
 Command leaveWorkCommand(VoidCallback leave, {String? unavailable}) => Command(
@@ -442,20 +442,25 @@ Command unlockWaitingMessages(Machine machine, FleetModel fleet, VoidCallback? u
   unavailable: unlock == null ? 'this machine cannot be unlocked from here' : notAnswering(fleet),
 );
 
-/// Opens the existing removal preview for one held project on its row's machine.
-Command stopFollowingWaitingProject(Machine machine, FleetModel fleet, Project project, VoidCallback? preview) =>
-    Command(
-      id: 'messages.unfollow/${machine.name}/${project.name}',
-      label: 'Stop following ${project.name}…',
-      group: 'Messages',
-      home: Home.attentionRow,
-      run: () => preview?.call(),
-      unavailable: project.name == defaultProject
-          ? 'default is always there: it is where work without a project goes'
-          : preview == null
-          ? 'not from here'
-          : notAnswering(fleet),
-    );
+/// Opens the removal preview for one held project on its row's machine; [whyNoRemoval] is why it is not offered.
+Command removeWaitingProject(
+  Machine machine,
+  FleetModel fleet,
+  Project project,
+  VoidCallback? preview, {
+  required String? whyNoRemoval,
+}) => Command(
+  id: 'messages.removeProject/${machine.name}/${project.name}',
+  label: 'Remove ${project.name}…',
+  group: 'Messages',
+  home: Home.attentionRow,
+  run: () => preview?.call(),
+  unavailable: project.name == defaultProject
+      ? 'default is always there: it is where work without a project goes'
+      : preview == null
+      ? 'not from here'
+      : whyNoRemoval ?? notAnswering(fleet),
+);
 
 /// Repeats the read that listed held messages, on that row's machine.
 Command askForHeldMessages(Machine machine, FleetModel fleet) => Command(
@@ -530,16 +535,12 @@ List<Command> projectCommands({
   required VoidCallback showTheBackups,
   required VoidCallback checkWorkCanStart,
   required VoidCallback removeWhatWasBuilt,
+  required String? whyNoRemoval,
   VoidCallback? clearTheProject,
   VoidCallback? showTheMessages,
   VoidCallback? openItsForge,
-  VoidCallback? openDevelopers,
   String? itsForgeIsMissing,
   VoidCallback? showTheDefault,
-  String? registryAccessUnavailable,
-  VoidCallback? putOnAServer,
-  VoidCallback? takeOffServer,
-  String? takeOffServerBusy,
   VoidCallback? startTheAgents,
 }) {
   const nothing = 'no project selected';
@@ -549,7 +550,7 @@ List<Command> projectCommands({
       ? nothing
       : project.canBeActedOn
       ? null
-      : '${project.name} is not a project this machine follows';
+      : '${project.name} is not on this machine';
   return <Command>[
     // The long-running agents of the project's repositories, each with the agent its project.yml names.
     Command(
@@ -617,19 +618,6 @@ List<Command> projectCommands({
           ? '${project.name} has no conversation: none of its peers is reached through a transport of its own'
           : null,
     ),
-    Command(
-      id: 'project.developers',
-      role: Role.projectAdmin,
-      label: 'Project settings: Developers…',
-      group: 'Project',
-      home: Home.projectMenu,
-      run: openDevelopers ?? () {},
-      unavailable:
-          noFile ??
-          (isDefault
-              ? 'default has no private access file'
-              : registryAccessUnavailable ?? (openDevelopers == null ? 'not offered here' : null)),
-    ),
     // The tools for after a project is set up, kept out of the way of setting it up: its keys at
     // the forge, the machines it trusts, changes waiting at this machine, and stopping work here.
     Command(
@@ -645,7 +633,7 @@ List<Command> projectCommands({
           : itsForgeIsMissing,
     ),
     // The repositories worked on without a project: added by address or picked at a forge, and
-    // taken out again once a followed project names them.
+    // taken out again once a project names them.
     Command(
       id: 'project.default',
       label: 'Repositories worked on without a project',
@@ -702,28 +690,9 @@ List<Command> projectCommands({
           ? 'default is always there: it is where work without a project goes'
           : null,
     ),
-    // `porelo-host` does it; this only opens the page that runs it and shows what it says.
-    Command(
-      id: 'project.server',
-      role: Role.projectAdmin,
-      label: 'Register the project',
-      group: 'Project',
-      home: Home.projectMenu,
-      run: putOnAServer ?? () {},
-      unavailable:
-          noFile ??
-          (project!.name == defaultProject
-              ? 'default is this machine\'s own: it goes on no server'
-              : registryAccessUnavailable ??
-                    _setupAgainUnavailable(hostRuns, project.name) ??
-                    (putOnAServer == null
-                        ? 'project placement needs Linux and a pinned own-account SSH connection'
-                        : null)),
-    ),
-    takeProjectOffServerCommand(project?.name, run: takeOffServer, busy: takeOffServerBusy),
     Command(
       id: 'project.delete',
-      label: 'Stop following this project',
+      label: 'Remove this project',
       group: 'Project',
       home: Home.projectMenu,
       run: removeWhatWasBuilt,
@@ -732,32 +701,9 @@ List<Command> projectCommands({
           ? nothing
           : project.name == defaultProject
           ? 'default is always there: it is where work without a project goes'
-          : null,
+          : whyNoRemoval,
     ),
   ].map((command) => command.unless(notAnswering(fleet))).toList();
-}
-
-/// Offers registry removal when its adapter is available and setup is idle.
-Command takeProjectOffServerCommand(String? project, {VoidCallback? run, String? busy}) {
-  const fromServerMenu = 'a host admin removes the project from the registry host access list';
-  return Command(
-    id: 'project.takeOffServer',
-    role: Role.hostAdmin,
-    label: 'Take this project off the server',
-    group: 'Project',
-    home: Home.projectMenu,
-    run: run ?? () {},
-    unavailable: project == null
-        ? 'no project selected'
-        : project == defaultProject
-        ? 'default is this machine’s own'
-        : !roles.holds(Role.hostAdmin)
-        ? fromServerMenu
-        : busy ??
-              (run == null
-                  ? 'Taking a project off its server requires registry removal, which is not available yet.'
-                  : null),
-  );
 }
 
 /// Opens server preparation from the Machines page.
@@ -769,102 +715,16 @@ Command prepareServerCommand({VoidCallback? open, HostAccess? access}) => Comman
   home: Home.machineRow,
   run: () {
     final reason = access?.unavailable() ?? (access == null ? 'The verified host admins are unavailable.' : null);
-    if (reason != null) throw RegistryRefusal(reason);
+    if (reason != null) throw HostAccessRefused(reason);
     // Opened only once the identity was read again; a refusal then shows on the command, which the read rebuilt.
     unawaited(
-      access!.prepare(() async => open?.call()).catchError((Object _) {}, test: (error) => error is RegistryRefusal),
+      access!.prepare(() async => open?.call()).catchError((Object _) {}, test: (error) => error is HostAccessRefused),
     );
   },
   unavailable: access == null
       ? 'The verified host admins are unavailable.'
       : access.unavailable() ?? (open == null ? 'server preparation is unavailable here' : null),
 );
-
-/// The checked helpers and public handover values belonging to a prepared host.
-List<Command> preparedHostCommands({
-  required Machine machine,
-  required Settings settings,
-  HostRuns? hostRuns,
-  void Function(String action)? open,
-  VoidCallback? showValues,
-  VoidCallback? bringRegistry,
-}) {
-  final record = settings.hostUp(machine.hostProject);
-  if (machine.kind != 'host' || record?.hostName.isNotEmpty != true) return [];
-  final reason =
-      (settings.hostReturned(machine.hostProject) ? 'The server was given back.' : null) ??
-      (hostRuns?.hostAccess == null
-          ? 'The verified host admins are unavailable.'
-          : hostRuns!.hostAccess!.unavailable(machine.hostProject)) ??
-      _setupAgainUnavailable(hostRuns, machine.hostProject) ??
-      (record?.preparing == true || record?.preparedHost == null ? 'complete the server setup first' : null);
-  return [
-    Command(
-      id: 'host.adminValues',
-      role: Role.hostAdmin,
-      label: 'Registry publication…',
-      group: 'Server',
-      home: Home.machineMenu,
-      run: showValues ?? () {},
-      unavailable: reason ?? (showValues == null ? 'public host values are unavailable here' : null),
-    ),
-    if (hostRuns?.hostAccess?.notOnHostYet(machine.hostProject) == true)
-      Command(
-        id: 'host.bringRegistry',
-        label: 'Bring it to the host',
-        group: 'Server',
-        home: Home.machineMenu,
-        role: Role.hostAdmin,
-        unavailable: settings.hostReturned(machine.hostProject)
-            ? hostRuns?.hostAccess?.unavailable(machine.hostProject) ??
-                  (bringRegistry == null ? 'registry delivery is unavailable here' : null)
-            : reason ?? (bringRegistry == null ? 'registry delivery is unavailable here' : null),
-        run: () {
-          final access = hostRuns?.hostAccess;
-          if (access == null) throw const RegistryRefusal('The verified host admins are unavailable.');
-          access.requireAdmin(machine.hostProject);
-          bringRegistry?.call();
-        },
-      ),
-    for (final (action, id, label) in const [
-      ('admit', 'host.admitAdmin', 'Admit a project admin…'),
-      ('lock', 'host.lockAdmin', 'Lock'),
-      ('unlock', 'host.unlockAdmin', 'Let back in'),
-      ('purge', 'host.purgeAdmin', 'Delete the account'),
-    ])
-      Command(
-        id: id,
-        role: Role.hostAdmin,
-        label: label,
-        group: 'Server',
-        home: Home.machineMenu,
-        run: () {
-          final access = hostRuns?.hostAccess;
-          final reason =
-              (settings.hostReturned(machine.hostProject) ? 'The server was given back.' : null) ??
-              (action == 'admit'
-                  ? access?.admitUnavailable(machine.hostProject)
-                  : access?.unavailable(machine.hostProject)) ??
-              (access == null ? 'The verified host admins are unavailable.' : null) ??
-              (action == 'admit' ? null : HostAccess.noHostWideChange);
-          if (reason != null) throw RegistryRefusal(reason);
-          if (action != 'admit' || access?.proof == null) return open?.call(action);
-          // The admission opens only for a person still proven now; otherwise the rebuilt command says why.
-          unawaited(
-            access!.proveAgain().then((_) {
-              if (access.admitUnavailable(machine.hostProject) == null) open?.call(action);
-            }),
-          );
-        },
-        // A person who is no host admin learns that no request can be made, and whom to ask.
-        unavailable: action == 'admit' && reason != null
-            ? hostRuns?.hostAccess?.admitUnavailable(machine.hostProject) ?? reason
-            : reason ??
-                  (action == 'admit' ? null : HostAccess.noHostWideChange) ??
-                  (open == null ? 'the host helpers are unavailable here' : null),
-      ),
-  ];
-}
 
 /// The host's confirmed rental lifecycle.
 List<Command> hostMachineCommands({
@@ -885,9 +745,7 @@ List<Command> hostMachineCommands({
       run: takeDown,
       unavailable:
           _setupAgainUnavailable(hostRuns, machine.hostProject) ??
-          (settings.hostUp(machine.hostProject) == null
-              ? 'nothing was kept from putting it on a server; use Register the project'
-              : null),
+          (settings.hostUp(machine.hostProject) == null ? 'nothing was kept from putting it on a server' : null),
     ),
   ],
 ];
@@ -1192,19 +1050,13 @@ List<Command> commandsFor({
   required VoidCallback openTheGate,
   required VoidCallback openEgress,
   required VoidCallback removeWhatWasBuilt,
+  required String? whyNoRemoval,
   VoidCallback? clearTheProject,
-  String? registryAccessUnavailable,
-  VoidCallback? putOnAServer,
-  VoidCallback? openDevelopers,
-  VoidCallback? takeOffServer,
-  String? takeOffServerBusy,
   VoidCallback? startTheAgents,
   required VoidCallback checkTheMachine,
   VoidCallback? startThenCheck,
   required VoidCallback showTheProviders,
   required VoidCallback prepareTheProject,
-  required VoidCallback followARepository,
-  VoidCallback? fromARepository,
   VoidCallback? showTheForges,
   required VoidCallback showTheBackups,
   required VoidCallback syncTheUpstream,
@@ -1349,15 +1201,6 @@ List<Command> commandsFor({
       unlockWithThePassphrase: unlockWithThePassphrase,
       makeTheVault: makeTheVault,
     ),
-    // Needs no machine: the forge is reached from this computer, with the person's own login.
-    Command(
-      id: 'project.fromRepository',
-      label: 'A project from a repository you have',
-      group: 'Project',
-      home: Home.none,
-      run: fromARepository ?? () {},
-      unavailable: fromARepository == null ? 'not offered here' : null,
-    ),
     // Needs no machine either: the forges are this computer's, with their tokens in its keychain.
     Command(
       id: 'forges.show',
@@ -1366,14 +1209,6 @@ List<Command> commandsFor({
       home: Home.none,
       run: showTheForges ?? () {},
       unavailable: showTheForges == null ? 'not offered here' : null,
-    ),
-    Command(
-      id: 'project.follow',
-      label: 'Follow a project',
-      group: 'Project',
-      home: Home.followRepository,
-      run: followARepository,
-      unavailable: notAnswering(fleet),
     ),
     ...projectCommands(
       project: selectedProject,
@@ -1388,12 +1223,8 @@ List<Command> commandsFor({
       showTheBackups: showTheBackups,
       checkWorkCanStart: checkWorkCanStart,
       removeWhatWasBuilt: removeWhatWasBuilt,
+      whyNoRemoval: whyNoRemoval,
       clearTheProject: clearTheProject,
-      registryAccessUnavailable: registryAccessUnavailable,
-      putOnAServer: putOnAServer,
-      openDevelopers: openDevelopers,
-      takeOffServer: takeOffServer,
-      takeOffServerBusy: takeOffServerBusy,
       showTheMessages: showTheMessages,
       openItsForge: openItsForge,
       itsForgeIsMissing: itsForgeIsMissing,
@@ -1725,14 +1556,6 @@ Command missedQuestionsSeenCommand({required VoidCallback run, String? unavailab
 Command machineNoticeSeenCommand({required VoidCallback run, String? unavailable}) =>
     _attentionRowCommand(id: 'machine.noticeSeen', label: 'Seen', run: run, unavailable: unavailable);
 
-/// Opens confirmation before accepting a rewritten upstream history.
-Command acceptAttentionRewriteCommand({required VoidCallback run, String? unavailable}) => _attentionRowCommand(
-  id: 'project.acceptRewrite',
-  label: 'Take the rewritten history',
-  run: run,
-  unavailable: unavailable,
-);
-
 /// Closes a list item's detail dialog without changing the item.
 Command closeListDetailsCommand(VoidCallback close) =>
     Command(id: 'list.closeDetails', label: 'Close', group: 'Details', home: Home.openedView, run: close);
@@ -1757,48 +1580,7 @@ Command putAwayQuestionCommand({required VoidCallback run, String? unavailable})
   unavailable: unavailable,
 );
 
-/// Creates a page operation from the supplied adapter and its exact access scope.
-Command? registryPageCommand({
-  required RegistryPages registry,
-  required RegistryTarget target,
-  required RegistryOperation operation,
-  required VoidCallback run,
-  String? person,
-}) => registry.item(target)?.offers(operation) != true
-    ? null
-    : Command(
-        id: 'registry.${operation.name}',
-        label: registryOperationLabel(operation),
-        group: target.project == null ? 'Machines' : 'Projects',
-        home: target.project == null ? Home.machineMenu : Home.projectMenu,
-        run: run,
-        unavailable: registry.unavailable(target, operation, person: person),
-      );
-
-/// Names registry actions once for page menus, confirmations, and the finder.
-String registryOperationLabel(RegistryOperation operation) => switch (operation) {
-  RegistryOperation.refresh => 'Refresh',
-  RegistryOperation.fileCard => 'File my card',
-  RegistryOperation.selectRegistry => 'Choose another registry…',
-  RegistryOperation.createRegistry => 'Create the registry…',
-  RegistryOperation.admit => 'Admit a project admin…',
-  RegistryOperation.register => 'Register the project',
-  RegistryOperation.addPerson => 'Add a developer…',
-  RegistryOperation.join => 'Join',
-  RegistryOperation.projectLock => 'Lock in this project…',
-  RegistryOperation.projectUnlock || RegistryOperation.hostUnlock => 'Let back in',
-  RegistryOperation.removePerson => 'Remove from the project…',
-  RegistryOperation.hostLock => 'Lock out of this server…',
-  RegistryOperation.deleteAccount => 'Delete their account from this server…',
-  RegistryOperation.takeOffHost => 'Take this project off the server…',
-  RegistryOperation.bringState => 'Bring the state to the host',
-  RegistryOperation.push => 'Push the approved main to the central forge…',
-  RegistryOperation.pull => 'Take the central state…',
-  RegistryOperation.backupKey => 'Make a backup key…',
-  RegistryOperation.replaceLostKey => 'Replace a lost key…',
-};
-
-/// Project-menu actions for verified push admission, independent of startup roles.
+/// Project-menu actions for a person with a role in the project, independent of startup roles.
 List<Command> projectTransferCommands({
   required ProjectTransfers transfers,
   required TransferSelection selection,
@@ -1817,16 +1599,15 @@ List<Command> projectTransferCommands({
     ),
 ];
 
-/// The project menu's central transfers for a project followed on a card host, the person being the card's login.
+/// The project menu's central transfers for a project on a card host, the person being the card's login.
 ///
-/// [followed] says the host's daemon follows the project for this person; the host itself refuses a push the
-/// project's verified access does not allow. Without a secrets file ([hasSecrets] false) nothing can feed the central
-/// token.
+/// [whyNoRight] says why the person holds no working role in the project, null when they do; the host itself refuses
+/// what the role does not allow. Without a secrets file ([hasSecrets] false) nothing can feed the central token.
 List<Command> cardHostTransferCommands({
   required ProjectTransfers transfers,
   required Machine machine,
   required String project,
-  required bool followed,
+  required String? whyNoRight,
   required bool hasSecrets,
   required void Function(ProjectTransfer direction) start,
   bool running = false,
@@ -1838,15 +1619,12 @@ List<Command> cardHostTransferCommands({
     person: card.login,
     forge: 'central',
     project: project,
-    canPush: followed,
+    canPush: whyNoRight == null,
   );
   final why = running
       ? 'A push or pull of this project runs already; wait for its end.'
-      : !hasSecrets
-      ? 'Choose your secrets file under Forges first: the central token is read from it.'
-      : !followed
-      ? 'This host does not follow the project for you.'
-      : null;
+      : whyNoRight ??
+            (hasSecrets ? null : 'Choose your secrets file under Forges first: the central token is read from it.');
   return [
     for (final command in projectTransferCommands(transfers: transfers, selection: selection, start: start))
       why == null
@@ -1921,263 +1699,6 @@ List<Command> centralReviewCommands({
       home: Home.openedView,
       unavailableNow: () => actions.unavailable ?? (submit == null ? 'Choose a central pull request.' : null),
       run: () => run(submit, write: true),
-    ),
-  ];
-}
-
-/// The selected project's person actions, with current availability and stale callbacks guarded.
-List<Command> projectPersonCommands({required ProjectDevelopers developers, String? person, VoidCallback? add}) {
-  final actions = developers.scoped;
-  final unavailable = developers.busy
-      ? 'Reading or changing the project; this ends by itself.'
-      : developers.access == null || developers.problem != null
-      ? 'The project\'s persons could not be read; Read again reads them.'
-      : actions == null
-      ? 'Verified project person changes are unavailable.'
-      : actions.unavailable();
-  final pending = actions?.pending == true;
-  final superseded = actions?.supersededChangeId;
-  final selected = developers.access?.developers[person];
-  String? reason({bool selecting = false}) =>
-      (selecting ? actions?.personChangesUnavailable : null) ??
-      unavailable ??
-      (pending
-          ? 'Retry the pending project change first.'
-          : selecting && selected == null
-          ? 'Choose a person in this project.'
-          : null);
-  bool sameSelection() {
-    final live = developers.access?.developers[person];
-    return live != null &&
-        selected != null &&
-        live.locked == selected.locked &&
-        live.role == selected.role &&
-        live.fingerprint == selected.fingerprint;
-  }
-
-  bool canRun({bool selecting = false, bool delivery = false}) =>
-      !developers.busy &&
-      developers.scoped != null &&
-      developers.scoped!.unavailable(delivery: delivery) == null &&
-      (delivery
-          ? developers.scoped!.pending
-          : !developers.scoped!.pending && developers.access != null && developers.problem == null) &&
-      (!selecting || developers.scoped!.personChangesUnavailable == null && sameSelection());
-  return [
-    Command(
-      id: 'project.addDeveloper',
-      label: 'Add a developer',
-      group: 'Project',
-      home: Home.projectMenu,
-      role: Role.projectAdmin,
-      unavailable: reason() ?? (add == null ? 'Choose a registry person.' : null),
-      run: () {
-        if (canRun()) add?.call();
-      },
-    ),
-    Command(
-      id: 'project.removePerson',
-      label: 'Remove from the project',
-      group: 'Project',
-      home: Home.projectMenu,
-      role: Role.projectAdmin,
-      unavailable: reason(selecting: true),
-      run: () {
-        if (person != null && canRun(selecting: true)) unawaited(developers.remove(person));
-      },
-    ),
-    Command(
-      id: 'project.lockPerson',
-      label: selected?.locked == true ? 'Let back in' : 'Lock in this project',
-      group: 'Project',
-      home: Home.projectMenu,
-      role: Role.projectAdmin,
-      unavailable: reason(selecting: true),
-      run: () {
-        if (person != null && canRun(selecting: true)) {
-          final live = developers.access!.developers[person]!;
-          unawaited(developers.lock(person, locked: !live.locked));
-        }
-      },
-    ),
-    if (selected != null && actions?.newKey(selected.login) != null)
-      Command(
-        id: 'project.acceptKey',
-        label: 'Accept the new key of ${selected.login}',
-        group: 'Project',
-        home: Home.projectMenu,
-        role: Role.projectAdmin,
-        unavailable: reason(selecting: true),
-        run: () {
-          if (person != null && canRun(selecting: true)) unawaited(developers.acceptKey(person));
-        },
-      ),
-    Command(
-      id: 'project.retryAccess',
-      label: 'Retry project delivery',
-      group: 'Project',
-      home: Home.projectMenu,
-      role: Role.projectAdmin,
-      unavailable: developers.busy
-          ? 'A person change is still running.'
-          : actions?.unavailable(delivery: true) ?? (!pending ? 'No project change is pending.' : null),
-      run: () {
-        if (canRun(delivery: true)) unawaited(developers.retry());
-      },
-    ),
-    if (superseded != null)
-      Command(
-        id: 'project.discardAccess',
-        label: 'Discard',
-        group: 'Project',
-        home: Home.projectMenu,
-        role: Role.projectAdmin,
-        unavailable: developers.busy ? 'A person change is still running.' : null,
-        run: () {
-          if (!developers.busy && developers.scoped?.supersededChangeId == superseded) {
-            unawaited(developers.discard(superseded));
-          }
-        },
-      ),
-  ];
-}
-
-/// Opens the replacement of a lost or stolen key in one list: a project's, a host's or the registry's owners.yml.
-Command replaceKeyCommand({
-  required String id,
-  required String group,
-  required Home home,
-  required VoidCallback open,
-  String label = 'Replace a lost or stolen key…',
-  Role role = Role.user,
-  String? unavailable,
-}) => Command(id: id, label: label, group: group, home: home, role: role, unavailable: unavailable, run: open);
-
-/// A key replacement's own steps, each rechecked against the controller when it runs.
-///
-/// With the backup key, the reviewed replacement is confirmed first and only then [useBackup] opens its terminal; its
-/// Retry opens that terminal again and never signs with the agent's key. [forget] asks before a kept request is dropped.
-List<Command> keyRecoveryCommands({
-  required KeyRecovery recovery,
-  required String? person,
-  required bool stolen,
-  required bool toldInPerson,
-  required VoidCallback useBackup,
-  required VoidCallback makeBackup,
-  required VoidCallback forget,
-  VoidCallback? endOutlived,
-}) {
-  final login = person;
-  final reviewed = recovery.review;
-  final backup = reviewed?.backup == true;
-  String? whyNotConfirm() =>
-      backup ? recovery.whyNotBackup(toldInPerson: toldInPerson) : recovery.whyNotConfirm(toldInPerson: toldInPerson);
-  return [
-    Command(
-      id: 'keyRecovery.review',
-      label: 'Review the replacement',
-      group: 'Key',
-      home: Home.openedView,
-      unavailable: login == null ? 'Choose a person.' : recovery.whyNotReview(login),
-      run: () {
-        if (login != null && recovery.whyNotReview(login) == null) recovery.reviewFor(login, stolen: stolen);
-      },
-    ),
-    Command(
-      id: 'keyRecovery.reviewBackup',
-      label: 'Review it with the backup key',
-      group: 'Key',
-      home: Home.openedView,
-      unavailable: login == null ? 'Choose a person.' : recovery.whyNotReview(login, backup: true),
-      run: () {
-        if (login != null && recovery.whyNotReview(login, backup: true) == null) {
-          recovery.reviewFor(login, stolen: stolen, backup: true);
-        }
-      },
-    ),
-    Command(
-      id: 'keyRecovery.replace',
-      label: backup
-          ? 'Use the backup key for this replacement…'
-          : reviewed?.stolen == true
-          ? 'Revoke the stolen key and replace it'
-          : 'Replace the key',
-      group: 'Key',
-      home: Home.openedView,
-      unavailable: recovery.started ? 'It is started; retry it.' : whyNotConfirm(),
-      run: () {
-        if (recovery.started || whyNotConfirm() != null) return;
-        if (backup) {
-          useBackup();
-        } else {
-          unawaited(recovery.confirm(toldInPerson: toldInPerson));
-        }
-      },
-    ),
-    Command(
-      id: 'keyRecovery.cancel',
-      label: 'Cancel',
-      group: 'Key',
-      home: Home.openedView,
-      unavailable: reviewed == null
-          ? 'Nothing is under review.'
-          : recovery.started
-          ? 'It is started; retry it instead.'
-          : null,
-      run: recovery.cancel,
-    ),
-    Command(
-      id: 'keyRecovery.retry',
-      label: recovery.retriesInTerminal ? 'Retry with the backup key…' : 'Retry what is unfinished',
-      group: 'Key',
-      home: Home.openedView,
-      unavailable: recovery.whyNotRetry,
-      run: () {
-        if (recovery.whyNotRetry != null) return;
-        if (recovery.retriesInTerminal) {
-          useBackup();
-        } else {
-          unawaited(recovery.retry());
-        }
-      },
-    ),
-    Command(
-      id: 'keyRecovery.forget',
-      label: 'Forget this attempt…',
-      group: 'Key',
-      home: Home.openedView,
-      unavailable: recovery.whyNotForget,
-      run: () {
-        if (recovery.whyNotForget == null) forget();
-      },
-    ),
-    Command(
-      id: 'keyRecovery.makeBackup',
-      label: 'Make a new backup key…',
-      group: 'Key',
-      home: Home.openedView,
-      unavailable: !recovery.replaced && recovery.situation.madeHereReplaced == null
-          ? 'Offered once the key is replaced.'
-          : recovery.situation.scope.backupFlags == null
-          ? 'No backup key is kept for ${recovery.situation.scope.words}.'
-          : recovery.situation.soleAdmin == null || recovery.situation.actor?.login != recovery.situation.soleAdmin
-          ? 'The single admin or owner makes their own backup key.'
-          : null,
-      run: makeBackup,
-    ),
-    Command(
-      id: 'keyRecovery.endOutlived',
-      label: 'End Core in the put-away terminal',
-      group: 'Key',
-      home: Home.openedView,
-      unavailable: recovery.outlivedKey == null
-          ? 'No terminal put away while Core still ran in it.'
-          : endOutlived == null
-          ? 'It is ended where it was started.'
-          : null,
-      run: () {
-        if (recovery.outlivedKey != null) endOutlived?.call();
-      },
     ),
   ];
 }

@@ -8,12 +8,7 @@ import 'package:porelo_host/porelo_host.dart'
 
 import 'desk.dart';
 import 'host_protocol.dart';
-import 'host_access_contract.dart';
-import 'project_access_contract.dart';
 import 'machines.dart';
-import 'registry_checkout.dart';
-import 'registry.dart' show RegistryRefusal;
-import 'run_here.dart' show WorkspaceRefused;
 
 bool _sameStored(Object? left, Object? right) {
   if (left is Map && right is Map) {
@@ -46,6 +41,7 @@ class HostUpRecord {
     this.setupFolder,
     this.collection = '',
     this.collectionSha256 = '',
+    this.machineFile = '',
     this.preparing = false,
     this.startedAt,
     this.protocol = const [],
@@ -100,6 +96,9 @@ class HostUpRecord {
 
   /// The collection's expected digest.
   final String collectionSha256;
+
+  /// The private file holding what `up` hands the host of the organization.
+  final String machineFile;
 
   /// Whether setup has not yet confirmed completion.
   final bool preparing;
@@ -163,6 +162,7 @@ class HostUpRecord {
     setupFolder: setupFolder,
     collection: collection,
     collectionSha256: collectionSha256,
+    machineFile: machineFile,
     preparing: preparing ?? this.preparing,
     startedAt: preparing == false ? null : startedAt ?? this.startedAt,
     protocol: protocol ?? this.protocol,
@@ -235,6 +235,7 @@ class HostUpRecord {
     final forge = value['forge'] ?? true;
     final collection = value['collection'] ?? '';
     final digest = value['collectionSha256'] ?? '';
+    final machineFile = value['machineFile'] ?? '';
     if (name.isEmpty ||
         publicKey is! String ||
         !given && publicKey.isEmpty ||
@@ -243,6 +244,8 @@ class HostUpRecord {
         collection is! String ||
         digest is! String ||
         collection.contains('\x00') ||
+        machineFile is! String ||
+        machineFile.contains('\x00') ||
         digest.isNotEmpty && !RegExp(r'^[0-9a-fA-F]{64}$').hasMatch(digest) ||
         preparing && startedAt == null) {
       return null;
@@ -281,6 +284,7 @@ class HostUpRecord {
       setupFolder: setupFolder,
       collection: collection,
       collectionSha256: digest,
+      machineFile: machineFile,
       preparing: preparing,
       startedAt: startedAt,
       protocol: HostProtocolEntry.readMany(value['protocol']) ?? const [],
@@ -306,6 +310,7 @@ class HostUpRecord {
       if (preparedHost != null) 'preparedHost': preparedHost!.values,
       if (collection.isNotEmpty) 'collection': collection,
       if (collectionSha256.isNotEmpty) 'collectionSha256': collectionSha256,
+      if (machineFile.isNotEmpty) 'machineFile': machineFile,
       if (protocol.isNotEmpty) 'protocol': [for (final entry in protocol) entry.stored],
     },
   };
@@ -330,6 +335,7 @@ class HostUpRecord {
       ],
       '--forge',
       '$forge',
+      if (machineFile.isNotEmpty) ...['--machine-file', machineFile],
       ...preparationSettings.arguments,
       if (rentalTag != null) ...['--rental-tag', rentalTag!],
     ];
@@ -393,6 +399,30 @@ class FileSettingsStore implements SettingsStore {
     }
   }
 
+  /// Puts a file from before the organization model aside, and answers whether it did, so that a person is told once.
+  ///
+  /// That file is one that holds settings and no [settingsForm]. It is renamed to `frontend.json.dropped`, never deleted
+  /// and never migrated, and a file holding only the mark takes its place, so that a second start finds nothing to say.
+  /// No file is a first run, and an unreadable one is read as empty as ever: neither is an old form. Where the rename
+  /// fails nothing is said, and the next start tries again.
+  Future<bool> dropOldForm() async {
+    final Object? decoded;
+    try {
+      if (!await _file.exists()) return false;
+      decoded = jsonDecode(await _file.readAsString());
+    } on Exception {
+      return false;
+    }
+    if (decoded is! Map<String, Object?> || decoded.isEmpty || decoded['form'] == settingsForm) return false;
+    try {
+      await _file.rename('${_file.path}.dropped');
+    } on FileSystemException {
+      return false;
+    }
+    await write({'form': settingsForm});
+    return true;
+  }
+
   /// Replaces what is stored, in one step and readable by nobody else.
   ///
   /// **Written beside it and renamed over it.** A write in place is not one step: a crash or a
@@ -431,6 +461,13 @@ class MemorySettingsStore implements SettingsStore {
   @override
   Future<void> write(Map<String, Object?> values) async => _values = Map<String, Object?>.of(values);
 }
+
+/// The form of the settings file, written in it as `form`: settings without it are from before the organization model.
+const settingsForm = 2;
+
+/// What a person is told, once, when their saved settings were dropped.
+const settingsDroppedWords =
+    'Your saved settings came from before organizations, so Porelo started afresh; the old file is kept as frontend.json.dropped.';
 
 /// What the person chose about how the interface looks.
 class Settings extends ChangeNotifier {
@@ -491,23 +528,6 @@ class Settings extends ChangeNotifier {
     await _write();
   }
 
-  /// The organisation's registry repository, a credential-free `git@` or `https` address, or null before
-  /// it was chosen. Only the address is kept: Git reaches it with the person's own access.
-  String? get registryRepository => _registryRepository;
-  String? _registryRepository;
-
-  /// Keeps [repository] as the registry's address, or forgets it when null.
-  ///
-  /// Throws a `WorkspaceRefused` without repeating the input when it carries a user name, password or
-  /// token, so a pasted secret is never kept.
-  Future<void> setRegistryRepository(String? repository) async {
-    final trimmed = repository?.trim();
-    if (trimmed != null && trimmed.isNotEmpty) RegistryCheckout.checkRepository(trimmed);
-    _registryRepository = trimmed == null || trimmed.isEmpty ? null : trimmed;
-    notifyListeners();
-    await _write();
-  }
-
   /// Sets the user new machines run work as, and keeps it for the next run.
   Future<void> setWorkUser(String name) async {
     if (!isUserName(name)) return;
@@ -526,16 +546,6 @@ class Settings extends ChangeNotifier {
     if (retention is int && retention >= 0) _keepResolvedMinutes = retention;
     final user = stored['workUser'];
     if (user is String && isUserName(user)) _workUser = user;
-    final registry = stored['registryRepository'];
-    _registryRepository = null;
-    if (registry is String) {
-      try {
-        RegistryCheckout.checkRepository(registry);
-        _registryRepository = registry;
-      } on WorkspaceRefused {
-        // An address written by hand with credentials in it is not taken; the person chooses it again.
-      }
-    }
     _messagePeople.clear();
     final people = stored['messagePeople'];
     if (people is Map) {
@@ -578,78 +588,6 @@ class Settings extends ChangeNotifier {
         if (value is Map<String, Object?>) _keyRecoveries[key] = Map.unmodifiable(value);
       }
     }
-    _returnedHosts.clear();
-    final returnedHosts = stored['returnedHosts'];
-    if (returnedHosts != null) {
-      if (returnedHosts is! List) throw const FormatException('Invalid confirmed host returns.');
-      for (final host in returnedHosts) {
-        if (host is! String) throw const FormatException('Invalid returned host.');
-        checkHostName(host);
-        _returnedHosts.add(host);
-      }
-    }
-    _hostRegistry.clear();
-    _hostRegistryState.clear();
-    final registryState = stored['hostRegistryState'];
-    if (registryState != null) {
-      if (registryState is! Map) throw const FormatException('Invalid confirmed host registry state.');
-      for (final entry in registryState.entries) {
-        if (entry.key is! String) throw const FormatException('Invalid registry host.');
-        final host = entry.key as String;
-        checkHostName(host);
-        final state = HostRegistryState.read(entry.value);
-        if (state.publishedCard != null && state.publishedCard!.name != host) {
-          throw const FormatException('Confirmed card names another host.');
-        }
-        _hostRegistryState[host] = state;
-      }
-    }
-    final registryWork = stored['hostRegistry'];
-    if (registryWork != null) {
-      if (registryWork is! Map) throw const FormatException('Invalid pending host registry work.');
-      for (final entry in registryWork.entries) {
-        final progress = HostRegistryProgress.read(entry.value);
-        if (entry.key != progress.change.host) throw const FormatException('Pending registry work names another host.');
-        _hostRegistry[progress.change.host] = progress;
-        _hostRegistryState.putIfAbsent(
-          progress.change.host,
-          () => HostRegistryState(
-            publishedCard: progress.publishedCard,
-            lastAppliedRevision: progress.lastAppliedRevision,
-          ),
-        );
-      }
-    }
-    _projectAccess.clear();
-    _projectAccessReasons.clear();
-    final projectWork = stored['projectAccess'];
-    if (projectWork != null) {
-      if (projectWork is! Map) throw const FormatException('Invalid pending project work.');
-      for (final entry in projectWork.entries) {
-        final progress = ProjectAccessProgress.read(entry.value);
-        if (entry.key != progress.change.project) throw const FormatException('Pending work names another project.');
-        final reason = _checkedProjectAccessReason(progress, (entry.value as Map)['reason']);
-        _projectAccess[progress.change.project] = progress;
-        if (reason != null) _projectAccessReasons[progress.change.project] = reason;
-      }
-    }
-    _projectRegistrations.clear();
-    final registrations = stored['projectRegistrations'];
-    if (registrations != null) {
-      if (registrations is! Map) throw const FormatException('Invalid confirmed project registrations.');
-      for (final entry in registrations.entries) {
-        final progress = ProjectAccessProgress.read(entry.value);
-        if (entry.key != progress.change.project || !progress.confirmed || progress.change.action != 'register') {
-          throw const FormatException('Invalid confirmed project registration.');
-        }
-        _projectRegistrations[progress.change.project] = progress;
-      }
-    }
-    for (final progress in _projectAccess.values) {
-      if (progress.confirmed && progress.change.action == 'register') {
-        _projectRegistrations.putIfAbsent(progress.change.project, () => progress);
-      }
-    }
     _hostUps.clear();
     var migratedHosts = false;
     final migratedHostKeys = <String, String>{};
@@ -688,35 +626,6 @@ class Settings extends ChangeNotifier {
         _hostUps[target] = saved;
         migratedHosts |= target != key;
         if (target != key) migratedHostKeys[key] = target;
-      }
-    }
-    // A retained replacement completion cannot prove the contents of an older published card.
-    for (final entry in _hostRegistry.entries) {
-      final raw = registryWork is Map ? registryWork[entry.key] : null;
-      final progress = entry.value;
-      if (registryState is! Map &&
-          raw is Map &&
-          !raw.containsKey('published_card') &&
-          !const ['host-card', 'delete-card'].contains(progress.change.action) &&
-          !_returnedHosts.contains(entry.key)) {
-        _hostRegistryState[entry.key] = HostRegistryState(
-          lastAppliedRevision: progress.lastAppliedRevision,
-          cardNeedsVerification: true,
-        );
-      }
-    }
-    _projectHosts.clear();
-    final projectHosts = stored['projectHosts'];
-    if (projectHosts is Map) {
-      for (final entry in projectHosts.entries) {
-        if (entry.key is! String || entry.value is! String) continue;
-        try {
-          SecretsFile.checkHost(entry.key as String);
-          SecretsFile.checkHost(entry.value as String);
-          _projectHosts[entry.key as String] = migratedHostKeys[entry.value] ?? entry.value as String;
-        } on Exception {
-          continue;
-        }
       }
     }
     final place = stored['place'];
@@ -807,311 +716,29 @@ class Settings extends ChangeNotifier {
     notifyListeners();
   }
 
-  final _returnedHosts = <String>{};
-
   final _keyRecoveries = <String, Map<String, Object?>>{};
 
-  /// The pending key replacement or backup-key request kept under [key], or null; never a backup file's place.
+  /// The pending backup-key request kept under [key], or null; never a backup file's place.
   Map<String, Object?>? keyRecovery(String key) => _keyRecoveries[key];
 
-  /// Every key a pending key replacement or backup-key request is kept under.
+  /// Every key a pending backup-key request is kept under.
   List<String> get keyRecoveryKeys => List.unmodifiable(_keyRecoveries.keys);
 
-  /// Keeps a pending key replacement or backup-key request, so reopening resumes it under the same request ID.
+  /// Keeps a pending backup-key request, so asking again resumes it under the same request ID.
   Future<void> rememberKeyRecovery(String key, Map<String, Object?> receipt) async {
     _keyRecoveries[key] = Map.unmodifiable(receipt);
     notifyListeners();
     await _write();
   }
 
-  /// Forgets a finished or never-started key replacement or backup-key request.
+  /// Forgets a finished or never-started backup-key request.
   Future<void> forgetKeyRecovery(String key) async {
     if (_keyRecoveries.remove(key) == null) return;
     notifyListeners();
     await _write();
   }
 
-  /// Whether provider success is durably recorded, independent of registry work.
-  bool hostReturned(String host) => _returnedHosts.contains(host);
-
-  /// Keeps provider success before any registry cleanup or dialog can complete.
-  Future<void> rememberHostReturned(String host) async {
-    checkHostName(host);
-    final added = _returnedHosts.add(host);
-    final previous = _hostUps[host];
-    // An unconfirmed project change for this server has nothing left to be delivered to.
-    final receipts = {
-      for (final entry in _projectAccess.entries)
-        if (!entry.value.confirmed && entry.value.change.host == host) entry.key: entry.value,
-    };
-    final reasons = {for (final project in receipts.keys) project: _projectAccessReasons[project]};
-    if (!added && previous?.preparedHost == null && receipts.isEmpty) return;
-    if (previous != null) {
-      _hostUps[host] = HostUpRecord.fromStored({...previous.stored, 'preparedHost': null})!;
-    }
-    for (final project in receipts.keys) {
-      _projectAccess.remove(project);
-      _projectAccessReasons.remove(project);
-    }
-    try {
-      await _write();
-    } on Object {
-      if (added) _returnedHosts.remove(host);
-      if (previous != null) _hostUps[host] = previous;
-      _projectAccess.addAll(receipts);
-      for (final MapEntry(:key, :value) in reasons.entries) {
-        if (value != null) _projectAccessReasons[key] = value;
-      }
-      rethrow;
-    }
-    notifyListeners();
-  }
-
-  final _hostRegistry = <String, HostRegistryProgress>{};
-  final _hostRegistryState = <String, HostRegistryState>{};
-
-  /// Confirmed host facts, independent of the operation currently being retried.
-  HostRegistryState hostRegistryState(String host) => _hostRegistryState[host] ?? const HostRegistryState();
-
-  /// Durable publication and delivery progress, including confirmed give-back.
-  HostRegistryProgress? hostRegistry(String host) {
-    final progress = _hostRegistry[host];
-    if (progress == null) return null;
-    return HostRegistryProgress.read({
-      ...progress.stored,
-      'published_card': hostRegistryState(host).publishedCard?.stored,
-      'last_applied_revision': hostRegistryState(host).lastAppliedRevision,
-    });
-  }
-
-  /// Discards only an unfiled request whose selected card is no longer usable.
-  Future<void> forgetUnfiledHostRegistry(String host) async {
-    final previous = _hostRegistry[host];
-    if (previous == null) return;
-    if (previous.revision != null) throw StateError('A signed host change must be retained.');
-    _hostRegistry.remove(host);
-    try {
-      await _write();
-    } on Object {
-      _hostRegistry[host] = previous;
-      rethrow;
-    }
-    notifyListeners();
-  }
-
-  /// Starts a new lifecycle only after the returned host's card deletion completed.
-  Future<void> reuseReturnedHost(String host) async {
-    if (!_returnedHosts.contains(host)) return;
-    final previous = _hostRegistry[host];
-    if (previous?.change.action != 'delete-card' || previous?.complete != true) {
-      throw StateError('Publish the returned host card deletion before preparing this name again.');
-    }
-    _returnedHosts.remove(host);
-    _hostRegistry.remove(host);
-    final previousState = _hostRegistryState.remove(host);
-    try {
-      await _write();
-    } on Object {
-      _returnedHosts.add(host);
-      _hostRegistry[host] = previous!;
-      if (previousState != null) _hostRegistryState[host] = previousState;
-      rethrow;
-    }
-    notifyListeners();
-  }
-
-  /// Persists progress before its next external side effect.
-  Future<void> rememberHostRegistry(HostRegistryProgress progress) async {
-    final checked = HostRegistryProgress.read(progress.stored);
-    final host = checked.change.host;
-    final previous = _hostRegistry[host];
-    final previousState = _hostRegistryState[host];
-    _hostRegistry[host] = checked;
-    _hostRegistryState[host] = HostRegistryState(
-      publishedCard: checked.change.action == 'delete-card' && checked.complete
-          ? null
-          : (checked.change.action == 'host-card' && checked.published
-                ? checked.change.card
-                : checked.publishedCard ?? previousState?.publishedCard),
-      lastAppliedRevision: checked.lastAppliedRevision ?? previousState?.lastAppliedRevision,
-      cardNeedsVerification:
-          !const ['host-card', 'delete-card'].contains(checked.change.action) &&
-          previousState?.cardNeedsVerification == true,
-    );
-    try {
-      await _write();
-    } on Object {
-      if (previousState == null) {
-        _hostRegistryState.remove(host);
-      } else {
-        _hostRegistryState[host] = previousState;
-      }
-      if (previous == null) {
-        _hostRegistry.remove(host);
-      } else {
-        _hostRegistry[host] = previous;
-      }
-      rethrow;
-    }
-    notifyListeners();
-  }
-
-  final _projectAccess = <String, ProjectAccessProgress>{};
-  final _projectAccessReasons = <String, String>{};
-  final _projectChangesRunning = <String>{};
-  final _projectRegistrations = <String, ProjectAccessProgress>{};
-
-  /// The last confirmed registration, independent of subsequent person changes.
-  ProjectAccessProgress? projectRegistration(String project) => _projectRegistrations[project];
-
-  /// The permanent refusal retained with a superseded receipt.
-  String? projectAccessReason(String project) => _projectAccessReasons[project];
-
-  static String? _checkedProjectAccessReason(ProjectAccessProgress progress, Object? reason) {
-    if (reason == null) return null;
-    if (progress.state != ProjectAccessState.superseded || reason is! String || reason.trim().isEmpty) {
-      throw const FormatException('Invalid superseded project reason.');
-    }
-    return reason;
-  }
-
-  /// Forgets a request only after the caller resolved its ID as unfiled in Core.
-  Future<void> forgetUnfiledProjectAccess(String project) async {
-    final previous = _projectAccess[project];
-    if (previous == null) return;
-    if (previous.state != ProjectAccessState.unfiled) throw StateError('A signed project change must be retained.');
-    await _forgetProjectAccess(project, previous);
-  }
-
-  /// Forgets an unconfirmed signed receipt whose server was given back, as nothing remains to deliver it to.
-  Future<void> forgetReturnedProjectAccess(String project) async {
-    final previous = _projectAccess[project];
-    if (previous == null || previous.confirmed || !hostReturned(previous.change.host)) return;
-    await _forgetProjectAccess(project, previous);
-  }
-
-  /// Discards only the selected superseded receipt, preserving confirmed records.
-  Future<void> forgetSupersededProjectAccess(String project, String changeId) async {
-    final previous = _projectAccess[project];
-    if (previous?.change.id != changeId || previous?.state != ProjectAccessState.superseded) {
-      throw const RegistryRefusal('The superseded receipt changed. Refresh before discarding it.');
-    }
-    await _forgetProjectAccess(project, previous!);
-  }
-
-  Future<void> _forgetProjectAccess(String project, ProjectAccessProgress previous) async {
-    _projectAccess.remove(project);
-    final reason = _projectAccessReasons.remove(project);
-    try {
-      await _write();
-    } on Object {
-      _projectAccess[project] = previous;
-      if (reason != null) _projectAccessReasons[project] = reason;
-      rethrow;
-    }
-    notifyListeners();
-  }
-
-  /// The project's durable signed-change delivery receipts.
-  ProjectAccessProgress? projectAccess(String project) => _projectAccess[project];
-
-  /// Whether another controller is already changing this project's access.
-  bool projectChangeRunning(String project) => _projectChangesRunning.contains(project);
-
-  /// Serializes project mutations across dialogs sharing this settings owner.
-  Future<void> withProjectChange(String project, Future<void> Function() work) async {
-    if (!_projectChangesRunning.add(project)) {
-      throw const RegistryRefusal('A change for this project is still running.');
-    }
-    notifyListeners();
-    try {
-      await work();
-    } finally {
-      _projectChangesRunning.remove(project);
-      notifyListeners();
-    }
-  }
-
-  /// Saves a checked receipt before the next side effect, restoring memory on failure.
-  Future<void> rememberProjectAccess(ProjectAccessProgress progress, {String? reason}) async {
-    final checked = ProjectAccessProgress.read(progress.stored);
-    final checkedReason = _checkedProjectAccessReason(checked, reason);
-    final project = checked.change.project;
-    final previous = _projectAccess[project];
-    final previousReason = _projectAccessReasons.remove(project);
-    if (checkedReason != null) _projectAccessReasons[project] = checkedReason;
-    final registration = checked.confirmed && checked.change.action == 'register';
-    final previousRegistration = _projectRegistrations[project];
-    _projectAccess[project] = checked;
-    if (registration) _projectRegistrations[project] = checked;
-    try {
-      await _write();
-    } catch (_) {
-      _projectAccessReasons.remove(project);
-      if (previousReason != null) _projectAccessReasons[project] = previousReason;
-      if (registration) {
-        if (previousRegistration == null) {
-          _projectRegistrations.remove(project);
-        } else {
-          _projectRegistrations[project] = previousRegistration;
-        }
-      }
-      if (previous == null) {
-        _projectAccess.remove(project);
-      } else {
-        _projectAccess[project] = previous;
-      }
-      rethrow;
-    }
-    notifyListeners();
-  }
-
   final _hostUps = <String, HostUpRecord>{};
-  final _projectHosts = <String, String>{};
-
-  /// The host this project was successfully brought onto, absent before a confirmed bring.
-  String? projectHost(String project) => _projectHosts[project];
-
-  /// Keeps the host association only after the bring has been confirmed.
-  Future<void> rememberProjectHost(String project, String host) async {
-    SecretsFile.checkHost(project);
-    SecretsFile.checkHost(host);
-    final previous = _projectHosts[project];
-    _projectHosts[project] = host;
-    try {
-      await _write();
-      final saved = (await _store.read())['projectHosts'];
-      if (saved is! Map || saved[project] != host) {
-        throw const FileSystemException('Cannot keep the project host association in the interface settings.');
-      }
-    } on Exception {
-      if (previous == null) {
-        _projectHosts.remove(project);
-      } else {
-        _projectHosts[project] = previous;
-      }
-      rethrow;
-    }
-    notifyListeners();
-  }
-
-  /// Clears the association only after the host confirms removal; following is independent.
-  Future<void> forgetProjectHost(String project, {required String host}) async {
-    if (_projectHosts[project] != host) return;
-    final previous = _projectHosts.remove(project);
-    if (previous == null) return;
-    try {
-      await _write();
-      final saved = (await _store.read())['projectHosts'];
-      if (saved is! Map || saved.containsKey(project)) {
-        throw const FileSystemException('Cannot clear the project host association in the interface settings.');
-      }
-    } on Exception {
-      _projectHosts[project] = previous;
-      rethrow;
-    }
-    notifyListeners();
-  }
 
   /// Every kept host setup, keyed by host name.
   Map<String, HostUpRecord> get hostUps => Map.unmodifiable(_hostUps);
@@ -1389,10 +1016,10 @@ class Settings extends ChangeNotifier {
   }
 
   Map<String, Object?> get _known => <String, Object?>{
+    'form': settingsForm,
     'refreshSeconds': _refreshSeconds,
     'keepResolvedMinutes': _keepResolvedMinutes,
     'workUser': _workUser,
-    'registryRepository': _registryRepository,
     'messagePeople': {for (final entry in _messagePeople.entries) entry.key: Map<String, String>.of(entry.value)},
     'setupDraft': _setupDraft,
     'appearance': _appearance.name,
@@ -1408,21 +1035,7 @@ class Settings extends ChangeNotifier {
     'forges': _forges,
     'tresorFolders': _tresorFolders,
     'secretsFile': _secretsFile,
-    'returnedHosts': _returnedHosts.toList(),
-    'hostRegistry': {
-      for (final entry in _hostRegistry.entries)
-        entry.key: Map<String, Object?>.of(entry.value.stored)
-          ..remove('published_card')
-          ..remove('last_applied_revision'),
-    },
-    'hostRegistryState': {for (final entry in _hostRegistryState.entries) entry.key: entry.value.stored},
-    'projectAccess': {
-      for (final entry in _projectAccess.entries)
-        entry.key: {...entry.value.stored, 'reason': ?_projectAccessReasons[entry.key]},
-    },
-    'projectRegistrations': {for (final entry in _projectRegistrations.entries) entry.key: entry.value.stored},
     'hostUps': {for (final entry in _hostUps.entries) entry.key: entry.value.stored},
-    'projectHosts': Map<String, String>.of(_projectHosts),
     'keyRecoveries': {for (final entry in _keyRecoveries.entries) entry.key: entry.value},
   };
 

@@ -6,9 +6,6 @@ enum Role {
   /// Server preparation, recovery, teardown, and VPN setup.
   hostAdmin('host-admin'),
 
-  /// Placing projects on prepared servers.
-  projectAdmin('project-admin'),
-
   /// Reserved for access administration, with no commands of its own.
   accessAdmin('access-admin');
 

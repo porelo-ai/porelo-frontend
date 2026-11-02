@@ -10,6 +10,21 @@ import 'package:porelo_host/porelo_host.dart';
 import 'package:test/test.dart';
 
 void main() {
+  // Harm: a token goes to another account or verb than the one that waits for it, or stands on a command line.
+  test('the central token reaches org refresh as root, on standard input only', () {
+    final command = organizationRefreshFeedCommand(
+      card: _card(),
+      config: '/config/porelo/ssh/alpha.conf',
+      token: SecretsFile('/home/alice/secrets.kdbx'),
+      environment: {'XDG_CONFIG_HOME': '/config'},
+    );
+    final script = command.last;
+    expect(script, contains('root@alpha'));
+    expect(script, contains('porelo-host-person org refresh'));
+    expect(script, contains(r'''{ printf '%s\n' "$transfer_token"; } |'''));
+    expect(script, isNot(contains('__PORELO_CENTRAL')));
+  });
+
   for (final code in [0, 65, 255]) {
     // Harm: the actual terminal feed sends the wrong token protocol or leaks an echoed token.
     test('terminal push and pull keep credentials off argv output and files for exit $code', () async {
@@ -152,27 +167,41 @@ esac
     expect(await out, '$value\n');
   });
 
-  // Harm: the test secrets file, opened by its key file alone, was refused as a file asking a master password.
-  test('a key-file secrets file feeds its named entry with no password asked', () async {
+  // Harm: a token given by the environment is passed on to ssh, and to whatever it starts, or stands on its command line.
+  test('a token from the environment reaches the host on standard input alone, with nothing asked', () async {
     final fixture = await _Fixture.create();
-    final key = '${fixture.folder.path}/secrets.key';
-    await File(key).writeAsString('key placeholder');
-    await File(fixture.cli).writeAsString('''#!/bin/bash
-[[ " \$* " == *" --no-password --key-file $key "* ]] || { echo "not opened by its key file: \$*" >&2; exit 1; }
-case "\$1" in
-  ls) printf 'other\\ngithub-app-1-installation\\n' ;;
-  show) [ "\${@: -1}" = github-app-1-installation ] || exit 1; printf '\\146\\151\\170\\164\\165\\162\\145\\n' ;;
-  *) exit 1 ;;
-esac
-''');
     final result = await fixture.run(
-      secrets: SecretsFile(fixture.file, cli: fixture.cli, keyFile: key, entry: 'github-app-1-installation'),
+      secrets: EnvironmentCentralToken('CENTRAL_FIXTURE'),
+      environment: {
+        'CENTRAL_FIXTURE': String.fromCharCodes([102, 105, 120, 116, 117, 114, 101]),
+      },
       newline: false,
       typed: '',
     );
     expect(result.exitCode, 0, reason: '${result.stdout} ${result.stderr}');
-    expect(result.stderr, isNot(contains('master password')), reason: 'a key file opens it alone');
+    expect(result.stderr, isNot(contains('master password')));
     expect(result.stdout, contains('host answer'));
+  });
+
+  // Harm: ssh starts and the host waits on a token that never comes, with no word why.
+  for (final (what, value) in [('empty', ''), ('of two lines', 'one\ntwo')]) {
+    test('a token from the environment that is $what stops before ssh', () async {
+      final fixture = await _Fixture.create();
+      final result = await fixture.run(
+        secrets: EnvironmentCentralToken('CENTRAL_FIXTURE'),
+        environment: {'CENTRAL_FIXTURE': value},
+        newline: false,
+        typed: '',
+      );
+      expect(result.exitCode, isNot(0));
+      expect(result.stdout, isNot(contains('ssh started')));
+      expect(result.stderr, contains('nothing was sent'));
+    });
+  }
+
+  // Harm: a variable name that is shell text runs as code in the terminal.
+  test('a variable that is no plain name is refused', () {
+    expect(() => EnvironmentCentralToken(r'X;touch $HOME/y'), throwsFormatException);
   });
 
   // Harm: the person read the interface's own markers in the terminal.
@@ -260,7 +289,7 @@ sys.exit(int(os.environ.get('TRANSFER_CODE', '0')))
     return fixture;
   }
 
-  List<String> command({ProjectTransfer direction = ProjectTransfer.push, SecretsFile? secrets, bool marked = true}) =>
+  List<String> command({ProjectTransfer direction = ProjectTransfer.push, CentralToken? secrets, bool marked = true}) =>
       projectTransferFeedCommand(
         marked: marked,
         direction: direction,
@@ -268,7 +297,7 @@ sys.exit(int(os.environ.get('TRANSFER_CODE', '0')))
         repositories: ['api'],
         card: _card(),
         config: '/config/porelo/ssh/alpha.conf',
-        secretsFile: secrets ?? SecretsFile(file, cli: cli),
+        token: secrets ?? SecretsFile(file, cli: cli),
         ssh: ssh,
         environment: {'XDG_CONFIG_HOME': '/config'},
       );
@@ -276,7 +305,8 @@ sys.exit(int(os.environ.get('TRANSFER_CODE', '0')))
     String mode = '',
     int code = 0,
     ProjectTransfer direction = ProjectTransfer.push,
-    SecretsFile? secrets,
+    CentralToken? secrets,
+    Map<String, String> environment = const {},
     bool newline = true,
     bool marked = true,
     String typed = 'fixture master',
@@ -292,6 +322,7 @@ sys.exit(int(os.environ.get('TRANSFER_CODE', '0')))
         'transfer_token': 'inherited',
         'transfer_encoded': 'inherited',
         'transfer_line': 'inherited',
+        ...environment,
       },
     );
     final output = child.stdout.transform(utf8.decoder).join();

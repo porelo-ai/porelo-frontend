@@ -1,16 +1,12 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:path/path.dart' as path;
-import 'package:porelo_frontend/client.dart' show RegistryFiled, RegistryRead;
 import 'package:porelo_frontend/src/app/identity.dart';
-import 'package:porelo_frontend/src/app/registry.dart';
-import 'package:porelo_frontend/src/app/registry_checkout.dart';
-import 'package:porelo_frontend/src/app/registry_read_source.dart';
 import 'package:porelo_frontend/src/app/run_here.dart';
 
 const _old = 'SHA256:BvxPEqOldOldOldOldOldOldOldOldOldOldOldOld';
 const _new = 'SHA256:NewNewNewNewNewNewNewNewNewNewNewNewNewNewNe';
+const _revision = '56420b3';
 const _key = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOldKeyOldKeyOldKeyOldKeyOldKeyOldKey';
 
 Map<String, Object?> _shown({
@@ -20,59 +16,38 @@ Map<String, Object?> _shown({
   List<Map<String, Object?>> pending = const [],
   String fingerprint = _old,
 }) => {
-  'login': 'ms-test-reviewer',
-  'name': 'MS Test Reviewer',
+  'login': 'rowan-example',
+  'name': 'Rowan Example',
   'email': null,
   'fingerprint': fingerprint,
   'key': _key,
   'created': '2026-10-31',
   'expires': '2026-11-30',
   'predecessor': null,
-  'card': 'login: "ms-test-reviewer"\n',
+  'card': 'login: "rowan-example"\n',
   'agent': agent,
   'agent_holds_key': agent == 'holds',
   'revoked': revoked,
   'card_refused': cardRefused,
-  'registry': [
+  'organization': [
     {
-      'address': 'https://github.com/porelo-ai/registry',
+      'address': 'https://github.com/porelo-ai/organization',
       'filed': 'done',
-      'revision': '7fd5ae88',
+      'revision': _revision,
       'may_file': true,
       'who_may': <Object?>[],
     },
   ],
   'forge': {
-    'login': 'ms-test-reviewer',
+    'login': 'rowan-example',
     'key_listed': true,
-    'keys_url': 'https://github.com/ms-test-reviewer.keys',
+    'keys_url': 'https://github.com/rowan-example.keys',
     'account_url': 'https://github.com/settings/keys',
   },
   'pending': pending,
 };
 
-Map<String, Object?> _operation(String id, {String status = 'done', String action = 'rotate'}) => {
-  'id': id,
-  'action': action,
-  'fingerprint': _new,
-  'predecessor': _old,
-  'published': [
-    {
-      'where': 'registry',
-      'address': 'https://github.com/porelo-ai/registry',
-      'status': status,
-      'why': null,
-      'who_may': <Object?>[],
-    },
-    {
-      'where': 'host',
-      'host': 'walk6m',
-      'status': 'pending',
-      'why': 'the host takes it at its next sync',
-      'who_may': <Object?>[],
-    },
-  ],
-};
+Map<String, Object?> _operation(String id, {bool again = false}) => {'revision': '9d0fcc5', 'id': id, 'again': again};
 
 const _keys = {
   'keys': [
@@ -114,73 +89,6 @@ class _Core {
   }
 
   List<List<String>> named(String verb) => calls.where((call) => call.take(2).join(' ') == verb).toList();
-}
-
-/// A registry whose checkout is only held here: nothing in these tests reads or files through it.
-class _Unread implements RegistryCore {
-  @override
-  Future<RegistryRead> read(String checkout) => throw UnimplementedError('nothing is read');
-
-  @override
-  Future<RegistryFiled> file(String checkout, RegistryFiling filing) => throw UnimplementedError('nothing is filed');
-}
-
-/// A registry read as Core answers it, which records whether its registry was held while it was read.
-class _Read implements RegistryCore {
-  _Read(this.registry);
-
-  final Registry Function() registry;
-  final heldWhileRead = <bool>[];
-
-  @override
-  Future<RegistryRead> read(String checkout) async {
-    heldWhileRead.add(registry().held);
-    return RegistryRead.from({
-      'revision': '1111111111111111111111111111111111111111',
-      'people': <Object?>[],
-      'owners': <Object?>[],
-      'warnings': <Object?>[],
-      'hosts': <Object?>[],
-    });
-  }
-
-  @override
-  Future<RegistryFiled> file(String checkout, RegistryFiling filing) => throw UnimplementedError('nothing is filed');
-}
-
-/// A checkout that fetches without Git.
-class _Fetched implements RegistryCheckout {
-  _Fetched(this.repository);
-
-  @override
-  final String repository;
-
-  @override
-  String get root => path.join('nowhere', 'registry');
-
-  @override
-  String get folder => path.join(root, repository.hashCode.toString());
-
-  @override
-  Future<String> fetch() async => '1111111111111111111111111111111111111111';
-
-  @override
-  Future<void> prepareFiling() async {}
-
-  @override
-  Future<void> prepareRetry({required String base, required String file, required String content}) async {}
-
-  @override
-  Future<void> publish(String revision) async {}
-
-  @override
-  Future<void> publishMade(
-    String revision, {
-    required String base,
-    required String id,
-    required String file,
-    String? lastRead,
-  }) async {}
 }
 
 AgentKey _usable() => const AgentKey(
@@ -232,7 +140,7 @@ void main() {
         login: null,
         keyListed: null,
       );
-      await model.useExistingKey(login: 'ms', name: 'MS', key: revoked);
+      await model.useExistingKey(login: 'rowan', name: 'Rowan', key: revoked);
       await model.planLostKey(revoked);
       expect(core.calls, isEmpty);
     });
@@ -240,7 +148,7 @@ void main() {
 
   group('a retry after an interruption never starts a second change', () {
     // Harm: a second rotate or create makes a second key and card.
-    test('a lost rotate answer leaves only publish with the same ID', () async {
+    test('a lost rotate answer leaves only the same rotate under the same ID', () async {
       core.answer('identity show', _shown());
       await model.load();
       core.answer('identity rotate', '{"id": "rot-', code: 0);
@@ -249,40 +157,80 @@ void main() {
       expect(id, isNotNull);
       expect(model.whyNotChange, isNotNull);
       await model.rotate(_usable());
-      core.answer('identity publish', _operation(id!));
-      await model.retry(id);
       expect(core.named('identity rotate'), hasLength(1));
-      expect(core.named('identity rotate').single, containsAllInOrder(['--id', id]));
-      expect(core.named('identity publish').single, ['identity', 'publish', '--id', id, '--json']);
+      core.answer('identity rotate', _operation(id!, again: true));
+      await model.retry();
+      expect(core.named('identity rotate'), hasLength(2));
+      expect(core.named('identity rotate').first, core.named('identity rotate').last);
+      expect(core.named('identity rotate').last, [
+        'identity',
+        'rotate',
+        '--key',
+        _new,
+        '--base',
+        _revision,
+        '--id',
+        id,
+        '--json',
+      ]);
       expect(model.operation?.id, id);
+      expect(model.operation?.again, isTrue);
+      expect(model.unfinishedId, isNull);
     });
+
+    // Harm: a change that may have been made is dropped and made a second time; one refused keeps blocking for nothing.
+    for (final (code, kept) in [(69, true), (70, true), (65, false), (64, false), (66, false)]) {
+      test('exit $code ${kept ? 'keeps' : 'drops'} the ID', () async {
+        core.answer('identity show', _shown());
+        await model.load();
+        core.answer('identity rotate', {'reason': 'x', 'words': 'said by Porelo'}, code: code);
+        await model.rotate(_usable());
+        expect(model.unfinishedId != null, kept);
+        expect(model.problem, 'said by Porelo');
+      });
+    }
 
     test('a change Core still lists as pending blocks a new one', () async {
       core.answer(
         'identity show',
         _shown(
           pending: [
-            {'id': 'rot-20261031-1', 'action': 'rotate'},
+            {'id': 'rot-20261031-1', 'action': 'rotate', 'fingerprint': _new},
           ],
         ),
       );
       await model.load();
       await model.rotate(_usable());
       expect(core.named('identity rotate'), isEmpty);
-      core.answer('identity publish', _operation('rot-20261031-1'));
-      await model.retry('rot-20261031-1');
-      expect(core.named('identity publish').single, contains('rot-20261031-1'));
+      expect(model.whyNotStart, isNotNull);
     });
 
-    test('a rotation run in a terminal is read back by its ID, never run again', () async {
+    test('a rotation run in a terminal is taken from its answer, and only asked again by the person', () async {
       core.answer('identity show', _shown());
       await model.load();
-      final started = model.rotateInTerminal(database: '/home/ms/Passwords.kdbx')!;
-      expect(model.rotateInTerminal(database: '/home/ms/Passwords.kdbx'), isNull);
-      core.answer('identity status', _operation(started.id));
-      await model.terminalEnded(code: 1, lastLine: 'Interrupted', id: started.id);
+      final started = model.rotateInTerminal(database: '/home/person/Passwords.kdbx')!;
+      expect(started.command, [
+        'porelo',
+        'identity',
+        'rotate',
+        '--keepassxc',
+        '/home/person/Passwords.kdbx',
+        '--base',
+        _revision,
+        '--id',
+        started.id,
+        '--json',
+      ]);
+      expect(model.rotateInTerminal(database: '/home/person/Passwords.kdbx'), isNull);
+      await model.terminalEnded(code: -1, lastLine: '', id: started.id);
       expect(core.named('identity rotate'), isEmpty);
-      expect(core.named('identity status').single, ['identity', 'status', '--id', started.id, '--json']);
+      expect(model.unfinishedId, started.id);
+      expect(model.unfinishedCommand, started.command, reason: 'asked again as it was asked');
+      await model.terminalEnded(code: 0, lastLine: jsonEncode(_operation('rot-other')), id: started.id);
+      expect(model.unfinishedId, started.id, reason: 'another operation’s answer is not this one’s');
+      await model.terminalEnded(code: 0, lastLine: jsonEncode(_operation(started.id)), id: started.id);
+      expect(model.unfinishedId, isNull);
+      expect(model.operation?.id, started.id);
     });
 
     test('key-not-served after making a key reads the card again and never creates again', () async {
@@ -302,8 +250,8 @@ void main() {
       core.answer('identity revoke --dry-run', {
         'places': [
           {
-            'where': 'registry',
-            'address': 'https://github.com/porelo-ai/registry',
+            'where': 'organization',
+            'address': 'https://github.com/porelo-ai/organization',
             'status': 'planned',
             'why': null,
             'who_may': [
@@ -312,11 +260,11 @@ void main() {
           },
         ],
         'hosts': [
-          {'host': 'walk6m', 'vault': 'reset'},
+          {'host': 'demo', 'vault': 'reset'},
         ],
         'sign_ins': [
           {
-            'host': 'walk6m',
+            'host': 'demo',
             'entries': ['git.token.github.com'],
           },
         ],
@@ -329,14 +277,16 @@ void main() {
       expect(core.calls.where((call) => call[1] != 'show' && !call.contains('--dry-run')), isEmpty);
 
       await model.planLostKey(_usable());
+      expect(model.lostKeyPlan!.plan.places.single.name, 'https://github.com/porelo-ai/organization');
       final id = model.lostKeyPlan!.id;
-      core.answer('identity revoke', _operation(id, action: 'revoke-lost', status: 'pending'));
+      core.answer('identity revoke', _operation(id));
       await model.confirmLostKey();
       await model.confirmLostKey();
       final runs = core.calls.where((call) => call[1] == 'revoke' && !call.contains('--dry-run')).toList();
       expect(runs, [
-        ['identity', 'revoke', '--lost', '--key', _new, '--id', id, '--json'],
+        ['identity', 'revoke', '--lost', '--key', _new, '--base', _revision, '--id', id, '--json'],
       ]);
+      expect(model.lostKeyCardMade, isTrue);
     });
   });
 
@@ -352,30 +302,33 @@ void main() {
       expect(model.problem, isNotNull);
     });
 
-    // Harm: Core names the registry by its origin address, and a parser that wants null loses the whole card.
-    test('a sole registry owner without a backup is read with the registry named by its address', () async {
+    // Harm: a card read wrongly decides who holds a key, and an old answer is taken for a current one.
+    test('a show answer without organization refuses in words, and keeps no card', () async {
       core.answer('identity show', {
-        ..._shown(),
-        'sole_without_backup': [
+        ..._shown()..remove('organization'),
+        'registry': [
           {
-            'role': 'registry-owner',
-            'scope': {'kind': 'registry', 'name': 'git@github.com:porelo-ai-test/registry.git'},
+            'address': 'https://github.com/porelo-ai/registry',
+            'filed': 'done',
+            'revision': _revision,
+            'may_file': true,
+            'who_may': <Object?>[],
           },
         ],
       });
       await model.load();
-      expect(model.card?.soleWithoutBackup?.single.kind, 'registry');
-      core.answer('identity show', {
-        ..._shown(),
-        'sole_without_backup': [
-          {
-            'role': 'project-admin',
-            'scope': {'kind': 'project', 'name': null},
-          },
-        ],
-      });
+      expect(model.card, isNull);
+      expect(model.problem, contains('no organization'));
+    });
+
+    test('a show answer is read from its organization, field by field', () async {
+      core.answer('identity show', _shown());
       await model.load();
-      expect(model.card, isNull, reason: 'a project or host is always named');
+      final organization = model.card!.organization.single;
+      expect(organization.address, 'https://github.com/porelo-ai/organization');
+      expect(organization.filed, FiledState.done);
+      expect(organization.revision, _revision);
+      expect(organization.mayFile, isTrue);
     });
 
     test('two agent fields that disagree are refused', () async {
@@ -384,19 +337,12 @@ void main() {
       expect(model.card, isNull);
     });
 
-    test('a status word nobody knows is never done', () async {
-      core.answer('identity status', _operation('rot-1', status: 'accepted'));
-      await model.readBack('rot-1');
-      expect(model.operation!.published.first.status, PlaceState.unknown);
-      expect(model.operation!.finished, isFalse);
-    });
-
-    test('a registry word nobody knows is never filed', () async {
+    test('an organization word nobody knows is never filed', () async {
       final shown = _shown();
-      (shown['registry'] as List).first['filed'] = 'fine';
+      (shown['organization'] as List).first['filed'] = 'fine';
       core.answer('identity show', shown);
       await model.load();
-      expect(model.card!.registry.single.filed, FiledState.unknown);
+      expect(model.card!.organization.single.filed, FiledState.unknown);
     });
 
     test('an answer for another operation is not this one', () async {
@@ -405,8 +351,8 @@ void main() {
       core.answer('identity rotate', '', code: 70);
       await model.rotate(_usable());
       final mine = model.unfinishedId!;
-      core.answer('identity publish', _operation('rot-other'));
-      await model.retry(mine);
+      core.answer('identity rotate', _operation('rot-other'));
+      await model.retry();
       expect(model.operation, isNull);
       expect(model.unfinishedId, mine);
     });
@@ -436,7 +382,7 @@ void main() {
     core.answer('identity show', _shown());
     core.answer('identity keys', _keys);
     core.answer('identity create', {
-      'login': 'ms',
+      'login': 'rowan',
       'fingerprint': _new,
       'key': _key,
       'card': 'c',
@@ -445,317 +391,86 @@ void main() {
       'next': ['file-card'],
     });
     core.answer('identity rotate', _operation('rot-1'));
-    core.answer('identity publish', _operation('rot-1'));
-    core.answer('identity status', _operation('rot-1'));
     core.answer('identity revoke --dry-run', {'places': <Object?>[], 'hosts': <Object?>[], 'sign_ins': <Object?>[]});
-    core.answer('identity revoke', _operation('lost-1', action: 'revoke-lost'));
+    core.answer('identity revoke', _operation('lost-1'));
     await identity.show();
     await identity.keys();
-    await identity.createWithKey(login: 'ms', name: 'MS', email: 'ms@example.org', fingerprint: _new);
-    await identity.rotate(fingerprint: _new, id: 'rot-1');
-    await identity.publish('rot-1');
-    await identity.status('rot-1');
+    await identity.createWithKey(login: 'rowan', name: 'Rowan', email: 'rowan@example.org', fingerprint: _new);
+    await identity.rotate(fingerprint: _new, id: 'rot-1', base: _revision);
     await identity.planLostKey(fingerprint: _new);
-    await identity.replaceLostKey(fingerprint: _new, id: 'lost-1');
+    await identity.replaceLostKey(fingerprint: _new, id: 'lost-1', base: _revision);
     expect(core.calls, [
       ['identity', 'show', '--json'],
       ['identity', 'keys', '--json'],
-      ['identity', 'create', '--login', 'ms', '--name', 'MS', '--email', 'ms@example.org', '--key', _new, '--json'],
-      ['identity', 'rotate', '--key', _new, '--id', 'rot-1', '--json'],
-      ['identity', 'publish', '--id', 'rot-1', '--json'],
-      ['identity', 'status', '--id', 'rot-1', '--json'],
+      [
+        'identity',
+        'create',
+        '--login',
+        'rowan',
+        '--name',
+        'Rowan',
+        '--email',
+        'rowan@example.org',
+        '--key',
+        _new,
+        '--json',
+      ],
+      ['identity', 'rotate', '--key', _new, '--base', _revision, '--id', 'rot-1', '--json'],
       ['identity', 'revoke', '--lost', '--key', _new, '--dry-run', '--json'],
-      ['identity', 'revoke', '--lost', '--key', _new, '--id', 'lost-1', '--json'],
+      ['identity', 'revoke', '--lost', '--key', _new, '--base', _revision, '--id', 'lost-1', '--json'],
     ]);
     expect(core.inputs, everyElement(isNull));
     expect(core.environments, everyElement(isEmpty));
     expect(
-      Identity.createInKeepassxc(login: 'ms', name: 'MS', database: '/home/ms/Passwords.kdbx', entry: 'Porelo/key'),
+      Identity.createInKeepassxc(
+        login: 'rowan',
+        name: 'Rowan',
+        database: '/home/person/Passwords.kdbx',
+        entry: 'Porelo/key',
+      ),
       [
         'porelo',
         'identity',
         'create',
         '--login',
-        'ms',
+        'rowan',
         '--name',
-        'MS',
+        'Rowan',
         '--keepassxc',
-        '/home/ms/Passwords.kdbx',
+        '/home/person/Passwords.kdbx',
         '--entry',
         'Porelo/key',
         '--json',
       ],
     );
-    expect(Identity.rotateInKeepassxc(database: '/home/ms/Passwords.kdbx', id: 'rot-2'), [
+    expect(Identity.rotateInKeepassxc(database: '/home/person/Passwords.kdbx', id: 'rot-2'), [
       'porelo',
       'identity',
       'rotate',
       '--keepassxc',
-      '/home/ms/Passwords.kdbx',
+      '/home/person/Passwords.kdbx',
       '--id',
       'rot-2',
       '--json',
     ]);
   });
 
-  group('filing the card never files twice', () {
-    // Harm: a second commit of the card, or a filing against a registry state nobody reviewed.
-    const first = '1111111111111111111111111111111111111111';
-    const moved = '2222222222222222222222222222222222222222';
-    const commit = '3333333333333333333333333333333333333333';
-    const checkout = '/home/ms/registry';
-    const card = '/home/ms/.config/porelo/identity/card';
-
-    Map<String, Object?> absent({String revision = first, bool mayFile = true, bool revoked = false}) {
-      final shown = _shown(revoked: revoked);
-      shown['registry'] = [
-        {
-          'address': 'https://github.com/porelo-ai/registry',
-          'filed': 'absent',
-          'revision': revision,
-          'may_file': mayFile,
-          'who_may': mayFile
-              ? <Object?>[]
-              : [
-                  {'login': 'owner', 'name': 'Owner', 'email': 'owner@example.org'},
-                ],
-        },
-      ];
-      return shown;
-    }
-
-    late IdentityModel filing;
-    setUp(() {
-      filing = IdentityModel(
-        Identity(run: core.run),
-        checkoutFor: (address) => address == 'https://github.com/porelo-ai/registry' ? checkout : null,
-        environment: const {'XDG_CONFIG_HOME': '/home/ms/.config', 'HOME': '/home/ms'},
-      );
-    });
-
-    test('a lost answer is retried with the same ID on the same base', () async {
-      core.answer('identity show', absent());
-      await filing.load();
-      core.answer('registry file', '', code: 70);
-      await filing.fileCard(filing.card!.registry.single);
-      expect(filing.filingUnanswered(filing.card!.registry.single), isTrue);
-      core.answer('registry file', {'commit': commit, 'path': 'people/ms-test-reviewer.card'});
-      await filing.fileCard(filing.card!.registry.single);
-      final files = core.named('registry file');
-      expect(files, hasLength(2));
-      expect(files.first, files.last);
-      final id = files.first[files.first.indexOf('--id') + 1];
-      expect(files.first, [
-        'registry',
-        'file',
-        'card',
-        checkout,
-        '--card',
-        card,
-        '--id',
-        id,
-        '--base',
-        first,
-        '--json',
-      ]);
-      expect(filing.lastFiled?.commit, commit);
-      expect(core.named('identity show'), hasLength(2));
-    });
-
-    test('a base conflict reads again and asks again instead of filing again', () async {
-      core.answer('identity show', absent());
-      await filing.load();
-      core.answer('registry file', {'reason': 'base-moved', 'words': 'HEAD is not the base'}, code: 65);
-      core.answer('identity show', absent(revision: moved));
-      await filing.fileCard(filing.card!.registry.single);
-      expect(core.named('registry file'), hasLength(1));
-      expect(core.named('identity show'), hasLength(2));
-      expect(filing.problem, isNotNull);
-      expect(filing.filingUnanswered(filing.card!.registry.single), isFalse);
-      core.answer('registry file', {'commit': commit, 'path': 'people/ms-test-reviewer.card'});
-      await filing.fileCard(filing.card!.registry.single);
-      final files = core.named('registry file');
-      expect(files.last[files.last.indexOf('--base') + 1], moved);
-      expect(files.last[files.last.indexOf('--id') + 1], isNot(files.first[files.first.indexOf('--id') + 1]));
-    });
-
-    // Harm: a card filing or a key change committing in the registry checkout while a key replacement or backup key
-    // commits there, so one meets the other's commit half made; or the checkout left held after it.
-    group('beside a recovery run', () {
-      late Registry registry;
-      late Registry other;
-      late RegistryReadSource source;
-      late IdentityModel holding;
-      late _Read reads;
-      var address = 'git@example.org:t/r.git';
-      final heldWhile = <String, List<bool>>{};
-
-      setUp(() {
-        address = 'git@example.org:t/r.git';
-        reads = _Read(() => registry);
-        registry = Registry(checkout: _Fetched('git@example.org:t/r.git'), core: reads);
-        other = Registry(checkout: _Fetched('git@example.org:t/other.git'), core: _Unread());
-        addTearDown(registry.dispose);
-        addTearDown(other.dispose);
-        source = RegistryReadSource(
-          repository: () => address,
-          open: (repository) => repository == 'git@example.org:t/r.git' ? registry : other,
-          machines: () => const [],
-        );
-        expect(source.registry, same(registry));
-        heldWhile.clear();
-        holding = IdentityModel(
-          Identity(
-            run: (program, arguments, {inDirectory, environment = const {}, input}) {
-              heldWhile[arguments.take(2).join(' ')] = [registry.held, other.held];
-              return core.run(program, arguments, inDirectory: inDirectory, environment: environment, input: input);
-            },
-          ),
-          checkoutFor: (address) => address == 'https://github.com/porelo-ai/registry' ? checkout : null,
-          registries: () => source,
-          environment: const {'XDG_CONFIG_HOME': '/home/ms/.config', 'HOME': '/home/ms'},
-        );
-      });
-
-      test('filing, a key change and its retry refuse with its words while a run holds the checkout', () async {
-        core.answer('identity show', absent());
-        await holding.load();
-        final run = Object();
-        registry.hold(run);
-
-        await holding.fileCard(holding.card!.registry.single);
-        expect(holding.problem, Registry.heldWords);
-        await holding.rotate(_usable());
-        expect(holding.problem, Registry.heldWords);
-        expect(holding.rotateInTerminal(database: '/home/ms/Passwords.kdbx'), isNull);
-        expect(holding.problem, Registry.heldWords);
-        expect(core.named('registry file'), isEmpty);
-        expect(core.named('identity rotate'), isEmpty);
-        registry.release(run);
-        expect(registry.held, isFalse);
-
-        final started = holding.rotateInTerminal(database: '/home/ms/Passwords.kdbx');
-        expect(started, isNotNull);
-        expect(registry.held, isTrue, reason: 'held until its terminal ended');
-        await holding.terminalEnded(code: 0, lastLine: '', id: started!.id);
-        expect(registry.held, isFalse);
-      });
-
-      test('filing and a key change hold the checkout while Core runs, and let go of it after', () async {
-        core.answer('identity show', absent());
-        await holding.load();
-        core.answer('registry file', {'commit': commit, 'path': 'people/ms-test-reviewer.card'});
-        await holding.fileCard(holding.card!.registry.single);
-        expect(heldWhile['registry file']?.first, isTrue);
-        expect(registry.held, isFalse);
-
-        core.answer('identity rotate', '{"id": "rot-', code: 0);
-        await holding.rotate(_usable());
-        expect(heldWhile['identity rotate']?.first, isTrue);
-        expect(registry.held, isFalse);
-        final id = holding.unfinishedId!;
-        core.answer('identity publish', _operation(id));
-        await holding.retry(id);
-        expect(heldWhile['identity publish']?.first, isTrue);
-        expect(registry.held, isFalse);
-      });
-
-      // Harm: a key change's terminal hold kept for good once its model went away, so every refresh waits for ever.
-      test('a model put away lets go of its terminal’s hold', () async {
-        core.answer('identity show', absent());
-        await holding.load();
-        expect(holding.rotateInTerminal(database: '/home/ms/Passwords.kdbx'), isNotNull);
-        expect(registry.held, isTrue);
-
-        holding.dispose();
-        await pumpEventQueue();
-
-        expect(registry.held, isFalse);
-      });
-
-      // Harm: Core committing a key change into a checkout this program reads or files in beside it, because only the
-      // registry chosen now was held, or a second registry made on the same checkout after another address was chosen.
-      test('a key change holds every registry read here, and refuses while any is held', () async {
-        core.answer('identity show', absent());
-        await holding.load();
-        address = 'git@example.org:t/other.git';
-        expect(source.registry, same(other));
-        address = 'git@example.org:t/r.git';
-        expect(source.registry, same(registry), reason: 'the same registry again, never a second on its checkout');
-
-        core.answer('identity rotate', '{"id": "rot-', code: 0);
-        await holding.rotate(_usable());
-        expect(heldWhile['identity rotate'], [true, true]);
-        expect([registry.held, other.held], [false, false]);
-
-        final run = Object();
-        other.hold(run);
-        core.calls.clear();
-        final id = holding.unfinishedId!;
-        await holding.retry(id);
-        expect(holding.problem, Registry.heldWords);
-        expect(core.named('identity publish'), isEmpty);
-        expect(registry.held, isFalse, reason: 'nothing is left held by a refused change');
-        other.release(run);
-      });
-
-      // Harm: a key change or filing moving the checkout's HEAD and card while the registry keeps its older read, so
-      // the next filing or recovery run is made against a state that is no longer there.
-      test('a change reads its registry again through its hold before letting go of it', () async {
-        core.answer('identity show', absent());
-        await holding.load();
-        await registry.refresh();
-        expect(reads.heldWhileRead, [false]);
-
-        core.answer('identity rotate', '{"id": "rot-', code: 0);
-        await holding.rotate(_usable());
-        expect(reads.heldWhileRead, [false, true]);
-
-        core.answer('registry file', {'commit': commit, 'path': 'people/ms-test-reviewer.card'});
-        await holding.fileCard(holding.card!.registry.single);
-        expect(reads.heldWhileRead, [false, true, true]);
-        expect(holding.problem, contains('not pushed'), reason: 'Core files the card and pushes nothing');
-        expect(registry.held, isFalse);
-      });
-    });
-
-    test('two presses at once file once', () async {
-      core.answer('identity show', absent());
-      await filing.load();
-      core.answer('registry file', {'commit': commit, 'path': 'people/ms-test-reviewer.card'});
-      final registry = filing.card!.registry.single;
-      await Future.wait([filing.fileCard(registry), filing.fileCard(registry)]);
-      expect(core.named('registry file'), hasLength(1));
-    });
-
-    test('a registry only an owner may file in, or a revoked key, files nothing', () async {
-      core.answer('identity show', absent(mayFile: false));
-      await filing.load();
-      expect(filing.whyNotFile(filing.card!.registry.single), isNotNull);
-      await filing.fileCard(filing.card!.registry.single);
-      core.answer('identity show', absent(revoked: true));
-      await filing.load();
-      await filing.fileCard(filing.card!.registry.single);
-      expect(core.named('registry file'), isEmpty);
-    });
-  });
-
   group('a lost key replaced by a new KeePassXC key runs once in its terminal', () {
     // Harm: vaults reset without review, or a second new key made after an interruption.
     const plan = {'places': <Object?>[], 'hosts': <Object?>[], 'sign_ins': <Object?>[]};
 
-    test('the dry run comes first, the confirmed command once, then only a read-back', () async {
+    test('the dry run comes first, then the confirmed command once', () async {
       // A revoked key is the stolen case: replacing it stays open, unlike every change that needs it.
       core.answer('identity show', _shown(revoked: true));
       await model.load();
       core.answer('identity revoke --dry-run', plan);
-      await model.planLostKeyInKeepassxc(database: '/home/ms/Passwords.kdbx', entry: 'Porelo/key');
+      await model.planLostKeyInKeepassxc(database: '/home/person/Passwords.kdbx', entry: 'Porelo/key');
       expect(core.named('identity revoke').single, [
         'identity',
         'revoke',
         '--lost',
         '--keepassxc',
-        '/home/ms/Passwords.kdbx',
+        '/home/person/Passwords.kdbx',
         '--entry',
         'Porelo/key',
         '--dry-run',
@@ -769,27 +484,27 @@ void main() {
         'revoke',
         '--lost',
         '--keepassxc',
-        '/home/ms/Passwords.kdbx',
+        '/home/person/Passwords.kdbx',
         '--entry',
         'Porelo/key',
+        '--base',
+        _revision,
         '--id',
         id,
         '--json',
       ]);
       expect(model.confirmLostKeyInTerminal(), isNull);
       await model.confirmLostKey();
-      core.answer('identity status', _operation(id, action: 'revoke-lost', status: 'pending'));
-      await model.terminalEnded(code: 130, lastLine: '^C', id: id);
-      expect(core.calls.where((call) => call[1] != 'show' && !call.contains('--dry-run')).toList(), [
-        ['identity', 'status', '--id', id, '--json'],
-      ]);
+      await model.terminalEnded(code: -1, lastLine: '', id: id);
+      expect(core.calls.where((call) => call[1] != 'show' && !call.contains('--dry-run')), isEmpty);
+      expect(model.unfinishedId, id, reason: 'it may have been made, so only the same ID goes on');
     });
 
     test('cancelling the plan leaves nothing to confirm', () async {
       core.answer('identity show', _shown());
       await model.load();
       core.answer('identity revoke --dry-run', plan);
-      await model.planLostKeyInKeepassxc(database: '/home/ms/Passwords.kdbx');
+      await model.planLostKeyInKeepassxc(database: '/home/person/Passwords.kdbx');
       expect(model.lostKeyPlan, isNotNull);
       model.cancelLostKey();
       expect(model.confirmLostKeyInTerminal(), isNull);
@@ -804,19 +519,13 @@ void main() {
         {'id': 'rot-20261031-1', 'action': 'rotate'},
       ],
     );
-    final pendingLost = _shown(
-      pending: [
-        {'id': 'lost-20261031-1', 'action': 'revoke-lost'},
-      ],
-    );
-
     test('a rotation in a terminal goes through the same guard', () async {
       core.answer('identity show', _shown(revoked: true));
       await model.load();
-      expect(model.rotateInTerminal(database: '/home/ms/Passwords.kdbx'), isNull);
+      expect(model.rotateInTerminal(database: '/home/person/Passwords.kdbx'), isNull);
       core.answer('identity show', pendingRotation);
       await model.load();
-      expect(model.rotateInTerminal(database: '/home/ms/Passwords.kdbx'), isNull);
+      expect(model.rotateInTerminal(database: '/home/person/Passwords.kdbx'), isNull);
       expect(model.unfinishedId, isNull);
     });
 
@@ -841,7 +550,7 @@ void main() {
             {'id': id, 'action': 'rotate'},
           ],
         });
-        return (code: 0, out: jsonEncode(_operation(id, status: 'pending')), err: '');
+        return (code: 0, out: jsonEncode(_operation(id)), err: '');
       }
 
       final echoing = IdentityModel(Identity(run: echo));
@@ -854,30 +563,63 @@ void main() {
       expect(core.named('identity rotate'), hasLength(1));
     });
 
-    test('the lost-key flow waits for an open change too', () async {
-      core.answer('identity show', pendingRotation);
+    // Harm: a person who lost the key a pending rotation was made with can never replace it.
+    test('a pending rotation does not hold up replacing a lost key, even waiting for that key', () async {
+      core.answer(
+        'identity show',
+        _shown(
+          revoked: true,
+          pending: [
+            {'id': 'rot-20261031-1', 'action': 'rotate', 'fingerprint': _usable().fingerprint},
+          ],
+        ),
+      );
       await model.load();
-      expect(model.whyNotStart, isNotNull);
+      expect(model.whyNotLostKey, isNull);
+      core.answer('identity revoke --dry-run', {'places': <Object?>[], 'hosts': <Object?>[], 'sign_ins': <Object?>[]});
       await model.planLostKey(_usable());
-      await model.planLostKeyInKeepassxc(database: '/home/ms/Passwords.kdbx');
+      expect(core.named('identity revoke'), hasLength(1));
+      expect(model.lostKeyPlan?.id, isNot('rot-20261031-1'), reason: 'a new change, under its own id');
+    });
+
+    // Harm: a second new card beside one still pending.
+    test('a pending replacement of a lost key does hold up another', () async {
+      core.answer(
+        'identity show',
+        _shown(
+          pending: [
+            {'id': 'lost-20261031-1', 'action': 'revoke-lost', 'fingerprint': _usable().fingerprint},
+          ],
+        ),
+      );
+      await model.load();
+      expect(model.whyNotLostKey, isNotNull);
+      await model.planLostKey(_usable());
+      await model.planLostKeyInKeepassxc(database: '/home/person/Passwords.kdbx');
       expect(core.named('identity revoke'), isEmpty);
     });
 
-    test('a lost-key replacement is only read back, never published again', () async {
-      core.answer('identity show', pendingLost);
-      await model.load();
-      await model.retry('lost-20261031-1');
-      expect(core.named('identity publish'), isEmpty);
-      core.answer('identity status', _operation('lost-20261031-1', action: 'revoke-lost', status: 'pending'));
-      await model.readBack('lost-20261031-1');
-      expect(core.named('identity status'), hasLength(1));
-    });
+    // Harm: a terminal killed after the key was made loses its id, and the next attempt makes a second key.
+    for (final code in [129, 137]) {
+      test('a terminal killed with exit $code keeps the change to ask again', () async {
+        core.answer('identity show', _shown());
+        await model.load();
+        final started = model.rotateInTerminal(database: '/home/person/Passwords.kdbx')!;
+        await model.terminalEnded(code: code, lastLine: '', id: started.id);
+        expect(model.unfinishedId, started.id);
+      });
+    }
 
-    test('a rotation is not published again once the key is revoked', () async {
-      core.answer('identity show', {..._shown(revoked: true), 'pending': pendingRotation['pending']});
+    test('a rotation is not asked again once the key is revoked', () async {
+      core.answer('identity show', _shown());
       await model.load();
-      await model.retry('rot-20261031-1');
-      expect(core.named('identity publish'), isEmpty);
+      core.answer('identity rotate', '', code: 70);
+      await model.rotate(_usable());
+      core.answer('identity show', _shown(revoked: true));
+      await model.load();
+      expect(model.whyNotRetry, isNotNull);
+      await model.retry();
+      expect(core.named('identity rotate'), hasLength(1));
     });
 
     test('the lost or stolen key is never its own replacement', () async {
@@ -898,90 +640,239 @@ void main() {
     });
   });
 
-  group('a kept filing never outlives the right to file it', () {
-    // Harm: a card filed with a revoked or refused key, or filed again after the registry accepted it.
-    const first = '1111111111111111111111111111111111111111';
-    Map<String, Object?> absent({bool revoked = false, String filed = 'absent', String fingerprint = _old}) => {
-      ..._shown(revoked: revoked, fingerprint: fingerprint),
-      'registry': [
-        {
-          'address': 'https://github.com/porelo-ai/registry',
-          'filed': filed,
-          'revision': first,
-          'may_file': true,
-          'who_may': <Object?>[],
-          if (filed == 'refused') 'why': 'the signature does not verify',
-        },
-      ],
-    };
+  group('a change left pending goes on, or starts again, by what Core names', () {
+    const waiting = 'SHA256:WaitingWaitingWaitingWaitingWaitingWaitingWa';
+    const row = PendingIdentityOperation(id: 'rot-20261031-1', action: 'rotate', fingerprint: waiting);
+    final rowRead = {'id': row.id, 'action': row.action, 'fingerprint': waiting};
+    String idOf(List<String> call) => call[call.indexOf('--id') + 1];
+    String keyOf(List<String> call) => call[call.indexOf('--key') + 1];
 
-    late IdentityModel filing;
-    setUp(() {
-      filing = IdentityModel(
-        Identity(run: core.run),
-        checkoutFor: (_) => '/home/ms/registry',
-        environment: const {'XDG_CONFIG_HOME': '/home/ms/.config'},
-      );
-    });
-
-    Future<void> lostAnswer() async {
-      core.answer('identity show', absent());
-      await filing.load();
-      core.answer('registry file', '', code: 70);
-      await filing.fileCard(filing.card!.registry.single);
-      expect(filing.filingUnanswered(filing.card!.registry.single), isTrue);
+    Future<PendingIdentityOperation> read(
+      Map<String, Object?> rowAnswer, {
+      String agent = 'holds',
+      bool revoked = false,
+    }) async {
+      core.answer('identity show', _shown(agent: agent, revoked: revoked, pending: [rowAnswer]));
+      await model.load();
+      return model.card!.pending.single;
     }
 
-    test('a revoked key drops the kept filing and files nothing', () async {
-      await lostAnswer();
-      core.answer('identity show', absent(revoked: true));
-      await filing.load();
-      expect(filing.whyNotFile(filing.card!.registry.single), isNotNull);
-      await filing.fileCard(filing.card!.registry.single);
-      expect(core.named('registry file'), hasLength(1));
-      expect(filing.filingUnanswered(filing.card!.registry.single), isFalse);
+    // Harm: a second key made because a retry took a new id.
+    test('Try again keeps the row\'s ID and key, also after an attempt with no clear answer', () async {
+      final pending = await read(rowRead);
+      core.answer('identity rotate', '', code: 69);
+      await model.tryAgain(pending);
+      core.answer('identity rotate', _operation(row.id));
+      await model.tryAgain(pending);
+      expect(core.named('identity rotate'), hasLength(2));
+      for (final call in core.named('identity rotate')) {
+        expect(idOf(call), row.id);
+        expect(keyOf(call), waiting);
+        expect(call, containsAllInOrder(['--base', _revision]));
+      }
+      expect(model.operation?.id, row.id);
     });
 
-    test('a card Core says is filed drops the kept filing', () async {
-      await lostAnswer();
-      core.answer('identity show', absent(filed: 'done'));
-      await filing.load();
-      expect(filing.filingUnanswered(filing.card!.registry.single), isFalse);
-      await filing.fileCard(filing.card!.registry.single);
-      expect(core.named('registry file'), hasLength(1));
+    test('Try again goes by the row\'s action and opens no terminal', () async {
+      final pending = await read({'id': 'lost-1', 'action': 'revoke-lost', 'fingerprint': waiting});
+      core.answer('identity revoke', {'revision': _revision, 'id': 'lost-1', 'again': true, 'card': 'the card'});
+      await model.tryAgain(pending);
+      expect(core.named('identity revoke').single, [
+        'identity',
+        'revoke',
+        '--lost',
+        '--key',
+        waiting,
+        '--base',
+        _revision,
+        '--id',
+        'lost-1',
+        '--json',
+      ]);
+      expect(model.operation?.card, 'the card');
     });
 
-    for (final filed in ['pending', 'unknown']) {
-      test('a card Core reads as $filed is never filed again under the kept request', () async {
-        await lostAnswer();
-        core.answer('identity show', absent(filed: filed));
-        await filing.load();
-        expect(filing.filingUnanswered(filing.card!.registry.single), isFalse);
-        expect(filing.whyNotFile(filing.card!.registry.single), isNotNull);
-        await filing.fileCard(filing.card!.registry.single);
-        expect(core.named('registry file'), hasLength(1));
+    // Harm: a pending change replaced under the same id with another key.
+    test('another key always goes under a new ID, and Try again never names it', () async {
+      final pending = await read(rowRead);
+      model.startReplacing(pending);
+      core.answer('identity rotate', '', code: 65);
+      await model.rotate(_usable());
+      final call = core.named('identity rotate').single;
+      expect(keyOf(call), _new);
+      expect(idOf(call), isNot(row.id));
+      expect(model.replacing, isNull);
+
+      await model.tryAgain(pending);
+      expect(keyOf(core.named('identity rotate').last), waiting);
+      expect(idOf(core.named('identity rotate').last), row.id);
+    });
+
+    test('another key in a terminal goes under a new ID too', () async {
+      final pending = await read(rowRead);
+      model.startReplacing(pending);
+      final started = model.rotateInTerminal(database: '/home/person/Passwords.kdbx')!;
+      expect(started.id, isNot(row.id));
+      expect(started.command, isNot(contains(row.id)));
+    });
+
+    test('the key a change waits for is no other key: a new ID for it would make a second change', () async {
+      final pending = await read(rowRead);
+      model.startReplacing(pending);
+      const same = AgentKey(
+        fingerprint: waiting,
+        key: _key,
+        comment: 'same',
+        usable: true,
+        reason: null,
+        login: null,
+        keyListed: null,
+      );
+      expect(model.whyNotSuccessor(same), isNotNull);
+      await model.rotate(same);
+      expect(core.named('identity rotate'), isEmpty);
+    });
+
+    test('a replacement with no clear answer is asked again under its own new ID, nothing else on offer', () async {
+      final pending = await read(rowRead);
+      model.startReplacing(pending);
+      core.answer('identity rotate', '', code: 70);
+      await model.rotate(_usable());
+      final id = idOf(core.named('identity rotate').single);
+      expect(model.whyNotTryAgain(pending), isNotNull);
+      expect(model.whyNotReplace(pending), isNotNull);
+      await model.tryAgain(pending);
+      expect(core.named('identity rotate'), hasLength(1));
+
+      core.answer('identity rotate', _operation(id));
+      await model.retry();
+      expect(core.named('identity rotate').map(idOf), [id, id]);
+      expect(core.named('identity rotate').map(keyOf), [_new, _new]);
+    });
+
+    // Harm: a person offered again what the organization has refused, with its first card standing.
+    for (final (name, ask) in <(String, Future<void> Function(PendingIdentityOperation))>[
+      ('Try again', (pending) => model.tryAgain(pending)),
+      (
+        'another key',
+        (pending) async {
+          model.startReplacing(pending);
+          await model.rotate(_usable());
+        },
+      ),
+    ]) {
+      test('an exists refusal of $name is said by its words and offers neither again', () async {
+        final pending = await read(rowRead);
+        const words = 'that change reached the organization, and its first card stands';
+        core.answer('identity rotate', {'reason': 'exists', 'words': words}, code: 65);
+        await ask(pending);
+        expect(model.problem, contains(words));
+        expect(model.standing(model.card!.pending.single), words);
+        expect(model.whyNotTryAgain(model.card!.pending.single), words);
+        expect(model.whyNotReplace(model.card!.pending.single), words);
+        final before = core.named('identity rotate').length;
+        await model.tryAgain(pending);
+        model.startReplacing(pending);
+        expect(model.replacing, isNull);
+        expect(core.named('identity rotate'), hasLength(before));
       });
     }
 
-    test('a lost filing made over a refused card is retried under its own ID', () async {
-      // Harm: a second filing under a new ID while the first one's answer was only lost.
-      core.answer('identity show', absent(filed: 'refused'));
-      await filing.load();
-      core.answer('registry file', '', code: 70);
-      await filing.fileCard(filing.card!.registry.single);
-      await filing.load();
-      expect(filing.filingUnanswered(filing.card!.registry.single), isTrue);
-      await filing.fileCard(filing.card!.registry.single);
-      final ids = [for (final call in core.named('registry file')) call[call.indexOf('--id') + 1]];
-      expect(ids, hasLength(2));
-      expect(ids.toSet(), hasLength(1));
+    test('an exists refusal in a terminal offers neither again', () async {
+      final pending = await read(rowRead);
+      model.startReplacing(pending);
+      final started = model.rotateInTerminal(database: '/home/person/Passwords.kdbx')!;
+      const words = 'that change reached the organization';
+      await model.terminalEnded(code: 65, lastLine: jsonEncode({'reason': 'exists', 'words': words}), id: started.id);
+      expect(model.standing(pending), words);
     });
 
-    test('a card with another key since the lost answer drops the kept request', () async {
-      await lostAnswer();
-      core.answer('identity show', absent(fingerprint: _new));
-      await filing.load();
-      expect(filing.filingUnanswered(filing.card!.registry.single), isFalse);
+    // Harm: a key sent that Core never named for this change.
+    for (final (name, answer) in <(String, Map<String, Object?>)>[
+      ('absent', {'id': row.id, 'action': 'rotate'}),
+      ('null', {'id': row.id, 'action': 'rotate', 'fingerprint': null}),
+      ('no fingerprint', {'id': row.id, 'action': 'rotate', 'fingerprint': '--evil'}),
+      ('another shape', {'id': row.id, 'action': 'rotate', 'fingerprint': 3}),
+    ]) {
+      test('a row whose key is $name offers no Try again, says so, and still offers another key', () async {
+        final pending = await read(answer);
+        expect(model.problem, isNull);
+        expect(pending.fingerprint, isNull);
+        expect(model.whyNotTryAgain(pending), isNotNull);
+        await model.tryAgain(pending);
+        expect(core.named('identity rotate'), isEmpty);
+        expect(model.whyNotReplace(pending), isNull);
+      });
+    }
+
+    test('an agent that no longer serves a key is no dead end: Core decides, and its refusal is said', () async {
+      final pending = await read(rowRead, agent: 'not-held');
+      expect(model.whyNotTryAgain(pending), isNull);
+      expect(model.whyNotReplace(pending), isNull);
+      model.startReplacing(pending);
+      expect(model.whyNotChange, isNull);
+      core.answer('identity rotate', {'reason': 'no-key', 'words': 'your agent does not serve it'}, code: 69);
+      model.stopReplacing();
+      await model.tryAgain(pending);
+      expect(model.problem, contains('your agent does not serve it'));
+      expect(model.whyNotTryAgain(pending), isNull);
+      expect(model.whyNotReplace(pending), isNull);
+    });
+
+    test('a rotation on a revoked card offers neither, and a word this interface does not know neither', () async {
+      final revoked = await read(rowRead, revoked: true);
+      expect(model.whyNotTryAgain(revoked), isNotNull);
+      expect(model.whyNotReplace(revoked), isNotNull);
+      final unknown = await read({'id': 'x-1', 'action': 'merge', 'fingerprint': waiting});
+      expect(model.whyNotTryAgain(unknown), contains('merge'));
+      expect(model.whyNotReplace(unknown), contains('merge'));
+    });
+
+    test('while one row is replaced, another still blocks a new change', () async {
+      core.answer(
+        'identity show',
+        _shown(
+          pending: [
+            rowRead,
+            {'id': 'rot-2', 'action': 'rotate', 'fingerprint': waiting},
+          ],
+        ),
+      );
+      await model.load();
+      model.startReplacing(model.card!.pending.first);
+      expect(model.whyNotChange, isNotNull);
+      await model.rotate(_usable());
+      expect(core.named('identity rotate'), isEmpty);
+    });
+  });
+
+  group('a lost key\'s new card is read from the answer', () {
+    // Harm: a person hands over nothing, or a card this interface made up, believing it is the new one.
+    Future<IdentityOperation?> answered(Map<String, Object?> answer) async {
+      core.answer('identity show', _shown());
+      await model.load();
+      core.answer('identity revoke --dry-run', {'places': <Object?>[], 'hosts': <Object?>[], 'sign_ins': <Object?>[]});
+      await model.planLostKey(_usable());
+      core.answer('identity revoke', {..._operation(model.lostKeyPlan!.id), ...answer});
+      await model.confirmLostKey();
+      return model.operation;
+    }
+
+    test('the card is the answer\'s, as it came', () async {
+      expect((await answered({'card': 'login: ms\n'}))?.card, 'login: ms\n');
+      expect(model.handoverPlan, isNotNull);
+    });
+
+    for (final (name, card) in <(String, Object?)>[('null', null), ('empty', '  '), ('another shape', 3)]) {
+      test('a card that is $name is absent, never guessed', () async {
+        expect((await answered({'card': card}))?.card, isNull);
+      });
+    }
+
+    test('an answer without the field is absent too, and a rotation reads no card', () async {
+      expect((await answered({}))?.card, isNull);
+      expect(Identity.terminalAnswer(jsonEncode({'id': 'a', 'card': 'c'}), id: 'a', action: 'rotate').card, isNull);
+      expect(Identity.terminalAnswer(jsonEncode({'id': 'a', 'card': 'c'}), id: 'a', action: 'revoke-lost').card, 'c');
     });
   });
 
@@ -990,7 +881,7 @@ void main() {
     test('another key, an unserved key or a failed run is not made', () async {
       core.answer('identity show', _shown());
       await model.load();
-      const login = 'ms-test-reviewer';
+      const login = 'rowan-example';
       expect(model.whyNotMade(login: login, fingerprint: _new), isNotNull);
       expect(model.whyNotMade(login: login, before: _old), isNotNull);
       expect(model.whyNotMade(login: login, fingerprint: _old), isNull);
@@ -1009,7 +900,7 @@ void main() {
     test('a create answer without forge or with an unknown agent word is refused', () async {
       final identity = Identity(run: core.run);
       final made = {
-        'login': 'ms',
+        'login': 'rowan',
         'fingerprint': _new,
         'key': _key,
         'card': 'c',
@@ -1019,12 +910,12 @@ void main() {
       };
       core.answer('identity create', {...made}..remove('forge'));
       await expectLater(
-        identity.createWithKey(login: 'ms', name: 'MS', fingerprint: _new),
+        identity.createWithKey(login: 'rowan', name: 'Rowan', fingerprint: _new),
         throwsA(isA<FormatException>()),
       );
       core.answer('identity create', {...made, 'agent': 'maybe'});
       await expectLater(
-        identity.createWithKey(login: 'ms', name: 'MS', fingerprint: _new),
+        identity.createWithKey(login: 'rowan', name: 'Rowan', fingerprint: _new),
         throwsA(isA<FormatException>()),
       );
     });

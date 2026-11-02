@@ -149,15 +149,6 @@ class _ProjectForgeDialogState extends State<ProjectForgeDialog> {
                       ),
                   ],
                 ],
-                _section(
-                  context,
-                  buttonKey: const Key('binding-remove'),
-                  button: 'Stop working on it on $machine',
-                  explain:
-                      '$machine stops following the project and is taken out of the machines whose messages '
-                      'the project trusts. Its vault token stays on the machine.',
-                  onPressed: binding.busy || key == null ? null : () => unawaited(binding.remove(key)),
-                ),
               ],
             ),
           ),

@@ -79,8 +79,7 @@ Feature: Moving around the frame by keyboard and by pointer
         When I select the project {'checkout'}
         And the tunnel drops
         And I open the command finder
-        Then the command {'Follow a project'} is unavailable because {'not answering'}
-        And the command {'Build the environment for this project'} is unavailable because {'not answering'}
+        Then the command {'Build the environment for this project'} is unavailable because {'not answering'}
         When I close what is open
         And enough time passes for another try
 
@@ -98,9 +97,8 @@ Feature: Moving around the frame by keyboard and by pointer
         Then the machine was asked to start {'systemctl --user'}
         And it says {'What this machine can run'}
 
-    Scenario: following a repository and the stop for every machine wait for a machine that answers
+    Scenario: the stop for every machine waits for a machine that answers
         When the tunnel drops
-        Then following a repository on this machine is not offered
-        And stopping everything everywhere is not offered
+        Then stopping everything everywhere is not offered
         When enough time passes for another try
         Then stopping everything everywhere is offered

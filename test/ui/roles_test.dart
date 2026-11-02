@@ -10,38 +10,13 @@ import 'package:porelo_frontend/src/ui/command_finder.dart';
 import 'package:porelo_frontend/src/ui/command_menu.dart';
 
 import '../features/support/world.dart';
-import '../support/host_registry.dart';
+import '../support/host_organization.dart';
 
 void main() {
   setUp(() => roles = const Roles());
   tearDown(() => roles = const Roles());
 
-  // Harm: ordinary project work offers a flow that rents and changes a server.
-  testWidgets('the project menu omits server placement without startup roles', (tester) async {
-    await World.startBackend(World.work);
-    await World.startApp(tester);
-    World.fleet.selectProject('checkout');
-    World.shell.goTo(Section.project);
-    await World.settle(tester);
-    await World.tapInView(tester, 'project-menu');
-    expect(find.text('Register the project'), findsNothing);
-  });
-
-  testWidgets('the project menu offers server placement to a project administrator', (tester) async {
-    roles = Roles.fromArguments(const ['--roles', 'project-admin']);
-    await World.startBackend(World.work);
-    await World.startApp(tester);
-    World.fleet.selectProject('checkout');
-    World.shell.goTo(Section.project);
-    await World.settle(tester);
-    await World.tapInView(tester, 'project-menu');
-    expect(
-      find.descendant(of: find.byKey(const Key('project.server')), matching: find.text('Register the project')),
-      findsOneWidget,
-    );
-  });
-
-  for (final role in ['user', 'host-admin', 'project-admin', 'access-admin']) {
+  for (final role in ['user', 'host-admin', 'access-admin']) {
     testWidgets('menus and the finder show only held roles ($role)', (tester) async {
       roles = Roles.fromArguments(['--roles', role]);
       tester.view
@@ -50,7 +25,7 @@ void main() {
       addTearDown(tester.view.reset);
       final ran = <Role>[];
       final commands = [
-        for (final role in [Role.user, Role.hostAdmin, Role.projectAdmin])
+        for (final role in [Role.user, Role.hostAdmin])
           Command(id: role.name, label: role.name, group: 'Work', role: role, run: () => ran.add(role)),
       ];
       await tester.pumpWidget(
@@ -109,7 +84,7 @@ void main() {
       await World.settle(tester);
       final control = find.byKey(const Key('host.prepare'));
       expect(control, held ? findsOneWidget : findsNothing);
-      // Without a verified registry nobody is known as host admin yet, so it says why instead of opening.
+      // Without a read organization nobody is known as host admin yet, so it says why instead of opening.
       if (held) {
         expect(tester.widget<OutlinedButton>(control).onPressed, isNull);
         expect(
@@ -131,10 +106,9 @@ void main() {
       tester,
     ) async {
       roles = Roles.fromArguments(const ['--roles', 'host-admin']);
-      final fixture = RegistryFixture()..admin = admin;
+      final fixture = HostFixture()..admin = admin;
       await World.startBackend(World.work);
       await World.startApp(tester, hostAccess: fixture.access);
-      addTearDown(fixture.registry.dispose);
       World.shell.goTo(Section.machines);
       await World.settle(tester);
       final control = find.byKey(const Key('host.prepare'));
@@ -146,15 +120,14 @@ void main() {
     });
   }
 
-  // Harm: a host admin whose identity read ends after the registry's is kept from Prepare until something else redraws.
+  // Harm: a host admin whose identity read ends after the organization's is kept from Prepare until something else redraws.
   testWidgets('the shell shows Prepare a server… once a late identity read proves a host admin', (tester) async {
     roles = Roles.fromArguments(const ['--roles', 'host-admin']);
-    final fixture = RegistryFixture();
+    final fixture = HostFixture();
     final proof = FixtureProof(fixture)..hold = Completer<void>();
     fixture.actor = null;
     await World.startBackend(World.work);
     await World.startApp(tester, hostAccess: (settings) => fixture.access(settings, proof: proof));
-    addTearDown(fixture.registry.dispose);
     World.shell.goTo(Section.machines);
     await World.settle(tester);
     final control = find.byKey(const Key('host.prepare'));
@@ -162,7 +135,7 @@ void main() {
     final late = proof.readAgain();
     proof.hold!.complete();
     await late;
-    await tester.pump();
+    await World.settle(tester);
     expect(tester.widget<OutlinedButton>(control).onPressed, isNotNull);
   });
 }

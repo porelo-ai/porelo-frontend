@@ -37,7 +37,7 @@ class MachineClearing extends ChangeNotifier with QuietAfterDispose {
   /// Whether something is under way.
   bool busy = false;
 
-  /// Reads followed repositories and the daemon’s dry run before clearing.
+  /// Reads the repositories and the daemon’s dry run before clearing.
   Future<void> look() => _doing(() async {
     preview = await _machine.clear(project: project, dryRun: true);
   });

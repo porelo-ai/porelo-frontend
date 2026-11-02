@@ -1,30 +1,15 @@
 import 'package:flutter/foundation.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:yaml/yaml.dart';
-import 'package:porelo_host/porelo_host.dart' show forgeAddress;
-
-import 'forge_connection.dart';
 
 import 'fleet_backend.dart';
 import 'forge.dart';
 import 'project_workspace.dart';
 import 'quiet_after_dispose.dart';
 
-/// Why a machine was not bound, in words a person can act on.
-class BindingRefused implements Exception {
-  /// Constructor taking the sentence.
-  const BindingRefused(this.words);
-
-  /// Why, in a sentence a person can act on.
-  final String words;
-
-  @override
-  String toString() => words;
-}
-
-/// What a project's configuration says of itself, as far as binding a machine needs it.
+/// What a project's configuration says of itself, as far as its waiting changes need it.
 class ProjectShape {
-  /// Its name, which every machine follows it by.
+  /// Its name, which every machine knows it by.
   final String name;
 
   /// Its work repositories: each name to its upstream.
@@ -64,13 +49,7 @@ String? onGitHub(String upstream) {
   return match?.group(1);
 }
 
-/// The key part of a public key, `ssh-ed25519 AAAA…`, without its comment: how two are compared.
-String keyPart(String publicKey) => publicKey.trim().split(RegExp(r'\s+')).take(2).join(' ');
-
-/// Binding one machine to a project, and removing it again.
-///
-/// The machine follows over https with the person's token in its vault, pinned to their signing
-/// key through the local SSH agent.
+/// A project's configuration changes waiting at one machine's gate, merged from the project's clone here.
 class MachineBinding extends ChangeNotifier with QuietAfterDispose {
   /// Constructor taking the forge, the project's clone here, and the machine.
   MachineBinding(this.forge, this.workspace, this._machine, {required this.machineName, required this.login});
@@ -80,15 +59,6 @@ class MachineBinding extends ChangeNotifier with QuietAfterDispose {
 
   /// The project's own repository, cloned on this computer.
   ProjectWorkspace workspace;
-
-  /// Goes on with a token changed while this is open: the next step is taken with it, and what
-  /// stopped the last one is put away, to be found again only if it still stops it.
-  void useToken(Forge forge, ProjectWorkspace workspace) {
-    this.forge = forge;
-    this.workspace = workspace;
-    problem = null;
-    notifyListeners();
-  }
 
   final FleetBackend _machine;
 
@@ -101,190 +71,11 @@ class MachineBinding extends ChangeNotifier with QuietAfterDispose {
   /// What was done, in order, in words.
   final List<String> done = <String>[];
 
-  /// The fingerprint the machine pinned, once it follows: compared with the person's, never typed.
-  String? pinned;
-
-  /// The follow's answer where it waits on a host key a person decides about; null otherwise.
-  Followed? hostKey;
-
-  /// The host key fingerprints the forge publishes for itself; empty where it could not be asked.
-  List<String> published = const <String>[];
-
-  /// The key the host offered that the forge publishes too: the one a person can trust here
-  /// without comparing by eye. Null where none matches, or the host's key changed.
-  HostKey? get publishedOffer => hostKey?.outcome != 'UNKNOWN_HOST_KEY'
-      ? null
-      : hostKey?.hostKeys.where((each) => published.contains(each.fingerprint)).firstOrNull;
-
-  Future<List<String>> _published() async {
-    try {
-      return await forge.hostKeyFingerprints();
-    } on Object {
-      return const <String>[];
-    }
-  }
-
-  /// Trusts the host key the forge publishes, then binds again: what was done before is not done
-  /// twice.
-  Future<void> trustPublishedAndBind(
-    SigningKey person, {
-    List<ForgeSigningKey> signers = const <ForgeSigningKey>[],
-  }) async {
-    final offer = publishedOffer;
-    final host = hostKey?.host ?? '';
-    if (offer == null || host.isEmpty) return;
-    await _doing(() async {
-      final trusted = await _machine.trustHostKey(host, offer.fingerprint);
-      if (!trusted.recorded) {
-        problem = trusted.detail.isEmpty ? 'Nothing was recorded.' : trusted.detail;
-        return;
-      }
-      _say(
-        '$machineName trusts ${trusted.type.isEmpty ? '' : '${trusted.type} '}${offer.fingerprint} for $host, as ${forge.name} publishes it.',
-      );
-    });
-    if (problem == null) await bind(person, signers: signers);
-  }
-
-  /// Every key the follow pinned, where it pinned several.
-  List<String> pinnedAll = const <String>[];
-
-  /// Says where a work repository holds a `project.yml` of its own: here it is only worked in, and
-  /// its file means nothing to this project (walk 8: `porelo-test-1` still held one from an earlier
-  /// test, and nothing said so).
-  Future<void> _sayWhereItIsAProjectItself(String fullName, String project) async {
-    try {
-      if (await forge.hasProjectFile(await forge.repository(fullName))) {
-        _say(
-          '$fullName holds a project.yml of its own. As a work repository of $project it is only worked '
-          'in; its own project.yml is not read here.',
-        );
-      }
-    } on Object {
-      // Not knowing is no reason to stop a binding.
-    }
-  }
-
-  Future<bool> _takesSeveralSigners() async {
-    try {
-      final contract = await _machine.contract();
-      return RegExp(r'method Follow\((.*?)\)\s*->', dotAll: true).firstMatch(contract)?.group(1)?.contains('signers') ??
-          false;
-    } on Object {
-      return false;
-    }
-  }
-
-  /// The project, once bound: what starting work on the machine opens on.
-  String? bound;
-
   /// Why the last step did not happen, or null.
   String? problem;
 
   /// Whether a step is running.
   bool busy = false;
-
-  /// Whether the machine's Porelo can be bound from here at all, read off its contract **before**
-  /// anything is asked of it: a follow pinned to the person's key. Null where it could not be read.
-  Future<bool?> canBeBound() async {
-    try {
-      final contract = await _machine.contract();
-      bool takes(String method, String parameter) =>
-          RegExp('method $method\\((.*?)\\)\\s*->', dotAll: true).firstMatch(contract)?.group(1)?.contains(parameter) ??
-          false;
-      return takes('Follow', 'signedBy');
-    } on FeatureNotSupported {
-      return false;
-    } on VarlinkException {
-      return null;
-    } on VarlinkDisconnected {
-      return null;
-    }
-  }
-
-  /// The forge host whose token belongs in the machine's vault.
-  String get tokenHost => forgeAddress(hostOf(workspace.repository.httpsUrl) ?? '');
-
-  /// Reads only credential names, never a value, from the machine's vault listing.
-  Future<bool> hasToken() async {
-    final state = await _machine.credentials();
-    if (!state.readable) throw const BindingRefused('The machine’s vault cannot be read. Open it first.');
-    return state.credentials.any((each) => each.name == 'git.token.$tokenHost');
-  }
-
-  /// Binds only after the vault confirms the terminal command's entry by name.
-  Future<void> bind(
-    SigningKey person, {
-    List<ForgeSigningKey> signers = const <ForgeSigningKey>[],
-    Future<void> Function()? storeToken,
-  }) => _doing(() async {
-    if (!await hasToken()) {
-      await storeToken?.call();
-      if (!await hasToken()) throw BindingRefused('No git.token.$tokenHost is listed in the machine’s vault.');
-    }
-    await _bind(person, signers);
-  });
-
-  Future<void> _bind(SigningKey person, List<ForgeSigningKey> signers) async {
-    final shape = ProjectShape.of(await workspace.read() ?? '');
-    final several = signers.isNotEmpty && await _takesSeveralSigners();
-    final followed = several
-        ? await _machine.follow(
-            shape.name,
-            workspace.repository.httpsUrl,
-            signers: <String>[for (final each in signers) each.keyPart],
-          )
-        : await _machine.follow(shape.name, workspace.repository.httpsUrl, signedBy: keyPart(person.publicKey));
-    if (const <String>{'UNKNOWN_HOST_KEY', 'HOST_KEY_CHANGED'}.contains(followed.outcome)) {
-      // The machine has never met the forge's host, or met another key there: the person
-      // decides, by what the forge publishes, before anything is pinned or registered further.
-      hostKey = followed;
-      published = await _published();
-      _say(
-        followed.outcome == 'HOST_KEY_CHANGED'
-            ? '$machineName met another key at ${followed.host} than the one it remembers.'
-            : '$machineName has never met ${followed.host}.',
-      );
-      return;
-    }
-    hostKey = null;
-    // A refused first follow leaves no project to register a message signer for.
-    if (!followed.recorded && followed.commit.isEmpty) {
-      throw BindingRefused(
-        '$machineName did not follow ${shape.name}: '
-        '${followed.detail.isNotEmpty ? followed.detail : followed.outcome}. Nothing of it is on $machineName.',
-      );
-    }
-    pinnedAll = followed.pinned;
-    pinned = followed.pinned.isNotEmpty ? followed.pinned.first : followed.signer;
-    _say(
-      several
-          ? '$machineName follows ${shape.name}, pinned to your ${followed.pinned.length} signing keys at ${forge.name}.'
-          : '$machineName follows ${shape.name}, pinned to ${followed.signer.isEmpty ? 'your key' : followed.signer}.',
-    );
-    for (final upstream in shape.repositories.values) {
-      final there = fullNameOf(upstream);
-      if (hostOf(upstream) == tokenHost && there != null) {
-        await _sayWhereItIsAProjectItself(there, shape.name);
-      }
-    }
-    bound = shape.name;
-  }
-
-  /// Stops following while retaining the person identity and forge access.
-  Future<void> remove(SigningKey person) => _doing(() async {
-    final shape = ProjectShape.of(await workspace.read() ?? '');
-    final forgotten = await _machine.unfollow(shape.name, force: true);
-    if (forgotten.detail.isNotEmpty) _say(forgotten.detail);
-    for (final kept in forgotten.keeps) {
-      _say(kept);
-    }
-    for (final key in forgotten.keys) {
-      _say(key.title);
-    }
-    _say('$machineName no longer follows ${shape.name}.');
-    bound = null;
-  });
 
   /// Configuration changes waiting at the machine's gate for the project's own repository, or null
   /// before they were asked for. A person merges them here, signed, and the machine is told they landed.
@@ -302,7 +93,7 @@ class MachineBinding extends ChangeNotifier with QuietAfterDispose {
     final project = (await _machine.projects()).where((each) => each.name == shape.name).firstOrNull;
     if (project == null) {
       changes = const <PendingPush>[];
-      _say('$machineName does not follow ${shape.name}, so nothing waits there for it.');
+      _say('$machineName does not have ${shape.name}, so nothing waits there for it.');
       return;
     }
     // Asked by the project's name, as every gate call takes it.
@@ -354,12 +145,10 @@ class MachineBinding extends ChangeNotifier with QuietAfterDispose {
       problem = error.message;
     } on ForgeRefused catch (refused) {
       problem = refused.words;
-    } on BindingRefused catch (refused) {
-      problem = refused.words;
     } on WorkspaceRefused catch (refused) {
       problem = refused.words;
     } on FeatureNotSupported {
-      problem = '$machineName cannot be bound from here: its Porelo is older than that.';
+      problem = '$machineName cannot do this from here: its Porelo is older than that.';
     } on VarlinkException catch (refusal) {
       problem = refusal.simpleName == 'BundleTooLarge'
           ? 'It is too large to review here (${refusal.parameters['bytes']} bytes, at most '

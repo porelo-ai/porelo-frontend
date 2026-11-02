@@ -6,5 +6,5 @@ Future<void> theRepositoryIsWorkedOnOn(WidgetTester tester, String repository, S
   final row = find.byKey(ValueKey<String>('forge-repository $repository'));
   // The machines' names on its row, and nothing else (walk 10).
   final names = machines.split(',').map((each) => each.trim()).join(', ');
-  expect(find.descendant(of: row, matching: find.textContaining('followed on $names ·')), findsOneWidget);
+  expect(find.descendant(of: row, matching: find.textContaining('a project on $names ·')), findsOneWidget);
 }

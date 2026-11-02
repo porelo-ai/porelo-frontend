@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 
 import 'machines.dart';
-import 'registry_pages.dart';
 
 /// A place in the product, reached from the rail.
 ///
@@ -24,6 +23,9 @@ enum Section {
 
   /// Every project on every machine, to set one up or look after it.
   projects('Projects'),
+
+  /// The organization: its people, its projects, its hosts and its owners.
+  organization('Organization'),
 
   /// One machine's details: what it is and how it stands, and its tools. Which one is
   /// `Machines.current`.
@@ -120,12 +122,6 @@ class AgentsOpened extends Opened {
   const AgentsOpened();
 }
 
-/// A repository being followed, on the machine the project will live on.
-class ProjectFollowingOpened extends Opened {
-  /// Constructor.
-  const ProjectFollowingOpened();
-}
-
 /// What this session ran on the machine.
 class OperationsOpened extends Opened {
   /// Constructor.
@@ -161,26 +157,21 @@ class ShellModel extends ChangeNotifier {
   /// The explicitly opened item, including machines not followed locally.
   Machine? itemMachine;
 
-  /// The explicitly opened project, including admissions not followed locally.
+  /// The explicitly opened project, followed here or not.
   String? itemProject;
 
-  /// The registry identity retained with an explicitly opened admission.
-  RegistryTarget? itemRegistryTarget;
-
   /// Opens a machine without substituting the current local selection.
-  void openMachine(Machine machine, {RegistryTarget? target}) {
+  void openMachine(Machine machine) {
     itemMachine = machine;
     itemProject = null;
-    itemRegistryTarget = target;
     _goTo(Section.machine);
     notifyListeners();
   }
 
   /// Opens a project using the full machine/project identity.
-  void openProject(Machine machine, String project, {RegistryTarget? target}) {
+  void openProject(Machine machine, String project) {
     itemMachine = machine;
     itemProject = project;
-    itemRegistryTarget = target;
     _goTo(Section.project);
     notifyListeners();
   }
@@ -206,10 +197,9 @@ class ShellModel extends ChangeNotifier {
 
   /// Goes to a section, closing whatever was open over the one before.
   void goTo(Section section) {
-    final hadItem = itemMachine != null || itemProject != null || itemRegistryTarget != null;
+    final hadItem = itemMachine != null || itemProject != null;
     itemMachine = null;
     itemProject = null;
-    itemRegistryTarget = null;
     _goTo(section);
     if (hadItem) notifyListeners();
   }
@@ -227,14 +217,13 @@ class ShellModel extends ChangeNotifier {
   void show(String command, {Section section = Section.machine}) {
     itemMachine = null;
     itemProject = null;
-    itemRegistryTarget = null;
     _section = section;
     _opened = const NothingOpened();
     _highlight = command;
     notifyListeners();
   }
 
-  /// Reveals [command] on the open item while retaining its full registry scope.
+  /// Reveals [command] on the open item while it stays open.
   void showOnItem(String command) {
     _opened = const NothingOpened();
     _highlight = command;
@@ -253,9 +242,6 @@ class ShellModel extends ChangeNotifier {
 
   /// Opens what one operation printed.
   void openOperation(String id) => _open(OperationOpened(id));
-
-  /// Opens following a repository.
-  void openProjectFollowing() => _open(const ProjectFollowingOpened());
 
   /// Opens what this session ran on the machine.
   void openOperations() => _open(const OperationsOpened());

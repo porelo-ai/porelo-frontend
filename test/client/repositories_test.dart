@@ -171,44 +171,6 @@ void main() {
     });
   });
 
-  test('a follow state is read whole, and neither absent nor empty is a follow', () async {
-    daemon.method(
-      'Projects',
-      (_) => <String, dynamic>{
-        'projects': <Map<String, dynamic>>[
-          <String, dynamic>{
-            'name': 'checkout',
-            'following': <String, dynamic>{
-              'name': 'checkout',
-              'url': 'git@example.org:checkout.git',
-              'commit': '4f2a9c1e0b77',
-              'at': '2026-09-19T03:50:00Z',
-              'outcome': 'UNKNOWN_KEY',
-              'refused': 'b71d03aa9e2c',
-              'signer': 'SHA256:9xQeTbL1',
-              'detail': 'not pinned here',
-              'needsAPerson': true,
-              'unverified': true,
-            },
-          },
-          <String, dynamic>{'name': 'nobody-follows'},
-          <String, dynamic>{'name': 'empty-object', 'following': <String, dynamic>{}},
-        ],
-      },
-    );
-
-    final projects = await (await connect()).projects();
-
-    final followed = projects.first.following!;
-    expect(followed.commit, '4f2a9c1e0b77');
-    expect(followed.refused, 'b71d03aa9e2c', reason: 'what was turned away is not what runs');
-    expect(followed.signer, 'SHA256:9xQeTbL1');
-    expect(followed.needsAPerson, isTrue);
-    expect(followed.unverified, isTrue);
-    expect(projects[1].following, isNull);
-    expect(projects[2].following, isNull, reason: 'an empty object is not a follow');
-  });
-
   group("a repository's egress is asked and written with its name", () {
     Future<Map<String, String?>> asked({String? repository}) async {
       final names = <String, String?>{};
@@ -266,41 +228,20 @@ void main() {
     expect(repositories.last.limits, isNull, reason: 'a Porelo that does not say says nothing');
   });
 
-  test('what this account follows is read, one entry per project', () async {
-    daemon.method(
-      'Following',
-      (_) => <String, dynamic>{
-        'projects': <Map<String, dynamic>>[
-          <String, dynamic>{'name': 'e2e-follow', 'outcome': 'APPLIED', 'unverified': true},
-        ],
-      },
-    );
-
-    final followed = await (await connect()).following();
-
-    expect(followed.single.name, 'e2e-follow');
-    expect(followed.single.inForce, isTrue);
-    expect(followed.single.unverified, isTrue);
-  });
-
-  test('a project left from before following carries a file and is still not acted on', () async {
+  test('only a project with a file here is acted on', () async {
     daemon.method(
       'Projects',
       (_) => <String, dynamic>{
         'projects': <Map<String, dynamic>>[
-          <String, dynamic>{
-            'name': 'objects4j',
-            'file': '/home/alice/git/objects4j/project.yml',
-            'following': <String, dynamic>{},
-          },
-          <String, dynamic>{'name': 'older', 'file': '/srv/older/project.yml'},
+          <String, dynamic>{'name': 'left-behind', 'file': ''},
+          <String, dynamic>{'name': 'here', 'file': '/srv/here/project.yml'},
         ],
       },
     );
 
     final projects = await (await connect()).projects();
 
-    expect(projects.first.canBeActedOn, isFalse, reason: 'the machine follows nothing called that');
-    expect(projects.last.canBeActedOn, isTrue, reason: 'a Porelo that says nothing about following');
+    expect(projects.first.canBeActedOn, isFalse, reason: 'known only from what was left behind');
+    expect(projects.last.canBeActedOn, isTrue);
   });
 }

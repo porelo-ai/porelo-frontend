@@ -163,6 +163,9 @@ class HostSession extends ChangeNotifier {
   /// What names the project and where it goes, without `up` or `down`.
   final List<String> arguments;
 
+  /// How this session starts its command, for a session of the same run.
+  StartHostCommand get start => _start;
+
   final StartHostCommand _start;
   final DateTime Function() _now;
   bool _disposed = false;

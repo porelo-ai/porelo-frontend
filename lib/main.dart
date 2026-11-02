@@ -4,8 +4,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:guided_walk/guided_walk.dart';
 
-import 'src/app/run_here.dart' show registryEnvironment;
-import 'src/app/kdbx_forge_tokens.dart' show forgeTokenEntry, forgeTokenEntryFromArguments, registryEnvironmentFor;
 import 'src/app/egress.dart';
 import 'src/app/gate.dart';
 import 'src/app/host_readiness.dart';
@@ -21,7 +19,6 @@ import 'src/app/authentication.dart';
 import 'src/app/emergency_stop.dart';
 import 'src/app/start_work.dart';
 import 'src/app/templates.dart';
-import 'src/app/key_recovery.dart' show PrivateCards;
 import 'src/app/keystore.dart';
 import 'src/app/vault.dart';
 import 'src/app/widening.dart';
@@ -30,22 +27,18 @@ import 'src/app/window.dart';
 import 'src/app/operations.dart';
 import 'src/app/backups.dart';
 import 'src/app/connections.dart';
-import 'src/app/project_following.dart';
-import 'src/app/project_access_wiring.dart';
 import 'src/app/project_deletion.dart';
 import 'src/app/desk.dart';
-import 'src/app/registry.dart';
-import 'src/app/registry_checkout.dart';
 import 'src/app/forge_key_check.dart';
 import 'src/app/host_access.dart';
 import 'src/app/host_access_adapters.dart';
-import 'src/app/join_adapters.dart';
-import 'src/app/registry_pages.dart';
-import 'src/app/registry_read_source.dart';
 import 'src/app/session.dart';
 import 'src/app/settings.dart';
 import 'src/app/shell_model.dart';
+import 'src/app/organization_connections.dart';
+import 'src/app/organization_source.dart';
 import 'src/app/porelo_app.dart';
+import 'src/app/porelo_organization_source.dart';
 import 'src/app/roles.dart';
 import 'src/ui/choice_field.dart';
 import 'src/ui/terminal_diagnosis.dart';
@@ -56,8 +49,6 @@ import 'src/ui/walk_texts.dart';
 Future<void> main(List<String> arguments) async {
   try {
     roles = Roles.fromArguments(arguments);
-    forgeTokenEntry = forgeTokenEntryFromArguments(arguments);
-    registryEnvironment = registryEnvironmentFor(forgeTokenEntry);
   } on FormatException catch (error) {
     stderr.writeln(error.message);
     exitCode = 64;
@@ -95,46 +86,24 @@ WalkSession? _walk() {
 
 Future<PoreloApp>? _composed;
 
-/// The registry read from a private checkout of the address chosen once, shared by its lists and by joining.
-RegistryReadSource _registrySource(Settings settings, Machines machines) => RegistryReadSource(
-  repository: () => settings.registryRepository,
-  open: (repository) => Registry(
-    checkout: RegistryCheckout(root: '${desk.data}/registry', repository: repository),
-    core: CliRegistryCore(scratch: '${desk.data}/registry-filing'),
-  ),
-  machines: () => machines.all,
-);
-
-/// A host admin's registry changes, judged on [source]'s registry and Core's proven identity, read again before every
-/// side effect; delivered to a host as root through its card's pinned SSH config.
-HostAccess _hostAccess(Settings settings, Machines machines, RegistryReadSource source) {
+/// Who may prepare a host, judged on what [source] answers and the identity Porelo proves, read again before every side
+/// effect.
+HostAccess _hostAccess(OrganizationSource source) {
   final proven = CoreHostAdminProof();
-  unawaited(proven.readAgain());
-  return HostAccess(
-    registry: () => source.registry,
-    settings: settings,
+  final access = HostAccess(
+    source: source,
     identity: proven.current,
     proof: proven,
-    transport: SshHostRegistryTransport(
-      registry: () => source.registry,
-      machines: () => machines.all,
-      settings: settings,
-      scratch: '${desk.data}/registry-bundles',
-      identity: proven.current,
-      proof: proven,
-    ),
+    scratch: '${desk.data}/host-setup',
   );
+  unawaited(access.readAgain());
+  return access;
 }
 
-/// Every registry list, read by this computer's daemon from [source].
-RegistryPages _registryPages(Settings settings, RegistryReadSource source) => RegistryPages(
-  source: source,
-  features: const RegistryPageFeatures(operations: {RegistryOperation.refresh}),
-  address: () => settings.registryRepository,
-);
-
 Future<PoreloApp> _compose() async {
-  final settings = Settings(FileSettingsStore());
+  final settingsStore = FileSettingsStore();
+  final settingsDropped = await settingsStore.dropOldForm();
+  final settings = Settings(settingsStore);
   await settings.load();
 
   final shell = ShellModel();
@@ -157,7 +126,6 @@ Future<PoreloApp> _compose() async {
   }
 
   // A card copy a crash left behind is removed now, not only when the next replacement runs.
-  unawaited(PrivateCards().sweep());
   final newerVersion = NewerVersion()..watch();
   // Nothing is opened here: a session exists only once somebody asks for one, and the list is
   // what makes several of them tellable apart.
@@ -167,9 +135,12 @@ Future<PoreloApp> _compose() async {
   await operations.load();
   final notifications = Notifications(DesktopNotifier(), settings)..watchOperations(operations, open: (_) {});
   await notifications.load();
-  final registry = _registrySource(settings, machines);
-  final joins = appJoins(registry: registry, machines: machines);
+  final organizationSource = PoreloOrganizationSource();
   final app = PoreloApp(
+    settingsDropped: settingsDropped,
+    organizationSource: organizationSource,
+    connectionsFor: (organization) =>
+        CardHostConnections(organization: organization, machines: machines, publicKey: organizationSource.myPublicKey),
     machines: machines,
     shell: shell,
     settings: settings,
@@ -189,17 +160,13 @@ Future<PoreloApp> _compose() async {
     deleting: ProjectDeletion(),
     readiness: HostReadiness(),
     authentication: Authentication(),
-    following: ProjectFollowing(resolveAdminSigners: registryAdminSigners(() => registry.registry)),
     connections: Connections(),
     backups: Backups(),
     narrowing: Narrowing(),
     held: WorkHeld(),
-    registryPages: _registryPages(settings, registry),
-    joinDiscovery: joins.discovery,
-    joinHost: joins.host,
     forgeKeyCheck: ForgeKeyCheckCli(),
-    hostAccess: _hostAccess(settings, machines, registry),
-    projectAccess: appProjectAccess(registry: registry, settings: settings, machines: machines),
+    // Reads the organization on every refresh, so only for a person whose role can use it.
+    hostAccess: roles.holds(Role.hostAdmin) ? _hostAccess(organizationSource) : null,
     // A development build started with PORELO_WALK=<folder>; a release build never has one.
     walk: _walk(),
   );

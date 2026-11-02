@@ -384,7 +384,7 @@ class _ConnectionWizardState extends State<_ConnectionWizard> {
           'TOKEN',
           'A token',
           id: 'kind-TOKEN',
-          means: 'A restricted, read-only token is enough to follow a repository.',
+          means: 'A restricted, read-only token is enough to fetch a repository.',
         ),
         Choice('BASIC', 'A user and password', id: 'kind-BASIC'),
       ],

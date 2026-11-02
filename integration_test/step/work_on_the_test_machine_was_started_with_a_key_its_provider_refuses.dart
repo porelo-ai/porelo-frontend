@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
+import '../support/project_file.dart';
 import '../support/remote.dart';
 
 /// The project the refused work is in, and the work's name.
@@ -30,17 +31,10 @@ printf 'sk-ant-api03-%s' "\$(printf 'not-a-real-key-%.0s' 1 2 3 4 5 6)" | porelo
   # A put that complains may still have stored it: what this scenario put there goes again.
   porelo vault remove --without-revoking $entry >/dev/null 2>&1; exit 1; }
 name=$refusedByItsProvider; repo="\$HOME/\$name"
-porelo project unfollow --force \$name >/dev/null 2>&1 || true
-rm -rf "\$repo"; mkdir -p "\$repo"; cd "\$repo"; git init -q -b main
-cat > project.yml <<'YAML'
-project:
-  name: "$refusedByItsProvider"
-  security_class: "guarded"
-image:
-  base_image: "ubuntu:24.04"
-YAML
-git add project.yml; git -c user.name=e2e -c user.email=e2e@example.invalid commit -q -m p
-porelo project follow --unverified \$name "\$repo" >/dev/null
-porelo task start -p \$name -r \$name --agent stub -P 'say hello' --clearance deny --detach ended >/dev/null
+porelo project remove \$name >/dev/null 2>&1 || true
+${removingTheProjectFiles(refusedByItsProvider)}
+git init -q --bare -b main "\$repo-backend.git"
+${writingTheProjectFile(refusedByItsProvider, projectFile(refusedByItsProvider, backend: '\$repo-backend.git'))}
+porelo task start -p \$name -r backend --agent stub -P 'say hello' --clearance deny --detach ended >/dev/null
 ''');
 }

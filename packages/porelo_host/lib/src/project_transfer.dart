@@ -33,15 +33,59 @@ List<String> projectTransferFeedCommand({
   required List<String> repositories,
   required HostCardSsh card,
   required String config,
-  required SecretsFile secretsFile,
+  required CentralToken token,
   Map<String, String>? environment,
   bool? windows,
   String ssh = '/usr/bin/ssh',
 }) {
+  return _tokenFeedCommand(
+    remote: projectTransferCommand(direction, project, repositories),
+    target: card.name,
+    marked: marked,
+    card: card,
+    config: config,
+    token: token,
+    environment: environment,
+    windows: windows,
+    ssh: ssh,
+  );
+}
+
+/// Builds the terminal-only feed of the host admin's central token to `org refresh`, as root through the same pinned
+/// config: the host takes a token only while something waits for one, so this runs only then.
+List<String> organizationRefreshFeedCommand({
+  required HostCardSsh card,
+  required String config,
+  required CentralToken token,
+  Map<String, String>? environment,
+  bool? windows,
+  String ssh = '/usr/bin/ssh',
+}) => _tokenFeedCommand(
+  remote: '/usr/local/sbin/porelo-host-person org refresh',
+  target: 'root@${card.name}',
+  marked: false,
+  card: card,
+  config: config,
+  token: token,
+  environment: environment,
+  windows: windows,
+  ssh: ssh,
+);
+
+List<String> _tokenFeedCommand({
+  required String remote,
+  required String target,
+  required bool marked,
+  required HostCardSsh card,
+  required String config,
+  required CentralToken token,
+  required Map<String, String>? environment,
+  required bool? windows,
+  required String ssh,
+}) {
   HostCardSsh.checkConfigPath(card.name, config, environment: environment, windows: windows ?? Platform.isWindows);
   SecretsFile.checkPath(ssh);
-  final remote = projectTransferCommand(direction, project, repositories);
-  final scripts = secretsFile.projectTransferScripts();
+  final scripts = token.projectTransferScripts();
   final command = [
     ssh,
     '-F',
@@ -55,7 +99,7 @@ List<String> projectTransferFeedCommand({
     'ConnectTimeout=10',
     '-T',
     '--',
-    card.name,
+    target,
     remote,
   ].map(quoteForAShell).join(' ');
   final script = [

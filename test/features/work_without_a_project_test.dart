@@ -52,12 +52,12 @@ void main() {
       await iGoToTheWork(tester);
     }
 
-    testWidgets('''default is the project shown first, and cannot be stopped following''', (tester) async {
+    testWidgets('''default is the project shown first, and cannot be removed''', (tester) async {
       await bddSetUp(tester);
       await theFirstProjectOnTheMachineIs(tester, 'default');
       await iSelectTheProject(tester, 'default');
       await iOpenTheCommandFinder(tester);
-      await theCommandIsUnavailableBecause(tester, 'Stop following this project', 'default is always there');
+      await theCommandIsUnavailableBecause(tester, 'Remove this project', 'default is always there');
     });
     testWidgets('''work in default starts on a repository named by its address, which goes into default on the way''', (
       tester,
@@ -101,12 +101,12 @@ void main() {
     ) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'default');
-      await theProjectHeaderDoesNotSay(tester, 'not followed here');
+      await theProjectHeaderDoesNotSay(tester, 'not on this machine');
       await theProjectHeaderDoesNotSay(tester, 'environment not prepared');
       await theProjectHeaderSays(tester, 'worked on with Porelo’s own settings');
       await theStartTileSays(tester, 'Start work');
     });
-    testWidgets('''a repository a followed project names too is offered to be taken out of default''', (tester) async {
+    testWidgets('''a repository a project names too is offered to be taken out of default''', (tester) async {
       await bddSetUp(tester);
       await defaultHoldsAtNamedByToo(tester, 'api', 'https://github.com/acme/api.git', 'payments');
       await iSelectTheProject(tester, 'default');

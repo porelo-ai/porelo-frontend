@@ -9,8 +9,8 @@ Future<void> theWorkItsProviderRefusedIsRemovedAgainWithTheKey(WidgetTester test
 PATH="\$HOME/.local/bin:\$PATH"
 set -e
 porelo task remove --force $refusedTask >/dev/null
-porelo project unfollow --force $refusedByItsProvider >/dev/null
-rm -rf "\$HOME/$refusedByItsProvider"
+porelo project remove $refusedByItsProvider >/dev/null
+${removingTheProjectFiles(refusedByItsProvider)}
 porelo vault remove --without-revoking $entry >/dev/null
 ''');
   final left = await onTheTestMachine('PATH="\$HOME/.local/bin:\$PATH"; porelo task list; porelo vault list');

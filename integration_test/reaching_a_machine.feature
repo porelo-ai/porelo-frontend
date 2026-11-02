@@ -1,6 +1,6 @@
 # The Feature line is the report row: one short sentence, 70 characters at most,
 # saying what this file tests. Run by tool/e2e.sh against a real machine.
-Feature: Reaching a real machine, reading it, and following a project
+Feature: Reaching a real machine, reading it, and working in a project
 
     Background:
         Given the interface is running

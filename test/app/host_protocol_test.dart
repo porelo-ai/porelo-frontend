@@ -16,7 +16,7 @@ import 'package:porelo_host/porelo_host.dart';
 
 import '../features/support/world.dart';
 import '../support/host_process.dart';
-import '../support/host_registry.dart';
+import '../support/host_organization.dart';
 
 const _record = HostUpRecord(scalewayProject: 'provider', hostName: 'demo', publicKey: '/keys/person.pub');
 
@@ -31,9 +31,8 @@ void main() {
     store = FileSettingsStore(file: File('${scratch.path}/settings.json'));
     settings = Settings(store);
     machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: FakeTunnels());
-    final fixture = RegistryFixture();
+    final fixture = HostFixture();
     final access = await fixture.access(settings);
-    addTearDown(fixture.registry.dispose);
     runs = HostRuns(
       machines,
       environment: {'XDG_STATE_HOME': scratch.path, 'LOCALAPPDATA': scratch.path},
@@ -81,9 +80,8 @@ void main() {
     await reopened.load();
     final fleet = Machines(reopened, reach: (_) => FakeBackend(const []), tunnels: FakeTunnels());
     final next = HostProcess();
-    final restoredFixture = RegistryFixture();
+    final restoredFixture = HostFixture();
     final restoredAccess = await restoredFixture.access(reopened);
-    addTearDown(restoredFixture.registry.dispose);
     final restored = _RestoredRuns(
       fleet,
       (_, _) async => next,
@@ -241,9 +239,8 @@ void main() {
   test('protocol write failure keeps recovery and refuses leaving', () async {
     final failing = Settings(_RefusingProtocolStore());
     final fleet = Machines(failing, reach: (_) => FakeBackend(const []), tunnels: FakeTunnels());
-    final fixture = RegistryFixture();
+    final fixture = HostFixture();
     final access = await fixture.access(failing);
-    addTearDown(fixture.registry.dispose);
     final preparing = HostRuns(fleet, hostAccess: access);
     addTearDown(() {
       preparing.dispose();
