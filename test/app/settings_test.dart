@@ -1,6 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/run_here.dart';
 import 'package:porelo_frontend/src/app/settings.dart';
+import 'package:porelo_host/porelo_host.dart' show PreparedHost;
+
+import '../support/host_registry.dart' show hostKey, sshCompletion;
 
 void main() {
   // Harm: a registry address with a token in it is kept in the settings file, or the address is lost.
@@ -43,6 +46,27 @@ void main() {
       expect(reopened.hostUp(project)?.stored, record.stored);
     }
   });
+
+  // Harm: a host saved by name or IPv6 address is dropped at the next start, and with it the way to give it back.
+  for (final address in ['orchard.example.org', '2001:db8::7']) {
+    test('a host given and prepared at $address survives a restart', () async {
+      final record = HostUpRecord(
+        host: 'orchard',
+        hostName: 'orchard',
+        givenAddress: address,
+        givenHostKey: hostKey,
+        preparedHost: PreparedHost.read({...sshCompletion(), 'address': address}),
+      );
+      final store = MemorySettingsStore({
+        'hostUps': {'orchard': record.stored},
+      });
+      final settings = Settings(store);
+      addTearDown(settings.dispose);
+      await settings.load();
+      expect(settings.hostUp('orchard')?.givenAddress, address);
+      expect(settings.hostUp('orchard')?.preparedHost?.address, address);
+    });
+  }
 
   // Harm: resuming obsolete setup can reuse retired credentials on a billed host.
   test('an old rental survives restart but cannot supply setup arguments', () async {

@@ -43,11 +43,16 @@ void main() {
   });
   tearDown(() => scratch.delete(recursive: true));
 
-  Future<int> up({bool limits = true, String? digest, List<String> extra = const []}) async => runHostCommand(
+  Future<int> up({
+    bool limits = true,
+    String? digest,
+    List<String> extra = const [],
+    String given = '192.0.2.7',
+  }) async => runHostCommand(
     [
       'up',
       '--given',
-      '192.0.2.7',
+      given,
       '--host-key',
       sshKey,
       '--host-name',
@@ -64,6 +69,36 @@ void main() {
     errors: errors,
     environment: {'XDG_STATE_HOME': scratch.path, 'LOCALAPPDATA': scratch.path},
   );
+
+  // Harm: a server given by name or IPv6 address never completes, because the host reports its own IPv4 address; or its
+  // card records that address, and not the one this computer reaches it at.
+  for (final given in ['orchard.example.org', '2001:db8::7']) {
+    test('a server given at $given completes with the address it was given at', () async {
+      expect(await up(given: given), Exit.done, reason: '$output $errors');
+      final steps = LineSplitter.split(output.toString()).map(Step.fromLine).whereType<Step>().toList();
+      expect(steps.last.host!.address, given);
+      expect(steps[steps.length - 2].address, given);
+    });
+
+    // Harm: without the address to compare, a machine with another host key is taken for the one given.
+    test('a server given at $given with another host key is refused', () async {
+      final record = jsonDecode(remote.lines.last) as Map<String, Object?>;
+      const other = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB';
+      remote.lines.last = jsonEncode({
+        ...record,
+        'host': {...record['host']! as Map<String, Object?>, 'ssh_host_key': other},
+      });
+      expect(await up(given: given), Exit.refused);
+      final steps = LineSplitter.split(output.toString()).map(Step.fromLine).whereType<Step>();
+      expect(steps.where((step) => step.state == StepState.host), isEmpty);
+    });
+  }
+
+  // Harm: an IPv4 address that a machine does not report as its own goes unnoticed, as it did not before.
+  test('a server given at an IPv4 address it does not report is still refused', () async {
+    expect(await up(given: '192.0.2.8'), Exit.refused);
+    expect('$output', contains('address differs'));
+  });
 
   // Harm: preparation cannot run, or records a host ready before executing the checked setup.
   test('up given runs the rehearsed preparation in order and completes the host', () async {

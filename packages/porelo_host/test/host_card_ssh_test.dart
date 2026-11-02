@@ -73,6 +73,28 @@ void main() {
     expect('${parsed.stdout}', contains('hostname fe80::1%'));
   });
 
+  // Harm: ssh looks the host key up under another spelling than the card wrote, and every connection is refused.
+  for (final address in ['orchard.example.org', '2001:db8::7']) {
+    for (final port in [22, 2222]) {
+      test('a card at $address on port $port is written as ssh reads it', () async {
+        final root = await Directory.systemTemp.createTemp('');
+        addTearDown(() => root.delete(recursive: true));
+        final card = HostCardSsh.fromStored({...cardValues(), 'address': address, 'ssh_port': port});
+        final environment = {'XDG_CONFIG_HOME': root.path};
+        final config = card.configPath(environment: environment);
+        await card.publish(config, environment: environment);
+        final parsed = await Process.run('ssh', ['-F', config, '-G', card.name], environment: {'SSH_AUTH_SOCK': ''});
+        expect(parsed.exitCode, 0, reason: '${parsed.stderr}');
+        expect('${parsed.stdout}', contains('hostname $address\n'));
+        expect('${parsed.stdout}', contains('port $port\n'));
+        final lookup = port == 22 ? address : '[$address]:$port';
+        final known = await Process.run('ssh-keygen', ['-F', lookup, '-f', '$config.known_hosts']);
+        expect(known.exitCode, 0, reason: 'ssh finds the host key under $lookup');
+        expect('${known.stdout}', contains('found'));
+      });
+    }
+  }
+
   // Prevents untrusted card values from injecting SSH directives, selecting identities or escaping paths.
   for (final change in <String, Object?>{
     'name': 'Alpha',

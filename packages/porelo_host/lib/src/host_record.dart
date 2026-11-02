@@ -41,10 +41,34 @@ bool _ipv6(String value) {
   return halves.length == 2 ? all.length < 8 : all.length == 8;
 }
 
-bool _usableIpv4(String value) {
-  if (!isIpv4Address(value)) return false;
-  final parts = value.split('.').map(int.parse).toList();
-  return value != '0.0.0.0' && parts[0] != 127 && !(parts[0] >= 224 && parts[0] <= 239);
+bool _usableIpv4(List<int> parts) =>
+    parts.any((part) => part != 0) && parts[0] != 127 && !(parts[0] >= 224 && parts[0] <= 239);
+
+/// The eight groups of IPv6 [value], which [isCardAddress] has taken.
+List<int> _ipv6Groups(String value) {
+  List<int> groups(String half) =>
+      half.isEmpty ? const [] : [for (final group in half.split(':')) int.parse(group, radix: 16)];
+  final halves = value.split('::');
+  final head = groups(halves.first);
+  final tail = halves.length == 2 ? groups(halves.last) : const <int>[];
+  return [...head, ...List.filled(8 - head.length - tail.length, 0), ...tail];
+}
+
+/// Whether [value] is a card's address that ssh can reach a server at from another computer: any form
+/// [isCardAddress] takes, but no loopback, unspecified or multicast address and no name of this computer itself.
+bool isUsableHostAddress(String value) {
+  if (!isCardAddress(value)) return false;
+  if (isIpv4Address(value)) return _usableIpv4(value.split('.').map(int.parse).toList());
+  if (value.contains(':')) {
+    final groups = _ipv6Groups(value);
+    final zeros = groups.every((group) => group == 0);
+    final loopback = groups.last == 1 && groups.take(7).every((group) => group == 0);
+    final mapped = groups[5] == 0xffff && groups.take(5).every((group) => group == 0);
+    if (mapped) return _usableIpv4([groups[6] >> 8, groups[6] & 255, groups[7] >> 8, groups[7] & 255]);
+    return !zeros && !loopback && groups.first >> 8 != 0xff;
+  }
+  final name = value.toLowerCase();
+  return name != 'localhost' && !name.endsWith('.localhost');
 }
 
 /// Refuses a public key with a comment, a wrong type, or a malformed SSH blob.
@@ -82,8 +106,8 @@ class PreparedHost {
     if (name is! String) throw const FormatException('The host completion needs its name.');
     checkHostName(name);
     if (hostName != null && name != hostName) throw const FormatException('The completion names another server.');
-    if (address is! String || !_usableIpv4(address)) {
-      throw const FormatException('The host completion needs a usable IPv4 address.');
+    if (address is! String || !isUsableHostAddress(address)) {
+      throw const FormatException('The host completion needs a usable host name or IP address.');
     }
     if (port is! int || port < 1 || port > 65535 || key is! String) {
       throw const FormatException('The host completion needs valid ssh_port and ssh_host_key.');
@@ -157,6 +181,15 @@ class PreparedHost {
         'matrix': Map<String, int>.unmodifiable({'port': ports[2] as int}),
       }),
     );
+  }
+
+  /// This completion for a server this computer reaches at [address], as a server given by name or IPv6 address is:
+  /// the machine itself reports only its own IPv4 address.
+  PreparedHost reachedAt(String address) {
+    if (!isUsableHostAddress(address)) {
+      throw const FormatException('The host completion needs a usable host name or IP address.');
+    }
+    return PreparedHost._(name, address, sshPort, sshHostKey, services);
   }
 
   /// The server's DNS label.

@@ -18,6 +18,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f291"></a>[F291](F291-A-Host-Card-With-A-Name-Or-An-IPv6-Address-Read.md) | M | — | A host whose card names a host name or an IPv6 address reached, saved and administered as one at an IPv4 address. |
 | <a id="f108"></a>[F108](F108-A-Machine-Over-Ssh-From-Windows.md) | — | — | On Windows, a machine over ssh is reached through the relay, as a WSL distribution is. |
 | <a id="f118"></a>[F118](F118-An-Upstream-That-Cannot-Be-Read-Said-Before-A-Start.md) | — | — | An upstream that cannot be read said before a start, with what fixes it. |
 | <a id="f137"></a>[F137](F137-The-Collection-Taken-Only-By-Its-Digest.md) | — | — | The collection installed on the host only by the digest the package expects, checked here and there. |
@@ -26,7 +27,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f291"></a>[F291](F291-A-Host-Card-With-A-Name-Or-An-IPv6-Address-Read.md) | M | — | A host whose card names a host name or an IPv6 address reached, saved and administered as one at an IPv4 address. |
 | <a id="f287"></a>[F287](F287-A-Join-Confirmed-By-What-The-Host-Follows.md) | — | — | A first join confirmed by what the host follows, healthy hosts offered beside a refused commit, no credential kept or shown, an unconfirmed join undoing only its own. |
 | <a id="f279"></a>[F279](F279-The-Steps-Of-One-Click-Joining.md) | S | — | One Markdown file of numbered steps of the one-click flow, from first start to first work. |
 | <a id="f223"></a>[F223](F223-A-Ready-Server-Runs-Its-Setup-Again.md) | S | — | A ready rented server offers Run its setup again, which runs `up` in the interface's own run, a stop in it completed from Needs you. |

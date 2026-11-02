@@ -36,9 +36,30 @@ void main() {
   });
 
   // Harm: unusable SSH targets are accepted for signed host cards.
-  for (final address in ['127.0.0.1', '0.0.0.0', '224.0.0.1']) {
+  for (final address in [
+    '127.0.0.1',
+    '0.0.0.0',
+    '224.0.0.1',
+    'localhost',
+    'orchard.localhost',
+    '::1',
+    '::',
+    'ff02::1',
+    '::ffff:7f00:1',
+    '-oProxyCommand=x',
+    '2001:db8::7%eth0',
+  ]) {
     test('completion refuses unusable SSH address $address', () {
       expect(() => PreparedHost.read({...hostValues(), 'address': address}), throwsFormatException);
+    });
+  }
+
+  // Harm: a saved card or given server by name or IPv6 address, which Core's card takes, stops reading back.
+  for (final address in ['orchard.example.org', 'orchard', '2001:db8::7', '::ffff:c000:207', '203.0.113.7']) {
+    test('a saved card reads back at $address', () {
+      final saved = PreparedHost.read({...hostValues(), 'name': 'orchard', 'address': address});
+      expect(saved.address, address);
+      expect(PreparedHost.read(saved.stored).address, address);
     });
   }
 

@@ -9,6 +9,11 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- A server can be given by host name or IPv6 address, as a host card allows, and not only by IPv4: *Prepare a server…*
+  takes it, its pinned host key says it is that machine, the card keeps the address given, and it reads back after a
+  restart. A server with no IPv4 default route still cannot be prepared, and a host vault at an IPv6 address or on
+  another port is not opened from here; the interface says so.
+
 - A project followed on a card host offers *Push the approved main…* and *Take the central state…* in its menu again;
   each runs in a terminal where the person types the secrets file's master password, and the central forge token goes
   from the file to the host's own command without passing through the interface. Without a secrets file both say to

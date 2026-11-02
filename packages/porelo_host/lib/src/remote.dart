@@ -238,7 +238,7 @@ class OpenSsh implements Remote {
       '-q',
       '--',
       from,
-      '${_card != null ? host : configHost ?? _account(host, user)}:$to',
+      '${_card != null ? host : configHost ?? _account(host.contains(':') ? '[$host]' : host, user)}:$to',
     ];
     if (deadline case final limit?) return _copyWithin(limit, arguments);
     final done = await _runProcess('scp', arguments);

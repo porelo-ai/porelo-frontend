@@ -208,7 +208,7 @@ class _HostDialogState extends State<HostDialog> {
           record.collection.isEmpty ||
           record.collectionSha256.isEmpty) {
         throw const FormatException(
-          'Choose a host name, usable IPv4 address, SSH host key, collection and its published SHA-256.',
+          'Choose a host name, a server address, SSH host key, collection and its published SHA-256.',
         );
       }
       final runs = widget.hostRuns;
@@ -322,7 +322,11 @@ class _HostDialogState extends State<HostDialog> {
                   Text(reason),
                 for (final field in [
                   (_name, 'Host name', 'One lower-case server name, such as orchard.'),
-                  (_address, 'Server address', 'The IPv4 address of the existing server.'),
+                  (
+                    _address,
+                    'Server address',
+                    'The host name or IP address this computer reaches the existing server at.',
+                  ),
                   (_hostKey, 'SSH host key', 'The server’s ssh-ed25519 public key, checked separately.'),
                 ])
                   TextField(

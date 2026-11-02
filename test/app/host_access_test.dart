@@ -18,6 +18,19 @@ import '../support/host_process.dart';
 import '../features/support/world.dart' show FakeBackend;
 
 void main() {
+  // Harm: a host card change by name or IPv6 address, kept to be retried, cannot be read back and blocks the host.
+  for (final address in ['orchard.example.org', '2001:db8::7']) {
+    test('a kept host card change at $address reads back', () {
+      final change = HostRegistryChange(
+        id: 'a' * 32,
+        host: 'orchard',
+        action: 'host-card',
+        card: PreparedHost.read({...sshCompletion(), 'address': address}),
+      );
+      expect(HostRegistryChange.read(change.stored).card?.address, address);
+    });
+  }
+
   late RegistryFixture fixture;
   late MemorySettingsStore store;
   late Settings settings;

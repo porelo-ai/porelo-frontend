@@ -649,7 +649,9 @@ done''',
               ? 'The host record was repeated.'
               : lastState != StepState.done || failed != null || waiting != null
               ? 'The host record must follow the last successful up task.'
-              : values.values['address'] != address
+              // A machine reports its own IPv4 address. Reached by name or IPv6 address, it has nothing to compare
+              // with here: its pinned host key, checked by the caller and by every ssh, says it is that machine.
+              : isIpv4Address(address) && values.values['address'] != address
               ? 'host.json: address differs from the rental.'
               : plan.hostName != null && values.name != plan.hostName
               ? 'The completion names another server.'
@@ -657,7 +659,7 @@ done''',
           if (problem != null) {
             refuseHost(problem);
           } else {
-            host = values;
+            host = isIpv4Address(address) ? values : values.reachedAt(address);
           }
           return;
         }
@@ -786,8 +788,7 @@ done''',
     } else if (!RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$').hasMatch(project)) {
       throw const FormatException('The setup files need a plain project name.');
     }
-    if (!RegExp(r'^[A-Za-z_][A-Za-z0-9_-]*$').hasMatch(user) ||
-        !RegExp(r'^[A-Za-z0-9][A-Za-z0-9.:-]*$').hasMatch(address)) {
+    if (!RegExp(r'^[A-Za-z_][A-Za-z0-9_-]*$').hasMatch(user) || !isCardAddress(address)) {
       throw const FormatException('The setup files need a valid host address and login.');
     }
     if (act == HostAct.ownAccount && (user == 'root' || accessBundle == null)) {
@@ -812,9 +813,7 @@ done''',
     required String bundle,
   }) async {
     HostFiles.checkProjectName(project);
-    if (user == 'root' ||
-        !RegExp(r'^[A-Za-z_][A-Za-z0-9_-]*$').hasMatch(user) ||
-        !RegExp(r'^[A-Za-z0-9][A-Za-z0-9.:-]*$').hasMatch(address)) {
+    if (user == 'root' || !RegExp(r'^[A-Za-z_][A-Za-z0-9_-]*$').hasMatch(user) || !isCardAddress(address)) {
       throw const FormatException('The access upload needs the person\'s host address and login.');
     }
     return _uploadOwnSetupFiles(

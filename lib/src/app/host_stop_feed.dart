@@ -13,7 +13,11 @@ List<String> hostStopFeedCommand({
   if (act == HostAct.root) throw const FormatException('Server preparation accepts no secret stops.');
   final command = hostStopCommand(needs, email: email);
   final executable = ssh == 'ssh' || ssh.startsWith('/') || RegExp(r'^[A-Za-z]:\\').hasMatch(ssh);
-  if (!executable || !RegExp(r'^[a-z_][a-z0-9_-]*@[A-Za-z0-9][A-Za-z0-9.:-]*$').hasMatch(host)) {
+  final at = host.indexOf('@');
+  if (!executable ||
+      at < 0 ||
+      !RegExp(r'^[a-z_][a-z0-9_-]*$').hasMatch(host.substring(0, at)) ||
+      !isCardAddress(host.substring(at + 1))) {
     throw const FormatException('The provider terminal needs a checked SSH destination.');
   }
   return [ssh, ...sshOptions, '-t', '--', host, inTheLoginShell(command)];

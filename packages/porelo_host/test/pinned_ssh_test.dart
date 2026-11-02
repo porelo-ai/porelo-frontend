@@ -509,6 +509,23 @@ void main() {
     });
   }
 
+  // Harm: scp reads the colons of an IPv6 address as the end of its host, and copies somewhere else or fails.
+  test('a copy to an IPv6 address names it in brackets, as scp reads it', () async {
+    final commands = <List<String>>[];
+    final remote = OpenSsh(
+      knownHosts: File('/trust/keys'),
+      identity: '/keys/person',
+      run: (program, arguments) async {
+        commands.add([program, ...arguments]);
+        return ProcessResult(0, 0, '', '');
+      },
+    );
+    await remote.copy('2001:db8::7', 'root', '/from', '/to');
+    expect(commands.single.last, 'root@[2001:db8::7]:/to');
+    await remote.copy('orchard.example.org', 'root', '/from', '/to');
+    expect(commands.last.last, 'root@orchard.example.org:/to');
+  });
+
   // Harm: a transfer switches accounts or falls back to a new connection outside its owned tunnel.
   test('shared-host transfers use only the imported config and captured admitted alias', () async {
     const key = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
