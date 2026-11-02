@@ -1,6 +1,6 @@
 # F309 — The Organization Page
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** L - a new rail item and page with four filtered sections, three dialogs and role-bound actions, against a source of its own and fixtures; several days, the calls behind it come separately.
 
 **What must be true.** A person opens *Organization* in the rail, under *Set up* after *Projects*, and sees what the organization is, where it is kept and how their own card stands, then its people, projects, hosts and owners. Every action stands visibly in its row, and each person sees only the actions their roles give.
