@@ -26,6 +26,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f291"></a>[F291](F291-A-Host-Card-With-A-Name-Or-An-IPv6-Address-Read.md) | M | — | A host whose card names a host name or an IPv6 address reached, saved and administered as one at an IPv4 address. |
 | <a id="f287"></a>[F287](F287-A-Join-Confirmed-By-What-The-Host-Follows.md) | — | — | A first join confirmed by what the host follows, healthy hosts offered beside a refused commit, no credential kept or shown, an unconfirmed join undoing only its own. |
 | <a id="f279"></a>[F279](F279-The-Steps-Of-One-Click-Joining.md) | S | — | One Markdown file of numbered steps of the one-click flow, from first start to first work. |
 | <a id="f223"></a>[F223](F223-A-Ready-Server-Runs-Its-Setup-Again.md) | S | — | A ready rented server offers Run its setup again, which runs `up` in the interface's own run, a stop in it completed from Needs you. |
@@ -46,7 +47,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
-| <a id="f291"></a>[F291](F291-A-Host-Card-With-A-Name-Or-An-IPv6-Address-Read.md) | M | — | A host whose card names a host name or an IPv6 address reached, saved and administered as one at an IPv4 address. | 1 |
 | <a id="f219"></a>[F219](F219-An-Interface-Ended-Without-Asking-Leaves-No-Forward-Behind.md) | S | — | The ssh forwards this interface raised ended with it also when it ends without asking, and one left over found again by its socket at the next start. | — |
 | <a id="f114"></a>[F114](F114-Windows-Notifications-From-The-MSIX.md) | M | — | Windows notifications from the MSIX's identity. | — |
 | <a id="f115"></a>[F115](F115-A-Fine-Grained-Token-Waiting-For-An-Organisations-Approval.md) | S | the test organisation at GitHub from the operator | A fine-grained token waiting for an organisation's approval said as waiting. | — |

@@ -1,6 +1,6 @@
 # F291 — A Host Card With A Name Or An IPv6 Address Read
 
-**Status:** Analyzed.
+**Status:** Implementing.
 **Severity:** high.
 **Size:** M - one reader of saved cards and its callers, the existing-server field and the card tunnel's files, each
 with tests, and a check on a VM by name and by IPv6 address; no contract with another repository changes.
@@ -44,11 +44,6 @@ registry's change and its receipt (`lib/src/app/host_access_contract.dart`), and
 - On a local VM reached by a host name and by its IPv6 address: the card's connection is raised, the forge and
   Element are reached through it, the interface restarted reads the card back, and the host page's actions run.
 - A card address Core's card refuses is still refused with words; a completion from a machine still needs IPv4.
-
-## Open questions
-
-- Is it built now on today's paths (card connection, saved cards, *Prepare a server…*), which the rebuilt *Connect*
-  and *Add a host* reuse, or only into those rebuilt dialogs? Proposed: now, on the parts the rebuild keeps.
 
 ## To be checked
 
