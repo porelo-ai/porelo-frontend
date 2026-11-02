@@ -1,4 +1,4 @@
-import 'package:porelo_host/porelo_host.dart' show HostCardSsh, HostFilesRefused;
+import 'package:porelo_host/porelo_host.dart' show HostCardSsh, HostFiles, HostFilesRefused;
 
 import 'desk.dart';
 import 'host_progress.dart';
@@ -41,7 +41,23 @@ class CardHostConnections extends HostConnections {
   }
 
   @override
-  bool connected(String host) => _machine(host) != null;
+  bool connected(String host) {
+    final card = _machine(host)?.hostCard;
+    return card != null && !_movedPast(card);
+  }
+
+  /// Whether the organization now names another address, host key, port or key of mine than [card] was written from:
+  /// then it is a connection to replace, which only *Connect* does. What the answer leaves out says nothing.
+  bool _movedPast(HostCardSsh card) {
+    final view = organization.view;
+    final entry = view?.hosts.where((each) => each.name == card.name).firstOrNull;
+    if (view == null || entry == null) return false;
+    final mine = view.persons.where((person) => person.login == view.me).firstOrNull?.key;
+    return (entry.address != null && entry.address != card.address) ||
+        (entry.port != null && entry.port != card.sshPort) ||
+        (entry.hostKey != null && entry.hostKey != card.hostKey) ||
+        (mine != null && mine != HostFiles.signingFingerprint(card.publicKey));
+  }
 
   @override
   Future<void> connect(String host) async {
@@ -71,7 +87,18 @@ class CardHostConnections extends HostConnections {
       await machines.tunnels.dropAndUnpublish(machine);
       throw OrganizationRefused(why);
     }
-    await machines.add(machine);
+    try {
+      await machines.add(machine);
+    } on Exception {
+      // Nothing is left up that this computer does not know of, and the row offers *Connect* again.
+      await machines.tunnels.dropAndUnpublish(machine);
+      try {
+        await machines.forget(machine);
+      } on Exception {
+        // The save failing again: the machine is out of the list, which is what this asked.
+      }
+      throw OrganizationRefused('This computer could not save the connection to ${card.name}, so it was closed.');
+    }
     notifyListeners();
   }
 

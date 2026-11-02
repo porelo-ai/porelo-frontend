@@ -48,12 +48,39 @@ class _Unlocked implements HostUnlocker {
   Future<void> cancel(String host) async {}
 }
 
+/// The fixture's organization, with mia's card holding the key the tests connect with.
+OrganizationView _mia({OrganizationHost host = buildHost}) {
+  final view = organizationFor('mia', host: host);
+  return organizationFor(
+    'mia',
+    host: host,
+    persons: [
+      for (final person in view.persons)
+        person.login == 'mia'
+            ? OrganizationPerson(login: 'mia', standing: CardStanding.trusted, key: HostFiles.signingFingerprint(_key))
+            : person,
+    ],
+  );
+}
+
+/// Settings kept in memory, whose saving can be made to fail.
+class _Saves extends MemorySettingsStore {
+  bool failing = false;
+
+  @override
+  Future<void> write(Map<String, Object?> values) async {
+    if (failing) throw const FileSystemException('no room left');
+    await super.write(values);
+  }
+}
+
 void main() {
   late Directory folder;
   late List<List<String>> launches;
   late Machines machines;
   late bool portsBusy;
   late List<String> refreshed;
+  late _Saves store;
 
   setUp(() {
     folder = Directory.systemTemp.createTempSync('c-');
@@ -74,7 +101,8 @@ void main() {
       unlocker: _Unlocked(),
       messengerSocket: path.join(folder.path, 'm'),
     );
-    final settings = Settings(MemorySettingsStore());
+    store = _Saves();
+    final settings = Settings(store);
     machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: tunnels);
     addTearDown(() async {
       await tunnels.dropEverything();
@@ -108,7 +136,7 @@ void main() {
 
   // Harm: other programs read what Connect writes; a changed place or shape leaves them with no host.
   test('Connect writes the machine and the files where and as other programs read them', () async {
-    final made = await connections(organizationFor('mia'));
+    final made = await connections(_mia());
     await made.connect('build');
     expect(made.connected('build'), isTrue);
     final machine = machines.all.singleWhere((machine) => machine.name == 'build');
@@ -141,7 +169,7 @@ void main() {
 
   // Harm: a person is told nothing of why, or a half-written connection refuses the host's next card.
   test('a connection that does not come up is refused in its words and leaves nothing', () async {
-    final made = await connections(organizationFor('mia'));
+    final made = await connections(_mia());
     portsBusy = true;
     await expectLater(
       made.connect('build'),
@@ -164,7 +192,7 @@ void main() {
       hostKey: buildHost.hostKey,
       admins: const ['mia'],
     );
-    final made = await connections(organizationFor('mia', host: plain));
+    final made = await connections(_mia(host: plain));
     await made.connect('build');
     expect(made.connected('build'), isTrue);
   });
@@ -181,16 +209,83 @@ void main() {
 
   // Harm: an unreadable key shows a stack trace, or a key's text in a message.
   test('a key that cannot be read is said without its words', () async {
-    final made = await connections(organizationFor('mia'), publicKey: () async => throw Exception('private detail'));
+    final made = await connections(_mia(), publicKey: () async => throw Exception('private detail'));
     await expectLater(
       made.connect('build'),
       throwsA(isA<OrganizationRefused>().having((refused) => refused.words, 'words', isNot(contains('private')))),
     );
   });
 
+  // Harm: the row says connected and offers nothing while the connection still uses the old address or key.
+  group('a connection the organization has moved past', () {
+    late Organization organization;
+    late CardHostConnections made;
+
+    setUp(() async {
+      organization = Organization(FixtureOrganization(_mia()));
+      addTearDown(organization.dispose);
+      await organization.refresh();
+      made = CardHostConnections(
+        organization: organization,
+        machines: machines,
+        publicKey: () async => _key,
+        endpoint: (host) => path.join(folder.path, '$host.socket'),
+      );
+      addTearDown(made.dispose);
+      await made.connect('build');
+    });
+
+    Future<void> reads(OrganizationView view) async {
+      (organization.source as FixtureOrganization).view = view;
+      await organization.refresh();
+    }
+
+    test('a corrected address offers Connect again', () async {
+      expect(made.connected('build'), isTrue);
+      await reads(
+        _mia(
+          host: const OrganizationHost(
+            name: 'build',
+            address: '203.0.113.99',
+            port: 22,
+            hostKey: _otherHostKey,
+            webPort: 8081,
+            gitPort: 8082,
+            matrixPort: 8083,
+            admins: ['hana'],
+            projects: ['demo'],
+          ),
+        ),
+      );
+      expect(made.connected('build'), isFalse);
+    });
+
+    test('a changed key of mine offers Connect again', () async {
+      await reads(
+        organizationFor(
+          'mia',
+          persons: const [OrganizationPerson(login: 'mia', standing: CardStanding.trusted, key: 'SHA256:anotherkey')],
+        ),
+      );
+      expect(made.connected('build'), isFalse);
+    });
+  });
+
+  // Harm: a save that fails spins the button for good, with a tunnel up that nothing here says is up.
+  test('a connection that cannot be saved is said, taken down, and can be tried again', () async {
+    final made = await connections(_mia());
+    store.failing = true;
+    await expectLater(made.connect('build'), throwsA(isA<OrganizationRefused>()));
+    expect(made.connected('build'), isFalse);
+
+    store.failing = false;
+    await made.connect('build');
+    expect(made.connected('build'), isTrue);
+  });
+
   // Harm: an address or host key the admin corrected stays pinned at the old one for good.
   test('a changed host key replaces the connection', () async {
-    final organization = Organization(FixtureOrganization(organizationFor('mia')));
+    final organization = Organization(FixtureOrganization(_mia()));
     addTearDown(organization.dispose);
     await organization.refresh();
     final made = CardHostConnections(
@@ -201,8 +296,7 @@ void main() {
     );
     addTearDown(made.dispose);
     await made.connect('build');
-    (organization.source as FixtureOrganization).view = organizationFor(
-      'mia',
+    (organization.source as FixtureOrganization).view = _mia(
       host: const OrganizationHost(
         name: 'build',
         address: '203.0.113.7',
@@ -224,7 +318,7 @@ void main() {
 
   // Harm: a disconnected host keeps its pin and refuses the next card.
   test('Disconnect takes the machine and the files away', () async {
-    final made = await connections(organizationFor('mia'));
+    final made = await connections(_mia());
     await made.connect('build');
     await made.disconnect('build');
     expect(made.connected('build'), isFalse);
@@ -237,7 +331,7 @@ void main() {
 
   // Harm: a raise queued meanwhile runs without its configuration and pins.
   test('a raise queued while a tunnel is taken down keeps the files it published', () async {
-    final made = await connections(organizationFor('mia'));
+    final made = await connections(_mia());
     await made.connect('build');
     final machine = machines.all.singleWhere((machine) => machine.name == 'build');
     // A probe holds the master, so the drop ends only once it lets go; a raise queued meanwhile takes the tunnel.
@@ -255,7 +349,7 @@ void main() {
 
   // Harm: a refresh reaches a machine this person is not connected to.
   test('Refresh asks the connected machine, and asks for Connect first otherwise', () async {
-    final made = await connections(organizationFor('mia'));
+    final made = await connections(_mia());
     await expectLater(made.refresh('build'), throwsA(isA<OrganizationRefused>()));
     expect(refreshed, isEmpty);
     await made.connect('build');
