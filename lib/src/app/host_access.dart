@@ -134,7 +134,23 @@ class HostAccess extends ChangeNotifier {
       }
       return 'Only a host admin of $host may do this.${_ask(view, named.admins)}';
     }
-    return (view.settings ?? '').isEmpty || (view.forge ?? '').isEmpty ? noAddress : null;
+    if ((view.settings ?? '').isEmpty || (view.forge ?? '').isEmpty) return noAddress;
+    return named == null ? null : _whyNoPin(view, named);
+  }
+
+  /// Why [host]'s admins cannot be pinned now: a host believes only a trusted card's key, and leaving a row out would
+  /// make a pin without an admin, who then cannot sign for their own host. So it refuses, and goes on when asked again.
+  static String? _whyNoPin(OrganizationView view, OrganizationHost host) {
+    for (final login in {for (final row in host.adminKeys) row.login}) {
+      final standing = view.persons.where((person) => person.login == login).firstOrNull?.standing;
+      if (standing == CardStanding.trusted) continue;
+      return standing == CardStanding.notYet
+          ? 'The forge cannot yet say whether the key of $login, a host admin of ${host.name}, is theirs, and a new '
+                'host would not believe it. Try again later.'
+          : 'The organization holds no accepted card of $login, a host admin of ${host.name}, and a new host would '
+                'not believe their key.${_ask(view, _owners(view))}';
+    }
+    return null;
   }
 
   static List<String> _owners(OrganizationView view) => view.owners;

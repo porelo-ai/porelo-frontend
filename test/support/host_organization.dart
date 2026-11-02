@@ -47,6 +47,9 @@ class HostFixture implements OrganizationSource {
   HostAdminIdentity? actor = const HostAdminIdentity('alice', adminFingerprint, hostKey);
   final writes = <OrganizationWrite>[];
 
+  /// The other persons the organization answers, beside [card].
+  List<OrganizationPerson> others = const [];
+
   /// The rows of a host's admins, as `hosts[].admins` holds them.
   List<HostAdminKey> keys = const [HostAdminKey(login: 'alice', key: hostKey)];
 
@@ -86,7 +89,7 @@ class HostFixture implements OrganizationSource {
       stale: stale,
       me: 'alice',
       owners: const ['mia'],
-      persons: [card],
+      persons: [card, ...others],
       hosts: [
         for (final host in {'orchard', 'demo', ...adminHosts})
           OrganizationHost(

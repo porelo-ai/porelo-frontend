@@ -105,6 +105,39 @@ void main() {
       });
     }
 
+    // Harm: a host is rented and handed a key it may not believe, or a pin short of an admin who then cannot sign.
+    for (final (what, others) in [
+      ('first-seen', const [OrganizationPerson(login: 'hank', standing: CardStanding.notYet, key: 'SHA256:h')]),
+      ('refused', const [OrganizationPerson(login: 'hank', standing: CardStanding.refused, key: 'SHA256:h')]),
+      ('revoked', const [OrganizationPerson(login: 'hank', standing: CardStanding.revoked, key: 'SHA256:h')]),
+      ('without a card', const <OrganizationPerson>[]),
+    ]) {
+      test('a host admin $what stops it, by name, with nothing written', () async {
+        final fixture = HostFixture()
+          ..others = others
+          ..keys = const [HostAdminKey(login: 'alice', key: hostKey), HostAdminKey(login: 'hank', key: backupKey)];
+        final access = await fixture.access(settings);
+        expect(access.unavailable('orchard'), contains('hank'));
+        await expectLater(access.machineFile('orchard'), throwsA(isA<HostAccessRefused>()));
+        expect(fixture.machineFiles, isEmpty);
+      });
+    }
+
+    // Harm: a person is told to wait for something that has since come, and can never prepare the host.
+    test('asked again once the forge can say, it goes on with the whole pin', () async {
+      final fixture = HostFixture()
+        ..others = const [OrganizationPerson(login: 'hank', standing: CardStanding.notYet, key: 'SHA256:h')]
+        ..keys = const [HostAdminKey(login: 'alice', key: hostKey), HostAdminKey(login: 'hank', key: backupKey)];
+      final access = await fixture.access(settings);
+      expect(access.unavailable('orchard'), contains('forge'));
+      fixture.others = const [OrganizationPerson(login: 'hank', standing: CardStanding.trusted, key: 'SHA256:h')];
+      await access.readAgain();
+      expect(access.unavailable('orchard'), isNull);
+      final path = await access.machineFile('orchard');
+      final file = loadYaml(fixture.machineFiles[path]!) as Map;
+      expect((file['organization'] as Map)['pin'], 'alice $hostKey\nhank $backupKey\n');
+    });
+
     // Harm: no organization address is known, and a host is rented all the same, to follow nothing.
     for (final (what, fixture) in [
       ('no settings', HostFixture()..settings = null),

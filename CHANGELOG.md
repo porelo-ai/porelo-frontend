@@ -15,7 +15,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   backup keys included; no forge key or a row with no key stops before a server is touched. A host's real address, port,
   key and services go on its card with `porelo org host change`, and an `up` that stops or a card refused gives back
   what was rented and says so. It takes the key on the accepted card, not the login alone, and hands the pin of that
-  moment to a setup taken up again; a forge key your `known_hosts` revokes, by wildcard too, stops it.
+  moment to a setup taken up again; a forge key your `known_hosts` revokes, by wildcard too, stops it. A host admin
+  whose card is not trusted yet stops it by name, until it is asked again.
 
 - `porelo-host up` of a server refuses without `--machine-file`, and places that file for root alone, checked by its
   digest, before the host is set up. A host that names no forge now completes; the service ports it reports are kept
