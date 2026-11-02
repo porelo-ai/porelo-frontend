@@ -7,7 +7,7 @@
 
 ## The contract in words
 
-A host admin decides which projects a host carries, never which persons: every member of a project is on every host it is on. Putting a project on a host sends the host admin's central token through the tunnel once, typed in a terminal, so its repositories are on the host's forge at once. The host fetches its organization's and projects' state itself every five minutes, or at once on *Refresh*. Taking a project off deletes its room there with its conversation, and the dialog says so. A host's last host admin cannot be removed: the store refuses.
+A project is on one host at a time. A host admin decides which projects a host carries, never which persons: every member of a project is on its host. Putting a project on a host sends the host admin's central token through the tunnel once, typed in a terminal, so its repositories are on the host's forge at once, and adds a read-only deploy key made on the host for each repository; taking it off removes them. The host fetches its organization's and projects' state itself every five minutes, or at once on *Refresh*. Taking a project off deletes its room there with its conversation, and the dialog says so. A host's last host admin cannot be removed: the store refuses.
 
 ## Plan
 

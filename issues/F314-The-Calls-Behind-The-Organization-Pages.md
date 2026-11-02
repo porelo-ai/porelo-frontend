@@ -10,7 +10,9 @@
 - `lib/src/app/organization_source.dart`: an implementation over `porelo org …` and `porelo project …`, each answer read field by field, as `doc/Backend-API.md` will say.
 - `lib/src/ui/forges_page.dart`: the *Registry* section and *Choose the registry repository…* go; signed in as, Git over ssh, the check, disconnect and used by stay.
 - `registry_pages.dart`, `registry_persons.dart`, `registry_read_source.dart` and the `registryRepository` setting go; "registry" leaves texts, commands and documents, except where a GitHub organization or a forge organization is meant, which is always spelled out.
-- The host's verbs change with it, hard, with no fallback: `porelo-host-person registry status`, `registry pin <login> <key>` and `registry` become `org status`, `org pin <login> <key>` and `org`, and `/etc/porelo-host/registry/` becomes `/etc/porelo-host/organization/`; what the status answers stays. Today's page per machine under *Projects* leaves here.
+- The host's verbs change with it, hard, with no fallback: `porelo-host-person registry status`, `registry pin <login> <key>` and `registry` become `org status`, `org pin <login> <key>` and `org`, and `/etc/porelo-host/registry/` becomes `/etc/porelo-host/organization/`; what the status answers stays. A project's page per machine stays, reached from its page; what it shows of the registry goes.
+- No backup key for a project admin: `--project` leaves `porelo identity backup-key`, so that scope leaves `key_recovery.dart` and its dialog; organization owners and host admins keep theirs.
+- What the removal of Register and Join left with no caller goes here too: `HostAccess.bringToHost`, `notOnHostYet` and `pendingRevision`, `settings.projectHost`, and `Role.projectAdmin` if nothing takes it.
 - Red first: a test of the source against a stand-in answering the contract's written examples.
 
 ## Acceptance
