@@ -11,7 +11,7 @@ Future<void> main(List<String> arguments) async {
     emit: (step) => writeHostStep(step, output: stdout, errors: stderr),
     hostKeys: () async => ('fixture-private', 'ssh-ed25519 AAAA'),
   );
-  final plan = HostPlan(project: project, account: 'worker', publicKey: '', recoveryOnly: true);
+  final plan = HostPlan(project: project, account: 'worker', publicKey: '');
   exitCode = command == 'up' ? await run.up(plan) : await run.down(plan, giveBackAnyway: true);
 }
 

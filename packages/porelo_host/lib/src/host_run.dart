@@ -23,7 +23,6 @@ class HostPlan {
     this.hostName,
     this.adminLogin,
     this.preparationSettings = const HostPreparationSettings(),
-    this.recoveryOnly = false,
     this.existingRentalTag,
     this.adminSigners = const [],
     required this.publicKey,
@@ -48,9 +47,6 @@ class HostPlan {
   /// The existing provider tag; a missing match must never create a second rental.
   final String? existingRentalTag;
 
-  /// Whether only a legacy rental's explicit give-back may run.
-  final bool recoveryOnly;
-
   /// Core's verified host-admin public signers.
   final List<String> adminSigners;
 
@@ -65,7 +61,6 @@ class HostPlan {
     lockNameForTag(tag);
     if (hostName == null) return;
     checkHostName(hostName!);
-    if (recoveryOnly) return;
     if (project.isNotEmpty || account.isNotEmpty || bundle != null) {
       throw const FormatException('A server prepared without a project takes no account, project or bundle.');
     }
@@ -309,10 +304,10 @@ class HostRun {
 
   Future<int> _up(HostPlan plan) async {
     final setup = preparation;
-    if (setup == null && provider is GivenMachine && !plan.recoveryOnly && plan.hostName != null) {
+    if (setup == null && provider is GivenMachine && plan.hostName != null) {
       return _upGiven(plan);
     }
-    if (plan.recoveryOnly || setup == null || plan.hostName == null || plan.adminSigners.isEmpty) {
+    if (setup == null || plan.hostName == null || plan.adminSigners.isEmpty) {
       _write(
         const Step(
           'up',
@@ -494,17 +489,7 @@ done''',
       _write(const Step('give-back', StepState.done, words: 'no host carries the project tag'));
       return Exit.done;
     }
-    if (plan.recoveryOnly || giveBackAnyway) {
-      if (!giveBackAnyway) {
-        _write(
-          const Step(
-            'give-back',
-            StepState.refused,
-            fix: 'This legacy rental cannot run its old teardown. Confirm give-back without a backup.',
-          ),
-        );
-        return Exit.refused;
-      }
+    if (giveBackAnyway) {
       await provider.release(host.id);
       _write(
         const Step(

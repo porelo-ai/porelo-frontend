@@ -25,7 +25,7 @@ bool _sameStored(Object? left, Object? right) {
 /// A validated rental identity and optional signed-state setup progress.
 @immutable
 class HostUpRecord {
-  /// Keeps public setup references; legacy records can only recover the rental.
+  /// Keeps public setup references.
   const HostUpRecord({
     this.scalewayProject = '',
     this.givenAddress = '',
@@ -45,11 +45,9 @@ class HostUpRecord {
     this.preparing = false,
     this.startedAt,
     this.protocol = const [],
-    this.legacy = false,
   });
 
   /// The explanation shown wherever an older rental is recovered.
-  static const legacyExplanation = 'Made before one-click joining: give it back or set it up again.';
 
   /// The provider project that owns the billed server.
   final String scalewayProject;
@@ -63,7 +61,7 @@ class HostUpRecord {
   /// The settings key, including migrated project-mode rentals.
   final String? host;
 
-  /// The server tag's name, empty for a legacy project-mode rental.
+  /// The server tag's name.
   final String hostName;
 
   /// The legacy project account, used only to identify its rental.
@@ -109,9 +107,6 @@ class HostUpRecord {
   /// The retained public protocol.
   final List<HostProtocolEntry> protocol;
 
-  /// Whether obsolete setup credentials must never be resumed.
-  final bool legacy;
-
   /// Keeps recovery and its original rental identity throughout setup.
   HostUpRecord withPreparation(DateTime? instant) => _copy(preparing: instant != null, startedAt: instant);
 
@@ -120,7 +115,7 @@ class HostUpRecord {
 
   /// Keeps only a checked SSH completion from the new setup flow.
   HostUpRecord withPreparedHost(PreparedHost value) {
-    if (legacy || value.name != hostName) {
+    if (value.name != hostName) {
       throw StateError('The completion does not belong to this signed-state setup.');
     }
     return _copy(preparedHost: value);
@@ -130,14 +125,6 @@ class HostUpRecord {
   HostUpRecord withPreparationSettings(HostPreparationSettings value) {
     value.check();
     return HostUpRecord.fromStored({...stored, 'preparationSettings': value.stored})!;
-  }
-
-  /// Assigns a legacy project record to its migrated host settings key.
-  HostUpRecord forHost(String name, {required String rentalProject}) {
-    SecretsFile.checkHost(name);
-    final tag = rentalTagFor(rentalProject);
-    HostPlan.lockNameForTag(tag);
-    return _copy(host: name, rentalTag: tag);
   }
 
   HostUpRecord _copy({
@@ -166,7 +153,6 @@ class HostUpRecord {
     preparing: preparing ?? this.preparing,
     startedAt: preparing == false ? null : startedAt ?? this.startedAt,
     protocol: protocol ?? this.protocol,
-    legacy: legacy,
   );
 
   /// Reads the minimum recovery identity before interpreting any optional setup state.
@@ -192,8 +178,7 @@ class HostUpRecord {
       }
     }
     final marker = value['oneClick'];
-    if (marker != null && marker is! bool) return null;
-    final legacy = marker != true;
+    if (marker != true) return null;
     final host = value['host'];
     final name = value['hostName'] ?? '';
     final account = value['account'] ?? '';
@@ -217,20 +202,6 @@ class HostUpRecord {
     final start = value['startedAt'];
     final instant = start is String ? DateTime.tryParse(start) : null;
     final startedAt = instant?.isUtc == true ? instant : null;
-    if (legacy && given) return null;
-    if (legacy) {
-      return HostUpRecord(
-        scalewayProject: provider,
-        host: host as String?,
-        hostName: name,
-        account: account,
-        rentalTag: tag as String?,
-        setupFolder: setupFolder,
-        legacy: true,
-        preparing: preparing,
-        startedAt: startedAt,
-      );
-    }
     final publicKey = value['publicKey'];
     final forge = value['forge'] ?? true;
     final collection = value['collection'] ?? '';
@@ -302,7 +273,7 @@ class HostUpRecord {
     if (setupFolder != null) 'setupFolder': setupFolder,
     if (preparing) 'preparing': true,
     if (startedAt != null) 'startedAt': startedAt!.toUtc().toIso8601String(),
-    if (!legacy) ...{
+    ...{
       'oneClick': true,
       'publicKey': publicKey,
       'forge': forge,
@@ -317,7 +288,6 @@ class HostUpRecord {
 
   /// Builds setup arguments only for signed-state records.
   List<String> arguments(String project) {
-    if (legacy) throw StateError('This rental needs setup again through signed state.');
     preparationSettings.check();
     return [
       '--host-name',
@@ -353,7 +323,6 @@ class HostUpRecord {
       '--scaleway-project',
       scalewayProject,
     ],
-    if (legacy) '--legacy-rental',
     if (rentalTag != null) ...['--rental-tag', rentalTag!],
   ];
 }
@@ -589,43 +558,18 @@ class Settings extends ChangeNotifier {
       }
     }
     _hostUps.clear();
-    var migratedHosts = false;
-    final migratedHostKeys = <String, String>{};
     final hostUps = stored['hostUps'];
     if (hostUps is Map) {
-      final candidates = <({String key, String host, HostUpRecord record})>[];
       for (final entry in hostUps.entries) {
         final key = entry.key;
         final record = HostUpRecord.fromStored(entry.value);
         if (key is! String || record == null) continue;
-        final folder = record.setupFolder;
-        final host =
-            record.host ??
-            (folder != null && path.basename(path.dirname(folder)) == 'hosts' ? path.basename(folder) : key);
         try {
-          SecretsFile.checkHost(host);
+          SecretsFile.checkHost(record.host ?? key);
         } on Exception {
           continue;
         }
-        candidates.add((key: key, host: host, record: record));
-      }
-      // Ambiguous folders must not prevent startup or collapse two retained server identities.
-      final unique = candidates.map((candidate) => candidate.host).toSet().length == candidates.length;
-      for (final candidate in candidates) {
-        final (:key, :host, :record) = candidate;
-        var target = unique ? host : key;
-        var saved = record;
-        if (unique && host != key) {
-          try {
-            saved = record.forHost(host, rentalProject: key);
-          } on FormatException {
-            // An invalid old key must not create a tag that loses recovery on restart.
-            target = key;
-          }
-        }
-        _hostUps[target] = saved;
-        migratedHosts |= target != key;
-        if (target != key) migratedHostKeys[key] = target;
+        _hostUps[key] = record;
       }
     }
     final place = stored['place'];
@@ -656,19 +600,10 @@ class Settings extends ChangeNotifier {
     }
     final machines = stored['machines'];
     if (machines is List) {
-      _machines = <Map<String, Object?>>[
-        for (final each in machines)
-          if (each is Map<String, Object?>)
-            {
-              ...each,
-              if (migratedHostKeys.containsKey(each['hostProject']))
-                'hostProject': migratedHostKeys[each['hostProject']],
-            },
-      ];
+      _machines = machines.whereType<Map<String, Object?>>().toList();
     }
     final forges = stored['forges'];
     if (forges is List) _forges = List<Object?>.of(forges);
-    if (migratedHosts) await _write();
     notifyListeners();
   }
 
@@ -833,10 +768,9 @@ class Settings extends ChangeNotifier {
     var older = false;
     for (final each in stored) {
       if (each is! Map<String, Object?>) continue;
-      final project = each['hostProject'];
       final Machine machine;
       try {
-        machine = Machine.fromStored(each, legacyHost: project is String && hostUp(project)?.legacy == true);
+        machine = Machine.fromStored(each);
       } on HostFilesRefused {
         setAside.add(each);
         continue;

@@ -55,7 +55,6 @@ class Machine {
     this.hostProject = '',
     this.hostCard,
     this.sshConfig = '',
-    this.legacyHost = false,
     this.unknownFields = const <String, Object?>{},
   });
 
@@ -71,7 +70,6 @@ class Machine {
     hostProject: hostProject,
     hostCard: hostCard,
     sshConfig: sshConfig,
-    legacyHost: legacyHost,
     unknownFields: unknownFields,
   );
 
@@ -114,7 +112,7 @@ class Machine {
   /// read by `porelo-intellij`, and written by later versions of this program: dropping what is not
   /// understood here would lose a machine somebody set up elsewhere, the next time this list is
   /// saved.
-  factory Machine.fromStored(Map<String, Object?> stored, {bool legacyHost = false}) {
+  factory Machine.fromStored(Map<String, Object?> stored) {
     final card = stored.containsKey('hostCard') ? HostCardSsh.fromStored(stored['hostCard']) : null;
     // A card's daemon is the login's socket on its host, whatever an older build saved: one with the account's uid or
     // return socket named it by the uid, and an earlier layout put it elsewhere.
@@ -131,7 +129,6 @@ class Machine {
       hostProject: _text(stored['hostProject']),
       hostCard: card,
       sshConfig: _text(stored['sshConfig']),
-      legacyHost: legacyHost,
       unknownFields: <String, Object?>{
         for (final entry in stored.entries)
           if (!_knownFields.contains(entry.key)) entry.key: entry.value,
@@ -203,9 +200,6 @@ class Machine {
     sshConfig: sshConfig ?? card.configPath(environment: desk.environment, windows: desk.isWindows),
   );
 
-  /// Whether its retained rental requires recovery before any connection.
-  final bool legacyHost;
-
   /// What an entry held beyond the fields this build knows, kept so that saving loses nothing.
   final Map<String, Object?> unknownFields;
 
@@ -218,7 +212,8 @@ class Machine {
   /// Linux computer. A machine over ssh uses a byte relay. An entry of
   /// a kind this version does not know is left exactly as it is. Each is said, never tried as a path.
   String? whyNotReachableOn({required bool windows}) => switch (kind) {
-    'host' when legacyHost || (hostCard == null && identity.isNotEmpty) => HostUpRecord.legacyExplanation,
+    'host' when hostCard == null && identity.isNotEmpty =>
+      'This entry is from an older version: remove it and connect again.',
     'host'
         when hostCard != null &&
             (sshConfig.isEmpty || host != hostCard!.name || remoteSocket != hostCard!.daemonSocket) =>
@@ -377,23 +372,11 @@ class Machine {
       other.hostProject == hostProject &&
       other.hostCard == hostCard &&
       other.sshConfig == sshConfig &&
-      other.legacyHost == legacyHost &&
       mapEquals(other.unknownFields, unknownFields);
 
   @override
-  int get hashCode => Object.hash(
-    name,
-    socketPath,
-    host,
-    remoteSocket,
-    kind,
-    distribution,
-    identity,
-    hostProject,
-    hostCard,
-    sshConfig,
-    legacyHost,
-  );
+  int get hashCode =>
+      Object.hash(name, socketPath, host, remoteSocket, kind, distribution, identity, hostProject, hostCard, sshConfig);
 }
 
 /// Every machine this interface is watching, and which one it is acting on.
@@ -752,10 +735,7 @@ class Machines extends ChangeNotifier {
   /// A machine somebody else forwarded goes straight to connecting: [Tunnels.raiseFor] answers
   /// true for it without starting anything.
   Future<void> _openAndConnect(Machine machine, FleetModel fleet) async {
-    if (machine.kind == 'host' &&
-        (machine.legacyHost ||
-            (machine.hostCard == null && machine.identity.isNotEmpty) ||
-            settings.hostUp(machine.hostProject)?.legacy == true)) {
+    if (machine.kind == 'host' && machine.hostCard == null && machine.identity.isNotEmpty) {
       return;
     }
     if (machine.hostCard == null) await tunnels.raiseFor(machine);
@@ -802,10 +782,7 @@ class Machines extends ChangeNotifier {
   /// this interface raised, and only for a machine that is not answering — a working connection
   /// is never disturbed to check on the thing underneath it.
   Future<void> raiseAgainIfNeeded(Machine machine) async {
-    if (machine.kind == 'host' &&
-        (machine.legacyHost ||
-            (machine.hostCard == null && machine.identity.isNotEmpty) ||
-            settings.hostUp(machine.hostProject)?.legacy == true)) {
+    if (machine.kind == 'host' && machine.hostCard == null && machine.identity.isNotEmpty) {
       return;
     }
     if (!tunnels.manages(machine)) return;

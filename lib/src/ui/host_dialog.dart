@@ -226,7 +226,7 @@ class _HostDialogState extends State<HostDialog> {
       _down = session;
     });
     try {
-      await session.down(giveBackAnyway: record.legacy || anyway);
+      await session.down(giveBackAnyway: anyway);
       if (!hostGivenBack(session)) {
         throw StateError('Give-back was not confirmed.');
       }
@@ -262,7 +262,6 @@ class _HostDialogState extends State<HostDialog> {
   Widget build(BuildContext context) {
     final run = widget.existingRun ?? _started;
     final record = _record ?? (run == null ? null : _settings.hostUp(run.project)) ?? run?.record;
-    final legacy = record?.legacy == true;
     final access = widget.hostAccess ?? widget.hostRuns?.hostAccess;
     return AlertDialog(
       title: Text(widget.takeDownOnly ? 'Give the server back' : run?.name ?? 'Prepare a server'),
@@ -273,13 +272,8 @@ class _HostDialogState extends State<HostDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (legacy) const Text(HostUpRecord.legacyExplanation),
               if (widget.takeDownOnly && !_givenBack)
-                Text(
-                  legacy
-                      ? 'Giving this rental back deletes what it holds without running its old backup or teardown. Confirm this only when its contents are no longer needed.'
-                      : 'Give this server back only after its data is safe. The provider must confirm its removal.',
-                ),
+                Text('Give this server back only after its data is safe. The provider must confirm its removal.'),
               if (!widget.takeDownOnly && run == null) ...[
                 if (access == null)
                   const Text('Verified host-admin identity and the organization are unavailable.')
@@ -318,7 +312,7 @@ class _HostDialogState extends State<HostDialog> {
                   ),
                 ),
               ],
-              if (!widget.takeDownOnly && run == null && record?.preparedHost == null && !legacy) ...[
+              if (!widget.takeDownOnly && run == null && record?.preparedHost == null) ...[
                 HostPreparationSettingsForm(
                   value: _choices,
                   onChanged: (value) async {
@@ -340,7 +334,7 @@ class _HostDialogState extends State<HostDialog> {
                 ],
               ],
               if (_problem != null) Text(_problem!),
-              if (_problem != null && !_givenBack && !legacy && widget.takeDownOnly)
+              if (_problem != null && !_givenBack && widget.takeDownOnly)
                 const Text(
                   'Giving back without a backup deletes everything still on the server. Confirm only when its contents are no longer needed.',
                 ),
@@ -362,7 +356,7 @@ class _HostDialogState extends State<HostDialog> {
             onPressed: _busy || access == null || _refusal(access) != null ? null : _prepare,
             child: const Text('Prepare the host'),
           ),
-        if (!widget.takeDownOnly && run != null && !run.ready && !run.running && !run.legacy)
+        if (!widget.takeDownOnly && run != null && !run.ready && !run.running)
           FilledButton(
             onPressed: () async {
               await widget.hostRuns?.resume(run);
@@ -378,18 +372,11 @@ class _HostDialogState extends State<HostDialog> {
                 : () => _giveBack(),
             child: const Text('Give the server back'),
           ),
-        if (widget.takeDownOnly && !_givenBack && !legacy && _problem != null)
+        if (widget.takeDownOnly && !_givenBack && _problem != null)
           OutlinedButton(
             key: const Key('host-force-down'),
             onPressed: _busy ? null : () => _giveBack(anyway: true),
             child: const Text('Give back without a backup'),
-          ),
-        if (!widget.takeDownOnly && legacy)
-          FilledButton(
-            onPressed: widget.hostRuns?.againUnavailable(widget.project) == null && widget.hostRuns != null
-                ? () => unawaited(widget.hostRuns!.again(widget.project))
-                : null,
-            child: const Text('Set it up again'),
           ),
       ],
     );

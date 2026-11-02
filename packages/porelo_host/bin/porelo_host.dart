@@ -8,7 +8,7 @@ porelo-host up|down (--host-name NAME | --project NAME --account NAME)
             [--forge true|false]
             (--scaleway-project ID [--zone fr-par-1] [--offer EM-I220E-NVME] | --given ADDRESS --host-key "TYPE BASE64")
             [--login-user NAME] [--distribution snapshots|releases]
-            [--legacy-rental] [--rental-tag TAG]
+            [--rental-tag TAG]
             [--give-back-anyway]
             [--collection FILE --collection-sha256 HEX]
             [--machine-file FILE]
@@ -21,7 +21,6 @@ porelo-host --collection-info
 
   up      prepares an existing --given host as root using the local SSH agent; renting remains refused
   down    gives back the tagged rental after its down play; a failed play keeps the host
-          legacy rentals require explicit loss confirmation and run no retired teardown
   find    names the server rented for the project now, as one JSON line with its id, address and
           whether it is ready, or exits 69 when none is; it changes nothing
   key     checks and keeps Scaleway's secret key or keeps a forge token, or forgets it;
@@ -83,12 +82,9 @@ Future<int> runHostCommand(
   final verb = arguments.first;
   final options = <String, String>{};
   var giveBackAnyway = false;
-  var legacyRental = false;
   for (var i = 1; i < arguments.length; i++) {
     final name = arguments[i];
-    if (name == '--legacy-rental' && verb == 'down') {
-      legacyRental = true;
-    } else if (name == '--give-back-anyway' && verb == 'down') {
+    if (name == '--give-back-anyway' && verb == 'down') {
       giveBackAnyway = true;
     } else if (const <String>{
           '--host-name',
@@ -136,7 +132,7 @@ Future<int> runHostCommand(
   final serverOnly = options.containsKey('host-name');
   final needed = <String>[
     if (serverOnly) 'host-name' else ...['project', 'account'],
-    if (!legacyRental && verb == 'up' && !options.containsKey('given')) 'public-key',
+    if (verb == 'up' && !options.containsKey('given')) 'public-key',
   ];
   if (serverOnly &&
       (options.containsKey('project') || options.containsKey('account') || options.containsKey('bundle'))) {
@@ -175,7 +171,6 @@ Future<int> runHostCommand(
     project: options['project'] ?? '',
     account: options['account'] ?? '',
     hostName: options['host-name'],
-    recoveryOnly: legacyRental,
     existingRentalTag: options['rental-tag'],
     forge: options['forge'] != 'false',
     publicKey: options['public-key'] ?? '',

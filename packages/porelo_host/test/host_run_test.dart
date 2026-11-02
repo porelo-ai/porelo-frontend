@@ -137,7 +137,6 @@ void main() {
     publicKey: sshKey,
     adminSigners: [sshKey],
   );
-  const recovery = HostPlan(project: 'demo', account: 'worker', publicKey: '', recoveryOnly: true);
 
   // Harm: retrying a refused existing root login can lock out the administrator.
   // Rental retries still allow cloud-init to finish installing its key.
@@ -265,16 +264,6 @@ void main() {
     expect(await runner(preparation: setup).up(plan), Exit.refused);
     expect(steps.where((s) => s.state == StepState.host), isEmpty);
     expect(provider.released, isEmpty);
-  });
-  // Harm: obsolete teardown credentials must not run before legacy rental give-back.
-  test('legacy give-back requires explicit loss confirmation and never opens SSH', () async {
-    provider.rented = const RentedHost(id: 'h1', address: '203.0.113.7', hostKey: sshKey, ready: true);
-    expect(await runner().down(recovery), Exit.refused);
-    expect(provider.released, isEmpty);
-    expect(await runner().down(recovery, giveBackAnyway: true), Exit.done);
-    expect(provider.released, ['h1']);
-    expect(await provider.find(recovery.tag), isNull);
-    expect(remote.commands, isEmpty);
   });
   // Harm: explicit loss confirmation must stop billing even when SSH teardown cannot run.
   test('loss-confirmed signed-state give-back releases without SSH teardown', () async {

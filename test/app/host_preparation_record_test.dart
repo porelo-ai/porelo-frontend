@@ -48,7 +48,6 @@ void main() {
     await again.load();
     expect(again.hostUp('orchard')?.preparing, isTrue);
     expect(again.hostUp('orchard')?.startedAt, DateTime.utc(2000));
-    expect(again.hostUp('orchard')?.legacy, isFalse);
     expect(again.hostUp('orchard')?.arguments('orchard'), isNot(contains('--identity')));
   });
   // Harm: malformed new progress must not be promoted as a completed server.

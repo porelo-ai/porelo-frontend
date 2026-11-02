@@ -1339,20 +1339,6 @@ void main() {
     }
   });
 
-  // Prevents importing a card from bypassing recovery of an obsolete billed host.
-  test('a legacy rental refuses its card transport before any launch', () async {
-    final legacy = Machine.fromStored(host.stored, legacyHost: true).withSocketPath(host.socketPath);
-    expect(legacy.legacyHost, isTrue);
-    expect(legacy.hostCard!.stored, host.hostCard!.stored);
-    expect(legacy.sshConfig, host.sshConfig);
-    expect(legacy.whyNotReachableOn(windows: false), isNotNull);
-    expect(legacy.whyNotReachableOn(windows: true), isNotNull);
-    expect(await tunnels.raiseFor(legacy), isFalse);
-    expect(launches, isEmpty);
-    expect(File(host.sshConfig).existsSync(), isFalse);
-    expect(legacy, isNot(host), reason: 'recovery state changes whether an otherwise identical machine can connect');
-  });
-
   // Prevents concurrent project joins from launching duplicate masters or repeating unlock.
   test('concurrent joins and commands reuse one connection', () async {
     final results = await Future.wait([tunnels.raiseFor(host), tunnels.raiseFor(host), tunnels.raiseFor(host)]);

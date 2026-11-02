@@ -1404,29 +1404,6 @@ List<Command> hostRecoveryCommands({
   required VoidCallback goOn,
   required VoidCallback takeDown,
 }) {
-  if (run.legacy) {
-    return [
-      Command(
-        id: 'host.again',
-        role: Role.hostAdmin,
-        label: 'Set it up again',
-        group: run.name,
-        home: Home.machineRow,
-        run: goOn,
-        unavailable:
-            run.lockProblem ?? (run.running ? 'the host command is still running' : run.replacementUnavailable),
-      ),
-      Command(
-        id: 'host.takeDown',
-        role: Role.hostAdmin,
-        label: 'Give the server back',
-        group: run.name,
-        home: Home.machineRow,
-        run: takeDown,
-        unavailable: run.lockProblem ?? (run.running ? 'the host command is still running' : null),
-      ),
-    ];
-  }
   final resume = resumeHostPreparationCommand(run: run, resume: goOn, home: Home.machineRow);
   return [
     resume,
@@ -1455,7 +1432,6 @@ Command resumeHostPreparationCommand({
   home: home,
   run: resume,
   unavailable:
-      (run.legacy ? 'this rental needs setup again through signed state' : null) ??
       run.lockProblem ??
       (run.running
           ? 'the host command is still running'

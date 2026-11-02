@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/host_runs.dart';
-import 'package:porelo_frontend/src/app/host_access.dart';
 import 'package:porelo_frontend/src/app/host_session.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/organization_source.dart';
@@ -228,32 +227,6 @@ void main() {
     expect(settings.hostUp('orchard'), isNotNull);
   });
 
-  // Harm: a retained replacement callback can change a rented server after admin access is revoked.
-  test('legacy replacement refuses a revoked admin before its setup adapter', () async {
-    final fixture = HostFixture();
-    final access = await fixture.access(settings);
-    await settings.rememberHostUp(
-      'orchard',
-      HostUpRecord.fromStored({...legacyRental(), 'host': 'orchard', 'hostName': 'orchard'})!,
-    );
-    var replacements = 0;
-    final owner = HostRuns(
-      machines,
-      hostAccess: access,
-      environment: {'XDG_STATE_HOME': Directory.systemTemp.path},
-      setupAgain: (_, record) async {
-        replacements++;
-        return record;
-      },
-    );
-    addTearDown(owner.dispose);
-    await owner.of('orchard')!.checked;
-    fixture.actor = const HostAdminIdentity('bob', personFingerprint, hostKey);
-    await owner.again('orchard');
-    expect(replacements, 0, reason: 'revocation must stop the adapter before it can change the server');
-    expect(settings.hostUp('orchard')!.legacy, isTrue);
-  });
-
   // Harm: incomplete or refused setup cannot become a usable server or lose recovery.
   for (final outcome in ['confirmed', 'missing card', 'refused', 'wrong host']) {
     test('$outcome setup retains recovery until SSH completion is confirmed', () async {
@@ -288,12 +261,4 @@ void main() {
       expect(machines.all.where((m) => m.hostProject == 'orchard').length, success ? 1 : 0);
     });
   }
-
-  // Harm: a legacy saved command must never be started even through a direct action call.
-  test('legacy setup cannot start through HostRuns', () {
-    final record = HostUpRecord.fromStored(legacyRental())!;
-    final session = HostSession(executable: 'fake', arguments: const []);
-    addTearDown(session.dispose);
-    expect(() => runs.start(project: 'demo', record: record, session: session), throwsStateError);
-  });
 }

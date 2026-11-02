@@ -92,15 +92,6 @@ void main() {
         socketPath: '',
         remoteSocket: '/run/user/1007/porelo',
       ),
-      const Machine(
-        name: 'legacy',
-        kind: 'host',
-        hostProject: 'orchard',
-        legacyHost: true,
-        host: 'worker@192.0.2.7',
-        socketPath: '',
-        remoteSocket: '/run/user/1007/porelo',
-      ),
       host,
     ]) {
       expect(machine.relayOn(windows: true, environment: const {}), isNull);

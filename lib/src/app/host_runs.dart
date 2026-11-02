@@ -29,7 +29,6 @@ class HostPreparation {
     this.settings,
     this.providerMachine,
     this.interrupted = false,
-    this.replacementUnavailable = 'signed-state server setup is not available yet',
   });
 
   /// The verified account connection used only for supported provider sign-ins.
@@ -56,11 +55,7 @@ class HostPreparation {
   /// The phase confirmed by the server completion.
   HostPreparationPhase phase = HostPreparationPhase.preparing;
 
-  /// Why the replacement setup cannot be started, if it is unavailable.
-  final String? replacementUnavailable;
-
   /// Whether only recovery is allowed for this rental.
-  bool get legacy => record.legacy;
 
   /// Whether the interface closed before setup could finish.
   bool interrupted;
@@ -99,18 +94,15 @@ class HostPreparation {
   bool get waiting => session.state == HostRunState.waiting;
 
   /// Whether a supported provider sign-in still needs a person.
-  bool get needsYou => !legacy && waiting;
-
-  /// A removed stop is never offered as a terminal action.
-  List<String>? get asksOnItsOwn => null;
+  bool get needsYou => waiting;
 }
 
 /// Owns host setup just as Operations owns other long actions; views only observe it.
 class HostRuns extends ChangeNotifier {
   /// Adds successful runs through the ordinary Machines path.
-  HostRuns(this.machines, {this.environment, this.setupAgain, this.hostAccess, this.onReady, this.say}) {
+  HostRuns(this.machines, {this.environment, this.hostAccess, this.onReady, this.say}) {
     for (final entry in machines.settings.hostUps.entries) {
-      if (!entry.value.preparing && !entry.value.legacy) continue;
+      if (!entry.value.preparing) continue;
       final session = sessionFor(entry.key, entry.value)..restoreProtocol(entry.value.protocol);
       final run = HostPreparation(
         project: entry.key,
@@ -118,7 +110,6 @@ class HostRuns extends ChangeNotifier {
         record: entry.value,
         settings: machines.settings,
         interrupted: false,
-        replacementUnavailable: setupAgain == null ? 'signed-state server setup is not available yet' : null,
       );
       _runs[entry.key] = run;
       _listen(run);
@@ -128,14 +119,8 @@ class HostRuns extends ChangeNotifier {
   }
 
   /// Builds an idle command from the saved identity without starting a process.
-  HostSession sessionFor(String project, HostUpRecord record) => HostSession(
-    executable: poreloHost(),
-    arguments: record.legacy ? record.giveBackArguments(project) : hostArguments(record, project),
-  );
-
-  /// Re-enters signed-state setup for the same rental while its rental lock is held.
-  /// The adapter prepares the existing rental directly and must not reacquire that lock.
-  final Future<HostUpRecord> Function(String project, HostUpRecord existingRental)? setupAgain;
+  HostSession sessionFor(String project, HostUpRecord record) =>
+      HostSession(executable: poreloHost(), arguments: hostArguments(record, project));
 
   /// Who may prepare a host, and what goes to the organization, supplied by the app composition.
   final HostAccess? hostAccess;
@@ -164,11 +149,6 @@ class HostRuns extends ChangeNotifier {
     if (_disposed || _leaving || run._upActive || run.session.state == HostRunState.running) return;
     try {
       final file = File(_lockPath(run.project, run.record));
-      if (_replacementLocks.contains(file.path)) {
-        run.session.state = HostRunState.busy;
-        _poll(run);
-        return;
-      }
       final held = await _serializeLock(file.path, () async {
         await file.parent.create(recursive: true);
         final handle = await openProjectLock(file);
@@ -190,7 +170,7 @@ class HostRuns extends ChangeNotifier {
       if (_disposed || _leaving || run.givenBack) return;
       run.session.state = held ? HostRunState.busy : HostRunState.idle;
       run.interrupted = !held;
-      run.problem = run.legacy ? HostUpRecord.legacyExplanation : null;
+      run.problem = null;
       run._lockFailed = false;
       if (held) {
         _poll(run);
@@ -247,18 +227,12 @@ class HostRuns extends ChangeNotifier {
 
   /// Stops and interruptions needing a person, including setup run again on a ready server.
   List<HostPreparation> get needingYou =>
-      _runs.values.where((run) => !run.givenBack && !run.legacy && (run.needsYou || run.interrupted)).toList();
+      _runs.values.where((run) => !run.givenBack && (run.needsYou || run.interrupted)).toList();
 
   /// Why a ready server cannot start another setup attempt now.
   String? againUnavailable(String project) {
     if (_disposed || _leaving) return 'the interface is closing';
     final record = machines.settings.hostUp(project);
-    if (_settingUpAgain.contains(project)) return 'server setup is already running';
-    if (record?.legacy == true) {
-      if (_runs[project]?.lockProblem case final problem?) return problem;
-      if (_runs[project]?.running == true) return 'the host command is still running';
-      return setupAgain == null ? 'signed-state server setup is not available yet' : null;
-    }
     final run = _runs[project];
     if (run?.lockProblem case final problem?) return problem;
     if (run?.running == true) return 'the host command is still running';
@@ -271,8 +245,6 @@ class HostRuns extends ChangeNotifier {
     return null;
   }
 
-  final _settingUpAgain = <String>{};
-  static final _replacementLocks = <String>{};
   static final _localLockOwners = <String, Future<void>>{};
 
   static Future<T> _serializeLock<T>(String path, Future<T> Function() action) async {
@@ -294,17 +266,6 @@ class HostRuns extends ChangeNotifier {
   /// Re-enters the verified setup flow for this same rental.
   Future<void> again(String project) {
     if (againUnavailable(project) != null) return _runs[project]?.finished ?? Future.value();
-    final existing = machines.settings.hostUp(project)!;
-    if (existing.legacy) {
-      _settingUpAgain.add(project);
-      _runs[project]?._upActive = true;
-      _changed();
-      return _replaceLegacy(project, existing).whenComplete(() {
-        _settingUpAgain.remove(project);
-        _runs[project]?._upActive = false;
-        _changed();
-      });
-    }
     var run = _runs[project];
     if (run == null) {
       final record = machines.settings.hostUp(project)!;
@@ -320,70 +281,6 @@ class HostRuns extends ChangeNotifier {
     return run.finished = _up(run);
   }
 
-  Future<void> _replaceLegacy(String project, HostUpRecord existing) async {
-    final file = File(_lockPath(project, existing));
-    if (!_replacementLocks.add(file.path)) return;
-    try {
-      await _serializeLock(file.path, () async {
-        RandomAccessFile? handle;
-        try {
-          await file.parent.create(recursive: true);
-          handle = await openProjectLock(file);
-          await handle.lock(FileLock.exclusive);
-          final access = hostAccess;
-          if (access == null) throw const HostAccessRefused('The verified host admins are unavailable.');
-          await access.check(existing.hostName.isEmpty ? project : existing.hostName);
-          final completed = await setupAgain!(project, existing);
-          if (_disposed) return;
-          if (completed.legacy ||
-              completed.preparing ||
-              completed.preparedHost == null ||
-              completed.scalewayProject != existing.scalewayProject ||
-              completed.rentalTag != existing.rentalTagFor(project) ||
-              completed.host != project ||
-              HostUpRecord.fromStored(completed.stored) == null) {
-            throw const FormatException('Replacement setup did not confirm the same rental.');
-          }
-          await machines.settings.rememberHostUp(project, completed);
-          final previous = _runs[project];
-          final run = HostPreparation(
-            project: project,
-            session: sessionFor(project, completed),
-            record: completed,
-            settings: machines.settings,
-          )..phase = HostPreparationPhase.reachable;
-          previous?._poll?.cancel();
-          if (previous?._listener case final listener?) previous!.session.removeListener(listener);
-          previous?.session.dispose();
-          _runs[project] = run;
-          _listen(run);
-          for (final old in machines.all.where((m) => m.kind == 'host' && m.hostProject == project).toList()) {
-            await machines.forget(old);
-          }
-          await machines.add(
-            Machine(
-              name: run.name,
-              socketPath: '',
-              kind: 'host',
-              host: completed.preparedHost!.address,
-              hostProject: project,
-            ),
-          );
-          if (await access.writeCard(completed.preparedHost!) case final refused?) {
-            run.problem = 'The host is ready, but its card could not be written to the organization: $refused';
-          }
-        } finally {
-          await handle?.close();
-        }
-      });
-    } on Exception {
-      _runs[project]?.problem =
-          '${HostUpRecord.legacyExplanation} Setup again could not be confirmed. Its recovery data was kept.';
-    } finally {
-      _replacementLocks.remove(file.path);
-    }
-  }
-
   /// Takes ownership before starting, so no command depends on the setup view's lifetime.
   HostPreparation start({
     required String project,
@@ -391,7 +288,6 @@ class HostRuns extends ChangeNotifier {
     required HostUpRecord record,
     Settings? settings,
   }) {
-    if (record.legacy) throw StateError('Legacy credentials cannot start setup.');
     if (hostAccess == null) throw const HostAccessRefused('The verified host admins are unavailable.');
     hostAccess!.requireAdmin(record.hostName);
     final previous = _runs[project];
@@ -418,7 +314,6 @@ class HostRuns extends ChangeNotifier {
   Future<void> resume(HostPreparation run) {
     if (_disposed ||
         _leaving ||
-        run.legacy ||
         run.ready && !run.needsYou && !run.interrupted ||
         run.givenBack ||
         run._upActive ||
@@ -633,10 +528,8 @@ class HostStop {
       interrupted = run.interrupted,
       text = run.interrupted
           ? 'Setup of ${run.name} was interrupted — the server is rented and billed'
-          : run.asksOnItsOwn != null
-          ? run.session.fix!
           : run.session.stepText,
-      needs = List.unmodifiable(run.asksOnItsOwn ?? run.session.needs);
+      needs = List.unmodifiable(run.session.needs);
 
   /// Project to find when the stop's action is opened.
   final String project;
