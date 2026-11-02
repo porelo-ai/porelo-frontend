@@ -61,7 +61,10 @@ import '../app/settings.dart';
 import '../app/shell_model.dart';
 
 import 'package:porelo_frontend/client.dart';
-import 'package:porelo_host/porelo_host.dart' show HostFilesRefused;
+import 'package:porelo_host/porelo_host.dart'
+    show HostFilesRefused, ProjectTransfer, RemoteNotStarted, SecretsFile, projectTransferFeedCommand;
+
+import '../app/project_transfers.dart';
 
 import 'attention_view.dart';
 import 'command_finder.dart';
@@ -292,6 +295,9 @@ class _ShellState extends State<Shell> {
   final _frameFocus = FocusNode(debugLabel: 'frame');
   late final Attention _attention;
   late final HostRuns _hostRuns;
+
+  /// The central transfers' guards; each transfer itself runs in a terminal the person types the master password into.
+  final _transfers = ProjectTransfers(source: _TerminalOnly());
 
   /// A file being handed to work, and the last one's outcome.
   final _handing = HandingIn();
@@ -3302,8 +3308,57 @@ class _ShellState extends State<Shell> {
                   !{'project.server', 'project.takeOffServer', 'project.clear'}.contains(command.id)) &&
               (item == null || !{'project.server', 'project.takeOffServer'}.contains(command.id)),
         ),
+      if (watched)
+        ...cardHostTransferCommands(
+          transfers: _transfers,
+          machine: machine,
+          project: project.name,
+          followed: project.canBeActedOn,
+          secretsFile: widget.settings.secretsFile,
+          start: (direction) => unawaited(_transferInATerminal(machine, project.name, direction)),
+        ),
       if (project.name != defaultProject && item != null) ..._registryPageCommands(item),
     ];
+  }
+
+  /// Pushes the approved main, or takes the central state, in a terminal here: the person types the secrets file's
+  /// master password there, the terminal reads the central token from the file and hands it to the host's own command
+  /// on its standard input, so the token never passes through this program.
+  Future<void> _transferInATerminal(Machine machine, String project, ProjectTransfer direction) async {
+    final file = widget.settings.secretsFile;
+    final card = machine.hostCard;
+    if (file == null || card == null) return;
+    final List<String> command;
+    try {
+      command = projectTransferFeedCommand(
+        direction: direction,
+        project: project,
+        repositories: const [],
+        card: card,
+        config: machine.sshConfig,
+        secretsFile: SecretsFile(file),
+      );
+    } on HostFilesRefused catch (refused) {
+      _fleet.say(refused.message);
+      return;
+    } on FormatException catch (refused) {
+      _fleet.say(refused.message);
+      return;
+    }
+    if (!mounted) return;
+    final push = direction == ProjectTransfer.push;
+    await runInATerminal(
+      context,
+      title: push ? 'Push the approved main of $project' : 'Take the central state of $project',
+      explanation:
+          'Type the master password of your secrets file into the terminal. The terminal reads the central forge '
+          'token from that file and sends it to ${machine.name} on its standard input; nothing here sees or keeps it.',
+      machine: machine,
+      command: command,
+      open: widget.sessions.openTerminal,
+      showCommand: false,
+      completed: push ? 'The approved main was pushed.' : 'The central state was taken.',
+    );
   }
 
   List<Command> _registryPageCommands(RegistryPageItem item) => registryItemCommands(
@@ -3735,6 +3790,7 @@ class _ShellState extends State<Shell> {
 
   @override
   void dispose() {
+    _transfers.dispose();
     for (final join in _joins.values) {
       join.dispose();
     }
@@ -3856,4 +3912,15 @@ String signInExplanation(Agent agent, String machine) {
       '$opening Then follow what the terminal below says.'
           '${agent.loginDocumentation.isEmpty ? '' : ' The agent describes its sign-in at ${agent.loginDocumentation}.'} $stored',
   };
+}
+
+/// Stands behind the transfer guards only: a transfer runs in the person's terminal, never through this source.
+class _TerminalOnly implements CentralTransferSource {
+  @override
+  Future<TransferResult> run(
+    TransferSelection selection,
+    ProjectTransfer direction, {
+    required void Function() onSubmitted,
+    void Function(String line)? onLine,
+  }) => throw const RemoteNotStarted();
 }

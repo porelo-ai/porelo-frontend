@@ -9,6 +9,11 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- A project followed on a card host offers *Push the approved main…* and *Take the central state…* in its menu again;
+  each runs in a terminal where the person types the secrets file's master password, and the central forge token goes
+  from the file to the host's own command without passing through the interface. Without a secrets file both say to
+  choose one first.
+
 - An instance started with a person's own forge token entry, such as a developer's, also hands Core's registry calls
   the organization's GitHub App installation token from the test secrets file, as Core's owner check of the registry
   asks the organization; the person's own token is never handed to Core for it.
