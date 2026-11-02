@@ -161,6 +161,71 @@ const _workdir = '/var/tmp/porelo-host';
 
 const _collections = '/usr/share/ansible/collections';
 
+/// Rejects shell input and service accounts before a purge can reach the host.
+void checkPurgeLogin(String login) {
+  if (RegExp(r'^[a-z][a-z0-9-]{0,31}$').stringMatch(login) != login ||
+      login == 'porelo' ||
+      login.startsWith('porelo-')) {
+    throw const FormatException('A purge needs a person login, excluding porelo and porelo- service accounts.');
+  }
+}
+
+/// A person whose server account still holds organization memberships.
+class HostMembership {
+  const HostMembership._(this.login, this.hostAdmin, this.projects);
+
+  /// The account that an explicit purge may remove.
+  final String login;
+
+  /// Whether this person administers the host.
+  final bool hostAdmin;
+
+  /// Each project and the role this person holds there.
+  final List<({String project, String role})> projects;
+
+  /// Validates every person before returning any holders; missing data is never an empty answer.
+  static List<HostMembership> readStatus(String answer) {
+    const malformed = FormatException('The host membership status is malformed or incomplete.');
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(answer);
+    } on FormatException {
+      throw malformed;
+    }
+    if (decoded is! Map<String, Object?> || decoded['persons'] is! List<Object?>) throw malformed;
+    final holders = <HostMembership>[];
+    final logins = <String>{};
+    for (final person in decoded['persons'] as List<Object?>) {
+      if (person is! Map<String, Object?>) throw malformed;
+      final login = person['login'];
+      final state = person['state'];
+      final admin = person['host_admin'];
+      final projects = person['projects'];
+      if (login is! String ||
+          state is! String ||
+          admin is! bool ||
+          projects is! List<Object?> ||
+          !const ['active', 'locked', 'pending', 'purged', 'named'].contains(state) ||
+          person.containsKey('purge_on') && (person['purge_on'] is! String || (person['purge_on'] as String).isEmpty)) {
+        throw malformed;
+      }
+      checkPurgeLogin(login);
+      if (!logins.add(login)) throw malformed;
+      final roles = <({String project, String role})>[];
+      for (final entry in projects) {
+        if (entry case {'project': final String project, 'role': final String role}
+            when project.trim().isNotEmpty && role.trim().isNotEmpty) {
+          roles.add((project: project, role: role));
+        } else {
+          throw malformed;
+        }
+      }
+      if (admin || roles.isNotEmpty) holders.add(HostMembership._(login, admin, List.unmodifiable(roles)));
+    }
+    return List.unmodifiable(holders);
+  }
+}
+
 /// `up` and `down`, in their order.
 ///
 /// **This does no step of the playbook.** It rents, copies, starts `ansible-playbook` on the host
@@ -471,17 +536,77 @@ done''',
   /// **A host whose down play did not finish is kept**: a
   /// copy that failed may have left the only copy of its data there. The play's own line says what
   /// failed, and the last step says the host is kept and names the ways out. [giveBackAnyway] gives
-  /// it back all the same, for a person who has read that.
-  Future<int> down(HostPlan plan, {bool giveBackAnyway = false}) => _withProjectLock(plan, () async {
+  /// it back all the same, for a person who has read that. [purge] removes only the named accounts
+  /// before the play and cannot be combined with [giveBackAnyway].
+  Future<int> down(HostPlan plan, {bool giveBackAnyway = false, List<String> purge = const []}) async {
     try {
-      return await _down(plan, giveBackAnyway);
-    } on ProviderFailed catch (e) {
-      _write(Step('give-back', StepState.refused, fix: e.message));
+      for (final login in purge) {
+        checkPurgeLogin(login);
+      }
+      if (giveBackAnyway && purge.isNotEmpty) {
+        throw const FormatException('--purge cannot be combined with --give-back-anyway.');
+      }
+    } on FormatException catch (error) {
+      _write(Step('purge', StepState.refused, fix: error.message));
+      return Exit.usage;
+    }
+    return _withProjectLock(plan, () async {
+      try {
+        return await _down(plan, giveBackAnyway, purge.toSet());
+      } on ProviderFailed catch (e) {
+        _write(Step('give-back', StepState.refused, fix: e.message));
+        return Exit.refused;
+      }
+    }, forSetup: false);
+  }
+
+  /// Reads memberships using the rental's login and host pin, without running a play or changing the host.
+  Future<int> memberships(HostPlan plan) async {
+    const step = 'org-status';
+    try {
+      plan.check(forSetup: false);
+      _write(const Step(step, StepState.started));
+      final host = await provider.find(plan.tag);
+      if (host == null) return _unreachable(step, 'No host carries the rental tag.');
+      final address = host.address;
+      if (address == null) return _unreachable(step, 'The provider names no address for ${host.id}.');
+      if (trust != null) {
+        if (host.hostKey == null) {
+          _write(
+            const Step(step, StepState.refused, fix: 'The provider named no SSH host key for the membership read.'),
+          );
+          return Exit.refused;
+        }
+        await trust!(address, host.hostKey!);
+      }
+      final answer = StringBuffer();
+      final result = await remote.run(
+        address,
+        plan.loginUser,
+        '${plan.loginUser == 'root' ? '' : 'sudo -n '}/usr/local/sbin/porelo-host-person org status',
+        onLine: answer.writeln,
+      );
+      final words = [result.stderr, answer.toString()].where((part) => part.isNotEmpty).join('\n');
+      if (result.exitCode == 255) return _unreachable(step, words);
+      if (result.exitCode != 0) {
+        return _refused(step, RemoteResult(result.exitCode, words), 'The host refused the membership read.');
+      }
+      HostMembership.readStatus(answer.toString());
+      _write(Step(step, StepState.done, words: answer.toString().trim()));
+      return Exit.done;
+    } on FormatException catch (error) {
+      _write(Step(step, StepState.refused, fix: error.message));
+      return Exit.refused;
+    } on ProviderFailed catch (error) {
+      _write(Step(step, StepState.refused, fix: error.message));
+      return Exit.refused;
+    } on Exception {
+      _write(const Step(step, StepState.refused, fix: 'The membership read could not complete.'));
       return Exit.refused;
     }
-  }, forSetup: false);
+  }
 
-  Future<int> _down(HostPlan plan, bool giveBackAnyway) async {
+  Future<int> _down(HostPlan plan, bool giveBackAnyway, Set<String> purge) async {
     _ownSteps = downSteps;
     _write(Step('plan', StepState.plan, steps: _ownSteps));
     final host = await provider.find(plan.tag);
@@ -507,6 +632,24 @@ done''',
         return Exit.refused;
       }
       await trust!(address, host.hostKey!);
+    }
+    for (final login in purge) {
+      final step = 'purge-$login';
+      if (address == null) return _unreachable(step, 'the provider names no address for ${host.id}');
+      _write(Step(step, StepState.started));
+      final output = StringBuffer();
+      final result = await remote.run(
+        address,
+        plan.loginUser,
+        '${plan.loginUser == 'root' ? '' : 'sudo -n '}/usr/local/sbin/porelo-host-person purge $login',
+        onLine: output.writeln,
+      );
+      final words = [result.stderr, output.toString()].where((part) => part.isNotEmpty).join('\n');
+      if (result.exitCode == 255) return _unreachable(step, words);
+      if (result.exitCode != 0) {
+        return _refused(step, RemoteResult(result.exitCode, words), 'The purge failed; the host was kept.');
+      }
+      _write(Step(step, StepState.done));
     }
     if (plan.hostName != null && address != null) {
       final copied = await remote.run(

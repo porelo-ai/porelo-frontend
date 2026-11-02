@@ -456,9 +456,30 @@ class HostSession extends ChangeNotifier {
   /// Brings the host up, as far as it goes.
   Future<void> up() => _run(<String>['up', ...arguments]);
 
-  /// Takes the host down.
-  Future<void> down({bool giveBackAnyway = false}) =>
-      _run(<String>['down', ...arguments, if (giveBackAnyway) '--give-back-anyway']);
+  /// Takes the host down, purging only the [purge] logins explicitly confirmed by the person.
+  Future<void> down({bool giveBackAnyway = false, List<String> purge = const []}) => _run(<String>[
+    'down',
+    ...arguments,
+    for (final login in purge) ...['--purge', login],
+    if (giveBackAnyway) '--give-back-anyway',
+  ]);
+
+  /// Reads the pinned rental's holders; an incomplete command answer is a refusal, never an empty list.
+  Future<List<HostMembership>> readMemberships() async {
+    await _run(['down', ...arguments, '--memberships']);
+    if (state != HostRunState.done) {
+      final reasons = <String>{
+        ?fix,
+        for (final step in steps)
+          if (step.state == StepState.refused && step.words != null) step.words!,
+        if (said.isNotEmpty) said,
+      };
+      throw StateError(reasons.join('\n'));
+    }
+    final status = steps.where((step) => step.step == 'org-status' && step.state == StepState.done).singleOrNull;
+    if (status?.words == null) throw const FormatException('The host did not report its membership holders.');
+    return HostMembership.readStatus(status!.words!);
+  }
 
   Future<void> _run(List<String> command) async {
     if (state == HostRunState.running) return;

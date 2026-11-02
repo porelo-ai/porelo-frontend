@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:porelo_host/porelo_host.dart' show HostPreparationSettings;
+import 'package:porelo_host/porelo_host.dart' show HostMembership, HostPreparationSettings;
 
 import '../app/host_runs.dart';
 import '../app/host_access.dart';
@@ -111,6 +111,10 @@ class HostDialog extends StatefulWidget {
 
 class _HostDialogState extends State<HostDialog> {
   HostSession? _down;
+  HostSession? _membershipSession;
+  List<HostMembership>? _holders;
+  bool _checkingMemberships = false;
+  String? _membershipProblem;
   final _name = TextEditingController();
   final _address = TextEditingController();
   final _hostKey = TextEditingController();
@@ -128,6 +132,10 @@ class _HostDialogState extends State<HostDialog> {
   void initState() {
     super.initState();
     _choices = _record?.preparationSettings ?? widget.existingRun?.record.preparationSettings ?? _choices;
+    if (widget.takeDownOnly) {
+      unawaited(_readHolders());
+      return;
+    }
     // Root's bootstrap line names the card key, so it is shown only once the identity was read again.
     final access = widget.hostAccess ?? widget.hostRuns?.hostAccess;
     if (access?.proof == null) {
@@ -210,8 +218,46 @@ class _HostDialogState extends State<HostDialog> {
     }
   }
 
-  Future<void> _giveBack({bool anyway = false}) async {
+  Future<void> _readHolders() async {
+    final record = _record;
+    if (record == null || _checkingMemberships) return;
+    final session = HostSession(
+      executable: poreloHost(),
+      arguments: record.giveBackArguments(widget.project),
+      start: widget.start,
+    );
+    setState(() {
+      _holders = null;
+      _membershipProblem = null;
+      _checkingMemberships = true;
+      _membershipSession?.dispose();
+      _membershipSession = session;
+    });
+    try {
+      final holders = await session.readMemberships();
+      if (mounted) setState(() => _holders = holders);
+    } catch (error) {
+      final reason = switch (error) {
+        StateError() => error.message,
+        FormatException() => error.message,
+        _ => error.toString(),
+      };
+      // Nothing is purged then, and the play's own check still refuses while anyone holds a membership: a server
+      // whose setup stopped early has nobody to read and still goes back as before.
+      if (mounted) {
+        setState(() {
+          _holders = const [];
+          _membershipProblem = 'The membership holders could not be read: $reason';
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _checkingMemberships = false);
+    }
+  }
+
+  Future<void> _giveBack({bool anyway = false, List<HostMembership>? holders}) async {
     if (_busy || _givenBack || _record == null) return;
+    if (!anyway && (holders == null || !identical(holders, _holders) || _checkingMemberships)) return;
     if (widget.hostRuns?.of(widget.project)?.running == true) return;
     final record = _record!;
     final session = HostSession(
@@ -226,7 +272,10 @@ class _HostDialogState extends State<HostDialog> {
       _down = session;
     });
     try {
-      await session.down(giveBackAnyway: anyway);
+      await session.down(
+        giveBackAnyway: anyway,
+        purge: anyway ? const [] : [for (final holder in holders!) holder.login],
+      );
       if (!hostGivenBack(session)) {
         throw StateError('Give-back was not confirmed.');
       }
@@ -244,6 +293,7 @@ class _HostDialogState extends State<HostDialog> {
       _givenBack = true;
     } catch (_) {
       _problem = 'Give-back was not confirmed. The rental and recovery data were kept.';
+      if (!anyway && mounted) await _readHolders();
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -252,6 +302,7 @@ class _HostDialogState extends State<HostDialog> {
   @override
   void dispose() {
     _down?.dispose();
+    _membershipSession?.dispose();
     for (final field in [_name, _address, _hostKey, _digest]) {
       field.dispose();
     }
@@ -263,6 +314,7 @@ class _HostDialogState extends State<HostDialog> {
     final run = widget.existingRun ?? _started;
     final record = _record ?? (run == null ? null : _settings.hostUp(run.project)) ?? run?.record;
     final access = widget.hostAccess ?? widget.hostRuns?.hostAccess;
+    final holders = _holders;
     return AlertDialog(
       title: Text(widget.takeDownOnly ? 'Give the server back' : run?.name ?? 'Prepare a server'),
       content: SizedBox(
@@ -334,6 +386,19 @@ class _HostDialogState extends State<HostDialog> {
                 ],
               ],
               if (_problem != null) Text(_problem!),
+              if (widget.takeDownOnly && !_givenBack) ...[
+                if (_checkingMemberships) const Text('Reading membership holders…'),
+                if (_membershipProblem != null) Text(_membershipProblem!),
+                if (holders != null && holders.isNotEmpty) ...[
+                  for (final holder in holders)
+                    Text(
+                      '${holder.login}: ${[if (holder.hostAdmin) 'host admin', for (final project in holder.projects) '${project.project} (${project.role})'].join(', ')}',
+                    ),
+                  const Text(
+                    'Giving this server back permanently deletes the accounts named above on this server and everything they hold there. This cannot be undone.',
+                  ),
+                ],
+              ],
               if (_problem != null && !_givenBack && widget.takeDownOnly)
                 const Text(
                   'Giving back without a backup deletes everything still on the server. Confirm only when its contents are no longer needed.',
@@ -367,10 +432,17 @@ class _HostDialogState extends State<HostDialog> {
         if (widget.takeDownOnly && !_givenBack)
           FilledButton(
             key: const Key('host-confirm-down'),
-            onPressed: _busy || record == null || widget.hostRuns?.of(widget.project)?.running == true
+            onPressed:
+                _busy ||
+                    _checkingMemberships ||
+                    holders == null ||
+                    record == null ||
+                    widget.hostRuns?.of(widget.project)?.running == true
                 ? null
-                : () => _giveBack(),
-            child: const Text('Give the server back'),
+                : () => _giveBack(holders: holders),
+            child: Text(
+              holders?.isNotEmpty == true ? 'Delete these accounts and give the server back' : 'Give the server back',
+            ),
           ),
         if (widget.takeDownOnly && !_givenBack && _problem != null)
           OutlinedButton(

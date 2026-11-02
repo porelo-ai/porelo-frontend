@@ -2,6 +2,7 @@
 @Tags(['linux'])
 library;
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:porelo_host/porelo_host.dart';
@@ -13,10 +14,14 @@ import 'server_contract_test.dart' show sshKey, hostValues;
 class CountingProvider implements HostProvider {
   RentedHost? rented;
   int created = 0;
+  final found = <String>[];
   final released = <String>[];
 
   @override
-  Future<RentedHost?> find(String tag) async => rented;
+  Future<RentedHost?> find(String tag) async {
+    found.add(tag);
+    return rented;
+  }
 
   @override
   Future<RentedHost> create(HostRequest request) async {
@@ -46,6 +51,10 @@ class ScriptedRemote implements Remote {
   final commands = <String>[];
   final inputs = <String>[];
   final users = <String>[];
+  String status = '{"persons": []}';
+  RemoteResult statusResult = const RemoteResult(0, '');
+  final purgeResults = <String, RemoteResult>{};
+  final purgeOutput = <String, List<String>>{};
 
   /// Each command run, with what it was given on standard input, in order.
   final runs = <({String command, String input})>[];
@@ -62,6 +71,17 @@ class ScriptedRemote implements Remote {
     users.add(user);
     if (input != null) inputs.add(input);
     runs.add((command: command, input: input ?? ''));
+    if (command.endsWith('/porelo-host-person org status')) {
+      const LineSplitter().convert(status).forEach((line) => onLine?.call(line));
+      return statusResult;
+    }
+    if (command.contains('/porelo-host-person purge ')) {
+      final login = command.split(' ').last;
+      for (final line in purgeOutput[login] ?? const <String>[]) {
+        onLine?.call(line);
+      }
+      return purgeResults[login] ?? const RemoteResult(0, '');
+    }
     if (command == 'id -u') {
       onLine?.call(uid);
       return RemoteResult(uidExit, '');
@@ -137,6 +157,289 @@ void main() {
     publicKey: sshKey,
     adminSigners: [sshKey],
   );
+
+  // Harm: teardown must remove only explicitly confirmed accounts before the play can release their server.
+  test('only named logins are purged as root before the down play', () async {
+    provider.rented = const RentedHost(id: 'h1', address: '192.0.2.7', hostKey: sshKey, ready: true);
+    remote.status = jsonEncode({
+      'persons': [membership('unseen', admin: true)],
+    });
+    final run = HostRun(
+      provider: provider,
+      remote: remote,
+      emit: steps.add,
+      environment: {'XDG_STATE_HOME': scratch.path},
+      trust: (address, key) async {
+        expect((address, key), ('192.0.2.7', sshKey));
+        expect(remote.commands, isEmpty);
+        remote.commands.add('trust');
+      },
+    );
+    expect(await run.down(plan, purge: ['alice', 'bob', 'alice']), Exit.done);
+    final purges = remote.commands.where((command) => command.contains('/porelo-host-person purge ')).toList();
+    expect(purges, ['/usr/local/sbin/porelo-host-person purge alice', '/usr/local/sbin/porelo-host-person purge bob']);
+    expect(remote.commands.first, 'trust');
+    expect(
+      remote.commands.indexOf(purges.last),
+      lessThan(remote.commands.indexWhere((command) => command.contains('ansible-playbook'))),
+    );
+    expect(remote.users.toSet(), {'root'});
+    expect(remote.commands.any((command) => command.contains('unseen')), isFalse);
+    expect(provider.released, ['h1']);
+  });
+
+  // Harm: a partial purge must not continue deleting accounts or give back the only copy of their data.
+  for (final failure in ['stderr', 'stdout', 'ssh']) {
+    // Harm: discarding a purge refusal's diagnostics hides why deleting an account could not complete.
+    test('a failed purge on $failure keeps its explanation and stops teardown', () async {
+      provider.rented = const RentedHost(id: 'h1', address: '192.0.2.7', hostKey: sshKey, ready: true);
+      remote.purgeResults['alice'] = RemoteResult(
+        failure == 'ssh' ? 255 : 65,
+        failure == 'stdout' ? '' : 'alice still has an unreviewed task',
+      );
+      if (failure == 'stdout') remote.purgeOutput['alice'] = ['alice still has an unreviewed task'];
+      expect(await runner().down(plan, purge: ['alice', 'bob']), failure == 'ssh' ? Exit.unreachable : Exit.refused);
+      expect(remote.commands, ['/usr/local/sbin/porelo-host-person purge alice']);
+      expect(steps.last.state, StepState.refused);
+      expect(steps.last.words, contains('alice'));
+      expect(steps.last.words, contains('unreviewed task'));
+      expect(provider.released, isEmpty);
+      expect(provider.rented, isNotNull);
+    });
+  }
+
+  // Harm: a rental's non-root image login must execute the confirmed purge as root before releasing the server.
+  test('a purge uses passwordless sudo through the original non-root login', () async {
+    provider.rented = const RentedHost(id: 'h1', address: '192.0.2.7', hostKey: sshKey, ready: true);
+    const project = HostPlan(project: 'garden', account: 'worker', publicKey: '', loginUser: 'ubuntu');
+    expect(await runner().down(project, purge: ['alice']), Exit.done);
+    expect(remote.commands.first, 'sudo -n /usr/local/sbin/porelo-host-person purge alice');
+    expect(remote.commands.last, contains('ansible-playbook'));
+    expect(remote.users, ['ubuntu', 'ubuntu']);
+    expect(provider.released, ['h1']);
+  });
+
+  // Harm: an unaddressed or unpinned rental cannot safely receive a destructive purge or be released.
+  for (final missing in ['address', 'key']) {
+    test('a purge keeps the rental when its $missing is absent', () async {
+      provider.rented = RentedHost(
+        id: 'h1',
+        address: missing == 'address' ? null : '192.0.2.7',
+        hostKey: missing == 'key' ? null : sshKey,
+        ready: true,
+      );
+      final run = HostRun(
+        provider: provider,
+        remote: remote,
+        emit: steps.add,
+        environment: {'XDG_STATE_HOME': scratch.path},
+        trust: (_, _) async {},
+      );
+      expect(await run.down(plan, purge: ['alice']), missing == 'address' ? Exit.unreachable : Exit.refused);
+      expect(remote.commands, isEmpty);
+      expect(provider.released, isEmpty);
+      expect(provider.rented, isNotNull);
+    });
+  }
+
+  // Harm: an unconnected server's holders must be read from its pinned rental without renting or changing it.
+  test('memberships use the provider pin and the plan login without any teardown', () async {
+    provider.rented = const RentedHost(id: 'h1', address: '192.0.2.7', hostKey: sshKey, ready: true);
+    remote.status = jsonEncode({
+      'persons': [
+        membership('alice', admin: true),
+        membership(
+          'bob',
+          projects: [
+            {'project': 'garden', 'role': 'member'},
+          ],
+        ),
+        membership('retired', state: 'purged'),
+      ],
+    });
+    final pins = <(String, String)>[];
+    final run = HostRun(
+      provider: provider,
+      remote: remote,
+      emit: steps.add,
+      trust: (address, key) async {
+        expect(remote.commands, isEmpty);
+        pins.add((address, key));
+      },
+    );
+    const project = HostPlan(project: 'garden', account: 'worker', publicKey: '', loginUser: 'ubuntu');
+    expect(await run.memberships(project), Exit.done);
+    expect(pins, [('192.0.2.7', sshKey)]);
+    expect(provider.found, [HostPlan.tagFor('garden')]);
+    expect(remote.users, ['ubuntu']);
+    expect(remote.commands, ['sudo -n /usr/local/sbin/porelo-host-person org status']);
+    final status = Step.fromLine(steps.last.toLine())!;
+    expect((status.step, status.state), ('org-status', StepState.done));
+    final holders = HostMembership.readStatus(status.words!);
+    expect(holders.map((holder) => holder.login), ['alice', 'bob']);
+    expect(holders.last.projects.single, (project: 'garden', role: 'member'));
+    expect(provider.created, 0);
+    expect(provider.released, isEmpty);
+  });
+
+  // Harm: locked, pending or purged accounts that still hold memberships must not escape the loss confirmation.
+  test('membership holders are selected by their holdings in every known state', () {
+    const states = ['active', 'locked', 'pending', 'purged', 'named'];
+    final holders = HostMembership.readStatus(
+      jsonEncode({
+        'persons': [
+          for (final state in states) ...[
+            membership('$state-admin', state: state, admin: true),
+            membership(
+              '$state-member',
+              state: state,
+              projects: [
+                {'project': 'garden', 'role': 'member'},
+              ],
+            ),
+            membership('$state-empty', state: state),
+          ],
+        ],
+      }),
+    );
+    expect(holders.map((holder) => holder.login), [
+      for (final state in states) ...['$state-admin', '$state-member'],
+    ]);
+  });
+
+  // Harm: an unreadable membership registry must keep its explanation instead of appearing empty.
+  test('a refused status retains a reason written on standard output', () async {
+    provider.rented = const RentedHost(id: 'h1', address: '192.0.2.7', hostKey: sshKey, ready: true);
+    remote.statusResult = const RemoteResult(65, '');
+    remote.status = 'alice cannot read the membership registry';
+    expect(await runner().memberships(plan), Exit.refused);
+    expect(steps.last.words, contains('alice'));
+    expect(steps.last.words, contains('registry'));
+    expect(provider.released, isEmpty);
+  });
+
+  // Harm: malformed or incomplete status must never authorize teardown as if no memberships existed.
+  final malformed = <Object?>[
+    null,
+    [],
+    {},
+    {'persons': null},
+    {'persons': <String, Object?>{}},
+    {
+      'persons': [null],
+    },
+    {
+      'persons': [
+        {'login': 'alice'},
+      ],
+    },
+    for (final field in ['login', 'state', 'host_admin', 'projects'])
+      {
+        'persons': [
+          {...membership('alice'), field: null},
+        ],
+      },
+    {
+      'persons': [
+        {...membership('alice'), 'state': 'unknown'},
+      ],
+    },
+    {
+      'persons': [
+        {...membership('alice'), 'host_admin': 'false'},
+      ],
+    },
+    {
+      'persons': [
+        membership('alice', projects: [null]),
+      ],
+    },
+    {
+      'persons': [
+        membership(
+          'alice',
+          projects: [
+            {'project': 'garden'},
+          ],
+        ),
+      ],
+    },
+    {
+      'persons': [
+        membership(
+          'alice',
+          projects: [
+            {'project': '', 'role': 'member'},
+          ],
+        ),
+      ],
+    },
+    {
+      'persons': [
+        membership(
+          'alice',
+          projects: [
+            {'project': 'garden', 'role': 1},
+          ],
+        ),
+      ],
+    },
+    {
+      'persons': [
+        {...membership('alice'), 'purge_on': 1},
+      ],
+    },
+    {
+      'persons': [membership('alice'), membership('alice', admin: true)],
+    },
+    {
+      'persons': [membership('alice;id', admin: true)],
+    },
+    {
+      'persons': [membership('alice', admin: true), <String, Object?>{}],
+    },
+  ];
+  for (var i = 0; i < malformed.length + 1; i++) {
+    test('malformed membership status $i refuses without changing the server', () async {
+      provider.rented = const RentedHost(id: 'h1', address: '192.0.2.7', hostKey: sshKey, ready: true);
+      remote.status = i == malformed.length ? 'not JSON' : jsonEncode(malformed[i]);
+      expect(await runner().memberships(plan), Exit.refused);
+      expect(steps.last.state, StepState.refused);
+      expect(steps.where((step) => step.step == 'org-status' && step.state == StepState.done), isEmpty);
+      expect(provider.released, isEmpty);
+      expect(remote.commands, ['/usr/local/sbin/porelo-host-person org status']);
+    });
+  }
+
+  // Harm: missing connection details or root access must keep the rental rather than imply it has no holders.
+  for (final failure in ['missing', 'address', 'key', 'ssh', 'root']) {
+    test('membership read refuses safely for $failure', () async {
+      provider.rented = failure == 'missing'
+          ? null
+          : RentedHost(
+              id: 'h1',
+              address: failure == 'address' ? null : '192.0.2.7',
+              hostKey: failure == 'key' ? null : sshKey,
+              ready: true,
+            );
+      remote.statusResult = RemoteResult(
+        failure == 'ssh'
+            ? 255
+            : failure == 'root'
+            ? 1
+            : 0,
+        'Permission denied',
+      );
+      final run = HostRun(provider: provider, remote: remote, emit: steps.add, trust: (_, _) async {});
+      expect(
+        await run.memberships(plan),
+        failure == 'missing' || failure == 'address' || failure == 'ssh' ? Exit.unreachable : Exit.refused,
+      );
+      expect(steps.last.state, StepState.refused);
+      expect(provider.released, isEmpty);
+      expect(provider.created, 0);
+    });
+  }
 
   // Harm: retrying a refused existing root login can lock out the administrator.
   // Rental retries still allow cloud-init to finish installing its key.
@@ -306,6 +609,13 @@ void main() {
     expect(provider.released, isEmpty);
   });
 }
+
+Map<String, Object?> membership(
+  String login, {
+  bool admin = false,
+  String state = 'active',
+  List<Object?> projects = const [],
+}) => {'login': login, 'state': state, 'host_admin': admin, 'projects': projects};
 
 class _WrongKey extends ScriptedRemote {
   _WrongKey() : super([]);

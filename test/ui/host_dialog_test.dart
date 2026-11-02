@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -16,6 +17,176 @@ import '../support/host_rental.dart';
 import '../support/signed_host.dart';
 
 void main() {
+  // Harm: a host admin must see every account and membership that explicit teardown will permanently remove.
+  testWidgets('give-back shows holders and purges only the names shown', (tester) async {
+    final state = await openTakeDown(tester);
+    expect(state.commands.single, ['down', ...signedSetup.giveBackArguments('orchard'), '--memberships']);
+    expect(tester.widget<FilledButton>(find.byKey(const Key('host-confirm-down'))).onPressed, isNull);
+    answerHolders(state.processes.single, [
+      holder('alice', admin: true),
+      holder(
+        'bob',
+        projects: [
+          {'project': 'garden', 'role': 'member'},
+        ],
+      ),
+      holder('retired', state: 'purged'),
+    ]);
+    await World.settle(tester);
+    expect(find.textContaining('alice:'), findsOneWidget);
+    expect(find.textContaining('host admin'), findsOneWidget);
+    expect(find.textContaining('bob:'), findsOneWidget);
+    expect(find.textContaining('garden'), findsOneWidget);
+    expect(find.textContaining('member)'), findsOneWidget);
+    expect(find.textContaining('retired:'), findsNothing);
+    expect(find.byKey(const Key('host-force-down')), findsNothing);
+    expect(state.commands, hasLength(1), reason: 'reading memberships cannot purge them');
+    await tester.tap(find.byKey(const Key('host-confirm-down')));
+    await World.settle(tester);
+    expect(state.commands.last, [
+      'down',
+      ...signedSetup.giveBackArguments('orchard'),
+      '--purge',
+      'alice',
+      '--purge',
+      'bob',
+    ]);
+    state.processes.last.line(const host.Step('give-back', host.StepState.done));
+    state.processes.last.end(0);
+    await World.settle(tester);
+    expect(state.settings.hostUp('orchard'), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  // Harm: clean teardown must remain available when there are no memberships to purge.
+  testWidgets('no holders uses the existing give-back without purge options', (tester) async {
+    final state = await openTakeDown(tester);
+    answerHolders(state.processes.single, []);
+    await World.settle(tester);
+    expect(find.byKey(const Key('host-force-down')), findsNothing);
+    await tester.tap(find.byKey(const Key('host-confirm-down')));
+    await World.settle(tester);
+    expect(state.commands.last, ['down', ...signedSetup.giveBackArguments('orchard')]);
+    state.processes.last.line(const host.Step('give-back', host.StepState.done));
+    state.processes.last.end(0);
+    await World.settle(tester);
+    expect(state.settings.hostUp('orchard'), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  // Harm: someone admitted after confirmation must never be purged without a new explicit choice.
+  testWidgets('a refused down reads new holders and waits for their confirmation', (tester) async {
+    final state = await openTakeDown(tester);
+    answerHolders(state.processes.single, [holder('alice', admin: true)]);
+    await World.settle(tester);
+    final earlierChoice = tester.widget<FilledButton>(find.byKey(const Key('host-confirm-down'))).onPressed!;
+    await tester.tap(find.byKey(const Key('host-confirm-down')));
+    await World.settle(tester);
+    final firstDown = state.commands.last;
+    expect(firstDown, containsAllInOrder(['--purge', 'alice']));
+    expect(firstDown, isNot(contains('charlie')));
+    state.processes.last.line(const host.Step('play', host.StepState.refused, words: 'charlie holds garden'));
+    state.processes.last.line(const host.Step('give-back', host.StepState.refused));
+    state.processes.last.end(65);
+    await World.settle(tester);
+    expect(state.commands, hasLength(3));
+    expect(state.commands.last, contains('--memberships'));
+    expect(state.settings.hostUp('orchard'), isNotNull);
+    expect(tester.widget<FilledButton>(find.byKey(const Key('host-confirm-down'))).onPressed, isNull);
+    answerHolders(state.processes.last, [
+      holder(
+        'charlie',
+        projects: [
+          {'project': 'garden', 'role': 'admin'},
+        ],
+      ),
+    ]);
+    await World.settle(tester);
+    expect(find.textContaining('charlie:'), findsOneWidget);
+    expect(find.textContaining('alice:'), findsNothing);
+    expect(state.commands, hasLength(3), reason: 'the new names must be shown before another destructive command');
+    earlierChoice();
+    await World.settle(tester);
+    expect(state.commands, hasLength(3), reason: 'an earlier confirmation cannot authorize the refreshed list');
+    await tester.tap(find.byKey(const Key('host-confirm-down')));
+    await World.settle(tester);
+    expect(state.commands.last, ['down', ...signedSetup.giveBackArguments('orchard'), '--purge', 'charlie']);
+    state.processes.last.line(const host.Step('give-back', host.StepState.done));
+    state.processes.last.end(0);
+    await World.settle(tester);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  // Harm: a status that cannot be read, as on a server whose setup stopped before the helper, must neither imply a
+  // purge nor trap a billed rental; and loss must not be offered before an ordinary give-back has failed.
+  for (final failure in ['root', 'unreachable', 'malformed', 'incomplete']) {
+    testWidgets('an unreadable $failure status purges nothing and leaves the ordinary give-back', (tester) async {
+      final state = await openTakeDown(tester);
+      final process = state.processes.single;
+      if (failure == 'malformed') {
+        process.line(const host.Step('org-status', host.StepState.done, words: '{"persons":[{}]}'));
+        process.end(0);
+      } else if (failure == 'incomplete') {
+        process.end(0);
+      } else {
+        process.line(host.Step('org-status', host.StepState.refused, fix: failure, words: 'Permission denied'));
+        process.end(failure == 'unreachable' ? 69 : 65);
+      }
+      await World.settle(tester);
+      expect(find.byKey(const Key('host-force-down')), findsNothing);
+      if (failure == 'root' || failure == 'unreachable') {
+        expect(find.textContaining(failure), findsWidgets);
+        expect(find.textContaining('Permission denied'), findsWidgets);
+      }
+      expect(state.settings.hostUp('orchard'), isNotNull);
+      expect(state.commands, hasLength(1));
+
+      await tester.tap(find.byKey(const Key('host-confirm-down')));
+      await World.settle(tester);
+      expect(state.commands.last, ['down', ...signedSetup.giveBackArguments('orchard')]);
+      state.processes.last.line(const host.Step('give-back', host.StepState.refused));
+      state.processes.last.end(65);
+      await World.settle(tester);
+      expect(state.settings.hostUp('orchard'), isNotNull, reason: 'a refused give-back keeps the recovery record');
+      final reread = state.processes.last;
+      expect(state.commands.last, contains('--memberships'));
+      reread.end(0);
+      await World.settle(tester);
+
+      await tester.tap(find.byKey(const Key('host-force-down')));
+      await World.settle(tester);
+      expect(state.commands.last, ['down', ...signedSetup.giveBackArguments('orchard'), '--give-back-anyway']);
+      state.processes.last.line(const host.Step('give-back', host.StepState.done));
+      state.processes.last.end(0);
+      await World.settle(tester);
+      expect(state.settings.hostUp('orchard'), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  }
+
+  // Harm: merely reviewing a purge confirmation, or leaving while status is read, cannot delete accounts or release a host.
+  for (final reading in [true, false]) {
+    testWidgets('closing give-back while reading=$reading changes no server or recovery record', (tester) async {
+      final state = await openTakeDown(tester);
+      if (!reading) {
+        answerHolders(state.processes.single, [holder('alice', admin: true)]);
+        await World.settle(tester);
+      }
+      await tester.tap(find.text('Close'));
+      await World.settle(tester);
+      if (reading) {
+        answerHolders(state.processes.single, [holder('alice', admin: true)]);
+        await World.settle(tester);
+      }
+      expect(state.commands, hasLength(1));
+      expect(state.commands.single, contains('--memberships'));
+      expect(state.settings.hostUp('orchard'), isNotNull);
+      expect(find.byType(HostDialog), findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  }
+
   // Harm: opening a retained protocol must not start a second command or lose its refusal.
   testWidgets('the retained setup protocol remains visible without starting another command', (tester) async {
     final settings = Settings(MemorySettingsStore());
@@ -396,3 +567,56 @@ void main() {
 }
 
 HostUpRecord hostUpRestored(HostUpRecord record) => HostUpRecord.fromStored(record.stored)!;
+
+Map<String, Object?> holder(
+  String login, {
+  bool admin = false,
+  String state = 'active',
+  List<Object?> projects = const [],
+}) => {'login': login, 'state': state, 'host_admin': admin, 'projects': projects};
+
+void answerHolders(HostProcess process, List<Map<String, Object?>> persons) {
+  process.line(host.Step('org-status', host.StepState.done, words: jsonEncode({'persons': persons})));
+  process.end(0);
+}
+
+Future<({Settings settings, List<List<String>> commands, List<HostProcess> processes})> openTakeDown(
+  WidgetTester tester,
+) async {
+  tester.view.physicalSize = const Size(1280, 800);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+  final settings = Settings(MemorySettingsStore());
+  await settings.rememberHostUp('orchard', signedSetup);
+  final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: RecordingTunnels());
+  addTearDown(() {
+    machines.dispose();
+    settings.dispose();
+  });
+  final commands = <List<String>>[];
+  final processes = <HostProcess>[];
+  await tester.pumpWidget(
+    MaterialApp(
+      home: Builder(
+        builder: (context) => TextButton(
+          onPressed: () => openHostTakeDownDialog(
+            context,
+            project: 'orchard',
+            machines: machines,
+            settings: settings,
+            start: (_, arguments) async {
+              commands.add(arguments);
+              final process = HostProcess();
+              processes.add(process);
+              return process;
+            },
+          ),
+          child: const Text('Open give-back'),
+        ),
+      ),
+    ),
+  );
+  await tester.tap(find.text('Open give-back'));
+  await World.settle(tester);
+  return (settings: settings, commands: commands, processes: processes);
+}

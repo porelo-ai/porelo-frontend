@@ -119,6 +119,7 @@ void main() {
           settings: settings,
           takeDownOnly: true,
           start: (_, arguments) async {
+            if (arguments.contains('--memberships')) return _emptyMemberships();
             commands.add(arguments);
             final process = HostProcess();
             processes.add(process);
@@ -127,6 +128,7 @@ void main() {
         ),
       ),
     );
+    await World.settle(tester);
     await tester.tap(find.byKey(const Key('host-confirm-down')));
     await World.settle(tester);
     processes.single.line(const host.Step('give-back', host.StepState.refused));
@@ -166,12 +168,14 @@ void main() {
             hostRuns: state.runs,
             takeDownOnly: true,
             start: (_, arguments) async {
+              if (arguments.contains('--memberships')) return _emptyMemberships();
               commands.add(arguments);
               return process;
             },
           ),
         ),
       );
+      await World.settle(tester);
       expect(commands, isEmpty, reason: 'opening give-back cannot delete a rental');
       await tester.tap(find.byKey(const Key('host-confirm-down')));
       await World.settle(tester);
@@ -208,3 +212,7 @@ void main() {
     expect(state.settings.hostUp('demo'), isNotNull);
   });
 }
+
+HostProcess _emptyMemberships() => HostProcess()
+  ..line(const host.Step('org-status', host.StepState.done, words: '{"persons":[]}'))
+  ..end(0);

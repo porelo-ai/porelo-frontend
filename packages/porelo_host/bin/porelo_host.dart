@@ -10,6 +10,7 @@ porelo-host up|down (--host-name NAME | --project NAME --account NAME)
             [--login-user NAME] [--distribution snapshots|releases]
             [--rental-tag TAG]
             [--give-back-anyway]
+            [--memberships | --purge LOGIN ...]
             [--collection FILE --collection-sha256 HEX]
             [--machine-file FILE]
 porelo-host find --project NAME --scaleway-project ID [--zone fr-par-1]
@@ -34,6 +35,8 @@ Exit: 0 done, 64 usage, 65 refused, 69 unreachable, 70 an unforeseen fault, 75 w
             another Elastic Metal offer than EM-I220E-NVME.
 --given names a machine that exists already, with its host key; nothing is rented or given back.
 --machine-file names the file whose organization part a server's up takes; up of a server refuses without it.
+--memberships reads down's membership holders through the pinned rental login, changing nothing.
+--purge LOGIN removes only that person's server account as root before down's play; repeat for each confirmed login.
 --give-back-anyway gives the host back after a down play that did not finish; what it held is gone.''';
 
 // Ends with the run's code at once: an HTTPS connection to the provider, kept for reuse, would hold
@@ -82,10 +85,22 @@ Future<int> runHostCommand(
   final verb = arguments.first;
   final options = <String, String>{};
   var giveBackAnyway = false;
+  var memberships = false;
+  final purge = <String>[];
   for (var i = 1; i < arguments.length; i++) {
     final name = arguments[i];
     if (name == '--give-back-anyway' && verb == 'down') {
       giveBackAnyway = true;
+    } else if (name == '--memberships' && verb == 'down') {
+      memberships = true;
+    } else if (name == '--purge' && verb == 'down' && i + 1 < arguments.length) {
+      final login = arguments[++i];
+      try {
+        checkPurgeLogin(login);
+      } on FormatException catch (error) {
+        return wrong(error.message);
+      }
+      purge.add(login);
     } else if (const <String>{
           '--host-name',
           '--rental-tag',
@@ -116,6 +131,10 @@ Future<int> runHostCommand(
     } else {
       return wrong('unknown or incomplete option');
     }
+  }
+  if (giveBackAnyway && purge.isNotEmpty) return wrong('--purge cannot be combined with --give-back-anyway');
+  if (memberships && (giveBackAnyway || purge.isNotEmpty)) {
+    return wrong('--memberships cannot be combined with --purge or --give-back-anyway');
   }
   if (!options.containsKey('host-name') && options.containsKey('machine-file') != options.containsKey('bundle')) {
     err.writeln('porelo-host: --machine-file needs --bundle and vice versa');
@@ -221,7 +240,8 @@ Future<int> runHostCommand(
     environment: environment,
     emit: (step) => writeHostStep(step, output: out, errors: err),
   );
-  return verb == 'up' ? run.up(plan) : run.down(plan, giveBackAnyway: giveBackAnyway);
+  if (memberships) return run.memberships(plan);
+  return verb == 'up' ? run.up(plan) : run.down(plan, giveBackAnyway: giveBackAnyway, purge: purge);
 }
 
 /// `find`: the server rented for `--project` now, asked of the provider alone.
