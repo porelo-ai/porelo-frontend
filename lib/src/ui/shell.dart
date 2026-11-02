@@ -378,7 +378,8 @@ class _ShellState extends State<Shell> {
   /// Asks every answering machine again. Only the one open says so, and only when asked by hand.
   Future<void> _refreshAll({bool quietly = false}) async {
     await _standings.read();
-    if (!quietly) _organization?.readAnswersAgain();
+    // refresh() first forgets the answers it kept; the quiet timer leaves the store alone.
+    if (!quietly) unawaited(_organization?.refresh());
     // A key loaded into the agent, or revoked, since the last read changes what a host admin is offered.
     await widget.hostAccess?.readAgain();
     for (final machine in widget.machines.all) {

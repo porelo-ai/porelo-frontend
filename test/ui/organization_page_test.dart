@@ -58,6 +58,28 @@ Future<void> _pick(WidgetTester tester, Key field, String choice) async {
 
 void main() {
   // Harm: the organization cannot be found, or the rail's place of a page that is one of its own is lost.
+  // Harm: a person presses Refresh and goes on reading an organization that has moved on, a card filed or a
+  // project added elsewhere, until some later write of theirs is refused.
+  testWidgets('Refresh in the rail reads the organization again', (tester) async {
+    await World.startBackend(World.work);
+    final fixture = FixtureOrganization(organizationFor('mia'));
+    await World.startApp(tester, organizationSource: fixture);
+    await tester.tap(find.byKey(const ValueKey('rail organization')));
+    await World.settle(tester);
+    expect(find.text('aaron'), findsNothing);
+    final read = organizationFor('mia');
+    fixture.view = organizationFor(
+      'mia',
+      persons: [
+        const OrganizationPerson(login: 'aaron', key: 'SHA256:aaron', standing: CardStanding.trusted),
+        ...read.persons,
+      ],
+    );
+    await tester.tap(find.byKey(const Key('refresh-all')));
+    await World.settle(tester);
+    expect(find.text('aaron'), findsOneWidget);
+  });
+
   // Harm: a person cannot get from the organization to a project of theirs, or back to their list.
   // Harm: `default` and a project registered on this machine alone are out of reach once an organization is read.
   testWidgets('with an organization, the projects outside it are a step away, and back', (tester) async {
