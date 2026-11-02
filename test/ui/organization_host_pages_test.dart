@@ -279,6 +279,24 @@ void main() {
       expect(connections.asked, isEmpty);
     });
 
+    // Harm: a commit nobody allowed reads as a removal, or a refused fetch goes unseen while the host stays behind.
+    testWidgets('what the last fetch refused is shown in its words, to judge, and is no removal', (tester) async {
+      final connections = FixtureConnections(['build'])
+        ..hostProgress = const HostProgress(refused: 'the commit is signed by no key in force');
+      await page(tester, 'hana', connections: connections);
+      final shown = find.textContaining('the commit is signed by no key in force');
+      expect(shown, findsOneWidget);
+      final words = tester.widget<Text>(shown).data!;
+      expect(words, contains('a commit nobody allowed'), reason: 'it says what the admin has to tell apart');
+      expect(words, isNot(startsWith('Removed')));
+    });
+
+    testWidgets('a host that refused nothing shows nothing of it', (tester) async {
+      final connections = FixtureConnections(['build'])..hostProgress = const HostProgress();
+      await page(tester, 'hana', connections: connections);
+      expect(find.textContaining('a commit nobody allowed'), findsNothing);
+    });
+
     // Harm: a project stays waiting for a token nobody knows is wanted.
     testWidgets('a host waiting for the token offers it, and reads again after', (tester) async {
       final connections = FixtureConnections(['build'])

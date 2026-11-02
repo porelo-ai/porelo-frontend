@@ -26,6 +26,17 @@ void main() {
     expect(HostProgress.read('{"organization":"waiting-for-token"}').wantsToken, isTrue);
   });
 
+  // Harm: a fetch the host refused goes unseen, and a host admin takes the old state for the organization's.
+  test('what the last fetch refused is read, and null or another shape says nothing', () {
+    expect(
+      HostProgress.read('{"refused":"the commit is signed by no key in force"}').refused,
+      contains('signed by no key'),
+    );
+    expect(HostProgress.read('{"refused":null}').refused, isNull);
+    expect(HostProgress.read('{"refused":7}').refused, isNull);
+    expect(HostProgress.read('{"host":"h"}').refused, isNull);
+  });
+
   test('what is no answer is refused', () {
     expect(() => HostProgress.read('no'), throwsA(isA<OrganizationRefused>()));
   });

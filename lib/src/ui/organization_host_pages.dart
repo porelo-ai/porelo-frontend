@@ -355,6 +355,12 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
           ),
         ),
       ],
+      if (progress?.refused case final refused?)
+        Text(
+          key: const ValueKey('organization.refused'),
+          'The host refused its last fetch and stays on what it took before: $refused. '
+          'That can be a removal or a commit nobody allowed: look at which, it does not say.',
+        ),
       for (final person in progress?.locked ?? const <HostLockedPerson>[])
         Text(
           key: ValueKey('organization.locked/${person.login}'),

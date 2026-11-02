@@ -40,7 +40,7 @@ class HostLockedPerson {
 /// What a host itself says of how far it has come, which only a host admin can ask.
 class HostProgress {
   /// Keeps one answer of the host's.
-  const HostProgress({this.projects = const [], this.locked = const [], this.waitsForToken = false});
+  const HostProgress({this.projects = const [], this.locked = const [], this.waitsForToken = false, this.refused});
 
   /// Reads `org status` or `org refresh`; what this build does not know is passed over, and a part of an older host's
   /// answer that is absent says nothing.
@@ -61,6 +61,7 @@ class HostProgress {
     ];
     return HostProgress(
       waitsForToken: answered['organization'] == 'waiting-for-token',
+      refused: answered['refused'] is String ? answered['refused']! as String : null,
       projects: [
         for (final project in maps('projects'))
           if (project case {'project': final String name, 'state': final String state})
@@ -87,6 +88,11 @@ class HostProgress {
 
   /// Whether the host itself waits for its first token, before it can read the organization.
   final bool waitsForToken;
+
+  /// The words of what the host's last fetch refused, or null. What it took before stays in force.
+  ///
+  /// Never to be read as a removal: a removal and a commit nobody allowed look the same, so a host admin judges it.
+  final String? refused;
 
   /// The host's word on [project], or null.
   HostProjectProgress? of(String project) => projects.where((each) => each.project == project).firstOrNull;

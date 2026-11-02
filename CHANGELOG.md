@@ -24,6 +24,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - A test instance takes its forge token from `PORELO_FORGE_TOKEN`, for the one forge `PORELO_FORGE_TOKEN_FORGE` names,
   and the central token a terminal hands to a host from `PORELO_CENTRAL_TOKEN`, asking nothing.
 
+- A host's page shows a host admin what the host's last fetch refused, in the host's words, to judge: it stays on what
+  it took before, and that can be a removal or a commit nobody allowed.
+
 ### Removed
 
 - The interface's own organization checkout and its reads: the repository setting, the private checkout, the bundle
