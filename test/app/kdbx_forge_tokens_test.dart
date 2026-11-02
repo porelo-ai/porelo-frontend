@@ -1,3 +1,8 @@
+// The test secrets file lives in `/run/user/<uid>/porelo-test/`, and `KeyFileSecrets.test` finds none on Windows, where
+// no account has that folder: its paths are the plain absolute Unix ones `SecretsFile` takes.
+@Tags(['linux'])
+library;
+
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
