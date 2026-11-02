@@ -53,6 +53,9 @@ method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
                   'binary': '/usr/bin/an-agent',
                   'version': '2.4.0',
                   'from': '/usr/share/porelo/agents/an-agent.yml',
+                  'found': 'SIGNED_IN',
+                  'foundProvider': 'a-provider',
+                  'foundPaths': <String>['/home/person/.an-agent/credentials'],
                   'allowedDomains': <String>['api.anthropic.com'],
                   'refusedDomains': <String>['telemetry.example.test'],
                   // What its commits are attributed to, which is what tells somebody looking at
@@ -810,6 +813,8 @@ method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
       agent: agent.isEmpty ? 'an-agent' : agent,
       provider: 'a-provider',
       credential: 'a-provider',
+      agentSource: agent.isEmpty ? 'SIGNED_IN' : 'FLAG',
+      agentFoundIn: agent.isEmpty ? '/home/person/.an-agent/credentials' : '',
     );
   }
 
@@ -824,6 +829,8 @@ method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
     String provider = '',
     String credential = '',
     String detail = '',
+    String agentSource = '',
+    String agentFoundIn = '',
   }) => <String, dynamic>{
     'ready': ready,
     'outcome': outcome,
@@ -831,6 +838,8 @@ method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
     'provider': provider,
     'credential': credential,
     'detail': detail,
+    'agentSource': agentSource,
+    'agentFoundIn': agentFoundIn,
   };
 
   /// Removes what Porelo built for a project, or says what it would remove.

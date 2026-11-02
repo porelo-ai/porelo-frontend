@@ -22,6 +22,7 @@ Future<bool> openStartWork(
   required VoidCallback onStart,
   required VoidCallback onKeep,
   Future<void> Function()? onStoreTheCredential,
+  Future<void> Function()? onImportTheSignIn,
   Future<void> Function(Agent agent)? onLogIn,
   Future<void> Function()? onOpenWithThisDevice,
   Future<void> Function(String entry)? onGrant,
@@ -34,6 +35,7 @@ Future<bool> openStartWork(
         onStart: onStart,
         onKeep: onKeep,
         onStoreTheCredential: onStoreTheCredential,
+        onImportTheSignIn: onImportTheSignIn,
         onLogIn: onLogIn,
         onOpenWithThisDevice: onOpenWithThisDevice,
         onGrant: onGrant,
@@ -50,6 +52,7 @@ class StartWorkDialog extends StatefulWidget {
     required this.onStart,
     required this.onKeep,
     this.onStoreTheCredential,
+    this.onImportTheSignIn,
     this.onLogIn,
     this.onOpenWithThisDevice,
     this.onGrant,
@@ -69,6 +72,9 @@ class StartWorkDialog extends StatefulWidget {
   /// Stores the missing credential in a terminal on the machine, then asks again; null where
   /// nothing here reaches that machine.
   final Future<void> Function()? onStoreTheCredential;
+
+  /// Runs the machine's own import of a sign-in it found, in a terminal there, then asks again; null likewise.
+  final Future<void> Function()? onImportTheSignIn;
 
   /// Runs the agent's own login in a terminal on the machine, then asks again; null likewise.
   final Future<void> Function(Agent agent)? onLogIn;
@@ -178,6 +184,7 @@ class _StartWorkDialogState extends State<StartWorkDialog> {
                     starting: starting,
                     onLogIn: widget.onLogIn!,
                     onStoreTheCredential: widget.onStoreTheCredential,
+                    onImportTheSignIn: widget.onImportTheSignIn,
                   ),
                 if (starting.needsARepository) ...<Widget>[
                   const SizedBox(height: Space.wide),
@@ -232,15 +239,26 @@ class _StartWorkDialogState extends State<StartWorkDialog> {
                   DropdownButtonFormField<String>(
                     key: const Key('start-agent'),
                     initialValue: starting.agent,
+                    isExpanded: true,
+                    itemHeight: null,
                     decoration: const InputDecoration(border: OutlineInputBorder()),
+                    hint: Text(starting.machineChose ? 'The machine chooses' : 'Choose an agent'),
+                    selectedItemBuilder: (context) => <Widget>[
+                      for (final agent in starting.agentsInOrder) Text(_nameOf(agent), overflow: TextOverflow.ellipsis),
+                    ],
                     items: <DropdownMenuItem<String>>[
-                      for (final agent in starting.agents)
+                      for (final agent in starting.agentsInOrder)
                         DropdownMenuItem<String>(
                           value: agent.name,
-                          child: Text(agent.version.isEmpty ? agent.label : '${agent.label} · ${agent.version}'),
+                          child: _AgentChoice(agent: agent),
                         ),
                     ],
                     onChanged: (chosen) => chosen == null ? null : starting.chooseAgent(chosen),
+                  ),
+                if (starting.machineChoice case final words?)
+                  Padding(
+                    padding: const EdgeInsets.only(top: Space.tight),
+                    child: Text(words, key: const Key('start-machine-chose')),
                   ),
                 // Shown, never dropped: an agent missing from a list looks exactly like one
                 // that was never installed, and only one of those is worth fixing.
@@ -287,6 +305,7 @@ class _StartWorkDialogState extends State<StartWorkDialog> {
                   _NotReady(
                     starting: starting,
                     onStoreTheCredential: widget.onStoreTheCredential,
+                    onImportTheSignIn: widget.onImportTheSignIn,
                     onGrant: widget.onGrant,
                     onLogIn: widget.onLogIn,
                     onOpenWithThisDevice: widget.onOpenWithThisDevice,
@@ -342,6 +361,55 @@ class _StartWorkDialogState extends State<StartWorkDialog> {
         ],
       );
     },
+  );
+}
+
+/// Copies what the agent already holds on the machine into the vault there, by the machine's own command.
+class _ImportTheSignIn extends StatelessWidget {
+  const _ImportTheSignIn({required this.onImport});
+
+  final Future<void> Function() onImport;
+
+  @override
+  Widget build(BuildContext context) => FilledButton.icon(
+    key: const Key('start-import'),
+    onPressed: () => onImport(),
+    icon: const Icon(Icons.download_outlined, size: Sizes.rowIcon),
+    label: const Text('Use the sign-in found on the machine'),
+  );
+}
+
+String _nameOf(Agent agent) => agent.version.isEmpty ? agent.label : '${agent.label} · ${agent.version}';
+
+/// One agent of the list, with what it finds of itself on the machine.
+class _AgentChoice extends StatelessWidget {
+  const _AgentChoice({required this.agent});
+
+  final Agent agent;
+
+  /// **Cannot say never reads as signed out**: an agent that could not be asked may well be signed in.
+  String? get _mark => switch (agent.found) {
+    '' => null,
+    'SIGNED_IN' => agent.foundProvider.isEmpty ? 'signed in here' : 'signed in here to ${agent.foundProvider}',
+    'NOT_SIGNED_IN' => 'not signed in here',
+    'CANNOT_SAY' => 'cannot say whether it is signed in here',
+    final other => other,
+  };
+
+  @override
+  Widget build(BuildContext context) => Column(
+    key: ValueKey<String>('start-agent-choice ${agent.name}'),
+    mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: <Widget>[
+      Text(_mark == null ? _nameOf(agent) : '${_nameOf(agent)} · $_mark', overflow: TextOverflow.ellipsis),
+      if (agent.foundPaths.isNotEmpty)
+        Text(
+          agent.foundPaths.join(', '),
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+    ],
   );
 }
 
@@ -637,6 +705,7 @@ class _NotReady extends StatelessWidget {
   const _NotReady({
     required this.starting,
     this.onStoreTheCredential,
+    this.onImportTheSignIn,
     this.onGrant,
     this.onLogIn,
     this.onOpenWithThisDevice,
@@ -645,6 +714,7 @@ class _NotReady extends StatelessWidget {
 
   final StartWork starting;
   final Future<void> Function()? onStoreTheCredential;
+  final Future<void> Function()? onImportTheSignIn;
   final Future<void> Function(String entry)? onGrant;
   final Future<void> Function(Agent agent)? onLogIn;
   final Future<void> Function()? onOpenWithThisDevice;
@@ -752,6 +822,11 @@ class _NotReady extends StatelessWidget {
               label: Text('Grant ${answer.credential} now, in a browser'),
             ),
           ],
+          // Before storing a key: nothing has to be retyped. Only the machine's own command, never one composed here.
+          if (onImportTheSignIn != null && answer.importCommand.isNotEmpty) ...<Widget>[
+            const SizedBox(height: Space.small),
+            _ImportTheSignIn(onImport: onImportTheSignIn!),
+          ],
           // Not a sentence to act on elsewhere: the way to store it, here, in a terminal there.
           if (onStoreTheCredential != null &&
               const <String>{'CREDENTIAL_MISSING', 'CREDENTIAL_UNUSABLE'}.contains(answer.outcome.name)) ...<Widget>[
@@ -794,11 +869,17 @@ String _labelOf(Agent agent) => agent.label.isEmpty ? agent.name : agent.label;
 /// The sign-in a start needs, at the top of the form: the agent's own login, in a terminal on the
 /// machine, and storing a key there as the other way.
 class _SignInFirst extends StatelessWidget {
-  const _SignInFirst({required this.starting, required this.onLogIn, this.onStoreTheCredential});
+  const _SignInFirst({
+    required this.starting,
+    required this.onLogIn,
+    this.onStoreTheCredential,
+    this.onImportTheSignIn,
+  });
 
   final StartWork starting;
   final Future<void> Function(Agent agent) onLogIn;
   final Future<void> Function()? onStoreTheCredential;
+  final Future<void> Function()? onImportTheSignIn;
 
   @override
   Widget build(BuildContext context) {
@@ -828,6 +909,8 @@ class _SignInFirst extends StatelessWidget {
             spacing: Space.small,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: <Widget>[
+              if (onImportTheSignIn != null && (starting.readiness?.importCommand.isNotEmpty ?? false))
+                _ImportTheSignIn(onImport: onImportTheSignIn!),
               FilledButton.icon(
                 key: const Key('log-in-with-the-agent'),
                 onPressed: () => onLogIn(agent),

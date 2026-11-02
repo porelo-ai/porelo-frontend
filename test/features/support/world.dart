@@ -1203,6 +1203,7 @@ class FakeBackend implements FleetBackend {
           provider: 'a-provider',
           credential: 'a-provider',
           detail: '',
+          agentSource: 'ONLY_ONE',
         );
   }
 

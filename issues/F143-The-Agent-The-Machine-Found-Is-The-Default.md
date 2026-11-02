@@ -1,6 +1,7 @@
 # F143 — The Agent The Machine Found Is The Default
 
-**Status:** Accepted.
+**Status:** Review.
+**Size:** M - the two answers read, the start form and its picker, the import in a terminal, the mock and tests.
 
 **What must be true.** A person who starts work without picking an agent gets the one the machine
 chooses, as
@@ -12,7 +13,7 @@ signed in on the machine, and an agent found there but not in the vault is offer
 - **No agent is filled in here.** The start form sends none until the person picks one; the
   `standardAgent` default in `lib/src/app/start_work.dart` goes, and `ready` no longer needs an agent
   where the machine can choose.
-- **The machine's choice is shown from `StartCheck`**: `Readiness.agent` with `agentSource` and
+- **The machine's choice is shown from `CanStart`**: `Readiness.agent` with `agentSource` and
   `agentFoundIn`, worded here; an unknown source is said as it comes.
 - **Several agents**: under `SEVERAL_AGENTS` the picker lists `signedIn` first and asks, as today.
 - **The picker marks each agent** by `Agents`' `found` (`SIGNED_IN`, `NOT_SIGNED_IN`, `CANNOT_SAY`),
@@ -21,3 +22,7 @@ signed in on the machine, and an agent found there but not in the vault is offer
   here composes it.
 - **An older machine answers none of these fields**; there the form needs an agent picked, as
   today, rather than guessing one.
+
+## Left out
+
+- The wizard that starts an agent per repository offers its sign-in and no import; the repository names its agent there.

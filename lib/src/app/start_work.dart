@@ -176,9 +176,6 @@ class StartWork extends ChangeNotifier {
     await _askWhetherItCanStart(machine);
   }
 
-  /// The agent of the standard pair, chosen where nobody chose another.
-  static const standardAgent = 'claude';
-
   /// Whether the agent list is being read.
   bool busy = false;
 
@@ -204,8 +201,9 @@ class StartWork extends ChangeNotifier {
   /// An unattended run with no prompt is the one combination that would start something and then
   /// have nothing for it to do.
   bool get ready =>
+      !_asking &&
       project != null &&
-      agent != null &&
+      agentToRun != null &&
       mode != null &&
       (!needsARepository || repository != null) &&
       (!takesAPrompt || prompt.trim().isNotEmpty) &&
@@ -432,6 +430,7 @@ class StartWork extends ChangeNotifier {
   /// an answer from the previous one is worse than none.
   void chooseAgent(String name) {
     agent = name;
+    _agentIsGone = false;
     readiness = null;
     notifyListeners();
     final machine = _machine;
@@ -467,7 +466,8 @@ class StartWork extends ChangeNotifier {
   /// job after editing it keeps what was edited.
   Template? get asTemplate {
     final where = project;
-    final which = agent;
+    // By name, the machine's choice too: a job kept is the agent seen here, not whichever is signed in later.
+    final which = agentToRun;
     final how = mode;
     if (where == null || which == null || how == null || templateName.isEmpty) return null;
     return Template(
@@ -499,7 +499,7 @@ class StartWork extends ChangeNotifier {
   /// What to call the operation this starts, for somebody reading the list an hour later.
   String get title => switch (mode) {
     Mode.unattended when continuing != null => 'Continue ${continuing!.name}',
-    Mode.unattended => 'Run ${agent ?? 'an agent'} in ${project?.name ?? ''}',
+    Mode.unattended => 'Run ${agentToRun ?? 'an agent'} in ${project?.name ?? ''}',
     _ => 'Start work in ${project?.name ?? ''}',
   };
 
@@ -527,6 +527,7 @@ class StartWork extends ChangeNotifier {
   /// Drops the answer about what was open before, and any question about it still out: an answer
   /// about another project, or one this machine is too old to give, is worse than none.
   void _forgetReadiness() {
+    _agentIsGone = false;
     readiness = null;
     _readinessName = null;
     _asked++;
@@ -535,8 +536,58 @@ class StartWork extends ChangeNotifier {
   /// Counts the questions, so an answer to an earlier one never overwrites a later one.
   int _asked = 0;
 
-  /// The agent chosen, as the machine listed it, or null.
-  Agent? get chosenAgent => agents.where((each) => each.name == agent).firstOrNull;
+  /// The questions still out. **Nothing starts on them**: a start in that moment skips what the answer
+  /// was about to say, a missing sign-in among it, and with no agent picked it would have no choice to show.
+  int _questionsOut = 0;
+
+  bool get _asking => _questionsOut > 0;
+
+  /// The agent chosen, the person's or the machine's, as the machine listed it, or null.
+  Agent? get chosenAgent => agents.where((each) => each.name == agentToRun).firstOrNull;
+
+  /// Whether the machine settled the agent, with nobody having picked one.
+  ///
+  /// **Only where it says how it chose**: a machine older than `agentSource` may name an agent it did not
+  /// choose this way, and there the person picks, rather than this guessing.
+  ///
+  /// **Never for work that named an agent, or a job kept with one**: the agent it ran with being gone is the
+  /// person's to replace, not for the machine to swap under it.
+  bool get machineChose =>
+      agent == null &&
+      continuing == null &&
+      from == null &&
+      !_agentIsGone &&
+      (readiness?.agent.isNotEmpty ?? false) &&
+      readiness!.agentSource.isNotEmpty;
+
+  /// Whether the agent carried over from a finished run is no longer installed, so the person picks another.
+  bool _agentIsGone = false;
+
+  /// The agent that would run: the one picked, else the one the machine chose, else none yet.
+  String? get agentToRun => agent ?? (machineChose ? readiness!.agent : null);
+
+  /// The agents to pick from, the ones found signed in first and otherwise in the machine's order.
+  List<Agent> get agentsInOrder {
+    final signedIn = readiness?.signedIn ?? const <String>[];
+    bool first(Agent each) => each.found == 'SIGNED_IN' || signedIn.contains(each.name);
+    return <Agent>[...agents.where(first), ...agents.where((each) => !first(each))];
+  }
+
+  /// Which agent the machine chose and why, in words, or null when it chose none.
+  String? get machineChoice {
+    if (!machineChose) return null;
+    final answer = readiness!;
+    final who = chosenAgent?.label.isNotEmpty ?? false ? chosenAgent!.label : answer.agent;
+    return switch (answer.agentSource) {
+      'SIGNED_IN' =>
+        'The machine chooses $who: it was found signed in'
+            '${answer.provider.isEmpty ? '' : ' to ${answer.provider}'}'
+            '${answer.agentFoundIn.isEmpty ? '' : ', in ${answer.agentFoundIn}'}.',
+      'PROJECT' => 'The machine chooses $who: the repository names it.',
+      'ONLY_ONE' => 'The machine chooses $who: it is the only one installed.',
+      final other => 'The machine chooses $who ($other).',
+    };
+  }
 
   /// Asks the machine again whether work can start — after something was done about why not.
   Future<void> askAgain() async {
@@ -554,6 +605,7 @@ class StartWork extends ChangeNotifier {
     if (where == null || !where.canBeActedOn) return;
     final asking = ++_asked;
     final about = name.isEmpty || _localNameProblem != null ? null : name;
+    _questionsOut++;
     try {
       final answer = await backend.canStart(
         project: where.name,
@@ -580,6 +632,7 @@ class StartWork extends ChangeNotifier {
         } on Object {
           published = const <String>[];
         }
+        if (asking != _asked) return;
       }
       readiness = answer.naming(agent);
       _readinessName = about;
@@ -593,8 +646,10 @@ class StartWork extends ChangeNotifier {
       // The machine could not answer the question: said, never left to escape. This is asked from
       // an open dialog nobody awaits, so an error let through here reaches nobody at all.
       if (asking == _asked) problem = _refused(refusal, 'whether work can start');
+    } finally {
+      _questionsOut--;
+      notifyListeners();
     }
-    notifyListeners();
   }
 
   static String _refused(VarlinkException refusal, String what) {
@@ -658,10 +713,7 @@ class StartWork extends ChangeNotifier {
       if (agent != null && !installed.any((each) => each.name == agent)) {
         problem = '$agent is not installed on this machine any more.';
         agent = null;
-      }
-      // The standard pair: Claude Code, where it is installed and nobody chose another.
-      if (agent == null && continuing == null && from == null && installed.any((each) => each.name == standardAgent)) {
-        agent = standardAgent;
+        _agentIsGone = true;
       }
       // The names already in use in the project, as a person types them (`Task.task`, not the
       // container's name): a suggestion never reuses one, and a typed one is refused at once.

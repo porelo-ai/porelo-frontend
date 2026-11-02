@@ -205,6 +205,15 @@ Feature: Starting work with an agent, a mode and a credential
         When the unlock terminal ends and is put away
         Then whether work can start is asked again
 
+    # The machine's own command, never one composed here, in a terminal there, and then it is asked again.
+    Scenario: a sign-in the machine found is copied from the start dialog, and starting is asked about again
+        Given the machine can import the sign-in it found with {'porelo vault import an-agent'}
+        When I start work in this project
+        And I use the sign-in found on the machine
+        Then a terminal runs {'porelo vault import an-agent'} on the machine
+        When the unlock terminal ends and is put away
+        Then whether work can start is asked again
+
     Scenario: a machine that cannot say how to store a credential says so, rather than nothing
         Given the vault holds no credential for what a run would use
         And the machine cannot say its providers
@@ -284,11 +293,12 @@ Feature: Starting work with an agent, a mode and a credential
         Then the first link offered says {'Sign in: the reply comes back here'}, and opens {'https://claude.com/cai/oauth/authorize'}
         And it says {'Another link the program printed'}
 
-    # The standard pair: Claude Code is the agent a start offers first, where it is installed.
-    Scenario: Claude Code is chosen where it is installed and nobody chose another
+    # The machine chooses, as the command line does: nothing here names an agent first, Claude Code neither.
+    Scenario: no agent is filled in where nobody chose one, and the machine's choice is said
         Given the machine has Claude Code installed too
         When I start work in this project
-        Then the agent chosen is {'claude'}
+        Then no agent is picked yet
+        And the form says which agent the machine chose
 
     # Reported: a new person pressed "Start it", landed in a shell, and the agent said
     # "Not logged in". With nothing to sign in with, the sign-in comes first, at the top, and no start.

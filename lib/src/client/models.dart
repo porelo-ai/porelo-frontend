@@ -844,8 +844,21 @@ class Agent {
   /// is one this build does not know, and from a Porelo older than the field.
   final LoginFlow? loginFlow;
 
+  /// What the agent finds of itself on the machine, presence only: `SIGNED_IN`, `NOT_SIGNED_IN` or
+  /// `CANNOT_SAY`, which **never reads as signed out**; empty from a Porelo older than the field.
+  final String found;
+
+  /// The provider it was found signed in to, or empty.
+  final String foundProvider;
+
+  /// The paths found on the machine.
+  final List<String> foundPaths;
+
   /// Constructor taking every field.
   const Agent({
+    this.found = '',
+    this.foundProvider = '',
+    this.foundPaths = const <String>[],
     this.loginFlow,
     this.canLogIn = false,
     this.loginArguments = const <String>[],
@@ -880,6 +893,9 @@ class Agent {
     loginDocumentation: _string(map, 'loginDocumentation'),
     loginCommand: _strings(map, 'loginCommand'),
     loginFlow: LoginFlow.named(map['loginFlow']),
+    found: _string(map, 'found'),
+    foundProvider: _string(map, 'foundProvider'),
+    foundPaths: _strings(map, 'foundPaths'),
   );
 }
 
@@ -3286,6 +3302,21 @@ class Readiness {
   /// and from a Porelo older than the field.
   final List<String> storeCommand;
 
+  /// With `CREDENTIAL_MISSING` for an agent found signed in by a route the import can take, what to run on
+  /// the machine to copy what it holds into the vault, as arguments; offered before [storeCommand].
+  final List<String> importCommand;
+
+  /// Where the agent was named: `FLAG`, `PROJECT`, `SIGNED_IN` or `ONLY_ONE`, and an unknown one as it
+  /// comes. Empty when none was settled, and **from a Porelo older than the field, which is no choice of
+  /// the machine's to rely on**.
+  final String agentSource;
+
+  /// Where the agent's sign-in was found, a path on the machine, or empty.
+  final String agentFoundIn;
+
+  /// With `SEVERAL_AGENTS`, the agents found signed in, to put first.
+  final List<String> signedIn;
+
   /// With `UNKNOWN_HOST_KEY` and `HOST_KEY_CHANGED`, the repository's host the machine has never met
   /// (or met with another key); empty otherwise.
   final String host;
@@ -3302,6 +3333,10 @@ class Readiness {
     required this.credential,
     required this.detail,
     this.storeCommand = const <String>[],
+    this.importCommand = const <String>[],
+    this.agentSource = '',
+    this.agentFoundIn = '',
+    this.signedIn = const <String>[],
     this.host = '',
     this.hostKeys = const <HostKey>[],
   });
@@ -3318,6 +3353,10 @@ class Readiness {
           credential: credential,
           detail: detail,
           storeCommand: storeCommand,
+          importCommand: importCommand,
+          agentSource: agentSource,
+          agentFoundIn: agentFoundIn,
+          signedIn: signedIn,
           host: host,
           hostKeys: hostKeys,
         );
@@ -3331,6 +3370,10 @@ class Readiness {
     credential: _string(map, 'credential'),
     detail: _string(map, 'detail'),
     storeCommand: _strings(map, 'storeCommand'),
+    importCommand: _strings(map, 'importCommand'),
+    agentSource: _string(map, 'agentSource'),
+    agentFoundIn: _string(map, 'agentFoundIn'),
+    signedIn: _strings(map, 'signedIn'),
     host: _string(map, 'host'),
     hostKeys: map['hostKeys'] is List
         ? (map['hostKeys'] as List).whereType<Map<String, dynamic>>().map(HostKey.from).toList()

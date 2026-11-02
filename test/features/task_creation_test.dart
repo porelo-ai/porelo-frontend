@@ -47,6 +47,8 @@ import './step/i_store_the_credential_from_the_start.dart';
 import './step/a_terminal_runs_on_the_machine.dart';
 import './step/the_unlock_terminal_ends_and_is_put_away.dart';
 import './step/whether_work_can_start_is_asked_again.dart';
+import './step/the_machine_can_import_the_signin_it_found_with.dart';
+import './step/i_use_the_signin_found_on_the_machine.dart';
 import './step/the_machine_cannot_say_its_providers.dart';
 import './step/the_status_line_mentions.dart';
 import './step/the_terminal_prints_a_link_to.dart';
@@ -67,7 +69,8 @@ import './step/the_agent_documents_its_login_at.dart';
 import './step/the_agent_prints_a_link_of_its_own_to.dart';
 import './step/the_first_link_offered_says_and_opens.dart';
 import './step/the_machine_has_claude_code_installed_too.dart';
-import './step/the_agent_chosen_is.dart';
+import './step/no_agent_is_picked_yet.dart';
+import './step/the_form_says_which_agent_the_machine_chose.dart';
 import './step/the_form_asks_to_sign_in_to_first_above_everything_else.dart';
 import './step/it_offers_instead_of_starting.dart';
 import './step/i_press.dart';
@@ -349,6 +352,17 @@ void main() {
       await theUnlockTerminalEndsAndIsPutAway(tester);
       await whetherWorkCanStartIsAskedAgain(tester);
     });
+    testWidgets('''a sign-in the machine found is copied from the start dialog, and starting is asked about again''', (
+      tester,
+    ) async {
+      await bddSetUp(tester);
+      await theMachineCanImportTheSigninItFoundWith(tester, 'porelo vault import an-agent');
+      await iStartWorkInThisProject(tester);
+      await iUseTheSigninFoundOnTheMachine(tester);
+      await aTerminalRunsOnTheMachine(tester, 'porelo vault import an-agent');
+      await theUnlockTerminalEndsAndIsPutAway(tester);
+      await whetherWorkCanStartIsAskedAgain(tester);
+    });
     testWidgets('''a machine that cannot say how to store a credential says so, rather than nothing''', (tester) async {
       await bddSetUp(tester);
       await theVaultHoldsNoCredentialForWhatARunWouldUse(tester);
@@ -435,11 +449,12 @@ void main() {
       );
       await itSays(tester, 'Another link the program printed');
     });
-    testWidgets('''Claude Code is chosen where it is installed and nobody chose another''', (tester) async {
+    testWidgets('''no agent is filled in where nobody chose one, and the machine's choice is said''', (tester) async {
       await bddSetUp(tester);
       await theMachineHasClaudeCodeInstalledToo(tester);
       await iStartWorkInThisProject(tester);
-      await theAgentChosenIs(tester, 'claude');
+      await noAgentIsPickedYet(tester);
+      await theFormSaysWhichAgentTheMachineChose(tester);
     });
     testWidgets('''an agent with nothing to sign in with is signed in first, and no start of any kind is offered''', (
       tester,

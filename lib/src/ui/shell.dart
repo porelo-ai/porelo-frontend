@@ -1907,6 +1907,9 @@ class _ShellState extends State<Shell> {
       onStoreTheCredential: onTheMachineAsWritten(widget.machines.current, 'porelo') == null
           ? null
           : _storeTheCredentialToStart,
+      onImportTheSignIn: onTheMachineAsWritten(widget.machines.current, 'porelo') == null
+          ? null
+          : _importTheSignInToStart,
       onLogIn: onTheMachineAsWritten(widget.machines.current, 'porelo') == null ? null : _logInWithTheAgent,
       onOpenWithThisDevice: widget.vault.devices.enrolledHere ? _openWithThisDeviceToStart : null,
       onGrant: _grantToStart,
@@ -1951,6 +1954,27 @@ class _ShellState extends State<Shell> {
   /// chooses — then asks the machine again whether work can start.
   Future<void> _openWithThisDeviceToStart() async {
     await _actOnTheVault(VaultAct.open);
+    await widget.starting.askAgain();
+  }
+
+  /// Copies the sign-in the machine found into its vault, by the machine's own command, in a terminal there
+  /// (the same sign-in terminal, since a shut vault asks there), then asks again whether work can start.
+  Future<void> _importTheSignInToStart() async {
+    final readiness = widget.starting.readiness;
+    final machine = widget.machines.current;
+    final command = readiness == null ? null : onTheMachine(machine, readiness.importCommand, terminal: true);
+    if (command == null) return;
+    await runInATerminal(
+      context,
+      title: 'Use the sign-in found on the machine',
+      explanation:
+          'The machine copies what the agent already holds into its vault. It stays on the machine and never '
+          'goes through this program.',
+      machine: machine,
+      command: command,
+      open: widget.sessions.openTerminal,
+    );
+    if (!mounted) return;
     await widget.starting.askAgain();
   }
 

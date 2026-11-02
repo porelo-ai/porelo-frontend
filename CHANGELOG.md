@@ -9,6 +9,11 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- A person who starts work without picking an agent gets the one the machine chooses, as the command line chooses it, and
+  the form says which it is and why; Claude Code is no longer filled in first. The picker puts agents found signed in
+  first and marks each, and an agent that cannot say never reads as signed out. A sign-in the machine found but the vault
+  lacks is offered for copying in a terminal there. Nothing starts while the machine's answer about the choice is still out.
+
 - *Needs you* finds a message held for a person even when the machine's stream of events has ended or says nothing: the
   list is asked for when the page opens and at each refresh, and a stream that ended is listened to again.
 - A server can be given by host name or IPv6 address, as a host card allows, and not only by IPv4: *Prepare a server…*
