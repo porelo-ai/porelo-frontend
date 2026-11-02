@@ -11,16 +11,16 @@ A project is on one host at a time. A host admin decides which projects a host c
 
 ## Plan
 
-- `lib/src/ui/machine_details_page.dart` and the source of the organization's page, with a host's view and writes and fixtures; actions in rows.
+- `lib/src/ui/organization_host_pages.dart` shows the host's view and writes, with actions in rows; `lib/src/app/host_progress.dart` reads `org status` and `org refresh`.
 - Today's per-person admission, lock and let back in, and *Bring the state to the host*, leave the page.
 - Red first: widget tests for a host admin and for another person, who sees no management.
 
 ## Acceptance
 
 - Widget tests with the fixtures: each action writes what it says; another person sees none of them; a host in the organization that this computer did not prepare has the page; a refused write shows the store's words; a person's own connection stands here for everyone connected.
+- A connected host admin sees each project's state and `why`, and each locked person's `purge_on` as the account deletion day, read only. No per-person lock, add or purge action is offered.
 - Seen to fail by showing management to a person who is no host admin.
 
 ## To be checked
 
 - The design canvas's host page.
-- What remains of *Lock* and *Purge* here, now that a member removed is locked on every host: read in the code, proposed in the channel.

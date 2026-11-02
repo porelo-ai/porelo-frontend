@@ -62,6 +62,16 @@ void main() {
       expect(_action('connect/build'), findsNothing);
     });
 
+    // Harm: a host admin with no project cannot reach the host to manage it.
+    testWidgets('a host admin with no project can open their host from Machines', (tester) async {
+      final made = await section(tester, organizationFor('olive'));
+      final host = find.byKey(const ValueKey('my-host spare'));
+      expect(host, findsOneWidget);
+      expect(_action('connect/spare'), findsOneWidget);
+      await _tap(tester, host);
+      expect(made.opened, ['spare']);
+    });
+
     // Harm: a person is offered a host they have nothing to do on.
     testWidgets('a host carrying none of the person\'s projects is not offered', (tester) async {
       await section(tester, organizationFor('mia'));
