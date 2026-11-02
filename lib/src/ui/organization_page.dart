@@ -169,9 +169,10 @@ class _OrganizationPageState extends State<OrganizationPage> {
                       organization,
                       title: 'Withdraw your card?',
                       words:
-                          'You leave every project of ${view.name}, and each host locks you when it takes the change: within '
-                          'five minutes, or at once on its Refresh. '
-                          'This cannot be undone: coming back takes a new key.',
+                          'Your key is revoked, and each host takes that within five minutes, or at once on its '
+                          'Refresh. You hold no role until you come back with a new card and a new key. Your places '
+                          'in projects and on hosts stay under your login: to leave them for good, have yourself '
+                          'removed from each as well.',
                       confirm: 'Withdraw my card',
                       change: OrganizationChange.revokeCard,
                       input: {'login': view.me},
@@ -198,9 +199,10 @@ class _OrganizationPageState extends State<OrganizationPage> {
                       organization,
                       title: "Revoke ${person.login}'s card?",
                       words:
-                          '${person.login} is out of every project and host of ${view.name}, and each host locks them when it '
-                          'takes the change: within five minutes, or at once on its Refresh. '
-                          'This cannot be undone: coming back takes a new key.',
+                          "${person.login}'s key is revoked, and each host takes that within five minutes, or at once "
+                          'on its Refresh. They hold no role until they come back with a new card and a new key. Their '
+                          'places in projects and on hosts stay under their login: to put them out, also remove them '
+                          'from each project and host.',
                       confirm: 'Revoke the card',
                       change: OrganizationChange.revokeCard,
                       input: {'login': person.login},
