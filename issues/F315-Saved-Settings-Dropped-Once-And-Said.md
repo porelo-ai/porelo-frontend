@@ -1,6 +1,6 @@
 # F315 — Saved Settings Dropped Once And Said
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** S - one reader of the settings file and one sentence, with tests; a few hours.
 
 **What must be true.** A person whose saved settings come from before the organization model finds them dropped, without a migration, and the interface says so once, in one sentence, on the first start. Nothing asks them to clean up by hand, and the sentence does not come back.
