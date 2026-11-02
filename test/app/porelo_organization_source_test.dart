@@ -6,13 +6,13 @@ import 'package:porelo_frontend/src/app/organization_source.dart';
 import 'package:porelo_frontend/src/app/porelo_organization_source.dart';
 import 'package:porelo_frontend/src/app/run_here.dart';
 
-/// `porelo org --json` as the contract's example has it.
+/// The fields `porelo org --json` writes.
 const _org = {
   'name': 'acme',
   'kept_in': 'the GitHub organization acme',
-  'address': 'git@github.com:acme/org.git',
+  'address': 'github.com:acme/org.git',
   'forge': 'github.com',
-  'settings': 'adapter: git\naddress: git@github.com:acme/org.git\n',
+  'settings': 'adapter: git\nsettings:\n  repository: git@github.com:acme/org.git\n',
   'vouched_by': 'GitHub',
   'revision': '56420b3',
   'stale': false,
@@ -65,7 +65,7 @@ const _org = {
         'matrix': {'port': 8448},
       },
       'admins': [
-        {'login': 'hank', 'backup': false},
+        {'login': 'hank', 'key': 'ssh-ed25519 AAAA', 'fingerprint': 'SHA256:h', 'backup': false},
       ],
       'projects': ['demo'],
     },
@@ -76,7 +76,7 @@ const _org = {
       'ssh_host_key': null,
       'services': null,
       'admins': [
-        {'login': 'hank', 'backup': false},
+        {'login': 'hank', 'key': 'ssh-ed25519 AAAA', 'fingerprint': 'SHA256:h', 'backup': false},
       ],
       'projects': <String>[],
     },
@@ -91,10 +91,12 @@ const _org = {
   'a_field_of_later': 1,
 };
 
-/// `porelo project show demo --json` as the contract's example has it.
+/// The fields `porelo project show demo --json` writes.
 const _project = {
   'project': 'demo',
   'revision': '56420b3',
+  'stale': false,
+  'matrix_registration_entry': null,
   'first_admin': 'alice',
   'host': 'build',
   'opened': true,
@@ -175,7 +177,7 @@ void main() {
           {
             ...((_org['hosts']! as List<Object?>).first! as Map<String, Object?>),
             'admins': [
-              {'login': 'hank', 'backup': false},
+              {'login': 'hank', 'key': 'ssh-ed25519 AAAA', 'fingerprint': 'SHA256:h', 'backup': false},
               {'login': 'hank', 'backup': true},
             ],
           },
@@ -240,7 +242,7 @@ void main() {
         ],
       });
       final listed = await source.myProjects();
-      expect(asked.single, ['project', 'list', '--json']);
+      expect(asked.single, ['org', 'projects', '--json']);
       expect(listed.first.ofTheOrganization, isTrue);
       expect(listed.first.locked, isTrue);
       expect(listed.first.host, 'build');
@@ -253,6 +255,21 @@ void main() {
       await expectLater(source.read(), throwsA(isA<OrganizationRefused>()));
     });
 
+    // Harm: the built-in project, which a person with no organization always has, makes the whole list unreadable.
+    test('a list as the command answers with no organization holds the built-in project', () async {
+      answer = (_) => says({
+        'revision': null,
+        'stale': false,
+        'projects': [
+          {'project': 'default', 'source': 'built-in', 'role': null, 'locked': false, 'host': null, 'opened': null},
+        ],
+      });
+      final listed = await source.myProjects();
+      expect(listed.single.name, 'default');
+      expect(listed.single.ofTheOrganization, isFalse);
+    });
+
+    // Harm: a stale listing permits a removal based on an unverified source.
     test('a project list whose stale is no truth value is an unreadable answer', () async {
       answer = (_) => says({
         'revision': 'r',
@@ -289,7 +306,15 @@ void main() {
 
     // Harm: a person's Connect writes no key, or the whole of an answer whose other fields have moved on is refused.
     test("the person's public key is read from identity show, whatever else it answers", () async {
-      answer = (_) => says({'key': 'ssh-ed25519 AAAA', 'organization': <Object?>[], 'later': 1});
+      answer = (_) => says({
+        'key': 'ssh-ed25519 AAAA',
+        'organization': <Object?>[],
+        'pending': [
+          {'id': 'old-change', 'action': 'rotate', 'fingerprint': 'SHA256:old'},
+          {'id': 'lost-change', 'action': 'revoke-lost', 'fingerprint': 'SHA256:new'},
+        ],
+        'later': 1,
+      });
       expect(await source.myPublicKey(), 'ssh-ed25519 AAAA');
       expect(asked.single, ['identity', 'show', '--json']);
     });
@@ -356,6 +381,24 @@ void main() {
       expect((known.address, known.problem), (null, null));
     });
 
+    // Harm: a repository without an upstream hides the whole project and its members.
+    test('a repository with no upstream keeps its name and has no address', () async {
+      answer = (_) => says({
+        ..._project,
+        'repositories': {
+          'state': 'read',
+          'revision': 'p1',
+          'names': [
+            {'name': 'scratch', 'upstream': null},
+          ],
+        },
+      });
+      final project = await source.readProject('demo');
+      expect(project.repositories.single.name, 'scratch');
+      expect(project.repositories.single.address, isNull);
+      expect(project.members, hasLength(2));
+    });
+
     // Harm: a key that cannot sign is offered.
     test('only usable keys are offered, each as the forge lists it', () async {
       answer = (_) => says({
@@ -396,6 +439,50 @@ void main() {
       expect(refused.answered, isTrue);
     });
 
+    // Harm: an empty organization repository is treated as a readable empty organization.
+    test('an empty repository cannot say what the organization is', () async {
+      answer = (_) => (
+        code: 69,
+        out: jsonEncode({'reason': 'cannot-say', 'words': 'the organization cannot be read', 'revision': null}),
+        err: '',
+      );
+      final refused = await refusal();
+      expect(refused.reason, 'cannot-say');
+      expect(refused.answered, isFalse);
+    });
+
+    // Harm: a refusal hides the earlier change and sends the person into another rotation.
+    test('a change that may have reached the store names its old id and lost key recovery', () async {
+      answer = (_) => (
+        code: 65,
+        out: jsonEncode({
+          'reason': 'exists',
+          'words': 'the change old-change reached the organization or may have: go on with that id, or with porelo identity revoke --lost',
+          'revision': 'r',
+          'id': 'old-change',
+        }),
+        err: '',
+      );
+      await expectLater(
+        source.apply(
+          const OrganizationWrite(
+            change: OrganizationChange.changeCard,
+            input: {'key': 'SHA256:new'},
+            person: 'alice',
+            base: 'b',
+            id: 'new-change',
+          ),
+        ),
+        throwsA(
+          isA<OrganizationRefused>()
+              .having((refused) => refused.reason, 'reason', 'exists')
+              .having((refused) => refused.words, 'old change', contains('old-change'))
+              .having((refused) => refused.words, 'recovery command', contains('identity revoke --lost'))
+              .having((refused) => refused.answered, 'new request was refused', isTrue),
+        ),
+      );
+    });
+
     // Harm: asking again under a new id does the change twice; under the old one after it was refused, nothing.
     for (final (code, answered) in const [
       (64, true),
@@ -415,7 +502,7 @@ void main() {
 
     // Harm: what the program wrote elsewhere, which may name a path or more, reaches the screen.
     test('a refusal with no words says so, and never what was written aside', () async {
-      answer = (_) => (code: 70, out: 'garbage', err: 'a trace with /home/alice/secret in it');
+      answer = (_) => (code: 70, out: 'garbage', err: 'a trace with /private/example/secret in it');
       final refused = await refusal();
       expect(refused.words, contains('did not say why'));
       expect(refused.words, isNot(contains('secret')));
@@ -468,6 +555,47 @@ void main() {
       await source.apply(OrganizationWrite(change: change, input: input, person: 'alice', base: 'b', id: 'i'));
       return asked.last;
     }
+
+    // Harm: a partial host update is refused locally instead of reaching the command that preserves other fields.
+    test('changing a host address alone leaves the other fields to the command', () async {
+      expect(await asking(OrganizationChange.changeHost, {'host': 'h', 'address': 'build.example.org'}), [
+        'org',
+        'host',
+        'change',
+        'h',
+        '--address',
+        'build.example.org',
+        '--base',
+        'b',
+        '--id',
+        'i',
+        '--json',
+      ]);
+    });
+
+    // Harm: founding from a local repository is shown as a successful organization.
+    test('a file address is refused by org create', () async {
+      answer = (arguments) {
+        expect(arguments.take(3), ['org', 'create', 'file:///example/organization.git']);
+        return (
+          code: 64,
+          out: jsonEncode({'reason': 'usage', 'words': 'that address is none', 'revision': null}),
+          err: '',
+        );
+      };
+      await expectLater(
+        source.apply(
+          const OrganizationWrite(
+            change: OrganizationChange.createOrganization,
+            input: {'address': 'file:///example/organization.git'},
+            person: '',
+            base: '',
+            id: 'i',
+          ),
+        ),
+        throwsA(isA<OrganizationRefused>().having((refused) => refused.reason, 'reason', 'usage')),
+      );
+    });
 
     // Harm: a page's change runs another command than the contract's, or as another person.
     for (final (change, input, command) in <(OrganizationChange, Map<String, String>, List<String>)>[
@@ -605,6 +733,7 @@ void main() {
       ]);
     });
 
+    // Harm: an unsupported base makes founding fail after an organization was read.
     test('creating fills a repository under an id, and no base', () async {
       answer = (_) => says({'revision': 'r', 'id': 'i', 'again': false, 'address': 'x'});
       await source.apply(
@@ -612,7 +741,7 @@ void main() {
           change: OrganizationChange.createOrganization,
           input: {'address': 'x'},
           person: '',
-          base: '',
+          base: 'b',
           id: 'i',
         ),
       );
@@ -623,10 +752,17 @@ void main() {
       ({'address': 'x'}, ['setup', '--organization', 'x', '--json']),
       ({'address': 'x', 'replace': 'yes'}, ['setup', '--organization', 'x', '--replace', '--json']),
     ]) {
+      // Harm: an unsupported base or id prevents choosing an organization.
       test('choosing runs ${command.join(' ')}', () async {
         answer = (_) => says({'revision': null});
         await source.apply(
-          OrganizationWrite(change: OrganizationChange.chooseOrganization, input: input, person: '', base: '', id: 'i'),
+          OrganizationWrite(
+            change: OrganizationChange.chooseOrganization,
+            input: input,
+            person: '',
+            base: 'b',
+            id: 'i',
+          ),
         );
         expect(asked.last, command);
       });

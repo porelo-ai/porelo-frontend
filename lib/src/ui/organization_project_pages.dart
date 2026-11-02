@@ -365,11 +365,11 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
     rows: [
       for (final repository in view.repositories)
         (
-          words: '${repository.name} ${repository.address}',
+          words: '${repository.name} ${repository.address ?? ''}',
           child: ListTile(
             leading: const Icon(Icons.book_outlined),
             title: Text(repository.name),
-            subtitle: Text(repository.address),
+            subtitle: Text(repository.address ?? 'no upstream named'),
             trailing: isAdmin
                 ? TextButton(
                     key: ValueKey('organization.removeRepository/${repository.name}'),

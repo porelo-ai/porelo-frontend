@@ -280,13 +280,13 @@ class KnownAddress {
 @immutable
 class ProjectRepository {
   /// Keeps its name and address.
-  const ProjectRepository({required this.name, required this.address});
+  const ProjectRepository({required this.name, this.address});
 
   /// Its name.
   final String name;
 
-  /// Where it is worked on.
-  final String address;
+  /// Where it is worked on, absent where no upstream is named.
+  final String? address;
 }
 
 /// One member of a project, by their card.

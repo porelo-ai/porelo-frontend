@@ -27,3 +27,7 @@
 
 - The contract document, read and answered when it is posted.
 - Nothing here has run a real command: every answer is read against the contract's written examples, and real commands wait for Core's cut and the walk. A homeserver's registration token is filed as an idea of its own.
+
+## Compared with the real commands
+
+Read against `org-git-adapter` afe766fa, and taken in: `org projects` for the list until the cut; a repository with no upstream keeps its name and has no address; `org host change` names only what changes; `org create` and `setup --organization` take no `--base`. `project show`'s `stale` and `matrix_registration_entry` are not used here. An empty repository answers 69 `cannot-say`, and a change that may have reached the store answers 65 `exists`, naming its id and `identity revoke --lost`; both are said in the store's words. `org create` refuses `file://`.

@@ -194,7 +194,7 @@ class PoreloOrganizationSource implements OrganizationSource {
         repositories: [
           if (repositories != null)
             for (final repository in _maps(repositories, 'names'))
-              ProjectRepository(name: _text(repository, 'name'), address: _text(repository, 'upstream')),
+              ProjectRepository(name: _text(repository, 'name'), address: _maybeText(repository, 'upstream')),
         ],
         members: [
           for (final member in _maps(answer, 'members'))
@@ -211,7 +211,7 @@ class PoreloOrganizationSource implements OrganizationSource {
 
   @override
   Future<List<ListedProject>> myProjects() async {
-    final answer = await _ask(['project', 'list']);
+    final answer = await _ask(['org', 'projects']);
     return _reading(
       () => [
         for (final project in _maps(answer, 'projects'))
@@ -256,8 +256,13 @@ class PoreloOrganizationSource implements OrganizationSource {
   Future<void> apply(OrganizationWrite write) async {
     await _ask([
       ..._arguments(write),
-      // Nothing accepted yet: `identity create` and `org create` take no base then.
-      if (write.base.isNotEmpty) ...['--base', write.base],
+      // Nothing accepted yet: `identity create` takes no base then. Making or choosing an organization never does.
+      if (write.base.isNotEmpty &&
+          write.change != OrganizationChange.createOrganization &&
+          write.change != OrganizationChange.chooseOrganization) ...[
+        '--base',
+        write.base,
+      ],
       // A set-up writes this computer's file alone, and is simply asked again.
       if (write.change != OrganizationChange.chooseOrganization) ...['--id', write.id],
     ]);
@@ -300,13 +305,10 @@ class PoreloOrganizationSource implements OrganizationSource {
         'host',
         'change',
         given('host'),
-        '--address',
-        given('address'),
-        '--ssh-port',
-        given('port'),
-        '--host-key',
-        given('hostKey'),
-        // A host with no forge or homeserver has no port to name.
+        // What is not named stays as it is; the command asks for address, port and key on a first change.
+        if (input['address'] case final address? when address.isNotEmpty) ...['--address', address],
+        if (input['port'] case final port? when port.isNotEmpty) ...['--ssh-port', port],
+        if (input['hostKey'] case final key? when key.isNotEmpty) ...['--host-key', key],
         if (input['webPort'] case final port? when port.isNotEmpty) ...['--forge-web-port', port],
         if (input['gitPort'] case final port? when port.isNotEmpty) ...['--forge-git-port', port],
         if (input['matrixPort'] case final port? when port.isNotEmpty) ...['--matrix-port', port],
