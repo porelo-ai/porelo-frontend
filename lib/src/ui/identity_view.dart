@@ -967,6 +967,11 @@ class _PlanView extends StatelessWidget {
   );
 }
 
+/// What a first card with a new key comes to: a key cannot be listed at the forge before it exists.
+const _firstRunMakesNoCard =
+    'A new key cannot be at your forge yet, so this makes the key and stops without a card. Add the key at your forge, '
+    'then start this again and choose it under Use my existing key.';
+
 /// Which kind of key the first card is made for.
 enum _KeyChoice { existing, keepassxc }
 
@@ -1118,6 +1123,8 @@ class _FirstStartWizardState extends State<FirstStartWizard> {
         check: () => switch (_choice.value) {
           null => 'Choose your existing key or a new one.',
           _KeyChoice.existing when _chosen.value == null => 'Pick one of the keys your SSH agent serves.',
+          _KeyChoice.existing when _chosen.value?.keyListed == false =>
+            'Add this key at your forge first: a first card needs a key the forge lists.',
           _KeyChoice.keepassxc when _database.text.trim().isEmpty => 'Name your KeePassXC database file.',
           _ => null,
         },
@@ -1127,6 +1134,7 @@ class _FirstStartWizardState extends State<FirstStartWizard> {
             'A new key in ${_database.text.trim()}'
                 '${_entry.text.trim().isEmpty ? '' : ', entry ${_entry.text.trim()}'}',
             'A terminal opens where KeePassXC asks for its master password.',
+            _firstRunMakesNoCard,
           ],
           null => ['No key chosen'],
         },
@@ -1175,13 +1183,19 @@ class _FirstStartWizardState extends State<FirstStartWizard> {
               key: Key('identity-key ${key.fingerprint}'),
               selected: _chosen.value?.fingerprint == key.fingerprint,
               title: Text(key.comment.isEmpty ? key.fingerprint : '${key.comment} · ${key.fingerprint}'),
-              subtitle: Text(key.whyNot ?? 'Ed25519, usable for your card.'),
+              subtitle: Text(
+                key.whyNot ??
+                    (key.keyListed == false
+                        ? 'Not listed at your forge yet: add it there first.'
+                        : 'Ed25519, usable for your card.'),
+              ),
               // An unusable key is shown with its reason and never offered.
               enabled: key.usable,
               onTap: () => _chosen.value = key,
             ),
         ],
         if (_choice.value == _KeyChoice.keepassxc) ...[
+          const Text(_firstRunMakesNoCard, key: Key('identity-new-key-first')),
           TextField(
             key: const Key('identity-database'),
             controller: _database,
@@ -1217,6 +1231,19 @@ class _FirstStartWizardState extends State<FirstStartWizard> {
       );
     }
     if (!_ran || _model.busy) return const LinearProgressIndicator();
-    return _Problem(_whyNotMade ?? 'No card is read.', reason: _model.problemReason, reread: _model.load);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Core's refusal of a key the forge cannot list yet is this path's expected end, not a failure.
+        if (_choice.value == _KeyChoice.keepassxc && _model.problemReason == 'not-allowed')
+          const Text(
+            'Your new key is made and kept in KeePassXC. Add it at your forge, then start this again and choose it '
+            'under Use my existing key. Do not make another one.',
+            key: Key('identity-new-key-next'),
+          ),
+        _Problem(_whyNotMade ?? 'No card is read.', reason: _model.problemReason, reread: _model.load),
+      ],
+    );
   }
 }

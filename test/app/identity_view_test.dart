@@ -7,6 +7,7 @@ import 'package:path/path.dart' as path;
 import 'package:porelo_frontend/src/app/identity.dart';
 import 'package:porelo_frontend/src/app/pty.dart';
 import 'package:porelo_frontend/src/app/run_here.dart';
+import 'package:porelo_frontend/src/app/session.dart';
 import 'package:porelo_frontend/src/ui/identity_view.dart';
 
 import '../features/support/world.dart';
@@ -372,6 +373,107 @@ void main() {
 
     expect(model.problem, isNull, reason: 'the program ended with 0 while its terminal closed');
     expect(model.card?.login, 'rowan-example');
+  });
+
+  group('a first card and the forge', () {
+    Future<void> openWizard(
+      WidgetTester tester, {
+      required Map<String, Object?> keys,
+      required List<List<String>> calls,
+      OpenTerminal? terminal,
+    }) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      Future<Ran> run(
+        String program,
+        List<String> arguments, {
+        String? inDirectory,
+        Map<String, String> environment = const {},
+        String? input,
+      }) async {
+        calls.add(arguments);
+        return switch (arguments[1]) {
+          'keys' => (code: 0, out: jsonEncode(keys), err: ''),
+          _ => (code: 65, out: '{"reason":"no-identity","words":"no card is kept"}', err: ''),
+        };
+      }
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: FirstStartWizard(
+              model: IdentityModel(Identity(run: run)),
+              open: terminal,
+            ),
+          ),
+        ),
+      );
+      await World.settle(tester);
+      await tester.enterText(find.byKey(const Key('identity-login')), 'rowan-example');
+      await tester.enterText(find.byKey(const Key('identity-name')), 'Rowan Example');
+      await World.settle(tester);
+      await tester.tap(find.byKey(const Key('wizard-next')));
+      await World.settle(tester);
+    }
+
+    Future<void> tap(WidgetTester tester, String key) async {
+      await tester.tap(find.byKey(Key(key)));
+      await World.settle(tester);
+    }
+
+    testWidgets('a new key is told before it is made that the first run makes no card', (tester) async {
+      // Harm: a person types a master password for a card, and only the refusal tells them no first card can come of it.
+      await openWizard(tester, keys: _keys, calls: []);
+      expect(find.byKey(const Key('identity-new-key-first')), findsNothing);
+      await tap(tester, 'identity-make-new');
+      expect(find.byKey(const Key('identity-new-key-first')), findsOneWidget);
+    });
+
+    testWidgets('the refusal of a new key says the key is made and what comes next', (tester) async {
+      // Harm: an expected refusal reads as a failure, the person makes a second key, and the first is left behind.
+      await openWizard(
+        tester,
+        keys: _keys,
+        calls: [],
+        terminal: (executable, arguments, {columns = 80, rows = 24}) =>
+            _AnswersOnClose(65, jsonEncode({'reason': 'not-allowed', 'words': 'the forge does not list this key'})),
+      );
+      await tap(tester, 'identity-make-new');
+      await tester.enterText(find.byKey(const Key('identity-database')), path.join('home', 'rowan', 'Passwords.kdbx'));
+      await World.settle(tester);
+      await tap(tester, 'wizard-next');
+      await tap(tester, 'identity-wizard-make');
+      await tap(tester, 'unlock-cancel');
+      await tap(tester, 'unlock-cancel-yes');
+      expect(find.byKey(const Key('identity-new-key-next')), findsOneWidget);
+    });
+
+    testWidgets('an existing key the forge does not list stops before anything runs', (tester) async {
+      // Harm: a card asked for with a key the forge will refuse, from a list that called it usable.
+      final calls = <List<String>>[];
+      await openWizard(
+        tester,
+        keys: {
+          'keys': [
+            {
+              'fingerprint': 'SHA256:NewNewNew',
+              'key': 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINew',
+              'comment': 'laptop',
+              'usable': true,
+              'reason': null,
+              'key_listed': false,
+            },
+          ],
+        },
+        calls: calls,
+      );
+      await tap(tester, 'identity-use-existing');
+      await tap(tester, 'identity-key SHA256:NewNewNew');
+      await tap(tester, 'wizard-next');
+      expect(find.byKey(const Key('identity-wizard-make')), findsNothing);
+      expect(calls.where((call) => call[1] == 'create'), isEmpty);
+    });
   });
 
   testWidgets('picking a new key shows what changes and runs nothing before the confirmation', (tester) async {
