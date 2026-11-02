@@ -1,6 +1,6 @@
 # F314 — The Calls Behind The Organization Pages
 
-**Status:** Backlog; blocked by [F309](README.md#f309), [F310](README.md#f310), [F312](README.md#f312) and [F313](README.md#f313).
+**Status:** Implementing.
 **Size:** L - the source of the new pages answered by Porelo's commands, *Forges* cut to forge access and "registry" renamed throughout; several days. It needs the written contract of `porelo org …` and `porelo project …` with their `--json` output before it can be planned further.
 
 **What must be true.** The organization's, project's and host's pages and *Connect* show and change the real organization through Porelo's commands, with no checkout of their own. *Forges* keeps only the access to a forge, and the word in the interface is "organization": the interface never asks which one, a machine has one, set at its setup.
