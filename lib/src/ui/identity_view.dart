@@ -899,9 +899,14 @@ class _PlanWords extends StatelessWidget {
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       const Text(
-        'Your new card is not signed by the lost key, so nothing takes it until an organization owner accepts it. '
-        'Accepting it revokes the old key, so if your key was stolen, tell them at once. Do not ask them to revoke '
-        'your card: after that there is nothing to replace, and you come back with a card of your own.',
+        'Your new card is not signed by the lost key, so nothing takes it until an organization owner accepts it; '
+        'accepting it revokes the old key.',
+      ),
+      const Text(
+        'If your key was stolen, tell them at once and give them the new card. If they cannot have it soon, they can '
+        'revoke your card now: that revokes the old key, and each host takes it within five minutes or at once on its '
+        'Refresh. You then hold no role until you come back with a new card. Your places in projects and on hosts '
+        "stay under your login; an owner's place names the old key and does not come back by itself.",
       ),
       const Text(
         'A backup key works only while the old key is still on the forge: use it first, then take the old key off '

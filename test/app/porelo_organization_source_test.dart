@@ -165,6 +165,19 @@ void main() {
       ]);
     });
 
+    // Harm: an owner with no backup key reads as having one, and nobody makes the one that is missing.
+    test('only an owner who has a backup key is said to have one', () async {
+      answer = (_) => says({
+        ..._org,
+        'owners': [
+          {'login': 'ana', 'fingerprint': 'SHA256:a', 'backup': false},
+          {'login': 'mia', 'fingerprint': 'SHA256:m', 'backup': false},
+          {'login': 'mia', 'fingerprint': 'SHA256:b', 'backup': true},
+        ],
+      });
+      expect((await source.read()).ownersWithBackup, ['mia']);
+    });
+
     // Harm: a backup key reads as a second owner or admin of the same login, and the last one's words go wrong.
     test('a backup key is no second owner or host admin, and a card says until when it holds', () async {
       answer = (_) => says({
@@ -184,7 +197,6 @@ void main() {
         ],
       });
       final view = await source.read();
-      expect(view.ownersWithBackup, ['mia']);
       expect(view.owners, ['mia']);
       expect(view.hosts.single.admins, ['hank']);
       expect(view.persons.first.login, 'alice');

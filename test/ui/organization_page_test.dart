@@ -482,6 +482,31 @@ void main() {
       expect(fixture.writes.single.input['key'], 'SHA256:second');
     });
 
+    // Harm: a card is filed under another key than the one the person chose, on their first step in.
+    testWidgets('Add me sends the key chosen', (tester) async {
+      final (fixture, _, _) = await _pump(
+        tester,
+        'nobody',
+        view: organizationFor('', persons: const []),
+        keys: const [
+          OrganizationKey(fingerprint: 'SHA256:first', vouched: true),
+          OrganizationKey(fingerprint: 'SHA256:second', vouched: true),
+        ],
+      );
+      await _open(tester, _action('addCard'));
+      await tester.enterText(find.byKey(const Key('organization-card-login')), 'nora');
+      await tester.enterText(find.byKey(const Key('organization-card-name')), 'Nora');
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('organization-key')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('SHA256:second').hitTestable());
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('organization-confirm')));
+      await tester.pumpAndSettle();
+      expect(fixture.writes.single.change, OrganizationChange.addCard);
+      expect(fixture.writes.single.input['key'], 'SHA256:second');
+    });
+
     group('accepting a new card', () {
       const key = 'AAAAC3NzaC1lZDI1NTE5AAAAIKn6IPaRukSTWN/i3bjSm8ARCGDymgqyDGgVDZ2gFjrF';
 
