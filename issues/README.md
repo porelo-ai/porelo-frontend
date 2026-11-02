@@ -90,6 +90,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f316"></a>[F316](F316-An-Owner-Accepts-A-Lost-Keys-New-Card.md) | — | — | An owner puts a person's new card in place of a lost key from their row under *People*. |
 | <a id="f308"></a>[F308](F308-The-Needs-You-Header-Counts-What-It-Lists.md) | — | — | The *Needs you* header, the rail's badge and the rows agree on what needs the person. |
 | <a id="f305"></a>[F305](F305-No-Join-For-A-Project-Already-On-The-Host.md) | — | — | No *Join* offered for a project already admitted and followed on its card host. |
 | <a id="f306"></a>[F306](F306-A-Work-Card-Whose-Terminal-Has-Ended.md) | — | — | A *Work* card whose terminal ended says so in words, without an empty black terminal bar. |
