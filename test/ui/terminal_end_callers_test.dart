@@ -4,18 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/forge.dart';
 import 'package:porelo_frontend/src/app/forge_connection.dart';
-import 'package:porelo_frontend/src/app/host_runs.dart';
-import 'package:porelo_frontend/src/app/host_session.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/pty.dart';
-import 'package:porelo_frontend/src/app/settings.dart';
 import 'package:porelo_frontend/src/ui/forges_view.dart';
 import 'package:porelo_frontend/src/ui/host_key_dialog.dart';
-import 'package:porelo_frontend/src/ui/host_stop_dialog.dart';
 import 'package:porelo_frontend/src/ui/unlock_terminal.dart';
-import 'package:porelo_host/porelo_host.dart';
 
-import '../features/support/world.dart' show FakeBackend, FakeForge, World;
+import '../features/support/world.dart' show FakeForge, World;
 
 /// A terminal whose program does its work and ends with [code] only while the terminal closes, as one put away at the
 /// moment it finished does; none, as one whose end was never seen.
@@ -48,13 +43,6 @@ class _EndsOnClose implements SessionChannel {
     onClose?.call();
     if (code case final code? when !_ended.isCompleted) _ended.complete(code);
   }
-}
-
-class _Runs extends HostRuns {
-  _Runs(super.machines);
-  final resumed = <HostPreparation>[];
-  @override
-  Future<void> resume(HostPreparation run) async => resumed.add(run);
 }
 
 Future<void> _putAway(WidgetTester tester) async {
@@ -94,59 +82,6 @@ void main() {
       await _putAway(tester);
 
       expect(accepted, kept, reason: 'the program ended with $code while its terminal closed');
-    });
-  }
-
-  // Harm: a provider sign-in that went through as its terminal closed taken as failed, so the host run never resumes;
-  // or a failed or cancelled one taken as done, so the run resumes without its sign-in.
-  for (final (code, resumes) in [(0, true), (1, false), (null, false)]) {
-    testWidgets('a provider sign-in ending with $code while its terminal closes resumes the host run: $resumes', (
-      tester,
-    ) async {
-      tester.view.physicalSize = const Size(1280, 800);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
-      final settings = Settings(MemorySettingsStore());
-      final machines = Machines(settings, reach: (_) => FakeBackend(const []));
-      final runs = _Runs(machines);
-      final session = HostSession(executable: 'fake', arguments: const []);
-      addTearDown(() {
-        runs.dispose();
-        machines.dispose();
-        settings.dispose();
-        session.dispose();
-      });
-      final run = HostPreparation(
-        project: 'demo',
-        session: session,
-        record: const HostUpRecord(scalewayProject: 'provider'),
-        act: HostAct.ownAccount,
-        providerMachine: const Machine(
-          name: 'account',
-          kind: 'host',
-          hostProject: 'orchard',
-          host: 'worker@orchard',
-          socketPath: '',
-          remoteSocket: '/run/user/1007/porelo',
-        ),
-      );
-      await tester.pumpWidget(
-        MaterialApp(
-          home: HostStopDialog(
-            run: run,
-            hostRuns: runs,
-            machines: machines,
-            needs: const ['vault'],
-            openTerminal: (program, arguments, {columns = 80, rows = 24}) => _EndsOnClose(code),
-          ),
-        ),
-      );
-      await tester.tap(find.byKey(const Key('host-open-provider-terminal')));
-      await World.settle(tester);
-
-      await _putAway(tester);
-
-      expect(runs.resumed, resumes ? [run] : isEmpty, reason: 'the program ended with $code while its terminal closed');
     });
   }
 

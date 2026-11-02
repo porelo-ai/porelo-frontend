@@ -127,7 +127,6 @@ import 'work_page.dart';
 import 'wsl_machine.dart';
 import 'dialog_scroll.dart';
 import 'host_dialog.dart';
-import 'host_stop_dialog.dart';
 
 /// The one window: a rail saying where you are, and that place beside it.
 ///
@@ -780,24 +779,14 @@ class _ShellState extends State<Shell> {
     unawaited(_fleet.refresh(quietly: true));
   }
 
-  Future<void> _openHostRun(HostPreparation run) => run.needsYou
-      ? openHostStopDialog(
-          context,
-          run: run,
-          hostRuns: _hostRuns,
-          machines: widget.machines,
-          settings: widget.settings,
-          openTerminal: widget.sessions.openTerminal,
-          needs: run.asksOnItsOwn,
-        )
-      : openHostRunDialog(
-          context,
-          run: run,
-          hostRuns: _hostRuns,
-          machines: widget.machines,
-          settings: widget.settings,
-          openTerminal: widget.sessions.openTerminal,
-        );
+  Future<void> _openHostRun(HostPreparation run) => openHostRunDialog(
+    context,
+    run: run,
+    hostRuns: _hostRuns,
+    machines: widget.machines,
+    settings: widget.settings,
+    openTerminal: widget.sessions.openTerminal,
+  );
 
   /// Clears the machine and removes its trusted message signer from its projects.
   Future<void> _clearTheMachine() async {

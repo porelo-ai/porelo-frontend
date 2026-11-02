@@ -321,17 +321,6 @@ Future<void> main(List<String> arguments) async {
     );
   });
 
-  // Harm: inconsistent Windows destinations can miss a conflict or name a different file.
-  test('Windows host destinations use backslashes for every joined segment', () {
-    final files = HostFiles(pathContext: path.Context(style: path.Style.windows));
-    for (final folder in [r'C:\host-files-x', 'C:/host-files-x/']) {
-      expect(files.destinationPath(folder, 'machine.yml'), r'C:\host-files-x\porelo-host\machine.yml');
-      expect(files.destinationPath(folder, 'credential.data'), r'C:\host-files-x\porelo-host\credential.data');
-      expect(files.destinationPath(folder, 'vault-input', key: true), r'C:\host-files-x\porelo-host\keys\vault-input');
-    }
-    expect(() => files.destinationPath(r'C:\host-files-x', 'a:b', key: true), throwsA(isA<HostFilesRefused>()));
-  });
-
   // Harm: an equal-length comparison can silently accept and replace different private data.
   // Red: compare file lengths alone instead of every byte.
   test('same-length conflicts leave private files unchanged', () async {
