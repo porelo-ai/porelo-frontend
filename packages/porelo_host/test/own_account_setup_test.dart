@@ -49,6 +49,35 @@ void main() {
     accessBundle: accessBundle.path,
   );
 
+  // Harm: a server a card may name is refused at its upload alone, or something ssh would read otherwise reaches it.
+  group('the uploads take the address a card takes', () {
+    Future<int?> setup(String address) => run.uploadSetupFiles(
+      act: HostAct.ownAccount,
+      address: address,
+      user: 'developer',
+      project: 'demo',
+      machineFile: machine.path,
+      bundle: bundle.path,
+      accessBundle: accessBundle.path,
+    );
+    Future<int?> access(String address) =>
+        run.uploadAccessBundle(address: address, user: 'developer', project: 'demo', bundle: accessBundle.path);
+
+    for (final address in ['orchard.example.org', '2001:db8::7', '::1']) {
+      test(address, () async {
+        run = HostRun(provider: CountingProvider(), remote: remote, emit: (_) {});
+        expect(await setup(address), isNull);
+        expect(await access(address), isNull);
+      });
+    }
+    for (final address in ['999.999.999.999', '-oProxyCommand=x', 'host name']) {
+      test('$address is refused', () async {
+        await expectLater(setup(address), throwsFormatException);
+        await expectLater(access(address), throwsFormatException);
+      });
+    }
+  });
+
   // Harm: a failed bring blocks a fresh try even when only this interface's completed upload remains.
   test('a completed marked upload is replaced by fresh files on the next try', () async {
     final steps = <Step>[];

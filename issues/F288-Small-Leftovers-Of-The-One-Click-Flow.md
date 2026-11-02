@@ -90,6 +90,8 @@ finding; each is declined with its reason, and is read again where its code is r
   does; an entry name outside the installation pattern never reaches the secrets file.
 - **The registry environment** lists the test secrets file twice per call when it looks for the installation entry.
 - **A copy over ssh with a deadline and agent-only identities:** no caller combines the two.
+- **A card's address, against what can be reached:** a saved card takes `::`, `0.0.0.0` and a multicast address, which the check of a server's completion refuses; the upload and the stop feed then ask ssh for it, and the pinned host key still decides.
+- **A server that reports no usable address:** given by name or IPv6 address, it fails as "did not confirm completion" rather than in its own words; no server does it while the host's play needs an IPv4 default route.
 - **Push and pull in the command finder** stand only in the project's menu, as the project's other actions do.
 
 ## Idea

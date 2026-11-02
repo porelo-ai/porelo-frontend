@@ -41,8 +41,8 @@ bool _ipv6(String value) {
   return halves.length == 2 ? all.length < 8 : all.length == 8;
 }
 
-bool _usableIpv4(List<int> parts) =>
-    parts.any((part) => part != 0) && parts[0] != 127 && !(parts[0] >= 224 && parts[0] <= 239);
+/// Whether an IPv4 address is none of "this network", loopback, multicast, reserved or broadcast.
+bool _usableIpv4(List<int> parts) => parts[0] != 0 && parts[0] != 127 && parts[0] < 224;
 
 /// The eight groups of IPv6 [value], which [isCardAddress] has taken.
 List<int> _ipv6Groups(String value) {

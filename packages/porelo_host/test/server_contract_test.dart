@@ -39,7 +39,12 @@ void main() {
   for (final address in [
     '127.0.0.1',
     '0.0.0.0',
+    '0.0.0.1',
     '224.0.0.1',
+    '240.0.0.1',
+    '255.255.255.255',
+    '::ffff:0:1',
+    '::ffff:ffff:ffff',
     'localhost',
     'orchard.localhost',
     '::1',
