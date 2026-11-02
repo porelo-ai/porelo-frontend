@@ -2842,6 +2842,7 @@ class _ShellState extends State<Shell> {
       widget.machines,
       _hostRuns,
       _workView,
+      ?_organization,
       for (final machine in widget.machines.all) widget.machines.of(machine),
     ]),
     builder: (context, _) {
@@ -2859,8 +2860,11 @@ class _ShellState extends State<Shell> {
             listedMachines(widget.machines)
                 .where((row) => !rows.preparations.any((run) => run.name == row.name))
                 .length,
-        projects: listedMachines(widget.machines)
-            .fold<int>(0, (count, machine) => count + projectsOnMachine(widget.machines, machine).length),
+        projects: projectsInRail(
+          _organization?.view,
+          onMachines: listedMachines(widget.machines)
+              .fold<int>(0, (count, machine) => count + projectsOnMachine(widget.machines, machine).length),
+        ),
         forges: _forges.entries.length,
         width: width,
         onGo: (section) {

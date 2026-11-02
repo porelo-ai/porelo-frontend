@@ -1,7 +1,10 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/organization_source.dart';
 import 'package:porelo_frontend/src/ui/organization_page.dart';
+import 'package:porelo_frontend/src/ui/shell_rail.dart';
 
 import '../features/support/world.dart';
 import '../support/organization_fixtures.dart';
@@ -166,7 +169,6 @@ void main() {
       'changeProjectAdmin/demo',
       'removeProject/demo',
       'removeHost/build',
-      'removeOrganizationOwner/olive',
     ];
 
     testWidgets('an organization owner has the structure, and only their own card', (tester) async {
@@ -312,7 +314,7 @@ void main() {
       ('removeOrganizationOwner/olive', OrganizationChange.removeOrganizationOwner, {'login': 'olive'}),
     ]) {
       testWidgets('$id asks to be confirmed, then asks the store', (tester) async {
-        final (fixture, _, _) = await _pump(tester, 'olive');
+        final (fixture, _, _) = await _pump(tester, 'olive', view: organizationFor('olive', owners: ['olive', 'pat']));
         await _open(tester, _action(id));
         expect(fixture.writes, isEmpty, reason: 'Nothing is signed before it is confirmed.');
         await tester.tap(find.byKey(const Key('organization-confirm')));
@@ -411,15 +413,147 @@ void main() {
     });
   });
 
+  group('what a walk of the window found', () {
+    // Harm: a button that can only fail, on the row of the one person who must stay.
+    testWidgets('the last organization owner is offered no removal', (tester) async {
+      await _pump(tester, 'olive');
+      expect(_action('removeOrganizationOwner/olive'), findsNothing);
+    });
+
+    // Harm: a person is named owner who already is one, and only the store's refusal tells them.
+    testWidgets('naming another owner offers only people who are not one', (tester) async {
+      await _pump(tester, 'olive', view: organizationFor('olive', owners: ['olive', 'pat']));
+      await _open(tester, _action('addOrganizationOwner'));
+      await tester.tap(find.byKey(const Key('organization-person')));
+      await tester.pumpAndSettle();
+      expect(find.text('mia').hitTestable(), findsOneWidget);
+      expect(find.text('olive (you)').hitTestable(), findsNothing);
+      expect(find.text('pat').hitTestable(), findsNothing);
+    });
+
+    // Harm: an owner who has a backup key is warned of nothing, but sees no sign it was made.
+    testWidgets('an owner with a backup key says so', (tester) async {
+      await _pump(tester, 'olive', view: organizationFor('olive', ownersWithBackup: ['olive']));
+      expect(find.text('organization owner · has a backup key'), findsOneWidget);
+    });
+
+    // Harm: the rail says one number and the page it opens lists another.
+    test('the rail counts what the Projects page lists', () {
+      expect(projectsInRail(organizationFor('olive'), onMachines: 7), 2);
+      expect(projectsInRail(null, onMachines: 7), 7);
+    });
+
+    // Harm: a closed explanation back on every visit, pushing the page down.
+    testWidgets('a closed explanation stays closed when the page comes back', (tester) async {
+      final (_, organization, _) = await _pump(tester, 'olive');
+      await tester.tap(find.byIcon(Icons.close));
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(const MaterialApp(home: Scaffold()));
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: OrganizationPage(organization: organization)),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('What is the organization?'), findsNothing);
+    });
+
+    // Harm: the card goes to the organization under another key than the one the person chose.
+    testWidgets('changing the key sends the key chosen, and never offers the one the card has', (tester) async {
+      const persons = [OrganizationPerson(login: 'olive', standing: CardStanding.trusted, key: 'SHA256:old')];
+      final (fixture, _, _) = await _pump(
+        tester,
+        'olive',
+        view: organizationFor('olive', persons: persons),
+        keys: const [
+          OrganizationKey(fingerprint: 'SHA256:old', vouched: true),
+          OrganizationKey(fingerprint: 'SHA256:first', vouched: true),
+          OrganizationKey(fingerprint: 'SHA256:second', vouched: true),
+        ],
+      );
+      await _open(tester, _action('changeCard'));
+      await tester.tap(find.byKey(const Key('organization-key')));
+      await tester.pumpAndSettle();
+      expect(find.text('SHA256:old').hitTestable(), findsNothing);
+      await tester.tap(find.text('SHA256:second').hitTestable());
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('organization-confirm')));
+      await tester.pumpAndSettle();
+      expect(fixture.writes.single.input['key'], 'SHA256:second');
+    });
+
+    group('accepting a new card', () {
+      const key = 'AAAAC3NzaC1lZDI1NTE5AAAAIKn6IPaRukSTWN/i3bjSm8ARCGDymgqyDGgVDZ2gFjrF';
+
+      // Harm: a stranger's key let in without the owner seeing which key it is.
+      test('names the key the card holds, as ssh-keygen does', () {
+        expect(
+          fingerprintOfCard('login: "a"\nkey: "ssh-ed25519 $key"\n'),
+          'SHA256:RB7a9w45suMCNHu1y5jz0ioAs1NMjrEkJZ6n8rWgPtE',
+        );
+        expect(fingerprintOfCard('login: "a"\n'), isNull);
+      });
+
+      Future<FixtureOrganization> chosen(WidgetTester tester, String words) async {
+        tester.view.physicalSize = const Size(1400, 2400);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final directory = Directory.systemTemp.createTempSync('card');
+        addTearDown(() => directory.deleteSync(recursive: true));
+        final file = File('${directory.path}/card')..writeAsStringSync(words);
+        final fixture = FixtureOrganization(organizationFor('olive'));
+        final organization = Organization(fixture);
+        addTearDown(organization.dispose);
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: OrganizationPage(
+                organization: organization,
+                pickFile: ({initialDirectory, title}) async => file.path,
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await _open(tester, _action('replaceCard/mia'));
+        await tester.runAsync(() async {
+          await tester.tap(find.byKey(const Key('organization-card-file')));
+          await tester.pump();
+          await Future<void>.delayed(const Duration(milliseconds: 100));
+        });
+        await tester.pumpAndSettle();
+        return fixture;
+      }
+
+      testWidgets('shows the key, and only then asks the store with that file', (tester) async {
+        final fixture = await chosen(tester, 'key: "ssh-ed25519 $key"\n');
+        expect(find.textContaining('SHA256:RB7a9w45suMCNHu1y5jz0ioAs1NMjrEkJZ6n8rWgPtE'), findsOneWidget);
+        await tester.tap(find.byKey(const Key('organization-confirm')));
+        await tester.pumpAndSettle();
+        expect(fixture.writes.single.change, OrganizationChange.replaceCard);
+        expect(fixture.writes.single.input['login'], 'mia');
+        expect(fixture.writes.single.input['card'], endsWith('/card'));
+      });
+
+      testWidgets('a file naming no key cannot be accepted', (tester) async {
+        final fixture = await chosen(tester, 'not a card');
+        expect(find.text('This is no card: it names no key.'), findsOneWidget);
+        await tester.tap(find.byKey(const Key('organization-confirm')), warnIfMissed: false);
+        await tester.pumpAndSettle();
+        expect(fixture.writes, isEmpty);
+      });
+    });
+  });
+
   // Harm: a refused change reads as done, or a change is signed twice.
   group('nothing is shown before the store answered', () {
     testWidgets("a refusal stays in the dialog in the store's words and changes no row", (tester) async {
-      final (fixture, _, _) = await _pump(tester, 'olive');
-      fixture.refuseNext = const OrganizationRefused('The last organization owner cannot be removed.');
+      final (fixture, _, _) = await _pump(tester, 'olive', view: organizationFor('olive', owners: ['olive', 'pat']));
+      fixture.refuseNext = const OrganizationRefused('The store refused this.');
       await _open(tester, _action('removeOrganizationOwner/olive'));
       await tester.tap(find.byKey(const Key('organization-confirm')));
       await tester.pumpAndSettle();
-      expect(find.text('The last organization owner cannot be removed.'), findsOneWidget);
+      expect(find.text('The store refused this.'), findsOneWidget);
       expect(find.byType(AlertDialog), findsOneWidget);
       await tester.tap(find.text('Cancel'));
       await tester.pumpAndSettle();

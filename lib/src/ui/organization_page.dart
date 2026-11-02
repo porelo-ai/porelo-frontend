@@ -1,5 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 
+import 'package:crypto/crypto.dart' show sha256;
 import 'package:flutter/material.dart';
 import 'package:porelo_host/porelo_host.dart' show checkHostName;
 
@@ -10,6 +13,7 @@ import 'filtered_list_section.dart';
 import 'organization_dialogs.dart';
 import 'how_long.dart';
 import 'key_recovery_dialog.dart';
+import 'pick_a_file.dart';
 import 'tokens.dart';
 import 'window_size.dart';
 
@@ -20,7 +24,14 @@ final _projectName = RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$');
 /// in its row, for the person whose role it belongs to.
 class OrganizationPage extends StatefulWidget {
   /// Reads [organization].
-  const OrganizationPage({required this.organization, this.onProject, this.onHost, this.keys, super.key});
+  const OrganizationPage({
+    required this.organization,
+    this.onProject,
+    this.onHost,
+    this.keys,
+    this.pickFile = pickWithTheDesktop,
+    super.key,
+  });
 
   /// The organization.
   final Organization organization;
@@ -34,13 +45,14 @@ class OrganizationPage extends StatefulWidget {
   /// Runs the person's key commands in a terminal, absent where this computer offers none.
   final KeyCommands? keys;
 
+  /// Chooses the file of a card someone handed over.
+  final PickAFile pickFile;
+
   @override
   State<OrganizationPage> createState() => _OrganizationPageState();
 }
 
 class _OrganizationPageState extends State<OrganizationPage> {
-  bool _explained = true;
-
   @override
   void initState() {
     super.initState();
@@ -58,7 +70,8 @@ class _OrganizationPageState extends State<OrganizationPage> {
           key: const Key('organization-page'),
           padding: const EdgeInsets.all(Space.normal),
           children: [
-            if (_explained) _Explanation(onHide: () => setState(() => _explained = false)),
+            if (!organization.explanationClosed)
+              _Explanation(onHide: () => setState(() => organization.explanationClosed = true)),
             if (organization.noOrganization && view == null)
               _NoOrganization(
                 onChoose: () => _show(context, _AddressDialog(organization)),
@@ -169,6 +182,12 @@ class _OrganizationPageState extends State<OrganizationPage> {
               // Not gated on the card's standing: a revoked key is what this replaces.
               if (person.login == view.me && widget.keys != null)
                 _command('replaceLostKey', 'Replace a lost key…', () => unawaited(_replaceLostKey(view, organization))),
+              if (person.login != view.me && view.isOwner)
+                _command(
+                  'replaceCard/${person.login}',
+                  'Accept a new card…',
+                  () => show(_AcceptCardDialog(organization, login: person.login, pickFile: widget.pickFile)),
+                ),
               if (person.login != view.me && view.isOwner && person.standing != CardStanding.revoked)
                 _command(
                   'revokeCard/${person.login}',
@@ -404,6 +423,10 @@ class _OrganizationPageState extends State<OrganizationPage> {
                 organization,
                 title: 'Another organization owner of ${view.name}',
                 personLabel: 'Organization owner',
+                people: [
+                  for (final person in view.holdingRoles)
+                    if (!view.owners.contains(person.login)) person.login,
+                ],
                 words: 'They may change its projects, its hosts and its owners, as you may.',
                 confirm: 'Name them',
                 change: OrganizationChange.addOrganizationOwner,
@@ -420,11 +443,14 @@ class _OrganizationPageState extends State<OrganizationPage> {
           child: _Row(
             icon: Icons.shield_outlined,
             title: owner == view.me ? '$owner (you)' : owner,
-            subtitle: 'organization owner',
+            subtitle: view.ownersWithBackup.contains(owner)
+                ? 'organization owner · has a backup key'
+                : 'organization owner',
             actions: [
               if (owner == view.me && view.isOwner && widget.keys != null)
                 _command('makeBackupKey', 'Make a backup key…', () => unawaited(_makeBackupKey(view, organization))),
-              if (view.isOwner)
+              // The last owner cannot be removed, so nothing offers it.
+              if (view.isOwner && view.owners.length > 1)
                 _command(
                   'removeOrganizationOwner/$owner',
                   'Remove',
@@ -434,10 +460,8 @@ class _OrganizationPageState extends State<OrganizationPage> {
                       organization,
                       title: 'Remove $owner as an organization owner?',
                       words: owner == view.me
-                          ? 'You no longer change its projects, its hosts or its owners. The last organization owner '
-                                'cannot be removed.'
-                          : '$owner no longer changes its projects, its hosts or its owners. The last organization '
-                                'owner cannot be removed.',
+                          ? 'You no longer change its projects, its hosts or its owners.'
+                          : '$owner no longer changes its projects, its hosts or its owners.',
                       confirm: 'Remove',
                       change: OrganizationChange.removeOrganizationOwner,
                       input: {'login': owner},
@@ -817,6 +841,7 @@ class _AddressDialogState extends State<_AddressDialog> {
           )
         else if (widget.replacing)
           const Text('This computer reads one organization, so it will read that one instead of this one.'),
+        const SizedBox(height: Space.small),
         TextField(
           key: const Key('organization-address'),
           controller: _address,
@@ -837,6 +862,83 @@ class _AddressDialogState extends State<_AddressDialog> {
             change: widget.creating ? OrganizationChange.createOrganization : OrganizationChange.chooseOrganization,
             input: {'address': _address.text.trim(), if (widget.replacing) 'replace': 'yes'},
           ),
+  );
+}
+
+/// The fingerprint of the key a card names, as the person's own view shows it; null where it names none.
+@visibleForTesting
+String? fingerprintOfCard(String card) {
+  final key = RegExp(r'^key: "ssh-ed25519 ([A-Za-z0-9+/=]+)', multiLine: true).firstMatch(card)?.group(1);
+  if (key == null) return null;
+  final hash = base64Encode(sha256.convert(base64Decode(key)).bytes);
+  return 'SHA256:${hash.replaceAll('=', '')}';
+}
+
+/// Puts the new card a person handed over in place of their lost key's. It shows what the card says first, since
+/// accepting lets whoever holds that key in wherever the person was.
+class _AcceptCardDialog extends StatefulWidget {
+  const _AcceptCardDialog(this.organization, {required this.login, required this.pickFile});
+
+  final Organization organization;
+  final String login;
+  final PickAFile pickFile;
+
+  @override
+  State<_AcceptCardDialog> createState() => _AcceptCardDialogState();
+}
+
+class _AcceptCardDialogState extends State<_AcceptCardDialog> {
+  String? _file;
+  String? _fingerprint;
+  String? _unread;
+
+  Future<void> _choose(VoidCallback changed) async {
+    final file = await widget.pickFile(title: "Choose ${widget.login}'s new card");
+    if (file == null) return;
+    String? fingerprint;
+    String? unread;
+    try {
+      fingerprint = fingerprintOfCard(await File(file).readAsString());
+      if (fingerprint == null) unread = 'This is no card: it names no key.';
+    } on FileSystemException catch (error) {
+      unread = 'It could not be read: ${error.osError?.message ?? error.message}.';
+    } on FormatException {
+      unread = 'This is no card: it names no key.';
+    }
+    if (!mounted) return;
+    _file = file;
+    _fingerprint = fingerprint;
+    _unread = unread;
+    changed();
+  }
+
+  @override
+  Widget build(BuildContext context) => OrganizationChangeDialog(
+    organization: widget.organization,
+    title: "Accept ${widget.login}'s new card?",
+    confirm: 'Accept the card',
+    body: (context, changed) => Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      spacing: Space.small,
+      children: [
+        Text(
+          'For a person who lost their key. Ask ${widget.login}, by a way you trust, whether this key is theirs: '
+          'whoever holds it comes in wherever they were.',
+        ),
+        OutlinedButton(
+          key: const Key('organization-card-file'),
+          onPressed: () => unawaited(_choose(changed)),
+          child: Text(_file ?? 'Choose the card file…'),
+        ),
+        if (_unread case final unread?) Text(unread, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+        if (_fingerprint case final fingerprint?)
+          SelectableText('Its key: $fingerprint', key: const Key('organization-card-key')),
+      ],
+    ),
+    ask: () => _fingerprint == null
+        ? null
+        : (change: OrganizationChange.replaceCard, input: {'login': widget.login, 'card': _file!}),
   );
 }
 
@@ -883,8 +985,13 @@ class _KeyDialogState extends State<_KeyDialog> {
     return FutureBuilder<List<OrganizationKey>>(
       future: _keys,
       builder: (context, snapshot) {
-        final keys = snapshot.data ?? const <OrganizationKey>[];
-        final key = keys.where((key) => key.fingerprint == _chosen).firstOrNull ?? keys.firstOrNull;
+        // Changing the key offers no key the card already has: Core refuses that as no change.
+        final keys = [
+          for (final key in snapshot.data ?? const <OrganizationKey>[])
+            if (widget.adding || key.fingerprint != view?.myCard?.key) key,
+        ];
+        // Asked each time: choosing rebuilds only the dialog around this, so a value kept here would stay the first.
+        OrganizationKey? chosenKey() => keys.where((key) => key.fingerprint == _chosen).firstOrNull ?? keys.firstOrNull;
         return OrganizationChangeDialog(
           organization: widget.organization,
           title: !widget.adding
@@ -930,12 +1037,16 @@ class _KeyDialogState extends State<_KeyDialog> {
               else if (snapshot.connectionState != ConnectionState.done)
                 const Text('Asking for your keys…')
               else if (keys.isEmpty)
-                const Text('No key is in your ssh agent. Add one to it, then open this again.')
+                Text(
+                  widget.adding
+                      ? 'No key is in your ssh agent. Add one to it, then open this again.'
+                      : 'Your ssh agent holds no other key. Add the new one to it, then open this again.',
+                )
               else ...[
                 DropdownButtonFormField<String>(
                   key: const Key('organization-key'),
                   isExpanded: true,
-                  initialValue: key?.fingerprint,
+                  initialValue: chosenKey()?.fingerprint,
                   decoration: const InputDecoration(labelText: 'Your key'),
                   items: [
                     for (final key in keys)
@@ -953,7 +1064,7 @@ class _KeyDialogState extends State<_KeyDialog> {
                   },
                 ),
                 const SizedBox(height: Space.small),
-                Text(switch (key?.vouched) {
+                Text(switch (chosenKey()?.vouched) {
                   true => '$vouchedBy lists this key for ${_me(view)}',
                   false => '$vouchedBy does not list this key for ${_me(view)}: add it there first.',
                   null => '$vouchedBy could not say whether this key is yours; the organization asks when it is filed.',
@@ -961,22 +1072,25 @@ class _KeyDialogState extends State<_KeyDialog> {
               ],
             ],
           ),
-          ask: () =>
-              key == null ||
-                  key.vouched == false ||
-                  (widget.adding && (_login.text.trim().isEmpty || _name.text.trim().isEmpty))
-              ? null
-              : (
-                  change: widget.adding ? OrganizationChange.addCard : OrganizationChange.changeCard,
-                  input: {
-                    'key': key.fingerprint,
-                    if (widget.adding) ...{
-                      'login': _login.text.trim(),
-                      'name': _name.text.trim(),
-                      if (_email.text.trim().isNotEmpty) 'email': _email.text.trim(),
-                    },
-                  },
-                ),
+          ask: () {
+            final key = chosenKey();
+            if (key == null ||
+                key.vouched == false ||
+                (widget.adding && (_login.text.trim().isEmpty || _name.text.trim().isEmpty))) {
+              return null;
+            }
+            return (
+              change: widget.adding ? OrganizationChange.addCard : OrganizationChange.changeCard,
+              input: {
+                'key': key.fingerprint,
+                if (widget.adding) ...{
+                  'login': _login.text.trim(),
+                  'name': _name.text.trim(),
+                  if (_email.text.trim().isNotEmpty) 'email': _email.text.trim(),
+                },
+              },
+            );
+          },
         );
       },
     );

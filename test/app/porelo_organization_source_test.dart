@@ -184,6 +184,7 @@ void main() {
         ],
       });
       final view = await source.read();
+      expect(view.ownersWithBackup, ['mia']);
       expect(view.owners, ['mia']);
       expect(view.hosts.single.admins, ['hank']);
       expect(view.persons.first.login, 'alice');
@@ -616,6 +617,7 @@ void main() {
       (OrganizationChange.addOrganizationOwner, {'login': 'a'}, ['org', 'owner', 'add', 'a']),
       (OrganizationChange.removeOrganizationOwner, {'login': 'a'}, ['org', 'owner', 'remove', 'a']),
       (OrganizationChange.revokeCard, {'login': 'a'}, ['org', 'person', 'revoke', 'a']),
+      (OrganizationChange.replaceCard, {'login': 'a', 'card': 'f'}, ['org', 'person', 'replace', 'a', '--card', 'f']),
       (OrganizationChange.addProject, {'project': 'p', 'admin': 'a'}, ['org', 'project', 'add', 'p', '--admin', 'a']),
       (OrganizationChange.removeProject, {'project': 'p'}, ['org', 'project', 'remove', 'p']),
       (OrganizationChange.changeProjectAdmin, {'project': 'p', 'admin': 'a'}, ['org', 'project', 'admin', 'p', 'a']),

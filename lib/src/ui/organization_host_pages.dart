@@ -520,15 +520,21 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
             child: ListTile(
               leading: const Icon(Icons.shield_outlined),
               title: Text(admin == view.me ? '$admin (you)' : admin),
-              subtitle: Text(_standing(view, admin)),
-              trailing: isAdmin
+              subtitle: Text(
+                [
+                  _standing(view, admin),
+                  if (host.adminKeys.any((key) => key.login == admin && key.backup)) 'has a backup key',
+                ].join(' · '),
+              ),
+              // The last host admin cannot be removed, so nothing offers it.
+              trailing: isAdmin && host.admins.length > 1
                   ? TextButton(
                       key: ValueKey('organization.removeHostAdmin/$admin'),
                       onPressed: () => _show(
                         OrganizationConfirmDialog(
                           widget.organization,
                           title: 'Remove $admin as a host admin of ${host.name}?',
-                          words: 'They no longer manage this host. The last host admin cannot be removed.',
+                          words: 'They no longer manage this host.',
                           confirm: 'Remove',
                           change: OrganizationChange.removeHostAdmin,
                           input: {'host': host.name, 'login': admin},

@@ -117,8 +117,9 @@ void main() {
       String host = 'build',
       List<OrganizationProject> moreProjects = const [],
       Future<void> Function(String host)? onGiveToken,
+      OrganizationHost shown = buildHost,
     }) async {
-      final source = FixtureOrganization(organizationFor(me, moreProjects: moreProjects));
+      final source = FixtureOrganization(organizationFor(me, moreProjects: moreProjects, host: shown));
       final organization = Organization(source);
       addTearDown(organization.dispose);
       await organization.refresh();
@@ -187,14 +188,37 @@ void main() {
     });
 
     // Harm: a host loses its last admin, or a refusal is lost.
-    testWidgets('removing a host admin says the last cannot go, and shows the refusal', (tester) async {
-      final made = await page(tester, 'hana');
-      made.source.refuseNext = const OrganizationRefused('The last host admin cannot be removed.');
-      await _tap(tester, _action('removeHostAdmin/hana'));
-      expect(find.textContaining('The last host admin cannot be removed.'), findsOneWidget);
+    // Harm: a button that can only fail, on the row of the one person who must stay.
+    testWidgets('the last host admin is offered no removal', (tester) async {
+      await page(tester, 'hana');
+      expect(_action('removeHostAdmin/hana'), findsNothing);
+    });
+
+    testWidgets('removing one of two host admins shows the refusal', (tester) async {
+      final made = await page(
+        tester,
+        'hana',
+        shown: const OrganizationHost(name: 'build', admins: ['hana', 'pat']),
+      );
+      made.source.refuseNext = const OrganizationRefused('The store refused this.');
+      await _tap(tester, _action('removeHostAdmin/pat'));
       await _tap(tester, _confirm());
-      expect(find.textContaining('The last host admin cannot be removed.'), findsWidgets);
+      expect(find.textContaining('The store refused this.'), findsWidgets);
       expect(made.source.writes, hasLength(1));
+    });
+
+    // Harm: a host admin who made a backup key sees no sign of it.
+    testWidgets('a host admin with a backup key says so', (tester) async {
+      await page(
+        tester,
+        'hana',
+        shown: const OrganizationHost(
+          name: 'build',
+          admins: ['hana'],
+          adminKeys: [HostAdminKey(login: 'hana', key: 'k', backup: true)],
+        ),
+      );
+      expect(find.textContaining('has a backup key'), findsOneWidget);
     });
 
     // Harm: a person is named a host admin who cannot act, or who already is one.

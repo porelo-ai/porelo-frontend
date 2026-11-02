@@ -248,17 +248,13 @@ void main() {
     test('cancelling a lost-key plan calls nothing; confirming runs the reviewed key once', () async {
       // Harm: a vault deleted without the person's review, or deleted twice.
       core.answer('identity revoke --dry-run', {
-        'places': [
-          {
-            'where': 'organization',
-            'address': 'https://github.com/porelo-ai/organization',
-            'status': 'planned',
-            'why': null,
-            'who_may': [
-              {'login': 'owner', 'name': 'Owner', 'email': null},
-            ],
-          },
-        ],
+        'plan': {
+          'who_may': [
+            {'login': 'owner', 'name': 'Owner', 'email': null},
+          ],
+          'accepted_with': 'porelo org person replace LOGIN --card FILE',
+          'order': 'A backup key works only while the old key is still on the forge.',
+        },
         'hosts': [
           {'host': 'demo', 'vault': 'reset'},
         ],
@@ -277,14 +273,14 @@ void main() {
       expect(core.calls.where((call) => call[1] != 'show' && !call.contains('--dry-run')), isEmpty);
 
       await model.planLostKey(_usable());
-      expect(model.lostKeyPlan!.plan.places.single.name, 'https://github.com/porelo-ai/organization');
+      expect(model.lostKeyPlan!.plan.whoMay.single.login, 'owner');
       final id = model.lostKeyPlan!.id;
       core.answer('identity revoke', _operation(id));
       await model.confirmLostKey();
       await model.confirmLostKey();
       final runs = core.calls.where((call) => call[1] == 'revoke' && !call.contains('--dry-run')).toList();
       expect(runs, [
-        ['identity', 'revoke', '--lost', '--key', _new, '--base', _revision, '--id', id, '--json'],
+        ['identity', 'revoke', '--lost', '--key', _new, '--id', id, '--json'],
       ]);
       expect(model.lostKeyCardMade, isTrue);
     });
@@ -391,14 +387,18 @@ void main() {
       'next': ['file-card'],
     });
     core.answer('identity rotate', _operation('rot-1'));
-    core.answer('identity revoke --dry-run', {'places': <Object?>[], 'hosts': <Object?>[], 'sign_ins': <Object?>[]});
+    core.answer('identity revoke --dry-run', {
+      'plan': <String, Object?>{'who_may': <Object?>[]},
+      'hosts': <Object?>[],
+      'sign_ins': <Object?>[],
+    });
     core.answer('identity revoke', _operation('lost-1'));
     await identity.show();
     await identity.keys();
     await identity.createWithKey(login: 'rowan', name: 'Rowan', email: 'rowan@example.org', fingerprint: _new);
     await identity.rotate(fingerprint: _new, id: 'rot-1', base: _revision);
     await identity.planLostKey(fingerprint: _new);
-    await identity.replaceLostKey(fingerprint: _new, id: 'lost-1', base: _revision);
+    await identity.replaceLostKey(fingerprint: _new, id: 'lost-1');
     expect(core.calls, [
       ['identity', 'show', '--json'],
       ['identity', 'keys', '--json'],
@@ -417,7 +417,7 @@ void main() {
       ],
       ['identity', 'rotate', '--key', _new, '--base', _revision, '--id', 'rot-1', '--json'],
       ['identity', 'revoke', '--lost', '--key', _new, '--dry-run', '--json'],
-      ['identity', 'revoke', '--lost', '--key', _new, '--base', _revision, '--id', 'lost-1', '--json'],
+      ['identity', 'revoke', '--lost', '--key', _new, '--id', 'lost-1', '--json'],
     ]);
     expect(core.inputs, everyElement(isNull));
     expect(core.environments, everyElement(isEmpty));
@@ -457,7 +457,11 @@ void main() {
 
   group('a lost key replaced by a new KeePassXC key runs once in its terminal', () {
     // Harm: vaults reset without review, or a second new key made after an interruption.
-    const plan = {'places': <Object?>[], 'hosts': <Object?>[], 'sign_ins': <Object?>[]};
+    const plan = {
+      'plan': <String, Object?>{'who_may': <Object?>[]},
+      'hosts': <Object?>[],
+      'sign_ins': <Object?>[],
+    };
 
     test('the dry run comes first, then the confirmed command once', () async {
       // A revoked key is the stolen case: replacing it stays open, unlike every change that needs it.
@@ -487,8 +491,6 @@ void main() {
         '/home/person/Passwords.kdbx',
         '--entry',
         'Porelo/key',
-        '--base',
-        _revision,
         '--id',
         id,
         '--json',
@@ -576,7 +578,11 @@ void main() {
       );
       await model.load();
       expect(model.whyNotLostKey, isNull);
-      core.answer('identity revoke --dry-run', {'places': <Object?>[], 'hosts': <Object?>[], 'sign_ins': <Object?>[]});
+      core.answer('identity revoke --dry-run', {
+        'plan': <String, Object?>{'who_may': <Object?>[]},
+        'hosts': <Object?>[],
+        'sign_ins': <Object?>[],
+      });
       await model.planLostKey(_usable());
       expect(core.named('identity revoke'), hasLength(1));
       expect(model.lostKeyPlan?.id, isNot('rot-20261031-1'), reason: 'a new change, under its own id');
@@ -683,8 +689,6 @@ void main() {
         '--lost',
         '--key',
         waiting,
-        '--base',
-        _revision,
         '--id',
         'lost-1',
         '--json',
@@ -851,7 +855,11 @@ void main() {
     Future<IdentityOperation?> answered(Map<String, Object?> answer) async {
       core.answer('identity show', _shown());
       await model.load();
-      core.answer('identity revoke --dry-run', {'places': <Object?>[], 'hosts': <Object?>[], 'sign_ins': <Object?>[]});
+      core.answer('identity revoke --dry-run', {
+        'plan': <String, Object?>{'who_may': <Object?>[]},
+        'hosts': <Object?>[],
+        'sign_ins': <Object?>[],
+      });
       await model.planLostKey(_usable());
       core.answer('identity revoke', {..._operation(model.lostKeyPlan!.id), ...answer});
       await model.confirmLostKey();

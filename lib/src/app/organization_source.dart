@@ -158,6 +158,7 @@ class OrganizationView {
     this.projects = const [],
     this.hosts = const [],
     this.owners = const [],
+    this.ownersWithBackup = const [],
   });
 
   /// The organization's name.
@@ -192,6 +193,9 @@ class OrganizationView {
 
   /// The logins of its organization owners; a backup key is no owner of its own.
   final List<String> owners;
+
+  /// The owners among [owners] who have made a backup key.
+  final List<String> ownersWithBackup;
 
   /// Whether this is the last state read because the store could not be reached.
   final bool stale;
@@ -382,6 +386,9 @@ enum OrganizationChange {
 
   /// Revoke a card: one's own, or any for an organization owner.
   revokeCard,
+
+  /// Put a person's new card in place of a lost key's: an organization owner's.
+  replaceCard,
 
   /// Change a host's address and host key.
   changeHost,
@@ -585,6 +592,9 @@ class Organization extends ChangeNotifier {
 
   /// How long [addressOf] and [whyNoRemoval] go on using an answer before the next need reads it again.
   static const answersKeptFor = Duration(minutes: 5);
+
+  /// Whether the person closed the page's explanation; kept while the window is open, as the page comes and goes.
+  bool explanationClosed = false;
 
   /// The last state read, or null before any.
   OrganizationView? view;

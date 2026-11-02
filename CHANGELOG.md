@@ -37,6 +37,18 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- *Replace a lost key…* reads Core's real plan and no longer sends an option `identity revoke` does not have: both
+  stopped every replacement. It no longer tells the person to have their card revoked first, which leaves nothing to
+  replace.
+- *Change my key* and *Add me* send the key chosen; they sent the first of the list whatever the field showed.
+  *Change my key* no longer offers the key the card already has.
+- An organization owner can now accept a person's new card, *Accept a new card…*, seeing the key it names first. No
+  page offered `org person replace`, so no lost key could be replaced.
+- *Add an organization owner* offers only people who are not one. The last owner and the last host admin are offered
+  no removal that can only fail. Owners and host admins with a backup key say so.
+- The organization's explanation stays closed while the window is open, and the rail's *Projects* counts what its page
+  lists.
+
 - Typing fast into a terminal no longer sends letters twice over: a key pressed before the engine took the last reset
   sent everything so far again. Dead keys, such as a German keyboard's backtick, still compose. It takes a patched copy
   of `xterm` in `packages/xterm`, whose `PATCHED.md` says what differs.

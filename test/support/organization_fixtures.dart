@@ -165,6 +165,8 @@ OrganizationView organizationFor(
   List<OrganizationProject> moreProjects = const [],
   OrganizationHost host = buildHost,
   bool stale = false,
+  List<String> owners = const ['olive'],
+  List<String> ownersWithBackup = const [],
 }) => OrganizationView(
   stale: stale,
   name: 'acme',
@@ -173,7 +175,8 @@ OrganizationView organizationFor(
   revision: 'r1',
   me: me,
   persons: persons,
-  owners: const ['olive'],
+  owners: owners,
+  ownersWithBackup: ownersWithBackup,
   projects: [
     const OrganizationProject(name: 'demo', admins: ['pat'], members: ['mia'], host: 'build', repositories: 2),
     const OrganizationProject(name: 'other', admins: ['hana']),

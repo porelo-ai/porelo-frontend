@@ -64,15 +64,13 @@ const _agentKeys = {
 };
 
 const _plan = {
-  'places': [
-    {
-      'where': 'organization',
-      'address': 'git@github.com:acme/organization.git',
-      'status': 'planned',
-      'why': null,
-      'who_may': <Object?>[],
-    },
-  ],
+  'plan': {
+    'who_may': [
+      {'login': 'olive', 'name': 'Olive Owner', 'email': null},
+    ],
+    'accepted_with': 'porelo org person replace LOGIN --card FILE',
+    'order': 'A backup key works only while the old key is still on the forge.',
+  },
   'hosts': <Object?>[],
   'sign_ins': <Object?>[],
 };
@@ -281,7 +279,7 @@ void main() {
     testWidgets('is shown with the plan and nothing accepts it', (tester) async {
       await made(tester);
       expect(find.text('login: olive\n'), findsOneWidget);
-      expect(find.textContaining('organization git@github.com:acme/organization.git'), findsOneWidget);
+      expect(find.textContaining('Olive Owner (olive)'), findsOneWidget);
       expect(find.byKey(const Key('identity-lost-confirm')), findsNothing);
       expect(find.widgetWithText(TextButton, 'Accept'), findsNothing);
       expect(find.widgetWithText(FilledButton, 'Accept'), findsNothing);
@@ -348,7 +346,7 @@ void main() {
       await _tap(tester, _action('replaceLostKey'));
       await _tap(tester, find.byKey(const Key('identity.tryAgain lost-1')));
       final call = rig.called.singleWhere((call) => call[1] == 'revoke');
-      expect(call, containsAllInOrder(['--key', _new, '--base', 'r1', '--id', 'lost-1']));
+      expect(call, containsAllInOrder(['--key', _new, '--id', 'lost-1']));
       expect(find.text('login: olive\n'), findsOneWidget);
     });
 
@@ -409,7 +407,8 @@ void main() {
       await _tap(tester, find.byKey(const Key('identity-lost-confirm')));
       final done = rig.called.where((call) => call[1] == 'revoke' && !call.contains('--dry-run')).toList();
       expect(done, hasLength(1));
-      expect(done.single, containsAllInOrder(['--key', _new, '--base', 'r1', '--id']));
+      expect(done.single, containsAllInOrder(['--key', _new, '--id']));
+      expect(done.single, isNot(contains('--base')), reason: 'identity revoke has no such option, and files nothing.');
       expect(find.byKey(const Key('identity-operation')), findsOneWidget);
     });
 

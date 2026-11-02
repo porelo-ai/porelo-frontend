@@ -788,29 +788,6 @@ class _Unfinished extends StatelessWidget {
   );
 }
 
-String _placeWords(PublishedPlace place) => switch (place.status) {
-  PlaceState.done => 'done',
-  PlaceState.pending => 'pending${place.why == null ? '' : ': ${place.why}'}',
-  PlaceState.refused => 'refused: ${place.why}',
-  PlaceState.planned => 'planned${place.why == null ? '' : ': ${place.why}'}',
-  PlaceState.unknown => 'Core says “${place.statusWord}”, which this interface does not know',
-};
-
-class _PlaceRow extends StatelessWidget {
-  const _PlaceRow(this.place);
-
-  final PublishedPlace place;
-
-  @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text('${place.where} ${place.name}: ${_placeWords(place)}'),
-      for (final person in place.whoMay) _ContactRow(person),
-    ],
-  );
-}
-
 class _OperationView extends StatelessWidget {
   const _OperationView(this.operation, {required this.plan, required this.chooseNewFile, required this.writeCard});
 
@@ -922,10 +899,15 @@ class _PlanWords extends StatelessWidget {
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       const Text(
-        'Your new card is not signed by the lost key, so each place below waits until someone named accepts it. '
-        'If your key was stolen, ask them to revoke it first.',
+        'Your new card is not signed by the lost key, so nothing takes it until an organization owner accepts it. '
+        'Accepting it revokes the old key, so if your key was stolen, tell them at once. Do not ask them to revoke '
+        'your card: after that there is nothing to replace, and you come back with a card of your own.',
       ),
-      for (final place in plan.places) _PlaceRow(place),
+      const Text(
+        'A backup key works only while the old key is still on the forge: use it first, then take the old key off '
+        'the forge. After that only an owner can put the new card in place.',
+      ),
+      for (final person in plan.whoMay) _ContactRow(person),
       for (final host in plan.hosts) Text('Your vault on ${host.host} is deleted and made again.'),
       for (final signIn in plan.signIns) Text('On ${signIn.host}, sign in again for: ${signIn.entries.join(', ')}'),
     ],

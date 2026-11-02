@@ -39,24 +39,6 @@ enum FiledState {
   unknown,
 }
 
-/// Where one place of an identity operation stands.
-enum PlaceState {
-  /// The place took the new card.
-  done,
-
-  /// The place has not taken it yet.
-  pending,
-
-  /// The place refused it.
-  refused,
-
-  /// A dry run's place, nothing done.
-  planned,
-
-  /// A word this interface does not know yet, never read as done.
-  unknown,
-}
-
 T _enum<T>(Object? word, Map<String, T> names, T unknown) {
   if (word is! String) throw const FormatException('Core did not answer a state word.');
   return names[word] ?? unknown;
@@ -74,13 +56,6 @@ FiledState _filed(Object? word) => _enum(word, const {
   'refused': FiledState.refused,
   'absent': FiledState.absent,
 }, FiledState.unknown);
-
-PlaceState _place(Object? word) => _enum(word, const {
-  'done': PlaceState.done,
-  'pending': PlaceState.pending,
-  'refused': PlaceState.refused,
-  'planned': PlaceState.planned,
-}, PlaceState.unknown);
 
 /// The organization this machine reads and how it holds the person's card.
 @immutable
@@ -251,38 +226,6 @@ class IdentityCard {
   }
 }
 
-/// One place a lost key's replacement reaches.
-@immutable
-class PublishedPlace {
-  /// Constructor taking every field Core answers.
-  const PublishedPlace({
-    required this.where,
-    required this.name,
-    required this.status,
-    required this.statusWord,
-    required this.why,
-    required this.whoMay,
-  });
-
-  /// `organization`, `project`, `host`, or a word this interface does not know.
-  final String where;
-
-  /// The organization's address, the project's or the host's name.
-  final String name;
-
-  /// Where the place stands.
-  final PlaceState status;
-
-  /// Core's own word, shown when [status] is unknown.
-  final String statusWord;
-
-  /// Why it waits or was refused.
-  final String? why;
-
-  /// Who must accept it.
-  final List<PersonContact> whoMay;
-}
-
 /// The answer of `identity rotate` and `identity revoke --lost`, as every write answers.
 @immutable
 class IdentityOperation {
@@ -341,10 +284,10 @@ class SignInsAgain {
 @immutable
 class LostKeyPlan {
   /// Constructor taking every field Core answers.
-  const LostKeyPlan({required this.places, required this.hosts, required this.signIns});
+  const LostKeyPlan({required this.whoMay, required this.hosts, required this.signIns});
 
-  /// Each place and who must accept the replacement.
-  final List<PublishedPlace> places;
+  /// The organization owners who may accept the new card.
+  final List<PersonContact> whoMay;
 
   /// The hosts whose vault is made again.
   final List<VaultReset> hosts;
@@ -602,14 +545,14 @@ class Identity implements AgentKeyList {
       '--dry-run',
       '--json',
     ]);
-    final places = answer['places'];
+    final plan = answer['plan'];
     final hosts = answer['hosts'];
     final signIns = answer['sign_ins'];
-    if (places is! List || hosts is! List || signIns is! List) {
+    if (plan is! Map<String, dynamic> || hosts is! List || signIns is! List) {
       throw const FormatException('Core did not answer the whole lost-key plan.');
     }
     return LostKeyPlan(
-      places: List.unmodifiable(places.map(_publishedPlace)),
+      whoMay: _contacts(plan['who_may']),
       hosts: List.unmodifiable(
         hosts.map((host) {
           if (host is! Map<String, dynamic>) throw const FormatException('Invalid host in the plan.');
@@ -625,28 +568,23 @@ class Identity implements AgentKeyList {
     );
   }
 
-  /// Replaces a lost key by [fingerprint] under operation [id] against [base], after the plan was confirmed.
-  Future<IdentityOperation> replaceLostKey({required String fingerprint, required String id, String? base}) async =>
-      _operation(
-        await _call([
-          'identity',
-          'revoke',
-          '--lost',
-          '--key',
-          _fingerprint(fingerprint),
-          ..._write(id, base),
-          '--json',
-        ]),
-        'revoke-lost',
-      );
+  /// Replaces a lost key by [fingerprint] under operation [id], after the plan was confirmed. It files nothing, so it
+  /// names no revision.
+  Future<IdentityOperation> replaceLostKey({required String fingerprint, required String id}) async => _operation(
+    await _call(['identity', 'revoke', '--lost', '--key', _fingerprint(fingerprint), ..._write(id, null), '--json']),
+    'revoke-lost',
+  );
 
-  /// The command a terminal runs to replace a lost key by a new one in KeePassXC under operation [id] against [base].
-  static List<String> replaceLostKeyInKeepassxc({
-    required String database,
-    String? entry,
-    required String id,
-    String? base,
-  }) => ['porelo', 'identity', 'revoke', '--lost', ..._keepassxc(database, entry), ..._write(id, base), '--json'];
+  /// The command a terminal runs to replace a lost key by a new one in KeePassXC under operation [id].
+  static List<String> replaceLostKeyInKeepassxc({required String database, String? entry, required String id}) => [
+    'porelo',
+    'identity',
+    'revoke',
+    '--lost',
+    ..._keepassxc(database, entry),
+    ..._write(id, null),
+    '--json',
+  ];
 
   /// Reads what a terminal running operation [id] of [action] ended with; refuses an unreadable answer or another's.
   static IdentityOperation terminalAnswer(String lastLine, {required String id, required String action}) {
@@ -906,29 +844,6 @@ class Identity implements AgentKeyList {
     );
   }
 
-  static PublishedPlace _publishedPlace(Object? value) {
-    if (value is! Map<String, dynamic>) throw const FormatException('Invalid published place.');
-    final where = _text(value, 'where');
-    final name = switch (where) {
-      'organization' => _text(value, 'address'),
-      'project' => _text(value, 'project'),
-      'host' => _text(value, 'host'),
-      _ => where,
-    };
-    final statusWord = _text(value, 'status');
-    final status = _place(statusWord);
-    final why = _textOrNull(value, 'why');
-    if (status == PlaceState.refused && why == null) throw const FormatException('A refused place names no reason.');
-    return PublishedPlace(
-      where: where,
-      name: name,
-      status: status,
-      statusWord: statusWord,
-      why: why,
-      whoMay: _contacts(value['who_may']),
-    );
-  }
-
   static IdentityOperation _operation(Map<String, dynamic> value, String action) {
     final revision = value['revision'];
     final again = value['again'];
@@ -1169,7 +1084,7 @@ class IdentityModel extends ChangeNotifier {
     final answer = await _step(
       () => row.action == 'rotate'
           ? core.rotate(fingerprint: fingerprint, id: id, base: base)
-          : core.replaceLostKey(fingerprint: fingerprint, id: id, base: base),
+          : core.replaceLostKey(fingerprint: fingerprint, id: id),
     );
     if (answer != null && answer.id != id) {
       problem = 'Core answered for operation ${answer.id}, not $id. Nothing is assumed from it.';
@@ -1412,12 +1327,7 @@ class IdentityModel extends ChangeNotifier {
     final reviewed = lostKeyPlan;
     final database = reviewed?.database;
     if (reviewed == null || database == null || whyNotLostKey != null) return null;
-    final command = Identity.replaceLostKeyInKeepassxc(
-      database: database,
-      entry: reviewed.entry,
-      id: reviewed.id,
-      base: card?.revision,
-    );
+    final command = Identity.replaceLostKeyInKeepassxc(database: database, entry: reviewed.entry, id: reviewed.id);
     lostKeyPlan = null;
     handoverPlan = reviewed.plan;
     _started(reviewed.id, 'revoke-lost', command: command);
@@ -1438,12 +1348,7 @@ class IdentityModel extends ChangeNotifier {
     if (reviewed == null || fingerprint == null || whyNotLostKey != null || fingerprint == card?.fingerprint) return;
     lostKeyPlan = null;
     handoverPlan = reviewed.plan;
-    final base = card?.revision;
-    await _ask(
-      reviewed.id,
-      'revoke-lost',
-      () => core.replaceLostKey(fingerprint: fingerprint, id: reviewed.id, base: base),
-    );
+    await _ask(reviewed.id, 'revoke-lost', () => core.replaceLostKey(fingerprint: fingerprint, id: reviewed.id));
   }
 
   /// Whether a new card waits here for a lost key: one just replaced, or one Core still lists as pending.

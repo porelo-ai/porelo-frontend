@@ -93,6 +93,10 @@ class PoreloOrganizationSource implements OrganizationSource {
       // No card here: nobody is named, and the person sees *Add me*.
       me: me == null ? '' : _text(me, 'login'),
       owners: _holders(_maps(answer, 'owners')),
+      ownersWithBackup: [
+        for (final entry in _maps(answer, 'owners'))
+          if (entry['backup'] == true) _text(entry, 'login'),
+      ],
       persons: [for (final person in _maps(answer, 'people')) _person(person, vouchedBy)],
       projects: [
         for (final project in _maps(answer, 'projects'))
@@ -294,6 +298,7 @@ class PoreloOrganizationSource implements OrganizationSource {
       ],
       OrganizationChange.changeCard => ['identity', 'rotate', '--key', given('key')],
       OrganizationChange.revokeCard => ['org', 'person', 'revoke', given('login')],
+      OrganizationChange.replaceCard => ['org', 'person', 'replace', given('login'), '--card', given('card')],
       OrganizationChange.addOrganizationOwner => ['org', 'owner', 'add', given('login')],
       OrganizationChange.removeOrganizationOwner => ['org', 'owner', 'remove', given('login')],
       OrganizationChange.addProject => ['org', 'project', 'add', given('project'), '--admin', given('admin')],
