@@ -7,6 +7,7 @@
 
 ## Plan
 
+- `lib/src/ui/organization_host_pages.dart`: what the host's `org status` says is read there. A host admin sees each project's state on the host, and read only, with no action beside it, a locked person and the day their account will be deleted: "locked, account deleted on <day>".
 - `lib/src/ui/machine_details_page.dart`, `lib/src/app/registry_pages.dart`: a machine's page offers no action on a person any more: *Admit*, the host lock and unlock, *Delete the account* and *Replace a lost key* on a host go with the registry's operations. A person is locked in their project by its admins; a person no longer a member of any project a host carries is locked there and their account deleted by the host itself.
 - `lib/src/app/organization_source.dart`: an implementation over `porelo org …` and `porelo project …`, each answer read field by field, as `doc/Backend-API.md` will say.
 - `lib/src/ui/forges_page.dart`: the *Registry* section and *Choose the registry repository…* go; signed in as, Git over ssh, the check, disconnect and used by stay.
