@@ -10,6 +10,9 @@ import 'fleet_backend.dart';
 /// **Asked of the machine, never assembled from the stream.** `Talk` replays nothing, so a list
 /// built from it would miss everything held before this interface connected and show *nothing
 /// needs you* while messages wait. The stream only says when to ask again.
+///
+/// It may say nothing: it ends with its connection, or with a record it could not read. So [askAgain] is called on a
+/// rhythm too, and a silent stream never reads as nothing waiting.
 class Mailboxes extends ChangeNotifier {
   List<HeldMessage> _held = const <HeldMessage>[];
   StreamSubscription<TalkEvent>? _listening;
@@ -59,8 +62,18 @@ class Mailboxes extends ChangeNotifier {
   /// Starts watching. Safe to call again; it replaces what was watching before.
   void watch(FleetBackend backend) {
     _backend = backend;
-    _listening?.cancel();
     unawaited(refresh());
+    _listen(backend);
+  }
+
+  /// Asks the machine again with no word from the stream, and listens again to a stream that ended.
+  void askAgain() {
+    if (_backend case final backend? when _listening == null) _listen(backend);
+    unawaited(refresh());
+  }
+
+  void _listen(FleetBackend backend) {
+    _listening?.cancel();
     _listening = backend.talk().listen(
       (event) {
         _events.add(event);
@@ -71,6 +84,7 @@ class Mailboxes extends ChangeNotifier {
       },
       // A daemon without Talk still lists what is held; it is only asked less often.
       onError: (Object _) {},
+      onDone: () => _listening = null,
     );
   }
 

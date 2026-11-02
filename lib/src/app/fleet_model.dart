@@ -332,6 +332,7 @@ class FleetModel extends ChangeNotifier {
       await connect();
       return;
     }
+    mailboxes.askAgain();
     if (quietly) {
       await _readOnce();
       return;

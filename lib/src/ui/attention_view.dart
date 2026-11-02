@@ -27,8 +27,12 @@ import 'tokens.dart';
 /// **A landing surface, not a second view.** The rail is for going somewhere to change something;
 /// this is for finding out whether anything needs you, and answering it where it is.
 class AttentionView extends StatefulWidget {
+  /// Called once it is opened, so what is on it is asked for then, and not only when a machine says.
+  final VoidCallback? onOpened;
+
   /// Constructor taking what to show and what the tiles can do.
   const AttentionView({
+    this.onOpened,
     required this.attention,
     required this.onDecide,
     required this.actionsFor,
@@ -77,6 +81,12 @@ class AttentionView extends StatefulWidget {
 }
 
 class _AttentionViewState extends State<AttentionView> {
+  @override
+  void initState() {
+    super.initState();
+    widget.onOpened?.call();
+  }
+
   // A countdown that does not move overstates the time left, so it ticks while one is on screen.
   Timer? _ticker;
 

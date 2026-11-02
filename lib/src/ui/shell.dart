@@ -3176,6 +3176,11 @@ class _ShellState extends State<Shell> {
     return Focus(
       focusNode: _openedFocus,
       child: AttentionView(
+        onOpened: () {
+          for (final machine in widget.machines.all) {
+            widget.machines.of(machine).mailboxes.askAgain();
+          }
+        },
         attention: _attention,
         onOpenHost: (project) {
           final run = _hostRuns.of(project);

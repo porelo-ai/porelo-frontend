@@ -9,6 +9,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- *Needs you* finds a message held for a person even when the machine's stream of events has ended or says nothing: the
+  list is asked for when the page opens and at each refresh, and a stream that ended is listened to again.
 - A server can be given by host name or IPv6 address, as a host card allows, and not only by IPv4: *Prepare a server…*
   takes it, its pinned host key says it is that machine, the card keeps the address given, and it reads back after a
   restart. A server with no IPv4 default route still cannot be prepared, and a host vault at an IPv6 address or on
