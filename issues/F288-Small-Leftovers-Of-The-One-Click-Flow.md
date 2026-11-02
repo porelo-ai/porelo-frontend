@@ -71,11 +71,11 @@ is read against that model before it is placed.
 
 ## Declined from the reading of the walk's fixes
 
-A reading of the fixes made during the walk found these; each is declined for now with its reason, and is read again
-where its code is rebuilt.
+A reading of the fixes made during the walk reported these. None was reproduced by a test, so each is an unconfirmed
+finding; each is declined with its reason, and is read again where its code is rebuilt.
 
-- **Register, Add and the developers dialog** (rebuilt with the organization model, where a project is added by an
-  owner and members by the project admin): closing the Register dialog while a step runs leaves the project's access
+- **Register, Add and the developers dialog** (not fixed: the organization model removes these dialogs). Reported:
+  closing the Register dialog while a step runs leaves the project's access
   work running, and reopening it reads into the same checkouts; *Verify* carries a filed change on to the host;
   the change's own registry wait is not bounded where it files; a registry read that fails while the dialog is open
   empties the person picker without saying why; a registry refresh started by a change is not bounded; a `replace`
