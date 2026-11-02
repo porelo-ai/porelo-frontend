@@ -6,10 +6,16 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-/// The walks written for the MVP's paths point at keys the interface really has: a key renamed in
-/// the code without its walk is a walk that points at nothing, found here rather than by the person
-/// walking it.
+/// Walks point at keys the interface really has: a key renamed in the code without its walk is a walk that points at
+/// nothing, found here rather than by the person walking it. Walks are temporary and kept outside the repository, so
+/// this reads the folder `PORELO_WALKS` names, and checks nothing where none is named.
 void main() {
+  final folder = Platform.environment['PORELO_WALKS'] ?? '';
+  if (folder.isEmpty) {
+    test('walks point only at what the interface has', () {}, skip: 'PORELO_WALKS names no folder of walks');
+    return;
+  }
+
   final code = <String>[
     for (final file in Directory('lib').listSync(recursive: true))
       if (file is File && file.path.endsWith('.dart')) file.readAsStringSync(),
@@ -32,7 +38,7 @@ void main() {
   }
 
   final walks = <File>[
-    for (final file in Directory('doc/walks').listSync().whereType<File>())
+    for (final file in Directory(folder).listSync().whereType<File>())
       if (file.path.endsWith('.json')) file,
   ];
 

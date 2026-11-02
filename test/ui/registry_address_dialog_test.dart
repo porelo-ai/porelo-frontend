@@ -26,7 +26,7 @@ void main() {
   // Guards a pasted token reaching the settings file or the screen.
   testWidgets('an address carrying a token is refused without repeating it', (tester) async {
     final answers = await open(tester);
-    const token = 'ghp_0123456789abcdefghijklmnopqrstuvwxyz';
+    const token = 'an-invented-token';
 
     await tester.enterText(find.byKey(const Key('registry-address')), 'https://$token@github.com/team/registry.git');
     await tester.tap(find.byKey(const Key('registry-address-take')));

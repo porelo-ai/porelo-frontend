@@ -14,7 +14,7 @@ desktop.
 Every connection runs OpenSSH's `ssh` as a process (see *The interface raises and supervises its
 own ssh forward* in [decisions](../doc/decisions.md)): the forward to the daemon
 (`lib/src/app/tunnel.dart`), starting the daemon and `id -u` for the connection trial, and working
-in a task by hand (`lib/src/app/session.dart`). That inherits the person's `~/.ssh/config`,
+in a task by hand (`lib/src/app/session.dart`). That inherits the person's the SSH config,
 ssh-agent, `known_hosts` and hardware keys, and nothing in `lib/` holds a private key. iOS and
 Android have no `ssh` binary.
 
@@ -22,7 +22,7 @@ Android have no `ssh` binary.
 server, has forwarding to a Unix socket as a byte stream, exec, shell and pty, jump hosts by hand,
 host key verification as a callback (any key is accepted without it), custom asynchronous signers,
 current keys, ciphers and strict key exchange, on every platform, pure Dart, MIT. It has no client
-for a running ssh-agent, no `~/.ssh/config` or `known_hosts`, no FIDO keys or certificates and no
+for a running ssh-agent, no the SSH config or `known_hosts`, no FIDO keys or certificates and no
 post-quantum key exchange. It changes fast, with breaking releases, and 4.0.0 fixed real security
 defects.
 

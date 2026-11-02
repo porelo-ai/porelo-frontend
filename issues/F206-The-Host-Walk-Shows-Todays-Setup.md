@@ -2,8 +2,7 @@
 
 **Status:** Idea.
 
-**What must be true.** The guided walk of putting a project on a server (`doc/walks/17-the-host-flow.json`, the
-walk's part of `doc/guided-walk.md`, and the stand-ins `tool/host_standin.dart` and `tool/ssh_standin.dart`) walks
+**What must be true.** The guided walk of putting a project on a server (the walk, its guide, and the stand-ins `tool/host_standin.dart` and `tool/ssh_standin.dart`) walks
 through the setup as it is: the step *Your secrets file* and its terminal, a host that mounts no drive, and a stop fed
 from the secrets file on standard input, after one master password; no Tresorit e-mail, password or one-time code at
 the stop.

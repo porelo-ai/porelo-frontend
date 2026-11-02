@@ -3,11 +3,11 @@
 **Status:** Accepted.
 **Size:** S - a new try of a bring or join replaces the setup folder its own earlier try left on the host, and still refuses one it did not make.
 
-**What must be true.** A bring or join that failed leaves the next try free to start: a new try replaces the setup folder `~/.local/share/porelo-host/setup/<project>/` that an earlier upload from this interface left, and uploads afresh. A folder this interface did not make, or one holding anything else, is still preserved and refused, with its path named.
+**What must be true.** A bring or join that failed leaves the next try free to start: a new try replaces the setup folder `porelo-host/setup/<project>/` in the account's data folder that an earlier upload from this interface left, and uploads afresh. A folder this interface did not make, or one holding anything else, is still preserved and refused, with its path named.
 
 ## Why
 
-A failed bring leaves `~/.local/share/porelo-host/setup/<project>/` on the prepared host, and the next try refuses with "The project setup folder already exists; it was preserved." (`uploadSetupFiles` in `packages/porelo_host/lib/src/host_run.dart`). Removing the folder when a bring fails is not the answer: a bring that waits at a stop needs its files when it goes on.
+A failed bring leaves `porelo-host/setup/<project>/` in the account's data folder on the prepared host, and the next try refuses with "The project setup folder already exists; it was preserved." (`uploadSetupFiles` in `packages/porelo_host/lib/src/host_run.dart`). Removing the folder when a bring fails is not the answer: a bring that waits at a stop needs its files when it goes on.
 
 ## Plan
 

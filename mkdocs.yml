@@ -1,13 +1,10 @@
 # The interface's section of the Porelo documentation (porelo-ai.github.io, built there from doc/).
-# Only its order is decided here; the walk files in doc/walks/ are no pages.
+# Only its order is decided here.
 site_name: Porelo interface
 docs_dir: doc
-exclude_docs: |
-    walks/
 nav:
     - index.md
     - design.md
     - decisions.md
     - Backend-API.md
     - Contract-Gaps.md
-    - guided-walk.md

@@ -19,7 +19,7 @@ Refresh shows nothing at all; only a project page has the bottom bar, which says
 
 - Wherever Refresh is pressed, on a list or a page, the button turns into a small spinner while it runs, and a
   short "Refreshed at 18:52" stays beside it afterwards.
-- At its end a short message names what was read: "Refreshed walk6m and this machine; registry b4257326; nothing
+- At its end a short message names what was read: "Refreshed demo and this machine; registry b4257326; nothing
   changed", or the first thing that failed.
 
 ## Plan

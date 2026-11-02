@@ -19,8 +19,8 @@ void main() {
   };
 
   test('the tests that read a document are found', () {
-    // Without these two the shapes below match nothing, and the next test passes by checking nothing.
-    expect(readers, containsAll(<String>['test/docs_test.dart', 'test/walks_test.dart']));
+    // Without this one the shapes below match nothing, and the next test passes by checking nothing.
+    expect(readers, contains('test/docs_test.dart'));
   });
 
   test('every test that reads a document carries the documents tag', () {

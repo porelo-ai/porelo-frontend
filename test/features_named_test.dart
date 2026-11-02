@@ -89,7 +89,7 @@ Iterable<File> _sources() {
   final tracked = listed.stdout as String;
   return tracked
       .split('\x00')
-      .where((path) => path.isNotEmpty && !path.endsWith('.md') && !path.startsWith('doc/walks/'))
+      .where((path) => path.isNotEmpty && !path.endsWith('.md'))
       .where((path) => _text.any(path.endsWith))
       .where((path) => path != 'test/features_named_test.dart')
       .map(File.new)

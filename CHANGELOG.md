@@ -298,7 +298,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   every listed collection outside the host's installation, regardless of listing order.
 
 - Own-account setup keeps each project's `machine.yml`, `project.bundle`, and `access.bundle` in its own
-  `~/.local/share/porelo-host/setup/<project>/` directory. Its machine file names `access.bundle` relatively
+  `porelo-host/setup/<project>/` in the account's data folder. Its machine file names `access.bundle` relatively
   and the project bundle by its absolute path; root and combined setup retain their existing layout.
 - Own-account setup refuses root logins, linked home directories, existing setup files, and upload data for the
   wrong act; failed uploads preserve setup material they did not create.
@@ -410,7 +410,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Server setup checks the project's verified commit against the public key for signing commits on
   The drive, before anything is rented: a key that did not sign it is refused with both keys'
   fingerprints, and named as the server login key when the two key fields look swapped. The field
-  opens on a key in `~/.ssh` that the project's machine already trusts, and checks a key as soon as
+  opens on a key in the SSH folder that the project's machine already trusts, and checks a key as soon as
   it is chosen or typed, with a check mark or an error icon beside it.
 - Server setup fills in your public ssh key from the private key's own `.pub` whenever there is
   one, also over a key kept from an earlier run, and refuses a public key of another pair at once.
@@ -567,7 +567,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   cause can be asked about again. A start refused for it says the same, from the dialog and from a
   task started again, and a start that goes on from the mirror keeps Porelo's warning in its words.
 - A machine whose ssh login is refused when it is connected again says why in words on the machines
-  page, as when it is added, with the key ssh would log in with where `~/.ssh/config` names one.
+  page, as when it is added, with the key ssh would log in with where the SSH config names one.
 - A finished unattended run's tile ends with a line under its output: finished or stopped before its
   end, and whether its work waits at the gate to be reviewed, or what to read instead.
 - `porelo-host` and `porelo-host.exe` on their own, without the interface, in the generic repository
@@ -685,7 +685,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- Sokar is now Porelo, and nothing of Sokar's is read or kept: the interface is installed afresh.
+- The project took its present name, and nothing kept under the former one is read: the interface is installed afresh.
   It installs as `porelo-frontend`, starts as `porelo_frontend`, speaks `org.fuin.porelo.Tasks1` to
   `porelod` over `$XDG_RUNTIME_DIR/porelo/`, keeps its settings in
   `$XDG_CONFIG_HOME/porelo/frontend.json` (`%APPDATA%\porelo\` on Windows) and comes from
@@ -738,20 +738,20 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   asks each repository's upstream at once, rather than at its next round, and the page says
   "checking…" and then what came back.
 - A repository worked on without a project says where its work comes from and goes: from the
-  checkout it was started in and back into it as `sokar/<task>`, its remote left to the person, or
+  checkout it was started in and back into it as `<former name>/<task>`, its remote left to the person, or
   from its remote and back there.
 - A work's menu has "Bring it up to its source": what moved in its checkout or remote reaches the
   task without stopping it, and the status line says what moved and whether its agent was told.
 
 ### Changed
 
-- Every push checks with `sokar-release` that no page or source cites an issue, and that every page
+- Every push checks with the release tool that no page or source cites an issue, and that every page
   under `doc/` is in the site's navigation exactly once, and runs the tests that read a document;
   a push of documents alone runs only these and leases no machine.
-- Every push checks with `sokar-release` that each directory with a `pom.xml` has a `README.md`.
+- Every push checks with the release tool that each directory with a `pom.xml` has a `README.md`.
 - A release refuses to build when anything Maven resolved for it is a snapshot - the parent, the
   tools or their plugin dependencies - and names what it found.
-- The Maven build takes `sokar-parent` as its parent, which gives it the JDK, the build tools' and
+- The Maven build takes the project's parent POM as its parent, which gives it the JDK, the build tools' and
   the plugins' versions, and the `ci-tools` profile that puts the tools on the checks' classpath;
   the `hetzner` profile only rents and sweeps a machine.
 - The Dart and Flutter packages are at the newest versions that resolve with Flutter 3.47.0,

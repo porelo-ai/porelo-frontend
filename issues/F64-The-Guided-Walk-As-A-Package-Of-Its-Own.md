@@ -34,7 +34,7 @@ has no part in it.
   becomes `Sensitive` in `lib/src/ui/new_machine.dart`, `connection_wizard.dart`,
   `connections_view.dart`, `messages_view.dart` (`_secretIf`), `unlock_terminal.dart` and
   `session_view.dart`. `poreloWalkTexts` in `lib/src/ui/walk_texts.dart` gains the German waiting
-  words. `doc/guided-walk.md` follows.
+  words. The guide follows.
 - **What else stays in `lib/`:** `walkWindowPath` and `_walk` in `lib/main.dart` (`PORELO_WALK`,
   the `walkChoices` hook for `ChoiceField`), `WalkFrame` in `lib/src/app/porelo_app.dart`, the
   `walk-show` button in `lib/src/ui/shell.dart`. The first acceptance item has to be read against

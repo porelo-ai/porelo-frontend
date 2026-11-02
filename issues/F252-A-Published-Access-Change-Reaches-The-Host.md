@@ -3,7 +3,7 @@
 **Status:** Accepted.
 **Size:** S - the access bundle made at publishing is uploaded to the admin's setup folder on the host before the sync runs.
 
-**What must be true.** After *Developers* publishes an access change, the host's sync verifies exactly the access commit just pushed. The bundle `ProjectDevelopers._change` makes is uploaded to the admin's `~/.local/share/porelo-host/setup/<project>/access.bundle` on the host, which `porelo-host-person sync` reads, before the sync is asked for. Only then is the temporary bundle deleted. This holds for every change the dialog publishes: adding a developer, adding or dropping a machine, and removing a developer. An upload that fails stops before the sync, says so, and leaves the change pending, so *Retry* uploads again.
+**What must be true.** After *Developers* publishes an access change, the host's sync verifies exactly the access commit just pushed. The bundle `ProjectDevelopers._change` makes is uploaded to the admin's `porelo-host/setup/<project>/access.bundle` in the account's data folder on the host, which `porelo-host-person sync` reads, before the sync is asked for. Only then is the temporary bundle deleted. This holds for every change the dialog publishes: adding a developer, adding or dropping a machine, and removing a developer. An upload that fails stops before the sync, says so, and leaves the change pending, so *Retry* uploads again.
 
 ## Why
 

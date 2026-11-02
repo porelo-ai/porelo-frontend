@@ -154,8 +154,8 @@ the server itself, so this computer needs only ssh.
 **Then, for each project:**
 
 ```sh
-porelo-host up --project <name> --account porelo --public-key ~/.ssh/id_ed25519.pub \
-    --identity ~/.ssh/id_ed25519 --scaleway-project <project id>
+porelo-host up --project <name> --account porelo --public-key <your public key> \
+    --identity <your private key> --scaleway-project <project id>
 ```
 
 It rents the host, or finds it again by its tag, and stops once with exit code 75 for what only you
@@ -185,4 +185,3 @@ consequences before running `down` from the kept record and giving the server ba
 - [Backend API](Backend-API.md): how a client talks to Porelo's daemon.
 - [What the contract does not yet cover](Contract-Gaps.md): what the daemon has no method or field
   for yet.
-- [The guided walk](guided-walk.md): how an agent leads a person through the interface.

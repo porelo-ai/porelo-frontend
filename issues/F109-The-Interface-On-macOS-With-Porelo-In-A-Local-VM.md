@@ -59,7 +59,7 @@ Three issues, in this order; this one is split before any is built:
      ad hoc, as Flutter does, which Apple silicon needs to run it at all.
    - `lib/src/app/desk.dart`: a `MacDesk` beside `LinuxDesk` and `WindowsDesk` (`Desk.of` on
      `'macos'`): the configuration where Linux keeps it, `$XDG_CONFIG_HOME/porelo`, else
-     `~/.config/porelo`, which is where the IntelliJ plugin reads `frontend.json` on a Mac too; `open`
+     the Porelo config folder, which is where the IntelliJ plugin reads `frontend.json` on a Mac too; `open`
      instead of `xdg-open`.
    - `lib/src/app/pty.dart` becomes per system. A probe made `pty.dart`'s calls from C on macOS
      26.4.1 (Apple M1 Pro) and measured:

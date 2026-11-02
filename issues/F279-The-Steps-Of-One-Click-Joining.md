@@ -11,7 +11,7 @@ One-click joining from signed state: the steps replace walks 17–23, which the 
 
 ## Plan
 
-- The file is a steps file under `~/.porelo/handover/porelo-frontend/` on the operator's laptop, outside the repository: it is a test script, not a user page.
+- The file is a steps file on the operator's laptop, outside the repository: it is a test script, not a user page.
 - Machines: "Laptop" is the operator's own laptop with the interface; the host is a local test VM the agents set up, never the operator; a second VM or a second local account stands for the developer.
 - Each other repository posts the steps its part needs (commands, expected output) to Agent Frontend and Agent Coordinator; this issue puts them in one order with the interface's steps for the one-click flow.
 - Every value a step needs (address, login, file path) is written in the step; a step that waits on something already done says so and goes on.

@@ -11,8 +11,6 @@ Where to read on:
 - [Design](doc/design.md): what the interface is built out of.
 - [Requirements](issues/README.md): what is still to do, in order.
 - [AGENTS.md](AGENTS.md): the rules for working here, and what was measured.
-- [A guided walk](doc/guided-walk.md): in a development build, an agent leads a person through the
-  interface beside its window.
 
 ## Build and test
 

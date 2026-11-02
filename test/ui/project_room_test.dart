@@ -914,10 +914,10 @@ void main() {
       World.machines.select(machine);
       await _openRoom(tester);
       final previous = other.joins.toList();
-      await _join(tester, 'Michi');
+      await _join(tester, 'Robin');
       expect(other.joins, previous, reason: 'another machine must not receive this join');
-      expect(backend.joins, [(project: 'checkout', person: 'michi', reset: false)]);
-      expect(backend.membersOf['checkout']!.single.person, 'michi');
+      expect(backend.joins, [(project: 'checkout', person: 'robin', reset: false)]);
+      expect(backend.membersOf['checkout']!.single.person, 'robin');
       await World.tapInView(tester, 'messages-close');
     }
   });
@@ -939,8 +939,8 @@ void main() {
     addTearDown(() => desk = previousDesk);
     await _openRoom(tester);
     expect(opened, isEmpty);
-    await _join(tester, 'michi');
-    expect(World.backend.membersOf['checkout']!.single.person, 'michi');
+    await _join(tester, 'robin');
+    expect(World.backend.membersOf['checkout']!.single.person, 'robin');
     await World.tapInView(tester, 'open-element');
     expect(opened, [
       ['xdg-open', 'https://app.element.io/'],

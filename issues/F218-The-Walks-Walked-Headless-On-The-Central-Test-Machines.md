@@ -3,7 +3,7 @@
 **Status:** Estimated.
 **Size:** M - a runner that walks each sprint walk through its panel under `Xvfb`, the display set up by the run itself on a leased host and on a GitHub runner, and its job.
 
-**What must be true.** Every sprint walk in `doc/walks/` is walked headless on the central test machines before the operator meets it: the interface on a hidden display, driven step by step through the walk's panel, each step's pointer checked on screen and each move of the panel checked, as `tool/walk_on_this_laptop.sh 18` walks walk 18 on the laptop. The run installs and starts the display itself; no hand sets it up.
+**What must be true.** Every sprint walk is walked headless on the central test machines before the operator meets it: the interface on a hidden display, driven step by step through the walk's panel, each step's pointer checked on screen and each move of the panel checked, as `tool/walk_on_this_laptop.sh 18` walks walk 18 on the laptop. The run installs and starts the display itself; no hand sets it up.
 
 ## Why
 
@@ -13,7 +13,7 @@ An unwalked walk can stall on values it never gives, a second machine it never n
 
 - **One runner per walk, from `tool/walk_on_this_laptop.sh 18`:** a home, settings, secrets file and keyring of the run's own; the real `keepassxc-cli`; the test machine reached through an agent holding its key.
 - **The display by the run itself:** on a GitHub runner the job step installs `xvfb` and starts the walk under `xvfb-run`; on a leased host its setup script does the same before the walk.
-- **A job for the walks**, run on a change to `doc/walks/` or to the interface they point at.
+- **A job for the walks**, run on a change to a walk or to the interface they point at.
 - **Red first:** a walk step pointing at a key the interface does not show on that step fails the run.
 
 ## Acceptance

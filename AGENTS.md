@@ -482,8 +482,7 @@ and the UTC time that text last changed; change it in the channel first, never i
 The Porelo interface: a Flutter desktop app (Linux) that watches and drives the Porelo daemons of
 several machines over their varlink socket. Its issues carry the prefix `F`; its design is in
 `doc/design.md`, the daemon calls it uses in `doc/Backend-API.md`, what the daemon cannot do yet in
-`doc/Contract-Gaps.md`, its decisions in `doc/decisions.md`, and the guided walk in
-`doc/guided-walk.md`.
+`doc/Contract-Gaps.md`, and its decisions in `doc/decisions.md`.
 
 ### Running it
 
@@ -626,7 +625,7 @@ several machines over their varlink socket. Its issues carry the prefix `F`; its
 
 ### Guided Walk
 
-- **This repository's operator tests are Guided Walks, which the operator runs from `~/git/porelo-frontend` on
+- **This repository's operator tests are Guided Walks, which the operator runs from their checkout on
   the laptop with `flutter run`, so the interface can be corrected during the walk and the change seen live.** Each
   walk says the one command that starts it, what must run before it (the VPN, a rented host, a snapshot), and where
   it hands over to another repository's guide; a fix made during a walk is committed and handed over as any other.

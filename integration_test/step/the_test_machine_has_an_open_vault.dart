@@ -12,7 +12,7 @@ Future<void> theTestMachineHasAnOpenVault(WidgetTester tester) async {
 set -eu
 PATH="$HOME/.local/bin:$PATH"
 umask 077
-f="$HOME/.config/porelo-test/vault-passphrase"
+f="$HOME/.config/porelo-walk/vault-passphrase"
 mkdir -p "$(dirname "$f")"
 [ -f "$f" ] || head -c 32 /dev/urandom | base64 -w0 > "$f"
 # Asked, never read off an exit code: 'vault unlock' answers 0 on an account with no vault at all.

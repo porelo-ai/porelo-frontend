@@ -146,9 +146,9 @@ answer:** an agent whose login must run with a credential or a workspace inside 
 
 ## A key sent from this computer goes into the vault
 
-A private key sent from here goes into the machine's vault, and never into `~/.ssh` there. Only the
+A private key sent from here goes into the machine's vault, and never into the SSH folder there. Only the
 private half is asked for, because the machine works out the public half. A key that is already in
-`~/.ssh` is chosen where it lies, so the case of a key in `~/.ssh` is covered without this interface
+the SSH folder is chosen where it lies, so the case of a key in the SSH folder is covered without this interface
 ever writing a private key to a disk.
 
 A token or a password is not sent from here at all. It is typed into a terminal on the machine,
@@ -418,7 +418,7 @@ apart from another, so it is not one.
 ## What was run is kept for thirty days in one owner-only file
 
 Every operation — what ran, on which machine, what it printed and how it ended — is kept in
-`$XDG_STATE_HOME/porelo/operations.json` (`~/.local/state/porelo/operations.json` without it), and
+`$XDG_STATE_HOME/porelo/operations.json` (the default state folder without it), and
 the list of what was run shows earlier ones beside this run's, marked *earlier*, and names the file.
 The finder opens it with the desktop's opener.
 

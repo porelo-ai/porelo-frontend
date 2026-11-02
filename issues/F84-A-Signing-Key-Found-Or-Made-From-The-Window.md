@@ -10,7 +10,7 @@ file, or make a new one, from the window; its passphrase is only ever typed in a
 ## Why
 
 The window offers only the keys the ssh agent holds, and a desktop keyring loads only the keys
-directly in `~/.ssh`. A key in a subdirectory is not offered, and loading it takes `ssh-add` in a
+directly in the SSH folder. A key in a subdirectory is not offered, and loading it takes `ssh-add` in a
 terminal and knowing where to look.
 
 ## The shape
@@ -32,7 +32,7 @@ terminal and knowing where to look.
   `binding-key`. The help and its two links go under it, and also where it is not shown: with one
   key, and where `ProjectWorkspace.signingKeys` refuses because the agent holds none.
 - **Key is missing:** `pickWithTheDesktop` in `lib/src/ui/pick_a_file.dart` chooses the file,
-  starting in `~/.ssh`. A new method on `ProjectWorkspace` (`lib/src/app/project_workspace.dart`)
+  starting in the SSH folder. A new method on `ProjectWorkspace` (`lib/src/app/project_workspace.dart`)
   asks `ssh-keygen -y -P '' -f <file>` whether it opens without a passphrase, as
   `MachineSetup.publicKeyOf` in `lib/src/app/machine_setup.dart` does; without one it runs
   `ssh-add <file>` here, with one it hands `ssh-add <file>` to a terminal.
@@ -72,6 +72,6 @@ terminal and knowing where to look.
 
 - Where does a new key lie by default, and what is it called? (Agent Frontend's)
 - What does the file dialog refuse: a public half, a key this window made to log into a machine
-  (`~/.ssh/porelo-*`), a key type git cannot sign with? (Agent Frontend's)
+  (`porelo-*` in the SSH folder), a key type git cannot sign with? (Agent Frontend's)
 - **What runs the terminal on Windows**, where `ssh-add` talks to the OpenSSH Authentication Agent
   service. (Agent Frontend's)

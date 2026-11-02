@@ -26,7 +26,6 @@ Only the change: the test above. On VM B: one look at a join log.
 
 - The provider note is Core's `apps/app-vault/src/main/java/org/fuin/porelo/app/VaultPutCommand.java:333`, printed at line 457; the host collection's `roles/porelo/files/porelo-host-stop:382` calls `porelo vault put` for project keys, and line 386 does so for identities, leaving stderr visible. Resolution belongs to Core and the host collection.
 - The VM B join-log check is not run: this round permits no commands on a host.
-- Existing machine-specific home paths in `doc/walks/19-sprints-6e-to-6i-a-rented-server.json`, `doc/walks/21-sluice-tried-on-this-laptop.json`, and `tool/walk_on_this_laptop.sh` are outside this issue's scope.
 - The join test asserts the two settings by substring only; a broader warning suppression or a stderr redirect would still pass (`test/app/project_join_test.dart` ~535).
 
 ## Estimate

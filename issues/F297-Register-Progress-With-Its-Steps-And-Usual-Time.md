@@ -19,7 +19,7 @@ limit (commit 31de8694, three minutes per step) say what runs and stop a hang, b
 
 - `SignedHostAction` names its steps up front (read, file, publish, connect, upload, apply, record), so the count is
   known before the first runs; a step skipped on Retry counts as done.
-- The dialog shows a determinate bar over the steps and, under it, "Step 4 of 7: Opening the connection to walk6m… —
+- The dialog shows a determinate bar over the steps and, under it, "Step 4 of 7: Opening the connection to demo… —
   usually about 20 s".
 - The usual time per step is the median of the last runs here, kept in the settings by step name; with none kept, no
   time is said.

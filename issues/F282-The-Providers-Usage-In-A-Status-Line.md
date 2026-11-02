@@ -18,9 +18,9 @@ set. The exact design is worked out in the specification.
 
 ## Where the numbers come from
 
-- Today `~/.porelo/coordinator/quota.sh` reads them by hand, on the machine it runs on:
+- Today a local script reads them by hand, on the machine it runs on:
   - agy: the *Limit Remaining* lines of `agy -p /usage`;
-  - Codex: the last `rate_limits` entry in its newest session file under `~/.codex/sessions`;
+  - Codex: the last `rate_limits` entry in its newest session file under Codex's session folder;
   - Claude Code: the session and week lines of `claude -p /usage`.
 - The interface reads no tool's output or session files itself. It reads Core through `--json`.
 - So this needs a Core verb that answers the usage per provider in one form: provider, window, part left, reset

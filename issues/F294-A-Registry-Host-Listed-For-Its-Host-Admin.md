@@ -31,9 +31,9 @@ and the forge page says "no hosts" while Core's read lists it.
 - `lib/src/app/registry_read_source.dart`, `lib/src/app/registry_pages.dart` (`registryMachines`,
   `scopedMachineRows`), `lib/src/app/commands.dart` (`preparedHostCommands`), `lib/src/ui/machines_page.dart`,
   `lib/src/ui/forges_page.dart`, and the host dialog's admit path where it reads the setup record.
-- **Red first:** a feature scenario with an accepted registry naming the person host admin of `walk6m`, no setup
-  record and no watched machine: *Machines* shows walk6m with *Admit a project admin…*, and the forge row names
-  walk6m. Today both fail.
+- **Red first:** a feature scenario with an accepted registry naming the person host admin of `demo`, no setup
+  record and no watched machine: *Machines* shows demo with *Admit a project admin…*, and the forge row names
+  demo. Today both fail.
 
 ## Acceptance
 

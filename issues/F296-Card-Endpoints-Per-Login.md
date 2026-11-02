@@ -12,7 +12,7 @@ is there.
 
 ## Why
 
-- A card's ssh configuration (`~/.config/porelo/ssh/<host>.conf`), control socket (`c-<sha of the host name>`), daemon
+- A card's ssh configuration (`$XDG_CONFIG_HOME/porelo/ssh/<host>.conf`), control socket (`c-<sha of the host name>`), daemon
   endpoint (`/run/user/<uid>/porelo-tunnel-<host>.sock`) and local ports (forge web and git, Matrix) are named after
   the host only.
 - Two instances on one desktop — one for the project admin and one for a developer — share those paths on the same

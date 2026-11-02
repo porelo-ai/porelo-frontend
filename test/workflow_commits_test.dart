@@ -226,7 +226,7 @@ esac''');
   });
 
   // The host's forge, as its runner names itself: it sends no author association at all.
-  const forge = 'https://10.73.0.1:3000';
+  const forge = 'https://192.0.2.1:3000';
 
   // The harm: every pull request on the host's forge refused for want of a sign-off our own commits never carry.
   test("a forge pull request from the same repository is from inside", () async {

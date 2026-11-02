@@ -32,7 +32,7 @@ distributions only, so far", [F102](README.md#f102)).
   login reply forward is `ssh -L` on a TCP port; the host key is checked with `ssh -G` and
   `ssh-keyscan`, all of which Windows' OpenSSH ships.
 - **Not on Windows:** preparing a new machine as root from the wizard, with keys written under
-  `~/.ssh` with Linux's file rights. It stays the Linux build's.
+  the SSH folder with Linux's file rights. It stays the Linux build's.
 
 ## Plan
 
@@ -42,7 +42,7 @@ distributions only, so far", [F102](README.md#f102)).
   `ControlMaster=no`, `ControlPath=none` and `--` before the host. A host starting with `-` is refused
   before ssh starts. `porelo daemon connect --socket '<remote socket>'` runs in the
   login shell (`inTheLoginShell` in `lib/src/app/connections.dart`, since a plain ssh command has no
-  `~/.local/bin` on its `PATH`). `whyNotReachableOn` stops refusing it there. `Machines.backendFor`
+  the local bin folder on its `PATH`). `whyNotReachableOn` stops refusing it there. `Machines.backendFor`
   passes it on with no `whyNotNow` for ssh; a relay carries its `wsl` or `ssh` kind.
 - **Plain remote socket on Windows:** `whyNotReachableOn` refuses a remote socket outside
   `^/[A-Za-z0-9._/-]+$`, and `relayOn` returns null, so a non-POSIX far login shell cannot

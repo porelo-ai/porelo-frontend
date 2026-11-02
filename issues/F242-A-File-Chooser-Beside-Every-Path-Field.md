@@ -19,8 +19,8 @@ The fields differ today:
 - `_pathField` moves from `host_dialog.dart` into a shared widget (beside `lib/src/ui/pick_a_file.dart`): the text field, *Choose…* opening in the folder of the current value, and the last folder remembered for the dialog.
 - Fields covered, each with its default:
   - Bring (`project_bring_dialog.dart`):
-    - *Project signing public key file* (Step 1 of 7): the followed project's pinned key per [F239](README.md#f239), else `~/.ssh/id_ed25519.pub`.
-    - *Your SSH identity file*: `~/.ssh/id_ed25519`.
+    - *Project signing public key file* (Step 1 of 7): the followed project's pinned key per [F239](README.md#f239), else the default SSH public key.
+    - *Your SSH identity file*: the default SSH private key.
     - *Secrets file path* (Step 5 of 7): the kept secrets file, else `~/Porelo/secrets.kdbx`.
   - Join (`project_join_dialog.dart`): *Project signing public key file*, as in the bring; *Secrets file path*, as in the bring.
   - Developers (`project_developers_dialog.dart`): *Project signing public key file* and *Your SSH identity file*, as in the bring.

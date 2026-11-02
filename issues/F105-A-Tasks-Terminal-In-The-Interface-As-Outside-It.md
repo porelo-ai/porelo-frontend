@@ -17,7 +17,7 @@ outside it, measured per key in a plain terminal:
 - Truecolor and OSC 52 come through.
 - Shift+PageUp scrolls back in tmux's copy mode, and Shift+PageDown scrolls down again and leaves it.
 
-Each person can add their own settings in `~/.config/porelo/tmux.conf`.
+Each person can add their own settings in `$XDG_CONFIG_HOME/porelo/tmux.conf`.
 
 The interface is one of those outside terminals, and it was not measured. Its terminal is the `xterm`
 library with a scrollback of its own of 10,000 lines (`lib/src/app/session.dart`). What it sends for

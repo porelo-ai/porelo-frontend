@@ -16,7 +16,7 @@ void main() {
   // Harm: a private rental cannot finish when the reader demands retired host fields.
   test('Machines completion accepts a private rental without retired fields', () {
     final host = PreparedHost.read({
-      'address': '192.168.50.24',
+      'address': '192.0.2.24',
       'ssh_host_key': sshKey,
       'homeserver': 'orchard',
       'services': {
@@ -26,7 +26,7 @@ void main() {
     expect(host.name, 'orchard');
     expect(host.sshPort, 22);
     expect(host.services, PreparedHost.defaultLocalServices);
-    expect(host.address, '192.168.50.24');
+    expect(host.address, '192.0.2.24');
   });
 
   // Harm: an obsolete field directs a newly prepared server's SSH connection to another service.
