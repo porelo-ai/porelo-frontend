@@ -1,6 +1,6 @@
 # F313 — Connect Once Per Host
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** M - the list under *Machines* and one connection per host from the organization's card, on today's card connection; about a day, the calls behind it come separately.
 
 **What must be true.** *Machines* lists the hosts carrying a project the person is a member of, and *Connect* sets up that connection once per host. Every project of theirs on a connected host is ready at once and followed with no step of their own, and a project put on that host later appears the same way.
