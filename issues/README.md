@@ -27,19 +27,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="f287"></a>[F287](F287-A-Join-Confirmed-By-What-The-Host-Follows.md) | — | — | A first join confirmed by what the host follows, healthy hosts offered beside a refused commit, no credential kept or shown, an unconfirmed join undoing only its own. |
-| <a id="f280"></a>[F280](F280-A-Lost-Or-Stolen-Key-Replaced.md) | M | [F268](README.md#f268), [F269](README.md#f269); porelo: revoke and backup-key commits | A lost or stolen key replaced by an admin; an admin's own by another admin or the backup key. |
-| <a id="f268"></a>[F268](F268-One-Key-And-One-Card-Per-Person.md) | M | porelo: identity verbs (key, card, rotate, revoke, backup-key) | One Ed25519 key and one card per person, filed in the registry; key changed, lost or backed up. |
-| <a id="f279"></a>[F279](F279-The-Steps-Of-One-Click-Joining.md) | S | [F268](README.md#f268)–[F278](README.md#f278) | One Markdown file of numbered steps of the one-click flow, from first start to first work. |
-| <a id="f269"></a>[F269](F269-The-Registry-Read-For-Every-List.md) | M | porelo: `registry read` and `registry file` | The registry repository kept in a private checkout and read through Core for every list. |
-| <a id="f273"></a>[F273](F273-A-Developer-Joins-At-One-Click.md) | M | [F270](README.md#f270), [F272](README.md#f272) | *Join* at one click from the access file that names the person. |
-| <a id="f277"></a>[F277](F277-Commits-Signed-With-The-Persons-Key.md) | M | porelo: signers with `cert-authority` and `valid-before` | Commits signed with the person's key through the agent, verified by the signers Core names. |
-| <a id="f275"></a>[F275](F275-The-Sign-In-Says-Its-Flow.md) | S | porelo: `login.flow` in the agent API | The sign-in terminal says whether to paste a code or confirm on the device page. |
-| <a id="f272"></a>[F272](F272-A-Project-Admin-Registers-And-Adds-From-The-Registry.md) | M | [F269](README.md#f269), [F271](README.md#f271) | Registry registration, scoped person actions and durable delivery built against typed adapters; served integration and VM confirmation pending. |
-| <a id="f274"></a>[F274](F274-Push-And-Pull-With-The-Central-Forge-Started-By-A-Person.md) | M | Core credential and host-forge adapters; live central forge reviews | Central transfer and review security repairs verified by targeted tests; live wiring and VM verification pending. |
-| <a id="f271"></a>[F271](F271-A-Host-Admin-Admits-From-The-Registry.md) | M | Core: signed host payloads; porelo-host: registry intake | App operations, preparation and teardown safety guards built against fake contracts; live signing, intake and page wiring remain. |
-| <a id="f278"></a>[F278](F278-The-Machines-Projects-And-Forges-Pages.md) | L | — | The Machines, Projects and Forges pages: lists of rows with ⋮, a page per item, filters, the default project. |
-| <a id="f276"></a>[F276](F276-The-VPN-The-CA-And-Per-Machine-Keys-Taken-Out.md) | L | [F270](README.md#f270), [F271](README.md#f271), [F272](README.md#f272), [F273](README.md#f273) | Removal and legacy rental recovery built behind typed adapters; served integration and VM rehearsal pending. |
-| <a id="f270"></a>[F270](F270-One-Ssh-Tunnel-Per-Host-From-Its-Card.md) | M | porelo-host: sshd per person and the forge and Matrix sockets; porelo: `host unlock` | One SSH tunnel per host, written from its card, carrying forge, Matrix, Git and the daemon. |
+| <a id="f279"></a>[F279](F279-The-Steps-Of-One-Click-Joining.md) | S | — | One Markdown file of numbered steps of the one-click flow, from first start to first work. |
 | <a id="f223"></a>[F223](F223-A-Ready-Server-Runs-Its-Setup-Again.md) | S | — | A ready rented server offers Run its setup again, which runs `up` in the interface's own run, a stop in it completed from Needs you. |
 | <a id="f222"></a>[F222](F222-A-Refused-Unlock-Asks-Again-In-Its-Terminal.md) | XS | — | A refused password in the unlock terminal asked again, up to three times, instead of ending it. |
 | <a id="f221"></a>[F221](F221-A-Hosts-Vault-Unlocked-From-The-Secrets-File.md) | S | — | A rented server's vault unlocked from the secrets file with its master password typed once, its Make refused; no value of the file typed by hand. |
@@ -94,6 +82,9 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f305"></a>[F305](F305-No-Join-For-A-Project-Already-On-The-Host.md) | — | — | No *Join* offered for a project already admitted and followed on its card host. |
+| <a id="f306"></a>[F306](F306-A-Work-Card-Whose-Terminal-Has-Ended.md) | — | — | A *Work* card whose terminal ended says so in words, without an empty black terminal bar. |
+| <a id="f307"></a>[F307](F307-Push-And-Pull-Show-Their-Progress-In-The-Interface.md) | — | — | Push and pull on a card host show each repository's answer in the interface, the terminal only for the master password. |
 | <a id="f301"></a>[F301](F301-Persons-Of-A-Project-In-One-Place.md) | L | — | One Persons section on a project page replacing the developers dialog: members with their own menus, a clear Add picker, no host step in a project edit. |
 | <a id="f304"></a>[F304](F304-No-Message-Asks-A-Step-The-Interface-Can-Take.md) | M | — | No message tells the person to do a step the interface can take itself; actions read what they need and say so. |
 | <a id="f297"></a>[F297](F297-Register-Progress-With-Its-Steps-And-Usual-Time.md) | M | — | Register's dialog shows which step of how many runs, with a progress bar and the usual time per step. |
@@ -110,7 +101,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f291"></a>[F291](F291-A-Host-Card-With-A-Name-Or-An-IPv6-Address-Read.md) | S | — | Register and Add for a host whose card names a host name or an IPv6 address, not only IPv4. |
 | <a id="f290"></a>[F290](F290-The-Host-Functions-From-A-Windows-Desktop.md) | M | — | Join, Prepare, Admit and Add from a Windows desktop: one ssh per host card with loopback TCP ends, the daemon through the relay, no master. |
 | <a id="f289"></a>[F289](F289-A-Key-Recovered-In-One-Run-With-Named-States.md) | L | — | A key replaced, or a backup key made or used, in one run at a time with named states, one hold owner and no background retry; replaces the recovery fix chain. |
-| <a id="f288"></a>[F288](F288-Small-Leftovers-Of-Sprint-6m.md) | — | — | The small edge cases left over from sprint 6m gathered in one place for the operator to place: address forms, test gaps, texts. |
+| <a id="f288"></a>[F288](F288-Small-Leftovers-Of-The-One-Click-Flow.md) | — | — | The small edge cases left over from the one-click flow gathered in one place for the operator to place: address forms, test gaps, texts. |
 | <a id="f284"></a>[F284](F284-The-Subagent-Number-Chosen-When-Starting.md) | — | — | How many subagents the agent may run at once, chosen when starting, with the number that applies and Core's refusal said before anything is made. |
 | <a id="f282"></a>[F282](F282-The-Providers-Usage-In-A-Status-Line.md) | — | — | A status line with one traffic light for the providers' usage, a popup per provider, and a *Needs you* warning past a set threshold. |
 | <a id="f233"></a>[F233](F233-The-Server-Type-And-Zone-Chosen-When-Renting.md) | — | — | The server type and zone chosen in *Prepare a server…*, stock shown before renting, the zone kept for down and give back. |
@@ -170,6 +161,18 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Title | What was built |
 |---|---|---|
+| <a id="f268"></a>F268 | One Key And One Card Per Person | One Ed25519 key and one card per person made by Core and kept in the KeePassXC file, the card filed in the registry, a changed or lost key handled. Tested in sprint 6m: passed. |
+| <a id="f269"></a>F269 | The Registry Read For Every List | The registry kept in a private checkout and read through Core for every list of persons, hosts, admins and projects. Tested in sprint 6m: passed. |
+| <a id="f270"></a>F270 | One SSH Tunnel Per Host From Its Card | One ssh connection per host written from its card, carrying the forge, Git, Matrix and the daemon, with the host key pinned. Tested in sprint 6m: passed. |
+| <a id="f271"></a>F271 | A Host Admin Admits From The Registry | A host admin from the registry prepares a server, files its card and admits project admins from the registry's persons. Tested in sprint 6m: passed. |
+| <a id="f272"></a>F272 | A Project Admin Registers And Adds From The Registry | A project admin registers the project on an admitting host and adds developers picked from the registry. Tested in sprint 6m: passed. |
+| <a id="f273"></a>F273 | A Developer Joins At One Click | *Join* at one click for a person named in a project's access file: the project followed and the card tunnel up. Tested in sprint 6m: passed. |
+| <a id="f274"></a>F274 | Push And Pull With The Central Forge Started By A Person | *Push the approved main…* and *Take the central state…* on a card host, the central token fed from the secrets file to the host's command alone. Tested in sprint 6m: passed. |
+| <a id="f275"></a>F275 | The Sign-In Says Its Flow | The sign-in terminal says whether to paste a code or confirm on the device page. Tested in sprint 6m: passed. |
+| <a id="f276"></a>F276 | The VPN, The CA And Per-Machine Keys Taken Out | The VPN, the host CA, per-machine keys and the project signing key taken out; hosts kept from before named as such. Tested in sprint 6m: passed. |
+| <a id="f277"></a>F277 | Commits Signed With The Person's Key | Commits the interface makes signed with the person's key through the agent and checked against Core's signers. Tested in sprint 6m: passed. |
+| <a id="f278"></a>F278 | The Machines, Projects And Forges Pages | The *Machines*, *Projects* and *Forges* pages as lists of rows with ⋮ and a page per item. Tested in sprint 6m: passed. |
+| <a id="f280"></a>F280 | A Lost Or Stolen Key Replaced | A lost or stolen key replaced by an admin, or with the offline backup key where there is a single admin. Tested in sprint 6m: passed. |
 | <a id="f208"></a>F208 | Roles Given At The Start Of The Interface | Roles given at the start (`--roles`), each command shown only for its role; normal work alone without it. Tested by walk 23. |
 | <a id="f209"></a>F209 | The VPN Kept Per Host, Several Up At Once | The VPN kept per host with its own network, interface, hosts lines and CA, several up at once, a colliding network refused. Tested by walk 23. |
 | <a id="f210"></a>F210 | The Secrets File Grouped By Host And By Project | The secrets file's entries under `hosts/<host>/` and `projects/<project>/`, today's moved once. Tested by walk 23. |

@@ -808,3 +808,10 @@ Legacy rental recovery keeps the validated provider project and original rental 
 never used to resume setup or connect. Give-back requires explicit confirmation and a successful provider
 result before recovery is removed. Existing system trust and network artifacts are not automatically deleted:
 removal needs an ownership check so unrelated configuration is preserved.
+
+An ssh to a host that the interface starts takes `IdentityFile=none` and its own configuration, never a forced
+`IdentitiesOnly=yes` without a named identity, which would shut out the agent's key too. A person's own
+`GIT_SSH_COMMAND` for the registry checkout is kept as it is: its shell syntax cannot be rewritten safely, so
+non-interactive ssh stays that command's own concern; without one, `ssh -o BatchMode=yes` is used. The central
+forge token reaches the host's push or pull only as the bare line on that command's standard input, read from the
+secrets file inside a terminal; it is never on a command line, in a file, or in this program.

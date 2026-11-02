@@ -7,7 +7,7 @@ refused commit still offers its healthy hosts. The rows follow each refresh and 
 in Core's answer is kept or shown. An unconfirmed join takes down only what it raised itself. Every refusal reaches
 the person. Each harm is guarded by a test that goes red when it is there.
 
-These points cover the remaining gaps in [F273](README.md#f273); each is to be checked against the code before it is
+These points cover the remaining gaps of the one-click join; each is to be checked against the code before it is
 fixed.
 
 ## Built so far

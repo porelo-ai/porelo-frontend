@@ -7,7 +7,7 @@ the card copy, the checkout's commit checks, Core's calls and the terminal fixes
 **What must be true.** A person replaces a lost or stolen key, or makes or uses a backup key, in one run that is
 always in one named state the dialog shows. Only one run exists at a time, it alone holds the registry checkout while
 it writes, nothing runs on its own in the background, and every way out of a state is a button the person presses.
-What [F280](README.md#f280) asks of recovery - who may replace whose key, the backup key's limits, locks shown only
+What recovery already asks - who may replace whose key, the backup key's limits, locks shown only
 once confirmed - stays as it is.
 
 ## Why
@@ -101,7 +101,7 @@ few states removes those ways instead of guarding each.
   - Its open points: the backup-key commit's change id line is confirmed on a real Core before building; a two-commit
     `registry file` answer is checked by *Check again* as one; the start sweep of card copies is kept.
 
-## What becomes of F280's built code
+## What becomes of the built recovery code
 
 Rebuilt, not built on. `main` holds the recovery code, not yet wired into the running app; the wiring
 (`6m-f280-wiring`) stays off `main` and is dropped.

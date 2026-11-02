@@ -7,13 +7,13 @@
 
 ## Why
 
-One-click joining from signed state: the steps replace walks 17–23, which [F276](README.md#f276) deletes, as plain step-by-step instructions without a guided walk.
+One-click joining from signed state: the steps replace walks 17–23, which the removal of the VPN era deletes, as plain step-by-step instructions without a guided walk.
 
 ## Plan
 
-- The file is `~/.porelo/handover/porelo-frontend/sprint-6m-steps.md` on the operator's laptop, outside the repository: it is a test script for one sprint, not a user page.
+- The file is a steps file under `~/.porelo/handover/porelo-frontend/` on the operator's laptop, outside the repository: it is a test script, not a user page.
 - Machines: "Laptop" is the operator's own laptop with the interface; the host is a local test VM the agents set up, never the operator; a second VM or a second local account stands for the developer.
-- Each other repository posts the steps its part needs (commands, expected output) to Agent Frontend and Agent Coordinator; this issue puts them in one order with the interface's steps from [F268](README.md#f268)–[F278](README.md#f278).
+- Each other repository posts the steps its part needs (commands, expected output) to Agent Frontend and Agent Coordinator; this issue puts them in one order with the interface's steps for the one-click flow.
 - Every value a step needs (address, login, file path) is written in the step; a step that waits on something already done says so and goes on.
 - Before hand-over the file is read by another model against the issues' "What must be true", and each step's *You see* is checked against the built interface on a private Xvfb display where it can be.
 
