@@ -1820,13 +1820,14 @@ List<Command> projectTransferCommands({
 /// The project menu's central transfers for a project followed on a card host, the person being the card's login.
 ///
 /// [followed] says the host's daemon follows the project for this person; the host itself refuses a push the
-/// project's verified access does not allow. Without a secrets file nothing can feed the central token.
+/// project's verified access does not allow. Without a secrets file ([hasSecrets] false) nothing can feed the central
+/// token.
 List<Command> cardHostTransferCommands({
   required ProjectTransfers transfers,
   required Machine machine,
   required String project,
   required bool followed,
-  required String? secretsFile,
+  required bool hasSecrets,
   required void Function(ProjectTransfer direction) start,
 }) {
   final card = machine.hostCard;
@@ -1838,7 +1839,7 @@ List<Command> cardHostTransferCommands({
     project: project,
     canPush: followed,
   );
-  final why = secretsFile == null
+  final why = !hasSecrets
       ? 'Choose your secrets file under Forges first: the central token is read from it.'
       : !followed
       ? 'This host does not follow the project for you.'

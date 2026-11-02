@@ -114,8 +114,8 @@ void main() {
     });
   }
 
-  // Harm: the interface reads the wrong token entry or sends the wrong stdin protocol.
-  test('the terminal reads the root token and feeds the agreed encoded line', () async {
+  // Harm: porelo-host-push takes the bare token line; anything else pushes with a token the forge refuses.
+  test('the terminal reads the root token and feeds it as one bare line', () async {
     final folder = await Directory.systemTemp.createTemp('central-transfer-');
     addTearDown(() => folder.delete(recursive: true));
     final file = File('${folder.path}/secrets.kdbx');
@@ -149,7 +149,43 @@ esac
     final diagnostic = await err;
     expect(code, 0, reason: 'the root entry must be used: $diagnostic');
     final value = String.fromCharCodes([102, 105, 120, 116, 117, 114, 101]);
-    expect(await out, 'forge-central-token ${base64.encode(utf8.encode(value))}\n');
+    expect(await out, '$value\n');
+  });
+
+  // Harm: the test secrets file, opened by its key file alone, was refused as a file asking a master password.
+  test('a key-file secrets file feeds its named entry with no password asked', () async {
+    final fixture = await _Fixture.create();
+    final key = '${fixture.folder.path}/secrets.key';
+    await File(key).writeAsString('key placeholder');
+    await File(fixture.cli).writeAsString('''#!/bin/bash
+[[ " \$* " == *" --no-password --key-file $key "* ]] || { echo "not opened by its key file: \$*" >&2; exit 1; }
+case "\$1" in
+  ls) printf 'other\\ngithub-app-1-installation\\n' ;;
+  show) [ "\${@: -1}" = github-app-1-installation ] || exit 1; printf '\\146\\151\\170\\164\\165\\162\\145\\n' ;;
+  *) exit 1 ;;
+esac
+''');
+    final result = await fixture.run(
+      secrets: SecretsFile(fixture.file, cli: fixture.cli, keyFile: key, entry: 'github-app-1-installation'),
+      newline: false,
+      typed: '',
+    );
+    expect(result.exitCode, 0, reason: '${result.stdout} ${result.stderr}');
+    expect(result.stderr, isNot(contains('master password')), reason: 'a key file opens it alone');
+    expect(result.stdout, contains('host answer'));
+  });
+
+  // Harm: the person read the interface's own markers in the terminal.
+  test('a terminal of its own shows the host lines without markers', () async {
+    final fixture = await _Fixture.create();
+    final submitted = await fixture.run(marked: false);
+    expect(submitted.exitCode, 0, reason: '${submitted.stdout} ${submitted.stderr}');
+    expect(submitted.stdout, contains('host answer'));
+    expect('${submitted.stdout}', isNot(contains('__PORELO_')));
+    final refused = await fixture.run(marked: false, mode: 'missing');
+    expect(refused.exitCode, isNot(0));
+    expect('${refused.stdout}${refused.stderr}', isNot(contains('__PORELO_')));
+    expect(refused.stderr, contains('nothing was sent'));
   });
 }
 
@@ -209,7 +245,7 @@ if os.environ.get('TRANSFER_MODE') == 'pty':
     tty = os.open('/dev/tty', os.O_RDWR)
     os.write(tty, b'ssh phase\n'); os.read(tty, 1024); os.close(tty)
 data = sys.stdin.buffer.read()
-if data != b'forge-central-token ' + encoded + b'\n':
+if data != value + b'\n':
     print('invalid token protocol', file=sys.stderr)
     sys.exit(93)
 if os.environ.get('TRANSFER_MODE') == 'echo':
@@ -224,8 +260,9 @@ sys.exit(int(os.environ.get('TRANSFER_CODE', '0')))
     return fixture;
   }
 
-  List<String> command({ProjectTransfer direction = ProjectTransfer.push, SecretsFile? secrets}) =>
+  List<String> command({ProjectTransfer direction = ProjectTransfer.push, SecretsFile? secrets, bool marked = true}) =>
       projectTransferFeedCommand(
+        marked: marked,
         direction: direction,
         project: 'example',
         repositories: ['api'],
@@ -241,8 +278,10 @@ sys.exit(int(os.environ.get('TRANSFER_CODE', '0')))
     ProjectTransfer direction = ProjectTransfer.push,
     SecretsFile? secrets,
     bool newline = true,
+    bool marked = true,
+    String typed = 'fixture master',
   }) async {
-    final args = command(direction: direction, secrets: secrets);
+    final args = command(direction: direction, secrets: secrets, marked: marked);
     final child = await Process.start(
       args.first,
       args.skip(1).toList(),
@@ -257,7 +296,7 @@ sys.exit(int(os.environ.get('TRANSFER_CODE', '0')))
     );
     final output = child.stdout.transform(utf8.decoder).join();
     final errors = child.stderr.transform(utf8.decoder).join();
-    child.stdin.write('fixture master${newline ? '\n' : ''}');
+    child.stdin.write('$typed${newline ? '\n' : ''}');
     await child.stdin.close();
     return ProcessResult(child.pid, await child.exitCode, await output, await errors);
   }

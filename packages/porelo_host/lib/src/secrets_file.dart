@@ -7,10 +7,14 @@ import 'host_file_name.dart' show HostFilesRefused;
 /// terminal once and reaches `keepassxc-cli` on standard input only, and every entry stays inside the script's
 /// own shell.
 class SecretsFile {
-  /// Names the file and the `keepassxc-cli` that opens it.
-  SecretsFile(this.file, {this.cli = keepassxcCli}) {
+  /// Names the file and the `keepassxc-cli` that opens it. With [keyFile] the file opens by that key file alone and
+  /// no master password is asked; [entry] names the central token's entry where it is not [centralTransferToken].
+  SecretsFile(this.file, {this.cli = keepassxcCli, this.keyFile, String? entry})
+    : entry = entry ?? centralTransferToken {
     checkPath(file);
     checkPath(cli);
+    if (keyFile case final key?) checkPath(key);
+    checkKeyName(this.entry);
   }
 
   /// The packaged `keepassxc-cli`, run by its absolute path.
@@ -21,6 +25,12 @@ class SecretsFile {
 
   /// The `keepassxc-cli` that opens it.
   final String cli;
+
+  /// The key file that opens [file] with no master password, or null where a master password is asked.
+  final String? keyFile;
+
+  /// The entry the central token is read from.
+  final String entry;
 
   /// Refuses unsafe legacy rental identifiers.
   static void checkHost(String host) {
@@ -56,15 +66,14 @@ class SecretsFile {
       // The transfer owns terminal echo and signal cleanup through SSH completion.
       ..._opened.skip(_shellStart.length),
       _listEntries,
-      ..._requireEntries([centralTransferToken]),
-      ..._readEntry(centralTransferToken, 'transfer_token'),
+      ..._requireEntries([entry]),
+      ..._readEntry(entry, 'transfer_token'),
       r'''if [[ "$transfer_token" =~ [[:space:][:cntrl:]] ]]; then echo "The central forge token must hold one nonempty line; nothing was sent." >&2; exit 1; fi''',
       r'''transfer_encoded="$(printf '%s' "$transfer_token" | /usr/bin/base64 -w0)" || { echo "The central token could not be encoded; nothing was sent." >&2; exit 1; }''',
       'unset MASTER entries',
     ].join('\n'),
-    feed:
-        "printf '%s %s\\n' '$centralTransferToken' "
-        r'"$transfer_encoded"',
+    // porelo-host-push reads the bare token as its one line of standard input.
+    feed: r'''printf '%s\n' "$transfer_token"''',
   );
 
   static List<String> _readEntry(String entry, String variable) => [
@@ -103,14 +112,22 @@ class SecretsFile {
     'unset cli_found',
     // A file that cannot be read is said as such, never asked about three times as a wrong password.
     r'if ! [ -r "$file" ]; then echo "$file cannot be read; nothing was sent." >&2; exit 1; fi',
-    // A mistyped password is asked again, three times at most; an empty one or the end of input ends it at once.
-    'for try in 1 2 3; do',
-    r'  IFS= read -rs -p "The master password of $file: " MASTER; echo >&2',
-    r'  if [ -z "$MASTER" ]; then echo "A master password cannot be empty; nothing was sent." >&2; exit 1; fi',
-    r'  if kp ls "$file" >/dev/null 2>&1; then break; fi',
-    r'  if [ "$try" = 3 ]; then echo "$file did not open with that password three times; nothing was sent." >&2; exit 1; fi',
-    r'  echo "$file did not open with that password; type it again." >&2',
-    'done',
+    if (keyFile != null) ...[
+      'key=${_word(keyFile!)}',
+      r'if ! [ -r "$key" ]; then echo "$key, the key file of $file, cannot be read; nothing was sent." >&2; exit 1; fi',
+      // Opened by its key file alone: nothing is asked and nothing is read from the terminal.
+      r'''kp() { local command=$1; shift; "$cli" "$command" --no-password --key-file "$key" "$@" </dev/null; }''',
+      r'if ! kp ls "$file" >/dev/null 2>&1; then echo "$file did not open with its key file $key; nothing was sent." >&2; exit 1; fi',
+    ] else ...[
+      // A mistyped password is asked again, three times at most; an empty one or the end of input ends it at once.
+      'for try in 1 2 3; do',
+      r'  IFS= read -rs -p "The master password of $file: " MASTER; echo >&2',
+      r'  if [ -z "$MASTER" ]; then echo "A master password cannot be empty; nothing was sent." >&2; exit 1; fi',
+      r'  if kp ls "$file" >/dev/null 2>&1; then break; fi',
+      r'  if [ "$try" = 3 ]; then echo "$file did not open with that password three times; nothing was sent." >&2; exit 1; fi',
+      r'  echo "$file did not open with that password; type it again." >&2',
+      'done',
+    ],
   ];
 
   // No echo from the first byte, and none of the caller's tracing: neither may draw a secret on the terminal.

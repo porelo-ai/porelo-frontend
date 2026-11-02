@@ -3314,30 +3314,37 @@ class _ShellState extends State<Shell> {
           machine: machine,
           project: project.name,
           followed: project.canBeActedOn,
-          secretsFile: widget.settings.secretsFile,
+          hasSecrets: hasCentralTransferSecrets(widget.settings.secretsFile),
           start: (direction) => unawaited(_transferInATerminal(machine, project.name, direction)),
         ),
       if (project.name != defaultProject && item != null) ..._registryPageCommands(item),
     ];
   }
 
-  /// Pushes the approved main, or takes the central state, in a terminal here: the person types the secrets file's
-  /// master password there, the terminal reads the central token from the file and hands it to the host's own command
-  /// on its standard input, so the token never passes through this program.
+  /// Pushes the approved main, or takes the central state, in a terminal here: the terminal reads the central token
+  /// from the secrets file (the test one by its key file, or the person's own after its master password is typed
+  /// there) and hands it to the host's own command on its standard input, so the token never passes through this
+  /// program.
   Future<void> _transferInATerminal(Machine machine, String project, ProjectTransfer direction) async {
-    final file = widget.settings.secretsFile;
     final card = machine.hostCard;
-    if (file == null || card == null) return;
+    if (card == null) return;
     final List<String> command;
+    final SecretsFile? secrets;
     try {
+      secrets = await centralTransferSecrets(widget.settings.secretsFile, entry: forgeTokenEntry);
+      if (secrets == null) return;
       command = projectTransferFeedCommand(
         direction: direction,
         project: project,
         repositories: const [],
         card: card,
         config: machine.sshConfig,
-        secretsFile: SecretsFile(file),
+        secretsFile: secrets,
+        marked: false,
       );
+    } on ForgeRefused catch (refused) {
+      _fleet.say(refused.words);
+      return;
     } on HostFilesRefused catch (refused) {
       _fleet.say(refused.message);
       return;
@@ -3350,9 +3357,12 @@ class _ShellState extends State<Shell> {
     await runInATerminal(
       context,
       title: push ? 'Push the approved main of $project' : 'Take the central state of $project',
-      explanation:
-          'Type the master password of your secrets file into the terminal. The terminal reads the central forge '
-          'token from that file and sends it to ${machine.name} on its standard input; nothing here sees or keeps it.',
+      explanation: secrets.keyFile == null
+          ? 'Type the master password of your secrets file into the terminal. The terminal reads the central forge '
+                'token from that file and sends it to ${machine.name} on its standard input; nothing here sees or '
+                'keeps it.'
+          : 'The terminal reads the central forge token from the test secrets file with its key file and sends it to '
+                '${machine.name} on its standard input; nothing here sees or keeps it.',
       machine: machine,
       command: command,
       open: widget.sessions.openTerminal,

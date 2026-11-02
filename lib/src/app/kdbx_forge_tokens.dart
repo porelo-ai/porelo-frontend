@@ -52,6 +52,33 @@ Future<Map<String, String>> Function() registryEnvironmentFor(
   return token == null ? const {} : {registryTokenVariable: token};
 };
 
+/// The secrets file the central push and pull read their token from: the test secrets file while it is there, opened by
+/// its key file with no master password, at the instance's own installation entry ([entry], from
+/// `--forge-token-entry`) or the one the file holds; otherwise the person's own [chosen] file at `forge-central-token`,
+/// its master password typed in the terminal. Null where neither is there.
+Future<SecretsFile?> centralTransferSecrets(
+  String? chosen, {
+  String? entry,
+  KeyFileSecrets? Function()? secrets,
+  RunHere? run,
+}) async {
+  final test = (secrets ?? KeyFileSecrets.test)();
+  if (test == null || !test.present) return chosen == null ? null : SecretsFile(chosen);
+  final app = entry != null && entry.startsWith('github-app-')
+      ? entry
+      : await KeyFileForgeTokens(test, MemoryForgeTokens(), run: run).installationEntry();
+  if (app == null) {
+    throw ForgeRefused(
+      '${test.file} holds no github-app-<id>-installation entry to read the central token from; nothing was sent.',
+    );
+  }
+  return SecretsFile(test.file, cli: test.cli, keyFile: test.keyFile, entry: app);
+}
+
+/// Whether [centralTransferSecrets] has a file to read: the person's own [chosen] one or the test secrets file.
+bool hasCentralTransferSecrets(String? chosen, {KeyFileSecrets? Function()? secrets}) =>
+    chosen != null || ((secrets ?? KeyFileSecrets.test)()?.present ?? false);
+
 /// A KeePassXC file opened by its key file alone, with no master password: the test secrets file that
 /// `prepare-github-test-token.sh` writes and `drop-github-test-token.sh` deletes.
 class KeyFileSecrets {

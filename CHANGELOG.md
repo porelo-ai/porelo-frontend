@@ -14,6 +14,11 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   from the file to the host's own command without passing through the interface. Without a secrets file both say to
   choose one first.
 
+- The central push and pull send the token as the bare line the host's `porelo-host-push` reads, instead of a
+  `forge-central-token <encoded>` line it took for the token. While the test secrets file is there they read its
+  GitHub App installation entry with its key file and ask nothing; the terminal no longer shows the interface's own
+  markers.
+
 - A local command the interface runs (Porelo's command line, KeePassXC's, git) that gives no answer within five
   minutes is ended and refused with a sentence naming it and what to check, instead of leaving the window waiting
   without end; so is a copy to a host over ssh after five minutes, and a command on a machine being set up after

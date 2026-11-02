@@ -29,14 +29,14 @@ void main() {
     Machine? on,
     String project = 'example',
     bool followed = true,
-    String? secretsFile = '/home/person/Porelo/secrets.kdbx',
+    bool hasSecrets = true,
     List<ProjectTransfer>? started,
   }) => cardHostTransferCommands(
     transfers: transfers,
     machine: on ?? card,
     project: project,
     followed: followed,
-    secretsFile: secretsFile,
+    hasSecrets: hasSecrets,
     start: (direction) => started?.add(direction),
   );
 
@@ -53,7 +53,7 @@ void main() {
   });
 
   test('without a secrets file both are offered but refused with what to do', () {
-    final offered = commands(secretsFile: null);
+    final offered = commands(hasSecrets: false);
     expect(offered, hasLength(2));
     expect(offered.map((command) => command.unavailable), everyElement(contains('secrets file')));
   });

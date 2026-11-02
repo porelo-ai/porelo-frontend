@@ -156,4 +156,42 @@ void main() {
     expect(test.file, '/run/user/1000/porelo-test/secrets.kdbx');
     expect(test.keyFile, '/run/user/1000/porelo-test/secrets.key');
   });
+
+  // Harm: the central push read the person's absent secrets file while the walk's test file held the token.
+  test('the central push reads the installation entry of the test secrets file by its key file', () async {
+    prepared();
+    entries = {'porelo-forge-token:github.com': 'own', 'github-app-7-installation': 'app'};
+    final file = await centralTransferSecrets('/home/someone/secrets.kdbx', secrets: () => secrets, run: run);
+    expect(file?.file, secrets.file);
+    expect(file?.keyFile, secrets.keyFile);
+    expect(file?.entry, 'github-app-7-installation');
+    final started = await centralTransferSecrets(
+      null,
+      entry: 'github-app-9-installation',
+      secrets: () => secrets,
+      run: run,
+    );
+    expect(started?.entry, 'github-app-9-installation', reason: 'the instance\'s own installation entry wins');
+  });
+
+  // Harm: without the test file the person's own file was no longer read, or a missing one went unsaid.
+  test('without the test secrets file the central push reads the person\'s own file', () async {
+    final own = await centralTransferSecrets('/home/someone/secrets.kdbx', secrets: () => secrets, run: run);
+    expect(own?.file, '/home/someone/secrets.kdbx');
+    expect(own?.keyFile, isNull);
+    expect(own?.entry, 'forge-central-token');
+    expect(await centralTransferSecrets(null, secrets: () => secrets, run: run), isNull);
+    expect(hasCentralTransferSecrets(null, secrets: () => secrets), isFalse);
+    prepared();
+    expect(hasCentralTransferSecrets(null, secrets: () => secrets), isTrue);
+  });
+
+  // Harm: a test file without an installation entry fed nothing and said nothing.
+  test('a test secrets file without an installation entry is said in words', () async {
+    prepared();
+    expect(
+      () => centralTransferSecrets(null, secrets: () => secrets, run: run),
+      throwsA(isA<ForgeRefused>().having((e) => e.words, 'words', contains('github-app-'))),
+    );
+  });
 }

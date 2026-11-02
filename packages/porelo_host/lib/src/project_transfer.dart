@@ -23,7 +23,11 @@ const projectTransferNotSubmitted = '__PORELO_CENTRAL_TRANSFER_NOT_SUBMITTED__';
 const projectTransferOutput = '__PORELO_CENTRAL_TRANSFER_OUTPUT__';
 
 /// Builds the terminal-only token feed through the already owned host connection.
+///
+/// [marked] adds the submission markers and the output prefix a reader of the terminal consumes; a terminal shown to the
+/// person as it is takes it false and shows the host's lines alone.
 List<String> projectTransferFeedCommand({
+  bool marked = true,
   required ProjectTransfer direction,
   required String project,
   required List<String> repositories,
@@ -62,7 +66,7 @@ List<String> projectTransferFeedCommand({
     'transfer_submitted=no',
     r'transfer_tty="$(/usr/bin/stty -g 2>/dev/null || true)"',
     "finish_transfer() { local code=\$?; trap - EXIT INT TERM HUP; "
-        "if [ \"\$transfer_submitted\" = no ]; then printf '\\n%s\\n' '$projectTransferNotSubmitted'; fi; "
+        "${marked ? "if [ \"\$transfer_submitted\" = no ]; then printf '\\n%s\\n' '$projectTransferNotSubmitted'; fi; " : ''}"
         r'if [ -n "$transfer_tty" ]; then /usr/bin/stty "$transfer_tty" 2>/dev/null || true; fi; exit "$code"; }',
     "trap finish_transfer EXIT",
     "trap 'exit 130' INT",
@@ -81,8 +85,8 @@ List<String> projectTransferFeedCommand({
     printf '%s%s\n' '@PUBLIC_OUTPUT@' "$line"
   done
 }'''
-        .replaceAll('@PUBLIC_OUTPUT@', projectTransferOutput),
-    "printf '\\n%s\\n' '$projectTransferSubmitted'",
+        .replaceAll('@PUBLIC_OUTPUT@', marked ? projectTransferOutput : ''),
+    if (marked) "printf '\\n%s\\n' '$projectTransferSubmitted'",
     'transfer_submitted=yes',
     'shopt -s lastpipe',
     'set +e',
