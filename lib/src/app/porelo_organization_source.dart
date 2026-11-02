@@ -120,7 +120,8 @@ class PoreloOrganizationSource implements OrganizationSource {
     final standing = person['revoked'] == true
         ? CardStanding.revoked
         : switch (state) {
-            'trusted' => CardStanding.trusted,
+            // Trusted only where the answer says outright it is not revoked.
+            'trusted' when person['revoked'] == false => CardStanding.trusted,
             'first-seen' => CardStanding.notYet,
             // A state this build does not know holds nothing, and its words say what it is.
             _ => CardStanding.refused,

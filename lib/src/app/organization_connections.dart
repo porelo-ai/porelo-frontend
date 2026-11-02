@@ -51,7 +51,8 @@ class CardHostConnections extends HostConnections {
   bool _movedPast(HostCardSsh card) {
     final view = organization.view;
     final entry = view?.hosts.where((each) => each.name == card.name).firstOrNull;
-    if (view == null || entry == null) return false;
+    if (view == null) return false;
+    if (entry == null) return true;
     final mine = view.persons.where((person) => person.login == view.me).firstOrNull?.key;
     return (entry.address != null && entry.address != card.address) ||
         (entry.port != null && entry.port != card.sshPort) ||
@@ -87,9 +88,14 @@ class CardHostConnections extends HostConnections {
       await machines.tunnels.dropAndUnpublish(machine);
       throw OrganizationRefused(why);
     }
+    var saved = false;
     try {
       await machines.add(machine);
+      saved = await machines.settings.holdsMachine(machine.name);
     } on Exception {
+      // Said below.
+    }
+    if (!saved) {
       // Nothing is left up that this computer does not know of, and the row offers *Connect* again.
       await machines.tunnels.dropAndUnpublish(machine);
       try {
@@ -107,6 +113,9 @@ class CardHostConnections extends HostConnections {
     final view = organization.view;
     final entry = view?.hosts.where((each) => each.name == host).firstOrNull;
     if (view == null || entry == null) throw OrganizationRefused('The organization names no host $host.');
+    if (view.stale) {
+      throw OrganizationRefused('The organization could not be read just now, so no connection to $host was made.');
+    }
     final (address, port, hostKey) = (entry.address, entry.port, entry.hostKey);
     final (web, git, matrix) = (entry.webPort, entry.gitPort, entry.matrixPort);
     if (address == null || port == null || hostKey == null) {
@@ -152,7 +161,12 @@ class CardHostConnections extends HostConnections {
   @override
   Future<HostProgress> progress(String host) async => _progress.status(_config(host), host);
 
-  String _config(String host) => _machine(host)?.sshConfig ?? (throw OrganizationRefused('Connect to $host first.'));
+  String _config(String host) {
+    final machine = _machine(host);
+    if (machine == null) throw OrganizationRefused('Connect to $host first.');
+    if (!connected(host)) throw OrganizationRefused('The organization has changed $host: connect to it again first.');
+    return machine.sshConfig;
+  }
 
   @override
   void dispose() {

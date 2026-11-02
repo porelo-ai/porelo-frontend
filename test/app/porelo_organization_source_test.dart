@@ -269,6 +269,20 @@ void main() {
       expect(listed.single.ofTheOrganization, isFalse);
     });
 
+    // Harm: a card whose revocation the answer does not state counts as trusted, and goes into a new host's pin.
+    for (final revoked in <Object?>[null, 'true', 0]) {
+      test('a person whose revoked reads $revoked is not trusted', () async {
+        answer = (_) => says({
+          ..._org,
+          'people': [
+            {'login': 'alice', 'fingerprint': 'SHA256:a', 'state': 'trusted', 'vouched': 'yes', 'revoked': revoked},
+          ],
+        });
+        final view = await source.read();
+        expect(view.persons.single.standing, isNot(CardStanding.trusted));
+      });
+    }
+
     // Harm: a stale listing permits a removal based on an unverified source.
     test('a project list whose stale is no truth value is an unreadable answer', () async {
       answer = (_) => says({

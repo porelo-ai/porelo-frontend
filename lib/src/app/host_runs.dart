@@ -362,7 +362,7 @@ class HostRuns extends ChangeNotifier {
       if (run.session.state == HostRunState.done && !run.ready) {
         await _addHost(run);
       } else if (!run.ready && const [HostRunState.refused, HostRunState.unreachable].contains(run.session.state)) {
-        await _giveBackAfterStop(run, 'Setup of ${run.name} stopped: ${run.session.fix ?? run.session.stepText}.');
+        _stopped(run, 'Setup of ${run.name} stopped: ${run.session.fix ?? run.session.stepText}.');
       }
       if (run.session.state == HostRunState.busy) _poll(run);
     } on Exception {
@@ -383,13 +383,13 @@ class HostRuns extends ChangeNotifier {
         host.values['name'] != run.record.hostName ||
         !run.session.steps.any((step) => step.step == 'up' && step.state == StepState.done) ||
         run.session.steps.any((step) => step.state == StepState.refused)) {
-      await _giveBackAfterStop(run, 'The server did not confirm its SSH completion record.');
+      _stopped(run, 'The server did not confirm its SSH completion record.');
       return;
     }
     final access = hostAccess;
     final refused = access == null ? 'The verified host admins are unavailable.' : await access.writeCard(host);
     if (refused != null) {
-      await _giveBackAfterStop(run, "${run.name}'s card could not be written to the organization: $refused");
+      _stopped(run, "${run.name}'s card could not be written to the organization: $refused");
       return;
     }
     final settings = run.settings ?? machines.settings;
@@ -410,38 +410,9 @@ class HostRuns extends ChangeNotifier {
     await onReady?.call(run.record.hostName);
   }
 
-  /// A stop leaves nothing to resume on a billed server: it is given back as *Give the server back* does, and said.
-  Future<void> _giveBackAfterStop(HostPreparation run, String why) async {
-    final settings = run.settings ?? machines.settings;
-    // A machine the person gave is theirs and bills nobody: taking anything off it stays their own decision.
-    if ((settings.hostUp(run.project) ?? run.record).givenAddress.isNotEmpty) {
-      final words = '$why The machine stays as it is: "Give the server back" on its row takes the setup off it.';
-      run.problem = words;
-      say?.call(words);
-      return;
-    }
-    final down = HostSession(
-      executable: run.session.executable,
-      arguments: (settings.hostUp(run.project) ?? run.record).giveBackArguments(run.project),
-      start: run.session.start,
-    );
-    String words;
-    try {
-      await down.down();
-      if (hostGivenBack(down)) {
-        final left = await confirmDown(run.project, down);
-        for (final machine in machines.all.where((m) => m.kind == 'host' && m.hostProject == run.project).toList()) {
-          await machines.forget(machine);
-        }
-        words = '$why The server was given back.${left == null ? '' : ' $left'}';
-      } else {
-        words = '$why The server could not be given back and is still rented: use "Give the server back" on its row.';
-      }
-    } catch (_) {
-      words = '$why The server could not be given back and is still rented: use "Give the server back" on its row.';
-    } finally {
-      down.dispose();
-    }
+  /// Says a stop. Nothing is given back unasked: this attempt rented nothing, since `up` only takes a server given to it.
+  void _stopped(HostPreparation run, String why) {
+    final words = '$why The machine stays as it is: "Give the server back" on its row takes the setup off it.';
     run.problem = words;
     say?.call(words);
   }

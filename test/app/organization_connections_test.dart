@@ -69,7 +69,8 @@ class _Saves extends MemorySettingsStore {
 
   @override
   Future<void> write(Map<String, Object?> values) async {
-    if (failing) throw const FileSystemException('no room left');
+    // As the file store does: it says nothing of a write that failed.
+    if (failing) return;
     await super.write(values);
   }
 }
@@ -260,6 +261,27 @@ void main() {
       expect(made.connected('build'), isFalse);
     });
 
+    // Harm: a command for the host goes to the address the organization has left.
+    test('the old connection is not used to ask the host', () async {
+      await reads(
+        _mia(
+          host: const OrganizationHost(
+            name: 'build',
+            address: '203.0.113.99',
+            port: 22,
+            hostKey: _otherHostKey,
+            webPort: 8081,
+            gitPort: 8082,
+            matrixPort: 8083,
+            admins: ['hana'],
+            projects: ['demo'],
+          ),
+        ),
+      );
+      await expectLater(made.refresh('build'), throwsA(isA<OrganizationRefused>()));
+      await expectLater(made.progress('build'), throwsA(isA<OrganizationRefused>()));
+    });
+
     test('a changed key of mine offers Connect again', () async {
       await reads(
         organizationFor(
@@ -269,6 +291,14 @@ void main() {
       );
       expect(made.connected('build'), isFalse);
     });
+  });
+
+  // Harm: an offline copy of the organization pins an address or host key it has since replaced.
+  test('an organization that could not be read now makes no new connection', () async {
+    final made = await connections(organizationFor('mia', stale: true));
+    await expectLater(made.connect('build'), throwsA(isA<OrganizationRefused>()));
+    expect(launches, isEmpty);
+    expect(made.connected('build'), isFalse);
   });
 
   // Harm: a save that fails spins the button for good, with a tunnel up that nothing here says is up.

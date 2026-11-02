@@ -124,17 +124,17 @@ void main() {
     ..end(0);
 
   // Harm: a stopped setup leaves a billed server nobody was told of.
-  test("up's stop gives the rental back, and it is said", () async {
+  test("up's stop keeps the server, and it is said", () async {
     final (run, started, said) = await stopped(
       HostFixture(),
       up: (process) => process
         ..line(const Step('forge', StepState.refused, fix: 'the forge did not start'))
         ..end(65),
     );
-    expect(started.map((arguments) => arguments.first), ['up', 'down']);
+    expect(started.map((arguments) => arguments.first), ['up'], reason: 'nothing is given back unasked');
     expect(run.ready, isFalse);
-    expect(settings.hostUp('orchard'), isNull);
-    expect(said.single, allOf(contains('the forge did not start'), contains('given back')));
+    expect(settings.hostUp('orchard'), isNotNull);
+    expect(said.single, allOf(contains('the forge did not start'), isNot(contains('was given back'))));
   });
 
   // Harm: a setup taken up again hands the host a pin from before, with a removed admin's key among those it trusts.
@@ -179,27 +179,13 @@ void main() {
   });
 
   // Harm: a server runs on with a card that does not name it, so nobody can ever connect to it.
-  test('a card that cannot be written gives the rental back, with the words why', () async {
+  test('a card that cannot be written keeps the server, with the words why', () async {
     final fixture = HostFixture()..writeRefusal = 'the organization moved on';
     final (run, started, said) = await stopped(fixture, up: confirmedUp);
-    expect(started.map((arguments) => arguments.first), ['up', 'down']);
+    expect(started.map((arguments) => arguments.first), ['up'], reason: 'nothing is given back unasked');
     expect(run.ready, isFalse);
-    expect(machines.all.where((machine) => machine.hostProject == 'orchard'), isEmpty);
-    expect(said.single, allOf(contains('the organization moved on'), contains('given back')));
-  });
-
-  // Harm: a person believes a server is gone while it is still billed.
-  test('a give-back that fails is said as such and keeps the recovery record', () async {
-    final (run, _, said) = await stopped(
-      HostFixture(),
-      up: (process) => process
-        ..line(const Step('forge', StepState.refused, fix: 'the forge did not start'))
-        ..end(65),
-      givenBack: false,
-    );
-    expect(run.givenBack, isFalse);
     expect(settings.hostUp('orchard'), isNotNull);
-    expect(said.single, contains('still rented'));
+    expect(said.single, allOf(contains('the organization moved on'), isNot(contains('was given back'))));
   });
 
   // Harm: setup run again on a working server stops once and takes everything on it away.

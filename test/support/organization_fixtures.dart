@@ -164,7 +164,9 @@ OrganizationView organizationFor(
   List<OrganizationPerson> persons = _persons,
   List<OrganizationProject> moreProjects = const [],
   OrganizationHost host = buildHost,
+  bool stale = false,
 }) => OrganizationView(
+  stale: stale,
   name: 'acme',
   keptIn: 'the GitHub organization acme',
   vouchedBy: 'GitHub',

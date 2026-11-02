@@ -928,6 +928,12 @@ class Settings extends ChangeNotifier {
   Future<void>? _writes;
 
   /// Keeps unknown settings because the file also serves other versions and the IntelliJ plugin.
+  /// Whether the store itself holds a machine named [name]: a file store says nothing of a write that failed.
+  Future<bool> holdsMachine(String name) async {
+    final stored = (await _store.read())['machines'];
+    return stored is List && stored.any((each) => each is Map && each['name'] == name);
+  }
+
   Future<void> _write() {
     final known = _known;
     final writing = _writes?.then((_) => _writeKnown(known)) ?? _writeKnown(known);

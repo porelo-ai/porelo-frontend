@@ -565,6 +565,20 @@ void main() {
     });
 
     // Harm: a person expects Porelo to make the repository, and is stopped with no idea why (the operator's 10:31Z word).
+    // Harm: a token pasted with the address reaches a process's arguments, where others on the machine read them.
+    testWidgets('an address holding a token cannot be given', (tester) async {
+      final (fixture, _) = await none(tester);
+      await _open(tester, find.byKey(const ValueKey('chooseOrganization')));
+      await tester.enterText(
+        find.byKey(const Key('organization-address')),
+        'https://tok123@forge.example/acme/org.git',
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('organization-confirm')), warnIfMissed: false);
+      await tester.pumpAndSettle();
+      expect(fixture.writes, isEmpty);
+    });
+
     testWidgets('creating says to make the empty repository first, and fills it', (tester) async {
       final (fixture, _) = await none(tester);
       await _open(tester, find.byKey(const ValueKey('createOrganization')));

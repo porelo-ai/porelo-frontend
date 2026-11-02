@@ -821,12 +821,17 @@ class _AddressDialogState extends State<_AddressDialog> {
           key: const Key('organization-address'),
           controller: _address,
           autofocus: true,
-          decoration: const InputDecoration(labelText: "The organization's repository address"),
+          decoration: InputDecoration(
+            labelText: "The organization's repository address",
+            errorText: _holdsCredential(_address.text.trim())
+                ? 'The address only: no password or token, so it stays out of what other programs can read.'
+                : null,
+          ),
           onChanged: (_) => changed(),
         ),
       ],
     ),
-    ask: () => _address.text.trim().isEmpty
+    ask: () => _address.text.trim().isEmpty || _holdsCredential(_address.text.trim())
         ? null
         : (
             change: widget.creating ? OrganizationChange.createOrganization : OrganizationChange.chooseOrganization,
@@ -976,4 +981,10 @@ class _KeyDialogState extends State<_KeyDialog> {
       },
     );
   }
+}
+
+/// Whether [address] carries more before its host than the `git@` an ssh address has.
+bool _holdsCredential(String address) {
+  final carried = RegExp(r'^[A-Za-z][A-Za-z0-9+.-]*://([^/@]*)@').firstMatch(address)?.group(1);
+  return carried != null && carried != 'git';
 }
