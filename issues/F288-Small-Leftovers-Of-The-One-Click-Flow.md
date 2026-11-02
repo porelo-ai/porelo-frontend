@@ -94,6 +94,9 @@ finding; each is declined with its reason, and is read again where its code is r
 - **A server that reports no usable address:** given by name or IPv6 address, it fails as "did not confirm completion" rather than in its own words; no server does it while the host's play needs an IPv4 default route.
 - **Push and pull in the command finder** stand only in the project's menu, as the project's other actions do.
 - **`test/ui/project_room_test.dart`:** its `project == null` branches no longer run where a loop holds only `checkout`; they go once the host's registry actions are taken out.
+- **`packages/porelo_host` tests over a real terminal or a process** (`secret_store_test`, `forge_key_test`, `project_transfer_test`, `down_cli_test`) run out of their 30 seconds when the machine is under a load of 30 or more, and pass when run alone.
+- **`HostRuns.setupAgain` and `_replaceLegacy`** have nothing that hands them a function any more; they go with the setups made before the organization.
+- **A setup taken up again** writes its machine file anew under the data folder of that moment and reads the path it saved: the two differ only if the data folder has moved since.
 
 ## Idea
 
