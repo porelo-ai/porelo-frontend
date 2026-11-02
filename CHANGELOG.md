@@ -37,6 +37,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Typing fast into a terminal no longer sends letters twice over: a key pressed before the engine took the last reset
+  sent everything so far again. Dead keys, such as a German keyboard's backtick, still compose. It takes a patched copy
+  of `xterm` in `packages/xterm`, whose `PATCHED.md` says what differs.
+
 - *Refresh* in the rail reads the organization again; it only forgot what it kept, so a change made elsewhere stayed
   unseen until a write was refused. A person's or project's count reads the same everywhere, admins included.
 

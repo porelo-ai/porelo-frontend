@@ -57,6 +57,11 @@ dependencies:
     cryptography: ^2.9.0
     path: ^1.9.1
 
+# One fix to its text input: see packages/xterm/PATCHED.md.
+dependency_overrides:
+    xterm:
+        path: packages/xterm
+
 dev_dependencies:
     integration_test:
         sdk: flutter
