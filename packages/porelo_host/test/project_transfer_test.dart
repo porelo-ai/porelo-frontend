@@ -296,8 +296,13 @@ sys.exit(int(os.environ.get('TRANSFER_CODE', '0')))
     );
     final output = child.stdout.transform(utf8.decoder).join();
     final errors = child.stderr.transform(utf8.decoder).join();
-    child.stdin.write('$typed${newline ? '\n' : ''}');
-    await child.stdin.close();
+    // A script that refuses at once has ended before the typed line arrives; the pipe it left is not the test's finding.
+    try {
+      child.stdin.write('$typed${newline ? '\n' : ''}');
+      await child.stdin.close();
+    } on SocketException {
+      // Its exit code and words are what the test reads.
+    }
     return ProcessResult(child.pid, await child.exitCode, await output, await errors);
   }
 }

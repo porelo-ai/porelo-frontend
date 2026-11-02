@@ -58,7 +58,8 @@ class SecretsFile {
   /// The current interface instance's central transfer entry below the root group.
   static const centralTransferToken = 'forge-central-token';
 
-  /// Checks the local token before SSH starts and builds its encoded stdin line.
+  /// Checks the local token before SSH starts and feeds it as the bare line `porelo-host-push` reads; its encoded
+  /// form is kept only so the terminal's redaction cuts that form out too.
   ///
   /// Both scripts run in one terminal shell; no secret is returned to Dart.
   ({String check, String feed}) projectTransferScripts() => (

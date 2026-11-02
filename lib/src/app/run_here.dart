@@ -32,18 +32,33 @@ Future<Ran> runHere(
   String? input,
 }) async {
   if (registryEnvironment case final extra? when program == 'porelo' && arguments.firstOrNull == 'registry') {
-    environment = {...environment, ...await extra()};
+    try {
+      environment = {...environment, ...await extra()};
+    } on Exception catch (refused) {
+      // The token's own words (a secrets file that did not open), refused as every caller of this expects.
+      throw WorkspaceRefused('$refused');
+    }
   }
   final process = await Process.start(program, arguments, workingDirectory: inDirectory, environment: environment);
   final out = _Gathered(process.stdout.transform(const SystemEncoding().decoder));
   final err = _Gathered(process.stderr.transform(const SystemEncoding().decoder));
-  try {
-    if (input != null) process.stdin.write(input);
-    await process.stdin.close();
-  } on SocketException {
-    // The program ended before taking all of it; its exit code and its words say why.
-  }
+  _feed(process, (stdin) {
+    if (input != null) stdin.write(input);
+  });
   return _answered(process, program, arguments, out: out, err: err);
+}
+
+/// Writes [process]'s input beside the wait for its end, never before it: a program that does not read it would hold
+/// the write without bound, and the limit would never begin.
+void _feed(Process process, void Function(IOSink stdin) write) {
+  unawaited(
+    Future(() async {
+      write(process.stdin);
+      await process.stdin.close();
+    }).catchError((Object _) {
+      // The program ended, or was ended, before taking all of it; its exit code and its words say why.
+    }),
+  );
 }
 
 /// [process]'s answer; once it outlived [runHereLimit] it is ended and refused with a sentence that says so, which
@@ -64,9 +79,10 @@ Future<Ran> _answered(
   } on TimeoutException {
     await stopOwnedProcess(process).catchError((Object _) {});
   }
-  final said = (out: await out.soFar(), err: await err.soFar());
+  // Both streams are waited for at once: a child holding both open costs their grace once, not twice.
+  final [said, saidAside] = await Future.wait([out.soFar(), err.soFar()]);
   if (code == null) throw WorkspaceRefused(_hung(program, arguments));
-  return (code: code, out: said.out, err: said.err);
+  return (code: code, out: said, err: saidAside);
 }
 
 /// One output stream's words as they arrive, so what came before a child held the pipe open is never lost.
@@ -109,12 +125,7 @@ Future<Ran> runHereWithBytes(String program, List<String> arguments, {required L
   // Read from the start, whatever bytes come: a program's words are never lost to a decoding error.
   final out = _Gathered(process.stdout.transform(const Utf8Decoder(allowMalformed: true)));
   final err = _Gathered(process.stderr.transform(const Utf8Decoder(allowMalformed: true)));
-  try {
-    process.stdin.add(input);
-    await process.stdin.close();
-  } on SocketException {
-    // The program ended before taking all of it; its exit code and its words say why.
-  }
+  _feed(process, (stdin) => stdin.add(input));
   return _answered(process, program, arguments, out: out, err: err);
 }
 

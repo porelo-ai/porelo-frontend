@@ -1829,6 +1829,7 @@ List<Command> cardHostTransferCommands({
   required bool followed,
   required bool hasSecrets,
   required void Function(ProjectTransfer direction) start,
+  bool running = false,
 }) {
   final card = machine.hostCard;
   if (card == null || project == defaultProject) return const [];
@@ -1839,7 +1840,9 @@ List<Command> cardHostTransferCommands({
     project: project,
     canPush: followed,
   );
-  final why = !hasSecrets
+  final why = running
+      ? 'A push or pull of this project runs already; wait for its end.'
+      : !hasSecrets
       ? 'Choose your secrets file under Forges first: the central token is read from it.'
       : !followed
       ? 'This host does not follow the project for you.'

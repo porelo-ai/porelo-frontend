@@ -39,8 +39,6 @@ void main() {
     expect(quiet, contains('was ended'), reason: 'the quiet run says it was stopped');
   });
 
-  // Harm: padding between base64 blocks truncates or corrupts the installer sent to the machine.
-
   // Harm: an ssh that ends early, as on a refused login, throws the interface's own broken pipe instead of saying why.
   test('an ssh that ends while the installer is sent answers with its own exit and words', () async {
     final machine = MachineSetup(

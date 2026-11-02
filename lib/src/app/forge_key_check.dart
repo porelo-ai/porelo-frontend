@@ -98,6 +98,8 @@ class ForgeKeyCheckCli implements ForgeKeyCheck {
       return const ForgeKeyUnavailable('Core answered in a form this interface does not know. Check again.');
     } on ProcessException {
       return const ForgeKeyUnavailable('Porelo could not be started here.');
+    } on WorkspaceRefused catch (refused) {
+      return ForgeKeyUnavailable(refused.words);
     }
   }
 

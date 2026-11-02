@@ -69,6 +69,29 @@ is read against that model before it is placed.
 - **Pages:** older guided walks, tests and tooling still hold machine-specific values; the action models for gathered
   push and pull and for the backup key are to be checked against their final contracts.
 
+## Declined from the reading of the walk's fixes
+
+A reading of the fixes made during the walk found these; each is declined for now with its reason, and is read again
+where its code is rebuilt.
+
+- **Register, Add and the developers dialog** (rebuilt with the organization model, where a project is added by an
+  owner and members by the project admin): closing the Register dialog while a step runs leaves the project's access
+  work running, and reopening it reads into the same checkouts; *Verify* carries a filed change on to the host;
+  the change's own registry wait is not bounded where it files; a registry read that fails while the dialog is open
+  empties the person picker without saying why; a registry refresh started by a change is not bounded; a `replace`
+  or `lock` the host took in an earlier sync is not confirmed on retry. Each must hold in the rebuilt flow: no
+  background work outlives its dialog unseen, a read never changes a host, and every wait is bounded.
+- **The busy port's holder** is named from `ss` across address families: another account's listener on
+  `127.0.0.1` can be passed over for this account's on `[::1]`. Only the sentence can name the wrong process; nothing
+  is ended from it.
+- **Callers that word a refusal again:** some callers of local commands catch every exception and show their own
+  sentence ("Git could not be run on this computer."), so a command ended at its limit loses its own words there.
+- **A test instance's entry flag** keeps the last of several `--forge-token-entry` given, as a command line usually
+  does; an entry name outside the installation pattern never reaches the secrets file.
+- **The registry environment** lists the test secrets file twice per call when it looks for the installation entry.
+- **A copy over ssh with a deadline and agent-only identities:** no caller combines the two.
+- **Push and pull in the command finder** stand only in the project's menu, as the project's other actions do.
+
 ## Idea
 
 Each point gets a test that goes red with its harm first, when it is placed.

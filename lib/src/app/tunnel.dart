@@ -388,7 +388,11 @@ class Tunnel {
     for (final endpoint in [control, machine.socketPath]) {
       if (FileSystemEntity.typeSync(endpoint, followLinks: false) != FileSystemEntityType.unixDomainSock) continue;
       if (await _answers(endpoint)) continue;
-      File(endpoint).deleteSync();
+      try {
+        File(endpoint).deleteSync();
+      } on PathNotFoundException {
+        // The exiting master removed it meanwhile.
+      }
     }
   }
 

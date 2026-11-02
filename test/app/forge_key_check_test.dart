@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/forge_key_check.dart';
+import 'package:porelo_frontend/src/app/run_here.dart';
 
 Map<String, Object?> _answer({Object? keyListed = true, bool revoked = false, String? cardRefused}) => {
   'login': 'ms-test-reviewer',
@@ -101,5 +102,16 @@ void main() {
     final reading = await _read(0, _answer()..['forge'] = null);
     expect((reading as ForgeKeyAnswered).forge, isNull);
     expect(reading.good, isFalse);
+  });
+
+  // Harm: Core's identity read ended at its limit escaped the key row, which stayed "Checking…" for ever.
+  test('a key read ended at its limit is a reading in words, never a stray exception', () async {
+    final check = ForgeKeyCheckCli(
+      run: (program, arguments, {inDirectory, environment = const {}, input}) async =>
+          throw const WorkspaceRefused('`porelo identity` gave no answer within 5 minutes and was ended.'),
+    );
+    final reading = await check.read();
+    expect(reading, isA<ForgeKeyUnavailable>());
+    expect((reading as ForgeKeyUnavailable).words, contains('was ended'));
   });
 }

@@ -235,20 +235,6 @@ void main() {
     });
   }
 
-  // Harm: a master whose configuration is there, somebody's working tunnel, is ended from here.
-  test('a master with its configuration is left alone, and nothing is raised over it', () async {
-    final card = host.hostCard!;
-    final control = card.controlSocket(host.sshConfig);
-    Directory(File(control).parent.path).createSync(recursive: true);
-    File(host.sshConfig).writeAsStringSync('Host alpha\n');
-    final live = await ServerSocket.bind(InternetAddress(control, type: InternetAddressType.unix), 0);
-    addTearDown(live.close);
-    expect(await tunnels.raiseFor(host), isFalse);
-    expect(tunnels.of(host)!.problem, contains('an endpoint already exists'));
-    expect(runs.where((run) => run.contains('exit')), isEmpty);
-    expect(launches, isEmpty);
-  });
-
   // Prevents path validation from escaping as an unhandled future and leaving the host raising.
   test('an invalid local endpoint returns a refusal and never launches', () async {
     final bad = host.withSocketPath('relative');

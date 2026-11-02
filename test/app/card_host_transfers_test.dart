@@ -30,6 +30,7 @@ void main() {
     String project = 'example',
     bool followed = true,
     bool hasSecrets = true,
+    bool running = false,
     List<ProjectTransfer>? started,
   }) => cardHostTransferCommands(
     transfers: transfers,
@@ -37,6 +38,7 @@ void main() {
     project: project,
     followed: followed,
     hasSecrets: hasSecrets,
+    running: running,
     start: (direction) => started?.add(direction),
   );
 
@@ -50,6 +52,17 @@ void main() {
       command.run();
     }
     expect(started, [ProjectTransfer.push, ProjectTransfer.pull], reason: 'each starts its own direction');
+  });
+
+  // Harm: a second push or pull of the same project started while the first still ran.
+  test('while a push or pull of the project runs, neither can be started again', () {
+    final started = <ProjectTransfer>[];
+    final offered = commands(running: true, started: started);
+    expect(offered.map((command) => command.unavailable), everyElement(contains('runs already')));
+    for (final command in offered) {
+      command.run();
+    }
+    expect(started, isEmpty);
   });
 
   test('without a secrets file both are offered but refused with what to do', () {

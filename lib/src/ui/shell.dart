@@ -299,6 +299,9 @@ class _ShellState extends State<Shell> {
   /// The central transfers' guards; each transfer itself runs in a terminal the person types the master password into.
   final _transfers = ProjectTransfers(source: _TerminalOnly());
 
+  /// The card host projects whose push or pull runs now, `<machine>/<project>`: one at a time each.
+  final _transfersRunning = <String>{};
+
   /// A file being handed to work, and the last one's outcome.
   final _handing = HandingIn();
 
@@ -3315,6 +3318,7 @@ class _ShellState extends State<Shell> {
           project: project.name,
           followed: project.canBeActedOn,
           hasSecrets: hasCentralTransferSecrets(widget.settings.secretsFile),
+          running: _transfersRunning.contains('${machine.name}/${project.name}'),
           start: (direction) => unawaited(_transferInATerminal(machine, project.name, direction)),
         ),
       if (project.name != defaultProject && item != null) ..._registryPageCommands(item),
@@ -3326,6 +3330,18 @@ class _ShellState extends State<Shell> {
   /// there) and hands it to the host's own command on its standard input, so the token never passes through this
   /// program.
   Future<void> _transferInATerminal(Machine machine, String project, ProjectTransfer direction) async {
+    final key = '${machine.name}/$project';
+    if (!_transfersRunning.add(key)) return;
+    setState(() {});
+    try {
+      await _transferOnce(machine, project, direction);
+    } finally {
+      _transfersRunning.remove(key);
+      if (mounted) setState(() {});
+    }
+  }
+
+  Future<void> _transferOnce(Machine machine, String project, ProjectTransfer direction) async {
     final card = machine.hostCard;
     if (card == null) return;
     final List<String> command;

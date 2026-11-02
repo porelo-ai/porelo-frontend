@@ -194,4 +194,30 @@ void main() {
       throwsA(isA<ForgeRefused>().having((e) => e.words, 'words', contains('github-app-'))),
     );
   });
+
+  // Harm: an instance started with a GitHub entry sent that GitHub token to every other forge it read a token for.
+  test('an instance\'s own entry is read for GitHub only, never handed to another forge', () async {
+    prepared();
+    entries = {'ms-test-reviewer': 'the-github-token', 'porelo-forge-token:forge.example.org': 'the-other-forge'};
+    final tokens = KeyFileForgeTokens(secrets, platform, entry: 'ms-test-reviewer', run: run);
+    expect(await tokens.read('github.com'), 'the-github-token');
+    expect(await tokens.read('forge.example.org'), 'the-other-forge', reason: 'the other forge has its own entry');
+    entries.remove('porelo-forge-token:forge.example.org');
+    expect(await tokens.read('forge.example.org'), isNull, reason: 'never the GitHub token');
+  });
+
+  // Harm: keepassxc-cli ended at its limit escaped as a refusal no forge caller catches.
+  test('a secrets file read ended at its limit is refused in the forge\'s words', () async {
+    prepared();
+    final tokens = KeyFileForgeTokens(
+      secrets,
+      platform,
+      run: (program, arguments, {inDirectory, environment = const {}, input}) async =>
+          throw const WorkspaceRefused('`keepassxc-cli ls` gave no answer within 5 minutes and was ended.'),
+    );
+    expect(
+      () => tokens.read('github.com'),
+      throwsA(isA<ForgeRefused>().having((refused) => refused.words, 'words', contains('was ended'))),
+    );
+  });
 }

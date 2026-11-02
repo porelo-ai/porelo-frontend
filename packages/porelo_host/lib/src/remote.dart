@@ -245,19 +245,33 @@ class OpenSsh implements Remote {
     return RemoteResult(done.exitCode, '${done.stderr}'.trim());
   }
 
+  static const _outputGrace = Duration(seconds: 2);
+
   /// Runs `scp` with [arguments], ended once it outlives [limit]: a stalled copy never holds its caller without end.
   Future<RemoteResult> _copyWithin(Duration limit, List<String> arguments) async {
     final process = await _start('scp', arguments);
     final out = process.stdout.drain<void>()..ignore();
     final err = process.stderr.transform(const Utf8Decoder(allowMalformed: true)).join()..ignore();
-    await process.stdin.close();
+    await process.stdin.close().catchError((Object _) {});
+    // scp's own ssh can hold the output open after scp ended: what came within a short grace is the answer.
+    Future<String> said() async {
+      await out.timeout(_outputGrace, onTimeout: () {});
+      return (await err.timeout(_outputGrace, onTimeout: () => '')).trim();
+    }
+
     try {
       final code = await process.exitCode.timeout(limit);
-      await out;
-      return RemoteResult(code, (await err).trim());
+      return RemoteResult(code, await said());
     } on TimeoutException {
-      process.kill(ProcessSignal.sigkill);
-      await process.exitCode;
+      // Asked first, scp ends the ssh it started; only one that does not end is killed.
+      process.kill();
+      await process.exitCode.timeout(
+        _outputGrace,
+        onTimeout: () {
+          process.kill(ProcessSignal.sigkill);
+          return process.exitCode;
+        },
+      );
       final within = limit.inMinutes >= 1 ? '${limit.inMinutes} minutes' : '${limit.inSeconds} seconds';
       return RemoteResult(
         255,

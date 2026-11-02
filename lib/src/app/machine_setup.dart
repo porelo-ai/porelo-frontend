@@ -211,6 +211,7 @@ systemctl reload ssh 2>/dev/null || systemctl reload sshd
     3 => 'The setup script does not know this operating system, so nothing was installed.',
     4 => 'The setup script did not run as root.',
     5 => 'A check failed and the machine is not usable yet; what it said is above.',
+    124 => 'The machine gave no answer in time and the setup script was ended; what it said is above.',
     notTheScriptShown =>
       'The setup script on the machine changed after it was shown, so nothing ran. '
           'Show it again.',
@@ -264,8 +265,12 @@ systemctl reload ssh 2>/dev/null || systemctl reload sshd
       '-s',
     ]);
     final result = _resultOf(process, onLine: onLine);
-    process.stdin.write(script);
-    await process.stdin.close();
+    try {
+      process.stdin.write(script);
+      await process.stdin.close();
+    } on SocketException {
+      // ssh ended before it took the script, as on a refused login; its exit and its words say why.
+    }
     return result;
   }
 
@@ -285,10 +290,11 @@ systemctl reload ssh 2>/dev/null || systemctl reload sshd
       await stopOwnedProcess(process).catchError((Object _) {});
       await streams.timeout(const Duration(seconds: 2), onTimeout: () => const <void>[]);
       final within = limit.inMinutes >= 1 ? '${limit.inMinutes} minutes' : '${limit.inSeconds} seconds';
-      err.writeln(
-        'The machine gave no answer within $within and the command was ended. '
-        'Check that this computer still reaches it, then try again.',
-      );
+      const then = 'Check that this computer still reaches it, then try again.';
+      final ended = 'The machine gave no answer within $within and the command was ended. $then';
+      err.writeln(ended);
+      // A followed run shows it among the lines, where the person reads; the end's sentence points there.
+      onLine?.call(ended);
       return ProcessResult(process.pid, 124, '$out', '$err');
     }
     // A child the command left behind may hold its output open; what came until then is its answer.

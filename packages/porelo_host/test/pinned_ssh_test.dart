@@ -481,6 +481,34 @@ void main() {
     expect(answer.stderr, contains('was ended'), reason: 'the sentence says it was stopped and what to do');
   });
 
+  // Harm: scp's own ssh, left holding its output open, kept a copy waiting without end after scp itself had ended.
+  for (final hangs in [false, true]) {
+    test('a copy whose output stays held open still answers ${hangs ? 'once ended' : 'when it ended'}', () async {
+      const key = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+      final child = _HeldPipes(exit: hangs ? null : 0);
+      final ssh = OpenSsh.sharedHost(
+        card: HostCardSsh(
+          name: 'alpha',
+          address: 'alpha.example.org',
+          sshPort: 22,
+          hostKey: key,
+          login: 'alice',
+          publicKey: key,
+          webPort: 18080,
+          gitPort: 18081,
+          matrixPort: 18082,
+        ),
+        config: '/config/porelo/ssh/alpha.conf',
+        environment: {'XDG_CONFIG_HOME': '/config'},
+        start: (_, _) async => child,
+        deadline: const Duration(milliseconds: 200),
+      );
+      final answer = await ssh.copy('alpha', '', '/from', '/to').timeout(const Duration(seconds: 10));
+      expect(answer.exitCode, hangs ? 255 : 0);
+      if (hangs) expect(child.signals.first, ProcessSignal.sigterm, reason: 'scp is asked first, so it ends its ssh');
+    });
+  }
+
   // Harm: a transfer switches accounts or falls back to a new connection outside its owned tunnel.
   test('shared-host transfers use only the imported config and captured admitted alias', () async {
     const key = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
@@ -635,6 +663,33 @@ class _EarlyRefusal implements Process {
   @override
   bool kill([ProcessSignal signal = ProcessSignal.sigterm]) {
     killed = true;
+    return true;
+  }
+}
+
+/// A copy whose output a child keeps open: it ends with [exit], or only when signalled, but its pipes never close.
+class _HeldPipes implements Process {
+  _HeldPipes({int? exit}) {
+    if (exit != null) _exit.complete(exit);
+  }
+  final _exit = Completer<int>();
+  final signals = <ProcessSignal>[];
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+  @override
+  IOSink get stdin => IOSink(StreamController<List<int>>()..stream.listen((_) {}));
+  @override
+  Stream<List<int>> get stdout => StreamController<List<int>>().stream;
+  @override
+  Stream<List<int>> get stderr => StreamController<List<int>>().stream;
+  @override
+  Future<int> get exitCode => _exit.future;
+  @override
+  int get pid => 1;
+  @override
+  bool kill([ProcessSignal signal = ProcessSignal.sigterm]) {
+    signals.add(signal);
+    if (!_exit.isCompleted) _exit.complete(143);
     return true;
   }
 }

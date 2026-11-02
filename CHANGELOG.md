@@ -19,6 +19,12 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   GitHub App installation entry with its key file and ask nothing; the terminal no longer shows the interface's own
   markers.
 
+- A GitHub token named for a test instance is read for GitHub alone, never handed to another forge. A local
+  command that does not read its input is still ended at its limit; a copy to a host whose ssh holds its output open
+  answers, and an ended copy is asked to stop before it is killed. A key check, a token read or a registry call ended
+  at its limit says so instead of staying "Checking…". A second push or pull of the same project waits for the first;
+  a machine setup ended at its limit says so among its lines.
+
 - A local command the interface runs (Porelo's command line, KeePassXC's, git) that gives no answer within five
   minutes is ended and refused with a sentence naming it and what to check, instead of leaving the window waiting
   without end; so is a copy to a host over ssh after five minutes, and a command on a machine being set up after

@@ -29,6 +29,9 @@ String? forgeTokenEntryFromArguments(List<String> arguments) {
   return entry;
 }
 
+/// The name of a GitHub App installation's entry in the test secrets file.
+final installationEntryName = RegExp(r'^github-app-[0-9]+-installation$');
+
 /// The variable Core's registry check takes the organization's installation token from, declared once by
 /// `prepare-github-test-token.sh` with `porelo credentials declare … --env`.
 const registryTokenVariable = 'PORELO_GITHUB_APP_TOKEN';
@@ -46,7 +49,7 @@ Future<Map<String, String>> Function() registryEnvironmentFor(
   final test = (secrets ?? KeyFileSecrets.test)();
   if (test == null || !test.present) return const {};
   final tokens = KeyFileForgeTokens(test, MemoryForgeTokens(), entry: entry, run: run);
-  final app = entry != null && entry.startsWith('github-app-') ? entry : await tokens.installationEntry();
+  final app = entry != null && installationEntryName.hasMatch(entry) ? entry : await tokens.installationEntry();
   if (app == null) return const {};
   final token = await KeyFileForgeTokens(test, MemoryForgeTokens(), entry: app, run: run).read('github.com');
   return token == null ? const {} : {registryTokenVariable: token};
@@ -64,7 +67,7 @@ Future<SecretsFile?> centralTransferSecrets(
 }) async {
   final test = (secrets ?? KeyFileSecrets.test)();
   if (test == null || !test.present) return chosen == null ? null : SecretsFile(chosen);
-  final app = entry != null && entry.startsWith('github-app-')
+  final app = entry != null && installationEntryName.hasMatch(entry)
       ? entry
       : await KeyFileForgeTokens(test, MemoryForgeTokens(), run: run).installationEntry();
   if (app == null) {
@@ -127,10 +130,10 @@ class KeyFileSecrets {
 /// token typed for a forge then goes to the system store as before.
 class KeyFileForgeTokens implements ForgeTokens {
   /// Reads [secrets] while it is present, falling back to [otherwise]; [run] runs `keepassxc-cli`. [entry] names the
-  /// entry read for every forge, where this instance was started with one.
+  /// entry read for GitHub, where this instance was started with one; every other forge reads its own.
   KeyFileForgeTokens(this.secrets, this.otherwise, {this.entry, RunHere? run}) : _run = run ?? runHere;
 
-  /// The one entry this instance reads, or null for each forge's own name.
+  /// The entry this instance reads for GitHub, or null for each forge's own name.
   final String? entry;
 
   /// The test secrets file.
@@ -147,7 +150,9 @@ class KeyFileForgeTokens implements ForgeTokens {
   @override
   Future<String?> read(String forge) async {
     if (!secrets.present) return otherwise.read(forge);
-    final entry = this.entry ?? providerKeyName(forgeAddress(forge));
+    // The instance's own entry holds a GitHub token: another forge reads its own entry, never that one.
+    final address = forgeAddress(forge);
+    final entry = (address == 'github.com' ? this.entry : null) ?? providerKeyName(address);
     final listed = await _cli(['ls', '-q', '-R', '-f', ...secrets.opening, secrets.file]);
     if (listed.code != 0) {
       throw ForgeRefused('${secrets.file} did not open with its key file ${secrets.keyFile}.');
@@ -167,10 +172,7 @@ class KeyFileForgeTokens implements ForgeTokens {
     if (listed.code != 0) {
       throw ForgeRefused('${secrets.file} did not open with its key file ${secrets.keyFile}.');
     }
-    return listed.out
-        .split('\n')
-        .where((name) => RegExp(r'^github-app-[0-9]+-installation$').hasMatch(name))
-        .firstOrNull;
+    return listed.out.split('\n').where(installationEntryName.hasMatch).firstOrNull;
   }
 
   @override
@@ -192,6 +194,8 @@ class KeyFileForgeTokens implements ForgeTokens {
       return await _run(secrets.cli, arguments, environment: _english);
     } on ProcessException {
       throw ForgeRefused('KeePassXC\'s command line is not installed here (${secrets.cli}).');
+    } on WorkspaceRefused catch (refused) {
+      throw ForgeRefused(refused.words);
     }
   }
 }
