@@ -412,8 +412,9 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
                       title: 'Put a project on ${host.name}',
                       personLabel: 'Project',
                       words:
-                          'Every member comes with the project. A terminal gives the host your central token once, for '
-                          'its deploy keys; the host does the rest by itself, which can take up to five minutes.',
+                          'Every member comes with the project. Connect to this host, and if it waits for your central '
+                          'token this page offers to give it, once, in a terminal, for its deploy keys. The host does '
+                          'the rest by itself, which can take up to five minutes.',
                       confirm: 'Put it on the host',
                       change: OrganizationChange.addProjectToHost,
                       input: (_, project) => {'host': host.name, 'project': project},
@@ -473,8 +474,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
   String _projectWords(OrganizationView view, String name) {
     final project = view.projects.where((project) => project.name == name).firstOrNull;
     if (project == null) return 'not in the organization';
-    final count = project.members.length + project.admins.length;
-    return '$count ${count == 1 ? 'person' : 'people'}';
+    return peopleOf(project);
   }
 
   Widget _admins(OrganizationView view, OrganizationHost host, bool isAdmin) {
@@ -646,7 +646,9 @@ class _ChangeHostDialogState extends State<_ChangeHostDialog> {
     confirm: 'Change them',
     body: (context, changed) => Column(
       mainAxisSize: MainAxisSize.min,
+      spacing: Space.small,
       children: [
+        const SizedBox.shrink(),
         TextField(
           key: const Key('organization-host-address'),
           controller: _address,

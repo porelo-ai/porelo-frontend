@@ -115,6 +115,7 @@ class _HostDialogState extends State<HostDialog> {
   List<HostMembership>? _holders;
   bool _checkingMemberships = false;
   String? _membershipProblem;
+  final _scroll = ScrollController();
   final _name = TextEditingController();
   final _address = TextEditingController();
   final _hostKey = TextEditingController();
@@ -302,6 +303,17 @@ class _HostDialogState extends State<HostDialog> {
     if (readAgain && mounted) unawaited(_readHolders());
   }
 
+  /// A run's steps, kept at their newest unless the person has scrolled up to read.
+  Widget _following(String steps) {
+    final at = _scroll.hasClients ? _scroll.position : null;
+    if (at == null || !at.hasContentDimensions || at.pixels >= at.maxScrollExtent - 48) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _scroll.hasClients) _scroll.jumpTo(_scroll.position.maxScrollExtent);
+      });
+    }
+    return SelectableText(steps);
+  }
+
   @override
   void dispose() {
     _down?.dispose();
@@ -310,6 +322,7 @@ class _HostDialogState extends State<HostDialog> {
     for (final field in [_name, _address, _hostKey, _digest]) {
       field.dispose();
     }
+    _scroll.dispose();
     super.dispose();
   }
 
@@ -320,10 +333,13 @@ class _HostDialogState extends State<HostDialog> {
     final access = widget.hostAccess ?? widget.hostRuns?.hostAccess;
     final holders = _holders;
     return AlertDialog(
+      // Anchored above, so a form or a list growing below moves nothing a person is reading or about to click.
+      alignment: Alignment.topCenter,
       title: Text(widget.takeDownOnly ? 'Give the server back' : run?.name ?? 'Prepare a server'),
       content: SizedBox(
         width: Sizes.dialog,
         child: SingleChildScrollView(
+          controller: _scroll,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -331,10 +347,7 @@ class _HostDialogState extends State<HostDialog> {
               if (widget.takeDownOnly && !_givenBack)
                 Text('Give this server back only after its data is safe. The provider must confirm its removal.'),
               if (!widget.takeDownOnly && run == null) ...[
-                if (access == null)
-                  const Text('Verified host-admin identity and the organization are unavailable.')
-                else if (_refusal(access) case final reason? when reason != _problem)
-                  Text(reason),
+                if (access == null) const Text('Verified host-admin identity and the organization are unavailable.'),
                 for (final field in [
                   (_name, 'Host name', 'One lower-case server name, such as orchard.'),
                   (
@@ -344,11 +357,14 @@ class _HostDialogState extends State<HostDialog> {
                   ),
                   (_hostKey, 'SSH host key', 'The server’s ssh-ed25519 public key, checked separately.'),
                 ])
-                  TextField(
-                    controller: field.$1,
-                    decoration: InputDecoration(labelText: field.$2, helperText: field.$3),
-                    // The host name decides whose admins may prepare it, so its refusal follows each change.
-                    onChanged: field.$1 == _name ? (_) => setState(() {}) : null,
+                  Padding(
+                    padding: const EdgeInsets.only(top: Space.small),
+                    child: TextField(
+                      controller: field.$1,
+                      decoration: InputDecoration(labelText: field.$2, helperText: field.$3),
+                      // The host name decides whose admins may prepare it, so its refusal follows each change.
+                      onChanged: field.$1 == _name ? (_) => setState(() {}) : null,
+                    ),
                   ),
                 OutlinedButton(
                   onPressed: _busy
@@ -360,13 +376,23 @@ class _HostDialogState extends State<HostDialog> {
                   child: const Text('Choose collection'),
                 ),
                 if (_collection != null) Text(_collection!),
-                TextField(
-                  controller: _digest,
-                  decoration: const InputDecoration(
-                    labelText: 'Collection SHA-256',
-                    helperText: 'The digest published with the chosen collection.',
+                Padding(
+                  padding: const EdgeInsets.only(top: Space.small),
+                  child: TextField(
+                    controller: _digest,
+                    decoration: const InputDecoration(
+                      labelText: 'Collection SHA-256',
+                      helperText: 'The digest published with the chosen collection.',
+                    ),
                   ),
                 ),
+                // Below the fields, so that what it says as the name is typed moves none of them.
+                if (access != null)
+                  if (_refusal(access) case final reason? when reason != _problem)
+                    Padding(
+                      padding: const EdgeInsets.only(top: Space.small),
+                      child: Text(reason),
+                    ),
               ],
               if (!widget.takeDownOnly && run == null && record?.preparedHost == null) ...[
                 HostPreparationSettingsForm(
@@ -411,9 +437,9 @@ class _HostDialogState extends State<HostDialog> {
                 if (record?.preparedHost != null) const PreparedHostPanel(),
               if (_givenBack) const Text('The provider confirmed give-back.'),
               if (run != null)
-                ListenableBuilder(listenable: run.session, builder: (_, _) => SelectableText(run.session.protocolText)),
+                ListenableBuilder(listenable: run.session, builder: (_, _) => _following(run.session.protocolText)),
               if (_down case final session?)
-                ListenableBuilder(listenable: session, builder: (_, _) => SelectableText(session.protocolText)),
+                ListenableBuilder(listenable: session, builder: (_, _) => _following(session.protocolText)),
             ],
           ),
         ),

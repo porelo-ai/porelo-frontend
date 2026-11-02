@@ -101,7 +101,7 @@ void main() {
     testWidgets('a project is one row, naming the one host carrying it', (tester) async {
       await opened(tester, 'pat');
       expect(find.byKey(const ValueKey('my-project demo')), findsOneWidget);
-      expect(find.text('2 repositories · 1 member · on build'), findsOneWidget);
+      expect(find.text('2 repositories · 2 people · on build'), findsOneWidget);
       expect(find.text('project admin'), findsOneWidget);
     });
 

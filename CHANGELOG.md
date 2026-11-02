@@ -37,6 +37,17 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- *Refresh* in the rail reads the organization again; it only forgot what it kept, so a change made elsewhere stayed
+  unseen until a write was refused. A person's or project's count reads the same everywhere, admins included.
+
+- *Prepare a server…* keeps its fields where they are as the words about the name change, with room for a floating
+  label, and its list of steps stays at its newest unless the person scrolled up. A machine the person gave no longer
+  reads as being rented.
+
+- A host nobody has connected to yet reads *Not connected yet* under *Needs you* and *Machines*, not *Not answering*.
+  A refused connection says that a host makes the account only after reading the organization. Putting a project on a
+  host says how the token is given: connect, then the host's page offers it.
+
 - A person who starts work without picking an agent gets the one the machine chooses, as the command line chooses it, and
   the form says which it is and why; Claude Code is no longer filled in first. The picker puts agents found signed in
   first and marks each, and an agent that cannot say never reads as signed out. A sign-in the machine found but the vault

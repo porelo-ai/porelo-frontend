@@ -173,6 +173,10 @@ class FleetModel extends ChangeNotifier {
   bool _disposed = false;
 
   Reachability _reachability = Reachability.connecting;
+
+  /// Whether this machine has answered since this window opened.
+  bool get answered => _answered;
+  bool _answered = false;
   String _status = 'Starting up.';
   bool _busy = false;
   bool _live = false;
@@ -301,6 +305,7 @@ class FleetModel extends ChangeNotifier {
       _info = info;
       _retry?.cancel();
       _reachability = Reachability.connected;
+      _answered = true;
       _say('Connected to ${backend.label}, ${info.product} ${info.version}.');
       await _readOnce();
       // Dropped while it was connecting — a stored list replacing the machine the window opened

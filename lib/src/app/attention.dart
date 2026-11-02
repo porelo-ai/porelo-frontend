@@ -222,6 +222,7 @@ class Attention extends ChangeNotifier {
     for (final machine in silent) {
       final fleet = fleetOf(machine);
       final what = switch (fleet.reachability) {
+        _ when notConnectedYet(machine) => 'You have not connected to this host yet',
         Reachability.connecting => 'This machine is still connecting, so nothing is known yet',
         Reachability.incompatible => 'This machine serves nothing this build understands',
         _ => 'This machine cannot be reached',
@@ -365,6 +366,12 @@ class Attention extends ChangeNotifier {
           !(machine.isThisComputer && !_machines.poreloIsInstalledHere))
         machine,
   ];
+
+  /// Whether [machine] is a host that has not answered yet: quiet because nobody has connected, not gone silent.
+  bool notConnectedYet(Machine machine) =>
+      machine.kind == 'host' &&
+      !fleetOf(machine).answered &&
+      fleetOf(machine).reachability != Reachability.incompatible;
 
   /// Every machine once: one node reached two ways would deliver every question twice.
   List<Machine> get _counted {

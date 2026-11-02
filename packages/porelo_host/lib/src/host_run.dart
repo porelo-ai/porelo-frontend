@@ -271,6 +271,14 @@ class HostRun {
     PlannedStep('ansible', 'Install the server setup tools', seconds: 120),
   ];
 
+  /// The same steps on a machine the person gave: nothing is rented there.
+  static const givenUpSteps = [
+    PlannedStep('rent', 'Take the server as given', seconds: 5),
+    PlannedStep('ssh', 'Reach the server over SSH', seconds: 780),
+    PlannedStep('copy', 'Copy the server setup files', seconds: 30),
+    PlannedStep('ansible', 'Install the server setup tools', seconds: 120),
+  ];
+
   /// Giving the server back follows the collection's teardown.
   static const downSteps = [PlannedStep('give-back', 'Give the server back', seconds: 30)];
   List<PlannedStep> _ownSteps = const [];
@@ -420,7 +428,7 @@ class HostRun {
 
   Future<int> _upGiven(HostPlan plan) async {
     Directory? checkedCollection;
-    _ownSteps = upSteps;
+    _ownSteps = provider is GivenMachine ? givenUpSteps : upSteps;
     _write(Step('plan', StepState.plan, steps: _ownSteps));
     try {
       plan.preparationSettings.check();

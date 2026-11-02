@@ -165,13 +165,15 @@ class MachinesPage extends StatelessWidget {
       titleKey: ValueKey('rail-machine ${machine.name}'),
       title: thisComputer ? 'This computer' : machine.name,
       subtitle: [
-        machine.where,
+        if (machine.where.isNotEmpty) machine.where,
         if (tunnel != null)
           tunnel.words
         else if (fleet?.reachability == Reachability.connected)
           'Connected'
+        else if (fleet?.answered ?? false)
+          'Not connected; state unknown'
         else
-          'Not connected; state unknown',
+          'not connected yet',
         ?tunnel?.problem,
       ].join(' · '),
       leading: const Icon(Icons.dns_outlined),

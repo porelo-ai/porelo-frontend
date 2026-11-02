@@ -462,6 +462,23 @@ void main() {
     });
   }
 
+  // Harm: a person who gave their own machine reads that a server is being rented, and fears a bill.
+  test('a given machine is not said to be rented', () async {
+    final run = HostRun(
+      provider: GivenMachine(address: '203.0.113.7', hostKey: sshKey),
+      remote: _LoginRefusal(),
+      preparation: _Preparation(),
+      hostKeys: () async => ('fixture-host-private', sshKey),
+      sshEvery: Duration.zero,
+      emit: steps.add,
+      environment: {'XDG_STATE_HOME': scratch.path, 'LOCALAPPDATA': scratch.path},
+    );
+    await run.up(plan);
+    final words = steps.map((step) => step.toLine()).join();
+    expect(words, contains('"rent"'));
+    expect(words.toLowerCase(), isNot(contains('rent the')));
+  });
+
   // Harm: missing runner limits exhaust a small host, and wrong forwards misdirect its services.
   test('preparation receives version two inventory and chosen local forwards', () async {
     final setup = _Preparation();

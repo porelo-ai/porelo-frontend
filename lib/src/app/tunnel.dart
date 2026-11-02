@@ -527,7 +527,9 @@ class Tunnel {
           words.contains('Host key verification failed') || words.contains('REMOTE HOST IDENTIFICATION HAS CHANGED')
           ? hostKeyPinRefusal
           : words.contains('Permission denied')
-          ? 'The host refused this admitted account or its selected key.'
+          ? 'The host refused this account or its selected key. A host makes your account only after it has read '
+                'the organization, up to five minutes after your project is on it, and a host still waiting for a '
+                'token has made none yet.'
           : words.contains('forwarding failed') || words.contains('Address already in use')
           ? 'The host tunnel could not bind its fixed port or socket.'
           : 'The SSH connection stopped (exit $code).';

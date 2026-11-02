@@ -517,7 +517,7 @@ String _projectWords(OrganizationProject project) => [
     'no project admin'
   else
     '${project.admins.length == 1 ? 'project admin' : 'project admins'} ${project.admins.join(', ')}',
-  '${project.members.length} ${project.members.length == 1 ? 'member' : 'members'}',
+  peopleOf(project),
   if (project.host case final host?) 'on $host' else 'on no host yet',
 ].join(' · ');
 

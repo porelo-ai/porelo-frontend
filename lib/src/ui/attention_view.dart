@@ -224,7 +224,7 @@ extension on _AttentionViewState {
             : () => widget.onOpenHost!(stop.project);
       case AttentionKind.silent:
         final each = row.value as ({Machine machine, String words});
-        state = 'Not answering';
+        state = attention.notConnectedYet(each.machine) ? 'Not connected yet' : 'Not answering';
         icon = Icons.cloud_off_outlined;
         primary = retrySilentMachine(each.machine, attention.fleetOf(each.machine)).unless(reason);
       case AttentionKind.forward:

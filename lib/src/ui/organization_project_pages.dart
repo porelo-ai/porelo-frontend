@@ -100,7 +100,7 @@ class _OrganizationProjectsPageState extends State<OrganizationProjectsPage> {
                       title: Text(project.name),
                       subtitle: Text(
                         '${project.repositories == null ? '' : '${_count(project.repositories!, 'repository', 'repositories')} · '}'
-                        '${_count(project.members.length, 'member', 'members')} · '
+                        '${peopleOf(project)} · '
                         '${project.host == null ? 'on no host yet' : 'on ${project.host}'}',
                       ),
                       trailing: Wrap(

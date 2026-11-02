@@ -70,6 +70,12 @@ class OrganizationProject {
   final int? repositories;
 }
 
+/// Everyone in [project], its admins with its members, in the one count every page says.
+String peopleOf(OrganizationProject project) {
+  final count = {...project.admins, ...project.members}.length;
+  return '$count ${count == 1 ? 'person' : 'people'}';
+}
+
 /// One row of a host's admins as the store answered it: one per key, backup keys among them.
 @immutable
 class HostAdminKey {

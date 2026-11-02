@@ -496,6 +496,78 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
+  // Harm: the field a person clicks moves under the pointer as the words about the name change, and a floating
+  // label is cut by the hint of the field above it.
+  testWidgets('the fields of Prepare a server stay put and clear of each other', (tester) async {
+    tester.view.physicalSize = const Size(1280, 720);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final settings = Settings(MemorySettingsStore());
+    final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: RecordingTunnels());
+    final access = await (HostFixture()..adminHosts = {'orchard'}).access(settings);
+    final runs = HostRuns(machines, hostAccess: access);
+    addTearDown(() {
+      runs.dispose();
+      machines.dispose();
+      settings.dispose();
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HostDialog(project: '', machines: machines, hostRuns: runs, start: (_, _) async => HostProcess()),
+      ),
+    );
+    await World.settle(tester);
+    Finder field(String label) => find.widgetWithText(TextField, label);
+    final before = tester.getTopLeft(field('Server address'));
+    await tester.enterText(field('Host name'), 'someone-elses');
+    await World.settle(tester);
+    expect(tester.getTopLeft(field('Server address')), before);
+    final hint = tester.getBottomLeft(find.text('One lower-case server name, such as orchard.'));
+    expect(before.dy - hint.dy, greaterThanOrEqualTo(8), reason: 'a floating label stands 8 above its field');
+  });
+
+  // Harm: a person watching a long run reads old steps and takes it for stuck, or is pulled away from one they
+  // scrolled up to read.
+  testWidgets('a running list stays at its end until the person scrolls up', (tester) async {
+    final settings = Settings(MemorySettingsStore());
+    final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: RecordingTunnels());
+    final runs = HostRuns(machines, hostAccess: await HostFixture().access(settings));
+    final process = HostProcess();
+    final session = HostSession(executable: 'fake', arguments: const [], start: (_, _) async => process);
+    final run = runs.start(project: 'orchard', record: signedSetup, session: session);
+    addTearDown(() {
+      process.end(0);
+      runs.dispose();
+      machines.dispose();
+      settings.dispose();
+    });
+    tester.view.physicalSize = const Size(1280, 720);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HostDialog(project: 'orchard', machines: machines, settings: settings, hostRuns: runs, existingRun: run),
+      ),
+    );
+    await World.settle(tester);
+    ScrollPosition list() => tester
+        .state<ScrollableState>(
+          find.descendant(of: find.byType(SingleChildScrollView), matching: find.byType(Scrollable)).first,
+        )
+        .position;
+    for (var step = 0; step < 60; step++) {
+      process.line(host.Step('step$step', host.StepState.done, text: 'Step number $step'));
+    }
+    await World.settle(tester);
+    expect(list().maxScrollExtent, greaterThan(0));
+    expect(list().pixels, list().maxScrollExtent);
+    list().jumpTo(0);
+    await tester.pump();
+    process.line(const host.Step('later', host.StepState.done, text: 'A later step'));
+    await World.settle(tester);
+    expect(list().pixels, 0);
+  });
+
   testWidgets('nothing is prepared or shown for a host before its name, nor for a host alice is no admin of', (
     tester,
   ) async {
