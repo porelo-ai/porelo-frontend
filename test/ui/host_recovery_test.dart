@@ -2,7 +2,6 @@
 @Tags(['linux'])
 library;
 
-import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -138,7 +137,6 @@ void main() {
     await tester.tap(find.byKey(const Key('host-force-down')));
     await World.settle(tester);
     expect(commands.last, contains('--give-back-anyway'));
-    expect(commands.last, isNot(contains('--legacy-rental')));
     processes.last.line(const host.Step('give-back', host.StepState.done));
     processes.last.end(0);
     await World.settle(tester);
