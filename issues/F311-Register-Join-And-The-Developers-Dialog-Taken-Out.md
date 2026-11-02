@@ -1,6 +1,6 @@
 # F311 — Register, Join And The Developers Dialog Taken Out
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** L - about 3000 lines of app code and their tests, reached from the shell, the commands and several pages; several days.
 
 **What must be true.** Nobody registers a project, joins one or adds a developer through a dialog any more: a project is added on the organization's page, a person is added on the project's page, a project is put on a host on the host's page, and a person who belongs to a project finds it ready. No text, command or walk offers what went.

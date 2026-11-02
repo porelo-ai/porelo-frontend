@@ -9,7 +9,7 @@
 
 A project is its card in the organization (its name and its project admin), its members with their role, and its repositories, each with its address, which is a place of work. Where a project itself is kept is the organization adapter's alone: no page names it. Rights come from roles: the project admin changes the project, and the adapter secures each change in its own way. A member's key is the one on their card. Writes name the person, revision and id, as on the organization's page.
 
-The interface writes no `project.yml`: it asks through the same source, whatever keeps the project.
+The interface writes no `project.yml`: it asks through the same source, whatever keeps the project. A project starts not opened: only its project admin's key can open it, so the page offers them one call for it, and others read that it is not open yet.
 
 ## Plan
 

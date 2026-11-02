@@ -27,6 +27,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f311"></a>[F311](F311-Register-Join-And-The-Developers-Dialog-Taken-Out.md) | L | — | *Register*, a project's *Join* and the developers dialog go, with what only they reached. |
 | <a id="f310"></a>[F310](F310-A-Project-Page-For-Its-Admin-And-Its-Members.md) | L | — | *Projects* lists one's own projects once each; a project's page for its admin and read-only for a member, naming no machine; built against fixtures. |
 | <a id="f309"></a>[F309](F309-The-Organization-Page.md) | L | — | *Organization* in the rail: its people, projects, hosts and owners, each person seeing only the actions of their roles; built against fixtures. |
 | <a id="f287"></a>[F287](F287-A-Join-Confirmed-By-What-The-Host-Follows.md) | — | — | A first join confirmed by what the host follows, healthy hosts offered beside a refused commit, no credential kept or shown, an unconfirmed join undoing only its own. |
@@ -40,7 +41,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f311"></a>[F311](F311-Register-Join-And-The-Developers-Dialog-Taken-Out.md) | L | — | *Register*, a project's *Join* and the developers dialog go, with what only they reached. |
 | <a id="f312"></a>[F312](F312-A-Host-Page-For-Its-Host-Admins.md) | L | — | The host's page: the projects it carries, its host admins and *Refresh*; built against fixtures. |
 | <a id="f313"></a>[F313](F313-Connect-Once-Per-Host.md) | M | — | *Machines* lists the hosts carrying one's projects, with one *Connect* per host; built against fixtures. |
 | <a id="f314"></a>[F314](F314-The-Calls-Behind-The-Organization-Pages.md) | L | [F309](#f309), [F310](#f310), [F312](#f312), [F313](#f313) | The new pages over Porelo's commands, *Forges* cut to forge access, and "registry" renamed. |
