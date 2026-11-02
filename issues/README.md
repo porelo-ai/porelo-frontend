@@ -46,6 +46,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
+| <a id="f291"></a>[F291](F291-A-Host-Card-With-A-Name-Or-An-IPv6-Address-Read.md) | M | — | A host whose card names a host name or an IPv6 address reached, saved and administered as one at an IPv4 address. | 1 |
 | <a id="f219"></a>[F219](F219-An-Interface-Ended-Without-Asking-Leaves-No-Forward-Behind.md) | S | — | The ssh forwards this interface raised ended with it also when it ends without asking, and one left over found again by its socket at the next start. | — |
 | <a id="f114"></a>[F114](F114-Windows-Notifications-From-The-MSIX.md) | M | — | Windows notifications from the MSIX's identity. | — |
 | <a id="f115"></a>[F115](F115-A-Fine-Grained-Token-Waiting-For-An-Organisations-Approval.md) | S | the test organisation at GitHub from the operator | A fine-grained token waiting for an organisation's approval said as waiting. | — |
@@ -82,6 +83,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f308"></a>[F308](F308-The-Needs-You-Header-Counts-What-It-Lists.md) | — | — | The *Needs you* header, the rail's badge and the rows agree on what needs the person. |
 | <a id="f305"></a>[F305](F305-No-Join-For-A-Project-Already-On-The-Host.md) | — | — | No *Join* offered for a project already admitted and followed on its card host. |
 | <a id="f306"></a>[F306](F306-A-Work-Card-Whose-Terminal-Has-Ended.md) | — | — | A *Work* card whose terminal ended says so in words, without an empty black terminal bar. |
 | <a id="f307"></a>[F307](F307-Push-And-Pull-Show-Their-Progress-In-The-Interface.md) | — | — | Push and pull on a card host show each repository's answer in the interface, the terminal only for the master password. |
@@ -98,7 +100,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f294"></a>[F294](F294-A-Registry-Host-Listed-For-Its-Host-Admin.md) | M | — | A registry host listed under Machines for its host admin, with Admit and Bring, without a setup record here; the forge row counting Core's hosts. |
 | <a id="f293"></a>[F293](F293-Host-Deliveries-Hardened.md) | M | — | Host deliveries hardened: git in a clean environment, one ssh call to copy and place, bundles placed at once, sudo without the login shell, the registry held while sending. |
 | <a id="f292"></a>[F292](F292-A-Developer-Confirmed-By-The-Hosts-Registry-Status.md) | M | — | Add a developer confirmed by the host's registry status, and Lock and Let back in offered and confirmed the same way. |
-| <a id="f291"></a>[F291](F291-A-Host-Card-With-A-Name-Or-An-IPv6-Address-Read.md) | S | — | Register and Add for a host whose card names a host name or an IPv6 address, not only IPv4. |
 | <a id="f290"></a>[F290](F290-The-Host-Functions-From-A-Windows-Desktop.md) | M | — | Join, Prepare, Admit and Add from a Windows desktop: one ssh per host card with loopback TCP ends, the daemon through the relay, no master. |
 | <a id="f289"></a>[F289](F289-A-Key-Recovered-In-One-Run-With-Named-States.md) | L | — | A key replaced, or a backup key made or used, in one run at a time with named states, one hold owner and no background retry; replaces the recovery fix chain. |
 | <a id="f288"></a>[F288](F288-Small-Leftovers-Of-The-One-Click-Flow.md) | — | — | The small edge cases left over from the one-click flow gathered in one place for the operator to place: address forms, test gaps, texts. |
