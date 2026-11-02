@@ -147,7 +147,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="f145"></a>[F145](F145-The-Hosts-Forge-Switched-Off-In-The-Server-Setup.md) | S | — | *Set up a forge on the server* in the server setup dialog, on by default; switched off, the host's inventory says `porelo_host_forge: false`. |
-| <a id="f218"></a>[F218](F218-The-Walks-Walked-Headless-On-The-Central-Test-Machines.md) | M | — | Each sprint walk walked headless through its panel on a leased host and a GitHub runner, the display set up by the run itself. |
 | <a id="f93"></a>[F93](F93-Connections-Rare-Actions-Out-Of-The-Way.md) | S | — | Connections' rare actions in its ⋮. |
 | <a id="f91"></a>[F91](F91-One-Way-To-Show-Loading.md) | M | — | Every view shows the same way that it is reading. |
 | <a id="f94"></a>[F94](F94-A-Projects-Keys-Told-In-One-Place.md) | M | — | A project's keys told in one place, the signing key checked against a branch rule. |
@@ -157,7 +156,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f59"></a>[F59](F59-A-Project-From-A-Repository-Measured-Against-GitHub.md) | S | the test organisation, its token and signing key from the operator | Making a project from a repository measured against GitHub. |
 | <a id="f84"></a>[F84](F84-A-Signing-Key-Found-Or-Made-From-The-Window.md) | M | — | A signing key chosen from a file or made from the window. |
 | <a id="f64"></a>[F64](F64-The-Guided-Walk-As-A-Package-Of-Its-Own.md) | L | — | The guided walk as a package any Flutter app can use. |
-| <a id="f75"></a>[F75](F75-One-Definition-For-A-UI-Test-And-A-Guided-Walk.md) | XL | `flutter-guided-walk`: a scenario that is also a walk | Each scenario tagged `@walk` is also a walk. |
 | <a id="f72"></a>[F72](F72-Forges-Beyond-GitHub.md) | L | the operator's evaluation licence for Bitbucket Data Center | Forges beyond GitHub: Bitbucket Data Center first, measured against a test installation of its own. |
 | <a id="f37"></a>[F37](F37-Reach-A-Machine-Without-An-ssh-Binary.md) | L | — | A machine reached without an `ssh` binary. |
 | <a id="f52"></a>[F52](F52-Release-A-Devices-Key-Only-With-A-Touch-Or-A-PIN.md) | XL | — | A device's key released only behind a TPM2 PIN; a touch later. |
@@ -284,6 +282,8 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Title | Why |
 |---|---|---|
+| <a id="f218"></a>F218 | The Walks Walked Headless On The Central Test Machines | Guided walks are not kept in this repository. |
+| <a id="f75"></a>F75 | One Definition For A UI Test And A Guided Walk | Guided walks are not kept in this repository. |
 | <a id="f286"></a>F286 | A Recovery Hold Never Stuck And Its Commit Its Own | Superseded by [F289](README.md#f289): one recovery run at a time with named states and one hold owner replaces this fix of the earlier design. |
 | <a id="f285"></a>F285 | A Recovery Run Ended, Pushed And On Its Own Base | Superseded by [F289](README.md#f289): one recovery run at a time with named states and one hold owner replaces this fix of the earlier design. |
 | <a id="f283"></a>F283 | A Recovery Request Never Locked, Lost Or Misfiled | Superseded by [F289](README.md#f289): one recovery run at a time with named states and one hold owner replaces this fix of the earlier design. |
