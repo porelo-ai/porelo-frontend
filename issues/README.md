@@ -90,6 +90,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f318"></a>[F318](F318-An-Owner-Makes-An-Admin-A-Developer.md) | — | — | An owner turns a project's admin into a developer with an entry of its own. |
 | <a id="f317"></a>[F317](F317-A-Homeservers-Token-Reaches-The-Host.md) | — | — | A homeserver's registration token reaches a host in the run that opens its vault. |
 | <a id="f316"></a>[F316](F316-An-Owner-Accepts-A-Lost-Keys-New-Card.md) | — | — | An owner puts a person's new card in place of a lost key from their row under *People*. |
 | <a id="f308"></a>[F308](F308-The-Needs-You-Header-Counts-What-It-Lists.md) | — | — | The *Needs you* header, the rail's badge and the rows agree on what needs the person. |

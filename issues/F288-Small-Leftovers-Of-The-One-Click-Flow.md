@@ -86,9 +86,6 @@ finding; each is declined with its reason, and is read again where its code is r
   is ended from it.
 - **Callers that word a refusal again:** some callers of local commands catch every exception and show their own
   sentence ("Git could not be run on this computer."), so a command ended at its limit loses its own words there.
-- **A test instance's entry flag** keeps the last of several `--forge-token-entry` given, as a command line usually
-  does; an entry name outside the installation pattern never reaches the secrets file.
-- **The registry environment** lists the test secrets file twice per call when it looks for the installation entry.
 - **A copy over ssh with a deadline and agent-only identities:** no caller combines the two.
 - **A card's address, against what can be reached:** a saved card takes `::`, `0.0.0.0` and a multicast address, which the check of a server's completion refuses; the upload and the stop feed then ask ssh for it, and the pinned host key still decides.
 - **A server that reports no usable address:** given by name or IPv6 address, it fails as "did not confirm completion" rather than in its own words; no server does it while the host's play needs an IPv4 default route.
