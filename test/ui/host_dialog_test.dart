@@ -164,6 +164,42 @@ void main() {
     });
   }
 
+  // Harm: a host that connects and then says nothing must not hold a person inside a billed server.
+  testWidgets('a stalled holder read ends and leaves the ordinary give-back, with nobody purged', (tester) async {
+    final state = await openTakeDown(tester);
+    await tester.pump(const Duration(seconds: 31));
+    await tester.pump();
+    final confirm = tester.widget<FilledButton>(find.byKey(const Key('host-confirm-down')));
+    expect(confirm.onPressed, isNotNull);
+    expect(state.processes.first.killed, isTrue, reason: 'nobody waits for the stalled read any more');
+    await tester.tap(find.byKey(const Key('host-confirm-down')));
+    await tester.pump();
+    expect(state.commands.last, ['down', ...signedSetup.giveBackArguments('orchard')]);
+    state.processes.first.end(0);
+    state.processes.last.end(65);
+    await World.settle(tester);
+    await tester.pump(const Duration(seconds: 31));
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  // Harm: a read after a failed give-back that stalls must not close the way out while it waits.
+  testWidgets('a stalled read after a failed give-back leaves the give-back without a backup open', (tester) async {
+    final state = await openTakeDown(tester);
+    answerHolders(state.processes.single, const []);
+    await World.settle(tester);
+    await tester.tap(find.byKey(const Key('host-confirm-down')));
+    await World.settle(tester);
+    state.processes.last.end(65);
+    await tester.pump();
+    await tester.pump();
+    expect(state.commands.last, contains('--memberships'), reason: 'the read after the failure is under way');
+    final force = tester.widget<OutlinedButton>(find.byKey(const Key('host-force-down')));
+    expect(force.onPressed, isNotNull);
+    state.processes.last.end(0);
+    await World.settle(tester);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   // Harm: merely reviewing a purge confirmation, or leaving while status is read, cannot delete accounts or release a host.
   for (final reading in [true, false]) {
     testWidgets('closing give-back while reading=$reading changes no server or recovery record', (tester) async {

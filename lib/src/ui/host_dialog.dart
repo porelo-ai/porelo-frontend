@@ -271,6 +271,7 @@ class _HostDialogState extends State<HostDialog> {
       _down?.dispose();
       _down = session;
     });
+    var readAgain = false;
     try {
       await session.down(
         giveBackAnyway: anyway,
@@ -293,15 +294,18 @@ class _HostDialogState extends State<HostDialog> {
       _givenBack = true;
     } catch (_) {
       _problem = 'Give-back was not confirmed. The rental and recovery data were kept.';
-      if (!anyway && mounted) await _readHolders();
+      readAgain = !anyway;
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+    // Not under busy: a host that stalls here must leave Close and the give-back without a backup open.
+    if (readAgain && mounted) unawaited(_readHolders());
   }
 
   @override
   void dispose() {
     _down?.dispose();
+    _membershipSession?.stopReading();
     _membershipSession?.dispose();
     for (final field in [_name, _address, _hostKey, _digest]) {
       field.dispose();

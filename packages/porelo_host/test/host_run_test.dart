@@ -208,15 +208,14 @@ void main() {
     });
   }
 
-  // Harm: a rental's non-root image login must execute the confirmed purge as root before releasing the server.
-  test('a purge uses passwordless sudo through the original non-root login', () async {
+  // Harm: the helper refuses anyone through sudo, so a non-root login would stop half way or claim to have read nobody.
+  test('a non-root login neither purges nor reads holders, and reaches nothing', () async {
     provider.rented = const RentedHost(id: 'h1', address: '192.0.2.7', hostKey: sshKey, ready: true);
     const project = HostPlan(project: 'garden', account: 'worker', publicKey: '', loginUser: 'ubuntu');
-    expect(await runner().down(project, purge: ['alice']), Exit.done);
-    expect(remote.commands.first, 'sudo -n /usr/local/sbin/porelo-host-person purge alice');
-    expect(remote.commands.last, contains('ansible-playbook'));
-    expect(remote.users, ['ubuntu', 'ubuntu']);
-    expect(provider.released, ['h1']);
+    expect(await runner().down(project, purge: ['alice']), isNot(Exit.done));
+    expect(await runner().memberships(project), isNot(Exit.done));
+    expect(remote.commands, isEmpty);
+    expect(provider.released, isEmpty);
   });
 
   // Harm: an unaddressed or unpinned rental cannot safely receive a destructive purge or be released.
@@ -267,12 +266,12 @@ void main() {
         pins.add((address, key));
       },
     );
-    const project = HostPlan(project: 'garden', account: 'worker', publicKey: '', loginUser: 'ubuntu');
+    const project = HostPlan(project: 'garden', account: 'worker', publicKey: '', loginUser: 'root');
     expect(await run.memberships(project), Exit.done);
     expect(pins, [('192.0.2.7', sshKey)]);
     expect(provider.found, [HostPlan.tagFor('garden')]);
-    expect(remote.users, ['ubuntu']);
-    expect(remote.commands, ['sudo -n /usr/local/sbin/porelo-host-person org status']);
+    expect(remote.users, ['root']);
+    expect(remote.commands, ['/usr/local/sbin/porelo-host-person org status']);
     final status = Step.fromLine(steps.last.toLine())!;
     expect((status.step, status.state), ('org-status', StepState.done));
     final holders = HostMembership.readStatus(status.words!);

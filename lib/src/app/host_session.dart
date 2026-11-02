@@ -465,8 +465,18 @@ class HostSession extends ChangeNotifier {
   ]);
 
   /// Reads the pinned rental's holders; an incomplete command answer is a refusal, never an empty list.
-  Future<List<HostMembership>> readMemberships() async {
-    await _run(['down', ...arguments, '--memberships']);
+  ///
+  /// A host that connects and then says nothing, as behind a stalled helper's lock, must not hold the person's way out
+  /// of a billed server, so the read ends after [within].
+  Future<List<HostMembership>> readMemberships({Duration within = const Duration(seconds: 30)}) async {
+    final read = _run(['down', ...arguments, '--memberships']);
+    try {
+      await read.timeout(within);
+    } on TimeoutException {
+      stopReading();
+      unawaited(read.catchError((Object _) {}));
+      throw StateError('The host did not answer within ${within.inSeconds} seconds.');
+    }
     if (state != HostRunState.done) {
       final reasons = <String>{
         ?fix,
@@ -480,6 +490,9 @@ class HostSession extends ChangeNotifier {
     if (status?.words == null) throw const FormatException('The host did not report its membership holders.');
     return HostMembership.readStatus(status!.words!);
   }
+
+  /// Ends a read of the holders that nobody waits for any more.
+  void stopReading() => _process?.kill(ProcessSignal.sigterm);
 
   Future<void> _run(List<String> command) async {
     if (state == HostRunState.running) return;

@@ -16,6 +16,8 @@ refuses while anyone holds a membership; a failed purge keeps the server.
 - `packages/porelo_host/lib/src/host_run.dart` reads `/usr/local/sbin/porelo-host-person org status` through the
   rental lookup, pinned host key and plan login. Its `persons` list requires each login, known state,
   boolean `host_admin`, project and role pairs, and a nonempty string for `purge_on` when present.
+  Reading and purging take a root login alone, as the helper refuses `org` through sudo; any other login is refused
+  before a connection. A read that gets no answer ends after 30 seconds, and counts as unreadable.
   A holder has host administration or at least one project. Missing or malformed data refuses the read.
 - Status uses an `org-status` Step with the validated JSON in `words`. A purge uses `purge-<login>` Steps and
   runs as root after trust and before the down play. The first failed purge stops without a play or release.

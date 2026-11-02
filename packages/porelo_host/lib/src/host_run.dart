@@ -161,6 +161,9 @@ const _workdir = '/var/tmp/porelo-host';
 
 const _collections = '/usr/share/ansible/collections';
 
+// The helper takes `org` only from root itself, never through sudo; a rental that logs in as anyone else has no people.
+const _rootAlone = 'Only a server reached as root has people to read or purge.';
+
 /// Rejects shell input and service accounts before a purge can reach the host.
 void checkPurgeLogin(String login) {
   if (RegExp(r'^[a-z][a-z0-9-]{0,31}$').stringMatch(login) != login ||
@@ -546,6 +549,7 @@ done''',
       if (giveBackAnyway && purge.isNotEmpty) {
         throw const FormatException('--purge cannot be combined with --give-back-anyway.');
       }
+      if (purge.isNotEmpty && plan.loginUser != 'root') throw const FormatException(_rootAlone);
     } on FormatException catch (error) {
       _write(Step('purge', StepState.refused, fix: error.message));
       return Exit.usage;
@@ -565,6 +569,7 @@ done''',
     const step = 'org-status';
     try {
       plan.check(forSetup: false);
+      if (plan.loginUser != 'root') throw const FormatException(_rootAlone);
       _write(const Step(step, StepState.started));
       final host = await provider.find(plan.tag);
       if (host == null) return _unreachable(step, 'No host carries the rental tag.');
@@ -583,7 +588,7 @@ done''',
       final result = await remote.run(
         address,
         plan.loginUser,
-        '${plan.loginUser == 'root' ? '' : 'sudo -n '}/usr/local/sbin/porelo-host-person org status',
+        '/usr/local/sbin/porelo-host-person org status',
         onLine: answer.writeln,
       );
       final words = [result.stderr, answer.toString()].where((part) => part.isNotEmpty).join('\n');
@@ -641,7 +646,7 @@ done''',
       final result = await remote.run(
         address,
         plan.loginUser,
-        '${plan.loginUser == 'root' ? '' : 'sudo -n '}/usr/local/sbin/porelo-host-person purge $login',
+        '/usr/local/sbin/porelo-host-person purge $login',
         onLine: output.writeln,
       );
       final words = [result.stderr, output.toString()].where((part) => part.isNotEmpty).join('\n');

@@ -27,6 +27,15 @@ class HostProcess extends Fake implements Process {
     _exit.complete(code);
   }
 
+  /// Whether the command under test asked this process to end; it ends only when the test says so.
+  bool killed = false;
+
+  @override
+  bool kill([ProcessSignal signal = ProcessSignal.sigterm]) {
+    killed = true;
+    return true;
+  }
+
   @override
   IOSink get stdin => _stdin;
   @override
