@@ -1,6 +1,6 @@
 # F327 — What Closing The Window Leaves Running
 
-**Status:** Idea.
+**Status:** Accepted.
 
 **What must be true.** *Close Porelo?* says of the work it lists what is true of that work, and mentions only what is
 there.

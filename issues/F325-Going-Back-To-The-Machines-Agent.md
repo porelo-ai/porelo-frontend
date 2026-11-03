@@ -1,6 +1,6 @@
 # F325 — Going Back To The Machine's Agent
 
-**Status:** Idea.
+**Status:** Accepted.
 
 **What must be true.** A person who picked an agent in the start form can hand the choice back to the machine, and
 the form never reads as if an agent was picked when none was.

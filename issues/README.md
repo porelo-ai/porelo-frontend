@@ -78,31 +78,31 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f264"></a>[F264](F264-A-Server-With-No-Project-Given-Back.md) | S | — | A server rented with no project given back; the VPN taken down only after the give-back was confirmed. |
 | <a id="f123"></a>[F123](F123-Where-A-Machine-And-A-Project-Stand-In-Their-Organisations-Tree.md) | — | — | Where a machine and a project stand in their organisation's tree, and which settings bind them. |
 | <a id="f166"></a>[F166](F166-A-Host-Rented-Through-OpenTofu.md) | M | — | `porelo-host up` and `down` renting and giving back through the OpenTofu module, its secrets only in `tofu`'s environment; `--given` kept. |
+| <a id="f325"></a>[F325](F325-Going-Back-To-The-Machines-Agent.md) | — | — | A picked agent handed back to the machine's choice in the start form. |
+| <a id="f326"></a>[F326](F326-Operations-Run-Beside-Work-Running.md) | — | — | The status line's count of operations not read as work running. |
+| <a id="f327"></a>[F327](F327-What-Closing-The-Window-Leaves-Running.md) | — | — | *Close Porelo?* saying what is true of the work it lists. |
+| <a id="f330"></a>[F330](F330-A-Project-Page-Says-It-Is-Reading.md) | — | — | A project's page showing at once that it is reading, and what. |
+| <a id="f331"></a>[F331](F331-A-Long-Change-Shows-That-It-Runs.md) | — | — | A long change, such as opening a project, showing that it runs and where a failure will be said. |
+| <a id="f332"></a>[F332](F332-A-Server-Dialog-Opens-At-Once.md) | — | — | *Prepare a server…* opening its dialog at the click, and a second click opening no second one. |
+| <a id="f333"></a>[F333](F333-A-Server-Run-Says-What-It-Is.md) | — | — | The server run's dialog naming at once what runs and that it takes minutes, its row never ending in nothing, and *Close* usable. |
+| <a id="f334"></a>[F334](F334-A-Host-Row-That-Keeps-Its-Words.md) | — | — | A machine's row keeping one steady line while a host refuses, and never talking of a forward. |
+| <a id="f336"></a>[F336](F336-A-Hosts-Page-Reads-As-A-Way-To-Work.md) | — | [F335](#f335) | A host's page saying what the connection is and what ending it does, and leading to work. |
+| <a id="f337"></a>[F337](F337-A-Rail-Entry-Leads-To-Its-List.md) | S | — | A rail entry always landing on the first page that entry opens. |
+| <a id="f338"></a>[F338](F338-The-Words-Of-The-Project-List.md) | — | — | The project list's words saying what each row states and each button does. |
+| <a id="f339"></a>[F339](F339-Refresh-Reads-What-Is-Shown.md) | — | — | The rail's *Refresh* reaching the page shown, and a host page's own button named for what more it does. |
+| <a id="f340"></a>[F340](F340-Commits-Not-Yet-At-The-Forge.md) | — | — | A project's row and page saying how many approved commits have not reached the forge, with the action and who may do it. |
+| <a id="f341"></a>[F341](F341-What-The-Token-Is-For.md) | — | — | The words asking for a token naming its forge, what the host does with it, its rights, and that it is not kept. |
+| <a id="f343"></a>[F343](F343-A-Hosts-List-Says-What-The-Host-Still-Holds.md) | — | — | A host's list keeping a project being taken off until the host has let it go, and saying why if held. |
 
 ### Idea
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="f344"></a>[F344](F344-The-Look-Of-A-Page-With-Lists.md) | — | — | Sections visibly apart, a filter behind a magnifier, and sorting, with three proposals drawn. |
-| <a id="f343"></a>[F343](F343-A-Hosts-List-Says-What-The-Host-Still-Holds.md) | — | — | A host's list keeping a project being taken off until the host has let it go, and saying why if held. |
 | <a id="f342"></a>[F342](F342-A-Project-Is-Put-On-A-Machine-From-The-Organizations-Projects.md) | — | — | A machine's admin puts a project on it from the organization's projects, and the machine's list is read only. |
-| <a id="f341"></a>[F341](F341-What-The-Token-Is-For.md) | — | — | The words asking for a token naming its forge, what the host does with it, its rights, and that it is not kept. |
-| <a id="f340"></a>[F340](F340-Commits-Not-Yet-At-The-Forge.md) | — | — | A project's row and page saying how many approved commits have not reached the forge, with the action and who may do it. |
-| <a id="f339"></a>[F339](F339-Refresh-Reads-What-Is-Shown.md) | — | — | The rail's *Refresh* reaching the page shown, and a host page's own button named for what more it does. |
-| <a id="f338"></a>[F338](F338-The-Words-Of-The-Project-List.md) | — | — | The project list's words saying what each row states and each button does. |
-| <a id="f337"></a>[F337](F337-A-Rail-Entry-Leads-To-Its-List.md) | S | — | A rail entry always landing on the first page that entry opens. |
-| <a id="f336"></a>[F336](F336-A-Hosts-Page-Reads-As-A-Way-To-Work.md) | — | — | A host's page saying what the connection is and what ending it does, and leading to work. |
 | <a id="f335"></a>[F335](F335-One-Row-Per-Machine.md) | — | — | *Organization* lists the machines available, *Machines* a person's own after *Connect*, each once, and "host" gone from the interface's words. |
-| <a id="f334"></a>[F334](F334-A-Host-Row-That-Keeps-Its-Words.md) | — | — | A machine's row keeping one steady line while a host refuses, and never talking of a forward. |
-| <a id="f333"></a>[F333](F333-A-Server-Run-Says-What-It-Is.md) | — | — | The server run's dialog naming at once what runs and that it takes minutes, its row never ending in nothing, and *Close* usable. |
-| <a id="f332"></a>[F332](F332-A-Server-Dialog-Opens-At-Once.md) | — | — | *Prepare a server…* opening its dialog at the click, and a second click opening no second one. |
-| <a id="f331"></a>[F331](F331-A-Long-Change-Shows-That-It-Runs.md) | — | — | A long change, such as opening a project, showing that it runs and where a failure will be said. |
-| <a id="f330"></a>[F330](F330-A-Project-Page-Says-It-Is-Reading.md) | — | — | A project's page showing at once that it is reading, and what. |
 | <a id="f329"></a>[F329](F329-One-Menu-On-Each-Row-Of-The-Organization-Page.md) | — | — | Only a ⋮ on each row of the organization's, machine's and project's pages, with *Connect* visible while not connected. |
 | <a id="f328"></a>[F328](F328-Letters-Doubled-In-A-Slow-Window.md) | — | — | A key pressed once reaching a console once, however slowly the window answers. |
-| <a id="f325"></a>[F325](F325-Going-Back-To-The-Machines-Agent.md) | — | — | A picked agent handed back to the machine's choice in the start form. |
-| <a id="f327"></a>[F327](F327-What-Closing-The-Window-Leaves-Running.md) | — | — | *Close Porelo?* saying what is true of the work it lists. |
-| <a id="f326"></a>[F326](F326-Operations-Run-Beside-Work-Running.md) | — | — | The status line's count of operations not read as work running. |
 | <a id="f324"></a>[F324](F324-Removing-A-Project-On-Windows.md) | — | — | A local project removed from the interface on Windows, where it runs in a WSL distribution. |
 | <a id="f321"></a>[F321](F321-Send-The-Terminal-Input-Fix-Upstream.md) | S | — | The terminal input fix offered upstream, and this repository's copy of `xterm` dropped once a release holds it. |
 | <a id="f320"></a>[F320](F320-A-First-Organization-Without-Hand-Work.md) | M | — | A forge's ssh host key confirmed in the interface, so a first organization needs no hand work. |

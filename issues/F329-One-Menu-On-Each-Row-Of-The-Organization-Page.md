@@ -11,7 +11,7 @@ The cause is in the row: each action is a button of its label's width, in a `Wra
 
 ## The operator's decision
 
-Only a ⋮ on each row, except *Connect*, which stays visible while not connected. The machine's and the project's pages are the same. This drops the rule *not behind ⋮*.
+Only a ⋮ on each row, except *Connect*, which stays visible while not connected, and *Push the approved main…*, visible while commits wait, by [F340](README.md#f340). The machine's and the project's pages are the same. This drops the rule *not behind ⋮*.
 
 ## What it changes
 

@@ -1,8 +1,10 @@
 # F338 — The Words Of The Project List
 
-**Status:** Idea.
+**Status:** Accepted.
 
 **What must be true.** A person new to a project's list can tell from its words what each row says and what each button does.
+
+**The operator:** with "machine", no "host".
 
 In a walk a developer asked of a project's row: "What is *Open it on <host>* supposed to mean? Why open?"
 

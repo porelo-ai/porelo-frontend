@@ -1,9 +1,11 @@
 # F336 — A Host's Page Reads As A Way To Work
 
-**Status:** Idea.
+**Status:** Accepted.
 
 **What must be true.** A person on a host's page sees at once whether this computer is connected, what that means and what
 ending it does, and is led from there to working on the host.
+
+**The operator:** built with [F335](README.md#f335).
 
 In a walk the operator, told to click *Disconnect*, could not find it and could not tell what it belonged to: "The whole process
 is hard to follow for a user."

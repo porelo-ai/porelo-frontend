@@ -1,9 +1,11 @@
 # F331 — A Long Change Shows That It Runs
 
-**Status:** Idea.
+**Status:** Accepted.
 
 **What must be true.** A person who asks for a change that takes a while sees at once that it runs, and sees where a failure
 will be said.
+
+**The operator:** as recommended below, and the three parts measured first.
 
 In a walk *Open the project* in the dialog *Open <project>?* showed no progress while it ran. The operator proposes to handle
 it as a new host is handled: close the dialog, show the project at once marked as in progress, and say failures on the
@@ -63,11 +65,10 @@ again: one place, every dialog on it, no new state. The dialog stays open, and t
 
 Neither shortens the wait.
 
-## Open questions
+## Decided
 
-- A provisional row and a closed dialog, or a progress line in the dialog? Recommended: the provisional row for what adds to or
-  takes from a list (members, repositories, projects, hosts, owners), and the line for what has no row, such as an address or
-  *Create the organization*. Opening a project marks its existing page the same way.
+A provisional row and a closed dialog for what adds to or takes from a list (members, repositories, projects, machines, owners), and the line for what has no row, such as an address or
+*Create the organization*. Opening a project marks its existing page the same way.
 
 ## To be checked
 

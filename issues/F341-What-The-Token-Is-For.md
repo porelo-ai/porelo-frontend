@@ -1,6 +1,6 @@
 # F341 — What The Token Is For
 
-**Status:** Idea.
+**Status:** Accepted.
 
 **What must be true.** A host admin asked for a token reads which forge's token it is, what the host does with it, what rights it
 needs and that the host does not keep it, before anything is asked.
@@ -42,7 +42,7 @@ This is not the token a later push asks for, which is in the pushing person's ow
 
 ## To be checked
 
-- That the host's forge keeps no token after the one copy. It was not searched, and that is a recollection of how Forgejo behaves. *It does
+- That the host's forge keeps no token after the one copy, which Agent Machines reads from its database; the sentence waits for that answer. It was not searched, and that is a recollection of how Forgejo behaves. *It does
   not keep the token* rests on this.
 - Which of the three lines the host's answer lets the page tell apart.
 - Whether a narrower token does.

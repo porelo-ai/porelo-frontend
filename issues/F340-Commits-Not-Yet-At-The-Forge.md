@@ -1,9 +1,11 @@
 # F340 — Commits Not Yet At The Forge
 
-**Status:** Idea.
+**Status:** Accepted.
 
 **What must be true.** A person sees on a project's row and page whether approved commits on the host wait to go to the central forge,
 with the action beside it, and who may do it.
+
+**The operator:** *Push the approved main…* stands visible beside the row while commits wait, a second exception to [F329](README.md#f329).
 
 In a walk the operator asked: "It is unclear that I have to push at all, by the ⋮ menu. Where do I see that there is something to
 push?" Today nothing says so. *Push the approved main…* stands in the row's ⋮ whether there is anything to push or not.

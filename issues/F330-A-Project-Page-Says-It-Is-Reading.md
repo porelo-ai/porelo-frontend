@@ -1,9 +1,11 @@
 # F330 — A Project Page Says It Is Reading
 
-**Status:** Idea.
+**Status:** Accepted.
 
 **What must be true.** A project's page shows at once that it is reading, and what, so a person never takes the wait for
 nothing happening.
+
+**The operator:** first the line that it reads; the rest after measuring.
 
 In a walk a developer clicked a project under *Projects* at real GitHub, and the page opened blank and stayed so for a long
 while; the operator first took it that nothing was happening. How long was not measured.

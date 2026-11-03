@@ -1,10 +1,12 @@
 # F337 — A Rail Entry Leads To Its List
 
-**Status:** Idea.
+**Status:** Accepted.
 **Size:** S - one place in the shell, and a test.
 
 **What must be true.** A rail entry always lands on the first page that entry opens, whatever page was open under it or was last
 opened there.
+
+**The operator:** a click on *Work* in the rail shows all work; the way from a machine's or a project's page keeps the narrowing.
 
 In a walk, on a project's page, a click on *Projects* in the rail stayed on that page; only the arrow at the top went back to the
 list. A person expects the rail entry to lead to the list. The operator added: a rail entry lands on the subpage last opened there, where the
@@ -43,8 +45,3 @@ The rail's `onGo` in the shell clears the three fields before `goTo`. Not `goTo`
 page sets the field and then calls `goTo`, and clearing there would undo it.
 
 The test is a click on the rail from each of the three pages, seen red first, and from another entry and back.
-
-## Open questions
-
-- Does the rule reach *Work*'s narrowing? Recommended: yes for a click on *Work* in the rail, which shows all work, and no for the way from
-  a machine's or a project's page, which is not the rail.

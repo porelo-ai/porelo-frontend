@@ -1,9 +1,11 @@
 # F333 — A Server Run Says What It Is
 
-**Status:** Idea.
+**Status:** Accepted.
 
 **What must be true.** From the click on *Prepare the host* the dialog names what is running and that it can take minutes,
 the row beside it never ends in nothing, and the person can leave the dialog while the run goes on.
+
+**The operator:** accepted, with *Close* usable.
 
 In a walk the run's dialog opened with only the host's name as its title, an empty body and *Close* greyed, and one could not tell what
 it was. Behind it the row said `In preparation ·`, with nothing after the dot.
