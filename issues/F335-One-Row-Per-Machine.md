@@ -35,7 +35,7 @@ preparation's, and it stands in *Hosts* as well.
   carries projects with all their members. It stands there whether or not this computer is connected.
 - **They overlap once connected:** a connected host is also a place work runs, and that overlap is why it has two rows.
 
-`doc/decisions.md` says *Machines say where work runs*. That sentence was written before hosts, and it does make a connected host
+`doc/decisions.md` says *Machines say where work runs*. That sentence is from 2026-10-05, before the pages of the organization's hosts, and it does make a connected host
 a machine. Core's words point the same way: for the playbook, a machine is a host whose persons start tasks. So keeping them
 together has a reason, though it is not what the operator expects to see.
 
