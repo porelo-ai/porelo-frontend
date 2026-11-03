@@ -13,6 +13,9 @@
   an empty repository names `porelo org create`, which this dialog offers no way to.
 - On Windows no project can be removed from the interface: Porelo runs in a WSL distribution, and *Remove this project*
   answers that this computer cannot say whose a project there is. The words are true; a local project has no way out.
+- *the organization has moved on*, under a change someone else's write overtook: the page has read the new state and the
+  same choice then goes through, but the words do not say to ask again.
+- The list under *Projects* calls a person *member* where the project's own page calls them *developer*.
 - After *Replace a lost key…* is closed, the person's row shows nothing of the card waiting for an owner, though
   `identity show` keeps it as pending.
 
