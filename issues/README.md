@@ -91,7 +91,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f335"></a>[F335](F335-One-Row-Per-Machine.md) | — | — | A server standing once on *Machines*, with what each of its two rows offers now reached from one. |
+| <a id="f335"></a>[F335](F335-One-Row-Per-Machine.md) | — | — | A server standing once, and whether a machine and a host share a rail entry at all. |
 | <a id="f334"></a>[F334](F334-A-Host-Row-That-Keeps-Its-Words.md) | — | — | A machine's row keeping one steady line while a host refuses, and never talking of a forward. |
 | <a id="f333"></a>[F333](F333-A-Server-Run-Says-What-It-Is.md) | — | — | The server run's dialog naming at once what runs and that it takes minutes, its row never ending in nothing, and *Close* usable. |
 | <a id="f332"></a>[F332](F332-A-Server-Dialog-Opens-At-Once.md) | — | — | *Prepare a server…* opening its dialog at the click, and a second click opening no second one. |
