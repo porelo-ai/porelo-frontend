@@ -18,6 +18,7 @@ import 'how_long.dart';
 import 'key_recovery_dialog.dart';
 import 'organization_host_pages.dart';
 import 'pick_a_file.dart';
+import 'project_init_dialog.dart';
 import 'tokens.dart';
 import 'window_size.dart';
 
@@ -37,6 +38,7 @@ class OrganizationPage extends StatefulWidget {
     this.prepareMachine,
     this.keys,
     this.pickFile = pickWithTheDesktop,
+    this.pickFolder = pickFolderWithTheDesktop,
     super.key,
   });
 
@@ -63,6 +65,9 @@ class OrganizationPage extends StatefulWidget {
 
   /// Chooses the file of a card someone handed over.
   final PickAFile pickFile;
+
+  /// Chooses a checkout folder to preview before signing it into a project.
+  final PickAFolder pickFolder;
 
   @override
   State<OrganizationPage> createState() => _OrganizationPageState();
@@ -332,6 +337,18 @@ class _OrganizationPageState extends State<OrganizationPage> {
                 subtitle: _projectWords(project),
                 state: _standingIn(view, project),
                 actions: [
+                  if (view.isOrganizationAdmin || (view.holdsRoles && project.admins.contains(view.me)))
+                    _command(
+                      'initializeProject/${project.name}',
+                      'Fill it from a checkout…',
+                      () => show(
+                        ProjectInitDialog(
+                          organization: organization,
+                          project: project.name,
+                          pickFolder: widget.pickFolder,
+                        ),
+                      ),
+                    ),
                   if (view.holdsRoles && widget.onProject != null && _isIn(view, project))
                     _command(
                       'openProject/${project.name}',

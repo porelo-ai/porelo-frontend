@@ -18,6 +18,8 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f346"></a>[F346](F346-Do-You-Work-Alone.md) | S | Core's way to take the value | Creating a project asks "Do you work alone?"; yes writes `review: optional`, and it stays changeable. |
+| <a id="f350"></a>[F350](F350-A-Project-Filled-From-A-Checkout.md) | M | — | A project is filled from a checkout in the window: the folder, the draft with its sources, the signature. |
 | <a id="f345"></a>[F345](F345-Make-My-Card-Only-Asks-To-Sign.md) | M | Core's answer of what it found | *Make my card…* shows one line and *Sign*, and asks only what it did not find or found twice. |
 | <a id="f347"></a>[F347](F347-A-Card-Renewed-With-One-Click.md) | M | Core's renewal with the same key | A card's end is said before and after it, and renewing is one click. |
 | <a id="f335"></a>[F335](F335-One-Row-Per-Machine.md) | — | — | *Organization* lists the machines available, *Machines* a person's own after *Connect*, each once, and "host" gone from the interface's words. |
@@ -61,7 +63,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="f348"></a>[F348](F348-A-Start-With-No-Terminal.md) | M | Core's answer of a host's keys | One person starts an organization, a machine and a project with no terminal. |
-| <a id="f346"></a>[F346](F346-Do-You-Work-Alone.md) | S | Core's way to take the value | Creating a project asks "Do you work alone?"; yes writes `review: optional`, and it stays changeable. |
 | <a id="f99"></a>[F99](F99-An-Attached-Agent-Shown-At-Rest-Or-Working.md) | S | — | A work tile says whether an attached agent is at rest or working. |
 | <a id="f117"></a>[F117](F117-What-Walk-8-Left-Unbuilt.md) | M | — | A tile's repository in its heading, a refused release said as an error that stays, the project file taken after one's own push. |
 | <a id="f111"></a>[F111](F111-All-Of-A-Pieces-Logs-In-One-Timeline.md) | M | — | All of a piece's logs in one timeline, by time, filterable by source. |

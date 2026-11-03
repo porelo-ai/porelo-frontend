@@ -43,6 +43,10 @@ class FixtureOrganization implements OrganizationSource {
   }
 
   @override
+  Future<ProjectInitDraft> readProjectInit(String checkout, {String? project, String? name}) async =>
+      throw const OrganizationRefused('No checkout draft was supplied.');
+
+  @override
   Future<List<OrganizationKey>> myKeys() async => keys;
 
   /// What [myProjects] answers; the view's own projects of the person where null.

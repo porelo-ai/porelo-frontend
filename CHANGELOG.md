@@ -12,6 +12,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - *Make my card…* proposes public identity values and their sources, asks only unresolved questions, and offers *Sign* or manual entry.
 - Cards due for renewal show a warning and *Renew my card* on the card and Organization pages, with the same operation kept for a retry.
 
+- Opening a project asks whether you work alone; review can be required or made optional from its Project Admin's menu.
+- Organization and Project Admins can preview a checkout's proposed settings and warnings, then sign it into a project.
 - *Prepare a machine…* follows the organization: an Organization Admin or a Machine Admin sees it, as does a person with no
   organization yet, and `--roles` is gone. The dialog no longer asks the collection, which the build knows.
 - *Create another organization…* stands beside *Choose another organization…*, and says the first stays on its forge.

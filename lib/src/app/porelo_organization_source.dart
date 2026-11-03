@@ -227,6 +227,84 @@ class PoreloOrganizationSource implements OrganizationSource {
   }
 
   @override
+  Future<ProjectInitDraft> readProjectInit(String checkout, {String? project, String? name}) async {
+    _positional(checkout, 'checkout folder');
+    final answer = await _ask([
+      'project',
+      'init',
+      checkout,
+      if (project != null) ...['--project', _positional(project, 'project')],
+      if (name != null) ...['--name', _positional(name, 'name')],
+    ]);
+    try {
+      return await _reading(() {
+        // An omitted warning list is not an empty one: signing must wait for a complete preview.
+        for (final field in ['values', 'disagreements', 'plugins']) {
+          if (answer[field] is! List) throw _Unreadable(field);
+        }
+        final revision = _maybeText(answer, 'revision');
+        if (project != null && (revision == null || revision.isEmpty)) throw const _Unreadable('revision');
+        return ProjectInitDraft(
+          repository: _text(answer, 'repository'),
+          upstream: _maybeText(answer, 'upstream'),
+          draft: _text(answer, 'draft'),
+          revision: revision,
+          values: [
+            for (final value in _maps(answer, 'values'))
+              ProjectInitValue(
+                key: _text(value, 'key'),
+                value: _display(value, 'value'),
+                file: _maybeText(value, 'file'),
+                line: _line(value),
+                origin: _maybeText(value, 'origin'),
+                unknown: _truth(value, 'unknown'),
+                note: _maybeText(value, 'note'),
+                plugin: _maybeText(value, 'plugin'),
+              ),
+          ],
+          disagreements: [
+            for (final disagreement in _maps(answer, 'disagreements'))
+              (key: _text(disagreement, 'key'), values: _alternatives(disagreement)),
+          ],
+          unplaced: _display(answer, 'unplaced'),
+          notPlaced: _display(answer, 'not_placed'),
+          credentialsNeeded: _display(answer, 'credentials_needed'),
+          plugins: [
+            for (final plugin in _maps(answer, 'plugins'))
+              (name: _text(plugin, 'name'), state: _text(plugin, 'state'), why: _maybeText(plugin, 'why')),
+          ],
+        );
+      });
+    } on OrganizationRefused {
+      throw const OrganizationRefused('Porelo cannot say what to sign: the checkout draft could not be read.');
+    }
+  }
+
+  static int? _line(Map<String, Object?> value) {
+    final line = _maybeInt(value, 'line');
+    if (line != null && line < 1) throw const _Unreadable('line');
+    return line;
+  }
+
+  static String _alternatives(Map<String, Object?> value) {
+    if (value['values'] is! List) throw const _Unreadable('disagreement values');
+    return _display(value, 'values');
+  }
+
+  static String _display(Map<String, Object?> value, String field) {
+    if (!value.containsKey(field)) throw _Unreadable(field);
+    final found = value[field];
+    return found is String ? found : jsonEncode(found);
+  }
+
+  static String _positional(String value, String field) {
+    if (value.isEmpty || value.startsWith('-') || value.contains('\u0000')) {
+      throw OrganizationRefused('The $field cannot be used as a command argument.');
+    }
+    return value;
+  }
+
+  @override
   Future<List<ListedProject>> myProjects() async {
     final answer = await _ask(['project', 'list']);
     return _reading(
@@ -271,6 +349,11 @@ class PoreloOrganizationSource implements OrganizationSource {
 
   @override
   Future<void> apply(OrganizationWrite write) async {
+    if ((write.change == OrganizationChange.initializeProject ||
+            write.change == OrganizationChange.changeProjectReview) &&
+        write.base.isEmpty) {
+      throw const OrganizationRefused('The project revision is unknown. Read it before signing a change.');
+    }
     await _ask([
       ..._arguments(write),
       // Nothing accepted yet: `identity create` takes no base then. Making or choosing an organization never does.
@@ -289,6 +372,11 @@ class PoreloOrganizationSource implements OrganizationSource {
     final input = write.input;
     String given(String name) =>
         input[name] ?? (throw OrganizationRefused('This change is missing its $name.', answered: true));
+    String review() => switch (given('review')) {
+      'required' => 'required',
+      'optional' => 'optional',
+      _ => throw const OrganizationRefused('The review policy must be required or optional.'),
+    };
     return switch (write.change) {
       OrganizationChange.createOrganization => [
         'org',
@@ -342,7 +430,30 @@ class PoreloOrganizationSource implements OrganizationSource {
       OrganizationChange.removeHostAdmin => ['org', 'host', 'admin', 'remove', given('host'), given('login')],
       OrganizationChange.addProjectToHost => ['org', 'host', 'carry', given('host'), given('project')],
       OrganizationChange.removeProjectFromHost => ['org', 'host', 'uncarry', given('host'), given('project')],
-      OrganizationChange.openProject => ['project', 'open', given('project')],
+      OrganizationChange.openProject => [
+        'project',
+        'open',
+        given('project'),
+        if (input.containsKey('review')) ...['--review', review()],
+      ],
+      OrganizationChange.changeProjectReview => [
+        'project',
+        'review',
+        _positional(given('project'), 'project'),
+        if (input['repository'] case final repository?) _positional(repository, 'repository'),
+        review(),
+      ],
+      OrganizationChange.initializeProject => [
+        'project',
+        'init',
+        _positional(given('checkout'), 'checkout folder'),
+        '--project',
+        _positional(given('project'), 'project'),
+        '--yes',
+        if (input['name'] case final name?) ...['--name', _positional(name, 'name')],
+        if (input.containsKey('review')) ...['--review', review()],
+        if (input['central'] case final central?) ...['--central', central],
+      ],
       OrganizationChange.changeProjectRepository => ['project', 'address', given('project'), given('address')],
       OrganizationChange.addProjectMember => [
         'project',
@@ -372,6 +483,7 @@ class PoreloOrganizationSource implements OrganizationSource {
         given('repository'),
         '--upstream',
         given('address'),
+        if (input.containsKey('review')) ...['--review', review()],
       ],
       OrganizationChange.removeProjectRepository => [
         'project',

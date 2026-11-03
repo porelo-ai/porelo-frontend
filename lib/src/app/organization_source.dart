@@ -355,6 +355,7 @@ class ProjectView {
     this.host,
     this.address,
     this.opened = true,
+    this.review,
     this.repositories = const [],
     this.members = const [],
     this.roles = const [],
@@ -382,6 +383,9 @@ class ProjectView {
   /// `project.yml`.
   final bool opened;
 
+  /// The review policy Core names, or null where it names none; unknown words remain visible.
+  final String? review;
+
   /// Its repositories.
   final List<ProjectRepository> repositories;
 
@@ -399,6 +403,94 @@ class ProjectView {
     for (final member in members)
       if (member.role == adminRole) member.login,
   ];
+}
+
+/// One proposed setting and the evidence Core gives for it.
+@immutable
+class ProjectInitValue {
+  /// Keeps the value as display text and its provenance without interpreting the setting.
+  const ProjectInitValue({
+    required this.key,
+    required this.value,
+    required this.unknown,
+    this.file,
+    this.line,
+    this.origin,
+    this.note,
+    this.plugin,
+  });
+
+  /// The setting's key.
+  final String key;
+
+  /// Its value, with structured JSON preserved as text.
+  final String value;
+
+  /// Whether Core cannot determine this value.
+  final bool unknown;
+
+  /// Its source file, where named.
+  final String? file;
+
+  /// Its source line, where named.
+  final int? line;
+
+  /// Its other origin, where named.
+  final String? origin;
+
+  /// Core's note about this value.
+  final String? note;
+
+  /// The plugin that proposed it, where named.
+  final String? plugin;
+}
+
+/// A read-only checkout draft, with every warning kept before signing is offered.
+@immutable
+class ProjectInitDraft {
+  /// Keeps only Core's answer; no project file is written by the interface.
+  const ProjectInitDraft({
+    required this.repository,
+    required this.upstream,
+    required this.draft,
+    required this.revision,
+    required this.values,
+    required this.disagreements,
+    required this.unplaced,
+    required this.notPlaced,
+    required this.credentialsNeeded,
+    required this.plugins,
+  });
+
+  /// The repository Core found.
+  final String repository;
+
+  /// Its upstream, absent where Core names none.
+  final String? upstream;
+
+  /// The proposed project file, shown without editing.
+  final String draft;
+
+  /// The revision this draft stands on; absent for a draft with no target project.
+  final String? revision;
+
+  /// The proposed settings, with their provenance.
+  final List<ProjectInitValue> values;
+
+  /// Conflicting readings, preserving all of Core's alternatives as display text.
+  final List<({String key, String values})> disagreements;
+
+  /// Core's unplaced findings, preserved as display text.
+  final String unplaced;
+
+  /// Core's explanation of what was not placed, preserved as display text.
+  final String notPlaced;
+
+  /// The credential requirements, never credential values.
+  final String credentialsNeeded;
+
+  /// Every plugin's state and explanation, including unknown states.
+  final List<({String name, String state, String? why})> plugins;
 }
 
 /// What can be changed on the organization's and a project's pages.
@@ -459,6 +551,12 @@ enum OrganizationChange {
 
   /// Its project admin's first opening of a project, which only their key can do.
   openProject,
+
+  /// Change whether the project or one of its repositories requires review.
+  changeProjectReview,
+
+  /// Sign the draft read from a checkout into a project.
+  initializeProject,
 
   /// Change the address of a project's repository.
   changeProjectRepository,
@@ -564,6 +662,9 @@ abstract interface class OrganizationSource {
 
   /// One project's current state.
   Future<ProjectView> readProject(String project);
+
+  /// Reads a checkout's draft without writing, against [project] where one is named.
+  Future<ProjectInitDraft> readProjectInit(String checkout, {String? project, String? name});
 
   /// The keys this person could file, each with the identity source's answer.
   Future<List<OrganizationKey>> myKeys();
@@ -700,6 +801,7 @@ class Organization extends ChangeNotifier {
   final _rowChanges = <OrganizationRowChange>[];
   final _writeReads = <Future<void> Function()>[];
   final _projectBases = <String, ({String revision, String? repositories})>{};
+  final _signedReviewChoices = <String, String>{};
   Completer<void>? _writeFinished;
 
   /// Completes when the current change and its rereads finish, including after an early dialog close.
@@ -712,6 +814,11 @@ class Organization extends ChangeNotifier {
   void rememberProjectRevision(ProjectView project) {
     _projectBases[project.name] = (revision: project.revision, repositories: project.repositoriesRevision);
   }
+
+  /// The default for a new repository: Core's policy, or this window's last confirmed project choice.
+  ///
+  /// This does not establish the current policy when Core names none; the project page still says it cannot tell.
+  String? reviewForNewRepositories(ProjectView project) => project.review ?? _signedReviewChoices[project.name];
 
   /// What the current change is waiting for.
   String? changeProgress;
@@ -930,10 +1037,17 @@ class Organization extends ChangeNotifier {
         OrganizationWrite(change: change, input: input, person: current?.me ?? '', base: asked.base, id: asked.id),
       );
       _unanswered.remove(sameChange);
+      if ((change == OrganizationChange.openProject || change == OrganizationChange.changeProjectReview) &&
+          input['repository'] == null &&
+          input['project'] != null &&
+          input['review'] != null) {
+        _signedReviewChoices[input['project']!] = input['review']!;
+      }
       if (change == OrganizationChange.chooseOrganization) {
         _rowChanges.clear();
         _projectBases.clear();
         _unanswered.clear();
+        _signedReviewChoices.clear();
       }
     } on OrganizationRefused catch (refused) {
       if (refused.answered) _unanswered.remove(sameChange);

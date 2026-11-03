@@ -9,6 +9,13 @@ typedef PickAFile = Future<String?> Function({String? initialDirectory, String? 
 Future<String?> pickWithTheDesktop({String? initialDirectory, String? title}) async =>
     (await openFile(initialDirectory: initialDirectory, confirmButtonText: title))?.path;
 
+/// Asks the desktop for a folder; null when the person puts the dialog away.
+typedef PickAFolder = Future<String?> Function({String? initialDirectory, String? title});
+
+/// The desktop's own folder dialog.
+Future<String?> pickFolderWithTheDesktop({String? initialDirectory, String? title}) =>
+    getDirectoryPath(initialDirectory: initialDirectory, confirmButtonText: title);
+
 /// Asks the desktop where a new file goes; null when the person put the dialog away. A path, never content.
 typedef ChooseNewFile = Future<String?> Function({String? title});
 

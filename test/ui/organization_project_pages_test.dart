@@ -442,6 +442,7 @@ void main() {
       expect(find.text('The project moved on; read it again.'), findsOneWidget);
     });
 
+    // Harm: a new repository could lose its required review policy when its signed write is assembled.
     testWidgets('adding a repository names it and its address', (tester) async {
       final fixture = await _page(tester, 'pat');
       await pressOrganizationAction(tester, 'addRepository');
@@ -458,6 +459,7 @@ void main() {
         'project': 'demo',
         'repository': 'demo-site',
         'address': 'git@forge.example.org:acme/s.git',
+        'review': 'required',
       });
     });
 
@@ -556,7 +558,7 @@ void main() {
         await tester.tap(find.byKey(const Key('organization-confirm')));
         await tester.pumpAndSettle();
         expect(fixture.writes.single.change, OrganizationChange.openProject);
-        expect(fixture.writes.single.input, {'project': 'demo'});
+        expect(fixture.writes.single.input, {'project': 'demo', 'review': 'required'});
         expect(fixture.writes.single.base, 'p1');
       });
 

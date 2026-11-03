@@ -23,6 +23,10 @@ class _Slow implements OrganizationSource {
   Future<ProjectView> readProject(String project) async => demoProject;
 
   @override
+  Future<ProjectInitDraft> readProjectInit(String checkout, {String? project, String? name}) async =>
+      throw const OrganizationRefused('No checkout draft was supplied.');
+
+  @override
   Future<List<OrganizationKey>> myKeys() async => const [];
 
   @override

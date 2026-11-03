@@ -380,6 +380,14 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
           children: [
             Text(widget.project, style: Theme.of(context).textTheme.headlineSmall),
             if (view != null && organization != null) Chip(label: Text(_myRole(view, organization))),
+            if (changes)
+              CommandMenu(
+                tooltip: 'What can be done with ${view.name}',
+                commands: [
+                  for (final policy in ['required', 'optional'])
+                    if (view.review != policy) _reviewCommand(view, policy),
+                ],
+              ),
           ],
         ),
         if (_problem case final problem?) _Problem(problem),
@@ -390,6 +398,13 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
               (view == null || change.change == OrganizationChange.openProject))
             OrganizationPendingRow(widget.organization, change, onReview: () => unawaited(_read())),
         if (view != null) ...[
+          Text(switch (view.review) {
+            'required' => 'Review is required.',
+            'optional' => 'Review is optional.',
+            null =>
+              'Porelo does not name the current review policy, so this page cannot say whether review is required.',
+            final word => 'Porelo calls the review policy “$word”; this page cannot say whether review is required.',
+          }),
           if (!isAdmin) Text('${_adminsWords(view)} Only they change this project.'),
           const SizedBox(height: Space.normal),
           if (!view.opened) _notOpened(view, isAdmin),
@@ -406,6 +421,32 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
   String _adminsWords(ProjectView view) => view.admins.isEmpty
       ? 'It has no Project Admin.'
       : '${view.admins.length == 1 ? 'Project Admin' : 'Project Admins'} ${view.admins.join(', ')}.';
+
+  Command _reviewCommand(ProjectView view, String policy, {String? repository}) {
+    final target = repository == null ? view.name : '$repository in ${view.name}';
+    return organizationCommand(
+      id: repository == null ? 'projectReview/$policy' : 'repositoryReview/$repository/$policy',
+      label: policy == 'required' ? 'Require review…' : 'Make review optional…',
+      unavailable: widget.organization.busy
+          ? 'Another change is still being asked for.'
+          : view.repositoriesRevision == null || view.repositoriesRevision!.isEmpty
+          ? 'The project repository revision is unknown. Read the project again before signing.'
+          : null,
+      run: () => _show(
+        OrganizationConfirmDialog(
+          widget.organization,
+          base: view.repositoriesRevision,
+          title: policy == 'required' ? 'Require review in $target?' : 'Make review optional in $target?',
+          words: policy == 'required'
+              ? 'Work must be reviewed before it leaves the gate. This change is signed with your key.'
+              : 'Work may leave the gate without a review. This change is signed with your key.',
+          confirm: policy == 'required' ? 'Require review' : 'Make review optional',
+          change: OrganizationChange.changeProjectReview,
+          input: {'project': view.name, 'repository': ?repository, 'review': policy},
+        ),
+      ),
+    );
+  }
 
   Widget _address(ProjectView view, bool isAdmin) => Padding(
     padding: const EdgeInsets.only(bottom: Space.normal),
@@ -448,17 +489,7 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
               ),
               FilledButton(
                 key: const ValueKey('organization.openProject'),
-                onPressed: () => _show(
-                  OrganizationConfirmDialog(
-                    widget.organization,
-                    base: view.revision,
-                    title: 'Open ${view.name}?',
-                    words: 'Porelo makes the project repository and signs its first project.yml with your key. Then you add its repositories and members.',
-                    confirm: 'Open the project',
-                    change: OrganizationChange.openProject,
-                    input: {'project': view.name},
-                  ),
-                ),
+                onPressed: () => _show(_OpenProjectDialog(widget.organization, view)),
                 child: const Text('Open the project'),
               ),
             ],
@@ -502,6 +533,8 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
                 trailing: isAdmin
                     ? CommandMenu(
                         commands: [
+                          for (final policy in ['required', 'optional'])
+                            _reviewCommand(view, policy, repository: repository.name),
                           organizationCommand(
                             id: 'removeRepository/${repository.name}',
                             label: 'Remove…',
@@ -803,6 +836,7 @@ class _AddRepositoryDialog extends StatefulWidget {
 class _AddRepositoryDialogState extends State<_AddRepositoryDialog> {
   final _name = TextEditingController();
   final _address = TextEditingController();
+  late bool _requireReview = widget.organization.reviewForNewRepositories(widget.view) != 'optional';
 
   @override
   void dispose() {
@@ -834,6 +868,20 @@ class _AddRepositoryDialogState extends State<_AddRepositoryDialog> {
           decoration: const InputDecoration(labelText: 'Address', helperText: _addressHelp, helperMaxLines: 2),
           onChanged: (_) => changed(),
         ),
+        SwitchListTile(
+          key: const Key('organization-repository-review'),
+          title: const Text('Require review'),
+          subtitle: Text(
+            _requireReview
+                ? 'Work must be reviewed before it leaves the gate.'
+                : 'Work may leave the gate without a review.',
+          ),
+          value: _requireReview,
+          onChanged: (value) {
+            _requireReview = value;
+            changed();
+          },
+        ),
       ],
     ),
     invalid: () {
@@ -846,7 +894,56 @@ class _AddRepositoryDialogState extends State<_AddRepositoryDialog> {
         ? null
         : (
             change: OrganizationChange.addProjectRepository,
-            input: {'project': widget.view.name, 'repository': _name.text.trim(), 'address': _address.text.trim()},
+            input: {
+              'project': widget.view.name,
+              'repository': _name.text.trim(),
+              'address': _address.text.trim(),
+              'review': _requireReview ? 'required' : 'optional',
+            },
           ),
+  );
+}
+
+class _OpenProjectDialog extends StatefulWidget {
+  const _OpenProjectDialog(this.organization, this.view);
+
+  final Organization organization;
+  final ProjectView view;
+
+  @override
+  State<_OpenProjectDialog> createState() => _OpenProjectDialogState();
+}
+
+class _OpenProjectDialogState extends State<_OpenProjectDialog> {
+  bool _alone = false;
+
+  @override
+  Widget build(BuildContext context) => OrganizationChangeDialog(
+    organization: widget.organization,
+    base: widget.view.revision,
+    title: 'Open ${widget.view.name}?',
+    confirm: 'Open the project',
+    body: (context, changed) => Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Porelo makes the project repository and signs its first project.yml with your key.'),
+        SwitchListTile(
+          key: const Key('organization-work-alone'),
+          title: const Text('Do you work alone?'),
+          subtitle: Text(_alone ? 'Yes. Review will be optional.' : 'No. Review will be required.'),
+          value: _alone,
+          onChanged: (alone) {
+            _alone = alone;
+            changed();
+          },
+        ),
+        const Text('You can change the review policy later from the project menu.'),
+      ],
+    ),
+    ask: () => (
+      change: OrganizationChange.openProject,
+      input: {'project': widget.view.name, 'review': _alone ? 'optional' : 'required'},
+    ),
   );
 }
