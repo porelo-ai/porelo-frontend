@@ -3,7 +3,7 @@
 **Status:** Idea.
 
 **What must be true.** *Organization* lists the organization's available machines. *Machines* is a person's own view of what they use: always the local
-machine, plus what they added. A server appears under *Machines* only after *Connect*, which is offered in *Organization*. It stands there once, with everything that
+machine, plus what they added. A server appears under *Machines* only after *Connect*, which is offered in *Organization* and on a project's row. It stands there once, with everything that
 can be done with it reached from that row. "Host" is a technical term and appears nowhere in the interface's words.
 
 In a walk one server stood twice on the page: under *Hosts* (`you administer it · connected`) and under *Machines*
@@ -47,7 +47,7 @@ row under *Machines* is a third kind, the preparation's, and it stands in *Hosts
 
 | | *Connect* | *Disconnect* | *Forget* | Taking it down |
 |---|---|---|---|---|
-| Where | *Organization*; under *Machines* after *Disconnect* | the row under *Machines* | the row under *Machines* | see below |
+| Where | *Organization*; a project's row; under *Machines* after *Disconnect* | the row under *Machines* | the row under *Machines* | see below |
 | Under *Machines* | appears | stays, with *Connect* | gone | gone from the list of the person who did it |
 | In *Organization* | says connected | stands, with *Connect* | stands, with *Connect* | gone |
 
@@ -82,8 +82,7 @@ Nothing of this is built, and nothing built stops for it.
 - **[F337](README.md#f337):** the rule stands, and the rail stays as `doc/decisions.md` has it. As the pages become one, its table's rows for a host's page and a machine's page
   become one row, and `_organizationHost` goes. A server opened from *Organization* moves the rail to *Machines* today, which needs reading again: it may not be in this
   person's list.
-- **[F338](README.md#f338):** *Connect to <machine>* on a project's row meets the rule that *Connect* is offered in *Organization*; see the open questions. *Work on it* and the other words stand with "machine" for
-  "host".
+- **[F338](README.md#f338):** *Connect to <machine>* on a project's row connects at once, as decided, so *Connect* stands there and in *Organization*. *Work on it* and the other words stand with "machine" for "host".
 - **[F341](README.md#f341):** the lines say `<machine>` and *it*. The token takes the admin's connection, so the page leads to *Connect* first.
 - **[F342](README.md#f342):** decided there: from the organization's projects, a machine's admin puts a project on it. So *Organization*'s project row holds *Put it on a machine…*, chosen among machines the person administers, read from the organization, connected or not.
 - **[F343](README.md#f343):** the same list on the machine's page, connected, and its title.
@@ -120,6 +119,8 @@ Nothing of this is built, and nothing built stops for it.
 - **The owner acts rarely,** and the roles below do the operational work.
 - **A machine added over ssh or WSL is private.** It stands only under *Machines*, marked clearly as a private machine, with *Connect* and *Disconnect*. *Forget* deletes the entry, so it is added anew there.
 - ***Prepare a machine…* stands in *Organization*.**
+- ***Connect to <machine>* on a project's row connects at once,** so it stands there and in *Organization*.
+- **The words for taking a machine down are *Take Porelo off this machine…* and *Return this rental…*,** and a machine that simply exists has the same two places as a rental.
 - **A third operation: taking a server down,** for a rented one giving it back, also removes it from the organization's list. Renting a server or
   setting one up by hand must enter it in the organization.
 
@@ -141,8 +142,8 @@ A change or replacement of a Machine Admin by an Organization Admin takes effect
 - **`view.isOwner`** gates what is owners' in `organization_page.dart`: accepting and locking cards, adding projects and machines, removing a machine, and owners themselves. All but the last move to an Organization Admin, and an owner's page holds owners and Organization Admins. The role needs a field of its own in `OrganizationView`, from an answer Core has not defined.
 - **A new machine:** an Organization Admin enters it and names its Machine Admin, who may be themselves. That answers who enters one. *Prepare a machine…* in *Organization* then runs for that Machine Admin, as `access.unavailable` already asks.
 - **Removing a machine:** by the operator's word its Machine Admin may, by taking Porelo off, and an Organization Admin may. The owner no longer does.
-- **A return under *Organization*** starts for its Machine Admin or an Organization Admin. Under *Machines*, for its Machine Admin.
-- **The project's page:** a Project Admin changes developers and repositories. A project's admins and the address of its repository are an Organization Admin's, which the page offers a Project Admin today. A Project Admin who adds another admin no longer can.
+- **A return, or taking Porelo off, under *Organization*** starts for its Machine Admin or an Organization Admin. Under *Machines*, for its Machine Admin.
+- **The project's page:** a Project Admin changes developers and repositories. Whether a Project Admin keeps the address of the repository and naming further admins, both of which the page offers today and the table gives an Organization Admin, is with the operator.
 - **Words:** *Organization Admin*, *Machine Admin* and *Project Admin* in the interface. This replaces the *machine admin* decided above only in its capitals.
 
 ## What the two operations ask of today's code
@@ -170,9 +171,9 @@ Read from the code, not run.
 ## Taking a machine down: a machine that exists, and a rental
 
 The operator: *Give the machine back* is a poor name, as it concerns only a rented machine. The organization's settings must tell a machine that simply exists from an
-active rental with a later return. A return can be started in two places: always under *Organization*, and under *Machines* by an admin who may do it.
+active rental with a later return. A return can be started in two places: always under *Organization*, and under *Machines* by an admin who may do it. A machine that simply exists has the same two places.
 
-**The words,** proposed:
+**The words,** of which the operator decided the two actions, and the rest proposed:
 
 | | A machine that simply exists | An active rental |
 |---|---|---|
@@ -230,9 +231,7 @@ private half being gone.
 
 ## Open questions
 
-- Does a machine that simply exists have the same two places as a rental? Recommended: yes, for one way to find it.
 - A project still on the server when it goes: `org host remove` is to be read for whether it refuses, or leaves the project on no machine. [F319](README.md#f319) empties the accounts and says nothing of the projects.
-- A project's row says *Connect to <machine>* in [F338](README.md#f338). Does it connect, or lead to the row in *Organization*? Recommended: lead to that row, so that *Connect* stays in one place.
 - An admin who has forgotten a server, or never connected: the machine's page, opened from *Organization*, has what they manage. Taking it down needs what this computer kept and a way to the
   server. Recommended: *Organization*'s row offers it to an admin in any case, as a return is, and says what is missing where it cannot.
 

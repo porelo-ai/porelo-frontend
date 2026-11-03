@@ -23,6 +23,8 @@ From the organization's projects, a person puts a project on a machine that exis
 
 So *Organization*'s row of a project offers *Put it on a machine…*, for a Machine Admin, choosing among those they administer, read from the organization, connected or not. No right changes and the calls stay. The admin of a machine reaches a project they are no member of there, as `porelo project show` keeps them from it under *Projects*. A project admin who is no machine's admin is offered nothing, and reads `not on a machine yet · a machine's admin puts it on one`.
 
+*Take it off the machine…* stands in the same row for the same Machine Admin, and asks first.
+
 The machine's page keeps a list of its projects with their progress, read only. It answers *Is this machine carrying it?* and is no second way to change it.
 
 ## What it costs
@@ -35,8 +37,3 @@ The machine's page keeps a list of its projects with their progress, read only. 
 
 *Organization*'s project rows and the machine's page, which it moves between. It bears on [F335](README.md#f335), [F336](README.md#f336), whose page gets shorter,
 [F338](README.md#f338), whose line above it takes, and [F343](README.md#f343), whose list becomes read only.
-
-## Open questions
-
-- *Take it off the machine…* stands in the same row for the same Machine Admin, as the decision speaks of putting on? Recommended: yes, so that both are in one place.
-- Does taking a project off still ask first, now that it stands among the project's actions? Recommended: yes, as today.

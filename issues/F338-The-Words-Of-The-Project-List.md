@@ -26,7 +26,7 @@ Read from the code, not run.
 
 | Now | Proposed | Why |
 |---|---|---|
-| *Open it on <host>*, not connected | *Connect to <host>*, doing it | what it takes, said as what it does |
+| *Open it on <host>*, not connected | *Connect to <machine>*, connecting at once | what it takes, said as what it does; as decided, it stands here and in *Organization* |
 | *Open it on <host>*, connected | *Work on it* | the row already names the host |
 | `on no host yet` | `not on a host yet · a host admin puts it on one` | says whose it is |
 | *Projects on your machines, outside the organization* | *All projects on your machines* | true of what the list holds |
