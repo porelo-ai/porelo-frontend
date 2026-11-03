@@ -64,6 +64,7 @@ List<String> organizationRefreshFeedCommand({
   remote: '/usr/local/sbin/porelo-host-person org refresh',
   target: 'root@${card.name}',
   marked: false,
+  ownConnection: true,
   card: card,
   config: config,
   token: token,
@@ -76,6 +77,7 @@ List<String> _tokenFeedCommand({
   required String remote,
   required String target,
   required bool marked,
+  bool ownConnection = false,
   required HostCardSsh card,
   required String config,
   required CentralToken token,
@@ -93,8 +95,9 @@ List<String> _tokenFeedCommand({
     for (final entry in pinnedHostSshPolicy('$config.known_hosts').entries) ...['-o', '${entry.key}=${entry.value}'],
     '-o',
     'ControlMaster=no',
-    '-o',
-    'ProxyCommand=false',
+    // A push goes down the person's own master or not at all. Root has its own connection: a new host has made no
+    // account for a master yet, and a master's user would not be root.
+    if (ownConnection) ...['-o', 'ControlPath=none', '-o', 'ProxyCommand=none'] else ...['-o', 'ProxyCommand=false'],
     '-o',
     'ConnectTimeout=10',
     '-T',

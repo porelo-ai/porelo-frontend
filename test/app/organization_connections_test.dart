@@ -2,6 +2,7 @@
 library;
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -38,6 +39,18 @@ class _Master extends Fake implements Process {
   }
 }
 
+/// An ssh master the host turns away, as it does while it has made no account.
+class _Turned extends Fake implements Process {
+  @override
+  Stream<List<int>> get stdout => const Stream.empty();
+  @override
+  Stream<List<int>> get stderr => Stream.value(utf8.encode('r6q@host: Permission denied (publickey).\n'));
+  @override
+  Future<int> get exitCode async => 255;
+  @override
+  bool kill([ProcessSignal signal = ProcessSignal.sigterm]) => true;
+}
+
 /// The host vault, opened at once.
 class _Unlocked implements HostUnlocker {
   @override
@@ -49,6 +62,15 @@ class _Unlocked implements HostUnlocker {
 }
 
 /// The fixture's organization, with mia's card holding the key the tests connect with.
+final _hostOfMia = OrganizationHost(
+  name: 'build',
+  address: buildHost.address,
+  port: buildHost.port,
+  hostKey: buildHost.hostKey,
+  admins: const ['mia'],
+  projects: const ['demo'],
+);
+
 OrganizationView _mia({OrganizationHost host = buildHost}) {
   final view = organizationFor('mia', host: host);
   return organizationFor(
@@ -82,8 +104,12 @@ void main() {
   late bool portsBusy;
   late List<String> refreshed;
   late _Saves store;
+  late bool turnedAway;
+  late String hostSays;
 
   setUp(() {
+    turnedAway = false;
+    hostSays = '{}';
     folder = Directory.systemTemp.createTempSync('c-');
     portsBusy = false;
     launches = [];
@@ -92,7 +118,7 @@ void main() {
       configEnvironment: {'XDG_CONFIG_HOME': folder.path},
       start: (command) async {
         launches.add(command);
-        return _Master();
+        return turnedAway ? _Turned() : _Master();
       },
       run: (_) async => ProcessResult(0, 0, '', ''),
       keyAvailable: (_) async => true,
@@ -124,7 +150,7 @@ void main() {
       hostProgress: SshHostProgress(
         run: (program, arguments, {inDirectory, environment = const {}, input}) async {
           refreshed.add(arguments[arguments.length - 2]);
-          return (code: 0, out: '{}', err: '');
+          return (code: 0, out: hostSays, err: '');
         },
       ),
       endpoint: (host) => path.join(folder.path, '$host.socket'),
@@ -196,6 +222,45 @@ void main() {
     final made = await connections(_mia(host: plain));
     await made.connect('build');
     expect(made.connected('build'), isTrue);
+  });
+
+  // Harm: a new host offers its token only once connected, and makes the account only with the token: nobody gets in.
+  test("a host waiting for its first token keeps its host admin's connection files, to give it", () async {
+    final made = await connections(_mia(host: _hostOfMia));
+    turnedAway = true;
+    hostSays = '{"organization": "waiting-for-token"}';
+    await made.connect('build');
+    expect(made.connected('build'), isTrue);
+    expect(made.up('build'), isFalse);
+    expect(File(config('build')).existsSync(), isTrue);
+    expect(await made.progress('build'), isA<HostProgress>().having((said) => said.waitsForToken, 'waits', isTrue));
+
+    // With the token given the host lets them in: asked again, the connection itself comes up.
+    turnedAway = false;
+    hostSays = '{}';
+    final before = launches.length;
+    await made.connect('build');
+    expect(launches.length, greaterThan(before));
+    expect(machines.tunnels.of(machines.all.singleWhere((each) => each.name == 'build'))?.state, TunnelState.up);
+  });
+
+  // Harm: a host admin of a host that follows, or a member, is told they are connected when the host turned them away.
+  test('a host that turns one away and waits for nothing is a refusal, nothing kept', () async {
+    final admin = await connections(_mia(host: _hostOfMia));
+    turnedAway = true;
+    await expectLater(admin.connect('build'), throwsA(isA<OrganizationRefused>()));
+    expect(admin.connected('build'), isFalse);
+    expect(File(config('build')).existsSync(), isFalse);
+  });
+
+  // Harm: root is asked for someone it does not know, and their refusal read as the host's state.
+  test('someone who is no host admin is not asked to give a token', () async {
+    final member = await connections(_mia());
+    turnedAway = true;
+    hostSays = '{"organization": "waiting-for-token"}';
+    await expectLater(member.connect('build'), throwsA(isA<OrganizationRefused>()));
+    expect(member.connected('build'), isFalse);
+    expect(refreshed, isEmpty);
   });
 
   test('a host with no address and host key yet is refused, nothing written', () async {

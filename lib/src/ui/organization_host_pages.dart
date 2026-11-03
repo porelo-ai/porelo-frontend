@@ -133,7 +133,7 @@ class _HostRowState extends State<_HostRow> {
   Widget build(BuildContext context) {
     final host = widget.host;
     final view = widget.view;
-    final connected = widget.connections?.connected(host.name) ?? false;
+    final connected = widget.connections?.up(host.name) ?? false;
     final why = _whyNotConnect(host, widget.connections);
     final mine = [
       for (final project in view.projects)
@@ -256,8 +256,13 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
   });
 
   Future<void> _giveToken() async {
+    final first = _progress?.waitsForToken ?? false;
     await widget.onGiveToken?.call(widget.host);
-    if (mounted && widget.connections != null) await _read(() => widget.connections!.progress(widget.host));
+    final connections = widget.connections;
+    if (!mounted || connections == null) return;
+    await _read(() => connections.progress(widget.host));
+    // The host has made the account it could not make before: now the connection itself can come up.
+    if (mounted && first && !(_progress?.waitsForToken ?? true)) await _act(() => connections.connect(widget.host));
   }
 
   /// Putting a project on needs the token at once: once it was taken, the host is asked to fetch, and says if it waits.
@@ -570,7 +575,11 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
         Text('Your connection', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: Space.small),
         Text(
-          connected ? 'Connected as ${view.me}, with the host key from the organization.' : why ?? 'Not connected yet. Connecting sets up one connection here, whatever number of projects it carries.',
+          connected && (_progress?.waitsForToken ?? false)
+              ? 'Not connected yet. The host makes your account once it has your token.'
+              : connected
+              ? 'Connected as ${view.me}, with the host key from the organization.'
+              : why ?? 'Not connected yet. Connecting sets up one connection here, whatever number of projects it carries.',
         ),
         const SizedBox(height: Space.small),
         if (connected)

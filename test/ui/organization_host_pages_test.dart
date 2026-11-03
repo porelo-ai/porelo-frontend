@@ -353,6 +353,21 @@ void main() {
       expect(_action('giveToken'), findsNothing);
     });
 
+    // Harm: the token is given and the person still has no connection, with a button that says Disconnect.
+    testWidgets('a host waiting for its first token says so, and the connection comes up after it', (tester) async {
+      final connections = FixtureConnections(['build'])..hostProgress = const HostProgress(waitsForToken: true);
+      await page(
+        tester,
+        'hana',
+        connections: connections,
+        onGiveToken: (_) async => connections.hostProgress = const HostProgress(),
+      );
+      expect(find.textContaining('makes your account once it has your token'), findsOneWidget);
+      await _tap(tester, _action('giveToken'));
+      expect(connections.asked, contains('connect build'));
+      expect(find.textContaining('makes your account once'), findsNothing);
+    });
+
     // Harm: a project just put on waits five minutes for a token nobody was asked for.
     testWidgets('putting a project on asks the host to fetch at once', (tester) async {
       final connections = FixtureConnections(['build']);

@@ -25,6 +25,18 @@ void main() {
     expect(script, isNot(contains('__PORELO_CENTRAL')));
   });
 
+  // Harm: the first token of a new host, which has made no account yet, needs a master nobody can raise, and never goes.
+  test('the token to org refresh goes on its own connection, no master asked for', () {
+    final script = organizationRefreshFeedCommand(
+      card: _card(),
+      config: '/config/porelo/ssh/alpha.conf',
+      token: SecretsFile('/home/alice/secrets.kdbx'),
+      environment: {'XDG_CONFIG_HOME': '/config'},
+    ).last;
+    expect(script, allOf(contains('ControlPath=none'), contains('ProxyCommand=none')));
+    expect(script, isNot(contains('ProxyCommand=false')));
+  });
+
   for (final code in [0, 65, 255]) {
     // Harm: the actual terminal feed sends the wrong token protocol or leaks an echoed token.
     test('terminal push and pull keep credentials off argv output and files for exit $code', () async {

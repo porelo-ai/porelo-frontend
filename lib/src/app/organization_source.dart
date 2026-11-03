@@ -550,6 +550,9 @@ abstract class HostConnections extends ChangeNotifier {
   /// Whether this computer is connected to [host].
   bool connected(String host);
 
+  /// Whether that connection is up: a host still waiting for its first token has made no account to connect to.
+  bool up(String host) => connected(host);
+
   /// Sets up the connection to [host] and raises it.
   Future<void> connect(String host);
 

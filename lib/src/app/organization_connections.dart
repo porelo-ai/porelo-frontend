@@ -4,6 +4,7 @@ import 'desk.dart';
 import 'host_progress.dart';
 import 'machines.dart';
 import 'organization_source.dart';
+import 'tunnel.dart';
 
 /// One connection per host, written from the organization's card as a host card always was: `frontend.json`'s machine
 /// and `porelo/ssh/<host>.conf`, `.known_hosts` and `.pub` beside it. No credential is kept or shown.
@@ -46,6 +47,12 @@ class CardHostConnections extends HostConnections {
     return card != null && !_movedPast(card);
   }
 
+  @override
+  bool up(String host) {
+    final machine = _machine(host);
+    return connected(host) && machines.tunnels.of(machine!)?.state == TunnelState.up;
+  }
+
   /// Whether the organization now names another address, host key, port or key of mine than [card] was written from:
   /// then it is a connection to replace, which only *Connect* does. What the answer leaves out says nothing.
   bool _movedPast(HostCardSsh card) {
@@ -65,7 +72,7 @@ class CardHostConnections extends HostConnections {
     final card = await _card(host);
     final known = _machine(host);
     // Connected already with what the organization names: nothing to do, whatever number of projects it carries.
-    if (known?.hostCard == card) return;
+    if (known?.hostCard == card && machines.tunnels.of(known!)?.state == TunnelState.up) return;
     if (known != null) {
       await machines.tunnels.dropAndUnpublish(known);
       await machines.forget(known);
@@ -80,7 +87,9 @@ class CardHostConnections extends HostConnections {
         windows: desk.isWindows,
       ),
     );
-    if (!await machines.tunnels.raiseFor(machine)) {
+    // A new host makes no account before it has a token, and a host admin gives it that as root: the connection's
+    // files stay for that, and *Connect* is asked again after it.
+    if (!await machines.tunnels.raiseFor(machine) && !await _waitsForToken(machine, card.name)) {
       final why =
           machine.whyNotReachableHere ??
           machines.tunnels.of(machine)?.problem ??
@@ -106,6 +115,18 @@ class CardHostConnections extends HostConnections {
       throw OrganizationRefused('This computer could not save the connection to ${card.name}, so it was closed.');
     }
     notifyListeners();
+  }
+
+  /// Whether [host] says, to its host admin as root, that it waits for its first token.
+  Future<bool> _waitsForToken(Machine machine, String host) async {
+    final view = organization.view;
+    final entry = view?.hosts.where((each) => each.name == host).firstOrNull;
+    if (view == null || entry == null || !entry.admins.contains(view.me)) return false;
+    try {
+      return (await _progress.status(machine.sshConfig, host)).waitsForToken;
+    } on OrganizationRefused {
+      return false;
+    }
   }
 
   /// The card [host]'s connection is written from, or the words of what is missing.

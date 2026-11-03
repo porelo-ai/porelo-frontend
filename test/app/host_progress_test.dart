@@ -70,6 +70,21 @@ void main() {
       expect(fed, '');
     });
 
+    // Harm: a key a follow took off root reads as a fault of the host, or as the wait a person's own account has.
+    test('a key the host does not take as root is said as no longer an admin\'s', () async {
+      answer = (code: 255, out: '', err: 'root@192.0.2.1: Permission denied (publickey).\n');
+      await expectLater(
+        progress.status('/c/build.conf', 'build'),
+        throwsA(
+          isA<OrganizationRefused>().having(
+            (refused) => refused.words,
+            'words',
+            allOf(contains('not a key of this host'), isNot(contains('five minutes'))),
+          ),
+        ),
+      );
+    });
+
     // Harm: a refusal reads as a state.
     test("a refusal is said in the host's words", () async {
       answer = (code: 65, out: '', err: 'porelo-host-person: nope\n');

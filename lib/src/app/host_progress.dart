@@ -146,6 +146,10 @@ class SshHostProgress {
       throw OrganizationRefused(refused.words);
     }
     if (answer.code != 0) {
+      // Each follow sets who reaches root, so a key the host does not take is not its admin's now, and no fault.
+      if (answer.err.contains('Permission denied')) {
+        throw OrganizationRefused('$host did not take your key as root: it is not a key of this host\'s admins now.');
+      }
       final said = answer.err.trim().split('\n').last.trim();
       throw OrganizationRefused(said.isEmpty ? 'The host refused this, and did not say why.' : said);
     }
