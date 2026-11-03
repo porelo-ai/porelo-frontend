@@ -18,6 +18,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f319"></a>[F319](F319-Confirmed-Membership-Purge-Before-Give-Back.md) | — | — | Giving a server back shows who still holds a role on it and removes the accounts of those a person confirmed; walked by no sprint yet. |
 | <a id="f222"></a>[F222](F222-A-Refused-Unlock-Asks-Again-In-Its-Terminal.md) | XS | — | A refused password in the unlock terminal asked again, up to three times, instead of ending it. |
 | <a id="f322"></a>[F322](F322-Leftovers-Of-The-Organization-Walk.md) | S | — | Small things a walk of the organization's pages found: raw JSON, a mark while a change runs, a stale refusal, words. |
 | <a id="f108"></a>[F108](F108-A-Machine-Over-Ssh-From-Windows.md) | — | — | On Windows, a machine over ssh is reached through the relay, as a WSL distribution is. |
@@ -184,7 +185,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Title | What was built |
 |---|---|---|
-| <a id="f319"></a>F319 | Confirmed Membership Purge Before Give-Back | Giving a server back shows who still holds a role on it and removes the accounts of those a person confirmed, with an unreadable status purging nothing. |
 | <a id="f291"></a>F291 | A Host Card With A Name Or An IPv6 Address Read | A host whose card names a host name or an IPv6 address written, raised, read back after a restart and given as a server, as one at an IPv4 address. |
 | <a id="f315"></a>F315 | Saved Settings Dropped Once And Said | Settings from before the organization put aside at the first start, without a migration, and said once in one sentence. |
 | <a id="f314"></a>F314 | The Calls Behind The Organization Pages | The organization's, project's and host's pages and *Connect* over Porelo's commands, *Forges* cut to forge access, and "registry" gone from what a person reads. |

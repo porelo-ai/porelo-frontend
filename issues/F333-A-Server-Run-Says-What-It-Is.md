@@ -37,3 +37,5 @@ need its dialog held open at all.
 - The same by the operator, when next setting up a real rented server at Scaleway: closing the dialog by clicking beside it
   mid-run, does the run go on, does its row show the protocol, and does the token's terminal still open at the end, or does
   the page offer *Give it the token…*?
+- In the same setup, for [F319](README.md#f319): give the server back with one member still on it, see the holder named, confirm the
+  removal, see that account gone and the server released.
