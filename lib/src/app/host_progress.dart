@@ -126,6 +126,66 @@ class HostProgress {
   bool get wantsToken => waitsForToken || projects.any((project) => project.waitsForToken);
 }
 
+/// How one project on a machine stands with the central forge, as its follow last read it; only a prompt, as the
+/// push still decides.
+class CentralState {
+  /// Keeps what the machine answered, an empty [repositories] where it could not say.
+  const CentralState({this.readAt, this.repositories = const []});
+
+  /// Reads the machine's answer; anything else than its contract's shape cannot say, and never reads as up to date.
+  factory CentralState.fromAnswer(String answer) {
+    try {
+      final read = jsonDecode(answer);
+      if (read is! Map) return const CentralState();
+      final rows = read['repositories'];
+      return CentralState(
+        readAt: read['read_at'] is String ? DateTime.tryParse(read['read_at'] as String) : null,
+        repositories: [
+          if (rows is List)
+            for (final row in rows)
+              if (row is Map)
+                (
+                  state: row['state'] is String ? row['state'] as String : '',
+                  commits: row['commits'] is int ? row['commits'] as int : 0,
+                ),
+        ],
+      );
+    } on FormatException {
+      return const CentralState();
+    }
+  }
+
+  /// When the machine's follow read, normally up to five minutes ago.
+  final DateTime? readAt;
+
+  /// Each repository's state: `ahead`, `up-to-date`, `moved-on`; anything else cannot say.
+  final List<({String state, int commits})> repositories;
+
+  /// How many approved commits are not at the central forge.
+  int get ahead => repositories.fold(0, (sum, row) => row.state == 'ahead' ? sum + row.commits : sum);
+
+  /// Whether a push would be refused.
+  bool get movedOn => repositories.any((row) => row.state == 'moved-on');
+
+  /// Whether a repository's state, or all of them, cannot be said.
+  bool get cannotSay =>
+      repositories.isEmpty ||
+      repositories.any((row) => row.state != 'ahead' && row.state != 'up-to-date' && row.state != 'moved-on');
+
+  /// Whether to offer the push beside the row.
+  bool get offersPush => ahead > 0 && !movedOn;
+
+  /// What the row says, with [forge] the central forge's name.
+  String words(String forge) {
+    if (movedOn) return '$forge has moved on: a push would be refused';
+    if (ahead > 0) {
+      final commits = ahead == 1 ? '1 approved commit' : '$ahead approved commits';
+      return '$commits not yet at $forge${cannotSay ? ', and cannot say for the rest' : ''}';
+    }
+    return cannotSay ? 'cannot say how it stands with $forge' : 'up to date with $forge';
+  }
+}
+
 /// Asks a host how it stands, as root, through the pinned config of the person's connection.
 class SshHostProgress {
   /// Runs ssh through [run].
@@ -142,12 +202,29 @@ class SshHostProgress {
   /// What the host keeps of a project, and whether it took an address for it. Read-only.
   static String projectFileVerb(String project) => 'cat /etc/porelo-host/organization/projects/$project.json';
 
+  /// How [project] stands with the central forge, as the machine's follow wrote it. Read-only, with no token or root.
+  static String centralVerb(String project) => '/usr/local/sbin/porelo-host-push --central $project';
+
   /// The name of a project whose file can be asked for in a remote command.
   static final _plainName = RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$');
 
   /// What the host [host], reached through [config], says of itself.
   Future<HostProgress> status(String config, String host) async =>
       _withAddresses(config, host, await _ask(config, host, statusVerb));
+
+  /// What [host] says of [project] and the central forge; an answer it refuses or a call that fails cannot say.
+  Future<CentralState> central(String config, String host, String project) async {
+    if (!_plainName.hasMatch(project)) return const CentralState();
+    final Ran answer;
+    try {
+      answer = await _ssh(config, host, centralVerb(project));
+    } on ProcessException {
+      return const CentralState();
+    } on WorkspaceRefused {
+      return const CentralState();
+    }
+    return answer.code == 0 ? CentralState.fromAnswer(answer.out) : const CentralState();
+  }
 
   /// Asks [host] to fetch now, and what it says then.
   Future<HostProgress> refresh(String config, String host) async =>

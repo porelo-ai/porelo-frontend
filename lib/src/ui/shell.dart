@@ -1260,6 +1260,7 @@ class _ShellState extends State<Shell> {
   Widget _organizationProjects(Organization organization) => _organizationProject == null
       ? OrganizationProjectsPage(
           organization: organization,
+          connections: _hostConnections,
           onProject: (name) => setState(() => _organizationProject = name),
           onHost: (project, host) {
             final machine = widget.machines.all.where((machine) => machine.name == host).firstOrNull;

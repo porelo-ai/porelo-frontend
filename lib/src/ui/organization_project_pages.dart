@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../app/commands.dart';
+import '../app/host_progress.dart';
 import '../app/organization_source.dart';
 import '../app/repository_address.dart';
 import '../app/run_here.dart' show WorkspaceRefused;
@@ -31,6 +32,7 @@ class OrganizationProjectsPage extends StatefulWidget {
     required this.onProject,
     this.onHost,
     this.menuFor,
+    this.connections,
     this.onOthers,
     super.key,
   });
@@ -51,6 +53,9 @@ class OrganizationProjectsPage extends StatefulWidget {
   /// there, so no machine's list holds these until then.
   final List<Command> Function(String project, String host)? menuFor;
 
+  /// Asks a connected machine how a project stands with the central forge, absent where this computer cannot.
+  final HostConnections? connections;
+
   @override
   State<OrganizationProjectsPage> createState() => _OrganizationProjectsPageState();
 }
@@ -58,6 +63,35 @@ class OrganizationProjectsPage extends StatefulWidget {
 class _OrganizationProjectsPageState extends State<OrganizationProjectsPage> {
   /// What `project list` answered; a refusal is said by the organization's own read, so this stays as it was.
   List<ListedProject> _listed = const [];
+  final _central = <String, CentralState>{};
+
+  /// Asks once per project and connection, as the machine's own answer only changes at its follow.
+  void _askCentral(OrganizationProject project) {
+    final connections = widget.connections;
+    final host = project.host;
+    if (connections == null || host == null || !connections.connected(host)) return;
+    if (_central.containsKey(project.name)) return;
+    _central[project.name] = const CentralState();
+    unawaited(
+      connections.central(host, project.name).then((state) {
+        if (mounted) setState(() => _central[project.name] = state);
+      }),
+    );
+  }
+
+  String? _centralWords(OrganizationView view, CentralState? state) {
+    if (state == null) return null;
+    final age = state.readAt == null ? null : DateTime.now().toUtc().difference(state.readAt!.toUtc()).inMinutes;
+    return [
+      state.words(view.forge ?? 'the central forge'),
+      if (age != null && age >= 0)
+        'read ${age == 0
+            ? 'just now'
+            : age == 1
+            ? 'a minute ago'
+            : '$age minutes ago'}',
+    ].join(', ');
+  }
 
   bool _isLocked(OrganizationProject project) => _listed.any((listed) => listed.name == project.name && listed.locked);
 
@@ -88,6 +122,9 @@ class _OrganizationProjectsPageState extends State<OrganizationProjectsPage> {
               for (final project in view.projects)
                 if (_roleIn(view, project) != null) project,
             ];
+      for (final project in mine) {
+        _askCentral(project);
+      }
       return ListView(
         key: const Key('organization-projects-page'),
         padding: const EdgeInsets.all(Space.normal),
@@ -109,13 +146,26 @@ class _OrganizationProjectsPageState extends State<OrganizationProjectsPage> {
                       subtitle: Text(
                         '${project.repositories == null ? '' : '${_count(project.repositories!, 'repository', 'repositories')} · '}'
                         '${peopleOf(project)} · '
-                        '${project.host == null ? 'on no host yet' : 'on ${project.host}'}',
+                        '${project.host == null ? 'on no machine yet' : 'on ${project.host}'}'
+                        '${_centralWords(view, _central[project.name]) == null ? '' : ' · ${_centralWords(view, _central[project.name])}'}',
                       ),
                       trailing: Wrap(
                         crossAxisAlignment: WrapCrossAlignment.center,
                         spacing: Space.normal,
                         children: [
                           Chip(label: Text(_isLocked(project) ? 'locked' : _roleIn(view, project)!)),
+                          if (_central[project.name]?.offersPush ?? false)
+                            if (project.host case final host? when !_isLocked(project))
+                              for (final command in widget.menuFor?.call(project.name, host) ?? const <Command>[])
+                                if (command.id == 'project.pushApprovedMain')
+                                  Tooltip(
+                                    message: command.unavailable ?? command.label,
+                                    child: OutlinedButton(
+                                      key: ValueKey('organization.pushApprovedMain ${project.name}'),
+                                      onPressed: command.available ? command.run : null,
+                                      child: Text(command.label),
+                                    ),
+                                  ),
                           if (project.host case final host? when !_isLocked(project))
                             CommandMenu(
                               key: ValueKey('organization.projectMenu ${project.name}'),

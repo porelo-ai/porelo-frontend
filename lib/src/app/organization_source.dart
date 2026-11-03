@@ -596,6 +596,9 @@ abstract class HostConnections extends ChangeNotifier {
 
   /// What [host] says of how far it has come. Only a host admin has this way in.
   Future<HostProgress> progress(String host);
+
+  /// How [project] on [host] stands with the central forge; cannot say where this computer cannot ask.
+  Future<CentralState> central(String host, String project) async => const CentralState();
 }
 
 /// One answer a frame uses without waiting for it, and when it came.

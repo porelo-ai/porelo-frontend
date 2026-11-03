@@ -182,6 +182,10 @@ class CardHostConnections extends HostConnections {
   @override
   Future<HostProgress> progress(String host) async => _progress.status(_config(host), host);
 
+  @override
+  Future<CentralState> central(String host, String project) async =>
+      connected(host) ? _progress.central(_config(host), host, project) : const CentralState();
+
   String _config(String host) {
     final machine = _machine(host);
     if (machine == null) throw OrganizationRefused('Connect to $host first.');

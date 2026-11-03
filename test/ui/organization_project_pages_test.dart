@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/commands.dart';
 import 'package:porelo_frontend/src/app/organization_source.dart';
+import 'package:porelo_frontend/src/app/host_progress.dart';
 import 'package:porelo_frontend/src/ui/organization_project_pages.dart';
 
 import '../support/organization_fixtures.dart';
@@ -39,7 +40,72 @@ Future<void> _tap(WidgetTester tester, Finder target) async {
   await tester.pumpAndSettle();
 }
 
+class _Central extends FixtureConnections {
+  _Central() : super(const ['build']);
+
+  @override
+  Future<CentralState> central(String host, String project) async =>
+      const CentralState(repositories: [(state: 'ahead', commits: 2)]);
+}
+
 void main() {
+  // Harm: a person cannot see that approved work waits to go to the central forge, or takes cannot say for up to date.
+  group('how a project stands with the central forge', () {
+    for (final (answer, words, offers) in [
+      (
+        '{"read_at":"2026-11-03T15:00:01Z","repositories":[{"repository":"a","state":"ahead","commits":3}]}',
+        '3 approved commits not yet at',
+        true,
+      ),
+      ('{"repositories":[{"repository":"a","state":"up-to-date"}]}', 'up to date with', false),
+      (
+        '{"repositories":[{"repository":"a","state":"ahead","commits":1},{"repository":"c","state":"moved-on"}]}',
+        'has moved on: a push would be refused',
+        false,
+      ),
+      (
+        '{"repositories":[{"repository":"a","state":"cannot-say","why":"unreachable"}]}',
+        'cannot say how it stands with',
+        false,
+      ),
+      ('{"repositories":[]}', 'cannot say how it stands with', false),
+      ('not json', 'cannot say how it stands with', false),
+    ]) {
+      test('$answer says $words', () {
+        final state = CentralState.fromAnswer(answer);
+        expect(state.words('GitHub'), contains(words));
+        expect(state.offersPush, offers);
+      });
+    }
+
+    testWidgets('a row offers the push only while commits wait, beside the row', (tester) async {
+      var pushed = 0;
+      final organization = Organization(FixtureOrganization(organizationFor('mia')));
+      addTearDown(organization.dispose);
+      final connections = _Central();
+      await _settle(
+        tester,
+        OrganizationProjectsPage(
+          organization: organization,
+          connections: connections,
+          onProject: (_) {},
+          menuFor: (project, host) => [
+            Command(
+              id: 'project.pushApprovedMain',
+              label: 'Push the approved main…',
+              group: project,
+              run: () => pushed++,
+            ),
+          ],
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.textContaining('2 approved commits not yet at'), findsOneWidget);
+      await _tap(tester, find.byKey(const ValueKey('organization.pushApprovedMain demo')));
+      expect(pushed, 1);
+    });
+  });
+
   // Harm: a locked member takes their project for one they can work on; a local project cannot be found from here.
   testWidgets('the list says who is locked, and a project of this computer alone leads to the machines', (
     tester,

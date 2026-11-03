@@ -1,6 +1,6 @@
 # F340 — Commits Not Yet At The Forge
 
-**Status:** Accepted.
+**Status:** Review.
 
 **What must be true.** A person sees on a project's row and page whether approved commits on the host wait to go to the central forge,
 with the action beside it, and who may do it.
