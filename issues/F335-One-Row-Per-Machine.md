@@ -2,18 +2,20 @@
 
 **Status:** Idea.
 
-**What must be true.** To a person there is one set of servers, called *Machines*, on which they may run tasks, in a project of theirs or in the
-default project, where they have an account. Each stands once, under one rail entry, in one row, with everything that can be done
-with it reached from that row. "Host" is a technical term and appears nowhere in the interface's words.
+**What must be true.** *Organization* lists the organization's available machines. *Machines* is a person's own view of what they use: always the local
+machine, plus what they added. A server appears under *Machines* only after *Connect*, which is offered in *Organization*. It stands there once, with everything that
+can be done with it reached from that row. "Host" is a technical term and appears nowhere in the interface's words.
 
 In a walk one server stood twice on the page: under *Hosts* (`you administer it · connected`) and under *Machines*
-(`<host> · Connected`, with a ⋮ that holds *Give the server back*). The operator found this illogical and had already opened the
-wrong row's menu.
+(`<host> · Connected`, with a ⋮ that holds *Give the server back*). The operator found this illogical and had already opened
+the wrong row's menu.
 
 ## The operator's decision
 
-To a person there is no difference between a host and a machine. This replaces the operator's earlier remark that no hosts belong
-under *Machines*, and the options this issue listed, two rail entries among them.
+To a person there is no difference between a host and a machine: there is one set of servers, called *Machines*, on which a person may run tasks where they have an
+account. Which of them are theirs to use is their own list, and it is not joined from the organization. This replaces the operator's earlier remark that no hosts
+belong under *Machines*, the options this issue listed, two rail entries among them, and a first reading of this decision in which everyone with a right saw a server
+under *Machines*.
 
 ## Why there are two rows now
 
@@ -32,27 +34,38 @@ row under *Machines* is a third kind, the preparation's, and it stands in *Hosts
 
 ## The shape
 
-- **One list under *Machines*:** this computer, a machine reached over ssh or WSL, a server rented for oneself, and every server of the
-  organization this person has a right on, connected or not. The *Hosts* section goes. Rows are joined by
-  `machine.hostCard?.name == host.name`, as `organization_connections.dart` already does.
-- **The row says** what both say now: where it is, connected or why not, *you administer it* where so, and the person's projects on it.
-- **In the row:** *Connect* while not connected. Everything else is in its one ⋮, following [F329](README.md#f329)'s decision.
-- **A preparation** takes the place of that one row, so there are never two rows there either.
-- ***Organization*** keeps its list of all the organization's servers, under the heading *Machines*, for what an owner does with them.
+- ***Machines*:** `Machines.all`, as today: the local machine, one reached over ssh or WSL, and each server after *Connect*. The *Hosts* section goes, and nothing joins it
+  to the organization's list, so *Machines* holds only what this person chose.
+- **In its row:** *Connect* while disconnected. Everything else is in its one ⋮, following [F329](README.md#f329)'s decision.
+- ***Organization*:** its list of all the organization's servers, under the heading *Machines*, with what an owner and an admin do with them. A person with an account there
+  has *Connect* in the row; once connected the row says so.
+- **A preparation** stands in the one row under *Machines*, in place of what it becomes.
 - **What stays technical:** `porelo-host` and its commands, `porelo org host …`, field names in answers, paths such as
   `/etc/porelo-host/`, ids in the code and the commands' keys. None of these is renamed by this issue.
 
+## The three operations
+
+| | *Connect* | *Disconnect* | *Forget* | Taking it down |
+|---|---|---|---|---|
+| Where | *Organization*; under *Machines* after *Disconnect* | the row under *Machines* | the row under *Machines* | the machine's admin |
+| Under *Machines* | appears | stays, with *Connect* | gone | gone from the list of the person who did it |
+| In *Organization* | says connected | stands, with *Connect* | stands, with *Connect* | gone |
+
+The local machine stands always, and offers neither *Disconnect* nor *Forget*. Today it can be forgotten while another machine stands. Since *Forget* leaves the server in
+*Organization*, no forgetting needs remembering.
+
 ## A person with no right on a server
 
-**Recommended:** under *Machines* it has no row, as a row would offer nothing they can do; this is what `myHosts` does today. On
-*Organization* it keeps its row, read only, as every member of the organization reads it today.
+**The right is an account,** and no separate right exists. By Agent Machines' reading, not run: a person has an account on a server by administering it or by belonging to a
+project it carries, and the server's task check takes a task of the default project from anyone admitted.
 
-One case needs a row: a server this computer is connected to, where the right has since gone. Its row stays, says in words that this
-person no longer has access there and whose it is to change, and offers *Disconnect*. It does not keep retrying.
+The rule stays and moves. `myHosts` no longer decides who has a row under *Machines*, as nobody has one before their own *Connect*. It decides who is offered *Connect* in
+*Organization*:
 
-**The right is an account,** and no separate right exists. By Agent Machines' reading, not run: a person has an account on a server by
-administering it or by belonging to a project it carries, and the server's task check takes a task of the default project from anyone
-admitted. That is who `myHosts` names, so it stays the rule for who has a row.
+- **No right, and not connected:** the read-only row in *Organization*, as every member reads it today, with no *Connect*. It has no row under *Machines*.
+- **Connected, and the right has since gone:** this person's own list keeps the row, since nothing joins it away. It says that they no longer have access there and whose it is to
+  change, does not keep retrying, and offers *Disconnect* and *Forget*. So a row under *Machines* still reads the organization for its words, though not for its existence.
+- **The server has left the organization,** taken down by someone else: the same row says so, and offers *Forget*. `_movedPast` in `organization_connections.dart` already sees that.
 
 **A task with no project is a task of the default project,** on a server as on any machine. By Agent Core's reading, not run:
 `porelo task start --host <server> --project default` reaches the start, given an ssh login to the person's account there. A blank
@@ -62,34 +75,39 @@ admitted. That is who `myHosts` names, so it stays the rule for who has a row.
 
 Nothing of this is built, and nothing built stops for it.
 
-- **[F336](README.md#f336):** the page's words, and its block for everyone gains *Start work* in the default project, for anyone with an account there.
-  *Managing this host* becomes *Managing this machine*.
-- **[F337](README.md#f337):** the rule stands, and *Machines* stays the entry a click returns to. As the pages become one, its table's rows for
-  a host's page and a machine's page become one row, and `_organizationHost` goes. Nothing asks for another rail entry any more, so
-  the rail stays as `doc/decisions.md` has it.
-- **[F338](README.md#f338):** `Connect to <machine>`; `not on a machine yet · its admin puts it on one`; *Open it on …* goes as proposed there.
-  *Projects on your machines, outside the organization* stays a question about projects and is not touched by this.
-- **[F341](README.md#f341):** the lines say `<machine>` and *it*; what the token is for does not change.
-- **[F342](README.md#f342):** *Put it on a machine…*, *Take it off the machine…*, and the list it leaves read only stands on the machine's page. Only
-  servers of the organization that the person administers are offered: never this computer or one rented alone.
-- **[F343](README.md#f343):** the same list on the machine's page, and its title.
-- **[F329](README.md#f329), [F334](README.md#f334):** one row and one ⋮, so its menu takes both rows' entries, and the steady line of the latter is that row's.
+- **[F336](README.md#f336), first:** its path starts in *Organization*: step 1's row with *Connect* stands there, and only from step 2 on is there a row under *Machines*. The
+  page's top block keeps its three states, and *Not connected* now also means disconnected, under *Machines*. It says that *Connect* brings it back and *Forget* takes it off
+  this person's list. *Start work* in the default project is for anyone with an account there. *Managing this host* becomes *Managing this machine*, and an admin
+  reads it whether connected or not.
+- **[F337](README.md#f337):** the rule stands, and the rail stays as `doc/decisions.md` has it. As the pages become one, its table's rows for a host's page and a machine's page
+  become one row, and `_organizationHost` goes. A server opened from *Organization* moves the rail to *Machines* today, which needs reading again: it may not be in this
+  person's list.
+- **[F338](README.md#f338):** *Connect to <machine>* on a project's row meets the rule that *Connect* is offered in *Organization*; see the open questions. *Work on it* and the other words stand with "machine" for
+  "host".
+- **[F341](README.md#f341):** the lines say `<machine>` and *it*. The token takes the admin's connection, so the page leads to *Connect* first.
+- **[F342](README.md#f342):** *Put it on a machine…*, *Take it off the machine…*. The choice is among servers the person administers, read from the organization, connected or not; never
+  this person's list.
+- **[F343](README.md#f343):** the same list on the machine's page, connected, and its title.
+- **[F329](README.md#f329):** the two lists keep separate rows with separate menus. Under *Machines* the ⋮ holds the entries of today's machine row. *Organization*'s row holds
+  *Connect* and what an owner and an admin do.
+- **[F334](README.md#f334):** its steady line is the row's under *Machines*; a disconnected machine no longer tries.
 - **[F331](README.md#f331), [F332](README.md#f332), [F333](README.md#f333), [F339](README.md#f339), [F340](README.md#f340):** the words only, *Prepare the host* among them.
-- **The pickers:** *New work* asks where it runs among the machines that answer, as `doc/decisions.md` says. A connected server is one of the
-  watched machines already, so nothing joins there. A machine of this person's that is not connected stands under *Machines* with the rest and is not offered, as nothing can run there. The project picker that follows offers the default project on a server as well.
+- **The pickers:** *New work* asks where it runs among the machines that answer, as `doc/decisions.md` says, so a connected server is there already and a disconnected one is not. The
+  project picker that follows offers the default project on a server as well.
+- **The code of the rows:** `OrganizationHostsSection` and its `_HostRow` with *Connect* leave `MachinesPage` for `organization_page.dart`, whose *Open the host's page* is an admin's alone
+  today. No join by `machine.hostCard?.name == host.name` is built for the list.
 - **The words:** about 440 lines in `lib` hold "host" in a string, ids and ssh's own terms among them, so each is read rather than replaced.
   Most are in `organization_host_pages.dart`, `tunnel.dart`, `organization_page.dart`, `machines.dart`, `commands.dart` and `host_dialog.dart`. Among
   them: *host admin*, *Remove the host…*, *Open the host's page*, *Projects on this host*, *Saved hosts not watched*, *Complete setup on the host*.
 - **Words from elsewhere:** a refused write shows the store's words as they come, and `org status`'s and `porelo-host`'s lines reach the screen
   too, and those say "host". Those lines belong to Core and Machines; until they change them, "host" still reaches the screen by that way.
-- **`doc/decisions.md`:** a section of its own for this decision. *Machines say where work runs* becomes true of every server, and *Daily work in
-  front, setting up apart* keeps its rail. `doc/index.md`'s setup words and `doc/design.md`'s *Projects on prepared hosts* follow; a role named in
-  them follows the decision below.
-- **Walks and tests:** those that find rows by `my-host`, `machines-row` or the *Hosts* section, and the feature steps on the machines page.
+- **`doc/decisions.md`:** a section of its own for this decision. *Machines say where work runs* holds as it stands. *Daily work in front, setting up apart* keeps its rail. `doc/index.md`'s
+  setup words and `doc/design.md`'s *Projects on prepared hosts* follow, with the role as decided below.
+- **Walks and tests:** those that find rows by `my-host`, `machines-row` or the *Hosts* section, the feature steps on the machines page, and every walk that connects from *Machines*.
 
 ## Decided by the operator
 
-- **One page per server as well,** as two pages are a difference a person sees. Its top is [F336](README.md#f336)'s block, then work, daemon and
+- **One page per server as well,** as two pages are a difference a person sees, reached from either list. Its top is [F336](README.md#f336)'s block, then work, daemon and
   vault, then *Managing this machine* for its admin. It is the largest part; the row could lead to today's two pages for a while.
 - **The role reads *machine admin*** in the interface, and "admin" where the page already says which machine. In Core and in the organization
   it stays what it is.
@@ -97,10 +115,8 @@ Nothing of this is built, and nothing built stops for it.
 - ***SSH host key* stays** where a person compares it with what ssh shows, and the button reads *Change address and key…*.
 - ***New work* offers no machine that is not connected,** since nothing can run there.
 - ***Without a project* stays** what a person reads for the default project, and *Projects* lists no *Default*, as `doc/decisions.md` has it.
-
-- **Two operations, for every machine.** *Disconnect* ends this computer's connection; the machine stays in the list and *Connect* brings it
-  back. *Forget* takes the entry out of the list; if the person is an admin of that server, it warns first that the server keeps running.
-
+- **Two operations.** *Disconnect* ends this computer's connection; the machine stays under *Machines* and *Connect* there brings it back. *Forget* takes the entry out of the
+  person's list; it stands on in *Organization*. If the person is an admin of that server, *Forget* warns first that the server keeps running.
 - **A third operation: taking a server down,** for a rented one giving it back, also removes it from the organization's list. Renting a server or
   setting one up by hand must enter it in the organization.
 
@@ -120,10 +136,10 @@ Read from the code, not run.
   to raise from.
 - **Every kind has to mean something.** `dropAndUnpublish` applies to a forward this interface raised. It is to be read per kind what *Disconnect* does on
   this computer, on WSL, and on a socket somebody else forwarded, which this interface can only stop watching.
-- **The last machine.** `Forget` is refused while a machine is the only one watched. *Disconnect* needs the same reading, and the window needs words for
-  no machine being connected.
+- **The local machine.** `canForget` asks only that another machine stands, so the local one can be forgotten today; it must not be. On Windows the local machine is a WSL
+  distribution, which is to be read for what *always* means when none is set up.
 - **Who gets the warning.** `_forget` in `shell.dart` warns where `machine.kind == 'host'`, in words of billing, with the way to give the server back.
-  The test becomes that the person is an admin of that server, one who rented it counting as one.
+  The test becomes that the person is an admin of that server, one who rented it counting as one. It also says that the server stays in *Organization*.
 - **[F336](README.md#f336):** its words for *Disconnect* come true only with this, so this comes first or with it.
 
 ## What the third operation meets today
@@ -167,9 +183,10 @@ private half being gone.
 - Does a machine added over ssh count as *set up by hand*, and enter the organization? Recommended: no, it stays this person's own, as nothing was prepared on it and nothing pins it.
 - A project still on the server when it goes: `org host remove` is to be read for whether it refuses, or leaves the project on no machine. [F319](README.md#f319) empties the accounts and says nothing of the projects.
 
-- Where does a forgotten machine of the organization go? The operator is asked. What decides it: the list joins what the organization says, so such a
-  machine comes straight back as a row with *Connect*, which makes *Forget* look like *Disconnect*. Recommended: this computer remembers
-  the forgetting, the row stays away, and *Organization*'s row is the way back. The other way is to let it return, and say so in *Forget*'s question.
+- Where is *Prepare a machine…* offered? It makes a server of the organization, and its row then stands under *Machines* as the preparer's. Recommended: in *Organization*, as *Connect* is.
+- A project's row says *Connect to <machine>* in [F338](README.md#f338). Does it connect, or lead to the row in *Organization*? Recommended: lead to that row, so that *Connect* stays in one place.
+- An admin who has forgotten a server, or never connected: the machine's page, opened from *Organization*, has what they manage. Taking it down needs what this computer kept and a way to the
+  server. Recommended: the page offers it to an admin in any case, and says what is missing where it cannot.
 
 ## To be checked
 
