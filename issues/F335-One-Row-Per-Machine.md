@@ -54,9 +54,9 @@ person no longer has access there and whose it is to change, and offers *Disconn
 administering it or by belonging to a project it carries, and the server's task check takes a task of the default project from anyone
 admitted. That is who `myHosts` names, so it stays the rule for who has a row.
 
-**A task with no project is a task of the default project,** on a server as on any machine. By reading, not run: the interface's way there
-is not yet known to reach the start, as `porelo task start --host` refuses a blank `--project`; Agent Core is asked whether
-`--project default` reaches it, and what stops it if not. Until that is answered, nothing here promises such a start on a server.
+**A task with no project is a task of the default project,** on a server as on any machine. By Agent Core's reading, not run:
+`porelo task start --host <server> --project default` reaches the start, given an ssh login to the person's account there. A blank
+`--project` is refused, so the interface names the default project in that call.
 
 ## What else it changes
 
@@ -64,7 +64,7 @@ Nothing of this is built, and nothing built stops for it.
 
 - **[F336](README.md#f336):** the page's words, and its block for everyone gains *Start work* in the default project, for anyone with an account there.
   *Managing this host* becomes *Managing this machine*.
-- **[F337](README.md#f337):** the rule stands, and *Machines* stays the entry a click returns to. If the pages become one, its table's rows for
+- **[F337](README.md#f337):** the rule stands, and *Machines* stays the entry a click returns to. As the pages become one, its table's rows for
   a host's page and a machine's page become one row, and `_organizationHost` goes. Nothing asks for another rail entry any more, so
   the rail stays as `doc/decisions.md` has it.
 - **[F338](README.md#f338):** `Connect to <machine>`; `not on a machine yet · its admin puts it on one`; *Open it on …* goes as proposed there.
@@ -76,8 +76,7 @@ Nothing of this is built, and nothing built stops for it.
 - **[F329](README.md#f329), [F334](README.md#f334):** one row and one ⋮, so its menu takes both rows' entries, and the steady line of the latter is that row's.
 - **[F331](README.md#f331), [F332](README.md#f332), [F333](README.md#f333), [F339](README.md#f339), [F340](README.md#f340):** the words only, *Prepare the host* among them.
 - **The pickers:** *New work* asks where it runs among the machines that answer, as `doc/decisions.md` says. A connected server is one of the
-  watched machines already, so nothing joins there. What changes: a machine of this person's that is not connected is not offered, though it now stands under *Machines* with the
-  rest. The project picker that follows offers the default project on a server as well, once Core's answer above allows it.
+  watched machines already, so nothing joins there. A machine of this person's that is not connected stands under *Machines* with the rest and is not offered, as nothing can run there. The project picker that follows offers the default project on a server as well.
 - **The words:** about 440 lines in `lib` hold "host" in a string, ids and ssh's own terms among them, so each is read rather than replaced.
   Most are in `organization_host_pages.dart`, `tunnel.dart`, `organization_page.dart`, `machines.dart`, `commands.dart` and `host_dialog.dart`. Among
   them: *host admin*, *Remove the host…*, *Open the host's page*, *Projects on this host*, *Saved hosts not watched*, *Complete setup on the host*.
@@ -85,22 +84,22 @@ Nothing of this is built, and nothing built stops for it.
   too, and those say "host". Those lines belong to Core and Machines; until they change them, "host" still reaches the screen by that way.
 - **`doc/decisions.md`:** a section of its own for this decision. *Machines say where work runs* becomes true of every server, and *Daily work in
   front, setting up apart* keeps its rail. `doc/index.md`'s setup words and `doc/design.md`'s *Projects on prepared hosts* follow; a role named in
-  them follows the question below.
+  them follows the decision below.
 - **Walks and tests:** those that find rows by `my-host`, `machines-row` or the *Hosts* section, and the feature steps on the machines page.
+
+## Decided by the operator
+
+- **One page per server as well,** as two pages are a difference a person sees. Its top is [F336](README.md#f336)'s block, then work, daemon and
+  vault, then *Managing this machine* for its admin. It is the largest part; the row could lead to today's two pages for a while.
+- **The role reads *machine admin*** in the interface, and "admin" where the page already says which machine. In Core and in the organization
+  it stays what it is.
+- ***Prepare a machine…* and *Give the machine back*,** for one word.
+- ***SSH host key* stays** where a person compares it with what ssh shows, and the button reads *Change address and key…*.
+- ***New work* offers no machine that is not connected,** since nothing can run there.
+- ***Without a project* stays** what a person reads for the default project, and *Projects* lists no *Default*, as `doc/decisions.md` has it.
 
 ## Open questions
 
-- Is one page per server meant as well? Recommended: yes, as two pages are a difference a person sees. Its top is [F336](README.md#f336)'s block, then
-  work, daemon and vault, then *Managing this machine* for its admin. It is the largest part; the row could lead to today's two pages for a while.
-- *Host admin* is a role in Core and in the organization. In the interface: *machine admin*? Recommended: yes, and "admin" where the page already
-  says which machine.
-- *Prepare a server…* and *Give the server back* name the rented thing, and the operator calls them servers too. Do they say *machine*?
-  Recommended: *Prepare a machine…*, *Give the machine back*, for one word.
-- *Host key* is ssh's own term, and what ssh prints. Keep it in *Change address and host key…* and in its dialog? Recommended: keep it where a
-  person compares it with what ssh shows, as *SSH host key*, and *Change address and key…* on the button.
-- A machine of this person's that is not connected, in *New work*: offered with a word that it connects first, or not offered? Recommended: offered.
-- What a person reads for the default project, today *Without a project* and no *Default* under *Projects*: does it stay? Recommended: yes, as
-  `doc/decisions.md` has it, as nothing in this decision is about that word.
 - *Forget* and *Disconnect* both make this computer forget the machine, *Disconnect* also removing what it published for the connection, and
   *Forget* warning first on a server. Keep one? Recommended: *Disconnect* for a machine of the organization, with that warning where a server
   stands rented.
