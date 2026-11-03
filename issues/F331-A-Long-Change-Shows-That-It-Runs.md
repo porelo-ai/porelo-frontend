@@ -9,12 +9,26 @@ In a walk *Open the project* in the dialog *Open <project>?* showed no progress 
 it as a new host is handled: close the dialog, show the project at once marked as in progress, and say failures on the
 project's page.
 
+Later in that walk, adding a member at real GitHub took very long before the person appeared in the list; the operator asks
+for a provisional row marked like *adding…* while it runs. A repository's removal lagged too: a check right after it still
+listed the repository, and the walk did not establish why.
+
 ## What happens now
 
 Read from the code, not measured. `OrganizationChangeDialog` greys its two buttons, blocks closing, and shows nothing else
 until the answer. Behind it `porelo project open` reads the organization, makes the repository at the forge if there is
 none, pushes the signed first `project.yml`, and files the address. `OrganizationChangeMark` shows a running change on the
 page, but under the dialog.
+
+After a member or a repository is changed, the wait has three parts, each a new `porelo` process that goes to the forge:
+
+1. the change itself, with the dialog open;
+2. `porelo org`, reading the organization again, with the dialog still open;
+3. `porelo project show`, once the dialog has closed, with the old list standing and no mark at all, because
+   `OrganizationChangeMark` has stopped.
+
+The third part fits both findings: the person is not in the list yet, and a removed repository is still listed, though the
+change is already made. A line in the dialog would not cover it.
 
 ## Other dialogs with the same gap
 
@@ -39,14 +53,24 @@ for a run of minutes. A project needs less, but closing the dialog early still m
   The page then reads what stands, and a repository may exist before the address is filed.
 - **The walks and the tests that wait for the dialog** change with it.
 
-The cheap alternative is a progress line inside the frame, naming what runs: one place, every dialog on it, no new state.
-It does not give the operator's closed dialog.
+A provisional row answers part of this. The refusal has a natural home in the row it concerns, which keeps its words and
+offers to ask again or to drop it. *Nothing is shown as done before the source's own answer* still holds, as the row says
+*adding…*, but [F309](README.md#f309)'s *a refused write changes no row* changes. A row marked *removing…* serves a removal,
+and the costs of the other changes and of a closed window stand.
+
+The cheap alternative is a progress line inside the frame, naming what runs, and the mark kept on until the page has read
+again: one place, every dialog on it, no new state. The dialog stays open, and the row appears only at the end.
+
+Neither shortens the wait.
 
 ## Open questions
 
-- A progress line in the frame, or the operator's proposal for opening a project? Recommended: the line first for every
-  dialog on the frame, then the proposal only if a measured open still feels too long in a dialog.
+- A provisional row and a closed dialog, or a progress line in the dialog? Recommended: the provisional row for what adds to or
+  takes from a list (members, repositories, projects, hosts, owners), and the line for what has no row, such as an address or
+  *Create the organization*. Opening a project marks its existing page the same way.
 
 ## To be checked
 
-- How long opening a project takes at real GitHub.
+- How long each of the three parts takes at real GitHub, and opening a project too. If the third is most of it, the page might
+  use what the change already answered.
+- Whether the removal in the walk was this third part: nothing of the walk's state was read.
