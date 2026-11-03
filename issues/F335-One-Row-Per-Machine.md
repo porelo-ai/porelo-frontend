@@ -131,9 +131,9 @@ Each level answers for the one below and may always create, change and delete th
 | Role | Answers for | Where that stands |
 |---|---|---|
 | Owner | owners and Organization Admins | `owners.yml` and a new file |
-| Organization Admin | cards, projects' card and repository file, machines, and the admins of projects and machines | `members.yml`'s admins, `host.yml`'s admins |
+| Organization Admin | cards, projects' card, machines, and the admins of projects and machines | `members.yml`'s admins, `host.yml`'s admins |
 | Machine Admin | the machine's card, its carried projects, its token, taking Porelo off | |
-| Project Admin | developers, repositories, `project.yml` | |
+| Project Admin | developers, repositories and the project's address, `project.yml` | `projects/<project>/repository.yml` |
 
 A change or replacement of a Machine Admin by an Organization Admin takes effect on a running server at its next follow, with no confirmation by the former admin. Core and Machines file what that takes. Nothing of this is built, and what stands above of today's code is today's.
 
@@ -143,7 +143,8 @@ A change or replacement of a Machine Admin by an Organization Admin takes effect
 - **A new machine:** an Organization Admin enters it and names its Machine Admin, who may be themselves. That answers who enters one. *Prepare a machine…* in *Organization* then runs for that Machine Admin, as `access.unavailable` already asks.
 - **Removing a machine:** by the operator's word its Machine Admin may, by taking Porelo off, and an Organization Admin may. The owner no longer does.
 - **A return, or taking Porelo off, under *Organization*** starts for its Machine Admin or an Organization Admin. Under *Machines*, for its Machine Admin.
-- **The project's page:** a Project Admin changes developers and repositories. Whether a Project Admin keeps the address of the repository and naming further admins, both of which the page offers today and the table gives an Organization Admin, is with the operator.
+- **Naming further admins:** by the operator's word a Project Admin or Machine Admin does not name further admins of that level; that is the Organization Admin's. So *Add* under the machine's *Host admins* and a member's change of role to admin on the project's page leave those roles and go to an Organization Admin, in *Organization*. It changes today's `org host admin add` and `project member role`, which are Core's.
+- **The project's page:** a Project Admin changes developers and repositories, and keeps *Change the address…*, as the page offers today.
 - **Words:** *Organization Admin*, *Machine Admin* and *Project Admin* in the interface. This replaces the *machine admin* decided above only in its capitals.
 
 ## What the two operations ask of today's code
