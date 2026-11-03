@@ -91,6 +91,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f329"></a>[F329](F329-One-Menu-On-Each-Row-Of-The-Organization-Page.md) | — | — | The organization page's rows alike, perhaps with one ⋮ menu each, against the rule that every action stands visibly. |
 | <a id="f328"></a>[F328](F328-Letters-Doubled-In-A-Slow-Window.md) | — | — | A key pressed once reaching a console once, however slowly the window answers. |
 | <a id="f325"></a>[F325](F325-Going-Back-To-The-Machines-Agent.md) | — | — | A picked agent handed back to the machine's choice in the start form. |
 | <a id="f327"></a>[F327](F327-What-Closing-The-Window-Leaves-Running.md) | — | — | *Close Porelo?* saying what is true of the work it lists. |
