@@ -160,6 +160,7 @@ class OrganizationView {
     this.hosts = const [],
     this.owners = const [],
     this.ownersWithBackup = const [],
+    this.organizationAdmins,
   });
 
   /// The organization's name.
@@ -201,6 +202,9 @@ class OrganizationView {
   /// The owners among [owners] who have made a backup key.
   final List<String> ownersWithBackup;
 
+  /// The logins it lists as Organization Admins, or null while its file is absent: then its owners do that work.
+  final List<String>? organizationAdmins;
+
   /// Whether this is the last state read because the store could not be reached.
   final bool stale;
 
@@ -213,8 +217,25 @@ class OrganizationView {
   /// Whether the person holds any role: a revoked card or none holds nothing, so the page offers them no action.
   bool get holdsRoles => myCard?.standing == CardStanding.trusted || myCard?.standing == CardStanding.notYet;
 
-  /// Whether the person may change the organization's structure.
+  /// Whether the person names the owners and the Organization Admins.
   bool get isOwner => holdsRoles && owners.contains(me);
+
+  /// Whether the person may change the organization's cards, projects and machines and name their admins.
+  ///
+  /// The one place the rule stands: once the list exists only the list counts, and an unlisted owner is no admin.
+  bool get isOrganizationAdmin => holdsRoles && (organizationAdmins ?? owners).contains(me);
+
+  /// Whether the person may name further admins of [host]: its own admins, until the list exists.
+  bool mayNameAdminsOf(OrganizationHost host) =>
+      organizationAdmins == null ? holdsRoles && host.admins.contains(me) : isOrganizationAdmin;
+
+  /// Whether the person may remove [host] from the organization: its owners, until the list exists.
+  bool mayRemove(OrganizationHost host) =>
+      isOrganizationAdmin || (organizationAdmins != null && holdsRoles && host.admins.contains(me));
+
+  /// Whether a project's admin, as [isProjectAdmin] says, may change a member of [role], or give someone that role.
+  bool mayChangeMember(String role, {required bool isProjectAdmin}) =>
+      organizationAdmins == null || role != ProjectView.adminRole ? isProjectAdmin : isOrganizationAdmin;
 
   /// The hosts this person has to do with: those they administer, and those carrying a project of theirs.
   List<OrganizationHost> get myHosts => !holdsRoles
@@ -429,6 +450,12 @@ enum OrganizationChange {
 
   /// Remove an organization owner.
   removeOrganizationOwner,
+
+  /// List someone as an Organization Admin; the first listing makes the list that counts from then on.
+  addOrganizationAdmin,
+
+  /// Take someone off the list of Organization Admins.
+  removeOrganizationAdmin,
 
   /// Its project admin's first opening of a project, which only their key can do.
   openProject,

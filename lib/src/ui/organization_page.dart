@@ -21,8 +21,8 @@ import 'window_size.dart';
 /// What is true of a project's name, as for any folder it becomes.
 final _projectName = RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$');
 
-/// The organization: who manages it, its people, its projects and its hosts. Everyone reads all of it; every action stands
-/// in its row, for the person whose role it belongs to.
+/// The organization: who manages it, its people, its projects and its hosts. Everyone reads all of it; a row's actions stand
+/// behind its ⋮, for the person whose role they belong to.
 class OrganizationPage extends StatefulWidget {
   /// Reads [organization].
   const OrganizationPage({
@@ -142,6 +142,7 @@ class _OrganizationPageState extends State<OrganizationPage> {
       _projects(view, organization, show),
       _hosts(view, organization, show),
       _owners(view, organization, show),
+      ?_organizationAdmins(view, organization, show),
     ];
   }
 
@@ -189,13 +190,13 @@ class _OrganizationPageState extends State<OrganizationPage> {
               // Not gated on the card's standing: a revoked key is what this replaces.
               if (person.login == view.me && widget.keys != null)
                 _command('replaceLostKey', 'Replace a lost key…', () => unawaited(_replaceLostKey(view, organization))),
-              if (person.login != view.me && view.isOwner)
+              if (person.login != view.me && view.isOrganizationAdmin)
                 _command(
                   'replaceCard/${person.login}',
                   'Accept a new card…',
                   () => show(_AcceptCardDialog(organization, login: person.login, pickFile: widget.pickFile)),
                 ),
-              if (person.login != view.me && view.isOwner && person.standing != CardStanding.revoked)
+              if (person.login != view.me && view.isOrganizationAdmin && person.standing != CardStanding.revoked)
                 _command(
                   'revokeCard/${person.login}',
                   'Revoke the card…',
@@ -235,7 +236,7 @@ class _OrganizationPageState extends State<OrganizationPage> {
       ),
     ],
     commands: [
-      if (view.isOwner)
+      if (view.isOrganizationAdmin)
         _command(
           'addProject',
           'Add a project',
@@ -272,7 +273,7 @@ class _OrganizationPageState extends State<OrganizationPage> {
             actions: [
               if (view.holdsRoles && widget.onProject != null && _isIn(view, project))
                 _command('openProject/${project.name}', 'Open under Projects', () => widget.onProject!(project.name)),
-              if (view.isOwner) ...[
+              if (view.isOrganizationAdmin) ...[
                 _command(
                   'addProjectAdmin/${project.name}',
                   'Add an admin…',
@@ -363,7 +364,7 @@ class _OrganizationPageState extends State<OrganizationPage> {
       SectionSort('State', (row) => _hostWords(view.hosts[row])),
     ],
     commands: [
-      if (view.isOwner)
+      if (view.isOrganizationAdmin)
         _command(
           'addHost',
           'Add a host',
@@ -404,7 +405,7 @@ class _OrganizationPageState extends State<OrganizationPage> {
             actions: [
               if (view.holdsRoles && widget.onHost != null && host.admins.contains(view.me))
                 _command('openHost/${host.name}', "Open the host's page", () => widget.onHost!(host.name)),
-              if (view.isOwner)
+              if (view.mayRemove(host))
                 _command(
                   'removeHost/${host.name}',
                   'Remove the host…',
@@ -493,6 +494,74 @@ class _OrganizationPageState extends State<OrganizationPage> {
 }
 
 /// One action in a row of the organization's page.
+Widget? _organizationAdmins(OrganizationView view, Organization organization, void Function(Widget) show) {
+  final listed = view.organizationAdmins;
+  if (listed == null && !view.isOwner) return null;
+  final admins = listed ?? const <String>[];
+  return FilteredListSection(
+    title: 'Organization Admins',
+    storageId: 'organization-admins',
+    collapsible: true,
+    openWhenCompact: false,
+    commands: [
+      if (view.isOwner)
+        _command(
+          'addOrganizationAdmin',
+          'Add an Organization Admin',
+          () => show(
+            OrganizationPersonDialog(
+              organization,
+              title: 'List an Organization Admin of ${view.name}',
+              personLabel: 'Organization Admin',
+              people: [
+                for (final person in view.holdingRoles)
+                  if (!admins.contains(person.login)) person.login,
+              ],
+              words: listed == null
+                  ? 'From this first listing on, only the people listed do this work: an owner not listed no longer '
+                        'does, and may list themselves.'
+                  : 'They may change its cards, projects and machines, and name the admins of those.',
+              confirm: 'List them',
+              change: OrganizationChange.addOrganizationAdmin,
+              input: (_, person) => {'login': person},
+            ),
+          ),
+        ).command,
+    ],
+    rows: [
+      for (final admin in admins)
+        (
+          words: admin,
+          child: _Row(
+            icon: Icons.admin_panel_settings_outlined,
+            title: admin == view.me ? '$admin (you)' : admin,
+            subtitle: 'Organization Admin',
+            actions: [
+              if (view.isOwner)
+                _command(
+                  'removeOrganizationAdmin/$admin',
+                  'Remove…',
+                  danger: true,
+                  () => show(
+                    OrganizationConfirmDialog(
+                      organization,
+                      title: 'Remove $admin as an Organization Admin?',
+                      words: admins.length == 1
+                          ? '$admin is the last one listed: nobody does this work until you list another.'
+                          : '$admin no longer changes its cards, projects or machines.',
+                      confirm: 'Remove',
+                      change: OrganizationChange.removeOrganizationAdmin,
+                      input: {'login': admin},
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+    ],
+  );
+}
+
 class _Action {
   const _Action(this.command, {required this.danger});
 
@@ -520,6 +589,7 @@ String? _rolesWords(OrganizationView view) {
   if (!view.holdsRoles) return null;
   final roles = [
     if (view.isOwner) 'an organization owner',
+    if (view.isOrganizationAdmin) 'an Organization Admin',
     for (final host in view.hosts)
       if (host.admins.contains(view.me)) 'host admin of ${host.name}',
   ];

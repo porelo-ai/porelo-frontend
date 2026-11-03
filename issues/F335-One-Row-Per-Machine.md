@@ -147,6 +147,8 @@ A change or replacement of a Machine Admin by an Organization Admin takes effect
 - **The project's page:** a Project Admin changes developers and repositories, and keeps *Change the address…*, as the page offers today.
 - **Words:** *Organization Admin*, *Machine Admin* and *Project Admin* in the interface. This replaces the *machine admin* decided above only in its capitals.
 
+**Built first, on the contract Core fixed:** `OrganizationView.organizationAdmins`, from `porelo org`'s `organization_admins`, is the one seam. While it is null, the rules from before hold. Once it exists, `isOrganizationAdmin`, `mayNameAdminsOf`, `mayRemove` and `mayChangeMember` gate these pages, and an owner lists people under *Organization Admins*.
+
 ## What the two operations ask of today's code
 
 Read from the code, not run.

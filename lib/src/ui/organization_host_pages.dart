@@ -508,7 +508,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
       title: 'Host admins',
       storageId: 'host-admins ${host.name}',
       actions: [
-        if (isAdmin)
+        if (view.mayNameAdminsOf(host))
           OutlinedButton.icon(
             key: const ValueKey('organization.addHostAdmin'),
             onPressed: candidates.isEmpty
@@ -549,7 +549,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
                 ].join(' · '),
               ),
               // The last host admin cannot be removed, so nothing offers it.
-              trailing: isAdmin && host.admins.length > 1
+              trailing: view.mayNameAdminsOf(host) && host.admins.length > 1
                   ? CommandMenu(
                       commands: [
                         organizationCommand(

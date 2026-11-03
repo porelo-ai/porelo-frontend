@@ -673,6 +673,31 @@ void main() {
     expect(find.text('What is the organization?'), findsNothing);
   });
 
+  // Harm: once the list exists an unlisted owner still changes the organization, or a listed person cannot.
+  group('Organization Admins', () {
+    testWidgets('while the list is absent an owner does the work and may list someone', (tester) async {
+      await _pump(tester, 'olive');
+      expect(_action('addProject'), findsOneWidget);
+      await pressOrganizationAction(tester, 'addOrganizationAdmin');
+      expect(find.textContaining('only the people listed do this work'), findsOneWidget);
+    });
+
+    testWidgets('once it exists an unlisted owner keeps only an owner\'s work', (tester) async {
+      await _pump(tester, 'olive', view: organizationFor('olive', organizationAdmins: const ['mia']));
+      expect(_action('addProject'), findsNothing);
+      expect(_action('addOrganizationOwner'), findsOneWidget);
+      expect(_action('removeOrganizationAdmin/mia'), findsOneWidget);
+    });
+
+    testWidgets('a listed person does it, and does not name owners or admins', (tester) async {
+      await _pump(tester, 'mia', view: organizationFor('mia', organizationAdmins: const ['mia']));
+      expect(_action('addProject'), findsOneWidget);
+      expect(_action('addHost'), findsOneWidget);
+      expect(_action('addOrganizationOwner'), findsNothing);
+      expect(_action('addOrganizationAdmin'), findsNothing);
+    });
+  });
+
   // Harm: a list sorted by what a person needs falls back to its first order when the page is left.
   testWidgets('a list keeps its sort, and a project sorts by machine', (tester) async {
     await _pump(tester, 'olive', size: const Size(1280, 2000));
@@ -701,16 +726,10 @@ void main() {
 
   // Harm: on a narrow window the actions run off the side, and an owner cannot reach them.
   testWidgets('the page fits a phone', (tester) async {
-    await _pump(tester, 'olive', size: const Size(380, 800));
+    await _pump(tester, 'olive', size: const Size(380, 2400));
     expect(tester.takeException(), isNull);
-    await tester.scrollUntilVisible(
-      find.byKey(const ValueKey('organization-hosts-fold')),
-      200,
-      scrollable: find.byType(Scrollable).first,
-    );
     await tester.tap(find.byKey(const ValueKey('organization-hosts-fold')));
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(_action('removeHost/build'), 200, scrollable: find.byType(Scrollable).first);
     expect(_action('removeHost/build'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

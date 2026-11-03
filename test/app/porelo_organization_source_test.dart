@@ -627,6 +627,8 @@ void main() {
     // Harm: a page's change runs another command than the contract's, or as another person.
     for (final (change, input, command) in <(OrganizationChange, Map<String, String>, List<String>)>[
       (OrganizationChange.addOrganizationOwner, {'login': 'a'}, ['org', 'owner', 'add', 'a']),
+      (OrganizationChange.addOrganizationAdmin, {'login': 'ann'}, ['org', 'admin', 'add', 'ann']),
+      (OrganizationChange.removeOrganizationAdmin, {'login': 'ann'}, ['org', 'admin', 'remove', 'ann']),
       (OrganizationChange.removeOrganizationOwner, {'login': 'a'}, ['org', 'owner', 'remove', 'a']),
       (OrganizationChange.revokeCard, {'login': 'a'}, ['org', 'person', 'revoke', 'a']),
       (OrganizationChange.replaceCard, {'login': 'a', 'card': 'f'}, ['org', 'person', 'replace', 'a', '--card', 'f']),

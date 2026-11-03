@@ -461,8 +461,12 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
               member: member,
               me: organization?.me,
               // Removing or demoting the last project admin is the store's to refuse.
-              changes: isAdmin,
-              roles: view.roles,
+              // A developer is their Project Admin's; an admin, or a role to or from it, the Organization Admin's.
+              changes: organization?.mayChangeMember(member.role, isProjectAdmin: isAdmin) ?? isAdmin,
+              roles: [
+                for (final role in view.roles)
+                  if (organization?.mayChangeMember(role, isProjectAdmin: isAdmin) ?? isAdmin) role,
+              ],
               organization: widget.organization,
               view: view,
               onRemove: () => _show(
