@@ -306,6 +306,16 @@ void main() {
       expect(_action('giveToken'), findsNothing);
     });
 
+    // Harm: a project still waits after the token was given, and the page only asks for the token again.
+    testWidgets('why a project waits is said beside it', (tester) async {
+      final connections = FixtureConnections(['build'])
+        ..hostProgress = const HostProgress(
+          projects: [HostProjectProgress(project: 'demo', state: 'waiting-for-token', why: 'the helper exited 69')],
+        );
+      await page(tester, 'hana', connections: connections);
+      expect(find.textContaining('the helper exited 69'), findsOneWidget);
+    });
+
     // Harm: a member's interface asks root, which is not their way in.
     testWidgets('a member asks the host nothing', (tester) async {
       final connections = FixtureConnections(['build']);

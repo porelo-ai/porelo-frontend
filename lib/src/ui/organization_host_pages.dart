@@ -469,7 +469,10 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     return switch (progress.state) {
       'carried' => 'on the host',
       'putting-on' => 'being put on, which can take up to five minutes',
-      'waiting-for-token' => 'waits for your central token',
+      'waiting-for-token' => switch (progress.why) {
+        final why? => 'waits for your central token: $why',
+        null => 'waits for your central token',
+      },
       'held' => 'held: ${progress.why ?? 'it has unpushed work'}',
       'gone' => 'taken off',
       final word => word,
