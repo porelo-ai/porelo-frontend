@@ -470,7 +470,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     if (progress == null) return null;
     if (progress.hasNoAddress) {
       return "the host has no address for it: a token cannot help until the project's admin opens it or files its "
-          'address anew';
+          'address anew, and it then needs your token once more';
     }
     return switch (progress.state) {
       'carried' => 'on the host',

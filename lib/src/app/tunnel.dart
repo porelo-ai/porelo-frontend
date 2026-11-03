@@ -532,7 +532,10 @@ class Tunnel {
                 'token has made none yet.'
           : words.contains('forwarding failed') || words.contains('Address already in use')
           ? 'The host tunnel could not bind its fixed port or socket.'
-          : 'The SSH connection stopped (exit $code).';
+          : switch (said.map((line) => line.trim()).where((line) => line.isNotEmpty).lastOrNull) {
+              final reason? => 'The SSH connection stopped: $reason',
+              null => 'The SSH connection stopped (exit $code).',
+            };
       await _unlocker.cancel(machine.hostCard!.name);
       if (!_wanted || generation != _generation) return;
       onChanged?.call();

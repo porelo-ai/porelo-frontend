@@ -411,7 +411,9 @@ class _UnlockTerminalState extends State<_UnlockTerminal> {
               const SizedBox(height: Space.small),
               Text(
                 _cameOfIt ??
-                    _session.problem ??
+                    (_session.exitCode == Session.refusedCode
+                        ? 'The machine refused this. What it said is above.'
+                        : _session.problem) ??
                     (widget.completed != null && _session.exitCode == 0 ? widget.completed : null) ??
                     (widget.whatCameOfIt == null
                         ? 'The terminal has ended. What came of it is asked of the machine when this is '

@@ -1,7 +1,6 @@
 # F288 — Small Leftovers Of The One-Click Flow
 
-**Status:** Implementing.
-**Size:** M - about twenty small points, each read in the code; what waits on another repository stays open here.
+**Status:** Idea.
 
 **What must be true.** Small edge cases left over from the one-click flow's build are kept in one place, for the operator to place:
 address forms, quoting, encodings, texts and test gaps. A grave finding never goes here; it gets an issue of its own.
@@ -10,24 +9,10 @@ Each point is to be checked against the code before it is fixed.
 
 ## Gathered
 
-1. **An scp path holding `@`:** the join refuses any `@` after the host in every address form. Core's final address
-   rule cuts the scp form where git splits it, and keeps `git@example.org:team@v2:repo.git` as given,
-   with no credential. So this interface shows such a project as a refused row of its own. The rest of the join's
-   checks agree with Core's rule: a bracketed host must be an IPv6 literal, `%40` is refused, and `host:a@b:c`
-   without a user is read as `user:password@host:path`. Only the scp path is to be read as Core reads it.
-2. **Linux CI timeout of the terminal close test:** `pty_test` "termination and close wait for the output consumer
+1. **Linux CI timeout of the terminal close test:** `pty_test` "termination and close wait for the output consumer
    to reach EOF" timed out once on a Linux runner (Build 41235532851). It did not fail here in 5 single runs or in 24
    runs with 8 in parallel, and the close code had not changed. If it recurs, the test's bound is to be looked at
    against a loaded runner.
-3. **A SHA-256 registry:** the registry bundle for a host is built in a bare repository made as SHA-1, so a registry
-   whose commits are SHA-256 cannot be brought; it is to be made in the registry's own object format.
-4. **`--since` per registry address:** the last revision a host applied is kept per host alone, so after switching to
-   another registry sharing an ancestor, the local verification skips history up to it; it is to be kept per registry
-   address and host.
-5. **Registry bundle folders swept at start:** a crash while sending leaves a `registry-bundle-` folder under the
-   app's data that nothing removes; the start sweeps them as it sweeps card copies.
-6. **A test of `main.dart`'s composition:** the shell's host access test hands its own host access in, so it stays
-   green when `main.dart` composes none; a test of the composed app is to hold it.
 
 ## Left open by the finished one-click issues
 
@@ -95,17 +80,8 @@ finding; each is declined with its reason, and is read again where its code is r
 - **`packages/porelo_host` tests over a real terminal or a process** (`secret_store_test`, `forge_key_test`, `project_transfer_test`, `down_cli_test`) run out of their 30 seconds when the machine is under a load of 30 or more, and pass when run alone.
 - **`HostRuns.setupAgain` and `_replaceLegacy`** have nothing that hands them a function any more; they go with the setups made before the organization.
 - **A setup taken up again** writes its machine file anew under the data folder of that moment and reads the path it saved: the two differ only if the data folder has moved since.
-- **A refused `org refresh`, in the machine's words:** "The machine would not open a session here" stands after it, which says something else.
-- **"Choose another folder" at *Connect*:** it also comes from a stale file of an old address, where no folder is at fault.
-- **A wrong paste in *SSH host key*:** two lines from a keyscan get the general sentence, not what is wrong.
-- **A refusal below a dialog's fold:** the host dialog can show it where it cannot be seen without scrolling.
-- **The port-busy words, between two windows of one computer:** they name a kill for what is the person's own other window.
-- **The token's terminal** prints the host's status as raw JSON.
-- **A forge off port 22 in `centralForgeKnownHosts`:** it matches the plain name, while ssh writes `[host]:port`, so such a forge has no key to hand on.
-- **`The SSH connection stopped (exit 255).` at *Connect*:** it names no reason, and a name that does not resolve reads the same as a refused key; ssh's words belong there.
 - **After a card's address moves:** the old connection lives on while the page says *Not connected yet*, until the next *Connect* replaces it.
-- **The lost-key plan** offers *Cancel* and *Close* at once.
-- **An unopened project on a host:** the row now says what its admin must do; it does not yet say the token is needed again afterwards.
+- **Prepare a server, after a card is made or a host named:** the access read at start stays until a full refresh, so the command stays off with the old reason meanwhile. Not reproduced, and older than the change it was read in.
 
 ## Idea
 

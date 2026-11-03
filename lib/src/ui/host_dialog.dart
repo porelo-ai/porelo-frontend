@@ -125,6 +125,8 @@ class _HostDialogState extends State<HostDialog> {
   bool _busy = false;
   bool _givenBack = false;
   String? _problem;
+  final _problemShown = GlobalKey();
+  String? _problemBroughtIntoView;
   HostPreparationSettings _choices = const HostPreparationSettings();
   Settings get _settings => widget.settings ?? widget.machines.settings;
   HostUpRecord? get _record => _settings.hostUp(widget.project);
@@ -326,12 +328,25 @@ class _HostDialogState extends State<HostDialog> {
     super.dispose();
   }
 
+  /// A refusal can stand below the dialog's fold, where nothing else says the button was answered.
+  void _bringProblemIntoView() {
+    if (_problem == _problemBroughtIntoView) return;
+    _problemBroughtIntoView = _problem;
+    if (_problem == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_problemShown.currentContext case final shown? when mounted) {
+        unawaited(Scrollable.ensureVisible(shown));
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final run = widget.existingRun ?? _started;
     final record = _record ?? (run == null ? null : _settings.hostUp(run.project)) ?? run?.record;
     final access = widget.hostAccess ?? widget.hostRuns?.hostAccess;
     final holders = _holders;
+    _bringProblemIntoView();
     return AlertDialog(
       // Anchored above, so a form or a list growing below moves nothing a person is reading or about to click.
       alignment: Alignment.topCenter,
@@ -415,7 +430,7 @@ class _HostDialogState extends State<HostDialog> {
                   SelectableText(access.bootstrapCommand()),
                 ],
               ],
-              if (_problem != null) Text(_problem!),
+              if (_problem != null) Text(_problem!, key: _problemShown),
               if (widget.takeDownOnly && !_givenBack) ...[
                 if (_checkingMemberships) const Text('Reading membership holders…'),
                 if (_membershipProblem != null) Text(_membershipProblem!),

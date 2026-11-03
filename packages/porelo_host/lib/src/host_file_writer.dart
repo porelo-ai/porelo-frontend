@@ -50,7 +50,7 @@ class HostFileWriter {
 
   /// Names a conflicting destination without its contents.
   static Never conflict(String path) => throw HostFilesRefused(
-    '$path already exists and differs or is not a regular file. Remove it or choose another folder.',
+    '$path already exists and differs or is not a regular file. Remove it, or choose another folder if you chose this one.',
   );
 
   Future<void> _windowsPrivate(String path, {bool directory = false}) async {

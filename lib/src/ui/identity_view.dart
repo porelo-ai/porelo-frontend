@@ -572,7 +572,11 @@ class _ReplaceLostKeyDialogState extends State<ReplaceLostKeyDialog> {
         ),
       ),
     ),
-    actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close'))],
+    // A plan under review answers with its own Cancel and confirmation.
+    actions: [
+      if (_model.lostKeyPlan == null)
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close')),
+    ],
   );
 }
 

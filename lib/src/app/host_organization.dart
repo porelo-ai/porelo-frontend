@@ -41,6 +41,14 @@ String hostPin(OrganizationHost host) {
 final _key = RegExp(r'^[a-z0-9-]+ [A-Za-z0-9+/]+={0,2}$');
 final _login = RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$');
 
+/// How `known_hosts` names the forge [forge] of [address]: ssh writes a port other than its own with the name, in brackets.
+String forgeInKnownHosts(String forge, String? address) {
+  final uri = Uri.tryParse(address ?? '');
+  if (uri == null || !const {'ssh', 'git+ssh'}.contains(uri.scheme) || !uri.hasPort || uri.port == 22) return forge;
+  // An IPv6 literal comes in its brackets already.
+  return '${forge.startsWith('[') ? forge : '[$forge]'}:${uri.port}';
+}
+
 /// The lines of the person's own `known_hosts` that pin [forge], as `forge type key`, for the host's `--known-hosts`.
 ///
 /// Only what this person's ssh already trusts goes on, since first use is not trusted: nothing is asked of the forge.

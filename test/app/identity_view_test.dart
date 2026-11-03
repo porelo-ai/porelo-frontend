@@ -156,6 +156,27 @@ Future<void> _tapKey(WidgetTester tester, String key) async {
 }
 
 void main() {
+  // Harm: a dialog with no way out, since it does not show the lost-key plan whose Cancel would be the one.
+  testWidgets('My key and card can be closed while a lost-key plan is held', (tester) async {
+    final model = IdentityModel(
+      Identity(run: (_, _, {inDirectory, environment = const {}, input}) async => (code: 70, out: '', err: '')),
+    );
+    model.lostKeyPlan = (
+      plan: const LostKeyPlan(whoMay: [], hosts: [], signIns: []),
+      fingerprint: 'SHA256:held',
+      database: null,
+      entry: null,
+      id: 'lost-1',
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: IdentityDialog(model: model)),
+      ),
+    );
+    await tester.pump();
+    expect(find.text('Close'), findsOneWidget);
+  });
+
   group('a pending change on the page', () {
     const row = {'id': _rowId, 'action': 'rotate', 'fingerprint': _waiting};
 

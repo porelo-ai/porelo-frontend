@@ -48,11 +48,16 @@ class PoreloOrganizationSource implements OrganizationSource {
     final refusal = _object(ran.out);
     final words = refusal?['words'];
     return OrganizationRefused(
-      words is String && words.isNotEmpty ? words : 'Porelo refused this, and did not say why (exit ${ran.code}).',
+      words is String && words.isNotEmpty
+          ? words.replaceAll(_askedAgainWithItsId, 'ask again')
+          : 'Porelo refused this, and did not say why (exit ${ran.code}).',
       answered: !mayHaveMade,
       reason: refusal?['reason'] is String ? refusal!['reason']! as String : null,
     );
   }
+
+  /// The id is this program's to keep, and asking again here sends the same one; the person never types it.
+  static final _askedAgainWithItsId = RegExp(r'ask\s+again with (?:the same )?--id(?: [A-Za-z0-9_-]+)?');
 
   static Map<String, Object?>? _object(String text) {
     try {

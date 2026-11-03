@@ -88,6 +88,24 @@ void main() {
   });
 
   group('the central forge in known_hosts', () {
+    // Harm: a forge off port 22 has no key to hand on, so no host can be prepared for it, or takes one of another port.
+    test('a forge on another ssh port is found under the name ssh writes for it, and only there', () {
+      final named = forgeInKnownHosts('forge.example.org', 'ssh://git@forge.example.org:2222/team/org.git');
+      expect(named, '[forge.example.org]:2222');
+      expect(centralForgeKnownHosts(named, '$named $_forgeKey\n'), '$named $_forgeKey\n');
+      expect(() => centralForgeKnownHosts(named, 'forge.example.org $_forgeKey\n'), throwsA(isA<HostAccessRefused>()));
+      expect(forgeInKnownHosts('[2001:db8::1]', 'ssh://git@[2001:db8::1]:2222/team/org.git'), '[2001:db8::1]:2222');
+      expect(forgeInKnownHosts('forge.example.org', 'git+ssh://git@forge.example.org:2222/o.git'), named);
+      for (final address in [
+        'ssh://git@forge.example.org/team/org.git',
+        'ssh://git@forge.example.org:22/team/org.git',
+        'git@forge.example.org:team/org.git',
+        null,
+      ]) {
+        expect(forgeInKnownHosts('forge.example.org', address), 'forge.example.org', reason: '$address');
+      }
+    });
+
     // Harm: a host takes the first key the forge shows, so whoever stands in between serves it the organization.
     test('no line of that forge stops in words', () {
       expect(

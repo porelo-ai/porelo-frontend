@@ -200,7 +200,7 @@ class HostAccess extends ChangeNotifier {
     final view = _view!;
     final text = hostMachineFile(
       settings: view.settings!,
-      knownHosts: centralForgeKnownHosts(view.forge!, await _knownHosts()),
+      knownHosts: centralForgeKnownHosts(forgeInKnownHosts(view.forge!, view.address), await _knownHosts()),
       pin: hostPin(view.hosts.firstWhere((each) => each.name == host)),
     );
     final file = File(path.join(scratch, '$host.yml'));

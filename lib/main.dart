@@ -100,6 +100,10 @@ HostAccess _hostAccess(OrganizationSource source) {
   return access;
 }
 
+/// What [make] builds, for a person whose role can use it: only a host admin may prepare a host.
+@visibleForTesting
+HostAccess? hostAccessFor(Roles roles, HostAccess Function() make) => roles.holds(Role.hostAdmin) ? make() : null;
+
 Future<PoreloApp> _compose() async {
   final settingsStore = FileSettingsStore();
   final settingsDropped = await settingsStore.dropOldForm();
@@ -166,7 +170,7 @@ Future<PoreloApp> _compose() async {
     held: WorkHeld(),
     forgeKeyCheck: ForgeKeyCheckCli(),
     // Reads the organization on every refresh, so only for a person whose role can use it.
-    hostAccess: roles.holds(Role.hostAdmin) ? _hostAccess(organizationSource) : null,
+    hostAccess: hostAccessFor(roles, () => _hostAccess(organizationSource)),
     // A development build started with PORELO_WALK=<folder>; a release build never has one.
     walk: _walk(),
   );

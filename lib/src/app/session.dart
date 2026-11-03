@@ -358,6 +358,9 @@ class Session extends ChangeNotifier with QuietAfterDispose {
   /// What `porelo task attach` refuses with, for both of its reasons.
   static const int _refused = 69;
 
+  /// The code of a refusal; a terminal running one command words it itself, since that opens no session.
+  static const int refusedCode = _refused;
+
   /// ssh's own code for "the connection did not happen".
   static const int _sshFailed = 255;
 

@@ -170,7 +170,10 @@ class HostCardSsh {
 
   static void _key(String value) {
     if (!RegExp(r'^ssh-ed25519 [A-Za-z0-9+/]+={0,2}$').hasMatch(value)) {
-      throw const HostFilesRefused('The card needs a plain ssh-ed25519 public key.');
+      throw const HostFilesRefused(
+        'The card needs a plain ssh-ed25519 public key: one line, ssh-ed25519 and the key, with no host name in front '
+        'and none of the other lines a keyscan prints.',
+      );
     }
     sshSigningFingerprint(value);
   }
@@ -205,7 +208,8 @@ class HostCardSsh {
             who == null
                 ? 'Host $name cannot start: port $port is busy on 127.0.0.1.'
                 : 'Host $name cannot start: port $port is busy on 127.0.0.1, held by ${who.program} (pid ${who.pid}), not by '
-                      'this interface. If you started it by hand, end it with kill ${who.pid}, then try again.',
+                      'this window. If another Porelo window on this computer has this host open, close that one; if '
+                      'you started it by hand, end it with kill ${who.pid}. Then try again.',
           );
         }
       }
