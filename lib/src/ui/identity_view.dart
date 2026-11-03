@@ -82,6 +82,7 @@ class _IdentityDialogState extends State<IdentityDialog> {
   IdentityModel get _model => widget.model;
   final _database = TextEditingController();
   final _entry = TextEditingController();
+  bool _proposing = false;
   bool _picking = false;
   bool _newKey = false;
 
@@ -93,7 +94,7 @@ class _IdentityDialogState extends State<IdentityDialog> {
   @override
   void initState() {
     super.initState();
-    unawaited(_model.load());
+    if (!_model.busy) unawaited(_model.load());
   }
 
   @override
@@ -146,11 +147,33 @@ class _IdentityDialogState extends State<IdentityDialog> {
     });
   }
 
-  Future<void> _makeMyCard() => showDialog<void>(
-    context: context,
-    barrierDismissible: false,
-    builder: (_) => FirstStartWizard(model: _model, open: widget.open),
-  );
+  Future<void> _makeMyCard() async {
+    IdentityProposal? proposal;
+    setState(() => _proposing = true);
+    try {
+      proposal = await _model.core.propose();
+    } on Exception {
+      // Older Core installations and unreadable proposals use the established first-start flow.
+    } finally {
+      if (mounted) setState(() => _proposing = false);
+    }
+    if (!mounted) return;
+    final found = proposal;
+    final manual =
+        found == null ||
+        await showDialog<bool>(
+              context: context,
+              barrierDismissible: false,
+              builder: (_) => _ProposedCardDialog(model: _model, proposal: found),
+            ) ==
+            true;
+    if (!mounted || !manual) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => FirstStartWizard(model: _model, open: widget.open),
+    );
+  }
 
   List<Command> _commands() => [
     Command(
@@ -181,8 +204,9 @@ class _IdentityDialogState extends State<IdentityDialog> {
                 _Problem(problem, reason: _model.problemReason, reread: _model.load),
               if (_model.firstStart) ..._firstStart(context),
               if (_model.card case final card?) ..._card(context, card),
+              if (_model.card == null && _model.operation?.action == 'renew') IdentityRenewal(model: _model),
               if (_model.unfinishedId case final id?) _Unfinished(id: id, model: _model, open: widget.open),
-              if (_model.operation case final operation?)
+              if (_model.operation case final operation? when operation.action != 'renew')
                 _OperationView(
                   operation,
                   plan: _model.handoverPlan,
@@ -221,7 +245,7 @@ class _IdentityDialogState extends State<IdentityDialog> {
     const SizedBox(height: Space.small),
     FilledButton(
       key: const Key('identity-make-card'),
-      onPressed: _model.busy ? null : () => unawaited(_makeMyCard()),
+      onPressed: _model.busy || _proposing ? null : () => unawaited(_makeMyCard()),
       child: const Text('Make my card…'),
     ),
   ];
@@ -233,14 +257,10 @@ class _IdentityDialogState extends State<IdentityDialog> {
       Text('${card.name} (${card.login})${card.email == null ? '' : ', ${card.email}'}', style: text.titleMedium),
       SelectableText(card.fingerprint, key: const Key('identity-fingerprint')),
       Text('Valid from ${card.created} until ${card.expires}'),
+      IdentityRenewal(model: _model),
       if (card.predecessor case final before?) Text('Follows the key $before'),
-      Text(switch (card.agent) {
-        AgentState.holds => 'Your SSH agent holds this key.',
-        AgentState.notHeld =>
-          'Waiting for your key: your SSH agent does not hold it. Unlock KeePassXC and load the entry.',
-        AgentState.absent => 'Waiting for your key: no SSH agent is reachable. Start KeePassXC with its SSH agent.',
-        AgentState.unknown => 'Core says “${card.agentWord}” about your SSH agent, which this interface does not know.',
-      }, style: card.agent == AgentState.holds ? null : TextStyle(color: error)),
+      if (card.agent == AgentState.holds || card.renewDue != true || card.daysLeft == null)
+        Text(_agentWords(card), style: card.agent == AgentState.holds ? null : TextStyle(color: error)),
       if (card.revoked) Text('This key is revoked.', style: TextStyle(color: error)),
       if (card.cardRefused case final why?) Text('Your card does not verify: $why', style: TextStyle(color: error)),
       const SizedBox(height: Space.small),
@@ -302,6 +322,75 @@ class _IdentityDialogState extends State<IdentityDialog> {
       ],
     );
   }
+}
+
+String _agentWords(IdentityCard card) => switch (card.agent) {
+  AgentState.holds => 'Your SSH agent holds this key.',
+  AgentState.notHeld => 'Waiting for your key: your SSH agent does not hold it. Unlock KeePassXC and load the entry.',
+  AgentState.absent => 'Waiting for your key: no SSH agent is reachable. Start KeePassXC with its SSH agent.',
+  AgentState.unknown => 'Core says “${card.agentWord}” about your SSH agent, which this interface does not know.',
+};
+
+/// The card's renewal warning and action, shared with the Organization page.
+class IdentityRenewal extends StatelessWidget {
+  /// Uses the same operation model wherever the person sees the warning.
+  const IdentityRenewal({required this.model, this.showProblems = false, super.key});
+
+  /// The current card and any renewal in progress.
+  final IdentityModel model;
+
+  /// Includes refusals and retry controls where no card dialog surrounds this widget.
+  final bool showProblems;
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: model,
+    builder: (context, _) {
+      final card = model.card;
+      final renewed = model.operation?.action == 'renew' ? model.operation?.expires : null;
+      final due = card?.renewDue == true && card?.daysLeft != null;
+      final unfinished = model.unfinishedAction == 'renew';
+      if (!due && renewed == null && !unfinished) return const SizedBox.shrink();
+      final error = Theme.of(context).colorScheme.error;
+      final command = Command(
+        id: 'identity.renew',
+        label: 'Renew my card',
+        group: 'My card',
+        home: Home.openedView,
+        unavailable: model.whyNotRenew,
+        run: () => unawaited(model.renew()),
+      );
+      return Column(
+        key: const Key('identity-renewal'),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (due && card != null) ...[
+            Text(
+              card.daysLeft! < 0
+                  ? 'Your card ended on ${card.expires}. ssh refuses your key on every machine, and you have left your '
+                        'projects, until you renew it.'
+                  : 'Your card ends ${switch (card.daysLeft!) {
+                          0 => 'today',
+                          1 => 'tomorrow',
+                          final days => 'in $days days',
+                        }}. Then ssh refuses your key on every machine, and you leave '
+                        'your projects.',
+              style: card.daysLeft! < 0 ? TextStyle(color: error) : null,
+            ),
+            if (card.agent != AgentState.holds) Text(_agentWords(card), style: TextStyle(color: error)),
+            _CommandButton(command),
+          ],
+          if (renewed != null)
+            Text('Renewed until $renewed. Each machine takes it at its next follow, within five minutes.'),
+          if (showProblems)
+            if (model.problem case final problem?) _Problem(problem, reason: model.problemReason, reread: model.load),
+          if (showProblems && unfinished && model.unfinishedId != null)
+            _Unfinished(id: model.unfinishedId!, model: model, open: null),
+          if (showProblems && model.busy) const LinearProgressIndicator(),
+        ],
+      );
+    },
+  );
 }
 
 /// Runs a change of key in a terminal the person sees, then takes what it answered.
@@ -614,16 +703,17 @@ class _PendingChange extends StatelessWidget {
               run: () => unawaited(model.tryAgain(row)),
             ),
           ),
-          _CommandButton(
-            Command(
-              id: 'identity.useAnotherKey ${row.id}',
-              label: 'Use another key…',
-              group: 'My key',
-              home: Home.openedView,
-              unavailable: model.whyNotReplace(row) ?? (onUseAnother == null ? elsewhere : null),
-              run: onUseAnother ?? () {},
+          if (row.action != 'renew')
+            _CommandButton(
+              Command(
+                id: 'identity.useAnotherKey ${row.id}',
+                label: 'Use another key…',
+                group: 'My key',
+                home: Home.openedView,
+                unavailable: model.whyNotReplace(row) ?? (onUseAnother == null ? elsewhere : null),
+                run: onUseAnother ?? () {},
+              ),
             ),
-          ),
         ],
       ],
     );
@@ -956,6 +1046,174 @@ class _PlanView extends StatelessWidget {
         ],
       ),
     ],
+  );
+}
+
+class _ProposedCardDialog extends StatefulWidget {
+  const _ProposedCardDialog({required this.model, required this.proposal});
+
+  final IdentityModel model;
+  final IdentityProposal proposal;
+
+  @override
+  State<_ProposedCardDialog> createState() => _ProposedCardDialogState();
+}
+
+class _ProposedCardDialogState extends State<_ProposedCardDialog> {
+  late final _fields = {for (final field in widget.proposal.missing) field: TextEditingController()};
+  final _choices = <String, ProposedIdentityValue>{};
+  bool _ran = false;
+
+  @override
+  void dispose() {
+    for (final field in _fields.values) {
+      field.dispose();
+    }
+    super.dispose();
+  }
+
+  String? _value(String field) {
+    if (_fields[field] case final input?) return input.text.trim();
+    if (widget.proposal.ambiguous.containsKey(field)) return _choices[field]?.value;
+    return widget.proposal.values[field]?.value;
+  }
+
+  String? get _whyNot {
+    if (widget.model.whyNotCreate case final why?) return why;
+    if (_ran) return 'Signing was asked once. Read the card again before starting over.';
+    for (final field in widget.proposal.missing) {
+      if (_value(field)?.isNotEmpty != true) return 'Enter your $field.';
+    }
+    for (final field in widget.proposal.ambiguous.keys) {
+      if (!_choices.containsKey(field)) return 'Choose your $field.';
+    }
+    if (_value('login')?.isNotEmpty != true || _value('name')?.isNotEmpty != true) {
+      return 'Your login and name are needed.';
+    }
+    final fingerprint = _value('key');
+    if (fingerprint == null || !RegExp(r'^SHA256:\S{1,}$').hasMatch(fingerprint)) {
+      return 'Enter the SHA256 fingerprint of your public key.';
+    }
+    return null;
+  }
+
+  Future<void> _sign() async {
+    if (_whyNot != null) return;
+    setState(() => _ran = true);
+    final made = await widget.model.signProposal(
+      login: _value('login')!,
+      name: _value('name')!,
+      email: _value('email'),
+      fingerprint: _value('key')!,
+    );
+    if (mounted && made) Navigator.of(context).pop(false);
+  }
+
+  Widget _found(String field, ProposedIdentityValue? value) => Column(
+    mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      SelectableText('${_label(field)}: ${value?.value ?? 'none'}'),
+      if (value?.source case final source?) Text(source, style: Theme.of(context).textTheme.bodySmall),
+    ],
+  );
+
+  static String _label(String field) => switch (field) {
+    'login' => 'Login',
+    'name' => 'Name',
+    'email' => 'Email',
+    'key' => 'Key fingerprint',
+    _ => field,
+  };
+
+  static String _help(String field) => switch (field) {
+    'login' => 'Your user name at the central forge',
+    'name' => 'Your full name, as others should read it on your card',
+    'email' => 'The address others write to about your access',
+    'key' => 'The SHA256 fingerprint shown for your SSH key in KeePassXC or ssh-add -l',
+    _ => '',
+  };
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: widget.model,
+    builder: (context, _) => AlertDialog(
+      key: const Key('identity-proposal'),
+      title: const Text('Make my card'),
+      content: SizedBox(
+        width: Sizes.dialog,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Wrap(
+                spacing: Space.normal,
+                runSpacing: Space.small,
+                children: [
+                  for (final field in ['login', 'name', 'email', 'key'])
+                    if (!widget.proposal.missing.contains(field) && !widget.proposal.ambiguous.containsKey(field))
+                      _found(field, widget.proposal.values[field]),
+                ],
+              ),
+              for (final field in widget.proposal.missing)
+                TextField(
+                  key: Key('identity-proposal-$field'),
+                  controller: _fields[field],
+                  enabled: !_ran && !widget.model.busy,
+                  onChanged: (_) => setState(() {}),
+                  decoration: InputDecoration(labelText: _label(field), helperText: _help(field)),
+                ),
+              for (final entry in widget.proposal.ambiguous.entries)
+                DropdownButtonFormField<ProposedIdentityValue>(
+                  key: Key('identity-proposal-${entry.key}'),
+                  isExpanded: true,
+                  decoration: InputDecoration(labelText: _label(entry.key)),
+                  items: [
+                    for (final value in entry.value)
+                      DropdownMenuItem(
+                        value: value,
+                        child: Text('${value.value}${value.source == null ? '' : ' · ${value.source}'}'),
+                      ),
+                  ],
+                  onChanged: _ran || widget.model.busy
+                      ? null
+                      : (value) => setState(() {
+                          if (value != null) _choices[entry.key] = value;
+                        }),
+                ),
+              for (final note in widget.proposal.notes) Text(note),
+              if (widget.proposal.sshAdd case final command?) ...[
+                SelectableText(command, key: const Key('identity-proposal-ssh-add')),
+                TextButton(
+                  onPressed: () => unawaited(Clipboard.setData(ClipboardData(text: command))),
+                  child: const Text('Copy'),
+                ),
+              ],
+              if (widget.model.busy) const LinearProgressIndicator(),
+              if (widget.model.problem case final problem?)
+                _Problem(problem, reason: widget.model.problemReason, reread: widget.model.load),
+              if (_whyNot case final why?) Text(why),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: widget.model.whyNotCreate != null || _ran ? null : () => Navigator.of(context).pop(true),
+          child: const Text('Enter it all myself'),
+        ),
+        TextButton(
+          onPressed: widget.model.busy ? null : () => Navigator.of(context).pop(false),
+          child: const Text('Close'),
+        ),
+        FilledButton(
+          key: const Key('identity-proposal-sign'),
+          onPressed: _whyNot == null ? () => unawaited(_sign()) : null,
+          child: const Text('Sign'),
+        ),
+      ],
+    ),
   );
 }
 

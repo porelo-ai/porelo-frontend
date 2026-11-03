@@ -1,6 +1,6 @@
 # F347 — A Card Renewed With One Click
 
-**Status:** Backlog.
+**Status:** Review.
 
 **What must be true.** A card lasts 30 days. A person sees in time that it is ending and renews it with one click in the window; after the end they see that it ended and can still renew it.
 
@@ -19,5 +19,8 @@ Read from the code, not run.
 - Here: the words before and after the end, on the card's section and where the person works, a refused ssh said as the ended card rather than as a machine not answering, the wait of up to five minutes after renewing, and *Renew my card* as one click where the agent holds the key.
 
 ## To be checked
+
+- A refused ssh still reads as a machine not answering, not as the ended card: `lib/src/app/tunnel.dart` makes that word in two places, for a machine's card and for any other refusal. Left for a word from whoever tries it.
+- `identity renew` against a real machine; only Core's contract is read, and fixtures stand for it.
 
 - How many days ahead the warning starts. Proposed: seven.

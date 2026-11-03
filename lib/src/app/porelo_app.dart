@@ -18,6 +18,7 @@ import 'widening.dart';
 import 'work_held.dart';
 import 'gate.dart';
 import 'host_access.dart';
+import 'identity.dart';
 import 'host_readiness.dart';
 import 'logs.dart';
 import 'machines.dart';
@@ -66,6 +67,7 @@ class PoreloApp extends StatelessWidget {
     this.connectionsFor,
     this.forgeKeyCheck,
     this.hostAccess,
+    this.identity,
     this.pickAFile = pickWithTheDesktop,
     required this.backups,
     required this.narrowing,
@@ -94,6 +96,9 @@ class PoreloApp extends StatelessWidget {
 
   /// Who may prepare a host, judged on what `porelo org` answers; without it no host may be prepared.
   final HostAccess? hostAccess;
+
+  /// The local card, absent where nothing reads it.
+  final IdentityModel? identity;
 
   /// Every machine being watched.
   final Machines machines;
@@ -237,6 +242,7 @@ class PoreloApp extends StatelessWidget {
           connectionsFor: connectionsFor,
           forgeKeyCheck: forgeKeyCheck,
           hostAccess: hostAccess,
+          identity: identity,
           pickAFile: pickAFile,
           backups: backups,
           narrowing: narrowing,

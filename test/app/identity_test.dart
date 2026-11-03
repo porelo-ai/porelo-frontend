@@ -101,6 +101,29 @@ AgentKey _usable() => const AgentKey(
   keyListed: false,
 );
 
+Map<String, Object?> _proposal() => {
+  'forge': 'https://github.com',
+  'login': {'value': 'rowan-example', 'source': 'forge'},
+  'name': {'value': 'Rowan Example', 'source': 'git config'},
+  'email': {'value': 'rowan@example.org', 'source': 'git config'},
+  'key': {'fingerprint': _old, 'key': _key, 'source': 'git config', 'in_agent': true},
+  'missing': <String>[],
+  'ambiguous': <Object?>[],
+  'notes': <String>[],
+  'ssh_add': null,
+  'ready': true,
+};
+
+Map<String, Object?> _renewed(String id) => {
+  'revision': '9d0fcc5',
+  'id': id,
+  'again': true,
+  'of': 'organization',
+  'action': 'renew',
+  'fingerprint': _old,
+  'expires': '2026-12-30',
+};
+
 void main() {
   late _Core core;
   late IdentityModel model;
@@ -108,6 +131,190 @@ void main() {
   setUp(() {
     core = _Core();
     model = IdentityModel(Identity(run: core.run));
+  });
+
+  group('a renewal keeps its single write across uncertain answers', () {
+    // Harm: a renewal whose answer was lost makes a second card under a fresh operation ID.
+    test('a malformed answer keeps the same ID and base for retry', () async {
+      core.answer('identity show', {..._shown(), 'days_left': -2, 'renew_due': true});
+      await model.load();
+      core.answer('identity renew', '{');
+      await model.renew();
+      final id = model.unfinishedId!;
+      await model.renew();
+      expect(core.named('identity renew'), hasLength(1));
+      core.answer('identity renew', {..._renewed(id), 'future_field': true});
+      await model.retry();
+      final calls = core.named('identity renew');
+      expect(calls, hasLength(2));
+      expect(calls.first, ['identity', 'renew', '--base', _revision, '--id', id, '--json']);
+      expect(calls.last, calls.first);
+      expect(model.unfinishedId, isNull);
+      expect(model.operation?.expires, '2026-12-30');
+      expect(model.operation?.action, 'renew');
+    });
+
+    // Harm: a renewal accepted for another operation or key is reported as this person's successful change.
+    for (final field in ['id', 'fingerprint', 'expires', 'again', 'of', 'action', 'revision']) {
+      test('a damaged $field cannot settle a renewal', () async {
+        core.answer('identity show', _shown());
+        await model.load();
+        core.answer('identity renew', '', code: 69);
+        await model.renew();
+        final id = model.unfinishedId!;
+        final damaged = _renewed(id);
+        switch (field) {
+          case 'id':
+            damaged[field] = 'another-id';
+          case 'fingerprint':
+            damaged[field] = _new;
+          case 'expires':
+            damaged[field] = '2026-02-30';
+          case 'again':
+            damaged[field] = 'yes';
+          case 'of':
+            damaged[field] = 'project';
+          case 'action':
+            damaged[field] = 'rotate';
+          case 'revision':
+            damaged.remove(field);
+        }
+        core.answer('identity renew', damaged);
+        await model.retry();
+        expect(model.unfinishedId, id);
+        expect(model.operation, isNull);
+        expect(model.problem, isNotNull);
+      });
+    }
+
+    // Harm: a write is offered using an absent, unserved or revoked key.
+    for (final (index, shown) in [_shown(agent: 'absent'), _shown(agent: 'not-held'), _shown(revoked: true)].indexed) {
+      test('an unusable current key $index cannot start renewal', () async {
+        core.answer('identity show', shown);
+        await model.load();
+        await model.renew();
+        expect(core.named('identity renew'), isEmpty);
+        expect(model.whyNotRenew, isNotNull);
+      });
+    }
+
+    // Harm: a process interruption is forgotten and the next attempt starts a fresh write.
+    for (final (code, kept) in [(69, true), (70, true), (65, false), (66, false), (78, false)]) {
+      test('a renewal exit $code ${kept ? 'keeps' : 'settles'} the operation', () async {
+        core.answer('identity show', _shown());
+        await model.load();
+        core.answer('identity renew', {'reason': 'refused', 'words': 'Core refused renewal.'}, code: code);
+        await model.renew();
+        expect(model.unfinishedId != null, kept);
+        expect(model.problem, isNotNull);
+      });
+    }
+
+    // Harm: a renewal already started before this window is replaced with a second write.
+    test('a pending renewal retries its own ID even without a fingerprint', () async {
+      core.answer(
+        'identity show',
+        _shown(
+          pending: [
+            {'id': 'renew-kept', 'action': 'renew'},
+          ],
+        ),
+      );
+      await model.load();
+      core.answer('identity renew', _renewed('renew-kept'));
+      await model.renew();
+      expect(core.named('identity renew'), isEmpty);
+      await model.tryAgain(model.card!.pending.single);
+      expect(core.named('identity renew').single, contains('renew-kept'));
+      expect(model.operation?.id, 'renew-kept');
+    });
+  });
+
+  group('public proposals never imply a write or trust malformed readiness', () {
+    // Harm: discovery files a card without a person's review.
+    test('propose only reads and ignores added fields', () async {
+      core.answer('identity propose', {
+        ..._proposal(),
+        'future_field': ['anything'],
+      });
+      final proposal = await model.core.propose(forge: 'https://github.com');
+      expect(core.calls.single, ['identity', 'propose', '--forge', 'https://github.com', '--json']);
+      expect(proposal.ready, isTrue);
+      expect(proposal.values['key']?.value, _old);
+      expect(proposal.values['name']?.source, 'git config');
+    });
+
+    // Harm: incomplete discovery is presented as enough to sign with an unreviewed or missing key.
+    for (final (index, damaged) in [
+      {..._proposal(), 'key': null},
+      {
+        ..._proposal(),
+        'key': {'fingerprint': _old, 'key': _key, 'source': 'git', 'in_agent': false},
+      },
+      {
+        ..._proposal(),
+        'missing': ['name'],
+      },
+      {..._proposal(), 'ready': 'true'},
+      {
+        ..._proposal(),
+        'ambiguous': [
+          {
+            'field': 'login',
+            'values': ['rowan', 'ash'],
+          },
+        ],
+      },
+    ].indexed) {
+      test('an inconsistent ready proposal $index cannot be used', () async {
+        core.answer('identity propose', damaged);
+        await expectLater(model.core.propose(), throwsFormatException);
+        expect(core.named('identity create'), isEmpty);
+      });
+    }
+
+    // Harm: duplicate missing fields build conflicting widget keys instead of a reviewable card form.
+    test('a duplicate missing field is not a usable proposal', () async {
+      core.answer('identity propose', {
+        ..._proposal(),
+        'ready': false,
+        'missing': ['name', 'name'],
+      });
+      await expectLater(model.core.propose(), throwsFormatException);
+    });
+
+    // Harm: closing a dialog forgets an uncertain create and a second dialog starts another write.
+    test('an uncertain first card stays guarded in the model until a card is read', () async {
+      core.answer('identity create', '{');
+      await model.signProposal(login: 'rowan-example', name: 'Rowan Example', fingerprint: _old);
+      expect(model.whyNotCreate, isNotNull);
+      await model.signProposal(login: 'rowan-example', name: 'Rowan Example', fingerprint: _old);
+      expect(core.named('identity create'), hasLength(1));
+      core.answer('identity show', {'reason': 'no-identity'}, code: 65);
+      await model.load();
+      expect(model.whyNotCreate, isNotNull, reason: 'no local card cannot rule out a store write');
+      core.answer('identity show', _shown());
+      await model.load();
+      expect(model.whyNotCreate, isNull);
+    });
+
+    // Harm: malformed card metadata is treated as a current, usable card.
+    test('old renewal metadata is absent and damaged new metadata cannot say', () async {
+      core.answer('identity show', _shown());
+      await model.load();
+      expect(model.card?.daysLeft, isNull);
+      expect(model.card?.renewDue, isNull);
+      for (final extra in [
+        {'days_left': '2', 'renew_due': true},
+        {'days_left': -1, 'renew_due': false},
+        {'days_left': 2},
+      ]) {
+        core.answer('identity show', {..._shown(), ...extra});
+        await model.load();
+        expect(model.card, isNull);
+        expect(model.problem, isNotNull);
+      }
+    });
   });
 
   group('a refused or revoked identity never offers a change that needs the key', () {

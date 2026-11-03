@@ -156,6 +156,133 @@ Future<void> _tapKey(WidgetTester tester, String key) async {
 }
 
 void main() {
+  // Harm: discovery signs a card before review, or a second tap signs again while the first answer is lost.
+  testWidgets('a proposed card is signed once only after confirmation', (tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final calls = <List<String>>[];
+    final signing = Completer<Ran>();
+    final shown = _shown();
+    final fingerprint = shown['fingerprint']! as String;
+    Future<Ran> run(
+      String program,
+      List<String> arguments, {
+      String? inDirectory,
+      Map<String, String> environment = const {},
+      String? input,
+    }) async {
+      calls.add(arguments);
+      expect(input, isNull);
+      expect(environment, isEmpty);
+      return switch (arguments[1]) {
+        'show' => (code: 65, out: '{"reason":"no-identity"}', err: ''),
+        'propose' => (
+          code: 0,
+          out: jsonEncode({
+            'forge': 'https://github.com',
+            'login': {'value': shown['login'], 'source': 'forge'},
+            'name': {'value': shown['name'], 'source': 'git config'},
+            'email': null,
+            'key': {'fingerprint': fingerprint, 'key': shown['key'], 'source': 'git config', 'in_agent': true},
+            'missing': <String>[],
+            'ambiguous': <Object?>[],
+            'notes': <String>[],
+            'ssh_add': null,
+            'ready': true,
+          }),
+          err: '',
+        ),
+        'create' => await signing.future,
+        _ => (code: 70, out: '', err: ''),
+      };
+    }
+
+    final model = IdentityModel(Identity(run: run));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: IdentityDialog(model: model)),
+      ),
+    );
+    await World.settle(tester);
+    await tester.tap(find.byKey(const Key('identity-make-card')));
+    await World.settle(tester);
+    expect(find.byKey(const Key('identity-proposal')), findsOneWidget);
+    expect(calls.where((call) => call[1] == 'create'), isEmpty);
+    await tester.tap(find.byKey(const Key('identity-proposal-sign')));
+    await tester.pump();
+    expect(calls.where((call) => call[1] == 'create'), hasLength(1));
+    expect(tester.widget<FilledButton>(find.byKey(const Key('identity-proposal-sign'))).onPressed, isNull);
+    signing.complete((code: 0, out: '{', err: ''));
+    await World.settle(tester);
+    expect(tester.widget<FilledButton>(find.byKey(const Key('identity-proposal-sign'))).onPressed, isNull);
+    expect(calls.where((call) => call[1] == 'create').single, [
+      'identity',
+      'create',
+      '--login',
+      'rowan-example',
+      '--name',
+      'Rowan Example',
+      '--key',
+      fingerprint,
+      '--json',
+    ]);
+  });
+
+  // Harm: a missing card value is silently supplied or an SSH command executes without review.
+  testWidgets('missing proposal values must be entered before signing', (tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final calls = <List<String>>[];
+    final shown = _shown();
+    Future<Ran> run(
+      String program,
+      List<String> arguments, {
+      String? inDirectory,
+      Map<String, String> environment = const {},
+      String? input,
+    }) async {
+      expect(program, 'porelo');
+      calls.add(arguments);
+      return arguments[1] == 'propose'
+          ? (
+              code: 0,
+              out: jsonEncode({
+                'forge': 'https://github.com',
+                'login': {'value': shown['login'], 'source': 'forge'},
+                'name': null,
+                'email': null,
+                'key': {'fingerprint': shown['fingerprint'], 'key': shown['key'], 'source': 'git', 'in_agent': false},
+                'missing': ['name'],
+                'ambiguous': <Object?>[],
+                'notes': <String>[],
+                'ssh_add': 'ssh-add ~/.ssh/example-key',
+                'ready': false,
+              }),
+              err: '',
+            )
+          : (code: 65, out: '{"reason":"no-identity"}', err: '');
+    }
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: IdentityDialog(model: IdentityModel(Identity(run: run))),
+        ),
+      ),
+    );
+    await World.settle(tester);
+    await tester.tap(find.byKey(const Key('identity-make-card')));
+    await World.settle(tester);
+    expect(find.byType(TextField), findsOneWidget);
+    expect(tester.widget<FilledButton>(find.byKey(const Key('identity-proposal-sign'))).onPressed, isNull);
+    expect(find.byKey(const Key('identity-proposal-ssh-add')), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('identity-proposal-name')), 'Rowan Example');
+    await tester.pump();
+    expect(tester.widget<FilledButton>(find.byKey(const Key('identity-proposal-sign'))).onPressed, isNotNull);
+    expect(calls.map((call) => call[1]), ['show', 'propose']);
+  });
   // Harm: a dialog with no way out, since it does not show the lost-key plan whose Cancel would be the one.
   testWidgets('My key and card can be closed while a lost-key plan is held', (tester) async {
     final model = IdentityModel(

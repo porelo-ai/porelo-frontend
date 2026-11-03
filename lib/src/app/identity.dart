@@ -5,6 +5,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 
 import 'run_here.dart';
+import 'quiet_after_dispose.dart';
 
 /// Whether the agent `SSH_AUTH_SOCK` names serves the card's key, as Core answers it.
 enum AgentState {
@@ -126,7 +127,7 @@ class PendingIdentityOperation {
   /// The caller's or Core's operation ID.
   final String id;
 
-  /// `rotate` or `revoke-lost`, or a word this interface does not know.
+  /// `rotate`, `renew` or `revoke-lost`, or a word this interface does not know.
   final String action;
 
   /// The new key's fingerprint, the one a Try again names; absent when Core named none that can be named.
@@ -154,6 +155,8 @@ class IdentityCard {
     required this.organization,
     required this.forge,
     required this.pending,
+    this.daysLeft,
+    this.renewDue,
   });
 
   /// The person's login.
@@ -176,6 +179,12 @@ class IdentityCard {
 
   /// The day the card expires.
   final String expires;
+
+  /// Days until the end, negative after it; absent with an older Core.
+  final int? daysLeft;
+
+  /// Whether Core says renewal is due; absent with an older Core.
+  final bool? renewDue;
 
   /// The previous key's fingerprint, absent for a first card.
   final String? predecessor;
@@ -226,7 +235,7 @@ class IdentityCard {
   }
 }
 
-/// The answer of `identity rotate` and `identity revoke --lost`, as every write answers.
+/// The answer of a key change or card renewal, as every write answers.
 @immutable
 class IdentityOperation {
   /// Constructor taking what Core answered and the action asked for.
@@ -236,12 +245,14 @@ class IdentityOperation {
     required this.revision,
     required this.again,
     this.card,
+    this.expires,
+    this.fingerprint,
   });
 
   /// The operation's ID, the one a Retry sends.
   final String id;
 
-  /// `rotate` or `revoke-lost`.
+  /// `rotate`, `renew` or `revoke-lost`.
   final String action;
 
   /// The revision it rests on; null when nothing was accepted yet.
@@ -249,6 +260,12 @@ class IdentityOperation {
 
   /// Whether this ID had already made the change.
   final bool again;
+
+  /// The renewed card's end, absent for other operations.
+  final String? expires;
+
+  /// The renewed card's key, absent for other operations.
+  final String? fingerprint;
 
   /// A lost key's new card, to hand to an owner outside Porelo; absent when Core answered none.
   final String? card;
@@ -434,6 +451,131 @@ class PersonContact {
   final String? email;
 }
 
+/// A public value found for a card, with the source Core names.
+@immutable
+class ProposedIdentityValue {
+  /// Holds a text value or a key's fingerprint and its public metadata.
+  const ProposedIdentityValue({required this.value, this.source, this.key, this.inAgent});
+
+  /// The text to use, a fingerprint for a key.
+  final String value;
+
+  /// Where Core found it, absent when a choice names no source.
+  final String? source;
+
+  /// The public key, when Core names it.
+  final String? key;
+
+  /// Whether the agent holds it, when Core says.
+  final bool? inAgent;
+}
+
+/// Core's read-only proposal for a first card.
+@immutable
+class IdentityProposal {
+  const IdentityProposal._({
+    required this.forge,
+    required this.values,
+    required this.missing,
+    required this.ambiguous,
+    required this.notes,
+    required this.sshAdd,
+    required this.ready,
+  });
+
+  /// The forge Core consulted.
+  final String forge;
+
+  /// The found login, name, email and key, absent where nothing was found.
+  final Map<String, ProposedIdentityValue?> values;
+
+  /// The fields the person must supply.
+  final List<String> missing;
+
+  /// Choices only the person can settle.
+  final Map<String, List<ProposedIdentityValue>> ambiguous;
+
+  /// Core's additional public guidance.
+  final List<String> notes;
+
+  /// A command to show and copy, never execute here.
+  final String? sshAdd;
+
+  /// Whether Core found enough to sign without asking anything else.
+  final bool ready;
+
+  /// Checks the proposal field by field, ignoring added fields.
+  static IdentityProposal read(Map<String, dynamic> answer) {
+    const fields = ['login', 'name', 'email', 'key'];
+    final values = <String, ProposedIdentityValue?>{};
+    for (final field in fields) {
+      final value = Identity._field(answer, field);
+      values[field] = value == null ? null : _value(value, field, found: true);
+    }
+    final missing = Identity._strings(answer['missing']);
+    final choices = answer['ambiguous'];
+    if (choices is! List ||
+        missing.toSet().length != missing.length ||
+        missing.any((field) => !fields.contains(field))) {
+      throw const FormatException('Core answered card questions this interface cannot read.');
+    }
+    final ambiguous = <String, List<ProposedIdentityValue>>{};
+    for (final choice in choices) {
+      if (choice is! Map<String, dynamic>) throw const FormatException('Invalid card choice.');
+      final field = Identity._text(choice, 'field');
+      final alternatives = choice['values'];
+      if (!fields.contains(field) ||
+          ambiguous.containsKey(field) ||
+          missing.contains(field) ||
+          alternatives is! List ||
+          alternatives.length < 2) {
+        throw const FormatException('Core did not answer distinct card choices.');
+      }
+      ambiguous[field] = List.unmodifiable(alternatives.map((value) => _value(value, field)));
+    }
+    final ready = Identity._bool(answer, 'ready');
+    if (ready &&
+        (missing.isNotEmpty ||
+            ambiguous.isNotEmpty ||
+            ['login', 'name', 'key'].any((field) => values[field] == null) ||
+            values['key']?.inAgent != true)) {
+      throw const FormatException('Core answered an incomplete card as ready.');
+    }
+    for (final field in fields) {
+      if (field != 'email' && values[field] == null && !missing.contains(field) && !ambiguous.containsKey(field)) {
+        throw const FormatException('Core did not explain an absent card value.');
+      }
+    }
+    return IdentityProposal._(
+      forge: Identity._text(answer, 'forge'),
+      values: Map.unmodifiable(values),
+      missing: missing,
+      ambiguous: Map.unmodifiable(ambiguous),
+      notes: Identity._strings(answer['notes']),
+      sshAdd: Identity._textOrNull(answer, 'ssh_add'),
+      ready: ready,
+    );
+  }
+
+  static ProposedIdentityValue _value(Object? value, String field, {bool found = false}) {
+    if (!found && value is String && value.isNotEmpty) {
+      return ProposedIdentityValue(value: field == 'key' ? Identity._fingerprint(value) : value);
+    }
+    if (value is! Map<String, dynamic>) throw const FormatException('Invalid proposed card value.');
+    final source = found ? Identity._text(value, 'source') : value['source'];
+    if (source != null && source is! String) throw const FormatException('Invalid card value source.');
+    if (field != 'key') {
+      return ProposedIdentityValue(value: Identity._text(value, 'value'), source: source as String?);
+    }
+    return ProposedIdentityValue(
+      value: Identity._fingerprint(Identity._text(value, 'fingerprint')),
+      source: source as String?,
+      key: Identity._key(Identity._text(value, 'key')),
+      inAgent: Identity._bool(value, 'in_agent'),
+    );
+  }
+}
+
 /// The person has no card yet: the first start.
 class NoIdentity implements Exception {
   /// Constructor taking Core's words.
@@ -474,6 +616,20 @@ class Identity implements AgentKeyList {
     if (keys is! List) throw const FormatException('Core did not list the agent keys.');
     return List.unmodifiable(keys.map(_agentKey));
   }
+
+  /// Finds public card values without making or filing anything.
+  Future<IdentityProposal> propose({String? forge}) async => IdentityProposal.read(
+    await _call([
+      'identity',
+      'propose',
+      if (forge != null) ...['--forge', forge],
+      '--json',
+    ]),
+  );
+
+  /// Renews the card with its current key under the same ID on every retry.
+  Future<IdentityOperation> renew({required String id, String? base}) async =>
+      _operation(await _call(['identity', 'renew', ..._write(id, base), '--json']), 'renew');
 
   /// Makes the card for an existing key the agent serves, named by its fingerprint.
   Future<IdentityCreated> createWithKey({
@@ -784,6 +940,16 @@ class Identity implements AgentKeyList {
     for (final field in ['forge', 'card_refused', 'email', 'predecessor']) {
       if (!value.containsKey(field)) throw FormatException('Core did not answer $field.');
     }
+    final daysLeft = value['days_left'];
+    final renewDue = value['renew_due'];
+    if (value.containsKey('days_left') != value.containsKey('renew_due') ||
+        (value.containsKey('days_left') && daysLeft is! int) ||
+        (value.containsKey('renew_due') && renewDue is! bool)) {
+      throw const FormatException('Core answered the card renewal state in another shape.');
+    }
+    if (daysLeft is int && (renewDue != (daysLeft <= 7) || !_isDay(_text(value, 'expires')))) {
+      throw const FormatException('Core answered inconsistent card renewal state.');
+    }
     final agentWord = value['agent'];
     final agent = _agent(agentWord);
     final holds = _bool(value, 'agent_holds_key');
@@ -803,6 +969,8 @@ class Identity implements AgentKeyList {
       key: _key(_text(value, 'key')),
       created: _text(value, 'created'),
       expires: _text(value, 'expires'),
+      daysLeft: daysLeft as int?,
+      renewDue: renewDue as bool?,
       predecessor: _textOrNull(value, 'predecessor'),
       card: _text(value, 'card'),
       agent: agent,
@@ -851,13 +1019,30 @@ class Identity implements AgentKeyList {
       throw const FormatException('Core answered revision in another shape.');
     }
     final card = value['card'];
+    if (action == 'renew') {
+      if (value['action'] != 'renew' || value['of'] != 'organization' || again is! bool) {
+        throw const FormatException('Core did not confirm a renewal.');
+      }
+      _textOrNull(value, 'revision');
+      _fingerprint(_text(value, 'fingerprint'));
+      final expires = _text(value, 'expires');
+      if (!_isDay(expires)) throw const FormatException('Core did not answer a renewal end date.');
+    }
     return IdentityOperation(
       id: _id(_text(value, 'id')),
       action: action,
       revision: revision as String?,
       again: again == true,
+      expires: action == 'renew' ? _text(value, 'expires') : null,
+      fingerprint: action == 'renew' ? _fingerprint(_text(value, 'fingerprint')) : null,
       card: action == 'revoke-lost' && card is String && card.trim().isNotEmpty ? card : null,
     );
+  }
+
+  static bool _isDay(String value) {
+    if (!RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(value)) return false;
+    final day = DateTime.tryParse(value);
+    return day != null && day.toIso8601String().startsWith(value);
   }
 
   static AgentKey _agentKey(Object? value) {
@@ -890,7 +1075,7 @@ bool mayHaveMade(int? code) => code == null || code < 0 || code > 128 || code ==
 /// The person's identity as this interface holds it while the view is open.
 ///
 /// **A change starts once**: an operation whose answer was lost is asked again under its ID, never started anew.
-class IdentityModel extends ChangeNotifier {
+class IdentityModel extends ChangeNotifier with QuietAfterDispose {
   /// Constructor taking Core's verbs and the agent's key list, fakes in tests.
   IdentityModel(this.core, {AgentKeyList? keys}) : agentKeys = keys ?? core;
 
@@ -915,13 +1100,22 @@ class IdentityModel extends ChangeNotifier {
   /// Whether a call is running.
   bool busy = false;
 
+  bool _uncertainCreation = false;
+
+  /// Why another first-card write cannot start before Core confirms the earlier attempt.
+  String? get whyNotCreate => busy
+      ? 'Still working.'
+      : _uncertainCreation
+      ? 'Making your card has not answered. Read your card again before starting over.'
+      : null;
+
   /// The operation shown, from the last answer.
   IdentityOperation? operation;
 
   /// An operation started whose answer was not read; Retry asks it again under this ID.
   String? unfinishedId;
 
-  /// The action of [unfinishedId]: `rotate` or `revoke-lost`.
+  /// The action of [unfinishedId]: `rotate`, `renew` or `revoke-lost`.
   String? unfinishedAction;
 
   /// The command a terminal runs again for [unfinishedId], when it was started in one.
@@ -985,6 +1179,7 @@ class IdentityModel extends ChangeNotifier {
     if (read != null) {
       card = read;
       firstStart = false;
+      _uncertainCreation = false;
     } else if (problem != null) {
       card = null;
     }
@@ -1006,11 +1201,44 @@ class IdentityModel extends ChangeNotifier {
     String? email,
     required AgentKey key,
   }) async {
-    if (!key.usable) return;
+    if (!key.usable || whyNotCreate != null) return;
     final made = await _step(
       () => core.createWithKey(login: login, name: name, email: email, fingerprint: key.fingerprint),
     );
     if (made != null) await load();
+  }
+
+  /// Signs the reviewed public values once; its caller keeps the attempt if the answer cannot be read.
+  Future<bool> signProposal({
+    required String login,
+    required String name,
+    String? email,
+    required String fingerprint,
+  }) async {
+    if (whyNotCreate != null) return false;
+    _uncertainCreation = true;
+    final made = await _step(
+      () => core.createWithKey(login: login, name: name, email: email, fingerprint: fingerprint),
+    );
+    if (made == null) {
+      if (problemReason == 'no-identity' || !mayHaveMade(problemCode)) _uncertainCreation = false;
+      notifyListeners();
+      return false;
+    }
+    if (made.login != login || made.fingerprint != fingerprint || made.agent != AgentState.holds) {
+      problem = 'Core answered a card for different values. Nothing is assumed from it.';
+      notifyListeners();
+      return false;
+    }
+    _uncertainCreation = false;
+    await load();
+    final why = whyNotMade(login: login, fingerprint: fingerprint);
+    if (why != null || card?.name != name || card?.email != (email == null || email.isEmpty ? null : email)) {
+      problem = why ?? 'The card read has different personal details. Nothing is assumed from it.';
+      notifyListeners();
+      return false;
+    }
+    return true;
   }
 
   /// Why no new change of key (rotate or lost-key replacement) may start now, or null when one may.
@@ -1056,6 +1284,7 @@ class IdentityModel extends ChangeNotifier {
     if (_standing[row.id] case final words?) return words;
     return switch (row.action) {
       'rotate' => read.whyCardCannotSign,
+      'renew' => _whyNoRenewingKey,
       // Replacing a lost key needs nothing of the old one.
       'revoke-lost' => null,
       final word => 'Core calls this change “$word”, which this interface does not know, so nothing is offered for it.',
@@ -1065,6 +1294,7 @@ class IdentityModel extends ChangeNotifier {
   /// Why [row] cannot be tried again now, or null when it can: only with the key Core names for it.
   String? whyNotTryAgain(PendingIdentityOperation row) {
     if (_whyNoOffer(row) case final why?) return why;
+    if (row.action == 'renew') return null;
     if (row.fingerprint == null) {
       return 'Core names no key for this change, so it cannot be asked again. Use another key starts it again.';
     }
@@ -1077,14 +1307,21 @@ class IdentityModel extends ChangeNotifier {
   /// Goes on with [row] under its own ID and key, whatever the attempt before answered: never a second change.
   Future<void> tryAgain(PendingIdentityOperation row) async {
     final fingerprint = row.fingerprint;
-    if (whyNotTryAgain(row) != null || fingerprint == null) return;
+    if (whyNotTryAgain(row) != null || (row.action != 'renew' && fingerprint == null)) return;
     replacing = null;
     final id = row.id;
     final base = card?.revision;
+    if (row.action == 'renew') {
+      final currentKey = card!.fingerprint;
+      operation = null;
+      await _ask(id, 'renew', () => _renewAnswer(id, base, currentKey));
+      return;
+    }
     final answer = await _step(
-      () => row.action == 'rotate'
-          ? core.rotate(fingerprint: fingerprint, id: id, base: base)
-          : core.replaceLostKey(fingerprint: fingerprint, id: id),
+      () => switch (row.action) {
+        'rotate' => core.rotate(fingerprint: fingerprint!, id: id, base: base),
+        _ => core.replaceLostKey(fingerprint: fingerprint!, id: id),
+      },
     );
     if (answer != null && answer.id != id) {
       problem = 'Core answered for operation ${answer.id}, not $id. Nothing is assumed from it.';
@@ -1127,6 +1364,34 @@ class IdentityModel extends ChangeNotifier {
       return 'A pending change waits for this key: Try again goes on with it.';
     }
     return null;
+  }
+
+  /// Why renewal cannot start; an ended card may still be renewed through its agent.
+  String? get whyNotRenew => whyNotStart ?? _whyNoRenewingKey;
+
+  String? get _whyNoRenewingKey {
+    final read = card;
+    if (read == null) return 'No card is read.';
+    if (read.revoked) return read.whyCardCannotSign;
+    return read.agent == AgentState.holds ? null : read.whyKeyUnusable;
+  }
+
+  /// Renews once; an unreadable or lost answer leaves only the same operation to retry.
+  Future<void> renew() async {
+    if (whyNotRenew != null) return;
+    final id = newOperationId('renew');
+    final base = card?.revision;
+    final fingerprint = card!.fingerprint;
+    operation = null;
+    await _ask(id, 'renew', () => _renewAnswer(id, base, fingerprint));
+  }
+
+  Future<IdentityOperation> _renewAnswer(String id, String? base, String fingerprint) async {
+    final answer = await core.renew(id: id, base: base);
+    if (answer.fingerprint != fingerprint) {
+      throw const FormatException('Core answered a renewal for another key.');
+    }
+    return answer;
   }
 
   /// Changes the key to [successor] once; a lost answer leaves only Retry.
@@ -1176,6 +1441,7 @@ class IdentityModel extends ChangeNotifier {
   String? get whyNotRetry {
     if (busy) return 'Still working.';
     if (unfinishedId == null) return 'Nothing is unfinished.';
+    if (unfinishedAction == 'renew') return _whyNoRenewingKey;
     if (unfinishedAction != 'rotate') return null;
     final read = card;
     if (read == null) return 'No card is read.';

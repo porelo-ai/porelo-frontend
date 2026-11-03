@@ -1,6 +1,6 @@
 # F345 — Make My Card Only Asks To Sign
 
-**Status:** Backlog.
+**Status:** Review.
 
 **What must be true.** A person who already has a key and a forge account makes their card by reading one line and pressing *Sign*. The window asks only what it did not find, or found more than once.
 
@@ -22,5 +22,7 @@ Read from the code, not run. *Make my card…* in `lib/src/ui/identity_view.dart
 - Here: one line with *Sign*, a question only for what is missing or not unique, the `ssh-add` line, and the wizard's path for the rest.
 
 ## To be checked
+
+- `identity propose` against real Core; `ambiguous`'s `values` are read as strings or as `{value, source}`, as its form is not yet named. Any other answer opens the old wizard, silently.
 
 - A person whose key is only a signing key: filing the card, vouching, pushing with a second key and logging in to a server with that key. The walks only ran with an authentication key; Core proves this by a test.

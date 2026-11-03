@@ -7,9 +7,11 @@ import 'package:flutter/material.dart';
 import 'package:porelo_host/porelo_host.dart' show checkHostName;
 
 import '../app/commands.dart';
+import '../app/identity.dart';
 import '../app/key_recovery.dart' show BackupScope;
 import '../app/organization_source.dart';
 import 'command_menu.dart';
+import 'identity_view.dart';
 import 'filtered_list_section.dart';
 import 'organization_dialogs.dart';
 import 'how_long.dart';
@@ -31,6 +33,7 @@ class OrganizationPage extends StatefulWidget {
     this.onProject,
     this.onHost,
     this.connections,
+    this.identity,
     this.prepareMachine,
     this.keys,
     this.pickFile = pickWithTheDesktop,
@@ -39,6 +42,9 @@ class OrganizationPage extends StatefulWidget {
 
   /// The organization.
   final Organization organization;
+
+  /// The local card, shared with the card dialog when this page runs in the frame.
+  final IdentityModel? identity;
 
   /// Opens a project the person is in under *Projects*.
   final void Function(String project)? onProject;
@@ -67,6 +73,8 @@ class _OrganizationPageState extends State<OrganizationPage> {
   void initState() {
     super.initState();
     unawaited(widget.organization.refresh());
+    final identity = widget.identity;
+    if (identity != null && !identity.busy) unawaited(identity.load());
   }
 
   @override
@@ -80,6 +88,7 @@ class _OrganizationPageState extends State<OrganizationPage> {
           key: const Key('organization-page'),
           padding: const EdgeInsets.all(Space.normal),
           children: [
+            if (widget.identity case final identity?) IdentityRenewal(model: identity, showProblems: true),
             OrganizationChangeMark(organization),
             if (!organization.explanationClosed)
               _Explanation(onHide: () => setState(() => organization.explanationClosed = true)),

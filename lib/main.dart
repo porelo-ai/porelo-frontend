@@ -31,6 +31,7 @@ import 'src/app/project_deletion.dart';
 import 'src/app/desk.dart';
 import 'src/app/forge_key_check.dart';
 import 'src/app/host_access.dart';
+import 'src/app/identity.dart';
 import 'src/app/host_access_adapters.dart';
 import 'src/app/session.dart';
 import 'src/app/settings.dart';
@@ -159,6 +160,7 @@ Future<PoreloApp> _compose() async {
     forgeKeyCheck: ForgeKeyCheckCli(),
     // Reads the organization on every refresh, so only for a person whose role can use it.
     hostAccess: _hostAccess(organizationSource),
+    identity: IdentityModel(Identity()),
     // A development build started with PORELO_WALK=<folder>; a release build never has one.
     walk: _walk(),
   );

@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:guided_walk/guided_walk.dart';
 
 import '../app/desk.dart';
+import '../app/identity.dart';
 import '../app/environment_tokens.dart';
 import '../app/homeserver_forwards.dart';
 import '../app/host_access.dart';
@@ -165,6 +166,7 @@ class Shell extends StatefulWidget {
     this.connectionsFor,
     this.forgeKeyCheck,
     this.hostAccess,
+    this.identity,
     this.pickAFile = pickWithTheDesktop,
     required this.backups,
     required this.narrowing,
@@ -194,6 +196,9 @@ class Shell extends StatefulWidget {
 
   /// Who may prepare a host and what goes to the organization, given to host setup and its dialogs.
   final HostAccess? hostAccess;
+
+  /// The local card, absent where nothing reads it.
+  final IdentityModel? identity;
 
   /// The project-scoped Core and host adapters, supplied once their contracts are served.
 
@@ -379,6 +384,8 @@ class _ShellState extends State<Shell> {
 
   /// Asks every answering machine again. Only the one open says so, and only when asked by hand.
   Future<void> _refreshAll({bool quietly = false}) async {
+    final identity = widget.identity;
+    if (widget.shell.section == Section.organization && identity != null && !identity.busy) await identity.load();
     await _standings.read();
     // refresh() first forgets the answers it kept; the quiet timer leaves the store alone.
     if (!quietly) {
@@ -492,7 +499,7 @@ class _ShellState extends State<Shell> {
   List<Command> _unscopedCommands() => commandsFor(
     viewActions: [
       ..._viewActions(),
-      myKeyCommand(open: () => unawaited(showIdentity(context))),
+      myKeyCommand(open: () => unawaited(showIdentity(context, model: widget.identity))),
     ],
     fleet: _fleet,
     machine: widget.machines.current,
@@ -1311,6 +1318,7 @@ class _ShellState extends State<Shell> {
             ? const SizedBox.shrink()
             : OrganizationPage(
                 organization: organization,
+                identity: widget.identity,
                 connections: _hostConnections,
                 prepareMachine: _commands()
                     .where((command) => command.id == 'host.prepare' && command.visible)
