@@ -5,8 +5,9 @@ import 'package:porelo_frontend/src/app/organization_source.dart';
 import 'package:porelo_frontend/src/ui/organization_host_pages.dart';
 
 import '../support/organization_fixtures.dart';
+import 'organization_actions.dart';
 
-Finder _action(String id) => find.byKey(ValueKey('organization.$id'));
+Finder _action(String id) => organizationAction(id);
 Finder _confirm() => find.byKey(const Key('organization-confirm'));
 
 Future<void> _settle(WidgetTester tester, Widget page) async {
@@ -56,7 +57,7 @@ void main() {
       expect(find.byKey(const ValueKey('my-host build')), findsOneWidget);
       expect(_action('connect/build'), findsOneWidget);
       expect(find.textContaining('your projects: demo, third'), findsOneWidget);
-      await _tap(tester, _action('connect/build'));
+      await pressOrganizationAction(tester, 'connect/build');
       expect(made.connections.asked, ['connect build']);
       expect(find.textContaining('connected, ready to work on'), findsOneWidget);
       expect(_action('connect/build'), findsNothing);
@@ -95,7 +96,7 @@ void main() {
     testWidgets('a refused Connect shows its words and stays not connected', (tester) async {
       final connections = FixtureConnections()..refuseNext = const OrganizationRefused('The vault is locked.');
       await section(tester, organizationFor('mia'), connections: connections);
-      await _tap(tester, _action('connect/build'));
+      await pressOrganizationAction(tester, 'connect/build');
       expect(find.text('The vault is locked.'), findsOneWidget);
       expect(_action('connect/build'), findsOneWidget);
       expect(find.textContaining('not connected yet'), findsOneWidget);
@@ -161,7 +162,7 @@ void main() {
       tester,
     ) async {
       final made = await page(tester, 'hana');
-      await _tap(tester, _action('addProjectToHost'));
+      await pressOrganizationAction(tester, 'addProjectToHost');
       await _tap(tester, find.byKey(const Key('organization-person')));
       expect(find.text('other').hitTestable(), findsOneWidget);
       expect(find.text('demo').hitTestable(), findsNothing);
@@ -177,7 +178,7 @@ void main() {
       tester,
     ) async {
       final made = await page(tester, 'hana');
-      await _tap(tester, _action('removeProjectFromHost/demo'));
+      await pressOrganizationAction(tester, 'removeProjectFromHost/demo');
       expect(find.textContaining('once it holds no unpushed work'), findsOneWidget);
       expect(find.textContaining('with its conversation'), findsOneWidget);
       expect(find.textContaining('up to five minutes'), findsOneWidget);
@@ -201,7 +202,7 @@ void main() {
         shown: const OrganizationHost(name: 'build', admins: ['hana', 'pat']),
       );
       made.source.refuseNext = const OrganizationRefused('The store refused this.');
-      await _tap(tester, _action('removeHostAdmin/pat'));
+      await pressOrganizationAction(tester, 'removeHostAdmin/pat');
       await _tap(tester, _confirm());
       expect(find.textContaining('The store refused this.'), findsWidgets);
       expect(made.source.writes, hasLength(1));
@@ -211,7 +212,7 @@ void main() {
     testWidgets('a project the store will not put on stays where it was, with the words why', (tester) async {
       final made = await page(tester, 'hana');
       made.source.refuseNext = const OrganizationRefused('other has no address yet, so no host can follow it.');
-      await _tap(tester, _action('addProjectToHost'));
+      await pressOrganizationAction(tester, 'addProjectToHost');
       await _tap(tester, find.byKey(const Key('organization-person')));
       await _tap(tester, find.text('other').hitTestable());
       await _tap(tester, _confirm());
@@ -236,7 +237,7 @@ void main() {
     // Harm: a person is named a host admin who cannot act, or who already is one.
     testWidgets('adding a host admin offers people holding roles who are not yet one', (tester) async {
       final made = await page(tester, 'hana');
-      await _tap(tester, _action('addHostAdmin'));
+      await pressOrganizationAction(tester, 'addHostAdmin');
       await _tap(tester, find.byKey(const Key('organization-person')));
       expect(find.text('pat').hitTestable(), findsOneWidget);
       expect(find.text('rex').hitTestable(), findsNothing);
@@ -253,7 +254,7 @@ void main() {
     // Harm: a loopback address or an invalid key is signed into the organization, and everyone is pinned to it.
     testWidgets('changing address and host key checks them and writes all of them', (tester) async {
       final made = await page(tester, 'hana');
-      await _tap(tester, _action('changeHost'));
+      await pressOrganizationAction(tester, 'changeHost');
       await tester.enterText(find.byKey(const Key('organization-host-address')), 'localhost');
       await tester.pumpAndSettle();
       await _tap(tester, _confirm());
@@ -283,7 +284,7 @@ void main() {
     // Harm: a host with no forge or homeserver can never have its address changed; or half a forge is written.
     testWidgets('a service taken off the host is written as none, and half a forge is refused', (tester) async {
       final made = await page(tester, 'hana');
-      await _tap(tester, _action('changeHost'));
+      await pressOrganizationAction(tester, 'changeHost');
       await tester.enterText(find.byKey(const Key('organization-host-matrix-port')), '');
       await tester.enterText(find.byKey(const Key('organization-host-git-port')), '');
       await tester.pumpAndSettle();
@@ -382,7 +383,7 @@ void main() {
         },
       );
       expect(find.textContaining('waits for your central token'), findsWidgets);
-      await _tap(tester, _action('giveToken'));
+      await pressOrganizationAction(tester, 'giveToken');
       expect(gave, ['build']);
       expect(_action('giveToken'), findsNothing);
     });
@@ -397,7 +398,7 @@ void main() {
         onGiveToken: (_) async => connections.hostProgress = const HostProgress(),
       );
       expect(find.textContaining('makes your account once it has your token'), findsOneWidget);
-      await _tap(tester, _action('giveToken'));
+      await pressOrganizationAction(tester, 'giveToken');
       expect(connections.asked, contains('connect build'));
       expect(find.textContaining('makes your account once'), findsNothing);
     });
@@ -410,7 +411,7 @@ void main() {
         'hana',
         host: const OrganizationHost(name: 'build', admins: ['hana'], projects: ['demo', 'other']),
       );
-      await _tap(tester, _action('addProjectToHost'));
+      await pressOrganizationAction(tester, 'addProjectToHost');
       await _tap(tester, find.byKey(const Key('organization-person')));
       await _tap(tester, find.text('other').hitTestable());
       await _tap(tester, _confirm());
@@ -420,10 +421,10 @@ void main() {
     // Harm: Refresh gives no answer, or a refusal is shown as done.
     testWidgets('Refresh asks the host, and a refusal is shown', (tester) async {
       final made = await page(tester, 'hana', connections: FixtureConnections(['build']));
-      await _tap(tester, _action('refreshHost'));
+      await pressOrganizationAction(tester, 'refreshHost');
       expect(made.connections.asked, contains('refresh build'));
       made.connections.refuseNext = const OrganizationRefused('Connect to build first.');
-      await _tap(tester, _action('refreshHost'));
+      await pressOrganizationAction(tester, 'refreshHost');
       expect(find.text('Connect to build first.'), findsOneWidget);
     });
 
@@ -431,7 +432,7 @@ void main() {
     testWidgets('Disconnect ends the connection and offers Connect again', (tester) async {
       final made = await page(tester, 'mia', connections: FixtureConnections(['build']));
       expect(find.textContaining('Connected as mia, with the host key from the organization.'), findsOneWidget);
-      await _tap(tester, _action('disconnect/build'));
+      await pressOrganizationAction(tester, 'disconnect/build');
       expect(made.connections.asked, ['disconnect build']);
       expect(_action('connect/build'), findsOneWidget);
     });

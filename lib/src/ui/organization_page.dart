@@ -9,6 +9,7 @@ import 'package:porelo_host/porelo_host.dart' show checkHostName;
 import '../app/commands.dart';
 import '../app/key_recovery.dart' show BackupScope;
 import '../app/organization_source.dart';
+import 'command_menu.dart';
 import 'filtered_list_section.dart';
 import 'organization_dialogs.dart';
 import 'how_long.dart';
@@ -148,6 +149,10 @@ class _OrganizationPageState extends State<OrganizationPage> {
     title: 'People',
     storageId: 'organization-people',
     collapsible: true,
+    sorts: [
+      SectionSort('Name', (row) => view.persons[row].login),
+      SectionSort('State', (row) => _standingWords(view.persons[row])),
+    ],
     rows: [
       for (final person in view.persons)
         (
@@ -220,33 +225,40 @@ class _OrganizationPageState extends State<OrganizationPage> {
     title: 'Projects',
     storageId: 'organization-projects',
     collapsible: true,
-    actions: [
+    openWhenCompact: false,
+    sorts: [
+      SectionSort('Name', (row) => view.projects[row].name),
+      SectionSort('State', (row) => _standingIn(view, view.projects[row])),
+      SectionSort(
+        'Machine',
+        (row) => view.hosts.where((host) => host.projects.contains(view.projects[row].name)).firstOrNull?.name ?? '',
+      ),
+    ],
+    commands: [
       if (view.isOwner)
-        _ActionButton(
-          _command(
-            'addProject',
-            'Add a project',
-            () => show(
-              OrganizationPersonDialog(
-                organization,
-                title: 'Add a project to ${view.name}',
-                nameLabel: 'Name',
-                nameHint: 'e.g. sprint7-demo',
-                personLabel: 'Project admin',
-                words:
-                    "The project's card is added to the organization now. Its project admin makes the project "
-                    'repository and signs its first project.yml when they first open the project under Projects, then '
-                    'adds its members. No host is chosen here: a host admin puts the project on a host.',
-                confirm: 'Add the project',
-                check: (name) => _projectName.hasMatch(name)
-                    ? null
-                    : 'A project name holds letters, digits, ".", "_" and "-", and opens with a letter or digit.',
-                change: OrganizationChange.addProject,
-                input: (name, person) => {'project': name, 'admin': person},
-              ),
+        _command(
+          'addProject',
+          'Add a project',
+          () => show(
+            OrganizationPersonDialog(
+              organization,
+              title: 'Add a project to ${view.name}',
+              nameLabel: 'Name',
+              nameHint: 'e.g. sprint7-demo',
+              personLabel: 'Project admin',
+              words:
+                  "The project's card is added to the organization now. Its project admin makes the project "
+                  'repository and signs its first project.yml when they first open the project under Projects, then '
+                  'adds its members. No host is chosen here: a host admin puts the project on a host.',
+              confirm: 'Add the project',
+              check: (name) => _projectName.hasMatch(name)
+                  ? null
+                  : 'A project name holds letters, digits, ".", "_" and "-", and opens with a letter or digit.',
+              change: OrganizationChange.addProject,
+              input: (name, person) => {'project': name, 'admin': person},
             ),
           ),
-        ),
+        ).command,
     ],
     rows: [
       for (final project in view.projects)
@@ -345,38 +357,41 @@ class _OrganizationPageState extends State<OrganizationPage> {
     title: 'Hosts',
     storageId: 'organization-hosts',
     collapsible: true,
-    actions: [
+    openWhenCompact: false,
+    sorts: [
+      SectionSort('Name', (row) => view.hosts[row].name),
+      SectionSort('State', (row) => _hostWords(view.hosts[row])),
+    ],
+    commands: [
       if (view.isOwner)
-        _ActionButton(
-          _command(
-            'addHost',
-            'Add a host',
-            () => show(
-              OrganizationPersonDialog(
-                organization,
-                title: 'Add a host to ${view.name}',
-                nameLabel: 'Name',
-                nameHint: 'e.g. build-2',
-                personLabel: 'First host admin',
-                words:
-                    "The host's card is added with its name and first host admin. The host admin enters its address "
-                    "and host key when they set the machine up, then puts projects on it and names further host "
-                    "admins, all on the host's page under Machines.",
-                confirm: 'Add the host',
-                check: (name) {
-                  try {
-                    checkHostName(name);
-                    return null;
-                  } on FormatException catch (refused) {
-                    return refused.message;
-                  }
-                },
-                change: OrganizationChange.addHost,
-                input: (name, person) => {'host': name, 'admin': person},
-              ),
+        _command(
+          'addHost',
+          'Add a host',
+          () => show(
+            OrganizationPersonDialog(
+              organization,
+              title: 'Add a host to ${view.name}',
+              nameLabel: 'Name',
+              nameHint: 'e.g. build-2',
+              personLabel: 'First host admin',
+              words:
+                  "The host's card is added with its name and first host admin. The host admin enters its address "
+                  "and host key when they set the machine up, then puts projects on it and names further host "
+                  "admins, all on the host's page under Machines.",
+              confirm: 'Add the host',
+              check: (name) {
+                try {
+                  checkHostName(name);
+                  return null;
+                } on FormatException catch (refused) {
+                  return refused.message;
+                }
+              },
+              change: OrganizationChange.addHost,
+              input: (name, person) => {'host': name, 'admin': person},
             ),
           ),
-        ),
+        ).command,
     ],
     rows: [
       for (final host in view.hosts)
@@ -415,29 +430,28 @@ class _OrganizationPageState extends State<OrganizationPage> {
     title: 'Organization owners',
     storageId: 'organization-owners',
     collapsible: true,
-    actions: [
+    openWhenCompact: false,
+    commands: [
       if (view.isOwner)
-        _ActionButton(
-          _command(
-            'addOrganizationOwner',
-            'Add an organization owner',
-            () => show(
-              OrganizationPersonDialog(
-                organization,
-                title: 'Another organization owner of ${view.name}',
-                personLabel: 'Organization owner',
-                people: [
-                  for (final person in view.holdingRoles)
-                    if (!view.owners.contains(person.login)) person.login,
-                ],
-                words: 'They may change its projects, its hosts and its owners, as you may.',
-                confirm: 'Name them',
-                change: OrganizationChange.addOrganizationOwner,
-                input: (_, person) => {'login': person},
-              ),
+        _command(
+          'addOrganizationOwner',
+          'Add an organization owner',
+          () => show(
+            OrganizationPersonDialog(
+              organization,
+              title: 'Another organization owner of ${view.name}',
+              personLabel: 'Organization owner',
+              people: [
+                for (final person in view.holdingRoles)
+                  if (!view.owners.contains(person.login)) person.login,
+              ],
+              words: 'They may change its projects, its hosts and its owners, as you may.',
+              confirm: 'Name them',
+              change: OrganizationChange.addOrganizationOwner,
+              input: (_, person) => {'login': person},
             ),
           ),
-        ),
+        ).command,
     ],
     rows: [
       for (final owner in view.owners)
@@ -487,7 +501,7 @@ class _Action {
 }
 
 _Action _command(String id, String label, VoidCallback run, {bool danger = false}) => _Action(
-  organizationCommand(id: id, label: label, run: run),
+  organizationCommand(id: id, label: label, run: run, danger: danger),
   danger: danger,
 );
 
@@ -703,61 +717,44 @@ class _Row extends StatelessWidget {
       _Tone.waiting => colors.tertiary,
       _Tone.bad => colors.error,
     };
-    final words = Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon),
-        const SizedBox(width: Space.small),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title),
-              Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
-              if (state case final state? when state.isNotEmpty)
-                Text(state, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: color)),
-            ],
-          ),
-        ),
-      ],
-    );
-    final buttons = Wrap(
-      spacing: Space.small,
-      runSpacing: Space.small,
-      children: [for (final action in actions) _ActionButton(action)],
-    );
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: Space.small),
-      child: WindowSize.fromContext(context) == WindowSize.compact
-          ? Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                words,
-                if (actions.isNotEmpty) ...[const SizedBox(height: Space.small), buttons],
-              ],
-            )
-          : Row(
-              children: [
-                Expanded(child: words),
-                if (actions.isNotEmpty) ...[const SizedBox(width: Space.normal), Flexible(child: buttons)],
-              ],
+    final compact = WindowSize.fromContext(context) == WindowSize.compact;
+    final small = Theme.of(context).textTheme.bodySmall;
+    final said = state != null && state!.isNotEmpty ? state : null;
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: Sizes.listRowHeight),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: Space.small),
+        child: Row(
+          children: [
+            Icon(icon),
+            const SizedBox(width: Space.small),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(title),
+                  Text(subtitle, style: small),
+                  if (compact && said != null) Text(said, style: small?.copyWith(color: color)),
+                ],
+              ),
             ),
+            if (!compact && said != null) ...[
+              const SizedBox(width: Space.normal),
+              Text(said, style: small?.copyWith(color: color)),
+            ],
+            if (actions.isNotEmpty) ...[
+              const SizedBox(width: Space.small),
+              CommandMenu(
+                commands: [for (final action in actions) action.command],
+                tooltip: 'What can be done with $title',
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
-}
-
-class _ActionButton extends StatelessWidget {
-  const _ActionButton(this.action);
-
-  final _Action action;
-
-  @override
-  Widget build(BuildContext context) => OutlinedButton(
-    key: ValueKey(action.command.id),
-    style: action.danger ? OutlinedButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error) : null,
-    onPressed: action.command.available ? action.command.run : null,
-    child: Text(action.command.label),
-  );
 }
 
 /// What a computer naming no organization offers: to name one, to make one, and the card making one needs.

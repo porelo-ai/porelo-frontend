@@ -65,7 +65,7 @@ class _CommandMenuState extends State<CommandMenu> {
       icon: const Icon(Icons.more_vert, size: Sizes.rowIcon),
       initialValue: mine,
       onSelected: (id) => _run(widget.commands, id),
-      itemBuilder: (context) => commandMenuEntries(widget.commands, highlight: mine),
+      itemBuilder: (context) => commandMenuEntries(context, widget.commands, highlight: mine),
     );
   }
 }
@@ -77,7 +77,7 @@ void _run(List<Command> commands, String id) {
 }
 
 /// The entries of a command menu, so a button and a right-click offer the same list.
-List<PopupMenuEntry<String>> commandMenuEntries(List<Command> commands, {String? highlight}) =>
+List<PopupMenuEntry<String>> commandMenuEntries(BuildContext context, List<Command> commands, {String? highlight}) =>
     <PopupMenuEntry<String>>[
       for (final command in commands.where((command) => command.visible))
         PopupMenuItem<String>(
@@ -89,7 +89,10 @@ List<PopupMenuEntry<String>> commandMenuEntries(List<Command> commands, {String?
             dense: true,
             enabled: command.available,
             contentPadding: EdgeInsets.zero,
-            title: Text(command.label),
+            title: Text(
+              command.label,
+              style: command.danger && command.available ? TextStyle(color: Theme.of(context).colorScheme.error) : null,
+            ),
             subtitle: command.available ? null : Text('Unavailable: ${command.unavailable}'),
           ),
         ),
@@ -103,7 +106,7 @@ Future<void> showCommandMenu(BuildContext context, Offset at, List<Command> comm
   final chosen = await showMenu<String>(
     context: context,
     position: RelativeRect.fromRect(at & const Size(1, 1), Offset.zero & overlay.size),
-    items: commandMenuEntries(visible),
+    items: commandMenuEntries(context, visible),
   );
   if (chosen != null) _run(commands, chosen);
 }

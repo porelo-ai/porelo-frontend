@@ -1,6 +1,6 @@
 # F344 — The Look Of A Page With Lists
 
-**Status:** Implementing.
+**Status:** Review.
 
 **What must be true.** On a page with several lists a person sees at once where one ends and the next begins, can sort each, and meets a filter only when they ask for it.
 

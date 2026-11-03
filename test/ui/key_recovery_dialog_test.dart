@@ -18,6 +18,7 @@ import 'package:porelo_frontend/src/ui/organization_page.dart';
 
 import '../features/support/world.dart';
 import '../support/organization_fixtures.dart';
+import 'organization_actions.dart';
 
 const _old = 'SHA256:OldOldOldOld';
 const _new = 'SHA256:NewNewNewNew';
@@ -172,7 +173,7 @@ Future<void> _tap(WidgetTester tester, Finder target) async {
   await World.settle(tester);
 }
 
-Finder _action(String id) => find.byKey(ValueKey('organization.$id'));
+Finder _action(String id) => organizationAction(id);
 
 Future<(FixtureOrganization, Organization)> _organization(WidgetTester tester, String me) async {
   final fixture = FixtureOrganization(organizationFor(me));
@@ -189,7 +190,7 @@ void main() {
       final (_, organization) = await _organization(tester, 'olive');
       await _pump(tester, OrganizationPage(organization: organization, keys: rig.keys));
 
-      await _tap(tester, _action('makeBackupKey'));
+      await pressOrganizationAction(tester, 'makeBackupKey', settle: () => World.settle(tester));
       expect(find.byKey(const Key('unlock-terminal')), findsOneWidget, reason: 'the passphrase goes to the terminal');
       final command = rig.opened.single;
       expect(command.take(4).toList(), ['porelo', 'identity', 'backup-key', '--organization']);
@@ -211,7 +212,7 @@ void main() {
       final rig = _Rig();
       final (_, organization) = await _organization(tester, 'olive');
       await _pump(tester, OrganizationPage(organization: organization, keys: rig.keys));
-      await _tap(tester, _action('makeBackupKey'));
+      await pressOrganizationAction(tester, 'makeBackupKey', settle: () => World.settle(tester));
       rig.terminal.end(65, jsonEncode({'reason': 'not-allowed', 'words': 'only an organization owner may do this'}));
       await World.settle(tester);
       await _tap(tester, find.byKey(const Key('unlock-done')));
@@ -223,7 +224,7 @@ void main() {
       final rig = _Rig();
       final (_, organization) = await _organization(tester, 'olive');
       await _pump(tester, OrganizationPage(organization: organization, keys: rig.keys));
-      await _tap(tester, _action('makeBackupKey'));
+      await pressOrganizationAction(tester, 'makeBackupKey', settle: () => World.settle(tester));
       final id = rig.opened.single[rig.opened.single.indexOf('--id') + 1];
       rig.terminal.end(69, '');
       await World.settle(tester);
@@ -248,7 +249,7 @@ void main() {
         tester,
         OrganizationHostPage(organization: organization, host: 'build', onBack: () {}, keys: rig.keys),
       );
-      await _tap(tester, _action('makeBackupKey'));
+      await pressOrganizationAction(tester, 'makeBackupKey', settle: () => World.settle(tester));
       final command = rig.opened.single;
       expect(command.take(5).toList(), ['porelo', 'identity', 'backup-key', '--host', 'build']);
       expect(command, containsAllInOrder(['--out', _file, '--base', 'r1', '--id']));
@@ -272,7 +273,7 @@ void main() {
       final rig = _Rig()..newCard = card;
       final (_, organization) = await _organization(tester, 'olive');
       await _pump(tester, OrganizationPage(organization: organization, keys: rig.keys));
-      await _tap(tester, _action('replaceLostKey'));
+      await pressOrganizationAction(tester, 'replaceLostKey', settle: () => World.settle(tester));
       await _tap(tester, find.byKey(const Key('identity-key $_new')));
       await _tap(tester, find.byKey(const Key('identity-lost-confirm')));
       return rig;
@@ -346,7 +347,7 @@ void main() {
       final rig = _Rig()..shown = _shown(pending: const [row]);
       final (_, organization) = await _organization(tester, 'olive');
       await _pump(tester, OrganizationPage(organization: organization, keys: rig.keys));
-      await _tap(tester, _action('replaceLostKey'));
+      await pressOrganizationAction(tester, 'replaceLostKey', settle: () => World.settle(tester));
       await _tap(tester, find.byKey(const Key('identity.tryAgain lost-1')));
       final call = rig.called.singleWhere((call) => call[1] == 'revoke');
       expect(call, containsAllInOrder(['--key', _new, '--id', 'lost-1']));
@@ -363,7 +364,7 @@ void main() {
         );
       final (_, organization) = await _organization(tester, 'olive');
       await _pump(tester, OrganizationPage(organization: organization, keys: rig.keys));
-      await _tap(tester, _action('replaceLostKey'));
+      await pressOrganizationAction(tester, 'replaceLostKey', settle: () => World.settle(tester));
       await _tap(tester, find.byKey(const Key('identity.useAnotherKey lost-1')));
       await _tap(tester, find.byKey(const Key('identity-key $_new')));
       await _tap(tester, find.byKey(const Key('identity-lost-confirm')));
@@ -385,7 +386,7 @@ void main() {
         );
       final (_, organization) = await _organization(tester, 'olive');
       await _pump(tester, OrganizationPage(organization: organization, keys: rig.keys));
-      await _tap(tester, _action('replaceLostKey'));
+      await pressOrganizationAction(tester, 'replaceLostKey', settle: () => World.settle(tester));
       expect(tester.widget<TextButton>(find.byKey(const Key('identity.useAnotherKey rot-1'))).onPressed, isNull);
       expect(tester.widget<ListTile>(find.byKey(const Key('identity-key $_new'))).enabled, isTrue);
     });
@@ -408,7 +409,7 @@ void main() {
         };
       final (_, organization) = await _organization(tester, 'olive');
       await _pump(tester, OrganizationPage(organization: organization, keys: rig.keys));
-      await _tap(tester, _action('replaceLostKey'));
+      await pressOrganizationAction(tester, 'replaceLostKey', settle: () => World.settle(tester));
       await _tap(tester, find.byKey(const Key('identity-key $_new')));
       expect(find.textContaining('On build,'), findsNothing);
       expect(find.textContaining('On other, sign in again for: git.token.forge'), findsOneWidget);
@@ -418,7 +419,7 @@ void main() {
       final rig = _Rig();
       final (_, organization) = await _organization(tester, 'olive');
       await _pump(tester, OrganizationPage(organization: organization, keys: rig.keys));
-      await _tap(tester, _action('replaceLostKey'));
+      await pressOrganizationAction(tester, 'replaceLostKey', settle: () => World.settle(tester));
       await _tap(tester, find.byKey(const Key('identity-key $_new')));
       final revokes = [
         for (final call in rig.called)
@@ -464,7 +465,7 @@ void main() {
       final rig = _Rig();
       final (_, organization) = await _organization(tester, 'olive');
       await _pump(tester, OrganizationPage(organization: organization, keys: rig.keys));
-      await _tap(tester, _action('replaceLostKey'));
+      await pressOrganizationAction(tester, 'replaceLostKey', settle: () => World.settle(tester));
       final use = find.byKey(const Key('identity.useBackup organization'));
       expect(tester.widget<TextButton>(use).onPressed, isNull);
       expect(rig.opened, isEmpty);

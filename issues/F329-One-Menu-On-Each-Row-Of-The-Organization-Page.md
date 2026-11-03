@@ -1,6 +1,6 @@
 # F329 — One Menu On Each Row Of The Organization Page
 
-**Status:** Implementing.
+**Status:** Review.
 
 **What must be true.** The rows of the organization page look alike and read in one line of actions, whichever roles a
 person holds and however wide the window is.

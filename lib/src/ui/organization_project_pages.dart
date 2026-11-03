@@ -115,21 +115,21 @@ class _OrganizationProjectsPageState extends State<OrganizationProjectsPage> {
                         crossAxisAlignment: WrapCrossAlignment.center,
                         spacing: Space.normal,
                         children: [
-                          if (project.host case final host?
-                              when widget.onHost != null && view.holdsRoles && !_isLocked(project))
-                            OutlinedButton(
-                              key: ValueKey('organization.openOnHost ${project.name}'),
-                              onPressed: () => widget.onHost!(project.name, host),
-                              child: Text('Open it on $host'),
-                            ),
                           Chip(label: Text(_isLocked(project) ? 'locked' : _roleIn(view, project)!)),
                           if (project.host case final host? when !_isLocked(project))
-                            if (widget.menuFor?.call(project.name, host) case final commands? when commands.isNotEmpty)
-                              CommandMenu(
-                                key: ValueKey('organization.projectMenu ${project.name}'),
-                                commands: commands,
-                                tooltip: 'What can be done with ${project.name}',
-                              ),
+                            CommandMenu(
+                              key: ValueKey('organization.projectMenu ${project.name}'),
+                              commands: [
+                                if (widget.onHost != null && view.holdsRoles)
+                                  organizationCommand(
+                                    id: 'openOnHost ${project.name}',
+                                    label: 'Open it on $host',
+                                    run: () => widget.onHost!(project.name, host),
+                                  ),
+                                ...?widget.menuFor?.call(project.name, host),
+                              ],
+                              tooltip: 'What can be done with ${project.name}',
+                            ),
                         ],
                       ),
                       onTap: () => widget.onProject(project.name),
@@ -386,20 +386,26 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
             title: Text(repository.name),
             subtitle: Text(repository.address ?? 'no upstream named'),
             trailing: isAdmin
-                ? TextButton(
-                    key: ValueKey('organization.removeRepository/${repository.name}'),
-                    onPressed: () => _show(
-                      OrganizationConfirmDialog(
-                        widget.organization,
-                        base: view.repositoriesRevision ?? view.revision,
-                        title: 'Remove ${repository.name} from ${view.name}?',
-                        words: 'It is no longer part of the project. The repository itself stays where it is.',
-                        confirm: 'Remove',
-                        change: OrganizationChange.removeProjectRepository,
-                        input: {'project': view.name, 'repository': repository.name},
+                ? CommandMenu(
+                    commands: [
+                      organizationCommand(
+                        id: 'removeRepository/${repository.name}',
+                        label: 'Remove…',
+                        danger: true,
+                        run: () => _show(
+                          OrganizationConfirmDialog(
+                            widget.organization,
+                            base: view.repositoriesRevision ?? view.revision,
+                            title: 'Remove ${repository.name} from ${view.name}?',
+                            words: 'It is no longer part of the project. The repository itself stays where it is.',
+                            confirm: 'Remove',
+                            change: OrganizationChange.removeProjectRepository,
+                            input: {'project': view.name, 'repository': repository.name},
+                          ),
+                        ),
                       ),
-                    ),
-                    child: const Text('Remove'),
+                    ],
+                    tooltip: 'What can be done with ${repository.name}',
                   )
                 : null,
           ),
@@ -563,16 +569,22 @@ class _MemberRowState extends State<_MemberRow> {
               Text(standing.$1, style: TextStyle(color: standing.$2)),
               if (member.locked) Text('locked', style: TextStyle(color: colors.error)),
               if (widget.changes)
-                TextButton(
-                  key: ValueKey('organization.lockMember/${member.login}'),
-                  onPressed: widget.organization.busy ? null : () => unawaited(_lock(!member.locked)),
-                  child: Text(member.locked ? 'Unlock' : 'Lock'),
-                ),
-              if (widget.changes)
-                TextButton(
-                  key: ValueKey('organization.removeMember/${member.login}'),
-                  onPressed: widget.onRemove,
-                  child: const Text('Remove'),
+                CommandMenu(
+                  commands: [
+                    organizationCommand(
+                      id: 'lockMember/${member.login}',
+                      label: member.locked ? 'Unlock' : 'Lock',
+                      run: () => unawaited(_lock(!member.locked)),
+                      unavailable: widget.organization.busy ? 'A change is being written.' : null,
+                    ),
+                    organizationCommand(
+                      id: 'removeMember/${member.login}',
+                      label: 'Remove…',
+                      danger: true,
+                      run: widget.onRemove,
+                    ),
+                  ],
+                  tooltip: 'What can be done with ${member.login}',
                 ),
             ],
           ),

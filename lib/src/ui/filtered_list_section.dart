@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../app/commands.dart';
+import 'command_menu.dart';
 import 'tokens.dart';
 import 'window_size.dart';
 
@@ -33,6 +35,7 @@ class FilteredListSection extends StatefulWidget {
     this.initiallyOpen = true,
     this.openWhenCompact = true,
     this.actions = const [],
+    this.commands = const [],
     this.sorts,
     this.reveal,
     super.key,
@@ -58,6 +61,9 @@ class FilteredListSection extends StatefulWidget {
 
   /// The operations shown beside this list header.
   final List<Widget> actions;
+
+  /// What adds to this list: buttons in the header, and behind a menu where a phone has no room for them.
+  final List<Command> commands;
 
   /// The orders offered, the first being the one it starts in. Left out, a row's words give the one order, *Name*.
   final List<SectionSort>? sorts;
@@ -240,6 +246,17 @@ class _FilteredListSectionState extends State<FilteredListSection> {
     }),
   );
 
+  Widget _commandButton(Command command, double target) {
+    final button = OutlinedButton(
+      key: ValueKey(command.id),
+      style: OutlinedButton.styleFrom(minimumSize: Size(target, target)),
+      onPressed: command.available ? command.run : null,
+      child: Text(command.label),
+    );
+    final why = command.unavailable;
+    return why == null ? button : Tooltip(message: why, child: button);
+  }
+
   Widget _heading() {
     final theme = Theme.of(context);
     return Row(
@@ -269,6 +286,7 @@ class _FilteredListSectionState extends State<FilteredListSection> {
       _sortMenu(target),
     ];
     final fold = widget.collapsible ? _foldButton(target) : null;
+    final commands = widget.commands.where((command) => command.visible).toList();
     if (compact) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -276,6 +294,12 @@ class _FilteredListSectionState extends State<FilteredListSection> {
           Row(
             children: [
               Expanded(child: _heading()),
+              if (commands.isNotEmpty)
+                CommandMenu(
+                  key: ValueKey('${widget.storageId}-commands'),
+                  commands: commands,
+                  tooltip: 'What can be added to ${widget.title.toLowerCase()}',
+                ),
               ?fold,
             ],
           ),
@@ -297,7 +321,12 @@ class _FilteredListSectionState extends State<FilteredListSection> {
           crossAxisAlignment: WrapCrossAlignment.center,
           spacing: Space.small,
           runSpacing: Space.small,
-          children: [...tools, ...widget.actions, ?fold],
+          children: [
+            ...tools,
+            ...widget.actions,
+            for (final command in commands) _commandButton(command, target),
+            ?fold,
+          ],
         ),
       ],
     );

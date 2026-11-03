@@ -8,8 +8,9 @@ import 'package:porelo_frontend/src/ui/shell_rail.dart';
 
 import '../features/support/world.dart';
 import '../support/organization_fixtures.dart';
+import 'organization_actions.dart';
 
-Finder _action(String id) => find.byKey(ValueKey('organization.$id'));
+Finder _action(String id) => organizationAction(id);
 
 class _Opened {
   String? project;
@@ -137,7 +138,7 @@ void main() {
           .descendant(of: find.byKey(const Key('organization-page')), matching: find.byType(Scrollable))
           .first,
     );
-    await _open(tester, _action('openProject/demo'));
+    await pressOrganizationAction(tester, 'openProject/demo');
     await World.settle(tester);
     expect(find.byKey(const ValueKey('organization-project demo')), findsOneWidget);
     expect(find.text('Project admin pat. Only they change this project.'), findsOneWidget);
@@ -259,7 +260,7 @@ void main() {
   group('each action asks the store for what it says', () {
     testWidgets('Add a project names the project and the project admin, and no host', (tester) async {
       final (fixture, _, _) = await _pump(tester, 'olive');
-      await _open(tester, _action('addProject'));
+      await pressOrganizationAction(tester, 'addProject');
       expect(find.textContaining('No host is chosen here'), findsOneWidget);
       await tester.enterText(find.byKey(const Key('organization-name')), 'fresh');
       await _pick(tester, const Key('organization-person'), 'pat');
@@ -275,7 +276,7 @@ void main() {
 
     testWidgets('a person whose card holds roles can be named, and a revoked one cannot', (tester) async {
       await _pump(tester, 'olive');
-      await _open(tester, _action('addHost'));
+      await pressOrganizationAction(tester, 'addHost');
       await tester.tap(find.byKey(const Key('organization-person')));
       await tester.pumpAndSettle();
       Finder offered(String login) => find.widgetWithText(DropdownMenuItem<String>, login);
@@ -286,7 +287,7 @@ void main() {
 
     testWidgets('Add a host names the host and its first host admin', (tester) async {
       final (fixture, _, _) = await _pump(tester, 'olive');
-      await _open(tester, _action('addHost'));
+      await pressOrganizationAction(tester, 'addHost');
       await tester.enterText(find.byKey(const Key('organization-name')), 'build-2');
       await _pick(tester, const Key('organization-person'), 'hana');
       await tester.tap(find.byKey(const Key('organization-confirm')));
@@ -297,7 +298,7 @@ void main() {
 
     testWidgets('a name no project or host can have is refused before the store is asked', (tester) async {
       final (fixture, _, _) = await _pump(tester, 'olive');
-      await _open(tester, _action('addHost'));
+      await pressOrganizationAction(tester, 'addHost');
       await tester.enterText(find.byKey(const Key('organization-name')), 'Not/A Host');
       await _pick(tester, const Key('organization-person'), 'hana');
       await tester.tap(find.byKey(const Key('organization-confirm')));
@@ -315,7 +316,7 @@ void main() {
     ]) {
       testWidgets('$id asks to be confirmed, then asks the store', (tester) async {
         final (fixture, _, _) = await _pump(tester, 'olive', view: organizationFor('olive', owners: ['olive', 'pat']));
-        await _open(tester, _action(id));
+        await pressOrganizationAction(tester, id);
         expect(fixture.writes, isEmpty, reason: 'Nothing is signed before it is confirmed.');
         await tester.tap(find.byKey(const Key('organization-confirm')));
         await tester.pumpAndSettle();
@@ -326,7 +327,7 @@ void main() {
 
     testWidgets('Change the project admin… names another trusted person', (tester) async {
       final (fixture, _, _) = await _pump(tester, 'olive');
-      await _open(tester, _action('changeProjectAdmin/demo'));
+      await pressOrganizationAction(tester, 'changeProjectAdmin/demo');
       await _pick(tester, const Key('organization-person'), 'hana');
       await tester.tap(find.byKey(const Key('organization-confirm')));
       await tester.pumpAndSettle();
@@ -336,7 +337,7 @@ void main() {
 
     testWidgets('Add an organization owner names a trusted person', (tester) async {
       final (fixture, _, _) = await _pump(tester, 'olive');
-      await _open(tester, _action('addOrganizationOwner'));
+      await pressOrganizationAction(tester, 'addOrganizationOwner');
       await _pick(tester, const Key('organization-person'), 'mia');
       await tester.tap(find.byKey(const Key('organization-confirm')));
       await tester.pumpAndSettle();
@@ -346,7 +347,7 @@ void main() {
 
     testWidgets('Cancel asks the store for nothing', (tester) async {
       final (fixture, _, _) = await _pump(tester, 'olive');
-      await _open(tester, _action('removeProject/demo'));
+      await pressOrganizationAction(tester, 'removeProject/demo');
       await tester.tap(find.text('Cancel'));
       await tester.pumpAndSettle();
       expect(fixture.writes, isEmpty);
@@ -354,9 +355,9 @@ void main() {
 
     testWidgets('Open under Projects and the host page go there', (tester) async {
       final (_, _, opened) = await _pump(tester, 'olive', view: organizationFor('hana'));
-      await _open(tester, _action('openHost/build'));
+      await pressOrganizationAction(tester, 'openHost/build');
       expect(opened.host, 'build');
-      await _open(tester, _action('openProject/other'));
+      await pressOrganizationAction(tester, 'openProject/other');
       expect(opened.project, 'other');
     });
   });
@@ -369,7 +370,7 @@ void main() {
 
     testWidgets('files the key the source lists', (tester) async {
       final (fixture, _, _) = await _pump(tester, 'stranger', keys: const [listed]);
-      await _open(tester, _action('addCard'));
+      await pressOrganizationAction(tester, 'addCard');
       expect(find.textContaining('GitHub lists this key for stranger'), findsOneWidget);
       expect(tester.widget<FilledButton>(find.byKey(const Key('organization-confirm'))).onPressed, isNull);
       await tester.enterText(find.byKey(const Key('organization-card-name')), 'Sam Stranger');
@@ -382,7 +383,7 @@ void main() {
 
     testWidgets('a key the source does not list cannot be filed, and says so', (tester) async {
       final (fixture, _, _) = await _pump(tester, 'stranger', keys: const [unlisted]);
-      await _open(tester, _action('addCard'));
+      await pressOrganizationAction(tester, 'addCard');
       expect(find.textContaining('GitHub does not list this key for stranger'), findsOneWidget);
       final button = tester.widget<FilledButton>(find.byKey(const Key('organization-confirm')));
       expect(button.onPressed, isNull);
@@ -391,21 +392,21 @@ void main() {
 
     testWidgets('a source that cannot say reads as that, never as listed', (tester) async {
       await _pump(tester, 'stranger', keys: const [unknown]);
-      await _open(tester, _action('addCard'));
+      await pressOrganizationAction(tester, 'addCard');
       expect(find.textContaining('GitHub could not say'), findsOneWidget);
       expect(find.textContaining('lists this key'), findsNothing);
     });
 
     testWidgets('no key at all says what to do', (tester) async {
       await _pump(tester, 'stranger');
-      await _open(tester, _action('addCard'));
+      await pressOrganizationAction(tester, 'addCard');
       expect(find.textContaining('No key is in your ssh agent'), findsOneWidget);
       expect(tester.widget<FilledButton>(find.byKey(const Key('organization-confirm'))).onPressed, isNull);
     });
 
     testWidgets('Change my key writes the new key', (tester) async {
       final (fixture, _, _) = await _pump(tester, 'mia', keys: const [listed]);
-      await _open(tester, _action('changeCard'));
+      await pressOrganizationAction(tester, 'changeCard');
       await tester.tap(find.byKey(const Key('organization-confirm')));
       await tester.pumpAndSettle();
       expect(fixture.writes.single.change, OrganizationChange.changeCard);
@@ -423,7 +424,7 @@ void main() {
     // Harm: a person is named owner who already is one, and only the store's refusal tells them.
     testWidgets('naming another owner offers only people who are not one', (tester) async {
       await _pump(tester, 'olive', view: organizationFor('olive', owners: ['olive', 'pat']));
-      await _open(tester, _action('addOrganizationOwner'));
+      await pressOrganizationAction(tester, 'addOrganizationOwner');
       await tester.tap(find.byKey(const Key('organization-person')));
       await tester.pumpAndSettle();
       expect(find.text('mia').hitTestable(), findsOneWidget);
@@ -471,7 +472,7 @@ void main() {
           OrganizationKey(fingerprint: 'SHA256:second', vouched: true),
         ],
       );
-      await _open(tester, _action('changeCard'));
+      await pressOrganizationAction(tester, 'changeCard');
       await tester.tap(find.byKey(const Key('organization-key')));
       await tester.pumpAndSettle();
       expect(find.text('SHA256:old').hitTestable(), findsNothing);
@@ -493,7 +494,7 @@ void main() {
           OrganizationKey(fingerprint: 'SHA256:second', vouched: true),
         ],
       );
-      await _open(tester, _action('addCard'));
+      await pressOrganizationAction(tester, 'addCard');
       await tester.enterText(find.byKey(const Key('organization-card-login')), 'nora');
       await tester.enterText(find.byKey(const Key('organization-card-name')), 'Nora');
       await tester.pumpAndSettle();
@@ -540,7 +541,7 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        await _open(tester, _action('replaceCard/mia'));
+        await pressOrganizationAction(tester, 'replaceCard/mia');
         await tester.runAsync(() async {
           await tester.tap(find.byKey(const Key('organization-card-file')));
           await tester.pump();
@@ -575,7 +576,7 @@ void main() {
     testWidgets("a refusal stays in the dialog in the store's words and changes no row", (tester) async {
       final (fixture, _, _) = await _pump(tester, 'olive', view: organizationFor('olive', owners: ['olive', 'pat']));
       fixture.refuseNext = const OrganizationRefused('The store refused this.');
-      await _open(tester, _action('removeOrganizationOwner/olive'));
+      await pressOrganizationAction(tester, 'removeOrganizationOwner/olive');
       await tester.tap(find.byKey(const Key('organization-confirm')));
       await tester.pumpAndSettle();
       expect(find.text('The store refused this.'), findsOneWidget);
@@ -588,7 +589,7 @@ void main() {
     testWidgets('a taken change shows only once it is read back', (tester) async {
       final (fixture, _, _) = await _pump(tester, 'olive');
       fixture.afterWrite = (_) => organizationFor('olive');
-      await _open(tester, _action('removeProject/demo'));
+      await pressOrganizationAction(tester, 'removeProject/demo');
       await tester.tap(find.byKey(const Key('organization-confirm')));
       await tester.pumpAndSettle();
       expect(find.text('demo'), findsOneWidget, reason: 'The store still lists it.');
@@ -672,10 +673,43 @@ void main() {
     expect(find.text('What is the organization?'), findsNothing);
   });
 
+  // Harm: a list sorted by what a person needs falls back to its first order when the page is left.
+  testWidgets('a list keeps its sort, and a project sorts by machine', (tester) async {
+    await _pump(tester, 'olive', size: const Size(1280, 2000));
+    final bucket = PageStorage.of(tester.element(find.byKey(const ValueKey('organization-projects-sort'))));
+    await tester.tap(find.byKey(const ValueKey('organization-projects-sort')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('organization-projects-sort Machine')));
+    await tester.pumpAndSettle();
+    expect(find.text('Machine'), findsOneWidget);
+    expect(find.text('Name'), findsWidgets, reason: 'another list keeps its own order');
+    expect(
+      bucket.readState(
+        tester.element(find.byKey(const ValueKey('organization-projects-sort'))),
+        identifier: 'organization-projects',
+      ),
+      isNotNull,
+    );
+  });
+
+  // Harm: a phone opens on a page as long as all its lists together, so a person finds nothing below the first.
+  testWidgets('on a phone only the first list starts open', (tester) async {
+    await _pump(tester, 'olive', size: const Size(380, 2400));
+    expect(_action('revokeCard/mia'), findsOneWidget);
+    expect(_action('removeHost/build'), findsNothing);
+  });
+
   // Harm: on a narrow window the actions run off the side, and an owner cannot reach them.
   testWidgets('the page fits a phone', (tester) async {
     await _pump(tester, 'olive', size: const Size(380, 800));
     expect(tester.takeException(), isNull);
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('organization-hosts-fold')),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.byKey(const ValueKey('organization-hosts-fold')));
+    await tester.pumpAndSettle();
     await tester.scrollUntilVisible(_action('removeHost/build'), 200, scrollable: find.byType(Scrollable).first);
     expect(_action('removeHost/build'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -803,7 +837,7 @@ void main() {
     // Harm: a project whose admins all lost their keys cannot be recovered by anybody.
     testWidgets('an owner adds an admin, and a person already one is not offered', (tester) async {
       final (fixture, _, _) = await _pump(tester, 'olive');
-      await _open(tester, _action('addProjectAdmin/demo'));
+      await pressOrganizationAction(tester, 'addProjectAdmin/demo');
       await tester.tap(find.byKey(const Key('organization-person')));
       await tester.pumpAndSettle();
       expect(find.widgetWithText(DropdownMenuItem<String>, 'pat'), findsNothing);
@@ -818,7 +852,7 @@ void main() {
     // Harm: a developer of the project cannot be made its admin: adding them is refused, as they are there already.
     testWidgets("an owner making one of a project's members its admin changes their role", (tester) async {
       final (fixture, _, _) = await _pump(tester, 'olive');
-      await _open(tester, _action('addProjectAdmin/demo'));
+      await pressOrganizationAction(tester, 'addProjectAdmin/demo');
       await tester.tap(find.byKey(const Key('organization-person')));
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(DropdownMenuItem<String>, 'mia').last);
@@ -844,7 +878,7 @@ void main() {
     // Harm: the last admin goes unsaid, and the project stands with nobody to change it.
     testWidgets('an owner removing the last admin is told so, and it is asked for', (tester) async {
       final (fixture, _, _) = await _pump(tester, 'olive');
-      await _open(tester, _action('removeProjectAdmin/demo/pat'));
+      await pressOrganizationAction(tester, 'removeProjectAdmin/demo/pat');
       expect(find.textContaining('pat is its last admin'), findsOneWidget);
       await tester.tap(find.byKey(const Key('organization-confirm')));
       await tester.pumpAndSettle();

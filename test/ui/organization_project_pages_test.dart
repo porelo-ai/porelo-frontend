@@ -9,7 +9,11 @@ import 'package:porelo_frontend/src/ui/organization_project_pages.dart';
 
 import '../support/organization_fixtures.dart';
 
-Finder _action(String id) => find.byKey(ValueKey('organization.$id'));
+import 'package:porelo_frontend/src/ui/command_menu.dart';
+
+import 'organization_actions.dart';
+
+Finder _action(String id) => organizationAction(id);
 
 Future<void> _settle(WidgetTester tester, Widget page) async {
   tester.view.physicalSize = const Size(1400, 1600);
@@ -80,7 +84,7 @@ void main() {
           onHost: (project, host) => opened.add((project, host)),
         ),
       );
-      await _tap(tester, find.byKey(const ValueKey('organization.openOnHost demo')));
+      await pressOrganizationAction(tester, 'openOnHost demo');
       expect(opened, [('demo', 'build')]);
     });
 
@@ -239,8 +243,8 @@ void main() {
     ]) {
       testWidgets('$label asks the store for $login', (tester) async {
         final fixture = await _page(tester, 'pat');
-        expect(find.descendant(of: _action('lockMember/$login'), matching: find.text(label)), findsOneWidget);
-        await _tap(tester, _action('lockMember/$login'));
+        expect(tester.widget<CommandMenu>(_action('lockMember/$login')).commands.first.label, label);
+        await pressOrganizationAction(tester, 'lockMember/$login');
         expect(fixture.writes.single.change, change);
         expect(fixture.writes.single.input, {'project': 'demo', 'login': login});
         expect(fixture.writes.single.base, 'p1');
@@ -258,7 +262,7 @@ void main() {
     // Harm: the wrong change is secured, or against a state the project admin did not see.
     testWidgets('adding a member offers trusted people not yet in it, against what was read', (tester) async {
       final fixture = await _page(tester, 'pat');
-      await _tap(tester, _action('addMember'));
+      await pressOrganizationAction(tester, 'addMember');
       await tester.tap(find.byKey(const Key('organization-person')));
       await tester.pumpAndSettle();
       Finder offered(String login) => find.widgetWithText(DropdownMenuItem<String>, login);
@@ -279,7 +283,7 @@ void main() {
 
     testWidgets('removing a member asks first, and only then writes', (tester) async {
       final fixture = await _page(tester, 'pat');
-      await _tap(tester, _action('removeMember/mia'));
+      await pressOrganizationAction(tester, 'removeMember/mia');
       expect(fixture.writes, isEmpty);
       await tester.tap(find.byKey(const Key('organization-confirm')));
       await tester.pumpAndSettle();
@@ -289,7 +293,7 @@ void main() {
 
     testWidgets('a change of role asks the store and shows what it read back, not what was chosen', (tester) async {
       final fixture = await _page(tester, 'pat');
-      await _tap(tester, _action('memberRole/mia'));
+      await pressOrganizationAction(tester, 'memberRole/mia');
       await tester.tap(find.text('admin').last);
       await tester.pumpAndSettle();
       expect(fixture.writes.single.change, OrganizationChange.changeProjectMemberRole);
@@ -302,7 +306,7 @@ void main() {
     testWidgets("a refused change of role says the store's words in the row", (tester) async {
       final fixture = await _page(tester, 'pat');
       fixture.refuseNext = const OrganizationRefused('The project moved on; read it again.');
-      await _tap(tester, _action('memberRole/mia'));
+      await pressOrganizationAction(tester, 'memberRole/mia');
       await tester.tap(find.text('admin').last);
       await tester.pumpAndSettle();
       expect(find.text('The project moved on; read it again.'), findsOneWidget);
@@ -310,7 +314,7 @@ void main() {
 
     testWidgets('adding a repository names it and its address', (tester) async {
       final fixture = await _page(tester, 'pat');
-      await _tap(tester, _action('addRepository'));
+      await pressOrganizationAction(tester, 'addRepository');
       await tester.enterText(find.byKey(const Key('organization-repository-name')), 'demo-site');
       await tester.enterText(
         find.byKey(const Key('organization-repository-address')),
@@ -330,7 +334,7 @@ void main() {
     // Harm: a token pasted into an address reaches the organization, where everyone reads it.
     testWidgets('an address with a token is refused before the store is asked, without repeating it', (tester) async {
       final fixture = await _page(tester, 'pat');
-      await _tap(tester, _action('addRepository'));
+      await pressOrganizationAction(tester, 'addRepository');
       await tester.enterText(find.byKey(const Key('organization-repository-name')), 'demo-site');
       await tester.enterText(
         find.byKey(const Key('organization-repository-address')),
@@ -346,7 +350,7 @@ void main() {
     testWidgets('the project repository is read by everyone and changed by its project admin', (tester) async {
       final fixture = await _page(tester, 'pat');
       expect(find.text('Project repository: git@forge.example.org:acme/demo-project.git'), findsOneWidget);
-      await _tap(tester, _action('changeAddress'));
+      await pressOrganizationAction(tester, 'changeAddress');
       await tester.enterText(
         find.byKey(const Key('organization-project-address')),
         'git@forge.example.org:acme/new.git',
@@ -371,7 +375,7 @@ void main() {
     // Harm: a token pasted into the project repository's address reaches the card, where everyone reads it.
     testWidgets('the project repository takes no address with a token', (tester) async {
       final fixture = await _page(tester, 'pat');
-      await _tap(tester, _action('changeAddress'));
+      await pressOrganizationAction(tester, 'changeAddress');
       await tester.enterText(
         find.byKey(const Key('organization-project-address')),
         'https://sekret@forge.example.org/a.git',
@@ -385,7 +389,7 @@ void main() {
 
     testWidgets('removing a repository says it stays where it is', (tester) async {
       final fixture = await _page(tester, 'pat');
-      await _tap(tester, _action('removeRepository/demo-docs'));
+      await pressOrganizationAction(tester, 'removeRepository/demo-docs');
       expect(find.textContaining('stays where it is'), findsOneWidget);
       await tester.tap(find.byKey(const Key('organization-confirm')));
       await tester.pumpAndSettle();
@@ -400,7 +404,7 @@ void main() {
         };
         return fixture.view;
       };
-      await _tap(tester, _action('removeRepository/demo-docs'));
+      await pressOrganizationAction(tester, 'removeRepository/demo-docs');
       await tester.tap(find.byKey(const Key('organization-confirm')));
       await tester.pumpAndSettle();
       expect(find.text('demo-docs'), findsNothing);
@@ -417,7 +421,7 @@ void main() {
 
       testWidgets('its project admin opens it, and is asked to confirm', (tester) async {
         final fixture = await _page(tester, 'pat', project: fresh);
-        await _tap(tester, _action('openProject'));
+        await pressOrganizationAction(tester, 'openProject');
         expect(fixture.writes, isEmpty);
         await tester.tap(find.byKey(const Key('organization-confirm')));
         await tester.pumpAndSettle();
@@ -506,7 +510,7 @@ void main() {
       addTearDown(organization.dispose);
       await organization.refresh();
       await _settle(tester, OrganizationProjectPage(organization: organization, project: 'demo', onBack: () {}));
-      await _tap(tester, _action('changeAddress'));
+      await pressOrganizationAction(tester, 'changeAddress');
       await tester.enterText(find.byType(TextField).first, 'git@forge.example.org:acme/moved.git');
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('organization-confirm')));

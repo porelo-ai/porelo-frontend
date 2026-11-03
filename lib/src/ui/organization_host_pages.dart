@@ -3,9 +3,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:porelo_host/porelo_host.dart' show checkedEd25519, isUsableHostAddress;
 
+import '../app/commands.dart';
 import '../app/host_progress.dart';
 import '../app/key_recovery.dart' show BackupScope;
 import '../app/organization_source.dart';
+import 'command_menu.dart';
 import 'filtered_list_section.dart';
 import 'key_recovery_dialog.dart';
 import 'organization_dialogs.dart';
@@ -440,22 +442,28 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
               title: Text(name),
               subtitle: Text([_projectWords(view, name), if (isAdmin) ?_progressWords(name)].join(' · ')),
               trailing: isAdmin
-                  ? TextButton(
-                      key: ValueKey('organization.removeProjectFromHost/$name'),
-                      onPressed: () => _show(
-                        OrganizationConfirmDialog(
-                          widget.organization,
-                          title: 'Take $name off ${host.name}?',
-                          words:
-                              'Its members can no longer work on it here, once it holds no unpushed work. Its room on '
-                              'this host goes then, with its conversation, where the host runs its own. The project '
-                              'itself stays in the organization. This can take up to five minutes.',
-                          confirm: 'Take it off',
-                          change: OrganizationChange.removeProjectFromHost,
-                          input: {'host': host.name, 'project': name},
+                  ? CommandMenu(
+                      commands: [
+                        organizationCommand(
+                          id: 'removeProjectFromHost/$name',
+                          label: 'Take off the machine…',
+                          danger: true,
+                          run: () => _show(
+                            OrganizationConfirmDialog(
+                              widget.organization,
+                              title: 'Take $name off ${host.name}?',
+                              words:
+                                  'Its members can no longer work on it here, once it holds no unpushed work. Its room on '
+                                  'this host goes then, with its conversation, where the host runs its own. The project '
+                                  'itself stays in the organization. This can take up to five minutes.',
+                              confirm: 'Take it off',
+                              change: OrganizationChange.removeProjectFromHost,
+                              input: {'host': host.name, 'project': name},
+                            ),
+                          ),
                         ),
-                      ),
-                      child: const Text('Take off the host'),
+                      ],
+                      tooltip: 'What can be done with $name',
                     )
                   : null,
             ),
@@ -542,19 +550,25 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
               ),
               // The last host admin cannot be removed, so nothing offers it.
               trailing: isAdmin && host.admins.length > 1
-                  ? TextButton(
-                      key: ValueKey('organization.removeHostAdmin/$admin'),
-                      onPressed: () => _show(
-                        OrganizationConfirmDialog(
-                          widget.organization,
-                          title: 'Remove $admin as a host admin of ${host.name}?',
-                          words: 'They no longer manage this host.',
-                          confirm: 'Remove',
-                          change: OrganizationChange.removeHostAdmin,
-                          input: {'host': host.name, 'login': admin},
+                  ? CommandMenu(
+                      commands: [
+                        organizationCommand(
+                          id: 'removeHostAdmin/$admin',
+                          label: 'Remove…',
+                          danger: true,
+                          run: () => _show(
+                            OrganizationConfirmDialog(
+                              widget.organization,
+                              title: 'Remove $admin as a host admin of ${host.name}?',
+                              words: 'They no longer manage this host.',
+                              confirm: 'Remove',
+                              change: OrganizationChange.removeHostAdmin,
+                              input: {'host': host.name, 'login': admin},
+                            ),
+                          ),
                         ),
-                      ),
-                      child: const Text('Remove'),
+                      ],
+                      tooltip: 'What can be done with $admin',
                     )
                   : null,
             ),

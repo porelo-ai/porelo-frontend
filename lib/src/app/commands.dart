@@ -83,8 +83,21 @@ enum Home {
 }
 
 /// One action on the organization's page, which offers it only to the person whose role it belongs to.
-Command organizationCommand({required String id, required String label, required VoidCallback run}) =>
-    Command(id: 'organization.$id', label: label, group: 'Organization', home: Home.organizationRow, run: run);
+Command organizationCommand({
+  required String id,
+  required String label,
+  required VoidCallback run,
+  String? unavailable,
+  bool danger = false,
+}) => Command(
+  id: 'organization.$id',
+  label: label,
+  group: 'Organization',
+  home: Home.organizationRow,
+  run: run,
+  unavailable: unavailable,
+  danger: danger,
+);
 
 /// Leaves a view onto work without interrupting the work itself.
 Command leaveWorkCommand(VoidCallback leave, {String? unavailable}) => Command(
@@ -135,6 +148,7 @@ class Command {
     this.home = Home.none,
     this.checked,
     this.role = Role.user,
+    this.danger = false,
     // The public named argument remains compatible with existing const commands.
     // ignore: prefer_initializing_formals
   }) : _unavailable = unavailable;
@@ -150,6 +164,9 @@ class Command {
 
   /// The startup role that offers this command.
   final Role role;
+
+  /// Whether it takes something away, which its entry in a menu shows by its color.
+  final bool danger;
 
   /// Whether the current startup roles offer this command.
   bool get visible => roles.holds(role);
