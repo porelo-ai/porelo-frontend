@@ -207,6 +207,18 @@ void main() {
       expect(made.source.writes, hasLength(1));
     });
 
+    // Harm: a project put on a host with no address waits there for a token that cannot help, and nobody is told.
+    testWidgets('a project the store will not put on stays where it was, with the words why', (tester) async {
+      final made = await page(tester, 'hana');
+      made.source.refuseNext = const OrganizationRefused('other has no address yet, so no host can follow it.');
+      await _tap(tester, _action('addProjectToHost'));
+      await _tap(tester, find.byKey(const Key('organization-person')));
+      await _tap(tester, find.text('other').hitTestable());
+      await _tap(tester, _confirm());
+      expect(find.text('other has no address yet, so no host can follow it.'), findsOneWidget);
+      expect(_confirm(), findsOneWidget, reason: 'the dialog stays, or its refusal has nowhere to be said');
+    });
+
     // Harm: a host admin who made a backup key sees no sign of it.
     testWidgets('a host admin with a backup key says so', (tester) async {
       await page(
