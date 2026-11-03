@@ -235,7 +235,13 @@ abstract final class Space {
 /// Fixed sizes that carry a decision rather than a measurement.
 abstract final class Sizes {
   /// The filter in each independent list header.
-  static const listFilter = 240.0;
+  static const listFilter = 190.0;
+
+  /// What an icon button in a list's header measures on a desktop window.
+  static const iconTarget = 32.0;
+
+  /// What anything to press measures in a window narrow enough to be a tablet or a phone.
+  static const touchTarget = 44.0;
 
   /// The scrollable verified-person picker.
   static const personPicker = 320.0;

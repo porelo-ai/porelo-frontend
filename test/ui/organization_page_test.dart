@@ -655,6 +655,8 @@ void main() {
 
   testWidgets('a section filter narrows its own rows', (tester) async {
     await _pump(tester, 'olive');
+    await tester.tap(find.byKey(const ValueKey('organization-projects-search')));
+    await World.settle(tester);
     await tester.enterText(find.byKey(const ValueKey('organization-projects-filter')), 'oth');
     await tester.pumpAndSettle();
     expect(_action('removeProject/other'), findsOneWidget);
