@@ -91,9 +91,10 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f340"></a>[F340](F340-Commits-Not-Yet-At-The-Forge.md) | — | — | A project's row and page saying how many approved commits have not reached the forge, with the action and who may do it. |
 | <a id="f339"></a>[F339](F339-Refresh-Reads-What-Is-Shown.md) | — | — | The rail's *Refresh* reaching the page shown, and a host page's own button named for what more it does. |
 | <a id="f338"></a>[F338](F338-The-Words-Of-The-Project-List.md) | — | — | The project list's words saying what each row states and each button does. |
-| <a id="f337"></a>[F337](F337-A-Rail-Entry-Leads-To-Its-List.md) | S | — | A click on a rail entry showing its list from the organization's project and host pages too. |
+| <a id="f337"></a>[F337](F337-A-Rail-Entry-Leads-To-Its-List.md) | S | — | A rail entry always landing on the first page that entry opens. |
 | <a id="f336"></a>[F336](F336-A-Hosts-Page-Reads-As-A-Way-To-Work.md) | — | — | A host's page saying what the connection is and what ending it does, and leading to work. |
 | <a id="f335"></a>[F335](F335-One-Row-Per-Machine.md) | — | — | A server standing once, and whether a machine and a host share a rail entry at all. |
 | <a id="f334"></a>[F334](F334-A-Host-Row-That-Keeps-Its-Words.md) | — | — | A machine's row keeping one steady line while a host refuses, and never talking of a forward. |
