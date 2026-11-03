@@ -87,6 +87,7 @@ class PoreloOrganizationSource implements OrganizationSource {
       keptIn: _text(answer, 'kept_in'),
       settings: _maybeText(answer, 'settings'),
       forge: _maybeText(answer, 'forge'),
+      address: _maybeText(answer, 'address'),
       vouchedBy: vouchedBy,
       revision: _maybeText(answer, 'revision') ?? '',
       stale: _flag(answer, 'stale'),

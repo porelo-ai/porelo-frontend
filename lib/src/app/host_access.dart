@@ -73,6 +73,11 @@ class HostAccess extends ChangeNotifier {
       "Porelo's answer does not name the organization's settings and forge, and a new host needs them to follow it, "
       'so no server can be prepared.';
 
+  /// Said of an organization at an https address, which a host's own key cannot read; other forms all can.
+  static const noFollowing =
+      "This organization stands at an https address, and a host follows it with an ssh key of its own, so a host made "
+      'now could never follow it. No server is prepared until the organization stands at an ssh address.';
+
   static Future<String> _ownKnownHosts() async {
     final file = File(path.join(desk.home, '.ssh', 'known_hosts'));
     return await file.exists() ? file.readAsString() : '';
@@ -135,6 +140,7 @@ class HostAccess extends ChangeNotifier {
       return 'Only a host admin of $host may do this.${_ask(view, named.admins)}';
     }
     if ((view.settings ?? '').isEmpty || (view.forge ?? '').isEmpty) return noAddress;
+    if (view.address?.toLowerCase().startsWith('https://') ?? false) return noFollowing;
     return named == null ? null : _whyNoPin(view, named);
   }
 

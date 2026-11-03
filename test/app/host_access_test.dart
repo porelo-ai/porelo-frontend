@@ -162,6 +162,22 @@ void main() {
       expect((file['organization'] as Map)['settings'], fixture.settings);
     });
 
+    // Harm: `up` runs for minutes and exits well, for a host that can never follow this organization.
+    test('an organization at an https address prepares nothing, and says why', () async {
+      final fixture = HostFixture()..address = 'https://forge.example.org/acme/org';
+      final access = await fixture.access(settings);
+      expect(access.unavailable('orchard'), contains('https'));
+      await expectLater(access.machineFile('orchard'), throwsA(isA<HostAccessRefused>()));
+      expect(fixture.machineFiles, isEmpty);
+    });
+
+    test('an organization at any other address goes on, and an unsaid one is not guessed at', () async {
+      for (final address in ['git@forge.example.org:acme/org.git', 'ssh://git@forge.example.org:2222/acme/org', null]) {
+        final access = await (HostFixture()..address = address).access(settings);
+        expect(access.unavailable('orchard'), isNull, reason: '$address');
+      }
+    });
+
     // Harm: a host is rented that could not trust its forge, and then cannot follow.
     test('no key of the forge in known_hosts stops before any file is written', () async {
       final fixture = HostFixture()..knownHosts = '';

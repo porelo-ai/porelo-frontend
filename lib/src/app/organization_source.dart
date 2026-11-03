@@ -151,6 +151,7 @@ class OrganizationView {
     required this.keptIn,
     this.settings,
     this.forge,
+    this.address,
     required this.vouchedBy,
     required this.revision,
     required this.me,
@@ -172,6 +173,9 @@ class OrganizationView {
 
   /// The host of the organization's address, as `known_hosts` names it; absent where not said.
   final String? forge;
+
+  /// The organization's own address, as `porelo org` answers it; absent where not said.
+  final String? address;
 
   /// What vouches for its people's keys, in the store's words.
   final String vouchedBy;

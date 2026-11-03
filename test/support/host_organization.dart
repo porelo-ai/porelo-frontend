@@ -44,6 +44,7 @@ class HostFixture implements OrganizationSource {
   /// What `porelo org` answers of where the organization is, for a host to follow it.
   String? settings = 'the unread settings';
   String? forge = 'forge.example.org';
+  String? address;
   HostAdminIdentity? actor = const HostAdminIdentity('alice', adminFingerprint, hostKey);
   final writes = <OrganizationWrite>[];
 
@@ -91,6 +92,7 @@ class HostFixture implements OrganizationSource {
       vouchedBy: 'GitHub',
       settings: settings,
       forge: forge,
+      address: address,
       revision: revision,
       stale: stale,
       me: 'alice',
