@@ -466,6 +466,10 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
   String? _progressWords(String name) {
     final progress = _progress?.of(name);
     if (progress == null) return null;
+    if (progress.hasNoAddress) {
+      return "the host has no address for it: a token cannot help until the project's admin opens it or files its "
+          'address anew';
+    }
     return switch (progress.state) {
       'carried' => 'on the host',
       'putting-on' => 'being put on, which can take up to five minutes',

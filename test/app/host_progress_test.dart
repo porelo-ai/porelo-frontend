@@ -70,6 +70,73 @@ void main() {
       expect(fed, '');
     });
 
+    // Harm: a host admin gives a token that cannot help, as the host took no address for the project, and is told
+    // the host still waits for it; or a project that does wait is no longer offered the token.
+    group('a project waiting for the token', () {
+      late Map<String, String> files;
+      late List<String> verbs;
+
+      setUp(() {
+        files = {};
+        verbs = [];
+        progress = SshHostProgress(
+          run: (program, arguments, {inDirectory, environment = const {}, input}) async {
+            final verb = arguments.last;
+            verbs.add(verb);
+            if (verb == SshHostProgress.statusVerb) {
+              return (
+                code: 0,
+                out:
+                    '{"projects":[{"project":"demo","state":"waiting-for-token"},'
+                    '{"project":"lost","state":"waiting-for-token"},{"project":"done","state":"carried"}]}',
+                err: '',
+              );
+            }
+            final name = RegExp(r'projects/(.+)\.json').firstMatch(verb)?.group(1);
+            final file = files[name];
+            return file == null ? (code: 1, out: '', err: 'no such file') : (code: 0, out: file, err: '');
+          },
+        );
+      });
+
+      test('with no address on the host it wants no token', () async {
+        files = {'demo': '{"address":"git@forge:o/demo.git"}', 'lost': '{"address":null}'};
+        final read = await progress.status('/c/build.conf', 'build');
+        expect(read.of('demo')!.waitsForToken, isTrue);
+        expect(read.of('lost')!.waitsForToken, isFalse);
+        expect(read.of('lost')!.hasNoAddress, isTrue);
+        expect(read.wantsToken, isTrue);
+      });
+
+      test('alone, it leaves nothing to give a token for', () async {
+        files = {'demo': '{"address":null}', 'lost': '{"address":null}'};
+        expect((await progress.status('/c/build.conf', 'build')).wantsToken, isFalse);
+      });
+
+      test('what cannot be read leaves the offer as the host said it', () async {
+        final read = await progress.status('/c/build.conf', 'build');
+        expect(read.of('lost')!.hasNoAddress, isFalse);
+        expect(read.wantsToken, isTrue);
+      });
+
+      test('only those waiting are read, and a name a shell could read otherwise is not', () async {
+        files = {'demo': '{"address":"a"}', 'lost': '{"address":"a"}'};
+        await progress.status('/c/build.conf', 'build');
+        expect(verbs.where((verb) => verb.contains('done')), isEmpty);
+        expect(verbs, hasLength(3));
+        final odd = SshHostProgress(
+          run: (program, arguments, {inDirectory, environment = const {}, input}) async {
+            verbs.add(arguments.last);
+            return (code: 0, out: r'{"projects":[{"project":"a;$(x)","state":"waiting-for-token"}]}', err: '');
+          },
+        );
+        verbs.clear();
+        final read = await odd.status('/c/build.conf', 'build');
+        expect(verbs, [SshHostProgress.statusVerb]);
+        expect(read.wantsToken, isTrue);
+      });
+    });
+
     // Harm: a key a follow took off root reads as a fault of the host, or as the wait a person's own account has.
     test('a key the host does not take as root is said as no longer an admin\'s', () async {
       answer = (code: 255, out: '', err: 'root@192.0.2.1: Permission denied (publickey).\n');

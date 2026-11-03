@@ -7,7 +7,13 @@ import 'run_here.dart';
 /// How far a host has come with one project it was told to carry, in the words of its `org status`.
 class HostProjectProgress {
   /// Keeps the host's word on [project].
-  const HostProjectProgress({required this.project, required this.state, this.why, this.since});
+  const HostProjectProgress({
+    required this.project,
+    required this.state,
+    this.why,
+    this.since,
+    this.hasNoAddress = false,
+  });
 
   /// The project.
   final String project;
@@ -21,8 +27,16 @@ class HostProjectProgress {
   /// Since when, where the host said.
   final String? since;
 
+  /// Whether the host took no address for it. It names this state as waiting for a token, which cannot help then: the
+  /// project's admin has to open it or file its address anew.
+  final bool hasNoAddress;
+
   /// Whether the host waits for the host admin's central token for it.
-  bool get waitsForToken => state == 'waiting-for-token';
+  bool get waitsForToken => state == 'waiting-for-token' && !hasNoAddress;
+
+  /// The same word, knowing the host took no address for it.
+  HostProjectProgress withNoAddress() =>
+      HostProjectProgress(project: project, state: state, why: why, since: since, hasNoAddress: true);
 }
 
 /// A person locked on a host, whose account goes by itself on [purgeOn].
@@ -41,6 +55,17 @@ class HostLockedPerson {
 class HostProgress {
   /// Keeps one answer of the host's.
   const HostProgress({this.projects = const [], this.locked = const [], this.waitsForToken = false, this.refused});
+
+  /// This answer, with [without] known as having no address on the host.
+  HostProgress withNoAddress(Set<String> without) => HostProgress(
+    projects: [
+      for (final project in projects)
+        if (without.contains(project.project)) project.withNoAddress() else project,
+    ],
+    locked: locked,
+    waitsForToken: waitsForToken,
+    refused: refused,
+  );
 
   /// Reads `org status` or `org refresh`; what this build does not know is passed over, and a part of an older host's
   /// answer that is absent says nothing.
@@ -114,32 +139,72 @@ class SshHostProgress {
   /// Makes the host fetch now, with nothing on its standard input: a token goes only by the terminal.
   static const refreshVerb = '/usr/local/sbin/porelo-host-person org refresh';
 
+  /// What the host keeps of a project, and whether it took an address for it. Read-only.
+  static String projectFileVerb(String project) => 'cat /etc/porelo-host/organization/projects/$project.json';
+
+  /// The name of a project whose file can be asked for in a remote command.
+  static final _plainName = RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$');
+
   /// What the host [host], reached through [config], says of itself.
-  Future<HostProgress> status(String config, String host) => _ask(config, host, statusVerb);
+  Future<HostProgress> status(String config, String host) async =>
+      _withAddresses(config, host, await _ask(config, host, statusVerb));
 
   /// Asks [host] to fetch now, and what it says then.
-  Future<HostProgress> refresh(String config, String host) => _ask(config, host, refreshVerb);
+  Future<HostProgress> refresh(String config, String host) async =>
+      _withAddresses(config, host, await _ask(config, host, refreshVerb));
+
+  /// Tells a real wait for the token from a project the host took no address for; `org status` says both alike.
+  Future<HostProgress> _withAddresses(String config, String host, HostProgress progress) async {
+    final without = <String>{};
+    for (final project in progress.projects) {
+      if (project.waitsForToken && _plainName.hasMatch(project.project)) {
+        if (await _hasNoAddress(config, host, project.project)) without.add(project.project);
+      }
+    }
+    return without.isEmpty ? progress : progress.withNoAddress(without);
+  }
+
+  /// True only where the host's file says so: what cannot be read leaves the host's own word standing.
+  Future<bool> _hasNoAddress(String config, String host, String project) async {
+    final Ran answer;
+    try {
+      answer = await _ssh(config, host, projectFileVerb(project));
+    } on ProcessException {
+      return false;
+    } on WorkspaceRefused {
+      return false;
+    }
+    if (answer.code != 0) return false;
+    try {
+      final read = jsonDecode(answer.out);
+      return read is Map && read.containsKey('address') && read['address'] == null;
+    } on FormatException {
+      return false;
+    }
+  }
+
+  Future<Ran> _ssh(String config, String host, String verb) => _run('ssh', [
+    '-F',
+    config,
+    '-T',
+    '-o',
+    'BatchMode=yes',
+    '-o',
+    'ForwardAgent=no',
+    '-o',
+    'ControlMaster=no',
+    '-o',
+    'ControlPath=none',
+    '-o',
+    'ProxyCommand=none',
+    'root@$host',
+    verb,
+  ], input: '');
 
   Future<HostProgress> _ask(String config, String host, String verb) async {
     final Ran answer;
     try {
-      answer = await _run('ssh', [
-        '-F',
-        config,
-        '-T',
-        '-o',
-        'BatchMode=yes',
-        '-o',
-        'ForwardAgent=no',
-        '-o',
-        'ControlMaster=no',
-        '-o',
-        'ControlPath=none',
-        '-o',
-        'ProxyCommand=none',
-        'root@$host',
-        verb,
-      ], input: '');
+      answer = await _ssh(config, host, verb);
     } on ProcessException {
       throw const OrganizationRefused('SSH could not run on this computer.');
     } on WorkspaceRefused catch (refused) {

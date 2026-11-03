@@ -316,6 +316,18 @@ void main() {
       expect(find.textContaining('the helper exited 69'), findsOneWidget);
     });
 
+    // Harm: a host admin is sent to give a token that cannot help, when the project's admin has something to do.
+    testWidgets('a project the host has no address for offers no token, and says whose it is', (tester) async {
+      final connections = FixtureConnections(['build'])
+        ..hostProgress = const HostProgress(
+          projects: [HostProjectProgress(project: 'demo', state: 'waiting-for-token', hasNoAddress: true)],
+        );
+      await page(tester, 'hana', connections: connections);
+      expect(find.textContaining("project's admin"), findsOneWidget);
+      expect(find.textContaining('waits for your central token'), findsNothing);
+      expect(_action('giveToken'), findsNothing);
+    });
+
     // Harm: a member's interface asks root, which is not their way in.
     testWidgets('a member asks the host nothing', (tester) async {
       final connections = FixtureConnections(['build']);
