@@ -101,6 +101,54 @@ void main() {
     }
   });
 
+  // Harm: every real checkout's draft is refused as unreadable, or a person reads raw JSON. This is Core's answer as the
+  // published package gave it for a pom with one property.
+  test('the draft as real Core answers it is read and said in words', () async {
+    final row = {
+      'key': 'maven.version',
+      'value': '',
+      'file': 'pom.xml',
+      'line': 0,
+      'origin': 'CHECKOUT',
+      'unknown': false,
+      'note': 'no version is asked for, so any Maven serves',
+      'plugin': 'maven',
+    };
+    result = (
+      code: 0,
+      out: jsonEncode({
+        ..._preview(),
+        'values': [row],
+        'disagreements': [
+          {
+            'key': 'java.version',
+            'values': [
+              {...row, 'value': '21', 'line': 2},
+              {...row, 'value': '17', 'line': 9},
+            ],
+          },
+        ],
+        'unplaced': <Object?>[],
+        'not_placed': [row],
+        'credentials_needed': [
+          {'id': 'nexus', 'command': 'porelo vault put nexus'},
+        ],
+        'plugins': [
+          {'state': 'recognized', 'why': '', 'name': 'maven'},
+        ],
+      }),
+      err: '',
+    );
+    final draft = await source.readProjectInit('/checkout', project: 'demo');
+    expect(draft.values.single.line, isNull);
+    expect(draft.values.single.file, 'pom.xml');
+    expect(draft.plugins.single.why, isNull);
+    expect(draft.unplaced, isEmpty);
+    expect(draft.notPlaced, 'maven.version · pom.xml · no version is asked for, so any Maven serves · Plugin: maven');
+    expect(draft.credentialsNeeded, 'nexus');
+    expect(draft.disagreements.single.values, '21 (pom.xml:2) or 17 (pom.xml:9)');
+  });
+
   // Harm: a partial or malformed draft must never become permission to sign an incomplete project.
   test('malformed drafts and missing project revisions fail closed', () async {
     final bad = <Object?>[

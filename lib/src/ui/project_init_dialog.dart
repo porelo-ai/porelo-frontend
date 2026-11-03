@@ -61,6 +61,16 @@ class _ProjectInitDialogState extends State<ProjectInitDialog> {
     }
   }
 
+  static String _orNone(String listed) => listed.isEmpty ? 'none' : listed;
+
+  // Core names whose file a value comes from in one word of its own.
+  static String _whose(String origin) => switch (origin) {
+    'CHECKOUT' => 'From the checkout',
+    'YOURS' => 'From your own files',
+    'MACHINE' => 'From the machine or a default',
+    _ => origin,
+  };
+
   // Core's rule: a project cannot hold a repository of its own name, and a person's first ones often share one.
   String get _namedAsItsRepository =>
       'A project cannot hold a repository of its own name. Add the project under another name, such as '
@@ -128,25 +138,27 @@ class _ProjectInitDialogState extends State<ProjectInitDialog> {
             Text('Disagreements', style: Theme.of(context).textTheme.titleSmall),
             if (draft.disagreements.isEmpty) const Text('None reported.'),
             for (final disagreement in draft.disagreements) Text('${disagreement.key}: ${disagreement.values}'),
-            Text('Credentials needed: ${draft.credentialsNeeded}'),
+            Text('Credentials needed: ${_orNone(draft.credentialsNeeded)}'),
             const Text('Enter credentials only through Porelo’s own terminal or the provider’s sign-in.'),
             Text('Plugins', style: Theme.of(context).textTheme.titleSmall),
             if (draft.plugins.isEmpty) const Text('None reported.'),
             for (final plugin in draft.plugins)
               Text('${plugin.name}: ${plugin.state}${plugin.why == null ? '' : ' · ${plugin.why}'}'),
-            Text('Unplaced: ${draft.unplaced}'),
-            Text('Not placed: ${draft.notPlaced}'),
+            Text('Unplaced: ${_orNone(draft.unplaced)}'),
+            Text('Not placed: ${_orNone(draft.notPlaced)}'),
             const SizedBox(height: Space.small),
             Text('Values', style: Theme.of(context).textTheme.titleSmall),
             if (draft.values.isEmpty) const Text('No values reported.'),
             for (final value in draft.values)
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                title: Text('${value.key}: ${value.value}${value.unknown ? ' · unknown' : ''}'),
+                title: Text(
+                  '${value.key}${value.value.isEmpty ? '' : ': ${value.value}'}${value.unknown ? ' · unknown' : ''}',
+                ),
                 subtitle: Text(
                   [
                     if (value.file != null) '${value.file}${value.line == null ? '' : ':${value.line}'}',
-                    if (value.origin != null) value.origin!,
+                    if (value.origin != null) _whose(value.origin!),
                     if (value.file == null && value.origin == null) 'Origin not named.',
                     if (value.note != null) 'Note: ${value.note}',
                     if (value.plugin != null) 'Plugin: ${value.plugin}',

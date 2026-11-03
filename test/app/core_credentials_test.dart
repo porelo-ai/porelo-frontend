@@ -11,6 +11,32 @@ void main() {
   final other = 'SHA256:${List.filled(43, 'B').join()}';
   final key = (type: 'ssh-ed25519', fingerprint: fingerprint);
 
+  // Harm: a forge named with ssh's own port can never be trusted, as Core names it without that port.
+  test('a host on port 22 is the one Core names without the port', () async {
+    final core = CoreCredentials(
+      run: (program, arguments, {inDirectory, environment = const {}, input}) async => (
+        code: 0,
+        err: '',
+        out: jsonEncode(
+          arguments.any((each) => each.startsWith('--fingerprint'))
+              ? {
+                  'host': 'forge.example.org',
+                  'recorded': {'type': key.type, 'fingerprint': key.fingerprint},
+                }
+              : {
+                  'host': 'forge.example.org',
+                  'keys': [
+                    {'type': key.type, 'fingerprint': key.fingerprint},
+                  ],
+                  'known': false,
+                },
+        ),
+      ),
+    );
+    expect((await core.offered('forge.example.org:22')).keys.single, key);
+    await core.trust('forge.example.org:22', key);
+  });
+
   // Harm: a key is recorded before comparison, or another key is accepted from a changed or malformed reply.
   test('host trust previews without writing and confirms the exact selected key', () async {
     final calls = <List<String>>[];

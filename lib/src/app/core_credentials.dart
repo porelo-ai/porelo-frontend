@@ -53,11 +53,14 @@ class CoreCredentials {
     throw const WorkspaceRefused('Porelo gave an answer that could not be read. Its result is unconfirmed.');
   }
 
+  // Core names a host on ssh's own port without the port.
+  static String _named(String destination) => destination.replaceFirst(RegExp(r':0*22$'), '');
+
   /// Fetches keys without recording any of them.
   Future<({List<OfferedHostKey> keys, bool known})> offered(String destination) async {
     final answer = await _call(['credentials', 'trust-host', host(destination)]);
     final keys = answer['keys'];
-    if (answer['host'] != destination || answer['known'] is! bool || keys is! List || keys.isEmpty) {
+    if (answer['host'] != _named(destination) || answer['known'] is! bool || keys is! List || keys.isEmpty) {
       throw const WorkspaceRefused('Porelo cannot say which SSH host key is offered.');
     }
     return (keys: List<OfferedHostKey>.unmodifiable(keys.map(_key)), known: answer['known'] as bool);
@@ -67,7 +70,7 @@ class CoreCredentials {
   Future<void> trust(String destination, OfferedHostKey key) async {
     _key({'type': key.type, 'fingerprint': key.fingerprint});
     final answer = await _call(['credentials', 'trust-host', host(destination), '--fingerprint=${key.fingerprint}']);
-    if (answer['host'] != destination || _key(answer['recorded']) != key) {
+    if (answer['host'] != _named(destination) || _key(answer['recorded']) != key) {
       throw const WorkspaceRefused('Porelo did not confirm the SSH host key you chose.');
     }
   }

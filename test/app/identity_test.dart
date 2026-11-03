@@ -273,6 +273,26 @@ void main() {
       });
     }
 
+    // Harm: a person whose agent serves two keys the forge lists gets an error instead of the choice. Core answers such a
+    // key both as missing and as ambiguous.
+    test('two keys to choose from are a choice, not a damaged proposal', () async {
+      core.answer('identity propose', {
+        ..._proposal(),
+        'key': null,
+        'ready': false,
+        'missing': ['key'],
+        'ambiguous': [
+          {
+            'field': 'key',
+            'values': ['SHA256:${'a' * 43}', 'SHA256:${'b' * 43}'],
+          },
+        ],
+      });
+      final proposal = await model.core.propose();
+      expect(proposal.missing, isEmpty);
+      expect(proposal.ambiguous['key'], hasLength(2));
+    });
+
     // Harm: duplicate missing fields build conflicting widget keys instead of a reviewable card form.
     test('a duplicate missing field is not a usable proposal', () async {
       core.answer('identity propose', {

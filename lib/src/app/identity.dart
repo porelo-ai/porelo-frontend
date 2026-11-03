@@ -512,11 +512,9 @@ class IdentityProposal {
       final value = Identity._field(answer, field);
       values[field] = value == null ? null : _value(value, field, found: true);
     }
-    final missing = Identity._strings(answer['missing']);
+    final said = Identity._strings(answer['missing']);
     final choices = answer['ambiguous'];
-    if (choices is! List ||
-        missing.toSet().length != missing.length ||
-        missing.any((field) => !fields.contains(field))) {
+    if (choices is! List || said.toSet().length != said.length || said.any((field) => !fields.contains(field))) {
       throw const FormatException('Core answered card questions this interface cannot read.');
     }
     final ambiguous = <String, List<ProposedIdentityValue>>{};
@@ -524,15 +522,16 @@ class IdentityProposal {
       if (choice is! Map<String, dynamic>) throw const FormatException('Invalid card choice.');
       final field = Identity._text(choice, 'field');
       final alternatives = choice['values'];
-      if (!fields.contains(field) ||
-          ambiguous.containsKey(field) ||
-          missing.contains(field) ||
-          alternatives is! List ||
-          alternatives.length < 2) {
+      if (!fields.contains(field) || ambiguous.containsKey(field) || alternatives is! List || alternatives.length < 2) {
         throw const FormatException('Core did not answer distinct card choices.');
       }
       ambiguous[field] = List.unmodifiable(alternatives.map((value) => _value(value, field)));
     }
+    // Core also says a value with choices is missing, as none was picked: to a person it is a choice.
+    final missing = [
+      for (final field in said)
+        if (!ambiguous.containsKey(field)) field,
+    ];
     final ready = Identity._bool(answer, 'ready');
     if (ready &&
         (missing.isNotEmpty ||

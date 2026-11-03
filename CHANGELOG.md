@@ -67,6 +67,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- A checkout's draft is read as Core answers it: a value with no line no longer makes the whole draft unreadable, and its
+  lists read as words, not JSON. Two keys to choose from are offered as a choice.
 - Rail *Refresh* rereads the page shown; a machine's *Fetch now* says what it does and when the machine last answered.
 - A machine's read-only project list keeps projects being taken off visible, with any reason the machine holds them.
 - A project's page says it is reading its address, repositories, and members while it waits.

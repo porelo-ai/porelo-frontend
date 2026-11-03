@@ -280,11 +280,11 @@ class PoreloOrganizationSource implements OrganizationSource {
               ProjectInitValue(
                 key: _text(value, 'key'),
                 value: _display(value, 'value'),
-                file: _maybeText(value, 'file'),
+                file: _said(value, 'file'),
                 line: _line(value),
                 origin: _maybeText(value, 'origin'),
                 unknown: _truth(value, 'unknown'),
-                note: _maybeText(value, 'note'),
+                note: _said(value, 'note'),
                 plugin: _maybeText(value, 'plugin'),
               ),
           ],
@@ -292,12 +292,12 @@ class PoreloOrganizationSource implements OrganizationSource {
             for (final disagreement in _maps(answer, 'disagreements'))
               (key: _text(disagreement, 'key'), values: _alternatives(disagreement)),
           ],
-          unplaced: _display(answer, 'unplaced'),
-          notPlaced: _display(answer, 'not_placed'),
-          credentialsNeeded: _display(answer, 'credentials_needed'),
+          unplaced: _listed(answer, 'unplaced'),
+          notPlaced: _listed(answer, 'not_placed'),
+          credentialsNeeded: _listed(answer, 'credentials_needed'),
           plugins: [
             for (final plugin in _maps(answer, 'plugins'))
-              (name: _text(plugin, 'name'), state: _text(plugin, 'state'), why: _maybeText(plugin, 'why')),
+              (name: _text(plugin, 'name'), state: _text(plugin, 'state'), why: _said(plugin, 'why')),
           ],
         );
       });
@@ -308,13 +308,54 @@ class PoreloOrganizationSource implements OrganizationSource {
 
   static int? _line(Map<String, Object?> value) {
     final line = _maybeInt(value, 'line');
-    if (line != null && line < 1) throw const _Unreadable('line');
-    return line;
+    if (line != null && line < 0) throw const _Unreadable('line');
+    // Core and the plugins say 0 where a file has no line for the value.
+    return line == 0 ? null : line;
   }
 
   static String _alternatives(Map<String, Object?> value) {
-    if (value['values'] is! List) throw const _Unreadable('disagreement values');
-    return _display(value, 'values');
+    final values = value['values'];
+    if (values is! List) throw const _Unreadable('disagreement values');
+    return [
+      for (final each in values)
+        if (each is Map<String, Object?>)
+          [each['value'], if (_where(each) case final where?) '($where)'].join(' ')
+        else
+          '$each',
+    ].join(' or ');
+  }
+
+  /// A list Core answers in rows, as a person reads it: empty where it holds nothing.
+  static String _listed(Map<String, Object?> value, String field) {
+    if (!value.containsKey(field)) throw _Unreadable(field);
+    final found = value[field];
+    if (found is! List) return found is String ? found : jsonEncode(found);
+    return found.map(_row).join('\n');
+  }
+
+  static String _row(Object? each) {
+    if (each is! Map<String, Object?>) return each is String ? each : jsonEncode(each);
+    if (each['id'] case final String credential) return credential;
+    final value = '${each['value'] ?? ''}';
+    return [
+      if (each['key'] case final String key) value.isEmpty ? key : '$key: $value',
+      ?_where(each),
+      ?_said(each, 'note'),
+      if (_said(each, 'plugin') case final plugin?) 'Plugin: $plugin',
+    ].join(' · ');
+  }
+
+  static String? _where(Map<String, Object?> row) {
+    final file = _said(row, 'file');
+    if (file == null) return null;
+    final line = row['line'];
+    return line is int && line > 0 ? '$file:$line' : file;
+  }
+
+  /// A word that may be left out: Core says "" for one it has none of.
+  static String? _said(Map<String, Object?> map, String field) {
+    final value = _maybeText(map, field);
+    return value == null || value.isEmpty ? null : value;
   }
 
   static String _display(Map<String, Object?> value, String field) {
