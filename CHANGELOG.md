@@ -47,6 +47,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- A machine row keeps its connection refusal during automatic retries; the first attempt says *Connecting…*.
+- Rail entries return to their first page. *Work* in the rail shows all work; links from detail pages keep their scope.
 - *Prepare a server…* opens its one dialog at the click, which says it is reading and shows a refusal in place. A
   preparation says what it is doing and that it can take minutes, keeps *Close* usable, and continues with its machine
   row after the dialog closes. A row with no step has no trailing separator.

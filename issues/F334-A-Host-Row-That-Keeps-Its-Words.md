@@ -1,6 +1,6 @@
 # F334 — A Host Row That Keeps Its Words
 
-**Status:** Implementing.
+**Status:** Review.
 
 **What must be true.** A machine's row says one steady thing while a host keeps refusing, in words of what the person can do,
 and never talks of a forward.
@@ -36,6 +36,5 @@ state:
 
 ## To be checked
 
-- How often it really tries at a host that refuses. No lockout on the host side was found in a search for `fail2ban` and
-  sshd limits, but that search was short, and a host could count these as failed logins.
-- That the row stays steady, in a test with a fake ssh that keeps refusing, seen red before the fix.
+- How often it tries at a machine that keeps refusing: read from the code, two ssh attempts in about two seconds when refusals are fast, and not measured. No lockout on a machine was found in a short search, but a machine could count these as failed logins, and a slower retry may be wanted.
+- *Raise the forward for me* and *Its socket is already forwarded* still stand in the dialog that adds a machine.

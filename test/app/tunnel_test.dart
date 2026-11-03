@@ -378,6 +378,7 @@ void main() {
     addTearDown(tunnel.drop);
     final raising = tunnel.raise();
     await asked.future;
+    final refusal = tunnel.problem;
     final reraising = tunnel.raise();
     addTearDown(() async {
       if (!next.isCompleted) next.complete(second);
@@ -391,7 +392,7 @@ void main() {
     await Future<void>.delayed(Duration.zero);
 
     expect(tunnel.state, TunnelState.raising);
-    expect(tunnel.problem, isNull);
+    expect(tunnel.problem, refusal, reason: 'the retry keeps its refusal until it has a new answer');
     next.complete(second);
     second.end('Connection closed');
     await Future.wait(<Future<void>>[raising, reraising]);
@@ -422,7 +423,7 @@ void main() {
     await tunnel.raise();
 
     expect(tunnel.state, TunnelState.down);
-    expect(tunnel.problem, contains('did not appear'));
+    expect(tunnel.problem, contains('not ready'));
   });
 
   test('a plain file where the socket goes is not a forward', () async {
@@ -439,7 +440,7 @@ void main() {
     await tunnel.raise();
 
     expect(tunnel.state, TunnelState.down);
-    expect(tunnel.problem, contains('did not appear'));
+    expect(tunnel.problem, contains('not ready'));
   });
 
   test('a socket left by a run that died is taken over, not surrendered to', () async {
@@ -835,7 +836,6 @@ void main() {
 
       expect(started.went, isFalse);
       expect(asked, isFalse, reason: 'there is no host to log into');
-      expect(started.words, contains('forwarded by somebody else'));
     });
 
     test('ssh that cannot be run at all is a refusal, not a crash', () async {

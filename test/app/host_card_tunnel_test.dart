@@ -19,6 +19,7 @@ import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/settings.dart';
 import 'package:porelo_frontend/src/app/session.dart';
 import 'package:porelo_frontend/src/app/tunnel.dart';
+import 'package:porelo_frontend/src/ui/machines_page.dart' show machineRowWords;
 import 'package:porelo_host/porelo_host.dart';
 
 import '../features/support/world.dart' show FakeTerminal;
@@ -1437,6 +1438,38 @@ void main() {
     expect(refused.of(host)!.problem, contains('key'));
     expect(unlock.calls, isEmpty);
     await refused.dropEverything();
+  });
+
+  // Harm: an automatic retry hides the refusal while the person is deciding how to answer it.
+  test('repeated SSH refusals keep the machine row steady during retries', () async {
+    String row() {
+      final tunnel = tunnels.of(host)!;
+      return machineRowWords(
+        where: host.name,
+        tunnelUp: tunnel.state == TunnelState.up,
+        tunnelWords: tunnel.words,
+        tunnelProblem: tunnel.problem,
+        fleet: 'not connected yet',
+      );
+    }
+
+    final duringAttempts = <String>[];
+    nextProcess = () {
+      duringAttempts.add(row());
+      return _Process()..end('Permission denied (publickey).');
+    };
+    checkControl = () async => ProcessResult(0, 1, '', '');
+
+    expect(await tunnels.raiseFor(host), isFalse);
+    expect(tunnels.of(host)!.problem, isNotEmpty);
+    final refusedRow = row();
+    for (var retry = 0; retry < 2; retry++) {
+      await tunnels.raiseAgainIfItDropped(host);
+      expect(row(), refusedRow, reason: 'another refusal leaves the same answer');
+    }
+
+    expect(launches, hasLength(3), reason: 'keeping the refusal must not stop automatic retries');
+    expect(duringAttempts.skip(1), everyElement(refusedRow), reason: 'a retry must not hide the refusal');
   });
 
   // Prevents vault refusal from relabeling an SSH-reached host as unavailable.

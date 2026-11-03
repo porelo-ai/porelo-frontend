@@ -2882,6 +2882,16 @@ class _ShellState extends State<Shell> {
         width: width,
         onGo: (section) {
           _leaveDrawer();
+          setState(() {
+            _organizationProject = null;
+            _machineProjects = false;
+            _organizationHost = null;
+          });
+          if (section == Section.work) {
+            _workView
+              ..machine = null
+              ..project = null;
+          }
           widget.shell.goTo(section);
         },
         onRefresh: () => unawaited(_refreshAll()),

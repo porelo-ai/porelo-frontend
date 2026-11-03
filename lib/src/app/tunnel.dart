@@ -177,8 +177,8 @@ class Tunnel {
     if (machine.hostCard != null) return _raiseCard();
     final generation = ++_generation;
     _wanted = true;
+    if (state != TunnelState.down && state != TunnelState.waitingForKey) problem = null;
     state = TunnelState.raising;
-    problem = null;
 
     // Our own previous process first. A re-raise while the old `ssh` is still alive would
     // otherwise meet its socket below and refuse it as somebody else's.
@@ -251,6 +251,7 @@ class Tunnel {
           problem = 'the endpoint could not be made readable by nobody but you';
           return;
         }
+        problem = null;
         state = TunnelState.up;
         return;
       }
@@ -264,15 +265,15 @@ class Tunnel {
       return;
     }
     state = TunnelState.down;
-    problem = 'the forward did not appear within ${_untilItBinds.inSeconds} seconds';
+    problem = 'The connection was not ready within ${_untilItBinds.inSeconds} seconds.';
   }
 
   Future<void> _raiseCard() async {
     final generation = ++_generation;
     final card = machine.hostCard!;
     _wanted = true;
+    if (state != TunnelState.down && state != TunnelState.waitingForKey) problem = null;
     state = TunnelState.raising;
-    problem = null;
     vaultProblem = null;
     vaultState = null;
     try {
@@ -288,7 +289,7 @@ class Tunnel {
       for (final endpoint in [machine.socketPath, card.controlSocket(machine.sshConfig)]) {
         if (FileSystemEntity.typeSync(endpoint, followLinks: false) != FileSystemEntityType.notFound) {
           state = TunnelState.down;
-          problem = 'Host ${card.name} cannot start: an endpoint already exists and was left alone.';
+          problem = 'Machine ${card.name} cannot connect: an endpoint already exists and was left alone.';
           return;
         }
       }
@@ -328,6 +329,7 @@ class Tunnel {
             .timeout(_untilExplained);
         if (generation != _generation || state != TunnelState.raising) return;
         if (check.exitCode == 0) {
+          problem = null;
           state = TunnelState.up;
           await unlockVault();
           return;
@@ -338,11 +340,11 @@ class Tunnel {
       await _stopWhatWeStarted();
       _clearOwnedCardEndpoints();
       state = TunnelState.down;
-      problem = 'The SSH master did not answer within ${_untilItBinds.inSeconds} seconds.';
+      problem = 'The SSH connection did not answer within ${_untilItBinds.inSeconds} seconds.';
     } on TimeoutException {
       if (generation != _generation) return;
       state = TunnelState.down;
-      problem = 'The host transport check timed out.';
+      problem = 'Checking the machine connection timed out.';
     } on HostFilesRefused catch (refused) {
       if (generation != _generation) return;
       state = TunnelState.down;
@@ -350,11 +352,11 @@ class Tunnel {
     } on ProcessException {
       if (generation != _generation) return;
       state = TunnelState.down;
-      problem = 'The required host transport command is unavailable.';
+      problem = 'The command needed to connect to this machine is unavailable.';
     } on FileSystemException {
       if (generation != _generation) return;
       state = TunnelState.down;
-      problem = 'The host transport files could not be prepared or cleaned up.';
+      problem = 'The files needed to connect to this machine could not be prepared or cleaned up.';
     } finally {
       if (generation == _generation && state == TunnelState.down) {
         await _stopWhatWeStarted();
@@ -507,7 +509,7 @@ class Tunnel {
 
   /// What is worth saying about it, or null when there is nothing.
   String? get words => switch (state) {
-    TunnelState.raising => 'raising the forward…',
+    TunnelState.raising => problem ?? 'Connecting…',
     TunnelState.down => problem,
     TunnelState.waitingForKey => problem,
     // Up, and the host vault not opened from here: why is said, since every project on it waits.
@@ -527,11 +529,11 @@ class Tunnel {
           words.contains('Host key verification failed') || words.contains('REMOTE HOST IDENTIFICATION HAS CHANGED')
           ? hostKeyPinRefusal
           : words.contains('Permission denied')
-          ? 'The host refused this account or its selected key. A host makes your account only after it has read '
-                'the organization, up to five minutes after your project is on it, and a host still waiting for a '
+          ? 'The machine refused this account or its selected key. A machine makes your account only after it has read '
+                'the organization, up to five minutes after your project is on it, and a machine still waiting for a '
                 'token has made none yet.'
           : words.contains('forwarding failed') || words.contains('Address already in use')
-          ? 'The host tunnel could not bind its fixed port or socket.'
+          ? 'The machine connection could not use its required local port or socket.'
           : switch (said.map((line) => line.trim()).where((line) => line.isNotEmpty).lastOrNull) {
               final reason? => 'The SSH connection stopped: $reason',
               null => 'The SSH connection stopped (exit $code).',
@@ -541,7 +543,7 @@ class Tunnel {
       onChanged?.call();
       return;
     }
-    problem = said.isEmpty ? 'the forward stopped, exit code $code' : words;
+    problem = said.isEmpty ? 'The SSH connection stopped (exit $code).' : words;
     onChanged?.call();
     if (said.isEmpty) return;
     try {
@@ -973,7 +975,7 @@ class Tunnels extends ChangeNotifier {
     if (!machine.needsATunnel) {
       return const Started(
         went: false,
-        words: 'This machine names no host to log into: its socket is forwarded by somebody else.',
+        words: 'This machine has no SSH login configured; its connection is managed elsewhere.',
       );
     }
     return _said(stopCommandFor(machine));
@@ -993,7 +995,7 @@ class Tunnels extends ChangeNotifier {
     if (!machine.canBeStartedHere) {
       return const Started(
         went: false,
-        words: 'This machine names no host to log into: its socket is forwarded by somebody else.',
+        words: 'This machine has no SSH login configured; its connection is managed elsewhere.',
       );
     }
     return _said(startCommandFor(machine));
