@@ -10,7 +10,7 @@ real answer too; clicks came late as well. That the forwarded display is the cau
 
 ## To be checked
 
-- Whether the same happens on a local display, and whether the window in that walk held the fix of
-  [F321](README.md#f321), which sends each key typed once. Should it have held it, that fix does not cover this, which
-  matters before it goes upstream.
-- Whether the letters are sent twice or only shown twice.
+- The window in that walk ran `0.5.1~snapshot.252`, the package of `8a208932`, which does not hold the fix of
+  [F321](README.md#f321), which sends each key typed once. The doubled letters are then most likely that known fault; no
+  build holding the fix has been tried over `ssh -Y`. If letters still come doubled with it, the fix does not cover this.
+- Whether the late answers have another cause: the fix does not touch them.
