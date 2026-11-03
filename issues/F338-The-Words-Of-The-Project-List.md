@@ -1,6 +1,6 @@
 # F338 — The Words Of The Project List
 
-**Status:** Accepted.
+**Status:** Review.
 
 **What must be true.** A person new to a project's list can tell from its words what each row says and what each button does.
 

@@ -9,6 +9,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Project rows offer a direct connection to their machine and say where to work; the machines link includes all projects.
+- Machine setup explains which forge token it needs, its one-time use, required repository rights, and that it is not kept.
 - Clearer words: a command's refusal in a terminal, a file in the way at *Connect*, a wrong *SSH host key* paste, a busy
   port held by another window, why *Connect* stopped, a project on a host with no address, and no `--id` in a refusal. A
   refusal below the fold of the host dialog scrolls into view, and the lost-key plan offers only its own *Cancel*.

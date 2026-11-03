@@ -18,6 +18,8 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f338"></a>[F338](F338-The-Words-Of-The-Project-List.md) | — | — | The project list's words saying what each row states and each button does. |
+| <a id="f341"></a>[F341](F341-What-The-Token-Is-For.md) | — | — | The words asking for a token naming its forge, what the host does with it, its rights, and that it is not kept. |
 | <a id="f336"></a>[F336](F336-A-Hosts-Page-Reads-As-A-Way-To-Work.md) | — | [F335](#f335) | A host's page saying what the connection is and what ending it does, and leading to work. |
 | <a id="f340"></a>[F340](F340-Commits-Not-Yet-At-The-Forge.md) | — | — | A project's row and page saying how many approved commits have not reached the forge, with the action and who may do it. |
 | <a id="f342"></a>[F342](F342-A-Project-Is-Put-On-A-Machine-From-The-Organizations-Projects.md) | — | — | A machine's admin puts a project on it from the organization's projects, and the machine's list is read only. |
@@ -92,9 +94,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f166"></a>[F166](F166-A-Host-Rented-Through-OpenTofu.md) | M | — | `porelo-host up` and `down` renting and giving back through the OpenTofu module, its secrets only in `tofu`'s environment; `--given` kept. |
 | <a id="f330"></a>[F330](F330-A-Project-Page-Says-It-Is-Reading.md) | — | — | A project's page showing at once that it is reading, and what. |
 | <a id="f331"></a>[F331](F331-A-Long-Change-Shows-That-It-Runs.md) | — | — | A long change, such as opening a project, showing that it runs and where a failure will be said. |
-| <a id="f338"></a>[F338](F338-The-Words-Of-The-Project-List.md) | — | — | The project list's words saying what each row states and each button does. |
 | <a id="f339"></a>[F339](F339-Refresh-Reads-What-Is-Shown.md) | — | — | The rail's *Refresh* reaching the page shown, and a host page's own button named for what more it does. |
-| <a id="f341"></a>[F341](F341-What-The-Token-Is-For.md) | — | — | The words asking for a token naming its forge, what the host does with it, its rights, and that it is not kept. |
 | <a id="f343"></a>[F343](F343-A-Hosts-List-Says-What-The-Host-Still-Holds.md) | — | — | A host's list keeping a project being taken off until the host has let it go, and saying why if held. |
 | <a id="f335"></a>[F335](F335-One-Row-Per-Machine.md) | — | — | *Organization* lists the machines available, *Machines* a person's own after *Connect*, each once, and "host" gone from the interface's words. |
 

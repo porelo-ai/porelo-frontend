@@ -1,6 +1,6 @@
 # F341 — What The Token Is For
 
-**Status:** Accepted.
+**Status:** Review.
 
 **What must be true.** A host admin asked for a token reads which forge's token it is, what the host does with it, what rights it
 needs and that the host does not keep it, before anything is asked.

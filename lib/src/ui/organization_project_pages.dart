@@ -64,6 +64,24 @@ class _OrganizationProjectsPageState extends State<OrganizationProjectsPage> {
   /// What `project list` answered; a refusal is said by the organization's own read, so this stays as it was.
   List<ListedProject> _listed = const [];
   final _central = <String, CentralState>{};
+  final _connecting = <String>{};
+  final _refusals = <String, String>{};
+
+  Future<void> _connect(String host) async {
+    if (!_connecting.add(host)) return;
+    setState(() => _refusals.remove(host));
+    String? refusal;
+    try {
+      await widget.connections!.connect(host);
+    } on OrganizationRefused catch (refused) {
+      refusal = refused.words;
+    }
+    if (!mounted) return;
+    setState(() {
+      _connecting.remove(host);
+      if (refusal case final words?) _refusals[host] = words;
+    });
+  }
 
   /// Asks once per project and connection, as the machine's own answer only changes at its follow.
   void _askCentral(OrganizationProject project) {
@@ -113,7 +131,7 @@ class _OrganizationProjectsPageState extends State<OrganizationProjectsPage> {
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-    listenable: widget.organization,
+    listenable: Listenable.merge([widget.organization, ?widget.connections]),
     builder: (context, _) {
       final view = widget.organization.view;
       final mine = view == null
@@ -146,8 +164,9 @@ class _OrganizationProjectsPageState extends State<OrganizationProjectsPage> {
                       subtitle: Text(
                         '${project.repositories == null ? '' : '${_count(project.repositories!, 'repository', 'repositories')} · '}'
                         '${peopleOf(project)} · '
-                        '${project.host == null ? 'on no machine yet' : 'on ${project.host}'}'
-                        '${_centralWords(view, _central[project.name]) == null ? '' : ' · ${_centralWords(view, _central[project.name])}'}',
+                        '${project.host == null ? 'not on a machine yet · a Machine Admin puts it on one' : 'on ${project.host}'}'
+                        '${_centralWords(view, _central[project.name]) == null ? '' : ' · ${_centralWords(view, _central[project.name])}'}'
+                        '${_refusals[project.host] == null ? '' : ' · ${_refusals[project.host]}'}',
                       ),
                       trailing: Wrap(
                         crossAxisAlignment: WrapCrossAlignment.center,
@@ -167,13 +186,29 @@ class _OrganizationProjectsPageState extends State<OrganizationProjectsPage> {
                                     ),
                                   ),
                           if (project.host case final host? when !_isLocked(project))
+                            if (view.holdsRoles && !(widget.connections?.connected(host) ?? false))
+                              Tooltip(
+                                message: widget.connections == null
+                                    ? 'This computer has no way to connect yet.'
+                                    : _connecting.contains(host)
+                                    ? 'Connecting to $host…'
+                                    : 'Connect to $host',
+                                child: FilledButton(
+                                  key: ValueKey('organization.connectToHost ${project.name}'),
+                                  onPressed: widget.connections == null || _connecting.contains(host)
+                                      ? null
+                                      : () => unawaited(_connect(host)),
+                                  child: Text('Connect to $host'),
+                                ),
+                              ),
+                          if (project.host case final host? when !_isLocked(project))
                             CommandMenu(
                               key: ValueKey('organization.projectMenu ${project.name}'),
                               commands: [
-                                if (widget.onHost != null && view.holdsRoles)
+                                if (widget.onHost != null && view.holdsRoles && (widget.connections?.up(host) ?? false))
                                   organizationCommand(
                                     id: 'openOnHost ${project.name}',
-                                    label: 'Open it on $host',
+                                    label: 'Work on it',
                                     run: () => widget.onHost!(project.name, host),
                                   ),
                                 ...?widget.menuFor?.call(project.name, host),
@@ -193,7 +228,7 @@ class _OrganizationProjectsPageState extends State<OrganizationProjectsPage> {
                         key: ValueKey('my-project ${listed.name}'),
                         leading: const Icon(Icons.folder_outlined),
                         title: Text(listed.name),
-                        subtitle: const Text('on this computer alone, outside the organization'),
+                        subtitle: const Text('only on this computer'),
                         onTap: widget.onOthers,
                       ),
                     ),
@@ -210,7 +245,7 @@ class _OrganizationProjectsPageState extends State<OrganizationProjectsPage> {
               child: TextButton(
                 key: const Key('projects-of-machines'),
                 onPressed: others,
-                child: const Text('Projects on your machines, outside the organization'),
+                child: const Text('All projects on your machines'),
               ),
             ),
         ],

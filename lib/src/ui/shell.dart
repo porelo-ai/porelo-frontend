@@ -52,6 +52,7 @@ import '../app/session.dart';
 import '../app/unattended_run.dart';
 import '../app/key_recovery.dart';
 import 'key_recovery_dialog.dart';
+import 'organization_token_words.dart';
 import 'clearing_view.dart';
 import '../app/settings.dart';
 import '../app/shell_model.dart';
@@ -3335,6 +3336,8 @@ class _ShellState extends State<Shell> {
 
   /// Feeds the host admin's central token to [host]'s `org refresh`, in a terminal: nothing here sees or keeps it.
   Future<void> _giveHostToken(String host) async {
+    final forge = organizationForgeName(_organization?.view);
+    final where = forge == 'central forge' ? 'the central forge' : forge;
     final machine = widget.machines.all.where((machine) => machine.hostCard?.name == host).firstOrNull;
     final card = machine?.hostCard;
     if (machine == null || card == null) {
@@ -3346,7 +3349,7 @@ class _ShellState extends State<Shell> {
     try {
       secrets = centralToken(widget.settings.secretsFile, desk.environment);
       if (secrets == null) {
-        _fleet.say('Choose your secrets file first: your central forge token is read from it, in a terminal.');
+        _fleet.say('Choose your secrets file first: your $forge token is read from it, in a terminal.');
         return;
       }
       command = organizationRefreshFeedCommand(card: card, config: machine.sshConfig, token: secrets);
@@ -3360,8 +3363,13 @@ class _ShellState extends State<Shell> {
     if (!mounted) return;
     await runInATerminal(
       context,
-      title: 'Give $host your central forge token',
-      explanation: _centralTokenWords(secrets, host),
+      title: 'Give $host your $forge token, once',
+      explanation:
+          '$host has no account at $where. For setup it uses your $forge token once to add read-only keys '
+          "to the organization's repository and any waiting projects' central repositories, and to copy those "
+          'projects to its own forge. From then on it reads with those keys. It does not keep the token. '
+          'The token must be allowed to administer those repositories (Administration: write) and read their contents. '
+          '${_centralTokenWords(secrets, host)}',
       machine: machine,
       command: command,
       open: widget.sessions.openTerminal,

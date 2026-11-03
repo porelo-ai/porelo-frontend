@@ -48,6 +48,18 @@ class _Central extends FixtureConnections {
       const CentralState(repositories: [(state: 'ahead', commits: 2)]);
 }
 
+class _Connecting extends FixtureConnections {
+  Completer<void>? held;
+  int attempts = 0;
+
+  @override
+  Future<void> connect(String host) async {
+    attempts++;
+    await held?.future;
+    await super.connect(host);
+  }
+}
+
 void main() {
   // Harm: a person cannot see that approved work waits to go to the central forge, or takes cannot say for up to date.
   group('how a project stands with the central forge', () {
@@ -137,21 +149,59 @@ void main() {
       return opened;
     }
 
-    // Harm: a person cannot get from a project to where work on it starts.
-    testWidgets('a row opens its project on its one host', (tester) async {
+    // Harm: Connect navigates without connecting, retries twice, or offers work before the connection succeeds.
+    testWidgets('a row connects to its machine, keeps a refusal, and offers work after connecting', (tester) async {
       final organization = Organization(FixtureOrganization(organizationFor('pat')));
       addTearDown(organization.dispose);
+      final connections = _Connecting()
+        ..held = Completer<void>()
+        ..refuseNext = const OrganizationRefused('The machine could not be reached.');
+      addTearDown(connections.dispose);
       final opened = <(String, String)>[];
-      await _settle(
-        tester,
-        OrganizationProjectsPage(
-          organization: organization,
-          onProject: (_) {},
-          onHost: (project, host) => opened.add((project, host)),
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: OrganizationProjectsPage(
+              organization: organization,
+              connections: connections,
+              onProject: (_) {},
+              onHost: (project, host) => opened.add((project, host)),
+            ),
+          ),
         ),
       );
+      await tester.pump();
+      await tester.pump();
+      final connect = find.byKey(const ValueKey('organization.connectToHost demo'));
+      expect(connect, findsOneWidget);
+      await tester.tap(connect);
+      await tester.pump();
+      await tester.tap(connect);
+      await tester.pump();
+      expect(connections.attempts, 1, reason: 'An unanswered attempt must not start a second connection.');
+      expect(opened, isEmpty, reason: 'Connecting must not open a page instead.');
+      connections.held!.complete();
+      await tester.pump();
+      await tester.pump();
+      expect(find.textContaining('The machine could not be reached.'), findsOneWidget);
+      expect(connections.connected('build'), isFalse);
+      connections.held = null;
+      await tester.tap(connect);
+      await tester.pump();
+      await tester.pump();
+      expect(connections.asked, ['connect build', 'connect build']);
+      expect(connections.connected('build'), isTrue);
+      expect(find.textContaining('The machine could not be reached.'), findsNothing);
+      expect(connect, findsNothing);
+      expect(opened, isEmpty);
       await pressOrganizationAction(tester, 'openOnHost demo');
       expect(opened, [('demo', 'build')]);
+      await connections.disconnect('build');
+      await tester.pump();
+      expect(connect, findsOneWidget, reason: 'A connection ended elsewhere must be offered again here.');
     });
 
     // Harm: a host lists a project only after a first start, so a member cannot push what the host gathered.

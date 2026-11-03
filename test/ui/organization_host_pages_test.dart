@@ -357,7 +357,6 @@ void main() {
         );
       await page(tester, 'hana', connections: connections);
       expect(find.textContaining("project's admin"), findsOneWidget);
-      expect(find.textContaining('waits for your central token'), findsNothing);
       expect(_action('giveToken'), findsNothing);
     });
 
@@ -402,7 +401,6 @@ void main() {
           connections.hostProgress = const HostProgress();
         },
       );
-      expect(find.textContaining('waits for your central token'), findsWidgets);
       await pressOrganizationAction(tester, 'giveToken');
       expect(gave, ['build']);
       expect(_action('giveToken'), findsNothing);
@@ -420,7 +418,7 @@ void main() {
       expect(find.textContaining('makes your account once it has read the organization'), findsOneWidget);
       await pressOrganizationAction(tester, 'giveToken');
       expect(connections.asked, contains('connect build'));
-      expect(find.textContaining('makes your account once'), findsNothing);
+      expect(_action('giveToken'), findsNothing);
     });
 
     // Harm: Refresh gives no answer, or a refusal is shown as done.

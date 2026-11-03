@@ -11,6 +11,7 @@ import 'command_menu.dart';
 import 'filtered_list_section.dart';
 import 'key_recovery_dialog.dart';
 import 'organization_dialogs.dart';
+import 'organization_token_words.dart';
 import 'tokens.dart';
 
 String _reach(OrganizationHost host) {
@@ -305,7 +306,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
               Text('Managing this machine', style: Theme.of(context).textTheme.titleMedium),
             ],
             _reachRow(view, host, isAdmin),
-            if (isAdmin) ..._howItStands(host),
+            if (isAdmin) ..._howItStands(view, host),
             const SizedBox(height: Space.normal),
             _projects(view, host, isAdmin),
             _admins(view, host, isAdmin),
@@ -316,30 +317,32 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
   );
 
   /// What only a host admin can read: whether the host waits for their token, and who is locked out and until when.
-  List<Widget> _howItStands(OrganizationHost host) {
+  List<Widget> _howItStands(OrganizationView view, OrganizationHost host) {
     final connected = widget.connections?.connected(host.name) ?? false;
     final progress = _progress;
     if (!connected) {
       return const [
-        Text("Connect to this host to read how far it has come; the list here is the organization's word."),
+        Text("Connect to this machine to read how far it has come; the list here is the organization's word."),
       ];
     }
     return [
-      if (progress?.wantsToken ?? false) ...[
-        const Text('The host waits for your central token before it can go on.'),
+      if (progress != null && progress.wantsToken) ...[
+        if (progress.waitsForToken) Text(organizationTokenWords(view, host.name)),
+        for (final project in progress.projects)
+          if (project.waitsForToken) Text(organizationTokenWords(view, host.name, project: project.project)),
         Align(
           alignment: Alignment.centerLeft,
           child: FilledButton(
             key: const ValueKey('organization.giveToken'),
             onPressed: _acting || widget.onGiveToken == null ? null : () => unawaited(_giveToken()),
-            child: const Text('Give it the token…'),
+            child: Text('Give it my ${organizationForgeName(view)} token…'),
           ),
         ),
       ],
       if (progress?.refused case final refused?)
         Text(
           key: const ValueKey('organization.refused'),
-          'The host refused its last fetch and stays on what it took before: $refused. '
+          'The machine refused its last fetch and stays on what it took before: $refused. '
           'That can be a removal or a commit nobody allowed: look at which, it does not say.',
         ),
       for (final person in progress?.locked ?? const <HostLockedPerson>[])
@@ -384,7 +387,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
             child: ListTile(
               leading: const Icon(Icons.folder_outlined),
               title: Text(name),
-              subtitle: Text([_projectWords(view, name), if (isAdmin) ?_progressWords(name)].join(' · ')),
+              subtitle: Text([_projectWords(view, name), if (isAdmin) ?_progressWords(view, name)].join(' · ')),
             ),
           ),
       ],
@@ -392,19 +395,19 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
   }
 
   /// The host's own word on [name], which only a host admin reads: the organization's word is carried or not.
-  String? _progressWords(String name) {
+  String? _progressWords(OrganizationView view, String name) {
     final progress = _progress?.of(name);
     if (progress == null) return null;
     if (progress.hasNoAddress) {
-      return "the host has no address for it: a token cannot help until the project's admin opens it or files its "
+      return "the machine has no address for it: a token cannot help until the project's admin opens it or files its "
           'address anew, and it then needs your token once more';
     }
     return switch (progress.state) {
-      'carried' => 'on the host',
+      'carried' => 'on the machine',
       'putting-on' => 'being put on, which can take up to five minutes',
       'waiting-for-token' => switch (progress.why) {
-        final why? => 'waits for your central token: $why',
-        null => 'waits for your central token',
+        final why? => 'waits for your ${organizationForgeName(view)} token: $why',
+        null => 'waits for your ${organizationForgeName(view)} token',
       },
       'held' => 'held: ${progress.why ?? 'it has unpushed work'}',
       'gone' => 'taken off',
