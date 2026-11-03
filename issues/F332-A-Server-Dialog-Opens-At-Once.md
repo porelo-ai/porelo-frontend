@@ -1,6 +1,6 @@
 # F332 — A Server Dialog Opens At Once
 
-**Status:** Accepted.
+**Status:** Implementing.
 
 **What must be true.** *Prepare a server…* opens its dialog at the click, the dialog saying that it is still reading, and a
 second click opens no second dialog.

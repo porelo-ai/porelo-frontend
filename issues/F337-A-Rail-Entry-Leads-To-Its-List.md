@@ -1,6 +1,6 @@
 # F337 — A Rail Entry Leads To Its List
 
-**Status:** Accepted.
+**Status:** Implementing.
 **Size:** S - one place in the shell, and a test.
 
 **What must be true.** A rail entry always lands on the first page that entry opens, whatever page was open under it or was last

@@ -1,6 +1,6 @@
 # F334 — A Host Row That Keeps Its Words
 
-**Status:** Accepted.
+**Status:** Implementing.
 
 **What must be true.** A machine's row says one steady thing while a host keeps refusing, in words of what the person can do,
 and never talks of a forward.

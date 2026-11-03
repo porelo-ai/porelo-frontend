@@ -1,6 +1,6 @@
 # F326 — Operations Run Beside Work Running
 
-**Status:** Accepted.
+**Status:** Implementing.
 
 **What must be true.** The status line's count of operations cannot be read as a count of work running.
 
