@@ -141,6 +141,76 @@ void main() {
     source = PoreloOrganizationSource(run: run);
   });
 
+  // Harm: a canceled trust choice records a key, or retrying a write under another ID duplicates its effects.
+  test('an unknown forge key is confirmed before one retry of the exact request', () async {
+    const words = "the forge's ssh host key is not trusted: see 'porelo credentials trust-host forge.example.org:2222'";
+    var confirms = 0;
+    var trust = false;
+    source.confirmForgeHost = (host) async {
+      expect(host, 'forge.example.org:2222');
+      confirms++;
+      return trust;
+    };
+    answer = (_) => (code: 70, out: jsonEncode({'reason': 'unknown-host-key', 'words': words}), err: '');
+    final write = OrganizationWrite(
+      change: OrganizationChange.createOrganization,
+      input: const {'address': 'git@forge.example.org:acme/access.git'},
+      person: '',
+      base: '',
+      id: 'same-id',
+    );
+    await expectLater(source.apply(write), throwsA(isA<OrganizationRefused>()));
+    expect(asked, hasLength(1), reason: 'cancel must never retry the operation');
+    trust = true;
+    asked.clear();
+    await expectLater(source.apply(write), throwsA(isA<OrganizationRefused>()));
+    expect(asked, hasLength(2), reason: 'a repeated unknown-key failure must stop instead of opening a loop');
+    expect(asked.first, asked.last, reason: 'a retry must keep the operation ID and every argument');
+    expect(confirms, 2, reason: 'each request may ask for trust at most once');
+  });
+
+  // Harm: a malformed refusal is interpreted as permission to connect or change a trust store.
+  test('a malformed unknown-host refusal opens no trust prompt', () async {
+    var confirms = 0;
+    source.confirmForgeHost = (_) async {
+      confirms++;
+      return true;
+    };
+    answer = (_) => (code: 70, out: '{"reason":"unknown-host-key","words":[]}', err: '');
+    await expectLater(source.read(), throwsA(isA<OrganizationRefused>()));
+    expect(confirms, 0);
+    expect(asked, hasLength(1));
+  });
+
+  // Harm: an organization write reaches Core while its vault or token preparation was canceled.
+  test('forge preparation precedes creation and opening and refusal prevents the write', () async {
+    const repository = 'git@forge.example.org:acme/access.git';
+    final prepared = <String>[];
+    source.prepareForgeWrite = (address) async {
+      prepared.add(address);
+      throw const OrganizationRefused('The vault is shut.');
+    };
+    for (final change in [OrganizationChange.createOrganization, OrganizationChange.openProject]) {
+      answer = (_) => says({..._org, 'address': repository});
+      await expectLater(
+        source.apply(
+          OrganizationWrite(
+            change: change,
+            input: const {'address': repository, 'project': 'demo'},
+            person: 'alice',
+            base: 'base',
+            id: 'id',
+          ),
+        ),
+        throwsA(isA<OrganizationRefused>()),
+      );
+    }
+    expect(prepared, [repository, repository]);
+    expect(asked, [
+      ['org', '--json'],
+    ], reason: 'only the read needed to find the project forge may run');
+  });
+
   group('reading', () {
     // Harm: a page shows something Porelo did not say.
     test("the organization is read from the contract's example", () async {

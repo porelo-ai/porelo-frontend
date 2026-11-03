@@ -8,6 +8,7 @@ import 'package:porelo_frontend/src/app/host_runs.dart';
 import 'package:porelo_frontend/src/app/host_session.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/settings.dart';
+import 'package:porelo_frontend/src/app/run_here.dart';
 import 'package:porelo_frontend/src/ui/host_dialog.dart';
 import 'package:porelo_frontend/src/ui/machines_page.dart';
 import 'package:porelo_host/porelo_host.dart' as host;
@@ -18,7 +19,97 @@ import '../support/host_organization.dart';
 import '../support/host_rental.dart';
 import '../support/signed_host.dart';
 
+Future<Ran> _noKeyScan(
+  String program,
+  List<String> arguments, {
+  String? inDirectory,
+  Map<String, String> environment = const {},
+  String? input,
+}) async => (code: 70, out: '', err: '');
+
 void main() {
+  // Harm: a fetched key is used without comparison, or a late scan replaces the key the person pasted.
+  testWidgets('preparation requires comparison of a fetched key and invalidates it when the address changes', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final settings = Settings(MemorySettingsStore());
+    final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: RecordingTunnels());
+    final fixture = HostFixture();
+    final access = await fixture.access(settings);
+    final runs = HostRuns(machines, hostAccess: access);
+    addTearDown(() {
+      runs.dispose();
+      machines.dispose();
+      settings.dispose();
+    });
+    final scans = <Completer<Ran>>[];
+    final fingerprint = 'SHA256:${List.filled(43, 'A').join()}';
+    var starts = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: HostDialog(
+            project: '',
+            machines: machines,
+            hostRuns: runs,
+            start: (_, _) async {
+              starts++;
+              throw StateError('must not start');
+            },
+            runKeyCommand: (_, arguments, {inDirectory, environment = const {}, input}) async {
+              if (arguments.first == '-T') {
+                final scan = Completer<Ran>();
+                scans.add(scan);
+                return scan.future;
+              }
+              expect(input, '$hostKey\n');
+              return (code: 0, out: '256 $fingerprint no comment (ED25519)\n', err: '');
+            },
+          ),
+        ),
+      ),
+    );
+    await World.settle(tester);
+    Future<void> type(String label, String value) async {
+      final field = find.widgetWithText(TextField, label);
+      await tester.ensureVisible(field);
+      await tester.enterText(field, value);
+    }
+
+    FilledButton prepare() => tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Prepare the machine'));
+    await type('Machine name', 'orchard');
+    await type('Server address', '192.0.2.7');
+    await tester.pump(const Duration(milliseconds: 501));
+    expect(scans, hasLength(1));
+    expect(prepare().onPressed, isNull);
+    scans.first.complete((code: 0, out: '192.0.2.7 $hostKey\n', err: ''));
+    await World.settle(tester);
+    expect(find.text(fingerprint), findsOneWidget);
+    expect(prepare().onPressed, isNull, reason: 'fetching alone must never permit preparation');
+    final confirmed = find.byKey(const Key('preparation-host-key-confirmed'));
+    await tester.ensureVisible(confirmed);
+    await tester.tap(confirmed);
+    await World.settle(tester);
+    final staleAction = prepare().onPressed;
+    expect(staleAction, isNotNull);
+    await type('Server address', '192.0.2.8');
+    await tester.pump();
+    expect(prepare().onPressed, isNull, reason: 'a comparison belongs to one server address');
+    staleAction!();
+    await World.settle(tester);
+    expect(starts, 0, reason: 'a stale callback must also recheck the comparison');
+    await tester.pump(const Duration(milliseconds: 501));
+    await type('SSH host key', backupKey);
+    scans.last.complete((code: 0, out: '192.0.2.8 $hostKey\n', err: ''));
+    await World.settle(tester);
+    expect(tester.widget<TextField>(find.widgetWithText(TextField, 'SSH host key')).controller!.text, backupKey);
+    expect(find.byKey(const Key('preparation-host-key-confirmed')), findsNothing);
+    expect(prepare().onPressed, isNotNull, reason: 'a pasted checked key needs no first-use checkbox');
+  });
+
   // Harm: repeated clicks open competing setup dialogs, or a stale permission starts machine preparation.
   testWidgets('preparation opens once while reading and refuses a revoked key in its dialog', (tester) async {
     tester.view.physicalSize = const Size(1280, 800);
@@ -38,7 +129,13 @@ void main() {
     late BuildContext page;
     Command command() => prepareServerCommand(
       access: access,
-      open: () => openPrepareServerDialog(page, machines: machines, settings: settings, hostRuns: runs),
+      open: () => openPrepareServerDialog(
+        page,
+        runKeyCommand: _noKeyScan,
+        machines: machines,
+        settings: settings,
+        hostRuns: runs,
+      ),
     );
     await tester.pumpWidget(
       MaterialApp(
@@ -129,6 +226,7 @@ void main() {
                 showDialog<void>(
                   context: context,
                   builder: (_) => HostDialog(
+                    runKeyCommand: _noKeyScan,
                     project: '',
                     machines: machines,
                     hostRuns: runs,
@@ -148,12 +246,14 @@ void main() {
     Future<HostPreparation> startPreparation(String name) async {
       await tester.tap(find.text('Open preparation'));
       await World.settle(tester);
-      for (final value in [name, '203.0.113.7', hostKey].indexed) {
+      // The key first: an address typed with no key behind it goes to fetch one from the network.
+      for (final value in [(0, name), (2, hostKey), (1, '203.0.113.7')]) {
         final field = find.descendant(of: find.byType(HostDialog), matching: find.byType(TextField)).at(value.$1);
         await tester.ensureVisible(field);
         await World.settle(tester);
         await tester.enterText(field, value.$2);
       }
+      await World.settle(tester);
       await tester.tap(find.text('Prepare the machine'));
       await World.settle(tester);
       return runs.of(name)!;
@@ -472,6 +572,7 @@ void main() {
         await tester.pumpWidget(
           MaterialApp(
             home: HostDialog(
+              runKeyCommand: _noKeyScan,
               project: '',
               machines: machines,
               settings: settings,
@@ -576,6 +677,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: HostDialog(
+            runKeyCommand: _noKeyScan,
             project: '',
             machines: machines,
             hostRuns: runs,
@@ -596,6 +698,7 @@ void main() {
         await World.settle(tester);
         await tester.enterText(finder, field.value);
       }
+      await World.settle(tester);
       await tester.tap(find.text('Prepare the machine'));
       await World.settle(tester);
       expect(tester.takeException(), isNull);
@@ -630,6 +733,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: HostDialog(
+          runKeyCommand: _noKeyScan,
           project: '',
           machines: machines,
           hostRuns: runs,
@@ -646,6 +750,7 @@ void main() {
       await World.settle(tester);
       await tester.enterText(finder, field.value);
     }
+    await World.settle(tester);
     final button = tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Prepare the machine'));
     fixture.admin = false;
     button.onPressed!();
@@ -787,6 +892,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: HostDialog(
+          runKeyCommand: _noKeyScan,
           project: '',
           machines: machines,
           hostRuns: runs,

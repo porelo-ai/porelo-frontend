@@ -6,6 +6,7 @@ import 'package:porelo_host/porelo_host.dart';
 import 'package:test/test.dart';
 
 import 'support/pinned_ssh.dart';
+import 'server_contract_test.dart' show sshKey;
 
 void main() {
   // Harm: preparation could use a disk key, forward the agent, or corrupt the collection in transit.
@@ -26,8 +27,15 @@ void main() {
       knownHosts: File('${directory.path}/known_hosts'),
       identity: '',
       agentOnly: true,
-      start: (program, args) {
+      agentPublicKey: sshKey,
+      start: (program, args) async {
         commands.add([program, ...args]);
+        final identity = File(args[args.indexOf('-i') + 1]);
+        expect(await identity.readAsString(), '$sshKey\n', reason: 'only the selected public key may reach SSH');
+        if (Platform.isLinux) {
+          expect((await identity.stat()).mode & 0x1ff, 0x180, reason: 'the temporary identity must be owner-only');
+          expect((await identity.parent.stat()).mode & 0x1ff, 0x1c0, reason: 'the identity directory must be private');
+        }
         return Process.start(Platform.resolvedExecutable, [receiver.path, received.path]);
       },
     );
@@ -37,17 +45,50 @@ void main() {
     expect(commands.map((c) => c.last), ['true', 'cat > /var/tmp/porelo-host/collection.tar.gz']);
     for (final command in commands) {
       expect(command.first, 'ssh');
-      expect(
-        command,
-        containsAllInOrder(['-F', '/dev/null', '-o', 'IdentityFile=none', '-o', 'PreferredAuthentications=publickey']),
-      );
+      expect(command, containsAllInOrder(['-F', '/dev/null', '-o', 'PreferredAuthentications=publickey']));
       expect(
         command,
         containsAll(['BatchMode=yes', 'ForwardAgent=no', 'StrictHostKeyChecking=yes', 'GlobalKnownHostsFile=none']),
       );
-      expect(command, isNot(contains('-i')));
+      expect(command, contains('IdentitiesOnly=yes'), reason: 'other keys held by the agent must never be offered');
+      expect(command, isNot(contains('IdentityFile=none')));
+      final identity = File(command[command.indexOf('-i') + 1]);
+      expect(await identity.parent.exists(), isFalse, reason: 'the identity must be removed after each command');
       expect(command, contains('root@192.0.2.7'));
     }
+  });
+
+  // Harm: a launch failure leaves public identity files behind, or malformed input selects ambient agent keys.
+  test('a failed SSH launch removes the selected public identity and invalid keys start nothing', () async {
+    final directory = await Directory.systemTemp.createTemp('agent-launch-');
+    addTearDown(() => directory.delete(recursive: true));
+    String? identity;
+    final remote = OpenSsh(
+      knownHosts: File('${directory.path}/known_hosts'),
+      identity: '',
+      agentOnly: true,
+      agentPublicKey: sshKey,
+      start: (_, args) async {
+        identity = args[args.indexOf('-i') + 1];
+        throw const ProcessException('ssh', [], 'could not start');
+      },
+    );
+    await expectLater(remote.run('192.0.2.7', 'root', 'true'), throwsA(isA<RemoteNotStarted>()));
+    expect(identity, isNotNull, reason: 'the positive control must reach the process boundary');
+    expect(await File(identity!).parent.exists(), isFalse, reason: 'failed launches must clean up too');
+    var starts = 0;
+    final invalid = OpenSsh(
+      knownHosts: File('${directory.path}/known_hosts'),
+      identity: '',
+      agentOnly: true,
+      agentPublicKey: 'ssh-ed25519 broken',
+      start: (_, _) async {
+        starts++;
+        throw const ProcessException('ssh', []);
+      },
+    );
+    await expectLater(invalid.run('192.0.2.7', 'root', 'true'), throwsA(isA<HostFilesRefused>()));
+    expect(starts, 0, reason: 'an invalid selected key must never fall back to other identities');
   });
 
   // Harm: an early SSH refusal must retain its cause instead of escaping as a broken pipe.

@@ -54,6 +54,8 @@ void main() {
   }) async => runHostCommand(
     [
       'up',
+      '--public-key',
+      sshKey,
       '--given',
       given,
       '--host-key',
@@ -258,7 +260,7 @@ void main() {
     expect(remote.commands, isEmpty);
     expect(
       await runHostCommand(
-        ['up', '--given', '192.0.2.7', '--host-key', sshKey, '--host-name', 'orchard'],
+        ['up', '--given', '192.0.2.7', '--host-key', sshKey, '--host-name', 'orchard', '--public-key', sshKey],
         remote: remote,
         output: output,
         errors: errors,

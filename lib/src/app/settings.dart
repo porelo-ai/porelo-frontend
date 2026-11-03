@@ -317,6 +317,7 @@ class HostUpRecord {
   /// Identifies give-back without opening an obsolete SSH connection.
   List<String> giveBackArguments(String project) => [
     if (hostName.isEmpty) ...['--project', project, '--account', account] else ...['--host-name', hostName],
+    if (publicKey.isNotEmpty) ...['--public-key', publicKey],
     if (givenAddress.isNotEmpty) ...[
       '--given',
       givenAddress,

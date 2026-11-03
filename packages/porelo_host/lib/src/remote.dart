@@ -4,6 +4,8 @@ import 'dart:io';
 
 import 'ssh.dart';
 import 'host_card_ssh.dart';
+import 'host_files.dart';
+import 'host_file_writer.dart';
 
 /// What a command on the host ended with.
 class RemoteResult {
@@ -52,6 +54,7 @@ class OpenSsh implements Remote {
     required this.knownHosts,
     required this.identity,
     this.agentOnly = false,
+    this.agentPublicKey = '',
     this.config,
     this.configHost,
     Future<Process> Function(String, List<String>)? start,
@@ -71,6 +74,7 @@ class OpenSsh implements Remote {
   }) : knownHosts = File('$config.known_hosts'),
        identity = '$config.pub',
        agentOnly = false,
+       agentPublicKey = '',
        configHost = null,
        _card = card,
        _start = start ?? ((executable, arguments) => Process.start(executable, arguments)),
@@ -90,6 +94,9 @@ class OpenSsh implements Remote {
   /// Whether only keys served by the local agent may authenticate the host command.
   final bool agentOnly;
 
+  /// The public key selected from the agent; empty only for legacy recovery with no saved key.
+  final String agentPublicKey;
+
   /// The verified host-card configuration, when supplied.
   final String? config;
 
@@ -105,7 +112,7 @@ class OpenSsh implements Remote {
     await knownHosts.writeAsString('$host $hostKey\n');
   }
 
-  List<String> _options(String host, String user) => <String>[
+  List<String> _options(String host, String user, {File? agentIdentity}) => <String>[
     // A shared host-card connection names its host, account and pin in its own public config alone.
     if (_card != null) ...[
       '-F',
@@ -115,13 +122,12 @@ class OpenSsh implements Remote {
       '-o',
       'ProxyCommand=false',
     ] else ...[
-      // An agent-only run offers no key from disk, whatever identity it was given.
-      ...pinnedHostSshOptions(knownHosts.path, agentOnly ? '' : identity),
+      // A .pub identity asks the agent for that key without ever writing its private half.
+      ...pinnedHostSshOptions(knownHosts.path, agentOnly ? agentIdentity?.path ?? '' : identity),
       if (agentOnly) ...[
         '-F',
         '/dev/null',
-        '-o',
-        'IdentityFile=none',
+        if (agentIdentity == null) ...['-o', 'IdentityFile=none'],
         '-o',
         'PreferredAuthentications=publickey',
       ] else if (config case final file?) ...[
@@ -151,6 +157,21 @@ class OpenSsh implements Remote {
     }
   }
 
+  Future<T> _withAgentIdentity<T>(Future<T> Function(File? identity) action) async {
+    if (!agentOnly || agentPublicKey.isEmpty) return action(null);
+    HostFiles.signingFingerprint(agentPublicKey);
+    final writer = HostFileWriter();
+    final directory = await writer.createPrivateTemporary(Directory.systemTemp, prefix: 'porelo-agent-key-');
+    try {
+      final file = File('${directory.path}${Platform.pathSeparator}identity.pub');
+      final publicPart = agentPublicKey.trim().split(RegExp(r'\s+')).take(2).join(' ');
+      await writer.write(file, utf8.encode('$publicPart\n'));
+      return await action(file);
+    } finally {
+      await directory.delete(recursive: true);
+    }
+  }
+
   @override
   Future<RemoteResult> run(
     String host,
@@ -158,6 +179,17 @@ class OpenSsh implements Remote {
     String command, {
     String? input,
     void Function(String line)? onLine,
+  }) => _withAgentIdentity(
+    (identity) => _run(host, user, command, input: input, onLine: onLine, agentIdentity: identity),
+  );
+
+  Future<RemoteResult> _run(
+    String host,
+    String user,
+    String command, {
+    String? input,
+    void Function(String line)? onLine,
+    File? agentIdentity,
   }) async {
     _checkCard(host, user);
     Process? process;
@@ -169,7 +201,11 @@ class OpenSsh implements Remote {
     }
 
     try {
-      process = await _start('ssh', <String>[..._options(host, user), ..._destination(host, user), command]);
+      process = await _start('ssh', <String>[
+        ..._options(host, user, agentIdentity: agentIdentity),
+        ..._destination(host, user),
+        command,
+      ]);
       final child = process;
       final out = child.stdout
           .transform(const Utf8Decoder(allowMalformed: true))
@@ -206,32 +242,42 @@ class OpenSsh implements Remote {
 
   @override
   Future<RemoteResult> copy(String host, String user, String from, String to) async {
+    return _withAgentIdentity((identity) => _copy(host, user, from, to, agentIdentity: identity));
+  }
+
+  Future<RemoteResult> _copy(String host, String user, String from, String to, {File? agentIdentity}) async {
     _checkCard(host, user);
     if (agentOnly) {
       final process = await _start('ssh', [
-        ..._options(host, user),
+        ..._options(host, user, agentIdentity: agentIdentity),
         '--',
         configHost ?? _account(host, user),
         'cat > ${quoteForAShell(to)}',
       ]);
-      final out = process.stdout.drain<void>();
-      final err = process.stderr.transform(utf8.decoder).join();
-      SocketException? inputFailure;
+      final out = process.stdout.drain<void>()..ignore();
+      final err = process.stderr.transform(utf8.decoder).join()..ignore();
       try {
-        await process.stdin.addStream(File(from).openRead());
-      } on SocketException catch (error) {
-        inputFailure = error;
+        SocketException? inputFailure;
+        try {
+          await process.stdin.addStream(File(from).openRead());
+        } on SocketException catch (error) {
+          inputFailure = error;
+        }
+        try {
+          await process.stdin.close();
+        } on SocketException catch (error) {
+          inputFailure ??= error;
+        }
+        final code = await process.exitCode;
+        await out;
+        final words = await err;
+        if (code == 0 && inputFailure != null) throw inputFailure;
+        return RemoteResult(code, words);
+      } catch (_) {
+        process.kill(ProcessSignal.sigkill);
+        await process.exitCode;
+        rethrow;
       }
-      try {
-        await process.stdin.close();
-      } on SocketException catch (error) {
-        inputFailure ??= error;
-      }
-      final code = await process.exitCode;
-      await out;
-      final words = await err;
-      if (code == 0 && inputFailure != null) throw inputFailure;
-      return RemoteResult(code, words);
     }
     final arguments = <String>[
       ..._options(host, user),

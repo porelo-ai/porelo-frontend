@@ -25,6 +25,7 @@ import '../app/commands.dart';
 import '../app/fleet_backend.dart';
 import '../app/fleet_model.dart';
 import '../app/organization_source.dart';
+import '../app/porelo_organization_source.dart';
 import '../app/egress.dart';
 import '../app/agent_inventory.dart';
 import '../app/authentication.dart';
@@ -54,6 +55,7 @@ import '../app/unattended_run.dart';
 import '../app/key_recovery.dart';
 import 'key_recovery_dialog.dart';
 import 'organization_token_words.dart';
+import 'organization_access_dialogs.dart';
 import 'clearing_view.dart';
 import '../app/settings.dart';
 import '../app/shell_model.dart';
@@ -319,6 +321,12 @@ class _ShellState extends State<Shell> {
   @override
   void initState() {
     super.initState();
+    final source = widget.organizationSource;
+    if (source is PoreloOrganizationSource) {
+      source.prepareForgeWrite = (repository) =>
+          prepareOrganizationForge(context, repository, _forges, open: widget.sessions.openTerminal);
+      source.confirmForgeHost = (host) => trustOrganizationForge(context, host);
+    }
     if (widget.settingsDropped) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
@@ -3696,6 +3704,11 @@ class _ShellState extends State<Shell> {
 
   @override
   void dispose() {
+    final source = widget.organizationSource;
+    if (source is PoreloOrganizationSource) {
+      source.prepareForgeWrite = null;
+      source.confirmForgeHost = null;
+    }
     if (widget.hostConnections == null) _hostConnections?.dispose();
     _organization?.removeListener(_readStandings);
     _organization?.dispose();

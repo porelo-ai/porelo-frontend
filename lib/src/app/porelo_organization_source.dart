@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'organization_source.dart';
+import 'core_credentials.dart';
 import 'run_here.dart';
 
 /// The organization as Porelo's own commands answer: the interface reads no organization file and keeps no checkout.
@@ -14,13 +15,19 @@ class PoreloOrganizationSource implements OrganizationSource {
 
   final RunHere _run;
 
+  /// Prepares the local vault for an operation that needs the central forge's API token.
+  Future<void> Function(String repository)? prepareForgeWrite;
+
+  /// Compares and records an unknown forge key in the window before one retry of the same request.
+  Future<bool> Function(String host)? confirmForgeHost;
+
   /// The roles a project's member can have.
   static const roles = ['developer', 'admin'];
 
   /// How people stood at the last read, for what `project show` does not say of them.
   Map<String, CardStanding> _standing = const {};
 
-  Future<Map<String, Object?>> _ask(List<String> arguments) async {
+  Future<Map<String, Object?>> _ask(List<String> arguments, {bool mayTrust = true}) async {
     final Ran ran;
     try {
       ran = await _run('porelo', [...arguments, '--json']);
@@ -33,7 +40,23 @@ class PoreloOrganizationSource implements OrganizationSource {
       // It ran out its limit: it may have done what it was asked.
       throw OrganizationRefused(refused.words, answered: false);
     }
-    if (ran.code != 0) throw _refusal(ran);
+    if (ran.code != 0) {
+      final refused = _refusal(ran);
+      if (mayTrust && refused.reason == 'unknown-host-key' && confirmForgeHost != null) {
+        // Current Core names the destination only in this public hint, never as a command to execute.
+        final hint = RegExp(r"porelo credentials trust-host ([A-Za-z0-9][A-Za-z0-9.:-]*)'").firstMatch(refused.words);
+        final host = hint?.group(1);
+        if (host != null) {
+          CoreCredentials.host(host);
+          if (await confirmForgeHost!(host)) return _ask(arguments, mayTrust: false);
+          throw const OrganizationRefused(
+            'The SSH host key was not trusted, so the request did not continue.',
+            answered: false,
+          );
+        }
+      }
+      throw refused;
+    }
     final answer = _object(ran.out);
     if (answer == null) {
       throw const OrganizationRefused('Porelo gave an answer that could not be read.', answered: false);
@@ -353,6 +376,19 @@ class PoreloOrganizationSource implements OrganizationSource {
             write.change == OrganizationChange.changeProjectReview) &&
         write.base.isEmpty) {
       throw const OrganizationRefused('The project revision is unknown. Read it before signing a change.');
+    }
+    if (prepareForgeWrite case final prepare?) {
+      if (write.change == OrganizationChange.createOrganization) {
+        final address = write.input['address'];
+        if (address == null) throw const OrganizationRefused('The organization needs a repository address.');
+        await prepare(address);
+      } else if (write.change == OrganizationChange.openProject) {
+        final address = (await read()).address;
+        if (address == null) {
+          throw const OrganizationRefused('Porelo cannot say where the organization is kept.', answered: false);
+        }
+        await prepare(address);
+      }
     }
     await _ask([
       ..._arguments(write),

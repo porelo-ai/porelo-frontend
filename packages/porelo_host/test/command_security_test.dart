@@ -129,7 +129,19 @@ void main() {
   test('invalid up plan reports an up refusal', () async {
     expect(
       await runHostCommand(
-        ['up', '--host-name', 'Bad', '--given', '192.0.2.7', '--host-key', sshKey, '--machine-file', '/machine.yml'],
+        [
+          'up',
+          '--host-name',
+          'Bad',
+          '--public-key',
+          sshKey,
+          '--given',
+          '192.0.2.7',
+          '--host-key',
+          sshKey,
+          '--machine-file',
+          '/machine.yml',
+        ],
         errors: errors,
         output: output,
       ),

@@ -1,6 +1,6 @@
 # F348 — A Start With No Terminal
 
-**Status:** Backlog.
+**Status:** Review.
 
 **What must be true.** One person starts an organization, a machine and a project from the window alone. No step sends them to a terminal.
 
@@ -21,6 +21,10 @@ Read from the code, not run. `Role.hostAdmin` guards the commands of preparing, 
 - Here: the four parts. `--roles` then decides nothing.
 
 ## To be checked
+
+- The token handed over, the trust dialog and `org create --replace` against real Core; fixtures stand for them.
+- A forge on an explicit ssh port stays refused: Core's token lookup for it did not read consistently.
+- Root's first login, where the provider's login needs another key than the card's, stays by hand.
 
 - A fetched host key shown to confirm is trust on first use unless the person compares it with something else. The provider's console is what they would compare with; whether this weakens anything is for the machines' side to say.
 - Offering only the card's key, by naming its `.pub` file with `IdentitiesOnly`, against a real agent with more than six keys.

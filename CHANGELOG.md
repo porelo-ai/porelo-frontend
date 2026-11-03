@@ -13,6 +13,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Cards due for renewal show a warning and *Renew my card* on the card and Organization pages, with the same operation kept for a retry.
 - Opening a project asks whether you work alone; review can be required or made optional from its Project Admin's menu.
 - Organization and Project Admins can preview a checkout's proposed settings and warnings, then sign it into a project.
+- Organization creation and project opening hand a missing forge token from the system secret store to the local vault
+  on standard input, ask for a missing token in the existing dialog, and offer vault opening first. Unknown forge SSH
+  keys can be compared and trusted in the window. Machine preparation fetches a host key for explicit comparison and
+  offers only the card's selected agent key over SSH, avoiding the server's authentication attempt limit.
 - *Prepare a machine…* follows the organization: an Organization Admin or a Machine Admin sees it, as does a person with no
   organization yet, and `--roles` is gone. The dialog no longer asks the collection, which the build knows.
 - *Create another organization…* stands beside *Choose another organization…*, and says the first stays on its forge.

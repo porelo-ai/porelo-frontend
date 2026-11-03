@@ -5,6 +5,7 @@ import 'package:porelo_host/porelo_host.dart';
 
 const _usage = '''
 porelo-host up|down (--host-name NAME | --project NAME --account NAME)
+            [--public-key "TYPE BASE64"]
             [--forge true|false]
             (--scaleway-project ID [--zone fr-par-1] [--offer EM-I220E-NVME] | --given ADDRESS --host-key "TYPE BASE64")
             [--login-user NAME] [--distribution snapshots|releases]
@@ -20,7 +21,7 @@ porelo-host key check scaleway
 porelo-host --version
 porelo-host --collection-info
 
-  up      prepares an existing --given host as root using the local SSH agent; renting remains refused
+  up      prepares an existing --given host as root using only --public-key from the local SSH agent; renting remains refused
   down    gives back the tagged rental after its down play; a failed play keeps the host
   find    names the server rented for the project now, as one JSON line with its id, address and
           whether it is ready, or exits 69 when none is; it changes nothing
@@ -151,7 +152,7 @@ Future<int> runHostCommand(
   final serverOnly = options.containsKey('host-name');
   final needed = <String>[
     if (serverOnly) 'host-name' else ...['project', 'account'],
-    if (verb == 'up' && !options.containsKey('given')) 'public-key',
+    if (verb == 'up') 'public-key',
   ];
   if (serverOnly &&
       (options.containsKey('project') || options.containsKey('account') || options.containsKey('bundle'))) {
@@ -204,6 +205,13 @@ Future<int> runHostCommand(
   final String knownHosts;
   try {
     plan.check(forSetup: false);
+    if (verb == 'up') {
+      try {
+        HostFiles.signingFingerprint(plan.publicKey);
+      } on HostFilesRefused catch (error) {
+        throw FormatException(error.message);
+      }
+    }
     if (verb == 'up') plan.preparationSettings.check();
     if (given) {
       PreparedHost.read({
@@ -232,7 +240,13 @@ Future<int> runHostCommand(
     provider = scalewayFor(options, scalewayOverHttps(key));
   }
 
-  final ssh = OpenSsh(knownHosts: File(knownHosts), identity: '', agentOnly: true, start: startSsh);
+  final ssh = OpenSsh(
+    knownHosts: File(knownHosts),
+    identity: '',
+    agentOnly: true,
+    agentPublicKey: plan.publicKey,
+    start: startSsh,
+  );
   final run = HostRun(
     provider: provider,
     remote: remote ?? ssh,

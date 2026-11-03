@@ -7,10 +7,13 @@ import '../app/host_runs.dart';
 import '../app/host_access.dart';
 import '../app/host_session.dart';
 import '../app/machines.dart';
+import '../app/preparation_host_key.dart';
+import '../app/run_here.dart';
 import '../app/session.dart';
 import '../app/settings.dart';
 import 'tokens.dart';
 import 'host_preparation_settings.dart';
+import 'organization_access_dialogs.dart' show hostKeyComparisonWords;
 
 /// Opens confirmed give-back of the existing rental.
 Future<void> openHostTakeDownDialog(
@@ -43,9 +46,11 @@ Future<void> openPrepareServerDialog(
   required Machines machines,
   required Settings settings,
   required HostRuns hostRuns,
+  RunHere? runKeyCommand,
 }) => showDialog<void>(
   context: context,
-  builder: (_) => HostDialog(project: '', machines: machines, settings: settings, hostRuns: hostRuns),
+  builder: (_) =>
+      HostDialog(project: '', machines: machines, settings: settings, hostRuns: hostRuns, runKeyCommand: runKeyCommand),
 );
 
 /// Opens the retained public setup protocol.
@@ -73,6 +78,7 @@ class HostDialog extends StatefulWidget {
     this.hostAccess,
     this.existingRun,
     this.start,
+    this.runKeyCommand,
     this.takeDownOnly = false,
     super.key,
   });
@@ -98,6 +104,9 @@ class HostDialog extends StatefulWidget {
   /// The host process boundary.
   final StartHostCommand? start;
 
+  /// Runs the public key scan and fingerprint command, replaceable without a network in tests.
+  final RunHere? runKeyCommand;
+
   /// Whether the dialog confirms give-back.
   final bool takeDownOnly;
 
@@ -115,6 +124,13 @@ class _HostDialogState extends State<HostDialog> {
   final _name = TextEditingController();
   final _address = TextEditingController();
   final _hostKey = TextEditingController();
+  Timer? _keyDebounce;
+  int _keyRequest = 0;
+  bool _fetchingKey = false;
+  bool _pastedKey = false;
+  bool _keyConfirmed = false;
+  PreparationHostKey? _fetchedKey;
+  String? _keyProblem;
   HostPreparation? _started;
   bool _busy = false;
   bool _givenBack = false;
@@ -145,6 +161,50 @@ class _HostDialogState extends State<HostDialog> {
   bool _proven = false;
   bool _readingAccess = false;
 
+  bool get _keyReady => _hostKey.text.trim().isNotEmpty && (_pastedKey || _fetchedKey != null && _keyConfirmed);
+
+  void _addressChanged() {
+    _keyDebounce?.cancel();
+    _keyRequest++;
+    setState(() {
+      _fetchingKey = false;
+      _keyConfirmed = false;
+      _fetchedKey = null;
+      _keyProblem = null;
+      if (!_pastedKey) _hostKey.clear();
+    });
+    if (_address.text.trim().isNotEmpty && !_pastedKey) {
+      _keyDebounce = Timer(const Duration(milliseconds: 500), _fetchKey);
+    }
+  }
+
+  Future<void> _fetchKey() async {
+    _keyDebounce?.cancel();
+    if (_busy) return;
+    final request = ++_keyRequest;
+    final address = _address.text.trim();
+    setState(() {
+      _fetchingKey = true;
+      _pastedKey = false;
+      _keyConfirmed = false;
+      _fetchedKey = null;
+      _hostKey.clear();
+      _keyProblem = null;
+    });
+    try {
+      final fetched = await fetchPreparationHostKey(address, run: widget.runKeyCommand);
+      if (!mounted || request != _keyRequest) return;
+      setState(() {
+        _fetchedKey = fetched;
+        _hostKey.text = fetched.key;
+      });
+    } on WorkspaceRefused catch (refused) {
+      if (mounted && request == _keyRequest) setState(() => _keyProblem = refused.words);
+    } finally {
+      if (mounted && request == _keyRequest) setState(() => _fetchingKey = false);
+    }
+  }
+
   Future<void> _readAccess(HostAccess access) async {
     try {
       await access.readAgain();
@@ -169,7 +229,7 @@ class _HostDialogState extends State<HostDialog> {
   }
 
   Future<void> _prepare() async {
-    if (_busy || !_proven) return;
+    if (_busy || !_proven || !_keyReady || _fetchingKey) return;
     setState(() {
       _busy = true;
       _problem = null;
@@ -191,6 +251,7 @@ class _HostDialogState extends State<HostDialog> {
           givenHostKey: _hostKey.text.trim(),
           preparationSettings: _choices,
           machineFile: machineFile,
+          publicKey: access.identity()!.key,
         ).stored,
       );
       if (record == null || record.givenAddress.isEmpty) {
@@ -324,6 +385,8 @@ class _HostDialogState extends State<HostDialog> {
 
   @override
   void dispose() {
+    _keyDebounce?.cancel();
+    _keyRequest++;
     _down?.dispose();
     _membershipSession?.stopReading();
     _membershipSession?.dispose();
@@ -400,11 +463,45 @@ class _HostDialogState extends State<HostDialog> {
                     padding: const EdgeInsets.only(top: Space.small),
                     child: TextField(
                       controller: field.$1,
+                      readOnly: _busy,
                       decoration: InputDecoration(labelText: field.$2, helperText: field.$3),
                       // The host name decides whose admins may prepare it, so its refusal follows each change.
-                      onChanged: field.$1 == _name ? (_) => setState(() {}) : null,
+                      onChanged: (_) {
+                        if (field.$1 == _address) {
+                          _addressChanged();
+                        } else {
+                          setState(() {
+                            if (field.$1 == _hostKey) {
+                              _keyRequest++;
+                              _keyDebounce?.cancel();
+                              _fetchingKey = false;
+                              _pastedKey = _hostKey.text.trim().isNotEmpty;
+                              _fetchedKey = null;
+                              _keyConfirmed = false;
+                              _keyProblem = null;
+                            }
+                          });
+                        }
+                      },
                     ),
                   ),
+                TextButton(
+                  onPressed: _busy || _fetchingKey || _address.text.trim().isEmpty ? null : _fetchKey,
+                  child: const Text('Fetch SSH host key'),
+                ),
+                if (_fetchingKey) const Text('Fetching the SSH host key…'),
+                if (_keyProblem != null) Text(_keyProblem!),
+                if (_fetchedKey case final fetched?) ...[
+                  SelectableText(fetched.fingerprint),
+                  const Text(hostKeyComparisonWords),
+                  CheckboxListTile(
+                    key: const Key('preparation-host-key-confirmed'),
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('I compared this fingerprint'),
+                    value: _keyConfirmed,
+                    onChanged: _busy ? null : (value) => setState(() => _keyConfirmed = value == true),
+                  ),
+                ],
                 // Below the fields, so that what it says as the name is typed moves none of them.
                 if (access != null && !_readingAccess)
                   if (_refusal(access) case final reason? when reason != _problem)
@@ -491,7 +588,9 @@ class _HostDialogState extends State<HostDialog> {
         ),
         if (!widget.takeDownOnly && run == null)
           FilledButton(
-            onPressed: _busy || access == null || _refusal(access) != null ? null : _prepare,
+            onPressed: _busy || _fetchingKey || !_keyReady || access == null || _refusal(access) != null
+                ? null
+                : _prepare,
             child: const Text('Prepare the machine'),
           ),
         if (!widget.takeDownOnly && run != null && !run.ready && !run.running)

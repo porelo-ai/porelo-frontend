@@ -6,6 +6,7 @@ import 'package:porelo_host/porelo_host.dart' show forgeAddress;
 
 import '../app/host_session.dart';
 import '../app/machines.dart';
+import '../app/session.dart';
 import '../app/forge_connection.dart';
 import '../app/links.dart';
 import 'dialog_scroll.dart';
@@ -20,6 +21,22 @@ String tokenRightsWords(String forge) =>
 
 /// Where a person makes a token at [address].
 Uri tokenPage(String address) => Uri.parse('https://$address/settings/personal-access-tokens/new');
+
+/// Asks for a token in the existing helper terminal, which keeps it in the system secret store.
+Future<bool> askForForgeToken(BuildContext context, String address, {OpenTerminal? open}) async {
+  address = forgeAddress(address);
+  final end = await runInATerminal(
+    context,
+    title: 'Connect $address',
+    explanation: 'Enter your own token at the terminal prompt. It is not echoed and goes into this computer’s system secret store.',
+    machine: Machine.local(),
+    command: <String>[poreloHost(), 'key', 'set', address],
+    shownCommand: 'porelo-host key set $address',
+    open: open,
+    stillWorking: 'Waiting for the token in this terminal on this computer.',
+  );
+  return end.code == 0;
+}
 
 /// Opens the forges set up on this computer. [usedBy] answers, for an entry, the repositories of
 /// the watched machines' projects there, before their API access here is forgotten.
@@ -277,18 +294,8 @@ class _ForgeFormState extends State<ForgeForm> {
       }
       return;
     }
-    // The end includes a code that arrived while the terminal closed.
-    final end = await runInATerminal(
-      context,
-      title: 'Connect $address',
-      explanation: 'Enter your own token at the terminal prompt. It is not echoed and goes into this computer’s system secret store.',
-      machine: Machine.local(),
-      command: <String>[poreloHost(), 'key', 'set', address],
-      shownCommand: 'porelo-host key set $address',
-      open: forges.openTerminal,
-      stillWorking: 'Waiting for the token in this terminal on this computer.',
-    );
-    if (!mounted || end.code != 0) return;
+    final kept = await askForForgeToken(context, address, open: forges.openTerminal);
+    if (!mounted || !kept) return;
     try {
       if (!await forges.hasToken(address)) {
         if (mounted) setState(() => _problem = 'No token is kept for $address. Enter it in the terminal.');

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:porelo_host/porelo_host.dart' show forgeAddress;
 
 import 'session.dart';
+import 'core_credentials.dart';
 
 import 'desk.dart';
 import 'forge.dart';
@@ -398,6 +399,16 @@ class ForgeConnection extends ChangeNotifier with QuietAfterDispose {
   Future<bool> hasToken(String address) async {
     final kept = await _tokens.read(forgeAddress(address));
     return kept != null && kept.isNotEmpty;
+  }
+
+  /// Copies the kept token into Core's vault without exposing its value to a widget.
+  Future<void> handTokenToVault(String address, {CoreCredentials? core}) async {
+    final host = forgeAddress(address);
+    final token = await _tokens.read(host);
+    if (token == null || token.trim().isEmpty) {
+      throw const WorkspaceRefused('No token is kept for this forge on this computer.');
+    }
+    await (core ?? CoreCredentials()).putToken('git.token.$host', token);
   }
 
   /// Removes [entry] here: its token out of the keychain. **Nothing at the forge is touched**: the
