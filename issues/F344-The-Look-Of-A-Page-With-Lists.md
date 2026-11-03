@@ -35,7 +35,7 @@ Proposal A, the cards. Sort keys: name and state, plus the machine for a project
 
 The Coordinator drew a narrow layout the operator found good, at 820 and 390 pixels: the rail becomes a menu behind a button, targets of 44 pixels, the header on one line on a tablet, and on a phone the title first, search and sort below it and the buttons behind ⋮, a row's state below its text, and only the first card open. Whether the app ships on those widths is not decided here.
 
-The page gives none of this today: read from the code, `shell.dart`, `shell_rail.dart` and the list pages have no width rule, the rail stands at every width, and `Wrap` and shortened words are all that follows a narrow window. So the cards are M without it. The narrow layout adds a rail as a menu, which every page sits in, and three forms of the header and row, which makes it L together. It can follow the cards, as they do not depend on it.
+The page gives part of this today, read from the code: `WindowSize` is the one width rule, with the same steps at 600 and 840 pixels the drawings fall into. Below 840 the rail already stands in a drawer behind the menu button, as the drawings ask. A row of `expandable_list_row.dart` and of the organization's page puts its buttons below its words when compact. It lacks targets of 44 pixels, the header's narrow forms, a row's state below its text, and only the first card open. All of those are in the new section and row, so the cards built on `WindowSize` take them for little more: M, not L, if 44 pixels is accepted for every width or only below 840.
 
 ## Words
 
