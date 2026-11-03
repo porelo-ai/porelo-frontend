@@ -18,6 +18,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f222"></a>[F222](F222-A-Refused-Unlock-Asks-Again-In-Its-Terminal.md) | XS | — | A refused password in the unlock terminal asked again, up to three times, instead of ending it. |
 | <a id="f322"></a>[F322](F322-Leftovers-Of-The-Organization-Walk.md) | S | — | Small things a walk of the organization's pages found: raw JSON, a mark while a change runs, a stale refusal, words. |
 | <a id="f291"></a>[F291](F291-A-Host-Card-With-A-Name-Or-An-IPv6-Address-Read.md) | M | — | A host whose card names a host name or an IPv6 address reached, saved and administered as one at an IPv4 address. |
 | <a id="f108"></a>[F108](F108-A-Machine-Over-Ssh-From-Windows.md) | — | — | On Windows, a machine over ssh is reached through the relay, as a WSL distribution is. |
@@ -37,7 +38,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f287"></a>[F287](F287-A-Join-Confirmed-By-What-The-Host-Follows.md) | — | — | A first join confirmed by what the host follows, healthy hosts offered beside a refused commit, no credential kept or shown, an unconfirmed join undoing only its own. |
 | <a id="f279"></a>[F279](F279-The-Steps-Of-One-Click-Joining.md) | S | — | One Markdown file of numbered steps of the one-click flow, from first start to first work. |
 | <a id="f223"></a>[F223](F223-A-Ready-Server-Runs-Its-Setup-Again.md) | S | — | A ready rented server offers Run its setup again, which runs `up` in the interface's own run, a stop in it completed from Needs you. |
-| <a id="f222"></a>[F222](F222-A-Refused-Unlock-Asks-Again-In-Its-Terminal.md) | XS | — | A refused password in the unlock terminal asked again, up to three times, instead of ending it. |
 | <a id="f221"></a>[F221](F221-A-Hosts-Vault-Unlocked-From-The-Secrets-File.md) | S | — | A rented server's vault unlocked from the secrets file with its master password typed once, its Make refused; no value of the file typed by hand. |
 | <a id="f224"></a>[F224](F224-Porelo-Host-Says-Which-Server-Is-Rented-Now.md) | S | — | A read-only `porelo-host find` says which server carries the project's tag now, or that none does. |
 
@@ -92,6 +92,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f324"></a>[F324](F324-Removing-A-Project-On-Windows.md) | — | — | A local project removed from the interface on Windows, where it runs in a WSL distribution. |
 | <a id="f321"></a>[F321](F321-Send-The-Terminal-Input-Fix-Upstream.md) | S | — | The terminal input fix offered upstream, and this repository's copy of `xterm` dropped once a release holds it. |
 | <a id="f320"></a>[F320](F320-A-First-Organization-Without-Hand-Work.md) | M | — | A forge's ssh host key confirmed in the interface, so a first organization needs no hand work. |
 | <a id="f318"></a>[F318](F318-An-Owner-Makes-An-Admin-A-Developer.md) | — | — | An owner turns a project's admin into a developer with an entry of its own. |
