@@ -91,7 +91,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f338"></a>[F338](F338-The-Words-Of-The-Project-List.md) | — | — | The project list's words saying what each row states and each button does. |
 | <a id="f337"></a>[F337](F337-A-Rail-Entry-Leads-To-Its-List.md) | S | — | A rail entry always landing on the first page that entry opens. |
 | <a id="f336"></a>[F336](F336-A-Hosts-Page-Reads-As-A-Way-To-Work.md) | — | — | A host's page saying what the connection is and what ending it does, and leading to work. |
-| <a id="f335"></a>[F335](F335-One-Row-Per-Machine.md) | — | — | A server standing once, and whether a machine and a host share a rail entry at all. |
+| <a id="f335"></a>[F335](F335-One-Row-Per-Machine.md) | — | — | One set of servers called *Machines*, each in one row under one rail entry, and "host" gone from the interface's words. |
 | <a id="f334"></a>[F334](F334-A-Host-Row-That-Keeps-Its-Words.md) | — | — | A machine's row keeping one steady line while a host refuses, and never talking of a forward. |
 | <a id="f333"></a>[F333](F333-A-Server-Run-Says-What-It-Is.md) | — | — | The server run's dialog naming at once what runs and that it takes minutes, its row never ending in nothing, and *Close* usable. |
 | <a id="f332"></a>[F332](F332-A-Server-Dialog-Opens-At-Once.md) | — | — | *Prepare a server…* opening its dialog at the click, and a second click opening no second one. |
