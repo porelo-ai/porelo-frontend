@@ -1,6 +1,6 @@
 # F336 — A Host's Page Reads As A Way To Work
 
-**Status:** Accepted.
+**Status:** Review.
 
 **What must be true.** A person on a host's page sees at once whether this computer is connected, what that means and what
 ending it does, and is led from there to working on the host.

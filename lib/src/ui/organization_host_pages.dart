@@ -157,6 +157,7 @@ class OrganizationHostPage extends StatefulWidget {
     required this.onBack,
     this.connections,
     this.onGiveToken,
+    this.onStartWork,
     this.keys,
     super.key,
   });
@@ -173,6 +174,9 @@ class OrganizationHostPage extends StatefulWidget {
   /// Feeds the host admin's central token to the host, in a terminal: nothing here sees it. It ends when the terminal
   /// does.
   final Future<void> Function(String host)? onGiveToken;
+
+  /// Starts work on the machine, absent where this computer cannot.
+  final void Function(String host)? onStartWork;
 
   /// The host's name.
   final String host;
@@ -295,12 +299,16 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
           if (_refusal case final refusal?) _Problem(refusal),
           if (view != null && host == null) Text('${view.name} has no host ${widget.host}.'),
           if (view != null && host != null) ...[
+            _connection(view, host),
+            if (isAdmin) ...[
+              const SizedBox(height: Space.normal),
+              Text('Managing this machine', style: Theme.of(context).textTheme.titleMedium),
+            ],
             _reachRow(view, host, isAdmin),
             if (isAdmin) ..._howItStands(host),
             const SizedBox(height: Space.normal),
             _projects(view, host, isAdmin),
             _admins(view, host, isAdmin),
-            _connection(view, host),
           ],
         ],
       );
@@ -499,36 +507,66 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     };
   }
 
+  /// Where this person stands with the machine, first on the page as it concerns everyone.
   Widget _connection(OrganizationView view, OrganizationHost host) {
     final connections = widget.connections;
     final connected = connections?.connected(host.name) ?? false;
+    final ready = connected && (connections?.up(host.name) ?? false) && !(_progress?.waitsForToken ?? false);
     final why = _whyNotConnect(host, connections);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Your connection', style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: Space.small),
-        Text(
-          connected && (_progress?.waitsForToken ?? false)
-              ? 'Not connected yet. The host makes your account once it has your token.'
-              : connected
-              ? 'Connected as ${view.me}, with the host key from the organization.'
-              : why ?? 'Not connected yet. Connecting sets up one connection here, whatever number of projects it carries.',
+    final mine = [
+      for (final project in view.projects)
+        if (project.host == host.name && (project.admins.contains(view.me) || project.members.contains(view.me)))
+          project.name,
+    ];
+    final name = host.name;
+    final buttons = [
+      if (ready && widget.onStartWork != null)
+        FilledButton(
+          key: ValueKey('organization.startWork/$name'),
+          onPressed: () => widget.onStartWork!(name),
+          child: const Text('Start work'),
         ),
-        const SizedBox(height: Space.small),
-        if (connected)
-          OutlinedButton(
-            key: ValueKey('organization.disconnect/${host.name}'),
-            onPressed: _acting ? null : () => unawaited(_act(() => connections!.disconnect(host.name))),
-            child: const Text('Disconnect'),
-          )
-        else if (view.myHosts.contains(host))
-          FilledButton(
-            key: ValueKey('organization.connect/${host.name}'),
-            onPressed: _acting || why != null ? null : () => unawaited(_act(() => connections!.connect(host.name))),
-            child: const Text('Connect'),
+      if (connected)
+        OutlinedButton(
+          key: ValueKey('organization.disconnect/$name'),
+          onPressed: _acting ? null : () => unawaited(_act(() => connections!.disconnect(name))),
+          child: const Text('Disconnect'),
+        )
+      else if (view.myHosts.contains(host))
+        FilledButton(
+          key: ValueKey('organization.connect/$name'),
+          onPressed: _acting || why != null ? null : () => unawaited(_act(() => connections!.connect(name))),
+          child: const Text('Connect'),
+        ),
+    ];
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: Space.small),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            key: const ValueKey('organization.connectionWords'),
+            ready
+                ? 'Connected as ${view.me}.${mine.isEmpty ? '' : ' Ready to work on: ${mine.join(', ')}.'}'
+                : connected
+                ? 'Connected. $name makes your account once it has read the organization, up to five minutes after '
+                      'your project is on it, and only once its admin has given it the token.'
+                : why ??
+                      'This computer has no connection to $name yet. You need one to work there; it is set up once, '
+                          'whatever number of projects the machine carries.',
           ),
-      ],
+          if (connected)
+            Text(
+              "Disconnect ends this computer's connection only. Your account, work and vault there stay, and Connect "
+              'brings it back.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          if (buttons.isNotEmpty) ...[
+            const SizedBox(height: Space.small),
+            Wrap(spacing: Space.small, runSpacing: Space.small, children: buttons),
+          ],
+        ],
+      ),
     );
   }
 }

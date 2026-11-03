@@ -186,6 +186,7 @@ void main() {
       String host = 'build',
       List<OrganizationProject> moreProjects = const [],
       Future<void> Function(String host)? onGiveToken,
+      void Function(String host)? onStartWork,
       OrganizationHost shown = buildHost,
     }) async {
       final source = FixtureOrganization(organizationFor(me, moreProjects: moreProjects, host: shown));
@@ -201,6 +202,7 @@ void main() {
           host: host,
           onBack: () {},
           onGiveToken: onGiveToken,
+          onStartWork: onStartWork,
         ),
       );
       return (source: source, connections: made);
@@ -415,7 +417,7 @@ void main() {
         connections: connections,
         onGiveToken: (_) async => connections.hostProgress = const HostProgress(),
       );
-      expect(find.textContaining('makes your account once it has your token'), findsOneWidget);
+      expect(find.textContaining('makes your account once it has read the organization'), findsOneWidget);
       await pressOrganizationAction(tester, 'giveToken');
       expect(connections.asked, contains('connect build'));
       expect(find.textContaining('makes your account once'), findsNothing);
@@ -431,10 +433,22 @@ void main() {
       expect(find.text('Connect to build first.'), findsOneWidget);
     });
 
+    // Harm: a person cannot tell whether this computer is connected, what that means, or how to go on from it.
+    testWidgets('the top of the page says where one stands, and leads on', (tester) async {
+      final started = <String>[];
+      await page(tester, 'mia', connections: FixtureConnections(), onStartWork: started.add);
+      expect(find.textContaining('This computer has no connection to build yet'), findsOneWidget);
+      expect(find.byKey(const ValueKey('organization.startWork/build')), findsNothing);
+      await pressOrganizationAction(tester, 'connect/build');
+      expect(find.textContaining('Connected as mia. Ready to work on: demo.'), findsOneWidget);
+      await _tap(tester, find.byKey(const ValueKey('organization.startWork/build')));
+      expect(started, ['build']);
+    });
+
     // Harm: a person cannot end a connection, or sees it as ended when it was refused.
     testWidgets('Disconnect ends the connection and offers Connect again', (tester) async {
       final made = await page(tester, 'mia', connections: FixtureConnections(['build']));
-      expect(find.textContaining('Connected as mia, with the host key from the organization.'), findsOneWidget);
+      expect(find.textContaining('Connected as mia.'), findsOneWidget);
       await pressOrganizationAction(tester, 'disconnect/build');
       expect(made.connections.asked, ['disconnect build']);
       expect(_action('connect/build'), findsOneWidget);

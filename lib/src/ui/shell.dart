@@ -2737,6 +2737,14 @@ class _ShellState extends State<Shell> {
                                       organization: _organization,
                                       connections: _hostConnections,
                                       onGiveToken: _giveHostToken,
+                                      onStartWork: (host) {
+                                        final machine = widget.machines.all
+                                            .where((machine) => machine.hostCard?.name == host)
+                                            .firstOrNull;
+                                        if (machine == null) return;
+                                        widget.machines.select(machine);
+                                        unawaited(_startInDefault());
+                                      },
                                       keys: _keys,
                                       host: _organizationHost!,
                                       onBack: () {
