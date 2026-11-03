@@ -242,18 +242,19 @@ class _StartWorkDialogState extends State<StartWorkDialog> {
                     isExpanded: true,
                     itemHeight: null,
                     decoration: const InputDecoration(border: OutlineInputBorder()),
-                    hint: Text(starting.machineChose ? 'The machine chooses' : 'Choose an agent'),
                     selectedItemBuilder: (context) => <Widget>[
+                      Text(starting.machineMayChoose ? 'The machine chooses' : 'Choose an agent'),
                       for (final agent in starting.agentsInOrder) Text(_nameOf(agent), overflow: TextOverflow.ellipsis),
                     ],
                     items: <DropdownMenuItem<String>>[
+                      const DropdownMenuItem<String>(child: Text('The machine chooses')),
                       for (final agent in starting.agentsInOrder)
                         DropdownMenuItem<String>(
                           value: agent.name,
                           child: _AgentChoice(agent: agent),
                         ),
                     ],
-                    onChanged: (chosen) => chosen == null ? null : starting.chooseAgent(chosen),
+                    onChanged: starting.chooseAgent,
                   ),
                 if (starting.machineChoice case final words?)
                   Padding(

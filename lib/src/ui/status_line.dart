@@ -162,11 +162,7 @@ class _Operations extends StatelessWidget {
       child: Text(
         all.isEmpty
             ? 'nothing run yet'
-            : running > 0
-            ? '$running running'
-            : failed > 0
-            ? '${all.length} run, $failed failed'
-            : '${all.length} run',
+            : '$running running, ${all.length - running} finished${failed > 0 ? ', $failed failed' : ''}',
         overflow: TextOverflow.ellipsis,
         style: Theme.of(context).textTheme.bodySmall,
       ),

@@ -18,6 +18,9 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f325"></a>[F325](F325-Going-Back-To-The-Machines-Agent.md) | — | — | A picked agent handed back to the machine's choice in the start form. |
+| <a id="f326"></a>[F326](F326-Operations-Run-Beside-Work-Running.md) | — | — | The status line's count of operations not read as work running. |
+| <a id="f327"></a>[F327](F327-What-Closing-The-Window-Leaves-Running.md) | — | — | *Close Porelo?* saying what is true of the work it lists. |
 | <a id="f319"></a>[F319](F319-Confirmed-Membership-Purge-Before-Give-Back.md) | S | — | Giving a server back shows who still holds a role on it and removes the accounts of those a person confirmed; walked by no sprint yet. |
 | <a id="f222"></a>[F222](F222-A-Refused-Unlock-Asks-Again-In-Its-Terminal.md) | XS | — | A refused password in the unlock terminal asked again, up to three times, instead of ending it. |
 | <a id="f322"></a>[F322](F322-Leftovers-Of-The-Organization-Walk.md) | S | — | Small things a walk of the organization's pages found: raw JSON, a mark while a change runs, a stale refusal, words. |
@@ -29,9 +32,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f325"></a>[F325](F325-Going-Back-To-The-Machines-Agent.md) | — | — | A picked agent handed back to the machine's choice in the start form. |
-| <a id="f326"></a>[F326](F326-Operations-Run-Beside-Work-Running.md) | — | — | The status line's count of operations not read as work running. |
-| <a id="f327"></a>[F327](F327-What-Closing-The-Window-Leaves-Running.md) | — | — | *Close Porelo?* saying what is true of the work it lists. |
 | <a id="f332"></a>[F332](F332-A-Server-Dialog-Opens-At-Once.md) | — | — | *Prepare a server…* opening its dialog at the click, and a second click opening no second one. |
 | <a id="f333"></a>[F333](F333-A-Server-Run-Says-What-It-Is.md) | — | — | The server run's dialog naming at once what runs and that it takes minutes, its row never ending in nothing, and *Close* usable. |
 | <a id="f334"></a>[F334](F334-A-Host-Row-That-Keeps-Its-Words.md) | — | — | A machine's row keeping one steady line while a host refuses, and never talking of a forward. |

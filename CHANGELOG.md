@@ -47,6 +47,12 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- The start form offers *The machine chooses* so a picked agent can be cleared, and shows that choice when no agent
+  was picked.
+- The status line counts running and finished operations separately, keeping the failed count visible.
+- *Close Porelo?* says that listed work keeps running on its machine, including the local machine, and mentions server
+  preparations only when there are any.
+
 - *Replace a lost key…* reads Core's real plan and no longer sends an option `identity revoke` does not have: both
   stopped every replacement. It no longer tells the person to have their card revoked first, which leaves nothing to
   replace.

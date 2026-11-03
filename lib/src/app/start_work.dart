@@ -424,11 +424,11 @@ class StartWork extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Chooses the agent, and asks again whether work can start with it.
+  /// Chooses the agent, or leaves it to the machine, and asks again whether work can start.
   ///
   /// Asked again rather than kept: what `CanStart` answers turns on which agent was chosen, and
   /// an answer from the previous one is worse than none.
-  void chooseAgent(String name) {
+  void chooseAgent(String? name) {
     agent = name;
     _agentIsGone = false;
     readiness = null;
@@ -550,15 +550,12 @@ class StartWork extends ChangeNotifier {
   /// **Only where it says how it chose**: a machine older than `agentSource` may name an agent it did not
   /// choose this way, and there the person picks, rather than this guessing.
   ///
-  /// **Never for work that named an agent, or a job kept with one**: the agent it ran with being gone is the
-  /// person's to replace, not for the machine to swap under it.
+  /// A missing carried-over agent stays the person's to replace until they explicitly return the choice to the machine.
+  /// Whether the field may say that the machine chooses: until the machine has answered, and then if it did.
+  bool get machineMayChoose => agent == null && !_agentIsGone && (readiness == null || machineChose);
+
   bool get machineChose =>
-      agent == null &&
-      continuing == null &&
-      from == null &&
-      !_agentIsGone &&
-      (readiness?.agent.isNotEmpty ?? false) &&
-      readiness!.agentSource.isNotEmpty;
+      agent == null && !_agentIsGone && (readiness?.agent.isNotEmpty ?? false) && readiness!.agentSource.isNotEmpty;
 
   /// Whether the agent carried over from a finished run is no longer installed, so the person picks another.
   bool _agentIsGone = false;

@@ -30,9 +30,11 @@ Future<bool> confirmQuit(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
                       Text(
-                        running.isEmpty && preparing.isEmpty
-                            ? 'Nothing is running. Closing this changes nothing on any machine.'
-                            : 'Remote work keeps running without this window. Server preparations are listed below:',
+                        running.isEmpty
+                            ? preparing.isEmpty
+                                  ? 'Nothing is running. Closing this changes nothing on any machine.'
+                                  : 'No work is running.'
+                            : 'The listed work keeps running without this window, whether on this machine or another.',
                         key: const Key('what-keeps-running'),
                       ),
                       if (running.isNotEmpty) ...<Widget>[
@@ -43,6 +45,11 @@ Future<bool> confirmQuit(
                             child: Text(task, style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
                           ),
                       ],
+                      if (preparing.isNotEmpty)
+                        const Padding(
+                          padding: EdgeInsets.only(top: Space.normal),
+                          child: Text('Server preparations:'),
+                        ),
                       for (final project in preparing)
                         Padding(
                           padding: const EdgeInsets.only(top: Space.normal),
