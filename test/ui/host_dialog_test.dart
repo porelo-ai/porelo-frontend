@@ -3,11 +3,13 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:porelo_frontend/src/app/commands.dart';
 import 'package:porelo_frontend/src/app/host_runs.dart';
 import 'package:porelo_frontend/src/app/host_session.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/settings.dart';
 import 'package:porelo_frontend/src/ui/host_dialog.dart';
+import 'package:porelo_frontend/src/ui/machines_page.dart';
 import 'package:porelo_host/porelo_host.dart' as host;
 
 import '../features/support/world.dart' show FakeBackend, World;
@@ -17,6 +19,194 @@ import '../support/host_rental.dart';
 import '../support/signed_host.dart';
 
 void main() {
+  // Harm: repeated clicks open competing setup dialogs, or a stale permission starts machine preparation.
+  testWidgets('preparation opens once while reading and refuses a revoked key in its dialog', (tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final settings = Settings(MemorySettingsStore());
+    final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: RecordingTunnels());
+    final fixture = HostFixture();
+    final proof = FixtureProof(fixture);
+    final access = await fixture.access(settings, proof: proof);
+    final runs = HostRuns(machines, hostAccess: access);
+    addTearDown(() {
+      runs.dispose();
+      machines.dispose();
+      settings.dispose();
+    });
+    late BuildContext page;
+    Command command() => prepareServerCommand(
+      access: access,
+      open: () => openPrepareServerDialog(page, machines: machines, settings: settings, hostRuns: runs),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) {
+            page = context;
+            return const Scaffold();
+          },
+        ),
+      ),
+    );
+    proof.hold = Completer<void>();
+    command().run();
+    await World.settle(tester);
+    final openedWhileReading = find.byType(HostDialog).evaluate().length;
+    command().run();
+    await World.settle(tester);
+    proof.hold!.complete();
+    proof.hold = null;
+    await World.settle(tester);
+    expect(
+      find.byType(HostDialog, skipOffstage: false),
+      findsOneWidget,
+      reason: 'a second click must not open a second setup dialog',
+    );
+    expect(openedWhileReading, 1, reason: 'the dialog must open before the reads answer');
+    await tester.tap(find.text('Close'));
+    await World.settle(tester);
+
+    proof.hold = Completer<void>();
+    command().run();
+    await World.settle(tester);
+    final name = find.byType(TextField).first;
+    await tester.enterText(name, 'orchard');
+    await World.settle(tester);
+    final prepare = find.widgetWithText(FilledButton, 'Prepare the host');
+    expect(
+      tester.widget<FilledButton>(prepare).onPressed,
+      isNull,
+      reason: 'the earlier permission must not enable preparation during a fresh read',
+    );
+    expect(find.textContaining('Before setup, run this'), findsNothing);
+    proof.next = null;
+    proof.hold!.complete();
+    proof.hold = null;
+    await World.settle(tester);
+    expect(find.text('Your key is revoked.'), findsOneWidget);
+    expect(tester.widget<FilledButton>(prepare).onPressed, isNull);
+    expect(runs.preparing, isEmpty);
+    expect(fixture.machineFiles, isEmpty);
+    await tester.tap(find.text('Close'));
+    await World.settle(tester);
+  });
+
+  // Harm: closing progress cancels a machine setup, loses its row or starts a second command when reopened.
+  testWidgets('closing a running preparation leaves its row and live protocol available', (tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final settings = Settings(MemorySettingsStore());
+    final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: RecordingTunnels());
+    final runs = HostRuns(machines, hostAccess: await HostFixture().access(settings));
+    var process = HostProcess();
+    var starts = 0;
+    addTearDown(() {
+      runs.dispose();
+      machines.dispose();
+      settings.dispose();
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: ListenableBuilder(
+              listenable: runs,
+              builder: (_, _) => MachinesPage(
+                machines: machines,
+                hostRuns: runs,
+                onAdd: () {},
+                onDetails: (_) {},
+                onForget: (_) {},
+                onHostProtocol: (run) =>
+                    unawaited(openHostRunDialog(context, run: run, hostRuns: runs, machines: machines)),
+              ),
+            ),
+            floatingActionButton: TextButton(
+              onPressed: () => unawaited(
+                showDialog<void>(
+                  context: context,
+                  builder: (_) => HostDialog(
+                    project: '',
+                    machines: machines,
+                    hostRuns: runs,
+                    pickFile: ({initialDirectory, title}) async => '/collections/machine.tar.gz',
+                    start: (_, _) async {
+                      starts++;
+                      return process;
+                    },
+                  ),
+                ),
+              ),
+              child: const Text('Open preparation'),
+            ),
+          ),
+        ),
+      ),
+    );
+    Future<HostPreparation> startPreparation(String name) async {
+      await tester.tap(find.text('Open preparation'));
+      await World.settle(tester);
+      for (final value in [name, '203.0.113.7', hostKey, 'a' * 64].indexed) {
+        final field = find.descendant(of: find.byType(HostDialog), matching: find.byType(TextField)).at(value.$1);
+        await tester.ensureVisible(field);
+        await World.settle(tester);
+        await tester.enterText(field, value.$2);
+      }
+      await tester.ensureVisible(find.text('Choose collection'));
+      await World.settle(tester);
+      await tester.tap(find.text('Choose collection'));
+      await World.settle(tester);
+      await tester.tap(find.text('Prepare the host'));
+      await World.settle(tester);
+      return runs.of(name)!;
+    }
+
+    final run = await startPreparation('orchard');
+    expect(starts, 1);
+    await tester.tapAt(const Offset(10, 10));
+    await World.settle(tester);
+    expect(find.byType(HostDialog), findsNothing);
+    expect(process.killed, isFalse);
+    expect(run.running, isTrue);
+    process.line(const host.Step('install', host.StepState.started, text: 'Installing the machine'));
+    await World.settle(tester);
+    await tester.tap(find.text('orchard'));
+    await World.settle(tester);
+    expect(find.textContaining('Installing the machine'), findsWidgets);
+    await tester.tap(find.text('Close'));
+    await World.settle(tester);
+    expect(process.killed, isFalse);
+    expect(run.running, isTrue);
+    expect(starts, 1);
+    process.line(const host.Step('play', host.StepState.refused, words: 'Stopped by the test'));
+    process.end(65);
+    await World.settle(tester);
+    await run.finished;
+    expect(settings.hostUp('orchard')!.protocol, isNotEmpty);
+    expect(find.byKey(const ValueKey('host-preparing orchard')), findsOneWidget);
+
+    process = HostProcess();
+    final second = await startPreparation('demo');
+    await tester.tap(find.text('Close'));
+    await World.settle(tester);
+    expect(find.byType(HostDialog), findsNothing, reason: 'Close must work after the run starts');
+    expect(process.killed, isFalse);
+    expect(second.running, isTrue);
+    process.line(const host.Step('install', host.StepState.started, text: 'Installing the second machine'));
+    await World.settle(tester);
+    await tester.tap(find.text('demo'));
+    await World.settle(tester);
+    expect(find.textContaining('Installing the second machine'), findsWidgets);
+    expect(starts, 2, reason: 'opening a protocol must not start another command');
+    process.line(const host.Step('play', host.StepState.refused, words: 'Stopped by the test'));
+    process.end(65);
+    await World.settle(tester);
+    await second.finished;
+  });
+
   // Harm: a host admin must see every account and membership that explicit teardown will permanently remove.
   testWidgets('give-back shows holders and purges only the names shown', (tester) async {
     final state = await openTakeDown(tester);

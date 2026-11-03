@@ -561,9 +561,8 @@ class _ShellState extends State<Shell> {
     stopEverything: _stopEverything,
     stopEverywhere: _stopEverywhere,
     watchAnotherMachine: _addAMachine,
-    prepareServer: () => unawaited(
-      openPrepareServerDialog(context, machines: widget.machines, settings: widget.settings, hostRuns: _hostRuns),
-    ),
+    prepareServer: () =>
+        openPrepareServerDialog(context, machines: widget.machines, settings: widget.settings, hostRuns: _hostRuns),
     startTheDaemon: () => unawaited(_startTheDaemon()),
     stopTheDaemon: () => unawaited(_stopTheDaemon()),
     forget: _forget,

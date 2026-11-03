@@ -141,27 +141,40 @@ class _HostDialogState extends State<HostDialog> {
     }
     // Root's bootstrap line names the card key, so it is shown only once the identity was read again.
     final access = widget.hostAccess ?? widget.hostRuns?.hostAccess;
-    if (access?.proof == null) {
-      _proven = true;
-    } else {
-      unawaited(
-        access!.readAgain().whenComplete(() {
-          if (mounted) setState(() => _proven = true);
-        }),
-      );
+    if (access != null) {
+      _readingAccess = true;
+      unawaited(_readAccess(access));
     }
   }
 
   bool _proven = false;
+  bool _readingAccess = false;
+
+  Future<void> _readAccess(HostAccess access) async {
+    try {
+      await access.readAgain();
+      if (mounted) setState(() => _proven = true);
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _problem = 'Your identity and the organization could not be read. Close this dialog and try again.';
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _readingAccess = false);
+    }
+  }
 
   // Only a named host's own admins may prepare it, so nothing is offered before the name.
   String? _refusal(HostAccess access) {
+    if (_readingAccess) return 'Reading your identity and the organization…';
+    if (!_proven) return _problem ?? 'Your identity and the organization have not been read.';
     final name = _name.text.trim();
     return name.isEmpty ? 'Name the host first: only its host admins may prepare it.' : access.unavailable(name);
   }
 
   Future<void> _prepare() async {
-    if (_busy) return;
+    if (_busy || !_proven) return;
     setState(() {
       _busy = true;
       _problem = null;
@@ -359,6 +372,13 @@ class _HostDialogState extends State<HostDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (_readingAccess && run == null && !widget.takeDownOnly)
+                const Padding(
+                  padding: EdgeInsets.only(bottom: Space.small),
+                  child: Text('Reading your identity and the organization…'),
+                ),
+              if (_busy && run == null && !widget.takeDownOnly)
+                Text('Checking permission to prepare machine ${_name.text.trim()}…'),
               if (widget.takeDownOnly && !_givenBack)
                 Text('Give this server back only after its data is safe. The provider must confirm its removal.'),
               if (!widget.takeDownOnly && run == null) ...[
@@ -402,7 +422,7 @@ class _HostDialogState extends State<HostDialog> {
                   ),
                 ),
                 // Below the fields, so that what it says as the name is typed moves none of them.
-                if (access != null)
+                if (access != null && !_readingAccess)
                   if (_refusal(access) case final reason? when reason != _problem)
                     Padding(
                       padding: const EdgeInsets.only(top: Space.small),
@@ -452,7 +472,23 @@ class _HostDialogState extends State<HostDialog> {
                 if (record?.preparedHost != null) const PreparedHostPanel(),
               if (_givenBack) const Text('The provider confirmed give-back.'),
               if (run != null)
-                ListenableBuilder(listenable: run.session, builder: (_, _) => _following(run.session.protocolText)),
+                ListenableBuilder(
+                  listenable: widget.hostRuns ?? run.session,
+                  builder: (_, _) => Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (run.running)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: Space.small),
+                          child: Text(
+                            'Preparing machine ${run.name}. This can take minutes. Preparation continues if you close '
+                            'this dialog; its machine row opens the protocol again.',
+                          ),
+                        ),
+                      _following(run.session.protocolText),
+                    ],
+                  ),
+                ),
               if (_down case final session?)
                 ListenableBuilder(listenable: session, builder: (_, _) => _following(session.protocolText)),
             ],
@@ -460,7 +496,10 @@ class _HostDialogState extends State<HostDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: _busy ? null : () => Navigator.pop(context), child: const Text('Close')),
+        TextButton(
+          onPressed: _busy && (widget.takeDownOnly || run == null) ? null : () => Navigator.pop(context),
+          child: const Text('Close'),
+        ),
         if (!widget.takeDownOnly && run == null)
           FilledButton(
             onPressed: _busy || access == null || _refusal(access) != null ? null : _prepare,

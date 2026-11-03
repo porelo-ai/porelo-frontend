@@ -212,10 +212,11 @@ class _HostPreparationRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final command = _hostProtocol(run, open);
+    final detail = run.problem ?? run.session.fix ?? run.session.stepText;
     return ItemListRow(
       leading: Icon(run.needsYou ? Icons.person_outline : Icons.dns_outlined),
       title: run.name,
-      subtitle: '${_hostState(run)} · ${run.problem ?? run.session.fix ?? run.session.stepText}',
+      subtitle: [_hostState(run), if (detail.isNotEmpty) detail].join(' · '),
       onOpen: command.available ? command.run : null,
       menu: CommandMenu(commands: [command, ...actions], tooltip: 'Setup of ${run.name}'),
     );

@@ -47,6 +47,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- *Prepare a server…* opens its one dialog at the click, which says it is reading and shows a refusal in place. A
+  preparation says what it is doing and that it can take minutes, keeps *Close* usable, and continues with its machine
+  row after the dialog closes. A row with no step has no trailing separator.
 - The start form offers *The machine chooses* so a picked agent can be cleared, and shows that choice when no agent
   was picked.
 - The status line counts running and finished operations separately, keeping the failed count visible.

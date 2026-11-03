@@ -67,6 +67,7 @@ class HostAccess extends ChangeNotifier {
   OrganizationView? _view;
   String? _whyNoView;
   int _reading = 0;
+  bool _preparing = false;
 
   /// Said when Porelo's answer names no organization settings or forge to hand a host.
   static const noAddress =
@@ -167,11 +168,15 @@ class HostAccess extends ChangeNotifier {
     return others.isEmpty ? '' : ' Ask ${others.join(', ')}.';
   }
 
-  /// Rechecks a retained Prepare callback immediately before it can open the way to a server.
+  /// Opens one preparation dialog at a time; the dialog reads permission before offering any action.
   Future<void> prepare(Future<void> Function() start) async {
-    await readAgain();
-    requireAdmin();
-    await start();
+    if (_preparing) return;
+    _preparing = true;
+    try {
+      await start();
+    } finally {
+      _preparing = false;
+    }
   }
 
   /// Reads again and refuses a stale callback before it can change a host.

@@ -707,19 +707,15 @@ List<Command> projectCommands({
 }
 
 /// Opens server preparation from the Machines page.
-Command prepareServerCommand({VoidCallback? open, HostAccess? access}) => Command(
+Command prepareServerCommand({FutureOr<void> Function()? open, HostAccess? access}) => Command(
   id: 'host.prepare',
   role: Role.hostAdmin,
   label: 'Prepare a server…',
   group: 'Machines',
   home: Home.machineRow,
   run: () {
-    final reason = access?.unavailable() ?? (access == null ? 'The verified host admins are unavailable.' : null);
-    if (reason != null) throw HostAccessRefused(reason);
-    // Opened only once the identity was read again; a refusal then shows on the command, which the read rebuilt.
-    unawaited(
-      access!.prepare(() async => open?.call()).catchError((Object _) {}, test: (error) => error is HostAccessRefused),
-    );
+    if (access == null) throw const HostAccessRefused('The verified machine admins are unavailable.');
+    unawaited(access.prepare(() async => open?.call()));
   },
   unavailable: access == null
       ? 'The verified host admins are unavailable.'
@@ -1073,7 +1069,7 @@ List<Command> commandsFor({
   required VoidCallback stopEverything,
   required VoidCallback stopEverywhere,
   required VoidCallback watchAnotherMachine,
-  VoidCallback? prepareServer,
+  FutureOr<void> Function()? prepareServer,
   required VoidCallback startTheDaemon,
   required VoidCallback stopTheDaemon,
   required VoidCallback forget,

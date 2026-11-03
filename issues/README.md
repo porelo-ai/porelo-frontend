@@ -18,6 +18,8 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f332"></a>[F332](F332-A-Server-Dialog-Opens-At-Once.md) | — | — | *Prepare a server…* opening its dialog at the click, and a second click opening no second one. |
+| <a id="f333"></a>[F333](F333-A-Server-Run-Says-What-It-Is.md) | — | — | The server run's dialog naming at once what runs and that it takes minutes, its row never ending in nothing, and *Close* usable. |
 | <a id="f325"></a>[F325](F325-Going-Back-To-The-Machines-Agent.md) | — | — | A picked agent handed back to the machine's choice in the start form. |
 | <a id="f326"></a>[F326](F326-Operations-Run-Beside-Work-Running.md) | — | — | The status line's count of operations not read as work running. |
 | <a id="f327"></a>[F327](F327-What-Closing-The-Window-Leaves-Running.md) | — | — | *Close Porelo?* saying what is true of the work it lists. |
@@ -32,8 +34,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f332"></a>[F332](F332-A-Server-Dialog-Opens-At-Once.md) | — | — | *Prepare a server…* opening its dialog at the click, and a second click opening no second one. |
-| <a id="f333"></a>[F333](F333-A-Server-Run-Says-What-It-Is.md) | — | — | The server run's dialog naming at once what runs and that it takes minutes, its row never ending in nothing, and *Close* usable. |
 | <a id="f334"></a>[F334](F334-A-Host-Row-That-Keeps-Its-Words.md) | — | — | A machine's row keeping one steady line while a host refuses, and never talking of a forward. |
 | <a id="f337"></a>[F337](F337-A-Rail-Entry-Leads-To-Its-List.md) | S | — | A rail entry always landing on the first page that entry opens. |
 | <a id="f344"></a>[F344](F344-The-Look-Of-A-Page-With-Lists.md) | — | — | Sections visibly apart, a filter behind a magnifier, and sorting, with three proposals drawn. |
