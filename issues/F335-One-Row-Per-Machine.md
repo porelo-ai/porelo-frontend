@@ -37,7 +37,7 @@ row under *Machines* is a third kind, the preparation's, and it stands in *Hosts
 - ***Machines*:** `Machines.all`, as today: the local machine, each private one reached over ssh or WSL, and each server of the organization after *Connect*. The *Hosts* section goes, and nothing joins it
   to the organization's list, so *Machines* holds only what this person chose.
 - **In its row:** *Connect* while disconnected. Everything else is in its one ⋮, following [F329](README.md#f329)'s decision.
-- ***Organization*:** its list of all the organization's servers, under the heading *Machines*, with what an owner and an admin do with them. A person with an account there
+- ***Organization*:** its list of all the organization's servers, under the heading *Machines*, with what an Organization Admin and its Machine Admin do with them. A person with an account there
   has *Connect* in the row; once connected the row says so.
 - **A preparation** stands in the one row under *Machines*, in place of what it becomes.
 - **What stays technical:** `porelo-host` and its commands, `porelo org host …`, field names in answers, paths such as
@@ -88,7 +88,7 @@ Nothing of this is built, and nothing built stops for it.
 - **[F342](README.md#f342):** decided there: from the organization's projects, a machine's admin puts a project on it. So *Organization*'s project row holds *Put it on a machine…*, chosen among machines the person administers, read from the organization, connected or not.
 - **[F343](README.md#f343):** the same list on the machine's page, connected, and its title.
 - **[F329](README.md#f329):** the two lists keep separate rows with separate menus. Under *Machines* the ⋮ holds the entries of today's machine row. *Organization*'s row holds
-  *Connect* and what an owner and an admin do.
+  *Connect* and what an Organization Admin and its Machine Admin do.
 - **[F334](README.md#f334):** its steady line is the row's under *Machines*; a disconnected machine no longer tries.
 - **[F331](README.md#f331), [F332](README.md#f332), [F333](README.md#f333), [F339](README.md#f339), [F340](README.md#f340):** the words only, *Prepare the host* among them.
 - **The pickers:** *New work* asks where it runs among the machines that answer, as `doc/decisions.md` says, so a connected server is there already and a disconnected one is not. The
@@ -117,14 +117,33 @@ Nothing of this is built, and nothing built stops for it.
 - **Two operations.** *Disconnect* ends this computer's connection; the machine stays under *Machines* and *Connect* there brings it back. *Forget* takes the entry out of the
   person's list; it stands on in *Organization*. If the person is an admin of that server, *Forget* warns first that the server keeps running.
 - **A machine's admin may remove it from the organization.**
-- **The owner acts rarely.** Admins do the operational work, renting or adding an existing machine among it. So who enters a new machine is not settled as the owner, and the role is open, as no
-  machine's admin exists before the machine.
+- **The owner acts rarely,** and the roles below do the operational work.
 - **A machine added over ssh or WSL is private.** It stands only under *Machines*, marked clearly as a private machine, with *Connect* and *Disconnect*. *Forget* deletes the entry, so it is added anew there.
 - ***Prepare a machine…* stands in *Organization*.**
-- **The roles.** An Organization Admin may do everything on every machine, also as the emergency way. A Machine Admin may do so only on one machine. Each role above may do all a role below may.
-  Core and Machines are asked what that changes, as today's roles are separate and an owner does not move a machine's pin. Nothing here is written to these roles yet.
 - **A third operation: taking a server down,** for a rented one giving it back, also removes it from the organization's list. Renting a server or
   setting one up by hand must enter it in the organization.
+
+## The roles
+
+Each level answers for the one below and may always create, change and delete there.
+
+| Role | Answers for | Where that stands |
+|---|---|---|
+| Owner | owners and Organization Admins | `owners.yml` and a new file |
+| Organization Admin | cards, projects' card and repository file, machines, and the admins of projects and machines | `members.yml`'s admins, `host.yml`'s admins |
+| Machine Admin | the machine's card, its carried projects, its token, taking Porelo off | |
+| Project Admin | developers, repositories, `project.yml` | |
+
+A change or replacement of a Machine Admin by an Organization Admin takes effect on a running server at its next follow, with no confirmation by the former admin. Core and Machines file what that takes. Nothing of this is built, and what stands above of today's code is today's.
+
+**What the table asks of these pages,** read from the code, not run:
+
+- **`view.isOwner`** gates what is owners' in `organization_page.dart`: accepting and locking cards, adding projects and machines, removing a machine, and owners themselves. All but the last move to an Organization Admin, and an owner's page holds owners and Organization Admins. The role needs a field of its own in `OrganizationView`, from an answer Core has not defined.
+- **A new machine:** an Organization Admin enters it and names its Machine Admin, who may be themselves. That answers who enters one. *Prepare a machine…* in *Organization* then runs for that Machine Admin, as `access.unavailable` already asks.
+- **Removing a machine:** by the operator's word its Machine Admin may, by taking Porelo off, and an Organization Admin may. The owner no longer does.
+- **A return under *Organization*** starts for its Machine Admin or an Organization Admin. Under *Machines*, for its Machine Admin.
+- **The project's page:** a Project Admin changes developers and repositories. A project's admins and the address of its repository are an Organization Admin's, which the page offers a Project Admin today. A Project Admin who adds another admin no longer can.
+- **Words:** *Organization Admin*, *Machine Admin* and *Project Admin* in the interface. This replaces the *machine admin* decided above only in its capitals.
 
 ## What the two operations ask of today's code
 
@@ -207,13 +226,11 @@ private half being gone.
 
 - The give-back's last step removes the card, only once the provider has confirmed it or, on a given server, once `down` has finished. A kept server keeps its card. `cardLeftBehind` and that sentence in `doc/design.md` go.
 - *Prepare a machine…* enters the card itself where the person may, rather than refusing a name the organization does not hold. Today it can only refuse, and it needs the role still open. The first admin named by that step is the person adding it.
-- `org host remove` is an owner's in Core today, and a machine's admin is now to have it. What that takes, and what the pin's refusal asks of a server that is gone, is asked of Core.
+- `org host remove` is an owner's in Core today, and the roles above move it. What that takes, and what the pin's refusal asks of a server that is gone, is Core's and Machines' to file.
 
 ## Open questions
 
-- Who starts a return under *Organization*, *always* being said of the place? Recommended: an admin of that machine; an owner only where no admin is left, as the owner acts rarely. Under *Machines*, its admin alone, as decided.
 - Does a machine that simply exists have the same two places as a rental? Recommended: yes, for one way to find it.
-- Who may enter a new machine? Not the owner by default, as decided, and no machine's admin exists before it. The Organization Admin above would answer this, once what that role costs is known.
 - A project still on the server when it goes: `org host remove` is to be read for whether it refuses, or leaves the project on no machine. [F319](README.md#f319) empties the accounts and says nothing of the projects.
 - A project's row says *Connect to <machine>* in [F338](README.md#f338). Does it connect, or lead to the row in *Organization*? Recommended: lead to that row, so that *Connect* stays in one place.
 - An admin who has forgotten a server, or never connected: the machine's page, opened from *Organization*, has what they manage. Taking it down needs what this computer kept and a way to the

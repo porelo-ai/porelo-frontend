@@ -19,9 +19,9 @@ page, over the host admin's own connection to the host.
 
 ## The decision
 
-From the organization's projects, a person puts a project on a machine that exists. Only that machine's admin may do so.
+From the organization's projects, a person puts a project on a machine that exists. Only that machine's Machine Admin may do so: its carried projects are that role's, in the table of [F335](README.md#f335). An Organization Admin does so by first naming themselves its Machine Admin, a signed change like any other.
 
-So *Organization*'s row of a project offers *Put it on a machine…*, for someone who administers a machine, choosing among those they administer, read from the organization, connected or not. No right changes and the calls stay. The admin of a machine reaches a project they are no member of there, as `porelo project show` keeps them from it under *Projects*. A project admin who is no machine's admin is offered nothing, and reads `not on a machine yet · a machine's admin puts it on one`.
+So *Organization*'s row of a project offers *Put it on a machine…*, for a Machine Admin, choosing among those they administer, read from the organization, connected or not. No right changes and the calls stay. The admin of a machine reaches a project they are no member of there, as `porelo project show` keeps them from it under *Projects*. A project admin who is no machine's admin is offered nothing, and reads `not on a machine yet · a machine's admin puts it on one`.
 
 The machine's page keeps a list of its projects with their progress, read only. It answers *Is this machine carrying it?* and is no second way to change it.
 
@@ -38,5 +38,5 @@ The machine's page keeps a list of its projects with their progress, read only. 
 
 ## Open questions
 
-- *Take it off the machine…* stands in the same row for the same admin, as the decision speaks of putting on? Recommended: yes, so that both are in one place.
+- *Take it off the machine…* stands in the same row for the same Machine Admin, as the decision speaks of putting on? Recommended: yes, so that both are in one place.
 - Does taking a project off still ask first, now that it stands among the project's actions? Recommended: yes, as today.
