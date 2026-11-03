@@ -1,6 +1,6 @@
 # F339 — Refresh Reads What Is Shown
 
-**Status:** Accepted.
+**Status:** Review.
 
 **What must be true.** *Refresh* in the rail brings up to date the page a person is looking at, and two buttons of one name on one
 page do not do different things.

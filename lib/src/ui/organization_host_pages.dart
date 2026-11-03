@@ -37,7 +37,7 @@ class _Problem extends StatelessWidget {
 String? _whyNotConnect(OrganizationHost host, HostConnections? connections) => connections == null
     ? 'This computer has no way to connect yet.'
     : host.address == null
-    ? 'Its host admin has not entered its address yet.'
+    ? 'Its Machine Admin has not entered its address yet.'
     : null;
 
 /// One machine of the organization under its heading *Machines*: what it is, *Connect* for a person with an account
@@ -155,6 +155,7 @@ class OrganizationHostPage extends StatefulWidget {
   const OrganizationHostPage({
     required this.organization,
     required this.host,
+    this.refresh = 0,
     required this.onBack,
     this.connections,
     this.onGiveToken,
@@ -182,6 +183,9 @@ class OrganizationHostPage extends StatefulWidget {
   /// The host's name.
   final String host;
 
+  /// Changes when the rail asks the page to read the machine again.
+  final int refresh;
+
   /// Returns to the list.
   final VoidCallback onBack;
 
@@ -196,6 +200,8 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
   /// What the host last said of itself, asked only of a host admin who is connected to it.
   HostProgress? _progress;
   bool _askedProgress = false;
+  int _progressReads = 0;
+  DateTime? _answeredAt;
 
   @override
   void initState() {
@@ -213,6 +219,15 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     widget.connections?.removeListener(_askProgress);
     widget.organization.removeListener(_askProgress);
     super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant OrganizationHostPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refresh != widget.refresh) {
+      _askedProgress = false;
+      _askProgress();
+    }
   }
 
   bool get _isAdminHere {
@@ -233,10 +248,30 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
   }
 
   /// Takes what the host says; a refusal is shown on the page, never read as a state.
-  Future<void> _read(Future<HostProgress> Function() ask) => _act(() async {
-    final progress = await ask();
-    if (mounted) setState(() => _progress = progress);
-  });
+  Future<void> _read(Future<HostProgress> Function() ask) async {
+    final read = ++_progressReads;
+    setState(() {
+      _acting = true;
+      _refusal = null;
+    });
+    HostProgress? progress;
+    String? refusal;
+    try {
+      progress = await ask();
+    } on OrganizationRefused catch (refused) {
+      refusal = refused.words;
+    }
+    // An earlier status answer must not replace the result of a later fetch.
+    if (!mounted || read != _progressReads) return;
+    setState(() {
+      if (progress != null) {
+        _progress = progress;
+        _answeredAt = DateTime.now();
+      }
+      _acting = false;
+      _refusal = refusal;
+    });
+  }
 
   Future<void> _giveToken() async {
     final first = _progress?.waitsForToken ?? false;
@@ -298,7 +333,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
           Text(widget.host, style: Theme.of(context).textTheme.headlineSmall),
           if (widget.organization.problem case final problem?) _Problem(problem),
           if (_refusal case final refusal?) _Problem(refusal),
-          if (view != null && host == null) Text('${view.name} has no host ${widget.host}.'),
+          if (view != null && host == null) Text('${view.name} has no machine ${widget.host}.'),
           if (view != null && host != null) ...[
             _connection(view, host),
             if (isAdmin) ...[
@@ -307,6 +342,11 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
             ],
             _reachRow(view, host, isAdmin),
             if (isAdmin) ..._howItStands(view, host),
+            if (!isAdmin)
+              const Text(
+                "The project list is the organization's word; only a connected Machine Admin can read "
+                'what the machine still carries.',
+              ),
             const SizedBox(height: Space.normal),
             _projects(view, host, isAdmin),
             _admins(view, host, isAdmin),
@@ -326,6 +366,9 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
       ];
     }
     return [
+      if (_acting) const Text('Waiting for the machine…'),
+      if (_answeredAt case final answered?)
+        Text('Machine last answered at ${TimeOfDay.fromDateTime(answered.toLocal()).format(context)}'),
       if (progress != null && progress.wantsToken) ...[
         if (progress.waitsForToken) Text(organizationTokenWords(view, host.name)),
         for (final project in progress.projects)
@@ -358,38 +401,56 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     spacing: Space.normal,
     runSpacing: Space.small,
     children: [
-      Text('Organization ${view.name} · ${_reach(host)} · host key ${host.hostKey ?? 'not entered yet'}'),
+      Text('Organization ${view.name} · ${_reach(host)} · SSH host key ${host.hostKey ?? 'not entered yet'}'),
       if (isAdmin) ...[
         OutlinedButton(
           key: const ValueKey('organization.changeHost'),
           onPressed: () => _show(_ChangeHostDialog(widget.organization, host)),
-          child: const Text('Change address and host key…'),
+          child: const Text('Change address and key…'),
         ),
-        OutlinedButton(
-          key: const ValueKey('organization.refreshHost'),
-          onPressed: _acting || widget.connections == null
-              ? null
-              : () => unawaited(_read(() => widget.connections!.refresh(host.name))),
-          child: const Text('Refresh'),
+        Tooltip(
+          message: 'Fetch and apply the organization on this machine now, rather than at its next follow.',
+          child: OutlinedButton(
+            key: const ValueKey('organization.refreshHost'),
+            onPressed: _acting || !(widget.connections?.connected(host.name) ?? false)
+                ? null
+                : () => unawaited(_read(() => widget.connections!.refresh(host.name))),
+            child: const Text('Fetch now'),
+          ),
         ),
       ],
     ],
   );
 
   Widget _projects(OrganizationView view, OrganizationHost host, bool isAdmin) {
+    final readsMachine = isAdmin && (widget.connections?.connected(host.name) ?? false);
+    final names = {
+      ...host.projects,
+      if (readsMachine)
+        for (final project in _progress?.projects ?? const <HostProjectProgress>[]) project.project,
+    };
     return FilteredListSection(
       title: 'Projects on this machine',
       storageId: 'host-projects ${host.name}',
       rows: [
-        for (final name in host.projects)
-          (
-            words: name,
-            child: ListTile(
-              leading: const Icon(Icons.folder_outlined),
-              title: Text(name),
-              subtitle: Text([_projectWords(view, name), if (isAdmin) ?_progressWords(view, name)].join(' · ')),
+        for (final name in names)
+          if (!readsMachine || _progress?.of(name)?.state != 'gone')
+            (
+              words: name,
+              child: ListTile(
+                leading: const Icon(Icons.folder_outlined),
+                title: Text(name),
+                subtitle: Text(
+                  [
+                    _projectWords(view, name),
+                    if (readsMachine) ...[
+                      if (!host.projects.contains(name)) 'being taken off, which can take up to five minutes',
+                      ?_progressWords(view, name),
+                    ],
+                  ].join(' · '),
+                ),
+              ),
             ),
-          ),
       ],
     );
   }
@@ -427,7 +488,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
         if (!host.admins.contains(person.login)) person.login,
     ];
     return FilteredListSection(
-      title: 'Host admins',
+      title: 'Machine Admins',
       storageId: 'host-admins ${host.name}',
       actions: [
         if (view.mayNameAdminsOf(host))
@@ -439,16 +500,16 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
                     OrganizationPersonDialog(
                       widget.organization,
                       people: candidates,
-                      title: 'Another host admin of ${host.name}',
-                      personLabel: 'Host admin',
-                      words: 'They may put projects on it, take them off, and name its host admins, as you may.',
+                      title: 'Another Machine Admin of ${host.name}',
+                      personLabel: 'Machine Admin',
+                      words: 'They may put projects on it, take them off, and name its Machine Admins, as you may.',
                       confirm: 'Name them',
                       change: OrganizationChange.addHostAdmin,
                       input: (_, person) => {'host': host.name, 'login': person},
                     ),
                   ),
             icon: const Icon(Icons.add),
-            label: const Text('Add a host admin'),
+            label: const Text('Add a Machine Admin'),
           ),
         if (isAdmin && widget.keys != null)
           OutlinedButton(
@@ -481,8 +542,8 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
                           run: () => _show(
                             OrganizationConfirmDialog(
                               widget.organization,
-                              title: 'Remove $admin as a host admin of ${host.name}?',
-                              words: 'They no longer manage this host.',
+                              title: 'Remove $admin as a Machine Admin of ${host.name}?',
+                              words: 'They no longer manage this machine.',
                               confirm: 'Remove',
                               change: OrganizationChange.removeHostAdmin,
                               input: {'host': host.name, 'login': admin},
@@ -610,7 +671,7 @@ class _ChangeHostDialogState extends State<_ChangeHostDialog> {
 
   String? _invalid() {
     if (!isUsableHostAddress(_address.text.trim())) {
-      return 'Give a host name or IP address that other computers reach this server at.';
+      return 'Give a machine name or IP address that other computers reach this server at.';
     }
     for (final port in [_port, _web, _git, _matrix]) {
       // Only the ssh port must be there: a host may run no forge and no homeserver.
@@ -619,12 +680,12 @@ class _ChangeHostDialogState extends State<_ChangeHostDialog> {
       if (number == null || number < 1 || number > 65535) return 'A port is a number from 1 to 65535.';
     }
     if (_web.text.trim().isEmpty != _git.text.trim().isEmpty) {
-      return 'A forge has both a web port and a git port; leave both empty on a host with no forge.';
+      return 'A forge has both a web port and a git port; leave both empty on a machine with no forge.';
     }
     try {
       checkedEd25519(_key.text.trim());
     } on FormatException {
-      return 'The host key is one line starting with ssh-ed25519.';
+      return 'The SSH key is one line starting with ssh-ed25519.';
     }
     return null;
   }
@@ -632,7 +693,7 @@ class _ChangeHostDialogState extends State<_ChangeHostDialog> {
   @override
   Widget build(BuildContext context) => OrganizationChangeDialog(
     organization: widget.organization,
-    title: 'Address and host key of ${widget.host.name}',
+    title: 'Address and SSH key of ${widget.host.name}',
     confirm: 'Change them',
     body: (context, changed) => Column(
       mainAxisSize: MainAxisSize.min,
@@ -643,7 +704,7 @@ class _ChangeHostDialogState extends State<_ChangeHostDialog> {
           key: const Key('organization-host-address'),
           controller: _address,
           autofocus: true,
-          decoration: const InputDecoration(labelText: 'Host name or IP address'),
+          decoration: const InputDecoration(labelText: 'Machine name or IP address'),
           onChanged: (_) => changed(),
         ),
         TextField(
@@ -656,7 +717,7 @@ class _ChangeHostDialogState extends State<_ChangeHostDialog> {
           key: const Key('organization-host-key'),
           controller: _key,
           decoration: const InputDecoration(
-            labelText: 'Host key',
+            labelText: 'SSH key',
             helperText: "The server's /etc/ssh/ssh_host_ed25519_key.pub, one line.",
           ),
           onChanged: (_) => changed(),
@@ -673,7 +734,7 @@ class _ChangeHostDialogState extends State<_ChangeHostDialog> {
             onChanged: (_) => changed(),
           ),
         const SizedBox(height: Space.small),
-        const Text('Everyone connected to this host is asked to trust the new key before reaching it again.'),
+        const Text('Everyone connected to this machine is asked to trust the new key before reaching it again.'),
       ],
     ),
     invalid: _invalid,

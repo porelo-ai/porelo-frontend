@@ -364,6 +364,7 @@ class _ShellState extends State<Shell> {
 
   Timer? _refreshing;
   int _refreshingEvery = -1;
+  int _organizationPageRefresh = 0;
 
   /// Asks every machine again on its own, as often as the settings say; never when set to zero.
   void _keepRefreshing() {
@@ -380,7 +381,11 @@ class _ShellState extends State<Shell> {
   Future<void> _refreshAll({bool quietly = false}) async {
     await _standings.read();
     // refresh() first forgets the answers it kept; the quiet timer leaves the store alone.
-    if (!quietly) unawaited(_organization?.refresh());
+    if (!quietly) {
+      await _organization?.refresh();
+      if (!mounted) return;
+      setState(() => _organizationPageRefresh++);
+    }
     // A key loaded into the agent, or revoked, since the last read changes what a host admin is offered.
     await widget.hostAccess?.readAgain();
     for (final machine in widget.machines.all) {
@@ -1289,7 +1294,7 @@ class _ShellState extends State<Shell> {
           onOthers: () => setState(() => _machineProjects = true),
         )
       : OrganizationProjectPage(
-          key: ValueKey(_organizationProject),
+          key: ValueKey((_organizationProject, _organizationPageRefresh)),
           organization: organization,
           project: _organizationProject!,
           onBack: () => setState(() => _organizationProject = null),
@@ -2737,6 +2742,7 @@ class _ShellState extends State<Shell> {
                                       key: ValueKey(_organizationHost),
                                       organization: _organization,
                                       connections: _hostConnections,
+                                      refresh: _organizationPageRefresh,
                                       onGiveToken: _giveHostToken,
                                       onStartWork: (host) {
                                         final machine = widget.machines.all

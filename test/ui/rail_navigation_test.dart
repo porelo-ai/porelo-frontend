@@ -1,11 +1,74 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:porelo_frontend/src/app/host_progress.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
+import 'package:porelo_frontend/src/app/organization_source.dart';
 
 import '../features/support/world.dart';
 import '../support/organization_fixtures.dart';
 
 void main() {
+  // Harm: a stale page hides restored access or changes to the repositories and people a project reaches.
+  testWidgets('rail Refresh rereads the shown machine and project details without fetching the machine', (
+    tester,
+  ) async {
+    final source = FixtureOrganization(organizationFor('hana'));
+    final connections = FixtureConnections(['build'])
+      ..hostProgress = const HostProgress(
+        locked: [HostLockedPerson(login: 'rex', purgeOn: '2026-11-09')],
+      );
+    await World.startBackend(World.work);
+    await World.startApp(tester, organizationSource: source, hostConnections: connections);
+    await World.settings.setRefreshSeconds(1);
+    await World.tapInView(tester, 'rail organization');
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('my-host build')),
+      200,
+      scrollable: find
+          .descendant(of: find.byKey(const Key('organization-page')), matching: find.byType(Scrollable))
+          .first,
+    );
+    await World.tapInView(tester, 'my-host build');
+    expect(find.byKey(const ValueKey('organization.locked/rex')), findsOneWidget);
+    connections.asked.clear();
+    connections.hostProgress = const HostProgress();
+
+    await tester.pump(const Duration(seconds: 2));
+    await World.settle(tester);
+    expect(connections.asked, isEmpty, reason: 'automatic refresh leaves the machine status alone');
+    expect(find.byKey(const ValueKey('organization.locked/rex')), findsOneWidget);
+    await World.settings.setRefreshSeconds(0);
+    await World.tapInView(tester, 'refresh-all');
+    expect(connections.asked, ['progress build'], reason: 'the rail reads status without asking the machine to fetch');
+    expect(find.byKey(const ValueKey('organization.locked/rex')), findsNothing);
+
+    source.projects['other'] = const ProjectView(
+      name: 'other',
+      revision: 'p1',
+      repositories: [ProjectRepository(name: 'before')],
+      members: [ProjectMember(login: 'hana', role: 'admin', standing: CardStanding.trusted)],
+    );
+    await World.tapInView(tester, 'rail projects');
+    await World.tapInView(tester, 'my-project other');
+    expect(find.text('before'), findsOneWidget);
+    source.projects['other'] = const ProjectView(
+      name: 'other',
+      revision: 'p2',
+      repositories: [ProjectRepository(name: 'after')],
+      members: [
+        ProjectMember(login: 'hana', role: 'admin', standing: CardStanding.trusted),
+        ProjectMember(login: 'mia', role: 'developer', standing: CardStanding.trusted),
+      ],
+    );
+    await World.tapInView(tester, 'refresh-all');
+    expect(find.text('after'), findsOneWidget);
+    expect(find.text('before'), findsNothing);
+    await World.reach(tester, find.text('mia'));
+    expect(find.text('mia'), findsOneWidget);
+
+    expect(source.writes, isEmpty);
+  });
+
   // Harm: navigation strands a person in details or hides work behind a previous page's scope.
   testWidgets('rail entries return to their lists and Work shows every machine and project', (tester) async {
     await World.startBackend(World.work);

@@ -156,7 +156,7 @@ void main() {
     // Harm: Connect fails with no way to tell why, or no address is mistaken for a broken network.
     testWidgets('a host with no address says so and cannot be connected to', (tester) async {
       await section(tester, organizationFor('olive'));
-      expect(find.textContaining('Its host admin has not entered its address yet.'), findsOneWidget);
+      expect(find.textContaining('Its Machine Admin has not entered its address yet.'), findsOneWidget);
       expect(tester.widget<FilledButton>(_action('connect/spare')).onPressed, isNull);
     });
 
@@ -207,6 +207,55 @@ void main() {
       );
       return (source: source, connections: made);
     }
+
+    // Harm: unpushed work holding a removed project on a machine disappears from the only list its admin can act on.
+    testWidgets('the read-only list keeps what the machine carries until it is gone, for a connected admin only', (
+      tester,
+    ) async {
+      final connections = FixtureConnections(['build'])
+        ..hostProgress = const HostProgress(
+          projects: [
+            HostProjectProgress(project: 'retired', state: 'held', why: 'app and docs have unpushed commits'),
+            HostProjectProgress(project: 'pending', state: 'carried'),
+            HostProjectProgress(project: 'removed', state: 'gone'),
+          ],
+        );
+      final made = await page(tester, 'hana', connections: connections);
+      expect(find.text('retired'), findsOneWidget);
+      expect(find.text('pending'), findsOneWidget);
+      expect(find.text('removed'), findsNothing);
+      final row = find.ancestor(of: find.text('retired'), matching: find.byType(ListTile));
+      expect(
+        find.descendant(of: row, matching: find.textContaining('held: app and docs have unpushed commits')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: row, matching: find.textContaining('being taken off, which can take up to five minutes')),
+        findsOneWidget,
+      );
+      expect(tester.widget<ListTile>(row).trailing, isNull, reason: 'the machine list is read only');
+      expect(tester.widget<ListTile>(row).onTap, isNull);
+
+      connections.hostProgress = const HostProgress(
+        projects: [
+          HostProjectProgress(project: 'retired', state: 'gone'),
+          HostProjectProgress(project: 'pending', state: 'carried'),
+        ],
+      );
+      await pressOrganizationAction(tester, 'refreshHost');
+      expect(find.text('retired'), findsNothing);
+      expect(find.text('pending'), findsOneWidget);
+      await pressOrganizationAction(tester, 'disconnect/build');
+      expect(find.text('pending'), findsNothing, reason: 'disconnected, only the organization supplies the rows');
+      expect(find.text('demo'), findsOneWidget);
+      expect(made.source.writes, isEmpty);
+
+      final member = FixtureConnections(['build'])..hostProgress = connections.hostProgress;
+      await page(tester, 'mia', connections: member);
+      expect(find.text('pending'), findsNothing);
+      expect(find.text('demo'), findsOneWidget);
+      expect(member.asked, isEmpty, reason: 'a member never asks root for the machine list');
+    });
 
     // Harm: a person who may not manage a host is offered what the store refuses.
     testWidgets('a member sees the host and their connection, and no management', (tester) async {
@@ -421,8 +470,8 @@ void main() {
       expect(_action('giveToken'), findsNothing);
     });
 
-    // Harm: Refresh gives no answer, or a refusal is shown as done.
-    testWidgets('Refresh asks the host, and a refusal is shown', (tester) async {
+    // Harm: a fetch gives no answer, or a refusal is shown as done.
+    testWidgets('Fetch now asks the machine, and a refusal is shown', (tester) async {
       final made = await page(tester, 'hana', connections: FixtureConnections(['build']));
       await pressOrganizationAction(tester, 'refreshHost');
       expect(made.connections.asked, contains('refresh build'));
@@ -455,7 +504,7 @@ void main() {
     // Harm: a person sees a blank page for a host the organization has since dropped.
     testWidgets('a host the organization no longer names is said as such', (tester) async {
       await page(tester, 'mia', host: 'gone');
-      expect(find.text('acme has no host gone.'), findsOneWidget);
+      expect(find.text('acme has no machine gone.'), findsOneWidget);
     });
   });
 }
