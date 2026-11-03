@@ -411,6 +411,13 @@ void main() {
     expect(File('${config('build')}.known_hosts').readAsStringSync(), isNot(contains(buildHost.hostKey)));
   });
 
+  // Harm: the plugin, seeing this computer's entry marked, adds its own beside it.
+  test('this computer is never marked as disconnected', () async {
+    final here = machines.all.singleWhere((machine) => machine.isThisComputer);
+    await machines.disconnect(here);
+    expect(machines.all.singleWhere((machine) => machine.isThisComputer).disconnected, isFalse);
+  });
+
   // Harm: a disconnected host keeps its pin and refuses the next card.
   // Harm: a person's decision to stay away is undone by the next notice or restart, or Connect cannot bring it back.
   test('Disconnect keeps the entry, marked, and only Connect brings it back', () async {

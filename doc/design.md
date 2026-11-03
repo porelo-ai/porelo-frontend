@@ -310,6 +310,9 @@ repositories, changed only after agreement in both.
   endpoint; on Windows the daemon uses an SSH relay. Every SSH to this machine uses only
   `porelo-host`'s pinned host key and that identity, including temporary trial tunnels. The
   interface never offers to trust a different key for it.
+- **`disconnected: true`:** the person disconnected this machine. The entry stays listed and nothing connects to it until
+  they connect it again, also after a restart. Absent or anything else means connected. This computer's own entry never
+  carries it, as the plugin would add its own beside it.
 - **An unknown `kind`** is kept in the file and shown as not reachable by this version, never dropped.
 - **`tresorFolders`:** a map from project name to the local Tresorit folder chosen in setups before the drive left
   the host's setup, checked on load and written in the same settings file, never in `project.yml`. It is read only

@@ -707,7 +707,7 @@ class Machines extends ChangeNotifier {
 
   Future<void> _mark(Machine machine, {required bool disconnected}) async {
     final at = _machines.indexWhere((each) => each.name == machine.name);
-    if (at < 0 || _machines[at].disconnected == disconnected) return;
+    if (at < 0 || _machines[at].disconnected == disconnected || _machines[at].isThisComputer) return;
     final next = _machines[at].withDisconnected(disconnected);
     _watching.remove(machine.name)?.dispose();
     await tunnels.dropAndUnpublish(_machines[at]);
