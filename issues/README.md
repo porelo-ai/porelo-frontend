@@ -106,6 +106,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f349"></a>[F349](F349-A-Way-Without-Administration-Rights.md) | — | — | A person creates the repository and enters each deploy key by hand, so their token needs no Administration. |
 | <a id="f328"></a>[F328](F328-Letters-Doubled-In-A-Slow-Window.md) | — | — | A key pressed once reaching a console once, however slowly the window answers. |
 | <a id="f324"></a>[F324](F324-Removing-A-Project-On-Windows.md) | — | — | A local project removed from the interface on Windows, where it runs in a WSL distribution. |
 | <a id="f321"></a>[F321](F321-Send-The-Terminal-Input-Fix-Upstream.md) | S | — | The terminal input fix offered upstream, and this repository's copy of `xterm` dropped once a release holds it. |
