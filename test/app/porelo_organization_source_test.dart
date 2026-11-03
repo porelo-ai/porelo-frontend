@@ -255,7 +255,7 @@ void main() {
         ],
       });
       final listed = await source.myProjects();
-      expect(asked.single, ['org', 'projects', '--json']);
+      expect(asked.single, ['project', 'list', '--json']);
       expect(listed.first.ofTheOrganization, isTrue);
       expect(listed.first.locked, isTrue);
       expect(listed.first.host, 'build');

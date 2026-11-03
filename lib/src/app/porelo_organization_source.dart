@@ -216,7 +216,7 @@ class PoreloOrganizationSource implements OrganizationSource {
 
   @override
   Future<List<ListedProject>> myProjects() async {
-    final answer = await _ask(['org', 'projects']);
+    final answer = await _ask(['project', 'list']);
     return _reading(
       () => [
         for (final project in _maps(answer, 'projects'))
