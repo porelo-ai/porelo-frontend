@@ -16,3 +16,9 @@
 - The list under *Projects* calls a person *member* where the project's own page calls them *developer*.
 
 **Plan.** One change per point. What only reads wrong gets no test; the terminal's answer has one seen red, since a wrong erase would wipe all a failure said.
+
+## From the reading of the rework
+
+- Two refused changes on one project hide one another on the organization's project list: `withOrganizationChanges` keys them by the row's name, so the later refusal covers the earlier, which stands on the project's page or shows once the later is dropped.
+- `Organization.write` has no `finally` around asking: an `Error`, not an `Exception`, leaves `busy` true and the row running. No path to one was found.
+- *Open the project* hands the token of the organization's forge, not of the project's central repository. It matters only where the two differ, and Core then refuses for lack of a token.

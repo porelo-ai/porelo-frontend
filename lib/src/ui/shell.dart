@@ -325,7 +325,7 @@ class _ShellState extends State<Shell> {
     if (source is PoreloOrganizationSource) {
       source.prepareForgeWrite = (repository) =>
           prepareOrganizationForge(context, repository, _forges, open: widget.sessions.openTerminal);
-      source.confirmForgeHost = (host) => trustOrganizationForge(context, host);
+      source.confirmForgeHost = _forgeTrust.ask;
     }
     if (widget.settingsDropped) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -391,7 +391,12 @@ class _ShellState extends State<Shell> {
   }
 
   /// Asks every answering machine again. Only the one open says so, and only when asked by hand.
-  Future<void> _refreshAll({bool quietly = false}) async {
+  Future<void> _refreshAll({bool quietly = false}) =>
+      quietly ? _forgeTrust.quietly(() => _readAll(quietly: true)) : _readAll();
+
+  late final _forgeTrust = ForgeTrustAsking((host) => trustOrganizationForge(context, host));
+
+  Future<void> _readAll({bool quietly = false}) async {
     final identity = widget.identity;
     if (widget.shell.section == Section.organization && identity != null && !identity.busy) await identity.load();
     await _standings.read();

@@ -50,7 +50,7 @@ class PoreloOrganizationSource implements OrganizationSource {
           CoreCredentials.host(host);
           if (await confirmForgeHost!(host)) return _ask(arguments, mayTrust: false);
           throw const OrganizationRefused(
-            'The SSH host key was not trusted, so the request did not continue.',
+            'The SSH host key was not trusted, so the request did not continue. Refresh asks again.',
             answered: false,
           );
         }

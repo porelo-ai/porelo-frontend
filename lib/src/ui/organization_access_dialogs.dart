@@ -21,6 +21,36 @@ import 'vault_actions.dart';
 /// The independent comparison required before trusting any fetched host key.
 const hostKeyComparisonWords = "Compare this with what your provider or the forge's own page publishes";
 
+/// Decides when a read that met an unknown host key may ask the person: never from a timer, and once per host at a time.
+class ForgeTrustAsking {
+  /// Asks through [show].
+  ForgeTrustAsking(this.show);
+
+  /// Puts the question to the person.
+  final Future<bool> Function(String host) show;
+
+  final _open = <String, Future<bool>>{};
+  int _quiet = 0;
+
+  /// Runs [reads], which nobody asked for: an unknown key found in them is said and not asked about.
+  Future<void> quietly(Future<void> Function() reads) async {
+    _quiet++;
+    try {
+      await reads();
+    } finally {
+      _quiet--;
+    }
+  }
+
+  /// Whether the host's key is now trusted; reads running side by side share one dialog.
+  Future<bool> ask(String host) {
+    if (_quiet > 0) return Future<bool>.value(false);
+    return _open[host] ??= show(host).whenComplete(() {
+      _open.remove(host);
+    });
+  }
+}
+
 /// Shows Core's offered keys and records only the one the person explicitly confirms.
 Future<bool> trustOrganizationForge(BuildContext context, String host, {CoreCredentials? core}) async {
   final credentials = core ?? CoreCredentials();
