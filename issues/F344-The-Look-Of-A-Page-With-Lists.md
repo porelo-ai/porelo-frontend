@@ -1,0 +1,34 @@
+# F344 — The Look Of A Page With Lists
+
+**Status:** Idea.
+
+**What must be true.** On a page with several lists a person sees at once where one ends and the next begins, can sort each, and meets a filter only when they ask for it.
+
+The operator on the pages: sections are not visibly separated, as the list of people from the list of machines. The filter field is far too large; perhaps it appears only after a click on a magnifier. Sorting is missing.
+
+## How it stands
+
+Read from the code, not run. Every list is a `FilteredListSection`. Its header is a title, or a folding button, followed by a text field `Sizes.listFilter` wide, always shown, and the section's buttons in a `Wrap`. Nothing draws a section's edge: rows follow rows with a gap of `Space.normal`. Rows stand in the order the list gave them, and nothing sorts.
+
+## Three proposals
+
+Drawn as images with invented data, the same in each, and the shape of [F335](README.md#f335) with the rows of [F329](README.md#f329). They are drawings, not the app. A few words in them, such as *Add a card…*, *Enter a machine…* and *Name one…*, are placeholders.
+
+| | A. Cards | B. Tabs and a table | C. A ledger with an index |
+|---|---|---|---|
+| Sections | each a card with a header band, all on one page | one list at a time, under a tab with its count | all on one page, under a colored rule, with an index beside them |
+| Rows | two lines, in the pane's width | one line, in columns | one line, in columns |
+| Filter | a magnifier per section, a small field after a click | a magnifier per tab | one field at the top, across all sections |
+| Sort | a small menu in the header | a click on a column's head | a small menu in the header |
+| Shown at a glance | everything, long | one list, short | everything, dense |
+| A narrow window | as today: words shorten | columns must drop, per list | columns must drop, per list |
+| Size | M | L | L |
+| What it takes | the header of `FilteredListSection`, which every list then shares, a sort key per list, and a row with one height | a table for each list, tabs in the page, and the finder's way to a row, which must open its tab; the walks' steps change | columns for each list, an index that follows the scroll, and a filter over all sections |
+
+**Recommended: A.** It answers all three of the operator's points in one widget every list already uses, so all pages change together. It keeps the page's overview, and a row keeps its long words, which a person's roles need and a column cuts off. B reads best for one list and sorts most naturally, but hides the rest of the organization behind tabs, and a page with one list gains nothing from them. C is the densest, and the most to keep aligned as a window narrows.
+
+## Open questions
+
+- Which proposal? Recommended: A.
+- Which sort keys does a list offer? Recommended: name and state, with the machine for a project, and the choice kept per list, as the filter and the fold are.
+- Does a section start folded when long? Recommended: no, as today.
