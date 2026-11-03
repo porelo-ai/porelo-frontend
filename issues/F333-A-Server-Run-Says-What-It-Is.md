@@ -34,3 +34,6 @@ need its dialog held open at all.
 - How long the empty body lasts at real GitHub.
 - That a click beside the dialog closes it during a run, and that the run then goes on with its row: seen in a test before
   *Close* changes.
+- The same by the operator, when next setting up a real rented server at Scaleway: closing the dialog by clicking beside it
+  mid-run, does the run go on, does its row show the protocol, and does the token's terminal still open at the end, or does
+  the page offer *Give it the token…*?
