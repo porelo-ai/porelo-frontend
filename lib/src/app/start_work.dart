@@ -551,11 +551,11 @@ class StartWork extends ChangeNotifier {
   /// choose this way, and there the person picks, rather than this guessing.
   ///
   /// A missing carried-over agent stays the person's to replace until they explicitly return the choice to the machine.
-  /// Whether the field may say that the machine chooses: until the machine has answered, and then if it did.
-  bool get machineMayChoose => agent == null && !_agentIsGone && (readiness == null || machineChose);
-
   bool get machineChose =>
       agent == null && !_agentIsGone && (readiness?.agent.isNotEmpty ?? false) && readiness!.agentSource.isNotEmpty;
+
+  /// Whether the field may say that the machine chooses: until the machine has answered, and then if it did.
+  bool get machineMayChoose => agent == null && !_agentIsGone && (readiness == null || machineChose);
 
   /// Whether the agent carried over from a finished run is no longer installed, so the person picks another.
   bool _agentIsGone = false;
