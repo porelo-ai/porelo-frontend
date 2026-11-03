@@ -18,7 +18,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f319"></a>[F319](F319-Confirmed-Membership-Purge-Before-Give-Back.md) | — | — | Giving a server back shows who still holds a role on it and removes the accounts of those a person confirmed; walked by no sprint yet. |
+| <a id="f319"></a>[F319](F319-Confirmed-Membership-Purge-Before-Give-Back.md) | S | — | Giving a server back shows who still holds a role on it and removes the accounts of those a person confirmed; walked by no sprint yet. |
 | <a id="f222"></a>[F222](F222-A-Refused-Unlock-Asks-Again-In-Its-Terminal.md) | XS | — | A refused password in the unlock terminal asked again, up to three times, instead of ending it. |
 | <a id="f322"></a>[F322](F322-Leftovers-Of-The-Organization-Walk.md) | S | — | Small things a walk of the organization's pages found: raw JSON, a mark while a change runs, a stale refusal, words. |
 | <a id="f108"></a>[F108](F108-A-Machine-Over-Ssh-From-Windows.md) | — | — | On Windows, a machine over ssh is reached through the relay, as a WSL distribution is. |
