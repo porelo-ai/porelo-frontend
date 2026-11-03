@@ -43,8 +43,9 @@ class CardHostConnections extends HostConnections {
 
   @override
   bool connected(String host) {
-    final card = _machine(host)?.hostCard;
-    return card != null && !_movedPast(card);
+    final machine = _machine(host);
+    final card = machine?.hostCard;
+    return card != null && !machine!.disconnected && !_movedPast(card);
   }
 
   @override
@@ -171,8 +172,7 @@ class CardHostConnections extends HostConnections {
   Future<void> disconnect(String host) async {
     final machine = _machine(host);
     if (machine == null) return;
-    await machines.forget(machine);
-    await machines.tunnels.dropAndUnpublish(machine);
+    await machines.disconnect(machine);
     notifyListeners();
   }
 

@@ -727,7 +727,7 @@ List<Command> projectCommands({
 Command prepareServerCommand({FutureOr<void> Function()? open, HostAccess? access}) => Command(
   id: 'host.prepare',
   role: Role.hostAdmin,
-  label: 'Prepare a server…',
+  label: 'Prepare a machine…',
   group: 'Machines',
   home: Home.machineRow,
   run: () {
@@ -813,6 +813,15 @@ Command openElementCommand() => Command(
   group: 'Messages',
   home: Home.messagesDialog,
   run: () => unawaited(desk.open('https://app.element.io/')),
+);
+
+/// Ends this computer's connection to a machine that stays listed, or brings it back.
+Command connectionCommand({required Machine machine, required VoidCallback run}) => Command(
+  id: machine.disconnected ? 'machine.connect' : 'machine.disconnect',
+  label: machine.disconnected ? 'Connect' : 'Disconnect',
+  group: 'Machine',
+  home: Home.machineMenu,
+  run: run,
 );
 
 /// Stops watching a machine, with the same guard wherever removal is offered.

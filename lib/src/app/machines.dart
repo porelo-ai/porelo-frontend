@@ -56,6 +56,7 @@ class Machine {
     this.hostCard,
     this.sshConfig = '',
     this.unknownFields = const <String, Object?>{},
+    this.disconnected = false,
   });
 
   /// Uses another local socket endpoint without changing the destination or its trust policy.
@@ -71,6 +72,23 @@ class Machine {
     hostCard: hostCard,
     sshConfig: sshConfig,
     unknownFields: unknownFields,
+    disconnected: disconnected,
+  );
+
+  /// The same entry, marked as a person's decision to stay away from it or not.
+  Machine withDisconnected(bool value) => Machine(
+    name: name,
+    socketPath: socketPath,
+    host: host,
+    remoteSocket: remoteSocket,
+    kind: kind,
+    distribution: distribution,
+    identity: identity,
+    hostProject: hostProject,
+    hostCard: hostCard,
+    sshConfig: sshConfig,
+    unknownFields: unknownFields,
+    disconnected: value,
   );
 
   /// The machine to open when nothing has been stored yet.
@@ -129,6 +147,7 @@ class Machine {
       hostProject: _text(stored['hostProject']),
       hostCard: card,
       sshConfig: _text(stored['sshConfig']),
+      disconnected: stored['disconnected'] == true,
       unknownFields: <String, Object?>{
         for (final entry in stored.entries)
           if (!_knownFields.contains(entry.key)) entry.key: entry.value,
@@ -146,10 +165,15 @@ class Machine {
     'identity',
     'hostProject',
     'hostCard',
-    'sshConfig', //
+    'sshConfig',
+    'disconnected', //
   };
 
   static String _text(Object? value) => value is String ? value : '';
+
+  /// Whether the person disconnected it: it stays listed, nothing connects to it until they say so, also after a
+  /// restart. `frontend.json` says so with `disconnected: true`.
+  final bool disconnected;
 
   /// What to call it. Shown wherever an action could be ambiguous about where it lands.
   final String name;
@@ -324,6 +348,7 @@ class Machine {
     if (hostCard != null) 'hostCard': hostCard!.stored,
     if (sshConfig.isNotEmpty) 'sshConfig': sshConfig,
     if (hostProject.isNotEmpty) 'hostProject': hostProject,
+    if (disconnected) 'disconnected': true,
     ...unknownFields,
   };
 
@@ -370,6 +395,7 @@ class Machine {
       other.distribution == distribution &&
       other.identity == identity &&
       other.hostProject == hostProject &&
+      other.disconnected == disconnected &&
       other.hostCard == hostCard &&
       other.sshConfig == sshConfig &&
       mapEquals(other.unknownFields, unknownFields);
@@ -673,6 +699,24 @@ class Machines extends ChangeNotifier {
   /// frame with no machine behind it has nothing to say and no way to say why.
   Future<void> forget(Machine machine) => _change(() => _forget(machine));
 
+  /// Ends this computer's connection and keeps the entry, marked, so that nothing raises it again.
+  Future<void> disconnect(Machine machine) => _change(() => _mark(machine, disconnected: true));
+
+  /// Connects to an entry that was disconnected.
+  Future<void> reconnect(Machine machine) => _change(() => _mark(machine, disconnected: false));
+
+  Future<void> _mark(Machine machine, {required bool disconnected}) async {
+    final at = _machines.indexWhere((each) => each.name == machine.name);
+    if (at < 0 || _machines[at].disconnected == disconnected) return;
+    final next = _machines[at].withDisconnected(disconnected);
+    _watching.remove(machine.name)?.dispose();
+    await tunnels.dropAndUnpublish(_machines[at]);
+    _machines[at] = next;
+    _open(next);
+    await _remember();
+    _notify();
+  }
+
   Future<void> _forget(Machine machine) async {
     if (_machines.length == 1) {
       if (machine.kind != 'host') return;
@@ -735,6 +779,7 @@ class Machines extends ChangeNotifier {
   /// A machine somebody else forwarded goes straight to connecting: [Tunnels.raiseFor] answers
   /// true for it without starting anything.
   Future<void> _openAndConnect(Machine machine, FleetModel fleet) async {
+    if (machine.disconnected) return;
     if (machine.kind == 'host' && machine.hostCard == null && machine.identity.isNotEmpty) {
       return;
     }
@@ -782,6 +827,7 @@ class Machines extends ChangeNotifier {
   /// this interface raised, and only for a machine that is not answering — a working connection
   /// is never disturbed to check on the thing underneath it.
   Future<void> raiseAgainIfNeeded(Machine machine) async {
+    if (machine.disconnected) return;
     if (machine.kind == 'host' && machine.hostCard == null && machine.identity.isNotEmpty) {
       return;
     }

@@ -412,16 +412,21 @@ void main() {
   });
 
   // Harm: a disconnected host keeps its pin and refuses the next card.
-  test('Disconnect takes the machine and the files away', () async {
+  // Harm: a person's decision to stay away is undone by the next notice or restart, or Connect cannot bring it back.
+  test('Disconnect keeps the entry, marked, and only Connect brings it back', () async {
     final made = await connections(_mia());
     await made.connect('build');
     await made.disconnect('build');
     expect(made.connected('build'), isFalse);
-    expect(machines.all.where((machine) => machine.name == 'build'), isEmpty);
-    await pumpEventQueue();
-    for (final file in [config('build'), '${config('build')}.known_hosts', '${config('build')}.pub']) {
-      expect(File(file).existsSync(), isFalse, reason: file);
-    }
+    final kept = machines.all.singleWhere((machine) => machine.name == 'build');
+    expect(kept.disconnected, isTrue);
+    expect(Machine.fromStored(kept.stored).disconnected, isTrue, reason: 'it survives a restart');
+    expect(machines.tunnels.of(kept)?.state, isNot(TunnelState.up));
+    await machines.raiseAgainIfNeeded(kept);
+    expect(machines.tunnels.of(kept)?.state, isNot(TunnelState.up), reason: 'nothing raises it again');
+    await made.connect('build');
+    expect(made.connected('build'), isTrue);
+    expect(machines.all.where((machine) => machine.name == 'build'), hasLength(1));
   });
 
   // Harm: a raise queued meanwhile runs without its configuration and pins.

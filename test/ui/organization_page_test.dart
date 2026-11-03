@@ -100,17 +100,22 @@ void main() {
   });
 
   // Harm: a person finds their hosts nowhere, or cannot come back from one.
-  testWidgets('with an organization, Machines lists one\'s hosts beside the machines, and opens a host\'s page', (
-    tester,
-  ) async {
+  testWidgets('with an organization, Organization lists its machines, and opens one\'s page', (tester) async {
     await World.startBackend(World.work);
     await World.startApp(
       tester,
       organizationSource: FixtureOrganization(organizationFor('mia')),
       hostConnections: FixtureConnections(),
     );
-    await tester.tap(find.byKey(const ValueKey('rail machines')));
+    await tester.tap(find.byKey(const ValueKey('rail organization')));
     await World.settle(tester);
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('my-host build')),
+      200,
+      scrollable: find
+          .descendant(of: find.byKey(const Key('organization-page')), matching: find.byType(Scrollable))
+          .first,
+    );
     expect(find.byKey(const ValueKey('my-host build')), findsOneWidget);
     expect(find.text('Machines'), findsWidgets);
     await tester.tap(find.byKey(const ValueKey('my-host build')));
@@ -118,7 +123,7 @@ void main() {
     expect(find.byKey(const ValueKey('organization-host build')), findsOneWidget);
     await tester.tap(find.byKey(const Key('organization-host-back')));
     await World.settle(tester);
-    expect(find.byKey(const ValueKey('my-host build')), findsOneWidget);
+    expect(find.byKey(const Key('organization-page')), findsOneWidget);
   });
 
   testWidgets('with an organization, Projects lists one\'s own, and the organization opens one of them', (

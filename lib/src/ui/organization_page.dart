@@ -14,6 +14,7 @@ import 'filtered_list_section.dart';
 import 'organization_dialogs.dart';
 import 'how_long.dart';
 import 'key_recovery_dialog.dart';
+import 'organization_host_pages.dart';
 import 'pick_a_file.dart';
 import 'tokens.dart';
 import 'window_size.dart';
@@ -29,6 +30,8 @@ class OrganizationPage extends StatefulWidget {
     required this.organization,
     this.onProject,
     this.onHost,
+    this.connections,
+    this.prepareMachine,
     this.keys,
     this.pickFile = pickWithTheDesktop,
     super.key,
@@ -42,6 +45,12 @@ class OrganizationPage extends StatefulWidget {
 
   /// Opens a host's page for its host admin.
   final void Function(String host)? onHost;
+
+  /// This person's connections to the machines, absent where this computer has none to make.
+  final HostConnections? connections;
+
+  /// *Prepare a machine…*, absent where this computer offers none.
+  final Command? prepareMachine;
 
   /// Runs the person's key commands in a terminal, absent where this computer offers none.
   final KeyCommands? keys;
@@ -355,7 +364,7 @@ class _OrganizationPageState extends State<OrganizationPage> {
   );
 
   Widget _hosts(OrganizationView view, Organization organization, void Function(Widget) show) => FilteredListSection(
-    title: 'Hosts',
+    title: 'Machines',
     storageId: 'organization-hosts',
     collapsible: true,
     openWhenCompact: false,
@@ -364,6 +373,7 @@ class _OrganizationPageState extends State<OrganizationPage> {
       SectionSort('State', (row) => _hostWords(view.hosts[row])),
     ],
     commands: [
+      ?widget.prepareMachine,
       if (view.isOrganizationAdmin)
         _command(
           'addHost',
@@ -398,29 +408,35 @@ class _OrganizationPageState extends State<OrganizationPage> {
       for (final host in view.hosts)
         (
           words: '${host.name} ${host.admins.join(' ')} ${host.projects.join(' ')}',
-          child: _Row(
-            icon: Icons.dns_outlined,
-            title: host.name,
-            subtitle: _hostWords(host),
-            actions: [
-              if (view.holdsRoles && widget.onHost != null && host.admins.contains(view.me))
-                _command('openHost/${host.name}', "Open the host's page", () => widget.onHost!(host.name)),
-              if (view.mayRemove(host))
-                _command(
-                  'removeHost/${host.name}',
-                  'Remove the host…',
-                  danger: true,
-                  () => show(
-                    OrganizationConfirmDialog(
-                      organization,
-                      title: 'Remove ${host.name}?',
-                      words: _removingHostWords(host),
-                      confirm: 'Remove the host',
-                      change: OrganizationChange.removeHost,
-                      input: {'host': host.name},
+          child: OrganizationMachineRow(
+            key: ValueKey('organization-machine ${host.name}'),
+            view: view,
+            host: host,
+            words: _hostWords(host),
+            connections: widget.connections,
+            onOpen: () => widget.onHost?.call(host.name),
+            commands: [
+              for (final action in <_Action>[
+                if (view.holdsRoles && widget.onHost != null && host.admins.contains(view.me))
+                  _command('openHost/${host.name}', "Open the host's page", () => widget.onHost!(host.name)),
+                if (view.mayRemove(host))
+                  _command(
+                    'removeHost/${host.name}',
+                    'Remove the host…',
+                    danger: true,
+                    () => show(
+                      OrganizationConfirmDialog(
+                        organization,
+                        title: 'Remove ${host.name}?',
+                        words: _removingHostWords(host),
+                        confirm: 'Remove the host',
+                        change: OrganizationChange.removeHost,
+                        input: {'host': host.name},
+                      ),
                     ),
                   ),
-                ),
+              ])
+                action.command,
             ],
           ),
         ),

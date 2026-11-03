@@ -35,12 +35,18 @@ void main() {
       expect(find.byKey(const ValueKey('my-project demo')), findsOneWidget);
       expect(find.byKey(const Key('projects-of-organization')), findsNothing);
 
-      await tap('rail machines');
+      await tap('rail organization');
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('my-host build')),
+        200,
+        scrollable: find
+            .descendant(of: find.byKey(const Key('organization-page')), matching: find.byType(Scrollable))
+            .first,
+      );
       await tap('my-host build');
       expect(find.byKey(const ValueKey('organization-host build')), findsOneWidget);
       if (leaveFirst) await tap('rail work');
       await tap('rail machines');
-      expect(find.byKey(const ValueKey('my-host build')), findsOneWidget);
       expect(find.byKey(const ValueKey('organization-host build')), findsNothing);
     }
 

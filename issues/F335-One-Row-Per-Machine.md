@@ -149,6 +149,8 @@ A change or replacement of a Machine Admin by an Organization Admin takes effect
 
 **Built first, on the contract Core fixed:** `OrganizationView.organizationAdmins`, from `porelo org`'s `organization_admins`, is the one seam. While it is null, the rules from before hold. Once it exists, `isOrganizationAdmin`, `mayNameAdminsOf`, `mayRemove` and `mayChangeMember` gate these pages, and an owner lists people under *Organization Admins*.
 
+**Built so far:** the list moved to *Organization* under *Machines*, with *Connect* for a person with an account and *Prepare a machine…* in its header. *Disconnect* keeps the entry with `disconnected: true`, and nothing raises it until *Connect*. The local machine cannot be forgotten, and the warning goes to a machine's admin or the person who set it up. A machine's page is still reached from that row, as two pages for now.
+
 ## What the two operations ask of today's code
 
 Read from the code, not run.

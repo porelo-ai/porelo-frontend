@@ -20,65 +20,6 @@ String _reach(OrganizationHost host) {
   return address.contains(':') ? '[$address]:${host.port}' : '$address:${host.port}';
 }
 
-/// The hosts of the organization this person has to do with, each with its one connection: every project of theirs on a
-/// connected host is ready to work on, with no step of its own.
-class OrganizationHostsSection extends StatefulWidget {
-  /// Lists [organization]'s hosts for the person reading.
-  const OrganizationHostsSection({required this.organization, required this.onHost, this.connections, super.key});
-
-  /// The organization.
-  final Organization organization;
-
-  /// This person's connections, absent where this computer has none to make.
-  final HostConnections? connections;
-
-  /// Opens a host's page.
-  final void Function(String host) onHost;
-
-  @override
-  State<OrganizationHostsSection> createState() => _OrganizationHostsSectionState();
-}
-
-class _OrganizationHostsSectionState extends State<OrganizationHostsSection> {
-  @override
-  void initState() {
-    super.initState();
-    unawaited(widget.organization.refresh());
-  }
-
-  @override
-  Widget build(BuildContext context) => ListenableBuilder(
-    listenable: Listenable.merge([widget.organization, ?widget.connections]),
-    builder: (context, _) {
-      final view = widget.organization.view;
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          OrganizationChangeMark(widget.organization),
-          if (widget.organization.problem case final problem?) _Problem(problem),
-          if (view != null)
-            FilteredListSection(
-              title: 'Hosts',
-              storageId: 'my-hosts',
-              rows: [
-                for (final host in view.myHosts)
-                  (
-                    words: '${host.name} ${host.projects.join(' ')}',
-                    child: _HostRow(
-                      view: view,
-                      host: host,
-                      connections: widget.connections,
-                      onOpen: () => widget.onHost(host.name),
-                    ),
-                  ),
-              ],
-            ),
-        ],
-      );
-    },
-  );
-}
-
 class _Problem extends StatelessWidget {
   const _Problem(this.words);
 
@@ -98,19 +39,43 @@ String? _whyNotConnect(OrganizationHost host, HostConnections? connections) => c
     ? 'Its host admin has not entered its address yet.'
     : null;
 
-class _HostRow extends StatefulWidget {
-  const _HostRow({required this.view, required this.host, required this.connections, required this.onOpen});
+/// One machine of the organization under its heading *Machines*: what it is, *Connect* for a person with an account
+/// there while not connected, and its one menu.
+class OrganizationMachineRow extends StatefulWidget {
+  /// Shows [host] to the person [view] reads for.
+  const OrganizationMachineRow({
+    required this.view,
+    required this.host,
+    required this.connections,
+    required this.onOpen,
+    this.commands = const [],
+    this.words,
+    super.key,
+  });
 
+  /// What the organization says now.
   final OrganizationView view;
+
+  /// The machine.
   final OrganizationHost host;
+
+  /// This person's connections, absent where this computer has none to make.
   final HostConnections? connections;
+
+  /// Opens its page.
   final VoidCallback onOpen;
 
+  /// What its ⋮ holds for this person.
+  final List<Command> commands;
+
+  /// What the organization says of it, ahead of the person's own standing there.
+  final String? words;
+
   @override
-  State<_HostRow> createState() => _HostRowState();
+  State<OrganizationMachineRow> createState() => _OrganizationMachineRowState();
 }
 
-class _HostRowState extends State<_HostRow> {
+class _OrganizationMachineRowState extends State<OrganizationMachineRow> {
   bool _connecting = false;
   String? _refusal;
 
@@ -138,6 +103,8 @@ class _HostRowState extends State<_HostRow> {
     final view = widget.view;
     final connected = widget.connections?.up(host.name) ?? false;
     final why = _whyNotConnect(host, widget.connections);
+    // The right to connect is an account there, and that is what the person's own list of machines says.
+    final hasAccount = view.myHosts.any((each) => each.name == host.name);
     final mine = [
       for (final project in view.projects)
         if (project.host == host.name && (project.admins.contains(view.me) || project.members.contains(view.me)))
@@ -152,18 +119,26 @@ class _HostRowState extends State<_HostRow> {
           title: Text(host.name),
           subtitle: Text(
             [
+              ?widget.words,
               if (host.admins.contains(view.me)) 'you administer it',
               if (mine.isNotEmpty) 'your projects: ${mine.join(', ')}',
               if (connected) mine.isEmpty ? 'connected' : 'connected, ready to work on' else why ?? 'not connected yet',
             ].join(' · '),
           ),
-          trailing: connected
-              ? null
-              : FilledButton(
+          trailing: Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: Space.small,
+            children: [
+              if (hasAccount && !connected)
+                FilledButton(
                   key: ValueKey('organization.connect/${host.name}'),
                   onPressed: why != null || _connecting ? null : () => unawaited(_connect()),
                   child: const Text('Connect'),
                 ),
+              if (widget.commands.isNotEmpty)
+                CommandMenu(commands: widget.commands, tooltip: 'What can be done with ${host.name}'),
+            ],
+          ),
           onTap: widget.onOpen,
         ),
         if (_refusal case final refusal?) _Problem(refusal),

@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/host_progress.dart';
 import 'package:porelo_frontend/src/app/organization_source.dart';
 import 'package:porelo_frontend/src/ui/organization_host_pages.dart';
+import 'package:porelo_frontend/src/ui/organization_page.dart';
 
 import '../support/organization_fixtures.dart';
 import 'organization_actions.dart';
@@ -36,10 +37,7 @@ void main() {
       addTearDown(organization.dispose);
       final made = connections ?? FixtureConnections();
       final opened = <String>[];
-      await _settle(
-        tester,
-        OrganizationHostsSection(organization: organization, connections: made, onHost: opened.add),
-      );
+      await _settle(tester, OrganizationPage(organization: organization, connections: made, onHost: opened.add));
       return (connections: made, opened: opened);
     }
 
@@ -76,13 +74,14 @@ void main() {
     // Harm: a person is offered a host they have nothing to do on.
     testWidgets('a host carrying none of the person\'s projects is not offered', (tester) async {
       await section(tester, organizationFor('mia'));
-      expect(find.byKey(const ValueKey('my-host spare')), findsNothing);
+      expect(find.byKey(const ValueKey('my-host spare')), findsOneWidget, reason: 'everyone reads the list');
+      expect(_action('connect/spare'), findsNothing);
     });
 
     // Harm: a person whose card is not trusted is offered a connection the host refuses.
     testWidgets('a person holding no roles is offered no host', (tester) async {
       await section(tester, organizationFor('rex'));
-      expect(find.byKey(const ValueKey('my-host build')), findsNothing);
+      expect(_action('connect/build'), findsNothing);
     });
 
     // Harm: Connect fails with no way to tell why, or no address is mistaken for a broken network.

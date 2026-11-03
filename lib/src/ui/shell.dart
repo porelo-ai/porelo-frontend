@@ -508,7 +508,7 @@ class _ShellState extends State<Shell> {
           ),
         ),
     ],
-    canForget: widget.machines.all.length > 1,
+    canForget: widget.machines.all.length > 1 && widget.machines.current != Machine.local(),
     shell: widget.shell,
     settings: widget.settings,
     operations: widget.operations,
@@ -626,7 +626,7 @@ class _ShellState extends State<Shell> {
     machine: widget.machines.current,
     hostRuns: _hostRuns,
     hostActions: _hostCommands(widget.machines.current),
-    canForget: widget.machines.all.length > 1,
+    canForget: widget.machines.all.length > 1 && widget.machines.current != Machine.local(),
     reachedOverSsh: widget.machines.current.needsATunnel,
     canStart: widget.machines.current.canBeStartedHere,
     checkTheMachine: _checkTheMachine,
@@ -1304,6 +1304,8 @@ class _ShellState extends State<Shell> {
             ? const SizedBox.shrink()
             : OrganizationPage(
                 organization: organization,
+                connections: _hostConnections,
+                prepareMachine: _commands().where((command) => command.id == 'host.prepare').firstOrNull,
                 keys: _keys,
                 onProject: (name) {
                   setState(() => _organizationProject = name);
@@ -1592,10 +1594,19 @@ class _ShellState extends State<Shell> {
       'This interface stops watching it and takes down the tunnel it raised to it. Nothing on the machine '
       'changes: its Porelo, its work and its vault stay as they are, and Watch another machine… adds it again.';
 
+  /// Whether forgetting [machine] needs a warning: it is this person's to look after, by the organization or by having
+  /// set it up here. Anyone else's server is simply taken off their own list.
+  bool _warnsOnForgetting(Machine machine) {
+    if (machine.kind != 'host') return false;
+    final view = _organization?.view;
+    final card = view?.hosts.where((host) => host.name == machine.hostCard?.name).firstOrNull;
+    return card == null || card.admins.contains(view!.me) || widget.settings.hostUp(machine.hostProject) != null;
+  }
+
   Future<void> _forget() async {
-    if (widget.machines.all.length < 2) return;
     final machine = widget.machines.current;
-    if (machine.kind == 'host') {
+    if (widget.machines.all.length < 2 || machine == Machine.local()) return;
+    if (_warnsOnForgetting(machine)) {
       final takeDown = _hostCommands(machine).singleWhere((command) => command.id == 'machine.takeDown');
       final decision = await showDialog<String>(
         context: context,
@@ -1611,7 +1622,9 @@ class _ShellState extends State<Shell> {
                 children: [
                   const Text(_forgetting),
                   const SizedBox(height: Space.normal),
-                  const Text('The server keeps running and billing at the provider.'),
+                  const Text(
+                    'It keeps running, and stands on under Organization. A rented one goes on billing at its provider.',
+                  ),
                   if (takeDown.unavailable != null)
                     Text('Take this server down is unavailable: ${takeDown.unavailable}'),
                 ],
@@ -2725,7 +2738,10 @@ class _ShellState extends State<Shell> {
                                       onGiveToken: _giveHostToken,
                                       keys: _keys,
                                       host: _organizationHost!,
-                                      onBack: () => setState(() => _organizationHost = null),
+                                      onBack: () {
+                                        setState(() => _organizationHost = null);
+                                        widget.shell.goTo(Section.organization);
+                                      },
                                     ),
                             Section.projects => _projectsPage(),
                             Section.forges => _forgesPage(),
@@ -2912,16 +2928,12 @@ class _ShellState extends State<Shell> {
       for (final machine in widget.machines.all) widget.machines.of(machine),
     ]),
     builder: (context, _) => MachinesPage(
-      organizationHosts: _organization == null
-          ? null
-          : OrganizationHostsSection(
-              organization: _organization,
-              connections: _hostConnections,
-              onHost: (host) => setState(() => _organizationHost = host),
-            ),
       machines: widget.machines,
       hostCommands: _hostCommands,
-      prepareServer: _commands().where((command) => command.id == 'host.prepare').firstOrNull,
+      // Under *Organization* where one is read, as a machine's preparation enters it there.
+      prepareServer: _organization != null
+          ? null
+          : _commands().where((command) => command.id == 'host.prepare').firstOrNull,
       hostRuns: _hostRuns,
       onHostProtocol: (run) => unawaited(_openHostRun(run)),
       openTerminal: widget.sessions.openTerminal,

@@ -39,7 +39,6 @@ class MachinesPage extends StatelessWidget {
     this.onHostProtocol,
     this.openTerminal,
     this.prepareServer,
-    this.organizationHosts,
     super.key,
   });
 
@@ -70,9 +69,6 @@ class MachinesPage extends StatelessWidget {
   /// The server preparation command and its refusal.
   final Command? prepareServer;
 
-  /// The hosts of the organization this person has to do with, where this computer reads one.
-  final Widget? organizationHosts;
-
   @override
   Widget build(BuildContext context) {
     final rows = machinesPageRows(machines, hostRuns);
@@ -80,7 +76,6 @@ class MachinesPage extends StatelessWidget {
       key: const Key('machine-tree'),
       padding: const EdgeInsets.all(Space.normal),
       children: [
-        ?organizationHosts,
         FilteredListSection(
           title: 'Machines',
           storageId: 'machines',
@@ -147,6 +142,11 @@ class MachinesPage extends StatelessWidget {
     final actions = <Command>[
       listOpenCommand(label: 'Open the machine', home: Home.machineRow, open: open),
       ...?hostCommands?.call(machine),
+      if (watched && !thisComputer)
+        connectionCommand(
+          machine: machine,
+          run: () => unawaited(machine.disconnected ? machines.reconnect(machine) : machines.disconnect(machine)),
+        ),
       if (watched &&
           hostRuns != null &&
           machine.kind == 'host' &&
@@ -168,9 +168,11 @@ class MachinesPage extends StatelessWidget {
       subtitle: machineRowWords(
         where: machine.where,
         tunnelUp: tunnel?.state == TunnelState.up,
-        tunnelWords: tunnel?.words,
-        tunnelProblem: tunnel?.problem,
-        fleet: fleet?.reachability == Reachability.connected
+        tunnelWords: machine.disconnected ? null : tunnel?.words,
+        tunnelProblem: machine.disconnected ? null : tunnel?.problem,
+        fleet: machine.disconnected
+            ? 'Not connected'
+            : fleet?.reachability == Reachability.connected
             ? 'Connected'
             : (fleet?.answered ?? false)
             ? 'Not connected; state unknown'
