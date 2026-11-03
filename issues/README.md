@@ -91,6 +91,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f343"></a>[F343](F343-A-Hosts-List-Says-What-The-Host-Still-Holds.md) | — | — | A host's list keeping a project being taken off until the host has let it go, and saying why if held. |
 | <a id="f342"></a>[F342](F342-A-Project-Is-Put-On-A-Host-From-The-Project.md) | — | — | Putting a project on a host and taking it off as a function of the project, the host's list read-only. |
 | <a id="f341"></a>[F341](F341-What-The-Token-Is-For.md) | — | — | The words asking for a token naming its forge, what the host does with it, its rights, and that it is not kept. |
 | <a id="f340"></a>[F340](F340-Commits-Not-Yet-At-The-Forge.md) | — | — | A project's row and page saying how many approved commits have not reached the forge, with the action and who may do it. |
