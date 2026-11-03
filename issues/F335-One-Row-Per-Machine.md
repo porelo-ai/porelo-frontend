@@ -101,6 +101,9 @@ Nothing of this is built, and nothing built stops for it.
 - **Two operations, for every machine.** *Disconnect* ends this computer's connection; the machine stays in the list and *Connect* brings it
   back. *Forget* takes the entry out of the list; if the person is an admin of that server, it warns first that the server keeps running.
 
+- **A third operation: taking a server down,** for a rented one giving it back, also removes it from the organization's list. Renting a server or
+  setting one up by hand must enter it in the organization.
+
 ## What the two operations ask of today's code
 
 Read from the code, not run.
@@ -123,7 +126,42 @@ Read from the code, not run.
   The test becomes that the person is an admin of that server, one who rented it counting as one.
 - **[F336](README.md#f336):** its words for *Disconnect* come true only with this, so this comes first or with it.
 
+## What the third operation meets today
+
+Read from the code and from `doc/`, not run.
+
+**A card has to exist before `up`.** *Prepare a server…* reads `machineFile`, which refuses unless the organization names that host with this person
+among its admins, and pins the keys of `hosts[].admins`: that pin is whom a new server believes. `porelo-host up` refuses without that file. So the card comes
+first, with no address, and `org host change` files the address, port and host key once `up` reports them. Whatever rents a server needs the
+same order, as the pin has to be written before the server exists.
+
+**Renting is refused today.** `up` takes only `--given`, and with `--scaleway-project` it answers `Verified SSH-only preparation requires the served Core
+and host setup contracts.` So nothing in this interface rents now, as `_stopped` in `host_runs.dart` says. `doc/index.md`'s `up --scaleway-project` and
+`doc/design.md`'s *what was rented is given back* still describe it. *Down* on `--given` gives nothing back: *nothing is rented or given back*.
+
+**What enters a server set up by hand today:**
+
+| How it was set up | What enters the organization |
+|---|---|
+| *Prepare a server…* on a server that exists | its address and key on a card that must already be there; an owner's `org host add HOST --admin LOGIN` made that card |
+| `porelo-host up` in a terminal | nothing: `--machine-file` is read and no card is written, so its admin files it by hand on the page |
+| Added as a machine over ssh or WSL | nothing: it stays in this computer's list |
+
+**What taking it down does to the card today:** nothing. `cardLeftBehind` in `host_access.dart` says *a host admin enters its new address, or an organization owner removes
+the host*, and `doc/design.md` says the same. `org host remove` is an owner's, and a host carrying on from its pin refuses it until its admin acts.
+
+**What this asks:**
+
+- The give-back's last step removes the card, only once the provider has confirmed it. A kept server keeps its card. `cardLeftBehind` and that sentence in `doc/design.md` go.
+- *Prepare a machine…* enters the card itself where the person may, rather than refusing a name the organization does not hold. Today it can only refuse.
+- What removes the card needs Core's answer on the right and on the pin of a server that is gone.
+
 ## Open questions
+
+- Who may remove the card when the person giving a server back is its admin and no owner? The operator is asked.
+- Who may enter a new one? It is an owner's today, and the same question from the other side: an admin of no machine yet cannot start. Not asked yet.
+- Does a machine added over ssh count as *set up by hand*, and enter the organization? Recommended: no, it stays this person's own, as nothing was prepared on it and nothing pins it.
+- A project still on the server when it goes: `org host remove` is to be read for whether it refuses, or leaves the project on no machine. [F319](README.md#f319) empties the accounts and says nothing of the projects.
 
 - Where does a forgotten machine of the organization go? The operator is asked. What decides it: the list joins what the organization says, so such a
   machine comes straight back as a row with *Connect*, which makes *Forget* look like *Disconnect*. Recommended: this computer remembers
