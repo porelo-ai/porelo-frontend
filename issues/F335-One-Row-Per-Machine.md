@@ -34,7 +34,7 @@ row under *Machines* is a third kind, the preparation's, and it stands in *Hosts
 
 ## The shape
 
-- ***Machines*:** `Machines.all`, as today: the local machine, one reached over ssh or WSL, and each server after *Connect*. The *Hosts* section goes, and nothing joins it
+- ***Machines*:** `Machines.all`, as today: the local machine, each private one reached over ssh or WSL, and each server of the organization after *Connect*. The *Hosts* section goes, and nothing joins it
   to the organization's list, so *Machines* holds only what this person chose.
 - **In its row:** *Connect* while disconnected. Everything else is in its one ⋮, following [F329](README.md#f329)'s decision.
 - ***Organization*:** its list of all the organization's servers, under the heading *Machines*, with what an owner and an admin do with them. A person with an account there
@@ -116,6 +116,11 @@ Nothing of this is built, and nothing built stops for it.
 - ***Without a project* stays** what a person reads for the default project, and *Projects* lists no *Default*, as `doc/decisions.md` has it.
 - **Two operations.** *Disconnect* ends this computer's connection; the machine stays under *Machines* and *Connect* there brings it back. *Forget* takes the entry out of the
   person's list; it stands on in *Organization*. If the person is an admin of that server, *Forget* warns first that the server keeps running.
+- **A machine's admin may remove it from the organization.**
+- **The owner acts rarely.** Admins do the operational work, renting or adding an existing machine among it. So who enters a new machine is not settled as the owner, and the role is open, as no
+  machine's admin exists before the machine.
+- **A machine added over ssh or WSL is private.** It stands only under *Machines*, marked clearly as a private machine, with *Connect* and *Disconnect*. *Forget* deletes the entry, so it is added anew there.
+- ***Prepare a machine…* stands in *Organization*.**
 - **A third operation: taking a server down,** for a rented one giving it back, also removes it from the organization's list. Renting a server or
   setting one up by hand must enter it in the organization.
 
@@ -187,7 +192,7 @@ server at the provider is the person's own step, which the list cannot see.
 |---|---|
 | *Prepare a server…* on a server that exists | its address and key on a card that must already be there; an owner's `org host add HOST --admin LOGIN` made that card |
 | `porelo-host up` in a terminal | nothing: `--machine-file` is read and no card is written, so its admin files it by hand on the page |
-| Added as a machine over ssh or WSL | nothing: it stays in this computer's list |
+| Added as a machine over ssh or WSL | nothing, as decided: it is private and stays in this computer's list |
 
 **What taking it down does to the card today:** nothing. `cardLeftBehind` in `host_access.dart` says *a host admin enters its new address, or an organization owner removes
 the host*, and `doc/design.md` says the same. `org host remove` is an owner's, and a host carrying on from its pin refuses it until its admin acts.
@@ -199,22 +204,23 @@ private half being gone.
 **What this asks:**
 
 - The give-back's last step removes the card, only once the provider has confirmed it or, on a given server, once `down` has finished. A kept server keeps its card. `cardLeftBehind` and that sentence in `doc/design.md` go.
-- *Prepare a machine…* enters the card itself where the person may, rather than refusing a name the organization does not hold. Today it can only refuse.
-- What removes the card needs Core's answer on the right and on the pin of a server that is gone.
+- *Prepare a machine…* enters the card itself where the person may, rather than refusing a name the organization does not hold. Today it can only refuse, and it needs the role still open. The first admin named by that step is the person adding it.
+- `org host remove` is an owner's in Core today, and a machine's admin is now to have it. What that takes, and what the pin's refusal asks of a server that is gone, is asked of Core.
 
 ## Open questions
 
-- Who may remove the card when the person giving a server back is its admin and no owner? The operator is asked.
-- Who starts a return under *Organization*, *always* being said of the place? Recommended: an admin of that machine or an owner, as an owner removes its card today. Under *Machines*, its admin alone, as decided.
+- Who starts a return under *Organization*, *always* being said of the place? Recommended: an admin of that machine; an owner only where no admin is left, as the owner acts rarely. Under *Machines*, its admin alone, as decided.
 - Does a machine that simply exists have the same two places as a rental? Recommended: yes, for one way to find it.
-- Who may enter a new one? It is an owner's today, and the same question from the other side: an admin of no machine yet cannot start. Not asked yet.
-- Does a machine added over ssh count as *set up by hand*, and enter the organization? Recommended: no, it stays this person's own, as nothing was prepared on it and nothing pins it.
+- Who may enter a new machine? Not the owner by default, as decided, and no machine's admin exists before it. An organization-wide role is one way; Core is asked what it costs.
 - A project still on the server when it goes: `org host remove` is to be read for whether it refuses, or leaves the project on no machine. [F319](README.md#f319) empties the accounts and says nothing of the projects.
-- Where is *Prepare a machine…* offered? It makes a server of the organization, and its row then stands under *Machines* as the preparer's. Recommended: in *Organization*, as *Connect* is.
 - A project's row says *Connect to <machine>* in [F338](README.md#f338). Does it connect, or lead to the row in *Organization*? Recommended: lead to that row, so that *Connect* stays in one place.
 - An admin who has forgotten a server, or never connected: the machine's page, opened from *Organization*, has what they manage. Taking it down needs what this computer kept and a way to the
   server. Recommended: *Organization*'s row offers it to an admin in any case, as a return is, and says what is missing where it cannot.
 
 ## To be checked
+
+- Whether someone can reach an organization's machine by adding it as a private one, past the official way: Core and Machines are asked what stops the login and whether it gives more than *Connect*.
+- Whether the interface should say so when an address added under *Machines* is an organization's machine. By reading, not built: `checkMachine` reads the key from `known_hosts` or `ssh-keyscan`, and a card holds `hostKey`, so it can compare them for an ssh entry where
+  the organization is read and the card has a key. It cannot for WSL or a socket someone else forwarded, and a key nobody checks against a card proves nothing about rights, so it could only be a word, never a guard.
 
 - Whether a rented server outside any organization still exists once preparing needs one: if it does, it is one more row in this list.
