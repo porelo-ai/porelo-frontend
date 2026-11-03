@@ -20,7 +20,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 |---|---|---|---|
 | <a id="f222"></a>[F222](F222-A-Refused-Unlock-Asks-Again-In-Its-Terminal.md) | XS | — | A refused password in the unlock terminal asked again, up to three times, instead of ending it. |
 | <a id="f322"></a>[F322](F322-Leftovers-Of-The-Organization-Walk.md) | S | — | Small things a walk of the organization's pages found: raw JSON, a mark while a change runs, a stale refusal, words. |
-| <a id="f291"></a>[F291](F291-A-Host-Card-With-A-Name-Or-An-IPv6-Address-Read.md) | M | — | A host whose card names a host name or an IPv6 address reached, saved and administered as one at an IPv4 address. |
 | <a id="f108"></a>[F108](F108-A-Machine-Over-Ssh-From-Windows.md) | — | — | On Windows, a machine over ssh is reached through the relay, as a WSL distribution is. |
 | <a id="f118"></a>[F118](F118-An-Upstream-That-Cannot-Be-Read-Said-Before-A-Start.md) | — | — | An upstream that cannot be read said before a start, with what fixes it. |
 | <a id="f137"></a>[F137](F137-The-Collection-Taken-Only-By-Its-Digest.md) | — | — | The collection installed on the host only by the digest the package expects, checked here and there. |
@@ -29,11 +28,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f312"></a>[F312](F312-A-Host-Page-For-Its-Host-Admins.md) | L | — | The host's page: the projects it carries, its host admins and *Refresh*; built against fixtures. |
-| <a id="f313"></a>[F313](F313-Connect-Once-Per-Host.md) | M | — | *Machines* lists the hosts carrying one's projects, with one *Connect* per host; built against fixtures. |
-| <a id="f311"></a>[F311](F311-Register-Join-And-The-Developers-Dialog-Taken-Out.md) | L | — | *Register*, a project's *Join* and the developers dialog go, with what only they reached. |
-| <a id="f310"></a>[F310](F310-A-Project-Page-For-Its-Admin-And-Its-Members.md) | L | — | *Projects* lists one's own projects once each; a project's page for its admin and read-only for a member, naming no machine; built against fixtures. |
-| <a id="f309"></a>[F309](F309-The-Organization-Page.md) | L | — | *Organization* in the rail: its people, projects, hosts and owners, each person seeing only the actions of their roles; built against fixtures. |
 | <a id="f287"></a>[F287](F287-A-Join-Confirmed-By-What-The-Host-Follows.md) | — | — | A first join confirmed by what the host follows, healthy hosts offered beside a refused commit, no credential kept or shown, an unconfirmed join undoing only its own. |
 | <a id="f279"></a>[F279](F279-The-Steps-Of-One-Click-Joining.md) | S | — | One Markdown file of numbered steps of the one-click flow, from first start to first work. |
 | <a id="f223"></a>[F223](F223-A-Ready-Server-Runs-Its-Setup-Again.md) | S | — | A ready rented server offers Run its setup again, which runs `up` in the interface's own run, a stop in it completed from Needs you. |
@@ -44,8 +38,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f314"></a>[F314](F314-The-Calls-Behind-The-Organization-Pages.md) | L | [F309](#f309), [F310](#f310), [F312](#f312), [F313](#f313) | The new pages over Porelo's commands, *Forges* cut to forge access, and "registry" renamed. |
-| <a id="f315"></a>[F315](F315-Saved-Settings-Dropped-Once-And-Said.md) | S | — | Today's saved settings dropped at the change, said once in one sentence. |
 | <a id="f99"></a>[F99](F99-An-Attached-Agent-Shown-At-Rest-Or-Working.md) | S | — | A work tile says whether an attached agent is at rest or working. |
 | <a id="f117"></a>[F117](F117-What-Walk-8-Left-Unbuilt.md) | M | — | A tile's repository in its heading, a refused release said as an error that stays, the project file taken after one's own push. |
 | <a id="f111"></a>[F111](F111-All-Of-A-Pieces-Logs-In-One-Timeline.md) | M | — | All of a piece's logs in one timeline, by time, filterable by source. |
@@ -55,7 +47,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
-| <a id="f319"></a>[F319](F319-Confirmed-Membership-Purge-Before-Give-Back.md) | S | — | Displayed membership holders explicitly purged before teardown. | — |
 | <a id="f219"></a>[F219](F219-An-Interface-Ended-Without-Asking-Leaves-No-Forward-Behind.md) | S | — | The ssh forwards this interface raised ended with it also when it ends without asking, and one left over found again by its socket at the next start. | — |
 | <a id="f114"></a>[F114](F114-Windows-Notifications-From-The-MSIX.md) | M | — | Windows notifications from the MSIX's identity. | — |
 | <a id="f115"></a>[F115](F115-A-Fine-Grained-Token-Waiting-For-An-Organisations-Approval.md) | S | the test organisation at GitHub from the operator | A fine-grained token waiting for an organisation's approval said as waiting. | — |
@@ -193,6 +184,15 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Title | What was built |
 |---|---|---|
+| <a id="f319"></a>F319 | Confirmed Membership Purge Before Give-Back | Giving a server back shows who still holds a role on it and removes the accounts of those a person confirmed, with an unreadable status purging nothing. |
+| <a id="f291"></a>F291 | A Host Card With A Name Or An IPv6 Address Read | A host whose card names a host name or an IPv6 address written, raised, read back after a restart and given as a server, as one at an IPv4 address. |
+| <a id="f315"></a>F315 | Saved Settings Dropped Once And Said | Settings from before the organization put aside at the first start, without a migration, and said once in one sentence. |
+| <a id="f314"></a>F314 | The Calls Behind The Organization Pages | The organization's, project's and host's pages and *Connect* over Porelo's commands, *Forges* cut to forge access, and "registry" gone from what a person reads. |
+| <a id="f313"></a>F313 | Connect Once Per Host | *Machines* lists the hosts of a person's projects and those they administer, with one connection per host from the organization's card. |
+| <a id="f312"></a>F312 | A Host Page For Its Host Admins | A host's page with the projects it carries and their state on the host, its host admins, its address and *Refresh*, and a person's own connection. |
+| <a id="f311"></a>F311 | Register, Join And The Developers Dialog Taken Out | *Register*, a project's *Join* and the developers dialog removed: a person who belongs to a project finds it ready. |
+| <a id="f310"></a>F310 | A Project Page For Its Admin And Its Members | *Projects* lists a person's projects once with their host, and a project's page holds its address, repositories and members, changed by its admins alone. |
+| <a id="f309"></a>F309 | The Organization Page | *Organization* in the rail with its people, projects, hosts and owners, each person seeing only the actions of their roles. |
 | <a id="f143"></a>F143 | The Agent The Machine Found Is The Default | The start form sends no agent until one is picked, says which agent the machine chooses and why, marks in its list who is signed in, and offers an agent found on the machine for import into the vault. |
 | <a id="f268"></a>F268 | One Key And One Card Per Person | One Ed25519 key and one card per person made by Core and kept in the KeePassXC file, the card filed in the registry, a changed or lost key handled. Tested in sprint 6m: passed. |
 | <a id="f269"></a>F269 | The Registry Read For Every List | The registry kept in a private checkout and read through Core for every list of persons, hosts, admins and projects. Tested in sprint 6m: passed. |

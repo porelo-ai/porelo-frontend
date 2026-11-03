@@ -75,8 +75,7 @@ the routing to the host's and the machine's pages, and the walks and tests that 
 
 ## What it changes here
 
-Under options 2 and 3: [F312](README.md#f312) and [F313](README.md#f313), which place the host's page and the list under *Machines*;
-the sentence and the rail in `doc/decisions.md`, the setup words in `doc/index.md`; and the words of
+Under options 2 and 3: the host's page and the list of hosts, which stand under *Machines*; the sentence and the rail in `doc/decisions.md`, the setup words in `doc/index.md`; and the words of
 [F331](README.md#f331), [F332](README.md#f332), [F333](README.md#f333) and [F334](README.md#f334).
 
 ## To be checked

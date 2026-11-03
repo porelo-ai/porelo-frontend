@@ -213,6 +213,17 @@ is; a second consumer of the client code is what would change that.
 Host and project actions consume Core's verified person, host and admission state. No wizard asks for host
 values, project signing keys, laptop keys or host secrets.
 
+A project is on one host at a time, and a host admin decides which projects a host carries, never which persons: every
+member of a project is on its host. *Connect* makes one connection per host, whatever number of projects it carries, from
+the address, port and host key in the organization. Other programs read what it writes, so that stays as it is:
+`frontend.json`'s `machines` with each machine's `host`, and `porelo/ssh/<host>.conf` and `<host>.known_hosts` beside it,
+`<host>` being one lower-case DNS label whatever the address.
+
+A card may name a host name, an IPv4 or an IPv6 address. Two limits stand: a server with no IPv4 default route cannot be
+prepared, as the host's own play stops, and the host vault is not opened from here for a card on another port or at an IPv6
+address, as `porelo host unlock` takes neither, which the interface says in words. A whole preparation given by name, and any
+run over a real IPv6 network, have not been tried.
+
 *Push the approved main…* and *Take the central state…* run the host's own commands for a person whom
 `porelo project list` gives a role in that project and does not list as locked. The list is read at start, on
 every refresh and again when either is chosen. While it cannot be read, or where this computer reads no

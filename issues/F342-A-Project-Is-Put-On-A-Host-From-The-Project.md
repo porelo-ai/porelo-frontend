@@ -43,7 +43,7 @@ it?* and is no second way to change it.
 
 ## What it changes here
 
-[F310](README.md#f310) and [F312](README.md#f312), whose pages it moves between. It bears on [F335](README.md#f335) and
+The project's and the host's pages, which it moves between. It bears on [F335](README.md#f335) and
 [F336](README.md#f336), whose host's page gets shorter.
 
 ## Open questions

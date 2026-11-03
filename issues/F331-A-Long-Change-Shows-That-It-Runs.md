@@ -55,7 +55,7 @@ for a run of minutes. A project needs less, but closing the dialog early still m
 
 A provisional row answers part of this. The refusal has a natural home in the row it concerns, which keeps its words and
 offers to ask again or to drop it. *Nothing is shown as done before the source's own answer* still holds, as the row says
-*adding…*, but [F309](README.md#f309)'s *a refused write changes no row* changes. A row marked *removing…* serves a removal,
+*adding…*, but the page's rule that *a refused write changes no row* changes. A row marked *removing…* serves a removal,
 and the costs of the other changes and of a closed window stand.
 
 The cheap alternative is a progress line inside the frame, naming what runs, and the mark kept on until the page has read

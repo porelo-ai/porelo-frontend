@@ -11,14 +11,13 @@ The cause is in the row: each action is a button of its label's width, in a `Wra
 
 ## What the wish changes
 
-[F309](README.md#f309) says *Every action stands visibly in its row* and, in its plan, *not behind ⋮*. The walk's step
-then counts an action behind ⋮ as a failure of [F309](README.md#f309). The first sentence comes from the description of
-the organization, drawn on a canvas and agreed with the operator, which gives no reason for it; the words *not behind ⋮*
-were added when [F309](README.md#f309) was filed. So it is the operator's own earlier choice, and the operator can change
-it. If this is built:
+The page was built to the rule *Every action stands visibly in its row*, *not behind ⋮*, and the walk's step counted an action
+behind ⋮ as a failure. The first sentence comes from the description of the organization, drawn on a canvas and agreed with the
+operator, which gives no reason for it; the words *not behind ⋮* were added when the page was filed. So it is the operator's own
+earlier choice, and the operator can change it. If this is built:
 
-- **These go:** both sentences of [F309](README.md#f309) and the walk step's failure line, along with the same sentence in
-  the description of the organization, which is not this repository's to change.
+- **These go:** that rule, the walk step's failure line, and the same sentence in the description of the organization, which is
+  not this repository's to change.
 - **The page joins the rest of the interface:** *Machines*, *Projects* and *Forges* already give each row one
   `CommandMenu`, because a row with five actions is wider than the pane.
 - **These stay:** a person sees only the actions of their roles, so a row with none shows no menu; a refusal is shown in
