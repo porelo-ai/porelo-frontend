@@ -98,11 +98,36 @@ Nothing of this is built, and nothing built stops for it.
 - ***New work* offers no machine that is not connected,** since nothing can run there.
 - ***Without a project* stays** what a person reads for the default project, and *Projects* lists no *Default*, as `doc/decisions.md` has it.
 
+- **Two operations, for every machine.** *Disconnect* ends this computer's connection; the machine stays in the list and *Connect* brings it
+  back. *Forget* takes the entry out of the list; if the person is an admin of that server, it warns first that the server keeps running.
+
+## What the two operations ask of today's code
+
+Read from the code, not run.
+
+- **`disconnect` in `organization_connections.dart`** calls `machines.forget`, so today's *Disconnect* is a forget as well. It must keep the entry
+  and only end the connection.
+- **A saved mark.** A disconnected machine stays disconnected after a restart, so its entry in `frontend.json` says so. The entry holds no such thing
+  now, and `connected` in `organization_connections.dart` takes having a saved card to mean connected. `doc/design.md` makes that file a contract with
+  `porelo-intellij`, changed only after agreement in both, so the plugin must learn not to connect to such an entry.
+- **Nothing raises it again by itself.** At the start every saved machine is watched and connected, and a machine that stops answering is raised
+  again by `raiseAgainIfNeeded`. Both skip a disconnected machine, which is a decision, unlike a forward that dropped. Its row says *not connected*,
+  not *not answering*, and it is left out of what asks every machine: the notices, the refresh for all, and *New work*.
+- **What *Connect* does on it.** A machine of the organization is written anew from its card, as today. Every other kind has only its saved entry
+  to raise from.
+- **Every kind has to mean something.** `dropAndUnpublish` applies to a forward this interface raised. It is to be read per kind what *Disconnect* does on
+  this computer, on WSL, and on a socket somebody else forwarded, which this interface can only stop watching.
+- **The last machine.** `Forget` is refused while a machine is the only one watched. *Disconnect* needs the same reading, and the window needs words for
+  no machine being connected.
+- **Who gets the warning.** `_forget` in `shell.dart` warns where `machine.kind == 'host'`, in words of billing, with the way to give the server back.
+  The test becomes that the person is an admin of that server, one who rented it counting as one.
+- **[F336](README.md#f336):** its words for *Disconnect* come true only with this, so this comes first or with it.
+
 ## Open questions
 
-- *Forget* and *Disconnect* both make this computer forget the machine, *Disconnect* also removing what it published for the connection, and
-  *Forget* warning first on a server. Keep one? Recommended: *Disconnect* for a machine of the organization, with that warning where a server
-  stands rented.
+- Where does a forgotten machine of the organization go? The operator is asked. What decides it: the list joins what the organization says, so such a
+  machine comes straight back as a row with *Connect*, which makes *Forget* look like *Disconnect*. Recommended: this computer remembers
+  the forgetting, the row stays away, and *Organization*'s row is the way back. The other way is to let it return, and say so in *Forget*'s question.
 
 ## To be checked
 
