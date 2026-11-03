@@ -57,6 +57,9 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f345"></a>[F345](F345-Make-My-Card-Only-Asks-To-Sign.md) | M | Core's answer of what it found | *Make my card…* shows one line and *Sign*, and asks only what it did not find or found twice. |
+| <a id="f346"></a>[F346](F346-Do-You-Work-Alone.md) | S | Core's way to take the value | Creating a project asks "Do you work alone?"; yes writes `review: optional`, and it stays changeable. |
+| <a id="f347"></a>[F347](F347-A-Card-Renewed-With-One-Click.md) | M | Core's renewal with the same key | A card's end is said before and after it, and renewing is one click. |
 | <a id="f99"></a>[F99](F99-An-Attached-Agent-Shown-At-Rest-Or-Working.md) | S | — | A work tile says whether an attached agent is at rest or working. |
 | <a id="f117"></a>[F117](F117-What-Walk-8-Left-Unbuilt.md) | M | — | A tile's repository in its heading, a refused release said as an error that stays, the project file taken after one's own push. |
 | <a id="f111"></a>[F111](F111-All-Of-A-Pieces-Logs-In-One-Timeline.md) | M | — | All of a piece's logs in one timeline, by time, filterable by source. |
