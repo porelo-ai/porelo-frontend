@@ -697,6 +697,8 @@ while Porelo on the host writes the second play's inventory. The person's comput
 
 ## The person's ssh key is registered once by hand in Scaleway's console
 
+`porelo-host up` refuses renting until it returns as planned for 0.9, sprint 5; this and the next three decisions hold for then.
+
 `porelo-host` never registers an ssh key at Scaleway. The API key it uses holds Elastic Metal and
 `SSHKeysReadOnly` only, so the key that rents cannot change who may log in to what it rents.
 Before renting, `up` reads the project's keys and, when the person's public key is
