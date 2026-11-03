@@ -89,6 +89,49 @@ void main() {
     state.tunnels.dispose();
   }
 
+  // Harm: a machine goes with a project on it and nobody was told what is safe; or an admin on another computer, who kept
+  // nothing from setting it up, cannot take Porelo off.
+  testWidgets('taken off by the card, the dialog names what stands on it', (tester) async {
+    final settings = Settings(MemorySettingsStore());
+    final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: _Tunnels());
+    addTearDown(machines.dispose);
+    addTearDown(settings.dispose);
+    final access = await (HostFixture()..orchardProjects = const ['demo']).access(settings);
+    final commands = <List<String>>[];
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HostDialog(
+          project: 'orchard',
+          machines: machines,
+          settings: settings,
+          hostAccess: access,
+          takeDownOnly: true,
+          fromTheCard: const HostUpRecord(
+            hostName: 'orchard',
+            givenAddress: '203.0.113.7',
+            givenHostKey: hostKey,
+            publicKey: personKey,
+          ),
+          start: (_, arguments) async {
+            if (arguments.contains('--memberships')) return _emptyMemberships();
+            commands.add(arguments);
+            return HostProcess()..end(65);
+          },
+        ),
+      ),
+    );
+    await World.settle(tester);
+    final words = tester.widget<Text>(find.byKey(const Key('host-projects-left'))).data!;
+    expect(words, allOf(contains('demo'), contains('central forge'), contains('cannot say')));
+    await tester.tap(find.byKey(const Key('host-confirm-down')));
+    await World.settle(tester);
+    expect(commands.single, containsAllInOrder(['--given', '203.0.113.7', '--host-key', hostKey]));
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   // Harm: a failed signed-state teardown must leave a deliberate route to stop provider billing.
   testWidgets('signed-state give-back offers an explicit loss-confirmed retry', (tester) async {
     final settings = Settings(MemorySettingsStore());

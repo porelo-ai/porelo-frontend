@@ -9,6 +9,7 @@ import 'package:porelo_host/porelo_host.dart';
 import 'desk.dart';
 import 'host_organization.dart';
 import 'organization_source.dart';
+import 'settings.dart';
 
 export 'host_organization.dart' show HostAccessRefused;
 
@@ -122,6 +123,36 @@ class HostAccess extends ChangeNotifier {
     if (view.holdsRoles && named.admins.contains(view.me)) return null;
     return 'Only a Machine Admin of $host or an Organization Admin may do this.${_ask(view, named.admins)}';
   }
+
+  /// The projects the organization says stand on [host].
+  List<String> projectsOn(String host) =>
+      _view?.hosts.where((each) => each.name == host).firstOrNull?.projects ?? const [];
+
+  /// What taking [host] off from this computer still lacks where nothing was kept from setting it up, as `down` asks only
+  /// its address, its SSH host key and the person's key, which the organization's card and this person's card hold.
+  String? whatTakingOffLacks(OrganizationHost host) {
+    if (host.address == null || host.hostKey == null) {
+      return 'The organization names no address or SSH host key for ${host.name}: it was never set up, so Porelo is not '
+          'on it. *Remove the machine…* takes it off the list.';
+    }
+    if ((host.port ?? 22) != 22) {
+      return '${host.name} answers ssh on port ${host.port}, which taking Porelo off does not reach from a computer that '
+          'did not set it up.';
+    }
+    if (identity() == null) return proof?.whyNone ?? 'Your identity is not proven.';
+    return null;
+  }
+
+  /// The record to take [host] off with, on a computer that kept none.
+  HostUpRecord? takingOffRecord(OrganizationHost host) => whatTakingOffLacks(host) != null
+      ? null
+      : HostUpRecord(
+          hostName: host.name,
+          host: host.name,
+          givenAddress: host.address!,
+          givenHostKey: host.hostKey!,
+          publicKey: identity()!.key,
+        );
 
   /// Whether preparing is offered at all: not to a person the organization names as neither of the admins. Where
   /// nothing is read yet, or there is no organization, it stays, and [unavailable] says why it cannot be done.

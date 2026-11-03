@@ -36,6 +36,7 @@ class OrganizationPage extends StatefulWidget {
     this.connections,
     this.identity,
     this.prepareMachine,
+    this.takeOff,
     this.keys,
     this.pickFile = pickWithTheDesktop,
     this.pickFolder = pickFolderWithTheDesktop,
@@ -59,6 +60,9 @@ class OrganizationPage extends StatefulWidget {
 
   /// *Prepare a machine…*, absent where this computer offers none.
   final Command? prepareMachine;
+
+  /// Taking Porelo off a machine, or returning its rental, as its row offers it to who may.
+  final Command Function(OrganizationHost host)? takeOff;
 
   /// Runs the person's key commands in a terminal, absent where this computer offers none.
   final KeyCommands? keys;
@@ -316,7 +320,8 @@ class _OrganizationPageState extends State<OrganizationPage> {
                   words:
                       "The project's card is added to the organization now. Its Project Admin makes the project "
                       'repository and signs its first project.yml when they first open the project under Projects, then '
-                      'adds its members. No machine is chosen here: a machine\'s admin puts the project on it.',
+                      'adds its members. No machine is chosen here: a machine\'s admin puts the project on it. A project cannot '
+                      'hold a repository of its own name, so name it apart from its first repository.',
                   confirm: 'Add the project',
                   check: (name) => _projectName.hasMatch(name)
                       ? null
@@ -519,6 +524,12 @@ class _OrganizationPageState extends State<OrganizationPage> {
             connections: widget.connections,
             onOpen: () => widget.onHost?.call(host.name),
             commands: [
+              if (widget.takeOff != null &&
+                  (view.mayRemove(host) || (view.holdsRoles && host.admins.contains(view.me))))
+                widget.takeOff!(host),
+              if (widget.takeOff != null &&
+                  (view.mayRemove(host) || (view.holdsRoles && host.admins.contains(view.me))))
+                widget.takeOff!(host),
               for (final action in <_Action>[
                 if (view.holdsRoles && widget.onHost != null && host.admins.contains(view.me))
                   _command('openHost/${host.name}', "Open the machine's page", () => widget.onHost!(host.name)),

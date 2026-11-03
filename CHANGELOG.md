@@ -9,6 +9,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- A machine's row under *Organization* offers taking Porelo off to its admin on any computer, going by the organization's card,
+  and says what is missing where it cannot. The dialog names the projects still on the machine and what is safe.
+- A project and a repository of one name are refused here, with another name offered.
 - A person the organization names as neither admin of a machine is told so instead of being offered taking it down, and a
   machine's refusal of their key reads as that.
 - An answer that names the Organization Admins in any other form than a list cannot be said, and no longer reads as the owners' rule.

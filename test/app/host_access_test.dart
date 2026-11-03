@@ -43,6 +43,31 @@ void main() {
       );
     });
 
+    // Harm: an admin on another computer is told nothing can be done, or a machine never set up is offered a take-down
+    // with no address to reach.
+    test('taking off from another computer goes by the card and says what it lacks', () async {
+      final access = await HostFixture().access(settings);
+      const set = OrganizationHost(name: 'orchard', admins: ['alice'], address: '203.0.113.7', hostKey: hostKey);
+      expect(access.whatTakingOffLacks(set), isNull);
+      final record = access.takingOffRecord(set)!;
+      expect(
+        record.giveBackArguments('orchard'),
+        containsAllInOrder(['--given', '203.0.113.7', '--host-key', hostKey]),
+      );
+      expect(record.publicKey, isNotEmpty);
+      const unset = OrganizationHost(name: 'orchard', admins: ['alice']);
+      expect(access.whatTakingOffLacks(unset), contains('never set up'));
+      expect(access.takingOffRecord(unset), isNull);
+      const port = OrganizationHost(
+        name: 'orchard',
+        admins: ['alice'],
+        address: '203.0.113.7',
+        port: 2222,
+        hostKey: hostKey,
+      );
+      expect(access.whatTakingOffLacks(port), contains('2222'));
+    });
+
     // Harm: a right taken away keeps working on what was read earlier.
     test('judged on a fresh read before a side effect', () async {
       final fixture = HostFixture();

@@ -28,6 +28,9 @@ Map<String, Object?> sshCompletion() => {
 class HostFixture implements OrganizationSource {
   bool admin = true;
 
+  /// The projects the organization says stand on orchard.
+  List<String> orchardProjects = const [];
+
   /// Whether alice is an Organization Admin, by being its owner while no list exists.
   bool organizationAdmin = false;
   Set<String> adminHosts = {'orchard', 'demo'};
@@ -105,6 +108,7 @@ class HostFixture implements OrganizationSource {
         for (final host in {'orchard', 'demo', ...adminHosts})
           OrganizationHost(
             name: host,
+            projects: host == 'orchard' ? orchardProjects : const [],
             address: host == 'orchard' ? cardAddress : null,
             port: host == 'orchard' ? cardPort : null,
             hostKey: host == 'orchard' ? cardHostKey : null,

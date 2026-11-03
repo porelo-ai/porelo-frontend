@@ -61,19 +61,32 @@ class _ProjectInitDialogState extends State<ProjectInitDialog> {
     }
   }
 
+  // Core's rule: a project cannot hold a repository of its own name, and a person's first ones often share one.
+  String get _namedAsItsRepository =>
+      'A project cannot hold a repository of its own name. Add the project under another name, such as '
+      '${widget.project}-project, and fill that one from this checkout.';
+
   Future<void> _read(String checkout) async {
     try {
       final draft = await widget.organization.source.readProjectInit(checkout, project: widget.project);
       if (!mounted) return;
       setState(() {
-        if (draft.revision == null || draft.revision!.isEmpty) {
+        if (draft.repository == widget.project) {
+          _problem = _namedAsItsRepository;
+        } else if (draft.revision == null || draft.revision!.isEmpty) {
           _problem = 'Porelo cannot say what to sign: the draft names no project revision.';
         } else {
           _draft = draft;
         }
       });
     } on OrganizationRefused catch (refused) {
-      if (mounted) setState(() => _problem = 'Porelo cannot say what to sign. ${refused.words}');
+      if (mounted) {
+        setState(() {
+          _problem = refused.words.contains("project's own")
+              ? '${refused.words} $_namedAsItsRepository'
+              : 'Porelo cannot say what to sign. ${refused.words}';
+        });
+      }
     } on Exception {
       if (mounted) setState(() => _problem = 'Porelo cannot say what to sign: the checkout draft could not be read.');
     }

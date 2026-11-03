@@ -234,11 +234,18 @@ private half being gone.
 - *Prepare a machine…* enters the card itself where the person may, rather than refusing a name the organization does not hold. Today it can only refuse, and it needs the role still open. The first admin named by that step is the person adding it.
 - `org host remove` is an owner's in Core today, and the roles above move it. What that takes, and what the pin's refusal asks of a server that is gone, is Core's and Machines' to file.
 
-## Open questions
+## Decided by the operator on the last two
 
-- A project still on the server when it goes: `org host remove` is to be read for whether it refuses, or leaves the project on no machine. [F319](README.md#f319) empties the accounts and says nothing of the projects.
-- An admin who has forgotten a server, or never connected: the machine's page, opened from *Organization*, has what they manage. Taking it down needs what this computer kept and a way to the
-  server. Recommended: *Organization*'s row offers it to an admin in any case, as a return is, and says what is missing where it cannot.
+- **A project still on the machine when it goes.** The take-down dialog names it and warns, and taking down stays possible. Its words say that only what has reached the central forge is safe, as work only on the machine's own forge goes with it. It does not imply it can say whether anything would be lost.
+- **A Machine Admin with no record on this computer.** The row under *Organization* offers it and says what is missing.
+
+**What exactly is missing there.** `porelo-host down` on a machine that simply exists asks only its name, its address and SSH host key and the person's key, as read from `packages/porelo_host`, not run on a second computer. The organization's card holds the first three and the person's card the last, so usually nothing is missing and the dialog goes by the card. What remains:
+
+- The card names no address or SSH host key: it was never set up, and the row leads to *Remove the machine…*.
+- The card names another ssh port than 22: taking Porelo off goes by the given address alone, and this was not read further.
+- The person's own card is not proven here.
+- The machine does not take the person's key as root, which only the machine says.
+- A rental: its recovery data stand only on the computer that rented it, so another computer cannot return it. None exists until 0.9.
 
 ## To be checked
 

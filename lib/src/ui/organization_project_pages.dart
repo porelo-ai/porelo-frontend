@@ -888,6 +888,9 @@ class _AddRepositoryDialogState extends State<_AddRepositoryDialog> {
       if (!_repositoryName.hasMatch(_name.text.trim())) {
         return 'A repository name holds letters, digits, ".", "_" and "-", and opens with a letter or digit.';
       }
+      if (_name.text.trim() == widget.view.name) {
+        return 'A project cannot hold a repository of its own name. Give this one another name.';
+      }
       return _addressRefused(_address.text.trim());
     },
     ask: () => _name.text.trim().isEmpty || _address.text.trim().isEmpty

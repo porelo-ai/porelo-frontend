@@ -25,6 +25,7 @@ Future<void> openHostTakeDownDialog(
   StartHostCommand? start,
   HostRuns? hostRuns,
   HostAccess? hostAccess,
+  HostUpRecord? fromTheCard,
   OpenTerminal? openTerminal,
   bool? linux,
 }) => showDialog<void>(
@@ -36,6 +37,7 @@ Future<void> openHostTakeDownDialog(
     settings: settings,
     hostRuns: hostRuns,
     hostAccess: hostAccess,
+    fromTheCard: fromTheCard,
     start: start,
     takeDownOnly: true,
   ),
@@ -81,6 +83,7 @@ class HostDialog extends StatefulWidget {
     this.start,
     this.runKeyCommand,
     this.takeDownOnly = false,
+    this.fromTheCard,
     super.key,
   });
 
@@ -110,6 +113,9 @@ class HostDialog extends StatefulWidget {
 
   /// Whether the dialog confirms give-back.
   final bool takeDownOnly;
+
+  /// What to take down with on a computer that kept nothing from setting it up.
+  final HostUpRecord? fromTheCard;
 
   @override
   State<HostDialog> createState() => _HostDialogState();
@@ -141,7 +147,7 @@ class _HostDialogState extends State<HostDialog> {
   String? _problemBroughtIntoView;
   HostPreparationSettings _choices = const HostPreparationSettings();
   Settings get _settings => widget.settings ?? widget.machines.settings;
-  HostUpRecord? get _record => _settings.hostUp(widget.project);
+  HostUpRecord? get _record => _settings.hostUp(widget.project) ?? widget.fromTheCard;
 
   @override
   void initState() {
@@ -445,6 +451,18 @@ class _HostDialogState extends State<HostDialog> {
                 ),
               if (_busy && run == null && !widget.takeDownOnly)
                 Text('Checking permission to prepare machine ${_name.text.trim()}…'),
+              if (widget.takeDownOnly && !_givenBack)
+                if (access?.projectsOn(record?.hostName.isNotEmpty == true ? record!.hostName : widget.project)
+                    case final projects? when projects.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: Space.small),
+                    child: Text(
+                      'Still on this machine: ${projects.join(', ')}. Only what has reached the central forge is safe: work '
+                      'only on the machine’s own forge goes with it. This window cannot say whether any would be lost.',
+                      key: const Key('host-projects-left'),
+                      style: TextStyle(color: Theme.of(context).colorScheme.error),
+                    ),
+                  ),
               if (widget.takeDownOnly && !_givenBack)
                 Text(
                   rental

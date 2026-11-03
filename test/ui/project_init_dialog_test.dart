@@ -8,6 +8,8 @@ import 'package:porelo_frontend/src/ui/organization_project_pages.dart';
 import 'package:porelo_frontend/src/ui/pick_a_file.dart';
 import 'package:porelo_frontend/src/ui/project_init_dialog.dart';
 
+import 'package:porelo_frontend/src/app/commands.dart';
+
 import '../features/support/world.dart';
 import '../support/organization_fixtures.dart';
 import 'organization_actions.dart';
@@ -93,6 +95,45 @@ void main() {
       expect(source.writes, isEmpty);
     });
   }
+
+  // Harm: a person with no right on the machine is offered taking Porelo off it, or its admin on another computer is not.
+  for (final (me, allowed) in [('hana', true), ('olive', true), ('mia', false)]) {
+    testWidgets('taking Porelo off stands on the row for $me as the rights say', (tester) async {
+      await _organization(
+        tester,
+        _Source(me),
+        (organization) => OrganizationPage(
+          organization: organization,
+          takeOff: (host) =>
+              organizationCommand(id: 'takeOff/${host.name}', label: 'Take Porelo off this machine…', run: () {}),
+        ),
+      );
+      expect(organizationAction('takeOff/build'), allowed ? findsOneWidget : findsNothing);
+    });
+  }
+
+  // Harm: a first project named as its repository meets Core's refusal with no way on, or is signed and refused later.
+  testWidgets('a checkout named as the project cannot be signed, and another name is offered', (tester) async {
+    final source = _Source('pat');
+    source.preview = () async => ProjectInitDraft(
+      repository: 'demo',
+      upstream: null,
+      draft: 'review: required\n',
+      revision: 'preview-base',
+      values: const [],
+      disagreements: const [],
+      unplaced: '',
+      notPlaced: '',
+      credentialsNeeded: '',
+      plugins: const [],
+    );
+    await _dialog(tester, source);
+    await tester.tap(find.text('Choose a checkout folder…'));
+    await World.settle(tester);
+    expect(find.textContaining('demo-project'), findsOneWidget);
+    expect(tester.widget<FilledButton>(find.byKey(const Key('organization-confirm'))).onPressed, isNull);
+    expect(source.writes, isEmpty);
+  });
 
   // Harm: canceling a native picker or confirming while a preview is incomplete must never sign anything.
   testWidgets('canceling a folder choice and waiting for a preview leave signing disabled', (tester) async {

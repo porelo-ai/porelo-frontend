@@ -700,6 +700,29 @@ class _ShellState extends State<Shell> {
     if (mounted && !widget.machines.all.contains(machine)) widget.shell.goTo(Section.machines);
   }
 
+  /// A machine's row under *Organization*: with nothing kept here, the organization's card is what it goes by.
+  Command _takeOffCommand(OrganizationHost host) {
+    final access = _hostRuns.hostAccess!;
+    final kept = widget.settings.hostUp(host.name);
+    return organizationCommand(
+      id: 'takeOff/${host.name}',
+      label: kept?.isRental == true ? 'Return this rental…' : 'Take Porelo off this machine…',
+      danger: true,
+      unavailable: access.whyNotTakeDown(host.name) ?? (kept == null ? access.whatTakingOffLacks(host) : null),
+      run: () => unawaited(
+        openHostTakeDownDialog(
+          context,
+          project: host.name,
+          machines: widget.machines,
+          settings: widget.settings,
+          hostRuns: _hostRuns,
+          fromTheCard: kept == null ? access.takingOffRecord(host) : null,
+          openTerminal: widget.sessions.openTerminal,
+        ),
+      ),
+    );
+  }
+
   /// A project card's menu, judged for that project and run with it selected.
   List<Command> _projectMenu(ProjectOnScreen project, {Machine? on}) => <Command>[
     for (final command in projectCommands(
@@ -1337,6 +1360,7 @@ class _ShellState extends State<Shell> {
                 prepareMachine: _commands()
                     .where((command) => command.id == 'host.prepare' && command.visible)
                     .firstOrNull,
+                takeOff: _hostRuns.hostAccess == null ? null : _takeOffCommand,
                 keys: _keys,
                 onProject: (name) {
                   setState(() => _organizationProject = name);
