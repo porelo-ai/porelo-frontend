@@ -94,6 +94,17 @@ finding; each is declined with its reason, and is read again where its code is r
 - **`packages/porelo_host` tests over a real terminal or a process** (`secret_store_test`, `forge_key_test`, `project_transfer_test`, `down_cli_test`) run out of their 30 seconds when the machine is under a load of 30 or more, and pass when run alone.
 - **`HostRuns.setupAgain` and `_replaceLegacy`** have nothing that hands them a function any more; they go with the setups made before the organization.
 - **A setup taken up again** writes its machine file anew under the data folder of that moment and reads the path it saved: the two differ only if the data folder has moved since.
+- **A refused `org refresh`, in the machine's words:** "The machine would not open a session here" stands after it, which says something else.
+- **"Choose another folder" at *Connect*:** it also comes from a stale file of an old address, where no folder is at fault.
+- **A wrong paste in *SSH host key*:** two lines from a keyscan get the general sentence, not what is wrong.
+- **A refusal below a dialog's fold:** the host dialog can show it where it cannot be seen without scrolling.
+- **The port-busy words, between two windows of one computer:** they name a kill for what is the person's own other window.
+- **The token's terminal** prints the host's status as raw JSON.
+- **A forge off port 22 in `centralForgeKnownHosts`:** it matches the plain name, while ssh writes `[host]:port`, so such a forge has no key to hand on.
+- **`The SSH connection stopped (exit 255).` at *Connect*:** it names no reason, and a name that does not resolve reads the same as a refused key; ssh's words belong there.
+- **After a card's address moves:** the old connection lives on while the page says *Not connected yet*, until the next *Connect* replaces it.
+- **The lost-key plan** offers *Cancel* and *Close* at once.
+- **An unopened project on a host:** the row now says what its admin must do; it does not yet say the token is needed again afterwards.
 
 ## Idea
 
