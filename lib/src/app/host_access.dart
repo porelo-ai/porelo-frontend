@@ -211,6 +211,17 @@ class HostAccess extends ChangeNotifier {
       final view = _view!;
       final forge = prepared.hostServices['forge'];
       final matrix = prepared.hostServices['matrix'];
+      // `up` run again finds the card filed: the store refuses a write that changes nothing, and nothing is amiss.
+      final card = view.hosts.where((each) => each.name == prepared.name).firstOrNull;
+      if (card != null &&
+          card.address == prepared.address &&
+          card.port == prepared.sshPort &&
+          card.hostKey == prepared.sshHostKey &&
+          (forge?['web_port'] ?? card.webPort) == card.webPort &&
+          (forge?['git_port'] ?? card.gitPort) == card.gitPort &&
+          (matrix?['port'] ?? card.matrixPort) == card.matrixPort) {
+        return null;
+      }
       await source.apply(
         OrganizationWrite(
           change: OrganizationChange.changeHost,

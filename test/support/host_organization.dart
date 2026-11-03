@@ -47,6 +47,12 @@ class HostFixture implements OrganizationSource {
   HostAdminIdentity? actor = const HostAdminIdentity('alice', adminFingerprint, hostKey);
   final writes = <OrganizationWrite>[];
 
+  /// What the organization's card of orchard says of the host; empty until its host admin entered it.
+  String? cardAddress;
+  int? cardPort;
+  String? cardHostKey;
+  int? cardWebPort;
+
   /// The other persons the organization answers, beside [card].
   List<OrganizationPerson> others = const [];
 
@@ -94,6 +100,10 @@ class HostFixture implements OrganizationSource {
         for (final host in {'orchard', 'demo', ...adminHosts})
           OrganizationHost(
             name: host,
+            address: host == 'orchard' ? cardAddress : null,
+            port: host == 'orchard' ? cardPort : null,
+            hostKey: host == 'orchard' ? cardHostKey : null,
+            webPort: host == 'orchard' ? cardWebPort : null,
             admins: admin && adminHosts.contains(host) ? const ['alice'] : const ['hank'],
             adminKeys: keys,
           ),

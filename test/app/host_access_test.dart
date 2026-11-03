@@ -191,6 +191,43 @@ void main() {
       expect(fixture.writes.single.id, matches(RegExp(r'^[A-Za-z0-9._-]{1,64}$')));
     });
 
+    // Harm: `up` run again on a host whose card is filed stops at the end, its server prepared and nothing saved.
+    test('a card that says this already is not written again', () async {
+      final fixture = HostFixture()
+        ..cardAddress = '203.0.113.7'
+        ..cardPort = 22
+        ..cardHostKey = hostKey
+        ..writeRefusal = 'the file says this already';
+      final access = await fixture.access(settings);
+      expect(await access.writeCard(prepared()), isNull);
+      expect(fixture.writes, isEmpty);
+    });
+
+    // Harm: a server moved, or its service given a new port, and the card keeps sending people to the old one.
+    test('a card that differs in anything the server said is written', () async {
+      final moved = HostFixture()
+        ..cardAddress = '203.0.113.8'
+        ..cardPort = 22
+        ..cardHostKey = hostKey;
+      expect(await (await moved.access(settings)).writeCard(prepared()), isNull);
+      expect(moved.writes, hasLength(1));
+
+      final forge = HostFixture()
+        ..cardAddress = '203.0.113.7'
+        ..cardPort = 22
+        ..cardHostKey = hostKey
+        ..cardWebPort = 3000;
+      final withForge = PreparedHost.read(
+        sshCompletion()
+          ..['services'] = {
+            'forge': {'web_port': 3100, 'git_port': 3001},
+          },
+        hostName: 'orchard',
+      );
+      expect(await (await forge.access(settings)).writeCard(withForge), isNull);
+      expect(forge.writes, hasLength(1));
+    });
+
     // Harm: a refusal is lost and the host taken for named.
     test("a refusal comes back in the store's words", () async {
       final fixture = HostFixture()..writeRefusal = 'the organization moved on';
