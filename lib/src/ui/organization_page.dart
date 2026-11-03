@@ -146,6 +146,14 @@ class _OrganizationPageState extends State<OrganizationPage> {
           child: const Text('Choose another organization…'),
         ),
       ),
+      Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton(
+          key: const ValueKey('createAnotherOrganization'),
+          onPressed: () => show(_AddressDialog(organization, creating: true, replacing: true)),
+          child: const Text('Create another organization…'),
+        ),
+      ),
       const SizedBox(height: Space.normal),
       _people(view, organization, show),
       _projects(view, organization, show),
@@ -990,7 +998,7 @@ class _AddressDialogState extends State<_AddressDialog> {
   Widget build(BuildContext context) => OrganizationChangeDialog(
     organization: widget.organization,
     title: widget.creating
-        ? 'Create the organization'
+        ? (widget.replacing ? 'Create another organization' : 'Create the organization')
         : widget.replacing
         ? 'Choose another organization'
         : 'Choose the organization',
@@ -999,7 +1007,12 @@ class _AddressDialogState extends State<_AddressDialog> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (widget.creating)
+        if (widget.creating && widget.replacing)
+          const Text(
+            'Make an empty repository on your forge first: Porelo does not make it. This computer reads one organization, '
+            'so it will read the new one instead of this one. This one stays on its forge, and you can choose it again.',
+          )
+        else if (widget.creating)
           const Text(
             'Make an empty repository on your forge first: Porelo does not make it. Give its address here, and your '
             'card goes in as its first, and only, owner.',

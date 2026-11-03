@@ -1,4 +1,3 @@
-import 'package:porelo_frontend/src/app/roles.dart';
 import 'package:porelo_host/porelo_host.dart';
 
 import 'package:flutter/material.dart';
@@ -44,8 +43,6 @@ class _UnavailableTerminal implements CentralTransferSource {
 }
 
 void main() {
-  setUp(() => roles = Roles.fromArguments(const ['--roles', 'host-admin']));
-  tearDown(() => roles = const Roles());
   // Harm: a changed current machine must not redirect a repository action from the displayed page.
   testWidgets('repository commands reselect the displayed project in the full shell', (tester) async {
     await _project(tester);

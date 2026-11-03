@@ -21,7 +21,7 @@ void main() {
       final access = await fixture.access(settings);
       expect(access.unavailable('orchard'), isNull);
       expect(access.unavailable('demo'), allOf(contains('Machine Admin of demo'), contains('hank')));
-      expect(access.unavailable('nowhere'), allOf(contains('owner'), contains('mia')));
+      expect(access.unavailable('nowhere'), allOf(contains('Organization Admin'), contains('mia')));
       await expectLater(access.check('demo'), throwsA(isA<HostAccessRefused>()));
     });
 

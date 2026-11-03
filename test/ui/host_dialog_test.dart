@@ -132,7 +132,6 @@ void main() {
                     project: '',
                     machines: machines,
                     hostRuns: runs,
-                    pickFile: ({initialDirectory, title}) async => '/collections/machine.tar.gz',
                     start: (_, _) async {
                       starts++;
                       return process;
@@ -149,16 +148,12 @@ void main() {
     Future<HostPreparation> startPreparation(String name) async {
       await tester.tap(find.text('Open preparation'));
       await World.settle(tester);
-      for (final value in [name, '203.0.113.7', hostKey, 'a' * 64].indexed) {
+      for (final value in [name, '203.0.113.7', hostKey].indexed) {
         final field = find.descendant(of: find.byType(HostDialog), matching: find.byType(TextField)).at(value.$1);
         await tester.ensureVisible(field);
         await World.settle(tester);
         await tester.enterText(field, value.$2);
       }
-      await tester.ensureVisible(find.text('Choose collection'));
-      await World.settle(tester);
-      await tester.tap(find.text('Choose collection'));
-      await World.settle(tester);
       await tester.tap(find.text('Prepare the machine'));
       await World.settle(tester);
       return runs.of(name)!;
@@ -453,7 +448,7 @@ void main() {
     expect(find.byType(SelectableText), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
   });
-  // Harm: preparation must use the chosen pinned host, collection and limits, and retain readiness when signing is unavailable.
+  // Harm: preparation must use the chosen pinned host and limits, and the build's own collection, and retain readiness when signing is unavailable.
   // Harm: a server this computer reaches by name or IPv6 address cannot be prepared or read back after a restart.
   for (final address in ['203.0.113.7', 'orchard.example.org', '2001:db8::7']) {
     testWidgets(
@@ -481,7 +476,6 @@ void main() {
               machines: machines,
               settings: settings,
               hostRuns: runs,
-              pickFile: ({initialDirectory, title}) async => '/collections/host.tar.gz',
               start: (_, args) async {
                 arguments = args;
                 return process;
@@ -499,11 +493,6 @@ void main() {
         await type('Machine name', 'orchard');
         await type('Server address', address);
         await type('SSH host key', hostKey);
-        await tester.ensureVisible(find.text('Choose collection'));
-        await World.settle(tester);
-        await tester.tap(find.text('Choose collection'));
-        await tester.pump();
-        await type('Collection SHA-256', 'a' * 64);
         await tester.ensureVisible(find.text('More settings'));
         await World.settle(tester);
         await tester.tap(find.text('More settings'));
@@ -526,10 +515,7 @@ void main() {
           arguments,
           containsAllInOrder(['--forge-runner-capacity', '1', '--forge-job-cpus', '1', '--forge-job-memory', '768m']),
         );
-        expect(
-          arguments,
-          containsAllInOrder(['--collection', '/collections/host.tar.gz', '--collection-sha256', 'a' * 64]),
-        );
+        expect(arguments, isNot(contains('--collection')), reason: 'The collection is the one the build knows.');
         process.line(host.Step('up', host.StepState.done, address: address, admin: 'root'));
         process.line(
           host.Step(
@@ -547,7 +533,7 @@ void main() {
         final restored = hostUpRestored(settings.hostUp('orchard')!);
         expect(restored.givenAddress, address);
         expect(restored.givenHostKey, hostKey);
-        expect(hostArguments(restored, 'orchard'), contains('/collections/host.tar.gz'));
+        expect(hostArguments(restored, 'orchard'), isNot(contains('--collection')));
         await tester.pumpWidget(const SizedBox.shrink());
       },
     );
@@ -593,7 +579,6 @@ void main() {
             project: '',
             machines: machines,
             hostRuns: runs,
-            pickFile: ({initialDirectory, title}) async => '/collections/host.tar.gz',
             start: (_, _) async {
               starts++;
               return HostProcess()..end(65);
@@ -605,17 +590,12 @@ void main() {
         'Machine name': 'orchard',
         'Server address': '203.0.113.7',
         'SSH host key': hostKey,
-        'Collection SHA-256': 'a' * 64,
       }.entries) {
         final finder = find.widgetWithText(TextField, field.key);
         await tester.ensureVisible(finder);
         await World.settle(tester);
         await tester.enterText(finder, field.value);
       }
-      await tester.ensureVisible(find.text('Choose collection'));
-      await World.settle(tester);
-      await tester.tap(find.text('Choose collection'));
-      await World.settle(tester);
       await tester.tap(find.text('Prepare the machine'));
       await World.settle(tester);
       expect(tester.takeException(), isNull);
@@ -653,7 +633,6 @@ void main() {
           project: '',
           machines: machines,
           hostRuns: runs,
-          pickFile: ({initialDirectory, title}) async => '/collections/host.tar.gz',
           start: (_, _) async {
             starts++;
             return HostProcess();
@@ -661,21 +640,12 @@ void main() {
         ),
       ),
     );
-    for (final field in {
-      'Machine name': 'orchard',
-      'Server address': '203.0.113.7',
-      'SSH host key': hostKey,
-      'Collection SHA-256': 'a' * 64,
-    }.entries) {
+    for (final field in {'Machine name': 'orchard', 'Server address': '203.0.113.7', 'SSH host key': hostKey}.entries) {
       final finder = find.widgetWithText(TextField, field.key);
       await tester.ensureVisible(finder);
       await World.settle(tester);
       await tester.enterText(finder, field.value);
     }
-    await tester.ensureVisible(find.text('Choose collection'));
-    await World.settle(tester);
-    await tester.tap(find.text('Choose collection'));
-    await World.settle(tester);
     final button = tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Prepare the machine'));
     fixture.admin = false;
     button.onPressed!();
@@ -777,13 +747,7 @@ void main() {
     });
     await tester.pumpWidget(
       MaterialApp(
-        home: HostDialog(
-          project: '',
-          machines: machines,
-          hostRuns: runs,
-          pickFile: ({initialDirectory, title}) async => '/collections/host.tar.gz',
-          start: (_, _) async => HostProcess(),
-        ),
+        home: HostDialog(project: '', machines: machines, hostRuns: runs, start: (_, _) async => HostProcess()),
       ),
     );
     await World.settle(tester);
@@ -826,7 +790,6 @@ void main() {
           project: '',
           machines: machines,
           hostRuns: runs,
-          pickFile: ({initialDirectory, title}) async => '/collections/host.tar.gz',
           start: (_, _) async {
             starts++;
             return HostProcess();
@@ -834,21 +797,12 @@ void main() {
         ),
       ),
     );
-    for (final field in {
-      'Machine name': 'orchard',
-      'Server address': '203.0.113.7',
-      'SSH host key': hostKey,
-      'Collection SHA-256': 'a' * 64,
-    }.entries) {
+    for (final field in {'Machine name': 'orchard', 'Server address': '203.0.113.7', 'SSH host key': hostKey}.entries) {
       final finder = find.widgetWithText(TextField, field.key);
       await tester.ensureVisible(finder);
       await World.settle(tester);
       await tester.enterText(finder, field.value);
     }
-    await tester.ensureVisible(find.text('Choose collection'));
-    await World.settle(tester);
-    await tester.tap(find.text('Choose collection'));
-    await World.settle(tester);
     expect(find.textContaining('Before setup, run this'), findsNothing, reason: 'the read has not ended');
     proof.hold!.complete();
     proof.hold = null;

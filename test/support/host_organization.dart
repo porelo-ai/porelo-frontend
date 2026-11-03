@@ -27,6 +27,9 @@ Map<String, Object?> sshCompletion() => {
 /// The organization as `porelo org` answers it, stating the contract's fields: alice is host admin of [adminHosts].
 class HostFixture implements OrganizationSource {
   bool admin = true;
+
+  /// Whether alice is an Organization Admin, by being its owner while no list exists.
+  bool organizationAdmin = false;
   Set<String> adminHosts = {'orchard', 'demo'};
   bool stale = false;
   String revision = '56420b3';
@@ -96,7 +99,7 @@ class HostFixture implements OrganizationSource {
       revision: revision,
       stale: stale,
       me: 'alice',
-      owners: const ['mia'],
+      owners: organizationAdmin ? const ['alice'] : const ['mia'],
       persons: [card, ...others],
       hosts: [
         for (final host in {'orchard', 'demo', ...adminHosts})

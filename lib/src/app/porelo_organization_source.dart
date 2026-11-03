@@ -290,7 +290,12 @@ class PoreloOrganizationSource implements OrganizationSource {
     String given(String name) =>
         input[name] ?? (throw OrganizationRefused('This change is missing its $name.', answered: true));
     return switch (write.change) {
-      OrganizationChange.createOrganization => ['org', 'create', given('address')],
+      OrganizationChange.createOrganization => [
+        'org',
+        'create',
+        given('address'),
+        if (input['replace'] != null) '--replace',
+      ],
       OrganizationChange.chooseOrganization => [
         'setup',
         '--organization',

@@ -8,7 +8,6 @@ import 'package:porelo_frontend/src/app/host_session.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/notifications.dart';
 import 'package:porelo_frontend/src/app/operations.dart';
-import 'package:porelo_frontend/src/app/roles.dart';
 import 'package:porelo_frontend/src/app/settings.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
 import 'package:porelo_frontend/src/app/templates.dart';
@@ -162,32 +161,11 @@ void main() {
     ];
     run.interrupted = true;
     commands.addAll(hostRecoveryCommands(run: run, goOn: () {}, takeDown: () {}));
-    final rolesById = <String, Set<Role>>{};
     for (final command in commands) {
-      rolesById.putIfAbsent(command.id, () => {}).add(command.role);
-      expect(command.unless('wait').role, command.role, reason: '${command.id} keeps its role when unavailable');
-      expect(command.after(() {}).role, command.role, reason: '${command.id} keeps its role when routed');
+      expect(command.unless('wait').hidden, command.hidden, reason: '${command.id} stays hidden when it waits');
+      expect(command.after(() {}).hidden, command.hidden, reason: '${command.id} stays hidden with more to do');
     }
-    for (final entry in rolesById.entries) {
-      expect(entry.value, hasLength(1), reason: '${entry.key} must have exactly one role in every home');
-    }
-    final privileged = {
-      for (final entry in rolesById.entries)
-        if (entry.value.single != Role.user) entry.key: entry.value.single,
-    };
-    expect(privileged, <String, Role>{
-      'machine.takeDown': Role.hostAdmin,
-      'host.preparation': Role.hostAdmin,
-      'host.protocol': Role.hostAdmin,
-      'host.copyProtocol': Role.hostAdmin,
-      'host.goOn': Role.hostAdmin,
-      'host.again': Role.hostAdmin,
-      'host.takeDown': Role.hostAdmin,
-      'host.retry': Role.hostAdmin,
-      'host.setScalewayKey': Role.hostAdmin,
-      'host.prepare': Role.hostAdmin,
-    });
-    expect(rolesById.keys.toSet(), <String>{
+    expect(commands.map((command) => command.id).toSet(), <String>{
       'about.show',
       'agents.show',
       'appearance.dark',

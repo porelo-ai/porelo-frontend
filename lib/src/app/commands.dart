@@ -10,7 +10,6 @@ import 'host_runs.dart';
 import 'host_access.dart';
 import 'desk.dart';
 import 'product.dart';
-import 'roles.dart';
 import 'hand_in.dart';
 import 'machines.dart';
 import 'narrowing.dart';
@@ -147,7 +146,7 @@ class Command {
     this.unavailableNow,
     this.home = Home.none,
     this.checked,
-    this.role = Role.user,
+    this.hidden = false,
     this.danger = false,
     // The public named argument remains compatible with existing const commands.
     // ignore: prefer_initializing_formals
@@ -162,14 +161,14 @@ class Command {
   /// What it belongs to, so a long list stays readable.
   final String group;
 
-  /// The startup role that offers this command.
-  final Role role;
+  /// Whether this person is not offered it at all, as they hold nothing it could do.
+  final bool hidden;
 
   /// Whether it takes something away, which its entry in a menu shows by its color.
   final bool danger;
 
-  /// Whether the current startup roles offer this command.
-  bool get visible => roles.holds(role);
+  /// Whether this person is offered it.
+  bool get visible => !hidden;
 
   /// What it does.
   final VoidCallback run;
@@ -201,7 +200,7 @@ class Command {
       ? this
       : Command(
           id: id,
-          role: role,
+          hidden: hidden,
           label: label,
           group: group,
           shortcut: shortcut,
@@ -215,7 +214,7 @@ class Command {
   /// The same command, doing [first] before it runs.
   Command after(VoidCallback first) => Command(
     id: id,
-    role: role,
+    hidden: hidden,
     label: label,
     group: group,
     shortcut: shortcut,
@@ -726,7 +725,7 @@ List<Command> projectCommands({
 /// Opens server preparation from the Machines page.
 Command prepareServerCommand({FutureOr<void> Function()? open, HostAccess? access}) => Command(
   id: 'host.prepare',
-  role: Role.hostAdmin,
+  hidden: access?.offersPreparing == false,
   label: 'Prepare a machine…',
   group: 'Machines',
   home: Home.machineRow,
@@ -749,7 +748,6 @@ List<Command> hostMachineCommands({
   if (machine.kind == 'host') ...[
     Command(
       id: 'machine.takeDown',
-      role: Role.hostAdmin,
       label: settings.hostUp(machine.hostProject)?.isRental == true
           ? 'Return this rental…'
           : 'Take Porelo off this machine…',
@@ -1361,7 +1359,6 @@ Command hostPreparationCommand({
   Home home = Home.attentionRow,
 }) => Command(
   id: 'host.preparation',
-  role: Role.hostAdmin,
   label: 'Complete setup on the machine',
   group: '$project server',
   home: home,
@@ -1371,19 +1368,11 @@ Command hostPreparationCommand({
 
 /// Opens a preparing server's complete protocol and stop controls.
 Command hostProtocolCommand({required String project, required VoidCallback open, Home home = Home.machineRow}) =>
-    Command(
-      id: 'host.protocol',
-      role: Role.hostAdmin,
-      label: 'Open the machine protocol',
-      group: '$project server',
-      home: home,
-      run: open,
-    );
+    Command(id: 'host.protocol', label: 'Open the machine protocol', group: '$project server', home: home, run: open);
 
 /// Copies the public protocol without reopening setup inputs or a terminal.
 Command copyHostProtocolCommand({required String project, required VoidCallback copy}) => Command(
   id: 'host.copyProtocol',
-  role: Role.hostAdmin,
   label: 'Copy the protocol',
   group: '$project server',
   home: Home.openedView,
@@ -1394,7 +1383,6 @@ Command copyHostProtocolCommand({required String project, required VoidCallback 
 Command continueHostPreparationCommand({required String project, required VoidCallback goOn, bool resolved = false}) =>
     Command(
       id: 'host.goOn',
-      role: Role.hostAdmin,
       label: 'Go on',
       group: '$project server',
       home: Home.attentionRow,
@@ -1412,7 +1400,6 @@ String? _setupAgainUnavailable(HostRuns? hostRuns, String project) {
 /// Runs the saved setup of a ready server after its previous attempt ended.
 Command runHostSetupAgainCommand({required String project, required HostRuns hostRuns}) => Command(
   id: 'host.again',
-  role: Role.hostAdmin,
   label: 'Run its setup again',
   group: '$project server',
   home: Home.machineRow,
@@ -1431,7 +1418,6 @@ List<Command> hostRecoveryCommands({
     resume,
     Command(
       id: 'host.takeDown',
-      role: Role.hostAdmin,
       label: run.record.isRental ? 'Return this rental…' : 'Take Porelo off this machine…',
       group: run.name,
       home: Home.machineRow,
@@ -1448,7 +1434,6 @@ Command resumeHostPreparationCommand({
   Home home = Home.openedView,
 }) => Command(
   id: run.interrupted ? 'host.goOn' : 'host.retry',
-  role: Role.hostAdmin,
   label: run.interrupted ? 'Go on' : 'Try again',
   group: run.name,
   home: home,
@@ -1465,7 +1450,6 @@ Command resumeHostPreparationCommand({
 /// Opens the provider's hidden terminal prompt before host setup continues.
 Command setScalewayKeyCommand({required VoidCallback run, bool checking = false}) => Command(
   id: 'host.setScalewayKey',
-  role: Role.hostAdmin,
   label: 'Set Scaleway key',
   group: 'Server setup',
   home: Home.openedView,

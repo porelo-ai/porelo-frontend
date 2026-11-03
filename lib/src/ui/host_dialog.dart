@@ -11,7 +11,6 @@ import '../app/session.dart';
 import '../app/settings.dart';
 import 'tokens.dart';
 import 'host_preparation_settings.dart';
-import 'pick_a_file.dart';
 
 /// Opens confirmed give-back of the existing rental.
 Future<void> openHostTakeDownDialog(
@@ -75,7 +74,6 @@ class HostDialog extends StatefulWidget {
     this.existingRun,
     this.start,
     this.takeDownOnly = false,
-    this.pickFile = pickWithTheDesktop,
     super.key,
   });
 
@@ -103,8 +101,6 @@ class HostDialog extends StatefulWidget {
   /// Whether the dialog confirms give-back.
   final bool takeDownOnly;
 
-  /// The desktop collection picker, replaceable in widget tests.
-  final PickAFile pickFile;
   @override
   State<HostDialog> createState() => _HostDialogState();
 }
@@ -119,8 +115,6 @@ class _HostDialogState extends State<HostDialog> {
   final _name = TextEditingController();
   final _address = TextEditingController();
   final _hostKey = TextEditingController();
-  final _digest = TextEditingController();
-  String? _collection;
   HostPreparation? _started;
   bool _busy = false;
   bool _givenBack = false;
@@ -196,18 +190,11 @@ class _HostDialogState extends State<HostDialog> {
           givenAddress: _address.text.trim(),
           givenHostKey: _hostKey.text.trim(),
           preparationSettings: _choices,
-          collection: _collection ?? '',
-          collectionSha256: _digest.text.trim(),
           machineFile: machineFile,
         ).stored,
       );
-      if (record == null ||
-          record.givenAddress.isEmpty ||
-          record.collection.isEmpty ||
-          record.collectionSha256.isEmpty) {
-        throw const FormatException(
-          'Choose a machine name, a server address, SSH host key, collection and its published SHA-256.',
-        );
+      if (record == null || record.givenAddress.isEmpty) {
+        throw const FormatException('Choose a machine name, a server address and SSH host key.');
       }
       final existing = runs.of(name);
       if (_settings.hostUp(name) != null || existing != null && (existing.running || existing.waiting)) {
@@ -340,7 +327,7 @@ class _HostDialogState extends State<HostDialog> {
     _down?.dispose();
     _membershipSession?.stopReading();
     _membershipSession?.dispose();
-    for (final field in [_name, _address, _hostKey, _digest]) {
+    for (final field in [_name, _address, _hostKey]) {
       field.dispose();
     }
     _scroll.dispose();
@@ -418,26 +405,6 @@ class _HostDialogState extends State<HostDialog> {
                       onChanged: field.$1 == _name ? (_) => setState(() {}) : null,
                     ),
                   ),
-                OutlinedButton(
-                  onPressed: _busy
-                      ? null
-                      : () async {
-                          final selected = await widget.pickFile(title: 'Choose collection');
-                          if (selected != null && mounted) setState(() => _collection = selected);
-                        },
-                  child: const Text('Choose collection'),
-                ),
-                if (_collection != null) Text(_collection!),
-                Padding(
-                  padding: const EdgeInsets.only(top: Space.small),
-                  child: TextField(
-                    controller: _digest,
-                    decoration: const InputDecoration(
-                      labelText: 'Collection SHA-256',
-                      helperText: 'The digest published with the chosen collection.',
-                    ),
-                  ),
-                ),
                 // Below the fields, so that what it says as the name is typed moves none of them.
                 if (access != null && !_readingAccess)
                   if (_refusal(access) case final reason? when reason != _problem)

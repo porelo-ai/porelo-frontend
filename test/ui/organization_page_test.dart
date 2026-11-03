@@ -857,6 +857,19 @@ void main() {
     expect(fixture.writes.single.input, {'address': 'x', 'replace': 'yes'});
   });
 
+  // Harm: a person who holds one organization cannot start a second, or starts it thinking the first is lost.
+  testWidgets('another organization can be created, and it says the first stays', (tester) async {
+    final (fixture, _, _) = await _pump(tester, 'mia');
+    await _open(tester, find.byKey(const ValueKey('createAnotherOrganization')));
+    expect(find.textContaining('This one stays on its forge'), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('organization-address')), 'x');
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('organization-confirm')));
+    await tester.pumpAndSettle();
+    expect(fixture.writes.single.change, OrganizationChange.createOrganization);
+    expect(fixture.writes.single.input, {'address': 'x', 'replace': 'yes'});
+  });
+
   group("an owner's recovery of a project", () {
     // Harm: a project whose admins all lost their keys cannot be recovered by anybody.
     testWidgets('an owner adds an admin, and a person already one is not offered', (tester) async {

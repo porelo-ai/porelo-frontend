@@ -39,21 +39,13 @@ import 'src/app/organization_connections.dart';
 import 'src/app/organization_source.dart';
 import 'src/app/porelo_app.dart';
 import 'src/app/porelo_organization_source.dart';
-import 'src/app/roles.dart';
 import 'src/ui/choice_field.dart';
 import 'src/ui/terminal_diagnosis.dart';
 import 'src/ui/theme.dart';
 import 'src/ui/walk_texts.dart';
 
-/// Starts the interface with the roles supplied for this process.
+/// Starts the interface.
 Future<void> main(List<String> arguments) async {
-  try {
-    roles = Roles.fromArguments(arguments);
-  } on FormatException catch (error) {
-    stderr.writeln(error.message);
-    exitCode = 64;
-    return;
-  }
   WidgetsFlutterBinding.ensureInitialized();
   // What reaches the terminal widget on this system, shown and logged; no task, nothing changed.
   if (arguments.contains('--diagnose-terminal')) {
@@ -99,10 +91,6 @@ HostAccess _hostAccess(OrganizationSource source) {
   unawaited(access.readAgain());
   return access;
 }
-
-/// What [make] builds, for a person whose role can use it: only a host admin may prepare a host.
-@visibleForTesting
-HostAccess? hostAccessFor(Roles roles, HostAccess Function() make) => roles.holds(Role.hostAdmin) ? make() : null;
 
 Future<PoreloApp> _compose() async {
   final settingsStore = FileSettingsStore();
@@ -170,7 +158,7 @@ Future<PoreloApp> _compose() async {
     held: WorkHeld(),
     forgeKeyCheck: ForgeKeyCheckCli(),
     // Reads the organization on every refresh, so only for a person whose role can use it.
-    hostAccess: hostAccessFor(roles, () => _hostAccess(organizationSource)),
+    hostAccess: _hostAccess(organizationSource),
     // A development build started with PORELO_WALK=<folder>; a release build never has one.
     walk: _walk(),
   );

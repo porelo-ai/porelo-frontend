@@ -1312,7 +1312,9 @@ class _ShellState extends State<Shell> {
             : OrganizationPage(
                 organization: organization,
                 connections: _hostConnections,
-                prepareMachine: _commands().where((command) => command.id == 'host.prepare').firstOrNull,
+                prepareMachine: _commands()
+                    .where((command) => command.id == 'host.prepare' && command.visible)
+                    .firstOrNull,
                 keys: _keys,
                 onProject: (name) {
                   setState(() => _organizationProject = name);

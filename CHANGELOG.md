@@ -9,6 +9,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- *Prepare a machine…* follows the organization: an Organization Admin or a Machine Admin sees it, as does a person with no
+  organization yet, and `--roles` is gone. The dialog no longer asks the collection, which the build knows.
+- *Create another organization…* stands beside *Choose another organization…*, and says the first stays on its forge.
 - Interface wording uses machines and named admin roles, distinguishes taking Porelo off from returning a saved rental, and explains SSH connections in plain words.
 - Project rows offer a direct connection to their machine and say where to work; the machines link includes all projects.
 - Machine setup explains which forge token it needs, its one-time use, required repository rights, and that it is not kept.

@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/commands.dart';
 import 'package:porelo_frontend/src/app/project_transfers.dart';
-import 'package:porelo_frontend/src/app/roles.dart';
 import 'package:porelo_host/porelo_host.dart';
 
 import '../support/transfer_selection.dart';
@@ -46,7 +45,6 @@ void main() {
   });
   tearDown(() {
     transfers.dispose();
-    roles = const Roles();
   });
 
   // Harm: viewing a page or changing UI roles starts a central write or changes its target.
@@ -56,7 +54,6 @@ void main() {
     final commands = projectTransferCommands(transfers: transfers, selection: chosen, start: (_) {});
     expect(commands.every((command) => command.visible && command.available), isTrue);
     expect(terminal.selections, isEmpty);
-    roles = Roles.fromArguments(const ['--roles', 'host-admin']);
     expect(commands.every((command) => command.visible), isTrue);
     repos[0] = 'other';
     var refreshed = 0;

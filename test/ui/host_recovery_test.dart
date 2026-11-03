@@ -9,7 +9,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/host_runs.dart';
 import 'package:porelo_frontend/src/app/host_session.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
-import 'package:porelo_frontend/src/app/roles.dart';
 import 'package:porelo_frontend/src/app/settings.dart';
 import 'package:porelo_frontend/src/app/tunnel.dart';
 import 'package:porelo_frontend/src/ui/host_dialog.dart';
@@ -83,12 +82,6 @@ Future<({Settings settings, Machines machines, HostRuns runs, _Tunnels tunnels})
 }
 
 void main() {
-  setUp(() {
-    roles = Roles.fromArguments(const ['--roles', 'host-admin']);
-  });
-  tearDown(() {
-    roles = const Roles();
-  });
   void dispose(({Settings settings, Machines machines, HostRuns runs, _Tunnels tunnels}) state) {
     state.runs.dispose();
     state.machines.dispose();

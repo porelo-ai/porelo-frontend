@@ -112,6 +112,14 @@ class HostAccess extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Whether preparing is offered at all: not to a person the organization names as neither of the admins. Where
+  /// nothing is read yet, or there is no organization, it stays, and [unavailable] says why it cannot be done.
+  bool get offersPreparing {
+    final view = _view;
+    if (view == null || view.stale) return true;
+    return view.isOrganizationAdmin || view.hosts.any((each) => each.admins.contains(view.me));
+  }
+
   /// Why preparing [host], or any host, is unavailable now, naming whom to ask; null when it is available.
   String? unavailable([String? host]) {
     if (_whyNoView case final why?) return why;
@@ -131,12 +139,12 @@ class HostAccess extends ChangeNotifier {
     }
     final named = host == null ? null : view.hosts.where((each) => each.name == host).firstOrNull;
     final permitted = host == null
-        ? view.hosts.any((each) => each.admins.contains(actor.login))
+        ? view.isOrganizationAdmin || view.hosts.any((each) => each.admins.contains(actor.login))
         : named?.admins.contains(actor.login) == true;
     if (!permitted) {
       if (host == null) return 'Only a Machine Admin of this organization may do this.${_ask(view, _owners(view))}';
       if (named == null) {
-        return 'The organization lists no machine $host yet: an organization owner adds it first.${_ask(view, _owners(view))}';
+        return 'The organization lists no machine $host yet: an Organization Admin adds it first.${_ask(view, _owners(view))}';
       }
       return 'Only a Machine Admin of $host may do this.${_ask(view, named.admins)}';
     }

@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:porelo_frontend/src/app/roles.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
 
 import '../features/support/world.dart';
@@ -29,9 +28,6 @@ Future<void> _find(WidgetTester tester, String words) async {
 }
 
 void main() {
-  setUp(() => roles = Roles.fromArguments(const ['--roles', 'host-admin']));
-  tearDown(() => roles = const Roles());
-
   // Harm: a person who holds every role is still offered a flow that no longer does anything.
   testWidgets('the finder and the project menu offer no removed flow to a person holding every role', (tester) async {
     await World.startBackend(World.work);
