@@ -22,6 +22,7 @@ class MachineDetailsPage extends StatelessWidget {
     this.tools,
     this.highlight,
     this.onShown,
+    this.embedded = false,
     super.key,
   });
 
@@ -52,12 +53,22 @@ class MachineDetailsPage extends StatelessWidget {
   /// Reports that the finder destination is visible.
   final VoidCallback? onShown;
 
+  /// Whether it stands inside a machine's one page, which has the way back and the name.
+  final bool embedded;
+
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      key: ValueKey('machine-details ${machine.name}'),
-      padding: const EdgeInsets.all(Space.normal),
-      children: [
+    final menu = CommandMenu(
+      key: const Key('machine-menu'),
+      commands: commands,
+      tooltip: 'What ${machine.name} can be told to do',
+      highlight: highlight,
+      onShown: onShown,
+    );
+    final children = <Widget>[
+      if (embedded)
+        Align(alignment: Alignment.centerRight, child: menu)
+      else ...[
         Align(
           alignment: Alignment.centerLeft,
           child: TextButton.icon(onPressed: onBack, icon: const Icon(Icons.arrow_back), label: const Text('Machines')),
@@ -65,45 +76,46 @@ class MachineDetailsPage extends StatelessWidget {
         Row(
           children: [
             Expanded(child: Text(machine.name, style: Theme.of(context).textTheme.headlineSmall)),
-            CommandMenu(
-              key: const Key('machine-menu'),
-              commands: commands,
-              tooltip: 'What ${machine.name} can be told to do',
-              highlight: highlight,
-              onShown: onShown,
-            ),
-          ],
-        ),
-        // The way in decides what silence and closing the window do; a node reached twice is said once.
-        Text('${machine.where}${machineKind(machines, machine)}', key: const Key('machine-kind')),
-        if (machines.all.contains(machine))
-          Text(
-            machines.tunnels.of(machine)?.words ??
-                (machines.of(machine).reachability == Reachability.connected
-                    ? 'Connected'
-                    : 'Not connected; last known state'),
-          ),
-        ?tools,
-        FilteredListSection(
-          key: ValueKey('machine-projects ${machine.name}'),
-          title: 'Projects',
-          storageId: 'machine-projects ${machine.name}',
-          collapsible: true,
-          rows: [
-            for (final project in projectsOnMachine(machines, machine))
-              (
-                words: project.name,
-                child: projectListRow(
-                  machine: machine,
-                  project: project,
-                  machines: machines,
-                  onOpen: () => onProject(project.name),
-                  commands: projectCommands(project),
-                ),
-              ),
+            menu,
           ],
         ),
       ],
-    );
+      // The way in decides what silence and closing the window do; a node reached twice is said once.
+      Text('${machine.where}${machineKind(machines, machine)}', key: const Key('machine-kind')),
+      if (machines.all.contains(machine))
+        Text(
+          machines.tunnels.of(machine)?.words ??
+              (machines.of(machine).reachability == Reachability.connected
+                  ? 'Connected'
+                  : 'Not connected; last known state'),
+        ),
+      ?tools,
+      FilteredListSection(
+        key: ValueKey('machine-projects ${machine.name}'),
+        title: 'Projects',
+        storageId: 'machine-projects ${machine.name}',
+        collapsible: true,
+        rows: [
+          for (final project in projectsOnMachine(machines, machine))
+            (
+              words: project.name,
+              child: projectListRow(
+                machine: machine,
+                project: project,
+                machines: machines,
+                onOpen: () => onProject(project.name),
+                commands: projectCommands(project),
+              ),
+            ),
+        ],
+      ),
+    ];
+    return embedded
+        ? Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: children)
+        : ListView(
+            key: ValueKey('machine-details ${machine.name}'),
+            padding: const EdgeInsets.all(Space.normal),
+            children: children,
+          );
   }
 }

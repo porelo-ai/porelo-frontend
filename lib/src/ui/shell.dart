@@ -1319,6 +1319,8 @@ class _ShellState extends State<Shell> {
                   widget.shell.goTo(Section.projects);
                 },
                 onHost: (host) {
+                  final machine = widget.machines.all.where((machine) => machine.hostCard?.name == host).firstOrNull;
+                  if (machine != null) return _openPageMachine(machine);
                   setState(() => _organizationHost = host);
                   widget.shell.goTo(Section.machines);
                 },
@@ -2738,27 +2740,7 @@ class _ShellState extends State<Shell> {
                             Section.machines =>
                               _organizationHost == null || _organization == null
                                   ? _machinesPage()
-                                  : OrganizationHostPage(
-                                      key: ValueKey(_organizationHost),
-                                      organization: _organization,
-                                      connections: _hostConnections,
-                                      refresh: _organizationPageRefresh,
-                                      onGiveToken: _giveHostToken,
-                                      onStartWork: (host) {
-                                        final machine = widget.machines.all
-                                            .where((machine) => machine.hostCard?.name == host)
-                                            .firstOrNull;
-                                        if (machine == null) return;
-                                        widget.machines.select(machine);
-                                        unawaited(_startInDefault());
-                                      },
-                                      keys: _keys,
-                                      host: _organizationHost!,
-                                      onBack: () {
-                                        setState(() => _organizationHost = null);
-                                        widget.shell.goTo(Section.organization);
-                                      },
-                                    ),
+                                  : _machineOnePage(_organizationHost!),
                             Section.projects => _projectsPage(),
                             Section.forges => _forgesPage(),
                             Section.organization => _organizationPage(),
@@ -3510,8 +3492,10 @@ class _ShellState extends State<Shell> {
         ],
       );
     }
-    return MachineDetailsPage(
+    final onePage = machine.hostCard != null && _organization != null;
+    final details = MachineDetailsPage(
       key: ValueKey('machine ${machine.name}'),
+      embedded: onePage,
       machine: machine,
       machines: widget.machines,
       commands: watched
@@ -3543,7 +3527,30 @@ class _ShellState extends State<Shell> {
             )
           : null,
     );
+    return onePage ? _machineOnePage(machine.hostCard!.name, work: details) : details;
   }
+
+  /// One server's one page, reached from either list: where a person stands, what they do there, and its managing.
+  Widget _machineOnePage(String host, {Widget? work}) => OrganizationHostPage(
+    key: ValueKey(host),
+    organization: _organization!,
+    connections: _hostConnections,
+    onGiveToken: _giveHostToken,
+    onStartWork: (host) {
+      final machine = widget.machines.all.where((machine) => machine.hostCard?.name == host).firstOrNull;
+      if (machine == null) return;
+      widget.machines.select(machine);
+      unawaited(_startInDefault());
+    },
+    keys: _keys,
+    refresh: _organizationPageRefresh,
+    host: host,
+    work: work,
+    onBack: () {
+      setState(() => _organizationHost = null);
+      widget.shell.goTo(work == null ? Section.organization : Section.machines);
+    },
+  );
 
   void _homeserversChanged() {
     if (mounted) setState(() {});

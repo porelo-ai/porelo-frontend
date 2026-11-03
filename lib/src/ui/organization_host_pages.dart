@@ -161,6 +161,7 @@ class OrganizationHostPage extends StatefulWidget {
     this.onGiveToken,
     this.onStartWork,
     this.keys,
+    this.work,
     super.key,
   });
 
@@ -176,6 +177,9 @@ class OrganizationHostPage extends StatefulWidget {
   /// Feeds the host admin's central token to the host, in a terminal: nothing here sees it. It ends when the terminal
   /// does.
   final Future<void> Function(String host)? onGiveToken;
+
+  /// What this computer does there: its work, daemon and vault, where the person's list holds the machine.
+  final Widget? work;
 
   /// Starts work on the machine, absent where this computer cannot.
   final void Function(String host)? onStartWork;
@@ -336,6 +340,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
           if (view != null && host == null) Text('${view.name} has no machine ${widget.host}.'),
           if (view != null && host != null) ...[
             _connection(view, host),
+            ?widget.work,
             if (isAdmin) ...[
               const SizedBox(height: Space.normal),
               Text('Managing this machine', style: Theme.of(context).textTheme.titleMedium),
