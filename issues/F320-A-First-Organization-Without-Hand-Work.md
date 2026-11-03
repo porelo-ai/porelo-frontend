@@ -4,8 +4,7 @@
 **Size:** M - a question for Core and Machines first, then one dialog.
 
 **What must be true.** A person with a forge that is not GitHub can set up their first organization from the interface
-alone. Today, walking it on a given machine took two pieces of hand work: seeding the forge's ssh host key, and running
-a forge beside the host, since the host's own cannot serve.
+alone. Today it takes seeding the forge's ssh host key by hand; the forge itself lies outside the host by design.
 
 ## What the walk found
 
@@ -20,7 +19,7 @@ a forge beside the host, since the host's own cannot serve.
 - Ask Core whether `porelo setup --organization` can show a forge's host key for confirmation, as `porelo-host` shows a
   server's. If so, *Choose another organization…* shows the fingerprint and takes the person's yes. First use is never
   trusted silently.
-- Ask the Coordinator whether the second is meant: that an organization always lives on a forge outside the host. If it
-  is, the Organization page says so where it asks for the address. If not, it goes to Machines and Core.
+- The second is meant: an organization always lives on a forge outside the host, and the dialog that asks for its address
+  says so.
 
-Nothing is built before those two answers.
+The fingerprint dialog is built only after Core's answer.

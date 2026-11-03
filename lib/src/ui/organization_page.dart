@@ -850,6 +850,10 @@ class _AddressDialogState extends State<_AddressDialog> {
         else
           const Text('An empty repository is not chosen but filled: cancel this and use *Create the organization…*.'),
         const SizedBox(height: Space.small),
+        const Text(
+          "An organization lives on a forge of its own, outside every host: a host follows it, and cannot hold it.",
+        ),
+        const SizedBox(height: Space.small),
         TextField(
           key: const Key('organization-address'),
           controller: _address,

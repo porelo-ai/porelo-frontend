@@ -9,6 +9,11 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Clearer words: a command's refusal in a terminal, a file in the way at *Connect*, a wrong *SSH host key* paste, a busy
+  port held by another window, why *Connect* stopped, a project on a host with no address, and no `--id` in a refusal. A
+  refusal below the fold of the host dialog scrolls into view, and the lost-key plan offers only its own *Cancel*.
+- A central forge off ssh port 22 is found in `known_hosts` under the name ssh writes for it, so its key reaches the host.
+- The dialog asking for an organization's address says that an organization lives on a forge outside every host.
 - The organization's pages show a mark while a change is being asked for; a refusal in a dialog goes once what it answered
   is changed; *the organization has moved on* says what to do next; and the list under *Projects* and a person's row say
   *developer*, as the project's own page does. A terminal no longer leaves Core's JSON answer on the screen after a
