@@ -130,7 +130,7 @@ class HostFixture implements OrganizationSource {
   Future<ProjectView> readProject(String project) => throw UnimplementedError();
 
   @override
-  Future<ProjectInitDraft> readProjectInit(String checkout, {String? project, String? name}) async =>
+  Future<ProjectInitDraft> readProjectInit(String checkout, {String? project, String? name, String? upstream}) async =>
       throw const OrganizationRefused('No checkout draft was supplied.');
 
   @override

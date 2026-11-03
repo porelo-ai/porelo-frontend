@@ -75,7 +75,7 @@ class EveryProjectLocal implements OrganizationSource {
   Future<ProjectView> readProject(String project) async => ProjectView(name: project, revision: 'r1');
 
   @override
-  Future<ProjectInitDraft> readProjectInit(String checkout, {String? project, String? name}) async =>
+  Future<ProjectInitDraft> readProjectInit(String checkout, {String? project, String? name, String? upstream}) async =>
       throw const OrganizationRefused('No checkout draft was supplied.');
 
   @override

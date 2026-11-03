@@ -149,6 +149,22 @@ void main() {
     expect(draft.disagreements.single.values, '21 (pom.xml:2) or 17 (pom.xml:9)');
   });
 
+  // Harm: the address given for a machine's own forge never reaches Core, so the file names central.
+  test('the local address goes to Core as upstream, in the preview and the filing', () async {
+    await source.readProjectInit('/c', project: 'demo', upstream: 'http://127.0.0.1:3001/demo/app.git');
+    expect(calls.last, containsAllInOrder(['--upstream', 'http://127.0.0.1:3001/demo/app.git']));
+    await source.apply(
+      const OrganizationWrite(
+        change: OrganizationChange.initializeProject,
+        input: {'project': 'demo', 'checkout': '/c', 'upstream': 'http://127.0.0.1:3001/demo/app.git'},
+        person: 'pat',
+        base: 'b',
+        id: 'i',
+      ),
+    );
+    expect(calls.last, containsAllInOrder(['--yes', '--upstream', 'http://127.0.0.1:3001/demo/app.git']));
+  });
+
   // Harm: a partial or malformed draft must never become permission to sign an incomplete project.
   test('malformed drafts and missing project revisions fail closed', () async {
     final bad = <Object?>[

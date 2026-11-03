@@ -78,7 +78,15 @@ class _ProjectInitDialogState extends State<ProjectInitDialog> {
 
   Future<void> _read(String checkout) async {
     try {
-      final draft = await widget.organization.source.readProjectInit(checkout, project: widget.project);
+      var draft = await widget.organization.source.readProjectInit(checkout, project: widget.project);
+      // The name comes from the first answer. On a machine a task reads the machine's own forge, and the checkout's
+      // address is where the machine takes it from, so what is read and signed says so.
+      final local = draft.repository == widget.project
+          ? null
+          : widget.organization.view?.localAddress(widget.project, draft.repository);
+      if (local != null) {
+        draft = await widget.organization.source.readProjectInit(checkout, project: widget.project, upstream: local);
+      }
       if (!mounted) return;
       setState(() {
         if (draft.repository == widget.project) {
@@ -172,7 +180,14 @@ class _ProjectInitDialogState extends State<ProjectInitDialog> {
       ),
       ask: () => draft == null || _reading || _checkout == null
           ? null
-          : (change: OrganizationChange.initializeProject, input: {'project': widget.project, 'checkout': _checkout!}),
+          : (
+              change: OrganizationChange.initializeProject,
+              input: {
+                'project': widget.project,
+                'checkout': _checkout!,
+                'upstream': ?widget.organization.view?.localAddress(widget.project, draft.repository),
+              },
+            ),
     );
   }
 }

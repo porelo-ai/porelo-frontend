@@ -253,7 +253,7 @@ class PoreloOrganizationSource implements OrganizationSource {
   }
 
   @override
-  Future<ProjectInitDraft> readProjectInit(String checkout, {String? project, String? name}) async {
+  Future<ProjectInitDraft> readProjectInit(String checkout, {String? project, String? name, String? upstream}) async {
     _positional(checkout, 'checkout folder');
     final answer = await _ask([
       'project',
@@ -261,6 +261,7 @@ class PoreloOrganizationSource implements OrganizationSource {
       checkout,
       if (project != null) ...['--project', _positional(project, 'project')],
       if (name != null) ...['--name', _positional(name, 'name')],
+      if (upstream != null) ...['--upstream', upstream],
     ]);
     try {
       return await _reading(() {
@@ -533,6 +534,7 @@ class PoreloOrganizationSource implements OrganizationSource {
         if (input['name'] case final name?) ...['--name', _positional(name, 'name')],
         if (input.containsKey('review')) ...['--review', review()],
         if (input['central'] case final central?) ...['--central', central],
+        if (input['upstream'] case final upstream?) ...['--upstream', upstream],
       ],
       OrganizationChange.changeProjectRepository => ['project', 'address', given('project'), given('address')],
       OrganizationChange.addProjectMember => [
@@ -563,6 +565,7 @@ class PoreloOrganizationSource implements OrganizationSource {
         given('repository'),
         '--upstream',
         given('address'),
+        if (input['central'] case final central?) ...['--central', central],
         if (input.containsKey('review')) ...['--review', review()],
       ],
       OrganizationChange.removeProjectRepository => [

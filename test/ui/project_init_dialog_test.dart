@@ -41,11 +41,13 @@ class _Source extends FixtureOrganization {
   _Source(String me) : super(organizationFor(me));
 
   final previews = <({String checkout, String? project})>[];
+  final upstreams = <String?>[];
   Future<ProjectInitDraft> Function()? preview;
 
   @override
-  Future<ProjectInitDraft> readProjectInit(String checkout, {String? project, String? name}) async {
+  Future<ProjectInitDraft> readProjectInit(String checkout, {String? project, String? name, String? upstream}) async {
     previews.add((checkout: checkout, project: project));
+    upstreams.add(upstream);
     return preview == null ? _draft() : await preview!();
   }
 }
@@ -112,6 +114,30 @@ void main() {
     });
   }
 
+  // Harm: a task on a machine reads the central forge, past the machine's gate, or what is signed differs from what was read.
+  testWidgets('a project on a machine is read and signed with the machine\'s own address', (tester) async {
+    final source = _Source('pat');
+    await _dialog(tester, source);
+    expect(source.upstreams, [null, 'http://127.0.0.1:8082/demo/app.git']);
+    await _confirm(tester);
+    expect(source.writes.single.input['upstream'], 'http://127.0.0.1:8082/demo/app.git');
+  });
+
+  // Harm: a project on no machine gets an address nothing answers at.
+  test('no machine, or no port on its card, names no local address', () {
+    final view = organizationFor('pat');
+    expect(view.localAddress('other', 'app'), isNull);
+    final noPort = organizationFor(
+      'pat',
+      host: const OrganizationHost(name: 'build', admins: ['hana'], projects: ['demo']),
+    );
+    expect(noPort.localAddress('demo', 'app'), isNull);
+    expect(
+      view.localAddress('demo', 'git@forge.example.org:org/widgets.git'),
+      'http://127.0.0.1:8082/demo/widgets.git',
+    );
+  });
+
   // Harm: a first project named as its repository meets Core's refusal with no way on, or is signed and refused later.
   testWidgets('a checkout named as the project cannot be signed, and another name is offered', (tester) async {
     final source = _Source('pat');
@@ -173,7 +199,7 @@ void main() {
   testWidgets('warnings precede signing and an uncertain retry keeps its base and ID', (tester) async {
     final source = _Source('pat')..refuseNext = const OrganizationRefused('No answer came.', answered: false);
     await _dialog(tester, source);
-    expect(source.previews.single, (checkout: '/checkouts/app', project: 'demo'));
+    expect(source.previews.first, (checkout: '/checkouts/app', project: 'demo'));
     expect(find.textContaining('verify or package'), findsOneWidget);
     expect(find.textContaining('Credentials needed: forge access'), findsOneWidget);
     expect(find.textContaining('No version found.'), findsOneWidget);
@@ -187,7 +213,11 @@ void main() {
     await _confirm(tester);
     expect(source.writes, hasLength(2));
     expect(source.writes.first.change, OrganizationChange.initializeProject);
-    expect(source.writes.first.input, {'project': 'demo', 'checkout': '/checkouts/app'});
+    expect(source.writes.first.input, {
+      'project': 'demo',
+      'checkout': '/checkouts/app',
+      'upstream': 'http://127.0.0.1:8082/demo/app.git',
+    });
     expect(source.writes.map((write) => write.base), everyElement('preview-base'));
     expect(source.writes.last.id, source.writes.first.id);
     expect(find.byType(ProjectInitDialog), findsNothing);
@@ -206,7 +236,8 @@ void main() {
     await _confirm(tester);
     expect(source.writes.last.base, 'fresh-base');
     expect(source.writes.last.id, isNot(source.writes.first.id));
-    expect(source.previews, hasLength(2));
+    // Each read asks twice on a machine: for the name, then with the machine's own address.
+    expect(source.previews, hasLength(4));
   });
 
   // Harm: enabling optional review without a Project Admin's signed choice lets work leave unchecked.
@@ -249,6 +280,9 @@ void main() {
       await _confirm(tester);
       expect(source.writes.last.input['review'], 'optional');
       expect(source.writes.last.base, 'file-after');
+      // Harm: a task reads central past the machine's gate, or Core refuses an address that ends otherwise.
+      expect(source.writes.last.input['address'], 'http://127.0.0.1:8082/demo/$name.git');
+      expect(source.writes.last.input['central'], 'https://forge.example.org/$name.git');
     }
     expect(source.writes, hasLength(3));
   });

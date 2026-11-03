@@ -900,7 +900,11 @@ class _AddRepositoryDialogState extends State<_AddRepositoryDialog> {
             input: {
               'project': widget.view.name,
               'repository': _name.text.trim(),
-              'address': _address.text.trim(),
+              // On a machine a task reads the machine's own forge; the address given is where the machine takes it from.
+              ...switch (widget.organization.view?.localAddress(widget.view.name, _address.text.trim())) {
+                final local? => {'address': local, 'central': _address.text.trim()},
+                null => {'address': _address.text.trim()},
+              },
               'review': _requireReview ? 'required' : 'optional',
             },
           ),

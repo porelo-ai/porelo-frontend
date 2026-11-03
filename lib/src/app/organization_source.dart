@@ -229,6 +229,20 @@ class OrganizationView {
   bool mayNameAdminsOf(OrganizationHost host) =>
       organizationAdmins == null ? holdsRoles && host.admins.contains(me) : isOrganizationAdmin;
 
+  /// Where a task on its machine reads [repository] of [project]: that machine's own forge, by the port its card
+  /// names. Null for a project on no machine, or on one whose card names no port.
+  String? localAddress(String project, String repository) {
+    final port = hosts.where((host) => host.projects.contains(project) && host.gitPort != null).firstOrNull?.gitPort;
+    return port == null ? null : 'http://127.0.0.1:$port/$project/${endOfAddress(repository)}.git';
+  }
+
+  /// What an address ends in, its repository's name there. The machine's forge names a repository so, and Core refuses
+  /// a local address that ends otherwise than the central one.
+  static String endOfAddress(String address) {
+    final bare = address.replaceFirst(RegExp(r'/+$'), '').replaceFirst(RegExp(r'\.git$'), '');
+    return bare.substring(bare.lastIndexOf(RegExp('[/:]')) + 1);
+  }
+
   /// Whether the person may remove [host] from the organization: its owners, until the list exists.
   bool mayRemove(OrganizationHost host) =>
       isOrganizationAdmin || (organizationAdmins != null && holdsRoles && host.admins.contains(me));
@@ -664,7 +678,7 @@ abstract interface class OrganizationSource {
   Future<ProjectView> readProject(String project);
 
   /// Reads a checkout's draft without writing, against [project] where one is named.
-  Future<ProjectInitDraft> readProjectInit(String checkout, {String? project, String? name});
+  Future<ProjectInitDraft> readProjectInit(String checkout, {String? project, String? name, String? upstream});
 
   /// The keys this person could file, each with the identity source's answer.
   Future<List<OrganizationKey>> myKeys();

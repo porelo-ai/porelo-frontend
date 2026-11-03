@@ -43,7 +43,7 @@ class FixtureOrganization implements OrganizationSource {
   }
 
   @override
-  Future<ProjectInitDraft> readProjectInit(String checkout, {String? project, String? name}) async =>
+  Future<ProjectInitDraft> readProjectInit(String checkout, {String? project, String? name, String? upstream}) async =>
       throw const OrganizationRefused('No checkout draft was supplied.');
 
   @override

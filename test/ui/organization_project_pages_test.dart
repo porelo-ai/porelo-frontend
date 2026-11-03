@@ -458,7 +458,8 @@ void main() {
       expect(fixture.writes.single.input, {
         'project': 'demo',
         'repository': 'demo-site',
-        'address': 'git@forge.example.org:acme/s.git',
+        'address': 'http://127.0.0.1:8082/demo/s.git',
+        'central': 'git@forge.example.org:acme/s.git',
         'review': 'required',
       });
     });

@@ -9,6 +9,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- A project or repository on a machine names that machine's own forge for its tasks, by the port on the machine's card.
 - A machine's row under *Organization* offers taking Porelo off to its admin on any computer, going by the organization's card,
   and says what is missing where it cannot. The dialog names the projects still on the machine and what is safe.
 - A project and a repository of one name are refused here, with another name offered.
