@@ -231,6 +231,38 @@ class _OrganizationPageState extends State<OrganizationPage> {
     ],
   );
 
+  /// A project just put on a machine waits for a token: once it was taken, the machine is asked to fetch at once.
+  Future<void> _putOn(OrganizationProject project, OrganizationView view, void Function(Widget) show) async {
+    await showDialog<void>(
+      context: context,
+      builder: (_) => OrganizationPersonDialog(
+        widget.organization,
+        people: [for (final host in _hostsOf(view)) host.name],
+        helper: 'A project is on one machine at a time.',
+        title: 'Put ${project.name} on a machine',
+        personLabel: 'Machine',
+        words:
+            'Every member comes with the project. Connect to the machine, and if it waits for your token its page '
+            'offers to give it, once, in a terminal, for its deploy keys. The machine does the rest by itself, which '
+            'can take up to five minutes.',
+        confirm: 'Put it on the machine',
+        change: OrganizationChange.addProjectToHost,
+        input: (_, machine) => {'host': machine, 'project': project.name},
+      ),
+    );
+    final machine = widget.organization.view?.hosts
+        .where((host) => host.projects.contains(project.name))
+        .firstOrNull
+        ?.name;
+    final connections = widget.connections;
+    if (machine == null || connections == null || !connections.connected(machine)) return;
+    try {
+      await connections.refresh(machine);
+    } on OrganizationRefused {
+      // It follows by itself within five minutes; the machine's page says how it stands.
+    }
+  }
+
   Widget _projects(OrganizationView view, Organization organization, void Function(Widget) show) => FilteredListSection(
     title: 'Projects',
     storageId: 'organization-projects',
@@ -259,7 +291,7 @@ class _OrganizationPageState extends State<OrganizationPage> {
               words:
                   "The project's card is added to the organization now. Its project admin makes the project "
                   'repository and signs its first project.yml when they first open the project under Projects, then '
-                  'adds its members. No host is chosen here: a host admin puts the project on a host.',
+                  'adds its members. No machine is chosen here: a machine\'s admin puts the project on it.',
               confirm: 'Add the project',
               check: (name) => _projectName.hasMatch(name)
                   ? null
@@ -282,6 +314,31 @@ class _OrganizationPageState extends State<OrganizationPage> {
             actions: [
               if (view.holdsRoles && widget.onProject != null && _isIn(view, project))
                 _command('openProject/${project.name}', 'Open under Projects', () => widget.onProject!(project.name)),
+              if (project.host == null && _hostsOf(view).isNotEmpty)
+                _command(
+                  'putOnMachine/${project.name}',
+                  'Put it on a machine…',
+                  () => unawaited(_putOn(project, view, show)),
+                ),
+              if (project.host case final machine? when _hostsOf(view).any((host) => host.name == machine))
+                _command(
+                  'takeOffMachine/${project.name}',
+                  'Take it off the machine…',
+                  danger: true,
+                  () => show(
+                    OrganizationConfirmDialog(
+                      organization,
+                      title: 'Take ${project.name} off $machine?',
+                      words:
+                          'Its members can no longer work on it there, once it holds no unpushed work. Its copy there '
+                          'goes then, with its conversation, where the machine runs its own. The project itself stays '
+                          'in the organization. This can take up to five minutes.',
+                      confirm: 'Take it off',
+                      change: OrganizationChange.removeProjectFromHost,
+                      input: {'host': machine, 'project': project.name},
+                    ),
+                  ),
+                ),
               if (view.isOrganizationAdmin) ...[
                 _command(
                   'addProjectAdmin/${project.name}',
@@ -589,6 +646,14 @@ _Action _command(String id, String label, VoidCallback run, {bool danger = false
   organizationCommand(id: id, label: label, run: run, danger: danger),
   danger: danger,
 );
+
+/// The machines this person administers, read from the organization, connected or not.
+List<OrganizationHost> _hostsOf(OrganizationView view) => !view.holdsRoles
+    ? const []
+    : [
+        for (final host in view.hosts)
+          if (host.admins.contains(view.me)) host,
+      ];
 
 bool _isIn(OrganizationView view, OrganizationProject project) =>
     project.admins.contains(view.me) || project.members.contains(view.me);

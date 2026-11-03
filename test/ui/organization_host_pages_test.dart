@@ -27,6 +27,75 @@ Future<void> _tap(WidgetTester tester, Finder target) async {
 }
 
 void main() {
+  group('a machine\'s admin puts a project on it from the organization', () {
+    Future<(FixtureOrganization, FixtureConnections)> organization(
+      WidgetTester tester, {
+      FixtureConnections? connections,
+    }) async {
+      final fixture = FixtureOrganization(organizationFor('hana'));
+      final held = Organization(fixture);
+      addTearDown(held.dispose);
+      final made = connections ?? FixtureConnections();
+      tester.view.physicalSize = const Size(1400, 2400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await _settle(tester, OrganizationPage(organization: held, connections: made, onHost: (_) {}));
+      return (fixture, made);
+    }
+
+    // Harm: a project lands on two machines at once, against the rule of one at a time.
+    testWidgets('only a project on no machine is offered, among the machines one administers', (tester) async {
+      final (source, _) = await organization(tester);
+      expect(_action('putOnMachine/demo'), findsNothing);
+      await pressOrganizationAction(tester, 'putOnMachine/other');
+      await _tap(tester, find.byKey(const Key('organization-person')));
+      await _tap(tester, find.text('build').hitTestable());
+      await _tap(tester, _confirm());
+      final write = source.writes.single;
+      expect(write.change, OrganizationChange.addProjectToHost);
+      expect(write.input, {'host': 'build', 'project': 'other'});
+    });
+
+    // Harm: a machine's admin deletes a room's conversation with no word of it.
+    testWidgets('taking one off says what stays until its unpushed work is gone, and what goes then', (tester) async {
+      final (source, _) = await organization(tester);
+      await pressOrganizationAction(tester, 'takeOffMachine/demo');
+      expect(find.textContaining('once it holds no unpushed work'), findsOneWidget);
+      expect(find.textContaining('with its conversation'), findsOneWidget);
+      await _tap(tester, _confirm());
+      final write = source.writes.single;
+      expect(write.change, OrganizationChange.removeProjectFromHost);
+      expect(write.input, {'host': 'build', 'project': 'demo'});
+    });
+
+    // Harm: a project put on a machine with no address waits there for a token that cannot help, and nobody is told.
+    testWidgets('a project the store will not put on stays where it was, with the words why', (tester) async {
+      final (source, _) = await organization(tester);
+      source.refuseNext = const OrganizationRefused('other has no address yet, so no machine can follow it.');
+      await pressOrganizationAction(tester, 'putOnMachine/other');
+      await _tap(tester, find.byKey(const Key('organization-person')));
+      await _tap(tester, find.text('build').hitTestable());
+      await _tap(tester, _confirm());
+      expect(find.text('other has no address yet, so no machine can follow it.'), findsOneWidget);
+      expect(_confirm(), findsOneWidget, reason: 'the dialog stays, or its refusal has nowhere to be said');
+    });
+
+    // Harm: a project just put on waits five minutes for a token nobody was asked for.
+    testWidgets('putting one on asks a connected machine to fetch at once', (tester) async {
+      final connections = FixtureConnections(['build']);
+      final (source, _) = await organization(tester, connections: connections);
+      source.afterWrite = (write) => organizationFor(
+        'hana',
+        host: const OrganizationHost(name: 'build', admins: ['hana'], projects: ['demo', 'other']),
+      );
+      await pressOrganizationAction(tester, 'putOnMachine/other');
+      await _tap(tester, find.byKey(const Key('organization-person')));
+      await _tap(tester, find.text('build').hitTestable());
+      await _tap(tester, _confirm());
+      expect(connections.asked, contains('refresh build'));
+    });
+  });
+
   group('the hosts under Machines', () {
     Future<({FixtureConnections connections, List<String> opened})> section(
       WidgetTester tester,
@@ -143,48 +212,10 @@ void main() {
       expect(find.textContaining('203.0.113.7:22'), findsOneWidget);
       expect(find.text('demo'), findsOneWidget);
       expect(find.text('hana'), findsOneWidget);
-      for (final id in [
-        'changeHost',
-        'refreshHost',
-        'addProjectToHost',
-        'removeProjectFromHost/demo',
-        'addHostAdmin',
-        'removeHostAdmin/hana',
-      ]) {
+      for (final id in ['changeHost', 'refreshHost', 'addHostAdmin', 'removeHostAdmin/hana']) {
         expect(_action(id), findsNothing, reason: id);
       }
       expect(_action('connect/build'), findsOneWidget);
-    });
-
-    // Harm: a project lands on two hosts at once, against the rule of one host at a time.
-    testWidgets('putting a project on offers only those on no host, and writes the host and the project', (
-      tester,
-    ) async {
-      final made = await page(tester, 'hana');
-      await pressOrganizationAction(tester, 'addProjectToHost');
-      await _tap(tester, find.byKey(const Key('organization-person')));
-      expect(find.text('other').hitTestable(), findsOneWidget);
-      expect(find.text('demo').hitTestable(), findsNothing);
-      await _tap(tester, find.text('other').hitTestable());
-      await _tap(tester, _confirm());
-      final write = made.source.writes.single;
-      expect(write.change, OrganizationChange.addProjectToHost);
-      expect(write.input, {'host': 'build', 'project': 'other'});
-    });
-
-    // Harm: a host admin deletes a room's conversation with no word of it.
-    testWidgets('taking a project off says what stays until its unpushed work is gone, and what goes then', (
-      tester,
-    ) async {
-      final made = await page(tester, 'hana');
-      await pressOrganizationAction(tester, 'removeProjectFromHost/demo');
-      expect(find.textContaining('once it holds no unpushed work'), findsOneWidget);
-      expect(find.textContaining('with its conversation'), findsOneWidget);
-      expect(find.textContaining('up to five minutes'), findsOneWidget);
-      await _tap(tester, _confirm());
-      final write = made.source.writes.single;
-      expect(write.change, OrganizationChange.removeProjectFromHost);
-      expect(write.input, {'host': 'build', 'project': 'demo'});
     });
 
     // Harm: a host loses its last admin, or a refusal is lost.
@@ -205,18 +236,6 @@ void main() {
       await _tap(tester, _confirm());
       expect(find.textContaining('The store refused this.'), findsWidgets);
       expect(made.source.writes, hasLength(1));
-    });
-
-    // Harm: a project put on a host with no address waits there for a token that cannot help, and nobody is told.
-    testWidgets('a project the store will not put on stays where it was, with the words why', (tester) async {
-      final made = await page(tester, 'hana');
-      made.source.refuseNext = const OrganizationRefused('other has no address yet, so no host can follow it.');
-      await pressOrganizationAction(tester, 'addProjectToHost');
-      await _tap(tester, find.byKey(const Key('organization-person')));
-      await _tap(tester, find.text('other').hitTestable());
-      await _tap(tester, _confirm());
-      expect(find.text('other has no address yet, so no host can follow it.'), findsOneWidget);
-      expect(_confirm(), findsOneWidget, reason: 'the dialog stays, or its refusal has nowhere to be said');
     });
 
     // Harm: a host admin who made a backup key sees no sign of it.
@@ -400,21 +419,6 @@ void main() {
       await pressOrganizationAction(tester, 'giveToken');
       expect(connections.asked, contains('connect build'));
       expect(find.textContaining('makes your account once'), findsNothing);
-    });
-
-    // Harm: a project just put on waits five minutes for a token nobody was asked for.
-    testWidgets('putting a project on asks the host to fetch at once', (tester) async {
-      final connections = FixtureConnections(['build']);
-      final made = await page(tester, 'hana', connections: connections);
-      made.source.afterWrite = (write) => organizationFor(
-        'hana',
-        host: const OrganizationHost(name: 'build', admins: ['hana'], projects: ['demo', 'other']),
-      );
-      await pressOrganizationAction(tester, 'addProjectToHost');
-      await _tap(tester, find.byKey(const Key('organization-person')));
-      await _tap(tester, find.text('other').hitTestable());
-      await _tap(tester, _confirm());
-      expect(connections.asked, contains('refresh build'));
     });
 
     // Harm: Refresh gives no answer, or a refusal is shown as done.

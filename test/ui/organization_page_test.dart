@@ -266,7 +266,7 @@ void main() {
     testWidgets('Add a project names the project and the project admin, and no host', (tester) async {
       final (fixture, _, _) = await _pump(tester, 'olive');
       await pressOrganizationAction(tester, 'addProject');
-      expect(find.textContaining('No host is chosen here'), findsOneWidget);
+      expect(find.textContaining('No machine is chosen here'), findsOneWidget);
       await tester.enterText(find.byKey(const Key('organization-name')), 'fresh');
       await _pick(tester, const Key('organization-person'), 'pat');
       await tester.tap(find.byKey(const Key('organization-confirm')));

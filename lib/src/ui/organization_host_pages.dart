@@ -243,23 +243,12 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     if (mounted && first && !(_progress?.waitsForToken ?? true)) await _act(() => connections.connect(widget.host));
   }
 
-  /// Putting a project on needs the token at once: once it was taken, the host is asked to fetch, and says if it waits.
-  Future<void> _putOn(Widget dialog, OrganizationHost before) async {
-    await showDialog<void>(context: context, builder: (_) => dialog);
-    final now = widget.organization.view?.hosts.where((host) => host.name == before.name).firstOrNull;
-    final connections = widget.connections;
-    if (!mounted || now == null || now.projects.length <= before.projects.length || connections == null) return;
-    if (connections.connected(before.name)) await _read(() => connections.refresh(before.name));
-  }
-
   void _show(Widget dialog) => unawaited(showDialog<void>(context: context, builder: (_) => dialog));
 
   Future<void> _makeBackupKey(OrganizationView view) async {
     await widget.keys!.makeBackup(context, scope: BackupScope.host(widget.host), base: view.revision);
     await widget.organization.refresh();
   }
-
-  void _putOnDialog(OrganizationHost host, Widget dialog) => unawaited(_putOn(dialog, host));
 
   /// Runs one thing of the connection's, its refusal shown on the page; nothing is shown as done before its answer.
   Future<void> _act(Future<void> Function() action) async {
@@ -377,37 +366,9 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
   );
 
   Widget _projects(OrganizationView view, OrganizationHost host, bool isAdmin) {
-    final offered = [for (final project in view.projectsOnNoHost) project.name];
     return FilteredListSection(
-      title: 'Projects on this host',
+      title: 'Projects on this machine',
       storageId: 'host-projects ${host.name}',
-      actions: [
-        if (isAdmin)
-          OutlinedButton.icon(
-            key: const ValueKey('organization.addProjectToHost'),
-            onPressed: offered.isEmpty
-                ? null
-                : () => _putOnDialog(
-                    host,
-                    OrganizationPersonDialog(
-                      widget.organization,
-                      people: offered,
-                      helper: 'A project is on one host at a time: these are on none yet.',
-                      title: 'Put a project on ${host.name}',
-                      personLabel: 'Project',
-                      words:
-                          'Every member comes with the project. Connect to this host, and if it waits for your central '
-                          'token this page offers to give it, once, in a terminal, for its deploy keys. The host does '
-                          'the rest by itself, which can take up to five minutes.',
-                      confirm: 'Put it on the host',
-                      change: OrganizationChange.addProjectToHost,
-                      input: (_, project) => {'host': host.name, 'project': project},
-                    ),
-                  ),
-            icon: const Icon(Icons.add),
-            label: const Text('Put a project on the host'),
-          ),
-      ],
       rows: [
         for (final name in host.projects)
           (
@@ -416,31 +377,6 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
               leading: const Icon(Icons.folder_outlined),
               title: Text(name),
               subtitle: Text([_projectWords(view, name), if (isAdmin) ?_progressWords(name)].join(' · ')),
-              trailing: isAdmin
-                  ? CommandMenu(
-                      commands: [
-                        organizationCommand(
-                          id: 'removeProjectFromHost/$name',
-                          label: 'Take off the machine…',
-                          danger: true,
-                          run: () => _show(
-                            OrganizationConfirmDialog(
-                              widget.organization,
-                              title: 'Take $name off ${host.name}?',
-                              words:
-                                  'Its members can no longer work on it here, once it holds no unpushed work. Its room on '
-                                  'this host goes then, with its conversation, where the host runs its own. The project '
-                                  'itself stays in the organization. This can take up to five minutes.',
-                              confirm: 'Take it off',
-                              change: OrganizationChange.removeProjectFromHost,
-                              input: {'host': host.name, 'project': name},
-                            ),
-                          ),
-                        ),
-                      ],
-                      tooltip: 'What can be done with $name',
-                    )
-                  : null,
             ),
           ),
       ],
