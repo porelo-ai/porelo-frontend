@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:porelo_frontend/src/app/commands.dart';
 import 'package:porelo_frontend/src/app/organization_source.dart';
 import 'package:porelo_frontend/src/ui/organization_project_pages.dart';
 
@@ -81,6 +82,33 @@ void main() {
       );
       await _tap(tester, find.byKey(const ValueKey('organization.openOnHost demo')));
       expect(opened, [('demo', 'build')]);
+    });
+
+    // Harm: a host lists a project only after a first start, so a member cannot push what the host gathered.
+    testWidgets("a project on a host has its menu here, as the host's own list does not name it yet", (tester) async {
+      final organization = Organization(FixtureOrganization(organizationFor('pat')));
+      addTearDown(organization.dispose);
+      var pushed = false;
+      await _settle(
+        tester,
+        OrganizationProjectsPage(
+          organization: organization,
+          onProject: (_) {},
+          menuFor: (project, host) => [
+            Command(
+              id: 'push',
+              label: 'Push $project from $host',
+              group: project,
+              home: Home.projectMenu,
+              run: () => pushed = true,
+            ),
+          ],
+        ),
+      );
+      await _tap(tester, find.byKey(const ValueKey('organization.projectMenu demo')));
+      await _tap(tester, find.text('Push demo from build'));
+      expect(pushed, isTrue);
+      expect(find.byKey(const ValueKey('organization.projectMenu other')), findsNothing);
     });
 
     // Harm: a locked member, who may do nothing, is sent to the host.

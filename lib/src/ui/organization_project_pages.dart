@@ -2,9 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../app/commands.dart';
 import '../app/organization_source.dart';
 import '../app/repository_address.dart';
 import '../app/run_here.dart' show WorkspaceRefused;
+import 'command_menu.dart';
 import 'filtered_list_section.dart';
 import 'organization_dialogs.dart';
 import 'tokens.dart';
@@ -28,6 +30,7 @@ class OrganizationProjectsPage extends StatefulWidget {
     required this.organization,
     required this.onProject,
     this.onHost,
+    this.menuFor,
     this.onOthers,
     super.key,
   });
@@ -43,6 +46,10 @@ class OrganizationProjectsPage extends StatefulWidget {
 
   /// Opens the project on its host, where work, agents, messages and saved jobs start.
   final void Function(String project, String host)? onHost;
+
+  /// What can be done with a project on its host from here: a host lists a project only after the person's first start
+  /// there, so no machine's list holds these until then.
+  final List<Command> Function(String project, String host)? menuFor;
 
   @override
   State<OrganizationProjectsPage> createState() => _OrganizationProjectsPageState();
@@ -115,6 +122,13 @@ class _OrganizationProjectsPageState extends State<OrganizationProjectsPage> {
                               child: Text('Open it on $host'),
                             ),
                           Chip(label: Text(_isLocked(project) ? 'locked' : _roleIn(view, project)!)),
+                          if (project.host case final host? when !_isLocked(project))
+                            if (widget.menuFor?.call(project.name, host) case final commands? when commands.isNotEmpty)
+                              CommandMenu(
+                                key: ValueKey('organization.projectMenu ${project.name}'),
+                                commands: commands,
+                                tooltip: 'What can be done with ${project.name}',
+                              ),
                         ],
                       ),
                       onTap: () => widget.onProject(project.name),

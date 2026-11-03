@@ -1264,12 +1264,26 @@ class _ShellState extends State<Shell> {
           onProject: (name) => setState(() => _organizationProject = name),
           onHost: (project, host) {
             final machine = widget.machines.all.where((machine) => machine.name == host).firstOrNull;
-            if (machine == null) {
+            // A host lists a project only after the person's first start there; until then its page is the way on.
+            if (machine != null && widget.machines.of(machine).projects.any((each) => each.name == project)) {
+              _openPageProject(machine, project);
+            } else {
               setState(() => _organizationHost = host);
               widget.shell.goTo(Section.machines);
-            } else {
-              widget.shell.openProject(machine, project);
             }
+          },
+          menuFor: (project, host) {
+            final machine = widget.machines.all.where((machine) => machine.hostCard?.name == host).firstOrNull;
+            if (machine == null) return const [];
+            return cardHostTransferCommands(
+              transfers: _transfers,
+              machine: machine,
+              project: project,
+              whyNoRight: _standings.whyNoRight(project),
+              hasSecrets: centralToken(widget.settings.secretsFile, desk.environment) != null,
+              running: _transfersRunning.contains('${machine.name}/$project'),
+              start: (direction) => unawaited(_transferInATerminal(machine, project, direction)),
+            );
           },
           onOthers: () => setState(() => _machineProjects = true),
         )
