@@ -154,13 +154,13 @@ same name and server takes the setup off. If a step of it fails, it keeps what i
 be lost, and names the ways out: `down` again, or `down --give-back-anyway`. Every step is one JSON line
 on standard output.
 
-**In the interface,** *Prepare a server…* under *Machines* does this for a host admin of that very host: it
-asks the host name, the server's address and its SSH host key, shows the line to run on the server that
-lets you in as root, writes the machine file, and files the real address and ports on the host's card
-when `up` reports them. Starting setup places the host under *Machines* as *In preparation*, showing the
-current step, start times, durations and estimated time remaining; closing the interface keeps the
-server under *Machines* across restarts with *Go on* and *Take it down*. *Give the server back* confirms
-the consequences before running `down` from the kept record.
+**In the interface,** *Prepare a machine…* under *Organization* does this for a Machine Admin of that very machine: it
+asks the machine's name, the server's address and its SSH host key, shows the line to run on the server that
+lets you in as root, writes the machine file, and files the real address and ports on the machine's card
+when `up` reports them. Starting setup marks the machine as *In preparation*, showing the current step, start
+times, durations and estimated time remaining; closing the interface keeps it across restarts with *Go on*.
+*Take Porelo off this machine…*, or *Return this rental…* where a saved rental stands, confirms the consequences
+before running `down` from the kept record.
 
 ## What the other pages hold
 

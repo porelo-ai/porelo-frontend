@@ -10,7 +10,7 @@ Read from the code, not run.
 
 - **Renewing.** No command renews a card with the same key. `identity rotate` refuses the card's own key, and `identity create` makes only a first card. A person can only move to another key, by *Change my key…*.
 - **Before the end.** The card's section says *Valid from … until …*, and nothing else. No warning stands anywhere.
-- **After the end.** The window shows the same line, in the same color, while the card has stopped working: the person's key file on a host carries `expiry-time`, so ssh refuses that key from that moment, the window's ssh with it, and `doc/local-forge.md` in Core says the person also leaves the project's memberships. This is as Agent Machines read it, not run. Root's key has no expiry.
+- **After the end.** The window shows the same line, in the same color, while the card has stopped working: the person's key file on a host carries `expiry-time`, so ssh refuses that key from that moment, the window's ssh with it, and the documentation of `porelo-host` says the person also leaves the project's memberships. This is as Agent Machines read it, not run. Root's key has no expiry.
 - **After renewing.** A host gets the new end at its next follow, so up to five minutes later, also as read.
 
 ## What is needed

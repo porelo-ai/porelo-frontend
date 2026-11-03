@@ -18,6 +18,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f335"></a>[F335](F335-One-Row-Per-Machine.md) | — | — | *Organization* lists the machines available, *Machines* a person's own after *Connect*, each once, and "host" gone from the interface's words. |
 | <a id="f330"></a>[F330](F330-A-Project-Page-Says-It-Is-Reading.md) | — | — | A project's page showing at once that it is reading, and what. |
 | <a id="f331"></a>[F331](F331-A-Long-Change-Shows-That-It-Runs.md) | — | — | A long change, such as opening a project, showing that it runs and where a failure will be said. |
 | <a id="f339"></a>[F339](F339-Refresh-Reads-What-Is-Shown.md) | — | — | The rail's *Refresh* reaching the page shown, and a host page's own button named for what more it does. |
@@ -57,6 +58,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f348"></a>[F348](F348-A-Start-With-No-Terminal.md) | M | Core's answer of a host's keys | One person starts an organization, a machine and a project with no terminal. |
 | <a id="f345"></a>[F345](F345-Make-My-Card-Only-Asks-To-Sign.md) | M | Core's answer of what it found | *Make my card…* shows one line and *Sign*, and asks only what it did not find or found twice. |
 | <a id="f346"></a>[F346](F346-Do-You-Work-Alone.md) | S | Core's way to take the value | Creating a project asks "Do you work alone?"; yes writes `review: optional`, and it stays changeable. |
 | <a id="f347"></a>[F347](F347-A-Card-Renewed-With-One-Click.md) | M | Core's renewal with the same key | A card's end is said before and after it, and renewing is one click. |
@@ -99,7 +101,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f264"></a>[F264](F264-A-Server-With-No-Project-Given-Back.md) | S | — | A server rented with no project given back; the VPN taken down only after the give-back was confirmed. |
 | <a id="f123"></a>[F123](F123-Where-A-Machine-And-A-Project-Stand-In-Their-Organisations-Tree.md) | — | — | Where a machine and a project stand in their organisation's tree, and which settings bind them. |
 | <a id="f166"></a>[F166](F166-A-Host-Rented-Through-OpenTofu.md) | M | — | `porelo-host up` and `down` renting and giving back through the OpenTofu module, its secrets only in `tofu`'s environment; `--given` kept. |
-| <a id="f335"></a>[F335](F335-One-Row-Per-Machine.md) | — | — | *Organization* lists the machines available, *Machines* a person's own after *Connect*, each once, and "host" gone from the interface's words. |
 
 ### Idea
 

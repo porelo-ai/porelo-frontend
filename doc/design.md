@@ -213,7 +213,7 @@ is; a second consumer of the client code is what would change that.
 Host and project actions consume Core's verified person, host and admission state. No wizard asks for host
 values, project signing keys, laptop keys or host secrets.
 
-A project is on one host at a time, and a host admin decides which projects a host carries, never which persons: every
+A project is on one host at a time, and a Machine Admin decides which projects a host carries, never which persons: every
 member of a project is on its host. *Connect* makes one connection per host, whatever number of projects it carries, from
 the address, port and host key in the organization. Other programs read what it writes, so that stays as it is:
 `frontend.json`'s `machines` with each machine's `host`, and `porelo/ssh/<host>.conf` and `<host>.known_hosts` beside it,
@@ -229,7 +229,7 @@ run over a real IPv6 network, have not been tried.
 every refresh and again when either is chosen. While it cannot be read, or where this computer reads no
 organization, both stay listed as unavailable with the reason.
 
-*Prepare a server…* opens for a person the organization names as a host admin of that very host, judged on what
+*Prepare a machine…* opens for a person the organization names as a Machine Admin of that very machine, judged on what
 `porelo org --json` answers, read again before anything happens; a `stale` answer prepares nothing. The dialog
 names the person's own key in the line that lets them in as root, in a terminal of their own. Before `up` starts,
 the interface writes the machine file whose `organization` part the host reads: the organization's `settings`, the

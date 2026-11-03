@@ -64,6 +64,7 @@ taken, `git log` answers.
 | [A task's program may write this computer's clipboard, never read it](#a-tasks-program-may-write-this-computers-clipboard-never-read-it) |
 | [Each repository's agent is started one after another, a stopped one brought back, and leaving does not cancel](#each-repositorys-agent-is-started-one-after-another) |
 | [Host joining uses verified signed state and SSH](#host-joining-uses-verified-signed-state-and-ssh) |
+| [One set of servers, called machines, and two lists of them](#one-set-of-servers-called-machines-and-two-lists-of-them) |
 
 ## The interface can do what a console can
 
@@ -815,3 +816,16 @@ An ssh to a host that the interface starts takes `IdentityFile=none` and its own
 non-interactive ssh stays that command's own concern; without one, `ssh -o BatchMode=yes` is used. The central
 forge token reaches the host's push or pull only as the bare line on that command's standard input, read from the
 secrets file inside a terminal; it is never on a command line, in a file, or in this program.
+
+## One set of servers, called machines, and two lists of them
+
+To a person there is no difference between a host and a machine, so nothing a person reads says host; *SSH host key* stays, as
+ssh's own term a person compares. *Organization* lists every machine of the organization and is where a machine is connected,
+prepared and managed. *Machines* is the person's own list, of those they connected to or added, and it is not joined from the
+organization. A server has one page, from either list.
+
+Taking a machine down has two names, as it means two things: *Take Porelo off this machine…* where the machine simply exists,
+and *Return this rental…* only where a saved rental stands. Every machine prepared now simply exists, as `up` rents nothing
+until 0.9.
+
+**What it costs:** a person who wants to work on a server connects to it first, and only then finds it under *Machines*.
