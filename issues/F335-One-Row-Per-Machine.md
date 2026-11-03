@@ -47,7 +47,7 @@ row under *Machines* is a third kind, the preparation's, and it stands in *Hosts
 
 | | *Connect* | *Disconnect* | *Forget* | Taking it down |
 |---|---|---|---|---|
-| Where | *Organization*; under *Machines* after *Disconnect* | the row under *Machines* | the row under *Machines* | the machine's admin |
+| Where | *Organization*; under *Machines* after *Disconnect* | the row under *Machines* | the row under *Machines* | see below |
 | Under *Machines* | appears | stays, with *Connect* | gone | gone from the list of the person who did it |
 | In *Organization* | says connected | stands, with *Connect* | stands, with *Connect* | gone |
 
@@ -85,8 +85,7 @@ Nothing of this is built, and nothing built stops for it.
 - **[F338](README.md#f338):** *Connect to <machine>* on a project's row meets the rule that *Connect* is offered in *Organization*; see the open questions. *Work on it* and the other words stand with "machine" for
   "host".
 - **[F341](README.md#f341):** the lines say `<machine>` and *it*. The token takes the admin's connection, so the page leads to *Connect* first.
-- **[F342](README.md#f342):** *Put it on a machine…*, *Take it off the machine…*. The choice is among servers the person administers, read from the organization, connected or not; never
-  this person's list.
+- **[F342](README.md#f342):** decided there: from the organization's projects, a machine's admin puts a project on it. So *Organization*'s project row holds *Put it on a machine…*, chosen among machines the person administers, read from the organization, connected or not.
 - **[F343](README.md#f343):** the same list on the machine's page, connected, and its title.
 - **[F329](README.md#f329):** the two lists keep separate rows with separate menus. Under *Machines* the ⋮ holds the entries of today's machine row. *Organization*'s row holds
   *Connect* and what an owner and an admin do.
@@ -111,7 +110,7 @@ Nothing of this is built, and nothing built stops for it.
   vault, then *Managing this machine* for its admin. It is the largest part; the row could lead to today's two pages for a while.
 - **The role reads *machine admin*** in the interface, and "admin" where the page already says which machine. In Core and in the organization
   it stays what it is.
-- ***Prepare a machine…* and *Give the machine back*,** for one word.
+- ***Prepare a machine…*,** for one word.
 - ***SSH host key* stays** where a person compares it with what ssh shows, and the button reads *Change address and key…*.
 - ***New work* offers no machine that is not connected,** since nothing can run there.
 - ***Without a project* stays** what a person reads for the default project, and *Projects* lists no *Default*, as `doc/decisions.md` has it.
@@ -141,6 +140,33 @@ Read from the code, not run.
 - **Who gets the warning.** `_forget` in `shell.dart` warns where `machine.kind == 'host'`, in words of billing, with the way to give the server back.
   The test becomes that the person is an admin of that server, one who rented it counting as one. It also says that the server stays in *Organization*.
 - **[F336](README.md#f336):** its words for *Disconnect* come true only with this, so this comes first or with it.
+
+## Taking a machine down: a machine that exists, and a rental
+
+The operator: *Give the machine back* is a poor name, as it concerns only a rented machine. The organization's settings must tell a machine that simply exists from an
+active rental with a later return. A return can be started in two places: always under *Organization*, and under *Machines* by an admin who may do it.
+
+**The words,** proposed:
+
+| | A machine that simply exists | An active rental |
+|---|---|---|
+| The action | *Take Porelo off this machine…* | *Return this rental…* |
+| Its question says | The accounts named and all they hold here are deleted, and it leaves the organization's list. The machine itself stays yours. | The same, and the provider then removes the machine, which ends its billing once the provider confirms. |
+| Button, with holders | *Delete these accounts and take Porelo off* | *Delete these accounts and return it* |
+| Button, without | *Take Porelo off* | *Return it* |
+| What stays to do | nothing of Porelo's; the person ends any contract at their provider | nothing, once confirmed |
+| When a step of it fails | it stays, says what would be lost, and offers to go on anyway | the same, and it stays billed |
+
+*Take Porelo off* is what `down` on `--given` does by its own words, *nothing is rented or given back*. The label is wrong today the other way round: `commands.dart` says *Give the server
+back* where a host name is saved, which is the given server, and the dialog's words and buttons say give back on it too.
+
+**Until 0.9 there is no second column to show.** `up` rents nothing, so every machine prepared now simply exists; only a saved rental from before can be returned.
+
+**The mark** is in the organization's settings and holds no secret. What it asks of Core and Machines, and what must move for another admin on another computer to start a return, they are asked. Today
+`_giveBack` and `machine.takeDown` need the record `settings.hostUp` keeps on the computer that set it up, or say *nothing was kept from putting it on a server*. So until that is settled a start from
+*Organization* can only say this on any other computer.
+
+Agent Machines' reading of the rental's plan, not built: the mark can stand on the machine's card as provider, zone and server id, none a secret, and never the state, which holds the machine's private key. Another admin lacks the state, its passphrase and a provider key. Machines proposes that they return it with their own provider key, found by the server id and the project tag, with no state moved. That leaves the renter's state stale, which the plan must learn to read. The operator decides.
 
 ## What the third operation meets today
 
@@ -179,14 +205,15 @@ private half being gone.
 ## Open questions
 
 - Who may remove the card when the person giving a server back is its admin and no owner? The operator is asked.
+- Who starts a return under *Organization*, *always* being said of the place? Recommended: an admin of that machine or an owner, as an owner removes its card today. Under *Machines*, its admin alone, as decided.
+- Does a machine that simply exists have the same two places as a rental? Recommended: yes, for one way to find it.
 - Who may enter a new one? It is an owner's today, and the same question from the other side: an admin of no machine yet cannot start. Not asked yet.
 - Does a machine added over ssh count as *set up by hand*, and enter the organization? Recommended: no, it stays this person's own, as nothing was prepared on it and nothing pins it.
 - A project still on the server when it goes: `org host remove` is to be read for whether it refuses, or leaves the project on no machine. [F319](README.md#f319) empties the accounts and says nothing of the projects.
-
 - Where is *Prepare a machine…* offered? It makes a server of the organization, and its row then stands under *Machines* as the preparer's. Recommended: in *Organization*, as *Connect* is.
 - A project's row says *Connect to <machine>* in [F338](README.md#f338). Does it connect, or lead to the row in *Organization*? Recommended: lead to that row, so that *Connect* stays in one place.
 - An admin who has forgotten a server, or never connected: the machine's page, opened from *Organization*, has what they manage. Taking it down needs what this computer kept and a way to the
-  server. Recommended: the page offers it to an admin in any case, and says what is missing where it cannot.
+  server. Recommended: *Organization*'s row offers it to an admin in any case, as a return is, and says what is missing where it cannot.
 
 ## To be checked
 
