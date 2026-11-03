@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:xterm/xterm.dart';
@@ -69,6 +70,7 @@ Future<TerminalEnd> runInATerminal(
   Future<void> Function()? afterClose,
   ValueChanged<String>? lastLine,
   bool waitsOnItsProgram = false,
+  bool answersForTheWindow = false,
   Key? key,
 }) async {
   final closed = Completer<TerminalEnd>();
@@ -98,6 +100,7 @@ Future<TerminalEnd> runInATerminal(
       finish: finish,
       afterClose: afterClose,
       lastLine: lastLine,
+      answersForTheWindow: answersForTheWindow,
       built: () => built = true,
       closing: (leaving) => leaving.then(closed.complete, onError: closed.completeError),
     ),
@@ -121,6 +124,36 @@ Future<TerminalEnd> runInATerminal(
   }
 }
 
+/// Takes the last thing [terminal] shows off its screen if it is a JSON object, however many rows it wrapped over: an
+/// answer for the program, not the person. Anything else stays, for it may be all a failure said.
+@visibleForTesting
+void eraseJsonAnswer(Terminal terminal) {
+  final lines = terminal.buffer.lines;
+  var last = lines.length - 1;
+  while (last >= 0 && lines[last].getText().trim().isEmpty) {
+    last--;
+  }
+  if (last < 0) return;
+  var first = last;
+  while (first > 0 && lines[first].isWrapped) {
+    first--;
+  }
+  final text = [for (var row = first; row <= last; row++) lines[row].getText()].join().trim();
+  try {
+    if (jsonDecode(text) is! Map) return;
+  } on FormatException {
+    return;
+  }
+  // The cursor cannot climb above the screen, so rows that scrolled past its top are blanked where they stand.
+  for (var row = first; row < terminal.buffer.scrollBack && row <= last; row++) {
+    lines[row]
+      ..eraseRange(0, lines[row].length, terminal.cursor)
+      ..isWrapped = false;
+  }
+  final up = terminal.buffer.absoluteCursorY - first;
+  terminal.write('\r${up > 0 ? '\x1b[${up}A' : ''}\x1b[J');
+}
+
 class _UnlockTerminal extends StatefulWidget {
   const _UnlockTerminal({
     required this.title,
@@ -139,6 +172,7 @@ class _UnlockTerminal extends StatefulWidget {
     this.finish,
     this.afterClose,
     this.lastLine,
+    this.answersForTheWindow = false,
     required this.built,
     required this.closing,
     super.key,
@@ -170,6 +204,9 @@ class _UnlockTerminal extends StatefulWidget {
 
   /// Told the terminal's last line with text when its command ends, before [finish]: what a failed command said last.
   final ValueChanged<String>? lastLine;
+
+  /// Its command ends on a JSON answer meant for this program, taken off the screen once read, unless it is a refusal.
+  final bool answersForTheWindow;
   final ValueChanged<Future<TerminalEnd>> closing;
 
   /// Told once the terminal is made, so a dialog put away before that ends with nothing started.
@@ -240,6 +277,7 @@ class _UnlockTerminalState extends State<_UnlockTerminal> {
       _reportedExit = true;
       widget.onExit?.call(code);
       _tellLastLine();
+      if (widget.answersForTheWindow && code == 0) eraseJsonAnswer(_session.terminal);
       if (widget.finish case final finish?) {
         _finishing = true;
         unawaited(() async {

@@ -70,6 +70,7 @@ class _OrganizationPageState extends State<OrganizationPage> {
           key: const Key('organization-page'),
           padding: const EdgeInsets.all(Space.normal),
           children: [
+            OrganizationChangeMark(organization),
             if (!organization.explanationClosed)
               _Explanation(onHide: () => setState(() => organization.explanationClosed = true)),
             if (organization.noOrganization && view == null)
@@ -521,7 +522,7 @@ String _personWords(OrganizationView view, OrganizationPerson person) => [
     if (project.admins.contains(person.login))
       'project admin of ${project.name}'
     else if (project.members.contains(person.login))
-      'member of ${project.name}',
+      'developer of ${project.name}',
 ].join(' · ');
 
 String _standingWords(OrganizationPerson person) => switch (person.standing) {
@@ -842,7 +843,12 @@ class _AddressDialogState extends State<_AddressDialog> {
             'card goes in as its first, and only, owner.',
           )
         else if (widget.replacing)
-          const Text('This computer reads one organization, so it will read that one instead of this one.'),
+          const Text(
+            'This computer reads one organization, so it will read that one instead of this one. An empty repository '
+            'cannot be chosen here: only a computer that reads no organization yet can fill one.',
+          )
+        else
+          const Text('An empty repository is not chosen but filled: cancel this and use *Create the organization…*.'),
         const SizedBox(height: Space.small),
         TextField(
           key: const Key('organization-address'),

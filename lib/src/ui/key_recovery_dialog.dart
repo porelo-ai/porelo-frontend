@@ -112,6 +112,7 @@ class KeyCommands {
           open: _toldWhenOpened(() => opened = true),
           lastLine: (line) => last = line,
           waitsOnItsProgram: true,
+          answersForTheWindow: true,
         );
         final done = await request.ended(code: end.code, lastLine: last, file: file, started: end.started);
         return _doneWords(request, done, file);

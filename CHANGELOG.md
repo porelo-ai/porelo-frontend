@@ -9,6 +9,11 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- The organization's pages show a mark while a change is being asked for; a refusal in a dialog goes once what it answered
+  is changed; *the organization has moved on* says what to do next; and the list under *Projects* and a person's row say
+  *developer*, as the project's own page does. A terminal no longer leaves Core's JSON answer on the screen after a
+  backup key or a host's token went well.
+
 - *Prepare a server…* is judged on the organization: who may is read from `porelo org --json` for that very host,
   again before anything happens, and a `stale` answer prepares nothing. `up` takes a machine file whose `organization`
   part holds the settings, the central forge's own keys from the person's `known_hosts` and a pin of every admin key,

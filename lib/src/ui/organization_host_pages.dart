@@ -52,6 +52,7 @@ class _OrganizationHostsSectionState extends State<OrganizationHostsSection> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          OrganizationChangeMark(widget.organization),
           if (widget.organization.problem case final problem?) _Problem(problem),
           if (view != null)
             FilteredListSection(
@@ -313,6 +314,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
         key: ValueKey('organization-host ${widget.host}'),
         padding: const EdgeInsets.all(Space.normal),
         children: [
+          OrganizationChangeMark(widget.organization),
           Align(
             alignment: Alignment.centerLeft,
             child: TextButton.icon(

@@ -85,7 +85,8 @@ class _OrganizationChangeDialogState extends State<OrganizationChangeDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              widget.body(context, () => setState(() {})),
+              // A refusal answers what was asked, not what is being typed since.
+              widget.body(context, () => setState(() => _refusal = null)),
               if (_refusal case final refusal?) ...[
                 const SizedBox(height: Space.small),
                 Text(refusal, style: TextStyle(color: Theme.of(context).colorScheme.error)),
@@ -104,6 +105,20 @@ class _OrganizationChangeDialogState extends State<OrganizationChangeDialog> {
       ],
     ),
   );
+}
+
+/// Says that a change was asked for and has not been answered: a write takes seconds, and nothing else shows it.
+class OrganizationChangeMark extends StatelessWidget {
+  /// Shows while [organization] waits for its store's answer.
+  const OrganizationChangeMark(this.organization, {super.key});
+
+  /// The organization whose change is being asked for.
+  final Organization organization;
+
+  @override
+  Widget build(BuildContext context) => organization.busy
+      ? const LinearProgressIndicator(key: Key('organization-change-running'), semanticsLabel: 'A change is under way')
+      : const SizedBox.shrink();
 }
 
 /// Asks to confirm a change that takes something away.

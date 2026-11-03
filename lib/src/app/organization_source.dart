@@ -761,7 +761,9 @@ class Organization extends ChangeNotifier {
       _unanswered.remove(sameChange);
     } on OrganizationRefused catch (refused) {
       if (refused.answered) _unanswered.remove(sameChange);
-      refusal = refused.words;
+      refusal = refused.reason == 'moved-on'
+          ? '${refused.words.endsWith('.') ? refused.words : '${refused.words}.'} The page has read what changed: look at it, and ask again from there.'
+          : refused.words;
     } on Exception {
       refusal = 'The change could not be asked for. Nothing is known to have changed; look at the list and try again.';
     }

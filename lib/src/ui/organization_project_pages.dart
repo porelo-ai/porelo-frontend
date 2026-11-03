@@ -20,7 +20,7 @@ String? _roleIn(OrganizationView view, OrganizationProject project) => !view.hol
     : project.admins.contains(view.me)
     ? 'project admin'
     : project.members.contains(view.me)
-    ? 'member'
+    ? 'developer'
     : null;
 
 /// The projects a person is a project admin or a member of, each with the one host carrying it.
@@ -92,6 +92,7 @@ class _OrganizationProjectsPageState extends State<OrganizationProjectsPage> {
         key: const Key('organization-projects-page'),
         padding: const EdgeInsets.all(Space.normal),
         children: [
+          OrganizationChangeMark(widget.organization),
           if (widget.organization.problem case final problem?) _Problem(problem),
           if (view != null)
             FilteredListSection(

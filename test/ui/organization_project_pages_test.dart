@@ -138,7 +138,7 @@ void main() {
       await opened(tester, 'mia');
       expect(find.byKey(const ValueKey('my-project demo')), findsOneWidget);
       expect(find.byKey(const ValueKey('my-project other')), findsNothing);
-      expect(find.text('member'), findsOneWidget);
+      expect(find.text('developer'), findsOneWidget);
     });
 
     testWidgets('a project opens its page', (tester) async {

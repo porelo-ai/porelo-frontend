@@ -3337,6 +3337,7 @@ class _ShellState extends State<Shell> {
       open: widget.sessions.openTerminal,
       showCommand: false,
       completed: '$host took the token.',
+      answersForTheWindow: true,
     );
   }
 
