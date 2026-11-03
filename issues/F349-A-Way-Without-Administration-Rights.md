@@ -16,4 +16,10 @@ Read from the code, not run.
 - A choice, where the token is asked for, between the far-reaching token and doing it by hand, saying the effort.
 - Each repository's deploy key shown to copy, and a check that says whether it was entered.
 
-The other parts are for the helper on the machine and for `project open`, which their owners say here when they have read them.
+## What it would take on a machine
+
+Size M, as Agent Machines read it, not run. The helper refuses such a token today: `migrate` lists a repository's deploy keys, which needs Administration read, and stops on a 403. Its read key is made in that same step and shown nowhere. It needs the public key shown per repository before any token, and proving the key by a read with it instead of listing.
+
+**What is lost:** the machine cannot see that a hand-entered key is read-only, so a key given write access goes unnoticed, and it cannot remove the key when the project leaves, which stays the person's.
+
+`project open` over a repository that exists, and what else asks Administration, is Core's to say here.
