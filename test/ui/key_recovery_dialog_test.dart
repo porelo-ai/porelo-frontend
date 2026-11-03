@@ -102,6 +102,9 @@ class _Terminal implements SessionChannel {
 }
 
 class _Rig {
+  /// What the dry run answers.
+  Map<String, Object?> plan = _plan;
+
   _Rig() : settings = Settings(MemorySettingsStore());
 
   final Settings settings;
@@ -125,7 +128,7 @@ class _Rig {
     final answer = switch (arguments[1]) {
       'show' => shown,
       'keys' => _agentKeys,
-      'revoke' when arguments.contains('--dry-run') => _plan,
+      'revoke' when arguments.contains('--dry-run') => plan,
       'revoke' => {
         'revision': '9d0fcc5',
         'id': arguments[arguments.indexOf('--id') + 1],
@@ -390,6 +393,27 @@ void main() {
 
   group('a lost key in my row', () {
     // Harm: a vault reset with no review, or a person replacing another's key.
+    // Harm: the plan ends a sentence on nothing, and a person looks for what they must sign in to again.
+    testWidgets('names the sign-ins to make again, and no host where there are none', (tester) async {
+      final rig = _Rig()
+        ..plan = {
+          ..._plan,
+          'sign_ins': [
+            {'host': 'build', 'entries': <Object?>[]},
+            {
+              'host': 'other',
+              'entries': ['git.token.forge'],
+            },
+          ],
+        };
+      final (_, organization) = await _organization(tester, 'olive');
+      await _pump(tester, OrganizationPage(organization: organization, keys: rig.keys));
+      await _tap(tester, _action('replaceLostKey'));
+      await _tap(tester, find.byKey(const Key('identity-key $_new')));
+      expect(find.textContaining('On build,'), findsNothing);
+      expect(find.textContaining('On other, sign in again for: git.token.forge'), findsOneWidget);
+    });
+
     testWidgets('is planned with a dry run, and replaced once only after the review', (tester) async {
       final rig = _Rig();
       final (_, organization) = await _organization(tester, 'olive');

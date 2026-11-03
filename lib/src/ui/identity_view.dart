@@ -914,7 +914,8 @@ class _PlanWords extends StatelessWidget {
       ),
       for (final person in plan.whoMay) _ContactRow(person),
       for (final host in plan.hosts) Text('Your vault on ${host.host} is deleted and made again.'),
-      for (final signIn in plan.signIns) Text('On ${signIn.host}, sign in again for: ${signIn.entries.join(', ')}'),
+      for (final signIn in plan.signIns)
+        if (signIn.entries.isNotEmpty) Text('On ${signIn.host}, sign in again for: ${signIn.entries.join(', ')}'),
     ],
   );
 }
