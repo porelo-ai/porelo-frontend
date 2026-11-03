@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../app/host_runs.dart';
 import '../app/host_session.dart';
+import '../app/tunnel.dart' show TunnelState;
 
 import '../app/fleet_model.dart';
 import '../app/machines.dart';
@@ -164,18 +165,17 @@ class MachinesPage extends StatelessWidget {
       bodyKey: ValueKey('tree-machine $identity'),
       titleKey: ValueKey('rail-machine ${machine.name}'),
       title: thisComputer ? 'This computer' : machine.name,
-      subtitle: [
-        if (machine.where.isNotEmpty) machine.where,
-        if (tunnel != null)
-          tunnel.words
-        else if (fleet?.reachability == Reachability.connected)
-          'Connected'
-        else if (fleet?.answered ?? false)
-          'Not connected; state unknown'
-        else
-          'not connected yet',
-        ?tunnel?.problem,
-      ].join(' · '),
+      subtitle: machineRowWords(
+        where: machine.where,
+        tunnelUp: tunnel?.state == TunnelState.up,
+        tunnelWords: tunnel?.words,
+        tunnelProblem: tunnel?.problem,
+        fleet: fleet?.reachability == Reachability.connected
+            ? 'Connected'
+            : (fleet?.answered ?? false)
+            ? 'Not connected; state unknown'
+            : 'not connected yet',
+      ),
       leading: const Icon(Icons.dns_outlined),
       onOpen: open,
       menu: CommandMenu(
@@ -221,3 +221,17 @@ class _HostPreparationRow extends StatelessWidget {
     );
   }
 }
+
+/// A machine's line: where it is, how its connection stands, and a problem once, whichever says it.
+@visibleForTesting
+String machineRowWords({
+  required String where,
+  required bool tunnelUp,
+  required String? tunnelWords,
+  required String? tunnelProblem,
+  required String fleet,
+}) => [
+  if (where.isNotEmpty) where,
+  tunnelWords ?? (tunnelUp ? 'Connected' : fleet),
+  if (tunnelProblem != null && tunnelProblem != tunnelWords) tunnelProblem,
+].join(' · ');
