@@ -1,6 +1,6 @@
 # F344 — The Look Of A Page With Lists
 
-**Status:** Idea.
+**Status:** Accepted.
 
 **What must be true.** On a page with several lists a person sees at once where one ends and the next begins, can sort each, and meets a filter only when they ask for it.
 
@@ -27,8 +27,16 @@ Drawn as images with invented data, the same in each, and the shape of [F335](RE
 
 **Recommended: A.** It answers all three of the operator's points in one widget every list already uses, so all pages change together. It keeps the page's overview, and a row keeps its long words, which a person's roles need and a column cuts off. B reads best for one list and sorts most naturally, but hides the rest of the organization behind tabs, and a page with one list gains nothing from them. C is the densest, and the most to keep aligned as a window narrows.
 
-## Open questions
+## Decided
 
-- Which proposal? Recommended: A.
-- Which sort keys does a list offer? Recommended: name and state, with the machine for a project, and the choice kept per list, as the filter and the fold are.
-- Does a section start folded when long? Recommended: no, as today.
+Proposal A, the cards. Sort keys: name and state, plus the machine for a project, the choice kept per list. No section starts folded because it is long.
+
+## A narrow layout
+
+The Coordinator drew a narrow layout the operator found good, at 820 and 390 pixels: the rail becomes a menu behind a button, targets of 44 pixels, the header on one line on a tablet, and on a phone the title first, search and sort below it and the buttons behind ⋮, a row's state below its text, and only the first card open. Whether the app ships on those widths is not decided here.
+
+The page gives none of this today: read from the code, `shell.dart`, `shell_rail.dart` and the list pages have no width rule, the rail stands at every width, and `Wrap` and shortened words are all that follows a narrow window. So the cards are M without it. The narrow layout adds a rail as a menu, which every page sits in, and three forms of the header and row, which makes it L together. It can follow the cards, as they do not depend on it.
+
+## Words
+
+*Add a card…* or *Add a person…*, *Enter a machine…* and *Name one…* are placeholders until built.

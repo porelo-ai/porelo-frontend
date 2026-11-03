@@ -42,7 +42,7 @@ This is not the token a later push asks for, which is in the pushing person's ow
 
 ## To be checked
 
-- That the host's forge keeps no token after the one copy, which Agent Machines reads from its database; the sentence waits for that answer. It was not searched, and that is a recollection of how Forgejo behaves. *It does
+- *It does not keep the token* may stand for the host and its forge, by Agent Machines' reading of one host, by the token's form and not against the token itself. It says nothing of the forge the token belongs to, where it goes on existing until revoked or expired. It was not searched, and that is a recollection of how Forgejo behaves. *It does
   not keep the token* rests on this.
 - Which of the three lines the host's answer lets the page tell apart.
 - Whether a narrower token does.

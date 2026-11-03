@@ -1,6 +1,6 @@
 # F342 — A Project Is Put On A Machine From The Organization's Projects
 
-**Status:** Idea.
+**Status:** Accepted.
 
 **What must be true.** A machine's admin who wants a project on it finds that where they think of it, and does not meet the same action in two
 places that disagree.

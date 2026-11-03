@@ -93,15 +93,15 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f340"></a>[F340](F340-Commits-Not-Yet-At-The-Forge.md) | — | — | A project's row and page saying how many approved commits have not reached the forge, with the action and who may do it. |
 | <a id="f341"></a>[F341](F341-What-The-Token-Is-For.md) | — | — | The words asking for a token naming its forge, what the host does with it, its rights, and that it is not kept. |
 | <a id="f343"></a>[F343](F343-A-Hosts-List-Says-What-The-Host-Still-Holds.md) | — | — | A host's list keeping a project being taken off until the host has let it go, and saying why if held. |
+| <a id="f344"></a>[F344](F344-The-Look-Of-A-Page-With-Lists.md) | — | — | Sections visibly apart, a filter behind a magnifier, and sorting, with three proposals drawn. |
+| <a id="f329"></a>[F329](F329-One-Menu-On-Each-Row-Of-The-Organization-Page.md) | — | — | Only a ⋮ on each row of the organization's, machine's and project's pages, with *Connect* visible while not connected. |
+| <a id="f342"></a>[F342](F342-A-Project-Is-Put-On-A-Machine-From-The-Organizations-Projects.md) | — | — | A machine's admin puts a project on it from the organization's projects, and the machine's list is read only. |
+| <a id="f335"></a>[F335](F335-One-Row-Per-Machine.md) | — | — | *Organization* lists the machines available, *Machines* a person's own after *Connect*, each once, and "host" gone from the interface's words. |
 
 ### Idea
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f344"></a>[F344](F344-The-Look-Of-A-Page-With-Lists.md) | — | — | Sections visibly apart, a filter behind a magnifier, and sorting, with three proposals drawn. |
-| <a id="f342"></a>[F342](F342-A-Project-Is-Put-On-A-Machine-From-The-Organizations-Projects.md) | — | — | A machine's admin puts a project on it from the organization's projects, and the machine's list is read only. |
-| <a id="f335"></a>[F335](F335-One-Row-Per-Machine.md) | — | — | *Organization* lists the machines available, *Machines* a person's own after *Connect*, each once, and "host" gone from the interface's words. |
-| <a id="f329"></a>[F329](F329-One-Menu-On-Each-Row-Of-The-Organization-Page.md) | — | — | Only a ⋮ on each row of the organization's, machine's and project's pages, with *Connect* visible while not connected. |
 | <a id="f328"></a>[F328](F328-Letters-Doubled-In-A-Slow-Window.md) | — | — | A key pressed once reaching a console once, however slowly the window answers. |
 | <a id="f324"></a>[F324](F324-Removing-A-Project-On-Windows.md) | — | — | A local project removed from the interface on Windows, where it runs in a WSL distribution. |
 | <a id="f321"></a>[F321](F321-Send-The-Terminal-Input-Fix-Upstream.md) | S | — | The terminal input fix offered upstream, and this repository's copy of `xterm` dropped once a release holds it. |

@@ -1,6 +1,6 @@
 # F335 — One Row Per Machine
 
-**Status:** Idea.
+**Status:** Accepted.
 
 **What must be true.** *Organization* lists the organization's available machines. *Machines* is a person's own view of what they use: always the local
 machine, plus what they added. A server appears under *Machines* only after *Connect*, which is offered in *Organization* and on a project's row. It stands there once, with everything that
