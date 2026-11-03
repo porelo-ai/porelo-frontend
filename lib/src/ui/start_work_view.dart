@@ -797,7 +797,7 @@ class _NotReady extends StatelessWidget {
             ] else if (answer.outcome.name == 'UNKNOWN_HOST_KEY')
               Text(
                 'None of these is a key the forge kept here publishes, so nothing is trusted from here: '
-                'compare one with what the host publishes, and trust it at the machine.',
+                'compare one with what the machine publishes, and trust it at the machine.',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
           ],

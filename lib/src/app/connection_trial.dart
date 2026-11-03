@@ -48,7 +48,7 @@ Future<Trial> tryAMachine(
     if (machine.hostCard != null) {
       shared = tunnels.holdForTrial(machine);
       if (!await shared.ready) {
-        return Trial(reached: false, words: tunnels.of(machine)?.problem ?? 'The host could not be reached.');
+        return Trial(reached: false, words: tunnels.of(machine)?.problem ?? 'The machine could not be reached.');
       }
     } else if (machine.needsATunnel && machine.relay == null) {
       tunnel = await tunnels.trial(target);

@@ -134,20 +134,22 @@ class CardHostConnections extends HostConnections {
   Future<HostCardSsh> _card(String host) async {
     final view = organization.view;
     final entry = view?.hosts.where((each) => each.name == host).firstOrNull;
-    if (view == null || entry == null) throw OrganizationRefused('The organization names no host $host.');
+    if (view == null || entry == null) throw OrganizationRefused('The organization names no machine $host.');
     if (view.stale) {
       throw OrganizationRefused('The organization could not be read just now, so no connection to $host was made.');
     }
     final (address, port, hostKey) = (entry.address, entry.port, entry.hostKey);
     final (web, git, matrix) = (entry.webPort, entry.gitPort, entry.matrixPort);
     if (address == null || port == null || hostKey == null) {
-      throw OrganizationRefused('The host admin of $host has not entered its address and host key yet.');
+      throw OrganizationRefused('The Machine Admin of $host has not entered its address and SSH host key yet.');
     }
     final String key;
     try {
       key = await publicKey();
     } on Exception {
-      throw const OrganizationRefused('Your own key could not be read from your identity, so no host was connected.');
+      throw const OrganizationRefused(
+        'Your own key could not be read from your identity, so no machine was connected.',
+      );
     }
     try {
       return HostCardSsh(

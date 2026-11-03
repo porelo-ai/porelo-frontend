@@ -290,9 +290,9 @@ class _OrganizationPageState extends State<OrganizationPage> {
                   title: 'Add a project to ${view.name}',
                   nameLabel: 'Name',
                   nameHint: 'e.g. sprint7-demo',
-                  personLabel: 'Project admin',
+                  personLabel: 'Project Admin',
                   words:
-                      "The project's card is added to the organization now. Its project admin makes the project "
+                      "The project's card is added to the organization now. Its Project Admin makes the project "
                       'repository and signs its first project.yml when they first open the project under Projects, then '
                       'adds its members. No machine is chosen here: a machine\'s admin puts the project on it.',
                   confirm: 'Add the project',
@@ -358,7 +358,7 @@ class _OrganizationPageState extends State<OrganizationPage> {
                               if (!project.admins.contains(person.login)) person.login,
                           ],
                           title: 'Another admin of ${project.name}',
-                          personLabel: 'Project admin',
+                          personLabel: 'Project Admin',
                           words:
                               'They may change its members and repositories. An owner may do this much in a project, for '
                               'when its admins have lost their keys, and nothing else there.',
@@ -392,12 +392,12 @@ class _OrganizationPageState extends State<OrganizationPage> {
                       ),
                     _command(
                       'changeProjectAdmin/${project.name}',
-                      'Change the project admin…',
+                      'Change the Project Admin…',
                       () => show(
                         OrganizationPersonDialog(
                           organization,
-                          title: 'Another project admin for ${project.name}',
-                          personLabel: 'Project admin',
+                          title: 'Another Project Admin for ${project.name}',
+                          personLabel: 'Project Admin',
                           words:
                               'They become the first admin on its card, and may change its members and repositories.',
                           confirm: 'Name them',
@@ -453,11 +453,11 @@ class _OrganizationPageState extends State<OrganizationPage> {
               title: 'Add a machine to ${view.name}',
               nameLabel: 'Name',
               nameHint: 'e.g. build-2',
-              personLabel: 'First machine admin',
+              personLabel: 'First Machine Admin',
               words:
-                  "The machine's card is added with its name and first machine admin. The machine admin enters its address "
-                  "and SSH key when they set the machine up, then puts projects on it and names further machine "
-                  "admins, all on the machine's page under Machines.",
+                  "The machine's card is added with its name and first Machine Admin. The Machine Admin enters its address "
+                  "and SSH key when they set the machine up, then puts projects on it and names further Machine "
+                  "Admins, all on the machine's page under Machines.",
               confirm: 'Add the machine',
               check: (name) {
                 try {
@@ -684,7 +684,7 @@ String? _rolesWords(OrganizationView view) {
     if (view.isOwner) 'an organization owner',
     if (view.isOrganizationAdmin) 'an Organization Admin',
     for (final host in view.hosts)
-      if (host.admins.contains(view.me)) 'machine admin of ${host.name}',
+      if (host.admins.contains(view.me)) 'Machine Admin of ${host.name}',
   ];
   return roles.isEmpty ? null : 'you are ${roles.join(' and ')}';
 }
@@ -694,10 +694,10 @@ String _personWords(OrganizationView view, OrganizationPerson person) => [
   if (person.expires case final expires?) 'until $expires',
   if (view.owners.contains(person.login)) 'organization owner',
   for (final host in view.hosts)
-    if (host.admins.contains(person.login)) 'machine admin of ${host.name}',
+    if (host.admins.contains(person.login)) 'Machine Admin of ${host.name}',
   for (final project in view.projects)
     if (project.admins.contains(person.login))
-      'project admin of ${project.name}'
+      'Project Admin of ${project.name}'
     else if (project.members.contains(person.login))
       'developer of ${project.name}',
 ].join(' · ');
@@ -718,9 +718,9 @@ _Tone _toneOf(CardStanding standing) => switch (standing) {
 
 String _projectWords(OrganizationProject project) => [
   if (project.admins.isEmpty)
-    'no project admin'
+    'no Project Admin'
   else
-    '${project.admins.length == 1 ? 'project admin' : 'project admins'} ${project.admins.join(', ')}',
+    '${project.admins.length == 1 ? 'Project Admin' : 'Project Admins'} ${project.admins.join(', ')}',
   peopleOf(project),
   if (project.host case final host?) 'on $host' else 'on no machine yet',
 ].join(' · ');
@@ -736,11 +736,11 @@ String _standingIn(OrganizationView view, OrganizationProject project) => !view.
 String _hostWords(OrganizationHost host) => [
   if (host.address case final address?) host.port == null ? address : _reach(address, host.port!) else 'no address yet',
   if (host.admins.isEmpty)
-    'no machine admin'
+    'no Machine Admin'
   else if (host.admins.length == 1)
-    'machine admin ${host.admins.single}'
+    'Machine Admin ${host.admins.single}'
   else
-    'machine admins ${host.admins.join(', ')}',
+    'Machine Admins ${host.admins.join(', ')}',
   if (host.projects.isEmpty) 'carries no project' else 'carries ${host.projects.join(', ')}',
 ].join(' · ');
 
@@ -748,7 +748,7 @@ String _reach(String address, int port) => address.contains(':') ? '[$address]:$
 
 String _removingProjectWords(OrganizationProject project) => [
   'Its card and its members leave the organization.',
-  if (project.host case final host?) 'It is still on $host, and its machine admins take it off.',
+  if (project.host case final host?) 'It is still on $host, and its Machine Admins take it off.',
   'Its repositories stay where they are.',
 ].join(' ');
 
@@ -842,7 +842,7 @@ class _NoCard extends StatelessWidget {
               children: [
                 Text('You are not in ${view.name} yet', style: Theme.of(context).textTheme.titleSmall),
                 const Text(
-                  'Add your card so that a project admin can add you to a project and a machine can admit you.',
+                  'Add your card so that a Project Admin can add you to a project and a machine can admit you.',
                 ),
               ],
             ),

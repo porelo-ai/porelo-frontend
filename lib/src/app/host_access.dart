@@ -71,12 +71,12 @@ class HostAccess extends ChangeNotifier {
 
   /// Said when Porelo's answer names no organization settings or forge to hand a host.
   static const noAddress =
-      "Porelo's answer does not name the organization's settings and forge, and a new host needs them to follow it, "
+      "Porelo's answer does not name the organization's settings and forge, and a new machine needs them to follow it, "
       'so no server can be prepared.';
 
   /// Said of an organization at an https address, which a host's own key cannot read; other forms all can.
   static const noFollowing =
-      "This organization stands at an https address, and a host follows it with an ssh key of its own, so a host made "
+      "This organization stands at an https address, and a machine follows it with an ssh key of its own, so a machine made "
       'now could never follow it. No server is prepared until the organization stands at an ssh address.';
 
   static Future<String> _ownKnownHosts() async {
@@ -119,7 +119,7 @@ class HostAccess extends ChangeNotifier {
     if (view == null) return 'The organization has not been read yet.';
     // No security check rests on a state read earlier: a pin from one could trust the wrong people.
     if (view.stale) {
-      return 'Porelo could not reach the organization just now, and no host is prepared on an older state. Try again.';
+      return 'Porelo could not reach the organization just now, and no machine is prepared on an older state. Try again.';
     }
     final actor = identity();
     if (actor == null) return proof?.whyNone ?? 'Your identity is not proven.';
@@ -134,11 +134,11 @@ class HostAccess extends ChangeNotifier {
         ? view.hosts.any((each) => each.admins.contains(actor.login))
         : named?.admins.contains(actor.login) == true;
     if (!permitted) {
-      if (host == null) return 'Only a host admin of this organization may do this.${_ask(view, _owners(view))}';
+      if (host == null) return 'Only a Machine Admin of this organization may do this.${_ask(view, _owners(view))}';
       if (named == null) {
-        return 'The organization lists no host $host yet: an organization owner adds it first.${_ask(view, _owners(view))}';
+        return 'The organization lists no machine $host yet: an organization owner adds it first.${_ask(view, _owners(view))}';
       }
-      return 'Only a host admin of $host may do this.${_ask(view, named.admins)}';
+      return 'Only a Machine Admin of $host may do this.${_ask(view, named.admins)}';
     }
     if ((view.settings ?? '').isEmpty || (view.forge ?? '').isEmpty) return noAddress;
     if (view.address?.toLowerCase().startsWith('https://') ?? false) return noFollowing;
@@ -152,9 +152,9 @@ class HostAccess extends ChangeNotifier {
       final standing = view.persons.where((person) => person.login == login).firstOrNull?.standing;
       if (standing == CardStanding.trusted) continue;
       return standing == CardStanding.notYet
-          ? 'The forge cannot yet say whether the key of $login, a host admin of ${host.name}, is theirs, and a new '
-                'host would not believe it. Try again later.'
-          : 'The organization holds no accepted card of $login, a host admin of ${host.name}, and a new host would '
+          ? 'The forge cannot yet say whether the key of $login, a Machine Admin of ${host.name}, is theirs, and a new '
+                'machine would not believe it. Try again later.'
+          : 'The organization holds no accepted card of $login, a Machine Admin of ${host.name}, and a new machine would '
                 'not believe their key.${_ask(view, _owners(view))}';
     }
     return null;
@@ -265,8 +265,8 @@ class HostAccess extends ChangeNotifier {
   String? cardLeftBehind(String host) {
     final named = _view?.hosts.where((each) => each.name == host).firstOrNull;
     if (named?.address == null) return null;
-    return 'The organization still names $host at ${named!.address}: a host admin enters its new address, or an '
-        'organization owner removes the host.';
+    return 'The organization still names $host at ${named!.address}: a Machine Admin enters its new address, or an '
+        'organization owner removes the machine.';
   }
 
   static final _random = Random.secure();

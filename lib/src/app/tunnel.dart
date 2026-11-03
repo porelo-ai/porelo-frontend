@@ -135,7 +135,7 @@ class Tunnel {
   List<String> get command => machine.hostCard != null
       ? _cardCommand
       : machine.host.startsWith('-')
-      ? throw ArgumentError('An ssh host must not start with a dash.')
+      ? throw ArgumentError('A machine’s ssh address must not start with a dash.')
       : <String>[
           openSsh('ssh'),
           ...machine.loginSshOptions,
@@ -427,8 +427,8 @@ class Tunnel {
     vaultState = unlocked.state;
     vaultProblem = switch (unlocked.state) {
       HostUnlockState.unlocked => null,
-      HostUnlockState.waitingForKey => 'Waiting for your key. Unlock KeePassXC to open the host vault.',
-      _ => unlocked.words ?? 'Core could not unlock the host vault.',
+      HostUnlockState.waitingForKey => 'Waiting for your key. Unlock KeePassXC to open the machine vault.',
+      _ => unlocked.words ?? 'Core could not unlock the machine vault.',
     };
   }
 
@@ -670,7 +670,7 @@ class Tunnels extends ChangeNotifier {
         final card = machine.hostCard;
         if (card == null) continue;
         if (_cardOwners[card.name] != null && _cardOwners[card.name] != machine) {
-          throw HostFilesRefused('Host ${card.name} already has a different managed endpoint.');
+          throw HostFilesRefused('Machine ${card.name} already has a different managed endpoint.');
         }
       }
       _registerCards(replacing);
@@ -747,7 +747,7 @@ class Tunnels extends ChangeNotifier {
 
   /// Holds a card master for a probe, releasing it only after its last consumer.
   HostTunnelTrial holdForTrial(Machine machine) {
-    if (machine.hostCard == null) throw ArgumentError('A shared trial needs a host card.');
+    if (machine.hostCard == null) throw ArgumentError('A shared trial needs a machine card.');
     final request = _TunnelRequest(machine, trial: true);
     _requests.add(request);
     final ready = Future<bool>.sync(
@@ -801,7 +801,7 @@ class Tunnels extends ChangeNotifier {
     try {
       final card = machine.hostCard;
       if (card != null && _cardOwners[card.name] != null && _cardOwners[card.name] != machine) {
-        throw HostFilesRefused('Host ${card.name} already has a different managed endpoint.');
+        throw HostFilesRefused('Machine ${card.name} already has a different managed endpoint.');
       }
       _registerCards([machine]);
       if (card != null) _cardOwners[card.name] = machine;
@@ -847,7 +847,9 @@ class Tunnels extends ChangeNotifier {
   ///
   /// Kept out of [of]: a trial is not a machine being watched, and the caller takes it down.
   Future<Tunnel> trial(Machine machine) async {
-    if (machine.hostCard != null) throw const HostFilesRefused('Use the shared host tunnel for card hosts.');
+    if (machine.hostCard != null) {
+      throw const HostFilesRefused('Use the shared machine connection for machines with a card.');
+    }
     final tunnel = Tunnel(machine, start: _launch, run: _run, appears: _untilItBinds);
     await tunnel.raise();
     return tunnel;
@@ -889,7 +891,7 @@ class Tunnels extends ChangeNotifier {
   /// back after a reboot and owns its socket; `setsid` is none of those and is here because the
   /// package ships no unit yet. The fallback is deliberately loud about which one ran.
   static List<String> startCommandFor(Machine machine) => machine.host.startsWith('-')
-      ? throw ArgumentError('An ssh host must not start with a dash.')
+      ? throw ArgumentError('A machine’s ssh address must not start with a dash.')
       : machine.isThisComputer
       // This computer's own daemon: the same lines, in this user's login shell, with no login.
       ? <String>['sh', '-c', inTheLoginShell(startsIt)]
@@ -940,7 +942,7 @@ class Tunnels extends ChangeNotifier {
   /// The line that would stop the daemon on [machine]: shown before anybody agrees, run unchanged
   /// after, like the start.
   static List<String> stopCommandFor(Machine machine) => machine.host.startsWith('-')
-      ? throw ArgumentError('An ssh host must not start with a dash.')
+      ? throw ArgumentError('A machine’s ssh address must not start with a dash.')
       : <String>[
           openSsh('ssh'),
           ...machine.loginSshOptions,
@@ -1034,7 +1036,7 @@ class Tunnels extends ChangeNotifier {
 
   /// The same line for a login known only by where it is, before there is a machine to describe.
   static List<String> loginUidCommandAt(String host, {List<String> options = const <String>[]}) => host.startsWith('-')
-      ? throw ArgumentError('An ssh host must not start with a dash.')
+      ? throw ArgumentError('A machine’s ssh address must not start with a dash.')
       : <String>[
           openSsh('ssh'),
           ...options,
@@ -1297,7 +1299,7 @@ String? whySshRefused(String said, String host, {String? sshConfig}) {
         '${key == null ? '' : ' $key'}';
   }
   if (said.contains('Host key verification failed')) {
-    return 'This computer does not know $host’s host key yet, or it changed. Log in once with ssh $host in a '
+    return 'This computer does not know $host’s SSH host key yet, or it changed. Log in once with ssh $host in a '
         'terminal and compare the key it shows.';
   }
   if (said.contains('Could not resolve hostname')) return '$host is not a name this computer can find.';
@@ -1330,6 +1332,6 @@ String keySshWouldUse(String sshConfig, [String? host]) {
     }
   }
   return host == null || host.isEmpty
-      ? 'No key is named for the host in ~/.ssh/config.'
+      ? 'No key is named for the machine in ~/.ssh/config.'
       : 'No key is named for $host in ~/.ssh/config.';
 }

@@ -9,7 +9,7 @@ Feature: Trying a machine from the dialog, before it is watched
         When I start watching another machine
 
     Scenario: a machine that answers says what it is, and nothing is left running
-        When I choose {'Raise the forward for me'}
+        When I choose {'Connect over ssh for me'}
         And I say it is at {'user@build.example.test'}
         And its socket there is {'/run/user/1001/porelo/porelod.sock'}
         And I try the connection
@@ -18,7 +18,7 @@ Feature: Trying a machine from the dialog, before it is watched
 
     Scenario: a forward ssh cannot raise says what ssh said
         Given raising a forward will fail with {'Host key verification failed.'}
-        When I choose {'Raise the forward for me'}
+        When I choose {'Connect over ssh for me'}
         And I say it is at {'user@build.example.test'}
         And its socket there is {'/run/user/1001/porelo/porelod.sock'}
         And I try the connection
@@ -28,7 +28,7 @@ Feature: Trying a machine from the dialog, before it is watched
     # The forward comes up either way; only connecting through it finds the far end empty.
     Scenario: a forward to a socket nobody serves points at the far end
         Given nothing answers on that machine
-        When I choose {'Raise the forward for me'}
+        When I choose {'Connect over ssh for me'}
         And I say it is at {'user@build.example.test'}
         And its socket there is {'/run/user/1001/porelo/porelod.sock'}
         And I try the connection
@@ -37,7 +37,7 @@ Feature: Trying a machine from the dialog, before it is watched
 
     Scenario: a socket left empty is asked of the machine, shown filled in, and tried
         Given the account logs in as uid {1001}
-        When I choose {'Raise the forward for me'}
+        When I choose {'Connect over ssh for me'}
         And I say it is at {'user@build.example.test'}
         And I try the connection
         Then the machine was asked who {'user@build.example.test'} logs in as
@@ -45,7 +45,7 @@ Feature: Trying a machine from the dialog, before it is watched
         And the trial says {'Reached Porelo 0.1.0-mock'}
 
     Scenario: a socket left empty on a machine that cannot be asked says how to go on, and tries nothing
-        When I choose {'Raise the forward for me'}
+        When I choose {'Connect over ssh for me'}
         And I say it is at {'user@build.example.test'}
         And I try the connection
         Then the trial says {'Could not log in to user@build.example.test to ask where Porelo is for you there'}
@@ -56,7 +56,7 @@ Feature: Trying a machine from the dialog, before it is watched
     Scenario: a socket in another user's runtime directory is named as that, with the path meant
         Given nothing answers on that machine
         And the account logs in as uid {1000}
-        When I choose {'Raise the forward for me'}
+        When I choose {'Connect over ssh for me'}
         And I say it is at {'user@build.example.test'}
         And its socket there is {'/run/user/1001/porelo/porelod.sock'}
         And I try the connection
@@ -67,7 +67,7 @@ Feature: Trying a machine from the dialog, before it is watched
     Scenario: a socket under the login's own uid still says that nothing answers
         Given nothing answers on that machine
         And the account logs in as uid {1001}
-        When I choose {'Raise the forward for me'}
+        When I choose {'Connect over ssh for me'}
         And I say it is at {'user@build.example.test'}
         And its socket there is {'/run/user/1001/porelo/porelod.sock'}
         And I try the connection
@@ -79,7 +79,7 @@ Feature: Trying a machine from the dialog, before it is watched
     # ssh works and nothing serves: the one failure the dialog can answer rather than only describe.
     Scenario: a machine nobody serves is offered a start, and nothing runs until it is asked for
         Given nothing answers on that machine
-        When I choose {'Raise the forward for me'}
+        When I choose {'Connect over ssh for me'}
         And I say it is at {'user@build.example.test'}
         And its socket there is {'/run/user/1001/porelo/porelod.sock'}
         And I try the connection
@@ -95,7 +95,7 @@ Feature: Trying a machine from the dialog, before it is watched
 
     Scenario: the offer is turned down and nothing is run
         Given nothing answers on that machine
-        When I choose {'Raise the forward for me'}
+        When I choose {'Connect over ssh for me'}
         And I say it is at {'user@build.example.test'}
         And its socket there is {'/run/user/1001/porelo/porelod.sock'}
         And I try the connection
@@ -106,7 +106,7 @@ Feature: Trying a machine from the dialog, before it is watched
     Scenario: a start that failed says what came back
         Given nothing answers on that machine
         And starting Porelo will fail with {'no porelod is installed there'}
-        When I choose {'Raise the forward for me'}
+        When I choose {'Connect over ssh for me'}
         And I say it is at {'user@build.example.test'}
         And its socket there is {'/run/user/1001/porelo/porelod.sock'}
         And I try the connection
@@ -117,7 +117,7 @@ Feature: Trying a machine from the dialog, before it is watched
     Scenario: a start that failed in the dialog waits under what needs a person once it is closed
         Given nothing answers on that machine
         And starting Porelo will fail with {'no porelod is installed there'}
-        When I choose {'Raise the forward for me'}
+        When I choose {'Connect over ssh for me'}
         And I say it is at {'user@build.example.test'}
         And its socket there is {'/run/user/1001/porelo/porelod.sock'}
         And I try the connection
@@ -129,7 +129,7 @@ Feature: Trying a machine from the dialog, before it is watched
     # A forward that never came up is a different problem, and starting something cannot answer it.
     Scenario: a forward ssh could not raise is never offered a start
         Given raising a forward will fail with {'Host key verification failed.'}
-        When I choose {'Raise the forward for me'}
+        When I choose {'Connect over ssh for me'}
         And I say it is at {'user@build.example.test'}
         And its socket there is {'/run/user/1001/porelo/porelod.sock'}
         And I try the connection
@@ -137,27 +137,27 @@ Feature: Trying a machine from the dialog, before it is watched
 
     Scenario: a socket somebody else forwarded names no host to log into
         Given nothing answers on that machine
-        When I choose {'Its socket is already forwarded'}
+        When I choose {'Something else already connects it'}
         And the forwarded socket is {'/tmp/porelod-remote.sock'}
         And I try the connection
         Then starting Porelo there is not offered
 
     Scenario: a machine that speaks something else says so
         Given the machine serves nothing this build knows
-        When I choose {'Its socket is already forwarded'}
+        When I choose {'Something else already connects it'}
         And the forwarded socket is {'/tmp/porelod-remote.sock'}
         And I try the connection
         Then the trial says {'serves nothing this build understands'}
 
     Scenario: a socket already forwarded is tried without raising anything
-        When I choose {'Its socket is already forwarded'}
+        When I choose {'Something else already connects it'}
         And the forwarded socket is {'/tmp/porelod-remote.sock'}
         And I try the connection
         Then the trial says {'Reached Porelo'}
         And nothing was raised for the trial
 
     Scenario: changing where it is takes the old answer away
-        When I choose {'Raise the forward for me'}
+        When I choose {'Connect over ssh for me'}
         And I say it is at {'user@build.example.test'}
         And its socket there is {'/run/user/1001/porelo/porelod.sock'}
         And I try the connection

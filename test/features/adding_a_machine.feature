@@ -16,15 +16,15 @@ Feature: Adding a machine through a wizard that starts from what you have
         Then the dialog offers {'Yes: I may run commands as root there'}
         And the dialog offers {'No: somebody else set Porelo up there for me'}
         When I choose {'Yes: I may run commands as root there'}
-        Then the dialog offers {'Its socket is already forwarded'}
-        And the dialog offers {'Raise the forward for me'}
+        Then the dialog offers {'Something else already connects it'}
+        And the dialog offers {'Connect over ssh for me'}
         And the dialog offers {'A new machine'}
         And the dialog offers {'Another user on a machine already prepared'}
 
     Scenario: one who is not an administrator there is offered only to connect
         When I choose {'No: somebody else set Porelo up there for me'}
-        Then the dialog offers {'Raise the forward for me'}
-        And the dialog offers {'Its socket is already forwarded'}
+        Then the dialog offers {'Connect over ssh for me'}
+        And the dialog offers {'Something else already connects it'}
         And the dialog does not offer {'A new machine'}
         And the dialog does not offer {'Another user on a machine already prepared'}
 
@@ -32,21 +32,21 @@ Feature: Adding a machine through a wizard that starts from what you have
     Scenario: the wizard goes on only with a name and a kind
         When I say it is called {'the build machine'}
         Then the wizard cannot go on yet
-        When I choose {'Raise the forward for me'}
+        When I choose {'Connect over ssh for me'}
         And I go on
         Then its socket there is not filled in
 
     Scenario: a kind without a name does not go on either
-        When I choose {'Its socket is already forwarded'}
+        When I choose {'Something else already connects it'}
         Then the wizard cannot go on yet
 
     Scenario: going back keeps what was said, and another kind can be chosen
         When I say it is called {'the build machine'}
-        And I choose {'Raise the forward for me'}
+        And I choose {'Connect over ssh for me'}
         And I go on
         And I say it is at {'user@build.example.test'}
         And I go back
-        And I choose {'Its socket is already forwarded'}
+        And I choose {'Something else already connects it'}
         And I go on
         And the forwarded socket is {'/tmp/porelo-build.sock'}
         And I watch it
@@ -57,7 +57,7 @@ Feature: Adding a machine through a wizard that starts from what you have
     # is being acted on, so it is read when the person goes there.
     Scenario: a machine added is asked whether it can run work when the person goes there
         When I say it is called {'the build machine'}
-        And I choose {'Its socket is already forwarded'}
+        And I choose {'Something else already connects it'}
         And I go on
         And the forwarded socket is {'/tmp/porelo-build.sock'}
         And I watch it
@@ -70,7 +70,7 @@ Feature: Adding a machine through a wizard that starts from what you have
     Scenario: a host reached for the first time shows its key before anything logs in
         Given the host key of {'user@build.example.test'} is not known yet
         When I say it is called {'the build machine'}
-        And I choose {'Raise the forward for me'}
+        And I choose {'Connect over ssh for me'}
         And I say it is at {'user@build.example.test'}
         And its socket there is {'/run/user/1001/porelo/porelod.sock'}
         And I try the connection
@@ -83,7 +83,7 @@ Feature: Adding a machine through a wizard that starts from what you have
     Scenario: a host key that is not trusted is never written, and nothing is tried
         Given the host key of {'user@build.example.test'} is not known yet
         When I say it is called {'the build machine'}
-        And I choose {'Raise the forward for me'}
+        And I choose {'Connect over ssh for me'}
         And I say it is at {'user@build.example.test'}
         And its socket there is {'/run/user/1001/porelo/porelod.sock'}
         And I try the connection
@@ -95,7 +95,7 @@ Feature: Adding a machine through a wizard that starts from what you have
     Scenario: watching without trying asks about the key too
         Given the host key of {'user@build.example.test'} is not known yet
         When I say it is called {'the build machine'}
-        And I choose {'Raise the forward for me'}
+        And I choose {'Connect over ssh for me'}
         And I say it is at {'user@build.example.test'}
         And its socket there is {'/run/user/1001/porelo/porelod.sock'}
         And I watch it
@@ -106,7 +106,7 @@ Feature: Adding a machine through a wizard that starts from what you have
 
     Scenario: a host already known is not asked about
         When I say it is called {'the build machine'}
-        And I choose {'Raise the forward for me'}
+        And I choose {'Connect over ssh for me'}
         And I say it is at {'user@build.example.test'}
         And its socket there is {'/run/user/1001/porelo/porelod.sock'}
         And I try the connection
@@ -116,7 +116,7 @@ Feature: Adding a machine through a wizard that starts from what you have
     # A socket somebody else forwarded names no host, so there is no key of one to ask about.
     Scenario: a socket already forwarded is never asked about a host key
         When I say it is called {'the build machine'}
-        And I choose {'Its socket is already forwarded'}
+        And I choose {'Something else already connects it'}
         And the forwarded socket is {'/tmp/porelo-build.sock'}
         And I try the connection
         And I watch it

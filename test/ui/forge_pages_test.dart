@@ -107,7 +107,7 @@ void main() {
       testWidgets('the address "$hostile" names no entry and no command', (tester) async {
         final terminals = await pump(tester, hostile);
         expect(item(tester).enabled, isFalse);
-        expect(find.textContaining('no plain host name'), findsOneWidget);
+        expect(find.textContaining('no plain server name'), findsOneWidget);
         await tester.tap(find.byKey(const ValueKey<String>('forge.storeToken')), warnIfMissed: false);
         await World.settle(tester);
         expect(terminals, isEmpty);

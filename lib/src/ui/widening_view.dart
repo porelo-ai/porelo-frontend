@@ -82,7 +82,7 @@ class _WideningDialogState extends State<WideningDialog> {
                   autofocus: true,
                   enabled: result == null,
                   decoration: const InputDecoration(
-                    labelText: 'Host names',
+                    labelText: 'Machine names',
                     hintText: 'files.example.test, docs.example.test',
                     helperText:
                         'A grant covers what is under a name. '

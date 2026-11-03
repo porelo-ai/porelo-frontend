@@ -203,7 +203,7 @@ Command _hostProtocol(HostPreparation run, VoidCallback? open) =>
     (run.needsYou && !run.ready
             ? hostPreparationCommand(project: run.project, open: open ?? () {}, home: Home.machineRow)
             : hostProtocolCommand(project: run.project, open: open ?? () {}))
-        .unless(open == null ? 'host setup is unavailable here' : null);
+        .unless(open == null ? 'machine setup is unavailable here' : null);
 
 class _HostPreparationRow extends StatelessWidget {
   const _HostPreparationRow({required this.run, required this.actions, this.open, super.key});

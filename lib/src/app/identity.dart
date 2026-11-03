@@ -555,7 +555,7 @@ class Identity implements AgentKeyList {
       whoMay: _contacts(plan['who_may']),
       hosts: List.unmodifiable(
         hosts.map((host) {
-          if (host is! Map<String, dynamic>) throw const FormatException('Invalid host in the plan.');
+          if (host is! Map<String, dynamic>) throw const FormatException('Invalid machine in the plan.');
           return VaultReset(host: _text(host, 'host'), vault: _text(host, 'vault'));
         }),
       ),

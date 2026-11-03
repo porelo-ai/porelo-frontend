@@ -568,19 +568,19 @@ class _AskForAMachineState extends State<_AskForAMachine> {
           choices: <Choice<MachineKind>>[
             const Choice(
               MachineKind.forwarded,
-              'Its socket is already forwarded',
+              'Something else already connects it',
               id: 'machine-already-forwarded',
               means:
-                  'Nothing is raised and nothing is managed. This is the way in with no '
-                  'credential handling anywhere near it.',
+                  'Another program already connects this machine’s socket to this computer. '
+                  'This window uses that connection and leaves it running when it closes.',
             ),
             const Choice(
               MachineKind.raiseIt,
-              'Raise the forward for me',
+              'Connect over ssh for me',
               id: 'machine-raise-it',
               means:
-                  'An ssh forward, started here and taken down when this window closes. '
-                  'It never asks for a passphrase: use an agent, and accept the host key '
+                  'This window connects over ssh for you and ends the connection when it closes. '
+                  'It never asks for a passphrase: use an agent, and accept the SSH host key '
                   'once in a shell.',
             ),
             if (_admin == true)
@@ -941,7 +941,7 @@ class _AskForAMachineState extends State<_AskForAMachine> {
   Future<bool> _hostKeyAccepted() async {
     if (_raiseIt == true && _host.text.trim().startsWith('-')) {
       setState(() {
-        _trial = const Trial(reached: false, words: 'An ssh host must not start with a dash.');
+        _trial = const Trial(reached: false, words: 'A machine’s ssh address must not start with a dash.');
         _triedFor = _signature;
       });
       _showTheEnd();
@@ -959,7 +959,7 @@ class _AskForAMachineState extends State<_AskForAMachine> {
         await keys.accept(check);
         return true;
       }
-      said = 'The host key of ${check.host} was not trusted, so nothing was tried.';
+      said = 'The SSH host key of ${check.host} was not trusted, so nothing was tried.';
     }
     if (!mounted) return false;
     setState(() {

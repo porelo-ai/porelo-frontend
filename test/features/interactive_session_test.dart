@@ -64,7 +64,7 @@ void main() {
     testWidgets('''a machine reached over ssh runs the same verb, through a terminal of its own''', (tester) async {
       await bddSetUp(tester);
       await iStartWatchingAnotherMachine(tester);
-      await iChoose(tester, 'Raise the forward for me');
+      await iChoose(tester, 'Connect over ssh for me');
       await iSayItIsCalled(tester, 'the build machine');
       await iSayItIsAt(tester, 'user@build.example.test');
       await itsSocketThereIs(tester, '/run/user/1001/porelo/porelod.sock');
@@ -174,7 +174,7 @@ void main() {
     testWidgets('''a connection that never happened is told apart from work that refused''', (tester) async {
       await bddSetUp(tester);
       await iStartWatchingAnotherMachine(tester);
-      await iChoose(tester, 'Raise the forward for me');
+      await iChoose(tester, 'Connect over ssh for me');
       await iSayItIsCalled(tester, 'the build machine');
       await iSayItIsAt(tester, 'user@build.example.test');
       await itsSocketThereIs(tester, '/run/user/1001/porelo/porelod.sock');

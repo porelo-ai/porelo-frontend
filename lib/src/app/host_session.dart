@@ -475,7 +475,7 @@ class HostSession extends ChangeNotifier {
     } on TimeoutException {
       stopReading();
       unawaited(read.catchError((Object _) {}));
-      throw StateError('The host did not answer within ${within.inSeconds} seconds.');
+      throw StateError('The machine did not answer within ${within.inSeconds} seconds.');
     }
     if (state != HostRunState.done) {
       final reasons = <String>{
@@ -487,7 +487,7 @@ class HostSession extends ChangeNotifier {
       throw StateError(reasons.join('\n'));
     }
     final status = steps.where((step) => step.step == 'org-status' && step.state == StepState.done).singleOrNull;
-    if (status?.words == null) throw const FormatException('The host did not report its membership holders.');
+    if (status?.words == null) throw const FormatException('The machine did not report its membership holders.');
     return HostMembership.readStatus(status!.words!);
   }
 
@@ -571,17 +571,17 @@ class HostSession extends ChangeNotifier {
     if (parsed == null) return;
     final step = parsed;
     if (_upCommand && arguments.contains('--host-name') && step.state == StepState.waiting) {
-      _hostProblem = 'The host requested a retired root setup stop.';
+      _hostProblem = 'The machine requested a retired root setup stop.';
       _changed();
       return;
     }
     if (step.state == StepState.host) {
       if (!_upCommand) {
-        _hostProblem = 'The host record is allowed only from up.';
+        _hostProblem = 'The machine record is allowed only from up.';
       } else if (preparedHost != null) {
-        _hostProblem = 'The host record was repeated.';
+        _hostProblem = 'The machine record was repeated.';
       } else if (!steps.any((step) => step.step == 'up' && step.state == StepState.done)) {
-        _hostProblem = 'The host record must follow the completed up step.';
+        _hostProblem = 'The machine record must follow the completed up step.';
       } else {
         preparedHost = step.host;
       }
@@ -589,7 +589,7 @@ class HostSession extends ChangeNotifier {
       return;
     }
     if (preparedHost != null) {
-      _hostProblem = 'The host record must be the last line of up.';
+      _hostProblem = 'The machine record must be the last line of up.';
       _changed();
       return;
     }

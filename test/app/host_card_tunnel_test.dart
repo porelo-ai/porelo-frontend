@@ -1672,7 +1672,7 @@ void main() {
     ]);
     expect(process.killed, isTrue);
     expect(result.state, HostUnlockState.refused);
-    expect(result.words, 'Core host unlock timed out.');
+    expect(result.words, 'Core machine unlock timed out.');
   });
 
   for (final (code, answer, state) in const [

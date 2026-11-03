@@ -19,7 +19,7 @@ final _repositoryName = RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$');
 String? _roleIn(OrganizationView view, OrganizationProject project) => !view.holdsRoles
     ? null
     : project.admins.contains(view.me)
-    ? 'project admin'
+    ? 'Project Admin'
     : project.members.contains(view.me)
     ? 'developer'
     : null;
@@ -236,7 +236,7 @@ class _OrganizationProjectsPageState extends State<OrganizationProjectsPage> {
             ),
           if (view != null && mine.isEmpty)
             const Text(
-              'You are in no project yet. Nobody joins on their own: a project admin adds you. Every project of the '
+              'You are in no project yet. Nobody joins on their own: a Project Admin adds you. Every project of the '
               'organization is listed under Organization.',
             ),
           if (widget.onOthers case final others?)
@@ -404,8 +404,8 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
   }
 
   String _adminsWords(ProjectView view) => view.admins.isEmpty
-      ? 'It has no project admin.'
-      : '${view.admins.length == 1 ? 'Project admin' : 'Project admins'} ${view.admins.join(', ')}.';
+      ? 'It has no Project Admin.'
+      : '${view.admins.length == 1 ? 'Project Admin' : 'Project Admins'} ${view.admins.join(', ')}.';
 
   Widget _address(ProjectView view, bool isAdmin) => Padding(
     padding: const EdgeInsets.only(bottom: Space.normal),
@@ -464,7 +464,7 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
             ],
           )
         : Text(
-            '${view.admins.isEmpty ? 'Its project admin' : view.admins.join(' or ')} has not opened this project yet.',
+            '${view.admins.isEmpty ? 'Its Project Admin' : view.admins.join(' or ')} has not opened this project yet.',
           ),
   );
 
@@ -475,7 +475,7 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
       return 'no role';
     }
     if (me.locked) return 'locked';
-    return me.role == ProjectView.adminRole ? 'project admin' : me.role;
+    return me.role == ProjectView.adminRole ? 'Project Admin' : me.role;
   }
 
   Widget _repositories(ProjectView view, bool isAdmin) =>

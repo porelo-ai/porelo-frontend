@@ -86,7 +86,7 @@ class HomeserverForwards extends ChangeNotifier {
   /// Holds [project]'s homeserver on [machine] forwarded on [port] from now on, and remembers it.
   Future<void> hold(Machine machine, String project, int port) async {
     if (machine.hostCard != null && port != machine.hostCard!.matrixPort) {
-      throw const ForwardRefused('Use the fixed Matrix port from this host card.');
+      throw const ForwardRefused('Use the fixed Matrix port from this machine card.');
     }
     await _settings.rememberHomeserver(machine.name, project, port);
     await _raiseFor(machine, project, port);
@@ -146,13 +146,13 @@ class HomeserverForwards extends ChangeNotifier {
     if (machine.hostCard case final card?) {
       final owner = tunnels;
       if (port != card.matrixPort) {
-        _problems[key] = 'The remembered Matrix port differs from this host card.';
+        _problems[key] = 'The remembered Matrix port differs from this machine card.';
       } else if (owner == null) {
-        _problems[key] = 'The shared host tunnel is unavailable.';
+        _problems[key] = 'The shared machine connection is unavailable.';
       } else if (await owner.raiseFor(machine)) {
         _problems.remove(key);
       } else {
-        _problems[key] = owner.of(machine)?.problem ?? 'The host tunnel could not be reached.';
+        _problems[key] = owner.of(machine)?.problem ?? 'The machine connection could not be reached.';
       }
       if (!_disposed) notifyListeners();
       return;

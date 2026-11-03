@@ -222,7 +222,7 @@ class Attention extends ChangeNotifier {
     for (final machine in silent) {
       final fleet = fleetOf(machine);
       final what = switch (fleet.reachability) {
-        _ when notConnectedYet(machine) => 'You have not connected to this host yet',
+        _ when notConnectedYet(machine) => 'You have not connected to this machine yet',
         Reachability.connecting => 'This machine is still connecting, so nothing is known yet',
         Reachability.incompatible => 'This machine serves nothing this build understands',
         _ => 'This machine cannot be reached',

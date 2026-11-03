@@ -9,7 +9,7 @@ Feature: Raising and dropping the forward that reaches a machine
 
     Scenario: a machine is described by where it is, and the forward is raised here
         When I start watching another machine
-        And I choose {'Raise the forward for me'}
+        And I choose {'Connect over ssh for me'}
         And I say it is called {'the build machine'}
         And I say it is at {'user@build.example.test'}
         And its socket there is {'/run/user/1001/porelo/porelod.sock'}
@@ -30,18 +30,18 @@ Feature: Raising and dropping the forward that reaches a machine
     Scenario: a forward that cannot be raised says what the transport said
         Given raising a forward will fail with {'Host key verification failed.'}
         When I start watching another machine
-        And I choose {'Raise the forward for me'}
+        And I choose {'Connect over ssh for me'}
         And I say it is called {'the build machine'}
         And I say it is at {'user@build.example.test'}
         And its socket there is {'/run/user/1001/porelo/porelod.sock'}
         And I watch it
-        Then the machine {'the build machine'} says {'This computer does not know user@build.example.test’s host key yet, or it changed.'}
+        Then the machine {'the build machine'} says {'This computer does not know user@build.example.test’s SSH host key yet, or it changed.'}
 
     # A machine that answered yesterday and does not today is usually a daemon nobody started.
     Scenario: a watched machine that is silent can be started from its menu, once somebody agrees
         Given nothing answers on that machine
         When I start watching another machine
-        And I choose {'Raise the forward for me'}
+        And I choose {'Connect over ssh for me'}
         And I say it is called {'the build machine'}
         And I say it is at {'user@build.example.test'}
         And its socket there is {'/run/user/1001/porelo/porelod.sock'}
@@ -57,7 +57,7 @@ Feature: Raising and dropping the forward that reaches a machine
     Scenario: a start nobody agreed to runs nothing
         Given nothing answers on that machine
         When I start watching another machine
-        And I choose {'Raise the forward for me'}
+        And I choose {'Connect over ssh for me'}
         And I say it is called {'the build machine'}
         And I say it is at {'user@build.example.test'}
         And its socket there is {'/run/user/1001/porelo/porelod.sock'}
@@ -71,7 +71,7 @@ Feature: Raising and dropping the forward that reaches a machine
 
     Scenario: a machine that answers is offered no start at all
         When I start watching another machine
-        And I choose {'Raise the forward for me'}
+        And I choose {'Connect over ssh for me'}
         And I say it is called {'the build machine'}
         And I say it is at {'user@build.example.test'}
         And its socket there is {'/run/user/1001/porelo/porelod.sock'}
@@ -90,7 +90,7 @@ Feature: Raising and dropping the forward that reaches a machine
     # tasks run on without their daemon, what it costs is the watching and the questions nobody answers.
     Scenario: a machine that answers can be stopped from its menu, told first what stopping costs
         When I start watching another machine
-        And I choose {'Raise the forward for me'}
+        And I choose {'Connect over ssh for me'}
         And I say it is called {'the build machine'}
         And I say it is at {'user@build.example.test'}
         And its socket there is {'/run/user/1001/porelo/porelod.sock'}
@@ -112,7 +112,7 @@ Feature: Raising and dropping the forward that reaches a machine
 
     Scenario: a stop nobody agreed to runs nothing
         When I start watching another machine
-        And I choose {'Raise the forward for me'}
+        And I choose {'Connect over ssh for me'}
         And I say it is called {'the build machine'}
         And I say it is at {'user@build.example.test'}
         And its socket there is {'/run/user/1001/porelo/porelod.sock'}
@@ -126,7 +126,7 @@ Feature: Raising and dropping the forward that reaches a machine
     Scenario: a machine that is not answering is offered no stop
         Given nothing answers on that machine
         When I start watching another machine
-        And I choose {'Raise the forward for me'}
+        And I choose {'Connect over ssh for me'}
         And I say it is called {'the build machine'}
         And I say it is at {'user@build.example.test'}
         And its socket there is {'/run/user/1001/porelo/porelod.sock'}
@@ -145,7 +145,7 @@ Feature: Raising and dropping the forward that reaches a machine
 
     Scenario: closing the interface leaves no forward it raised still running
         When I start watching another machine
-        And I choose {'Raise the forward for me'}
+        And I choose {'Connect over ssh for me'}
         And I say it is called {'the build machine'}
         And I say it is at {'user@build.example.test'}
         And its socket there is {'/run/user/1001/porelo/porelod.sock'}
@@ -160,14 +160,14 @@ Feature: Raising and dropping the forward that reaches a machine
 
     Scenario: the socket on the other machine is asked for, never guessed
         When I start watching another machine
-        And I choose {'Raise the forward for me'}
+        And I choose {'Connect over ssh for me'}
         Then its socket there is not filled in
 
     # A person new to Porelo knows how they log in, not a uid: left empty, the machine is asked.
     Scenario: a socket left empty is asked of the machine when it is watched, and the forward goes there
         Given the account logs in as uid {1007}
         When I start watching another machine
-        And I choose {'Raise the forward for me'}
+        And I choose {'Connect over ssh for me'}
         And I say it is called {'the build machine'}
         And I say it is at {'user@build.example.test'}
         And I watch it

@@ -84,7 +84,7 @@ class _NarrowingDialogState extends State<NarrowingDialog> {
                   autofocus: true,
                   enabled: result == null,
                   decoration: const InputDecoration(
-                    labelText: 'Host names to take back',
+                    labelText: 'Machine names to take back',
                     hintText: 'files.example.test',
                     helperText:
                         'A name that is not granted to this run is ignored, '

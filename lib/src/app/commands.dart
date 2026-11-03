@@ -731,11 +731,11 @@ Command prepareServerCommand({FutureOr<void> Function()? open, HostAccess? acces
   group: 'Machines',
   home: Home.machineRow,
   run: () {
-    if (access == null) throw const HostAccessRefused('The verified machine admins are unavailable.');
+    if (access == null) throw const HostAccessRefused('The verified Machine Admins are unavailable.');
     unawaited(access.prepare(() async => open?.call()));
   },
   unavailable: access == null
-      ? 'The verified host admins are unavailable.'
+      ? 'The verified Machine Admins are unavailable.'
       : access.unavailable() ?? (open == null ? 'server preparation is unavailable here' : null),
 );
 
@@ -750,9 +750,9 @@ List<Command> hostMachineCommands({
     Command(
       id: 'machine.takeDown',
       role: Role.hostAdmin,
-      label: settings.hostUp(machine.hostProject)?.hostName.isNotEmpty == true
-          ? 'Give the server back'
-          : 'Take this server down',
+      label: settings.hostUp(machine.hostProject)?.isRental == true
+          ? 'Return this rental…'
+          : 'Take Porelo off this machine…',
       group: 'Machine',
       home: Home.machineMenu,
       run: takeDown,
@@ -1362,7 +1362,7 @@ Command hostPreparationCommand({
 }) => Command(
   id: 'host.preparation',
   role: Role.hostAdmin,
-  label: 'Complete setup on the host',
+  label: 'Complete setup on the machine',
   group: '$project server',
   home: home,
   run: open,
@@ -1374,7 +1374,7 @@ Command hostProtocolCommand({required String project, required VoidCallback open
     Command(
       id: 'host.protocol',
       role: Role.hostAdmin,
-      label: 'Open the host protocol',
+      label: 'Open the machine protocol',
       group: '$project server',
       home: home,
       run: open,
@@ -1432,7 +1432,7 @@ List<Command> hostRecoveryCommands({
     Command(
       id: 'host.takeDown',
       role: Role.hostAdmin,
-      label: 'Take it down',
+      label: run.record.isRental ? 'Return this rental…' : 'Take Porelo off this machine…',
       group: run.name,
       home: Home.machineRow,
       run: takeDown,
@@ -1456,7 +1456,7 @@ Command resumeHostPreparationCommand({
   unavailable:
       run.lockProblem ??
       (run.running
-          ? 'the host command is still running'
+          ? 'the machine setup command is still running'
           : run.ready && !run.needsYou && !run.interrupted || run.givenBack
           ? 'preparation has ended'
           : null),

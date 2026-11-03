@@ -3381,14 +3381,14 @@ class Readiness {
     'NO_AGENT' => 'Nothing is installed here to run work with.',
     'UNKNOWN_AGENT' => '$agent is not installed on this machine.',
     'UNKNOWN_HOST_KEY' =>
-      'This machine has never met ${host.isEmpty ? 'the repository’s host' : host}, so '
+      'This machine has never met ${host.isEmpty ? 'the repository’s server' : host}, so '
           'it cannot fetch from there yet. Trust its key first.',
     'HOST_KEY_CHANGED' =>
-      '${host.isEmpty ? 'The repository’s host' : host} offers another key than the one '
+      '${host.isEmpty ? 'The repository’s server' : host} offers another key than the one '
           'this machine remembers. That is what somebody in between looks like: find out why before going on.',
-    'UPSTREAM_KEY_REFUSED' => 'The repository’s host refused what this machine offered for it.',
-    'UPSTREAM_NOT_FOUND' => 'The host has no such repository, or none this credential may read.',
-    'UPSTREAM_UNREACHABLE' => 'Nothing answered from the repository’s host within ten seconds.',
+    'UPSTREAM_KEY_REFUSED' => 'The repository’s server refused what this machine offered for it.',
+    'UPSTREAM_NOT_FOUND' => 'The server has no such repository, or none this credential may read.',
+    'UPSTREAM_UNREACHABLE' => 'Nothing answered from the repository’s server within ten seconds.',
     'UPSTREAM_UNREADABLE' => 'The repository could not be read.',
     'SEVERAL_AGENTS' => 'More than one agent is installed. Choose which to run.',
     'UNKNOWN_PROVIDER' => '$provider is not a provider this machine knows.',

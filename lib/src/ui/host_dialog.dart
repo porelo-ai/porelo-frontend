@@ -124,6 +124,7 @@ class _HostDialogState extends State<HostDialog> {
   HostPreparation? _started;
   bool _busy = false;
   bool _givenBack = false;
+  bool _returnedRental = false;
   String? _problem;
   final _problemShown = GlobalKey();
   String? _problemBroughtIntoView;
@@ -170,7 +171,7 @@ class _HostDialogState extends State<HostDialog> {
     if (_readingAccess) return 'Reading your identity and the organization…';
     if (!_proven) return _problem ?? 'Your identity and the organization have not been read.';
     final name = _name.text.trim();
-    return name.isEmpty ? 'Name the host first: only its host admins may prepare it.' : access.unavailable(name);
+    return name.isEmpty ? 'Name the machine first: only its Machine Admins may prepare it.' : access.unavailable(name);
   }
 
   Future<void> _prepare() async {
@@ -182,9 +183,9 @@ class _HostDialogState extends State<HostDialog> {
     try {
       final name = _name.text.trim();
       final runs = widget.hostRuns;
-      if (runs == null) throw StateError('The host preparation owner is unavailable.');
+      if (runs == null) throw StateError('The machine preparation owner is unavailable.');
       final access = runs.hostAccess;
-      if (access == null) throw const HostAccessRefused('The verified host admins are unavailable.');
+      if (access == null) throw const HostAccessRefused('The verified Machine Admins are unavailable.');
       // Read anew here: nothing is rented for a key revoked since the dialog opened, nor for a pin that cannot hold.
       final machineFile = await access.machineFile(name);
       if (!mounted) return;
@@ -205,13 +206,13 @@ class _HostDialogState extends State<HostDialog> {
           record.collection.isEmpty ||
           record.collectionSha256.isEmpty) {
         throw const FormatException(
-          'Choose a host name, a server address, SSH host key, collection and its published SHA-256.',
+          'Choose a machine name, a server address, SSH host key, collection and its published SHA-256.',
         );
       }
       final existing = runs.of(name);
       if (_settings.hostUp(name) != null || existing != null && (existing.running || existing.waiting)) {
         throw const FormatException(
-          'This host name already has saved preparation or an active run. Open it to continue.',
+          'This machine name already has saved preparation or an active run. Open it to continue.',
         );
       }
       final session = HostSession(
@@ -294,7 +295,9 @@ class _HostDialogState extends State<HostDialog> {
         purge: anyway ? const [] : [for (final holder in holders!) holder.login],
       );
       if (!hostGivenBack(session)) {
-        throw StateError('Give-back was not confirmed.');
+        throw StateError(
+          record.isRental ? 'The rental return was not confirmed.' : 'Taking Porelo off was not confirmed.',
+        );
       }
       final owner = widget.hostRuns;
       if (owner != null) {
@@ -307,9 +310,12 @@ class _HostDialogState extends State<HostDialog> {
           in widget.machines.all.where((m) => m.kind == 'host' && m.hostProject == widget.project).toList()) {
         await widget.machines.forget(machine);
       }
+      _returnedRental = record.isRental;
       _givenBack = true;
     } catch (_) {
-      _problem = 'Give-back was not confirmed. The rental and recovery data were kept.';
+      _problem = record.isRental
+          ? 'The rental return was not confirmed. It stays billed, and its recovery data were kept.'
+          : 'Taking Porelo off was not confirmed. The machine and recovery data were kept.';
       readAgain = !anyway;
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -359,11 +365,18 @@ class _HostDialogState extends State<HostDialog> {
     final record = _record ?? (run == null ? null : _settings.hostUp(run.project)) ?? run?.record;
     final access = widget.hostAccess ?? widget.hostRuns?.hostAccess;
     final holders = _holders;
+    final rental = _givenBack ? _returnedRental : record != null && record.isRental;
     _bringProblemIntoView();
     return AlertDialog(
       // Anchored above, so a form or a list growing below moves nothing a person is reading or about to click.
       alignment: Alignment.topCenter,
-      title: Text(widget.takeDownOnly ? 'Give the server back' : run?.name ?? 'Prepare a server'),
+      title: Text(
+        widget.takeDownOnly
+            ? rental
+                  ? 'Return this rental…'
+                  : 'Take Porelo off this machine…'
+            : run?.name ?? 'Prepare a machine',
+      ),
       content: SizedBox(
         width: Sizes.dialog,
         child: SingleChildScrollView(
@@ -380,15 +393,19 @@ class _HostDialogState extends State<HostDialog> {
               if (_busy && run == null && !widget.takeDownOnly)
                 Text('Checking permission to prepare machine ${_name.text.trim()}…'),
               if (widget.takeDownOnly && !_givenBack)
-                Text('Give this server back only after its data is safe. The provider must confirm its removal.'),
+                Text(
+                  rental
+                      ? 'Delete the accounts named below and everything they hold here, and remove this machine from the organization’s list? The provider then removes the machine, ending its billing once the provider confirms.'
+                      : 'Delete the accounts named below and everything they hold here, and remove this machine from the organization’s list? The machine itself stays yours. End any contract with its provider yourself.',
+                ),
               if (!widget.takeDownOnly && run == null) ...[
-                if (access == null) const Text('Verified host-admin identity and the organization are unavailable.'),
+                if (access == null) const Text('Verified Machine Admin identity and the organization are unavailable.'),
                 for (final field in [
-                  (_name, 'Host name', 'One lower-case server name, such as orchard.'),
+                  (_name, 'Machine name', 'One lower-case server name, such as orchard.'),
                   (
                     _address,
                     'Server address',
-                    'The host name or IP address this computer reaches the existing server at.',
+                    'The machine name or IP address this computer reaches the existing server at.',
                   ),
                   (_hostKey, 'SSH host key', 'The server’s ssh-ed25519 public key, checked separately.'),
                 ])
@@ -445,7 +462,7 @@ class _HostDialogState extends State<HostDialog> {
                 ),
                 if (access != null && _proven && _refusal(access) == null) ...[
                   const Text(
-                    'Before setup, run this in a separate terminal on the server. It replaces root’s authorized keys with your host admin card key.',
+                    'Before setup, run this in a separate terminal on the server. It replaces root’s authorized keys with your Machine Admin card key.',
                   ),
                   SelectableText(access.bootstrapCommand()),
                 ],
@@ -457,20 +474,25 @@ class _HostDialogState extends State<HostDialog> {
                 if (holders != null && holders.isNotEmpty) ...[
                   for (final holder in holders)
                     Text(
-                      '${holder.login}: ${[if (holder.hostAdmin) 'host admin', for (final project in holder.projects) '${project.project} (${project.role})'].join(', ')}',
+                      '${holder.login}: ${[if (holder.hostAdmin) 'Machine Admin', for (final project in holder.projects) '${project.project} (${project.role})'].join(', ')}',
                     ),
                   const Text(
-                    'Giving this server back permanently deletes the accounts named above on this server and everything they hold there. This cannot be undone.',
+                    'The accounts named above and everything they hold here are permanently deleted. This cannot be undone.',
                   ),
                 ],
               ],
               if (_problem != null && !_givenBack && widget.takeDownOnly)
                 const Text(
-                  'Giving back without a backup deletes everything still on the server. Confirm only when its contents are no longer needed.',
+                  'Going on without a backup deletes everything still in these accounts. Confirm only when their contents are no longer needed.',
                 ),
               if (!widget.takeDownOnly)
                 if (record?.preparedHost != null) const PreparedHostPanel(),
-              if (_givenBack) const Text('The provider confirmed give-back.'),
+              if (_givenBack)
+                Text(
+                  rental
+                      ? 'The provider confirmed the rental return. Billing has ended.'
+                      : 'Porelo was taken off. The machine itself stays yours.',
+                ),
               if (run != null)
                 ListenableBuilder(
                   listenable: widget.hostRuns ?? run.session,
@@ -503,7 +525,7 @@ class _HostDialogState extends State<HostDialog> {
         if (!widget.takeDownOnly && run == null)
           FilledButton(
             onPressed: _busy || access == null || _refusal(access) != null ? null : _prepare,
-            child: const Text('Prepare the host'),
+            child: const Text('Prepare the machine'),
           ),
         if (!widget.takeDownOnly && run != null && !run.ready && !run.running)
           FilledButton(
@@ -511,7 +533,7 @@ class _HostDialogState extends State<HostDialog> {
               await widget.hostRuns?.resume(run);
               if (mounted) setState(() => _problem = run.problem);
             },
-            child: const Text('Prepare the host again'),
+            child: const Text('Prepare the machine again'),
           ),
         if (widget.takeDownOnly && !_givenBack)
           FilledButton(
@@ -525,14 +547,20 @@ class _HostDialogState extends State<HostDialog> {
                 ? null
                 : () => _giveBack(holders: holders),
             child: Text(
-              holders?.isNotEmpty == true ? 'Delete these accounts and give the server back' : 'Give the server back',
+              holders?.isNotEmpty == true
+                  ? rental
+                        ? 'Delete these accounts and return it'
+                        : 'Delete these accounts and take Porelo off'
+                  : rental
+                  ? 'Return it'
+                  : 'Take Porelo off',
             ),
           ),
         if (widget.takeDownOnly && !_givenBack && _problem != null)
           OutlinedButton(
             key: const Key('host-force-down'),
             onPressed: _busy ? null : () => _giveBack(anyway: true),
-            child: const Text('Give back without a backup'),
+            child: const Text('Go on without a backup'),
           ),
       ],
     );
@@ -545,6 +573,7 @@ class PreparedHostPanel extends StatelessWidget {
   const PreparedHostPanel({super.key});
 
   @override
-  Widget build(BuildContext context) =>
-      const Text("The host is ready, and its address, host key and ports stand on its card in the organization.");
+  Widget build(BuildContext context) => const Text(
+    "The machine is ready, and its address, SSH host key and ports stand on its card in the organization.",
+  );
 }

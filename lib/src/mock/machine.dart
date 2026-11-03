@@ -188,7 +188,7 @@ method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
   static const situations = <String, String>{
     'work': 'two projects, one of them with work stopped',
     'empty': 'a machine nothing has ever run on',
-    'host': 'a fresh host with checkout and no earlier work',
+    'host': 'a fresh machine with checkout and no earlier work',
     'no-watch': 'a backend too old to have Watch, so nothing arrives by itself',
     'holds-work': 'a task that refuses to be removed because it holds unpushed commits',
     'nothing-knows': 'a task nothing can say anything about, which is refused too',
@@ -201,7 +201,7 @@ method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
     'helper-survives': 'an emergency stop that leaves a helper running, to be killed by hand',
     'vault-locked': 'a vault nothing can read, so nothing can say what it holds',
     'no-credential': 'a vault with no credential for the provider a run would use',
-    'upstream-unreadable': "a repository whose host refuses this machine's key, with no mirror yet",
+    'upstream-unreadable': "a repository whose server refuses this machine's key, with no mirror yet",
   };
 
   /// The daemon answering for this machine.

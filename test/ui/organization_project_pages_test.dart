@@ -250,7 +250,7 @@ void main() {
       await opened(tester, 'pat');
       expect(find.byKey(const ValueKey('my-project demo')), findsOneWidget);
       expect(find.text('2 repositories · 2 people · on build'), findsOneWidget);
-      expect(find.text('project admin'), findsOneWidget);
+      expect(find.text('Project Admin'), findsOneWidget);
     });
 
     // Harm: a person is shown what they are not in, as if they belonged to it.
@@ -270,7 +270,7 @@ void main() {
     // Harm: an empty list reads as lost projects, or asks the person to join.
     testWidgets('no project says that an admin adds you, and offers no Join', (tester) async {
       await opened(tester, 'olive');
-      expect(find.textContaining('a project admin adds you'), findsOneWidget);
+      expect(find.textContaining('a Project Admin adds you'), findsOneWidget);
       expect(find.text('Join'), findsNothing);
     });
 
@@ -312,7 +312,7 @@ void main() {
         for (final id in changes) {
           expect(_action(id), findsNothing, reason: id);
         }
-        expect(find.text('Project admin pat. Only they change this project.'), findsOneWidget);
+        expect(find.text('Project Admin pat. Only they change this project.'), findsOneWidget);
         expect(find.text('demo-docs'), findsOneWidget);
         expect(find.text('git@forge.example.org:acme/demo-docs.git'), findsOneWidget);
         expect(find.text('admin'), findsOneWidget);
@@ -612,7 +612,7 @@ void main() {
     // Harm: a locked member, who may do nothing, is called its admin.
     testWidgets('a locked admin is said to be locked', (tester) async {
       await opened(tester, withMe(locked));
-      expect(find.text('project admin'), findsNothing);
+      expect(find.text('Project Admin'), findsNothing);
       expect(find.text('locked'), findsNWidgets(2), reason: 'on the chip and on the row');
     });
 

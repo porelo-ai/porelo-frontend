@@ -908,8 +908,8 @@ class _PlanWords extends StatelessWidget {
       ),
       const Text(
         'If your key was stolen, tell them at once and give them the new card. If they cannot have it soon, they can '
-        'revoke your card now: that revokes the old key, and each host takes it within five minutes or at once on its '
-        'Refresh. You then hold no role until you come back with a new card. Your places in projects and on hosts '
+        'revoke your card now: that revokes the old key, and each machine takes it within five minutes or at once on its '
+        'Refresh. You then hold no role until you come back with a new card. Your places in projects and on machines '
         "stay under your login; an owner's place names the old key and does not come back by itself.",
       ),
       const Text(
@@ -1065,7 +1065,7 @@ class _FirstStartWizardState extends State<FirstStartWizard> {
     steps: [
       WizardStep(
         title: 'Who you are',
-        words: 'Your card names you. Others read these values when they let you into a project or a host.',
+        words: 'Your card names you. Others read these values when they let you into a project or a machine.',
         panel: (context) => Column(
           mainAxisSize: MainAxisSize.min,
           children: [

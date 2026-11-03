@@ -235,7 +235,7 @@ class HostRuns extends ChangeNotifier {
     final record = machines.settings.hostUp(project);
     final run = _runs[project];
     if (run?.lockProblem case final problem?) return problem;
-    if (run?.running == true) return 'the host command is still running';
+    if (run?.running == true) return 'the machine setup command is still running';
     if (run != null && (run.needsYou || run.interrupted)) return 'setup waits for you under Needs you';
     if (run != null && (!run.ready || run.givenBack)) return 'the server is not ready';
     if (record == null) return 'the setup arguments were not kept';
@@ -288,11 +288,11 @@ class HostRuns extends ChangeNotifier {
     required HostUpRecord record,
     Settings? settings,
   }) {
-    if (hostAccess == null) throw const HostAccessRefused('The verified host admins are unavailable.');
+    if (hostAccess == null) throw const HostAccessRefused('The verified Machine Admins are unavailable.');
     hostAccess!.requireAdmin(record.hostName);
     final previous = _runs[project];
     if (_leaving || previous != null && (previous.running || previous.waiting)) {
-      throw StateError('This project already has a host run.');
+      throw StateError('This project already has a machine setup run.');
     }
     previous?._poll?.cancel();
     if (previous?._listener case final listener?) previous!.session.removeListener(listener);
@@ -339,7 +339,7 @@ class HostRuns extends ChangeNotifier {
       }
       if (run.problem != null) return;
       if (run.record.hostName.isNotEmpty) {
-        if (hostAccess == null) throw const HostAccessRefused('The verified host admins are unavailable.');
+        if (hostAccess == null) throw const HostAccessRefused('The verified Machine Admins are unavailable.');
         await hostAccess!.check(run.record.hostName);
         // A run taken up again must not hand on the pin of its first start.
         if (run.record.machineFile.isNotEmpty) await hostAccess!.machineFile(run.record.hostName);
@@ -352,7 +352,7 @@ class HostRuns extends ChangeNotifier {
       if (_disposed || _leaving) return;
       run.interrupted = false;
       if (run.record.hostName.isNotEmpty) {
-        if (hostAccess == null) throw const HostAccessRefused('The verified host admins are unavailable.');
+        if (hostAccess == null) throw const HostAccessRefused('The verified Machine Admins are unavailable.');
         hostAccess!.requireAdmin(run.record.hostName);
       }
       await run.session.up();
@@ -368,7 +368,7 @@ class HostRuns extends ChangeNotifier {
     } on Exception {
       if (!_disposed) {
         run.session.state = HostRunState.refused;
-        run.problem ??= 'The host command could not complete. Your machines have been kept.';
+        run.problem ??= 'The machine setup command could not complete. Your machines have been kept.';
       }
     } finally {
       run._upActive = false;
@@ -387,7 +387,7 @@ class HostRuns extends ChangeNotifier {
       return;
     }
     final access = hostAccess;
-    final refused = access == null ? 'The verified host admins are unavailable.' : await access.writeCard(host);
+    final refused = access == null ? 'The verified Machine Admins are unavailable.' : await access.writeCard(host);
     if (refused != null) {
       _stopped(run, "${run.name}'s card could not be written to the organization: $refused");
       return;
@@ -412,7 +412,8 @@ class HostRuns extends ChangeNotifier {
 
   /// Says a stop. Nothing is given back unasked: this attempt rented nothing, since `up` only takes a server given to it.
   void _stopped(HostPreparation run, String why) {
-    final words = '$why The machine stays as it is: "Give the server back" on its row takes the setup off it.';
+    final action = run.record.isRental ? 'Return this rental…' : 'Take Porelo off this machine…';
+    final words = '$why The machine stays as it is: "$action" on its row removes its setup.';
     run.problem = words;
     say?.call(words);
   }

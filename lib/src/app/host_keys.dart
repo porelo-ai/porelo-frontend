@@ -182,7 +182,7 @@ class SshHostKeys implements HostKeys {
         destination: destination,
         host: host,
         known: false,
-        problem: 'No host key came back from $host. Is it reachable, and is ssh running there?',
+        problem: 'No SSH host key came back from $host. Is it reachable, and is ssh running there?',
       );
     }
     final printed = await _run(<String>['ssh-keygen', '-l', '-f', '-'], input: '${scanned.join('\n')}\n');

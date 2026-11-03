@@ -229,7 +229,7 @@ List<String>? _storeTokenCommand(ForgeEntry entry, Machine machine) => switch (e
 
 String? _whyNoTokenStored(ForgeEntry entry, ForgeTokenVault? vault) {
   if (entry.vaultTokenEntry == null) {
-    return '“${entry.address}” is no plain host name, so no vault entry can be named for it.';
+    return '“${entry.address}” is no plain server name, so no vault entry can be named for it.';
   }
   if (vault == null) return 'No machine answers here.';
   if (!vault.answers) return '${vault.machine.name} does not answer.';
@@ -405,7 +405,7 @@ class _ForgePageState extends State<ForgePage> {
           if (entry != null)
             Text(
               '${entry.address} · ${entry.isHost
-                  ? 'through the host tunnel'
+                  ? 'through the machine connection'
                   : entry.authentication == 'ssh'
                   ? 'by SSH key'
                   : 'token chosen explicitly'}'

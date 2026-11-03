@@ -232,7 +232,7 @@ class ForgeConnection extends ChangeNotifier with QuietAfterDispose {
               address: selected.address,
               hostMachine: selected.hostMachine,
             );
-        problem = 'The host forge tunnel changed or disconnected. Check access after it is reached again.';
+        problem = 'The machine forge tunnel changed or disconnected. Check access after it is reached again.';
       } else {
         current = updated;
       }
@@ -451,7 +451,7 @@ class ForgeConnection extends ChangeNotifier with QuietAfterDispose {
               current.browserAddress == entry.browserAddress &&
               current.gitAddress == entry.gitAddress,
         )) {
-      throw const ForgeRefused('The host forge tunnel is no longer reached.');
+      throw const ForgeRefused('The machine forge tunnel is no longer reached.');
     }
     if (entry.authentication == 'ssh' || entry.isHost) {
       if (current?.id != entry.id) {
@@ -464,7 +464,7 @@ class ForgeConnection extends ChangeNotifier with QuietAfterDispose {
         return;
       }
       if (entry.isHost && entry.browserAddress == null) {
-        throw const ForgeRefused('The host forge has no confirmed tunnel address.');
+        throw const ForgeRefused('The machine forge has no confirmed tunnel address.');
       }
       final forge = await access(entry);
       final login = await forge.whoAmI();

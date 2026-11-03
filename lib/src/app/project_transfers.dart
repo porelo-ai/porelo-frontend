@@ -125,14 +125,14 @@ class ProjectTransfers extends ChangeNotifier with QuietAfterDispose {
     }
     if (!selection.canPush) return 'Your role in this project does not allow this transfer.';
     if (selection.machine.hostCard == null || selection.machine.hostCard!.login != selection.person) {
-      return 'Join this host as the current person before transferring.';
+      return 'Join this machine as the current person before transferring.';
     }
     if (selection.machine.whyNotReachableHere case final reason?) return reason;
     if (_busy.contains(_key(selection)) || _pending.contains(_key(selection))) {
       return 'A transfer is still running for this project.';
     }
     if (_uncertain.contains(_key(selection))) {
-      return 'Read the host and central state before retrying an unconfirmed transfer.';
+      return 'Read the machine and central state before retrying an unconfirmed transfer.';
     }
     return null;
   }
@@ -143,7 +143,7 @@ class ProjectTransfers extends ChangeNotifier with QuietAfterDispose {
     final generation = _generations[key];
     void requireSettled() {
       if (_busy.contains(key) || _pending.contains(key) || generation != _generations[key]) {
-        throw StateError('The host operation must settle before its result can be reconciled.');
+        throw StateError('The machine operation must settle before its result can be reconciled.');
       }
     }
 
@@ -255,5 +255,5 @@ class ProjectTransfers extends ChangeNotifier with QuietAfterDispose {
     }
   }
 
-  static const _unconfirmed = 'The host result is unconfirmed. Read its state before trying again.';
+  static const _unconfirmed = 'The machine result is unconfirmed. Read its state before trying again.';
 }

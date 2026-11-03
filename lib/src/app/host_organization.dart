@@ -22,15 +22,17 @@ class HostAccessRefused implements Exception {
 /// key cannot go on one line refuses the whole pin instead of being passed over.
 String hostPin(OrganizationHost host) {
   if (host.adminKeys.isEmpty) {
-    throw HostAccessRefused('The organization names no host admin key for ${host.name}, so no host can be pinned.');
+    throw HostAccessRefused(
+      'The organization names no Machine Admin key for ${host.name}, so no machine can be pinned.',
+    );
   }
   final lines = <String>[];
   for (final row in host.adminKeys) {
     final key = row.key;
     if (key == null || !_key.hasMatch(key) || !_login.hasMatch(row.login)) {
       throw HostAccessRefused(
-        "The organization's answer gives no usable key for ${_login.hasMatch(row.login) ? row.login : 'a host admin'} "
-        'of ${host.name}, so no host can be pinned.',
+        "The organization's answer gives no usable key for ${_login.hasMatch(row.login) ? row.login : 'a Machine Admin'} "
+        'of ${host.name}, so no machine can be pinned.',
       );
     }
     lines.add('${row.login} $key');
@@ -65,7 +67,7 @@ String centralForgeKnownHosts(String forge, String knownHosts) {
     if (fields.length < 3 || !_applies(fields.first, name)) continue;
     if (marker == '@revoked') {
       throw HostAccessRefused(
-        "A key of $forge is marked revoked in your known_hosts, so its keys are not handed to a host. Sort that out "
+        "A key of $forge is marked revoked in your known_hosts, so its keys are not handed to a machine. Sort that out "
         'with ssh-keygen -R and connect to it once yourself.',
       );
     }
@@ -73,7 +75,7 @@ String centralForgeKnownHosts(String forge, String knownHosts) {
   }
   if (lines.isEmpty) {
     throw HostAccessRefused(
-      'Your known_hosts holds no key of $forge, so a host could not trust that forge: first use is not trusted. '
+      'Your known_hosts holds no key of $forge, so a machine could not trust that forge: first use is not trusted. '
       'Connect to $forge once with ssh yourself, check its key, and try again.',
     );
   }

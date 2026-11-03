@@ -55,6 +55,9 @@ class HostUpRecord {
   /// The existing server's address, empty for provider rentals.
   final String givenAddress;
 
+  /// Whether a rental stands behind it, rather than a machine that simply exists.
+  bool get isRental => givenAddress.isEmpty && scalewayProject.isNotEmpty;
+
   /// The existing server's independently supplied SSH host key.
   final String givenHostKey;
 
@@ -703,7 +706,7 @@ class Settings extends ChangeNotifier {
     host = record.host ?? host;
     SecretsFile.checkHost(host);
     if (host.isEmpty || host.contains('\x00') || HostUpRecord.fromStored(record.stored) == null) {
-      throw ArgumentError('A host and a complete host setup record are required.');
+      throw ArgumentError('A machine and a complete machine setup record are required.');
     }
     final previous = _hostUps[host];
     _hostUps[host] = record;
@@ -712,7 +715,7 @@ class Settings extends ChangeNotifier {
       final saved = (await _store.read())['hostUps'];
       final savedRecord = saved is Map ? saved[host] : null;
       if (savedRecord is! Map || !_sameStored(savedRecord, record.stored)) {
-        throw const FileSystemException('Cannot keep the host setup in the interface settings.');
+        throw const FileSystemException('Cannot keep the machine setup in the interface settings.');
       }
     } on Exception {
       if (previous == null) {

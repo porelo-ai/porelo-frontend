@@ -20,7 +20,7 @@ void main() {
       final fixture = HostFixture()..adminHosts = {'orchard'};
       final access = await fixture.access(settings);
       expect(access.unavailable('orchard'), isNull);
-      expect(access.unavailable('demo'), allOf(contains('host admin of demo'), contains('hank')));
+      expect(access.unavailable('demo'), allOf(contains('Machine Admin of demo'), contains('hank')));
       expect(access.unavailable('nowhere'), allOf(contains('owner'), contains('mia')));
       await expectLater(access.check('demo'), throwsA(isA<HostAccessRefused>()));
     });

@@ -70,7 +70,7 @@ class HostProgress {
   /// Reads `org status` or `org refresh`; what this build does not know is passed over, and a part of an older host's
   /// answer that is absent says nothing.
   factory HostProgress.read(String answer) {
-    const incomplete = OrganizationRefused('The host answered incompletely.');
+    const incomplete = OrganizationRefused('The machine answered incompletely.');
     final Object? read;
     try {
       read = jsonDecode(answer.trim());
@@ -290,10 +290,12 @@ class SshHostProgress {
     if (answer.code != 0) {
       // Each follow sets who reaches root, so a key the host does not take is not its admin's now, and no fault.
       if (answer.err.contains('Permission denied')) {
-        throw OrganizationRefused('$host did not take your key as root: it is not a key of this host\'s admins now.');
+        throw OrganizationRefused(
+          '$host did not take your key as root: it is not a key of this machine\'s admins now.',
+        );
       }
       final said = answer.err.trim().split('\n').last.trim();
-      throw OrganizationRefused(said.isEmpty ? 'The host refused this, and did not say why.' : said);
+      throw OrganizationRefused(said.isEmpty ? 'The machine refused this, and did not say why.' : said);
     }
     return HostProgress.read(answer.out);
   }

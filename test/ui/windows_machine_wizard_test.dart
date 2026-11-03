@@ -88,7 +88,7 @@ void main() {
         await tester.tap(tryButton);
         await settle(tester);
         if (refused) {
-          expect(find.textContaining('An ssh host must not start with a dash.'), findsOneWidget);
+          expect(find.textContaining('A machine’s ssh address must not start with a dash.'), findsOneWidget);
           expect(tried, isEmpty);
           expect(keys.checked, isEmpty);
           await tester.tap(find.byKey(const Key('watch-it')));

@@ -138,7 +138,7 @@ class _AgentRow extends StatelessWidget {
         name: 'Commits as',
         value: agent.commitsAs.recorded ? agent.commitsAs.words : 'not recorded — installed before this was reported',
       ),
-      const _Heading(words: 'Hosts it needs'),
+      const _Heading(words: 'Machines it needs'),
       if (agent.allowedDomains.isEmpty)
         const Padding(
           padding: EdgeInsets.fromLTRB(Space.normal, 0, Space.normal, Space.small),

@@ -99,7 +99,7 @@ class Backups extends ChangeNotifier {
     HostForgeRefresh? hostForge,
   }) async {
     try {
-      if (joinedHost && hostForge == null) throw const FeatureNotSupported('Host forge refresh');
+      if (joinedHost && hostForge == null) throw const FeatureNotSupported('Machine forge refresh');
       final answer = joinedHost
           ? await hostForge!.sync(name, repository: selectedRepository)
           : await backend.syncUpstream(name, repository: selectedRepository);

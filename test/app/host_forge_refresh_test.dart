@@ -70,7 +70,7 @@ void main() {
     final slow = _WaitingHost();
     final pending = backups.syncFor(backend, 'first', joinedHost: true, hostForge: slow);
     final refusal = await backups.syncFor(backend, 'second', joinedHost: true);
-    expect(refusal, contains('Host forge refresh'));
+    expect(refusal, contains('Machine forge refresh'));
     expect(backups.problem, 'listing refusal');
     slow.answer.complete(Synced.from({'outcome': 'MEASURED', 'measured': true, 'behind': 2}));
     expect(await pending, contains('2 commits'));

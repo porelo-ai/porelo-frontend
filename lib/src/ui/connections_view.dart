@@ -102,7 +102,7 @@ class ConnectionsView extends StatelessWidget {
                 if (connections.all.isEmpty)
                   const Text(
                     'Nothing is declared. A git address still uses a vault entry named after its '
-                    'host when there is one.',
+                    'server when there is one.',
                     key: Key('no-connections'),
                   ),
                 for (final each in connections.all)

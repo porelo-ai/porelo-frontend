@@ -15,7 +15,7 @@ Feature: Working inside a container by hand, locally or over ssh
 
     Scenario: a machine reached over ssh runs the same verb, through a terminal of its own
         When I start watching another machine
-        And I choose {'Raise the forward for me'}
+        And I choose {'Connect over ssh for me'}
         And I say it is called {'the build machine'}
         And I say it is at {'user@build.example.test'}
         And its socket there is {'/run/user/1001/porelo/porelod.sock'}
@@ -130,7 +130,7 @@ Feature: Working inside a container by hand, locally or over ssh
 
     Scenario: a connection that never happened is told apart from work that refused
         When I start watching another machine
-        And I choose {'Raise the forward for me'}
+        And I choose {'Connect over ssh for me'}
         And I say it is called {'the build machine'}
         And I say it is at {'user@build.example.test'}
         And its socket there is {'/run/user/1001/porelo/porelod.sock'}

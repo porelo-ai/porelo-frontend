@@ -241,13 +241,13 @@ class Machine {
     'host'
         when hostCard != null &&
             (sshConfig.isEmpty || host != hostCard!.name || remoteSocket != hostCard!.daemonSocket) =>
-      'The imported host needs its matching public SSH configuration and daemon endpoint.',
+      'The imported machine needs its matching public SSH configuration and daemon endpoint.',
     'host' when hostCard != null =>
-      windows ? 'Host card tunnels require OpenSSH Unix socket and master support on this platform.' : null,
+      windows ? 'Machine card connections require OpenSSH Unix socket and master support on this platform.' : null,
     'host' when remoteSocket.isEmpty && socketPath.isEmpty =>
       'This server is prepared without a project account or daemon.',
-    'host' when hostProject.isEmpty => 'This host has no verified SSH configuration.',
-    '' || 'host' when needsATunnel && host.startsWith('-') => 'An ssh host must not start with a dash.',
+    'host' when hostProject.isEmpty => 'This machine has no verified SSH configuration.',
+    '' || 'host' when needsATunnel && host.startsWith('-') => 'A machine’s ssh address must not start with a dash.',
     '' || 'host' when windows && needsATunnel && !_plainRemoteSocket =>
       "The remote socket must be a plain path: letters, digits, '.', '_', '-' and '/'.",
     '' || 'host' when windows && needsATunnel => null,
@@ -569,7 +569,7 @@ class Machines extends ChangeNotifier {
   String? get setAside => switch (_settings.machinesSetAside) {
     [] => null,
     final names =>
-      'The saved host card of ${names.join(', ')} does not read in this version, so it is not watched. '
+      'The saved machine card of ${names.join(', ')} does not read in this version, so it is not watched. '
           'It stays saved as it was.',
   };
 
@@ -746,7 +746,7 @@ class Machines extends ChangeNotifier {
           ? null
           : () async {
               if (await tunnels.raiseFor(machine)) return null;
-              return machine.whyNotReachableHere ?? tunnels.of(machine)?.problem ?? 'The host could not be reached.';
+              return machine.whyNotReachableHere ?? tunnels.of(machine)?.problem ?? 'The machine could not be reached.';
             },
       hostConnection: machine.hostCard == null
           ? null

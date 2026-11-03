@@ -104,7 +104,7 @@ class CoreHostUnlocker implements HostUnlocker {
       unawaited(process.stderr.drain<void>());
       if (generation != (_generations[host] ?? 0)) {
         await stopOwnedProcess(process);
-        return const HostUnlockResult(HostUnlockState.refused, 'Host unlock was cancelled.');
+        return const HostUnlockResult(HostUnlockState.refused, 'Machine unlock was cancelled.');
       }
       _children[host] = process;
       final code = await process.exitCode.timeout(deadline);
@@ -113,16 +113,19 @@ class CoreHostUnlocker implements HostUnlocker {
         (0, 'open') => const HostUnlockResult(HostUnlockState.unlocked),
         (77, 'other-key') => const HostUnlockResult(
           HostUnlockState.otherKey,
-          'The host vault was opened by another key. It was kept; resetting it needs your yes in a terminal '
+          'The machine vault was opened by another key. It was kept; resetting it needs your yes in a terminal '
           'and every sign-in again.',
         ),
-        _ => const HostUnlockResult(HostUnlockState.refused, 'Core could not unlock the host vault.'),
+        _ => const HostUnlockResult(HostUnlockState.refused, 'Core could not unlock the machine vault.'),
       };
     } on TimeoutException {
       if (process != null) await stopOwnedProcess(process);
-      return const HostUnlockResult(HostUnlockState.refused, 'Core host unlock timed out.');
+      return const HostUnlockResult(HostUnlockState.refused, 'Core machine unlock timed out.');
     } on ProcessException {
-      return const HostUnlockResult(HostUnlockState.unsupported, 'Core host unlock is unavailable on this computer.');
+      return const HostUnlockResult(
+        HostUnlockState.unsupported,
+        'Core machine unlock is unavailable on this computer.',
+      );
     } on HostFilesRefused catch (refused) {
       return HostUnlockResult(HostUnlockState.refused, refused.message);
     } finally {
@@ -136,11 +139,11 @@ class CoreHostUnlocker implements HostUnlocker {
   /// ssh configuration of its own. A card on another port, or at an IPv6 address, is never probed elsewhere instead.
   static String? whyNotUnlockable(HostCardSsh card) {
     if (card.sshPort != 22) {
-      return 'The vault of ${card.name} is not opened from here: Porelo\'s host unlock reaches a host only on SSH port '
+      return 'The vault of ${card.name} is not opened from here: Porelo\'s vault unlock reaches a machine only on SSH port '
           '22, and its card names port ${card.sshPort}.';
     }
     if (!RegExp(r'^[A-Za-z0-9][A-Za-z0-9.-]{0,252}$').hasMatch(card.address)) {
-      return 'The vault of ${card.name} is not opened from here: Porelo\'s host unlock takes a host name or an IPv4 '
+      return 'The vault of ${card.name} is not opened from here: Porelo\'s vault unlock takes a machine name or an IPv4 '
           'address, and its card names ${card.address}.';
     }
     return null;
@@ -1141,11 +1144,11 @@ class UpstreamUnreadable implements Exception {
   @override
   String toString() {
     final why = switch (cause) {
-      'KEY_REFUSED' => 'The repository’s host refused what this machine offered for it.',
-      'NOT_FOUND' => 'The host has no such repository, or none this credential may read.',
-      'UNREACHABLE' => 'Nothing answered from the repository’s host within ten seconds.',
+      'KEY_REFUSED' => 'The repository’s server refused what this machine offered for it.',
+      'NOT_FOUND' => 'The server has no such repository, or none this credential may read.',
+      'UNREACHABLE' => 'Nothing answered from the repository’s server within ten seconds.',
       'UNKNOWN_HOST_KEY' =>
-        'The repository’s host offers another key than the one this machine remembers. That is what '
+        'The repository’s server offers another key than the one this machine remembers. That is what '
             'somebody in between looks like: find out why before going on.',
       _ => 'The repository could not be read.',
     };

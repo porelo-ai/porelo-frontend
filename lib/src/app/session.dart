@@ -52,7 +52,7 @@ enum WhyNot {
           'commits it had — and a session with it.',
     WhyNot.noAddress =>
       'This machine is reached through a socket something else forwarded, so a session has '
-          'nowhere to run. Add it with "Raise the forward for me" and its address.',
+          'nowhere to run. Add it with "Connect over ssh for me" and its address.',
   };
 }
 
@@ -227,7 +227,7 @@ class Session extends ChangeNotifier with QuietAfterDispose {
   /// forward has no terminal, so a prompt there is a hang; this *is* a terminal, so a passphrase
   /// can be answered by the person sitting in front of it.
   List<String> get command => machine.host.startsWith('-')
-      ? throw const PtyRefused('An ssh host must not start with a dash.')
+      ? throw const PtyRefused('A machine’s ssh address must not start with a dash.')
       : run ??
             (machine.relay?.kind == 'wsl'
                 ? Wsl.runIn(machine.distribution, <String>['porelo', 'task', 'attach', task])

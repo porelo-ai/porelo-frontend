@@ -74,7 +74,7 @@ void main() {
     final name = find.byType(TextField).first;
     await tester.enterText(name, 'orchard');
     await World.settle(tester);
-    final prepare = find.widgetWithText(FilledButton, 'Prepare the host');
+    final prepare = find.widgetWithText(FilledButton, 'Prepare the machine');
     expect(
       tester.widget<FilledButton>(prepare).onPressed,
       isNull,
@@ -159,7 +159,7 @@ void main() {
       await World.settle(tester);
       await tester.tap(find.text('Choose collection'));
       await World.settle(tester);
-      await tester.tap(find.text('Prepare the host'));
+      await tester.tap(find.text('Prepare the machine'));
       await World.settle(tester);
       return runs.of(name)!;
     }
@@ -224,7 +224,7 @@ void main() {
     ]);
     await World.settle(tester);
     expect(find.textContaining('alice:'), findsOneWidget);
-    expect(find.textContaining('host admin'), findsOneWidget);
+    expect(find.textContaining('Machine Admin'), findsOneWidget);
     expect(find.textContaining('bob:'), findsOneWidget);
     expect(find.textContaining('garden'), findsOneWidget);
     expect(find.textContaining('member)'), findsOneWidget);
@@ -496,7 +496,7 @@ void main() {
           await tester.enterText(field, value);
         }
 
-        await type('Host name', 'orchard');
+        await type('Machine name', 'orchard');
         await type('Server address', address);
         await type('SSH host key', hostKey);
         await tester.ensureVisible(find.text('Choose collection'));
@@ -516,7 +516,7 @@ void main() {
         await tester.ensureVisible(find.text('Use settings'));
         await World.settle(tester);
         await tester.tap(find.text('Use settings'));
-        await tester.tap(find.text('Prepare the host'));
+        await tester.tap(find.text('Prepare the machine'));
         await World.settle(tester);
         final run = runs.of('orchard')!;
         expect(arguments, ['up', ...hostArguments(run.record, 'orchard')]);
@@ -602,7 +602,7 @@ void main() {
         ),
       );
       for (final field in {
-        'Host name': 'orchard',
+        'Machine name': 'orchard',
         'Server address': '203.0.113.7',
         'SSH host key': hostKey,
         'Collection SHA-256': 'a' * 64,
@@ -616,7 +616,7 @@ void main() {
       await World.settle(tester);
       await tester.tap(find.text('Choose collection'));
       await World.settle(tester);
-      await tester.tap(find.text('Prepare the host'));
+      await tester.tap(find.text('Prepare the machine'));
       await World.settle(tester);
       expect(tester.takeException(), isNull);
       expect(starts, 0);
@@ -662,7 +662,7 @@ void main() {
       ),
     );
     for (final field in {
-      'Host name': 'orchard',
+      'Machine name': 'orchard',
       'Server address': '203.0.113.7',
       'SSH host key': hostKey,
       'Collection SHA-256': 'a' * 64,
@@ -676,13 +676,13 @@ void main() {
     await World.settle(tester);
     await tester.tap(find.text('Choose collection'));
     await World.settle(tester);
-    final button = tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Prepare the host'));
+    final button = tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Prepare the machine'));
     fixture.admin = false;
     button.onPressed!();
     await World.settle(tester);
     expect(starts, 0);
     expect(runs.of('orchard'), isNull);
-    expect(find.textContaining('Only a host admin'), findsOneWidget);
+    expect(find.textContaining('Only a Machine Admin'), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
@@ -709,7 +709,7 @@ void main() {
     await World.settle(tester);
     Finder field(String label) => find.widgetWithText(TextField, label);
     final before = tester.getTopLeft(field('Server address'));
-    await tester.enterText(field('Host name'), 'someone-elses');
+    await tester.enterText(field('Machine name'), 'someone-elses');
     await World.settle(tester);
     expect(tester.getTopLeft(field('Server address')), before);
     final hint = tester.getBottomLeft(find.text('One lower-case server name, such as orchard.'));
@@ -787,10 +787,10 @@ void main() {
       ),
     );
     await World.settle(tester);
-    FilledButton prepare() => tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Prepare the host'));
+    FilledButton prepare() => tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Prepare the machine'));
     expect(prepare().onPressed, isNull);
-    expect(find.textContaining('Name the host first'), findsOneWidget);
-    final name = find.widgetWithText(TextField, 'Host name');
+    expect(find.textContaining('Name the machine first'), findsOneWidget);
+    final name = find.widgetWithText(TextField, 'Machine name');
     await tester.enterText(name, 'pear');
     await World.settle(tester);
     expect(prepare().onPressed, isNull);
@@ -835,7 +835,7 @@ void main() {
       ),
     );
     for (final field in {
-      'Host name': 'orchard',
+      'Machine name': 'orchard',
       'Server address': '203.0.113.7',
       'SSH host key': hostKey,
       'Collection SHA-256': 'a' * 64,
@@ -854,7 +854,7 @@ void main() {
     proof.hold = null;
     await World.settle(tester);
     expect(find.textContaining('Before setup, run this'), findsOneWidget);
-    final button = tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Prepare the host'));
+    final button = tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Prepare the machine'));
     proof.next = null;
     button.onPressed!();
     await World.settle(tester);

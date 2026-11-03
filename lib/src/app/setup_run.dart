@@ -343,7 +343,7 @@ class SetupRun extends ChangeNotifier {
       if (check.problem != null) throw MachineSetupFailed(check.problem!);
       if (!check.known) {
         if (!await confirm(check)) {
-          throw MachineSetupFailed('The host key of ${check.host} was not trusted, so nothing logged in.');
+          throw MachineSetupFailed('The SSH host key of ${check.host} was not trusted, so nothing logged in.');
         }
         await keys.accept(check);
       }

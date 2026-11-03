@@ -94,8 +94,7 @@ String _hung(String program, List<String> arguments) {
   final limit = runHereLimit.inMinutes >= 1 ? '${runHereLimit.inMinutes} minutes' : '${runHereLimit.inSeconds} seconds';
   final what = switch (program.split('/').last) {
     'git' => 'Check that this computer reaches the network and the forge, then try again.',
-    'porelo' =>
-      "Check that this computer reaches the host and the forge, then try again; Porelo's own log says where it waited.",
+    'porelo' => "Check that this computer reaches the machine and the forge, then try again; Porelo's own log says where it waited.",
     'keepassxc-cli' => 'Check that the KeePassXC database file can be read, then try again.',
     _ => 'Try again; if it waits again, run it in a terminal to see what it waits for.',
   };

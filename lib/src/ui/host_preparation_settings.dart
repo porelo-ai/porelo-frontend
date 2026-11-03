@@ -66,9 +66,12 @@ class _HostPreparationSettingsFormState extends State<HostPreparationSettingsFor
           spacing: Space.small,
           children: [
             for (final entry in const {
-              'forge_runner_capacity': ('Concurrent forge jobs', 'Leave empty for the host role default.'),
-              'forge_job_cpus': ('CPUs per forge job', 'Leave empty for the host role default.'),
-              'forge_job_memory': ('Memory per forge job', 'For example 768m; leave empty for the host role default.'),
+              'forge_runner_capacity': ('Concurrent forge jobs', 'Leave empty for the machine role default.'),
+              'forge_job_cpus': ('CPUs per forge job', 'Leave empty for the machine role default.'),
+              'forge_job_memory': (
+                'Memory per forge job',
+                'For example 768m; leave empty for the machine role default.',
+              ),
               'forge_web_port': ('Local forge web port', 'The SSH forward on this computer.'),
               'forge_git_port': ('Local forge Git port', 'The SSH forward on this computer.'),
               'matrix_port': ('Local Matrix port', 'The SSH forward on this computer.'),

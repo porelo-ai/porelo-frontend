@@ -134,7 +134,7 @@ void main() {
 
     final check = await SshHostKeys(run: ssh.run, home: '/home/somebody').check('build');
 
-    expect(check.problem, contains('No host key came back'));
+    expect(check.problem, contains('No SSH host key came back'));
     expect(check.scanned, isEmpty);
   });
 

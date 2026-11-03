@@ -184,7 +184,7 @@ class _SetRow extends StatelessWidget {
   Widget build(BuildContext context) => ExpansionTile(
     leading: Icon(inUse ? Icons.check_circle_outline : Icons.circle_outlined, size: Sizes.mark),
     title: Text(set.label),
-    subtitle: Text('${set.name} · ${set.domains.length} hosts${inUse ? ' · in use' : ''}'),
+    subtitle: Text('${set.name} · ${set.domains.length} addresses${inUse ? ' · in use' : ''}'),
     children: <Widget>[
       for (final domain in set.domains)
         ListTile(

@@ -339,7 +339,7 @@ class _ForgeFormState extends State<ForgeForm> {
               TextField(
                 key: const Key('forge-address'),
                 controller: _address,
-                decoration: const InputDecoration(labelText: 'Where it is: github.com, or your own GitHub’s host'),
+                decoration: const InputDecoration(labelText: 'Where it is: github.com, or your own GitHub’s address'),
                 onChanged: (_) => setState(() {}),
               ),
             const SizedBox(height: Space.tight),

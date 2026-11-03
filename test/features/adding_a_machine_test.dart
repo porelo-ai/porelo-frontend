@@ -129,16 +129,16 @@ void main() {
       await theDialogOffers(tester, 'Yes: I may run commands as root there');
       await theDialogOffers(tester, 'No: somebody else set Porelo up there for me');
       await iChoose(tester, 'Yes: I may run commands as root there');
-      await theDialogOffers(tester, 'Its socket is already forwarded');
-      await theDialogOffers(tester, 'Raise the forward for me');
+      await theDialogOffers(tester, 'Something else already connects it');
+      await theDialogOffers(tester, 'Connect over ssh for me');
       await theDialogOffers(tester, 'A new machine');
       await theDialogOffers(tester, 'Another user on a machine already prepared');
     });
     testWidgets('''one who is not an administrator there is offered only to connect''', (tester) async {
       await bddSetUp(tester);
       await iChoose(tester, 'No: somebody else set Porelo up there for me');
-      await theDialogOffers(tester, 'Raise the forward for me');
-      await theDialogOffers(tester, 'Its socket is already forwarded');
+      await theDialogOffers(tester, 'Connect over ssh for me');
+      await theDialogOffers(tester, 'Something else already connects it');
       await theDialogDoesNotOffer(tester, 'A new machine');
       await theDialogDoesNotOffer(tester, 'Another user on a machine already prepared');
     });
@@ -146,23 +146,23 @@ void main() {
       await bddSetUp(tester);
       await iSayItIsCalled(tester, 'the build machine');
       await theWizardCannotGoOnYet(tester);
-      await iChoose(tester, 'Raise the forward for me');
+      await iChoose(tester, 'Connect over ssh for me');
       await iGoOn(tester);
       await itsSocketThereIsNotFilledIn(tester);
     });
     testWidgets('''a kind without a name does not go on either''', (tester) async {
       await bddSetUp(tester);
-      await iChoose(tester, 'Its socket is already forwarded');
+      await iChoose(tester, 'Something else already connects it');
       await theWizardCannotGoOnYet(tester);
     });
     testWidgets('''going back keeps what was said, and another kind can be chosen''', (tester) async {
       await bddSetUp(tester);
       await iSayItIsCalled(tester, 'the build machine');
-      await iChoose(tester, 'Raise the forward for me');
+      await iChoose(tester, 'Connect over ssh for me');
       await iGoOn(tester);
       await iSayItIsAt(tester, 'user@build.example.test');
       await iGoBack(tester);
-      await iChoose(tester, 'Its socket is already forwarded');
+      await iChoose(tester, 'Something else already connects it');
       await iGoOn(tester);
       await theForwardedSocketIs(tester, '/tmp/porelo-build.sock');
       await iWatchIt(tester);
@@ -171,7 +171,7 @@ void main() {
     testWidgets('''a machine added is asked whether it can run work when the person goes there''', (tester) async {
       await bddSetUp(tester);
       await iSayItIsCalled(tester, 'the build machine');
-      await iChoose(tester, 'Its socket is already forwarded');
+      await iChoose(tester, 'Something else already connects it');
       await iGoOn(tester);
       await theForwardedSocketIs(tester, '/tmp/porelo-build.sock');
       await iWatchIt(tester);
@@ -183,7 +183,7 @@ void main() {
       await bddSetUp(tester);
       await theHostKeyOfIsNotKnownYet(tester, 'user@build.example.test');
       await iSayItIsCalled(tester, 'the build machine');
-      await iChoose(tester, 'Raise the forward for me');
+      await iChoose(tester, 'Connect over ssh for me');
       await iSayItIsAt(tester, 'user@build.example.test');
       await itsSocketThereIs(tester, '/run/user/1001/porelo/porelod.sock');
       await iTryTheConnection(tester);
@@ -197,7 +197,7 @@ void main() {
       await bddSetUp(tester);
       await theHostKeyOfIsNotKnownYet(tester, 'user@build.example.test');
       await iSayItIsCalled(tester, 'the build machine');
-      await iChoose(tester, 'Raise the forward for me');
+      await iChoose(tester, 'Connect over ssh for me');
       await iSayItIsAt(tester, 'user@build.example.test');
       await itsSocketThereIs(tester, '/run/user/1001/porelo/porelod.sock');
       await iTryTheConnection(tester);
@@ -210,7 +210,7 @@ void main() {
       await bddSetUp(tester);
       await theHostKeyOfIsNotKnownYet(tester, 'user@build.example.test');
       await iSayItIsCalled(tester, 'the build machine');
-      await iChoose(tester, 'Raise the forward for me');
+      await iChoose(tester, 'Connect over ssh for me');
       await iSayItIsAt(tester, 'user@build.example.test');
       await itsSocketThereIs(tester, '/run/user/1001/porelo/porelod.sock');
       await iWatchIt(tester);
@@ -222,7 +222,7 @@ void main() {
     testWidgets('''a host already known is not asked about''', (tester) async {
       await bddSetUp(tester);
       await iSayItIsCalled(tester, 'the build machine');
-      await iChoose(tester, 'Raise the forward for me');
+      await iChoose(tester, 'Connect over ssh for me');
       await iSayItIsAt(tester, 'user@build.example.test');
       await itsSocketThereIs(tester, '/run/user/1001/porelo/porelod.sock');
       await iTryTheConnection(tester);
@@ -232,7 +232,7 @@ void main() {
     testWidgets('''a socket already forwarded is never asked about a host key''', (tester) async {
       await bddSetUp(tester);
       await iSayItIsCalled(tester, 'the build machine');
-      await iChoose(tester, 'Its socket is already forwarded');
+      await iChoose(tester, 'Something else already connects it');
       await theForwardedSocketIs(tester, '/tmp/porelo-build.sock');
       await iTryTheConnection(tester);
       await iWatchIt(tester);

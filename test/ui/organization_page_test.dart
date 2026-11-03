@@ -146,7 +146,7 @@ void main() {
     await pressOrganizationAction(tester, 'openProject/demo');
     await World.settle(tester);
     expect(find.byKey(const ValueKey('organization-project demo')), findsOneWidget);
-    expect(find.text('Project admin pat. Only they change this project.'), findsOneWidget);
+    expect(find.text('Project Admin pat. Only they change this project.'), findsOneWidget);
     await tester.tap(find.byKey(const Key('organization-project-back')));
     await World.settle(tester);
     expect(find.byKey(const ValueKey('my-project demo')), findsOneWidget);
@@ -253,7 +253,7 @@ void main() {
   // Harm: a row names a person's standing or a project's admin wrongly, and the wrong person is asked.
   testWidgets('rows say who holds what, and how one stands in a project', (tester) async {
     await _pump(tester, 'mia');
-    expect(find.textContaining('project admin pat'), findsOneWidget);
+    expect(find.textContaining('Project Admin pat'), findsOneWidget);
     expect(find.textContaining('you are a member'), findsOneWidget);
     expect(find.textContaining('you are not a member'), findsOneWidget);
     expect(find.textContaining('203.0.113.7:22'), findsOneWidget);

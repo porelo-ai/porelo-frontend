@@ -1634,8 +1634,7 @@ class _ShellState extends State<Shell> {
                   const Text(
                     'It keeps running, and stands on under Organization. A rented one goes on billing at its provider.',
                   ),
-                  if (takeDown.unavailable != null)
-                    Text('Take this server down is unavailable: ${takeDown.unavailable}'),
+                  if (takeDown.unavailable != null) Text('This action is unavailable: ${takeDown.unavailable}'),
                 ],
               ),
             ),

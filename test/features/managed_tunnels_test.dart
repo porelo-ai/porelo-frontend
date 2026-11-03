@@ -72,7 +72,7 @@ void main() {
     testWidgets('''a machine is described by where it is, and the forward is raised here''', (tester) async {
       await bddSetUp(tester);
       await iStartWatchingAnotherMachine(tester);
-      await iChoose(tester, 'Raise the forward for me');
+      await iChoose(tester, 'Connect over ssh for me');
       await iSayItIsCalled(tester, 'the build machine');
       await iSayItIsAt(tester, 'user@build.example.test');
       await itsSocketThereIs(tester, '/run/user/1001/porelo/porelod.sock');
@@ -96,7 +96,7 @@ void main() {
       await bddSetUp(tester);
       await raisingAForwardWillFailWith(tester, 'Host key verification failed.');
       await iStartWatchingAnotherMachine(tester);
-      await iChoose(tester, 'Raise the forward for me');
+      await iChoose(tester, 'Connect over ssh for me');
       await iSayItIsCalled(tester, 'the build machine');
       await iSayItIsAt(tester, 'user@build.example.test');
       await itsSocketThereIs(tester, '/run/user/1001/porelo/porelod.sock');
@@ -104,7 +104,7 @@ void main() {
       await theMachineSays(
         tester,
         'the build machine',
-        'This computer does not know user@build.example.test’s host key yet, or it changed.',
+        'This computer does not know user@build.example.test’s SSH host key yet, or it changed.',
       );
     });
     testWidgets('''a watched machine that is silent can be started from its menu, once somebody agrees''', (
@@ -113,7 +113,7 @@ void main() {
       await bddSetUp(tester);
       await nothingAnswersOnThatMachine(tester);
       await iStartWatchingAnotherMachine(tester);
-      await iChoose(tester, 'Raise the forward for me');
+      await iChoose(tester, 'Connect over ssh for me');
       await iSayItIsCalled(tester, 'the build machine');
       await iSayItIsAt(tester, 'user@build.example.test');
       await itsSocketThereIs(tester, '/run/user/1001/porelo/porelod.sock');
@@ -130,7 +130,7 @@ void main() {
       await bddSetUp(tester);
       await nothingAnswersOnThatMachine(tester);
       await iStartWatchingAnotherMachine(tester);
-      await iChoose(tester, 'Raise the forward for me');
+      await iChoose(tester, 'Connect over ssh for me');
       await iSayItIsCalled(tester, 'the build machine');
       await iSayItIsAt(tester, 'user@build.example.test');
       await itsSocketThereIs(tester, '/run/user/1001/porelo/porelod.sock');
@@ -145,7 +145,7 @@ void main() {
     testWidgets('''a machine that answers is offered no start at all''', (tester) async {
       await bddSetUp(tester);
       await iStartWatchingAnotherMachine(tester);
-      await iChoose(tester, 'Raise the forward for me');
+      await iChoose(tester, 'Connect over ssh for me');
       await iSayItIsCalled(tester, 'the build machine');
       await iSayItIsAt(tester, 'user@build.example.test');
       await itsSocketThereIs(tester, '/run/user/1001/porelo/porelod.sock');
@@ -166,7 +166,7 @@ void main() {
     ) async {
       await bddSetUp(tester);
       await iStartWatchingAnotherMachine(tester);
-      await iChoose(tester, 'Raise the forward for me');
+      await iChoose(tester, 'Connect over ssh for me');
       await iSayItIsCalled(tester, 'the build machine');
       await iSayItIsAt(tester, 'user@build.example.test');
       await itsSocketThereIs(tester, '/run/user/1001/porelo/porelod.sock');
@@ -189,7 +189,7 @@ void main() {
     testWidgets('''a stop nobody agreed to runs nothing''', (tester) async {
       await bddSetUp(tester);
       await iStartWatchingAnotherMachine(tester);
-      await iChoose(tester, 'Raise the forward for me');
+      await iChoose(tester, 'Connect over ssh for me');
       await iSayItIsCalled(tester, 'the build machine');
       await iSayItIsAt(tester, 'user@build.example.test');
       await itsSocketThereIs(tester, '/run/user/1001/porelo/porelod.sock');
@@ -204,7 +204,7 @@ void main() {
       await bddSetUp(tester);
       await nothingAnswersOnThatMachine(tester);
       await iStartWatchingAnotherMachine(tester);
-      await iChoose(tester, 'Raise the forward for me');
+      await iChoose(tester, 'Connect over ssh for me');
       await iSayItIsCalled(tester, 'the build machine');
       await iSayItIsAt(tester, 'user@build.example.test');
       await itsSocketThereIs(tester, '/run/user/1001/porelo/porelod.sock');
@@ -225,7 +225,7 @@ void main() {
     testWidgets('''closing the interface leaves no forward it raised still running''', (tester) async {
       await bddSetUp(tester);
       await iStartWatchingAnotherMachine(tester);
-      await iChoose(tester, 'Raise the forward for me');
+      await iChoose(tester, 'Connect over ssh for me');
       await iSayItIsCalled(tester, 'the build machine');
       await iSayItIsAt(tester, 'user@build.example.test');
       await itsSocketThereIs(tester, '/run/user/1001/porelo/porelod.sock');
@@ -242,7 +242,7 @@ void main() {
     testWidgets('''the socket on the other machine is asked for, never guessed''', (tester) async {
       await bddSetUp(tester);
       await iStartWatchingAnotherMachine(tester);
-      await iChoose(tester, 'Raise the forward for me');
+      await iChoose(tester, 'Connect over ssh for me');
       await itsSocketThereIsNotFilledIn(tester);
     });
     testWidgets('''a socket left empty is asked of the machine when it is watched, and the forward goes there''', (
@@ -251,7 +251,7 @@ void main() {
       await bddSetUp(tester);
       await theAccountLogsInAsUid(tester, 1007);
       await iStartWatchingAnotherMachine(tester);
-      await iChoose(tester, 'Raise the forward for me');
+      await iChoose(tester, 'Connect over ssh for me');
       await iSayItIsCalled(tester, 'the build machine');
       await iSayItIsAt(tester, 'user@build.example.test');
       await iWatchIt(tester);

@@ -88,7 +88,7 @@ void main() {
       if (held) {
         expect(tester.widget<OutlinedButton>(control).onPressed, isNull);
         expect(
-          find.ancestor(of: control, matching: find.byTooltip('The verified host admins are unavailable.')),
+          find.ancestor(of: control, matching: find.byTooltip('The verified Machine Admins are unavailable.')),
           findsOneWidget,
         );
       }
@@ -114,7 +114,7 @@ void main() {
       final control = find.byKey(const Key('host.prepare'));
       expect(tester.widget<OutlinedButton>(control).onPressed, admin ? isNotNull : isNull);
       expect(
-        find.ancestor(of: control, matching: find.byTooltip('The verified host admins are unavailable.')),
+        find.ancestor(of: control, matching: find.byTooltip('The verified Machine Admins are unavailable.')),
         findsNothing,
       );
     });

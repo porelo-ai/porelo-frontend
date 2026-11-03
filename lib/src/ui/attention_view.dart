@@ -213,12 +213,12 @@ extension on _AttentionViewState {
                 goOn: () {
                   if (runs != null && run != null) unawaited(runs.resume(run));
                 },
-              ).unless(run == null || runs == null ? 'host setup is unavailable here' : null)
+              ).unless(run == null || runs == null ? 'machine setup is unavailable here' : null)
             : hostPreparationCommand(
                 project: stop.project,
                 resolved: resolved,
                 open: () => widget.onOpenHost?.call(stop.project),
-              ).unless(widget.onOpenHost == null ? 'host setup is unavailable here' : null);
+              ).unless(widget.onOpenHost == null ? 'machine setup is unavailable here' : null);
         open = !primary.visible || resolved || widget.onOpenHost == null
             ? details
             : () => widget.onOpenHost!(stop.project);
@@ -318,7 +318,7 @@ extension on _AttentionViewState {
           );
         }
       case AttentionKind.setAside:
-        title = 'Saved hosts not watched';
+        title = 'Saved machines not watched';
         state = 'Set aside';
         icon = Icons.inventory_2_outlined;
       case AttentionKind.missed:
@@ -359,12 +359,12 @@ extension on _AttentionViewState {
                 goOn: () {
                   if (runs != null && run != null) unawaited(runs.resume(run));
                 },
-              ).unless(run == null || runs == null ? 'host setup is unavailable here' : null)
+              ).unless(run == null || runs == null ? 'machine setup is unavailable here' : null)
             : hostPreparationCommand(
                 project: stop.project,
                 resolved: resolved,
                 open: () => widget.onOpenHost?.call(stop.project),
-              ).unless(widget.onOpenHost == null ? 'host setup is unavailable here' : null);
+              ).unless(widget.onOpenHost == null ? 'machine setup is unavailable here' : null);
         return Card(
           key: ValueKey('host-needs ${stop.project}'),
           child: Padding(
@@ -923,7 +923,7 @@ class TaskTile extends StatelessWidget {
                       if (tile.fleet.clearance.askedBefore(first))
                         Text(
                           'This was let through before. A decision is remembered per address, so a '
-                          'host that answers on several addresses asks again for each one.',
+                          'server that answers on several addresses asks again for each one.',
                           key: const Key('asked-before'),
                           style: text.bodySmall,
                         ),

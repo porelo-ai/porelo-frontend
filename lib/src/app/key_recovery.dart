@@ -30,7 +30,7 @@ class BackupScope {
 
   /// The place in a person's words.
   String get words => switch (host) {
-    final host? => 'the admins of host $host',
+    final host? => 'the Machine Admins of machine $host',
     null => 'the organization’s owners',
   };
 

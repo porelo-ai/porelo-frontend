@@ -146,7 +146,7 @@ void main() {
           isA<OrganizationRefused>().having(
             (refused) => refused.words,
             'words',
-            allOf(contains('not a key of this host'), isNot(contains('five minutes'))),
+            allOf(contains('not a key of this machine'), isNot(contains('five minutes'))),
           ),
         ),
       );
