@@ -121,6 +121,8 @@ Nothing of this is built, and nothing built stops for it.
   machine's admin exists before the machine.
 - **A machine added over ssh or WSL is private.** It stands only under *Machines*, marked clearly as a private machine, with *Connect* and *Disconnect*. *Forget* deletes the entry, so it is added anew there.
 - ***Prepare a machine…* stands in *Organization*.**
+- **The roles.** An Organization Admin may do everything on every machine, also as the emergency way. A Machine Admin may do so only on one machine. Each role above may do all a role below may.
+  Core and Machines are asked what that changes, as today's roles are separate and an owner does not move a machine's pin. Nothing here is written to these roles yet.
 - **A third operation: taking a server down,** for a rented one giving it back, also removes it from the organization's list. Renting a server or
   setting one up by hand must enter it in the organization.
 
@@ -211,7 +213,7 @@ private half being gone.
 
 - Who starts a return under *Organization*, *always* being said of the place? Recommended: an admin of that machine; an owner only where no admin is left, as the owner acts rarely. Under *Machines*, its admin alone, as decided.
 - Does a machine that simply exists have the same two places as a rental? Recommended: yes, for one way to find it.
-- Who may enter a new machine? Not the owner by default, as decided, and no machine's admin exists before it. An organization-wide role is one way; Core is asked what it costs.
+- Who may enter a new machine? Not the owner by default, as decided, and no machine's admin exists before it. The Organization Admin above would answer this, once what that role costs is known.
 - A project still on the server when it goes: `org host remove` is to be read for whether it refuses, or leaves the project on no machine. [F319](README.md#f319) empties the accounts and says nothing of the projects.
 - A project's row says *Connect to <machine>* in [F338](README.md#f338). Does it connect, or lead to the row in *Organization*? Recommended: lead to that row, so that *Connect* stays in one place.
 - An admin who has forgotten a server, or never connected: the machine's page, opened from *Organization*, has what they manage. Taking it down needs what this computer kept and a way to the
@@ -219,7 +221,8 @@ private half being gone.
 
 ## To be checked
 
-- Whether someone can reach an organization's machine by adding it as a private one, past the official way: Core and Machines are asked what stops the login and whether it gives more than *Connect*.
+- Whether someone can reach an organization's machine by adding it as a private one, past the official way. By Agent Machines' reading, not: without an account the login is refused, and with one it gives no more than *Connect*. Core's reading is outstanding. A removed member's
+  key still logs in until the next follow, at most five minutes while the follow succeeds, and a follow that cannot fetch makes that wait as long as it lasts.
 - Whether the interface should say so when an address added under *Machines* is an organization's machine. By reading, not built: `checkMachine` reads the key from `known_hosts` or `ssh-keyscan`, and a card holds `hostKey`, so it can compare them for an ssh entry where
   the organization is read and the card has a key. It cannot for WSL or a socket someone else forwarded, and a key nobody checks against a card proves nothing about rights, so it could only be a word, never a guard.
 
