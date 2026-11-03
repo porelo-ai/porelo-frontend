@@ -516,6 +516,26 @@ void main() {
       expect(project.members, hasLength(2));
     });
 
+    // Harm: a project whose review is required reads as one nobody can say about, and its next repository loses the policy.
+    test('the review policy of a project and of each repository is read as Core answers it', () async {
+      answer = (_) => says({
+        ..._project,
+        'repositories': {
+          'state': 'read',
+          'revision': 'p1',
+          'names': [
+            {'name': 'app', 'upstream': 'git@github.com:acme/app.git', 'review': 'optional'},
+            {'name': 'docs', 'upstream': 'git@github.com:acme/docs.git', 'review': 'required'},
+          ],
+          'review': 'required',
+          'file_signer': 'alice',
+        },
+      });
+      final project = await source.readProject('demo');
+      expect(project.review, 'required');
+      expect([for (final repository in project.repositories) repository.review], ['optional', 'required']);
+    });
+
     // Harm: a key that cannot sign is offered.
     test('only usable keys are offered, each as the forge lists it', () async {
       answer = (_) => says({

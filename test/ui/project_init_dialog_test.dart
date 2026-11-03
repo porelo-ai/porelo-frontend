@@ -123,6 +123,31 @@ void main() {
     expect(source.writes.single.input['upstream'], 'http://127.0.0.1:8082/demo/app.git');
   });
 
+  // Harm: a person signs a security class and a project address the dialog never showed them.
+  testWidgets('a draft that proposes an online project is shown as Core wrote it, and no word says guarded', (
+    tester,
+  ) async {
+    const proposed =
+        'project:\n  name: demo\n  security_class: online\n  upstream: "http://127.0.0.1:8082/demo/demo.git"\n';
+    final source = _Source('pat')
+      ..preview = () async => ProjectInitDraft(
+        repository: 'app',
+        upstream: 'http://127.0.0.1:8082/demo/app.git',
+        draft: proposed,
+        revision: 'preview-base',
+        values: const [],
+        disagreements: const [],
+        unplaced: '',
+        notPlaced: '',
+        credentialsNeeded: '',
+        plugins: const [],
+      );
+    await _dialog(tester, source);
+    expect(find.text('Upstream: http://127.0.0.1:8082/demo/app.git'), findsOneWidget);
+    expect(find.text(proposed), findsOneWidget);
+    expect(find.textContaining('guarded'), findsNothing);
+  });
+
   // Harm: a project on no machine gets an address nothing answers at.
   test('no machine, or no port on its card, names no local address', () {
     final view = organizationFor('pat');

@@ -328,14 +328,17 @@ class KnownAddress {
 /// One repository of a project: a place of work, named by the address it is worked on at.
 @immutable
 class ProjectRepository {
-  /// Keeps its name and address.
-  const ProjectRepository({required this.name, this.address});
+  /// Keeps its name, address and review policy.
+  const ProjectRepository({required this.name, this.address, this.review});
 
   /// Its name.
   final String name;
 
   /// Where it is worked on, absent where no upstream is named.
   final String? address;
+
+  /// The review policy Core names for it, or null where it names none; unknown words remain visible.
+  final String? review;
 }
 
 /// One member of a project, by their card.

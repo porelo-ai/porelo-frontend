@@ -398,13 +398,7 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
               (view == null || change.change == OrganizationChange.openProject))
             OrganizationPendingRow(widget.organization, change, onReview: () => unawaited(_read())),
         if (view != null) ...[
-          Text(switch (view.review) {
-            'required' => 'Review is required.',
-            'optional' => 'Review is optional.',
-            null =>
-              'Porelo does not name the current review policy, so this page cannot say whether review is required.',
-            final word => 'Porelo calls the review policy “$word”; this page cannot say whether review is required.',
-          }),
+          Text(_reviewWords(view.review)),
           if (!isAdmin) Text('${_adminsWords(view)} Only they change this project.'),
           const SizedBox(height: Space.normal),
           if (!view.opened) _notOpened(view, isAdmin),
@@ -417,6 +411,13 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
       ],
     );
   }
+
+  String _reviewWords(String? review) => switch (review) {
+    'required' => 'Review is required.',
+    'optional' => 'Review is optional.',
+    null => 'Porelo does not name the current review policy, so this page cannot say whether review is required.',
+    final word => 'Porelo calls the review policy “$word”; this page cannot say whether review is required.',
+  };
 
   String _adminsWords(ProjectView view) => view.admins.isEmpty
       ? 'It has no Project Admin.'
@@ -529,7 +530,7 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
               child: ListTile(
                 leading: const Icon(Icons.book_outlined),
                 title: Text(repository.name),
-                subtitle: Text(repository.address ?? 'no upstream named'),
+                subtitle: Text('${repository.address ?? 'no upstream named'} · ${_reviewWords(repository.review)}'),
                 trailing: isAdmin
                     ? CommandMenu(
                         commands: [

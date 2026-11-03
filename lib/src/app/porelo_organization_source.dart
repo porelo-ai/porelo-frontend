@@ -233,11 +233,16 @@ class PoreloOrganizationSource implements OrganizationSource {
         host: _maybeText(answer, 'host'),
         address: _maybeText(answer, 'address'),
         opened: answer['opened'] == true,
+        review: repositories == null ? null : _maybeText(repositories, 'review'),
         roles: roles,
         repositories: [
           if (repositories != null)
             for (final repository in _maps(repositories, 'names'))
-              ProjectRepository(name: _text(repository, 'name'), address: _maybeText(repository, 'upstream')),
+              ProjectRepository(
+                name: _text(repository, 'name'),
+                address: _maybeText(repository, 'upstream'),
+                review: _maybeText(repository, 'review'),
+              ),
         ],
         members: [
           for (final member in _maps(answer, 'members'))

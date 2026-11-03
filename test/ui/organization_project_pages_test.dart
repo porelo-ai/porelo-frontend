@@ -314,7 +314,7 @@ void main() {
         }
         expect(find.text('Project Admin pat. Only they change this project.'), findsOneWidget);
         expect(find.text('demo-docs'), findsOneWidget);
-        expect(find.text('git@forge.example.org:acme/demo-docs.git'), findsOneWidget);
+        expect(find.textContaining('git@forge.example.org:acme/demo-docs.git'), findsOneWidget);
         expect(find.text('admin'), findsOneWidget);
       });
     }
@@ -440,6 +440,27 @@ void main() {
       await tester.tap(find.byKey(const Key('organization-confirm')));
       await tester.pumpAndSettle();
       expect(find.text('The project moved on; read it again.'), findsOneWidget);
+    });
+
+    // Harm: an admin cannot see that one repository lets work leave the gate unreviewed while the project requires review.
+    testWidgets('the policy of the project and of each repository is shown', (tester) async {
+      await _page(
+        tester,
+        'mia',
+        project: const ProjectView(
+          name: 'demo',
+          revision: 'p1',
+          review: 'required',
+          repositories: [
+            ProjectRepository(name: 'app', address: 'git@forge.example.org:acme/app.git', review: 'optional'),
+            ProjectRepository(name: 'docs', address: 'git@forge.example.org:acme/docs.git', review: 'required'),
+          ],
+        ),
+      );
+      expect(find.text('Review is required.'), findsOneWidget);
+      expect(find.text('git@forge.example.org:acme/app.git · Review is optional.'), findsOneWidget);
+      expect(find.text('git@forge.example.org:acme/docs.git · Review is required.'), findsOneWidget);
+      expect(find.textContaining('does not name'), findsNothing);
     });
 
     // Harm: a new repository could lose its required review policy when its signed write is assembled.
