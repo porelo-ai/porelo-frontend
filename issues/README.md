@@ -18,6 +18,8 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f330"></a>[F330](F330-A-Project-Page-Says-It-Is-Reading.md) | — | — | A project's page showing at once that it is reading, and what. |
+| <a id="f331"></a>[F331](F331-A-Long-Change-Shows-That-It-Runs.md) | — | — | A long change, such as opening a project, showing that it runs and where a failure will be said. |
 | <a id="f339"></a>[F339](F339-Refresh-Reads-What-Is-Shown.md) | — | — | The rail's *Refresh* reaching the page shown, and a host page's own button named for what more it does. |
 | <a id="f343"></a>[F343](F343-A-Hosts-List-Says-What-The-Host-Still-Holds.md) | — | — | A host's list keeping a project being taken off until the host has let it go, and saying why if held. |
 | <a id="f338"></a>[F338](F338-The-Words-Of-The-Project-List.md) | — | — | The project list's words saying what each row states and each button does. |
@@ -94,8 +96,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f264"></a>[F264](F264-A-Server-With-No-Project-Given-Back.md) | S | — | A server rented with no project given back; the VPN taken down only after the give-back was confirmed. |
 | <a id="f123"></a>[F123](F123-Where-A-Machine-And-A-Project-Stand-In-Their-Organisations-Tree.md) | — | — | Where a machine and a project stand in their organisation's tree, and which settings bind them. |
 | <a id="f166"></a>[F166](F166-A-Host-Rented-Through-OpenTofu.md) | M | — | `porelo-host up` and `down` renting and giving back through the OpenTofu module, its secrets only in `tofu`'s environment; `--given` kept. |
-| <a id="f330"></a>[F330](F330-A-Project-Page-Says-It-Is-Reading.md) | — | — | A project's page showing at once that it is reading, and what. |
-| <a id="f331"></a>[F331](F331-A-Long-Change-Shows-That-It-Runs.md) | — | — | A long change, such as opening a project, showing that it runs and where a failure will be said. |
 | <a id="f335"></a>[F335](F335-One-Row-Per-Machine.md) | — | — | *Organization* lists the machines available, *Machines* a person's own after *Connect*, each once, and "host" gone from the interface's words. |
 
 ### Idea

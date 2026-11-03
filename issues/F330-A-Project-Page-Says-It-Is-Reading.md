@@ -1,6 +1,6 @@
 # F330 — A Project Page Says It Is Reading
 
-**Status:** Accepted.
+**Status:** Review.
 
 **What must be true.** A project's page shows at once that it is reading, and what, so a person never takes the wait for
 nothing happening.

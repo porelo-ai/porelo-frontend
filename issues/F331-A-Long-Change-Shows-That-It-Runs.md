@@ -1,6 +1,6 @@
 # F331 — A Long Change Shows That It Runs
 
-**Status:** Accepted.
+**Status:** Review.
 
 **What must be true.** A person who asks for a change that takes a while sees at once that it runs, and sees where a failure
 will be said.

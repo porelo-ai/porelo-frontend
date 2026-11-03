@@ -163,6 +163,7 @@ class _DefaultDialogState extends State<DefaultDialog> {
                   style: TextStyle(color: scheme.error),
                 ),
               if (_said != null) Text(_said!, key: const Key('default-said')),
+              if (_busy) const Text('Asking the machine… Any failure will appear here.'),
               if (repositories == null && _problem == null) const Text('Asking the machine…'),
               if (repositories != null && repositories.isEmpty && !starting)
                 const Text('No repository yet.', key: Key('default-none')),

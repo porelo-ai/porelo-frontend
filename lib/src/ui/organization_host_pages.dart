@@ -562,7 +562,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
             ),
           ),
       ],
-    );
+    ).withOrganizationChanges(widget.organization, names: host.admins);
   }
 
   String _standing(OrganizationView view, String login) {

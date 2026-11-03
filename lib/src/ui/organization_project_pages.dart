@@ -290,47 +290,59 @@ class OrganizationProjectPage extends StatefulWidget {
 class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
   ProjectView? _view;
   String? _problem;
+  bool _reading = true;
 
   @override
   void initState() {
     super.initState();
     unawaited(_read());
     widget.organization.addListener(_organizationChanged);
+    widget.organization.addWriteRead(_read);
     if (widget.organization.view == null) unawaited(widget.organization.refresh());
   }
 
   @override
   void dispose() {
     widget.organization.removeListener(_organizationChanged);
+    widget.organization.removeWriteRead(_read);
     super.dispose();
   }
 
-  // A change was asked for and the store answered: what is shown is read again, never assumed.
-  late bool _wasBusy = widget.organization.busy;
   int _reads = 0;
   void _organizationChanged() {
-    final busy = widget.organization.busy;
-    if (_wasBusy && !busy) unawaited(_read());
-    _wasBusy = busy;
     if (mounted) setState(() {});
   }
 
   Future<void> _read() async {
+    if (!mounted) return;
     final read = ++_reads;
+    setState(() => _reading = true);
     try {
       final view = await widget.organization.source.readProject(widget.project);
       // A read that answers after a later one was asked for may be the older.
       if (!mounted || read != _reads) return;
+      widget.organization.rememberProjectRevision(view);
       setState(() {
         _view = view;
         _problem = null;
       });
     } on OrganizationRefused catch (refused) {
       if (mounted && read == _reads) setState(() => _problem = refused.words);
+    } on Exception {
+      if (mounted && read == _reads) setState(() => _problem = 'The project could not be read.');
+    } finally {
+      if (mounted && read == _reads) setState(() => _reading = false);
     }
   }
 
-  void _show(Widget dialog) => unawaited(showDialog<void>(context: context, builder: (_) => dialog));
+  void _show(Widget dialog) => unawaited(
+    showDialog<void>(
+      context: context,
+      builder: (_) => widget.organization.busy
+          ? const AlertDialog(content: Text('Another change is still being asked for.'))
+          : dialog,
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -371,6 +383,12 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
           ],
         ),
         if (_problem case final problem?) _Problem(problem),
+        if (_reading) Text('Reading ${widget.project}: its address, repositories, and members…'),
+        OrganizationChangeMark(widget.organization),
+        for (final change in widget.organization.rowChanges)
+          if (change.input['project'] == widget.project &&
+              (view == null || change.change == OrganizationChange.openProject))
+            OrganizationPendingRow(widget.organization, change, onReview: () => unawaited(_read())),
         if (view != null) ...[
           if (!isAdmin) Text('${_adminsWords(view)} Only they change this project.'),
           const SizedBox(height: Space.normal),
@@ -398,10 +416,16 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
       children: [
         Text('Project repository: ${view.address ?? 'none named yet'}'),
         if (isAdmin)
-          OutlinedButton(
-            key: const ValueKey('organization.changeAddress'),
-            onPressed: () => _show(_AddressDialog(widget.organization, view)),
-            child: const Text('Change the address…'),
+          CommandMenu(
+            tooltip: 'What can be done with the project address',
+            commands: [
+              organizationCommand(
+                id: 'changeAddress',
+                label: 'Change the address…',
+                unavailable: widget.organization.busy ? 'Another change is still being asked for.' : null,
+                run: () => _show(_AddressDialog(widget.organization, view)),
+              ),
+            ],
           ),
       ],
     ),
@@ -409,7 +433,11 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
 
   Widget _notOpened(ProjectView view, bool isAdmin) => Padding(
     padding: const EdgeInsets.only(bottom: Space.normal),
-    child: isAdmin
+    child:
+        isAdmin &&
+            !widget.organization.rowChanges.any(
+              (change) => change.change == OrganizationChange.openProject && change.input['project'] == view.name,
+            )
         ? Wrap(
             crossAxisAlignment: WrapCrossAlignment.center,
             spacing: Space.normal,
@@ -450,53 +478,58 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
     return me.role == ProjectView.adminRole ? 'project admin' : me.role;
   }
 
-  Widget _repositories(ProjectView view, bool isAdmin) => FilteredListSection(
-    title: 'Repositories',
-    storageId: 'project-repositories ${view.name}',
-    actions: [
-      if (isAdmin)
-        OutlinedButton.icon(
-          key: const ValueKey('organization.addRepository'),
-          onPressed: () => _show(_AddRepositoryDialog(widget.organization, view)),
-          icon: const Icon(Icons.add),
-          label: const Text('Add'),
-        ),
-    ],
-    rows: [
-      for (final repository in view.repositories)
-        (
-          words: '${repository.name} ${repository.address ?? ''}',
-          child: ListTile(
-            leading: const Icon(Icons.book_outlined),
-            title: Text(repository.name),
-            subtitle: Text(repository.address ?? 'no upstream named'),
-            trailing: isAdmin
-                ? CommandMenu(
-                    commands: [
-                      organizationCommand(
-                        id: 'removeRepository/${repository.name}',
-                        label: 'Remove…',
-                        danger: true,
-                        run: () => _show(
-                          OrganizationConfirmDialog(
-                            widget.organization,
-                            base: view.repositoriesRevision ?? view.revision,
-                            title: 'Remove ${repository.name} from ${view.name}?',
-                            words: 'It is no longer part of the project. The repository itself stays where it is.',
-                            confirm: 'Remove',
-                            change: OrganizationChange.removeProjectRepository,
-                            input: {'project': view.name, 'repository': repository.name},
+  Widget _repositories(ProjectView view, bool isAdmin) =>
+      FilteredListSection(
+        title: 'Repositories',
+        storageId: 'project-repositories ${view.name}',
+        actions: [
+          if (isAdmin)
+            OutlinedButton.icon(
+              key: const ValueKey('organization.addRepository'),
+              onPressed: () => _show(_AddRepositoryDialog(widget.organization, view)),
+              icon: const Icon(Icons.add),
+              label: const Text('Add'),
+            ),
+        ],
+        rows: [
+          for (final repository in view.repositories)
+            (
+              words: '${repository.name} ${repository.address ?? ''}',
+              child: ListTile(
+                leading: const Icon(Icons.book_outlined),
+                title: Text(repository.name),
+                subtitle: Text(repository.address ?? 'no upstream named'),
+                trailing: isAdmin
+                    ? CommandMenu(
+                        commands: [
+                          organizationCommand(
+                            id: 'removeRepository/${repository.name}',
+                            label: 'Remove…',
+                            danger: true,
+                            run: () => _show(
+                              OrganizationConfirmDialog(
+                                widget.organization,
+                                base: view.repositoriesRevision ?? view.revision,
+                                title: 'Remove ${repository.name} from ${view.name}?',
+                                words: 'It is no longer part of the project. The repository itself stays where it is.',
+                                confirm: 'Remove',
+                                change: OrganizationChange.removeProjectRepository,
+                                input: {'project': view.name, 'repository': repository.name},
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
-                    ],
-                    tooltip: 'What can be done with ${repository.name}',
-                  )
-                : null,
-          ),
-        ),
-    ],
-  );
+                        ],
+                        tooltip: 'What can be done with ${repository.name}',
+                      )
+                    : null,
+              ),
+            ),
+        ],
+      ).withOrganizationChanges(
+        widget.organization,
+        names: [for (final repository in view.repositories) repository.name],
+        reviewProject: (_) => unawaited(_read()),
+      );
 
   Widget _members(ProjectView view, OrganizationView? organization, bool isAdmin) {
     final have = {for (final member in view.members) member.login};
@@ -522,7 +555,7 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
                       title: 'Add a member to ${view.name}',
                       personLabel: 'Person',
                       words:
-                          'They are admitted on its host, as ${view.roles.firstOrNull ?? 'a member'}; '
+                          'They are admitted on its machine, as ${view.roles.firstOrNull ?? 'a member'}; '
                           'the role can be changed in their row.',
                       confirm: 'Add',
                       change: OrganizationChange.addProjectMember,
@@ -560,7 +593,7 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
                   base: view.revision,
                   title: 'Remove ${member.login} from ${view.name}?',
                   words:
-                      '${member.login} is out of this project, and its host locks them when it takes the change: '
+                      '${member.login} is out of this project, and its machine locks them when it takes the change: '
                       'within five minutes, or at once on its Refresh.',
                   confirm: 'Remove',
                   change: OrganizationChange.removeProjectMember,
@@ -570,6 +603,10 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
             ),
           ),
       ],
+    ).withOrganizationChanges(
+      widget.organization,
+      names: [for (final member in view.members) member.login],
+      reviewProject: (_) => unawaited(_read()),
     );
   }
 }
@@ -610,13 +647,34 @@ class _MemberRowState extends State<_MemberRow> {
     if (mounted) setState(() => _refusal = refusal);
   }
 
-  Future<void> _change(String role) async {
-    final refusal = await widget.organization.write(OrganizationChange.changeProjectMemberRole, {
-      'project': widget.view.name,
-      'login': widget.member.login,
-      'role': role,
-    }, base: widget.view.revision);
-    if (mounted) setState(() => _refusal = refusal);
+  void _changeRole() {
+    var role = widget.member.role;
+    unawaited(
+      showDialog<void>(
+        context: context,
+        builder: (_) => OrganizationChangeDialog(
+          organization: widget.organization,
+          title: 'Change the role of ${widget.member.login}',
+          confirm: 'Change the role',
+          base: widget.view.revision,
+          body: (_, changed) => DropdownButtonFormField<String>(
+            key: const Key('organization-member-role'),
+            initialValue: role,
+            items: [for (final choice in widget.roles) DropdownMenuItem(value: choice, child: Text(choice))],
+            onChanged: (choice) {
+              if (choice != null) role = choice;
+              changed();
+            },
+          ),
+          ask: () => role == widget.member.role
+              ? null
+              : (
+                  change: OrganizationChange.changeProjectMemberRole,
+                  input: {'project': widget.view.name, 'login': widget.member.login, 'role': role},
+                ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -641,20 +699,7 @@ class _MemberRowState extends State<_MemberRow> {
             children: [
               const Icon(Icons.person_outline),
               Text(member.login == widget.me ? '${member.login} (you)' : member.login),
-              if (widget.changes && widget.roles.contains(member.role))
-                DropdownButton<String>(
-                  key: ValueKey('organization.memberRole/${member.login}'),
-                  value: member.role,
-                  // Set back by the read after the store's answer, never by choosing.
-                  onChanged: widget.organization.busy
-                      ? null
-                      : (role) {
-                          if (role != null && role != member.role) unawaited(_change(role));
-                        },
-                  items: [for (final role in widget.roles) DropdownMenuItem(value: role, child: Text(role))],
-                )
-              else
-                Text(member.role),
+              Text(member.role),
               Text(standing.$1, style: TextStyle(color: standing.$2)),
               if (member.locked) Text('locked', style: TextStyle(color: colors.error)),
               if (widget.changes)
@@ -672,6 +717,13 @@ class _MemberRowState extends State<_MemberRow> {
                       danger: true,
                       run: widget.onRemove,
                     ),
+                    if (widget.roles.contains(member.role))
+                      organizationCommand(
+                        id: 'memberRole/${member.login}',
+                        label: 'Change the role…',
+                        run: _changeRole,
+                        unavailable: widget.organization.busy ? 'Another change is still being asked for.' : null,
+                      ),
                   ],
                   tooltip: 'What can be done with ${member.login}',
                 ),

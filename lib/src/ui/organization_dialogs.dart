@@ -2,11 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../app/commands.dart';
 import '../app/organization_source.dart';
+import 'command_menu.dart';
+import 'filtered_list_section.dart';
 import 'tokens.dart';
 
-/// The frame of a dialog that asks the store for one change: its refusal stays in the dialog, in the store's words, and it
-/// closes only once the store took the change.
+/// List changes close onto a provisional row; other changes keep their progress and refusal in the dialog.
 class OrganizationChangeDialog extends StatefulWidget {
   /// Asks [organization] for the change [ask] answers.
   const OrganizationChangeDialog({
@@ -50,12 +52,21 @@ class _OrganizationChangeDialogState extends State<OrganizationChangeDialog> {
   bool _asking = false;
 
   Future<void> _confirm() async {
+    if (widget.organization.busy) {
+      setState(() => _refusal = 'Another change is still being asked for.');
+      return;
+    }
     if (widget.invalid?.call() case final words?) {
       setState(() => _refusal = words);
       return;
     }
     final asked = widget.ask();
     if (asked == null) return;
+    if (widget.organization.view != null && OrganizationRowChange.target(asked.change, asked.input) != null) {
+      unawaited(widget.organization.write(asked.change, asked.input, base: widget.base, provisional: true));
+      Navigator.of(context).pop();
+      return;
+    }
     setState(() {
       _asking = true;
       _refusal = null;
@@ -87,6 +98,12 @@ class _OrganizationChangeDialogState extends State<OrganizationChangeDialog> {
             children: [
               // A refusal answers what was asked, not what is being typed since.
               widget.body(context, () => setState(() => _refusal = null)),
+              if (_asking) ...[
+                const SizedBox(height: Space.small),
+                Text('${widget.confirm}…'),
+                OrganizationChangeMark(widget.organization),
+                const Text('Any failure will appear here.'),
+              ],
               if (_refusal case final refusal?) ...[
                 const SizedBox(height: Space.small),
                 Text(refusal, style: TextStyle(color: Theme.of(context).colorScheme.error)),
@@ -116,9 +133,174 @@ class OrganizationChangeMark extends StatelessWidget {
   final Organization organization;
 
   @override
-  Widget build(BuildContext context) => organization.busy
-      ? const LinearProgressIndicator(key: Key('organization-change-running'), semanticsLabel: 'A change is under way')
-      : const SizedBox.shrink();
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: organization,
+    builder: (context, _) => organization.busy
+        ? Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const LinearProgressIndicator(
+                key: Key('organization-change-running'),
+                semanticsLabel: 'A change is under way',
+              ),
+              Text(organization.changeProgress ?? 'A change is under way…'),
+            ],
+          )
+        : const SizedBox.shrink(),
+  );
+}
+
+/// Keeps a list's real rows until a read answers, replacing only rows with a provisional change.
+extension OrganizationSectionChanges on FilteredListSection {
+  /// Marks requests without changing this list's source rows, filters, or sort keys.
+  Widget withOrganizationChanges(
+    Organization organization, {
+    required List<String> names,
+    void Function(String project)? reviewProject,
+  }) => OrganizationListSection(organization, names: names, section: this, reviewProject: reviewProject);
+}
+
+/// A list with its running or refused requests kept alongside its source rows.
+class OrganizationListSection extends StatelessWidget {
+  /// Uses [names] in the same order as [section]'s source rows.
+  const OrganizationListSection(
+    this.organization, {
+    required this.names,
+    required this.section,
+    this.reviewProject,
+    super.key,
+  });
+
+  /// The source of pending changes.
+  final Organization organization;
+
+  /// Each source row's name, independent of its displayed words.
+  final List<String> names;
+
+  /// The list's existing presentation and actions.
+  final FilteredListSection section;
+
+  /// Opens or rereads the project before retrying an answered refusal.
+  final void Function(String project)? reviewProject;
+
+  @override
+  Widget build(BuildContext context) {
+    final changes = {
+      for (final change in organization.rowChanges)
+        if (change.inList(section.storageId) case final target?) target.name: change,
+    };
+    final added = changes.keys.where((name) => !names.contains(name)).toList();
+    Widget pending(OrganizationRowChange change) => OrganizationPendingRow(
+      organization,
+      change,
+      name: change.inList(section.storageId)!.name,
+      onReview: reviewProject == null || change.input['project'] == null
+          ? null
+          : () => reviewProject!(change.input['project']!),
+    );
+    return FilteredListSection(
+      title: section.title,
+      storageId: section.storageId,
+      collapsible: section.collapsible,
+      initiallyOpen: section.initiallyOpen,
+      openWhenCompact: section.openWhenCompact,
+      reveal: changes.isEmpty ? section.reveal : '${changes.values.last.change.name} ${changes.keys.last}',
+      actions: [for (final action in section.actions) _WhileIdle(organization, child: action)],
+      commands: [
+        for (final command in section.commands)
+          command.unless(organization.busy ? 'Another change is still being asked for.' : null),
+      ],
+      sorts: section.sorts == null
+          ? null
+          : [
+              for (final sort in section.sorts!)
+                SectionSort(
+                  sort.label,
+                  (index) => index < names.length ? sort.keyOf(index) : added[index - names.length],
+                ),
+            ],
+      rows: [
+        for (final (index, row) in section.rows.indexed)
+          (
+            words: row.words,
+            child: changes.containsKey(names[index])
+                ? pending(changes[names[index]]!)
+                : _WhileIdle(organization, child: row.child),
+          ),
+        for (final name in added) (words: name, child: pending(changes[name]!)),
+      ],
+    );
+  }
+}
+
+class _WhileIdle extends StatelessWidget {
+  const _WhileIdle(this.organization, {required this.child});
+
+  final Organization organization;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => AbsorbPointer(
+    absorbing: organization.busy,
+    child: ExcludeFocus(
+      excluding: organization.busy,
+      child: Opacity(opacity: organization.busy ? 0.5 : 1, child: child),
+    ),
+  );
+}
+
+/// The running or refused row, with retry and drop in its menu.
+class OrganizationPendingRow extends StatelessWidget {
+  /// Shows [change] independently of the page that started it.
+  const OrganizationPendingRow(this.organization, this.change, {this.name, this.onReview, super.key});
+
+  /// The organization keeping the request.
+  final Organization organization;
+
+  /// The provisional request.
+  final OrganizationRowChange change;
+
+  /// The containing row's name where it stands for a nested list change.
+  final String? name;
+
+  /// Lets the person read the project's current state before another attempt.
+  final VoidCallback? onReview;
+
+  @override
+  Widget build(BuildContext context) {
+    final target = OrganizationRowChange.target(change.change, change.input)!;
+    return ListTile(
+      key: ValueKey('organization-pending ${target.scope} ${target.name}'),
+      leading: Icon(change.running ? Icons.hourglass_top : Icons.error_outline),
+      title: Text(name ?? target.name),
+      subtitle: Text(change.running ? '${target.doing} Any failure will appear in this row.' : change.refusal!),
+      trailing: change.running
+          ? null
+          : CommandMenu(
+              tooltip: 'What can be done with ${target.name}',
+              commands: [
+                organizationCommand(
+                  id: 'retryChange/${target.scope}/${target.name}',
+                  label: 'Try again',
+                  unavailable: organization.whyNoRetry(change),
+                  run: () => unawaited(organization.retryRowChange(change)),
+                ),
+                if (onReview != null)
+                  organizationCommand(
+                    id: 'reviewChange/${target.scope}/${target.name}',
+                    label: 'Review the project',
+                    unavailable: organization.busy ? 'Another change is still being asked for.' : null,
+                    run: onReview!,
+                  ),
+                organizationCommand(
+                  id: 'dropChange/${target.scope}/${target.name}',
+                  label: 'Drop this request',
+                  run: () => organization.dropRowChange(change),
+                ),
+              ],
+            ),
+    );
+  }
 }
 
 /// Asks to confirm a change that takes something away.

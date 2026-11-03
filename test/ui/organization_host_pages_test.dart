@@ -77,7 +77,6 @@ void main() {
       await _tap(tester, find.text('build').hitTestable());
       await _tap(tester, _confirm());
       expect(find.text('other has no address yet, so no machine can follow it.'), findsOneWidget);
-      expect(_confirm(), findsOneWidget, reason: 'the dialog stays, or its refusal has nowhere to be said');
     });
 
     // Harm: a project just put on waits five minutes for a token nobody was asked for.

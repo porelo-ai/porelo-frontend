@@ -22,7 +22,7 @@ import 'window_size.dart';
 /// What is true of a project's name, as for any folder it becomes.
 final _projectName = RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$');
 
-/// The organization: who manages it, its people, its projects and its hosts. Everyone reads all of it; a row's actions stand
+/// The organization: who manages it, its people, its projects and its machines. Everyone reads all of it; a row's actions stand
 /// behind its ⋮, for the person whose role they belong to.
 class OrganizationPage extends StatefulWidget {
   /// Reads [organization].
@@ -185,9 +185,9 @@ class _OrganizationPageState extends State<OrganizationPage> {
                       organization,
                       title: 'Withdraw your card?',
                       words:
-                          'Your key is revoked, and each host takes that within five minutes, or at once on its '
+                          'Your key is revoked, and each machine takes that within five minutes, or at once on its '
                           'Refresh. You hold no role until you come back with a new card and a new key. Your places '
-                          'in projects and on hosts stay under your login: to leave them for good, have yourself '
+                          'in projects and on machines stay under your login: to leave them for good, have yourself '
                           'removed from each as well.',
                       confirm: 'Withdraw my card',
                       change: OrganizationChange.revokeCard,
@@ -215,10 +215,10 @@ class _OrganizationPageState extends State<OrganizationPage> {
                       organization,
                       title: "Revoke ${person.login}'s card?",
                       words:
-                          "${person.login}'s key is revoked, and each host takes that within five minutes, or at once "
+                          "${person.login}'s key is revoked, and each machine takes that within five minutes, or at once "
                           'on its Refresh. They hold no role until they come back with a new card and a new key. Their '
-                          'places in projects and on hosts stay under their login: to put them out, also remove them '
-                          'from each project and host.',
+                          'places in projects and on machines stay under their login: to put them out, also remove them '
+                          'from each project and machine.',
                       confirm: 'Revoke the card',
                       change: OrganizationChange.revokeCard,
                       input: {'login': person.login},
@@ -229,7 +229,7 @@ class _OrganizationPageState extends State<OrganizationPage> {
           ),
         ),
     ],
-  );
+  ).withOrganizationChanges(organization, names: [for (final person in view.persons) person.login]);
 
   /// A project just put on a machine waits for a token: once it was taken, the machine is asked to fetch at once.
   Future<void> _putOn(OrganizationProject project, OrganizationView view, void Function(Widget) show) async {
@@ -250,6 +250,7 @@ class _OrganizationPageState extends State<OrganizationPage> {
         input: (_, machine) => {'host': machine, 'project': project.name},
       ),
     );
+    await widget.organization.whenIdle;
     final machine = widget.organization.view?.hosts
         .where((host) => host.projects.contains(project.name))
         .firstOrNull
@@ -263,162 +264,173 @@ class _OrganizationPageState extends State<OrganizationPage> {
     }
   }
 
-  Widget _projects(OrganizationView view, Organization organization, void Function(Widget) show) => FilteredListSection(
-    title: 'Projects',
-    storageId: 'organization-projects',
-    collapsible: true,
-    openWhenCompact: false,
-    sorts: [
-      SectionSort('Name', (row) => view.projects[row].name),
-      SectionSort('State', (row) => _standingIn(view, view.projects[row])),
-      SectionSort(
-        'Machine',
-        (row) => view.hosts.where((host) => host.projects.contains(view.projects[row].name)).firstOrNull?.name ?? '',
-      ),
-    ],
-    commands: [
-      if (view.isOrganizationAdmin)
-        _command(
-          'addProject',
-          'Add a project',
-          () => show(
-            OrganizationPersonDialog(
-              organization,
-              title: 'Add a project to ${view.name}',
-              nameLabel: 'Name',
-              nameHint: 'e.g. sprint7-demo',
-              personLabel: 'Project admin',
-              words:
-                  "The project's card is added to the organization now. Its project admin makes the project "
-                  'repository and signs its first project.yml when they first open the project under Projects, then '
-                  'adds its members. No machine is chosen here: a machine\'s admin puts the project on it.',
-              confirm: 'Add the project',
-              check: (name) => _projectName.hasMatch(name)
-                  ? null
-                  : 'A project name holds letters, digits, ".", "_" and "-", and opens with a letter or digit.',
-              change: OrganizationChange.addProject,
-              input: (name, person) => {'project': name, 'admin': person},
-            ),
+  Widget _projects(OrganizationView view, Organization organization, void Function(Widget) show) =>
+      FilteredListSection(
+        title: 'Projects',
+        storageId: 'organization-projects',
+        collapsible: true,
+        openWhenCompact: false,
+        sorts: [
+          SectionSort('Name', (row) => view.projects[row].name),
+          SectionSort('State', (row) => _standingIn(view, view.projects[row])),
+          SectionSort(
+            'Machine',
+            (row) =>
+                view.hosts.where((host) => host.projects.contains(view.projects[row].name)).firstOrNull?.name ?? '',
           ),
-        ).command,
-    ],
-    rows: [
-      for (final project in view.projects)
-        (
-          words: '${project.name} ${project.admins.join(' ')}',
-          child: _Row(
-            icon: Icons.folder_outlined,
-            title: project.name,
-            subtitle: _projectWords(project),
-            state: _standingIn(view, project),
-            actions: [
-              if (view.holdsRoles && widget.onProject != null && _isIn(view, project))
-                _command('openProject/${project.name}', 'Open under Projects', () => widget.onProject!(project.name)),
-              if (project.host == null && _hostsOf(view).isNotEmpty)
-                _command(
-                  'putOnMachine/${project.name}',
-                  'Put it on a machine…',
-                  () => unawaited(_putOn(project, view, show)),
+        ],
+        commands: [
+          if (view.isOrganizationAdmin)
+            _command(
+              'addProject',
+              'Add a project',
+              () => show(
+                OrganizationPersonDialog(
+                  organization,
+                  title: 'Add a project to ${view.name}',
+                  nameLabel: 'Name',
+                  nameHint: 'e.g. sprint7-demo',
+                  personLabel: 'Project admin',
+                  words:
+                      "The project's card is added to the organization now. Its project admin makes the project "
+                      'repository and signs its first project.yml when they first open the project under Projects, then '
+                      'adds its members. No machine is chosen here: a machine\'s admin puts the project on it.',
+                  confirm: 'Add the project',
+                  check: (name) => _projectName.hasMatch(name)
+                      ? null
+                      : 'A project name holds letters, digits, ".", "_" and "-", and opens with a letter or digit.',
+                  change: OrganizationChange.addProject,
+                  input: (name, person) => {'project': name, 'admin': person},
                 ),
-              if (project.host case final machine? when _hostsOf(view).any((host) => host.name == machine))
-                _command(
-                  'takeOffMachine/${project.name}',
-                  'Take it off the machine…',
-                  danger: true,
-                  () => show(
-                    OrganizationConfirmDialog(
-                      organization,
-                      title: 'Take ${project.name} off $machine?',
-                      words:
-                          'Its members can no longer work on it there, once it holds no unpushed work. Its copy there '
-                          'goes then, with its conversation, where the machine runs its own. The project itself stays '
-                          'in the organization. This can take up to five minutes.',
-                      confirm: 'Take it off',
-                      change: OrganizationChange.removeProjectFromHost,
-                      input: {'host': machine, 'project': project.name},
+              ),
+            ).command,
+        ],
+        rows: [
+          for (final project in view.projects)
+            (
+              words: '${project.name} ${project.admins.join(' ')}',
+              child: _Row(
+                icon: Icons.folder_outlined,
+                title: project.name,
+                subtitle: _projectWords(project),
+                state: _standingIn(view, project),
+                actions: [
+                  if (view.holdsRoles && widget.onProject != null && _isIn(view, project))
+                    _command(
+                      'openProject/${project.name}',
+                      'Open under Projects',
+                      () => widget.onProject!(project.name),
                     ),
-                  ),
-                ),
-              if (view.isOrganizationAdmin) ...[
-                _command(
-                  'addProjectAdmin/${project.name}',
-                  'Add an admin…',
-                  () => show(
-                    OrganizationPersonDialog(
-                      organization,
-                      people: [
-                        for (final person in view.holdingRoles)
-                          if (!project.admins.contains(person.login)) person.login,
-                      ],
-                      title: 'Another admin of ${project.name}',
-                      personLabel: 'Project admin',
-                      words:
-                          'They may change its members and repositories. An owner may do this much in a project, for '
-                          'when its admins have lost their keys, and nothing else there.',
-                      confirm: 'Add them',
-                      change: OrganizationChange.addProjectMember,
-                      // A member already there is added by nothing: their role is what changes.
-                      changeFor: (person) => project.members.contains(person)
-                          ? OrganizationChange.changeProjectMemberRole
-                          : OrganizationChange.addProjectMember,
-                      input: (_, person) => {'project': project.name, 'login': person, 'role': 'admin'},
+                  if (project.host == null && _hostsOf(view).isNotEmpty)
+                    _command(
+                      'putOnMachine/${project.name}',
+                      'Put it on a machine…',
+                      () => unawaited(_putOn(project, view, show)),
                     ),
-                  ),
-                ),
-                for (final admin in project.admins)
-                  _command(
-                    'removeProjectAdmin/${project.name}/$admin',
-                    'Remove $admin as admin…',
-                    danger: true,
-                    () => show(
-                      OrganizationConfirmDialog(
-                        organization,
-                        title: 'Remove $admin as an admin of ${project.name}?',
-                        words: project.admins.length == 1
-                            ? '$admin is its last admin: nobody can change this project until you add another.'
-                            : '$admin leaves the project, and its other admins go on.',
-                        confirm: 'Remove',
-                        change: OrganizationChange.removeProjectMember,
-                        input: {'project': project.name, 'login': admin},
+                  if (project.host case final machine? when _hostsOf(view).any((host) => host.name == machine))
+                    _command(
+                      'takeOffMachine/${project.name}',
+                      'Take it off the machine…',
+                      danger: true,
+                      () => show(
+                        OrganizationConfirmDialog(
+                          organization,
+                          title: 'Take ${project.name} off $machine?',
+                          words:
+                              'Its members can no longer work on it there, once it holds no unpushed work. Its copy there '
+                              'goes then, with its conversation, where the machine runs its own. The project itself stays '
+                              'in the organization. This can take up to five minutes.',
+                          confirm: 'Take it off',
+                          change: OrganizationChange.removeProjectFromHost,
+                          input: {'host': machine, 'project': project.name},
+                        ),
                       ),
                     ),
-                  ),
-                _command(
-                  'changeProjectAdmin/${project.name}',
-                  'Change the project admin…',
-                  () => show(
-                    OrganizationPersonDialog(
-                      organization,
-                      title: 'Another project admin for ${project.name}',
-                      personLabel: 'Project admin',
-                      words: 'They become the first admin on its card, and may change its members and repositories.',
-                      confirm: 'Name them',
-                      change: OrganizationChange.changeProjectAdmin,
-                      input: (_, person) => {'project': project.name, 'admin': person},
+                  if (view.isOrganizationAdmin) ...[
+                    _command(
+                      'addProjectAdmin/${project.name}',
+                      'Add an admin…',
+                      () => show(
+                        OrganizationPersonDialog(
+                          organization,
+                          people: [
+                            for (final person in view.holdingRoles)
+                              if (!project.admins.contains(person.login)) person.login,
+                          ],
+                          title: 'Another admin of ${project.name}',
+                          personLabel: 'Project admin',
+                          words:
+                              'They may change its members and repositories. An owner may do this much in a project, for '
+                              'when its admins have lost their keys, and nothing else there.',
+                          confirm: 'Add them',
+                          change: OrganizationChange.addProjectMember,
+                          // A member already there is added by nothing: their role is what changes.
+                          changeFor: (person) => project.members.contains(person)
+                              ? OrganizationChange.changeProjectMemberRole
+                              : OrganizationChange.addProjectMember,
+                          input: (_, person) => {'project': project.name, 'login': person, 'role': 'admin'},
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-                _command(
-                  'removeProject/${project.name}',
-                  'Remove the project…',
-                  danger: true,
-                  () => show(
-                    OrganizationConfirmDialog(
-                      organization,
-                      title: 'Remove ${project.name}?',
-                      words: _removingProjectWords(project),
-                      confirm: 'Remove the project',
-                      change: OrganizationChange.removeProject,
-                      input: {'project': project.name},
+                    for (final admin in project.admins)
+                      _command(
+                        'removeProjectAdmin/${project.name}/$admin',
+                        'Remove $admin as admin…',
+                        danger: true,
+                        () => show(
+                          OrganizationConfirmDialog(
+                            organization,
+                            title: 'Remove $admin as an admin of ${project.name}?',
+                            words: project.admins.length == 1
+                                ? '$admin is its last admin: nobody can change this project until you add another.'
+                                : '$admin leaves the project, and its other admins go on.',
+                            confirm: 'Remove',
+                            change: OrganizationChange.removeProjectMember,
+                            input: {'project': project.name, 'login': admin},
+                          ),
+                        ),
+                      ),
+                    _command(
+                      'changeProjectAdmin/${project.name}',
+                      'Change the project admin…',
+                      () => show(
+                        OrganizationPersonDialog(
+                          organization,
+                          title: 'Another project admin for ${project.name}',
+                          personLabel: 'Project admin',
+                          words:
+                              'They become the first admin on its card, and may change its members and repositories.',
+                          confirm: 'Name them',
+                          change: OrganizationChange.changeProjectAdmin,
+                          input: (_, person) => {'project': project.name, 'admin': person},
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-    ],
-  );
+                    _command(
+                      'removeProject/${project.name}',
+                      'Remove the project…',
+                      danger: true,
+                      () => show(
+                        OrganizationConfirmDialog(
+                          organization,
+                          title: 'Remove ${project.name}?',
+                          words: _removingProjectWords(project),
+                          confirm: 'Remove the project',
+                          change: OrganizationChange.removeProject,
+                          input: {'project': project.name},
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+        ],
+      ).withOrganizationChanges(
+        organization,
+        names: [for (final project in view.projects) project.name],
+        reviewProject: widget.onProject,
+      );
 
   Widget _hosts(OrganizationView view, Organization organization, void Function(Widget) show) => FilteredListSection(
     title: 'Machines',
@@ -434,25 +446,25 @@ class _OrganizationPageState extends State<OrganizationPage> {
       if (view.isOrganizationAdmin)
         _command(
           'addHost',
-          'Add a host',
+          'Add a machine',
           () => show(
             OrganizationPersonDialog(
               organization,
-              title: 'Add a host to ${view.name}',
+              title: 'Add a machine to ${view.name}',
               nameLabel: 'Name',
               nameHint: 'e.g. build-2',
-              personLabel: 'First host admin',
+              personLabel: 'First machine admin',
               words:
-                  "The host's card is added with its name and first host admin. The host admin enters its address "
-                  "and host key when they set the machine up, then puts projects on it and names further host "
-                  "admins, all on the host's page under Machines.",
-              confirm: 'Add the host',
+                  "The machine's card is added with its name and first machine admin. The machine admin enters its address "
+                  "and SSH key when they set the machine up, then puts projects on it and names further machine "
+                  "admins, all on the machine's page under Machines.",
+              confirm: 'Add the machine',
               check: (name) {
                 try {
                   checkHostName(name);
                   return null;
-                } on FormatException catch (refused) {
-                  return refused.message;
+                } on FormatException {
+                  return 'Use one DNS label for the machine name.';
                 }
               },
               change: OrganizationChange.addHost,
@@ -475,18 +487,18 @@ class _OrganizationPageState extends State<OrganizationPage> {
             commands: [
               for (final action in <_Action>[
                 if (view.holdsRoles && widget.onHost != null && host.admins.contains(view.me))
-                  _command('openHost/${host.name}', "Open the host's page", () => widget.onHost!(host.name)),
+                  _command('openHost/${host.name}', "Open the machine's page", () => widget.onHost!(host.name)),
                 if (view.mayRemove(host))
                   _command(
                     'removeHost/${host.name}',
-                    'Remove the host…',
+                    'Remove the machine…',
                     danger: true,
                     () => show(
                       OrganizationConfirmDialog(
                         organization,
                         title: 'Remove ${host.name}?',
                         words: _removingHostWords(host),
-                        confirm: 'Remove the host',
+                        confirm: 'Remove the machine',
                         change: OrganizationChange.removeHost,
                         input: {'host': host.name},
                       ),
@@ -498,7 +510,7 @@ class _OrganizationPageState extends State<OrganizationPage> {
           ),
         ),
     ],
-  );
+  ).withOrganizationChanges(organization, names: [for (final host in view.hosts) host.name]);
 
   Widget _owners(OrganizationView view, Organization organization, void Function(Widget) show) => FilteredListSection(
     title: 'Organization owners',
@@ -519,7 +531,7 @@ class _OrganizationPageState extends State<OrganizationPage> {
                 for (final person in view.holdingRoles)
                   if (!view.owners.contains(person.login)) person.login,
               ],
-              words: 'They may change its projects, its hosts and its owners, as you may.',
+              words: 'They may change its projects, its machines and its owners, as you may.',
               confirm: 'Name them',
               change: OrganizationChange.addOrganizationOwner,
               input: (_, person) => {'login': person},
@@ -551,8 +563,8 @@ class _OrganizationPageState extends State<OrganizationPage> {
                       organization,
                       title: 'Remove $owner as an organization owner?',
                       words: owner == view.me
-                          ? 'You no longer change its projects, its hosts or its owners.'
-                          : '$owner no longer changes its projects, its hosts or its owners.',
+                          ? 'You no longer change its projects, its machines or its owners.'
+                          : '$owner no longer changes its projects, its machines or its owners.',
                       confirm: 'Remove',
                       change: OrganizationChange.removeOrganizationOwner,
                       input: {'login': owner},
@@ -563,7 +575,7 @@ class _OrganizationPageState extends State<OrganizationPage> {
           ),
         ),
     ],
-  );
+  ).withOrganizationChanges(organization, names: view.owners);
 }
 
 /// One action in a row of the organization's page.
@@ -632,7 +644,7 @@ Widget? _organizationAdmins(OrganizationView view, Organization organization, vo
           ),
         ),
     ],
-  );
+  ).withOrganizationChanges(organization, names: admins);
 }
 
 class _Action {
@@ -672,7 +684,7 @@ String? _rolesWords(OrganizationView view) {
     if (view.isOwner) 'an organization owner',
     if (view.isOrganizationAdmin) 'an Organization Admin',
     for (final host in view.hosts)
-      if (host.admins.contains(view.me)) 'host admin of ${host.name}',
+      if (host.admins.contains(view.me)) 'machine admin of ${host.name}',
   ];
   return roles.isEmpty ? null : 'you are ${roles.join(' and ')}';
 }
@@ -682,7 +694,7 @@ String _personWords(OrganizationView view, OrganizationPerson person) => [
   if (person.expires case final expires?) 'until $expires',
   if (view.owners.contains(person.login)) 'organization owner',
   for (final host in view.hosts)
-    if (host.admins.contains(person.login)) 'host admin of ${host.name}',
+    if (host.admins.contains(person.login)) 'machine admin of ${host.name}',
   for (final project in view.projects)
     if (project.admins.contains(person.login))
       'project admin of ${project.name}'
@@ -710,7 +722,7 @@ String _projectWords(OrganizationProject project) => [
   else
     '${project.admins.length == 1 ? 'project admin' : 'project admins'} ${project.admins.join(', ')}',
   peopleOf(project),
-  if (project.host case final host?) 'on $host' else 'on no host yet',
+  if (project.host case final host?) 'on $host' else 'on no machine yet',
 ].join(' · ');
 
 String _standingIn(OrganizationView view, OrganizationProject project) => !view.holdsRoles
@@ -724,11 +736,11 @@ String _standingIn(OrganizationView view, OrganizationProject project) => !view.
 String _hostWords(OrganizationHost host) => [
   if (host.address case final address?) host.port == null ? address : _reach(address, host.port!) else 'no address yet',
   if (host.admins.isEmpty)
-    'no host admin'
+    'no machine admin'
   else if (host.admins.length == 1)
-    'host admin ${host.admins.single}'
+    'machine admin ${host.admins.single}'
   else
-    'host admins ${host.admins.join(', ')}',
+    'machine admins ${host.admins.join(', ')}',
   if (host.projects.isEmpty) 'carries no project' else 'carries ${host.projects.join(', ')}',
 ].join(' · ');
 
@@ -736,7 +748,7 @@ String _reach(String address, int port) => address.contains(':') ? '[$address]:$
 
 String _removingProjectWords(OrganizationProject project) => [
   'Its card and its members leave the organization.',
-  if (project.host case final host?) 'It is still on $host, and its host admins take it off.',
+  if (project.host case final host?) 'It is still on $host, and its machine admins take it off.',
   'Its repositories stay where they are.',
 ].join(' ');
 
@@ -779,8 +791,8 @@ class _Explanation extends StatelessWidget {
                 children: [
                   part(
                     'What is the organization?',
-                    'Who manages it, its people with their cards, its projects with their members, and its hosts. '
-                        'Porelo asks it whom to trust before anyone gets onto a host.',
+                    'Who manages it, its people with their cards, its projects with their members, and its machines. '
+                        'Porelo asks it whom to trust before anyone gets onto a machine.',
                   ),
                   part(
                     'Where it is kept',
@@ -829,7 +841,9 @@ class _NoCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('You are not in ${view.name} yet', style: Theme.of(context).textTheme.titleSmall),
-                const Text('Add your card so that a project admin can add you to a project and a host can admit you.'),
+                const Text(
+                  'Add your card so that a project admin can add you to a project and a machine can admit you.',
+                ),
               ],
             ),
           ),
@@ -999,7 +1013,7 @@ class _AddressDialogState extends State<_AddressDialog> {
           const Text('An empty repository is not chosen but filled: cancel this and use *Create the organization…*.'),
         const SizedBox(height: Space.small),
         const Text(
-          "An organization lives on a forge of its own, outside every host: a host follows it, and cannot hold it.",
+          "An organization lives on a forge of its own, outside every machine: a machine follows it, and cannot hold it.",
         ),
         const SizedBox(height: Space.small),
         TextField(

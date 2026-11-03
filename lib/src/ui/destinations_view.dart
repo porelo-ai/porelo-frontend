@@ -339,6 +339,7 @@ class _DraftFormState extends State<_DraftForm> {
         field('destination-prefix', 'Text before the key in it (optional)', draft.prefix),
         field('destination-query', 'Or the URL parameter it goes in instead (optional)', draft.query),
         const SizedBox(height: Space.small),
+        if (_busy) const Text('Asking the machine to check or write this destination… Any failure will appear here.'),
         if (_refused != null)
           Text(
             _refused!,

@@ -578,16 +578,16 @@ void main() {
 
   // Harm: a refused change reads as done, or a change is signed twice.
   group('nothing is shown before the store answered', () {
-    testWidgets("a refusal stays in the dialog in the store's words and changes no row", (tester) async {
+    // Harm: a refused removal is mistaken for a completed removal or loses its refusal on closing the dialog.
+    testWidgets("a removal's refusal stays in its provisional row until dropped", (tester) async {
       final (fixture, _, _) = await _pump(tester, 'olive', view: organizationFor('olive', owners: ['olive', 'pat']));
       fixture.refuseNext = const OrganizationRefused('The store refused this.');
       await pressOrganizationAction(tester, 'removeOrganizationOwner/olive');
       await tester.tap(find.byKey(const Key('organization-confirm')));
       await tester.pumpAndSettle();
       expect(find.text('The store refused this.'), findsOneWidget);
-      expect(find.byType(AlertDialog), findsOneWidget);
-      await tester.tap(find.text('Cancel'));
-      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsNothing);
+      await pressOrganizationAction(tester, 'dropChange/organization-owners/olive');
       expect(_action('removeOrganizationOwner/olive'), findsOneWidget);
     });
 

@@ -51,6 +51,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Rail *Refresh* rereads the page shown; a machine's *Fetch now* says what it does and when the machine last answered.
 - A machine's read-only project list keeps projects being taken off visible, with any reason the machine holds them.
+- A project's page says it is reading its address, repositories, and members while it waits.
+- List changes close onto provisional rows with persistent refusals and retry menus; other changes show progress, through the reads afterward.
 - A machine row keeps its connection refusal during automatic retries; the first attempt says *Connecting…*.
 - Rail entries return to their first page. *Work* in the rail shows all work; links from detail pages keep their scope.
 - *Prepare a server…* opens its one dialog at the click, which says it is reading and shows a refusal in place. A

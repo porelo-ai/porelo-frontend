@@ -609,6 +609,77 @@ class _Kept<T> {
   Future<void>? reading;
 }
 
+/// A list change kept while it runs, or until its refusal is retried or dropped.
+class OrganizationRowChange {
+  /// Keeps the request independently of the dialog and page that started it.
+  OrganizationRowChange(this.change, Map<String, String> input, this.base)
+    : input = Map<String, String>.unmodifiable(input);
+
+  /// The operation to retry.
+  final OrganizationChange change;
+
+  /// The original values to retry.
+  final Map<String, String> input;
+
+  /// The revision the person saw.
+  final String? base;
+
+  /// Whether its answer and the reads after it are still awaited.
+  bool running = true;
+
+  /// A refusal that stays until the person acts on it.
+  String? refusal;
+
+  /// Whether retry must replay the original id because the store never answered.
+  bool unanswered = false;
+
+  /// The row to mark in [scope], including the project row from which a nested change was asked.
+  ({String scope, String name, String doing})? inList(String scope) {
+    final primary = target(change, input);
+    if (primary?.scope == scope) return primary;
+    if (primary != null && scope == 'organization-projects' && input.containsKey('project')) {
+      return (scope: scope, name: input['project']!, doing: primary.doing);
+    }
+    return null;
+  }
+
+  /// The list and row it marks, absent for changes that stay in a dialog.
+  static ({String scope, String name, String doing})? target(OrganizationChange change, Map<String, String> input) {
+    final project = input['project'] ?? '';
+    final host = input['host'] ?? '';
+    final login = input['login'] ?? '';
+    return switch (change) {
+      OrganizationChange.openProject => (scope: 'project-open $project', name: project, doing: 'Opening…'),
+      OrganizationChange.addProject => (scope: 'organization-projects', name: project, doing: 'Adding…'),
+      OrganizationChange.removeProject => (scope: 'organization-projects', name: project, doing: 'Removing…'),
+      OrganizationChange.addHost => (scope: 'organization-hosts', name: host, doing: 'Adding…'),
+      OrganizationChange.removeHost => (scope: 'organization-hosts', name: host, doing: 'Removing…'),
+      OrganizationChange.addOrganizationOwner => (scope: 'organization-owners', name: login, doing: 'Adding…'),
+      OrganizationChange.removeOrganizationOwner => (scope: 'organization-owners', name: login, doing: 'Removing…'),
+      OrganizationChange.addOrganizationAdmin => (scope: 'organization-admins', name: login, doing: 'Adding…'),
+      OrganizationChange.removeOrganizationAdmin => (scope: 'organization-admins', name: login, doing: 'Removing…'),
+      OrganizationChange.addHostAdmin => (scope: 'host-admins $host', name: login, doing: 'Adding…'),
+      OrganizationChange.removeHostAdmin => (scope: 'host-admins $host', name: login, doing: 'Removing…'),
+      OrganizationChange.addProjectToHost => (scope: 'organization-projects', name: project, doing: 'Adding…'),
+      OrganizationChange.removeProjectFromHost => (scope: 'organization-projects', name: project, doing: 'Removing…'),
+      OrganizationChange.addProjectRepository => (
+        scope: 'project-repositories $project',
+        name: input['repository'] ?? '',
+        doing: 'Adding…',
+      ),
+      OrganizationChange.removeProjectRepository => (
+        scope: 'project-repositories $project',
+        name: input['repository'] ?? '',
+        doing: 'Removing…',
+      ),
+      OrganizationChange.addProjectMember => (scope: 'project-members $project', name: login, doing: 'Adding…'),
+      OrganizationChange.removeProjectMember => (scope: 'project-members $project', name: login, doing: 'Removing…'),
+      OrganizationChange.addCard => (scope: 'organization-people', name: login, doing: 'Adding…'),
+      _ => null,
+    };
+  }
+}
+
 /// The organization as the page shows it: only what the store answered, and the last list when it no longer answers.
 class Organization extends ChangeNotifier {
   /// Reads and changes it through [source].
@@ -626,6 +697,59 @@ class Organization extends ChangeNotifier {
   final _addresses = <String, _Kept<KnownAddress>>{};
   final _listed = _Kept<List<ListedProject>>();
   Future<void> _answersInTurn = Future<void>.value();
+  final _rowChanges = <OrganizationRowChange>[];
+  final _writeReads = <Future<void> Function()>[];
+  final _projectBases = <String, ({String revision, String? repositories})>{};
+  Completer<void>? _writeFinished;
+
+  /// Completes when the current change and its rereads finish, including after an early dialog close.
+  Future<void> get whenIdle => _writeFinished?.future ?? Future<void>.value();
+
+  /// Provisional rows, including refusals kept after leaving a page.
+  Iterable<OrganizationRowChange> get rowChanges => List<OrganizationRowChange>.unmodifiable(_rowChanges);
+
+  /// Keeps only the revisions already read by a project's page, for an answered request's next attempt.
+  void rememberProjectRevision(ProjectView project) {
+    _projectBases[project.name] = (revision: project.revision, repositories: project.repositoriesRevision);
+  }
+
+  /// What the current change is waiting for.
+  String? changeProgress;
+
+  /// Keeps the existing page reread within the change's busy interval.
+  void addWriteRead(Future<void> Function() read) => _writeReads.add(read);
+
+  /// Stops asking a page that has closed to reread after changes.
+  void removeWriteRead(Future<void> Function() read) => _writeReads.remove(read);
+
+  /// Drops only the provisional row; an unanswered request retains its safe retry id.
+  void dropRowChange(OrganizationRowChange change) {
+    if (change.running) return;
+    _rowChanges.remove(change);
+    _changed();
+  }
+
+  /// Why a retry must wait, including a project revision that has not been reviewed since a refusal.
+  String? whyNoRetry(OrganizationRowChange change) {
+    if (busy) return 'Another change is still being asked for.';
+    if (!change.unanswered && change.base != null && !_projectBases.containsKey(change.input['project'])) {
+      return 'Review the project before asking again.';
+    }
+    return null;
+  }
+
+  /// Retries the original request, reusing its id where no answer came.
+  Future<void> retryRowChange(OrganizationRowChange change) async {
+    if (change.running || whyNoRetry(change) != null) return;
+    final project = _projectBases[change.input['project']];
+    final repository =
+        change.change == OrganizationChange.addProjectRepository ||
+        change.change == OrganizationChange.removeProjectRepository;
+    final base = change.base == null
+        ? null
+        : (repository ? project?.repositories : null) ?? project?.revision ?? change.base;
+    await write(change.change, change.input, base: base, provisional: true);
+  }
 
   /// How long [addressOf] and [whyNoRemoval] go on using an answer before the next need reads it again.
   static const answersKeptFor = Duration(minutes: 5);
@@ -766,11 +890,16 @@ class Organization extends ChangeNotifier {
 
   /// Asks for [change], then reads again; answers the store's words where it refused, and null where it took it.
   ///
-  /// Nothing changes on the page before the store's answer and the read after it. The id stays for a change that got no
-  /// answer, so that asking again cannot do it twice.
+  /// Provisional rows say only what is being asked; source rows change only after the reads. The id stays for a change
+  /// that got no answer, so that asking again cannot do it twice.
   ///
   /// [base] is the revision it is made against where it is not the organization's as last read.
-  Future<String?> write(OrganizationChange change, Map<String, String> input, {String? base}) async {
+  Future<String?> write(
+    OrganizationChange change,
+    Map<String, String> input, {
+    String? base,
+    bool provisional = false,
+  }) async {
     final current = view;
     final beforeAny = change.standsBeforeAnOrganization || (noOrganization && change == OrganizationChange.addCard);
     if (current == null && !beforeAny) return 'The organization has not been read yet.';
@@ -781,7 +910,19 @@ class Organization extends ChangeNotifier {
       id: _newId(),
       base: change.standsBeforeAnOrganization ? '' : base ?? current?.revision ?? '',
     );
+    OrganizationRowChange? row;
+    final target = OrganizationRowChange.target(change, input);
+    if (provisional && target != null) {
+      _rowChanges.removeWhere((each) {
+        final other = OrganizationRowChange.target(each.change, each.input);
+        return other?.scope == target.scope && other?.name == target.name;
+      });
+      row = OrganizationRowChange(change, input, base);
+      _rowChanges.add(row);
+    }
     busy = true;
+    _writeFinished = Completer<void>();
+    changeProgress = 'Asking for the change…';
     _changed();
     String? refusal;
     try {
@@ -789,19 +930,46 @@ class Organization extends ChangeNotifier {
         OrganizationWrite(change: change, input: input, person: current?.me ?? '', base: asked.base, id: asked.id),
       );
       _unanswered.remove(sameChange);
+      if (change == OrganizationChange.chooseOrganization) {
+        _rowChanges.clear();
+        _projectBases.clear();
+        _unanswered.clear();
+      }
     } on OrganizationRefused catch (refused) {
       if (refused.answered) _unanswered.remove(sameChange);
+      if (row != null) {
+        row.unanswered = !refused.answered;
+        if (refused.answered && row.base != null) _projectBases.remove(input['project']);
+      }
       refusal = refused.reason == 'moved-on'
           ? '${refused.words.endsWith('.') ? refused.words : '${refused.words}.'} The page has read what changed: look at it, and ask again from there.'
           : refused.words;
     } on Exception {
+      row?.unanswered = true;
       refusal = 'The change could not be asked for. Nothing is known to have changed; look at the list and try again.';
     }
     try {
       // Read in both cases: a store that moved on refused this change, and its new state is what is decided on next.
+      changeProgress = 'Reading the organization again…';
+      _changed();
       await refresh();
+      if (_writeReads.isNotEmpty) {
+        changeProgress = 'Reading the project again…';
+        _changed();
+        for (final read in List.of(_writeReads)) {
+          await read();
+        }
+      }
     } finally {
+      if (row != null) {
+        row.running = false;
+        row.refusal = refusal;
+        if (refusal == null) _rowChanges.remove(row);
+      }
       busy = false;
+      changeProgress = null;
+      _writeFinished?.complete();
+      _writeFinished = null;
       _changed();
     }
     return refusal;

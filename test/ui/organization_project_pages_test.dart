@@ -407,23 +407,37 @@ void main() {
       expect(fixture.writes.single.input, {'project': 'demo', 'login': 'mia'});
     });
 
+    // Harm: a role chosen in the menu is shown as granted before the source confirms it.
     testWidgets('a change of role asks the store and shows what it read back, not what was chosen', (tester) async {
       final fixture = await _page(tester, 'pat');
       await pressOrganizationAction(tester, 'memberRole/mia');
+      await tester.tap(find.byKey(const Key('organization-member-role')));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('admin').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('organization-confirm')));
       await tester.pumpAndSettle();
       expect(fixture.writes.single.change, OrganizationChange.changeProjectMemberRole);
       expect(fixture.writes.single.input, {'project': 'demo', 'login': 'mia', 'role': 'admin'});
       expect(fixture.writes.single.base, 'p1');
-      final role = tester.widget<DropdownButton<String>>(_action('memberRole/mia'));
-      expect(role.value, 'developer', reason: 'The store still answers developer.');
+      final row = find.byKey(const ValueKey('mia'));
+      expect(
+        find.descendant(of: row, matching: find.text('developer')),
+        findsOneWidget,
+        reason: 'The store still answers developer.',
+      );
     });
 
-    testWidgets("a refused change of role says the store's words in the row", (tester) async {
+    // Harm: a refused role change loses its refusal when the menu closes.
+    testWidgets("a refused change of role says the store's words in its dialog", (tester) async {
       final fixture = await _page(tester, 'pat');
       fixture.refuseNext = const OrganizationRefused('The project moved on; read it again.');
       await pressOrganizationAction(tester, 'memberRole/mia');
+      await tester.tap(find.byKey(const Key('organization-member-role')));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('admin').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('organization-confirm')));
       await tester.pumpAndSettle();
       expect(find.text('The project moved on; read it again.'), findsOneWidget);
     });
