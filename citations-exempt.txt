@@ -1,0 +1,4 @@
+packages/xterm/lib/src/core/input/keys.dart
+packages/xterm/lib/src/core/input/keytab/keytab.dart
+packages/xterm/lib/src/core/input/keytab/keytab_default.dart
+packages/xterm/lib/src/core/input/keytab/qt_keyname.dart

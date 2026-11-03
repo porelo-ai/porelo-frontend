@@ -14,4 +14,4 @@ before the reset arrived was added to the old text, and the whole of it was sent
 **The change.** The engine's text is kept, and only what was added since the last answer is sent. It is reset only when
 it has grown long and typing has paused, or when the connection opens.
 
-Drop this copy, and the override in the root `pubspec.yaml`, when a released `xterm` fixes it: see F321.
+Drop this copy, and the override in the root `pubspec.yaml`, when a released `xterm` fixes it.
