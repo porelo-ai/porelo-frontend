@@ -98,12 +98,12 @@ void main() {
       await iAskToRemoveThisProject(tester);
       await itSays(tester, 'This removes checkout');
       await nothingWasRemoved(tester);
-    });
+    }, tags: ['linux']);
     testWidgets('''the repository is said to be untouched''', (tester) async {
       await bddSetUp(tester);
       await iAskToRemoveThisProject(tester);
       await itSays(tester, 'Its repository is not touched');
-    });
+    }, tags: ['linux']);
     testWidgets('''agreeing is a second act, and it says what is still there afterwards''', (tester) async {
       await bddSetUp(tester);
       await iAskToRemoveThisProject(tester);
@@ -111,7 +111,7 @@ void main() {
       await itWasRemovedFor(tester, 'checkout');
       await itSays(tester, 'no longer on this machine');
       await nothingWasForced(tester);
-    });
+    }, tags: ['linux']);
     testWidgets('''commits nobody reviewed stop it, and say where they exist''', (tester) async {
       await bddSetUp(tester);
       await removingItWillRefuseBecause(tester, 'HOLDS_WORK');
@@ -120,7 +120,7 @@ void main() {
       await itSays(tester, 'nobody has reviewed it');
       await itSays(tester, 'in the mirror and nowhere else');
       await nothingWasForced(tester);
-    });
+    }, tags: ['linux']);
     testWidgets('''running work stops it, and is not told the same way''', (tester) async {
       await bddSetUp(tester);
       await removingItWillRefuseBecause(tester, 'TASKS_RUNNING');
@@ -128,7 +128,7 @@ void main() {
       await iAgreeToRemoveIt(tester);
       await itSays(tester, 'Work is still running');
       await itSays(tester, 'cut off where it stands');
-    });
+    }, tags: ['linux']);
     testWidgets('''going past a refusal is a second decision, and is what carries force''', (tester) async {
       await bddSetUp(tester);
       await removingItWillRefuseBecause(tester, 'HOLDS_WORK');
@@ -137,13 +137,13 @@ void main() {
       await iAgreeToRemoveIt(tester);
       await itWasForced(tester);
       await itSays(tester, 'is gone');
-    });
+    }, tags: ['linux']);
     testWidgets('''a project known only from its tasks can still be cleared away''', (tester) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'unrecorded');
       await iOpenTheCommandFinder(tester);
       await theCommandIsOffered(tester, 'Remove this project');
-    });
+    }, tags: ['linux']);
     testWidgets('''a project left over with no file offers nothing but removing it''', (tester) async {
       await bddSetUp(tester);
       await theProjectIsLeftOverWithNoFile(tester, 'checkout');
@@ -152,7 +152,7 @@ void main() {
       await theCommandIsUnavailableBecause(tester, 'Review what is waiting at the gate', 'not on this machine');
       await theCommandIsUnavailableBecause(tester, 'Build the environment for this project', 'not on this machine');
       await theCommandIsOffered(tester, 'Remove this project');
-    });
+    }, tags: ['linux']);
     testWidgets('''a project the machine knows nothing of is said to be so, and nothing goes''', (tester) async {
       await bddSetUp(tester);
       await theProjectIsLeftOverWithNoFile(tester, 'checkout');
@@ -160,6 +160,6 @@ void main() {
       await iAskToRemoveThisProject(tester);
       await itSays(tester, 'knows no project called checkout');
       await itSays(tester, 'Nothing was removed');
-    });
+    }, tags: ['linux']);
   });
 }

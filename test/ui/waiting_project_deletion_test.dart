@@ -42,6 +42,7 @@ void main() {
   );
 
   // Harm: a row action could remove another project or another machine's unreviewed work without confirmation.
+  // Linux only: removing is offered on this computer's own Porelo, and Windows runs none.
   testWidgets('held projects preview and remove only the chosen project', (tester) async {
     await prepare(tester);
     final local = World.machines.all.first;
@@ -66,9 +67,10 @@ void main() {
       await tester.tap(find.widgetWithText(FilledButton, 'Right'));
       await World.settle(tester);
     }
-  });
+  }, tags: 'linux');
 
   // Harm: canceling a preview must not remove a held project or its unreviewed work.
+  // Linux only: removing is offered on this computer's own Porelo, and Windows runs none.
   testWidgets('leaving a held project preview never removes anything', (tester) async {
     await prepare(tester);
     final button = remove(World.machines.all.first.name, 'second');
@@ -82,5 +84,5 @@ void main() {
       (project: 'second', preview: true, force: false),
     ], reason: 'leaving the preview must make no destructive call');
     expect(World.elsewhere.deletions, isEmpty, reason: 'the other machine must remain untouched');
-  });
+  }, tags: 'linux');
 }

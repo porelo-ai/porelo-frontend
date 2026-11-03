@@ -53,6 +53,8 @@ Feature: What a project may reach, and removing one
         Then it says {'ones installed later'}
 
     # Removing refuses rather than deciding, which is why every scenario here is about what it did *not* do.
+    # Linux only, these nine: removing is offered on this computer's own Porelo, and Windows runs none.
+    @linux
     Scenario: what would go is shown, and asking removes nothing
         When I ask to remove this project
         Then it says {'This removes checkout'}
@@ -60,10 +62,12 @@ Feature: What a project may reach, and removing one
 
     # The project is its repository, which is not on this machine. A confirmation that did not say so
     # would read as deleting the project itself.
+    @linux
     Scenario: the repository is said to be untouched
         When I ask to remove this project
         Then it says {'Its repository is not touched'}
 
+    @linux
     Scenario: agreeing is a second act, and it says what is still there afterwards
         When I ask to remove this project
         And I agree to remove it
@@ -71,6 +75,7 @@ Feature: What a project may reach, and removing one
         And it says {'no longer on this machine'}
         And nothing was forced
 
+    @linux
     Scenario: commits nobody reviewed stop it, and say where they exist
         Given removing it will refuse because {'HOLDS_WORK'}
         When I ask to remove this project
@@ -79,6 +84,7 @@ Feature: What a project may reach, and removing one
         And it says {'in the mirror and nowhere else'}
         And nothing was forced
 
+    @linux
     Scenario: running work stops it, and is not told the same way
         Given removing it will refuse because {'TASKS_RUNNING'}
         When I ask to remove this project
@@ -86,6 +92,7 @@ Feature: What a project may reach, and removing one
         Then it says {'Work is still running'}
         And it says {'cut off where it stands'}
 
+    @linux
     Scenario: going past a refusal is a second decision, and is what carries force
         Given removing it will refuse because {'HOLDS_WORK'}
         When I ask to remove this project
@@ -95,12 +102,14 @@ Feature: What a project may reach, and removing one
         And it says {'is gone'}
 
     # It takes the project's name, so what tasks left behind can still be cleared away.
+    @linux
     Scenario: a project known only from its tasks can still be cleared away
         When I select the project {'unrecorded'}
         And I open the command finder
         Then the command {'Remove this project'} is offered
 
     # It is listed for what is left of it, and nothing else.
+    @linux
     Scenario: a project left over with no file offers nothing but removing it
         Given the project {'checkout'} is left over, with no file
         When I select the project {'checkout'}
@@ -109,6 +118,7 @@ Feature: What a project may reach, and removing one
         And the command {'Build the environment for this project'} is unavailable because {'not on this machine'}
         And the command {'Remove this project'} is offered
 
+    @linux
     Scenario: a project the machine knows nothing of is said to be so, and nothing goes
         Given the project {'checkout'} is left over, with no file
         And the machine knows nothing called it

@@ -11,6 +11,8 @@
   *Remove* links stay on. One mark that a change is under way would say so everywhere alike.
 - *Choose another organization*: a refusal stays under the field while the person types another address. The answer to
   an empty repository names `porelo org create`, which this dialog offers no way to.
+- On Windows no project can be removed from the interface: Porelo runs in a WSL distribution, and *Remove this project*
+  answers that this computer cannot say whose a project there is. The words are true; a local project has no way out.
 - After *Replace a lost key…* is closed, the person's row shows nothing of the card waiting for an owner, though
   `identity show` keeps it as pending.
 

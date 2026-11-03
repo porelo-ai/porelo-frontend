@@ -73,7 +73,8 @@ void main() {
       expect(part['settings'], 'the unread settings');
       expect(part['known_hosts'], '$forgeLine\n');
       expect(part['pin'], 'alice $hostKey\nalice $backupKey\n');
-      expect((await file.stat()).mode & 0x3f, 0, reason: 'nobody else reads it');
+      // Windows has no such mode to read; what the file holds is the same there.
+      if (!Platform.isWindows) expect((await file.stat()).mode & 0x3f, 0, reason: 'nobody else reads it');
     });
 
     // Harm: an admin added since the last try is never let in, since the older file stands in the way of the new pin.

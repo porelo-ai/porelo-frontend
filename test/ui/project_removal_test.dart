@@ -29,6 +29,7 @@ void main() {
       FixtureOrganization(organizationFor('mia'))..listed = [ListedProject(name: 'checkout', source: source)];
 
   // Harm: nothing could be removed at all, leaving a project with no organization on the machine for good.
+  // Linux only: removing is offered on this computer's own Porelo, and Windows runs none.
   testWidgets('a local project is offered, and pressing it first asks what would go', (tester) async {
     await selected(tester, 'checkout', listing('local'));
     await theCommandIsOffered(tester, command);
@@ -38,16 +39,18 @@ void main() {
     expect(World.backend.deletions, [
       (project: 'checkout', preview: true, force: false),
     ], reason: 'pressing it previews, and removes nothing');
-  });
+  }, tags: 'linux');
 
   // Harm: a project everyone in the organization shares is offered as this person's to remove.
+  // Linux only: removing is offered on this computer's own Porelo, and Windows runs none.
   testWidgets('a project of the organization is not offered, and nothing is asked of the machine', (tester) async {
     await selected(tester, 'checkout', listing('organization'));
     await theCommandIsUnavailableBecause(tester, command, 'the organization');
     expect(World.backend.deletions, isEmpty);
-  });
+  }, tags: 'linux');
 
   // Harm: a project removed while nothing could say whose it is.
+  // Linux only: removing is offered on this computer's own Porelo, and Windows runs none.
   testWidgets('while the source cannot be read it is listed as unavailable, with Porelo’s reason', (tester) async {
     await selected(
       tester,
@@ -56,7 +59,7 @@ void main() {
     );
     await theCommandIsUnavailableBecause(tester, command, 'The store could not be reached.');
     expect(World.backend.deletions, isEmpty);
-  });
+  }, tags: 'linux');
 
   // Harm: a project of the same name on another machine goes because this computer lists its own as local.
   testWidgets('a project on another machine is not offered, whatever this computer lists', (tester) async {
@@ -75,6 +78,7 @@ void main() {
   });
 
   // Harm: with no way to ask whose a project is, every project is offered.
+  // Linux only: removing is offered on this computer's own Porelo, and Windows runs none.
   testWidgets('with no source to ask, it is not offered', (tester) async {
     await World.startBackend(World.work);
     await World.startApp(tester);
@@ -82,7 +86,7 @@ void main() {
     await World.settle(tester);
     await iOpenTheCommandFinder(tester);
     await theCommandIsUnavailableBecause(tester, command, 'cannot be asked');
-  });
+  }, tags: 'linux');
 
   // Harm: the row under *Needs you* is a second way to the same loss, past the same question.
   testWidgets('a waiting project of the organization is not removable from its row', (tester) async {

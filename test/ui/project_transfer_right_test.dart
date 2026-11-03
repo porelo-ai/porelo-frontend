@@ -91,10 +91,11 @@ void main() {
   });
 
   // The other side of the guard above: a run that is allowed reaches its terminal, so its silence means something.
+  // Linux only: what it reaches is a Bash script around /usr/bin/ssh, with a Linux path to the host's config.
   testWidgets('a person still holding the role reaches the terminal', (tester) async {
     await _openOnCardHost(tester, FixtureOrganization(organizationFor('mia'))..listed = [_demo()]);
     _shown(tester).first.run();
     await World.settle(tester);
     expect(World.terminals, hasLength(1));
-  });
+  }, tags: 'linux');
 }
