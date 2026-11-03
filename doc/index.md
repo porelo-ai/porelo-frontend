@@ -118,8 +118,8 @@ is only as trustworthy as the ZIP or the MSIX it came in, which is why the check
    Nothing is repaired from here, and the machine is added either way.
 3. **Add your forge** under *Forges*, with a token, so a repository can be picked rather than typed.
 4. **Start work** with *New work* on *Work*: a machine and a repository. Without a project it runs
-   with the machine's own settings. The first time, the agent asks you to sign in; the sign-in is
-   kept in the machine's vault.
+   with the machine's own settings. Pick no agent and the machine chooses one, and the form says which
+   and why. The first time, the agent asks you to sign in; the sign-in is kept in the machine's vault.
 5. **Review what the agent did**: what it changed, the most far-reaching first, and what it was
    asked. Forward it to the repository's origin, or drop it.
 6. **Work in a project of your organization** under *Projects* when work needs settings of its own: a

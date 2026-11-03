@@ -24,7 +24,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f108"></a>[F108](F108-A-Machine-Over-Ssh-From-Windows.md) | — | — | On Windows, a machine over ssh is reached through the relay, as a WSL distribution is. |
 | <a id="f118"></a>[F118](F118-An-Upstream-That-Cannot-Be-Read-Said-Before-A-Start.md) | — | — | An upstream that cannot be read said before a start, with what fixes it. |
 | <a id="f137"></a>[F137](F137-The-Collection-Taken-Only-By-Its-Digest.md) | — | — | The collection installed on the host only by the digest the package expects, checked here and there. |
-| <a id="f143"></a>[F143](F143-The-Agent-The-Machine-Found-Is-The-Default.md) | — | — | The agent the machine chooses started when none is picked, its source shown, the picker marking who is signed in, and an import offered. |
 
 ### Implementing
 
@@ -175,6 +174,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Title | What was built |
 |---|---|---|
+| <a id="f143"></a>F143 | The Agent The Machine Found Is The Default | The start form sends no agent until one is picked, says which agent the machine chooses and why, marks in its list who is signed in, and offers an agent found on the machine for import into the vault. |
 | <a id="f268"></a>F268 | One Key And One Card Per Person | One Ed25519 key and one card per person made by Core and kept in the KeePassXC file, the card filed in the registry, a changed or lost key handled. Tested in sprint 6m: passed. |
 | <a id="f269"></a>F269 | The Registry Read For Every List | The registry kept in a private checkout and read through Core for every list of persons, hosts, admins and projects. Tested in sprint 6m: passed. |
 | <a id="f270"></a>F270 | One SSH Tunnel Per Host From Its Card | One ssh connection per host written from its card, carrying the forge, Git, Matrix and the daemon, with the host key pinned. Tested in sprint 6m: passed. |
