@@ -136,8 +136,8 @@ first, with no address, and `org host change` files the address, port and host k
 same order, as the pin has to be written before the server exists.
 
 **Renting is refused today.** `up` takes only `--given`, and with `--scaleway-project` it answers `Verified SSH-only preparation requires the served Core
-and host setup contracts.` So nothing in this interface rents now, as `_stopped` in `host_runs.dart` says. `doc/index.md`'s `up --scaleway-project` and
-`doc/design.md`'s *what was rented is given back* still describe it. *Down* on `--given` gives nothing back: *nothing is rented or given back*.
+and host setup contracts.` So nothing in this interface rents now, as `_stopped` in `host_runs.dart` says. It returns with [F166](README.md#f166), planned for 0.9. *Down* on `--given` gives nothing back: *nothing is rented or given back*, and releasing the
+server at the provider is the person's own step, which the list cannot see.
 
 **What enters a server set up by hand today:**
 
@@ -150,9 +150,13 @@ and host setup contracts.` So nothing in this interface rents now, as `_stopped`
 **What taking it down does to the card today:** nothing. `cardLeftBehind` in `host_access.dart` says *a host admin enters its new address, or an organization owner removes
 the host*, and `doc/design.md` says the same. `org host remove` is an owner's, and a host carrying on from its pin refuses it until its admin acts.
 
+**What outlasts a server,** by Agent Machines' reading: nothing on it keeps the pin alive, as `down` stops the follow's timer and removes `/etc/porelo-host/organization`.
+What stays is its card in the organization and the public half of its read key on the central repository, which `down` does not remove and which opens nothing, its
+private half being gone.
+
 **What this asks:**
 
-- The give-back's last step removes the card, only once the provider has confirmed it. A kept server keeps its card. `cardLeftBehind` and that sentence in `doc/design.md` go.
+- The give-back's last step removes the card, only once the provider has confirmed it or, on a given server, once `down` has finished. A kept server keeps its card. `cardLeftBehind` and that sentence in `doc/design.md` go.
 - *Prepare a machine…* enters the card itself where the person may, rather than refusing a name the organization does not hold. Today it can only refuse.
 - What removes the card needs Core's answer on the right and on the pin of a server that is gone.
 

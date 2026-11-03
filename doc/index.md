@@ -130,53 +130,37 @@ is only as trustworthy as the ZIP or the MSIX it came in, which is why the check
 ## A project on a server
 
 `porelo-host`, installed beside the interface (`/usr/lib/porelo-frontend/porelo-host`, or
-`porelo-host.exe` in the Windows folder), puts a project on a rented server and takes it off
-again. The standalone `porelo-host` and `porelo-host.exe` binaries are also published in
+`porelo-host.exe` in the Windows folder), prepares a server that exists already and takes its setup
+off again. The standalone `porelo-host` and `porelo-host.exe` binaries are also published in
 Artifactory under `porelo-dist-host/<channel>/<version>/` with `SHA256SUMS`. The playbook runs on
 the server itself, so this computer needs only ssh.
 
-**Once, in Scaleway's console**, for the project the host is rented in:
+**Renting is refused for now.** `up` with `--scaleway-project` answers *Verified SSH-only preparation
+requires the served Core and host setup contracts*; renting returns as planned for 0.9, sprint 5. Until
+then a server is rented by hand at the provider and given by its address and host key, and releasing it
+at the provider is the person's own step: on a given server `down` takes the setup off and gives nothing
+back.
 
-1. Add your public ssh key: *Project dashboard* → *SSH keys* → *Add SSH key*, pasting the line
-   from your `.pub` file. `porelo-host` never adds a key; when yours is missing it stops before
-   renting anything and prints the line to paste.
-2. Make an API key that may manage Elastic Metal and only read the project's ssh keys
-   (`SSHKeysReadOnly`), and keep it in this computer's own secret store:
-
-   ```sh
-   porelo-host key set scaleway      # reads the key from standard input; nothing is echoed
-   ```
-
-   The key is kept in Secret Service on Linux and Credential Manager on Windows, never in a file or
-   a command line, and `porelo-host key forget scaleway` removes it; if no keyring is open, `key
-   set` stops at once instead of waiting on a desktop prompt.
-
-**Then, for each project:**
+**For each server**, once the organization names it with you among its admins:
 
 ```sh
-porelo-host up --project <name> --account porelo --public-key <your public key> \
-    --identity <your private key> --scaleway-project <project id>
+porelo-host up --host-name <name> --given <address> --host-key "<type> <base64>" \
+    --machine-file <file>
 ```
 
-It rents the host, or finds it again by its tag, and stops once with exit code 75 for what only you
-can give: the drive's login and the vault's passphrase. Complete the provider's login and
-Porelo's vault prompts in a terminal on the host, then run the same `up` again. It receives no
-password, code or passphrase. `porelo-host down` with the same options takes the last copies and gives the host back. If a copy
-fails, it keeps the host, says what would be lost, and names the ways out: `down` again, or `down
---give-back-anyway` to give it back knowingly. Every step is one JSON line on standard output.
+The machine file holds the organization's part the server reads, and `up` refuses without it. It runs as
+root through your ssh agent and receives no password, code or passphrase. `porelo-host down` with the
+same name and server takes the setup off. If a step of it fails, it keeps what it holds, says what would
+be lost, and names the ways out: `down` again, or `down --give-back-anyway`. Every step is one JSON line
+on standard output.
 
-**In the interface** on Linux (on Windows it waits until the interface brings KeePassXC there, for the secrets
-file), *Put this project on a server…* leads through a step-by-step wizard (rental details, the project's
-signing key and vault entries, SSH keys, your secrets file, check and start); the host's setup mounts no drive. The interface writes the followed project's git bundle and the
-host's `machine.yml` into its own configuration folder, `hosts/<project>`, and `porelo-host up` uploads both
-to `/etc/porelo-host/setup/` on the host, where only root writes them.
-Starting setup places the host under *Machines* as *In preparation*, showing the current step,
-start times, durations and estimated time remaining; closing the interface keeps the server under
-*Machines* across restarts with *Go on* and *Take it down*. At the stop, *Complete setup on the host*
-opens a terminal running `porelo-host-stop` on the host to complete the Tresorit login and vault
-passphrase. Setup then brings the WireGuard VPN up on this computer via `sudo`, checks ping and
-handshake, and marks the machine ready. Under *Machines*, *Take this server down* confirms the
-consequences before running `down` from the kept record and giving the server back.
+**In the interface,** *Prepare a server…* under *Machines* does this for a host admin of that very host: it
+asks the host name, the server's address and its SSH host key, shows the line to run on the server that
+lets you in as root, writes the machine file, and files the real address and ports on the host's card
+when `up` reports them. Starting setup places the host under *Machines* as *In preparation*, showing the
+current step, start times, durations and estimated time remaining; closing the interface keeps the
+server under *Machines* across restarts with *Go on* and *Take it down*. *Give the server back* confirms
+the consequences before running `down` from the kept record.
 
 ## What the other pages hold
 

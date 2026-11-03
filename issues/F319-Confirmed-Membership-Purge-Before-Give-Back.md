@@ -41,5 +41,6 @@ refuses while anyone holds a membership; a failed purge keeps the server.
 
 ## To be tried
 
-Built, and walked by no sprint yet. At the next real rented setup: give a server back with one member still on it, see the holder
-named, confirm the removal, see that account gone and the server released.
+Built, and walked by no sprint yet. The next time: a server rented by hand at the provider and given by `--given`, as `up` rents nothing until renting
+returns with [F166](README.md#f166). Give it back with one member still on it, see the holder named, confirm the removal, see that account gone, and release
+the server at the provider as the person's own step. A test of Porelo's own release waits for 0.9.

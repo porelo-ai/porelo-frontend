@@ -235,12 +235,13 @@ names the person's own key in the line that lets them in as root, in a terminal 
 the interface writes the machine file whose `organization` part the host reads: the organization's `settings`, the
 central forge's lines from the person's own `known_hosts` (first use is not trusted, so none stops here) and a
 `login key` pin from every row of `hosts[].admins`, backup keys included; a row with no key refuses the whole pin.
-Porelo's answers name no organization address yet, so `HostAccess` has no addressing composed and says so: no
-server is prepared from this version until that is settled.
 
 When `up` reports the host, its real address, ssh port, host key and service ports go on its card by `porelo org
 host change`, the machine is added and followed, and the token is handed over once. Should `up` stop, or the card be
-refused, what was rented is given back and that is said in words; a give-back that fails keeps the recovery record.
+refused, nothing is given back, as `up` rents nothing: it takes only a server given to it, and renting returns as
+planned for 0.9, sprint 5. The server stays as it is, and that is said in words. On a given server *Give the server back*
+takes the setup off, and releasing it at the provider is the person's own step; a saved rental from before is
+released by the provider's confirmation, and a give-back that fails keeps the recovery record.
 After a give-back the card still names the host, which only an organization owner can remove, and the interface
 says that too. SSH forwarding and unlock integration belong to the shared host transport. Provider sign-ins and the
 local vault keep their own terminal paths.
