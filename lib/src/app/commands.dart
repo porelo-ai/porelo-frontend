@@ -756,6 +756,7 @@ List<Command> hostMachineCommands({
       run: takeDown,
       unavailable:
           _setupAgainUnavailable(hostRuns, machine.hostProject) ??
+          hostRuns?.hostAccess?.whyNotTakeDown(settings.hostUp(machine.hostProject)?.hostName ?? machine.hostProject) ??
           (settings.hostUp(machine.hostProject) == null ? 'nothing was kept from putting it on a server' : null),
     ),
   ],
@@ -1412,6 +1413,7 @@ List<Command> hostRecoveryCommands({
   required HostPreparation run,
   required VoidCallback goOn,
   required VoidCallback takeDown,
+  HostAccess? access,
 }) {
   final resume = resumeHostPreparationCommand(run: run, resume: goOn, home: Home.machineRow);
   return [
@@ -1422,7 +1424,7 @@ List<Command> hostRecoveryCommands({
       group: run.name,
       home: Home.machineRow,
       run: takeDown,
-      unavailable: resume.unavailable,
+      unavailable: resume.unavailable ?? access?.whyNotTakeDown(run.record.hostName),
     ),
   ];
 }

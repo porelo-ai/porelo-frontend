@@ -25,6 +25,24 @@ void main() {
       await expectLater(access.check('demo'), throwsA(isA<HostAccessRefused>()));
     });
 
+    // Harm: a dismissed admin is offered taking a machine down and meets only the machine's bare refusal; or an
+    // admin is kept from it by a state the window does not know.
+    test('taking down is refused only where the fresh answer says so', () async {
+      final fixture = HostFixture()..adminHosts = {'orchard'};
+      final access = await fixture.access(settings);
+      expect(access.whyNotTakeDown('orchard'), isNull);
+      expect(access.whyNotTakeDown('demo'), contains('hank'));
+      expect(access.whyNotTakeDown('nowhere'), isNull, reason: 'a machine not listed is not known here');
+      expect(
+        (await (HostFixture()
+                  ..admin = false
+                  ..organizationAdmin = true)
+                .access(settings))
+            .whyNotTakeDown('demo'),
+        isNull,
+      );
+    });
+
     // Harm: a right taken away keeps working on what was read earlier.
     test('judged on a fresh read before a side effect', () async {
       final fixture = HostFixture();

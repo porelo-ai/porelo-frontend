@@ -186,6 +186,10 @@ class CentralState {
   }
 }
 
+/// What a machine's refusal of a person's root login means: each follow sets who reaches root.
+String notTheAdminsKey(String host) =>
+    '$host did not take your key as root: it is not a key of this machine\'s admins now.';
+
 /// Asks a host how it stands, as root, through the pinned config of the person's connection.
 class SshHostProgress {
   /// Runs ssh through [run].
@@ -290,9 +294,7 @@ class SshHostProgress {
     if (answer.code != 0) {
       // Each follow sets who reaches root, so a key the host does not take is not its admin's now, and no fault.
       if (answer.err.contains('Permission denied')) {
-        throw OrganizationRefused(
-          '$host did not take your key as root: it is not a key of this machine\'s admins now.',
-        );
+        throw OrganizationRefused(notTheAdminsKey(host));
       }
       final said = answer.err.trim().split('\n').last.trim();
       throw OrganizationRefused(said.isEmpty ? 'The machine refused this, and did not say why.' : said);

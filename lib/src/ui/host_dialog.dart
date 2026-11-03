@@ -7,6 +7,7 @@ import '../app/host_runs.dart';
 import '../app/host_access.dart';
 import '../app/host_session.dart';
 import '../app/machines.dart';
+import '../app/host_progress.dart' show notTheAdminsKey;
 import '../app/preparation_host_key.dart';
 import '../app/run_here.dart';
 import '../app/session.dart';
@@ -361,7 +362,9 @@ class _HostDialogState extends State<HostDialog> {
       _returnedRental = record.isRental;
       _givenBack = true;
     } catch (_) {
-      _problem = record.isRental
+      _problem = session.protocolText.contains('Permission denied')
+          ? notTheAdminsKey(record.hostName)
+          : record.isRental
           ? 'The rental return was not confirmed. It stays billed, and its recovery data were kept.'
           : 'Taking Porelo off was not confirmed. The machine and recovery data were kept.';
       readAgain = !anyway;

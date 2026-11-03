@@ -522,6 +522,7 @@ class _ShellState extends State<Shell> {
       for (final run in _hostRuns.preparing)
         ...hostRecoveryCommands(
           run: run,
+          access: _hostRuns.hostAccess,
           goOn: () => unawaited(_hostRuns.resume(run)),
           takeDown: () => unawaited(
             openHostTakeDownDialog(

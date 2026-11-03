@@ -9,6 +9,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- A person the organization names as neither admin of a machine is told so instead of being offered taking it down, and a
+  machine's refusal of their key reads as that.
+- An answer that names the Organization Admins in any other form than a list cannot be said, and no longer reads as the owners' rule.
 - *Make my card…* proposes public identity values and their sources, asks only unresolved questions, and offers *Sign* or manual entry.
 - Cards due for renewal show a warning and *Renew my card* on the card and Organization pages, with the same operation kept for a retry.
 - Opening a project asks whether you work alone; review can be required or made optional from its Project Admin's menu.

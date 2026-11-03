@@ -112,6 +112,17 @@ class HostAccess extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Why this person may not take [host] down, only where the organization's fresh answer says so: the machine stays
+  /// the guard, so a state not known here offers it and leaves the refusal to the machine.
+  String? whyNotTakeDown(String host) {
+    final view = _view;
+    if (view == null || view.stale || view.me.isEmpty) return null;
+    final named = view.hosts.where((each) => each.name == host).firstOrNull;
+    if (named == null || view.isOrganizationAdmin) return null;
+    if (view.holdsRoles && named.admins.contains(view.me)) return null;
+    return 'Only a Machine Admin of $host or an Organization Admin may do this.${_ask(view, named.admins)}';
+  }
+
   /// Whether preparing is offered at all: not to a person the organization names as neither of the admins. Where
   /// nothing is read yet, or there is no organization, it stays, and [unavailable] says why it cannot be done.
   bool get offersPreparing {

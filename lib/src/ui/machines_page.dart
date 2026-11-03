@@ -107,6 +107,7 @@ class MachinesPage extends StatelessWidget {
                   open: onHostProtocol == null ? null : () => onHostProtocol!(run),
                   actions: hostRecoveryCommands(
                     run: run,
+                    access: hostRuns?.hostAccess,
                     goOn: () => unawaited(hostRuns!.resume(run)),
                     takeDown: () => unawaited(
                       openHostTakeDownDialog(

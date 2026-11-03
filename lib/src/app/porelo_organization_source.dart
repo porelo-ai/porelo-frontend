@@ -64,6 +64,14 @@ class PoreloOrganizationSource implements OrganizationSource {
     return answer;
   }
 
+  /// The Organization Admins, null only where the answer holds none; any other form cannot be said, as it must not
+  /// widen rights by reading as the owners' rule.
+  static List<String>? _organizationAdmins(Object? listed) {
+    if (listed == null) return null;
+    if (listed is List && listed.every((login) => login is String)) return List<String>.from(listed);
+    throw const OrganizationRefused('Porelo cannot say who the Organization Admins are.', answered: false);
+  }
+
   /// A failure's words, and whether the change may have been made: after 69, 70 or a killed process the id is kept, and
   /// every other refusal made nothing.
   OrganizationRefused _refusal(Ran ran) {
@@ -122,12 +130,7 @@ class PoreloOrganizationSource implements OrganizationSource {
       // No card here: nobody is named, and the person sees *Add me*.
       me: me == null ? '' : _text(me, 'login'),
       owners: _holders(_maps(answer, 'owners')),
-      organizationAdmins: answer['organization_admins'] is List
-          ? [
-              for (final login in answer['organization_admins']! as List)
-                if (login is String) login,
-            ]
-          : null,
+      organizationAdmins: _organizationAdmins(answer['organization_admins']),
       ownersWithBackup: [
         for (final entry in _maps(answer, 'owners'))
           if (entry['backup'] == true) _text(entry, 'login'),

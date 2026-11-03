@@ -212,6 +212,26 @@ void main() {
   });
 
   group('reading', () {
+    // Harm: a bad answer about who the Organization Admins are reads as the owners' rule, and widens rights.
+    for (final (bad, name) in [
+      ('nobody', 'a word'),
+      (<Object?>['alice', 1], 'a list with something else'),
+    ]) {
+      test('Organization Admins given as $name cannot be said', () async {
+        answer = (_) => says({..._org, 'organization_admins': bad});
+        await expectLater(source.read(), throwsA(isA<OrganizationRefused>()));
+      });
+    }
+
+    test('Organization Admins absent or listed read as they stand', () async {
+      expect((await source.read()).organizationAdmins, isNull);
+      answer = (_) => says({
+        ..._org,
+        'organization_admins': ['alice'],
+      });
+      expect((await source.read()).organizationAdmins, ['alice']);
+    });
+
     // Harm: a page shows something Porelo did not say.
     test("the organization is read from the contract's example", () async {
       final view = await source.read();
