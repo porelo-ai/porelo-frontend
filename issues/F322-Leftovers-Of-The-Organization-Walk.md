@@ -1,6 +1,6 @@
 # F322 — Leftovers Of The Organization Walk
 
-**Status:** Idea.
+**Status:** Implementing.
 **Size:** S - one small change per point, no Core change.
 
 **What must be true.** Small things a walk of the organization's pages in the window found, none of them wrong:

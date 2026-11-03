@@ -1,6 +1,7 @@
 # F288 — Small Leftovers Of The One-Click Flow
 
-**Status:** Idea.
+**Status:** Implementing.
+**Size:** M - about twenty small points, each read in the code; what waits on another repository stays open here.
 
 **What must be true.** Small edge cases left over from the one-click flow's build are kept in one place, for the operator to place:
 address forms, quoting, encodings, texts and test gaps. A grave finding never goes here; it gets an issue of its own.
