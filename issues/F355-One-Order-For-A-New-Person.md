@@ -8,24 +8,29 @@
 
 **The order at the start, for creating an organization:**
 
-A new person starts with only a GitHub username and password, so the order starts there, with GitHub's steps first.
+A person starts with a GitHub account that owns an organization, mostly one they already have, and often with keys they already have: people seldom let a new tool make their sensitive ssh keys. So existing or hand-made keys are the normal path, and the order must not assume "no key yet". What is already done reads as done.
 
-1. On GitHub: an organization the person owns.
-2. On GitHub: an empty repository in it.
-3. On GitHub: a fine-grained token, its resource owner that organization, with its rights named and why they are needed. A classic token is no longer the default.
-4. A key, loaded in the agent and listed on the person's GitHub account, as an authentication or signing key.
-5. The card for that key.
-6. The token in the vault.
-7. *Create it*.
+1. A key store ready, KeePassXC being the normal one, serving its keys through its ssh agent.
+2. Ed25519 keys in it, kept or made by hand; Porelo accepts no other kind. One key can do both jobs, or one authenticates and one signs. A key Porelo makes in KeePassXC stays an offered shortcut, not the way.
+3. The public halves listed on GitHub. The card's key must be listed as an authentication or a signing key, either one; an ssh address also needs its key as an authentication key.
+4. On GitHub: an empty repository in the organization.
+5. On GitHub: a fine-grained token, its resource owner the organization and its repository access all repositories, with its rights named and why they are needed, kept in the key store. A classic token is no longer the default.
+6. Porelo set up on this computer and the token in its vault. The first command is `porelo setup`, which makes the vault with a passphrase asked twice; starting with `porelo vault put` would make one from a passphrase typed once.
+7. The card, naming a key the agent serves. It can be made before the key is listed: the listing is checked at step 8.
+8. *Create it*.
 
-The rights, from GitHub's permissions page and not yet run:
+The rights, read in the code and on GitHub's pages, or from memory where marked, and not yet run:
 
 | Right | Why |
 |---|---|
-| Organization *Members*, read | asking who owns the organization |
+| Organization *Members*, read | asking who owns the organization; this one call must answer, or the creation stops |
 | Repository *Contents*, write | git, reading and pushing |
-| Repository *Administration*, write | adding a host's deploy key, and making a project's repositories |
-| *Repository creation* | making a project's repositories in the organization |
+| Repository *Administration*, write | making a project's repositories, and adding a host's deploy key |
+| Repository *Workflows*, write, from memory | a push touching `.github/workflows`; without it the forge refuses, and nothing names that refusal |
+
+Pull requests are not this token's: an online task's build watch uses a token of its own.
+
+**Two things a person is told at the token's step:** it expires, after which git fails; and the vault's `git.token.github.com` is offered to every https repository on github.com, so a private repository of another organization answers "Repository not found" until that organization has an entry and a token of its own. An organization may also require approval of fine-grained tokens, from memory.
 
 Each step shows whether it is done. *Create it* can be pressed when every step before it holds: a key the agent serves, a card, that key on the forge, a token the forge accepts with the rights needed, the person an active owner of the organization, and a repository that is empty. Only the push itself may stay unknown until it is tried.
 
@@ -52,16 +57,19 @@ The order goes on past the organization: the project, its repositories, a host, 
 
 ## Acceptance
 
-- A new person with nothing set up sees every step and its state before doing any of them, and no step's need first appears as a refusal.
+- A person with nothing set up sees every step and its state before doing any of them, and no step's need first appears as a refusal.
+- A person with their keys, their organization and their card already there sees those steps as done, is offered no new key, and goes on from the first that is not.
 - *Create it* cannot be pressed with no key served, no card, the key not on the forge, no token, a token the forge refuses, a token of another account, a token lacking a right, a person who owns no such organization, or a filled repository, each against a stand-in forge and seen to fail first.
 - No token value reaches a widget or a line of text.
 
+## Open questions
+
+- A login on a card must be lower case, start with a letter and be at most 32 characters, and GitHub allows more, from memory. Should the pattern change, or does the step only say so?
+
 ## To be checked
 
-- The rights above, by a real run of a fine-grained token: the foo test measures them now.
-- What else Porelo asks of the token from creating an organization to a task's branch reaching the forge, such as pull requests, or workflows for a push touching `.github/workflows`.
-- Whether a token bound to one organization breaks anything, such as a question about the person's own account, and so whether "whose token" can be asked.
+- The rights above, by a real run of a fine-grained token: the foo test measures them now. Whether making a repository needs *Repository creation* beside *Administration* is not confirmed.
+- With two keys, the card naming the signing key, and an https address: whether anything from creating an organization to a task's branch needs the authentication key, or the card's key listed as authentication.
 - Whether a fine-grained token's rights can be read at all, and what the step says if they cannot. A classic token's scopes can be read; a fine-grained one may show only by trying.
-- The place of steps 4 to 6: whether a card can be made before its key is listed on GitHub, whether one key as both GitHub types is fine, and what a person with no vault yet runs first.
 - A repository under a personal account: it has no organization to ask, so it is expected to be refused; what the step says.
 - Where the order stands in the window: on the page of an unset organization, and how it fits a person who already has a card and comes back.

@@ -143,7 +143,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f200"></a>[F200](F200-KeePassXC-Shipped-On-Windows-And-macOS.md) | — | — | KeePassXC's signed build shipped with the interface on Windows and macOS, with its license and source offer, for the person's secrets file. |
 | <a id="f203"></a>[F203](F203-This-Repository-Worked-In-A-Porelo-Task.md) | — | — | This repository's agent working in an attended Porelo task on the host, its build green on the host's Forgejo, reached in the room, with a way back. |
 | <a id="f354"></a>[F354](F354-The-Integration-Leg-On-A-Machine-Of-The-Hosts-Pool.md) | — | — | The Build's integration leg on a host's Forgejo against a machine its pool lends by kind. |
-| <a id="f355"></a>[F355](F355-One-Order-For-A-New-Person.md) | — | — | A new person, starting with only a GitHub login, gets one order in the window, GitHub's steps first, each step showing its state, so *Create it* is reached only when it can work. |
+| <a id="f355"></a>[F355](F355-One-Order-For-A-New-Person.md) | — | — | One order in the window for a person starting from a GitHub organization and keys of their own, each step showing its state, so *Create it* is reached only when it can work. |
 
 ### Estimated
 
