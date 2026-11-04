@@ -26,7 +26,7 @@
 
 - "Porelo does not name the current review policy, so this page cannot say whether review is required.": no sentence for this state, so no review line until it is set up.
 - "Project repository: none named yet" says what the line above already says, so it goes until set up.
-- "Repositories 0" offers no way to add one, and adding comes after setting up. The list says so in words: "Add repositories once the project is set up."
+- "Repositories 0" offers no way to add one, and adding comes after setting up. The list says so in words: "Add repositories once the project is set up." "No repositories supplied." comes from `FilteredListSection`, which says "No <title> supplied." for every empty list, so a list needs a way to say its own words; the word "supplied" is read for every list then.
 
 ## Acceptance
 
