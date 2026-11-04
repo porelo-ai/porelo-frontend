@@ -1,6 +1,6 @@
 # F323 — Refuse An Organization A Host Cannot Follow
 
-**Status:** Idea.
+**Status:** Review.
 **Size:** S - one refusal in *Prepare a server…*, once Core says what to read for it.
 
 **What must be true.** A person whose organization stands at an https address is told so before `up`, with the reason, in

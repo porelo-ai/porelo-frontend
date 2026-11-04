@@ -1,6 +1,6 @@
 # F320 — A First Organization Without Hand Work
 
-**Status:** Idea.
+**Status:** Review.
 **Size:** M - a question for Core and Machines first, then one dialog.
 
 **What must be true.** A person with a forge that is not GitHub can set up their first organization from the interface
