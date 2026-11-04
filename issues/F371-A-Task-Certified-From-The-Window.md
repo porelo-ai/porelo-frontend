@@ -1,6 +1,6 @@
 # F371 — A Task Certified From The Window
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** M - a signing step at the desk over the second call, and renewing a certificate; Core carries the request.
 
 **What must be true.** Work started from the window on a host starts. In the foo test, *Start work in foo-project* got through the project, machine, vault, gate mirror and login, then refused at "Preparing and building" with "this host starts a task only with a key of its own that you certify: add the key of your card to your agent (ssh-add) and start it again". The advice cannot help a person at their desk, as their agent is there and the host rightly gets none.
@@ -26,6 +26,14 @@ Two ways, to be chosen with Core:
 Either way, the agent never leaves the desk, and what is certified is checked here first: an Ed25519 key, the one task's principal, at most the allowed time.
 
 A card key missing from the desk's agent says so in the window, and a renewal is offered before a certificate ends.
+
+## Plan
+
+The contract with Core: `Start` takes `certify`; its stream gives one `certify` request; `Certify(start, certificate?, refused?)` answers it.
+
+1. `task_certifying.dart` checks what was asked as the command line does, finds the first certifier the agent lists, and signs with `ssh-keygen` by the agent. A test runs this against a real agent with a throwaway key.
+2. `PoreloBackend` answers in the start's stream, for the form, the wizard and *Start it again*, and says what it signed; a refusal goes to the host so its wait ends.
+3. Renewal: a command for a certified task runs `porelo task certify`, and a task says before its certificate ends, on a field Core gives.
 
 ## Acceptance
 

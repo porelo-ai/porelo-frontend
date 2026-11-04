@@ -77,6 +77,51 @@ sealed class StartEvent {
   const StartEvent();
 }
 
+/// What a host asks this computer to certify before a start goes on.
+final class StartCertify {
+  /// Constructor taking every field.
+  const StartCertify({
+    required this.start,
+    required this.key,
+    required this.principal,
+    required this.keyId,
+    required this.validBefore,
+    required this.certifiers,
+  });
+
+  /// Which start waits for the answer, as `Certify` names it.
+  final String start;
+
+  /// The public key the task's certificate is for.
+  final String key;
+
+  /// The one principal asked, `task:<project>:<task>`.
+  final String principal;
+
+  /// The identity the certificate carries.
+  final String keyId;
+
+  /// When the certificate ends; a word that does not read is the distant past, which is refused.
+  final DateTime validBefore;
+
+  /// The public keys of the project's members, of which the agent's first signs.
+  final List<String> certifiers;
+
+  /// Reads one from a reply.
+  factory StartCertify.from(Map<String, dynamic> map) {
+    final certifiers = map['certifiers'];
+    return StartCertify(
+      start: map['start'] is String ? map['start'] as String : '',
+      key: map['key'] is String ? map['key'] as String : '',
+      principal: map['principal'] is String ? map['principal'] as String : '',
+      keyId: map['key_id'] is String ? map['key_id'] as String : '',
+      validBefore:
+          DateTime.tryParse(map['valid_before'] is String ? map['valid_before'] as String : '') ?? DateTime.utc(1970),
+      certifiers: certifiers is List ? certifiers.whereType<String>().toList(growable: false) : const <String>[],
+    );
+  }
+}
+
 /// One line of the start's detailed output.
 final class StartLine extends StartEvent {
   /// Constructor retaining the line verbatim.

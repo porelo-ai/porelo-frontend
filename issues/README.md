@@ -66,13 +66,13 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f371"></a>[F371](F371-A-Task-Certified-From-The-Window.md) | — | — | Work started from the window on a host is certified by the desk's agent, never forwarded, and can be renewed from there. |
 | <a id="f370"></a>[F370](F370-Start-Work-In-A-Project-A-Machine-Carries.md) | — | — | A machine page's *Start work* leads into the project it carries, not into the Default project asking for an address. |
 
 ### Backlog
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f371"></a>[F371](F371-A-Task-Certified-From-The-Window.md) | M | — | Work started from the window on a host is certified by the desk's agent, never forwarded, and can be renewed from there. |
 | <a id="f368"></a>[F368](F368-A-Machines-Token-Given-In-The-Same-Flow.md) | M | — | *Put it on a machine…* ends in giving the machine its token, saying what for, from the token the window keeps if so decided. |
 | <a id="f353"></a>[F353](F353-The-Page-With-The-Work-Cards-Redesigned.md) | L | — | The redesign of *Work* and *Needs you*: a list and one tab per running agent, reviews under *Needs you*, one count; design accepted, built after the foo test, with [F306](README.md#f306) in it. |
 | <a id="f306"></a>[F306](F306-A-Work-Card-Whose-Terminal-Has-Ended.md) | S | — | A *Work* card whose terminal ended says so in words, without an empty black terminal bar. |

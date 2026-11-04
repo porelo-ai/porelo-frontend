@@ -190,8 +190,11 @@ class PoreloClient {
   }
 
   Future<bool>? _startSteps;
+  Future<bool>? _startCertify;
 
-  Future<bool> _declaresStartSteps() async {
+  Future<bool> _declaresStartSteps() => _declaresStartInput('steps');
+
+  Future<bool> _declaresStartInput(String input) async {
     final String description;
     try {
       description = await contract();
@@ -210,7 +213,7 @@ class PoreloClient {
       final character = idl[at];
       if (character == '(') depth++;
       if (character == ')') depth--;
-      if (depth == 0) return RegExp(r'(?:^|,)\s*steps\s*:').hasMatch(inputs.toString());
+      if (depth == 0) return RegExp('(?:^|,)\\s*$input\\s*:').hasMatch(inputs.toString());
       if (depth == 1) inputs.write(character);
     }
     return false;
@@ -349,6 +352,7 @@ class PoreloClient {
     int? minutes,
     String? repository,
     Map<String, String>? credentials,
+    bool certify = false,
   }) async* {
     // Only what the caller named is sent, so the backend's own defaults stay the only defaults.
     // Restating them here would be a second place for them to drift.
@@ -377,8 +381,15 @@ class PoreloClient {
       // meets a parameter it does not know.
       'repository': ?repository,
       if (await (_startSteps ??= _declaresStartSteps())) 'steps': true,
+      // Only one that says what to do with a request asks; an older daemon has no such input.
+      if (certify && await (_startCertify ??= _declaresStartInput('certify'))) 'certify': true,
     };
     yield* _callMore('Start', parameters).map(StartProgress.from);
+  }
+
+  /// Answers a start's [StartProgress.certify]: the certificate this computer's agent made, or why not.
+  Future<void> certifyStart(String start, {String? certificate, String? refused}) async {
+    await _call('Certify', {'start': start, 'certificate': ?certificate, 'refused': ?refused});
   }
 
   /// Stops a task, keeping it: its container is its workspace. Removing is [remove].
@@ -1172,6 +1183,9 @@ class StartProgress {
   /// A streamed step, separate from a line of output.
   final StartStep? step;
 
+  /// What the host asks this computer to certify before it goes on; null on all other replies.
+  final StartCertify? certify;
+
   /// Steps retained in a final reply when the caller did not stream.
   final List<StartStep> steps;
 
@@ -1204,6 +1218,7 @@ class StartProgress {
   const StartProgress({
     this.line,
     this.step,
+    this.certify,
     this.steps = const <StartStep>[],
     this.container,
     this.exitCode,
@@ -1219,6 +1234,7 @@ class StartProgress {
   StartProgress withOutput(List<String> lines) => StartProgress(
     line: line,
     step: step,
+    certify: certify,
     steps: steps,
     container: container,
     exitCode: exitCode,
@@ -1234,6 +1250,7 @@ class StartProgress {
   factory StartProgress.from(Map<String, dynamic> map) {
     final line = map['line'];
     final step = map['step'];
+    final certify = map['certify'];
     final steps = map['steps'];
     final container = map['container'];
     final exitCode = map['exitCode'];
@@ -1246,6 +1263,7 @@ class StartProgress {
     return StartProgress(
       line: line is String ? line : null,
       step: step is Map<String, dynamic> ? StartStep.from(step) : null,
+      certify: certify is Map<String, dynamic> ? StartCertify.from(certify) : null,
       steps: steps is List ? steps.whereType<Map<String, dynamic>>().map(StartStep.from).toList() : const <StartStep>[],
       container: container is String ? container : null,
       exitCode: exitCode is num ? exitCode.toInt() : null,

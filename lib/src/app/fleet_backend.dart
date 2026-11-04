@@ -8,6 +8,7 @@ import 'package:porelo_frontend/client.dart';
 import 'package:porelo_host/porelo_host.dart' show HostCardSsh, HostFilesRefused;
 
 import 'owned_process.dart';
+import 'task_certifying.dart';
 
 /// Core's public result, independent of SSH authentication or daemon readiness.
 enum HostUnlockState {
@@ -561,10 +562,13 @@ abstract class FleetBackend {
 /// A real Porelo daemon, local or forwarded.
 class PoreloBackend implements FleetBackend {
   /// Constructor taking where the daemon is.
-  PoreloBackend(this.backend);
+  PoreloBackend(this.backend, {this.certify = certifyHere});
 
   /// The socket and its name.
   final Backend backend;
+
+  /// Has this computer's agent certify what a host asked; stands in for it in tests.
+  final Future<String> Function(StartCertify asked, {String? project, String? task}) certify;
 
   PoreloClient? _client;
 
@@ -627,9 +631,12 @@ class PoreloBackend implements FleetBackend {
           repository: repository,
           credentials: credentials,
           now: now,
+          certify: !dryRun,
         )
         .transform(startRefusalsSaid);
     await for (final progress in replies) {
+      final asked = progress.certify;
+      if (asked != null) yield StartLine(await _certified(asked, project: project, task: task));
       final line = progress.line;
       if (line != null) yield StartLine(line);
       for (final line in progress.output) {
@@ -648,6 +655,28 @@ class PoreloBackend implements FleetBackend {
     if (exitCode != 0) throw OperationFailed(exitCode);
   }
 
+  /// Answers what a host asked to have certified, and says what was done. A refusal is answered to
+  /// the host too, so its wait ends now and not in five minutes.
+  Future<String> _certified(StartCertify asked, {String? project, String? task}) async {
+    try {
+      final certificate = await certify(asked, project: project, task: task);
+      await _opened().certifyStart(asked.start, certificate: certificate);
+      return 'Certified ${asked.principal} until ${asked.validBefore.toUtc().toIso8601String()} by your agent on this computer.';
+    } on CertifyRefused catch (refused) {
+      await _opened().certifyStart(asked.start, refused: refused.words);
+      return refused.words;
+    } on VarlinkException {
+      rethrow;
+    } on VarlinkDisconnected {
+      rethrow;
+    } on Exception catch (failed) {
+      // A file not written, a program not there or past its limit: the host still waits for a word.
+      final words = 'This computer could not certify ${asked.principal}: $failed';
+      await _opened().certifyStart(asked.start, refused: words);
+      return words;
+    }
+  }
+
   @override
   Future<Stopped> stopTask(String task) => _opened().stop(task);
 
@@ -659,8 +688,12 @@ class PoreloBackend implements FleetBackend {
   Future<StartProgress> startAgain({required String project, required String task, String? repository}) async {
     var last = const StartProgress();
     final printed = <String>[];
-    final replies = _opened().start(project: project, task: task, repository: repository).transform(startRefusalsSaid);
+    final replies = _opened()
+        .start(project: project, task: task, repository: repository, certify: true)
+        .transform(startRefusalsSaid);
     await for (final progress in replies) {
+      final asked = progress.certify;
+      if (asked != null) printed.add(await _certified(asked, project: project, task: task));
       final line = progress.line;
       if (line != null) printed.add(line);
       last = progress;
