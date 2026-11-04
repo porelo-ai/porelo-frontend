@@ -8,12 +8,24 @@
 
 **The order at the start, for creating an organization:**
 
-1. The key is loaded and the card is made.
-2. The card's key is listed on the person's forge account, as an authentication or signing key.
-3. An empty repository exists in an organization the person owns on the forge.
-4. A classic forge token of that same account exists, with its rights named and why they are needed: `repo` for git and for making a project's repositories, `read:org` for asking who owns the organization.
-5. The token is in the vault.
-6. *Create it*.
+A new person starts with only a GitHub username and password, so the order starts there, with GitHub's steps first.
+
+1. On GitHub: an organization the person owns.
+2. On GitHub: an empty repository in it.
+3. On GitHub: a fine-grained token, its resource owner that organization, with its rights named and why they are needed. A classic token is no longer the default.
+4. A key, loaded in the agent and listed on the person's GitHub account, as an authentication or signing key.
+5. The card for that key.
+6. The token in the vault.
+7. *Create it*.
+
+The rights, from GitHub's permissions page and not yet run:
+
+| Right | Why |
+|---|---|
+| Organization *Members*, read | asking who owns the organization |
+| Repository *Contents*, write | git, reading and pushing |
+| Repository *Administration*, write | adding a host's deploy key, and making a project's repositories |
+| *Repository creation* | making a project's repositories in the organization |
 
 Each step shows whether it is done. *Create it* can be pressed when every step before it holds: a key the agent serves, a card, that key on the forge, a token the forge accepts with the rights needed, the person an active owner of the organization, and a repository that is empty. Only the push itself may stay unknown until it is tried.
 
@@ -46,7 +58,10 @@ The order goes on past the organization: the project, its repositories, a host, 
 
 ## To be checked
 
-- The right a token needs to add a host's deploy key: `repo` is expected and not measured. `repo` and `read:org` for creating and opening are read in the code and the forge's pages, not yet run by a person following this order.
-- A fine-grained token: whether its rights can be read at all, and what the step says if they cannot. The order names a classic one until that is known.
+- The rights above, by a real run of a fine-grained token: the foo test measures them now.
+- What else Porelo asks of the token from creating an organization to a task's branch reaching the forge, such as pull requests, or workflows for a push touching `.github/workflows`.
+- Whether a token bound to one organization breaks anything, such as a question about the person's own account, and so whether "whose token" can be asked.
+- Whether a fine-grained token's rights can be read at all, and what the step says if they cannot. A classic token's scopes can be read; a fine-grained one may show only by trying.
+- The place of steps 4 to 6: whether a card can be made before its key is listed on GitHub, whether one key as both GitHub types is fine, and what a person with no vault yet runs first.
 - A repository under a personal account: it has no organization to ask, so it is expected to be refused; what the step says.
 - Where the order stands in the window: on the page of an unset organization, and how it fits a person who already has a card and comes back.
