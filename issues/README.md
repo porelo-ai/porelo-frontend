@@ -72,6 +72,8 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="f370"></a>[F370](F370-Start-Work-In-A-Project-A-Machine-Carries.md) | S | — | A machine page's *Start work* leads into the project it carries, not into the Default project asking for an address. |
+| <a id="f371"></a>[F371](F371-A-Task-Certified-From-The-Window.md) | M | — | Work started from the window on a host is certified by the desk's agent, never forwarded, and can be renewed from there. |
+| <a id="f368"></a>[F368](F368-A-Machines-Token-Given-In-The-Same-Flow.md) | M | — | *Put it on a machine…* ends in giving the machine its token, saying what for, from the token the window keeps if so decided. |
 | <a id="f367"></a>[F367](F367-A-Connect-That-Ends-Unconnected-Says-Why.md) | M | — | A *Connect* that ends unconnected says why beside the button, a machine waiting for its token leads to giving it, and row and page agree. |
 | <a id="f364"></a>[F364](F364-Repositories-Added-Before-A-Machine.md) | S | — | A repository added before the project has a machine is filed with its central address, so that order works; a row without one says so. |
 | <a id="f365"></a>[F365](F365-A-Host-Key-Fetched-Too-Early.md) | M | — | A machine's host key is compared by one named command and fetched again at *Prepare*; a refused key says what to do, and the name is a choice. |
@@ -158,8 +160,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f361"></a>[F361](F361-A-Project-With-No-Git-Repository-Yet.md) | — | — | A project with no Git repository says so on the Organization page, where its Project Admin creates it, told by *Needs you*; it then appears under *My projects*. |
 | <a id="f363"></a>[F363](F363-A-Grey-Button-Says-Why-In-Words.md) | — | — | A disabled action says why in text, not a tooltip, and creating at an https address says beforehand that a machine cannot follow it. |
 | <a id="f366"></a>[F366](F366-Preparing-A-Machine-Says-What-It-Waits-For.md) | — | — | *Prepare a machine* says beside its button what it waits for, and a stopped login shows its words and exit code, naming root still closed. |
-| <a id="f368"></a>[F368](F368-A-Machines-Token-Given-In-The-Same-Flow.md) | — | — | *Put it on a machine…* ends in giving the machine its token, saying what for, from the token the window keeps if so decided. |
-| <a id="f371"></a>[F371](F371-A-Task-Certified-From-The-Window.md) | — | — | Work started from the window on a host is certified by the desk's agent, never forwarded, and can be renewed from there. |
 
 ### Estimated
 

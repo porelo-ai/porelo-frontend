@@ -1,6 +1,7 @@
 # F368 — A Machine's Token Given In The Same Flow
 
-**Status:** Idea. Nothing is built before the foo test.
+**Status:** Backlog.
+**Size:** M - the step in the same flow, the kept token on standard input with a test proving where it goes, and words for a refusal.
 
 **What must be true.** A person who puts a project on a machine is led through giving that machine a token, with one line saying what it is for, and never has to find a button on another page. In the foo test the operator did not see why *Give it my GitHub token…* is a separate step that setup did not do.
 
@@ -9,6 +10,8 @@
 A machine has no account at the forge. It uses the person's token once, to add read-only deploy keys to the organization's repository and the waiting projects' repositories, and to copy those projects to its own forge. It reads with those keys from then on and does not keep the token. The token must be allowed to administer those repositories.
 
 ## The shape
+
+**Decided:** the window takes the token from the system's secret store, after the person's confirming word, and writes it to the ssh process's standard input, on no command line, in no log and in no file, proven by a test. The dialog says plainly what the token is for and that it needs *Administration: write*, and a refusal for want of that right reads as words. The promise "nothing here sees or keeps it" changes to what is then true. The secrets file stays for whoever has chosen one.
 
 *Put it on a machine…* ends in this step in the same dialog's flow:
 
@@ -35,7 +38,7 @@ The button on the machine's page stays for a later project or a failed try.
 | The vault's `git.token.<host>` | Not by what is read here. The window only writes it, by `porelo vault put`, and the documented commands name no read of it. This is Core's to say, and a rule against reading it out would stand |
 | The secrets file | Only with its master password, which is why the terminal exists. It stays for who uses that file |
 
-**The recommendation:** offer the token the window keeps, after the person's confirming word, written to standard input and never on a command line or in a log. Using it means the window handles the token in memory for this step, where today it says "nothing here sees or keeps it", and that is a decision about a secret, so it is the operator's to make, not this issue's.
+Using the kept token means the window handles it in memory for this step.
 
 **Its failure is words on the page,** beside the button, whatever the source: never a passing line in the status bar. Where no source exists, the step offers the file's choice in a dialog or says what is missing.
 
@@ -43,7 +46,7 @@ The button on the machine's page stays for a later project or a failed try.
 
 - *Put it on a machine…* reaches the token step in one flow, naming what it is for. Seen to fail first.
 - With no token to be had, the button's press leaves words on the page saying so and what to do. Seen to fail first.
-- A person whose token is kept by the window gives it with one confirming word and no terminal, if so decided.
+- A person whose token is kept by the window gives it with one confirming word and no terminal.
 - The token appears on no command line, in no log and in no answer, proven by a test that looks for it.
 - A token without the needed rights says so, naming the right.
 
