@@ -211,6 +211,79 @@ abstract final class StateColours {
       : (working: Primitives.olive, waiting: Primitives.brown, stopped: Primitives.steel);
 }
 
+/// The colours of a console, which follow the window's light or dark but are its own: an agent's
+/// lines are read on them for hours, and the window's surfaces are chosen for other things.
+class ConsoleColours {
+  /// Constructor taking every colour.
+  const ConsoleColours({
+    required this.background,
+    required this.text,
+    required this.strong,
+    required this.muted,
+    required this.edge,
+    required this.ok,
+    required this.error,
+    required this.noteBackground,
+    required this.noteText,
+  });
+
+  /// The dark console.
+  static const ConsoleColours dark = ConsoleColours(
+    background: Primitives.ground,
+    text: Color(0xFFC9D1F5),
+    strong: Primitives.text,
+    muted: Primitives.muted,
+    edge: Color(0xFF2A2F50),
+    ok: Primitives.lime,
+    error: Color(0xFFFF8FA3),
+    noteBackground: Color(0xFF2A0D18),
+    noteText: Color(0xFFFFC2CE),
+  );
+
+  /// The light console.
+  static const ConsoleColours light = ConsoleColours(
+    background: Color(0xFFFFFFFF),
+    text: Color(0xFF1E2440),
+    strong: Color(0xFF0B0B1A),
+    muted: Color(0xFF565E80),
+    edge: Color(0xFFC9CFE3),
+    ok: Color(0xFF2F5200),
+    error: Color(0xFFA30F34),
+    noteBackground: Color(0xFFFDE8EC),
+    noteText: Color(0xFF7A0A26),
+  );
+
+  /// The ones for [brightness].
+  static ConsoleColours of(Brightness brightness) => brightness == Brightness.dark ? dark : light;
+
+  /// What the lines stand on.
+  final Color background;
+
+  /// A line.
+  final Color text;
+
+  /// A heading, and the name in the bar above.
+  final Color strong;
+
+  /// What is said beside the lines.
+  final Color muted;
+
+  /// A console's edge and a pill's.
+  final Color edge;
+
+  /// A result that went well.
+  final Color ok;
+
+  /// An error.
+  final Color error;
+
+  /// What the line about work waiting on a person stands on.
+  final Color noteBackground;
+
+  /// That line's words.
+  final Color noteText;
+}
+
 /// Space between things, in logical pixels.
 abstract final class Space {
   /// Above and below each line of a block that reads as one, such as a diff.
@@ -236,6 +309,18 @@ abstract final class Space {
 abstract final class Sizes {
   /// Words beside a dialog's button, saying what it waits for.
   static const dialogWords = 360.0;
+
+  /// A tab of *Running*, tall enough to be hit with a pointer or a finger.
+  static const runningTab = 44.0;
+
+  /// The dot of a tab of *Running*.
+  static const runningDot = 10.0;
+
+  /// How wide the search over all work may grow.
+  static const workSearch = 260.0;
+
+  /// How wide one of a row's facts is at least, so they stand in columns.
+  static const workFact = 150.0;
 
   /// The filter in each independent list header.
   static const listFilter = 190.0;
