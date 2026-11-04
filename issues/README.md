@@ -150,6 +150,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f359"></a>[F359](F359-An-Empty-List-Starts-Folded.md) | — | — | A list with no rows starts folded and folds when emptied, a fold the person chose is kept, and the head's actions stay usable. |
 | <a id="f360"></a>[F360](F360-A-Count-Says-What-It-Counts.md) | — | — | Where the side bar and a page count different things under one name, such as *Machines*, the words say the difference. |
 | <a id="f361"></a>[F361](F361-A-Project-Not-Yet-Set-Up-Says-What-Is-Next.md) | — | — | The row of a project not yet set up shows one next step as a button; set up, its menu says *Go to the project*; no word means two things. |
+| <a id="f362"></a>[F362](F362-A-Click-Answers-At-Once.md) | — | — | A click on a row shows its page and its reading line at once; the delay seen in the foo test is measured down to its cause. |
 
 ### Estimated
 

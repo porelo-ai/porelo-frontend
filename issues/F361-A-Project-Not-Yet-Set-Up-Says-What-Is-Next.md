@@ -22,12 +22,19 @@
 
 **The menu's order.** *Fill it from a checkout…* no longer stands first. It reads a checkout folder and files what it finds as a signed commit in the project's own repository, so it is for a person with a checkout they already have, and it comes after setting up. A person who adds repositories by address never needs it.
 
+**What a page of a project not yet set up leaves out.** These stand before the one thing to do today:
+
+- "Porelo does not name the current review policy, so this page cannot say whether review is required.": no sentence for this state, so no review line until it is set up.
+- "Project repository: none named yet" says what the line above already says, so it goes until set up.
+- "Repositories 0" offers no way to add one, and adding comes after setting up. The list says so in words: "Add repositories once the project is set up."
+
 ## Acceptance
 
 - A project not set up shows its button to its Project Admin and the waiting words to anyone else; the button opens the dialog at once. Seen to fail first.
 - *Set up the project* cannot be pressed before the review choice is made.
 - Once set up, the row has no such button, and the menu's *Go to the project* opens its page.
 - No word on these pages says "open" for setting up.
+- A project not set up shows no review line and no repository line, and its empty list says what comes first.
 
 ## To be checked
 
