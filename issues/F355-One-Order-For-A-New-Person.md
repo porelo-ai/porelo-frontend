@@ -13,8 +13,8 @@ A person starts with a GitHub account that owns an organization, mostly one they
 1. A key store ready, KeePassXC being the normal one, serving its keys through its ssh agent.
 2. The key and the card, by one of three ways. With no key yet, recommended: `porelo identity create --keepassxc` makes one key inside KeePassXC, with no file, and the card. With a key of one's own: `porelo identity create --key`, naming a key the agent serves, the signing key if two are kept. Or a key made by hand first, then the same. There is no script for it. The card takes only an Ed25519 key, lasts 30 days and is renewed with `porelo identity renew`. It can be made before the key is listed: no forge is asked, so a wrong login shows only at step 7.
 3. The public key listed on GitHub, unless it already is. Either type counts. Authentication is the safer one, since a key listed only for signing depends on a GitHub call without a token, which a rate limit can refuse; Signing gives GitHub's Verified badge. An ssh address needs its key as an authentication key.
-4. On GitHub: an empty repository in the organization.
-5. On GitHub: a fine-grained token, its resource owner the organization and its repository access all repositories, with its rights named and why they are needed, kept in the key store. A classic token is no longer the default.
+4. On GitHub: a fine-grained token, its resource owner the organization and its repository access all repositories, with its rights named and why they are needed, kept in the key store. A classic token is no longer the default.
+5. On GitHub: an empty repository in the organization.
 6. Porelo set up on this computer and the token in its vault. The first command is `porelo setup`, which makes the vault with a passphrase asked twice; starting with `porelo vault put` would make one from a passphrase typed once.
 7. *Create it*.
 
