@@ -8,16 +8,17 @@
 
 **The order at the start, for creating an organization:**
 
-A person starts with a GitHub account that owns an organization, mostly one they already have, and often with keys they already have: people seldom let a new tool make their sensitive ssh keys. So existing or hand-made keys are the normal path, and the order must not assume "no key yet". What is already done reads as done.
+A person starts with a GitHub account that owns an organization, mostly one they already have, and often with keys they already have. So the order must not assume "no key yet": what is already done reads as done.
 
 1. A key store ready, KeePassXC being the normal one, serving its keys through its ssh agent.
-2. Ed25519 keys in it, kept or made by hand; Porelo accepts no other kind. One key can do both jobs, or one authenticates and one signs. A key Porelo makes in KeePassXC stays an offered shortcut, not the way.
-3. The public halves listed on GitHub. The card's key must be listed as an authentication or a signing key, either one; an ssh address also needs its key as an authentication key.
+2. The key and the card, by one of three ways. With no key yet, recommended: `porelo identity create --keepassxc` makes one key inside KeePassXC, with no file, and the card. With a key of one's own: `porelo identity create --key`, naming a key the agent serves, the signing key if two are kept. Or a key made by hand first, then the same. There is no script for it. The card takes only an Ed25519 key, lasts 30 days and is renewed with `porelo identity renew`. It can be made before the key is listed: no forge is asked, so a wrong login shows only at step 7.
+3. The public key listed on GitHub, unless it already is. Either type counts. Authentication is the safer one, since a key listed only for signing depends on a GitHub call without a token, which a rate limit can refuse; Signing gives GitHub's Verified badge. An ssh address needs its key as an authentication key.
 4. On GitHub: an empty repository in the organization.
 5. On GitHub: a fine-grained token, its resource owner the organization and its repository access all repositories, with its rights named and why they are needed, kept in the key store. A classic token is no longer the default.
 6. Porelo set up on this computer and the token in its vault. The first command is `porelo setup`, which makes the vault with a passphrase asked twice; starting with `porelo vault put` would make one from a passphrase typed once.
-7. The card, naming a key the agent serves. It can be made before the key is listed: the listing is checked at step 8.
-8. *Create it*.
+7. *Create it*.
+
+The card's key stays loaded afterwards: a project's task that starts without it runs uncertified, its commits unsigned.
 
 The rights, read in the code and on GitHub's pages, or from memory where marked, and not yet run:
 
@@ -35,6 +36,8 @@ Pull requests are not this token's: an online task's build watch uses a token of
 Each step shows whether it is done. *Create it* can be pressed when every step before it holds: a key the agent serves, a card, that key on the forge, a token the forge accepts with the rights needed, the person an active owner of the organization, and a repository that is empty. Only the push itself may stay unknown until it is tried.
 
 The order goes on past the organization: the project, its repositories, a host, agents. Those steps are added as the foo test reaches them.
+
+**A window that lets a person retry the card** should know that, with an organization already chosen, making a card reads that organization first, and a failure to reach it refuses.
 
 **The token's step says why a token is needed at all:** the forge is asked who owns the organization, only a token can ask that, and an ssh key does not replace it.
 
@@ -58,7 +61,7 @@ The order goes on past the organization: the project, its repositories, a host, 
 ## Acceptance
 
 - A person with nothing set up sees every step and its state before doing any of them, and no step's need first appears as a refusal.
-- A person with their keys, their organization and their card already there sees those steps as done, is offered no new key, and goes on from the first that is not.
+- A person with their keys, their organization and their card already there sees those steps as done, is not pressed to make a new key, and goes on from the first that is not.
 - *Create it* cannot be pressed with no key served, no card, the key not on the forge, no token, a token the forge refuses, a token of another account, a token lacking a right, a person who owns no such organization, or a filled repository, each against a stand-in forge and seen to fail first.
 - No token value reaches a widget or a line of text.
 
@@ -69,7 +72,6 @@ The order goes on past the organization: the project, its repositories, a host, 
 ## To be checked
 
 - The rights above, by a real run of a fine-grained token: the foo test measures them now. Whether making a repository needs *Repository creation* beside *Administration* is not confirmed.
-- With two keys, the card naming the signing key, and an https address: whether anything from creating an organization to a task's branch needs the authentication key, or the card's key listed as authentication.
 - Whether a fine-grained token's rights can be read at all, and what the step says if they cannot. A classic token's scopes can be read; a fine-grained one may show only by trying.
 - A repository under a personal account: it has no organization to ask, so it is expected to be refused; what the step says.
 - Where the order stands in the window: on the page of an unset organization, and how it fits a person who already has a card and comes back.
