@@ -159,6 +159,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f368"></a>[F368](F368-A-Machines-Token-Given-In-The-Same-Flow.md) | — | — | *Put it on a machine…* ends in giving the machine its token, saying what for, from the token the window keeps if so decided. |
 | <a id="f369"></a>[F369](F369-One-Name-For-The-Default-Project.md) | — | — | The project every machine has is called *Default* in the window, as in Core and its documents, in place of "Without a project". |
 | <a id="f370"></a>[F370](F370-Start-Work-In-A-Project-A-Machine-Carries.md) | — | — | A machine page's *Start work* leads into the project it carries, not into the Default project asking for an address. |
+| <a id="f371"></a>[F371](F371-A-Task-Certified-From-The-Window.md) | — | — | Work started from the window on a host is certified by the desk's agent, never forwarded, and can be renewed from there. |
 
 ### Estimated
 
