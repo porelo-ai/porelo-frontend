@@ -8,7 +8,7 @@
 
 - **`connect()` returns silently in that case.** `OrganizationConnections.connect` treats a failed `raiseFor` as no fault while `_waitsForToken` holds: "a new host makes no account before it has a token", and the connection's files stay for that. This is deliberate, but nothing tells the person. A refusal is thrown only when it does not hold.
 - **The step exists, on another page.** *Give it my GitHub token…* stands on the machine's page, and the row does not lead there.
-- **Two places read the state differently.** A row said "not connected yet" while the machine's page said "Connected". That page's "Connected." comes from `connected()`, which means a machine is kept here, whether or not its connection is up. The page's own next sentence is the one that names the token, and only in passing.
+- **Two lists read the state differently.** In the foo test the row under *Organization*, *Machines* said "not connected yet", while the machine's page reached from *Machines* said "Connected". The row asks `up()`, whether the connection stands. The page's "Connected." asks `connected()`, which means a machine is kept here, whether or not its connection is up. That page's sentence is also the one that names the token, and only in passing.
 
 ## The shape
 
@@ -26,6 +26,6 @@
 
 ## To be checked
 
-- Which row said "not connected yet" in the foo test: the words also stand on the *Machines* page and in *Needs you*'s list of machines, each from its own reading.
+- The same words on the *Machines* page and in *Needs you*'s list of machines, each from its own reading.
 - What *Needs you* holds today for a machine that waits, and whether it comes without being connected.
 - What the last attempt can hold, since `connect()` keeps no protocol today.

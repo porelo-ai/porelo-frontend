@@ -1,0 +1,49 @@
+# F368 — A Machine's Token Given In The Same Flow
+
+**Status:** Idea. Nothing is built before the foo test.
+
+**What must be true.** A person who puts a project on a machine is led through giving that machine a token, with one line saying what it is for, and never has to find a button on another page. In the foo test the operator did not see why *Give it my GitHub token…* is a separate step that setup did not do.
+
+## What it is for
+
+A machine has no account at the forge. It uses the person's token once, to add read-only deploy keys to the organization's repository and the waiting projects' repositories, and to copy those projects to its own forge. It reads with those keys from then on and does not keep the token. The token must be allowed to administer those repositories.
+
+## The shape
+
+*Put it on a machine…* ends in this step in the same dialog's flow:
+
+1. The project goes on the machine.
+2. The connection stands, as far as it can without an account.
+3. One line says what the token is for, and the person gives it with their confirming word.
+4. The dialog follows the machine until the project is carried, or says why not.
+
+The button on the machine's page stays for a later project or a failed try.
+
+## Does anything force the terminal
+
+**The machine does not.** `org refresh` takes the token on standard input, and that is all it asks. The terminal comes from this window's way of getting the token: it opens `organizationRefreshFeedCommand` so that the master password of the person's secrets file is typed there, and nothing in the window sees the token.
+
+**So there is a third place a token is kept, and this step reads none of the others.** Today it comes from the variable `PORELO_CENTRAL_TOKEN` or from a chosen secrets file. With neither it says "Choose your secrets file first", even for a person whose token is already in the vault and in the system's secret store.
+
+**What the window could offer:**
+
+| Source | Can it feed the machine? |
+|---|---|
+| The system's secret store, under `ForgeConnection` | Yes, by what is read here. The window reads it already for its own forge calls, and could write it to the ssh process's standard input with no terminal |
+| The vault's `git.token.<host>` | Not by what is read here. The window only writes it, by `porelo vault put`, and the documented commands name no read of it. This is Core's to say, and a rule against reading it out would stand |
+| The secrets file | Only with its master password, which is why the terminal exists. It stays for who uses that file |
+
+**The recommendation:** offer the token the window keeps, after the person's confirming word, written to standard input and never on a command line or in a log. Using it means the window handles the token in memory for this step, where today it says "nothing here sees or keeps it", and that is a decision about a secret, so it is the operator's to make, not this issue's.
+
+## Acceptance
+
+- *Put it on a machine…* reaches the token step in one flow, naming what it is for. Seen to fail first.
+- A person whose token is kept by the window gives it with one confirming word and no terminal, if so decided.
+- The token appears on no command line, in no log and in no answer, proven by a test that looks for it.
+- A token without the needed rights says so, naming the right.
+
+## To be checked
+
+- How the two earlier steps go for a machine this computer has no connection to yet.
+- Whether the window's kept token has the needed right, since *Administration: write* is more than a person may have given it.
+- How this meets the issue on two token stores, as this makes a third.
