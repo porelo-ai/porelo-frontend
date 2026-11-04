@@ -14,7 +14,7 @@ The Project screen design is the first of two designs ([F265](README.md#f265) is
 ## Plan
 
 - A design page, written before code, with the project's server, persons, states and row actions.
-- The persons from the signed access file and the last sync's answer ([F253](README.md#f253)) until the query contract gives them from the host.
+- The persons from the signed access file until the query contract gives them from the host.
 - **Red first:** the built screen's widget test that a developer with a pending sync shows "pending sync".
 
 ## Test

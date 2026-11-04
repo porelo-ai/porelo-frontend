@@ -54,9 +54,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="f287"></a>[F287](F287-A-Join-Confirmed-By-What-The-Host-Follows.md) | — | — | A first join confirmed by what the host follows, healthy hosts offered beside a refused commit, no credential kept or shown, an unconfirmed join undoing only its own. |
-| <a id="f279"></a>[F279](F279-The-Steps-Of-One-Click-Joining.md) | S | — | One Markdown file of numbered steps of the one-click flow, from first start to first work. |
 | <a id="f223"></a>[F223](F223-A-Ready-Server-Runs-Its-Setup-Again.md) | S | — | A ready rented server offers Run its setup again, which runs `up` in the interface's own run, a stop in it completed from Needs you. |
-| <a id="f221"></a>[F221](F221-A-Hosts-Vault-Unlocked-From-The-Secrets-File.md) | S | — | A rented server's vault unlocked from the secrets file with its master password typed once, its Make refused; no value of the file typed by hand. |
 | <a id="f224"></a>[F224](F224-Porelo-Host-Says-Which-Server-Is-Rented-Now.md) | S | — | A read-only `porelo-host find` says which server carries the project's tag now, or that none does. |
 
 ### Backlog
@@ -87,18 +85,9 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f244"></a>[F244](F244-A-Bring-Reads-A-Private-Repository-With-The-Follows-Credential.md) | S | — | The bring's bundle clone reads a private repository with the vault entry the follow uses, through Core's credential helper. |
-| <a id="f245"></a>[F245](F245-The-Forge-Password-Kept-Only-Once-The-Forge-Took-It.md) | S | — | The lasting forge password checked for the forge's length, kept only after the forge set it, a refusal said in the forge's words. |
-| <a id="f246"></a>[F246](F246-The-Host-Collection-Where-Every-Account-Finds-It.md) | S | — | `up` installs the host collection read-only where every account finds it, so own-account bring and join run the version `up` ran. |
 | <a id="f248"></a>[F248](F248-A-Bring-Replaces-Its-Own-Earlier-Upload.md) | S | — | A new bring or join try replaces the setup folder its own earlier try left; a foreign one is still refused. |
-| <a id="f250"></a>[F250](F250-Pasted-Host-Values-Taken-As-Meant.md) | XS | — | Pasted host values with extra blanks inside a key taken as meant; a refusal names the wrong field. |
-| <a id="f251"></a>[F251](F251-Firefox-Reads-The-Policy-The-VPN-Wrote.md) | XS | — | The VPN leaves `/etc/firefox` and its policy readable, so Firefox trusts the server's CA without a hand import. |
 | <a id="f252"></a>[F252](F252-A-Published-Access-Change-Reaches-The-Host.md) | S | — | A published developer access change is uploaded to the host before its sync. |
-| <a id="f253"></a>[F253](F253-The-Hosts-Sync-Answer-Read-As-Written.md) | XS | — | The host's sync answer read with `unchanged` as the boolean the host writes. |
-| <a id="f257"></a>[F257](F257-Follow-It-Never-Ends-Without-An-Answer.md) | S | — | *Follow it* ends in a followed project or a refusal in words; a public repository needs no credential. |
 | <a id="f259"></a>[F259](F259-A-Grant-To-Someone-Who-Already-Reads.md) | XS | — | A developer who already reads the access repository is not granted again. |
-| <a id="f260"></a>[F260](F260-The-Join-Log-Without-Ansibles-Noise.md) | XS | — | The join's log without Ansible's localhost warnings and the "no provider" note. |
-| <a id="f261"></a>[F261](F261-The-Take-Off-Checks-Its-Secrets-Entries-First.md) | XS | — | The take-off checks its secrets entries before anything runs on the host, naming a missing one. |
 | <a id="f264"></a>[F264](F264-A-Server-With-No-Project-Given-Back.md) | S | — | A server rented with no project given back; the VPN taken down only after the give-back was confirmed. |
 | <a id="f123"></a>[F123](F123-Where-A-Machine-And-A-Project-Stand-In-Their-Organisations-Tree.md) | — | — | Where a machine and a project stand in their organisation's tree, and which settings bind them. |
 | <a id="f166"></a>[F166](F166-A-Host-Rented-Through-OpenTofu.md) | M | — | `porelo-host up` and `down` renting and giving back through the OpenTofu module, its secrets only in `tofu`'s environment; `--given` kept. |
@@ -177,7 +166,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f105"></a>[F105](F105-A-Tasks-Terminal-In-The-Interface-As-Outside-It.md) | M | — | A task's terminal in the interface behaves as in a plain terminal. |
 | <a id="f59"></a>[F59](F59-A-Project-From-A-Repository-Measured-Against-GitHub.md) | S | the test organisation, its token and signing key from the operator | Making a project from a repository measured against GitHub. |
 | <a id="f84"></a>[F84](F84-A-Signing-Key-Found-Or-Made-From-The-Window.md) | M | — | A signing key chosen from a file or made from the window. |
-| <a id="f64"></a>[F64](F64-The-Guided-Walk-As-A-Package-Of-Its-Own.md) | L | — | The guided walk as a package any Flutter app can use. |
 | <a id="f72"></a>[F72](F72-Forges-Beyond-GitHub.md) | L | the operator's evaluation licence for Bitbucket Data Center | Forges beyond GitHub: Bitbucket Data Center first, measured against a test installation of its own. |
 | <a id="f37"></a>[F37](F37-Reach-A-Machine-Without-An-ssh-Binary.md) | L | — | A machine reached without an `ssh` binary. |
 | <a id="f52"></a>[F52](F52-Release-A-Devices-Key-Only-With-A-Touch-Or-A-PIN.md) | XL | — | A device's key released only behind a TPM2 PIN; a touch later. |
@@ -313,6 +301,18 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Title | Why |
 |---|---|---|
+| <a id="f221"></a>F221 | A Host's Vault Unlocked From The Secrets File | Replaced by the host vault opened by the person's key: no value of a secrets file is fed to a host's vault. |
+| <a id="f244"></a>F244 | A Bring Reads A Private Repository With The Follow's Credential | Replaced by a host that carries its projects and follows them by itself: no bundle of a private repository is made here for a bring. |
+| <a id="f245"></a>F245 | The Forge Password Kept Only Once The Forge Took It | No forge password is typed or kept here any more: a forge is reached with a person's key and token. |
+| <a id="f246"></a>F246 | The Host Collection Where Every Account Finds It | No account runs a bring or a join from the host's collection any more: a host follows its projects by itself. |
+| <a id="f250"></a>F250 | Pasted Host Values Taken As Meant | No host values are pasted any more: machines and projects are chosen from the organization's lists. |
+| <a id="f251"></a>F251 | Firefox Reads The Policy The VPN Wrote | The interface sets up no VPN any more: a machine is reached over SSH. |
+| <a id="f253"></a>F253 | The Host's Sync Answer Read As Written | The dialog that read that answer is gone: a host follows its projects by itself. |
+| <a id="f257"></a>F257 | Follow It Never Ends Without An Answer | The *Follow a project* dialog is gone: a project is put on a machine from the organization's projects, [F342](README.md#f342). |
+| <a id="f260"></a>F260 | The Join Log Without Ansible's Noise | The join's Ansible run is gone: a host follows its projects by itself. |
+| <a id="f261"></a>F261 | The Take-Off Checks Its Secrets Entries First | The take-off feeds no such entries any more: taking Porelo off goes by the organization's card. |
+| <a id="f64"></a>F64 | The Guided Walk as a Package of Its Own | Replaced by `flutter-guided-walk`, the package of its own this app already depends on. |
+| <a id="f279"></a>F279 | The Steps Of One-Click Joining | Replaced by the rebuilt flow from the organization's pages: guided walks and their steps are not kept in this repository. |
 | <a id="f218"></a>F218 | The Walks Walked Headless On The Central Test Machines | Guided walks are not kept in this repository. |
 | <a id="f75"></a>F75 | One Definition For A UI Test And A Guided Walk | Guided walks are not kept in this repository. |
 | <a id="f286"></a>F286 | A Recovery Hold Never Stuck And Its Commit Its Own | Superseded by [F289](README.md#f289): one recovery run at a time with named states and one hold owner replaces this fix of the earlier design. |

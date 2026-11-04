@@ -6,7 +6,7 @@
 
 ## Why
 
-On a computer where the project is configured, the project's own *Take this project off the server* is unavailable for the host admin and points to the server menu instead. Checking the secrets entries first is [F261](README.md#f261).
+On a computer where the project is configured, the project's own *Take this project off the server* is unavailable for the host admin and points to the server menu instead.
 
 ## Plan
 

@@ -3,8 +3,7 @@
 **Status:** Review.
 **Size:** XS - the unlock terminal asks again after a refused password, up to three times, and its test.
 
-**What must be true.** A wrong password in the vault's unlock terminal (the master password where
-[F221](README.md#f221) applies, the vault passphrase elsewhere) is asked again in
+**What must be true.** A wrong password in the vault's unlock terminal (the vault passphrase) is asked again in
 the same terminal, up to three times, before the terminal ends; it does not end the session at the first refusal with
 only Done left.
 

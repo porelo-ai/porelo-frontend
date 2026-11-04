@@ -13,6 +13,8 @@ Each point is to be checked against the code before it is fixed.
    to reach EOF" timed out once on a Linux runner (Build 41235532851). It did not fail here in 5 single runs or in 24
    runs with 8 in parallel, and the close code had not changed. If it recurs, the test's bound is to be looked at
    against a loaded runner.
+2. **A repository's menu offers the policy it has:** on a project's page a repository's menu offers both review
+   policies, the one it already has too, where the project's menu offers only the other.
 
 ## Left open by the finished one-click issues
 
