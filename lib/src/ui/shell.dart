@@ -24,6 +24,7 @@ import '../app/attention.dart';
 import '../app/commands.dart';
 import '../app/fleet_backend.dart';
 import '../app/fleet_model.dart';
+import '../app/host_token.dart';
 import '../app/run_here.dart';
 import '../app/task_certifying.dart';
 import '../app/organization_source.dart';
@@ -68,6 +69,7 @@ import 'package:porelo_host/porelo_host.dart'
         CentralToken,
         HostFilesRefused,
         ProjectTransfer,
+        organizationRefreshArguments,
         organizationRefreshFeedCommand,
         RemoteNotStarted,
         SecretsFile,
@@ -1363,6 +1365,7 @@ class _ShellState extends State<Shell> {
                 organization: organization,
                 identity: widget.identity,
                 connections: _hostConnections,
+                onGiveToken: _giveHostToken,
                 prepareMachine: _commands()
                     .where((command) => command.id == 'host.prepare' && command.visible)
                     .firstOrNull,
@@ -3459,58 +3462,81 @@ class _ShellState extends State<Shell> {
       _fleet.say('$host is ready, but no token could be given to it yet: ${refused.words}');
       return;
     }
-    await _giveHostToken(host);
+    final words = await _giveHostToken(host);
+    if (words != null && mounted) _fleet.say(words);
   }
 
-  /// Feeds the host admin's central token to [host]'s `org refresh`, in a terminal: nothing here sees or keeps it.
-  Future<void> _giveHostToken(String host) async {
-    final forge = organizationForgeName(_organization?.view);
+  /// Gives [host]'s `org refresh` the host admin's central token: the one this computer keeps, after
+  /// the person's word, or in a terminal from a secrets file or the variable. Answers the words to show
+  /// beside the button, or null where there is nothing to say.
+  Future<String?> _giveHostToken(String host) async {
+    final view = _organization?.view;
+    final forge = organizationForgeName(view);
+    final address = organizationForgeAddress(view);
     final where = forge == 'central forge' ? 'the central forge' : forge;
     final machine = widget.machines.all.where((machine) => machine.hostCard?.name == host).firstOrNull;
     final card = machine?.hostCard;
-    if (machine == null || card == null) {
-      _fleet.say('Connect to $host first.');
-      return;
-    }
-    final List<String> command;
-    final CentralToken? secrets;
+    if (machine == null || card == null) return 'Connect to $host first.';
+    final kept = address.isNotEmpty && await _forges.hasToken(address);
+    if (!mounted) return null;
     try {
-      secrets = centralToken(widget.settings.secretsFile, desk.environment);
-      if (secrets == null) {
-        _fleet.say('Choose your secrets file first: your $forge token is read from it, in a terminal.');
-        return;
+      if (kept) {
+        final word = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            key: const Key('organization.giveToken.confirm'),
+            title: Text('Give $host your $forge token, once'),
+            content: SelectableText(keptTokenWords(host, forge, where)),
+            actions: [
+              TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
+              FilledButton(
+                key: const Key('organization.giveToken.yes'),
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Give it'),
+              ),
+            ],
+          ),
+        );
+        if (word != true) return null;
+        final command = organizationRefreshArguments(card: card, config: machine.sshConfig);
+        return tokenGivenWords(host, forge, await _forges.feedKeptToken(address, command));
       }
-      command = organizationRefreshFeedCommand(card: card, config: machine.sshConfig, token: secrets);
+      final secrets = centralToken(widget.settings.secretsFile, desk.environment);
+      if (secrets == null) return noTokenWords(host, forge);
+      final command = organizationRefreshFeedCommand(card: card, config: machine.sshConfig, token: secrets);
+      if (!mounted) return null;
+      await runInATerminal(
+        context,
+        title: 'Give $host your $forge token, once',
+        explanation:
+            '$host has no account at $where. For setup it uses your $forge token once to add read-only keys '
+            "to the organization's repository and any waiting projects' central repositories, and to copy those "
+            'projects to its own forge. From then on it reads with those keys. It does not keep the token. '
+            'The token must be allowed to administer those repositories (Administration: write) and read their contents. '
+            '${_centralTokenWords(secrets, host)}',
+        machine: machine,
+        command: command,
+        open: widget.sessions.openTerminal,
+        showCommand: false,
+        completed: '$host took the token.',
+        answersForTheWindow: true,
+      );
+      return null;
     } on HostFilesRefused catch (refused) {
-      _fleet.say(refused.message);
-      return;
+      return refused.message;
     } on FormatException catch (refused) {
-      _fleet.say(refused.message);
-      return;
+      return refused.message;
+    } on WorkspaceRefused catch (refused) {
+      return refused.words;
+    } on ProcessException catch (failed) {
+      return 'This computer could not run ssh, so $host was given no token: ${failed.message}';
     }
-    if (!mounted) return;
-    await runInATerminal(
-      context,
-      title: 'Give $host your $forge token, once',
-      explanation:
-          '$host has no account at $where. For setup it uses your $forge token once to add read-only keys '
-          "to the organization's repository and any waiting projects' central repositories, and to copy those "
-          'projects to its own forge. From then on it reads with those keys. It does not keep the token. '
-          'The token must be allowed to administer those repositories (Administration: write) and read their contents. '
-          '${_centralTokenWords(secrets, host)}',
-      machine: machine,
-      command: command,
-      open: widget.sessions.openTerminal,
-      showCommand: false,
-      completed: '$host took the token.',
-      answersForTheWindow: true,
-    );
   }
 
   /// What a terminal feeding the central token to [target] will ask of the person.
   String _centralTokenWords(CentralToken token, String target) => token is SecretsFile
       ? 'Type the master password of your secrets file into the terminal. The terminal reads the central forge token '
-            'from that file and sends it to $target on its standard input; nothing here sees or keeps it.'
+            'from that file and sends it to $target on its standard input; this window does not see or keep it.'
       : 'The terminal sends the central forge token this instance was started with to $target on its standard input, '
             'and asks nothing.';
 

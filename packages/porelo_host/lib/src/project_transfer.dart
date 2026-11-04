@@ -73,6 +73,52 @@ List<String> organizationRefreshFeedCommand({
   ssh: ssh,
 );
 
+/// `org refresh` as root on [card]'s machine, to run directly with the token written to its standard
+/// input: the way of a token this computer already keeps, so no terminal reads it from a file.
+///
+/// It holds public values only, and a caller must keep it so: a token is no argument here.
+List<String> organizationRefreshArguments({
+  required HostCardSsh card,
+  required String config,
+  Map<String, String>? environment,
+  bool? windows,
+  String ssh = '/usr/bin/ssh',
+}) {
+  HostCardSsh.checkConfigPath(card.name, config, environment: environment, windows: windows ?? Platform.isWindows);
+  SecretsFile.checkPath(ssh);
+  return _sshInvocation(
+    ssh: ssh,
+    config: config,
+    ownConnection: true,
+    target: 'root@${card.name}',
+    remote: '/usr/local/sbin/porelo-host-person org refresh',
+  );
+}
+
+List<String> _sshInvocation({
+  required String ssh,
+  required String config,
+  required bool ownConnection,
+  required String target,
+  required String remote,
+}) => [
+  ssh,
+  '-F',
+  config,
+  for (final entry in pinnedHostSshPolicy('$config.known_hosts').entries) ...['-o', '${entry.key}=${entry.value}'],
+  '-o',
+  'ControlMaster=no',
+  // A push goes down the person's own master or not at all. Root has its own connection: a new host has made no
+  // account for a master yet, and a master's user would not be root.
+  if (ownConnection) ...['-o', 'ControlPath=none', '-o', 'ProxyCommand=none'] else ...['-o', 'ProxyCommand=false'],
+  '-o',
+  'ConnectTimeout=10',
+  '-T',
+  '--',
+  target,
+  remote,
+];
+
 List<String> _tokenFeedCommand({
   required String remote,
   required String target,
@@ -88,23 +134,13 @@ List<String> _tokenFeedCommand({
   HostCardSsh.checkConfigPath(card.name, config, environment: environment, windows: windows ?? Platform.isWindows);
   SecretsFile.checkPath(ssh);
   final scripts = token.projectTransferScripts();
-  final command = [
-    ssh,
-    '-F',
-    config,
-    for (final entry in pinnedHostSshPolicy('$config.known_hosts').entries) ...['-o', '${entry.key}=${entry.value}'],
-    '-o',
-    'ControlMaster=no',
-    // A push goes down the person's own master or not at all. Root has its own connection: a new host has made no
-    // account for a master yet, and a master's user would not be root.
-    if (ownConnection) ...['-o', 'ControlPath=none', '-o', 'ProxyCommand=none'] else ...['-o', 'ProxyCommand=false'],
-    '-o',
-    'ConnectTimeout=10',
-    '-T',
-    '--',
-    target,
-    remote,
-  ].map(quoteForAShell).join(' ');
+  final command = _sshInvocation(
+    ssh: ssh,
+    config: config,
+    ownConnection: ownConnection,
+    target: target,
+    remote: remote,
+  ).map(quoteForAShell).join(' ');
   final script = [
     'set +x',
     'set -euo pipefail',

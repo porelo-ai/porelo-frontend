@@ -1,6 +1,6 @@
 # F368 — A Machine's Token Given In The Same Flow
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** M - the step in the same flow, the kept token on standard input with a test proving where it goes, and words for a refusal.
 
 **What must be true.** A person who puts a project on a machine is led through giving that machine a token, with one line saying what it is for, and never has to find a button on another page. In the foo test the operator did not see why *Give it my GitHub token…* is a separate step that setup did not do.
@@ -42,6 +42,13 @@ Using the kept token means the window handles it in memory for this step.
 
 **Its failure is words on the page,** beside the button, whatever the source: never a passing line in the status bar. Where no source exists, the step offers the file's choice in a dialog or says what is missing.
 
+## Plan
+
+1. `organizationRefreshArguments` is the ssh of the terminal's way with its pin, with public values only.
+2. `ForgeConnection.feedKeptToken` writes the kept token to the command's standard input and takes it out of what comes back. No value reaches a widget.
+3. `_giveHostToken` asks the person's word and uses the kept token where there is one, the terminal where a secrets file or the variable is the only source, and answers words for the page otherwise.
+4. `PlacingProjectDialog` follows *Put it on a machine…* through connection and token until the machine carries the project or says why not.
+
 ## Acceptance
 
 - *Put it on a machine…* reaches the token step in one flow, naming what it is for. Seen to fail first.
@@ -52,6 +59,7 @@ Using the kept token means the window handles it in memory for this step.
 
 ## To be checked
 
+- A real run: the kept token over ssh to a host's `org refresh`, and the words a forge's real refusal gives, which here are read for `403` and *Administration*.
 - The same reading of `centralToken` in the window's other steps, which then fail the same way or are hidden.
 - How the two earlier steps go for a machine this computer has no connection to yet.
 - Whether the window's kept token has the needed right, since *Administration: write* is more than a person may have given it.

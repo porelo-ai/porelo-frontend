@@ -184,7 +184,7 @@ void main() {
       FixtureConnections? connections,
       String host = 'build',
       List<OrganizationProject> moreProjects = const [],
-      Future<void> Function(String host)? onGiveToken,
+      Future<String?> Function(String host)? onGiveToken,
       Future<String?> Function(String host, String? project)? onStartWork,
       OrganizationHost shown = buildHost,
     }) async {
@@ -489,11 +489,25 @@ void main() {
         onGiveToken: (host) async {
           gave.add(host);
           connections.hostProgress = const HostProgress();
+          return null;
         },
       );
       await pressOrganizationAction(tester, 'giveToken');
       expect(gave, ['build']);
       expect(_action('giveToken'), findsNothing);
+    });
+
+    // Harm: the button seems dead, as in the foo test: a press with no token must leave words on the page.
+    testWidgets('a press that gives no token says why beside the button, and a new press clears it', (tester) async {
+      final connections = FixtureConnections(['build'])..hostProgress = const HostProgress(waitsForToken: true);
+      String? answer = 'No GitHub token is kept on this computer.';
+      await page(tester, 'hana', connections: connections, onGiveToken: (_) async => answer);
+      await pressOrganizationAction(tester, 'giveToken');
+      expect(find.byKey(const ValueKey('organization.tokenWhy')), findsOneWidget);
+      expect(find.text('No GitHub token is kept on this computer.'), findsOneWidget);
+      answer = null;
+      await pressOrganizationAction(tester, 'giveToken');
+      expect(find.byKey(const ValueKey('organization.tokenWhy')), findsNothing);
     });
 
     // Harm: the token is given and the person still has no connection, with a button that says Disconnect.
@@ -503,7 +517,10 @@ void main() {
         tester,
         'hana',
         connections: connections,
-        onGiveToken: (_) async => connections.hostProgress = const HostProgress(),
+        onGiveToken: (_) async {
+          connections.hostProgress = const HostProgress();
+          return null;
+        },
       );
       expect(find.textContaining('makes your account once it has read the organization'), findsOneWidget);
       await pressOrganizationAction(tester, 'giveToken');

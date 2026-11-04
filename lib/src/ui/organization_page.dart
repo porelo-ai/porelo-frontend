@@ -18,6 +18,7 @@ import 'how_long.dart';
 import 'key_recovery_dialog.dart';
 import 'organization_host_pages.dart';
 import 'pick_a_file.dart';
+import 'placing_project_dialog.dart';
 import 'project_init_dialog.dart';
 import 'tokens.dart';
 import 'window_size.dart';
@@ -34,6 +35,7 @@ class OrganizationPage extends StatefulWidget {
     this.onProject,
     this.onHost,
     this.connections,
+    this.onGiveToken,
     this.identity,
     this.prepareMachine,
     this.takeOff,
@@ -57,6 +59,9 @@ class OrganizationPage extends StatefulWidget {
 
   /// This person's connections to the machines, absent where this computer has none to make.
   final HostConnections? connections;
+
+  /// Gives the host admin's token to a machine; answers the words to show, if any.
+  final Future<String?> Function(String host)? onGiveToken;
 
   /// *Prepare a machine…*, absent where this computer offers none.
   final Command? prepareMachine;
@@ -268,9 +273,9 @@ class _OrganizationPageState extends State<OrganizationPage> {
         title: 'Put ${project.name} on a machine',
         personLabel: 'Machine',
         words:
-            'Every member comes with the project. Connect to the machine, and if it waits for your token its page '
-            'offers to give it, once, in a terminal, for its deploy keys. The machine does the rest by itself, which '
-            'can take up to five minutes.',
+            'Every member comes with the project. Next this follows the machine: it connects, offers to give the '
+            'machine your token once if it waits for one, and says when the project is carried or why not. '
+            'This can take up to five minutes.',
         confirm: 'Put it on the machine',
         change: OrganizationChange.addProjectToHost,
         input: (_, machine) => {'host': machine, 'project': project.name},
@@ -282,12 +287,17 @@ class _OrganizationPageState extends State<OrganizationPage> {
         .firstOrNull
         ?.name;
     final connections = widget.connections;
-    if (machine == null || connections == null || !connections.connected(machine)) return;
-    try {
-      await connections.refresh(machine);
-    } on OrganizationRefused {
-      // It follows by itself within five minutes; the machine's page says how it stands.
-    }
+    if (machine == null || connections == null || !mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (_) => PlacingProjectDialog(
+        project: project.name,
+        host: machine,
+        view: widget.organization.view,
+        connections: connections,
+        onGiveToken: widget.onGiveToken,
+      ),
+    );
   }
 
   Widget _projects(OrganizationView view, Organization organization, void Function(Widget) show) =>

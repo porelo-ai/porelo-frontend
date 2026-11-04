@@ -25,6 +25,33 @@ void main() {
     expect(script, isNot(contains('__PORELO_CENTRAL')));
   });
 
+  // Harm: a token kept on this computer reaches whoever answers there, or a command line.
+  test('org refresh run directly pins the host, as root, and holds public values only', () {
+    const config = '/config/porelo/ssh/alpha.conf';
+    final arguments = organizationRefreshArguments(
+      card: _card(),
+      config: config,
+      environment: {'XDG_CONFIG_HOME': '/config'},
+    );
+    final feeding = organizationRefreshFeedCommand(
+      card: _card(),
+      config: config,
+      token: SecretsFile('/home/alice/secrets.kdbx'),
+      environment: {'XDG_CONFIG_HOME': '/config'},
+    ).last;
+    expect(arguments.first, '/usr/bin/ssh');
+    expect(arguments.sublist(1, 3), ['-F', config]);
+    expect(arguments.sublist(arguments.length - 2), ['root@alpha', '/usr/local/sbin/porelo-host-person org refresh']);
+    // The same ssh as the way through a terminal, so neither pins less than the other.
+    for (final each in arguments.skip(1).where((word) => word.contains('='))) {
+      expect(feeding, contains(each));
+    }
+    expect(
+      () => organizationRefreshArguments(card: _card(), config: '/elsewhere/alpha.conf'),
+      throwsA(isA<HostFilesRefused>()),
+    );
+  });
+
   // Harm: the first token of a new host, which has made no account yet, needs a master nobody can raise, and never goes.
   test('the token to org refresh goes on its own connection, no master asked for', () {
     final script = organizationRefreshFeedCommand(

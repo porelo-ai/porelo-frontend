@@ -401,6 +401,18 @@ class ForgeConnection extends ChangeNotifier with QuietAfterDispose {
     return kept != null && kept.isNotEmpty;
   }
 
+  /// Runs [command] with the token kept for [address] on its standard input, and answers what it said
+  /// with the token taken out: no value reaches a command line, a widget or a log.
+  Future<Ran> feedKeptToken(String address, List<String> command, {RunHere run = runHere}) async {
+    final token = await _tokens.read(forgeAddress(address));
+    if (token == null || token.trim().isEmpty) {
+      throw const WorkspaceRefused('No token is kept for this forge on this computer.');
+    }
+    final ran = await run(command.first, command.sublist(1), input: '${token.trim()}\n');
+    String clean(String said) => said.replaceAll(token.trim(), '[redacted]');
+    return (code: ran.code, out: clean(ran.out), err: clean(ran.err));
+  }
+
   /// Copies the kept token into Core's vault without exposing its value to a widget.
   Future<void> handTokenToVault(String address, {CoreCredentials? core}) async {
     final host = forgeAddress(address);

@@ -175,9 +175,8 @@ class OrganizationHostPage extends StatefulWidget {
   /// Runs the person's key commands in a terminal, absent where this computer offers none.
   final KeyCommands? keys;
 
-  /// Feeds the host admin's central token to the host, in a terminal: nothing here sees it. It ends when the terminal
-  /// does.
-  final Future<void> Function(String host)? onGiveToken;
+  /// Gives the host admin's central token to the host; answers the words to show beside the button, if any.
+  final Future<String?> Function(String host)? onGiveToken;
 
   /// What this computer does there: its work, daemon and vault, where the person's list holds the machine.
   final Widget? work;
@@ -204,6 +203,9 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
 
   /// Why the last press of *Start work* did not start, in words.
   String? _startWhy;
+
+  /// Why the token was not given, from the last press.
+  String? _tokenWhy;
 
   /// What the host last said of itself, asked only of a host admin who is connected to it.
   HostProgress? _progress;
@@ -284,9 +286,12 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
 
   Future<void> _giveToken() async {
     final first = _progress?.waitsForToken ?? false;
-    await widget.onGiveToken?.call(widget.host);
+    setState(() => _tokenWhy = null);
+    final words = await widget.onGiveToken?.call(widget.host);
+    if (!mounted) return;
+    setState(() => _tokenWhy = words);
     final connections = widget.connections;
-    if (!mounted || connections == null) return;
+    if (connections == null) return;
     await _read(() => connections.progress(widget.host));
     // The host has made the account it could not make before: now the connection itself can come up.
     if (mounted && first && !(_progress?.waitsForToken ?? true)) await _act(() => connections.connect(widget.host));
@@ -392,6 +397,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
             child: Text('Give it my ${organizationForgeName(view)} token…'),
           ),
         ),
+        if (_tokenWhy case final why?) Text(why, key: const ValueKey('organization.tokenWhy')),
       ],
       if (progress?.refused case final refused?)
         Text(

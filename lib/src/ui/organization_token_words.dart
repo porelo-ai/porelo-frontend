@@ -1,15 +1,18 @@
 import '../app/organization_source.dart';
 
+/// The central forge's address: as the organization names it, or as its repository's address says.
+String organizationForgeAddress(OrganizationView? view) {
+  final named = view?.forge?.trim() ?? '';
+  if (named.isNotEmpty) return named;
+  final repository = view?.address ?? '';
+  final host = Uri.tryParse(repository)?.host ?? '';
+  if (host.isEmpty && repository.startsWith('git@')) return repository.substring(4).split(':').first;
+  return host;
+}
+
 /// Names the central forge where its address identifies it, otherwise keeps that address.
 String organizationForgeName(OrganizationView? view) {
-  var address = view?.forge?.trim() ?? '';
-  if (address.isEmpty) {
-    final repository = view?.address ?? '';
-    address = Uri.tryParse(repository)?.host ?? '';
-    if (address.isEmpty && repository.startsWith('git@')) {
-      address = repository.substring(4).split(':').first;
-    }
-  }
+  final address = organizationForgeAddress(view);
   return switch (address.toLowerCase()) {
     'github.com' => 'GitHub',
     'gitlab.com' => 'GitLab',
