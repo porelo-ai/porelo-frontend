@@ -243,8 +243,9 @@ class _HostDialogState extends State<HostDialog> {
   String? _waitsFor(HostAccess? access) {
     if (access == null) return 'This computer cannot prepare a machine from here.';
     if (_busy) return 'Checking that you may prepare it…';
-    if (_refusal(access) case final reason?)
+    if (_refusal(access) case final reason?) {
       return reason == _problem ? 'It stopped: the words above say why.' : reason;
+    }
     if (_fetchingKey) return 'Fetching the SSH host key, up to a few seconds.';
     if (_hostKey.text.trim().isEmpty) return 'Waiting for the machine\'s SSH host key: fetch it, or paste it above.';
     if (!_keyReady) return 'Waiting for you: tick "I compared this fingerprint" above.';
@@ -627,7 +628,7 @@ class _HostDialogState extends State<HostDialog> {
         if (!widget.takeDownOnly && run == null)
           if (_waitsFor(access) case final waits?)
             ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 360),
+              constraints: const BoxConstraints(maxWidth: Sizes.dialogWords),
               child: Text(waits, key: const Key('preparation-waits')),
             ),
         if (!widget.takeDownOnly && run == null)

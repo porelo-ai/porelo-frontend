@@ -234,6 +234,9 @@ abstract final class Space {
 
 /// Fixed sizes that carry a decision rather than a measurement.
 abstract final class Sizes {
+  /// Words beside a dialog's button, saying what it waits for.
+  static const dialogWords = 360.0;
+
   /// The filter in each independent list header.
   static const listFilter = 190.0;
 
