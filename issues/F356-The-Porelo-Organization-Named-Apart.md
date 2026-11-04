@@ -21,7 +21,7 @@
 
 The dialogs' sentences change with them, such as "only a computer that reads no organization yet can fill one".
 
-**The page's help says what it is:** a Porelo organization lives in a repository inside the GitHub organization, and one is not the other.
+**The page's help says what it is:** a Porelo organization lives in a repository inside the GitHub organization, and one is not the other. Its *Where it is kept* says today "in the GitHub organization of the same name"; the repository's name is the person's, as an address such as `porelo-ai-test/foo-org` shows, so that sentence goes too.
 
 **The forge's own word where it is known:** "GitHub organization" for GitHub. Another forge is named by its word: from memory, Forgejo and Gitea say organization, GitLab group, Bitbucket workspace. Before an address is given the forge may not be known, and the sentence then says "your forge's organization". GitHub is the forge the window knows by name today.
 
