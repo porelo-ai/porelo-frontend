@@ -30,8 +30,8 @@ taken, `git log` answers.
 | [Whom work may talk to is the project's: its rules declared in its repository, only the brake set here](#whom-work-may-talk-to-is-the-projects) |
 | [An authorization is granted in a browser, its link shown whole, and the wait ends outside the interface](#an-authorization-is-granted-in-a-browser) |
 | [A tile keeps its actions, each offered only where it can be honored](#a-tile-keeps-its-actions-each-offered-only-where-it-can-be-honored) |
-| [A tile shows the last lines its agent wrote, read now and then](#a-tile-shows-the-last-lines-its-agent-wrote-read-now-and-then) |
-| [One session at a time, shown only where it was opened](#one-session-at-a-time-shown-only-where-it-was-opened) |
+| [A row shows the last lines its agent wrote, read now and then](#a-row-shows-the-last-lines-its-agent-wrote-read-now-and-then) |
+| [One session at a time, in its tab under Running](#one-session-at-a-time-in-its-tab-under-running) |
 | [Handing off work from another device needs no feature of its own](#handing-off-from-another-device-needs-no-feature-of-its-own) |
 | [The settings file is written atomically and owner-only, and a bad entry is dropped rather than fatal](#the-settings-file-is-written-atomically-and-owner-only) |
 | [What was run is kept for thirty days in one owner-only file, and an unseen failure still waits](#what-was-run-is-kept-for-thirty-days-in-one-owner-only-file) |
@@ -295,9 +295,16 @@ Tiles order by what they are — an open question, then an agent that ended, the
 then working, quiet, unseen and stopped — and within a rank by the nearest deadline, a question with
 none sorting after every one that has one, then by the oldest question.
 
-**So a week-old review can never sit above a question with two minutes left.** The count the view
-shows is questions and silent machines only: work at the gate can wait for days without anything
-being wrong, so it is listed and not counted.
+**So a week-old review can never sit above a question with two minutes left.** The page stands its
+rows in cards: *Decide soon* holds the questions and the held messages, *Reviews* the work at the gate,
+and *Also needs you* the rest.
+
+**It counts every row, one number**, in its header and on the rail's badge, work at the gate like any
+other: a count that left some rows out said two things about one page. Work that ended with a failure
+or left something a person has not seen is a row until it is opened or put away; what was put away is
+kept in the settings by machine, work and end, so a later end is a row again. Work that finished with
+nothing waiting is no row and stays under *Work* alone. The rows that are no work, such as a silent
+machine, a host's stop, a failed operation or an authorization, stay and count.
 
 ## A held message is read whole, as text, before it is decided
 
@@ -370,32 +377,35 @@ device needs no feature of its own*. An action a machine cannot honor from here 
 unavailable with its reason rather than removed: working in a task by hand, for one, is unavailable
 for a machine reached through a socket somebody else forwarded, because there is no host to log into.
 
-## A tile shows the last lines its agent wrote, read now and then
+## A row shows the last lines its agent wrote, read now and then
 
-Each unfolded tile on *Work* shows about five of the newest lines its agent wrote, formatted rather
-than raw JSON, in a small console under its name; one press enlarges it to the log view on the
-right, following, and one press makes it small again. It reads only the end of the log (`Tail` with
+Each unfolded row on *Work* shows about five of the newest lines its agent wrote, formatted rather
+than raw JSON, in a small console, marked with what the window can tell of a line: headings, errors,
+results. Its *Follow its log* leads to the agent's tab under *Running*. It reads only the end of the log (`Tail` with
 `last` and `formatted`, asked only where the machine takes them), is redrawn at most every three
-seconds, and a folded tile reads nothing. Work in a terminal shows the session's last lines
+seconds, and a folded row reads nothing of it. Work in a terminal shows the session's last lines
 through `Screen`, without attaching, in the terminal's own look. When an unattended run's agent has
 ended, a line under the console says whether it finished or stopped before its end, whether its
 work waits at the gate, and where to go next: the review at the gate or the output above it.
 
-**What it costs:** an unfolded tile reads even while it is scrolled out of view; folding it is what
-stops the reading.
+**What it costs:** an unfolded row reads even while it is scrolled out of view; folding it is what
+stops the reading. A folded row of work in a terminal is still asked after every thirty seconds, one call
+at a time, whether its session is there, so the row can say when it has ended.
 
-## One session at a time, shown only where it was opened
+## One session at a time, in its tab under Running
 
-Two sessions over one terminal make leaving one look like leaving both, a session filling Running
-leaves no room to open a second, and a session that follows nobody's place is lost from view by
-going elsewhere and back. So:
+Two sessions over one terminal make leaving one look like leaving both. So:
 
 - **One session is open at a time.** Working by hand in other work leaves the one that was open,
   without asking: nothing at the far end stops, and opening it again shows its last lines. The status
   line says which was left.
-- **It belongs to the place it was opened** — Needs you, a machine's Running, or one project — and is
-  shown only there. Going elsewhere leaves it running out of sight; coming back finds it as it was.
-- **Leave is the only way out of it.**
+- **Terminals have one place, *Work* > *Running***: a tab per running agent. Asking for a session
+  anywhere goes there.
+- **Changing the tab, or leaving the page by a menu click, leaves the session.** The agent runs on, and
+  coming back shows the same tab, which opens its session again. Nothing else is a way out of it.
+- **A tab looks before it opens**, through `Screen`, since attaching to a session that ended would start
+  a new one nobody asked for. That one says so, with *Open a new terminal* as its next step.
+- **Ctrl+PgUp and Ctrl+PgDn go to the next agent and never reach the far end**; every other key does.
 
 ## Handing off from another device needs no feature of its own
 

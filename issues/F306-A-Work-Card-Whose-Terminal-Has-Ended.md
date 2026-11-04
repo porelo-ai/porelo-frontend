@@ -1,7 +1,6 @@
 # F306 — A Work Card Whose Terminal Has Ended
 
-**Status:** Backlog.
-**Size:** S - built with [F353](README.md#f353), which holds its shape.
+**Status:** Implementing.
 
 **What must be true.** A card under *Work* whose terminal session has ended says so in its own words and offers what
 can be done next; it does not show a full-width black terminal bar that holds only "Its terminal session has ended."
@@ -21,6 +20,10 @@ The page with the *Work* cards is redesigned as a whole: this issue goes into [F
 ## The shape
 
 A running task whose terminal has ended keeps its tab, with the sentence "Its terminal session has ended" and the next step: *Open a new terminal*, or *Read its log* where one cannot be opened. There is no black bar. The row says the same.
+
+## Plan
+
+- Built with the page: `WorkView.terminalEnded` holds what `Screen` said, `RunningView` and `WorkRow` say the sentence and offer the step, and `TileConsole` draws nothing for an ended session. Red first: the scenarios of an ended terminal in `test/features/running_work.feature`.
 
 ## Acceptance
 

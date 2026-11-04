@@ -1,7 +1,6 @@
 # F353 — The Page With The Work Cards Redesigned
 
-**Status:** Backlog.
-**Size:** L - the *Work* page and *Needs you* redrawn, their terminals moved to one place, tests with them.
+**Status:** Implementing.
 
 **What must be true.** *Work* shows all work in one list, as the other menu items do, with no decision in it, and every running agent in a tab of its own; what needs a decision is in *Needs you* alone, and one number counts it. A card whose terminal has ended, [F306](README.md#f306), goes into it.
 
@@ -32,6 +31,14 @@
 
 - *Needs you has ranks*: "listed and not counted" goes; work at the gate counts like every other row.
 - *One session at a time*: "It belongs to the place it was opened" goes: terminals have one place, *Work* > *Running*. "Leave is the only way out" goes: changing the tab, or leaving the page by a menu click, leaves the session; the agent runs on, and coming back shows the same tab. One session open at a time stays.
+
+## Plan
+
+- `WorkPage` in `lib/src/ui/work_page.dart` holds the head and switches between the list and `RunningView` (`lib/src/ui/running_view.dart`); `WorkView` keeps the search, the unfolded rows, the view and the tab. `WorkRow` in `lib/src/ui/attention_view.dart` is the list's row; `TaskTile` stays as the detail of a row of *Needs you*.
+- `Sessions` loses `ConsolePlace`. `_openSession` in `lib/src/ui/shell.dart` goes to the tab, and the window leaves the session once *Running* is off screen.
+- `Attention.needingSomebody` is every row; `putAwayTheEnd` keeps what was opened or put away in `Settings`. `AttentionView` stands the rows in cards.
+- `TerminalLook.themeOf` and `ConsoleColours` give the console its light and dark; `console_lines.dart` marks a line. `Usage` is read through `FleetBackend.usage` when a row unfolds.
+- Red first: `test/features/running_work.feature`, the new scenarios of `daily_work.feature` and `needs_a_person.feature`, `test/ui/console_look_test.dart` and `test/ui/running_tabs_test.dart`.
 
 ## Acceptance
 
