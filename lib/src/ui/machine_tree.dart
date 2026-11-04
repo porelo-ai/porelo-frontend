@@ -108,11 +108,12 @@ class ProjectHeader extends StatelessWidget {
               if (!each.own || p.repositoryStates.length == 1) each,
           ];
     final facts = <String>[
-      if (!p.prepared && !isDefault) 'environment not prepared',
+      if (!p.prepared && !isDefault && !p.carried) 'environment not prepared',
       if (p.environmentIsStale) 'environment older than its project file',
       if (p.pending > 0) '${p.pending} waiting at the gate',
       if (muted) 'not notified',
-      if (!project.canBeActedOn && !isDefault) 'not on this machine',
+      if (!project.canBeActedOn && !isDefault && !p.carried) 'not on this machine',
+      if (p.carried) 'carried by this machine; starting work takes it here',
     ];
     final counts =
         '${project.running} of ${project.howMuchWork} running'

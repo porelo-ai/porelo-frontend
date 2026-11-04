@@ -37,4 +37,5 @@ The contract with Core: `Projects` gives a carried row with `file` empty and `ca
 
 - A real run against Core's daemon, once its snapshot lists carried rows; until then only a fake answers.
 - The machine page's button in a whole window: the page and the shell's take are each tested, their joining is not.
+- *Start work…* on a machine whose Porelo is older than the carried row, whose list holds only `default`: it opens the default with nothing to ask between.
 - The row's way on from *My projects*, which leads to that same page.

@@ -1317,7 +1317,9 @@ class _ShellState extends State<Shell> {
           connections: _hostConnections,
           onProject: (name) => setState(() => _organizationProject = name),
           onHost: (project, host) {
-            final machine = widget.machines.all.where((machine) => machine.name == host).firstOrNull;
+            final machine = widget.machines.all
+                .where((machine) => machine.hostCard?.name == host || machine.name == host)
+                .firstOrNull;
             // A Porelo older than the carried row lists a project only after a first start there; its page says so.
             if (machine != null && widget.machines.of(machine).projects.any((each) => each.name == project)) {
               _openPageProject(machine, project);
@@ -1808,8 +1810,12 @@ class _ShellState extends State<Shell> {
 
   /// Starts work from a recurring job somebody named.
   Future<void> _startFromTemplate(Template job) async {
-    final project = _fleet.selectedProject?.project;
-    if (project == null) return;
+    final selected = _fleet.selectedProject?.project;
+    if (selected == null) return;
+    final why = await _takeIfCarried(selected.name);
+    if (!mounted) return;
+    if (why != null) return _fleet.say(why);
+    final project = _listed(selected.name) ?? selected;
     // Open at once and read behind it: waiting for the machine first left the press unanswered.
     widget.starting.publishedHostKeys = _publishedHostKeys;
     widget.starting.runningElsewhere = _runningElsewhere(project.name);
@@ -1869,13 +1875,18 @@ class _ShellState extends State<Shell> {
   /// Starts work in [project] from a machine's page: taken first if need be. Answers why it cannot start, or null.
   Future<String?> _startFromTheMachinePage(String host, String project) async {
     await _fleet.refresh(quietly: true);
+    if (_fleet.reachability != Reachability.connected) {
+      return '$host is not answering, so work in $project cannot start from here now.';
+    }
     if (_listed(project) == null) {
-      return '$host carries $project, and its Porelo lists a project only after a first start there. '
-          'A newer Porelo there lets you start from here; until then, on the machine, '
+      return '$host does not list $project yet. It reads the organization every few minutes; an older Porelo '
+          'there lists a project only after a first start. On the machine, '
           'porelo task prepare -p $project --dry-run takes it.';
     }
     final why = await _takeIfCarried(project);
     if (why != null) return why;
+    final cannot = StartWork.whyNot(_listed(project));
+    if (cannot != null) return '$project cannot start on $host: $cannot.';
     unawaited(_startWorkIn(project));
     return null;
   }
@@ -1884,6 +1895,9 @@ class _ShellState extends State<Shell> {
   /// from a repository leads to.
   Future<void> _startWorkIn(String name, {String? repository}) async {
     Project? listed() => _listed(name);
+    final why = await _takeIfCarried(name);
+    if (!mounted) return;
+    if (why != null) return _fleet.say(why);
     // Asked of the machine first only when it is not known yet: a round trip before the form opened
     // was a pause a person noticed.
     final known = listed();
@@ -3190,13 +3204,13 @@ class _ShellState extends State<Shell> {
   }
 
   /// Starts new work: where first, when there is more than one machine that answers.
-  Future<void> _newWork() async {
+  Future<void> _newWork({Machine? on}) async {
     final answering = <Machine>[
       for (final machine in widget.machines.all)
         if (widget.machines.of(machine).reachability == Reachability.connected) machine,
     ];
     if (answering.isEmpty) return;
-    var where = answering.length == 1 ? answering.single : null;
+    var where = on ?? (answering.length == 1 ? answering.single : null);
     where ??= await showDialog<Machine>(
       context: context,
       builder: (context) => SimpleDialog(
@@ -3664,9 +3678,21 @@ class _ShellState extends State<Shell> {
     onGiveToken: _giveHostToken,
     onStartWork: (host, project) async {
       final machine = widget.machines.all.where((machine) => machine.hostCard?.name == host).firstOrNull;
-      if (machine == null) return null;
+      if (machine == null) return 'This window does not have $host among its machines, so it cannot start there.';
       widget.machines.select(machine);
       if (project == null) {
+        // The organization's view may be older than what the machine lists: Default is not taken unasked.
+        await _fleet.refresh(quietly: true);
+        if (!mounted) return null;
+        final others = _fleet.projects.where(
+          (each) => each.name != defaultProject && (each.canBeActedOn || each.project.carried),
+        );
+        if (others.isNotEmpty) {
+          unawaited(_newWork(on: machine));
+          return null;
+        }
+        // Its output and its session are shown under Work, and not on this page.
+        widget.shell.goTo(Section.work);
         unawaited(_startInDefault());
         return null;
       }

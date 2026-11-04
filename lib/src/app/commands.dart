@@ -638,7 +638,7 @@ List<Command> projectCommands({
       group: 'Project',
       home: Home.projectMenu,
       run: syncTheUpstream,
-      unavailable: project == null ? nothing : null,
+      unavailable: project == null ? nothing : (project.project.carried ? noFile : null),
     ),
     // Only where there is a conversation: a project that names a peer on a transport of its own.
     Command(
@@ -691,7 +691,7 @@ List<Command> projectCommands({
       group: 'Project',
       home: Home.projectMenu,
       run: showTheBackups,
-      unavailable: project == null ? nothing : null,
+      unavailable: project == null ? nothing : (project.project.carried ? noFile : null),
     ),
     Command(
       id: 'work.check',
@@ -721,6 +721,8 @@ List<Command> projectCommands({
       run: clearTheProject ?? () {},
       unavailable: project == null
           ? nothing
+          : project.project.carried
+          ? noFile
           : clearTheProject == null
           ? 'not from here'
           : project.name == defaultProject
@@ -736,6 +738,8 @@ List<Command> projectCommands({
       // **Takes the name, not the file**, so a project whose file is gone can still be cleared.
       unavailable: project == null
           ? nothing
+          : project.project.carried
+          ? noFile
           : project.name == defaultProject
           ? 'default is always there: it is where work without a project goes'
           : whyNoRemoval,

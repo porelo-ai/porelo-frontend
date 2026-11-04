@@ -1,8 +1,10 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/start_agents.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
 import 'package:porelo_frontend/src/app/start_work.dart';
+import 'package:porelo_frontend/src/app/templates.dart';
 import 'package:porelo_frontend/src/ui/start_agents_view.dart';
 
 import '../features/support/world.dart';
@@ -70,6 +72,41 @@ void main() {
       expect(World.backend.taken, <String>['foo']);
       expect(find.byType(StartAgentsWizard), findsNothing);
       expect(find.textContaining('which agent'), findsWidgets);
+    });
+
+    // Harm: a template's button starts in a project this person has not taken, with no repository.
+    testWidgets('a saved job takes it first', (tester) async {
+      await _onTheMachine(tester, _carried());
+      await World.templates.keep(
+        const Template(name: 'nightly', project: 'foo', agent: 'an-agent', mode: Mode.agent, prompt: 'run'),
+      );
+      World.shell.openProject(World.machines.current, 'foo');
+      await World.settle(tester);
+      World.shell.show('template.start/foo/nightly', section: Section.project);
+      await World.settle(tester);
+      await tester.tap(find.byKey(const Key('highlighted')));
+      await World.settle(tester);
+      expect(World.backend.taken, <String>['foo']);
+    });
+
+    // Harm: *Delete* and the like are offered for a project with no file here to act on.
+    testWidgets('what needs its file is not offered', (tester) async {
+      await _onTheMachine(tester, _carried());
+      await World.tapInView(tester, 'project-menu');
+      for (final id in <String>['project.sync', 'project.backups', 'project.clear', 'project.delete']) {
+        final found = find.byKey(Key(id));
+        expect(found, findsOneWidget, reason: id);
+        expect(tester.widget<PopupMenuItem<String>>(found).enabled, isFalse, reason: id);
+      }
+    });
+
+    // Harm: the project's page says it is not here, on the machine that carries it.
+    testWidgets('its page does not say it is not on this machine', (tester) async {
+      await _onTheMachine(tester, _carried());
+      World.shell.openProject(World.machines.current, 'foo');
+      await World.settle(tester);
+      expect(find.textContaining('not on this machine'), findsNothing);
+      expect(find.textContaining('environment not prepared'), findsNothing);
     });
   });
 }

@@ -261,6 +261,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     setState(() {
       _acting = true;
       _refusal = null;
+      _startWhy = null;
     });
     HostProgress? progress;
     String? refusal;
@@ -303,6 +304,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     setState(() {
       _acting = true;
       _refusal = null;
+      _startWhy = null;
     });
     String? refusal;
     try {
