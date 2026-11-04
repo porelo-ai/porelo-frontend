@@ -1,6 +1,6 @@
 # F353 — The Page With The Work Cards Redesigned
 
-**Status:** Implementing.
+**Status:** Review.
 
 **What must be true.** *Work* shows all work in one list, as the other menu items do, with no decision in it, and every running agent in a tab of its own; what needs a decision is in *Needs you* alone, and one number counts it. A card whose terminal has ended, [F306](README.md#f306), goes into it.
 
@@ -47,6 +47,12 @@
 - *Needs you* holds every decision, and one number counts its rows in the page's header and on the badge.
 - A running task whose terminal has ended says so, in its tab and its row, with its next step.
 - Light and dark both read, in the console too.
+
+## Decided while building
+
+- **What came out of a question needs nobody.** It goes under *Recently resolved* for that list's time, an hour by default, with its words, and does not count; where its work has a row anyway it stays on that row with *Got it*. So a question that ran out unseen leaves a trace for that hour and not past a restart.
+- **A row's *Tokens used*** is read when it unfolds, and every 30 seconds while a running row stays unfolded.
+- **One node reached two ways** has one tab and one row. A tab whose machine does not answer stays, says so and opens nothing, as its agent may still run.
 
 ## To be checked
 

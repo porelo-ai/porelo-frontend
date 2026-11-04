@@ -22,6 +22,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Consoles of work follow the window's light or dark.
 - *Needs you* stands its rows in cards, *Decide soon* and *Reviews* first, and counts every row, work at the gate too: its header and the rail's badge say one number.
 - Work that ended with a failure, or left files that never reached the gate, is a row of *Needs you* until its log is opened or it is put away; a question's row also offers *See its terminal*.
+- What came out of a question goes under *Recently resolved* with its words and no longer counts in *Needs you*.
 - *Put it on a machine…* follows the machine in one dialog: it connects, offers the token if the machine waits for one, and says when the project is carried or why not. The token this computer keeps goes to the machine after your word, on standard input, with no terminal, and a press that gives none says why beside the button.
 - Work started from the window on a host starts: what the host asks to certify is checked here and signed by your agent on this computer, which never leaves it. A key missing from the agent is named by its fingerprint at the start. A certified task can be certified for another week from its menu, and says so within a day of its certificate's end.
 - A machine's *Start work* names the project it carries and starts there, asks which among several, and says why beside the button when it cannot; a project the machine carries is taken at a person's first start.

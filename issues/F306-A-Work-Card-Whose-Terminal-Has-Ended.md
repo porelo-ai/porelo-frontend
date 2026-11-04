@@ -1,6 +1,6 @@
 # F306 — A Work Card Whose Terminal Has Ended
 
-**Status:** Implementing.
+**Status:** Review.
 
 **What must be true.** A card under *Work* whose terminal session has ended says so in its own words and offers what
 can be done next; it does not show a full-width black terminal bar that holds only "Its terminal session has ended."
