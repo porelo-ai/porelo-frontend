@@ -9,14 +9,31 @@ import 'work_on_the_test_machine_was_started_with_a_key_its_provider_refuses.dar
 /// Read through the machine's `Tail` from the end, as the stub's formatter shows it.
 Future<void> itsTileShowsWhatItsAgentWrote(WidgetTester tester) async {
   await toThePlace(tester, 'work');
-  // A row is folded until it is opened, and reads nothing until then.
+  // The list and not *Running*, which is where the page stands if it was left there.
+  final list = find.byKey(const Key('work-view-list'));
+  if (list.evaluate().isNotEmpty) {
+    await tester.tap(list);
+    await tester.pump();
+  }
+  // A row is folded until it is opened, and reads nothing until then. One past the window's edge is not
+  // drawn at all, so it is scrolled to.
   final fold = find.byKey(const ValueKey<String>('tile-fold $refusedTask'));
+  final page = find.descendant(of: find.byKey(const Key('work-page')), matching: find.byType(Scrollable));
   await pumpUntil(
     tester,
-    () => fold.evaluate().isNotEmpty,
+    () {
+      if (fold.evaluate().isEmpty && page.evaluate().isNotEmpty) {
+        final position = tester.state<ScrollableState>(page.first).position;
+        final next = position.pixels + 200;
+        position.jumpTo(next > position.maxScrollExtent ? 0 : next);
+      }
+      return fold.evaluate().isNotEmpty;
+    },
     timeout: const Duration(seconds: 30),
     what: 'the row of $refusedTask',
   );
+  await tester.ensureVisible(fold.first);
+  await tester.pump();
   await tester.tap(fold.first);
   await tester.pump();
   final console = find.byKey(const ValueKey<String>('tile-console $refusedTask'));

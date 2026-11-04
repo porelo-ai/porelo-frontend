@@ -14,6 +14,7 @@ Feature: Working inside a container by hand, locally or over ssh
         Then the session runs {'porelo task attach porelo-billing-shell'}
 
     Scenario: a machine reached over ssh runs the same verb, through a terminal of its own
+        Given the next machine says nothing of which node it is
         When I start watching another machine
         And I choose {'Connect over ssh for me'}
         And I say it is called {'the build machine'}
@@ -133,6 +134,7 @@ Feature: Working inside a container by hand, locally or over ssh
         And the work was never stopped
 
     Scenario: a connection that never happened is told apart from work that refused
+        Given the next machine says nothing of which node it is
         When I start watching another machine
         And I choose {'Connect over ssh for me'}
         And I say it is called {'the build machine'}

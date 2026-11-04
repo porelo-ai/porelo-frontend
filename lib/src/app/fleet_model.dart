@@ -304,6 +304,11 @@ class FleetModel extends ChangeNotifier {
     return null;
   }
 
+  /// Whether this connection's list of work has arrived: until then it answers and lists nothing,
+  /// which is not a machine with nothing on it.
+  bool get listRead => _listRead;
+  bool _listRead = false;
+
   /// The work under the selected project.
   List<Task> get workInView => selectedProject?.tasks ?? const <Task>[];
 
@@ -311,6 +316,7 @@ class FleetModel extends ChangeNotifier {
   Future<void> connect({bool onItsOwn = false}) async {
     if (!onItsOwn) _askedTry = true;
     _reachability = Reachability.connecting;
+    _listRead = false;
     _say('Connecting to ${backend.label}.');
     try {
       final held = onItsOwn ? mayPrepareOnItsOwn?.call() : null;
@@ -570,6 +576,7 @@ class FleetModel extends ChangeNotifier {
 
   void _adopt(List<Task> tasks) {
     _tasks = tasks;
+    _listRead = true;
     // A selection that no longer exists is dropped rather than left pointing at nothing.
     final projectNames = projects.map((project) => project.name).toSet();
     if (_selectedProject != null && !projectNames.contains(_selectedProject)) {

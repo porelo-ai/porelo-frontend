@@ -1580,6 +1580,10 @@ Command questionDecisionCommand({required bool allow, required VoidCallback run,
   unavailable: unavailable,
 );
 
+/// Opens what is known of one piece of work, from its row's menu: the row's own press selects and folds.
+Command seeItsDetailsCommand({required VoidCallback run}) =>
+    Command(id: 'work.details', label: 'See its details', group: 'Work', home: Home.tileMenu, run: run);
+
 /// Puts away a settled question only on the work that asked it.
 Command putAwayQuestionCommand({required VoidCallback run, String? unavailable}) => Command(
   id: 'question.putAway',

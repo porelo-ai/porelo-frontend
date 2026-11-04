@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:porelo_frontend/client.dart';
 
 import '../app/attention.dart';
+import '../app/fleet_model.dart';
 import '../app/logs.dart';
 import '../app/machines.dart';
 import '../app/session.dart';
@@ -92,7 +93,7 @@ class _RunningViewState extends State<RunningView> {
   /// when its agent changes state is a tab pressed by mistake.
   List<Tile> _tabs() =>
       <Tile>[
-        for (final machine in widget.machines.all)
+        for (final machine in widget.attention.machinesOnce)
           ...widget.attention.tilesOn(machine).where((tile) => tile.task?.running ?? false),
       ]..sort((a, b) {
         final byMachine = a.machine.name.compareTo(b.machine.name);
@@ -106,7 +107,10 @@ class _RunningViewState extends State<RunningView> {
 
   /// Ctrl+PgUp and Ctrl+PgDn go to the next agent, before a terminal can take them.
   bool _nextAgent(KeyEvent event) {
-    if (event is KeyUpEvent || !HardwareKeyboard.instance.isControlPressed) return false;
+    final keys = HardwareKeyboard.instance;
+    if (event is KeyUpEvent || !keys.isControlPressed) return false;
+    // Ctrl alone: with another modifier it is a key of the far end's.
+    if (keys.isShiftPressed || keys.isAltPressed || keys.isMetaPressed) return false;
     final step = switch (event.logicalKey) {
       LogicalKeyboardKey.pageUp => -1,
       LogicalKeyboardKey.pageDown => 1,
@@ -116,11 +120,11 @@ class _RunningViewState extends State<RunningView> {
     final tabs = _tabs();
     if (tabs.isEmpty) return false;
     final at = tabs.indexWhere((tile) => _idOf(tile) == _chosen);
-    _view.showTab(_idOf(tabs[((at < 0 ? 0 : at) + step) % tabs.length]));
+    _view.moveToTab(_idOf(tabs[((at < 0 ? 0 : at) + step) % tabs.length]));
     return true;
   }
 
-  bool _inATerminal(Tile tile) => tile.task!.mode != Mode.unattended || _view.byHand == _idOf(tile);
+  bool _inATerminal(Tile tile) => tile.task!.mode != Mode.unattended || _view.isByHand(_idOf(tile));
 
   bool _isSessionOf(Session? session, Tile tile) =>
       session != null &&
@@ -140,7 +144,9 @@ class _RunningViewState extends State<RunningView> {
       _view.terminalSaid(tile.machine.name, task, live: true);
       return;
     }
-    if (_view.terminalEnded(tile.machine.name, task) || Sessions.whyNot(task, tile.machine) != null) {
+    if (_view.terminalEnded(tile.machine.name, task) ||
+        Sessions.whyNot(task, tile.machine) != null ||
+        tile.fleet.reachability != Reachability.connected) {
       if (widget.sessions.any) unawaited(widget.sessions.leave());
       return;
     }
@@ -148,20 +154,28 @@ class _RunningViewState extends State<RunningView> {
     unawaited(_open(tile));
   }
 
-  bool _opening = false;
+  /// The tab being looked at before opening its session; moving on leaves that look to nobody.
+  String? _opening;
+
+  /// The latest look: a tab chosen again looks again.
+  Object? _look;
 
   /// Opens its session, once the machine has said there is one to come back to: attaching to a session
   /// that ended would start a new one without anybody having asked for it.
   Future<void> _open(Tile tile) async {
-    if (_opening) return;
-    _opening = true;
     final id = _idOf(tile);
+    if (_opening == id && !_view.asksNewTerminal(id)) return;
+    final look = Object();
+    _look = look;
+    _opening = id;
     final task = tile.task!;
     try {
-      // A person who asked for a new one has it, whatever the machine says of the last.
-      if (!_view.takeNewTerminal(id)) {
+      // A person who asked for a new one has it, whatever the machine says of the last; so has one
+      // working by hand, in an agent that need not have a terminal yet.
+      if (!_view.takeNewTerminal(id) && !_view.isByHand(id)) {
         try {
           final screen = await tile.fleet.backend.screen(task.name, last: 1);
+          if (!identical(_look, look)) return;
           if (!screen.live) {
             _view.terminalSaid(tile.machine.name, task, live: false);
             return;
@@ -170,9 +184,9 @@ class _RunningViewState extends State<RunningView> {
           // An older machine, or one that does not answer now: the way in says what it finds.
         }
       }
-      if (mounted && _chosen == id) _start(tile);
+      if (mounted && _chosen == id && identical(_look, look)) _start(tile);
     } finally {
-      _opening = false;
+      if (identical(_look, look)) _opening = null;
     }
   }
 
@@ -208,6 +222,8 @@ class _RunningViewState extends State<RunningView> {
     scheduleMicrotask(() {
       if (!mounted || !identical(widget.sessions.current, session)) return;
       if (tile != null) _view.terminalSaid(tile.machine.name, tile.task!, live: false);
+      // Work by hand in unattended work is over: its tab is its log again.
+      if (tile != null && _view.isByHand(_idOf(tile))) _view.showTab(_idOf(tile));
       unawaited(widget.sessions.leave());
     });
   }
@@ -226,6 +242,8 @@ class _RunningViewState extends State<RunningView> {
       _chosen = tile == null ? null : _idOf(tile);
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
+        // Which tab this is, also where nobody chose: coming back shows the same one.
+        if (tile != null) _view.keepTab(_idOf(tile));
         _watch(widget.sessions.current);
         _settle(tile);
         _revealTab(tile);
@@ -283,7 +301,7 @@ class _RunningViewState extends State<RunningView> {
                   chosen: identical(tile, chosen) || _idOf(tile) == _idOf(chosen),
                   background: console.background,
                   chosenText: console.strong,
-                  onTap: () => _view.showTab(_idOf(tile)),
+                  onTap: () => _view.moveToTab(_idOf(tile)),
                 ),
             ],
           ),
@@ -414,7 +432,11 @@ class _RunningViewState extends State<RunningView> {
     }
     if (whyNot != null) return _Ended(saying: whyNot.words, step: _readLog(tile));
     final session = widget.sessions.current;
-    if (!_isSessionOf(session, tile)) return const SizedBox.shrink();
+    if (!_isSessionOf(session, tile)) {
+      return tile.fleet.reachability == Reachability.connected
+          ? const SizedBox.shrink()
+          : const _Ended(saying: 'Its machine is not answering', step: SizedBox.shrink());
+    }
     return SessionView(
       session: session!,
       focusNode: widget.focusNode,

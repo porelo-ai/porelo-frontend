@@ -286,8 +286,8 @@ does not lose it.
 **A task whose agent ended before finishing its prompt is in it**, in the machine's words: the
 error as the agent or the provider gave it, and when. A provider's refusal (credits, key, limits)
 is named as the provider's, so the person looks there and not at Porelo. The end wins over the
-activity: such a task is never said to be working or idle, and its tile on *Work* never folds. An
-agent that finished its prompt needs nobody and is not listed.
+activity: such a task is never said to be working or idle, and its row stands in *Needs you* until
+it is opened or put away. An agent that finished its prompt needs nobody and is not listed.
 
 ## Needs you has ranks, and a question with a deadline is always first
 
@@ -385,8 +385,8 @@ results. Its *Follow its log* leads to the agent's tab under *Running*. It reads
 `last` and `formatted`, asked only where the machine takes them), is redrawn at most every three
 seconds, and a folded row reads nothing of it. Work in a terminal shows the session's last lines
 through `Screen`, without attaching, in the terminal's own look. When an unattended run's agent has
-ended, a line under the console says whether it finished or stopped before its end, whether its
-work waits at the gate, and where to go next: the review at the gate or the output above it.
+ended, a line under the console says whether it finished or stopped before its end and whether its
+work waits at the gate; where to go next is said in *Needs you*, since no row of *Work* decides.
 
 **What it costs:** an unfolded row reads even while it is scrolled out of view; folding it is what
 stops the reading. A folded row of work in a terminal is still asked after every thirty seconds, one call

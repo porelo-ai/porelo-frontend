@@ -31,29 +31,51 @@ class WorkView extends ChangeNotifier {
   String? get tab => _tab;
   String? _tab;
 
-  /// The tab whose unattended agent is being worked with by hand, in a terminal in place of its log.
-  String? get byHand => _byHand;
-  String? _byHand;
+  /// Whether [tab]'s unattended agent is being worked with by hand, in a terminal in place of its log.
+  /// That stays while somebody looks at other tabs, until they follow its log again.
+  bool isByHand(String tab) => _byHand.contains(tab);
+  final Set<String> _byHand = <String>{};
 
   /// Where a tab is kept, by machine and work.
   static String placeOf(String machine, String task) => '$machine/$task';
 
   /// Shows *Running* on one tab. With [byHand], an unattended agent's terminal in place of its log.
   void showTab(String tab, {bool byHand = false}) {
+    if (byHand) {
+      _byHand.add(tab);
+    } else {
+      _byHand.remove(tab);
+    }
+    moveToTab(tab);
+  }
+
+  /// Shows *Running* on one tab, as it was left.
+  void moveToTab(String tab) {
     _running = true;
     _tab = tab;
-    _byHand = byHand ? tab : null;
     notifyListeners();
   }
 
+  /// Keeps which tab is on screen when it was not chosen, so coming back finds the same one, while the
+  /// page is being drawn and so telling nobody.
+  void keepTab(String? tab) => _tab = tab;
+
   String? _newTerminal;
+
+  /// How many new terminals were asked for, so a look begun before one does not speak for it.
+  int get newTerminalsAsked => _newTerminalsAsked;
+  int _newTerminalsAsked = 0;
 
   /// Shows [task]'s tab with a terminal opened anew: a person asked, so nobody looks first.
   void showNewTerminal(String machine, Task task) {
     _newTerminal = placeOf(machine, task.name);
+    _newTerminalsAsked++;
     _endedTerminals.remove(_terminalOf(machine, task));
-    showTab(_newTerminal!);
+    moveToTab(_newTerminal!);
   }
+
+  /// Whether a new terminal was asked for on [tab] and not opened yet.
+  bool asksNewTerminal(String tab) => _newTerminal == tab;
 
   /// Whether a new terminal was asked for on [tab], which asks once.
   bool takeNewTerminal(String tab) {
@@ -218,15 +240,18 @@ class _WorkPageState extends State<WorkPage> {
     if (_looking) return;
     _looking = true;
     try {
-      for (final machine in widget.machines.all) {
+      for (final machine in widget.attention.machinesOnce) {
+        // A machine not answering has nothing to say, and each call would wait for that.
+        if (widget.machines.of(machine).reachability != Reachability.connected) continue;
         for (final tile in widget.attention.tilesOn(machine)) {
           final task = tile.task;
           if (task == null || !task.running || task.mode == Mode.unattended) continue;
           if (_view.open.contains(_placeOf(tile))) continue;
           if (!mounted) return;
           try {
+            final asked = _view.newTerminalsAsked;
             final screen = await tile.fleet.backend.screen(task.name, last: 1);
-            _view.terminalSaid(machine.name, task, live: screen.live);
+            if (asked == _view.newTerminalsAsked) _view.terminalSaid(machine.name, task, live: screen.live);
           } on Object {
             // A Porelo without Screen, or one not answering now: nothing is known, so nothing is said.
           }
@@ -373,7 +398,7 @@ class _WorkPageState extends State<WorkPage> {
 
   Widget _build(BuildContext context) {
     final reveal = widget.reveal;
-    final tiles = <Tile>[for (final machine in widget.machines.all) ...widget.attention.tilesOn(machine)];
+    final tiles = <Tile>[for (final machine in widget.attention.machinesOnce) ...widget.attention.tilesOn(machine)];
     if (reveal != null && tiles.any((tile) => _placeOf(tile) == reveal)) {
       // Where the finder went to one of a row's commands: the list, with that row open. Said on the way
       // through this frame, so nobody is told of it twice.

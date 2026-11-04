@@ -16,6 +16,14 @@ import 'package:porelo_frontend/src/app/vault.dart';
 import '../features/support/world.dart';
 
 void main() {
+  // Harm: a row's command made up where it is used, its home and wording kept nowhere a test reads.
+  test('a row\'s details are a command of the catalogue, at home in the row\'s menu', () {
+    final details = seeItsDetailsCommand(run: () {});
+    expect(details.id, 'work.details');
+    expect(details.home, Home.tileMenu);
+    expect(details.label, 'See its details');
+  });
+
   // Harm: a new or duplicated command silently exposes server changes to ordinary work.
   test('each command id has one role and only the declared commands require administration', () async {
     final settings = Settings(MemorySettingsStore());

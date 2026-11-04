@@ -11,6 +11,7 @@ import './step/i_select_the_project.dart';
 import './step/i_select_the_work.dart';
 import './step/i_work_in_it_by_hand.dart';
 import './step/the_session_runs.dart';
+import './step/the_next_machine_says_nothing_of_which_node_it_is.dart';
 import './step/i_start_watching_another_machine.dart';
 import './step/i_choose.dart';
 import './step/i_say_it_is_called.dart';
@@ -65,6 +66,7 @@ void main() {
     });
     testWidgets('''a machine reached over ssh runs the same verb, through a terminal of its own''', (tester) async {
       await bddSetUp(tester);
+      await theNextMachineSaysNothingOfWhichNodeItIs(tester);
       await iStartWatchingAnotherMachine(tester);
       await iChoose(tester, 'Connect over ssh for me');
       await iSayItIsCalled(tester, 'the build machine');
@@ -179,6 +181,7 @@ void main() {
     });
     testWidgets('''a connection that never happened is told apart from work that refused''', (tester) async {
       await bddSetUp(tester);
+      await theNextMachineSaysNothingOfWhichNodeItIs(tester);
       await iStartWatchingAnotherMachine(tester);
       await iChoose(tester, 'Connect over ssh for me');
       await iSayItIsCalled(tester, 'the build machine');

@@ -763,13 +763,7 @@ class _ShellState extends State<Shell> {
 
   /// A tile's actions, judged on the tile's own machine and run with its work selected there.
   List<Command> _tileActions(Tile tile) => <Command>[
-    Command(
-      id: 'work.details',
-      label: 'See its details',
-      group: 'Work',
-      home: Home.tileMenu,
-      run: _openWork,
-    ).after(() => _actOn(tile)),
+    seeItsDetailsCommand(run: _openWork).after(() => _actOn(tile)),
     for (final command in workCommands(
       task: tile.task,
       fleet: tile.fleet,
@@ -3031,10 +3025,12 @@ class _ShellState extends State<Shell> {
       return ShellRail(
         section: widget.shell.section,
         running: <int>[
-          for (final machine in widget.machines.all)
+          for (final machine in _attention.machinesOnce)
             widget.machines.of(machine).tasks.where((task) => task.running).length,
         ].fold(0, (sum, each) => sum + each),
-        work: _workView.shownTiles([for (final machine in widget.machines.all) ..._attention.tilesOn(machine)]).length,
+        work: _workView.shownTiles([
+          for (final machine in _attention.machinesOnce) ..._attention.tilesOn(machine),
+        ]).length,
         needing: _attention.needingSomebody,
         machines:
             rows.preparations.length +
@@ -3147,6 +3143,8 @@ class _ShellState extends State<Shell> {
     // said only in the status line, looked like nothing happening (walk 9).
     final refusal = _fleet.refusal;
     final opened = refusal != null ? RefusalView(refusal: refusal, fleet: _fleet) : _opened();
+    // Nothing tells of a refusal but the drawing of it, and what took the page's place took the session's.
+    if (opened != null) WidgetsBinding.instance.addPostFrameCallback((_) => _leaveTheSessionWithItsPage());
     final page =
         opened ??
         WorkPage(
@@ -3214,12 +3212,14 @@ class _ShellState extends State<Shell> {
     );
   }
 
-  /// Opens a log of [tile]'s work: what its agent wrote where it wrote one, or the ones it has to choose from.
+  /// Opens a log of [tile]'s work: what its agent wrote where it wrote one, or the ones it has to choose
+  /// from, since work in a terminal writes none of its own. Opening it is seeing how the work ended.
   void _readLogOf(Tile tile) {
     final task = tile.task;
     if (task == null) return;
+    _attention.putAwayTheEnd(tile);
     _actOn(tile);
-    if (task.mode == Mode.unattended || task.agentEnded != null) {
+    if (task.mode == Mode.unattended) {
       _enlargeConsole(tile);
     } else {
       unawaited(_askWhichLog(task));
@@ -3322,10 +3322,7 @@ class _ShellState extends State<Shell> {
         onOpenOperation: (operation) => widget.shell.openOperation(operation.id),
         actionsFor: _tileActions,
         onSelect: _goToWork,
-        onReadLog: (tile) {
-          _attention.putAwayTheEnd(tile);
-          _enlargeConsole(tile);
-        },
+        onReadLog: _readLogOf,
         onReview: (tile) {
           _actOn(tile);
           unawaited(_openTheGate(tile.task));
@@ -3334,8 +3331,10 @@ class _ShellState extends State<Shell> {
     );
   }
 
-  /// Whether *Running* is what is on screen: the one place a terminal is.
-  bool get _runningIsShown => widget.shell.section == Section.work && _workView.running;
+  /// Whether *Running* is what is on screen, the one place a terminal is: nothing opened or refused in
+  /// its place.
+  bool get _runningIsShown =>
+      widget.shell.section == Section.work && _workView.running && !widget.shell.anythingOpen && _fleet.refusal == null;
 
   /// Leaving the tab's page leaves its session: the agent runs on, and coming back opens it again.
   void _leaveTheSessionWithItsPage() {

@@ -209,6 +209,7 @@ extension on _AttentionViewState {
     );
     var title = row.machine;
     var state = resolved ? 'Resolved' : 'Needs you';
+    var resolvedState = 'Resolved';
     var icon = Icons.info_outline;
     VoidCallback open = details;
     Command? primary;
@@ -328,6 +329,8 @@ extension on _AttentionViewState {
             tile.settled != null && tile.questions.isEmpty && tile.demand != Demand.ended && tile.demand != Demand.gate
             ? TaskTile._settledWords(tile.settled!)
             : TaskTile._headline(tile);
+        // What came out of a question stays readable on its row, also folded.
+        if (tile.settled != null && tile.questions.isEmpty) resolvedState = TaskTile._settledWords(tile.settled!);
         icon = Icons.work_outline;
         // Opening how work ended is seeing it: the row has done its work.
         open = resolved || widget.onSelect == null
@@ -363,7 +366,7 @@ extension on _AttentionViewState {
       key: ValueKey('attention-row ${row.id}'),
       leading: Icon(icon),
       title: '$title · ${row.machine}',
-      state: resolved ? 'Resolved' : state,
+      state: resolved ? resolvedState : state,
       onOpen: navigation.run,
       primary: resolved || steps.isNotEmpty ? null : primary ?? navigation,
       primaryKey: primaryKey,
@@ -422,7 +425,13 @@ extension on _AttentionViewState {
         FilledButton(
           key: const Key('ended-review'),
           onPressed: tile.fleet.reachability == Reachability.connected
-              ? reviewAttentionWorkCommand(run: () => widget.onReview(tile)).run
+              ? reviewAttentionWorkCommand(
+                  run: () {
+                    // Opened: what it holds stays a row, how it ended is no longer unseen.
+                    widget.attention.putAwayTheEnd(tile);
+                    widget.onReview(tile);
+                  },
+                ).run
               : null,
           child: const Text('Review at the gate'),
         ),
@@ -757,6 +766,8 @@ enum _NeedsGroup {
     AttentionKind.tile => switch ((row.value as Tile).demand) {
       Demand.question => decide,
       Demand.gate => reviews,
+      // What it holds at the gate is the next step, whatever else its end says.
+      Demand.ended when (row.value as Tile).task?.hasWorkWaiting ?? false => reviews,
       _ => rest,
     },
     _ => rest,
@@ -1102,13 +1113,11 @@ class TaskTile extends StatelessWidget {
                   // The last answer, so a question that ran out does not quietly disappear.
                   if (first == null && tile.settled != null)
                     Text(_settledWords(tile.settled!), key: const Key('tile-settled'), style: text.bodySmall),
-                  // Until then it stays on what needs a person, so nobody misses it.
-                  if (first == null && tile.settled != null && onPutAway != null)
+                  // On a row kept for what else its work holds; alone, it goes under Recently resolved.
+                  if (first == null && tile.settled != null && onPutAway != null && !resolved)
                     TextButton(
                       key: const Key('tile-put-away'),
-                      onPressed: resolved
-                          ? null
-                          : putAwayQuestionCommand(run: () => onPutAway!(tile, tile.settled!)).run,
+                      onPressed: putAwayQuestionCommand(run: () => onPutAway!(tile, tile.settled!)).run,
                       child: const Text('Got it'),
                     ),
                   if (first != null || (session?.available ?? false) || (task?.hasWorkWaiting ?? false)) ...<Widget>[
@@ -1543,13 +1552,36 @@ class _WorkFacts extends StatefulWidget {
 }
 
 class _WorkFactsState extends State<_WorkFacts> {
+  /// How often what running work used is read again while its row is unfolded.
+  static const Duration _readEvery = Duration(seconds: 30);
+
   /// What it used in words; null until the machine answered, and for a machine that says nothing.
   String? _tokens;
+
+  Timer? _reading;
 
   @override
   void initState() {
     super.initState();
     unawaited(_read());
+    _reading = Timer.periodic(_readEvery, (_) {
+      if (widget.tile.task?.running ?? false) unawaited(_read());
+    });
+  }
+
+  @override
+  void didUpdateWidget(_WorkFacts old) {
+    super.didUpdateWidget(old);
+    // The machine came back, or the work changed state: what was read may no longer be what it used.
+    final answers = widget.tile.fleet.reachability == Reachability.connected;
+    final answered = old.tile.fleet.reachability == Reachability.connected;
+    if ((answers && !answered) || widget.tile.task?.since != old.tile.task?.since) unawaited(_read());
+  }
+
+  @override
+  void dispose() {
+    _reading?.cancel();
+    super.dispose();
   }
 
   Future<void> _read() async {

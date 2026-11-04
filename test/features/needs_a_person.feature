@@ -32,22 +32,23 @@ Feature: What needs a person on every machine, without going anywhere
         Then the answer sent was {'allow'}
         And the view shown is what needs a person
 
-    # The answer's confirmation would otherwise go with the click that gave it.
-    Scenario: a question let through stays with its answer until it is put away
+    # Harm: the answer's confirmation gone with the click that gave it, or a row counted for ever that nobody has to do anything about.
+    Scenario: a question let through keeps its answer under recently resolved and stops counting
         When work is blocked reaching {'api.example.test:443'}
-        And I let it through from its tile
+        Then the rail says {'2'} is waiting
+        When I let it through from its tile
         And the answer comes back
-        Then the tile {'porelo-checkout-shell'} says {'is now reachable'}
-        When I put away what the tile {'porelo-checkout-shell'} says
-        Then no tile is shown for {'porelo-checkout-shell'}
+        Then the row of {'porelo-checkout-shell'} under recently resolved says {'is now reachable'}
+        And the count of what needs a person is {'1 need you'}
+        And the rail says {'1'} is waiting
 
-    # A question that ran out while nobody looked would otherwise leave without a trace.
-    Scenario: a question that ran out stays, saying so, until it is put away
+    # Harm: a question that ran out while nobody looked leaves without a trace, or counts for ever.
+    Scenario: a question that ran out says so under recently resolved and stops counting
         When work is blocked reaching {'api.example.test:443'}
         And the question runs out
-        Then the tile {'porelo-checkout-shell'} says {'ran out'}
-        When I put away what the tile {'porelo-checkout-shell'} says
-        Then no tile is shown for {'porelo-checkout-shell'}
+        Then the row of {'porelo-checkout-shell'} under recently resolved says {'ran out'}
+        And the count of what needs a person is {'1 need you'}
+        And the rail says {'1'} is waiting
 
     Scenario: a question on another machine is in the same list, with its machine on it
         When I watch another machine called {'elsewhere'}

@@ -300,6 +300,7 @@ class Attention extends ChangeNotifier {
                   row.kind == AttentionKind.silent && (_settings?.seenSilent.contains(row.machine) ?? false)));
       if (resolved) _resolved[row.id] = ResolvedAttention(row, _clock());
     }
+    _keepOutcomes(open);
     _lastRows.removeWhere(
       (id, row) =>
           open.containsKey(id) ||
@@ -318,6 +319,29 @@ class Attention extends ChangeNotifier {
     );
     _prune();
     _scheduleExpiry();
+  }
+
+  /// Outcomes already placed under *Recently resolved*, so one whose time is up does not return.
+  final Set<String> _outcomesKept = <String>{};
+
+  /// Places what came out of a question under *Recently resolved*, once, with its words: unless its
+  /// work has a row anyway for what else it holds, where it is said and put away.
+  void _keepOutcomes(Map<String, AttentionRow> open) {
+    String keyOf(String machine, Prompt prompt) => '$machine/${prompt.identity}';
+    for (final tile in tiles) {
+      for (final asked in tile.questions) {
+        _outcomesKept.remove(keyOf(tile.machine.name, asked));
+      }
+      final settled = tile.settled;
+      if (settled == null) continue;
+      final row = _tileRow(tile);
+      if (open.containsKey(row.id) || !_outcomesKept.add(keyOf(tile.machine.name, settled))) continue;
+      _resolved[row.id] = ResolvedAttention(row, _clock());
+    }
+    _outcomesKept.retainAll(<String>{
+      for (final machine in _machines.all)
+        for (final prompt in fleetOf(machine).clearance.settled) keyOf(machine.name, prompt),
+    });
   }
 
   bool _hostResolved(HostStop stop) {
@@ -373,7 +397,10 @@ class Attention extends ChangeNotifier {
       !fleetOf(machine).answered &&
       fleetOf(machine).reachability != Reachability.incompatible;
 
-  /// Every machine once: one node reached two ways would deliver every question twice.
+  /// Every machine once: one node reached two ways would deliver every question twice, and draw all
+  /// its work twice.
+  List<Machine> get machinesOnce => _counted;
+
   List<Machine> get _counted {
     final machines = _machines.all;
     return <Machine>[
@@ -492,16 +519,12 @@ class Attention extends ChangeNotifier {
   /// the two. Everything else — working, quiet, unseen, stopped — is still drawn, in its machine's
   /// area, which is where somebody looking at that machine goes.
   ///
-  /// **An outcome stays until it is put away**, decided the same day: a question that ran out while
-  /// nobody looked would otherwise leave without a trace, and an answer's confirmation would go with
-  /// the click that gave it.
+  /// **What came out of a question needs nobody**: it goes under *Recently resolved*, which keeps it
+  /// for a set time, so a question that ran out while nobody looked leaves a trace, an answer keeps
+  /// its confirmation, and neither counts for ever.
   List<Tile> get needing => <Tile>[
     for (final tile in tiles)
-      if (tile.demand == Demand.question ||
-          tile.demand == Demand.ended ||
-          tile.demand == Demand.gate ||
-          tile.settled != null)
-        tile,
+      if (tile.demand == Demand.question || tile.demand == Demand.ended || tile.demand == Demand.gate) tile,
   ];
 
   /// One machine's tiles, most urgent first. While it is not answering they are what it last
@@ -557,12 +580,16 @@ class Attention extends ChangeNotifier {
 
   Set<String> get _endedPutAway => _settings?.endedPutAway ?? _endedHere;
 
-  static String _endKey(String machine, String task, AgentEnded ended) => '$machine/$task/${ended.at}';
+  /// One end of one task's work. Its time tells ends apart where the machine gives one, and when the
+  /// work's state began where it gives none; what the end says tells apart what came to light later.
+  /// The error's own words are not kept: they are the agent's and the provider's, in the settings file.
+  static String _endKey(String machine, Task task, AgentEnded ended) =>
+      '$machine/${task.name}/${ended.at.isEmpty ? task.since : ended.at}/${ended.finished}/${ended.status}/${ended.unpushed}';
 
   /// Whether somebody opened or put away how [task] on [machine] ended. The next end is another one.
   bool _endSeen(Machine machine, Task task) {
     final ended = task.agentEnded;
-    return ended != null && _endedPutAway.contains(_endKey(machine.name, task.name, ended));
+    return ended != null && _endedPutAway.contains(_endKey(machine.name, task, ended));
   }
 
   /// Takes how [tile]'s work ended off what needs a person, because it was opened or put away: what
@@ -571,21 +598,22 @@ class Attention extends ChangeNotifier {
     final task = tile.task;
     final ended = task?.agentEnded;
     if (task == null || ended == null) return;
-    // Only ends still listed are kept, or a machine with years of work would fill the settings. A machine
-    // not answering cannot say, so its ends stay.
+    // Only ends still listed are kept, or a machine with years of work would fill the settings. Only a
+    // machine that has said its list can say an end is gone: one not loaded, not answering or still
+    // reading its list says nothing, so its ends stay.
     final listed = <String>{
       for (final machine in _machines.all)
         for (final each in fleetOf(machine).tasks)
-          if (each.agentEnded case final end?) _endKey(machine.name, each.name, end),
+          if (each.agentEnded case final end?) _endKey(machine.name, each, end),
     };
-    final silent = <String>[
+    final saidItsList = <String>[
       for (final machine in _machines.all)
-        if (fleetOf(machine).reachability != Reachability.connected) '${machine.name}/',
+        if (fleetOf(machine).reachability == Reachability.connected && fleetOf(machine).listRead) '${machine.name}/',
     ];
     final kept = <String>{
       for (final end in _endedPutAway)
-        if (listed.contains(end) || silent.any(end.startsWith)) end,
-      _endKey(tile.machine.name, task.name, ended),
+        if (listed.contains(end) || !saidItsList.any(end.startsWith)) end,
+      _endKey(tile.machine.name, task, ended),
     };
     final settings = _settings;
     if (settings == null) {

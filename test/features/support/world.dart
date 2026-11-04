@@ -2450,12 +2450,16 @@ diff --git a/lib/money.dart b/lib/money.dart
   /// What each task's terminal session shows, by task; none where the machine has no `Screen`.
   final Map<String, Screen> screens = <String, Screen>{};
 
+  /// Screen replies held back until completed, by task: a slow machine, or one answering late.
+  final Map<String, Completer<void>> screenHolds = <String, Completer<void>>{};
+
   /// How many times a session's screen was asked for, by task.
   final Map<String, int> screensAsked = <String, int>{};
 
   @override
   Future<Screen> screen(String task, {required int last, bool escapes = false}) async {
     screensAsked[task] = (screensAsked[task] ?? 0) + 1;
+    await screenHolds[task]?.future;
     final shown = screens[task];
     if (shown == null) throw const FeatureNotSupported('Screen');
     return shown;

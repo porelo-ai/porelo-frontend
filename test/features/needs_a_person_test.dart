@@ -15,8 +15,10 @@ import './step/work_is_blocked_reaching.dart';
 import './step/the_tile_says.dart';
 import './step/i_let_it_through_from_its_tile.dart';
 import './step/the_answer_sent_was.dart';
+import './step/the_rail_says_is_waiting.dart';
 import './step/the_answer_comes_back.dart';
-import './step/i_put_away_what_the_tile_says.dart';
+import './step/the_row_of_under_recently_resolved_says.dart';
+import './step/the_count_of_what_needs_a_person_is.dart';
 import './step/the_question_runs_out.dart';
 import './step/i_watch_another_machine_called.dart';
 import './step/work_on_is_blocked_reaching.dart';
@@ -56,8 +58,6 @@ import './step/the_agent_of_ended_with_the_providers.dart';
 import './step/the_row_of_is_in_the_group.dart';
 import './step/it_does_not_say.dart';
 import './step/the_agent_of_finished.dart';
-import './step/the_count_of_what_needs_a_person_is.dart';
-import './step/the_rail_says_is_waiting.dart';
 import './step/i_see_the_terminal_of_the_question.dart';
 import './step/the_session_on_screen_is.dart';
 import './step/i_put_away_how_the_work_ended.dart';
@@ -102,22 +102,25 @@ void main() {
       await theAnswerSentWas(tester, 'allow');
       await theViewShownIsWhatNeedsAPerson(tester);
     });
-    testWidgets('''a question let through stays with its answer until it is put away''', (tester) async {
+    testWidgets('''a question let through keeps its answer under recently resolved and stops counting''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
       await workIsBlockedReaching(tester, 'api.example.test:443');
+      await theRailSaysIsWaiting(tester, '2');
       await iLetItThroughFromItsTile(tester);
       await theAnswerComesBack(tester);
-      await theTileSays(tester, 'porelo-checkout-shell', 'is now reachable');
-      await iPutAwayWhatTheTileSays(tester, 'porelo-checkout-shell');
-      await noTileIsShownFor(tester, 'porelo-checkout-shell');
+      await theRowOfUnderRecentlyResolvedSays(tester, 'porelo-checkout-shell', 'is now reachable');
+      await theCountOfWhatNeedsAPersonIs(tester, '1 need you');
+      await theRailSaysIsWaiting(tester, '1');
     });
-    testWidgets('''a question that ran out stays, saying so, until it is put away''', (tester) async {
+    testWidgets('''a question that ran out says so under recently resolved and stops counting''', (tester) async {
       await bddSetUp(tester);
       await workIsBlockedReaching(tester, 'api.example.test:443');
       await theQuestionRunsOut(tester);
-      await theTileSays(tester, 'porelo-checkout-shell', 'ran out');
-      await iPutAwayWhatTheTileSays(tester, 'porelo-checkout-shell');
-      await noTileIsShownFor(tester, 'porelo-checkout-shell');
+      await theRowOfUnderRecentlyResolvedSays(tester, 'porelo-checkout-shell', 'ran out');
+      await theCountOfWhatNeedsAPersonIs(tester, '1 need you');
+      await theRailSaysIsWaiting(tester, '1');
     });
     testWidgets('''a question on another machine is in the same list, with its machine on it''', (tester) async {
       await bddSetUp(tester);
