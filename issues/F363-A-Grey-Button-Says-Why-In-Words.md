@@ -1,8 +1,11 @@
 # F363 — A Grey Button Says Why In Words
 
-**Status:** Idea. Nothing is built before the foo test.
+**Status:** Backlog.
+**Size:** S - a line of text beside a disabled action, and a word at creating.
 
 **What must be true.** A person never finds a grey button with its reason only behind a hover, and is told at the moment of choosing an address what that address will stop later. In the foo test the Porelo organization stood at an https address, nothing said anything at creating, and later *Prepare a machine…* was simply grey.
+
+**Decided:** creating at an https address is allowed, with a word, and the ssh form offered first. It is not refused, as a refusal stops a person who needs no machine, and not converted, as that needs an authentication key they may not have.
 
 ## Why
 

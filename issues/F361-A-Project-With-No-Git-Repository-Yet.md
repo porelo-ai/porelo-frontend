@@ -1,8 +1,11 @@
 # F361 — A Project With No Git Repository Yet
 
-**Status:** Idea. Nothing is built before the foo test.
+**Status:** Backlog.
+**Size:** M - a project's new place on the Organization page, its words, a row in *Needs you*, and the same for a machine with no address.
 
 **What must be true.** A project whose Git repository does not exist yet says exactly that, and the person who can create it learns of it and does it in one place, in words that say what happens. "Opened" is out: today "Open under Projects" names a place in the side bar and goes there, while *Open the project* makes a repository and signs.
+
+**Decided:** the command is `porelo project create-repository`, and adding and creating are one step when the person adding names themselves as Project Admin, with the review choice moving into *Add a project* then. *Needs you* holds the row for the named Project Admin alone.
 
 ## The shape
 
@@ -56,4 +59,3 @@
 - **The window's list does not read it yet.** Each project of `porelo org --json` carries `opened`, read from the organization's tree with no call per project, and snapshot builds have it, 0.5.0 not. It says a filed address, not a repository on the forge, so a run that stopped between the two reads as not opened and is finished by asking again with the same id. `stale` at the top of the answer still applies.
 - *Needs you* is built from machines and this computer, and holds no row from the organization yet; a stale or unread organization must not say a repository is missing.
 - *Fill it from a checkout…* before the repository exists: what it answers, and that an Organization Admin who is not the Project Admin is offered it.
-- What renaming the command `porelo project open` touches, and whether adding and creating can be one step, are Core's to say.

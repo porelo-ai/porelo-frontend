@@ -1,8 +1,11 @@
 # F366 — Preparing A Machine Says What It Waits For
 
-**Status:** Idea. Nothing is built before the foo test.
+**Status:** Backlog.
+**Size:** M - words beside the button in four states, the login's output and exit code kept, and a measurement on a real window.
 
 **What must be true.** In *Prepare a machine*, a person always reads what the dialog waits for and why a step stopped. In the foo test *Prepare the machine* stayed grey for a long time with nothing saying why, and the operator nearly closed the dialog. Then it went live before its required `sudo` command had run, and the run stopped on `ssh` with an empty reason, "the provider or the host could not be reached", for a server that answers.
+
+**Decided:** the button is not held for the `sudo` step. The run's first line is the check, with the words above.
 
 ## The empty reason
 

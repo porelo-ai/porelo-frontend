@@ -1,8 +1,11 @@
 # F360 — A Count Says What It Counts
 
-**Status:** Idea. Nothing is built before the foo test.
+**Status:** Backlog.
+**Size:** M - the side bar's names and counts, and a forge entered on creating; the one store is apart.
 
 **What must be true.** Two numbers for one word never leave a person wondering which is wrong: where the side bar and a page count different things under the same name, the words say the difference.
+
+**Decided:** this issue builds the names, the counts and the forge's entry. One store for one token is apart and later, so "One token entered once" below waits for that; a machine's token now comes from the system's store, by another issue's decision.
 
 ## Why
 

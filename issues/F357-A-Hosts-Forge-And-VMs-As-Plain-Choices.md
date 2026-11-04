@@ -1,8 +1,11 @@
 # F357 — A Host's Forge And VMs As Plain Choices
 
-**Status:** Idea. Nothing is built before the foo test.
+**Status:** Backlog.
+**Size:** M - the host dialog's two plain choices and what each means, and the inventory's `porelo_host_kvm`.
 
 **What must be true.** Putting a project on a host, a person chooses in plain words whether the host runs a forge of its own and whether it runs VMs in its jobs, reads what each choice costs, and sees what the machine can carry when setting its concurrent jobs. A CPU without virtualization stops only a host that asked for VMs, and says what to do.
+
+**Decided:** the choice for VMs says that admitted people get access amounting to root on the machine, once that fact is confirmed from the collection's side.
 
 ## The shape
 
@@ -23,10 +26,6 @@
 - With VMs off, the inventory says `porelo_host_kvm: false` and a CPU without virtualization goes through; with VMs on, it says true, and that CPU is refused with the words above, seen to fail first.
 - With the forge off, the inventory says so, and the jobs' fields and the VMs' choice do not stand there as if they meant something.
 - A dialog reopened on a host shows what that host was set to, and an existing host is not silently changed.
-
-## Open questions
-
-- Admitted people on a host with VMs on get `libvirt`, which as far as is known amounts to root on the machine. Does the choice's text say so?
 
 ## To be checked
 

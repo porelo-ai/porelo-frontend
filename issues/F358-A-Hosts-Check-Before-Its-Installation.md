@@ -1,8 +1,11 @@
 # F358 — A Host's Check Before Its Installation
 
-**Status:** Idea. Nothing is built before the foo test.
+**Status:** Backlog.
+**Size:** L - one check in the dialog with its list and choices, on the collection's answer, and an offer compared before renting.
 
 **What must be true.** A person who rented a machine anywhere and left their ssh key there learns at once, before anything is installed, whether it can do what they want: the host dialog's first step after the address runs one check, shows everything it found, offers the installation only when it passes, and lets a choice be changed there with the check run again.
+
+**Decided:** before renting, what an offer publishes is compared with the check's limits, CPUs, memory, disk and virtualization, and the script checks the rest after.
 
 ## The shape
 
@@ -30,10 +33,6 @@
 - Changing a choice runs the check again: a CPU without virtualization is a finding with VMs on and none with VMs off.
 - No answer, a broken answer and a refused login each read as the check not having answered, with no *Install*.
 - A machine that passes changes in nothing by being checked.
-
-## Open questions
-
-- A machine this window rents can only be checked once it is paid for. The advice from the collection's side: compare what an offer's published data can answer, CPUs, memory, disk and virtualization, with the same limits before renting, and let the script check the rest after. By the hour a bad machine costs one hour at most, as far as is known; the price is unread. Is that wanted?
 
 ## To be checked
 
