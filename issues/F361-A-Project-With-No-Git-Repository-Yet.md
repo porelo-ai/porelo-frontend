@@ -31,6 +31,16 @@
 
 **An empty list's words.** "No repositories supplied." comes from `FilteredListSection`, which says "No <title> supplied." for every empty list. A list needs a way to say its own words; a project's *Repositories* says how to add one, and the word "supplied" is read for every list then.
 
+## The same for a machine with no address yet
+
+"Open the machine's page" on the Organization page lands under *My machines* on a page that is gone once the person leaves, since that list holds what this window reaches and no such machine is there. A machine with no address stands on the Organization page in the same way: "<machine> has no address yet."
+
+**What a person who has just named a machine presses: *Prepare a machine…*.** Its dialog asks for the name, and the run files the real address, port and SSH host key on the machine's card itself. A machine still to be rented has no address anyone could enter. Today that button stands on the head of the lists and not on the machine's page, while that page offers *Change address and key…*, the wrong one to press first.
+
+**So the row and the page show one step,** for its Machine Admin: *Prepare this machine…*, with the name filled in. Entering by hand stays as a quieter action for a machine already prepared elsewhere, and reads *Enter address and key…* while neither is there, with a dialog button to match; *Change address and key…* comes once there is something to change. Once it has an address, the row's menu says *Go to the machine*.
+
+"No projects on this machine supplied." is the same empty list's phrase as above, and says what comes first: a project goes on a machine once the machine is prepared.
+
 ## Acceptance
 
 - A project with no repository stands on the Organization page with the sentence, the button for its Project Admin and the waiting words for anyone else, and not under *My projects*. Seen to fail first.
@@ -38,10 +48,12 @@
 - The button cannot be pressed before the review choice is made.
 - Once it exists, the project appears under *My projects*, counted, and the row's menu says *Go to the project*.
 - No word on these pages says "open" for it.
+- A machine with no address shows its sentence and, for its Machine Admin, *Prepare this machine…* with its name filled in, on its Organization row and its page; no step needs a page that is gone on leaving.
+- *Change address and key…* is not offered while neither is there.
 
 ## To be checked
 
-- **The organization's answer as the window reads it says nothing of this.** `opened` comes only with one project's own `project show`, and a list of projects must not read each. Core is asked for a field on each project of `porelo org`, as the window cannot place the row without it.
+- **The window's list does not read it yet.** Each project of `porelo org --json` carries `opened`, read from the organization's tree with no call per project, and snapshot builds have it, 0.5.0 not. It says a filed address, not a repository on the forge, so a run that stopped between the two reads as not opened and is finished by asking again with the same id. `stale` at the top of the answer still applies.
 - *Needs you* is built from machines and this computer, and holds no row from the organization yet; a stale or unread organization must not say a repository is missing.
 - *Fill it from a checkout…* before the repository exists: what it answers, and that an Organization Admin who is not the Project Admin is offered it.
 - What renaming the command `porelo project open` touches, and whether adding and creating can be one step, are Core's to say.
