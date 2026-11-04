@@ -53,7 +53,13 @@ class CardHostConnections extends HostConnections {
   final Set<String> _waiting = <String>{};
 
   @override
-  bool waitsForToken(String host) => _waiting.contains(host) && !up(host);
+  bool waitsForToken(String host) => _waiting.contains(host) && connected(host) && !up(host);
+
+  /// What the machine now says of the token is what stands, whoever gave it and from where.
+  HostProgress _heard(String host, HostProgress progress) {
+    if (!progress.waitsForToken && _waiting.remove(host)) notifyListeners();
+    return progress;
+  }
 
   @override
   bool up(String host) {
@@ -79,6 +85,7 @@ class CardHostConnections extends HostConnections {
   Future<void> connect(String host) async {
     final card = await _card(host);
     final known = _machine(host);
+    _waiting.remove(card.name);
     // Connected already with what the organization names: nothing to do, whatever number of projects it carries.
     if (known?.hostCard == card && machines.tunnels.of(known!)?.state == TunnelState.up) return;
     if (known != null) {
@@ -97,7 +104,6 @@ class CardHostConnections extends HostConnections {
     );
     // A new host makes no account before it has a token, and a host admin gives it that as root: the connection's
     // files stay for that, and *Connect* is asked again after it.
-    _waiting.remove(card.name);
     if (!await machines.tunnels.raiseFor(machine)) {
       if (await _waitsForToken(machine, card.name)) {
         _waiting.add(card.name);
@@ -185,16 +191,17 @@ class CardHostConnections extends HostConnections {
   @override
   Future<void> disconnect(String host) async {
     final machine = _machine(host);
+    _waiting.remove(host);
     if (machine == null) return;
     await machines.disconnect(machine);
     notifyListeners();
   }
 
   @override
-  Future<HostProgress> refresh(String host) async => _progress.refresh(_config(host), host);
+  Future<HostProgress> refresh(String host) async => _heard(host, await _progress.refresh(_config(host), host));
 
   @override
-  Future<HostProgress> progress(String host) async => _progress.status(_config(host), host);
+  Future<HostProgress> progress(String host) async => _heard(host, await _progress.status(_config(host), host));
 
   @override
   Future<CentralState> central(String host, String project) async =>

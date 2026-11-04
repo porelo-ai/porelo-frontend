@@ -144,7 +144,8 @@ class _OrganizationMachineRowState extends State<OrganizationMachineRow> {
                   onPressed: widget.onOpen,
                   child: const Text('Give it your token…'),
                 ),
-              if (hasAccount && !connected && !waiting)
+              // Only the Machine Admin has another way on: anyone else connects again once it is given.
+              if (hasAccount && !connected && !(waiting && givesIt))
                 FilledButton(
                   key: ValueKey('organization.connect/${host.name}'),
                   onPressed: why != null || _connecting ? null : () => unawaited(_connect()),
@@ -622,7 +623,11 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
   Widget _connection(OrganizationView view, OrganizationHost host) {
     final connections = widget.connections;
     final connected = connections?.connected(host.name) ?? false;
-    final ready = connected && (connections?.up(host.name) ?? false) && !(_progress?.waitsForToken ?? false);
+    final isUp = connections?.up(host.name) ?? false;
+    final waits = (_progress?.waitsForToken ?? false) || (connections?.waitsForToken(host.name) ?? false);
+    final ready = connected && isUp && !waits;
+    // Kept here with its connection down: that is what Connect is for, as on the row.
+    final isDown = connected && !isUp && !waits;
     final why = _whyNotConnect(host, connections);
     final mine = [
       for (final project in view.projects)
@@ -646,8 +651,8 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
           key: ValueKey('organization.disconnect/$name'),
           onPressed: _acting ? null : () => unawaited(_act(() => connections!.disconnect(name))),
           child: const Text('Disconnect'),
-        )
-      else if (view.myHosts.contains(host))
+        ),
+      if ((!connected || isDown) && view.myHosts.contains(host))
         FilledButton(
           key: ValueKey('organization.connect/$name'),
           onPressed: _acting || why != null ? null : () => unawaited(_act(() => connections!.connect(name))),
@@ -663,6 +668,8 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
             key: const ValueKey('organization.connectionWords'),
             ready
                 ? 'Connected as ${view.me}.${mine.isEmpty ? '' : ' Ready to work on: ${mine.join(', ')}.'}'
+                : isDown
+                ? 'Not connected now: the connection to $name is down. Connect brings it back.'
                 : connected
                 ? 'Not connected yet. $name makes your account once it has read the organization, up to five minutes after '
                       'your project is on it, and only once its admin has given it the token.'

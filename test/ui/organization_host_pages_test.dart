@@ -128,6 +128,7 @@ void main() {
       await pressOrganizationAction(tester, 'connect/build');
       expect(find.textContaining('waits for its Machine Admin'), findsOneWidget);
       expect(find.byKey(const ValueKey('organization.toToken/build')), findsNothing);
+      expect(_action('connect/build'), findsOneWidget, reason: 'they connect again once it is given');
     });
 
     // Harm: a person with two projects on one host connects twice, and holds two connections to one account.
@@ -531,6 +532,15 @@ void main() {
       expect(find.byKey(const ValueKey('organization.tokenWhy')), findsNothing);
     });
 
+    // Harm: a connection that dropped reads as an account not made yet, and offers no way back.
+    testWidgets('a kept connection that is down says so, and offers Connect', (tester) async {
+      final connections = _DownConnections(['build']);
+      await page(tester, 'hana', connections: connections);
+      final said = tester.widget<Text>(find.byKey(const ValueKey('organization.connectionWords'))).data!;
+      expect(said, contains('is down'));
+      expect(_action('connect/build'), findsOneWidget);
+    });
+
     // Harm: the row says one thing and the page another, as in the foo test: "not connected yet" and "Connected".
     testWidgets('the page does not say Connected while its connection is not up', (tester) async {
       final connections = FixtureConnections(['build'])..waiting.add('build');
@@ -654,4 +664,11 @@ void main() {
       expect(find.text('acme has no machine gone.'), findsOneWidget);
     });
   });
+}
+
+class _DownConnections extends FixtureConnections {
+  _DownConnections(super.hosts);
+
+  @override
+  bool up(String host) => false;
 }

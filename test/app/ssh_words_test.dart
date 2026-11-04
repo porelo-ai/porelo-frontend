@@ -8,6 +8,8 @@ void main() {
       'Connection closed by 203.0.113.9 port 22',
       'kex_exchange_identification: read: Connection reset by peer',
       'Connection reset by 203.0.113.9 port 22',
+      'kex_exchange_identification: Connection closed by remote host',
+      'The SSH connection stopped: Connection closed by 203.0.113.9 port 22',
     ]) {
       expect(sshRefusalWords(said), contains('Wait a minute'), reason: said);
     }
@@ -16,5 +18,9 @@ void main() {
   test('other words stay ssh\'s own, and nothing stays nothing', () {
     expect(sshRefusalWords('Permission denied (publickey).'), 'Permission denied (publickey).');
     expect(sshRefusalWords(null), isNull);
+    const banner = 'kex_exchange_identification: banner line contains invalid characters';
+    expect(sshRefusalWords(banner), banner);
+    const negotiate = 'Unable to negotiate: no matching host key type. Connection closed by 203.0.113.9 port 22';
+    expect(sshRefusalWords(negotiate), negotiate);
   });
 }

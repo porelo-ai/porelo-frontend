@@ -244,6 +244,24 @@ void main() {
     expect(machines.tunnels.of(machines.all.singleWhere((each) => each.name == 'build'))?.state, TunnelState.up);
   });
 
+  // Harm: a machine still reads as waiting after its token was given or its connection let go, and the
+  // row then offers neither Connect nor anything that helps.
+  test('what a connect found waiting ends with the token, or with the connection', () async {
+    final made = await connections(_mia(host: _hostOfMia));
+    turnedAway = true;
+    hostSays = '{"organization": "waiting-for-token"}';
+    await made.connect('build');
+    expect(made.waitsForToken('build'), isTrue);
+    hostSays = '{}';
+    await made.progress('build');
+    expect(made.waitsForToken('build'), isFalse, reason: 'the machine says it no longer waits');
+    hostSays = '{"organization": "waiting-for-token"}';
+    await made.connect('build');
+    expect(made.waitsForToken('build'), isTrue);
+    await made.disconnect('build');
+    expect(made.waitsForToken('build'), isFalse);
+  });
+
   // Harm: a host admin of a host that follows, or a member, is told they are connected when the host turned them away.
   test('a host that turns one away and waits for nothing is a refusal, nothing kept', () async {
     final admin = await connections(_mia(host: _hostOfMia));
