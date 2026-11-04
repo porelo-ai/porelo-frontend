@@ -53,7 +53,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f287"></a>[F287](F287-A-Join-Confirmed-By-What-The-Host-Follows.md) | — | — | A first join confirmed by what the host follows, healthy hosts offered beside a refused commit, no credential kept or shown, an unconfirmed join undoing only its own. |
 | <a id="f223"></a>[F223](F223-A-Ready-Server-Runs-Its-Setup-Again.md) | S | — | A ready rented server offers Run its setup again, which runs `up` in the interface's own run, a stop in it completed from Needs you. |
 | <a id="f224"></a>[F224](F224-Porelo-Host-Says-Which-Server-Is-Rented-Now.md) | S | — | A read-only `porelo-host find` says which server carries the project's tag now, or that none does. |
 
@@ -85,9 +84,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f248"></a>[F248](F248-A-Bring-Replaces-Its-Own-Earlier-Upload.md) | S | — | A new bring or join try replaces the setup folder its own earlier try left; a foreign one is still refused. |
-| <a id="f252"></a>[F252](F252-A-Published-Access-Change-Reaches-The-Host.md) | S | — | A published developer access change is uploaded to the host before its sync. |
-| <a id="f259"></a>[F259](F259-A-Grant-To-Someone-Who-Already-Reads.md) | XS | — | A developer who already reads the access repository is not granted again. |
 | <a id="f264"></a>[F264](F264-A-Server-With-No-Project-Given-Back.md) | S | — | A server rented with no project given back; the VPN taken down only after the give-back was confirmed. |
 | <a id="f123"></a>[F123](F123-Where-A-Machine-And-A-Project-Stand-In-Their-Organisations-Tree.md) | — | — | Where a machine and a project stand in their organisation's tree, and which settings bind them. |
 | <a id="f166"></a>[F166](F166-A-Host-Rented-Through-OpenTofu.md) | M | — | `porelo-host up` and `down` renting and giving back through the OpenTofu module, its secrets only in `tofu`'s environment; `--given` kept. |
@@ -105,44 +101,31 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f317"></a>[F317](F317-A-Homeservers-Token-Reaches-The-Host.md) | — | — | A homeserver's registration token reaches a host in the run that opens its vault. |
 | <a id="f316"></a>[F316](F316-An-Owner-Accepts-A-Lost-Keys-New-Card.md) | — | — | An owner puts a person's new card in place of a lost key from their row under *People*. |
 | <a id="f308"></a>[F308](F308-The-Needs-You-Header-Counts-What-It-Lists.md) | — | — | The *Needs you* header, the rail's badge and the rows agree on what needs the person. |
-| <a id="f305"></a>[F305](F305-No-Join-For-A-Project-Already-On-The-Host.md) | — | — | No *Join* offered for a project already admitted and followed on its card host. |
 | <a id="f306"></a>[F306](F306-A-Work-Card-Whose-Terminal-Has-Ended.md) | — | — | A *Work* card whose terminal ended says so in words, without an empty black terminal bar. |
 | <a id="f307"></a>[F307](F307-Push-And-Pull-Show-Their-Progress-In-The-Interface.md) | — | — | Push and pull on a card host show each repository's answer in the interface, the terminal only for the master password. |
-| <a id="f301"></a>[F301](F301-Persons-Of-A-Project-In-One-Place.md) | L | — | One Persons section on a project page replacing the developers dialog: members with their own menus, a clear Add picker, no host step in a project edit. |
 | <a id="f304"></a>[F304](F304-No-Message-Asks-A-Step-The-Interface-Can-Take.md) | M | — | No message tells the person to do a step the interface can take itself; actions read what they need and say so. |
-| <a id="f297"></a>[F297](F297-Register-Progress-With-Its-Steps-And-Usual-Time.md) | M | — | Register's dialog shows which step of how many runs, with a progress bar and the usual time per step. |
 | <a id="f303"></a>[F303](F303-Menus-Beside-What-They-Act-On.md) | M | — | Each ⋮ menu placed with the row, section or title it acts on. |
 | <a id="f302"></a>[F302](F302-Refresh-Shows-What-It-Did.md) | S | — | Refresh shows that it runs and ends with what it read or what failed. |
 | <a id="f300"></a>[F300](F300-One-Project-One-Entry-Across-Machines.md) | M | — | One project read as one entry under Projects, with the machines it is on under it. |
-| <a id="f299"></a>[F299](F299-A-Registry-Row-With-The-Hosts-Confirmed-State.md) | S | — | A registry row says the revision its host confirmed, never "not confirmed" for an applied decision. |
-| <a id="f298"></a>[F298](F298-No-Null-In-A-Project-Row.md) | S | — | No "null" in a project row when its tunnel has nothing to say. |
 | <a id="f296"></a>[F296](F296-Card-Endpoints-Per-Login.md) | M | — | Card endpoints per login, so two instances of one account each hold a tunnel to one host; a master this person left ended on raise. |
 | <a id="f295"></a>[F295](F295-No-Ask-Line-Naming-The-Viewer.md) | S | — | No refusal ends with "Ask <name>" when the named person is the one at this interface. |
-| <a id="f294"></a>[F294](F294-A-Registry-Host-Listed-For-Its-Host-Admin.md) | M | — | A registry host listed under Machines for its host admin, with Admit and Bring, without a setup record here; the forge row counting Core's hosts. |
 | <a id="f293"></a>[F293](F293-Host-Deliveries-Hardened.md) | M | — | Host deliveries hardened: git in a clean environment, one ssh call to copy and place, bundles placed at once, sudo without the login shell, the registry held while sending. |
 | <a id="f292"></a>[F292](F292-A-Developer-Confirmed-By-The-Hosts-Registry-Status.md) | M | — | Add a developer confirmed by the host's registry status, and Lock and Let back in offered and confirmed the same way. |
 | <a id="f290"></a>[F290](F290-The-Host-Functions-From-A-Windows-Desktop.md) | M | — | Join, Prepare, Admit and Add from a Windows desktop: one ssh per host card with loopback TCP ends, the daemon through the relay, no master. |
-| <a id="f289"></a>[F289](F289-A-Key-Recovered-In-One-Run-With-Named-States.md) | L | — | A key replaced, or a backup key made or used, in one run at a time with named states, one hold owner and no background retry; replaces the recovery fix chain. |
 | <a id="f288"></a>[F288](F288-Small-Leftovers-Of-The-One-Click-Flow.md) | — | — | The small edge cases left over from the one-click flow gathered in one place for the operator to place: address forms, test gaps, texts. |
 | <a id="f284"></a>[F284](F284-The-Subagent-Number-Chosen-When-Starting.md) | — | — | How many subagents the agent may run at once, chosen when starting, with the number that applies and Core's refusal said before anything is made. |
 | <a id="f282"></a>[F282](F282-The-Providers-Usage-In-A-Status-Line.md) | — | — | A status line with one traffic light for the providers' usage, a popup per provider, and a *Needs you* warning past a set threshold. |
 | <a id="f233"></a>[F233](F233-The-Server-Type-And-Zone-Chosen-When-Renting.md) | — | — | The server type and zone chosen in *Prepare a server…*, stock shown before renting, the zone kept for down and give back. |
-| <a id="f234"></a>[F234](F234-No-Back-Once-The-Server-Is-Being-Prepared.md) | — | — | No *Back* in *Prepare a server…* once *Prepare the server* has started. |
-| <a id="f235"></a>[F235](F235-Leaving-The-Server-Wizard-While-Machines-Shows-It.md) | — | — | *Finish* usable in *Prepare a server…* once the server is being prepared, closing at once to *Machines*; *Leave* the same. |
 | <a id="f236"></a>[F236](F236-Root-Reached-On-A-Rented-Server.md) | — | — | Root allowed in the rental's cloud-config; a "Please login as" answer refused at once, naming the user. |
 | <a id="f238"></a>[F238](F238-A-Server-With-No-Project-Is-Not-Silent.md) | — | — | A server prepared with no project not raised as *Not answering*; its row says "No project yet". |
 | <a id="f240"></a>[F240](F240-The-Walk-Hand-Over-Carries-Porelo-Host.md) | — | — | The walk hand-over ships `porelo-host` and the start script points the interface at it; a missing local program said without the container sentence. |
-| <a id="f241"></a>[F241](F241-A-Project-Followed-From-A-Connected-Forge.md) | — | — | *Follow a project* from a connected forge: its repositories searchable, name and signers from `project.yml`, the kept token piped into the machine's vault. |
 | <a id="f242"></a>[F242](F242-A-File-Chooser-Beside-Every-Path-Field.md) | — | — | A *Choose…* button and the known default beside every path field of the wizards: bring, join, Developers and *Prepare a server…*. |
-| <a id="f267"></a>[F267](F267-A-Project-Taken-Off-From-Its-Own-Menu.md) | — | — | The project's own *Take this project off the server* for the host admin too. |
 | <a id="f239"></a>[F239](F239-Known-Values-Offered-In-The-Wizards.md) | — | — | Known values offered in the wizards: followed projects, admitted admins, the pinned signer, a laptop line from the copied keys with the next free address. |
-| <a id="f247"></a>[F247](F247-The-Bring-And-Join-Log-Copied-At-One-Click.md) | — | — | A *Copy* button beside the bring's and the join's last lines. |
 | <a id="f262"></a>[F262](F262-Lock-And-Purge-Say-What-They-Do.md) | — | — | *Lock* and *Purge* named by what they do, their dialogs saying the difference. |
 | <a id="f263"></a>[F263](F263-The-Give-Back-Confirmation-Says-What-Is-Lost.md) | — | — | *Take the server down?* shows the name and what is lost, no public values, a steady layout. |
 | <a id="f265"></a>[F265](F265-The-Server-Page-Shows-What-It-Holds.md) | — | [F266](README.md#f266) | A server's page shows its own state, its projects and its persons with their state; actions chosen from the rows. |
 | <a id="f266"></a>[F266](F266-The-Project-Screen-Shows-Its-Persons.md) | — | — | A project's screen shows its server and its persons with their state; actions chosen from the rows. |
 | <a id="f207"></a>[F207](F207-A-Tasks-Branch-At-The-Forge-Named-By-The-Projects-Scheme.md) | — | — | A task's branch at the forge from the project's scheme, shown, named at the start and approved to by default. |
-| <a id="f206"></a>[F206](F206-The-Host-Walk-Shows-Todays-Setup.md) | — | — | The guided walk of putting a project on a server with the secrets file, no drive, and the stop fed from the file. |
 | <a id="f205"></a>[F205](F205-The-Hosts-Setup-Commands-Run-By-Their-Paths.md) | — | — | Every command `porelo-host` runs on the host over ssh, and through `sudo` above all, named by its absolute path. |
 | <a id="f138"></a>[F138](F138-A-Host-On-Fedora-From-The-Same-Command.md) | — | — | `porelo-host` bringing a Fedora host up and down as it does Ubuntu 26.04. |
 | <a id="f146"></a>[F146](F146-The-Hosts-VM-Pool-Switched-On.md) | — | — | The host's pool of small test VMs switched on on `porelo_host` and in the host dialog, with its systems and accounts. |
@@ -161,11 +144,9 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f93"></a>[F93](F93-Connections-Rare-Actions-Out-Of-The-Way.md) | S | — | Connections' rare actions in its ⋮. |
 | <a id="f91"></a>[F91](F91-One-Way-To-Show-Loading.md) | M | — | Every view shows the same way that it is reading. |
 | <a id="f94"></a>[F94](F94-A-Projects-Keys-Told-In-One-Place.md) | M | — | A project's keys told in one place, the signing key checked against a branch rule. |
-| <a id="f96"></a>[F96](F96-Keys-A-Machine-No-Longer-Knows.md) | M | the test organisation and its token from the operator | Clearing a machine also removes the forge keys it no longer knows. |
 | <a id="f97"></a>[F97](F97-Forwarding-Measured-Against-GitHub.md) | M | the test organisation and its token from the operator | Forwarding to a chosen branch measured against GitHub. |
 | <a id="f105"></a>[F105](F105-A-Tasks-Terminal-In-The-Interface-As-Outside-It.md) | M | — | A task's terminal in the interface behaves as in a plain terminal. |
 | <a id="f59"></a>[F59](F59-A-Project-From-A-Repository-Measured-Against-GitHub.md) | S | the test organisation, its token and signing key from the operator | Making a project from a repository measured against GitHub. |
-| <a id="f84"></a>[F84](F84-A-Signing-Key-Found-Or-Made-From-The-Window.md) | M | — | A signing key chosen from a file or made from the window. |
 | <a id="f72"></a>[F72](F72-Forges-Beyond-GitHub.md) | L | the operator's evaluation licence for Bitbucket Data Center | Forges beyond GitHub: Bitbucket Data Center first, measured against a test installation of its own. |
 | <a id="f37"></a>[F37](F37-Reach-A-Machine-Without-An-ssh-Binary.md) | L | — | A machine reached without an `ssh` binary. |
 | <a id="f52"></a>[F52](F52-Release-A-Devices-Key-Only-With-A-Touch-Or-A-PIN.md) | XL | — | A device's key released only behind a TPM2 PIN; a touch later. |
@@ -329,3 +310,22 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f220"></a>F220 | A Message In Needs You Checks Again Whether It Still Holds | The recheck exists: a machine that does not answer is asked again every 2 s (`FleetModel`'s retry), and the VPN rows by the periodic refresh; no row was seen staying after its cause was gone. |
 | <a id="f139"></a>F139 | OneDrive As The Project's Drive | The host has no drive any more; a user's own drive is [F201](README.md#f201), where OneDrive may come later as an idea of its own. |
 | <a id="f150"></a>F150 | The Person's Tunnel Brought Up From The Interface | Merged into [F157](README.md#f157), which brings the VPN up and down from the interface. |
+| <a id="f84"></a>F84 | A Signing Key Found Or Made From The Window | Replaced by the person's one key, made and kept in KeePassXC: no signing key is chosen from a file. |
+| <a id="f96"></a>F96 | Keys A Machine No Longer Knows, Found By Their Title | Replaced by per-person cards: the interface makes and removes no deploy key at the forge, and clearing a machine only asks its daemon. |
+| <a id="f206"></a>F206 | The Host Walk Shows Today's Setup | Replaced by walks kept outside this repository: no walk or stand-in is kept here. |
+| <a id="f234"></a>F234 | No Back Once The Server Is Being Prepared | Replaced by `HostDialog`, which has no *Back* once a run stands. |
+| <a id="f235"></a>F235 | Leaving The Server Wizard While Machines Shows It | Replaced by `HostDialog`, which closes at once while the run goes on and *Machines* shows it. |
+| <a id="f241"></a>F241 | A Project Followed From A Connected Forge | Replaced by the organization's pages: a project comes to a machine from the organization, and *Follow a project* is gone. |
+| <a id="f247"></a>F247 | The Bring And Join Log Copied At One Click | Replaced by the rebuilt flow: the bring and join dialogs are gone, and a machine's protocol can be selected. |
+| <a id="f248"></a>F248 | A Bring Replaces Its Own Earlier Upload | Replaced by the machine file root alone keeps: the upload per bring or join and its setup folder are gone. |
+| <a id="f252"></a>F252 | A Published Access Change Reaches The Host | Replaced by hosts following the organization: a member change is committed there, with no bundle to upload. |
+| <a id="f259"></a>F259 | A Grant To Someone Who Already Reads | Replaced by the organization's pages: no dialog grants read access any more, and nothing calls `grantRead`. |
+| <a id="f267"></a>F267 | A Project Taken Off From Its Own Menu | Replaced by *Take it off the machine…* on the project's row for that machine's admins. |
+| <a id="f287"></a>F287 | A Join Confirmed By What The Host Follows | Replaced by *Connect* per machine: a project is no longer joined. |
+| <a id="f289"></a>F289 | A Key Recovered In One Run With Named States | Replaced by Core's `porelo identity revoke --lost` and its backup-key flows, behind `ReplaceLostKeyDialog`. |
+| <a id="f294"></a>F294 | A Registry Host Listed For Its Host Admin | Replaced by the organization's list, where every machine stands for its admin ([F335](README.md#f335)). |
+| <a id="f297"></a>F297 | Register's Progress With Its Steps And Usual Time | Replaced by a machine's preparation with its own steps: *Register the project* and its signed host action are gone. |
+| <a id="f298"></a>F298 | No "null" In A Project Row | Done: a project row adds nothing where its tunnel has nothing to say. |
+| <a id="f299"></a>F299 | A Registry Row With The Host's Confirmed State | Replaced by the organization's pages: the registry rows and their confirmed state are gone. |
+| <a id="f301"></a>F301 | Persons Of A Project In One Place | Done on the organization's project page: its members stand in one section with *Add*. |
+| <a id="f305"></a>F305 | No Join For A Project Already On The Host | Replaced by *Connect* and *Disconnect* per machine: a project offers no *Join*. |
