@@ -346,6 +346,10 @@ void main() {
 /// Whether [pid] runs. A dead one whose parent died first stays a zombie where nothing reaps as init does, as in a
 /// forge's job container, and a zombie still takes a signal.
 bool _stillRuns(int pid) {
-  final status = File('/proc/$pid/status');
-  return status.existsSync() && !status.readAsStringSync().contains(RegExp(r'^State:\s+Z', multiLine: true));
+  // Read at once, not looked for first: it may end between the two.
+  try {
+    return !File('/proc/$pid/status').readAsStringSync().contains(RegExp(r'^State:\s+Z', multiLine: true));
+  } on FileSystemException {
+    return false;
+  }
 }
