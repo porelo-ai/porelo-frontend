@@ -767,6 +767,72 @@ class Screen {
   final bool live;
 }
 
+/// [key]'s object in [map], empty where it is none: a field read as absent, never a throw.
+Map<String, dynamic> _object(Map<String, dynamic> map, String key) =>
+    map[key] is Map ? (map[key] as Map).cast<String, dynamic>() : const <String, dynamic>{};
+
+/// What a task used, as far as its agent's requests reported it.
+class Usage {
+  /// Constructor taking every field.
+  const Usage({required this.state, required this.totals});
+
+  /// Reads one from a reply, its groups left out: only the totals are shown here.
+  factory Usage.from(Map<String, dynamic> map) =>
+      Usage(state: _string(map, 'state'), totals: UsageTotals.from(_object(map, 'totals')));
+
+  /// `available`, `absent` or `unreadable`.
+  final String state;
+
+  /// The whole task's counts.
+  final UsageTotals totals;
+
+  /// Every token reported, or null where the machine has no record to read.
+  int? get tokens => state == 'available' ? totals.tokens : null;
+
+  /// Whether some requests reported no count, so [tokens] is a lower bound.
+  bool get partly => totals.partly;
+}
+
+/// One group's reported counts, each kind of token apart.
+class UsageTotals {
+  /// Constructor taking the counts.
+  const UsageTotals(this.counts);
+
+  /// Reads one from a reply.
+  factory UsageTotals.from(Map<String, dynamic> map) => UsageTotals(<UsageCount>[
+    for (final kind in const <String>['input', 'cacheRead', 'cacheWrite', 'output', 'reasoning'])
+      UsageCount.from(_object(map, kind)),
+  ]);
+
+  /// Input, cache read, cache write, output and reasoning.
+  final List<UsageCount> counts;
+
+  /// The sum of what was reported, or null where no count was.
+  int? get tokens {
+    final reported = <int>[for (final count in counts) ?count.tokens];
+    return reported.isEmpty ? null : reported.reduce((a, b) => a + b);
+  }
+
+  /// Whether requests went unreported for any kind of token.
+  bool get partly => counts.any((count) => count.missing > 0);
+}
+
+/// One kind of token: how many were reported, and by how many requests they were not.
+class UsageCount {
+  /// Constructor taking both.
+  const UsageCount({required this.tokens, required this.missing});
+
+  /// Reads one from a reply.
+  factory UsageCount.from(Map<String, dynamic> map) =>
+      UsageCount(tokens: map['tokens'] is int ? map['tokens'] as int : null, missing: _int(map, 'missing'));
+
+  /// The tokens reported, or null where none was.
+  final int? tokens;
+
+  /// The requests that reported no value.
+  final int missing;
+}
+
 /// How a task's agent ended, as its adapter read its last event.
 class AgentEnded {
   /// Constructor taking every field.

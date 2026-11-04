@@ -794,6 +794,12 @@ class PoreloClient {
   Future<Screen> screen(String task, {required int last, bool escapes = false}) async =>
       Screen.from(await _call('Screen', {'task': task, 'last': last, if (escapes) 'escapes': true}));
 
+  /// What [task] used, as far as its agent's requests reported it, without network access.
+  Future<Usage> usage(String task) async {
+    final reply = await _call('Usage', {'task': task});
+    return Usage.from(reply['usage'] is Map ? (reply['usage'] as Map).cast<String, dynamic>() : const {});
+  }
+
   // --------------------------------------------------------------------- the gate
 
   /// What is waiting at a project's gate.

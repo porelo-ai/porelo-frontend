@@ -48,6 +48,38 @@ void main() {
     );
   });
 
+  // The harm: the page would say fewer tokens than the task used, or a number for a task with no record.
+  test('what a task used is summed over its kinds, and an empty record says no number', () async {
+    Map<String, dynamic> used(String state) => <String, dynamic>{
+      'usage': <String, dynamic>{
+        'state': state,
+        'totals': <String, dynamic>{
+          'requests': 3,
+          'input': <String, dynamic>{'tokens': 100, 'missing': 0},
+          'cacheRead': <String, dynamic>{'tokens': 20, 'missing': 0},
+          'cacheWrite': <String, dynamic>{'missing': 3},
+          'output': <String, dynamic>{'tokens': 3, 'missing': 0},
+          'reasoning': <String, dynamic>{'missing': 0},
+        },
+        'models': <Object>[],
+        'agents': <Object>[],
+        'days': <Object>[],
+        'hours': <Object>[],
+      },
+    };
+    daemon.method('Usage', (parameters) => used(parameters['task'] == 'gone' ? 'absent' : 'available'));
+    final client = await connect();
+    final usage = await client.usage('here');
+    expect(usage.tokens, 123);
+    expect(usage.partly, isTrue, reason: 'three requests reported no cache write');
+    expect((await client.usage('gone')).tokens, isNull);
+  });
+
+  // The harm: an older machine's refusal of an unknown method would break the row it was read for.
+  test('a machine without Usage answers as a feature it does not have', () async {
+    await expectLater((await connect()).usage('here'), throwsA(isA<FeatureNotSupported>()));
+  });
+
   group('talking to a backend', () {
     test('a task name is asked about with readiness, and a bad one comes back as such', () async {
       Map<String, dynamic>? asked;

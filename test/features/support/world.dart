@@ -2461,6 +2461,20 @@ diff --git a/lib/money.dart b/lib/money.dart
     return shown;
   }
 
+  /// What each task used, by task; none where the machine has no `Usage`.
+  final Map<String, Usage> usages = <String, Usage>{};
+
+  /// How many times a task's usage was asked for, by task.
+  final Map<String, int> usageAsked = <String, int>{};
+
+  @override
+  Future<Usage> usage(String task) async {
+    usageAsked[task] = (usageAsked[task] ?? 0) + 1;
+    final used = usages[task];
+    if (used == null) throw const FeatureNotSupported('Usage');
+    return used;
+  }
+
   /// Every tail asked for, with how much of its end and whether formatted.
   final List<({String task, String log, int? last, bool formatted})> tailsAsked =
       <({String task, String log, int? last, bool formatted})>[];

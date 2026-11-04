@@ -557,6 +557,9 @@ abstract class FleetBackend {
 
   /// What [task]'s terminal session shows now; [FeatureNotSupported] from a Porelo without `Screen`.
   Future<Screen> screen(String task, {required int last, bool escapes = false});
+
+  /// What [task] used so far; [FeatureNotSupported] from a Porelo without `Usage`.
+  Future<Usage> usage(String task);
 }
 
 /// A real Porelo daemon, local or forwarded.
@@ -1038,6 +1041,9 @@ class PoreloBackend implements FleetBackend {
   @override
   Future<Screen> screen(String task, {required int last, bool escapes = false}) =>
       _opened().screen(task, last: last, escapes: escapes);
+
+  @override
+  Future<Usage> usage(String task) => _opened().usage(task);
 
   /// Which of `last` and `formatted` this machine's `Tail` takes, read off its contract once.
   Future<Set<String>> _whatTailTakes() async {

@@ -221,6 +221,9 @@ class _Wedged implements FleetBackend {
       throw const FeatureNotSupported('Screen');
 
   @override
+  Future<Usage> usage(String task) async => throw const FeatureNotSupported('Usage');
+
+  @override
   Stream<List<String>> tailLog(String task, String log, {int? last, bool formatted = false}) =>
       const Stream<List<String>>.empty();
   @override
@@ -582,6 +585,9 @@ class _Machine implements FleetBackend {
   @override
   Future<Screen> screen(String task, {required int last, bool escapes = false}) async =>
       throw const FeatureNotSupported('Screen');
+
+  @override
+  Future<Usage> usage(String task) async => throw const FeatureNotSupported('Usage');
 
   @override
   Stream<List<String>> tailLog(String task, String log, {int? last, bool formatted = false}) =>
