@@ -1,6 +1,6 @@
 # F364 — Repositories Added Before A Machine
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** S - the add dialog names `central` always, and a row with none says so.
 
 **What must be true.** A person's natural order is repositories first and a machine later, and that order works. In the foo test, `foo-1` and `foo-2` were added in the window before any machine carried the project.
@@ -16,6 +16,11 @@
 - **Adding always names `central`.** With no machine yet it is the address typed, in both `upstream` and `central`; on a machine it stays as today. A row with a `central` needs no refiling when it comes to a machine, so no port has to be known and the order stops mattering.
 - **A row that has none says so,** on the project's page, with one way to mend it. Rows filed by an earlier build stay until mended.
 - **Mending a row needs no remove and add.** `ProjectFile` can write a row's fields, and whether a command offers that is to be read.
+
+## Plan
+
+1. *Add a repository* names `central` always: the address typed where no local address is known.
+2. A row with none says so on the project's page, once `project show` gives a row's `central`, which the window cannot read today.
 
 ## Acceptance
 

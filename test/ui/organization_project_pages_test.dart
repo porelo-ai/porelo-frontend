@@ -463,6 +463,31 @@ void main() {
       expect(find.textContaining('does not name'), findsNothing);
     });
 
+    // Harm: repositories added before a machine are taken by no host, with no refusal: the foo test's order.
+    testWidgets('on a project on no machine, the address is its central too', (tester) async {
+      final fixture = FixtureOrganization(
+        organizationFor(
+          'pat',
+          host: const OrganizationHost(name: 'build', admins: ['pat'], projects: ['demo']),
+        ),
+      )..projects = {'demo': demoProject};
+      final organization = Organization(fixture);
+      addTearDown(organization.dispose);
+      await organization.refresh();
+      await _settle(tester, OrganizationProjectPage(organization: organization, project: 'demo', onBack: () {}));
+      await pressOrganizationAction(tester, 'addRepository');
+      await tester.enterText(find.byKey(const Key('organization-repository-name')), 'site');
+      await tester.enterText(
+        find.byKey(const Key('organization-repository-address')),
+        'git@forge.example.org:acme/s.git',
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('organization-confirm')));
+      await tester.pumpAndSettle();
+      expect(fixture.writes.single.input['address'], 'git@forge.example.org:acme/s.git');
+      expect(fixture.writes.single.input['central'], 'git@forge.example.org:acme/s.git');
+    });
+
     // Harm: a new repository could lose its required review policy when its signed write is assembled.
     testWidgets('adding a repository names it and its address', (tester) async {
       final fixture = await _page(tester, 'pat');

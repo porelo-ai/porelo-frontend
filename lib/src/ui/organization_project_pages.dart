@@ -904,7 +904,8 @@ class _AddRepositoryDialogState extends State<_AddRepositoryDialog> {
               // On a machine a task reads the machine's own forge; the address given is where the machine takes it from.
               ...switch (widget.organization.view?.localAddress(widget.view.name, _address.text.trim())) {
                 final local? => {'address': local, 'central': _address.text.trim()},
-                null => {'address': _address.text.trim()},
+                // With no machine yet what was typed is both, so the row needs no refiling when one comes.
+                null => {'address': _address.text.trim(), 'central': _address.text.trim()},
               },
               'review': _requireReview ? 'required' : 'optional',
             },
