@@ -418,6 +418,17 @@ class HostRuns extends ChangeNotifier {
     say?.call(words);
   }
 
+  /// Lets go of a run that stopped before changing the machine, so that it can be set up again with other
+  /// answers: its saved answers would only be refused the same way.
+  Future<void> startOver(HostPreparation run) async {
+    if (run.running) return;
+    await run.saved;
+    run._poll?.cancel();
+    _runs.remove(run.project);
+    await machines.settings.forgetHostUp(run.project);
+    _changed();
+  }
+
   /// Removes recovery only after the provider confirmed give-back and the command succeeded.
   Future<String?> confirmDown(String project, HostSession session) async {
     if (!hostGivenBack(session)) return null;

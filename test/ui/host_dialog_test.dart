@@ -27,6 +27,16 @@ Future<Ran> _noKeyScan(
   String? input,
 }) async => (code: 70, out: '', err: '');
 
+Future<void> _chooseMachine(WidgetTester tester, String name) async {
+  final field = find.byKey(const Key('preparation-machine-name'));
+  await tester.ensureVisible(field);
+  await World.settle(tester);
+  await tester.tap(field);
+  await World.settle(tester);
+  await tester.tap(find.text(name).last);
+  await World.settle(tester);
+}
+
 void main() {
   // Harm: a fetched key is used without comparison, or a late scan replaces the key the person pasted.
   testWidgets('preparation requires comparison of a fetched key and invalidates it when the address changes', (
@@ -86,7 +96,7 @@ void main() {
       return found.evaluate().isEmpty ? null : tester.widget<Text>(found).data;
     }
 
-    await type('Machine name', 'orchard');
+    await _chooseMachine(tester, 'orchard');
     await tester.pump();
     expect(waits(), contains('host key'));
     await type('Server address', '192.0.2.7');
@@ -188,7 +198,7 @@ void main() {
       isNull,
       reason: 'the earlier permission must not enable preparation during a fresh read',
     );
-    expect(find.textContaining('Before setup, run this'), findsNothing);
+    expect(find.textContaining('Before setup'), findsNothing);
     proof.next = null;
     proof.hold!.complete();
     proof.hold = null;
@@ -258,7 +268,8 @@ void main() {
       await tester.tap(find.text('Open preparation'));
       await World.settle(tester);
       // The key first: an address typed with no key behind it goes to fetch one from the network.
-      for (final value in [(0, name), (2, hostKey), (1, '203.0.113.7')]) {
+      await _chooseMachine(tester, name);
+      for (final value in [(1, hostKey), (0, '203.0.113.7')]) {
         final field = find.descendant(of: find.byType(HostDialog), matching: find.byType(TextField)).at(value.$1);
         await tester.ensureVisible(field);
         await World.settle(tester);
@@ -652,7 +663,7 @@ void main() {
       await tester.enterText(field, value);
     }
 
-    await type('Machine name', 'orchard');
+    await _chooseMachine(tester, 'orchard');
     await type('Server address', '203.0.113.7');
     await type('SSH host key', hostKey);
     await World.settle(tester);
@@ -689,6 +700,148 @@ void main() {
     expect(command, findsNothing, reason: 'the new try is under way');
     processes.last.end(1);
     await World.settle(tester);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  // Harm: the key filed is an installer's that has gone, and `up` stops at its first ssh line with ssh's words.
+  testWidgets('a key changed since it was compared starts nothing and says why, and the way to compare is named', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final settings = Settings(MemorySettingsStore());
+    final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: RecordingTunnels());
+    final runs = HostRuns(machines, hostAccess: await HostFixture().access(settings));
+    addTearDown(() {
+      runs.dispose();
+      machines.dispose();
+      settings.dispose();
+    });
+    const other = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+    var serves = hostKey;
+    var starts = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HostDialog(
+          project: '',
+          machines: machines,
+          settings: settings,
+          hostRuns: runs,
+          start: (_, _) async {
+            starts++;
+            return HostProcess();
+          },
+          runKeyCommand: (_, arguments, {inDirectory, environment = const {}, input}) async {
+            if (arguments.first == '-T') return (code: 0, out: '192.0.2.7 $serves\n', err: '');
+            return (code: 0, out: '256 SHA256:${List.filled(43, 'A').join()} no comment (ED25519)\n', err: '');
+          },
+        ),
+      ),
+    );
+    await World.settle(tester);
+    await _chooseMachine(tester, 'orchard');
+    final address = find.widgetWithText(TextField, 'Server address');
+    await tester.ensureVisible(address);
+    await tester.enterText(address, '192.0.2.7');
+    await tester.pump(const Duration(milliseconds: 501));
+    await World.settle(tester);
+    expect(
+      tester.widget<SelectableText>(find.byKey(const Key('preparation-compare-command'))).data,
+      contains('ssh-keygen -lf'),
+    );
+    final confirmed = find.byKey(const Key('preparation-host-key-confirmed'));
+    await tester.ensureVisible(confirmed);
+    await tester.tap(confirmed);
+    await World.settle(tester);
+    serves = other;
+    await tester.ensureVisible(find.text('Prepare the machine'));
+    await tester.tap(find.text('Prepare the machine'));
+    await World.settle(tester);
+    expect(starts, 0);
+    expect(runs.of('orchard'), isNull);
+    expect(find.textContaining('host key changed since it was fetched'), findsOneWidget);
+    expect(
+      tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Prepare the machine')).onPressed,
+      isNull,
+      reason: 'it must be compared again',
+    );
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  // Harm: a refused key's run can only be tried again with the same wrong key, or refused by name.
+  testWidgets('a run stopped for its key can be given another', (tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final settings = Settings(MemorySettingsStore());
+    final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: RecordingTunnels());
+    final runs = HostRuns(machines, hostAccess: await HostFixture().access(settings));
+    addTearDown(() {
+      runs.dispose();
+      machines.dispose();
+      settings.dispose();
+    });
+    final process = HostProcess();
+    final session = HostSession(executable: 'fake', arguments: const [], start: (_, _) async => process);
+    final run = runs.start(project: 'orchard', record: signedSetup, session: session);
+    process.line(
+      const host.Step('ssh', host.StepState.refused, fix: '${host.hostKeyNotFiled}, so nothing was changed on it.'),
+    );
+    process.end(65);
+    await run.finished;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HostDialog(
+          runKeyCommand: _noKeyScan,
+          project: 'orchard',
+          machines: machines,
+          settings: settings,
+          hostRuns: runs,
+          existingRun: run,
+        ),
+      ),
+    );
+    await World.settle(tester);
+    expect(find.text('Prepare the machine again'), findsNothing, reason: 'it would be refused the same way');
+    await tester.tap(find.byKey(const Key('preparation-another-key')));
+    await World.settle(tester);
+    expect(runs.of('orchard'), isNull);
+    expect(settings.hostUp('orchard'), isNull);
+    expect(find.widgetWithText(TextField, 'SSH host key'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  // Harm: a person with no machine meets a form that can only refuse them.
+  testWidgets('with no machine to choose it says who adds one', (tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final settings = Settings(MemorySettingsStore());
+    final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: RecordingTunnels());
+    final fixture = HostFixture()
+      ..organizationAdmin = true
+      ..admin = false;
+    final runs = HostRuns(machines, hostAccess: await fixture.access(settings));
+    addTearDown(() {
+      runs.dispose();
+      machines.dispose();
+      settings.dispose();
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HostDialog(
+          runKeyCommand: _noKeyScan,
+          project: '',
+          machines: machines,
+          settings: settings,
+          hostRuns: runs,
+        ),
+      ),
+    );
+    await World.settle(tester);
+    expect(find.byKey(const Key('preparation-no-machine')), findsOneWidget);
+    expect(find.byKey(const Key('preparation-machine-name')), findsNothing);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
@@ -771,7 +924,7 @@ void main() {
           await tester.enterText(field, value);
         }
 
-        await type('Machine name', 'orchard');
+        await _chooseMachine(tester, 'orchard');
         await type('Server address', address);
         await type('SSH host key', hostKey);
         await tester.ensureVisible(find.text('More settings'));
@@ -868,11 +1021,8 @@ void main() {
           ),
         ),
       );
-      for (final field in {
-        'Machine name': 'orchard',
-        'Server address': '203.0.113.7',
-        'SSH host key': hostKey,
-      }.entries) {
+      await _chooseMachine(tester, 'orchard');
+      for (final field in {'Server address': '203.0.113.7', 'SSH host key': hostKey}.entries) {
         final finder = find.widgetWithText(TextField, field.key);
         await tester.ensureVisible(finder);
         await World.settle(tester);
@@ -924,7 +1074,8 @@ void main() {
         ),
       ),
     );
-    for (final field in {'Machine name': 'orchard', 'Server address': '203.0.113.7', 'SSH host key': hostKey}.entries) {
+    await _chooseMachine(tester, 'orchard');
+    for (final field in {'Server address': '203.0.113.7', 'SSH host key': hostKey}.entries) {
       final finder = find.widgetWithText(TextField, field.key);
       await tester.ensureVisible(finder);
       await World.settle(tester);
@@ -964,10 +1115,9 @@ void main() {
     await World.settle(tester);
     Finder field(String label) => find.widgetWithText(TextField, label);
     final before = tester.getTopLeft(field('Server address'));
-    await tester.enterText(field('Machine name'), 'someone-elses');
-    await World.settle(tester);
+    await _chooseMachine(tester, 'orchard');
     expect(tester.getTopLeft(field('Server address')), before);
-    final hint = tester.getBottomLeft(find.text('One lower-case server name, such as orchard.'));
+    final hint = tester.getBottomLeft(find.textContaining('A machine the organization lists'));
     expect(before.dy - hint.dy, greaterThanOrEqualTo(8), reason: 'a floating label stands 8 above its field');
   });
 
@@ -1038,15 +1188,14 @@ void main() {
     await World.settle(tester);
     FilledButton prepare() => tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Prepare the machine'));
     expect(prepare().onPressed, isNull);
-    expect(find.textContaining('Name the machine first'), findsOneWidget);
-    final name = find.widgetWithText(TextField, 'Machine name');
-    await tester.enterText(name, 'pear');
+    expect(find.textContaining('Choose the machine first'), findsOneWidget);
+    expect(find.textContaining('Before setup'), findsNothing);
+    await tester.tap(find.byKey(const Key('preparation-machine-name')));
     await World.settle(tester);
-    expect(prepare().onPressed, isNull);
-    expect(find.textContaining('Before setup, run this'), findsNothing);
-    await tester.enterText(name, 'orchard');
+    expect(find.text('demo'), findsNothing, reason: 'alice is no Machine Admin of it, so it cannot be chosen');
+    await tester.tap(find.text('orchard').last);
     await World.settle(tester);
-    expect(find.textContaining('Before setup, run this'), findsOneWidget);
+    expect(find.textContaining('Before setup'), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
@@ -1083,17 +1232,21 @@ void main() {
         ),
       ),
     );
-    for (final field in {'Machine name': 'orchard', 'Server address': '203.0.113.7', 'SSH host key': hostKey}.entries) {
+    await World.settle(tester);
+    expect(find.textContaining('Before setup'), findsNothing, reason: 'the read has not ended');
+    expect(find.text('orchard'), findsNothing, reason: 'nor is a machine offered before it has');
+    proof.hold!.complete();
+    proof.hold = null;
+    await World.settle(tester);
+    await _chooseMachine(tester, 'orchard');
+    for (final field in {'Server address': '203.0.113.7', 'SSH host key': hostKey}.entries) {
       final finder = find.widgetWithText(TextField, field.key);
       await tester.ensureVisible(finder);
       await World.settle(tester);
       await tester.enterText(finder, field.value);
     }
-    expect(find.textContaining('Before setup, run this'), findsNothing, reason: 'the read has not ended');
-    proof.hold!.complete();
-    proof.hold = null;
     await World.settle(tester);
-    expect(find.textContaining('Before setup, run this'), findsOneWidget);
+    expect(find.textContaining('Before setup'), findsOneWidget);
     final button = tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Prepare the machine'));
     proof.next = null;
     button.onPressed!();

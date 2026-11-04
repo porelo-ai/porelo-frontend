@@ -162,6 +162,17 @@ class HostAccess extends ChangeNotifier {
     return view.isOrganizationAdmin || view.hosts.any((each) => each.admins.contains(view.me));
   }
 
+  /// The listed machines this person is a Machine Admin of, so may prepare.
+  List<String> get hostsToPrepare {
+    final view = _view;
+    final actor = identity();
+    if (view == null || actor == null) return const [];
+    return [
+      for (final host in view.hosts)
+        if (host.admins.contains(actor.login)) host.name,
+    ]..sort();
+  }
+
   /// Why preparing [host], or any host, is unavailable now, naming whom to ask; null when it is available.
   String? unavailable([String? host]) {
     if (_whyNoView case final why?) return why;

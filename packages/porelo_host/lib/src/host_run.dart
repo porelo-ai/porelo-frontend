@@ -230,6 +230,9 @@ class HostMembership {
 }
 
 /// What a machine whose root is closed by its cloud image is told: the command is the dialog's to show.
+/// How a refused host key begins, so a window can offer to enter another.
+const hostKeyNotFiled = 'The machine holds another SSH host key than the one filed';
+
 const rootStillClosed = 'root is still closed: run the command above.';
 
 /// `up` and `down`, in their order.
@@ -743,6 +746,19 @@ done''',
         DateTime.now().isBefore(sshUntil)) {
       await Future<void>.delayed(sshEvery);
       reached = await login();
+    }
+    if (_keyRefused(reached)) {
+      _write(
+        Step(
+          'ssh',
+          StepState.refused,
+          fix:
+              '$hostKeyNotFiled, so nothing was changed on it. An install changes the key, so one fetched '
+              'before it finished is not the key it holds now. Enter the key again and compare it on the machine.',
+          words: [reached.stderr, answered.toString()].where((part) => part.isNotEmpty).join('\n'),
+        ),
+      );
+      return null;
     }
     if (reached.exitCode == 255) {
       _unreachable('ssh', [reached.stderr, answered.toString()].where((part) => part.isNotEmpty).join('\n'));

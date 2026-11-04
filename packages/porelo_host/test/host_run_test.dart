@@ -662,6 +662,16 @@ void main() {
     expect(setup.calls, 0);
     expect(provider.released, isEmpty);
   });
+
+  // Harm: a person reads ssh's own line, with nothing saying that an install changes the key or what next.
+  test('a refused key says what happened and what to do, with ssh\'s line below', () async {
+    final run = runner(preparation: _Preparation(), transport: _WrongKey());
+    await run.up(plan);
+    final said = steps.lastWhere((step) => step.state == StepState.refused);
+    expect(said.fix, startsWith(hostKeyNotFiled));
+    expect(said.fix, contains('nothing was changed'));
+    expect(said.words, contains('Host key verification failed'));
+  });
 }
 
 Map<String, Object?> membership(
