@@ -13,12 +13,9 @@ GitHub itself, not only against stand-ins.
 in words. `ProjectWorkspace` in `lib/src/app/project_workspace.dart` can commit and push signed
 changes; `Gate.approve` in `lib/src/app/gate.dart` forwards approved work.
 
-The deploy-key deletion promise is not met: `MachineClearing.clearIt` in
-`lib/src/app/machine_clearing.dart` only clears through the daemon, `MachineBinding` in
-`lib/src/app/machine_binding.dart` has no unbinding operation, and `Forge` in `lib/src/app/forge.dart`
-has no deploy-key operations. `test/ui/forge_credentials_test.dart` expects clearing to leave
-deploy keys at the forge. Whether that promise stands is a question for the operator, since it concerns access
-left at the forge.
+The promise on a host's read-only keys is not met: `Forge` in `lib/src/app/forge.dart` has no deploy-key operations,
+and taking a project off and `down` remove nothing at the forge. `test/ui/forge_credentials_test.dart` expects
+clearing a machine to leave deploy keys at the forge. The host's side of this is Agent Machines'.
 
 `project.yml` comes from *Fill it from a checkout…* ([F350](README.md#f350)), under *Organization*.
 
@@ -36,8 +33,9 @@ the token nor the repositories are ever kept in this repository or the channel.
 - **No new code is planned:** each criterion is measured on the VM against Porelo's handover, with
   the interface built from this repository and the operator's token and test repositories. A step
   that fails becomes a fix with its test first.
-- **Deploy keys:** a machine cleared with `MachineClearing` (`lib/src/app/machine_clearing.dart`) and
-  one unbound from the project; then the keys are listed at GitHub, by its own page and API.
+- **A host's read-only keys:** taking a project off and `down` delete them at the central forge, with the forge's token
+  asked once and kept nowhere. Where that is impossible, they are named with a link to where they are removed by
+  hand. Then the keys are listed at GitHub, by its own page and API.
 - **A verified commit:** `project.yml` signed into a project by *Fill it from a checkout…*
   ([F350](README.md#f350)), then GitHub's commit page read for "Verified".
 - **Branch protection:** a rule set on the test repository's branch; a push through
@@ -54,8 +52,9 @@ the token nor the repositories are ever kept in this repository or the channel.
 
 ## Acceptance
 
-- **Removing a machine, or unbinding it, deletes its deploy keys at GitHub.** Seen to fail: the
-  repository's deploy keys listed at GitHub after the removal still hold the machine's key.
+- **Taking a project off a host, and `down`, delete the host's read-only keys at the central forge,** the token asked
+  once and kept nowhere; where that is impossible, the keys are named with a link. Seen to fail: the repository's
+  deploy keys listed at GitHub afterwards still hold the host's key, and nothing named it.
 - **A `project.yml` signed into a project is shown as verified by GitHub**, signed with the person's
   ssh key. Seen to fail: GitHub's commit page shows it unverified.
 - **A push that branch protection refuses** is said in GitHub's words. Seen to fail: a push to a

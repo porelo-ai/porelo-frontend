@@ -9,21 +9,21 @@ and which settings bind them, before a start fails on one.
 
 Porelo is to let an organisation pass settings down to its teams and projects, and make some of them
 binding: a lock is `fixed`, or `narrow-only`, where a value below may only get stricter. A machine
-follows one organisation file, pinned by its administrator; a project's settings come from its one
-path through the tree, organisation, team, sub-team and its own `project.yml`. A project that breaks
+follows the organization's signed tree, with teams, settings and locks as new paths in it; a project's
+settings come from its one path through that tree, organisation, team, sub-team and its own `project.yml`. A project that breaks
 a lock starts no task. Without this a person learns of a binding setting only from a refused start.
 
 The interface reads the organization through `porelo org --json` in
-`PoreloOrganizationSource.read` (`lib/src/app/porelo_organization_source.dart`), rather than from a
-machine-followed pinned organization file.
+`PoreloOrganizationSource.read` (`lib/src/app/porelo_organization_source.dart`). No root-owned pinned file and no
+separate chain of files stands beside the signed tree.
 `OrganizationPage` (`lib/src/ui/organization_page.dart`) shows people, owners, Organization Admins,
 projects and machines as flat lists. It does not show the promised team and sub-team tree, resolved
 settings with their source files, or `fixed` and `narrow-only` lock badges.
 
 ## Acceptance
 
-- **The machine** shows which organisation it follows, and whether that chain of files is verified and
-  current. Nothing is shown where there is none.
+- **The machine** shows which organisation it follows, and whether the organization's signed tree it holds is
+  verified and current. Nothing is shown where there is none.
 - **A project** shows its path in the tree - organisation, team, sub-team - and the settings in force,
   each with the file it comes from and whether it is `fixed` or `narrow-only`: the counterpart of
   `porelo project show --resolved`.

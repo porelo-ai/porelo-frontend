@@ -1,6 +1,6 @@
 # F306 — A Work Card Whose Terminal Has Ended
 
-**Status:** Idea.
+**Status:** Idea. Waits for the foo test.
 
 **What must be true.** A card under *Work* whose terminal session has ended says so in its own words and offers what
 can be done next; it does not show a full-width black terminal bar that holds only "Its terminal session has ended."
@@ -15,8 +15,4 @@ This branch has no fixed terminal height or enlarge button, but it still has the
 (`lib/src/app/session.dart`), which checks that the task is running and that a local command reaches its daemon,
 without checking the terminal's live state. `TaskTile` in `lib/src/ui/attention_view.dart` offers that command
 whenever it is available. Those files do not provide next actions based on the ended terminal's state.
-The design of the *Work* cards is to be reviewed as a whole; this issue holds the finding until then.
-
-## Open questions
-
-- Whether the *Work* cards keep their present layout or are redesigned; this issue follows that decision.
+The page with the *Work* cards is redesigned as a whole: this issue goes into [F353](README.md#f353).

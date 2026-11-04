@@ -3,7 +3,7 @@
 **Status:** Idea. Held: GUI changes wait until the whole flow has been gone through again.
 **Size:** M - a design, then its screen: a server shows its own state, its projects and its persons with their state; actions on them are chosen from those lists.
 
-**What must be true.** A server's page shows the server's own state as the host admin reaches it (ssh as root), never "not answering" because no Porelo daemon answers. It lists the projects on it and the persons on it, each person with their state (active, locked). A person's actions (lock out, admit again, delete the account) and a project's (take it off) are chosen from those rows, not typed into free-text dialogs. The design is filed and agreed before it is built.
+**What must be true.** A server's page shows the server's own state as the host admin reaches it (ssh as root), never "not answering" because no Porelo daemon answers. It lists the projects on it, from the signed organization state, and the persons on it, each with their state (active, locked) from the host; where the host is not reached, their state says unknown. Nothing is kept in a local record. A person's actions (lock out, admit again, delete the account) and a project's (take it off) are chosen from those rows, not typed into free-text dialogs. The design is filed and agreed before it is built.
 
 ## Why
 
@@ -25,8 +25,8 @@ The live state from the host comes as a Project screen design ([F266](README.md#
 ## Plan
 
 - A design page with the server's state, its projects and persons with states and row actions, written before code.
-- The state read from `SshHostProgress` (`lib/src/app/host_progress.dart`, SSH as root); the lists from this
-  computer's record ([F239](README.md#f239)) until the query contract gives them from the host.
+- The state and the persons with their state read from `SshHostProgress` (`lib/src/app/host_progress.dart`, SSH as
+  root); the projects from the signed organization state. A host not reached says unknown.
 - **Red first:** the built screen's widget test that a ready server reached by root ssh shows its state, not *not answering*.
 
 ## Test

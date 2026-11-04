@@ -15,11 +15,12 @@ SSH connections run OpenSSH's `ssh` as a process (see *The interface raises and 
 own ssh forward* in [decisions](../doc/decisions.md)): the forward to the daemon
 (`lib/src/app/tunnel.dart`), starting the daemon and `id -u` for the connection trial, and working
 in a task by hand (`lib/src/app/session.dart`). That inherits the person's the SSH config,
-ssh-agent, `known_hosts` and hardware keys, and nothing in `lib/` holds a private key. iOS and
-Android have no `ssh` binary.
+ssh-agent, `known_hosts` and hardware keys. iOS and Android have no `ssh` binary.
 
-The no-private-key statement is not met by `lib/src/ui/connection_wizard.dart`, whose
-`NewConnection.key` carries a pasted or file-read private key for an outgoing connection.
+**Nowhere does the window take a private key:** a key is used only by the agent or the card, and on a phone it is
+made on the device. `lib/src/ui/connection_wizard.dart` does not keep this yet: its `NewConnection.key` carries a
+pasted or file-read private key for an outgoing connection. Pasting and file reading go from the wizard when this
+issue's turn comes.
 
 [`dartssh2`](https://pub.dev/packages/dartssh2) 4.1.0, read in its source and not run against a
 server, has forwarding to a Unix socket as a byte stream, exec, shell and pty, jump hosts by hand,
@@ -40,8 +41,7 @@ interface and `dartssh2` implementation required below; `pubspec.yaml` has no `d
 - **`dartssh2` beside `ssh`, never instead of it.** One transport interface with two
   implementations: the desktop keeps `ssh`, a mobile client uses `dartssh2`.
 - On a mobile client the interface owns what OpenSSH did: host key trust with its own known-hosts
-  store and a first-contact question, key import or generation with a passphrase, storage in the
-  platform keychain.
+  store and a first-contact question, a key made on the device, storage in the platform keychain.
 - `VarlinkConnection` accepts any byte stream instead of only `Socket.connect(socketPath)`.
 
 ## Plan
@@ -69,6 +69,8 @@ interface and `dartssh2` implementation required below; `pubspec.yaml` has no `d
 
 ## Acceptance
 
+- **The window takes no private key,** on any platform: the connection wizard offers neither pasting nor reading a
+  file. Seen to fail: a widget test finding the wizard's key field.
 - **The key is made on the phone, in its hardware** (Secure Enclave or StrongBox, through
   `SSHIdentity.custom`), and authorized on the machine once; it is never imported. Seen to fail: a
   test where a key is taken from a file, or a private key can be read out of the store.

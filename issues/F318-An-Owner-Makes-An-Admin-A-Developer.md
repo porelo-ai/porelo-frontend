@@ -2,7 +2,7 @@
 
 **Status:** Idea.
 
-**What must be true.** An organization owner can turn a project's admin into a developer directly, with an entry of its own, where today they remove the admin and add the person again. `porelo project member role` is the command.
+**What must be true.** An Organization Admin turns a project's admin into a developer directly, by an entry *Make a developer* of its own on the organization page, where today they remove the admin and add the person again. An owner has no exception: an owner lists themselves as Organization Admin first. `porelo project member role` is the command.
 
 ## How it stands
 
@@ -11,5 +11,5 @@ Read from the code, not run. `OrganizationProjectPage` in `lib/src/ui/organizati
 `lib/src/app/porelo_organization_source.dart`, which calls `porelo project member role`.
 `OrganizationPage._projects` in `lib/src/ui/organization_page.dart` gates admin actions with
 `view.isOrganizationAdmin`; *Remove <login> as admin…* removes the membership with
-`OrganizationChange.removeProjectMember`, and that row has no direct demotion entry. The promised owner's
-entry is not available there, and an owner outside the Organization Admin list has no admin action in that row.
+`OrganizationChange.removeProjectMember`, and that row has no direct demotion entry. The promised entry
+is not available there.

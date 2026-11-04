@@ -43,9 +43,8 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f326"></a>[F326](F326-Operations-Run-Beside-Work-Running.md) | — | — | The status line's count of operations not read as work running. |
 | <a id="f327"></a>[F327](F327-What-Closing-The-Window-Leaves-Running.md) | — | — | *Close Porelo?* saying what is true of the work it lists. |
 | <a id="f319"></a>[F319](F319-Confirmed-Membership-Purge-Before-Give-Back.md) | S | — | Giving a server back shows who still holds a role on it and removes the accounts of those a person confirmed; walked by no sprint yet. |
-| <a id="f222"></a>[F222](F222-A-Refused-Unlock-Asks-Again-In-Its-Terminal.md) | XS | — | A refused password in the unlock terminal asked again, up to three times, instead of ending it. |
 | <a id="f322"></a>[F322](F322-Leftovers-Of-The-Organization-Walk.md) | S | — | Small things a walk of the organization's pages found: raw JSON, a mark while a change runs, a stale refusal, words. |
-| <a id="f108"></a>[F108](F108-A-Machine-Over-Ssh-From-Windows.md) | — | — | On Windows, a machine over ssh is reached through the relay, as a WSL distribution is. |
+| <a id="f108"></a>[F108](F108-A-Machine-Over-Ssh-From-Windows.md) | — | — | On Windows, a machine over ssh is reached through the relay, as a WSL distribution is; a host is [F351](README.md#f351). |
 | <a id="f118"></a>[F118](F118-An-Upstream-That-Cannot-Be-Read-Said-Before-A-Start.md) | — | — | An upstream that cannot be read said before a start, with what fixes it. |
 | <a id="f192"></a>[F192](F192-A-Machine-That-Refuses-Every-Key-Said-So.md) | — | — | A machine refusing every offered key said so, with the key it expects. |
 | <a id="f223"></a>[F223](F223-A-Ready-Server-Runs-Its-Setup-Again.md) | S | — | A ready rented server offers Run its setup again, which runs `up` in the interface's own run, a stop in it completed from Needs you. |
@@ -102,12 +101,15 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f351"></a>[F351](F351-A-Host-Reached-From-Windows.md) | — | — | A host reached from Windows, measured first, probably by WSL's ssh. |
+| <a id="f352"></a>[F352](F352-A-Rental-State-Kept-Beyond-One-Computer.md) | — | — | OpenTofu's state in the organization's repository or at the provider. |
+| <a id="f353"></a>[F353](F353-The-Page-With-The-Work-Cards-Redesigned.md) | — | — | The operator's redesign of the page with the *Work* cards, with [F306](README.md#f306) in it. |
 | <a id="f349"></a>[F349](F349-A-Way-Without-Administration-Rights.md) | — | — | A person creates the repository and enters each deploy key by hand, so their token needs no Administration. |
 | <a id="f328"></a>[F328](F328-Letters-Doubled-In-A-Slow-Window.md) | — | — | A key pressed once reaching a console once, however slowly the window answers. |
 | <a id="f324"></a>[F324](F324-Removing-A-Project-On-Windows.md) | — | — | A local project removed from the interface on Windows, where it runs in a WSL distribution. |
 | <a id="f321"></a>[F321](F321-Send-The-Terminal-Input-Fix-Upstream.md) | S | — | The terminal input fix offered upstream, and this repository's copy of `xterm` dropped once a release holds it. |
-| <a id="f318"></a>[F318](F318-An-Owner-Makes-An-Admin-A-Developer.md) | — | — | An owner turns a project's admin into a developer with an entry of its own. |
-| <a id="f317"></a>[F317](F317-A-Homeservers-Token-Reaches-The-Host.md) | — | — | A homeserver's registration token reaches a host in the run that opens its vault. |
+| <a id="f318"></a>[F318](F318-An-Owner-Makes-An-Admin-A-Developer.md) | — | — | An Organization Admin turns a project's admin into a developer with an entry on the organization page. |
+| <a id="f317"></a>[F317](F317-A-Homeservers-Token-Reaches-The-Host.md) | — | — | A homeserver's registration token comes along with `porelo host unlock` through Core, and lies in the host's vault. |
 | <a id="f308"></a>[F308](F308-The-Needs-You-Header-Counts-What-It-Lists.md) | — | — | The *Needs you* header, the rail's badge and the rows agree on what needs the person. |
 | <a id="f306"></a>[F306](F306-A-Work-Card-Whose-Terminal-Has-Ended.md) | — | — | A *Work* card whose terminal ended says so in words, without an empty black terminal bar. |
 | <a id="f307"></a>[F307](F307-Push-And-Pull-Show-Their-Progress-In-The-Interface.md) | — | — | Push and pull on a card host show each repository's answer in the interface, the terminal only for the master password. |
@@ -117,7 +119,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f300"></a>[F300](F300-One-Project-One-Entry-Across-Machines.md) | M | — | One project read as one entry under Projects, with the machines it is on under it. |
 | <a id="f296"></a>[F296](F296-Card-Endpoints-Per-Login.md) | M | — | Card endpoints per login, so two instances of one account each hold a tunnel to one host; a master this person left ended on raise. |
 | <a id="f295"></a>[F295](F295-No-Ask-Line-Naming-The-Viewer.md) | S | — | No refusal ends with "Ask <name>" when the named person is the one at this interface. |
-| <a id="f293"></a>[F293](F293-Host-Deliveries-Hardened.md) | M | — | Host deliveries hardened: git in a clean environment, one ssh call to copy and place, bundles placed at once, sudo without the login shell, the registry held while sending. |
+| <a id="f293"></a>[F293](F293-Host-Deliveries-Hardened.md) | M | — | Host deliveries hardened: git in a clean environment, commands without the login shell or a deliberate exception. |
 | <a id="f292"></a>[F292](F292-A-Lock-Confirmed-By-Each-Host.md) | M | — | *Lock* and *Let back in* shown as under way on each host until `org status` there confirms them; adding counts as done once signed. |
 | <a id="f290"></a>[F290](F290-The-Host-Functions-From-A-Windows-Desktop.md) | M | — | Connect and Prepare from a Windows desktop: one ssh per host card with loopback TCP ends, the daemon through the relay, no master. |
 | <a id="f288"></a>[F288](F288-Small-Leftovers-Of-The-One-Click-Flow.md) | — | — | The small edge cases left over from the one-click flow gathered in one place for the operator to place: address forms, test gaps, texts. |
@@ -156,7 +158,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f37"></a>[F37](F37-Reach-A-Machine-Without-An-ssh-Binary.md) | L | — | A machine reached without an `ssh` binary. |
 | <a id="f52"></a>[F52](F52-Release-A-Devices-Key-Only-With-A-Touch-Or-A-PIN.md) | XL | — | A device's key released only behind a TPM2 PIN; a touch later. |
 | <a id="f109"></a>[F109](F109-The-Interface-On-macOS-With-Porelo-In-A-Local-VM.md) | XL | — | The interface on macOS, with Porelo in a local Lima VM set up from the window, and remote machines over ssh. |
-| <a id="f104"></a>[F104](F104-A-Project-Followed-From-A-File.md) | M | — | A project followed from a bundle or a directory; offline projects again. |
+| <a id="f104"></a>[F104](F104-An-Offline-Project-Shown-With-Its-Way.md) | M | — | An offline project shown, with the way to make one by hand named. |
 | <a id="f81"></a>[F81](F81-The-Setup-Script-Checked-By-Its-Signature.md) | M | — | The setup script verified by its signature before it runs. |
 | <a id="f88"></a>[F88](F88-A-Nickname-For-Each-Agent.md) | M | — | A nickname for each agent. |
 | <a id="f62"></a>[F62](F62-An-Organisations-Policy-Is-Shown.md) | M | — | An organisation's policy shown. |
@@ -166,6 +168,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Title | What was built |
 |---|---|---|
+| <a id="f222"></a>F222 | A Refused Unlock Asks Again In Its Terminal | A wrong vault passphrase asked again in the same terminal, up to three times, before the terminal ends. |
 | <a id="f291"></a>F291 | A Host Card With A Name Or An IPv6 Address Read | A host whose card names a host name or an IPv6 address written, raised, read back after a restart and given as a server, as one at an IPv4 address. |
 | <a id="f315"></a>F315 | Saved Settings Dropped Once And Said | Settings from before the organization put aside at the first start, without a migration, and said once in one sentence. |
 | <a id="f314"></a>F314 | The Calls Behind The Organization Pages | The organization's, project's and host's pages and *Connect* over Porelo's commands, *Forges* cut to forge access, and "registry" gone from what a person reads. |

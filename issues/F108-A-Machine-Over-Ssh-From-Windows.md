@@ -1,8 +1,7 @@
 # F108 — A Machine Over Ssh From Windows
 
-**Status:** Review. Built; its Windows test is the operator's.
-**Size:** M - several modules (the machine list, the relay, the trial, commands, the wizard) and
-the operator's Windows test; no contract changes.
+**Status:** Review. Built for a machine over ssh with no card; a host is [F351](README.md#f351).
+**Size:** M - several modules (the machine list, the relay, the trial, commands, the wizard); no contract changes.
 
 **What must be true.** On Windows the interface reaches a Porelo on a machine over ssh, as it does on
 Linux: its projects, its work, its terminals and its gate, with the key Windows' own ssh agent holds.
@@ -11,11 +10,14 @@ Linux: its projects, its work, its terminals and its gate, with the key Windows'
 
 On Linux a machine over ssh is reached through `ssh -L`, forwarding the daemon's socket to a local
 unix socket. On Windows `Machine.relayOn` in `lib/src/app/machines.dart` uses an ssh byte relay.
-Machine card connections are still refused on Windows by `Machine.whyNotReachableOn` in that file.
+Machine card connections are refused on Windows by `Machine.whyNotReachableOn` in that file, so a host is not
+reached from Windows today. Windows must reach hosts: [F351](README.md#f351), measured first. The documentation says
+this until then. The operator's Windows test is dropped for now.
 
 The promise that every OpenSSH start uses `openSsh` is not met: `lib/src/app/host_progress.dart`
 starts plain `ssh`, and `packages/porelo_host/lib/src/remote.dart` starts plain `ssh`, while
-`packages/porelo_host/lib/src/host_run.dart` starts plain `ssh-keygen`.
+`packages/porelo_host/lib/src/host_run.dart` starts plain `ssh-keygen`. The three are fixed when
+[F351](README.md#f351) is built.
 
 ## The shape
 
@@ -81,7 +83,7 @@ starts plain `ssh`, and `packages/porelo_host/lib/src/remote.dart` starts plain 
 
 - **A machine over ssh is reached from Windows:** its projects and its work are shown, a task's
   terminal is attached and typed into, and a waiting push is approved at the gate. Seen to fail:
-  today's Windows build, which shows the machine as not reachable. In the operator's Windows test.
+  a Windows build that shows the machine as not reachable.
 - **The relay is proven on Linux** with a stand-in for `ssh` that runs `porelo daemon connect` against
   a real daemon's socket, as the WSL relay is proven.
 - **A key that needs a passphrase not in the agent** is refused in ssh's words, and nothing waits for
@@ -95,5 +97,5 @@ starts plain `ssh`, and `packages/porelo_host/lib/src/remote.dart` starts plain 
 ## To be checked
 
 - **Whether ssh's words for each refusal** are the same in Windows' OpenSSH as on Linux, so the
-  trial can tell no route, an unknown host key and no key apart. (Agent Frontend's, measured in the
-  operator's Windows test)
+  trial can tell no route, an unknown host key and no key apart; measured with
+  [F351](README.md#f351). (Agent Frontend's)

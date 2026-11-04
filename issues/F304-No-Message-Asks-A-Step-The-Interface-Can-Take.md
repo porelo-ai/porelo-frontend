@@ -1,6 +1,6 @@
 # F304 — No Message Asks A Step The Interface Can Take
 
-**Status:** Idea.
+**Status:** Idea. Waits for the foo test.
 **Severity:** high.
 **Size:** M - every refusal and unavailable reason that sends the person to a read, refresh or retry the interface can
 run itself, with their tests; no contract with another repository.
@@ -21,8 +21,8 @@ unknown. Read it before signing a change." and `lib/src/ui/organization_project_
 again before signing. Those messages do not meet the promise to run a needed read within the action.
 `lib/src/ui/host_dialog.dart` instructs root SSH bootstrap in a separate terminal, `lib/src/app/run_here.dart`
 suggests running a command in a terminal after a timeout, and `_NotReady` in `lib/src/ui/start_work_view.dart`
-displays the daemon's readiness instructions, with fix and retry actions where supplied. Whether each remaining
-terminal step needs the person's hand cannot be settled from these messages alone.
+displays the daemon's readiness instructions, with fix and retry actions where supplied. The rule stands: each message
+that sends the operator to a terminal becomes a finding of the foo test.
 The plan's quoted registry, access-checkout and pending-change instructions have no matching strings in `lib/src`;
 their cases remain below without changing the required behavior.
 
