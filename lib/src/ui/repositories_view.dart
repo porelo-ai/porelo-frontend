@@ -273,7 +273,7 @@ class _RepositoriesDialogState extends State<RepositoriesDialog> {
                           Navigator.of(context).pop();
                           widget.onPick!(repository, forges.forge!);
                         },
-                  child: const Text('Work on it without a project'),
+                  child: const Text('Work on it in the Default project'),
                 )
               : null,
           onTap: forges.forge == null || widget.onPick != null ? null : () => unawaited(_choose(forges, repository)),

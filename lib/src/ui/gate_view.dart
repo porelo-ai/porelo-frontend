@@ -516,7 +516,7 @@ class _Decision extends StatelessWidget {
         OutlinedButton(onPressed: gate.looking == null ? null : onReject, child: const Text('Drop the request')),
         FilledButton(
           onPressed: gate.looking == null ? null : onApprove,
-          // Work without a project goes to its repository's origin, never to a project's upstream.
+          // Work in the Default project goes to its repository's origin, never to a project's upstream.
           child: Text(gate.project?.name == defaultProject ? 'Forward it to its origin…' : 'Forward it upstream…'),
         ),
       ],
@@ -596,7 +596,7 @@ class _WhichBranch extends StatefulWidget {
   /// Its default branch, offered first and chosen.
   final String? defaultBranch;
 
-  /// Whether it goes to the repository's origin: work without a project.
+  /// Whether it goes to the repository's origin: work in the Default project.
   final bool toOrigin;
 
   @override

@@ -14,20 +14,20 @@ Feature: Where a repository's work comes from and goes, and catching up
     Scenario: a repository started in a checkout says its work comes from it and goes back there
         Given default holds {'app'} from the checkout {'/home/somebody/work/app'} whose remote is {'git@example.org:app.git'}
         When I select the project {'default'}
-        And I choose the command {'Repositories worked on without a project'}
+        And I choose the command {'Repositories of the Default project'}
         Then it says {'From the checkout /home/somebody/work/app, and back into it as porelo/<task>'}
         And it says {'its remote git@example.org:app.git is yours to pull and push'}
 
     Scenario: a repository added by its address says its work comes from that remote and goes there
         Given default holds {'tools'} from the remote {'git@example.org:acme/tools.git'}
         When I select the project {'default'}
-        And I choose the command {'Repositories worked on without a project'}
+        And I choose the command {'Repositories of the Default project'}
         Then it says {'From git@example.org:acme/tools.git, and back there'}
 
     Scenario: a machine older than one source shows the address as before
         Given default holds {'tools'} at {'git@example.org:acme/tools.git'} already
         When I select the project {'default'}
-        And I choose the command {'Repositories worked on without a project'}
+        And I choose the command {'Repositories of the Default project'}
         Then it says {'git@example.org:acme/tools.git'}
         And it does not say {'and back there'}
 

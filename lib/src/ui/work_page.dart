@@ -50,7 +50,7 @@ class WorkView extends ChangeNotifier {
   /// The groups folded shut, by name: stopped work at first, rarely what a person looks for.
   final Set<String> shut = <String>{'stopped'};
 
-  /// Whether the person chose to work without a project on their first start.
+  /// Whether the person chose to work in the Default project on their first start.
   bool withoutAProject = false;
 }
 
@@ -206,7 +206,7 @@ class _WorkPageState extends State<WorkPage> {
             OutlinedButton(
               key: const Key('first-no-project'),
               onPressed: () => setState(() => _withoutAProject = true),
-              child: const Text('Skip: work without a project'),
+              child: const Text('Skip: work in the Default project'),
             ),
           ],
         ),

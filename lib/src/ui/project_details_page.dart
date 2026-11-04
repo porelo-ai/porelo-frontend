@@ -66,10 +66,7 @@ class ProjectDetailsPage extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: Text(
-                isDefault ? 'Without a project' : project.label,
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
+              child: Text(isDefault ? 'Default' : project.label, style: Theme.of(context).textTheme.headlineSmall),
             ),
             CommandMenu(
               key: const Key('project-menu'),

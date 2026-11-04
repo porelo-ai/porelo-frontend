@@ -10,7 +10,7 @@ Feature: A first start led from a machine to a project to the first work
         Then the section shown is {'Work'}
         And the first step {'machine'} is done {true}
         And the first step {'project'} is done {false}
-        When I choose to work without a project first
+        When I choose to work in the Default project first
         Then the first step {'project'} is done {true}
         And it says {'Start the first work'}
 

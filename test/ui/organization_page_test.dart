@@ -263,6 +263,18 @@ void main() {
 
   // Harm: the wrong change is signed for the wrong thing, or without what the store needs to refuse a stale one.
   group('each action asks the store for what it says', () {
+    // Harm: a project named so reads as the one every machine has, and its rows cannot be told apart.
+    testWidgets('a project may not take the name of the Default project', (tester) async {
+      final (fixture, _, _) = await _pump(tester, 'olive');
+      await pressOrganizationAction(tester, 'addProject');
+      await tester.enterText(find.byKey(const Key('organization-name')), 'Default');
+      await _pick(tester, const Key('organization-person'), 'pat');
+      await tester.tap(find.byKey(const Key('organization-confirm')));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('the project every machine has'), findsOneWidget);
+      expect(fixture.writes, isEmpty);
+    });
+
     testWidgets('Add a project names the project and the project admin, and no host', (tester) async {
       final (fixture, _, _) = await _pump(tester, 'olive');
       await pressOrganizationAction(tester, 'addProject');

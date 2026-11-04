@@ -122,7 +122,7 @@ void main() {
   });
 
   // Harm: a removed menu entry strands a repository in default with no way to stop working on it.
-  testWidgets('the repository menu removes work without a project and preserves other repositories', (tester) async {
+  testWidgets('the repository menu removes work in the Default project and preserves other repositories', (tester) async {
     await World.startBackend(World.work);
     World.backend.inDefault = [
       const DefaultRepository(
@@ -257,7 +257,7 @@ void main() {
   });
 
   // Harm: starting work must not remove a repository that is already in default.
-  testWidgets('working without a project preserves an already listed repository', (tester) async {
+  testWidgets('working in the Default project preserves an already listed repository', (tester) async {
     tester.view
       ..physicalSize = const Size(1280, 800)
       ..devicePixelRatio = 1;

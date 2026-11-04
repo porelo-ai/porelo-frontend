@@ -326,7 +326,7 @@ class ForgePage extends StatefulWidget {
   /// Lists the machines working on a repository.
   final List<String> Function(String fullName) usedOn;
 
-  /// Whether a repository is worked on without a project on this machine.
+  /// Whether a repository is worked on in the Default project on this machine.
   final bool Function(String fullName)? inDefault;
 
   /// The machine this item belongs to.
@@ -478,7 +478,7 @@ class _ForgePageState extends State<ForgePage> {
           if (widget.machine != null && forges.connected && repository.push && isProject != true)
             Command(
               id: 'repository.default',
-              label: 'Work on it without a project',
+              label: 'Work on it in the Default project',
               group: 'Forges',
               home: Home.forgeRow,
               run: () => unawaited(_act(context, forges, repository, 'default-start')),
@@ -486,7 +486,7 @@ class _ForgePageState extends State<ForgePage> {
           if (widget.machine != null && widget.inDefault?.call(name) == true)
             Command(
               id: 'repository.defaultRemove',
-              label: 'Stop working on it without a project',
+              label: 'Stop working on it in the Default project',
               group: 'Forges',
               home: Home.forgeRow,
               run: () => unawaited(_act(context, forges, repository, 'default-remove')),

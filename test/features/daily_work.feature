@@ -51,7 +51,7 @@ Feature: Daily work in front, setting up machines and projects apart
     Scenario: new work can be in no project
         When I start new work
         And I choose no project for it
-        Then it says {'Start work without a project'}
+        Then it says {'Start work in the Default project'}
 
     Scenario: machines are a page of setting up, each with its projects under it
         When I go to the place {'machines'}

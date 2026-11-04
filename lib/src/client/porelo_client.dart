@@ -972,7 +972,7 @@ class PoreloClient {
     );
   }
 
-  /// The repositories worked on without a project, in [defaultProject].
+  /// The repositories worked on in the Default project, in [defaultProject].
   Future<List<DefaultRepository>> defaultRepositories() async {
     final reply = await _call('DefaultRepositories');
     final listed = reply['repositories'];

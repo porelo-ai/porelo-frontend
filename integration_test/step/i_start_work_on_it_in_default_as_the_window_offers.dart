@@ -12,7 +12,7 @@ import 'the_test_machine_has_a_repository_to_work_on.dart';
 /// it": the repository goes into default on the way.
 Future<void> iStartWorkOnItInDefaultAsTheWindowOffers(WidgetTester tester) async {
   if (!walkingAsANewPerson) return;
-  // Work without a project starts under Work (walk 10: Default left Projects).
+  // Work in the Default project starts under Work (walk 10: Default left Projects).
   await openTheDefaultFromWork(tester);
   noteTheWindow(tester, 'default, which repository');
   await tester.enterText(find.byKey(const Key('default-address')), theRepositoryThere!);

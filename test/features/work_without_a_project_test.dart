@@ -57,7 +57,7 @@ void main() {
       await theFirstProjectOnTheMachineIs(tester, 'default');
       await iSelectTheProject(tester, 'default');
       await iOpenTheCommandFinder(tester);
-      await theCommandIsUnavailableBecause(tester, 'Remove this project', 'default is always there');
+      await theCommandIsUnavailableBecause(tester, 'Remove this project', 'the Default project is always there');
     });
     testWidgets('''work in default starts on a repository named by its address, which goes into default on the way''', (
       tester,
@@ -92,7 +92,7 @@ void main() {
       await defaultHoldsAt(tester, 'api', 'https://github.com/acme/api.git');
       await noDeployKeyCallsWereMade(tester);
       await iPutTheStartAway(tester);
-      await iChooseTheCommand(tester, 'Repositories worked on without a project');
+      await iChooseTheCommand(tester, 'Repositories of the Default project');
       await iTakeOutOfDefault(tester, 'api');
       await theForgeHoldsNoKeyTitledAt(tester, 'porelo vm default/api', 'acme/api');
     });
@@ -110,17 +110,21 @@ void main() {
       await bddSetUp(tester);
       await defaultHoldsAtNamedByToo(tester, 'api', 'https://github.com/acme/api.git', 'payments');
       await iSelectTheProject(tester, 'default');
-      await iChooseTheCommand(tester, 'Repositories worked on without a project');
+      await iChooseTheCommand(tester, 'Repositories of the Default project');
       await itSays(tester, 'payments names it too: its next task starts there');
       await iTakeOutOfDefault(tester, 'api');
       await defaultNoLongerHolds(tester, 'api');
       await itSays(tester, 'Its mirror, and anything waiting in it, stay');
     });
-    testWidgets('''only default holds repositories without a project''', (tester) async {
+    testWidgets('''only the Default project holds such repositories''', (tester) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'checkout');
       await iOpenTheCommandFinder(tester);
-      await theCommandIsUnavailableBecause(tester, 'Repositories worked on without a project', 'only default holds');
+      await theCommandIsUnavailableBecause(
+        tester,
+        'Repositories of the Default project',
+        'only the Default project holds such repositories',
+      );
     });
     testWidgets('''work waiting in default is forwarded to its origin''', (tester) async {
       await bddSetUp(tester);
@@ -131,10 +135,10 @@ void main() {
       await iStartForwardingItToItsOrigin(tester);
       await theForwardingAsks(tester, 'Forward it to its origin');
     });
-    testWidgets('''work without a project is listed on its machine''', (tester) async {
+    testWidgets('''work in the Default project is listed on its machine''', (tester) async {
       await bddSetUp(tester);
       await iGoToThePlace(tester, 'projects');
-      await itSays(tester, 'Without a project');
+      await itSays(tester, 'Default');
       await theProjectsPageListsOn(tester, 'checkout', 'this machine');
     });
   });

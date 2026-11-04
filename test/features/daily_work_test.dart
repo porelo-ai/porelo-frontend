@@ -112,7 +112,7 @@ void main() {
       await bddSetUp(tester);
       await iStartNewWork(tester);
       await iChooseNoProjectForIt(tester);
-      await itSays(tester, 'Start work without a project');
+      await itSays(tester, 'Start work in the Default project');
     });
     testWidgets('''machines are a page of setting up, each with its projects under it''', (tester) async {
       await bddSetUp(tester);

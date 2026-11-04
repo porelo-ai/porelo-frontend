@@ -488,7 +488,7 @@ Command removeWaitingProject(
   home: Home.attentionRow,
   run: () => preview?.call(),
   unavailable: project.name == defaultProject
-      ? 'default is always there: it is where work without a project goes'
+      ? 'the Default project is always there'
       : preview == null
       ? 'not from here'
       : whyNoRemoval ?? notAnswering(fleet),
@@ -668,11 +668,11 @@ List<Command> projectCommands({
           ? 'not offered here'
           : itsForgeIsMissing,
     ),
-    // The repositories worked on without a project: added by address or picked at a forge, and
+    // The repositories worked on in the Default project: added by address or picked at a forge, and
     // taken out again once a project names them.
     Command(
       id: 'project.default',
-      label: 'Repositories worked on without a project',
+      label: 'Repositories of the Default project',
       group: 'Project',
       home: project?.name == defaultProject ? Home.openedView : Home.projectMenu,
       run: showTheDefault ?? () {},
@@ -681,7 +681,7 @@ List<Command> projectCommands({
           : showTheDefault == null
           ? 'not offered here'
           : project.name != defaultProject
-          ? 'only default holds repositories without a project'
+          ? 'only the Default project holds such repositories'
           : null,
     ),
     Command(
@@ -725,7 +725,7 @@ List<Command> projectCommands({
           : clearTheProject == null
           ? 'not from here'
           : project.name == defaultProject
-          ? 'default is always there: it is where work without a project goes'
+          ? 'the Default project is always there'
           : null,
     ),
     Command(
@@ -740,7 +740,7 @@ List<Command> projectCommands({
           : project.project.carried
           ? noFile
           : project.name == defaultProject
-          ? 'default is always there: it is where work without a project goes'
+          ? 'the Default project is always there'
           : whyNoRemoval,
     ),
   ].map((command) => command.unless(notAnswering(fleet))).toList();

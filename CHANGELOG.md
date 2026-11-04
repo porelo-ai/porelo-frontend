@@ -9,6 +9,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- The project every machine has is named *Default* everywhere, where the window said "without a project"; a project in the organization may not be named so.
 - *Prepare the machine* offers only the listed machines of which you are a Machine Admin, names the command to compare a host key with, and asks for the key again before it starts: one changed since it was compared starts nothing. A refused key says what happened and offers to enter another.
 - *Prepare a machine* says what it waits for beside its button, and a login that answers and exits non-zero shows its words and its code. A machine whose root is still closed names the command to run.
 - *Connect* on a machine waiting for its first token names that step and leads to it, and the row and the machine's page say one thing. A connection the machine closes before login says to wait a minute.

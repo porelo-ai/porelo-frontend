@@ -42,7 +42,7 @@ void main() {
         'git@example.org:app.git',
       );
       await iSelectTheProject(tester, 'default');
-      await iChooseTheCommand(tester, 'Repositories worked on without a project');
+      await iChooseTheCommand(tester, 'Repositories of the Default project');
       await itSays(tester, 'From the checkout /home/somebody/work/app, and back into it as porelo/<task>');
       await itSays(tester, 'its remote git@example.org:app.git is yours to pull and push');
     });
@@ -52,14 +52,14 @@ void main() {
       await bddSetUp(tester);
       await defaultHoldsFromTheRemote(tester, 'tools', 'git@example.org:acme/tools.git');
       await iSelectTheProject(tester, 'default');
-      await iChooseTheCommand(tester, 'Repositories worked on without a project');
+      await iChooseTheCommand(tester, 'Repositories of the Default project');
       await itSays(tester, 'From git@example.org:acme/tools.git, and back there');
     });
     testWidgets('''a machine older than one source shows the address as before''', (tester) async {
       await bddSetUp(tester);
       await defaultHoldsAtAlready(tester, 'tools', 'git@example.org:acme/tools.git');
       await iSelectTheProject(tester, 'default');
-      await iChooseTheCommand(tester, 'Repositories worked on without a project');
+      await iChooseTheCommand(tester, 'Repositories of the Default project');
       await itSays(tester, 'git@example.org:acme/tools.git');
       await itDoesNotSay(tester, 'and back there');
     });

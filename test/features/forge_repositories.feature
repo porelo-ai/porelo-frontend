@@ -199,7 +199,7 @@ Feature: A forge's repositories, its tokens, and what waits at a gate
         And the repository {'acme/api'} is worked on on {'this machine'}
 
     # Walk 10: Default left Projects; a repository is put into it from its card.
-    Scenario: a repository is worked on without a project from its card without deploy keys
+    Scenario: a repository is worked on in the Default project from its card without deploy keys
         Given the forge reaches {'acme/api'} as an admin, and {'acme/web'} without admin rights
         And the keychain here keeps the token {'ghp_accepted'} for the forge
         When I go to the forges

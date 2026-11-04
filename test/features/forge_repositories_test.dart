@@ -286,7 +286,9 @@ void main() {
       await theForgesRepositoryIsListed(tester, 'acme/api');
       await theRepositoryIsWorkedOnOn(tester, 'acme/api', 'this machine');
     });
-    testWidgets('''a repository is worked on without a project from its card without deploy keys''', (tester) async {
+    testWidgets('''a repository is worked on in the Default project from its card without deploy keys''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
       await theForgeReachesAsAnAdminAndWithoutAdminRights(tester, 'acme/api', 'acme/web');
       await theKeychainHereKeepsTheTokenForTheForge(tester, 'ghp_accepted');

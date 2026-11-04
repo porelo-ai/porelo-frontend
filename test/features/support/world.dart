@@ -1815,7 +1815,7 @@ class FakeBackend implements FleetBackend {
     fingerprint: 'SHA256:msg',
   );
 
-  /// The repositories worked on without a project, as `DefaultRepositories` answers them.
+  /// The repositories worked on in the Default project, as `DefaultRepositories` answers them.
   List<DefaultRepository> inDefault = <DefaultRepository>[];
 
   /// Every address the interface asked to put into default, in order.

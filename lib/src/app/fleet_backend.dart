@@ -416,7 +416,7 @@ abstract class FleetBackend {
   /// Removes a joined person and reports any account the transport kept.
   Future<MessageMemberRemoved> removeMessageMember(String project, String person);
 
-  /// The repositories worked on without a project, in `default`.
+  /// The repositories worked on in the Default project, in `default`.
   Future<List<DefaultRepository>> defaultRepositories();
 
   /// Adds the repository at [upstream] to `default`, under [name] where one is given.

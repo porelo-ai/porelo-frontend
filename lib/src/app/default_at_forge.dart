@@ -22,18 +22,18 @@ class DefaultAtForge {
     final there = await _inDefault(repository);
     if (there == null) await _machine.addToDefault(repository.httpsUrl);
     return there != null
-        ? '${repository.fullName} is worked on without a project on $machineName already.'
-        : '${repository.fullName} is worked on without a project on $machineName now. Start work on it under Work.';
+        ? '${repository.fullName} is worked on in the Default project on $machineName already.'
+        : '${repository.fullName} is worked on in the Default project on $machineName now. Start work on it under Work.';
   }
 
   /// Takes a repository out of default without changing access at the forge.
   Future<String> remove(ForgeRepository repository) async {
     final there = await _inDefault(repository);
-    if (there == null) return '${repository.fullName} was not worked on without a project on $machineName.';
+    if (there == null) return '${repository.fullName} was not worked on in the Default project on $machineName.';
     final done = await _machine.removeFromDefault(there.name);
     return <String>[
       done.removed
-          ? '${repository.fullName} is no longer worked on without a project on $machineName. Its mirror stays there.'
+          ? '${repository.fullName} is no longer worked on in the Default project on $machineName. Its mirror stays there.'
           : '${repository.fullName} was not in default any more.',
       for (final key in done.keys) key.title,
     ].join(' ');

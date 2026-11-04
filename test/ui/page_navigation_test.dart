@@ -69,9 +69,9 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.keyK);
     await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
     await World.settle(tester);
-    await tester.enterText(find.byKey(const Key('command-query')), 'Repositories worked on without a project');
+    await tester.enterText(find.byKey(const Key('command-query')), 'Repositories of the Default project');
     await World.settle(tester);
-    final command = find.widgetWithText(ListTile, 'Repositories worked on without a project');
+    final command = find.widgetWithText(ListTile, 'Repositories of the Default project');
     expect(tester.widget<ListTile>(command).enabled, isTrue);
     await tester.tap(command);
     await World.settle(tester);
@@ -134,10 +134,10 @@ void main() {
       await World.settle(tester);
       await tester.tap(find.byKey(const Key('projects-search')));
       await World.settle(tester);
-      await tester.enterText(find.byKey(const Key('projects-filter')), 'Without a project');
+      await tester.enterText(find.byKey(const Key('projects-filter')), 'Default');
       await World.settle(tester);
       expect(
-        find.byWidgetPredicate((widget) => widget is Text && widget.data == 'Without a project'),
+        find.byWidgetPredicate((widget) => widget is Text && widget.data == 'Default'),
         findsNWidgets(2),
       );
       await tester.enterText(find.byKey(const Key('projects-filter')), 'offline');
@@ -165,7 +165,7 @@ void main() {
         ),
       );
       await World.settle(tester);
-      expect(find.text('Without a project'), findsOneWidget);
+      expect(find.text('Default'), findsOneWidget);
       final row = find.byKey(const Key('projects-menu offline/default'));
       final menu = tester.widget<CommandMenu>(row);
       expect(menu.commands.map((command) => command.label), ['Open']);

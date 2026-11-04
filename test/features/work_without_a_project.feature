@@ -13,7 +13,7 @@ Feature: Work on a repository without writing a project first
         Then the first project on the machine is {'default'}
         When I select the project {'default'}
         And I open the command finder
-        Then the command {'Remove this project'} is unavailable because {'default is always there'}
+        Then the command {'Remove this project'} is unavailable because {'the Default project is always there'}
 
     # One way: a repository is named, typed or picked at a forge beside the
     # field, and work starts on it; it goes into default on the way.
@@ -47,7 +47,7 @@ Feature: Work on a repository without writing a project first
         And no deploy key calls were made
         When I put the start away
         # Removing the repository leaves its forge access alone.
-        When I choose the command {'Repositories worked on without a project'}
+        When I choose the command {'Repositories of the Default project'}
         And I take {'api'} out of default
         Then the forge holds no key titled {'porelo vm default/api'} at {'acme/api'}
 
@@ -63,18 +63,18 @@ Feature: Work on a repository without writing a project first
     Scenario: a repository a project names too is offered to be taken out of default
         Given default holds {'api'} at {'https://github.com/acme/api.git'}, named by {'payments'} too
         When I select the project {'default'}
-        And I choose the command {'Repositories worked on without a project'}
+        And I choose the command {'Repositories of the Default project'}
         Then it says {'payments names it too: its next task starts there'}
         When I take {'api'} out of default
         Then default no longer holds {'api'}
         And it says {'Its mirror, and anything waiting in it, stay'}
 
-    Scenario: only default holds repositories without a project
+    Scenario: only the Default project holds such repositories
         When I select the project {'checkout'}
         And I open the command finder
-        Then the command {'Repositories worked on without a project'} is unavailable because {'only default holds'}
+        Then the command {'Repositories of the Default project'} is unavailable because {'only the Default project holds such repositories'}
 
-    # Approved work without a project goes to its repository's origin, never to a project's upstream.
+    # Approved work in the Default project goes to its repository's origin, never to a project's upstream.
     Scenario: work waiting in default is forwarded to its origin
         When I select the project {'default'}
         And I review what is waiting at the gate
@@ -84,7 +84,7 @@ Feature: Work on a repository without writing a project first
         Then the forwarding asks {'Forward it to its origin'}
 
     # Each machine owns a permanent default, even before its daemon supplies a list.
-    Scenario: work without a project is listed on its machine
+    Scenario: work in the Default project is listed on its machine
         When I go to the place {'projects'}
-        Then it says {'Without a project'}
+        Then it says {'Default'}
         And the projects page lists {'checkout'} on {'this machine'}

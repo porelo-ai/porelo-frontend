@@ -8,7 +8,7 @@ import '../app/forge.dart';
 import 'dialog_scroll.dart';
 import 'tokens.dart';
 
-/// Opens the repositories a machine works on without a project.
+/// Opens the repositories a machine works on in the Default project.
 ///
 /// With [onStartWork], it is **the one way to start work in `default`**:
 /// a repository is named — typed, or picked at a forge beside the field — and work starts
@@ -27,7 +27,7 @@ Future<void> showTheDefault(
       DefaultDialog(machine: machine, machineName: machineName, pickAtAForge: pickAtAForge, onStartWork: onStartWork),
 );
 
-/// `default`: what a machine works on without a project, with Porelo's own settings, fixed.
+/// `default`: what a machine works on in the Default project, with Porelo's own settings, fixed.
 class DefaultDialog extends StatefulWidget {
   /// Constructor taking the machine and what it is called.
   const DefaultDialog({
@@ -139,7 +139,7 @@ class _DefaultDialogState extends State<DefaultDialog> {
     final address = _address.text.trim();
     return AlertDialog(
       key: const Key('default-dialog'),
-      title: Text(starting ? 'Start work without a project' : 'Repositories worked on without a project'),
+      title: Text(starting ? 'Start work in the Default project' : 'Repositories of the Default project'),
       content: SizedBox(
         width: Sizes.dialog,
         child: DialogScroll(

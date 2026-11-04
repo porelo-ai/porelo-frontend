@@ -905,7 +905,7 @@ class _ShellState extends State<Shell> {
         openTerminal: widget.sessions.openTerminal,
       );
 
-  /// The repositories this machine works on without a project, in `default`, and the projects asked
+  /// The repositories this machine works on in the Default project, in `default`, and the projects asked
   /// again once it is put away: a repository added there is what lets work start in default.
   Future<void> _showTheDefault() async {
     await _askTheDefault();
@@ -3239,7 +3239,7 @@ class _ShellState extends State<Shell> {
       for (final project in fleet.projects)
         if (project.name != defaultProject && (project.canBeActedOn || project.project.carried)) project,
     ];
-    // Then in which project, or in none: work without a project is default, every machine's.
+    // Then in which project, or in none: work in the Default project is default, every machine's.
     final chosen = projects.isEmpty
         ? defaultProject
         : await showDialog<String>(
@@ -3262,14 +3262,14 @@ class _ShellState extends State<Shell> {
                   onPressed: () => Navigator.of(context).pop(defaultProject),
                   child: const Padding(
                     padding: EdgeInsets.symmetric(vertical: Space.tight),
-                    child: Text('Default: work without a project of its own'),
+                    child: Text('Default'),
                   ),
                 ),
               ],
             ),
           );
     if (chosen == null || !mounted) return;
-    // Without a project is default, which a machine need not list among its projects.
+    // Default is default, which a machine need not list among its projects.
     if (chosen == defaultProject) return _startInDefault();
     fleet.selectProject(chosen);
     await _startWork();

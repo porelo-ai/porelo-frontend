@@ -56,8 +56,7 @@ class ProjectsPage extends StatelessWidget {
           rows: [
             for (final row in rows)
               (
-                words:
-                    '${row.project.name == defaultProject ? 'Without a project' : row.project.label} ${row.machine.name}',
+                words: '${row.project.name == defaultProject ? 'Default' : row.project.label} ${row.machine.name}',
                 child: projectListRow(
                   machine: row.machine,
                   project: row.project,
@@ -95,7 +94,7 @@ Widget projectListRow({
     key: ValueKey('projects-row $identity'),
     bodyKey: ValueKey('project $identity'),
     selected: selected,
-    title: isDefault ? 'Without a project' : project.label,
+    title: isDefault ? 'Default' : project.label,
     subtitle: [
       'on ${machine.name}',
       if (isDefault) 'always there',

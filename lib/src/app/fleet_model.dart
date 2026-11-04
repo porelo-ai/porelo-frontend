@@ -58,7 +58,7 @@ class ProjectOnScreen {
   String get label => name.isEmpty
       ? 'No project recorded'
       : name == defaultProject
-      ? 'default — work without a project'
+      ? 'Default'
       : name;
 
   /// How many of its tasks are up, and how many it has.

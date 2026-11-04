@@ -1,3 +1,4 @@
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -10,6 +11,7 @@ import '../app/commands.dart';
 import '../app/identity.dart';
 import '../app/key_recovery.dart' show BackupScope;
 import '../app/organization_source.dart';
+import '../client/models.dart' show defaultProject;
 import 'command_menu.dart';
 import 'identity_view.dart';
 import 'filtered_list_section.dart';
@@ -333,7 +335,9 @@ class _OrganizationPageState extends State<OrganizationPage> {
                       'adds its members. No machine is chosen here: a machine\'s admin puts the project on it. A project cannot '
                       'hold a repository of its own name, so name it apart from its first repository.',
                   confirm: 'Add the project',
-                  check: (name) => _projectName.hasMatch(name)
+                  check: (name) => name.toLowerCase() == defaultProject
+                      ? 'Default is the project every machine has. Give this one another name.'
+                      : _projectName.hasMatch(name)
                       ? null
                       : 'A project name holds letters, digits, ".", "_" and "-", and opens with a letter or digit.',
                   change: OrganizationChange.addProject,

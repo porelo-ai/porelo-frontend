@@ -245,7 +245,7 @@ class Machine {
     'host' when hostCard != null =>
       windows ? 'Machine card connections require OpenSSH Unix socket and master support on this platform.' : null,
     'host' when remoteSocket.isEmpty && socketPath.isEmpty =>
-      'This server is prepared without a project account or daemon.',
+      'This server is prepared with no project account or daemon.',
     'host' when hostProject.isEmpty => 'This machine has no verified SSH configuration.',
     '' || 'host' when needsATunnel && host.startsWith('-') => 'A machine’s ssh address must not start with a dash.',
     '' || 'host' when windows && needsATunnel && !_plainRemoteSocket =>

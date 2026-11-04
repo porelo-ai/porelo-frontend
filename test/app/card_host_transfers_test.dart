@@ -90,6 +90,6 @@ void main() {
       ),
       isEmpty,
     );
-    expect(commands(project: defaultProject), isEmpty, reason: 'Without a project is no project to transfer');
+    expect(commands(project: defaultProject), isEmpty, reason: 'Default is no project to transfer');
   });
 }
