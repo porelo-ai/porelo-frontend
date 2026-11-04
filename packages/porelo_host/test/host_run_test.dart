@@ -462,6 +462,44 @@ void main() {
     });
   }
 
+  group('a login that answers and exits non-zero', () {
+    HostRun running(Remote transport) => HostRun(
+      provider: GivenMachine(address: '203.0.113.7', hostKey: sshKey),
+      remote: transport,
+      preparation: _Preparation(),
+      hostKeys: () async => ('fixture-host-private', sshKey),
+      sshEvery: Duration.zero,
+      emit: steps.add,
+      environment: {'XDG_STATE_HOME': scratch.path, 'LOCALAPPDATA': scratch.path},
+    );
+
+    // Harm: the foo test's refusal, with an empty reason and "could not be reached" for a host that answered.
+    test('a cloud image closing root names the command to run, and what it said', () async {
+      final transport = _Answering(142, 'Please login as the user "ubuntu" rather than the user "root".');
+      await running(transport).up(plan);
+      final last = steps.last;
+      expect(last.step, 'ssh');
+      expect(last.state, StepState.refused);
+      expect(last.fix, contains(rootStillClosed));
+      expect(last.fix, isNot(contains('could not be reached')));
+      expect(last.words, contains('rather than the user "root"'));
+      expect(last.words, contains('142'));
+    });
+
+    test('any other answer keeps its words and its code, and does not say unreachable', () async {
+      await running(_Answering(1, 'Something on the login said no.')).up(plan);
+      expect(steps.last.fix, isNot(contains('could not be reached')));
+      expect(steps.last.words, contains('Something on the login said no.'));
+      expect(steps.last.words, contains('exit code 1'));
+    });
+
+    test('no reason is ever empty', () async {
+      await running(_Answering(1, '')).up(plan);
+      expect(steps.last.fix, isNotEmpty);
+      expect(steps.last.words, contains('exit code 1'));
+    });
+  });
+
   // Harm: a person who gave their own machine reads that a server is being rented, and fears a bill.
   test('a given machine is not said to be rented', () async {
     final run = HostRun(
@@ -659,4 +697,27 @@ class _LoginRefusal extends ScriptedRemote {
     if (command == 'true' && ++logins == 1) return const RemoteResult(255, 'Permission denied (publickey).');
     return super.run(host, user, command, input: input, onLine: onLine);
   }
+}
+
+/// A login that succeeds and then exits [code], saying [said] on standard output.
+class _Answering implements Remote {
+  _Answering(this.code, this.said);
+
+  final int code;
+  final String said;
+
+  @override
+  Future<RemoteResult> run(
+    String host,
+    String user,
+    String command, {
+    String? input,
+    void Function(String line)? onLine,
+  }) async {
+    if (said.isNotEmpty) onLine?.call(said);
+    return RemoteResult(code, '');
+  }
+
+  @override
+  noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

@@ -229,6 +229,9 @@ class HostMembership {
   }
 }
 
+/// What a machine whose root is closed by its cloud image is told: the command is the dialog's to show.
+const rootStillClosed = 'root is still closed: run the command above.';
+
 /// `up` and `down`, in their order.
 ///
 /// **This does no step of the playbook.** It rents, copies, starts `ansible-playbook` on the host
@@ -724,7 +727,13 @@ done''',
     await trust?.call(host.address!, host.hostKey!);
     // A host the provider calls ready may still be starting its sshd, or cloud-init may not have
     // put the login in yet: asked again for a while, and only ssh's own last words reported.
-    var reached = await remote.run(host.address!, plan.loginUser, 'true');
+    final answered = StringBuffer();
+    Future<RemoteResult> login() {
+      answered.clear();
+      return remote.run(host.address!, plan.loginUser, 'true', onLine: answered.writeln);
+    }
+
+    var reached = await login();
     // A host key that is not the provider's is never asked again: that is the one answer waiting
     // cannot change, and the refusal comes at once.
     final sshUntil = DateTime.now().add(sshWithin);
@@ -733,10 +742,30 @@ done''',
         !_keyRefused(reached) &&
         DateTime.now().isBefore(sshUntil)) {
       await Future<void>.delayed(sshEvery);
-      reached = await remote.run(host.address!, plan.loginUser, 'true');
+      reached = await login();
+    }
+    if (reached.exitCode == 255) {
+      _unreachable('ssh', [reached.stderr, answered.toString()].where((part) => part.isNotEmpty).join('\n'));
+      return null;
     }
     if (reached.exitCode != 0) {
-      _unreachable('ssh', reached.stderr);
+      // ssh's own failure is 255: anything else means the host was reached, and answered.
+      final said = answered.toString().trim();
+      final words = [
+        reached.stderr.trim(),
+        said,
+        'The login ended with exit code ${reached.exitCode}.',
+      ].where((part) => part.isNotEmpty).join('\n');
+      _write(
+        Step(
+          'ssh',
+          StepState.refused,
+          fix: said.contains('rather than the user')
+              ? '$rootStillClosed Nothing changed on the machine.'
+              : 'The machine answered and refused the login. Nothing changed on the machine.',
+          words: words,
+        ),
+      );
       return null;
     }
     _write(const Step('ssh', StepState.done));

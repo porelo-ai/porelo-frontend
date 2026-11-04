@@ -80,21 +80,32 @@ void main() {
     }
 
     FilledButton prepare() => tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Prepare the machine'));
+    // Harm: the button stays grey with nothing beside it saying why, and a person nearly closes the dialog.
+    String? waits() {
+      final found = find.byKey(const Key('preparation-waits'));
+      return found.evaluate().isEmpty ? null : tester.widget<Text>(found).data;
+    }
+
     await type('Machine name', 'orchard');
+    await tester.pump();
+    expect(waits(), contains('host key'));
     await type('Server address', '192.0.2.7');
     await tester.pump(const Duration(milliseconds: 501));
     expect(scans, hasLength(1));
     expect(prepare().onPressed, isNull);
+    expect(waits(), contains('Fetching'));
     scans.first.complete((code: 0, out: '192.0.2.7 $hostKey\n', err: ''));
     await World.settle(tester);
     expect(find.text(fingerprint), findsOneWidget);
     expect(prepare().onPressed, isNull, reason: 'fetching alone must never permit preparation');
+    expect(waits(), contains('I compared this fingerprint'));
     final confirmed = find.byKey(const Key('preparation-host-key-confirmed'));
     await tester.ensureVisible(confirmed);
     await tester.tap(confirmed);
     await World.settle(tester);
     final staleAction = prepare().onPressed;
     expect(staleAction, isNotNull);
+    expect(waits(), isNull, reason: 'nothing to wait for once it can be pressed');
     await type('Server address', '192.0.2.8');
     await tester.pump();
     expect(prepare().onPressed, isNull, reason: 'a comparison belongs to one server address');

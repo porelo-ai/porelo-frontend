@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:porelo_host/porelo_host.dart' show HostMembership, HostPreparationSettings;
+import 'package:porelo_host/porelo_host.dart' show HostMembership, HostPreparationSettings, rootStillClosed;
 
 import '../app/host_runs.dart';
 import '../app/host_access.dart';
@@ -228,6 +228,16 @@ class _HostDialogState extends State<HostDialog> {
   }
 
   // Only a named host's own admins may prepare it, so nothing is offered before the name.
+  /// What *Prepare the machine* waits for now, in words that stay beside it; null once it can be pressed.
+  String? _waitsFor(HostAccess? access) {
+    if (access == null) return 'Waiting: this computer cannot prepare a machine from here.';
+    if (_refusal(access) case final reason?) return reason == _problem ? null : reason;
+    if (_fetchingKey) return 'Fetching the SSH host key, up to a few seconds.';
+    if (_hostKey.text.trim().isEmpty) return 'Waiting for the machine\'s SSH host key: fetch it, or paste it above.';
+    if (!_keyReady) return 'Waiting for you: tick "I compared this fingerprint" above.';
+    return null;
+  }
+
   String? _refusal(HostAccess access) {
     if (_readingAccess) return 'Reading your identity and the organization…';
     if (!_proven) return _problem ?? 'Your identity and the organization have not been read.';
@@ -444,11 +454,6 @@ class _HostDialogState extends State<HostDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (_readingAccess && run == null && !widget.takeDownOnly)
-                const Padding(
-                  padding: EdgeInsets.only(bottom: Space.small),
-                  child: Text('Reading your identity and the organization…'),
-                ),
               if (_busy && run == null && !widget.takeDownOnly)
                 Text('Checking permission to prepare machine ${_name.text.trim()}…'),
               if (widget.takeDownOnly && !_givenBack)
@@ -524,12 +529,6 @@ class _HostDialogState extends State<HostDialog> {
                   ),
                 ],
                 // Below the fields, so that what it says as the name is typed moves none of them.
-                if (access != null && !_readingAccess)
-                  if (_refusal(access) case final reason? when reason != _problem)
-                    Padding(
-                      padding: const EdgeInsets.only(top: Space.small),
-                      child: Text(reason),
-                    ),
               ],
               if (!widget.takeDownOnly && run == null && record?.preparedHost == null) ...[
                 HostPreparationSettingsForm(
@@ -553,6 +552,9 @@ class _HostDialogState extends State<HostDialog> {
                 ],
               ],
               if (_problem != null) Text(_problem!, key: _problemShown),
+              // The run stopped on the very command it asked for: it is shown again where the stop is read.
+              if (access != null && (run?.problem ?? _problem ?? '').contains(rootStillClosed))
+                SelectableText(access.bootstrapCommand(), key: const Key('preparation-root-command')),
               if (widget.takeDownOnly && !_givenBack) ...[
                 if (_checkingMemberships) const Text('Reading membership holders…'),
                 if (_membershipProblem != null) Text(_membershipProblem!),
@@ -607,6 +609,12 @@ class _HostDialogState extends State<HostDialog> {
           onPressed: _busy && (widget.takeDownOnly || run == null) ? null : () => Navigator.pop(context),
           child: const Text('Close'),
         ),
+        if (!widget.takeDownOnly && run == null && !_busy)
+          if (_waitsFor(access) case final waits?)
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 360),
+              child: Text(waits, key: const Key('preparation-waits')),
+            ),
         if (!widget.takeDownOnly && run == null)
           FilledButton(
             onPressed: _busy || _fetchingKey || !_keyReady || access == null || _refusal(access) != null
