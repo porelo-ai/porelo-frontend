@@ -6,8 +6,19 @@ String organizationForgeAddress(OrganizationView? view) {
   if (named.isNotEmpty) return named;
   final repository = view?.address ?? '';
   final host = Uri.tryParse(repository)?.host ?? '';
-  if (host.isEmpty && repository.startsWith('git@')) return repository.substring(4).split(':').first;
-  return host;
+  if (host.isNotEmpty) return host;
+  return RegExp(r'^[^@/\s]+@([^:/\s]+):').firstMatch(repository)?.group(1) ?? '';
+}
+
+/// The address a token kept here may be used for at the central forge, or null where it is not sure:
+/// tokens are kept by host, and one kept for a host says nothing of a forge on another port of it.
+String? organizationKeptTokenAddress(OrganizationView? view) {
+  final repository = view?.address ?? '';
+  final uri = Uri.tryParse(repository);
+  if (uri != null && uri.hasPort && uri.port != 443 && uri.port != 80) return null;
+  if ((view?.forge ?? '').contains(RegExp(r'[\[\]:]'))) return null;
+  final address = organizationForgeAddress(view);
+  return address.isEmpty ? null : address;
 }
 
 /// Names the central forge where its address identifies it, otherwise keeps that address.

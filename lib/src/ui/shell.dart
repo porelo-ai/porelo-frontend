@@ -3472,14 +3472,14 @@ class _ShellState extends State<Shell> {
   Future<String?> _giveHostToken(String host) async {
     final view = _organization?.view;
     final forge = organizationForgeName(view);
-    final address = organizationForgeAddress(view);
+    final address = organizationKeptTokenAddress(view);
     final where = forge == 'central forge' ? 'the central forge' : forge;
     final machine = widget.machines.all.where((machine) => machine.hostCard?.name == host).firstOrNull;
     final card = machine?.hostCard;
     if (machine == null || card == null) return 'Connect to $host first.';
-    final kept = address.isNotEmpty && await _forges.hasToken(address);
-    if (!mounted) return null;
     try {
+      final kept = address != null && await _forges.hasToken(address);
+      if (!mounted) return null;
       if (kept) {
         final word = await showDialog<bool>(
           context: context,
@@ -3498,15 +3498,28 @@ class _ShellState extends State<Shell> {
           ),
         );
         if (word != true) return null;
-        final command = organizationRefreshArguments(card: card, config: machine.sshConfig);
+        final command = organizationRefreshArguments(
+          card: card,
+          config: machine.sshConfig,
+          environment: widget.machines.tunnels.configEnvironment ?? desk.environment,
+          windows: desk.isWindows,
+        );
         return tokenGivenWords(host, forge, await _forges.feedKeptToken(address, command));
       }
       final secrets = centralToken(widget.settings.secretsFile, desk.environment);
       if (secrets == null) return noTokenWords(host, forge);
-      final command = organizationRefreshFeedCommand(card: card, config: machine.sshConfig, token: secrets);
+      final command = organizationRefreshFeedCommand(
+        card: card,
+        config: machine.sshConfig,
+        token: secrets,
+        environment: widget.machines.tunnels.configEnvironment ?? desk.environment,
+        windows: desk.isWindows,
+      );
       if (!mounted) return null;
-      await runInATerminal(
+      String? lastSaid;
+      final end = await runInATerminal(
         context,
+        lastLine: (line) => lastSaid = line,
         title: 'Give $host your $forge token, once',
         explanation:
             '$host has no account at $where. For setup it uses your $forge token once to add read-only keys '
@@ -3521,12 +3534,17 @@ class _ShellState extends State<Shell> {
         completed: '$host took the token.',
         answersForTheWindow: true,
       );
-      return null;
+      if (end.started && end.code == 0) return null;
+      if (!end.started) return '$host was given no token: its terminal could not be opened.';
+      final last = lastSaid?.trim() ?? '';
+      return '$host did not take the token: ${last.isEmpty ? 'its terminal ended with code ${end.code}' : last}';
     } on HostFilesRefused catch (refused) {
       return refused.message;
     } on FormatException catch (refused) {
       return refused.message;
     } on WorkspaceRefused catch (refused) {
+      return refused.words;
+    } on ForgeRefused catch (refused) {
       return refused.words;
     } on ProcessException catch (failed) {
       return 'This computer could not run ssh, so $host was given no token: ${failed.message}';

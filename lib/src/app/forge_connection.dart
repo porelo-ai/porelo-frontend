@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:porelo_host/porelo_host.dart' show forgeAddress;
@@ -398,7 +399,7 @@ class ForgeConnection extends ChangeNotifier with QuietAfterDispose {
   /// Whether the terminal command kept a token; no value reaches a widget.
   Future<bool> hasToken(String address) async {
     final kept = await _tokens.read(forgeAddress(address));
-    return kept != null && kept.isNotEmpty;
+    return kept != null && kept.trim().isNotEmpty;
   }
 
   /// Runs [command] with the token kept for [address] on its standard input, and answers what it said
@@ -408,8 +409,14 @@ class ForgeConnection extends ChangeNotifier with QuietAfterDispose {
     if (token == null || token.trim().isEmpty) {
       throw const WorkspaceRefused('No token is kept for this forge on this computer.');
     }
-    final ran = await run(command.first, command.sublist(1), input: '${token.trim()}\n');
-    String clean(String said) => said.replaceAll(token.trim(), '[redacted]');
+    final kept = token.trim();
+    // One line goes to the machine, so a token of more would leave the rest unsaid and unredacted.
+    if (RegExp(r'[\s\x00-\x1f\x7f]').hasMatch(kept)) {
+      throw const WorkspaceRefused('The token kept for this forge is not one word, so it was not sent. Sign in again.');
+    }
+    final ran = await run(command.first, command.sublist(1), input: '$kept\n');
+    final encoded = base64.encode(utf8.encode(kept));
+    String clean(String said) => said.replaceAll(kept, '[redacted]').replaceAll(encoded, '[redacted]');
     return (code: ran.code, out: clean(ran.out), err: clean(ran.err));
   }
 

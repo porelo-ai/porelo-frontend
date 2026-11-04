@@ -50,6 +50,7 @@ class _PlacingProjectDialogState extends State<PlacingProjectDialog> {
   Timer? _timer;
   String? _stopped;
   String? _tokenWhy;
+  String? _lastRefusal;
   HostProgress? _progress;
   bool _giving = false;
   bool _asking = false;
@@ -70,16 +71,22 @@ class _PlacingProjectDialogState extends State<PlacingProjectDialog> {
   Future<void> _begin() async {
     try {
       if (!widget.connections.connected(widget.host)) await widget.connections.connect(widget.host);
+    } on OrganizationRefused catch (refused) {
+      if (mounted) setState(() => _stopped = 'This computer did not connect to ${widget.host}: ${refused.words}');
+      return;
+    }
+    try {
       await _take(widget.connections.refresh(widget.host));
     } on OrganizationRefused catch (refused) {
-      // The first fetch may refuse before its account exists; asking still tells how it stands.
-      if (!mounted) return;
-      if (!widget.connections.connected(widget.host)) {
-        setState(() => _stopped = 'This computer did not connect to ${widget.host}: ${refused.words}');
-        return;
+      // A first fetch may refuse before its account exists; asking still tells how it stands, and if
+      // that refuses too, the machine's words are what there is to say.
+      try {
+        await _take(widget.connections.progress(widget.host));
+      } on OrganizationRefused {
+        if (mounted) setState(() => _lastRefusal = refused.words);
       }
     }
-    if (!mounted || _stopped != null) return;
+    if (!mounted || _stopped != null || _ended) return;
     _timer = Timer.periodic(widget.every, (_) => unawaited(_ask()));
   }
 
@@ -96,8 +103,9 @@ class _PlacingProjectDialogState extends State<PlacingProjectDialog> {
     _asking = true;
     try {
       await _take(widget.connections.progress(widget.host));
-    } on OrganizationRefused {
+    } on OrganizationRefused catch (refused) {
       // A machine that does not answer now is asked again; the patience above ends this.
+      if (mounted) setState(() => _lastRefusal = refused.words);
     } finally {
       _asking = false;
     }
@@ -106,32 +114,48 @@ class _PlacingProjectDialogState extends State<PlacingProjectDialog> {
   Future<void> _take(Future<HostProgress> asked) async {
     final progress = await asked;
     if (!mounted) return;
-    setState(() => _progress = progress);
+    setState(() {
+      _progress = progress;
+      _lastRefusal = null;
+    });
     if (_ended) _timer?.cancel();
   }
 
   HostProjectProgress? get _mine =>
       _progress?.projects.where((project) => project.project == widget.project).firstOrNull;
 
-  bool get _ended => _mine?.state == 'carried' || _mine?.state == 'held' || _mine?.state == 'refused';
+  bool get _ended =>
+      _mine?.state == 'carried' || _mine?.state == 'held' || _mine?.state == 'refused' || _mine?.hasNoAddress == true;
 
-  bool get _wantsToken => _mine?.waitsForToken ?? (_progress?.waitsForToken ?? false);
+  bool get _wantsToken => (_mine?.waitsForToken ?? false) || (_progress?.waitsForToken ?? false);
 
   Future<void> _give() async {
+    final first = _progress?.waitsForToken ?? false;
     setState(() {
       _giving = true;
       _tokenWhy = null;
     });
-    final words = await widget.onGiveToken?.call(widget.host);
-    if (!mounted) return;
-    setState(() {
-      _giving = false;
-      _tokenWhy = words;
-    });
+    String? words;
+    try {
+      words = await widget.onGiveToken?.call(widget.host);
+    } on Exception {
+      // Its own words are not said here: they are no one's to read for what a token may have been.
+      words = 'The token was not given. Close this and give it from the machine\'s page.';
+    } finally {
+      if (mounted) {
+        setState(() {
+          _giving = false;
+          _tokenWhy = words;
+        });
+      }
+    }
+    if (!mounted || words != null) return;
     try {
       await _take(widget.connections.refresh(widget.host));
-    } on OrganizationRefused {
-      // Asked again by the timer.
+      // The machine has made the account it could not make before: the connection can come up now.
+      if (first && !(_progress?.waitsForToken ?? true)) await widget.connections.connect(widget.host);
+    } on OrganizationRefused catch (refused) {
+      if (mounted) setState(() => _lastRefusal = refused.words);
     }
   }
 
@@ -143,10 +167,15 @@ class _PlacingProjectDialogState extends State<PlacingProjectDialog> {
       'carried' => '${widget.host} carries ${widget.project}.',
       'held' || 'refused' =>
         '${widget.host} did not take ${widget.project}${why == null ? '' : ': $why'}. Its page says what to do.',
+      _ when mine?.hasNoAddress == true =>
+        '${widget.project} has no address yet: its Project Admin opens it first, and ${widget.host} takes it then.',
       _ when _wantsToken => switch (widget.view) {
         final view? => organizationTokenWords(view, widget.host, project: widget.project),
         null => '${widget.host} waits for a token.',
       },
+      _ when _progress?.refused != null =>
+        '${widget.host} refused its last fetch and stays on what it took before: ${_progress!.refused}.',
+      _ when _lastRefusal != null => '${widget.host} did not answer: $_lastRefusal It goes on by itself.',
       _ when _progress == null => 'Connecting to ${widget.host}…',
       _ => '${widget.host} takes ${widget.project} when it next reads the organization, within five minutes.',
     };

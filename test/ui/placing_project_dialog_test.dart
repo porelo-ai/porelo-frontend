@@ -113,4 +113,67 @@ void main() {
     expect(words(tester), 'build carries demo.');
     await close(tester);
   });
+
+  // Harm: the machine waits for the organization's token, and the dialog says it takes the project by itself.
+  testWidgets('a machine waiting for its first token offers it, whatever the project says', (tester) async {
+    final connections = FixtureConnections(['build'])
+      ..hostProgress = const HostProgress(
+        waitsForToken: true,
+        projects: [HostProjectProgress(project: 'demo', state: 'pending')],
+      );
+    await open(tester, connections, onGiveToken: (_) async => null);
+    expect(find.byKey(const Key('placing-project.giveToken')), findsOneWidget);
+    await close(tester);
+  });
+
+  // Harm: a person waits five minutes for a project that cannot come until its admin opens it.
+  testWidgets('a project with no address says so, and stops following', (tester) async {
+    final connections = FixtureConnections(['build'])
+      ..hostProgress = const HostProgress(
+        projects: [HostProjectProgress(project: 'demo', state: 'waiting-for-token', hasNoAddress: true)],
+      );
+    await open(tester, connections, onGiveToken: (_) async => null);
+    expect(words(tester), contains('no address yet'));
+    expect(find.byKey(const Key('placing-project.giveToken')), findsNothing);
+    await close(tester);
+  });
+
+  testWidgets('a fetch the machine refused is said', (tester) async {
+    final connections = FixtureConnections(['build'])..hostProgress = const HostProgress(refused: 'git fetch failed');
+    await open(tester, connections);
+    expect(words(tester), contains('git fetch failed'));
+    await close(tester);
+  });
+
+  // Harm: a machine's account appears after the first token, and the person is left unconnected.
+  testWidgets('after the first token the connection is raised', (tester) async {
+    final connections = FixtureConnections(['build'])..hostProgress = const HostProgress(waitsForToken: true);
+    await open(
+      tester,
+      connections,
+      onGiveToken: (_) async {
+        connections.hostProgress = carried;
+        return null;
+      },
+    );
+    await tester.tap(find.byKey(const Key('placing-project.giveToken')));
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+    expect(connections.asked, contains('connect build'));
+    await close(tester);
+  });
+
+  // Harm: a press whose giving throws leaves the button dead and the dialog following nothing.
+  testWidgets('a giving that throws does not leave the button dead', (tester) async {
+    final connections = FixtureConnections(['build'])..hostProgress = waiting;
+    await open(tester, connections, onGiveToken: (_) async => throw const OrganizationRefused('no'));
+    await tester.tap(find.byKey(const Key('placing-project.giveToken')));
+    await tester.pump();
+    await tester.pump();
+    expect(find.byKey(const Key('placing-project.tokenWhy')), findsOneWidget);
+    final button = tester.widget<FilledButton>(find.byKey(const Key('placing-project.giveToken')));
+    expect(button.onPressed, isNotNull);
+    await close(tester);
+  });
 }

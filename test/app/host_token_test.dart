@@ -53,6 +53,42 @@ void main() {
     expect(ran.err, 'err [redacted]\n');
   }, skip: Platform.isWindows);
 
+  // Harm: only the first line reaches the machine, and the rest would never be taken out of its words.
+  test('a kept value of more than one word is not sent', () async {
+    final tokens = MemoryForgeTokens();
+    await tokens.write('github.com', 'ghp_one\nghp_two');
+    var ran = false;
+    await expectLater(
+      ForgeConnection(tokens).feedKeptToken(
+        'github.com',
+        <String>['ssh'],
+        run: (name, words, {inDirectory, environment = const {}, input}) async {
+          ran = true;
+          return (code: 0, out: '', err: '');
+        },
+      ),
+      throwsA(isA<WorkspaceRefused>()),
+    );
+    expect(ran, isFalse);
+  });
+
+  // Harm: a command that echoes the token base64-encoded puts it on the page all the same.
+  test('its encoded form is taken out too', () async {
+    final forges = await keeping();
+    final ran = await forges.feedKeptToken('github.com', <String>[
+      '/bin/sh',
+      '-c',
+      r'read given; printf %s "$given" | base64 -w0 >&2; exit 1',
+    ]);
+    expect(ran.err, '[redacted]');
+  }, skip: Platform.isWindows);
+
+  test('blank is not a kept token', () async {
+    final tokens = MemoryForgeTokens();
+    await tokens.write('github.com', '   ');
+    expect(await ForgeConnection(tokens).hasToken('github.com'), isFalse);
+  });
+
   test('with no token kept it refuses, and runs nothing', () async {
     final forges = ForgeConnection(MemoryForgeTokens());
     var ran = false;
