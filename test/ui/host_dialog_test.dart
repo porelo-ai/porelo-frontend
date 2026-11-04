@@ -189,9 +189,6 @@ void main() {
     proof.hold = Completer<void>();
     command().run();
     await World.settle(tester);
-    final name = find.byType(TextField).first;
-    await tester.enterText(name, 'orchard');
-    await World.settle(tester);
     final prepare = find.widgetWithText(FilledButton, 'Prepare the machine');
     expect(
       tester.widget<FilledButton>(prepare).onPressed,
@@ -769,46 +766,136 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  // Harm: a refused key's run can only be tried again with the same wrong key, or refused by name.
-  testWidgets('a run stopped for its key can be given another', (tester) async {
+  // Harm: a refused key's run can only be tried again with the same wrong key, or refused by name; and letting a
+  // run go that stands on the machine, or a rental that bills, loses the record that takes it off.
+  for (final kind in ['given', 'rental', 'past its login']) {
+    testWidgets('a run stopped for its key: $kind', (tester) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final settings = Settings(MemorySettingsStore());
+      final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: RecordingTunnels());
+      final runs = HostRuns(machines, hostAccess: await HostFixture().access(settings));
+      addTearDown(() {
+        runs.dispose();
+        machines.dispose();
+        settings.dispose();
+      });
+      final record = kind == 'rental'
+          ? signedSetup
+          : HostUpRecord(
+              hostName: 'orchard',
+              host: 'orchard',
+              givenAddress: '203.0.113.7',
+              givenHostKey: hostKey,
+              preparationSettings: const host.HostPreparationSettings(),
+              machineFile: signedSetup.machineFile,
+              publicKey: signedSetup.publicKey,
+            );
+      final processes = <HostProcess>[];
+      final session = HostSession(
+        executable: 'fake',
+        arguments: const [],
+        start: (_, _) async {
+          processes.add(HostProcess());
+          return processes.last;
+        },
+      );
+      final run = runs.start(project: 'orchard', record: record, session: session);
+      await tester.pump();
+      if (kind == 'past its login') {
+        processes.last.line(const host.Step('ssh', host.StepState.done));
+        processes.last.line(const host.Step('play', host.StepState.refused, fix: 'A task refused.'));
+        processes.last.end(65);
+        await run.finished;
+        unawaited(runs.resume(run));
+        await tester.pump();
+      }
+      processes.last.line(
+        const host.Step(
+          'ssh',
+          host.StepState.refused,
+          fix: '${host.hostKeyNotFiled}, so this try changed nothing on it.',
+        ),
+      );
+      processes.last.end(69);
+      await run.finished;
+      await tester.pump();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: HostDialog(
+            runKeyCommand: _noKeyScan,
+            project: 'orchard',
+            machines: machines,
+            settings: settings,
+            hostRuns: runs,
+            existingRun: run,
+          ),
+        ),
+      );
+      await World.settle(tester);
+      final another = find.byKey(const Key('preparation-another-key'));
+      if (kind != 'given') {
+        expect(another, findsNothing);
+        expect(run.problem, contains('removes its setup'), reason: 'what stands on the machine is still said');
+        await tester.pumpWidget(const SizedBox.shrink());
+        return;
+      }
+      expect(find.byKey(const Key('preparation-key-refused')), findsOneWidget, reason: 'said on reopening');
+      expect(run.problem, isNot(contains('removes its setup')), reason: 'nothing of it stands there');
+      expect(run.problem, isNot(contains('..')));
+      expect(find.text('Prepare the machine again'), findsNothing, reason: 'it would be refused the same way');
+      await tester.tap(another);
+      await World.settle(tester);
+      expect(runs.of('orchard'), isNull);
+      expect(settings.hostUp('orchard'), isNull);
+      expect(find.text('orchard'), findsOneWidget, reason: 'the name stands chosen');
+      expect(
+        tester.widget<TextField>(find.widgetWithText(TextField, 'Server address')).controller!.text,
+        '203.0.113.7',
+      );
+      expect(tester.widget<TextField>(find.widgetWithText(TextField, 'SSH host key')).controller!.text, isEmpty);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  }
+
+  // Harm: the field keeps a name the organization no longer offers, and throws while it draws.
+  testWidgets('a machine no longer offered is taken out of the choice, without a throw', (tester) async {
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     final settings = Settings(MemorySettingsStore());
     final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: RecordingTunnels());
-    final runs = HostRuns(machines, hostAccess: await HostFixture().access(settings));
+    final fixture = HostFixture();
+    final access = await fixture.access(settings);
+    final runs = HostRuns(machines, hostAccess: access);
     addTearDown(() {
       runs.dispose();
       machines.dispose();
       settings.dispose();
     });
-    final process = HostProcess();
-    final session = HostSession(executable: 'fake', arguments: const [], start: (_, _) async => process);
-    final run = runs.start(project: 'orchard', record: signedSetup, session: session);
-    process.line(
-      const host.Step('ssh', host.StepState.refused, fix: '${host.hostKeyNotFiled}, so nothing was changed on it.'),
-    );
-    process.end(65);
-    await run.finished;
     await tester.pumpWidget(
       MaterialApp(
         home: HostDialog(
           runKeyCommand: _noKeyScan,
-          project: 'orchard',
+          project: '',
           machines: machines,
           settings: settings,
           hostRuns: runs,
-          existingRun: run,
         ),
       ),
     );
     await World.settle(tester);
-    expect(find.text('Prepare the machine again'), findsNothing, reason: 'it would be refused the same way');
-    await tester.tap(find.byKey(const Key('preparation-another-key')));
+    await _chooseMachine(tester, 'orchard');
+    fixture.adminHosts = {'demo'};
+    await access.readAgain();
+    final address = find.widgetWithText(TextField, 'Server address');
+    await tester.ensureVisible(address);
+    await tester.enterText(address, '203.0.113.7');
     await World.settle(tester);
-    expect(runs.of('orchard'), isNull);
-    expect(settings.hostUp('orchard'), isNull);
-    expect(find.widgetWithText(TextField, 'SSH host key'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    expect(find.text('orchard'), findsNothing);
+    expect(tester.widget<Text>(find.byKey(const Key('preparation-waits'))).data, contains('Choose the machine'));
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
@@ -1021,21 +1108,16 @@ void main() {
           ),
         ),
       );
-      await _chooseMachine(tester, 'orchard');
-      for (final field in {'Server address': '203.0.113.7', 'SSH host key': hostKey}.entries) {
-        final finder = find.widgetWithText(TextField, field.key);
-        await tester.ensureVisible(finder);
-        await World.settle(tester);
-        await tester.enterText(finder, field.value);
-      }
       await World.settle(tester);
-      await tester.tap(find.text('Prepare the machine'));
+      await tester.tap(find.byKey(const Key('preparation-machine-name')));
       await World.settle(tester);
-      expect(tester.takeException(), isNull);
+      expect(find.text('orchard'), findsNothing, reason: 'it has a preparation of its own');
+      expect(find.text('demo'), findsWidgets);
+      await tester.tap(find.text('demo').last);
+      await World.settle(tester);
       expect(starts, 0);
       expect(settings.hostUp('orchard')?.stored, kept);
       if (previous != null) expect(runs.of('orchard'), same(previous));
-      expect(find.textContaining('already'), findsWidgets);
       if (collision == 'active') {
         process.end(65);
         await previous!.finished;
@@ -1088,7 +1170,7 @@ void main() {
     await World.settle(tester);
     expect(starts, 0);
     expect(runs.of('orchard'), isNull);
-    expect(find.textContaining('Only a Machine Admin'), findsOneWidget);
+    expect(find.textContaining('Only a Machine Admin'), findsWidgets);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 

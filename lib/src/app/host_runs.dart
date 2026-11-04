@@ -362,7 +362,15 @@ class HostRuns extends ChangeNotifier {
       if (run.session.state == HostRunState.done && !run.ready) {
         await _addHost(run);
       } else if (!run.ready && const [HostRunState.refused, HostRunState.unreachable].contains(run.session.state)) {
-        _stopped(run, 'Setup of ${run.name} stopped: ${run.session.fix ?? run.session.stepText}.');
+        final said = run.session.fix ?? run.session.stepText;
+        final stop = 'Setup of ${run.name} stopped: ${said.endsWith('.') ? said : '$said.'}';
+        // Nothing of a run refused at its first login stands on the machine, so there is no setup to remove.
+        run.problem = stop;
+        if (_stoppedAtItsFirstLogin(run)) {
+          say?.call(stop);
+        } else {
+          _stopped(run, stop);
+        }
       }
       if (run.session.state == HostRunState.busy) _poll(run);
     } on Exception {
@@ -418,14 +426,28 @@ class HostRuns extends ChangeNotifier {
     say?.call(words);
   }
 
-  /// Lets go of a run that stopped before changing the machine, so that it can be set up again with other
-  /// answers: its saved answers would only be refused the same way.
+  /// Whether [run] stopped at its first login on a machine one already has, with no try ever past it, so
+  /// nothing of it stands on the machine and its answers can be given again.
+  bool mayStartOver(HostPreparation run) => !run.running && _stoppedAtItsFirstLogin(run);
+
+  bool _stoppedAtItsFirstLogin(HostPreparation run) =>
+      !run.record.isRental &&
+      run.record.preparedHost == null &&
+      (run.problem ?? '').contains(hostKeyNotFiled) &&
+      !run.session.attempts.any((attempt) => attempt.entries.any(_passedTheLogin));
+
+  static bool _passedTheLogin(Object entry) =>
+      entry is HostStepRecord && entry.step.step == 'ssh' && entry.step.state == StepState.done;
+
+  /// Lets go of such a run: its saved answers would only be refused the same way.
   Future<void> startOver(HostPreparation run) async {
-    if (run.running) return;
+    if (!mayStartOver(run)) return;
     await run.saved;
     run._poll?.cancel();
+    if (run._listener case final listener?) run.session.removeListener(listener);
+    run._listener = null;
     _runs.remove(run.project);
-    await machines.settings.forgetHostUp(run.project);
+    await (run.settings ?? machines.settings).forgetHostUp(run.project);
     _changed();
   }
 

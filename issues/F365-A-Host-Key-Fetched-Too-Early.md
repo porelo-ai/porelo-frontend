@@ -1,6 +1,6 @@
 # F365 — A Host Key Fetched Too Early
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** M - a compare command and a second fetch in the dialog, words for a refused key, and the name as a choice.
 
 **What must be true.** In the dialog for a machine one already has, a person files the key the finished machine holds, knows how to compare it, and gets words that fit when the key is wrong. In the foo test, *Fetch SSH host key* took a key while the provider was still installing the server. Once the server read Ready, the machine itself named another. Only the person's comparison caught it.
@@ -31,7 +31,8 @@
 
 ## To be checked
 
-- After a refused key the stopped run offers *Enter the key again*: it lets the run and its saved answers go, as nothing was changed on the machine, and the form stands again with the name and address. Tested in the window with a stand-in; only a real machine with another key shows the whole of it.
+- After a refused key, a run on a machine one already has with no try ever past its login offers *Enter the key again*: it lets the run and its saved answers go, and the form stands again with the name and address. A rental, or a run that once got past its login, does not offer it. Tested in the window with a stand-in; only a real machine with another key shows the whole of it.
+- In the protocol ssh's own words stand before the fix on one line, as for every step; the fix also stands above the protocol, so ssh's line is below it in the window.
 - What the provider really offers to compare with; nothing here claims it. Porelo's rented machines make their key here, so this concerns a machine one already has.
 - Which refusal the name met in the foo test: read no further, as the name can no longer be typed.
 - The same words where a forge's key is compared, which share the sentence and have a page to name: left as they stand.

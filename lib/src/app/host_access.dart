@@ -162,8 +162,8 @@ class HostAccess extends ChangeNotifier {
     return view.isOrganizationAdmin || view.hosts.any((each) => each.admins.contains(view.me));
   }
 
-  /// The listed machines this person is a Machine Admin of, so may prepare.
-  List<String> get hostsToPrepare {
+  /// The listed machines this person is a Machine Admin of.
+  List<String> get hostsOfMine {
     final view = _view;
     final actor = identity();
     if (view == null || actor == null) return const [];

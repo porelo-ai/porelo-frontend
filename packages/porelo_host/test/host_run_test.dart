@@ -665,11 +665,18 @@ void main() {
 
   // Harm: a person reads ssh's own line, with nothing saying that an install changes the key or what next.
   test('a refused key says what happened and what to do, with ssh\'s line below', () async {
-    final run = runner(preparation: _Preparation(), transport: _WrongKey());
+    final run = HostRun(
+      provider: GivenMachine(address: '203.0.113.7', hostKey: sshKey),
+      remote: _WrongKey(),
+      emit: steps.add,
+      preparation: _Preparation(),
+      hostKeys: () async => ('fixture-host-private', sshKey),
+      environment: {'XDG_STATE_HOME': scratch.path, 'LOCALAPPDATA': scratch.path},
+    );
     await run.up(plan);
     final said = steps.lastWhere((step) => step.state == StepState.refused);
     expect(said.fix, startsWith(hostKeyNotFiled));
-    expect(said.fix, contains('nothing was changed'));
+    expect(said.fix, contains('changed nothing'));
     expect(said.words, contains('Host key verification failed'));
   });
 }

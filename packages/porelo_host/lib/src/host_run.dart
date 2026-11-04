@@ -747,13 +747,13 @@ done''',
       await Future<void>.delayed(sshEvery);
       reached = await login();
     }
-    if (_keyRefused(reached)) {
+    if (provider is GivenMachine && _keyRefused(reached)) {
       _write(
         Step(
           'ssh',
           StepState.refused,
           fix:
-              '$hostKeyNotFiled, so nothing was changed on it. An install changes the key, so one fetched '
+              '$hostKeyNotFiled, so this try changed nothing on it. An install changes the key, so one fetched '
               'before it finished is not the key it holds now. Enter the key again and compare it on the machine.',
           words: [reached.stderr, answered.toString()].where((part) => part.isNotEmpty).join('\n'),
         ),

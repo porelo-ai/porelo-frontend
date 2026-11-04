@@ -1,8 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:porelo_host/porelo_host.dart'
-    show HostMembership, HostPreparationSettings, hostKeyNotFiled, rootStillClosed;
+import 'package:porelo_host/porelo_host.dart' show HostMembership, HostPreparationSettings, rootStillClosed;
 
 import '../app/host_runs.dart';
 import '../app/host_access.dart';
@@ -247,31 +246,68 @@ class _HostDialogState extends State<HostDialog> {
     _addressChanged();
   }
 
+  /// The machines this person can prepare now: none refused, none with a preparation of its own already.
+  List<String> _choicesOf(HostAccess access) {
+    final runs = widget.hostRuns;
+    return [
+      for (final each in access.hostsOfMine)
+        if (access.unavailable(each) == null &&
+            _settings.hostUp(each) == null &&
+            !(runs?.of(each)?.running ?? false) &&
+            !(runs?.of(each)?.waiting ?? false))
+          each,
+    ];
+  }
+
+  /// Why there is nothing to choose, where the words beside the button do not say it already.
+  String? _whyNoChoice(HostAccess access) {
+    final mine = access.hostsOfMine;
+    if (access.unavailable() != null) return null;
+    if (mine.isEmpty) {
+      return 'You are Machine Admin of no machine the organization lists. An Organization Admin adds one under '
+          'Organization, and names you its Machine Admin.';
+    }
+    final refused = [for (final each in mine) ?access.unavailable(each)];
+    return refused.isNotEmpty
+        ? refused.first
+        : 'Each machine of yours has a preparation already: open it from its row under Machines.';
+  }
+
   /// Only a machine that can be prepared is offered, so the name cannot be typed into a refusal.
   Widget _machineChoice(HostAccess? access) {
-    final choices = access == null || !_proven ? const <String>[] : access.hostsToPrepare;
+    final ready = access != null && _proven;
+    final choices = ready ? _choicesOf(access) : const <String>[];
     final chosen = _name.text.trim();
-    if (access != null && _proven && choices.isEmpty && access.unavailable() == null) {
-      return const Padding(
-        padding: EdgeInsets.only(top: Space.small),
-        child: Text(
-          'You are Machine Admin of no machine the organization lists. An Organization Admin adds one under '
-          'Organization, and names you its Machine Admin.',
-          key: Key('preparation-no-machine'),
-        ),
-      );
+    if (ready && chosen.isNotEmpty && !choices.contains(chosen)) {
+      // The organization was read again and this one is no longer offered.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(_name.clear);
+      });
+    }
+    if (ready && choices.isEmpty) {
+      final why = _whyNoChoice(access);
+      return why == null
+          ? const SizedBox.shrink()
+          : Padding(
+              padding: const EdgeInsets.only(top: Space.small),
+              child: Text(why, key: const Key('preparation-no-machine')),
+            );
     }
     return Padding(
       padding: const EdgeInsets.only(top: Space.small),
-      child: DropdownButtonFormField<String>(
-        key: const Key('preparation-machine-name'),
-        initialValue: choices.contains(chosen) ? chosen : null,
-        decoration: const InputDecoration(
-          labelText: 'Machine name',
-          helperText: 'A machine the organization lists, of which you are a Machine Admin.',
+      // Its own state reads the first value alone, so another list or choice makes a new field.
+      child: KeyedSubtree(
+        key: ValueKey(<String>[...choices, '/', chosen].join(',')),
+        child: DropdownButtonFormField<String>(
+          key: const Key('preparation-machine-name'),
+          initialValue: choices.contains(chosen) ? chosen : null,
+          decoration: const InputDecoration(
+            labelText: 'Machine name',
+            helperText: 'A machine the organization lists, of which you are a Machine Admin.',
+          ),
+          items: [for (final each in choices) DropdownMenuItem(value: each, child: Text(each))],
+          onChanged: _busy ? null : (value) => setState(() => _name.text = value ?? ''),
         ),
-        items: [for (final each in choices) DropdownMenuItem(value: each, child: Text(each))],
-        onChanged: _busy ? null : (value) => setState(() => _name.text = value ?? ''),
       ),
     );
   }
@@ -305,7 +341,10 @@ class _HostDialogState extends State<HostDialog> {
     if (!_proven) return _problem ?? 'Your identity and the organization have not been read.';
     final name = _name.text.trim();
     if (name.isEmpty) {
-      return access.unavailable() ?? 'Choose the machine first: only its Machine Admins may prepare it.';
+      return access.unavailable() ??
+          (_choicesOf(access).isEmpty
+              ? 'There is no machine to choose.'
+              : 'Choose the machine first: only its Machine Admins may prepare it.');
     }
     return access.unavailable(name);
   }
@@ -654,6 +693,9 @@ class _HostDialogState extends State<HostDialog> {
                 if (_problem == null && run?.problem != null) Text(run!.problem!),
               ],
               if (_problem != null) Text(_problem!, key: _problemShown),
+              // Reopened from its row: what stopped it stands above the protocol, with ssh's own line.
+              if (_problem == null && run != null && (widget.hostRuns?.mayStartOver(run) ?? false))
+                Text(run.problem!, key: const Key('preparation-key-refused')),
               if (widget.takeDownOnly && !_givenBack) ...[
                 if (_checkingMemberships) const Text('Reading membership holders…'),
                 if (_membershipProblem != null) Text(_membershipProblem!),
@@ -721,7 +763,7 @@ class _HostDialogState extends State<HostDialog> {
                 : _prepare,
             child: const Text('Prepare the machine'),
           ),
-        if (!widget.takeDownOnly && run != null && !run.running && (run.problem ?? '').contains(hostKeyNotFiled))
+        if (!widget.takeDownOnly && run != null && (widget.hostRuns?.mayStartOver(run) ?? false))
           FilledButton(
             key: const Key('preparation-another-key'),
             onPressed: () => unawaited(_enterAnotherKey(run)),
