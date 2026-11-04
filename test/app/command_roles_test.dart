@@ -252,6 +252,7 @@ void main() {
       'vault.passphrase',
       'vault.show',
       'vault.shut',
+      'work.certifyAgain',
       'work.check',
       'work.continue',
       'work.enforcement',

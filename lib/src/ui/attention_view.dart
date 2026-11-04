@@ -6,6 +6,7 @@ import 'package:porelo_frontend/client.dart';
 import '../app/builds.dart';
 import '../app/granting.dart';
 import '../app/host_runs.dart';
+import '../app/task_certifying.dart';
 import '../app/attention.dart';
 import '../app/commands.dart';
 import '../app/fleet_model.dart';
@@ -782,11 +783,13 @@ class TaskTile extends StatelessWidget {
     // Nothing on a machine that is not answering can be told anything.
     final answers = !resolved && tile.fleet.reachability == Reachability.connected;
     final aboutTheDeadline = first == null ? null : _deadlineLine(first);
+    final ending = task == null ? null : certificateEnding(task);
     // The tile's button and its menu run the same command, so they cannot disagree about it.
     final session = actions.where((command) => command.id == 'work.session').firstOrNull;
     final folding = TileFolding.maybeOf(context);
     final id = '${tile.machine.name}/${task?.name ?? first?.task ?? ''}';
-    final asks = first != null || urgent || (task?.hasWorkWaiting ?? false) || tile.demand == Demand.ended;
+    final asks =
+        first != null || ending != null || urgent || (task?.hasWorkWaiting ?? false) || tile.demand == Demand.ended;
     final folds = folding != null && !asks;
     final folded = folds && !folding.open.contains(id);
 
@@ -908,6 +911,7 @@ class TaskTile extends StatelessWidget {
                       ),
                     if (aboutTheDeadline != null)
                       Text(aboutTheDeadline, key: const Key('tile-deadline'), style: text.bodySmall),
+                    if (ending != null) Text(ending, key: const Key('tile-certificate'), style: text.bodySmall),
                     // What was attempted and which rule stopped it: a destination alone does not say
                     // whose it was, and five tasks can be asking at once.
                     if (first != null) ...<Widget>[

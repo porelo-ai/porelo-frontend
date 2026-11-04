@@ -24,6 +24,8 @@ import '../app/attention.dart';
 import '../app/commands.dart';
 import '../app/fleet_backend.dart';
 import '../app/fleet_model.dart';
+import '../app/run_here.dart';
+import '../app/task_certifying.dart';
 import '../app/organization_source.dart';
 import '../app/porelo_organization_source.dart';
 import '../app/egress.dart';
@@ -558,6 +560,7 @@ class _ShellState extends State<Shell> {
     handInTo: (task) => unawaited(_handInTo(task)),
     takeBackFrom: (task) => unawaited(_takeBackFrom(task)),
     refreshFromItsSource: (task) => unawaited(_refreshFromItsSource(task)),
+    certifyAgain: (task) => unawaited(_certifyAgain(task)),
     unlockTheVault: _canUnlockHere ? () => unawaited(_unlockHere()) : null,
     openTheGate: _openTheGate,
     openEgress: _openEgress,
@@ -774,6 +777,7 @@ class _ShellState extends State<Shell> {
       handInTo: (task) => unawaited(_handInTo(task)),
       takeBackFrom: (task) => unawaited(_takeBackFrom(task)),
       refreshFromItsSource: (task) => unawaited(_refreshFromItsSource(task)),
+      certifyAgain: (task) => unawaited(_certifyAgain(task)),
       unlockTheVault: _unlockFor(tile.machine),
     ))
       command.after(() => _actOn(tile)),
@@ -2233,6 +2237,35 @@ class _ShellState extends State<Shell> {
       said = '$older';
     }
     if (mounted) _fleet.say(said);
+  }
+
+  /// Certifies a task for another week, by the command line, which asks this computer's agent.
+  Future<void> _certifyAgain(Task task) async {
+    final machine = widget.machines.current;
+    if (machine.needsATunnel && task.project.isEmpty) {
+      _fleet.say('${task.name} names no project, so nothing here can certify it on ${machine.name}.');
+      return;
+    }
+    final arguments = certifyAgainArguments(
+      task,
+      host: machine.needsATunnel ? machine.host : '',
+      project: task.project,
+    );
+    String said;
+    try {
+      final ran = await runHere('porelo', arguments);
+      final why = '${ran.err}\n${ran.out}'.trim();
+      said = ran.code == 0
+          ? '${task.name} is certified for another week.'
+          : '${task.name} was not certified: ${why.isEmpty ? 'porelo ended with ${ran.code}' : why}';
+    } on ProcessException {
+      said = "Porelo's command line could not be started here, so ${task.name} was not certified.";
+    } on WorkspaceRefused catch (refused) {
+      said = refused.words;
+    }
+    if (!mounted) return;
+    _fleet.say(said);
+    await _fleet.refresh();
   }
 
   /// Takes back a file the work was handed, chosen from what it holds.

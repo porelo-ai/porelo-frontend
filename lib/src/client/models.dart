@@ -359,6 +359,12 @@ class Task {
   /// it.
   final String label;
 
+  /// Whether its commits are signed by a key of its own, certified by a person.
+  final bool certified;
+
+  /// When that certificate ends; null where the machine does not say.
+  final DateTime? certifiedUntil;
+
   /// Project it belongs to, or empty when nothing recorded one.
   final String project;
 
@@ -488,6 +494,8 @@ class Task {
   const Task({
     required this.name,
     this.label = '',
+    this.certified = false,
+    this.certifiedUntil,
     required this.project,
     required this.securityClass,
     required this.state,
@@ -552,6 +560,8 @@ class Task {
   factory Task.from(Map<String, dynamic> map) => Task(
     name: _string(map, 'name'),
     label: _string(map, 'label'),
+    certified: map['certified'] == true,
+    certifiedUntil: DateTime.tryParse(_string(map, 'certifiedUntil'))?.toUtc(),
     project: _string(map, 'project'),
     securityClass: _string(map, 'securityClass'),
     state: _string(map, 'state'),

@@ -174,3 +174,26 @@ String _stamp(DateTime utc) {
   return '${utc.year.toString().padLeft(4, '0')}${two(utc.month)}${two(utc.day)}'
       '${two(utc.hour)}${two(utc.minute)}${two(utc.second)}';
 }
+
+/// What a person is told once [task]'s certificate is within a day of ending, or has ended, for a
+/// task that still runs on it; null at all other times, and where the machine does not say.
+String? certificateEnding(Task task, {DateTime? now}) {
+  final until = task.certifiedUntil;
+  if (!task.certified || until == null) return null;
+  final left = until.difference((now ?? DateTime.now()).toUtc());
+  if (left <= Duration.zero) {
+    return 'Its certificate has ended, so its commits and pushes are refused. Certify it for another week.';
+  }
+  if (left > const Duration(days: 1)) return null;
+  final words = left.inHours >= 1 ? '${left.inHours} hours' : '${left.inMinutes} minutes';
+  return 'Its certificate ends in $words. Certify it for another week.';
+}
+
+/// The command line that certifies [task] anew, by this computer's agent: on [host] when it runs
+/// on another machine. Only the command line asks the agent for this, and it asks here.
+List<String> certifyAgainArguments(Task task, {String host = '', String project = ''}) => <String>[
+  'task',
+  'certify',
+  task.task,
+  if (host.isNotEmpty) ...<String>['--host', host, '--project', project],
+];

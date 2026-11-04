@@ -254,6 +254,7 @@ List<Command> workCommands({
   void Function(Task task)? takeBackFrom,
   void Function(Task task)? refreshFromItsSource,
   VoidCallback? unlockTheVault,
+  void Function(Task task)? certifyAgain,
 }) {
   const nothingSelected = 'no work is selected';
   final offline = notAnswering(fleet);
@@ -390,6 +391,22 @@ List<Command> workCommands({
       home: Home.tileMenu,
       run: () => nameTheWork(task!),
       unavailable: task == null ? nothingSelected : null,
+    ),
+    Command(
+      id: 'work.certifyAgain',
+      label: 'Certify it for another week',
+      group: 'Work',
+      home: Home.tileMenu,
+      run: () => certifyAgain!(task!),
+      unavailable: certifyAgain == null
+          ? 'not offered here'
+          : task == null
+          ? nothingSelected
+          : !task.certified
+          ? 'its commits are not signed by a certified key'
+          : !task.running
+          ? 'it is not running'
+          : null,
     ),
     Command(
       id: 'work.handIn',
@@ -1071,6 +1088,7 @@ List<Command> commandsFor({
   void Function(Task task)? handInTo,
   void Function(Task task)? takeBackFrom,
   void Function(Task task)? refreshFromItsSource,
+  void Function(Task task)? certifyAgain,
   VoidCallback? unlockTheVault,
   required VoidCallback openTheGate,
   required VoidCallback openEgress,
@@ -1311,6 +1329,7 @@ List<Command> commandsFor({
       handInTo: handInTo,
       takeBackFrom: takeBackFrom,
       refreshFromItsSource: refreshFromItsSource,
+      certifyAgain: certifyAgain,
       unlockTheVault: unlockTheVault,
     ),
     Command(
