@@ -105,6 +105,8 @@ class _OrganizationMachineRowState extends State<OrganizationMachineRow> {
     final view = widget.view;
     final connected = widget.connections?.up(host.name) ?? false;
     final why = _whyNotConnect(host, widget.connections);
+    final waiting = !connected && (widget.connections?.waitsForToken(host.name) ?? false);
+    final givesIt = host.admins.contains(view.me);
     // The right to connect is an account there, and that is what the person's own list of machines says.
     final hasAccount = view.myHosts.any((each) => each.name == host.name);
     final mine = [
@@ -124,14 +126,25 @@ class _OrganizationMachineRowState extends State<OrganizationMachineRow> {
               ?widget.words,
               if (host.admins.contains(view.me)) 'you administer it',
               if (mine.isNotEmpty) 'your projects: ${mine.join(', ')}',
-              if (connected) mine.isEmpty ? 'connected' : 'connected, ready to work on' else why ?? 'not connected yet',
+              if (waiting)
+                'waits for a first token'
+              else if (connected)
+                mine.isEmpty ? 'connected' : 'connected, ready to work on'
+              else
+                why ?? 'not connected yet',
             ].join(' · '),
           ),
           trailing: Wrap(
             crossAxisAlignment: WrapCrossAlignment.center,
             spacing: Space.small,
             children: [
-              if (hasAccount && !connected)
+              if (waiting && givesIt)
+                FilledButton(
+                  key: ValueKey('organization.toToken/${host.name}'),
+                  onPressed: widget.onOpen,
+                  child: const Text('Give it your token…'),
+                ),
+              if (hasAccount && !connected && !waiting)
                 FilledButton(
                   key: ValueKey('organization.connect/${host.name}'),
                   onPressed: why != null || _connecting ? null : () => unawaited(_connect()),
@@ -143,6 +156,13 @@ class _OrganizationMachineRowState extends State<OrganizationMachineRow> {
           ),
           onTap: widget.onOpen,
         ),
+        if (waiting)
+          _Problem(
+            givesIt
+                ? organizationTokenWords(view, host.name)
+                : '${host.name} waits for its Machine Admin (${host.admins.join(', ')}) to give it a first token. '
+                      'Connect again after that.',
+          ),
         if (_refusal case final refusal?) _Problem(refusal),
       ],
     );
@@ -644,7 +664,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
             ready
                 ? 'Connected as ${view.me}.${mine.isEmpty ? '' : ' Ready to work on: ${mine.join(', ')}.'}'
                 : connected
-                ? 'Connected. $name makes your account once it has read the organization, up to five minutes after '
+                ? 'Not connected yet. $name makes your account once it has read the organization, up to five minutes after '
                       'your project is on it, and only once its admin has given it the token.'
                 : why ??
                       'This computer has no connection to $name yet. You need one to work there; it is set up once, '

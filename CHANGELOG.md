@@ -9,6 +9,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- *Connect* on a machine waiting for its first token names that step and leads to it, and the row and the machine's page say one thing. A connection the machine closes before login says to wait a minute.
 - A repository added before a project has a machine is filed with its central address, so a machine takes it when it comes.
 - *Put it on a machine…* follows the machine in one dialog: it connects, offers the token if the machine waits for one, and says when the project is carried or why not. The token this computer keeps goes to the machine after your word, on standard input, with no terminal, and a press that gives none says why beside the button.
 - Work started from the window on a host starts: what the host asks to certify is checked here and signed by your agent on this computer, which never leaves it. A key missing from the agent is named by its fingerprint at the start. A certified task can be certified for another week from its menu, and says so within a day of its certificate's end.

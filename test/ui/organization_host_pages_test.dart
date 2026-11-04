@@ -109,6 +109,27 @@ void main() {
       return (connections: made, opened: opened);
     }
 
+    // Harm: *Connect* greys for a moment and returns, with no word, as in the foo test.
+    testWidgets('a connect on a machine waiting for its token names that step, beside the button', (tester) async {
+      final connections = FixtureConnections()..waiting.add('build');
+      final made = await section(tester, organizationFor('hana'), connections: connections);
+      await pressOrganizationAction(tester, 'connect/build');
+      expect(find.textContaining('your token'), findsWidgets);
+      expect(_action('connect/build'), findsNothing, reason: 'the one button that cannot help is gone');
+      await tester.tap(find.byKey(const ValueKey('organization.toToken/build')));
+      await tester.pumpAndSettle();
+      expect(made.opened, ['build']);
+    });
+
+    // Harm: the one who cannot give it is sent after a button they do not have.
+    testWidgets('anyone else reads who it waits for', (tester) async {
+      final connections = FixtureConnections()..waiting.add('build');
+      await section(tester, organizationFor('mia'), connections: connections);
+      await pressOrganizationAction(tester, 'connect/build');
+      expect(find.textContaining('waits for its Machine Admin'), findsOneWidget);
+      expect(find.byKey(const ValueKey('organization.toToken/build')), findsNothing);
+    });
+
     // Harm: a person with two projects on one host connects twice, and holds two connections to one account.
     testWidgets('two projects of a person on one host are one row and one connection', (tester) async {
       final made = await section(
@@ -508,6 +529,14 @@ void main() {
       answer = null;
       await pressOrganizationAction(tester, 'giveToken');
       expect(find.byKey(const ValueKey('organization.tokenWhy')), findsNothing);
+    });
+
+    // Harm: the row says one thing and the page another, as in the foo test: "not connected yet" and "Connected".
+    testWidgets('the page does not say Connected while its connection is not up', (tester) async {
+      final connections = FixtureConnections(['build'])..waiting.add('build');
+      await page(tester, 'hana', connections: connections);
+      final said = tester.widget<Text>(find.byKey(const ValueKey('organization.connectionWords'))).data!;
+      expect(said, isNot(startsWith('Connected')));
     });
 
     // Harm: the token is given and the person still has no connection, with a button that says Disconnect.

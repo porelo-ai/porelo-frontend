@@ -1,5 +1,6 @@
 import 'package:porelo_host/porelo_host.dart' show HostCardSsh, HostFiles, HostFilesRefused;
 
+import 'ssh_words.dart';
 import 'desk.dart';
 import 'host_progress.dart';
 import 'machines.dart';
@@ -48,6 +49,12 @@ class CardHostConnections extends HostConnections {
     return card != null && !machine!.disconnected && !_movedPast(card);
   }
 
+  /// The hosts the last *Connect* found waiting for a first token.
+  final Set<String> _waiting = <String>{};
+
+  @override
+  bool waitsForToken(String host) => _waiting.contains(host) && !up(host);
+
   @override
   bool up(String host) {
     final machine = _machine(host);
@@ -90,13 +97,18 @@ class CardHostConnections extends HostConnections {
     );
     // A new host makes no account before it has a token, and a host admin gives it that as root: the connection's
     // files stay for that, and *Connect* is asked again after it.
-    if (!await machines.tunnels.raiseFor(machine) && !await _waitsForToken(machine, card.name)) {
-      final why =
-          machine.whyNotReachableHere ??
-          machines.tunnels.of(machine)?.problem ??
-          'The connection to ${card.name} could not be opened.';
-      await machines.tunnels.dropAndUnpublish(machine);
-      throw OrganizationRefused(why);
+    _waiting.remove(card.name);
+    if (!await machines.tunnels.raiseFor(machine)) {
+      if (await _waitsForToken(machine, card.name)) {
+        _waiting.add(card.name);
+      } else {
+        final why =
+            machine.whyNotReachableHere ??
+            sshRefusalWords(machines.tunnels.of(machine)?.problem) ??
+            'The connection to ${card.name} could not be opened.';
+        await machines.tunnels.dropAndUnpublish(machine);
+        throw OrganizationRefused(why);
+      }
     }
     var saved = false;
     try {

@@ -105,6 +105,15 @@ class FixtureConnections extends HostConnections {
   @override
   bool connected(String host) => hosts.contains(host);
 
+  /// Hosts that say, once connected to, that they wait for a first token; their connection is not up.
+  final waiting = <String>{};
+
+  @override
+  bool up(String host) => connected(host) && !waiting.contains(host);
+
+  @override
+  bool waitsForToken(String host) => hosts.contains(host) && waiting.contains(host);
+
   @override
   Future<void> connect(String host) async {
     _ask('connect $host');
