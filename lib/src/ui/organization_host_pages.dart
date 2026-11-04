@@ -468,7 +468,10 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
           'address anew, and it then needs your token once more';
     }
     return switch (progress.state) {
-      'carried' => 'on the machine',
+      'carried' => switch (progress.why) {
+        final why? => 'on the machine: $why',
+        null => 'on the machine',
+      },
       // The host says this of a project going either way; one leaving is already said on its row.
       'pending' when !host.projects.contains(name) => progress.why,
       'pending' => switch (progress.why) {

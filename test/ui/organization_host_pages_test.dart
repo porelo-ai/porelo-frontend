@@ -280,6 +280,24 @@ void main() {
       );
     });
 
+    // Harm: a project carried with something wrong reads as a project with nothing wrong.
+    testWidgets('a project the machine carries with a reason says the reason', (tester) async {
+      final connections = FixtureConnections(['build'])
+        ..hostProgress = const HostProgress(
+          projects: [
+            HostProjectProgress(project: 'demo', state: 'carried', why: 'the host card names no forge git port'),
+          ],
+        );
+      await page(tester, 'hana', connections: connections);
+      expect(
+        find.descendant(
+          of: find.ancestor(of: find.text('demo'), matching: find.byType(ListTile)),
+          matching: find.textContaining('on the machine: the host card names no forge git port'),
+        ),
+        findsOneWidget,
+      );
+    });
+
     // Harm: a person who may not manage a host is offered what the store refuses.
     testWidgets('a member sees the host and their connection, and no management', (tester) async {
       await page(tester, 'mia');
