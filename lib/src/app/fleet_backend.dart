@@ -208,6 +208,9 @@ abstract class FleetBackend {
   /// invisible, and that is the one most likely to need attention.
   Future<List<Project>> projects();
 
+  /// Takes a project the machine carries for this person, as a person's act; see [Project.carried].
+  Future<TakenProject> takeProject(String project);
+
   /// The task list, again whenever it changes.
   ///
   /// Errors with [FeatureNotSupported] against a backend too old to have `Watch`, which is a
@@ -585,6 +588,9 @@ class PoreloBackend implements FleetBackend {
 
   @override
   Future<List<Project>> projects() => _opened().projects();
+
+  @override
+  Future<TakenProject> takeProject(String project) => _opened().takeProject(project);
 
   @override
   Stream<List<Task>> watch() => _opened().watchTasks();

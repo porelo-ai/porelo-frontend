@@ -1841,6 +1841,9 @@ class _Process extends Fake implements Process {
 }
 
 class _StoppedBackend extends Fake implements FleetBackend {
+  @override
+  Future<TakenProject> takeProject(String project) async => const TakenProject();
+
   int opened = 0;
   @override
   String get label => 'alpha';

@@ -8,6 +8,9 @@ import 'package:porelo_frontend/src/app/fleet_model.dart';
 /// A backend that is reachable and useless: the socket opens and nothing is ever answered.
 class _Wedged implements FleetBackend {
   @override
+  Future<TakenProject> takeProject(String project) async => const TakenProject();
+
+  @override
   String get label => 'the mock';
 
   @override
@@ -362,6 +365,9 @@ class _Wedged implements FleetBackend {
 /// A machine that lists one project nothing has ever run on, and one task belonging to a project
 /// it does not list at all.
 class _Machine implements FleetBackend {
+  @override
+  Future<TakenProject> takeProject(String project) async => const TakenProject();
+
   @override
   String get label => 'the mock';
 

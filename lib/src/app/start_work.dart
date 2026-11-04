@@ -300,6 +300,7 @@ class StartWork extends ChangeNotifier {
   /// Why work cannot be started in this project, or null when it can.
   static String? whyNot(Project? project) {
     if (project == null) return 'no project is selected';
+    if (project.carried) return null;
     if (!project.canBeActedOn) {
       return '${project.name} is not on this machine';
     }

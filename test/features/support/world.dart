@@ -292,6 +292,39 @@ class FakeBackend implements FleetBackend {
     return _projects();
   }
 
+  /// The projects a person's act took here, in order.
+  final List<String> taken = <String>[];
+
+  /// What the next `TakeProject` answers in place of taking.
+  TakenProject? takeAnswers;
+
+  /// Whether this machine's Porelo has no `TakeProject`.
+  bool takesNoProject = false;
+
+  @override
+  Future<TakenProject> takeProject(String project) async {
+    if (takesNoProject) throw const FeatureNotSupported('TakeProject');
+    taken.add(project);
+    if (takeAnswers case final answer?) return answer;
+    final file = '/home/person/.local/state/porelo/$project/project.yml';
+    theProjectsItHas = <Project>[
+      for (final each in theProjectsItHas)
+        if (each.name == project)
+          Project.from(<String, dynamic>{
+            'name': project,
+            'file': file,
+            'securityClass': each.securityClass,
+            'prepared': true,
+            'repositories': <Map<String, dynamic>>[
+              for (final repository in each.repositoryStates) <String, dynamic>{'name': repository.name},
+            ],
+          })
+        else
+          each,
+    ];
+    return TakenProject(file: file);
+  }
+
   List<Project> _projects() => <Project>[
     for (final each in theProjectsItHas)
       // As Porelo lists it (measured on 254): default names the repositories added to it.

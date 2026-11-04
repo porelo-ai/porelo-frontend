@@ -115,6 +115,7 @@ The IDL carries the detail, a comment per method and per field. The shape of it:
 | | |
 |---|---|
 | **What exists** | `List`, `Watch` (streams), `Projects`, `WatchProjects` (streams), `Agents`, `Credentials` |
+| **A carried project** | A row of `Projects` with `carried: true` and an empty `file`: the host carries it and this person has not taken it here. `TakeProject` takes it, once, at a person's act, and answers `{file}` or `{reason, words}`; a list never takes |
 | **Running tasks** | `Start` (creates or brings back; streams the build), `Stop` (keeps it), `Remove`, `Tail` (follows a log) |
 | **Builds of a push** | `Task.builds`, `buildReader`, `buildProblem` (no method: `Watch` carries them) |
 | **Files handed in** | `HandIn` (in parts), `TakeBack`, `HandIns` (the record, also after the task is gone) |

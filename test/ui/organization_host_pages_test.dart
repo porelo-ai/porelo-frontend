@@ -185,7 +185,7 @@ void main() {
       String host = 'build',
       List<OrganizationProject> moreProjects = const [],
       Future<void> Function(String host)? onGiveToken,
-      void Function(String host)? onStartWork,
+      Future<String?> Function(String host, String? project)? onStartWork,
       OrganizationHost shown = buildHost,
     }) async {
       final source = FixtureOrganization(organizationFor(me, moreProjects: moreProjects, host: shown));
@@ -523,14 +523,74 @@ void main() {
 
     // Harm: a person cannot tell whether this computer is connected, what that means, or how to go on from it.
     testWidgets('the top of the page says where one stands, and leads on', (tester) async {
-      final started = <String>[];
-      await page(tester, 'mia', connections: FixtureConnections(), onStartWork: started.add);
+      final started = <(String, String?)>[];
+      await page(
+        tester,
+        'mia',
+        connections: FixtureConnections(),
+        onStartWork: (host, project) async {
+          started.add((host, project));
+          return null;
+        },
+      );
       expect(find.textContaining('This computer has no connection to build yet'), findsOneWidget);
       expect(find.byKey(const ValueKey('organization.startWork/build')), findsNothing);
       await pressOrganizationAction(tester, 'connect/build');
       expect(find.textContaining('Connected as mia. Ready to work on: demo.'), findsOneWidget);
       await _tap(tester, find.byKey(const ValueKey('organization.startWork/build')));
-      expect(started, ['build']);
+      expect(started, [('build', 'demo')]);
+    });
+
+    // Harm: a machine that says it is ready for a project leads into the Default project, asking for an address.
+    testWidgets('Start work names the one project and starts in it', (tester) async {
+      final started = <String?>[];
+      await page(
+        tester,
+        'mia',
+        connections: FixtureConnections(['build']),
+        onStartWork: (_, project) async {
+          started.add(project);
+          return null;
+        },
+      );
+      expect(find.text('Start work in demo'), findsOneWidget);
+      await _tap(tester, find.byKey(const ValueKey('organization.startWork/build')));
+      expect(started, ['demo']);
+    });
+
+    // Harm: with several projects on a machine, the person is taken into one they did not choose.
+    testWidgets('with several projects Start work asks which, and Default only by its name', (tester) async {
+      final started = <String?>[];
+      await page(
+        tester,
+        'mia',
+        connections: FixtureConnections(['build']),
+        moreProjects: const [
+          OrganizationProject(name: 'other', members: ['mia'], admins: [], host: 'build'),
+        ],
+        onStartWork: (_, project) async {
+          started.add(project);
+          return null;
+        },
+      );
+      expect(find.text('Start work…'), findsOneWidget);
+      await _tap(tester, find.byKey(const ValueKey('organization.startWork/build')));
+      expect(started, isEmpty);
+      expect(find.byKey(const ValueKey('organization.startWorkIn/default')), findsOneWidget);
+      await _tap(tester, find.byKey(const ValueKey('organization.startWorkIn/other')));
+      expect(started, ['other']);
+    });
+
+    // Harm: the press seems to do nothing, and the person presses again or gives up.
+    testWidgets('a start that cannot happen says why beside the button', (tester) async {
+      await page(
+        tester,
+        'mia',
+        connections: FixtureConnections(['build']),
+        onStartWork: (_, _) async => 'build does not list demo yet.',
+      );
+      await _tap(tester, find.byKey(const ValueKey('organization.startWork/build')));
+      expect(find.text('build does not list demo yet.'), findsOneWidget);
     });
 
     // Harm: a person cannot end a connection, or sees it as ended when it was refused.

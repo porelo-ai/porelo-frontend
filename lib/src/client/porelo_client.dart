@@ -401,6 +401,13 @@ class PoreloClient {
     return projects is List ? projects.whereType<Map<String, dynamic>>().map(Project.from).toList() : const <Project>[];
   }
 
+  /// Takes a project the machine carries for this person, so that it stands here with its file.
+  ///
+  /// For a person's act and never for a list: it fetches once and, on a host, asks one forge token. An older daemon
+  /// raises [FeatureNotSupported], for this call alone.
+  Future<TakenProject> takeProject(String project) async =>
+      TakenProject.from(await _call('TakeProject', {'project': project}));
+
   /// The curated destination sets installed on this machine, and where they were found.
   ///
   /// Scanned every time rather than fixed: a set an operator drops into their own directory turns

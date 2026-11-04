@@ -1,6 +1,6 @@
 # F370 — Start Work In A Project A Machine Carries
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** S - the button names its project and asks among several; a first start from the page follows the daemon's answer.
 
 **What must be true.** A machine's page that says "Ready to work on: foo-project" leads to work in that project. In the foo test `scaleway-1` said so, and its *Start work* asked for a repository's address, the way into the *Default* project. The wizard *Start an agent for each repository* could not be reached, and the test stopped there.
@@ -18,6 +18,15 @@
 - **The first start works from the page,** for a project the machine carries and the daemon does not list yet, with the wizard reachable. Whether the window can do this without the list depends on Core's answer, as a start needs a project the daemon knows.
 - **If it cannot start yet, it says so,** beside the button, in words saying what is missing. It never falls to asking for an address.
 
+## Plan
+
+The contract with Core: `Projects` gives a carried row with `file` empty and `carried: true`; `TakeProject(project)` answers `{file}` or `{reason, words}`; a list never takes.
+
+1. `Project.carried`, `takeProject` in the client and the backend. An older daemon reads as not carried.
+2. `canBeActedOn` keeps its meaning. `StartWork.whyNot` and `StartAgents.whyNot` let a carried row through, and the wizard judges its rows once taken.
+3. The shell takes at the act, in *Start work*, the wizard and the machine page, saying a refusal in words.
+4. The machine page's button names its project, asks among several with *Default* by name, and shows why beside it. A machine whose daemon does not list the project says what to do.
+
 ## Acceptance
 
 - On a machine that carries a project of the person, *Start work* never opens the way into *Default* unasked. Seen to fail first.
@@ -26,5 +35,6 @@
 
 ## To be checked
 
-- What Core's daemon answers once its list reads what a host carries, and what a first start needs before that.
+- A real run against Core's daemon, once its snapshot lists carried rows; until then only a fake answers.
+- The machine page's button in a whole window: the page and the shell's take are each tested, their joining is not.
 - The row's way on from *My projects*, which leads to that same page.

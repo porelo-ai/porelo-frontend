@@ -1314,7 +1314,7 @@ class _ShellState extends State<Shell> {
           onProject: (name) => setState(() => _organizationProject = name),
           onHost: (project, host) {
             final machine = widget.machines.all.where((machine) => machine.name == host).firstOrNull;
-            // A host lists a project only after the person's first start there; until then its page is the way on.
+            // A Porelo older than the carried row lists a project only after a first start there; its page says so.
             if (machine != null && widget.machines.of(machine).projects.any((each) => each.name == project)) {
               _openPageProject(machine, project);
             } else {
@@ -1815,10 +1815,14 @@ class _ShellState extends State<Shell> {
 
   /// Starts work in the selected project.
   Future<void> _startWork({String? repository}) async {
-    final project = _fleet.selectedProject?.project;
-    if (project == null) return;
+    final selected = _fleet.selectedProject?.project;
+    if (selected == null) return;
     // In default, work starts on a repository named first: the one way, wherever it is asked for.
-    if (project.name == defaultProject) return _startInDefault();
+    if (selected.name == defaultProject) return _startInDefault();
+    final why = await _takeIfCarried(selected.name);
+    if (why != null) return _fleet.say(why);
+    final project = _listed(selected.name);
+    if (project == null || !mounted) return;
     // Open at once and read behind it: waiting for the machine first left the press unanswered.
     widget.starting.publishedHostKeys = _publishedHostKeys;
     widget.starting.runningElsewhere = _runningElsewhere(project.name);
@@ -1834,10 +1838,48 @@ class _ShellState extends State<Shell> {
         machine.name,
   ];
 
+  Project? _listed(String name) => _fleet.projects.where((each) => each.project.name == name).firstOrNull?.project;
+
+  /// Takes [name] if this machine carries it and this person has not taken it yet, at a person's act: a list never
+  /// does, as a take fetches and may ask a token. Answers why it could not be, in words, or null.
+  Future<String?> _takeIfCarried(String name) async {
+    if (_listed(name)?.carried != true) return null;
+    final String words;
+    try {
+      final taken = await _fleet.backend.takeProject(name);
+      if (taken.taken) {
+        await _fleet.refresh(quietly: true);
+        return null;
+      }
+      words = taken.words.isEmpty ? 'The machine did not say why.' : taken.words;
+    } on FeatureNotSupported {
+      return 'This machine carries $name, and starting there from here needs a newer Porelo on it.';
+    } on VarlinkException catch (refused) {
+      return '$name could not be taken on this machine: ${refused.simpleName}';
+    } on VarlinkDisconnected {
+      return '$name could not be taken: the connection to this machine was lost.';
+    }
+    return '$name could not be taken on this machine: $words';
+  }
+
+  /// Starts work in [project] from a machine's page: taken first if need be. Answers why it cannot start, or null.
+  Future<String?> _startFromTheMachinePage(String host, String project) async {
+    await _fleet.refresh(quietly: true);
+    if (_listed(project) == null) {
+      return '$host carries $project, and its Porelo lists a project only after a first start there. '
+          'A newer Porelo there lets you start from here; until then, on the machine, '
+          'porelo task prepare -p $project --dry-run takes it.';
+    }
+    final why = await _takeIfCarried(project);
+    if (why != null) return why;
+    unawaited(_startWorkIn(project));
+    return null;
+  }
+
   /// Starts work in the project called [name], once the machine lists it: what binding a machine
   /// from a repository leads to.
   Future<void> _startWorkIn(String name, {String? repository}) async {
-    Project? listed() => _fleet.projects.where((each) => each.project.name == name).firstOrNull?.project;
+    Project? listed() => _listed(name);
     // Asked of the machine first only when it is not known yet: a round trip before the form opened
     // was a pause a person noticed.
     final known = listed();
@@ -2016,8 +2058,12 @@ class _ShellState extends State<Shell> {
   /// Opens the wizard that starts the agent each repository of [name] names, on the machine acted on.
   Future<void> _startTheAgents(String name) async {
     await _fleet.refresh(quietly: true);
-    final project = _fleet.projects.where((each) => each.project.name == name).firstOrNull?.project;
+    final why = await _takeIfCarried(name);
+    if (why != null) return _fleet.say(why);
+    final project = _listed(name);
     if (project == null || !mounted) return;
+    // A row's agent comes with its file, so this is the first it can be said for a project just taken.
+    if (StartAgents.whyNot(project) case final lacking?) return _fleet.say(lacking);
     final starting = _startingAgents;
     unawaited(starting.open(_fleet.backend, project));
     await openStartAgents(
@@ -3141,7 +3187,7 @@ class _ShellState extends State<Shell> {
     final fleet = widget.machines.of(where);
     final projects = <ProjectOnScreen>[
       for (final project in fleet.projects)
-        if (project.name != defaultProject && project.canBeActedOn) project,
+        if (project.name != defaultProject && (project.canBeActedOn || project.project.carried)) project,
     ];
     // Then in which project, or in none: work without a project is default, every machine's.
     final chosen = projects.isEmpty
@@ -3296,7 +3342,7 @@ class _ShellState extends State<Shell> {
           ? 'This machine is not connected.'
           : project.name == defaultProject
           ? null
-          : project.canBeActedOn
+          : project.canBeActedOn || project.project.carried
           ? StartWork.whyNot(project.project)
           : 'This project is not on this machine.',
       run: () {
@@ -3583,11 +3629,15 @@ class _ShellState extends State<Shell> {
     organization: _organization!,
     connections: _hostConnections,
     onGiveToken: _giveHostToken,
-    onStartWork: (host) {
+    onStartWork: (host, project) async {
       final machine = widget.machines.all.where((machine) => machine.hostCard?.name == host).firstOrNull;
-      if (machine == null) return;
+      if (machine == null) return null;
       widget.machines.select(machine);
-      unawaited(_startInDefault());
+      if (project == null) {
+        unawaited(_startInDefault());
+        return null;
+      }
+      return _startFromTheMachinePage(host, project);
     },
     keys: _keys,
     refresh: _organizationPageRefresh,

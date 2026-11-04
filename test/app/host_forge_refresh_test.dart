@@ -7,6 +7,9 @@ import 'package:porelo_frontend/src/app/fleet_backend.dart';
 import 'package:porelo_frontend/src/app/host_forge_refresh.dart';
 
 class _Backend extends Fake implements FleetBackend {
+  @override
+  Future<TakenProject> takeProject(String project) async => const TakenProject();
+
   final calls = <String>[];
   @override
   Future<Synced> syncUpstream(String project, {String? repository}) async {

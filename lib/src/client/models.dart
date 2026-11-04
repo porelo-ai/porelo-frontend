@@ -1847,6 +1847,10 @@ class Project {
   /// Project name, as its file declares it.
   final String name;
 
+  /// Whether the machine carries it for this person, who has not taken it here yet: it has no [file] until
+  /// `TakeProject`. False from a daemon that does not say.
+  final bool carried;
+
   /// offline, guarded or online. Empty when no task has recorded one.
   final String securityClass;
 
@@ -2009,6 +2013,7 @@ class Project {
     this.credentialsAnswered = false,
     this.messages,
     this.lastUsed,
+    this.carried = false,
   });
 
   /// Reads one from a reply.
@@ -2016,6 +2021,7 @@ class Project {
     name: _string(map, 'name'),
     securityClass: _string(map, 'securityClass'),
     file: _string(map, 'file'),
+    carried: map['carried'] == true,
     mirror: _string(map, 'mirror'),
     pending: _int(map, 'pending'),
     tasks: _int(map, 'tasks'),
@@ -4773,6 +4779,28 @@ class Destination {
   String get keyGoes => authQuery.isNotEmpty
       ? 'in the URL parameter $authQuery'
       : 'in the header $authHeader${authPrefix.isEmpty ? '' : ', after "$authPrefix"'}';
+}
+
+/// What `TakeProject` answered: the project's file here, or why it was not taken.
+class TakenProject {
+  /// Constructor taking every field.
+  const TakenProject({this.file = '', this.reason = '', this.words = ''});
+
+  /// Reads one from a reply.
+  factory TakenProject.from(Map<String, dynamic> map) =>
+      TakenProject(file: _string(map, 'file'), reason: _string(map, 'reason'), words: _string(map, 'words'));
+
+  /// Its `project.yml` on the machine, empty when refused.
+  final String file;
+
+  /// The refusal's stable reason, empty when it was taken.
+  final String reason;
+
+  /// The refusal in the machine's words, empty when it was taken.
+  final String words;
+
+  /// Whether the project now stands on the machine.
+  bool get taken => file.isNotEmpty;
 }
 
 /// One thing `Clear` removed, would remove, could not, or leaves to a person.

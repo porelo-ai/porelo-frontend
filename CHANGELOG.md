@@ -9,6 +9,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- A machine's *Start work* names the project it carries and starts there, asks which among several, and says why beside the button when it cannot; a project the machine carries is taken at a person's first start.
 - A project on a machine's page says it is being put on, and a project the machine refused or carries with a reason says why, in place of the host's bare word.
 - A project or repository on a machine names that machine's own forge for its tasks, by the port on the machine's card.
 - A project's page shows the review policy Porelo names for the project and for each of its repositories.

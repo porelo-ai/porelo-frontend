@@ -143,6 +143,8 @@ class StartAgents extends ChangeNotifier {
   /// the command is not offered empty.
   static String? whyNot(Project? project) {
     if (project == null) return 'no project is selected';
+    // Its rows come with its file, so what they name is judged once it is taken.
+    if (project.carried) return null;
     if (!project.canBeActedOn) return '${project.name} is not on this machine';
     final repositories = _repositoriesOf(project);
     if (repositories.isEmpty || repositories.any((each) => each.agent == null)) {

@@ -566,6 +566,8 @@ List<Command> projectCommands({
       ? nothing
       : project.canBeActedOn
       ? null
+      : project.project.carried
+      ? '${project.name} is carried by this machine and not taken here yet: starting work takes it'
       : '${project.name} is not on this machine';
   return <Command>[
     // The long-running agents of the project's repositories, each with the agent its project.yml names.
@@ -575,7 +577,9 @@ List<Command> projectCommands({
       group: 'Project',
       home: Home.projectMenu,
       run: startTheAgents ?? () {},
-      unavailable: noFile ?? (startTheAgents == null ? 'not offered here' : StartAgents.whyNot(project!.project)),
+      unavailable: project?.project.carried == true
+          ? (startTheAgents == null ? 'not offered here' : null)
+          : noFile ?? (startTheAgents == null ? 'not offered here' : StartAgents.whyNot(project!.project)),
     ),
     Command(
       id: 'gate.open',

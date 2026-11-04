@@ -66,12 +66,12 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f370"></a>[F370](F370-Start-Work-In-A-Project-A-Machine-Carries.md) | — | — | A machine page's *Start work* leads into the project it carries, not into the Default project asking for an address. |
 
 ### Backlog
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f370"></a>[F370](F370-Start-Work-In-A-Project-A-Machine-Carries.md) | S | — | A machine page's *Start work* leads into the project it carries, not into the Default project asking for an address. |
 | <a id="f371"></a>[F371](F371-A-Task-Certified-From-The-Window.md) | M | — | Work started from the window on a host is certified by the desk's agent, never forwarded, and can be renewed from there. |
 | <a id="f368"></a>[F368](F368-A-Machines-Token-Given-In-The-Same-Flow.md) | M | — | *Put it on a machine…* ends in giving the machine its token, saying what for, from the token the window keeps if so decided. |
 | <a id="f366"></a>[F366](F366-Preparing-A-Machine-Says-What-It-Waits-For.md) | M | — | *Prepare a machine* says beside its button what it waits for, and a stopped login shows its words and exit code, naming root still closed. |

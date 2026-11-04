@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:porelo_frontend/client.dart' show defaultProject;
 import 'package:porelo_host/porelo_host.dart' show checkedEd25519, isUsableHostAddress;
 
 import '../app/commands.dart';
@@ -182,7 +183,7 @@ class OrganizationHostPage extends StatefulWidget {
   final Widget? work;
 
   /// Starts work on the machine, absent where this computer cannot.
-  final void Function(String host)? onStartWork;
+  final Future<String?> Function(String host, String? project)? onStartWork;
 
   /// The host's name.
   final String host;
@@ -200,6 +201,9 @@ class OrganizationHostPage extends StatefulWidget {
 class _OrganizationHostPageState extends State<OrganizationHostPage> {
   bool _acting = false;
   String? _refusal;
+
+  /// Why the last press of *Start work* did not start, in words.
+  String? _startWhy;
 
   /// What the host last said of itself, asked only of a host admin who is connected to it.
   HostProgress? _progress;
@@ -602,8 +606,12 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
       if (ready && widget.onStartWork != null)
         FilledButton(
           key: ValueKey('organization.startWork/$name'),
-          onPressed: () => widget.onStartWork!(name),
-          child: const Text('Start work'),
+          onPressed: () => unawaited(_startWork(mine, name)),
+          child: Text(switch (mine) {
+            [] => 'Start work',
+            [final one] => 'Start work in $one',
+            _ => 'Start work…',
+          }),
         ),
       if (connected)
         OutlinedButton(
@@ -644,9 +652,45 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
             const SizedBox(height: Space.small),
             Wrap(spacing: Space.small, runSpacing: Space.small, children: buttons),
           ],
+          if (_startWhy case final why?)
+            Padding(
+              padding: const EdgeInsets.only(top: Space.small),
+              child: Text(why, key: const ValueKey('organization.startWhy')),
+            ),
         ],
       ),
     );
+  }
+
+  /// Starts work from this page in what the person has here: the one project, or the one they choose among several.
+  /// The way into `default` is taken only with no project here, or by its name.
+  Future<void> _startWork(List<String> mine, String host) async {
+    final start = widget.onStartWork;
+    if (start == null) return;
+    setState(() => _startWhy = null);
+    final String? project;
+    if (mine.length > 1) {
+      final chosen = await showDialog<String>(
+        context: context,
+        builder: (context) => SimpleDialog(
+          title: const Text('In which project?'),
+          children: [
+            for (final each in [...mine, defaultProject])
+              SimpleDialogOption(
+                key: ValueKey('organization.startWorkIn/$each'),
+                onPressed: () => Navigator.of(context).pop(each),
+                child: Text(each == defaultProject ? 'Default' : each),
+              ),
+          ],
+        ),
+      );
+      if (chosen == null) return;
+      project = chosen == defaultProject ? null : chosen;
+    } else {
+      project = mine.firstOrNull;
+    }
+    final why = await start(host, project);
+    if (mounted) setState(() => _startWhy = why);
   }
 }
 
