@@ -168,6 +168,7 @@ Future<void> prepareOrganizationForge(
   final String address;
   final String destination;
   final int? namedPort;
+  final bool bySsh;
   try {
     final scp = RegExp(r'^git@([^:]+):[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$').firstMatch(repository);
     final uri = scp == null ? Uri.tryParse(repository) : null;
@@ -183,13 +184,14 @@ Future<void> prepareOrganizationForge(
     }
     address = forgeAddress(scp?.group(1) ?? uri!.host);
     namedPort = uri != null && uri.hasPort ? uri.port : null;
+    bySsh = uri?.scheme == 'ssh';
     final api = '$address${uri?.scheme == 'https' && namedPort != null ? ':$namedPort' : ''}';
     final path = scp == null ? uri!.path.substring(1).replaceAll(RegExp(r'/+$'), '') : repository.split(':').last;
     destination = 'https://$api/$path';
   } on FormatException {
     throw const OrganizationRefused(
-      'The forge token destination could not be determined. '
-      'Addresses with an explicit port need a declared credential.',
+      'Porelo cannot tell which forge this address is on, so no token was handed over. '
+      'Write it as https://forge.example.org/owner/repository or git@forge.example.org:owner/repository.',
     );
   }
   // Organization commands run here, regardless of which machine happens to be selected in the window.
@@ -229,17 +231,41 @@ Future<void> prepareOrganizationForge(
     if (declared != null && declared.kind == 'TOKEN') {
       final authority = Uri.tryParse(declared.match)?.authority.toLowerCase();
       if (namedPort != null && authority != '$address:$namedPort') {
-        throw const OrganizationRefused('This forge port needs its own declared token. No token was handed over.');
+        throw OrganizationRefused(_noEntryForThePortWords(address, namedPort, ssh: bySsh));
       }
       if (declared.present) return;
-      if (declared.source != 'VAULT' || declared.id != name) {
-        throw const OrganizationRefused(
-          'This forge uses a declared credential. Check that credential before continuing.',
+      if (declared.source != 'VAULT' || declared.id != name || namedPort != null) {
+        final words = _noTokenThereWords(declared);
+        // A token in the vault is lent by the host's name, so a forge on its own port cannot take that way.
+        if (namedPort != null) throw OrganizationRefused(words);
+        final instead = await showDialog<bool>(
+          context: context,
+          builder: (dialog) => AlertDialog(
+            title: const Text('The forge token is not there'),
+            content: Text(
+              '$words\n\nOr take it from the vault: the entry then says the vault entry $name, and Porelo asks '
+              'for the token if the vault does not hold it yet.',
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(dialog, false), child: const Text('Cancel')),
+              FilledButton(onPressed: () => Navigator.pop(dialog, true), child: const Text('Take it from the vault')),
+            ],
+          ),
         );
+        if (instead != true) throw OrganizationRefused(words);
+        await backend.credentialDeclare(
+          kind: declared.kind,
+          match: declared.match,
+          id: name,
+          user: declared.user.isEmpty ? null : declared.user,
+          purpose: declared.purpose,
+          source: 'VAULT',
+        );
+        if (!context.mounted) throw const OrganizationRefused('The forge token handoff was canceled.');
       }
     }
     if (namedPort != null) {
-      throw const OrganizationRefused('This forge port needs its own declared token. No token was handed over.');
+      throw OrganizationRefused(_noEntryForThePortWords(address, namedPort, ssh: bySsh));
     }
     if (vault.credentials.any((entry) => entry.name == name && entry.characters > 0)) return;
     if (!await forges.hasToken(address)) {
@@ -265,6 +291,35 @@ Future<void> prepareOrganizationForge(
     vault.dispose();
   }
 }
+
+/// Says which entry names a token that is not there, where it should come from, and what can be done.
+String _noTokenThereWords(Connection entry) {
+  final (from, missing, fix) = switch (entry.source) {
+    'ENVIRONMENT' => (
+      'the variable ${entry.id}',
+      'the porelod service, which looks for it, does not have that variable',
+      'Set ${entry.id} for the porelod service and for this window, which runs the command, and start both again',
+    ),
+    'FILE' => ('the file ${entry.id}', 'nothing is there', 'Put the token in ${entry.id}'),
+    'VAULT' => (
+      'the vault entry ${entry.id}',
+      'the vault does not hold it',
+      'Store the token in the vault as ${entry.id}',
+    ),
+    _ => (entry.sourceWords, 'nothing is there', 'Put the token there'),
+  };
+  return '$_theFile says the token for ${entry.match} comes from $from, and $missing. No token was handed over.\n\n'
+      '$fix, or change or forget that entry in the file or under Connections, on this machine\'s menu.';
+}
+
+/// Says which address on its own port has no token of its own, and where to give it one.
+String _noEntryForThePortWords(String address, int port, {required bool ssh}) => ssh
+    ? 'Porelo lends no token to a forge reached by ssh on its own port, here $address:$port. '
+          'No token was handed over. Use its https address for the organization instead.'
+    : 'A token is lent to one port only, and https://$address:$port has no entry of its own in $_theFile. '
+          'No token was handed over. Add a token for that address under Connections, on this machine\'s menu.';
+
+const _theFile = "credentials.yml in Porelo's configuration folder";
 
 class _OrganizationVaultDialog extends StatefulWidget {
   const _OrganizationVaultDialog({required this.vault, required this.backend, required this.machine, this.open});

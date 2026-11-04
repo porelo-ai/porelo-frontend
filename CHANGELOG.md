@@ -587,6 +587,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   person's lasting CA. During the move the host's tasks reach the project's room on this computer, and
   the person's forge login is made on every host with a forge.
   The host follows the organization: who may do what comes from there.
+- Creating an organization on a forge whose token is not where `credentials.yml` says now names the
+  entry, its address and where the token should come from, says what to do, and offers to take it
+  from the vault instead. A forge on its own port says which address needs a token of its own.
 - A redirect from Scaleway is named as one and is not followed.
 - Server setup shows one protocol with earlier attempts grouped below it, copies its public text
   in one click, and keeps the view and buttons still while you read earlier entries.
