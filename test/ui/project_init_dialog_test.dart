@@ -114,6 +114,29 @@ void main() {
     });
   }
 
+  // Harm: the menu a machine's admin opens breaks, or one click starts taking Porelo off a machine twice.
+  testWidgets('the row offers taking Porelo off once, and one click asks for it once', (tester) async {
+    var asked = 0;
+    await _organization(
+      tester,
+      _Source('hana'),
+      (organization) => OrganizationPage(
+        organization: organization,
+        takeOff: (host) =>
+            organizationCommand(id: 'takeOff/${host.name}', label: 'Take Porelo off this machine…', run: () => asked++),
+      ),
+    );
+    final menu = organizationAction('takeOff/build');
+    await tester.ensureVisible(menu);
+    await tester.pumpAndSettle();
+    await tester.tap(menu);
+    await tester.pumpAndSettle();
+    expect(find.text('Take Porelo off this machine…'), findsOneWidget);
+    await tester.tap(find.text('Take Porelo off this machine…'));
+    await tester.pumpAndSettle();
+    expect(asked, 1);
+  });
+
   // Harm: a task on a machine reads the central forge, past the machine's gate, or what is signed differs from what was read.
   testWidgets('a project on a machine is read and signed with the machine\'s own address', (tester) async {
     final source = _Source('pat');

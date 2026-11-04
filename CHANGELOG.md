@@ -69,6 +69,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- A machine's row under *Organization* offers taking Porelo off once, not twice.
 - A checkout's draft is read as Core answers it: a value with no line no longer makes the whole draft unreadable, and its
   lists read as words, not JSON. Two keys to choose from are offered as a choice.
 - Rail *Refresh* rereads the page shown; a machine's *Fetch now* says what it does and when the machine last answered.

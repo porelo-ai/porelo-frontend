@@ -527,9 +527,6 @@ class _OrganizationPageState extends State<OrganizationPage> {
               if (widget.takeOff != null &&
                   (view.mayRemove(host) || (view.holdsRoles && host.admins.contains(view.me))))
                 widget.takeOff!(host),
-              if (widget.takeOff != null &&
-                  (view.mayRemove(host) || (view.holdsRoles && host.admins.contains(view.me))))
-                widget.takeOff!(host),
               for (final action in <_Action>[
                 if (view.holdsRoles && widget.onHost != null && host.admins.contains(view.me))
                   _command('openHost/${host.name}', "Open the machine's page", () => widget.onHost!(host.name)),
