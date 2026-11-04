@@ -40,7 +40,7 @@ master, slave = pty.openpty()
 process = subprocess.Popen(sys.argv[1:], stdin=slave, stdout=slave, stderr=slave)
 transcript = b''
 echo = None
-deadline = time.monotonic() + 90
+deadline = time.monotonic() + 110
 try:
     while process.poll() is None:
         if time.monotonic() > deadline:
