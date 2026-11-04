@@ -18,10 +18,11 @@ class HostProjectProgress {
   /// The project.
   final String project;
 
-  /// `carried`, `putting-on`, `waiting-for-token`, `held`, `gone`, or a word of a later host.
+  /// `pending`, `carried`, `waiting-for-token`, `held`, `refused`, or a word of a later host.
   final String state;
 
-  /// Why it stands so, where the host said: for `held`, the repositories with unpushed commits.
+  /// Why it stands so, where the host said: for `held`, the repositories with unpushed commits; for `refused`, what it
+  /// refused.
   final String? why;
 
   /// Since when, where the host said.

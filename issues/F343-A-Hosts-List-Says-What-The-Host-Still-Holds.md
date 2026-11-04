@@ -11,8 +11,7 @@ holds on to it.
 
 Read from the code, not run. `OrganizationHostPage._projects` in `lib/src/ui/organization_host_pages.dart`
 joins `host.projects` with `_progress?.projects` for a connected Machine Admin. It keeps a project the
-machine still names, says `being taken off, which can take up to five minutes` and `held: <why>`, and hides
-`gone` rows. Without that connection or role it shows the organization's projects alone.
+machine still names, and says `being taken off, which can take up to five minutes` and `held: <why>`. Without that connection or role it shows the organization's projects alone.
 
 `OrganizationPage._projects` in `lib/src/ui/organization_page.dart` and `OrganizationProjectsPage` in
 `lib/src/ui/organization_project_pages.dart` read the organization's placement without `HostProgress`.
@@ -25,7 +24,7 @@ For a host admin who is connected, the rows are the organization's projects toge
 
 - the organization no longer names it and the host still carries it: `being taken off, which can take up to five minutes`;
 - `held`: `held: <why>`, naming the repositories with unpushed commits;
-- `gone`: no row.
+- no longer named by the organization or the host: no row.
 
 Not connected, or no host admin: the organization's word as today, and the line saying so stays.
 
@@ -33,5 +32,4 @@ A test with a host answer naming a project the organization does not, seen red f
 
 ## To be checked
 
-- That the host's answer keeps a taken-off project in `projects` as `held` or `gone`.
 - How it fits [F342](README.md#f342), which makes this list read-only.

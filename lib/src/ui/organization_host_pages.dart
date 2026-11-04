@@ -439,29 +439,28 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
       storageId: 'host-projects ${host.name}',
       rows: [
         for (final name in names)
-          if (!readsMachine || _progress?.of(name)?.state != 'gone')
-            (
-              words: name,
-              child: ListTile(
-                leading: const Icon(Icons.folder_outlined),
-                title: Text(name),
-                subtitle: Text(
-                  [
-                    _projectWords(view, name),
-                    if (readsMachine) ...[
-                      if (!host.projects.contains(name)) 'being taken off, which can take up to five minutes',
-                      ?_progressWords(view, name),
-                    ],
-                  ].join(' · '),
-                ),
+          (
+            words: name,
+            child: ListTile(
+              leading: const Icon(Icons.folder_outlined),
+              title: Text(name),
+              subtitle: Text(
+                [
+                  _projectWords(view, name),
+                  if (readsMachine) ...[
+                    if (!host.projects.contains(name)) 'being taken off, which can take up to five minutes',
+                    ?_progressWords(view, host, name),
+                  ],
+                ].join(' · '),
               ),
             ),
+          ),
       ],
     );
   }
 
   /// The host's own word on [name], which only a host admin reads: the organization's word is carried or not.
-  String? _progressWords(OrganizationView view, String name) {
+  String? _progressWords(OrganizationView view, OrganizationHost host, String name) {
     final progress = _progress?.of(name);
     if (progress == null) return null;
     if (progress.hasNoAddress) {
@@ -470,13 +469,21 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     }
     return switch (progress.state) {
       'carried' => 'on the machine',
-      'putting-on' => 'being put on, which can take up to five minutes',
+      // The host says this of a project going either way; one leaving is already said on its row.
+      'pending' when !host.projects.contains(name) => progress.why,
+      'pending' => switch (progress.why) {
+        final why? => 'not on the machine yet: $why',
+        null => 'being put on, which can take up to five minutes',
+      },
       'waiting-for-token' => switch (progress.why) {
         final why? => 'waits for your ${organizationForgeName(view)} token: $why',
         null => 'waits for your ${organizationForgeName(view)} token',
       },
       'held' => 'held: ${progress.why ?? 'it has unpushed work'}',
-      'gone' => 'taken off',
+      'refused' => switch (progress.why) {
+        final why? => 'refused by the machine: $why',
+        null => 'refused by the machine',
+      },
       final word => word,
     };
   }

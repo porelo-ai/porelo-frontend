@@ -216,13 +216,11 @@ void main() {
           projects: [
             HostProjectProgress(project: 'retired', state: 'held', why: 'app and docs have unpushed commits'),
             HostProjectProgress(project: 'pending', state: 'carried'),
-            HostProjectProgress(project: 'removed', state: 'gone'),
           ],
         );
       final made = await page(tester, 'hana', connections: connections);
       expect(find.text('retired'), findsOneWidget);
       expect(find.text('pending'), findsOneWidget);
-      expect(find.text('removed'), findsNothing);
       final row = find.ancestor(of: find.text('retired'), matching: find.byType(ListTile));
       expect(
         find.descendant(of: row, matching: find.textContaining('held: app and docs have unpushed commits')),
@@ -236,10 +234,7 @@ void main() {
       expect(tester.widget<ListTile>(row).onTap, isNull);
 
       connections.hostProgress = const HostProgress(
-        projects: [
-          HostProjectProgress(project: 'retired', state: 'gone'),
-          HostProjectProgress(project: 'pending', state: 'carried'),
-        ],
+        projects: [HostProjectProgress(project: 'pending', state: 'carried')],
       );
       await pressOrganizationAction(tester, 'refreshHost');
       expect(find.text('retired'), findsNothing);
@@ -254,6 +249,35 @@ void main() {
       expect(find.text('pending'), findsNothing);
       expect(find.text('demo'), findsOneWidget);
       expect(member.asked, isEmpty, reason: 'a member never asks root for the machine list');
+    });
+
+    // Harm: a project the machine refused shows no reason, so its admin cannot tell what to change.
+    testWidgets('a project the machine refused says why, and one being put on is not left as a bare word', (
+      tester,
+    ) async {
+      final connections = FixtureConnections(['build'])
+        ..hostProgress = const HostProgress(
+          projects: [
+            HostProjectProgress(project: 'demo', state: 'pending'),
+            HostProjectProgress(project: 'refused-one', state: 'refused', why: 'its file names no signing key'),
+            HostProjectProgress(project: 'refused-two', state: 'refused'),
+            HostProjectProgress(project: 'leaving', state: 'pending'),
+          ],
+        );
+      await page(tester, 'hana', connections: connections);
+      Finder onRow(String project, String words) => find.descendant(
+        of: find.ancestor(of: find.text(project), matching: find.byType(ListTile)),
+        matching: find.textContaining(words),
+      );
+      expect(onRow('refused-one', 'refused by the machine: its file names no signing key'), findsOneWidget);
+      expect(onRow('refused-two', 'refused by the machine'), findsOneWidget);
+      expect(onRow('demo', 'being put on'), findsOneWidget);
+      expect(onRow('leaving', 'being taken off'), findsOneWidget);
+      expect(
+        onRow('leaving', 'being put on'),
+        findsNothing,
+        reason: 'the host says pending of a project going either way',
+      );
     });
 
     // Harm: a person who may not manage a host is offered what the store refuses.

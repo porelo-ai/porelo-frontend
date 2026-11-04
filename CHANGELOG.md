@@ -9,6 +9,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- A project on a machine's page says it is being put on, and a project the machine refused says why, in place of the host's bare word.
 - A project or repository on a machine names that machine's own forge for its tasks, by the port on the machine's card.
 - A project's page shows the review policy Porelo names for the project and for each of its repositories.
 - A machine's row under *Organization* offers taking Porelo off to its admin on any computer, going by the organization's card,
