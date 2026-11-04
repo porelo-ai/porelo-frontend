@@ -152,6 +152,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f361"></a>[F361](F361-A-Project-With-No-Git-Repository-Yet.md) | — | — | A project with no Git repository says so on the Organization page, where its Project Admin creates it, told by *Needs you*; it then appears under *My projects*. |
 | <a id="f362"></a>[F362](F362-A-Click-Answers-At-Once.md) | — | — | A click on a row shows its page and its reading line at once; the delay seen in the foo test is measured down to its cause. |
 | <a id="f363"></a>[F363](F363-A-Grey-Button-Says-Why-In-Words.md) | — | — | A disabled action says why in text, not a tooltip, and creating at an https address says beforehand that a machine cannot follow it. |
+| <a id="f364"></a>[F364](F364-Repositories-Added-Before-A-Machine.md) | — | — | A repository added before the project has a machine is filed with its central address, so that order works; a row without one says so. |
 
 ### Estimated
 
