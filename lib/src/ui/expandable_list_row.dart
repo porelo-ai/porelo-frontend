@@ -18,8 +18,12 @@ class ExpandableListRow extends StatefulWidget {
     this.titleKey,
     this.bodyKey,
     this.selected = false,
+    this.steps = const <Widget>[],
     super.key,
   });
+
+  /// Next steps offered on the row itself, under its title, for a row with more than one.
+  final List<Widget> steps;
 
   /// The item's outlined mark, filled only when selected.
   final Widget leading;
@@ -138,6 +142,16 @@ class _ExpandableListRowState extends State<ExpandableListRow> {
                   ],
                 ),
               ),
+              if (widget.steps.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(Space.small, 0, Space.small, Space.small),
+                  child: Wrap(
+                    alignment: WrapAlignment.end,
+                    spacing: Space.small,
+                    runSpacing: Space.tight,
+                    children: widget.steps,
+                  ),
+                ),
               if (_expanded)
                 Padding(
                   padding: const EdgeInsets.all(Space.normal),

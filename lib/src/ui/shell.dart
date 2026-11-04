@@ -3024,7 +3024,7 @@ class _ShellState extends State<Shell> {
             widget.machines.of(machine).tasks.where((task) => task.running).length,
         ].fold(0, (sum, each) => sum + each),
         work: _workView.shownTiles([for (final machine in widget.machines.all) ..._attention.tilesOn(machine)]).length,
-        needing: _attention.openRows.length,
+        needing: _attention.needingSomebody,
         machines:
             rows.preparations.length +
             listedMachines(widget.machines)
@@ -3302,6 +3302,10 @@ class _ShellState extends State<Shell> {
         onOpenOperation: (operation) => widget.shell.openOperation(operation.id),
         actionsFor: _tileActions,
         onSelect: _goToWork,
+        onReadLog: (tile) {
+          _attention.putAwayTheEnd(tile);
+          _enlargeConsole(tile);
+        },
         onReview: (tile) {
           _actOn(tile);
           unawaited(_openTheGate(tile.task));

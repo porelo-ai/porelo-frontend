@@ -42,7 +42,6 @@ import './step/somebody_was_told.dart';
 import './step/the_machine_says_needs_granting_again_for_in.dart';
 import './step/the_machine_says_is_granted.dart';
 import './step/the_authorization_is_resolved_with_its_action_disabled.dart';
-import './step/nothing_needs_me.dart';
 import './step/i_grant_from_what_needs_a_person.dart';
 
 void main() {
@@ -229,7 +228,7 @@ void main() {
       await iGoToWhatNeedsAPerson(tester);
       await itSays(tester, 'jira needs a grant for porelo-checkout-shell');
       await itSays(tester, 'Nobody has granted it yet');
-      await theCountOfWhatNeedsAPersonIs(tester, '1 need you');
+      await theCountOfWhatNeedsAPersonIs(tester, '2 need you');
       await somebodyWasTold(tester, 'jira needs a grant for porelo-checkout-shell');
     });
     testWidgets('''a grant the service ended says it needs granting again''', (tester) async {
@@ -244,7 +243,7 @@ void main() {
       await iGoToWhatNeedsAPerson(tester);
       await theMachineSaysIsGranted(tester, 'jira');
       await theAuthorizationIsResolvedWithItsActionDisabled(tester, 'jira');
-      await nothingNeedsMe(tester);
+      await theCountOfWhatNeedsAPersonIs(tester, '1 need you');
     });
     testWidgets('''an authorization is granted from what needs a person''', (tester) async {
       await bddSetUp(tester);

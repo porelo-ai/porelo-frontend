@@ -53,8 +53,17 @@ import './step/it_says.dart';
 import './step/i_mark_the_dropped_questions_seen.dart';
 import './step/the_notice_is_resolved.dart';
 import './step/the_agent_of_ended_with_the_providers.dart';
+import './step/the_row_of_is_in_the_group.dart';
 import './step/it_does_not_say.dart';
 import './step/the_agent_of_finished.dart';
+import './step/the_count_of_what_needs_a_person_is.dart';
+import './step/the_rail_says_is_waiting.dart';
+import './step/i_see_the_terminal_of_the_question.dart';
+import './step/the_session_on_screen_is.dart';
+import './step/i_put_away_how_the_work_ended.dart';
+import './step/i_go_to_the_place.dart';
+import './step/i_read_the_log_of_how_the_work_ended.dart';
+import './step/the_agent_of_finished_with_changed_files_outside_the_gate.dart';
 import './step/the_messages_of_wait_because.dart';
 
 void main() {
@@ -223,7 +232,8 @@ void main() {
     testWidgets('''work whose agent was refused by its provider needs you, in the provider's words''', (tester) async {
       await bddSetUp(tester);
       await theAgentOfEndedWithTheProviders(tester, 'porelo-checkout-shell', 402, 'This request requires more credits');
-      await theFirstTileIs(tester, 'porelo-checkout-shell');
+      await theRowOfIsInTheGroup(tester, 'porelo-checkout-shell', 'rest');
+      await theFirstTileIs(tester, 'porelo-checkout-migrate');
       await itSays(tester, 'The provider refused it: no credits left (402): This request requires more credits');
       await itDoesNotSay(tester, 'Working');
     });
@@ -231,6 +241,53 @@ void main() {
       await bddSetUp(tester);
       await theAgentOfFinished(tester, 'porelo-checkout-shell');
       await noTileIsShownFor(tester, 'porelo-checkout-shell');
+      await theCountOfWhatNeedsAPersonIs(tester, '1 need you');
+    });
+    testWidgets('''work at the gate counts like every other row, on the page and on the badge''', (tester) async {
+      await bddSetUp(tester);
+      await theCountOfWhatNeedsAPersonIs(tester, '1 need you');
+      await theRailSaysIsWaiting(tester, '1');
+      await theRowOfIsInTheGroup(tester, 'porelo-checkout-migrate', 'reviews');
+    });
+    testWidgets('''a question is above the reviews, in its own group, and also offers its terminal''', (tester) async {
+      await bddSetUp(tester);
+      await workIsBlockedReaching(tester, 'api.example.test:443');
+      await theRowOfIsInTheGroup(tester, 'porelo-checkout-shell', 'decide');
+      await theCountOfWhatNeedsAPersonIs(tester, '2 need you');
+      await theRailSaysIsWaiting(tester, '2');
+      await iSeeTheTerminalOfTheQuestion(tester);
+      await theSessionOnScreenIs(tester, 'porelo-checkout-shell');
+    });
+    testWidgets('''work that ended with a failure counts until it is put away, and stays under Work''', (tester) async {
+      await bddSetUp(tester);
+      await theAgentOfEndedWithTheProviders(tester, 'porelo-checkout-shell', 402, 'This request requires more credits');
+      await theCountOfWhatNeedsAPersonIs(tester, '2 need you');
+      await iPutAwayHowTheWorkEnded(tester);
+      await noTileIsShownFor(tester, 'porelo-checkout-shell');
+      await theCountOfWhatNeedsAPersonIs(tester, '1 need you');
+      await theRailSaysIsWaiting(tester, '1');
+      await iGoToThePlace(tester, 'work');
+      await theTileSays(tester, 'porelo-checkout-shell', 'Stopped before its end');
+    });
+    testWidgets('''work that ended with a failure counts until its log is opened''', (tester) async {
+      await bddSetUp(tester);
+      await theAgentOfEndedWithTheProviders(tester, 'porelo-checkout-shell', 402, 'This request requires more credits');
+      await iReadTheLogOfHowTheWorkEnded(tester);
+      await theRailSaysIsWaiting(tester, '1');
+    });
+    testWidgets('''work that left files outside the gate counts until it is put away''', (tester) async {
+      await bddSetUp(tester);
+      await theAgentOfFinishedWithChangedFilesOutsideTheGate(tester, 'porelo-checkout-shell', 2);
+      await theCountOfWhatNeedsAPersonIs(tester, '2 need you');
+      await iPutAwayHowTheWorkEnded(tester);
+      await theCountOfWhatNeedsAPersonIs(tester, '1 need you');
+    });
+    testWidgets('''a row that is no work counts like any other''', (tester) async {
+      await bddSetUp(tester);
+      await theTunnelDrops(tester);
+      await theRailSaysIsWaiting(tester, '1');
+      await enoughTimePassesForAnotherTry(tester);
+      await theRailSaysIsWaiting(tester, '1');
     });
     testWidgets('''messages that wait because the vault is locked are said, with the projects they hold up''', (
       tester,

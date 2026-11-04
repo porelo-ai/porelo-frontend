@@ -157,13 +157,56 @@ Feature: What needs a person on every machine, without going anywhere
     # A run: the provider refused, the agent ended, and the machine said "idle".
     Scenario: work whose agent was refused by its provider needs you, in the provider's words
         When the agent of {'porelo-checkout-shell'} ended with the provider's {402} {'This request requires more credits'}
-        Then the first tile is {'porelo-checkout-shell'}
+        Then the row of {'porelo-checkout-shell'} is in the group {'rest'}
+        And the first tile is {'porelo-checkout-migrate'}
         And it says {'The provider refused it: no credits left (402): This request requires more credits'}
         And it does not say {'Working'}
 
     Scenario: work whose agent finished needs nobody
         When the agent of {'porelo-checkout-shell'} finished
         Then no tile is shown for {'porelo-checkout-shell'}
+        And the count of what needs a person is {'1 need you'}
+
+    # A review can wait for days, and it is still something only a person can do: one number counts it.
+    Scenario: work at the gate counts like every other row, on the page and on the badge
+        Then the count of what needs a person is {'1 need you'}
+        And the rail says {'1'} is waiting
+        And the row of {'porelo-checkout-migrate'} is in the group {'reviews'}
+
+    Scenario: a question is above the reviews, in its own group, and also offers its terminal
+        When work is blocked reaching {'api.example.test:443'}
+        Then the row of {'porelo-checkout-shell'} is in the group {'decide'}
+        And the count of what needs a person is {'2 need you'}
+        And the rail says {'2'} is waiting
+        When I see the terminal of the question
+        Then the session on screen is {'porelo-checkout-shell'}
+
+    Scenario: work that ended with a failure counts until it is put away, and stays under Work
+        When the agent of {'porelo-checkout-shell'} ended with the provider's {402} {'This request requires more credits'}
+        Then the count of what needs a person is {'2 need you'}
+        When I put away how the work ended
+        Then no tile is shown for {'porelo-checkout-shell'}
+        And the count of what needs a person is {'1 need you'}
+        And the rail says {'1'} is waiting
+        When I go to the place {'work'}
+        Then the tile {'porelo-checkout-shell'} says {'Stopped before its end'}
+
+    Scenario: work that ended with a failure counts until its log is opened
+        When the agent of {'porelo-checkout-shell'} ended with the provider's {402} {'This request requires more credits'}
+        And I read the log of how the work ended
+        Then the rail says {'1'} is waiting
+
+    Scenario: work that left files outside the gate counts until it is put away
+        When the agent of {'porelo-checkout-shell'} finished with {2} changed files outside the gate
+        Then the count of what needs a person is {'2 need you'}
+        When I put away how the work ended
+        Then the count of what needs a person is {'1 need you'}
+
+    Scenario: a row that is no work counts like any other
+        When the tunnel drops
+        Then the rail says {'1'} is waiting
+        When enough time passes for another try
+        Then the rail says {'1'} is waiting
 
     # Walk 10: a vault that locked itself stopped every conversation, and nothing said so.
     Scenario: messages that wait because the vault is locked are said, with the projects they hold up

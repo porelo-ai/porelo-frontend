@@ -77,13 +77,13 @@ Feature: Running long operations without blocking the frame
         And the operation fails
         And I go to what needs a person
         Then a failed operation waits saying {'would open'}
-        And the count of what needs a person is {'1 need you'}
+        And the count of what needs a person is {'2 need you'}
         When I open the failed operation from what needs a person
         Then the operation shows {'could not read project.yml'}
         When I close what is open
         And I go to what needs a person
         Then no failed operation waits
-        And the count of what needs a person is {'nothing needs you'}
+        And the count of what needs a person is {'1 need you'}
 
     Scenario: a failure watched as it happened does not wait
         When I choose the command {'Show what this project would open, creating nothing'}

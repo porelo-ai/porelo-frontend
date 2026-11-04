@@ -585,6 +585,8 @@ class Settings extends ChangeNotifier {
     }
     final seen = stored['seenSilent'];
     if (seen is List) _seenSilent = seen.whereType<String>().toList();
+    final putAway = stored['endedPutAway'];
+    if (putAway is List) _endedPutAway = putAway.whereType<String>().toList();
     final muted = stored['muted'];
     if (muted is List) _muted = muted.whereType<String>().toList();
     final homeservers = stored['homeservers'];
@@ -863,6 +865,17 @@ class Settings extends ChangeNotifier {
   Set<String> get seenSilent => Set<String>.unmodifiable(_seenSilent);
   List<String> _seenSilent = const <String>[];
 
+  /// The ends of work somebody has opened or put away, each by its machine, its work and when it ended.
+  Set<String> get endedPutAway => Set<String>.unmodifiable(_endedPutAway);
+  List<String> _endedPutAway = const <String>[];
+
+  /// Keeps which ends of work somebody has opened or put away.
+  Future<void> setEndedPutAway(Set<String> ends) async {
+    _endedPutAway = ends.toList()..sort();
+    notifyListeners();
+    await _write();
+  }
+
   /// Keeps which silent machines somebody has seen.
   Future<void> setSeenSilent(Set<String> machines) async {
     _seenSilent = machines.toList()..sort();
@@ -974,6 +987,7 @@ class Settings extends ChangeNotifier {
         <String, Object?>{'machine': each.machine, 'project': each.project, 'port': each.port},
     ],
     'seenSilent': _seenSilent,
+    'endedPutAway': _endedPutAway,
     'place': _place,
     'templates': _templates,
     'forges': _forges,

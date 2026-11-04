@@ -123,13 +123,13 @@ void main() {
       await theOperationFails(tester);
       await iGoToWhatNeedsAPerson(tester);
       await aFailedOperationWaitsSaying(tester, 'would open');
-      await theCountOfWhatNeedsAPersonIs(tester, '1 need you');
+      await theCountOfWhatNeedsAPersonIs(tester, '2 need you');
       await iOpenTheFailedOperationFromWhatNeedsAPerson(tester);
       await theOperationShows(tester, 'could not read project.yml');
       await iCloseWhatIsOpen(tester);
       await iGoToWhatNeedsAPerson(tester);
       await noFailedOperationWaits(tester);
-      await theCountOfWhatNeedsAPersonIs(tester, 'nothing needs you');
+      await theCountOfWhatNeedsAPersonIs(tester, '1 need you');
     });
     testWidgets('''a failure watched as it happened does not wait''', (tester) async {
       await bddSetUp(tester);

@@ -10,7 +10,7 @@ Feature: Reading and deciding about what work says to other work
         And the app is running
         And I go to what needs a person
         Then what needs a person shows a message from {'porelo-checkout-shell'}
-        And the count of what needs a person is {'1 need you'}
+        And the count of what needs a person is {'2 need you'}
 
     Scenario: a message held while the interface watches arrives without asking
         Given a backend with work on it
@@ -43,7 +43,7 @@ Feature: Reading and deciding about what work says to other work
         # Closed once decided (walk 8): the outcome is said in the window behind it.
         And the message is no longer open
         And what needs a person shows no message
-        And nothing needs me
+        And the count of what needs a person is {'1 need you'}
 
     Scenario: refusing a message refuses it for good
         Given a backend with work on it
@@ -131,7 +131,7 @@ Feature: Reading and deciding about what work says to other work
         And the app is running
         And I go to what needs a person
         Then what needs a person shows no message
-        And nothing needs me
+        And the count of what needs a person is {'1 need you'}
 
     Scenario: a message decided somewhere else meanwhile is said to be gone, and nothing is decided
         Given a backend with work on it

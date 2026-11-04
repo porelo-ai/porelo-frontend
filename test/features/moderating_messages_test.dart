@@ -19,7 +19,6 @@ import './step/i_release_the_message.dart';
 import './step/the_machine_was_told_to_release_of.dart';
 import './step/the_message_is_no_longer_open.dart';
 import './step/what_needs_a_person_shows_no_message.dart';
-import './step/nothing_needs_me.dart';
 import './step/i_refuse_the_message.dart';
 import './step/the_machine_was_told_to_refuse_of.dart';
 import './step/it_does_not_say.dart';
@@ -64,7 +63,7 @@ void main() {
       await theAppIsRunning(tester);
       await iGoToWhatNeedsAPerson(tester);
       await whatNeedsAPersonShowsAMessageFrom(tester, 'porelo-checkout-shell');
-      await theCountOfWhatNeedsAPersonIs(tester, '1 need you');
+      await theCountOfWhatNeedsAPersonIs(tester, '2 need you');
     });
     testWidgets('''a message held while the interface watches arrives without asking''', (tester) async {
       await aBackendWithWorkOnIt(tester);
@@ -99,7 +98,7 @@ void main() {
       await itSays(tester, 'Released. It goes out on the next pass, unless its peer is set to refuse everything.');
       await theMessageIsNoLongerOpen(tester);
       await whatNeedsAPersonShowsNoMessage(tester);
-      await nothingNeedsMe(tester);
+      await theCountOfWhatNeedsAPersonIs(tester, '1 need you');
     });
     testWidgets('''refusing a message refuses it for good''', (tester) async {
       await aBackendWithWorkOnIt(tester);
@@ -184,7 +183,7 @@ void main() {
       await theAppIsRunning(tester);
       await iGoToWhatNeedsAPerson(tester);
       await whatNeedsAPersonShowsNoMessage(tester);
-      await nothingNeedsMe(tester);
+      await theCountOfWhatNeedsAPersonIs(tester, '1 need you');
     });
     testWidgets('''a message decided somewhere else meanwhile is said to be gone, and nothing is decided''', (
       tester,

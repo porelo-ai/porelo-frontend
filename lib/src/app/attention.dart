@@ -482,8 +482,10 @@ class Attention extends ChangeNotifier {
   /// Every tile, most urgent first.
   List<Tile> get tiles => <Tile>[for (final machine in _counted) ..._tilesOf(machine)]..sort(_byDemand);
 
-  /// The tiles that need a person: an open question, work waiting at the gate, or the outcome of a
-  /// question that was answered or ran out and has not been put away.
+  /// The tiles that need a person: an open question, work waiting at the gate, work that ended with
+  /// a failure or left something nobody has seen, until it is opened or put away, or the outcome of a
+  /// question that was answered or ran out and has not been put away. Work that finished with nothing
+  /// waiting is none of these: it stays under Work alone.
   ///
   /// **What the window opens on**. A list of every tile is,
   /// at fifty tasks, fifty tiles of which two need anybody — and the reason to open the window is
@@ -524,7 +526,7 @@ class Attention extends ChangeNotifier {
           Tile(
             machine: machine,
             fleet: fleet,
-            demand: demandOf(task, questions),
+            demand: demandOf(task, questions, endSeen: _endSeen(machine, task)),
             task: task,
             questions: questions,
             settled: settled.where((each) => each.task == task.name).firstOrNull,
@@ -546,21 +548,59 @@ class Attention extends ChangeNotifier {
       if (_machines.of(machine).clearance.missed > 0) machine,
   ];
 
-  /// How many things need somebody now: an open question, a machine that cannot say, or a failure nobody has seen.
-  int get needingSomebody => _openRows
-      .where(
-        (row) =>
-            row.kind != AttentionKind.tile ||
-            (row.value as Tile).demand == Demand.question ||
-            (row.value as Tile).demand == Demand.ended,
-      )
-      .length;
+  /// How many things need somebody now: every row, work at the gate like any other. The page's
+  /// header and the rail's badge both say this one number.
+  int get needingSomebody => _openRows.length;
 
-  /// Why one piece of work sits where it does.
-  static Demand demandOf(Task task, List<Prompt> questions) {
+  /// Ends put away here, where no settings keep them.
+  Set<String> _endedHere = const <String>{};
+
+  Set<String> get _endedPutAway => _settings?.endedPutAway ?? _endedHere;
+
+  static String _endKey(String machine, String task, AgentEnded ended) => '$machine/$task/${ended.at}';
+
+  /// Whether somebody opened or put away how [task] on [machine] ended. The next end is another one.
+  bool _endSeen(Machine machine, Task task) {
+    final ended = task.agentEnded;
+    return ended != null && _endedPutAway.contains(_endKey(machine.name, task.name, ended));
+  }
+
+  /// Takes how [tile]'s work ended off what needs a person, because it was opened or put away: what
+  /// else the work holds, such as a push at the gate, stays.
+  void putAwayTheEnd(Tile tile) {
+    final task = tile.task;
+    final ended = task?.agentEnded;
+    if (task == null || ended == null) return;
+    // Only ends still listed are kept, or a machine with years of work would fill the settings. A machine
+    // not answering cannot say, so its ends stay.
+    final listed = <String>{
+      for (final machine in _machines.all)
+        for (final each in fleetOf(machine).tasks)
+          if (each.agentEnded case final end?) _endKey(machine.name, each.name, end),
+    };
+    final silent = <String>[
+      for (final machine in _machines.all)
+        if (fleetOf(machine).reachability != Reachability.connected) '${machine.name}/',
+    ];
+    final kept = <String>{
+      for (final end in _endedPutAway)
+        if (listed.contains(end) || silent.any(end.startsWith)) end,
+      _endKey(tile.machine.name, task.name, ended),
+    };
+    final settings = _settings;
+    if (settings == null) {
+      _endedHere = kept;
+      _changed();
+    } else {
+      unawaited(settings.setEndedPutAway(kept));
+    }
+  }
+
+  /// Why one piece of work sits where it does. With [endSeen], how it ended is known to somebody.
+  static Demand demandOf(Task task, List<Prompt> questions, {bool endSeen = false}) {
     if (questions.isNotEmpty || task.activity == Activity.waiting) return Demand.question;
     // Before the gate and before working: an ended agent's container can still look busy.
-    if (task.agentEnded?.needsSomebody ?? false) return Demand.ended;
+    if (!endSeen && (task.agentEnded?.needsSomebody ?? false)) return Demand.ended;
     if (task.hasWorkWaiting) return Demand.gate;
     if (task.activity == Activity.dead || !task.running) return Demand.stopped;
     return switch (task.activity.name) {

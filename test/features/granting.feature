@@ -122,7 +122,7 @@ Feature: Granting an authorization once, in a browser, for later tasks
         When I go to what needs a person
         Then it says {'jira needs a grant for porelo-checkout-shell'}
         And it says {'Nobody has granted it yet'}
-        And the count of what needs a person is {'1 need you'}
+        And the count of what needs a person is {'2 need you'}
         And somebody was told {'jira needs a grant for porelo-checkout-shell'}
 
     Scenario: a grant the service ended says it needs granting again
@@ -135,7 +135,7 @@ Feature: Granting an authorization once, in a browser, for later tasks
         When I go to what needs a person
         And the machine says {'jira'} is granted
         Then the authorization {'jira'} is resolved with its action disabled
-        And nothing needs me
+        And the count of what needs a person is {'1 need you'}
 
     Scenario: an authorization is granted from what needs a person
         Given the machine says {'jira'} needs a grant for {'porelo-checkout-shell'} in {'checkout'}

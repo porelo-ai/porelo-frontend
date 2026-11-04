@@ -45,8 +45,12 @@ class AttentionView extends StatefulWidget {
     this.onSelect,
     this.onOpenOperation,
     this.onOpenHost,
+    this.onReadLog,
     super.key,
   });
+
+  /// Opens what work that ended wrote, which is what puts its end away.
+  final void Function(Tile tile)? onReadLog;
 
   /// The same machine-specific unlock path used by work.unlock, or null when unavailable.
   final VoidCallback? Function(Machine machine)? unlockFor;
@@ -147,7 +151,16 @@ class _AttentionViewState extends State<AttentionView> {
                         Column(
                           key: const Key('open-attention'),
                           crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [for (final row in rows) _row(context, row)],
+                          children: [
+                            for (final group in _NeedsGroup.values)
+                              if (rows.where((row) => _NeedsGroup.of(row) == group).toList() case final inIt
+                                  when inIt.isNotEmpty)
+                                _GroupCard(
+                                  group: group,
+                                  count: inIt.length,
+                                  children: [for (final row in inIt) _row(context, row)],
+                                ),
+                          ],
                         ),
                         if (resolved.isNotEmpty)
                           Column(
@@ -199,6 +212,7 @@ extension on _AttentionViewState {
     VoidCallback open = details;
     Command? primary;
     Key? primaryKey;
+    var steps = const <Widget>[];
     switch (row.kind) {
       case AttentionKind.host:
         final stop = row.value as HostStop;
@@ -308,9 +322,19 @@ extension on _AttentionViewState {
             : tile.task!.label.isEmpty
             ? tile.task!.name
             : tile.task!.label;
-        state = TaskTile._headline(tile);
+        // A row kept only for how its question came out says that, not how its work stands.
+        state =
+            tile.settled != null && tile.questions.isEmpty && tile.demand != Demand.ended && tile.demand != Demand.gate
+            ? TaskTile._settledWords(tile.settled!)
+            : TaskTile._headline(tile);
         icon = Icons.work_outline;
-        open = resolved || widget.onSelect == null ? details : () => widget.onSelect!(tile);
+        // Opening how work ended is seeing it: the row has done its work.
+        open = resolved || widget.onSelect == null
+            ? details
+            : () {
+                if (tile.demand == Demand.ended) attention.putAwayTheEnd(tile);
+                widget.onSelect!(tile);
+              };
         if (tile.task?.hasWorkWaiting ?? false) {
           primary = reviewAttentionWorkCommand(
             run: () => widget.onReview(tile),
@@ -318,6 +342,7 @@ extension on _AttentionViewState {
                 reason ?? (tile.fleet.reachability == Reachability.connected ? null : 'the machine is not answering'),
           );
         }
+        if (!resolved) steps = _stepsOf(tile);
       case AttentionKind.setAside:
         title = 'Saved machines not watched';
         state = 'Set aside';
@@ -339,10 +364,68 @@ extension on _AttentionViewState {
       title: '$title · ${row.machine}',
       state: resolved ? 'Resolved' : state,
       onOpen: navigation.run,
-      primary: resolved ? null : primary ?? navigation,
+      primary: resolved || steps.isNotEmpty ? null : primary ?? navigation,
       primaryKey: primaryKey,
+      steps: steps,
       details: _details(context, row, resolved: resolved, includePrimary: resolved),
     );
+  }
+
+  /// What a row of work offers on itself, where it has more than one next step: a question its
+  /// terminal and both answers, work that ended its log and putting it away.
+  List<Widget> _stepsOf(Tile tile) {
+    final first = tile.questions.firstOrNull;
+    final session = widget.actionsFor(tile).where((command) => command.id == 'work.session').firstOrNull;
+    if (tile.demand == Demand.question) {
+      final answers = tile.fleet.reachability == Reachability.connected;
+      final answering = first != null && tile.fleet.clearance.answering(first);
+      return <Widget>[
+        if (session != null && session.available)
+          OutlinedButton(
+            key: const Key('tile-see-terminal'),
+            onPressed: session.run,
+            child: const Text('See its terminal'),
+          ),
+        if (first != null) ...<Widget>[
+          OutlinedButton(
+            key: const Key('tile-keep-blocked'),
+            onPressed: answering || !answers
+                ? null
+                : questionDecisionCommand(allow: false, run: () => widget.onDecide(tile, first, allow: false)).run,
+            child: const Text('Keep it blocked'),
+          ),
+          FilledButton(
+            key: const Key('tile-let-through'),
+            onPressed: answering || !answers
+                ? null
+                : questionDecisionCommand(allow: true, run: () => widget.onDecide(tile, first, allow: true)).run,
+            child: const Text('Let it through'),
+          ),
+        ],
+      ];
+    }
+    if (tile.demand != Demand.ended) return const <Widget>[];
+    return <Widget>[
+      if (widget.onReadLog != null)
+        OutlinedButton(
+          key: const Key('ended-read-log'),
+          onPressed: () => widget.onReadLog!(tile),
+          child: const Text('Read its log'),
+        ),
+      TextButton(
+        key: const Key('ended-put-away'),
+        onPressed: () => widget.attention.putAwayTheEnd(tile),
+        child: const Text('Put it away'),
+      ),
+      if (tile.task?.hasWorkWaiting ?? false)
+        FilledButton(
+          key: const Key('ended-review'),
+          onPressed: tile.fleet.reachability == Reachability.connected
+              ? reviewAttentionWorkCommand(run: () => widget.onReview(tile)).run
+              : null,
+          child: const Text('Review at the gate'),
+        ),
+    ];
   }
 
   Widget _details(BuildContext context, AttentionRow row, {bool resolved = false, bool includePrimary = true}) {
@@ -513,6 +596,8 @@ extension on _AttentionViewState {
           onDecide: widget.onDecide,
           onReview: widget.onReview,
           onPutAway: widget.onPutAway,
+          // Its answers stand on the row, where a resolved one's are no longer offered.
+          answersOnTheRow: !resolved,
           onSelect: resolved || widget.onSelect == null ? null : () => widget.onSelect!(tile),
         );
       case AttentionKind.setAside:
@@ -656,6 +741,107 @@ class _MissedQuestions extends StatelessWidget {
   }
 }
 
+/// How *Needs you* stands its rows in cards: what has a deadline, what waits at a gate, then the rest.
+enum _NeedsGroup {
+  decide('Decide soon'),
+  reviews('Reviews'),
+  rest('Also needs you');
+
+  const _NeedsGroup(this.title);
+
+  final String title;
+
+  static _NeedsGroup of(AttentionRow row) => switch (row.kind) {
+    AttentionKind.message => decide,
+    AttentionKind.tile => switch ((row.value as Tile).demand) {
+      Demand.question => decide,
+      Demand.gate => reviews,
+      _ => rest,
+    },
+    _ => rest,
+  };
+}
+
+/// One group of *Needs you*, a card headed by its title and how many rows it holds.
+class _GroupCard extends StatelessWidget {
+  const _GroupCard({required this.group, required this.count, required this.children});
+
+  final _NeedsGroup group;
+  final int count;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return Padding(
+      key: ValueKey<String>('needs-group ${group.name}'),
+      padding: const EdgeInsets.only(bottom: Space.wide),
+      child: Material(
+        color: colors.surfaceContainerLow,
+        clipBehavior: Clip.antiAlias,
+        shape: RoundedRectangleBorder(
+          side: BorderSide(color: colors.outlineVariant, width: Space.hairline),
+          borderRadius: BorderRadius.circular(Radii.medium),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            ColoredBox(
+              color: colors.surfaceContainerHighest,
+              child: Padding(
+                padding: const EdgeInsets.all(Space.normal),
+                child: Row(
+                  children: <Widget>[
+                    Flexible(
+                      child: Text(group.title, style: theme.textTheme.titleMedium, overflow: TextOverflow.ellipsis),
+                    ),
+                    const SizedBox(width: Space.small),
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: colors.surface,
+                        borderRadius: BorderRadius.circular(Radii.small),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: Space.small),
+                        child: Text(
+                          '$count',
+                          key: ValueKey<String>('needs-group-count ${group.name}'),
+                          style: theme.textTheme.bodySmall,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // A row that draws itself as a card is a row here: the group is the card.
+            Theme(
+              data: theme.copyWith(
+                cardTheme: theme.cardTheme.copyWith(
+                  color: Colors.transparent,
+                  elevation: 0,
+                  margin: EdgeInsets.zero,
+                  shape: const RoundedRectangleBorder(),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  for (final (place, child) in children.indexed) ...<Widget>[
+                    if (place > 0) const Divider(height: Space.hairline),
+                    child,
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// A machine that is not answering, said about the machine: it is not work, so it is not a tile.
 class _MachineNotice extends StatelessWidget {
   const _MachineNotice({required this.machine, required this.words, required this.retry, required this.onSeen});
@@ -723,6 +909,7 @@ class TaskTile extends StatelessWidget {
     required this.onReview,
     this.onPutAway,
     this.resolved = false,
+    this.answersOnTheRow = false,
     this.listRow = false,
     this.selected = false,
     this.onSelect,
@@ -735,6 +922,9 @@ class TaskTile extends StatelessWidget {
 
   /// Whether this snapshot has been resolved and its actions must remain disabled.
   final bool resolved;
+
+  /// Whether the row around it offers the answers to its question, so it does not again.
+  final bool answersOnTheRow;
 
   /// Whether work fills a list row instead of a fixed-width tile.
   final bool listRow;
@@ -976,7 +1166,7 @@ class TaskTile extends StatelessWidget {
                       Wrap(
                         spacing: Space.small,
                         children: <Widget>[
-                          if (first != null) ...<Widget>[
+                          if (first != null && !answersOnTheRow) ...<Widget>[
                             TextButton(
                               key: const Key('tile-let-through'),
                               onPressed: answering || !answers
