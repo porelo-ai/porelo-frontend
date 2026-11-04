@@ -1,12 +1,11 @@
 # F117 — What Walk 8 Left Unbuilt
 
 **Status:** Backlog.
-**Size:** M - three small changes in three modules (the tile, the held message's outcome, the
-project check after a push), each with its scenario.
+**Size:** M - two small changes in two modules (the tile and the held message's outcome), each with its
+scenario.
 
-**What must be true.** Three points walk 8 found, which the interface does not do yet: a tile names
-its repository in its heading, a release Porelo refuses is said as an error that stays, and a project file
-the machine follows is taken at once after the person's own push.
+**What must be true.** Two points walk 8 found, which the interface does not do yet: a tile names
+its repository in its heading, and a release Porelo refuses is said as an error that stays.
 
 ## Why
 
@@ -16,11 +15,6 @@ the machine follows is taken at once after the person's own push.
 - **A release Porelo refuses:** after *Release it*, a `NOT_DELIVERABLE` answer is a plain notice,
   "It cannot be sent: <Porelo's words>." (`lib/src/ui/held_message_view.dart`), not in the error's
   color, and gone with the dialog before it is read.
-- **The project file after one's own push:** `lib/src/app/machine_binding.dart` merges and pushes
-  configuration changes waiting at the gate and calls `landed`; it does not bind a machine or write
-  its signers. `ProjectCheck`, `lib/src/app/project_check.dart` and `test/features/following.feature`
-  have no implementation here. The immediate check promised below is not called by
-  `lib/src/app/machine_binding.dart`.
 
 ## Plan
 
@@ -35,13 +29,9 @@ the machine follows is taken at once after the person's own push.
   conversation is started again, then released). A code beside `detail`, which would let it match the
   other five cases, is the daemon's to add; a remedy per code follows it, as an issue of
   its own.
-- **The project file after one's own push:** after the interface pushes to a followed project's
-  repository (binding a machine writes `project.yml` and the machine signers,
-  `lib/src/app/machine_binding.dart`; a push forwarded at the gate to a project's repository,
-  `lib/src/ui/shell.dart`), `ProjectCheck.checkNow` runs for that project, as *Check it now* does.
 - **Red first, each:** in `work_tiles.feature` a tile in a project of one repository whose heading
   names it; in `moderating_messages.feature` a release answered `NOT_DELIVERABLE` shown as an error
-  with Porelo's words whole; in `following.feature` a binding's push followed at once by a check.
+  with Porelo's words whole.
 
 ## Acceptance
 
@@ -49,5 +39,3 @@ the machine follows is taken at once after the person's own push.
   `work_tiles.feature` scenario with one repository.
 - **A release Porelo refuses is an error, with Porelo's words whole,** and the dialog stays open on it. Seen to
   fail: the `moderating_messages.feature` scenario.
-- **The interface's own push to a followed project is taken at once,** its *Following, at …* the new
-  commit without *Refresh*. Seen to fail: the `following.feature` scenario.

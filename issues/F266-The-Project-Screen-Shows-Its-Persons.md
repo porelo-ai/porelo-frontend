@@ -3,7 +3,7 @@
 **Status:** Idea. Held: GUI changes wait until the whole flow has been gone through again.
 **Size:** M - a design, then its screen: a project shows the server it is on and its persons with their roles and state, and its actions are chosen from there.
 
-**What must be true.** A project's screen shows the server it is on, its project admin and its developers, each with their state (admitted, pending sync, locked), and offers the project's actions from those rows: change or remove a developer, take the project off its server. The design is filed and agreed before it is built.
+**What must be true.** A project's screen shows the server it is on, its project admin and its developers, each with their state (admitted, locked), and offers the project's actions from those rows: change or remove a developer, take the project off its server. The design is filed and agreed before it is built.
 
 ## Why
 
@@ -12,7 +12,8 @@ and lock state. Member rows offer *Lock* or *Unlock*, *Remove…* and *Change th
 It reads the project through `PoreloOrganizationSource.readProject` in `lib/src/app/porelo_organization_source.dart`.
 
 `lib/src/ui/organization_project_pages.dart` does not show the project's machine or offer taking it off that machine
-on its detail page, and it has no *pending sync* member state. *Take it off the machine…* is on the project's row
+on its detail page. A member's change is written to the organization, and a machine follows it by itself, so a
+person has no state between the two. *Take it off the machine…* is on the project's row
 under *Organization* in `lib/src/ui/organization_page.dart`. Those parts of the promise above are not met on the
 detail page. The related machine page is covered by [F265](README.md#f265).
 
@@ -21,8 +22,8 @@ The Project screen design is the first of two designs ([F265](README.md#f265) is
 ## Plan
 
 - A design page, written before code, with the project's server, persons, states and row actions.
-- The persons from the signed access file until the query contract gives them from the host.
-- **Red first:** the built screen's widget test that a developer with a pending sync shows "pending sync".
+- The persons from `PoreloOrganizationSource.readProject` until the query contract gives them from the host.
+- **Red first:** the built screen's widget test that a locked developer shows "locked" and the project's machine stands there.
 
 ## Test
 

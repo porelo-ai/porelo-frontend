@@ -72,7 +72,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="f99"></a>[F99](F99-An-Attached-Agent-Shown-At-Rest-Or-Working.md) | S | — | A work tile says whether an attached agent is at rest or working. |
-| <a id="f117"></a>[F117](F117-What-Walk-8-Left-Unbuilt.md) | M | — | A tile's repository in its heading, a refused release said as an error that stays, the project file taken after one's own push. |
+| <a id="f117"></a>[F117](F117-What-Walk-8-Left-Unbuilt.md) | M | — | A tile's repository in its heading, a refused release said as an error that stays. |
 | <a id="f111"></a>[F111](F111-All-Of-A-Pieces-Logs-In-One-Timeline.md) | M | — | All of a piece's logs in one timeline, by time, filterable by source. |
 | <a id="f147"></a>[F147](F147-Every-Repository-Of-Default-Offered-To-Start-In.md) | XS | — | Starting in default offers every repository; the first is no longer hidden as its own. |
 
@@ -118,8 +118,8 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f296"></a>[F296](F296-Card-Endpoints-Per-Login.md) | M | — | Card endpoints per login, so two instances of one account each hold a tunnel to one host; a master this person left ended on raise. |
 | <a id="f295"></a>[F295](F295-No-Ask-Line-Naming-The-Viewer.md) | S | — | No refusal ends with "Ask <name>" when the named person is the one at this interface. |
 | <a id="f293"></a>[F293](F293-Host-Deliveries-Hardened.md) | M | — | Host deliveries hardened: git in a clean environment, one ssh call to copy and place, bundles placed at once, sudo without the login shell, the registry held while sending. |
-| <a id="f292"></a>[F292](F292-A-Developer-Confirmed-By-The-Hosts-Registry-Status.md) | M | — | Add a developer confirmed by the host's registry status, and Lock and Let back in offered and confirmed the same way. |
-| <a id="f290"></a>[F290](F290-The-Host-Functions-From-A-Windows-Desktop.md) | M | — | Join, Prepare, Admit and Add from a Windows desktop: one ssh per host card with loopback TCP ends, the daemon through the relay, no master. |
+| <a id="f292"></a>[F292](F292-A-Lock-Confirmed-By-Each-Host.md) | M | — | *Lock* and *Let back in* shown as under way on each host until `org status` there confirms them; adding counts as done once signed. |
+| <a id="f290"></a>[F290](F290-The-Host-Functions-From-A-Windows-Desktop.md) | M | — | Connect and Prepare from a Windows desktop: one ssh per host card with loopback TCP ends, the daemon through the relay, no master. |
 | <a id="f288"></a>[F288](F288-Small-Leftovers-Of-The-One-Click-Flow.md) | — | — | The small edge cases left over from the one-click flow gathered in one place for the operator to place: address forms, test gaps, texts. |
 | <a id="f284"></a>[F284](F284-The-Subagent-Number-Chosen-When-Starting.md) | — | — | How many subagents the agent may run at once, chosen when starting, with the number that applies and Core's refusal said before anything is made. |
 | <a id="f282"></a>[F282](F282-The-Providers-Usage-In-A-Status-Line.md) | — | — | A status line with one traffic light for the providers' usage, a popup per provider, and a *Needs you* warning past a set threshold. |
@@ -127,9 +127,9 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f236"></a>[F236](F236-Root-Reached-On-A-Rented-Server.md) | — | — | Root allowed in the rental's cloud-config; a "Please login as" answer refused at once, naming the user. |
 | <a id="f238"></a>[F238](F238-A-Server-With-No-Project-Is-Not-Silent.md) | — | — | A server prepared with no project not raised as *Not answering*; its row says "No project yet". |
 | <a id="f240"></a>[F240](F240-The-Walk-Hand-Over-Carries-Porelo-Host.md) | — | — | The walk hand-over ships `porelo-host` and the start script points the interface at it; a missing local program said without the container sentence. |
-| <a id="f242"></a>[F242](F242-A-File-Chooser-Beside-Every-Path-Field.md) | — | — | A *Choose…* button and the known default beside every path field of the wizards: bring, join, Developers and *Prepare a server…*. |
-| <a id="f239"></a>[F239](F239-Known-Values-Offered-In-The-Wizards.md) | — | — | Known values offered in the wizards: followed projects, admitted admins, the pinned signer, a laptop line from the copied keys with the next free address. |
-| <a id="f262"></a>[F262](F262-Lock-And-Purge-Say-What-They-Do.md) | — | — | *Lock* and *Purge* named by what they do, their dialogs saying the difference. |
+| <a id="f242"></a>[F242](F242-A-File-Chooser-Beside-Every-Path-Field.md) | — | — | A *Choose…* button and the known default beside the KeePassXC database fields. |
+| <a id="f239"></a>[F239](F239-Known-Values-Offered-In-The-Wizards.md) | — | — | Known values offered: the organization's repository address and the KeePassXC database. |
+| <a id="f262"></a>[F262](F262-Lock-And-Purge-Say-What-They-Do.md) | — | — | A project member's *Lock* says what it does. |
 | <a id="f265"></a>[F265](F265-The-Server-Page-Shows-What-It-Holds.md) | — | [F266](README.md#f266) | A server's page shows its own state, its projects and its persons with their state; actions chosen from the rows. |
 | <a id="f266"></a>[F266](F266-The-Project-Screen-Shows-Its-Persons.md) | — | — | A project's screen shows its server and its persons with their state; actions chosen from the rows. |
 | <a id="f207"></a>[F207](F207-A-Tasks-Branch-At-The-Forge-Named-By-The-Projects-Scheme.md) | — | — | A task's branch at the forge from the project's scheme, shown, named at the start and approved to by default. |

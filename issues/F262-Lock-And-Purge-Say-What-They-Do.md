@@ -1,23 +1,22 @@
 # F262 — Lock And Purge Say What They Do
 
 **Status:** Idea. Held: GUI changes wait until the whole flow has been gone through again.
-**Size:** XS - the server menu's *Lock* and *Purge* are named by what they do and their dialogs say the difference.
+**Size:** XS - a project member's *Lock* says what it does.
 
-**What must be true.** The server menu says *Lock a person out of the server…* and *Delete a person's account from the server…*. The lock dialog says: access is turned off, the account and its home are kept, and admitting the person again undoes it. The delete dialog says: the Linux account, its home and the host's record of the person are deleted for good; the forge name stays blocked so it is never reused; nothing undoes it.
+**What must be true.** A project member's *Lock* says what it does: access is turned off, the account and its home are kept until the deletion day the machine names, and *Unlock* undoes it.
 
 ## Why
 
-`lib/src/ui/organization_host_pages.dart` has no server *Lock* or *Purge* menu. A project member's menu in
+A project member's menu in
 `lib/src/ui/organization_project_pages.dart` says *Lock* or *Unlock*. `_MemberRowState._lock` writes the change
 immediately, with no dialog explaining a lock. The explanation beside *Remove…* concerns removal, not locking.
-The lock explanation promised above is not provided by this file; the server account deletion dialog has no
-matching control here.
+The lock explanation promised above is not provided by this file. An account is not deleted by a person: a machine
+deletes a locked person's account on its day, and `lib/src/ui/organization_host_pages.dart` names that day.
 
 ## Plan
 
-- Labels and dialog texts in `lib/src/ui/organization_project_pages.dart` and
-  `lib/src/ui/organization_host_pages.dart`; walk and test keys unchanged.
-- **Red first:** widget tests for the two labels and the sentences.
+- Label and words in `lib/src/ui/organization_project_pages.dart`; walk and test keys unchanged.
+- **Red first:** a widget test for the sentence.
 
 ## Test
 

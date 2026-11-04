@@ -11,23 +11,17 @@ The *Your KeePassXC database* fields in `lib/src/ui/identity_view.dart` are plai
 `FirstStartWizard`, `IdentityDialog` and `ReplaceLostKeyDialog`. They have no chooser or known path default,
 so they do not meet the promise above. `pickWithTheDesktop` in `lib/src/ui/pick_a_file.dart` provides a chooser.
 
-`HostDialog` in `lib/src/ui/host_dialog.dart` has no file path field or `_pathField` helper. The Bring, Join and
-Developers dialog files named in the plan have no file in this checkout; their field sets have no matching form.
-The plan's widget move and those field-specific requirements need a scope decision; they stay below unchanged.
+These are the fields left that name a file on this computer: `HostDialog` in `lib/src/ui/host_dialog.dart` asks for
+none, and the identity's forms take the place of the bring's, the join's and the developers' dialogs.
 
 ## Plan
 
-- `_pathField` moves from `host_dialog.dart` into a shared widget (beside `lib/src/ui/pick_a_file.dart`): the text field, *Choose…* opening in the folder of the current value, and the last folder remembered for the dialog.
-- Fields covered, each with its default:
-  - Bring (`project_bring_dialog.dart`):
-    - *Project signing public key file* (Step 1 of 7): the followed project's pinned key per [F239](README.md#f239), else the default SSH public key.
-    - *Your SSH identity file*: the default SSH private key.
-    - *Secrets file path* (Step 5 of 7): the kept secrets file, else `~/Porelo/secrets.kdbx`.
-  - Join (`project_join_dialog.dart`): *Project signing public key file*, as in the bring; *Secrets file path*, as in the bring.
-  - Developers (`project_developers_dialog.dart`): *Project signing public key file* and *Your SSH identity file*, as in the bring.
-  - *Prepare a server…* (`host_dialog.dart`): *Your private ssh key* with its `.pub` brought along, *Public key for signing commits (.pub)*, *Your secrets file (.kdbx)* (`~/Porelo/secrets.kdbx`), *Test collection (.tar.gz)*: already with *Choose…*, moved onto the shared widget.
-- The separate "Choose the public key file…" buttons of the bring and the join go; the field's own *Choose…* takes their place.
-- **Red first:** a widget test per dialog that *Choose…* beside the secrets file fills the field from a stand-in chooser, and that the field shows its default when nothing is kept.
+- A shared widget beside `lib/src/ui/pick_a_file.dart`: the text field, *Choose…* opening in the folder of the
+  current value through `pickWithTheDesktop`.
+- Fields covered: *Your KeePassXC database* in `FirstStartWizard`, `IdentityDialog` and `ReplaceLostKeyDialog`
+  (`lib/src/ui/identity_view.dart`), its default the database this computer knows.
+- **Red first:** a widget test per dialog that *Choose…* fills the field from a stand-in chooser, and that the field
+  shows its default when one is known.
 
 ## Test
 

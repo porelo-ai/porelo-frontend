@@ -4,8 +4,8 @@
 **Size:** M - the card's ssh config, the card tunnel's arguments, the card machine's relay and their tests in this
 repository; Core's and Matrix's parts are their own.
 
-**What must be true.** On Windows, a person joins a project on a host, and a host admin prepares, admits and adds,
-as on Linux: through the host's card, with the same `-F` file and the same fixed ports. Linux stays as it is.
+**What must be true.** On Windows, a person connects to a machine, and a Machine Admin prepares it and names its
+people, as on Linux: through the host's card, with the same `-F` file and the same fixed ports. Linux stays as it is.
 
 ## How it stands
 
@@ -17,8 +17,6 @@ as on Linux: through the host's card, with the same `-F` file and the same fixed
 `PoreloOrganizationSource` in `lib/src/app/porelo_organization_source.dart` runs the organization commands;
 `SshHostProgress` in `lib/src/app/host_progress.dart` reads host state over SSH as root.
 `SshHostProgress._ask` already turns a `ProcessException` into a refusal, but `_ssh` starts `ssh` by name.
-`lib/src/app/host_access_adapters.dart` proves the local identity and has no registry send to root matching the
-plan's transport step. `test/app/host_access_adapters_test.dart` tests identity proof and has no Windows skip.
 
 ## The shape
 
@@ -44,13 +42,11 @@ The card connection of today, adapted; no new design.
   stops refusing it ("Machine card connections require OpenSSH Unix socket and master support on this platform.").
 - `organization_connections.dart` (`CardHostConnections`): no change expected; `SshHostProgress`'s ssh calls
   already take `ControlMaster=no` and the card's `-F` file.
-- `host_access_adapters.dart`: the registry's send to root starts `ssh` by name, so on Windows another `ssh.exe` on
-  `PATH` or in the current folder is taken, and a missing one throws past the refusal. It takes `openSsh('ssh')`,
-  Windows' own OpenSSH, and turns a `ProcessException` into a refusal with words, as its git and verify calls do.
+- `SshHostProgress` (`lib/src/app/host_progress.dart`) starts `ssh` by name, so on Windows another `ssh.exe` on
+  `PATH` or in the current folder is taken. It takes `openSsh('ssh')`, Windows' own OpenSSH.
 - **Red first:** in `test/app/tunnel_test.dart`, with the Windows desk and the ssh stand-in, the arguments hold no
   `-M`, no local unix path and a `-R` to `127.0.0.1`; in `test/app/wsl_test.dart`, a card machine on Windows is
-  reached through the relay instead of refused. The Windows skip in `test/app/host_access_adapters_test.dart` is
-  lifted wherever only the card tunnel caused it.
+  reached through the relay instead of refused.
 
 ## Parts of other repositories
 
@@ -66,7 +62,7 @@ Each is its own piece, agreed in the room before this is built:
   daemon reached through the relay; Core's unlock started as its own process with `-F`; nothing is a local unix
   socket and nothing asks for a master.
 - On Linux, the card tunnel's arguments and config are unchanged; the existing tests stay green unchanged.
-- In the operator's Windows test: Join, Prepare, Admit and Add against a real host.
+- In the operator's Windows test: Connect and Prepare against a real host.
 
 ## To be checked
 

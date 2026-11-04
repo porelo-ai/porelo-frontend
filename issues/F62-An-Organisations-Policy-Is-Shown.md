@@ -2,7 +2,7 @@
 
 **Status:** Estimated.
 **Size:** M - one contract change read from `porelo` (the policy and its refusals) across the
-machine, starting work, the clearance prompt and following, with the mock daemon and the docs.
+machine, starting work and the clearance prompt, with the mock daemon and the docs.
 
 **What must be true.** A person on a machine whose organisation set a policy sees that it is in
 force and what it allows, and is told why when it refuses something, rather than being surprised.
@@ -13,9 +13,8 @@ An organisation decides which providers its machines use. Porelo's part is
 the policy file, its refusals and `doctor`; the contract carries none of it yet: not the policy, its
 refusals, or whether a prompt may be allowed.
 
-`lib/src/app/machine_binding.dart` handles pending configuration changes, not following, and
-`lib/src/client/porelo_client.dart` exposes no unverified-follow operation. The following refusal
-criterion has no interface entry point here.
+The interface starts no follow: a machine follows the organization itself, so an unverified follow is refused by
+Core, and the interface only shows that the policy says so.
 `lib/src/app/start_work.dart` reads providers without filtering them by an organization policy;
 `lib/src/ui/attention_view.dart` offers both prompt decisions without that policy restriction.
 These do not meet the policy-dependent provider and prompt promises below.
@@ -32,8 +31,7 @@ These do not meet the policy-dependent provider and prompt promises below.
   (`lib/src/ui/start_work_view.dart`), naming the policy.
 - **The clearance prompt:** `TaskTile` in `lib/src/ui/attention_view.dart` offers allow and deny
   through `onDecide`; under a policy with no allow it offers deny only, and says why.
-- **Following and `online`:** an unverified follow, and a project whose `securityClass` is `online`, refused in the
-  machine's words.
+- **The `online` class:** a project whose `securityClass` is `online`, refused in the machine's words.
 - **Red first:** a scenario in `test/features/task_creation.feature` starting work under a policy
   that allows one provider.
 
@@ -48,8 +46,8 @@ These do not meet the policy-dependent provider and prompt promises below.
   under a policy that allows one provider, and one refused for its provider.
 - **A clearance prompt under a policy with no allow offers only deny**, saying why; it never offers
   an allow the machine would refuse. Seen to fail: a widget test of the prompt under such a policy.
-- **Following unverified, and a project of class `online`**, are refused in the machine's words,
-  naming the policy. Seen to fail: a scenario for each refusal.
+- **A project of class `online`** is refused in the machine's words, naming the policy. Seen to fail: a scenario
+  for the refusal.
 
 ## To be checked
 

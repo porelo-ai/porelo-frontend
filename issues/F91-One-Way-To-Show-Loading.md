@@ -14,12 +14,12 @@ reading and what, so a person never takes an empty view for a finished one.
 - The forge's page (`lib/src/ui/forges_page.dart`) shows a bare progress bar without the required
   sentence. The views still to go through: Connections, a machine's
   page, the gate, backups, what a project may reach, Messages, Agents, the vault, the start form, a
-  project's machines and keys at its forge, the Default dialog.
+  project's keys, the Default dialog.
 - In a dialog the bar sits at the top of the dialog's content; that is the same way, and a dialog
   gets no header of its own.
 
 `ProjectForgeDialog` in `lib/src/ui/project_forge_view.dart` opens the workspace and reads the SSH
-agent's signing keys without a loading indicator; it does not survey machines or deploy keys.
+agent's signing keys without a loading indicator.
 
 ## Plan
 

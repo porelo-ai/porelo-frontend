@@ -17,8 +17,10 @@ The deploy-key deletion promise is not met: `MachineClearing.clearIt` in
 `lib/src/app/machine_clearing.dart` only clears through the daemon, `MachineBinding` in
 `lib/src/app/machine_binding.dart` has no unbinding operation, and `Forge` in `lib/src/app/forge.dart`
 has no deploy-key operations. `test/ui/forge_credentials_test.dart` expects clearing to leave
-deploy keys at the forge. `lib/src/ui/forges_page.dart` offers no form to create `project.yml`, so
-the verified-commit criterion cannot be exercised through that form.
+deploy keys at the forge. Whether that promise stands is a question for the operator, since it concerns access
+left at the forge.
+
+`project.yml` comes from *Fill it from a checkout…* ([F350](README.md#f350)), under *Organization*.
 
 The token needs *Contents* and *Administration: Read and write* for the test repositories. Neither
 the token nor the repositories are ever kept in this repository or the channel.
@@ -36,8 +38,8 @@ the token nor the repositories are ever kept in this repository or the channel.
   that fails becomes a fix with its test first.
 - **Deploy keys:** a machine cleared with `MachineClearing` (`lib/src/app/machine_clearing.dart`) and
   one unbound from the project; then the keys are listed at GitHub, by its own page and API.
-- **A verified commit:** `project.yml` committed by `ProjectWorkspace.commitAndPush` in
-  `lib/src/app/project_workspace.dart`, then GitHub's commit page read for "Verified".
+- **A verified commit:** `project.yml` signed into a project by *Fill it from a checkout…*
+  ([F350](README.md#f350)), then GitHub's commit page read for "Verified".
 - **Branch protection:** a rule set on the test repository's branch; a push through
   `ProjectWorkspace` and a forward through `Gate.approve` (`lib/src/app/gate.dart`) are made against
   it, and the words shown are compared with GitHub's.
@@ -54,7 +56,7 @@ the token nor the repositories are ever kept in this repository or the channel.
 
 - **Removing a machine, or unbinding it, deletes its deploy keys at GitHub.** Seen to fail: the
   repository's deploy keys listed at GitHub after the removal still hold the machine's key.
-- **A `project.yml` committed in the form is shown as verified by GitHub**, signed with the person's
+- **A `project.yml` signed into a project is shown as verified by GitHub**, signed with the person's
   ssh key. Seen to fail: GitHub's commit page shows it unverified.
 - **A push that branch protection refuses** is said in GitHub's words. Seen to fail: a push to a
   protected branch shows anything other than GitHub's refusal.

@@ -16,7 +16,7 @@ interface. `HostUpRecord.forge` in `lib/src/app/settings.dart` defaults to true 
 `--forge true|false`; `runHostCommand` in `packages/porelo_host/bin/porelo_host.dart` accepts it, and
 `HostRun._inventoryVariables` in `packages/porelo_host/lib/src/host_run.dart` writes
 `porelo_host_forge`. `HostDialog` in `lib/src/ui/host_dialog.dart` does not offer the promised
-switch; its new records use the default. The dialog has no project step or review summary.
+switch; its new records use the default.
 
 ## Plan
 
@@ -25,7 +25,7 @@ switch; its new records use the default. The dialog has no project step or revie
 - **The command:** `porelo-host up` takes `--forge false`, which sets `HostPlan.forge` (`packages/porelo_host`) to
   false; the inventory writes the value already.
 - **The dialog:** a switch in `HostDialog` (`lib/src/ui/host_dialog.dart`), `host-forge`, on by default,
-  restored from the kept record, and named in the review's summary.
+  restored from the kept record.
 - **Red first:** a widget test that switching it off makes the run's arguments carry `--forge false`, and a package
   test that `--forge false` writes `porelo_host_forge: false`.
 
