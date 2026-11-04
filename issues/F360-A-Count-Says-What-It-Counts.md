@@ -14,12 +14,21 @@ Right after creating a Porelo organization, in the foo test, the side bar said *
 
 ## The shape
 
-- The organization page's list says what it lists, in words such as *Machines in this organization*, and the empty list says that this computer is not one until it is added.
+- **The side bar reads *My projects*, *My machines* and *My forges*,** in sentence case, and those pages' own titles with it. The organization page's lists stay *Projects* and *Machines*, as they show the whole organization. That names the difference between the two numbers.
 - **Creating a Porelo organization enters its forge under *Forges*,** if that forge is not there yet, without asking for anything again. The token is the access: a person is never asked for the same token twice.
+
+**What each counts, read in the code:**
+
+| Name | Counts |
+|---|---|
+| *My machines* | The machines this window watches, those being prepared, and always this computer. |
+| *My forges* | The forges set up in this window's settings, `ForgeConnection.entries`. **Its page lists more:** `allEntries`, which holds the machines' own forges too, so the number can be below the page's rows. The number becomes the page's. |
+| *My projects* | Its page lists the projects the person holds a role in, so it already means what the word says. **Its number does not:** with an organization read, `projectsInRail` counts all of the organization's projects, though its comment says it counts what the page lists. The number becomes the page's. With no organization read, both are those on the machines this window reaches. |
+| The organization page's *Projects*, *Machines* | The whole organization's. |
 
 ## Acceptance
 
-- With this computer alone and an organization with no machines, a person reads why the two numbers differ, on the page they are on.
+- The side bar and those three pages say *My projects*, *My machines* and *My forges*; the organization page's lists keep their names; each count equals the rows of its page, a person with a role in one of two projects reading 1. Seen to fail first.
 - Creating an organization on a forge not yet listed lists it and asks for nothing; the entry then lists that forge's repositories, or says in words why it cannot.
 - One token entered once serves the organization, the project's opening and the *Forges* page.
 
@@ -37,5 +46,6 @@ One person can hold the same token twice. `porelo vault` holds `git.token.<host>
 
 ## To be checked
 
+- Words elsewhere that name these places, such as "under Projects", the help, the pictures and their alt text.
 - Which of the window's forge questions Core can already answer, and what it must add.
 - What is left of the system store: for a computer with no local Porelo, and for a person who already holds a token there, which must not be lost.
