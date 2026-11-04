@@ -8,55 +8,125 @@ import '../app/attention.dart';
 import '../app/fleet_model.dart';
 import '../app/machines.dart';
 import 'attention_view.dart';
+import 'filtered_list_section.dart';
 import 'tokens.dart';
 
-/// How the work page was left: its filters, its folded groups and its opened tiles. Kept by the
+/// How the work page was left: its search, its opened rows, which view and which tab. Kept by the
 /// window rather than the page, so they stay when something takes the page's place for a while - a
-/// refusal, a detail - and the page comes back (walk 9).
+/// refusal, a detail, another page - and the page comes back (walk 9).
 class WorkView extends ChangeNotifier {
-  /// The machine the work is narrowed to, or null for every machine.
-  String? get machine => _machine;
-  String? _machine;
-  set machine(String? value) {
-    if (_machine == value) return;
-    _machine = value;
+  /// What the list is searched for: a name, a project or a machine.
+  final TextEditingController search = TextEditingController();
+
+  /// Whether *Running* is shown rather than the list.
+  bool get running => _running;
+  bool _running = false;
+  set running(bool value) {
+    if (_running == value) return;
+    _running = value;
     notifyListeners();
   }
 
-  /// The project the work is narrowed to, empty for work in none, or null for every project.
-  String? get project => _project;
-  String? _project;
-  set project(String? value) {
-    if (_project == value) return;
-    _project = value;
+  /// The tab chosen under *Running*, by machine and work.
+  String? get tab => _tab;
+  String? _tab;
+
+  /// The tab whose unattended agent is being worked with by hand, in a terminal in place of its log.
+  String? get byHand => _byHand;
+  String? _byHand;
+
+  /// Where a tab is kept, by machine and work.
+  static String placeOf(String machine, String task) => '$machine/$task';
+
+  /// Shows *Running* on one tab. With [byHand], an unattended agent's terminal in place of its log.
+  void showTab(String tab, {bool byHand = false}) {
+    _running = true;
+    _tab = tab;
+    _byHand = byHand ? tab : null;
     notifyListeners();
+  }
+
+  String? _newTerminal;
+
+  /// Shows [task]'s tab with a terminal opened anew: a person asked, so nobody looks first.
+  void showNewTerminal(String machine, Task task) {
+    _newTerminal = placeOf(machine, task.name);
+    _endedTerminals.remove(_terminalOf(machine, task));
+    showTab(_newTerminal!);
+  }
+
+  /// Whether a new terminal was asked for on [tab], which asks once.
+  bool takeNewTerminal(String tab) {
+    final asked = _newTerminal == tab;
+    if (asked) _newTerminal = null;
+    return asked;
+  }
+
+  /// Shows the list, with one row unfolded where [unfold] names it, searched for what it holds where
+  /// [searchFor] says so.
+  void showList({String? unfold, String? searchFor}) {
+    _running = false;
+    if (unfold != null) open = <String>{...open, unfold};
+    if (searchFor != null) search.text = searchFor;
+    notifyListeners();
+  }
+
+  /// Shows the list with [row] open, while the page is being drawn and so telling nobody.
+  void showRevealed(String row) {
+    _running = false;
+    if (!open.contains(row)) open = <String>{...open, row};
+    if (search.text.isNotEmpty) search.value = TextEditingValue.empty;
   }
 
   /// Selects the work listed by the page and counted in navigation.
-  List<Tile> shownTiles(Iterable<Tile> tiles) => tiles
-      .where(
-        (tile) => (machine == null || tile.machine.name == machine) && (project == null || _projectOf(tile) == project),
-      )
-      .toList();
-
-  static String _projectOf(Tile tile) {
-    final project = tile.task?.project ?? '';
-    return project == 'default' ? _noProject : project;
+  List<Tile> shownTiles(Iterable<Tile> tiles) {
+    final query = search.text.trim().toLowerCase();
+    return tiles.where((tile) => wordsOf(tile).toLowerCase().contains(query)).toList();
   }
 
-  /// The tiles folded open, by machine and work.
-  Set<String> open = <String>{};
+  /// What the search goes through: name, project and machine.
+  static String wordsOf(Tile tile) {
+    final task = tile.task;
+    return <String>[
+      task?.name ?? tile.questions.firstOrNull?.task ?? '',
+      task?.label ?? '',
+      WorkRow.projectOf(task),
+      tile.machine.name,
+    ].join(' ');
+  }
 
-  /// The groups folded shut, by name: stopped work at first, rarely what a person looks for.
-  final Set<String> shut = <String>{'stopped'};
+  /// The rows folded open, by machine and work.
+  Set<String> open = <String>{};
 
   /// Whether the person chose to work in the Default project on their first start.
   bool withoutAProject = false;
+
+  /// Whose terminal session the machine last said has ended, by machine, work and start: a start
+  /// has a session of its own, so what was said of the last one says nothing about it.
+  final Set<String> _endedTerminals = <String>{};
+
+  static String _terminalOf(String machine, Task task) => '$machine/${task.name}/${task.since}';
+
+  /// Whether [task]'s terminal session on [machine] is known to have ended while its work runs on.
+  bool terminalEnded(String machine, Task task) =>
+      task.running && task.mode != Mode.unattended && _endedTerminals.contains(_terminalOf(machine, task));
+
+  /// Keeps what was learned of [task]'s terminal session.
+  void terminalSaid(String machine, Task task, {required bool live}) {
+    final key = _terminalOf(machine, task);
+    if (live ? _endedTerminals.remove(key) : _endedTerminals.add(key)) notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    search.dispose();
+    super.dispose();
+  }
 }
 
-/// Every piece of work on every machine, the daily view: what waits
-/// for a person first, then what runs, then what stopped. Where it runs and in which project are
-/// marks on each tile and filters above, never a place to go to first.
+/// Every piece of work on every machine, the daily view: one list, sorted by state to begin with, and
+/// a tab per running agent. Where it runs and in which project are said on each row and searched for
+/// above, never a place to go to first. **Nothing is decided here**: that is what *Needs you* is for.
 class WorkPage extends StatefulWidget {
   /// Constructor taking the machines, the tiles and how one is drawn.
   const WorkPage({
@@ -65,6 +135,8 @@ class WorkPage extends StatefulWidget {
     required this.tile,
     required this.onNewWork,
     required this.view,
+    required this.running,
+    this.listFocus,
     this.reveal,
     this.onAddAMachine,
     super.key,
@@ -72,6 +144,12 @@ class WorkPage extends StatefulWidget {
 
   /// How the page was left, kept by the window.
   final WorkView view;
+
+  /// Draws *Running*.
+  final WidgetBuilder running;
+
+  /// The frame's keyboard for what is open, around the list alone: under *Running* a terminal holds it.
+  final FocusNode? listFocus;
 
   /// The tile to show open, by machine and work, where the finder went to one of its commands: its
   /// group is opened and the tile unfolded, so what is marked can be seen.
@@ -96,20 +174,6 @@ class WorkPage extends StatefulWidget {
   State<WorkPage> createState() => _WorkPageState();
 }
 
-/// A tile's place in the list, by what it asks of a person.
-enum _Group {
-  waiting('Waits for you'),
-  running('Running'),
-  stopped('Stopped');
-
-  const _Group(this.label);
-
-  final String label;
-}
-
-/// The project filter's value for work in no project of its own.
-const String _noProject = '';
-
 class _WorkPageState extends State<WorkPage> {
   WorkView get _view => widget.view;
 
@@ -123,23 +187,63 @@ class _WorkPageState extends State<WorkPage> {
   /// machine does not list yet, by the work the question names, so two such tiles never share one.
   static String _placeOf(Tile tile) =>
       '${tile.machine.name}/${tile.task?.name ?? tile.questions.firstOrNull?.task ?? ''}';
-  String? get _machine => _view.machine;
-  set _machine(String? value) => _view.machine = value;
-  String? get _project => _view.project;
-  set _project(String? value) => _view.project = value;
   Set<String> get _open => _view.open;
   set _open(Set<String> value) => _view.open = value;
   bool get _withoutAProject => _view.withoutAProject;
   set _withoutAProject(bool value) => _view.withoutAProject = value;
-  bool _isShut(_Group group) => _view.shut.contains(group.name);
 
-  /// Newest first: when a task's state began - its start, or its end - is its last activity here.
-  static int _newestFirst(Tile a, Tile b) {
-    final at = a.task?.startedAt;
-    final bt = b.task?.startedAt;
-    if (at == null || bt == null) return at == null ? (bt == null ? 0 : 1) : -1;
-    return bt.compareTo(at);
+  /// How often the terminal of a row not unfolded is looked at: one call a row, one at a time, on the
+  /// connection the person's own actions go through. An unfolded row looks more often by itself.
+  static const Duration _terminalsEvery = Duration(seconds: 30);
+
+  Timer? _lookingAtTerminals;
+  bool _looking = false;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_lookAtTerminals());
+    _lookingAtTerminals = Timer.periodic(_terminalsEvery, (_) => unawaited(_lookAtTerminals()));
   }
+
+  @override
+  void dispose() {
+    _lookingAtTerminals?.cancel();
+    super.dispose();
+  }
+
+  /// Asks of every running terminal whether it still has its session, so its row and its tab can say
+  /// so folded as well: a session that ended is otherwise found only by opening it.
+  Future<void> _lookAtTerminals() async {
+    if (_looking) return;
+    _looking = true;
+    try {
+      for (final machine in widget.machines.all) {
+        for (final tile in widget.attention.tilesOn(machine)) {
+          final task = tile.task;
+          if (task == null || !task.running || task.mode == Mode.unattended) continue;
+          if (_view.open.contains(_placeOf(tile))) continue;
+          if (!mounted) return;
+          try {
+            final screen = await tile.fleet.backend.screen(task.name, last: 1);
+            _view.terminalSaid(machine.name, task, live: screen.live);
+          } on Object {
+            // A Porelo without Screen, or one not answering now: nothing is known, so nothing is said.
+          }
+        }
+      }
+    } finally {
+      _looking = false;
+    }
+  }
+
+  /// The list's first order: what asks most of a person first, the work active last first within that.
+  static String _stateKey(Tile tile) {
+    final at = tile.task?.startedAt?.millisecondsSinceEpoch ?? 0;
+    return '${tile.demand.index}${(_latest - at).toString().padLeft(16, '0')}';
+  }
+
+  static const int _latest = 9999999999999;
 
   /// The first start, while there is no work anywhere: a machine, a
   /// project or none, then the first work. Each step says when it is done, and the window opens
@@ -229,171 +333,113 @@ class _WorkPageState extends State<WorkPage> {
     );
   }
 
-  static _Group _groupOf(Tile tile) => switch (tile.demand) {
-    Demand.question || Demand.ended || Demand.gate => _Group.waiting,
-    Demand.stopped => _Group.stopped,
-    _ => _Group.running,
-  };
-
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: Listenable.merge(<Listenable>[
       widget.attention,
+      _view,
       for (final machine in widget.machines.all) widget.machines.of(machine),
     ]),
     builder: (context, _) => _build(context),
   );
 
+  Widget _head(BuildContext context) => Padding(
+    padding: const EdgeInsets.all(Space.normal),
+    child: Wrap(
+      spacing: Space.normal,
+      runSpacing: Space.small,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: <Widget>[
+        Text('Work', style: Theme.of(context).textTheme.headlineSmall),
+        FilledButton.icon(
+          key: const Key('new-work'),
+          onPressed: widget.onNewWork,
+          icon: const Icon(Icons.add, size: Sizes.rowIcon),
+          label: const Text('New work'),
+        ),
+        SegmentedButton<bool>(
+          key: const Key('work-view'),
+          showSelectedIcon: false,
+          segments: const <ButtonSegment<bool>>[
+            ButtonSegment<bool>(value: false, label: Text('List', key: Key('work-view-list'))),
+            ButtonSegment<bool>(value: true, label: Text('Running', key: Key('work-view-running'))),
+          ],
+          selected: <bool>{_view.running},
+          onSelectionChanged: (chosen) => _view.running = chosen.single,
+        ),
+      ],
+    ),
+  );
+
   Widget _build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
-    final tiles = <Tile>[for (final machine in widget.machines.all) ...widget.attention.tilesOn(machine)];
-    final projects = <String>{for (final tile in tiles) WorkView._projectOf(tile)}.toList()
-      ..sort((a, b) => a == _noProject ? 1 : (b == _noProject ? -1 : a.compareTo(b)));
-    final shown = _view.shownTiles(tiles);
     final reveal = widget.reveal;
-    if (reveal != null) {
-      final revealed = tiles.where((tile) => '${tile.machine.name}/${tile.task?.name ?? ''}' == reveal).firstOrNull;
-      if (revealed != null) {
-        _view.shut.remove(_groupOf(revealed).name);
-        _view.open = <String>{..._view.open, reveal};
-        // Brought into view once, so what the finder marked on it is on screen.
-        if (_scrolledTo != reveal) {
-          _scrolledTo = reveal;
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            final there = _where[reveal]?.currentContext;
-            // Moved only where it is out of view: a tile on screen stays where it is.
-            if (there != null && there.mounted) {
-              unawaited(
-                Scrollable.ensureVisible(there, alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd),
-              );
-            }
-          });
-        }
+    final tiles = <Tile>[for (final machine in widget.machines.all) ...widget.attention.tilesOn(machine)];
+    if (reveal != null && tiles.any((tile) => _placeOf(tile) == reveal)) {
+      // Where the finder went to one of a row's commands: the list, with that row open. Said on the way
+      // through this frame, so nobody is told of it twice.
+      _view.showRevealed(reveal);
+      if (_scrolledTo != reveal) {
+        _scrolledTo = reveal;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          final there = _where[reveal]?.currentContext;
+          // Moved only where it is out of view: a row on screen stays where it is.
+          if (there != null && there.mounted) {
+            unawaited(Scrollable.ensureVisible(there, alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd));
+          }
+        });
       }
-    } else {
+    } else if (reveal == null) {
       _scrolledTo = null;
     }
-    final groups = <_Group, List<Tile>>{
-      for (final group in _Group.values)
-        group: shown.where((tile) => _groupOf(tile) == group).toList()..sort(_newestFirst),
-    };
-    Widget chip(String key, String label, bool selected, VoidCallback onSelected) => ChoiceChip(
-      key: ValueKey<String>(key),
-      label: Text(label),
-      selected: selected,
-      onSelected: (_) => setState(onSelected),
-    );
-    return ListView(
+    final list = ListView(
       key: const Key('work-page'),
-      padding: const EdgeInsets.all(Space.normal),
+      padding: const EdgeInsets.symmetric(horizontal: Space.normal),
       children: <Widget>[
-        Wrap(
-          spacing: Space.normal,
-          runSpacing: Space.small,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: <Widget>[
-            Text('Work', style: text.headlineSmall),
-            FilledButton.icon(
-              key: const Key('new-work'),
-              onPressed: widget.onNewWork,
-              icon: const Icon(Icons.add, size: Sizes.rowIcon),
-              label: const Text('New work'),
-            ),
-          ],
-        ),
-        const SizedBox(height: Space.normal),
-        if (widget.machines.all.length > 1)
-          Wrap(
-            spacing: Space.small,
-            runSpacing: Space.tight,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: <Widget>[
-              Text('Machine', style: text.labelMedium),
-              chip('work-machine-all', 'All', _machine == null, () => _machine = null),
-              for (final machine in widget.machines.all)
-                chip(
-                  'work-machine ${machine.name}',
-                  machine.name,
-                  _machine == machine.name,
-                  () => _machine = machine.name,
-                ),
-            ],
-          ),
-        // Shown while a project is chosen too, even when only one is left: a filter nobody can see made
-        // "No work matches" a riddle (walk 10).
-        if (projects.length > 1 || (_project != null && !projects.contains(_project))) ...<Widget>[
-          const SizedBox(height: Space.tight),
-          Wrap(
-            spacing: Space.small,
-            runSpacing: Space.tight,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: <Widget>[
-              Text('Project', style: text.labelMedium),
-              chip('work-project-all', 'All', _project == null, () => _project = null),
-              for (final project in <String>[
-                ...projects,
-                if (_project != null && !projects.contains(_project)) _project!,
-              ])
-                chip(
-                  'work-project $project',
-                  project == _noProject ? 'Default' : project,
-                  _project == project,
-                  () => _project = project,
-                ),
-            ],
-          ),
-        ],
-        const SizedBox(height: Space.normal),
         if (tiles.isEmpty)
           _firstSteps(context)
-        else if (shown.isEmpty)
-          Row(
-            children: <Widget>[
-              const Text('No work matches.', key: Key('work-none-matches')),
-              TextButton(
-                key: const Key('work-filters-clear'),
-                onPressed: () => setState(() => _machine = _project = null),
-                child: const Text('Show all'),
-              ),
-            ],
-          ),
-        for (final group in _Group.values)
-          if (groups[group]!.isNotEmpty) ...<Widget>[
-            InkWell(
-              key: ValueKey<String>('work-group-fold ${group.name}'),
-              onTap: () => setState(() => _isShut(group) ? _view.shut.remove(group.name) : _view.shut.add(group.name)),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: Space.small),
-                child: Row(
-                  children: <Widget>[
-                    Icon(_isShut(group) ? Icons.chevron_right : Icons.expand_more, size: Sizes.rowIcon),
-                    const SizedBox(width: Space.tight),
-                    Text(
-                      '${group.label} (${groups[group]!.length})',
-                      key: ValueKey<String>('work-group ${group.name}'),
-                      style: text.titleSmall,
+        else
+          TileFolding(
+            open: _open,
+            toggle: (tile) => setState(() {
+              _open = <String>{..._open};
+              if (!_open.remove(tile)) _open.add(tile);
+            }),
+            child: FilteredListSection(
+              title: 'All work',
+              storageId: 'work-list',
+              search: _view.search,
+              searchHint: 'Name, project or machine',
+              reveal: reveal,
+              sorts: <SectionSort>[
+                SectionSort('Sorted by state', (row) => _stateKey(tiles[row])),
+                SectionSort('Sorted by name', (row) => tiles[row].task?.name ?? ''),
+                SectionSort('Sorted by project', (row) => WorkRow.projectOf(tiles[row].task)),
+                SectionSort('Sorted by machine', (row) => tiles[row].machine.name),
+              ],
+              rows: <FilteredRow>[
+                for (final tile in tiles)
+                  (
+                    words: WorkView.wordsOf(tile),
+                    child: KeyedSubtree(
+                      key: _where.putIfAbsent(_placeOf(tile), GlobalKey.new),
+                      child: widget.tile(tile),
                     ),
-                  ],
-                ),
-              ),
+                  ),
+              ],
             ),
-            if (!_isShut(group))
-              TileFolding(
-                open: _open,
-                toggle: (tile) => setState(() {
-                  _open = <String>{..._open};
-                  if (!_open.remove(tile)) _open.add(tile);
-                }),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: <Widget>[
-                    for (final tile in groups[group]!)
-                      KeyedSubtree(key: _where.putIfAbsent(_placeOf(tile), GlobalKey.new), child: widget.tile(tile)),
-                  ],
-                ),
-              ),
-            const SizedBox(height: Space.normal),
-          ],
+          ),
+      ],
+    );
+    final focus = widget.listFocus;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        _head(context),
+        Expanded(
+          child: _view.running
+              ? widget.running(context)
+              : (focus == null ? list : Focus(focusNode: focus, child: list)),
+        ),
       ],
     );
   }

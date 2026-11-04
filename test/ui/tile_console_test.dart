@@ -30,7 +30,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: TileConsole(backend: backend, task: 'porelo-checkout-shell', onEnlarge: () {}, inATerminal: true),
+          body: TileConsole(backend: backend, task: 'porelo-checkout-shell', inATerminal: true),
         ),
       ),
     );

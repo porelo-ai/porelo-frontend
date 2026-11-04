@@ -1,0 +1,91 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:porelo_frontend/client.dart';
+import 'package:porelo_frontend/src/app/machines.dart';
+import 'package:porelo_frontend/src/app/session.dart';
+import 'package:porelo_frontend/src/ui/session_view.dart';
+import 'package:porelo_frontend/src/ui/terminal_look.dart';
+import 'package:porelo_frontend/src/ui/tile_console.dart';
+import 'package:porelo_frontend/src/ui/tokens.dart';
+import 'package:xterm/xterm.dart';
+
+import '../features/support/world.dart';
+
+void main() {
+  List<Task> many() => <Task>[
+    for (var each = 10; each < 40; each++) World.aTask('porelo-a-rather-long-name-of-work-$each', 'checkout'),
+  ];
+
+  Future<void> toRunning(WidgetTester tester) async {
+    await World.startBackend(many());
+    await World.startApp(tester);
+    await tester.tap(find.byKey(const Key('work-view-running')));
+    await World.settle(tester);
+  }
+
+  // Harm: tabs past the window's edge can be neither seen nor reached.
+  testWidgets('many tabs scroll sideways, and the chosen one comes into view', (tester) async {
+    await toRunning(tester);
+    expect(tester.takeException(), isNull);
+    final scroller = tester.widget<SingleChildScrollView>(find.byKey(const Key('running-tabs')));
+    expect(scroller.scrollDirection, Axis.horizontal);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.pageUp);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await World.settle(tester);
+
+    expect(tester.widget<Text>(find.byKey(const Key('running-name'))).data, 'porelo-a-rather-long-name-of-work-39');
+    final tab = find.text('a-rather-long-name-of-work-39');
+    expect(tester.getTopRight(tab).dx, lessThanOrEqualTo(tester.view.physicalSize.width));
+  });
+
+  // Harm: a list and tabs that overflow on a window as narrow as a phone's.
+  testWidgets('the list and the tabs fit a narrow window', (tester) async {
+    await toRunning(tester);
+    tester.view.physicalSize = const Size(400, 800);
+    addTearDown(tester.view.resetPhysicalSize);
+    await World.settle(tester);
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.byKey(const Key('work-view-list')));
+    await World.settle(tester);
+    expect(tester.takeException(), isNull);
+  });
+
+  group('a console follows the window', () {
+    Future<void> pump(WidgetTester tester, ThemeData theme, Widget child) => tester.pumpWidget(
+      MaterialApp(
+        theme: theme,
+        home: Scaffold(body: child),
+      ),
+    );
+
+    for (final (name, brightness, look, colours) in <(String, Brightness, TerminalTheme, ConsoleColours)>[
+      ('light', Brightness.light, TerminalLook.lightConsole, ConsoleColours.light),
+      ('dark', Brightness.dark, TerminalLook.darkConsole, ConsoleColours.dark),
+    ]) {
+      // Harm: a black terminal in a light window, or a console whose lines were coloured for the other one.
+      testWidgets('a session and a row console read $name', (tester) async {
+        final focus = FocusNode();
+        addTearDown(focus.dispose);
+        final session = Session(
+          task: 'porelo-x-work',
+          machine: const Machine(name: 'here', socketPath: ''),
+          open: (executable, arguments, {int columns = 80, int rows = 24}) => FakeTerminal(<String>[executable]),
+        );
+        addTearDown(session.leave);
+        final theme = ThemeData(brightness: brightness);
+        await pump(tester, theme, SessionView(session: session, focusNode: focus));
+        await tester.pump();
+        expect(tester.widget<TerminalView>(find.byKey(const Key('terminal'))).theme, look);
+
+        await pump(tester, theme, TileConsole(backend: FakeBackend(const <Task>[]), task: 'porelo-x-work'));
+        await tester.pump();
+        final box = tester.widget<Container>(find.byKey(const ValueKey<String>('tile-console porelo-x-work')));
+        expect((box.decoration! as BoxDecoration).color, colours.background);
+        await tester.pumpWidget(const SizedBox());
+      });
+    }
+  });
+}

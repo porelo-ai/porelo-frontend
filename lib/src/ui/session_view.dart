@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -8,7 +6,6 @@ import 'package:xterm/xterm.dart';
 import '../app/desk.dart';
 import '../app/session.dart';
 import '../app/vault_devices.dart' show clockTime;
-import 'panes.dart';
 
 import 'package:guided_walk/guided_walk.dart';
 
@@ -23,9 +20,15 @@ import 'terminal_look.dart';
 /// container, so closing this leaves it running and opening it again finds it as it was. Two of
 /// the sentences on this screen exist only to say that, because an interface that people think
 /// ends their work when they leave it is one they do not leave.
+///
+/// **It has one place**, a tab of *Running*, which says whose it is and how to go elsewhere; going
+/// elsewhere is leaving it.
 class SessionView extends StatefulWidget {
-  /// Constructor taking the session and the way out.
-  const SessionView({required this.session, required this.focusNode, required this.onLeave, super.key});
+  /// Constructor taking the session, and what opens another where this way in failed.
+  const SessionView({required this.session, required this.focusNode, this.nextStep, this.onKey, super.key});
+
+  /// Sees a key before the far end does; what it handles never gets there.
+  final FocusOnKeyEventCallback? onKey;
 
   /// The session being typed into.
   final Session session;
@@ -39,62 +42,30 @@ class SessionView extends StatefulWidget {
   /// assuming.
   final FocusNode focusNode;
 
-  /// Ends this way in. The work at the far end carries on.
-  ///
-  /// **The only way out on this screen**: going to another place in the rail leaves the session
-  /// open and out of sight, and coming back finds it.
-  final VoidCallback onLeave;
-
-  /// How long the end is shown before going back to the work by itself.
-  static const backAfter = Duration(seconds: 2);
+  /// What can be done where this way in failed, said under its problem.
+  final Widget? nextStep;
 
   @override
   State<SessionView> createState() => _SessionViewState();
 }
 
 class _SessionViewState extends State<SessionView> {
-  Timer? _back;
-
   /// What is selected, so a copy can be made of it as it shows.
   final _selection = TerminalController();
 
   Session get session => widget.session;
 
-  @override
-  void initState() {
-    super.initState();
-    session.addListener(_changed);
-  }
-
-  /// Another session shown in this one's place listens for its own end, not the old one's.
+  /// Another session shown in this one's place starts with nothing selected.
   @override
   void didUpdateWidget(SessionView old) {
     super.didUpdateWidget(old);
-    if (old.session == widget.session) return;
-    old.session.removeListener(_changed);
-    _back?.cancel();
-    _back = null;
-    _selection.clearSelection();
-    widget.session.addListener(_changed);
+    if (old.session != widget.session) _selection.clearSelection();
   }
 
   @override
   void dispose() {
-    session.removeListener(_changed);
-    _back?.cancel();
     _selection.dispose();
     super.dispose();
-  }
-
-  /// A session that ended cleanly goes back to the work by itself, after saying so.
-  /// A button to press at a way in that is already gone is one step too many. One that
-  /// ended with a problem stays, so the problem can be read.
-  void _changed() {
-    if (_back == null && session.state == SessionState.over && session.problem == null) {
-      _back = Timer(SessionView.backAfter, () {
-        if (mounted) widget.onLeave();
-      });
-    }
   }
 
   @override
@@ -106,15 +77,6 @@ class _SessionViewState extends State<SessionView> {
 
       return Column(
         children: <Widget>[
-          PaneHeader(
-            title: '${session.task} · ${session.machine.name}',
-            trailing: TextButton.icon(
-              key: const Key('leave-session'),
-              onPressed: widget.onLeave,
-              icon: Icon(over ? Icons.arrow_back : Icons.logout, size: Sizes.rowIcon),
-              label: Text(over ? 'Back to the work' : 'Leave'),
-            ),
-          ),
           if (session.problem != null)
             Container(
               width: double.infinity,
@@ -123,16 +85,12 @@ class _SessionViewState extends State<SessionView> {
                 border: Border.all(color: scheme.outlineVariant, width: Sizes.divider),
               ),
               padding: const EdgeInsets.all(Space.normal),
-              child: Text(session.problem!, key: const Key('session-problem')),
-            )
-          else if (session.state == SessionState.over)
-            Container(
-              width: double.infinity,
-              color: scheme.surfaceContainerHighest,
-              padding: const EdgeInsets.all(Space.normal),
-              child: const Text(
-                'The session has ended. The work is where you left it; going back to it…',
-                key: Key('session-over'),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(session.problem!, key: const Key('session-problem')),
+                  ?widget.nextStep,
+                ],
               ),
             ),
           // Above the screen, since what tmux draws starts on a screen of its own: after a stop and a
@@ -150,7 +108,7 @@ class _SessionViewState extends State<SessionView> {
             ),
           Expanded(
             child: ColoredBox(
-              color: scheme.surfaceContainerLowest,
+              color: TerminalLook.consoleOf(context).background,
               // On Windows the wheel is reported to tmux by the session itself; see
               // [Session.wheel]. Elsewhere the terminal answers it, as tmux asked it to.
               child: Listener(
@@ -171,10 +129,11 @@ class _SessionViewState extends State<SessionView> {
                     child: TerminalView(
                       session.terminal,
                       key: const Key('terminal'),
-                      theme: TerminalLook.theme,
+                      theme: TerminalLook.themeOf(context),
                       controller: _selection,
                       shortcuts: terminalShortcuts,
                       focusNode: widget.focusNode,
+                      onKeyEvent: widget.onKey,
                       autofocus: true,
                       padding: const EdgeInsets.all(Space.small),
                       // Read-only once it is over, so keys typed at a dead session do not look

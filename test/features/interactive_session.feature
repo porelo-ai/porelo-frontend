@@ -65,15 +65,19 @@ Feature: Working inside a container by hand, locally or over ssh
         And I open the command finder
         Then the command {'Work in it by hand'} is unavailable because {'Starting it again brings back the workspace'}
 
-    # Opened where it was asked for and kept there: going elsewhere and back finds it as it was.
-    Scenario: a session stays where it was opened, and going elsewhere and back finds it there
+    # A terminal has one place. Leaving the page leaves the session; the agent runs on.
+    # Harm: a session open out of sight, or an agent stopped by going elsewhere.
+    Scenario: leaving the page leaves the session, and coming back shows the same tab with its agent running
         When I work in it by hand
         Then the session is on screen
         And the work pane is not shown
         When I go to what needs a person
         Then the session is not on screen
+        And no session is open
+        And the work was never stopped
         When I go to the place {'work'}
         Then the session is on screen
+        And the tab of {'porelo-billing-shell'} is chosen
 
     Scenario: leaving a session puts somebody back where they were, with the same work selected
         When I work in it by hand
@@ -102,12 +106,12 @@ Feature: Working inside a container by hand, locally or over ssh
         When I select the project {'billing'}
         Then the session is not on screen
 
-    # One container holds one session, so asking again returns to the one that is there. A second
-    # way in to the same work would draw the same screen twice and let somebody type into either.
-    Scenario: going back to the work finds the same session, not a second one
+    # One container holds one session. A second way in to the same work would draw the same screen
+    # twice and let somebody type into either.
+    # Harm: a second way in that draws one screen twice.
+    Scenario: asking again for the session that is open finds it, not a second one
         When I work in it by hand
-        And I go to what needs a person
-        And I go to the place {'work'}
+        And I choose the tab of {'porelo-billing-shell'}
         Then {1} sessions are open
         And only one terminal was ever opened
         And the session on screen is {'porelo-billing-shell'}
@@ -148,10 +152,12 @@ Feature: Working inside a container by hand, locally or over ssh
         Then no session is open
         And the work was never stopped
 
-    Scenario: somebody who typed exit is not told that anything went wrong, and is taken back to the work
+    # Harm: an ordinary end read as a failure, or a tab with no next step.
+    Scenario: somebody who typed exit is not told that anything went wrong, and is offered a new terminal
         When I work in it by hand
         And the session ends with {0}
-        Then it says {'The session has ended. The work is where you left it'}
+        Then it says {'Its terminal session has ended'}
         And it does not say {'Closing this window leaves the session running'}
-        When enough time passes to go back
-        Then no session is open
+        And no session is open
+        When I open a new terminal from the tab
+        Then {1} sessions are open

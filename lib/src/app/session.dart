@@ -15,7 +15,6 @@ import 'machines.dart';
 import 'modified_keys.dart';
 import 'pty.dart';
 import 'quiet_after_dispose.dart';
-import 'shell_model.dart';
 import 'wsl.dart';
 
 /// Puts text on this computer's clipboard. Injectable, so a test records what a program copied.
@@ -380,33 +379,7 @@ class Session extends ChangeNotifier with QuietAfterDispose {
   static const int scrollback = 10000;
 }
 
-/// Where a session was opened: the place it belongs to, and the only place it is shown.
-///
-/// **A place, not a screen**: *Needs you*, or one machine's Running, or one project on a machine.
-/// Going somewhere else leaves the session running and out of sight; coming back finds it as it was.
-@immutable
-class ConsolePlace {
-  /// Constructor taking the section, and for a machine which one and which project, if any.
-  const ConsolePlace({required this.section, this.machine = '', this.project});
-
-  /// Needs you, or a machine.
-  final Section section;
-
-  /// The machine's name, empty under Needs you.
-  final String machine;
-
-  /// The project it was narrowed to, or null for Running.
-  final String? project;
-
-  @override
-  bool operator ==(Object other) =>
-      other is ConsolePlace && other.section == section && other.machine == machine && other.project == project;
-
-  @override
-  int get hashCode => Object.hash(section, machine, project);
-}
-
-/// The one session that is open, and where it belongs.
+/// The one session that is open. It is shown in its tab under *Work* > *Running*, and nowhere else.
 ///
 /// **One at a time**: several open at once, drawn as chips
 /// over one terminal, made leaving one look like leaving all. Opening another leaves this one — the
@@ -419,13 +392,9 @@ class Sessions extends ChangeNotifier {
   final OpenTerminal? openTerminal;
 
   Session? _current;
-  ConsolePlace? _place;
 
   /// The session that is open, or null.
   Session? get current => _current;
-
-  /// Where it was opened, and so the only place it is shown. Null when none is open.
-  ConsolePlace? get place => _place;
 
   /// Whether one is open.
   bool get any => _current != null;
@@ -452,24 +421,17 @@ class Sessions extends ChangeNotifier {
     return null;
   }
 
-  /// Opens the session against [task] on [machine] at [at], and returns it.
+  /// Opens the session against [task] on [machine], and returns it.
   ///
-  /// **The same work again returns what is there**, moved to where it was asked for: one container
-  /// holds one session, and a second way in would draw the same screen twice. **Other work leaves
-  /// the one that was open** without asking — nothing at the far end stops.
-  Session openOn(String task, Machine machine, {required ConsolePlace at, DateTime? startedAt}) {
+  /// **The same work again returns what is there**: one container holds one session, and a second way
+  /// in would draw the same screen twice. **Other work leaves the one that was open** without asking —
+  /// nothing at the far end stops.
+  Session openOn(String task, Machine machine, {DateTime? startedAt}) {
     final open = _current;
-    if (open != null && open.task == task && open.machine == machine && open.startedAt == startedAt) {
-      if (_place != at) {
-        _place = at;
-        notifyListeners();
-      }
-      return open;
-    }
+    if (open != null && open.task == task && open.machine == machine && open.startedAt == startedAt) return open;
     if (open != null) unawaited(_end(open));
     final session = Session(task: task, machine: machine, open: openTerminal, startedAt: startedAt);
     _current = session;
-    _place = at;
     notifyListeners();
     return session;
   }
@@ -479,7 +441,6 @@ class Sessions extends ChangeNotifier {
     final open = _current;
     if (open == null) return;
     _current = null;
-    _place = null;
     notifyListeners();
     await _end(open);
   }

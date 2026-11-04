@@ -30,7 +30,10 @@ import './step/the_session_is_on_screen.dart';
 import './step/the_work_pane_is_not_shown.dart';
 import './step/i_go_to_what_needs_a_person.dart';
 import './step/the_session_is_not_on_screen.dart';
+import './step/no_session_is_open.dart';
+import './step/the_work_was_never_stopped.dart';
 import './step/i_go_to_the_place.dart';
+import './step/the_tab_of_is_chosen.dart';
 import './step/i_leave_the_session.dart';
 import './step/the_work_is_still_selected.dart';
 import './step/i_close_what_is_open.dart';
@@ -38,13 +41,12 @@ import './step/sessions_are_open.dart';
 import './step/i_work_in_by_hand_from_its_tile.dart';
 import './step/the_session_on_screen_is.dart';
 import './step/the_first_session_was_left.dart';
-import './step/the_work_was_never_stopped.dart';
+import './step/i_choose_the_tab_of.dart';
 import './step/only_one_terminal_was_ever_opened.dart';
 import './step/it_says.dart';
 import './step/the_session_ends_with.dart';
-import './step/no_session_is_open.dart';
 import './step/it_does_not_say.dart';
-import './step/enough_time_passes_to_go_back.dart';
+import './step/i_open_a_new_terminal_from_the_tab.dart';
 
 void main() {
   group('''Working inside a container by hand, locally or over ssh''', () {
@@ -108,15 +110,20 @@ void main() {
       await iOpenTheCommandFinder(tester);
       await theCommandIsUnavailableBecause(tester, 'Work in it by hand', 'Starting it again brings back the workspace');
     });
-    testWidgets('''a session stays where it was opened, and going elsewhere and back finds it there''', (tester) async {
+    testWidgets('''leaving the page leaves the session, and coming back shows the same tab with its agent running''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
       await iWorkInItByHand(tester);
       await theSessionIsOnScreen(tester);
       await theWorkPaneIsNotShown(tester);
       await iGoToWhatNeedsAPerson(tester);
       await theSessionIsNotOnScreen(tester);
+      await noSessionIsOpen(tester);
+      await theWorkWasNeverStopped(tester);
       await iGoToThePlace(tester, 'work');
       await theSessionIsOnScreen(tester);
+      await theTabOfIsChosen(tester, 'porelo-billing-shell');
     });
     testWidgets('''leaving a session puts somebody back where they were, with the same work selected''', (
       tester,
@@ -145,11 +152,10 @@ void main() {
       await iSelectTheProject(tester, 'billing');
       await theSessionIsNotOnScreen(tester);
     });
-    testWidgets('''going back to the work finds the same session, not a second one''', (tester) async {
+    testWidgets('''asking again for the session that is open finds it, not a second one''', (tester) async {
       await bddSetUp(tester);
       await iWorkInItByHand(tester);
-      await iGoToWhatNeedsAPerson(tester);
-      await iGoToThePlace(tester, 'work');
+      await iChooseTheTabOf(tester, 'porelo-billing-shell');
       await sessionsAreOpen(tester, 1);
       await onlyOneTerminalWasEverOpened(tester);
       await theSessionOnScreenIs(tester, 'porelo-billing-shell');
@@ -193,16 +199,17 @@ void main() {
       await noSessionIsOpen(tester);
       await theWorkWasNeverStopped(tester);
     });
-    testWidgets('''somebody who typed exit is not told that anything went wrong, and is taken back to the work''', (
+    testWidgets('''somebody who typed exit is not told that anything went wrong, and is offered a new terminal''', (
       tester,
     ) async {
       await bddSetUp(tester);
       await iWorkInItByHand(tester);
       await theSessionEndsWith(tester, 0);
-      await itSays(tester, 'The session has ended. The work is where you left it');
+      await itSays(tester, 'Its terminal session has ended');
       await itDoesNotSay(tester, 'Closing this window leaves the session running');
-      await enoughTimePassesToGoBack(tester);
       await noSessionIsOpen(tester);
+      await iOpenANewTerminalFromTheTab(tester);
+      await sessionsAreOpen(tester, 1);
     });
   });
 }

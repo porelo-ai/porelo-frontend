@@ -164,36 +164,21 @@ Future<void> toTheChosenProject(WidgetTester tester) async {
   await World.settle(tester);
 }
 
-/// Brings the tile of [work] on screen, open: work is shown only on the work page now, in a group
-/// that may be shut and as a tile that may be folded, and is gone to, opened and unfolded as a
-/// person would.
+/// Brings the row of [work] on screen, unfolded: work is listed on the work page alone, and is gone
+/// to and unfolded as a person would. Under *Needs you* its row is opened where it stands.
 Future<void> toTheTile(WidgetTester tester, String work) async {
   await expandListRows(tester, within: find.byKey(const Key('open-attention')));
   // Asked again at each step: which machine's tile is meant can change once the page is drawn.
   Finder tile() => tileFor(work);
   if (tile().evaluate().isEmpty && find.byKey(const Key('work-page')).evaluate().isEmpty) {
     await toThePlace(tester, 'work');
-  }
-  final page = find.descendant(of: find.byKey(const Key('work-page')), matching: find.byType(Scrollable));
-  if (tile().evaluate().isEmpty) {
-    // A shut group hides its tiles: every shut one is opened.
-    for (final group in <String>['waiting', 'running', 'stopped']) {
-      final heading = find.byKey(ValueKey<String>('work-group-fold $group'));
-      // Further down than the page has built yet, where the tiles above are tall.
-      if (heading.evaluate().isEmpty && page.evaluate().isNotEmpty) {
-        try {
-          await tester.scrollUntilVisible(heading, 200, scrollable: page.first, maxScrolls: 30);
-        } on StateError {
-          // No such group on this page.
-        }
-      }
-      if (heading.evaluate().isEmpty) continue;
-      if (find.descendant(of: heading, matching: find.byIcon(Icons.chevron_right)).evaluate().isEmpty) continue;
-      await tester.ensureVisible(heading);
-      await tester.tap(heading);
-      await tester.pump();
+    final list = find.byKey(const Key('work-view-list'));
+    if (find.byKey(const Key('work-page')).evaluate().isEmpty && list.evaluate().isNotEmpty) {
+      await tester.tap(list);
+      await World.settle(tester);
     }
   }
+  final page = find.descendant(of: find.byKey(const Key('work-page')), matching: find.byType(Scrollable));
   if (tile().evaluate().isEmpty && page.evaluate().isNotEmpty) {
     await tester.scrollUntilVisible(tile(), 200, scrollable: page.first, maxScrolls: 30);
   }
@@ -203,7 +188,7 @@ Future<void> toTheTile(WidgetTester tester, String work) async {
   // Unfolded, so what it says below its work and machine can be read and pressed.
   final fold = find.descendant(of: tile().first, matching: find.byKey(ValueKey<String>('tile-fold $work')));
   if (fold.evaluate().isNotEmpty &&
-      find.descendant(of: tile(), matching: find.byKey(const Key('tile-headline'))).evaluate().isEmpty) {
+      find.descendant(of: tile(), matching: find.byKey(const Key('tile-details'))).evaluate().isEmpty) {
     await tester.tap(fold.first);
     await tester.pump();
   }

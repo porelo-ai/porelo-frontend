@@ -94,7 +94,6 @@ import 'projects_page.dart';
 import 'machine_details_page.dart';
 import 'project_details_page.dart';
 import '../app/project_standing.dart';
-import 'session_view.dart';
 import 'shell_rail.dart';
 import 'vault_actions.dart';
 import 'vault_view.dart';
@@ -128,6 +127,7 @@ import 'peers_view.dart';
 import 'prepare_view.dart';
 import 'refusal.dart';
 import 'status_line.dart';
+import 'running_view.dart';
 import 'tile_console.dart';
 import 'tokens.dart';
 import 'window_size.dart';
@@ -370,6 +370,9 @@ class _ShellState extends State<Shell> {
     _leaving = AppLifecycleListener(onExitRequested: _letGo);
     widget.shell.addListener(_moveKeyboard);
     widget.sessions.addListener(_moveKeyboard);
+    widget.shell.addListener(_leaveTheSessionWithItsPage);
+    _workView.addListener(_leaveTheSessionWithItsPage);
+    _workView.addListener(_moveKeyboard);
     widget.settings.addListener(_keepRefreshing);
     _keepRefreshing();
   }
@@ -453,8 +456,8 @@ class _ShellState extends State<Shell> {
 
   void _moveKeyboard() {
     if (!mounted) return;
-    // A session shown where it belongs holds the keyboard as much as anything opened over the frame.
-    final open = widget.shell.anythingOpen || _consoleIsHere;
+    // A session on screen holds the keyboard as much as anything opened over the frame.
+    final open = widget.shell.anythingOpen || (widget.sessions.any && _runningIsShown);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       if (open) {
@@ -624,8 +627,7 @@ class _ShellState extends State<Shell> {
         _restartCommand(run),
       ];
     }
-    final session = widget.sessions.current;
-    return session == null ? [] : [leaveWorkCommand(() => unawaited(widget.sessions.leave()))];
+    return [];
   }
 
   Command _restartCommand(UnattendedRun run) => restartRunCommand(
@@ -761,6 +763,13 @@ class _ShellState extends State<Shell> {
 
   /// A tile's actions, judged on the tile's own machine and run with its work selected there.
   List<Command> _tileActions(Tile tile) => <Command>[
+    Command(
+      id: 'work.details',
+      label: 'See its details',
+      group: 'Work',
+      home: Home.tileMenu,
+      run: _openWork,
+    ).after(() => _actOn(tile)),
     for (final command in workCommands(
       task: tile.task,
       fleet: tile.fleet,
@@ -813,6 +822,8 @@ class _ShellState extends State<Shell> {
   /// Goes from what needs a person to where the tile's work lives.
   void _goToWork(Tile tile) {
     _select(tile);
+    final name = tile.task?.name;
+    _workView.showList(unfold: name == null ? null : WorkView.placeOf(tile.machine.name, name));
     widget.shell.goTo(Section.work);
   }
 
@@ -3045,9 +3056,7 @@ class _ShellState extends State<Shell> {
             _organizationHost = null;
           });
           if (section == Section.work) {
-            _workView
-              ..machine = null
-              ..project = null;
+            _workView.search.clear();
           }
           widget.shell.goTo(section);
         },
@@ -3137,56 +3146,32 @@ class _ShellState extends State<Shell> {
     // A refusal takes the place of the page, as on the machine's: a removal the machine refused,
     // said only in the status line, looked like nothing happening (walk 9).
     final refusal = _fleet.refusal;
-    final opened = refusal != null ? RefusalView(refusal: refusal, fleet: _fleet) : _opened() ?? _console();
+    final opened = refusal != null ? RefusalView(refusal: refusal, fleet: _fleet) : _opened();
     final page =
         opened ??
-        Focus(
-          focusNode: _openedFocus,
-          child: WorkPage(
-            view: _workView,
-            reveal: widget.shell.highlight != null && _fleet.selectedTask != null
-                ? '${widget.machines.current.name}/${_fleet.selectedTask!.name}'
-                : null,
+        WorkPage(
+          view: _workView,
+          listFocus: _openedFocus,
+          reveal: widget.shell.highlight != null && _fleet.selectedTask != null
+              ? '${widget.machines.current.name}/${_fleet.selectedTask!.name}'
+              : null,
+          machines: widget.machines,
+          attention: _attention,
+          onNewWork: widget.machines.all.any((each) => widget.machines.of(each).reachability == Reachability.connected)
+              ? () => unawaited(_newWork())
+              : null,
+          onAddAMachine: _addAMachine,
+          running: (context) => RunningView(
             machines: widget.machines,
             attention: _attention,
-            onNewWork:
-                widget.machines.all.any((each) => widget.machines.of(each).reachability == Reachability.connected)
-                ? () => unawaited(_newWork())
-                : null,
-            onAddAMachine: _addAMachine,
-            tile: (tile) => TaskTile(
-              listRow: true,
-              tile: tile,
-              actions: tile.task == null ? const <Command>[] : _tileActions(tile),
-              onEnlargeConsole: _enlargeConsole,
-              onDecide: (tile, prompt, {required allow}) =>
-                  tile.fleet.clearance.decide(tile.fleet.backend, prompt, allow: allow),
-              onPutAway: (tile, prompt) => tile.fleet.clearance.forget(prompt),
-              onReview: (tile) {
-                _actOn(tile);
-                unawaited(_openTheGate(tile.task));
-              },
-              selected:
-                  tile.task != null &&
-                  widget.machines.current == tile.machine &&
-                  tile.fleet.selectedTask?.name == tile.task!.name,
-              // Where the finder went to one of its commands, the selected work's menu shows it.
-              highlight:
-                  tile.task != null &&
-                      widget.machines.current == tile.machine &&
-                      tile.fleet.selectedTask?.name == tile.task!.name
-                  ? widget.shell.highlight
-                  : null,
-              onShown: widget.shell.shown,
-              onSelect: tile.task == null ? null : () => _actOn(tile),
-              onOpen: tile.task == null
-                  ? null
-                  : () {
-                      _actOn(tile);
-                      _openWork();
-                    },
-            ),
+            view: _workView,
+            sessions: widget.sessions,
+            logs: widget.logs,
+            focusNode: _openedFocus,
+            onAnswer: () => widget.shell.goTo(Section.attention),
+            onReadLog: _readLogOf,
           ),
+          tile: _workRow,
         );
     // What an action from a tile said, of the machine it acted on: the work page has tiles of every
     // machine, and an answer nobody saw was an action that seemed to do nothing.
@@ -3204,6 +3189,41 @@ class _ShellState extends State<Shell> {
         ),
       ],
     );
+  }
+
+  /// One row of the list of work.
+  Widget _workRow(Tile tile) {
+    final task = tile.task;
+    final selected =
+        task != null && widget.machines.current == tile.machine && tile.fleet.selectedTask?.name == task.name;
+    final place = task == null ? null : WorkView.placeOf(tile.machine.name, task.name);
+    return WorkRow(
+      tile: tile,
+      actions: task == null ? const <Command>[] : _tileActions(tile),
+      terminalEnded: task != null && _workView.terminalEnded(tile.machine.name, task),
+      selected: selected,
+      // Where the finder went to one of its commands, the selected work's menu shows it.
+      highlight: selected ? widget.shell.highlight : null,
+      onShown: widget.shell.shown,
+      onSelect: task == null ? null : () => _actOn(tile),
+      onFollow: place == null ? null : () => _workView.showTab(place),
+      onNewTerminal: task == null ? null : () => _workView.showNewTerminal(tile.machine.name, task),
+      onReadLog: task == null ? null : () => _readLogOf(tile),
+      onSeeInNeedsYou: () => widget.shell.goTo(Section.attention),
+      onSession: task == null ? null : (live) => _workView.terminalSaid(tile.machine.name, task, live: live),
+    );
+  }
+
+  /// Opens a log of [tile]'s work: what its agent wrote where it wrote one, or the ones it has to choose from.
+  void _readLogOf(Tile tile) {
+    final task = tile.task;
+    if (task == null) return;
+    _actOn(tile);
+    if (task.mode == Mode.unattended || task.agentEnded != null) {
+      _enlargeConsole(tile);
+    } else {
+      unawaited(_askWhichLog(task));
+    }
   }
 
   /// Starts new work: where first, when there is more than one machine that answers.
@@ -3277,7 +3297,7 @@ class _ShellState extends State<Shell> {
 
   /// What needs a person. A tile leads to where its work lives.
   Widget _needsYou() {
-    final opened = _opened() ?? _console();
+    final opened = _opened();
     if (opened != null) return opened;
     return Focus(
       focusNode: _openedFocus,
@@ -3314,27 +3334,12 @@ class _ShellState extends State<Shell> {
     );
   }
 
-  /// Where somebody is now, as a place a session can belong to.
-  ConsolePlace get _here => switch (widget.shell.section) {
-    Section.attention => const ConsolePlace(section: Section.attention),
-    Section.work => const ConsolePlace(section: Section.work),
-    Section.project => ConsolePlace(
-      section: Section.project,
-      machine: widget.machines.current.name,
-      project: _fleet.selectedProject?.name,
-    ),
-    _ => ConsolePlace(section: Section.machine, machine: widget.machines.current.name),
-  };
+  /// Whether *Running* is what is on screen: the one place a terminal is.
+  bool get _runningIsShown => widget.shell.section == Section.work && _workView.running;
 
-  /// Whether the open session belongs to where somebody is.
-  bool get _consoleIsHere => widget.sessions.current != null && widget.sessions.place == _here;
-
-  /// The open session, when somebody is where it was opened; nothing anywhere else.
-  Widget? _console() {
-    final session = widget.sessions.current;
-    if (session == null || !_consoleIsHere) return null;
-    final leave = leaveWorkCommand(() => unawaited(widget.sessions.leave()));
-    return SessionView(session: session, focusNode: _openedFocus, onLeave: leave.run);
+  /// Leaving the tab's page leaves its session: the agent runs on, and coming back opens it again.
+  void _leaveTheSessionWithItsPage() {
+    if (widget.sessions.any && !_runningIsShown) unawaited(widget.sessions.leave());
   }
 
   /// One machine: its title and menu, then its projects and work, then what it ran.
@@ -3345,7 +3350,7 @@ class _ShellState extends State<Shell> {
     // A refusal takes the place of whatever was open: it is the most important thing on the
     // screen until somebody has decided about it.
     final refusal = fleet.refusal;
-    final opened = refusal != null ? RefusalView(refusal: refusal, fleet: fleet) : _opened() ?? _console();
+    final opened = refusal != null ? RefusalView(refusal: refusal, fleet: fleet) : _opened();
     _keepTheVaultButtonTrue(machine, fleet);
     return Column(
       children: <Widget>[
@@ -3408,9 +3413,7 @@ class _ShellState extends State<Shell> {
       openWork,
       projectWorkCommand(
         open: () {
-          _workView
-            ..machine = machine.name
-            ..project = project.name == defaultProject ? '' : project.name;
+          _workView.showList(searchFor: project.name == defaultProject ? WorkRow.projectOf(null) : project.name);
           widget.shell.goTo(Section.work);
         },
       ),
@@ -3877,15 +3880,11 @@ class _ShellState extends State<Shell> {
     }
   }
 
-  /// Opens a shell inside running work, or goes back to the one that is already open.
-  /// Opens a session on [task] where somebody is, leaving the one that was open: **one at a time**.
+  /// Opens a session on [task] in its tab under *Running*, the one place a terminal is, leaving the one
+  /// that was open: **one at a time**.
   void _openSession(Task task) {
-    final machine = widget.machines.current;
-    final before = widget.sessions.current;
-    widget.sessions.openOn(task.name, machine, at: _here, startedAt: task.running ? task.startedAt : null);
-    if (before != null && (before.task != task.name || before.machine != machine)) {
-      _fleet.say('Left the session in ${before.task}; the work there carries on.');
-    }
+    _workView.showTab(WorkView.placeOf(widget.machines.current.name, task.name), byHand: task.mode == Mode.unattended);
+    widget.shell.goTo(Section.work);
     widget.shell.close();
   }
 
@@ -3905,6 +3904,9 @@ class _ShellState extends State<Shell> {
     }
     widget.shell.removeListener(_moveKeyboard);
     widget.sessions.removeListener(_moveKeyboard);
+    widget.shell.removeListener(_leaveTheSessionWithItsPage);
+    _workView.removeListener(_leaveTheSessionWithItsPage);
+    _workView.removeListener(_moveKeyboard);
     widget.settings.removeListener(_keepRefreshing);
     _refreshing?.cancel();
     _leaving.dispose();

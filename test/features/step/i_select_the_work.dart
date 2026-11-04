@@ -9,4 +9,6 @@ Future<void> iSelectTheWork(WidgetTester tester, String work) async {
   await toTheTile(tester, work);
   await tapOnScreen(tester, find.descendant(of: tileFor(work), matching: find.byKey(const Key('tile-headline'))));
   await World.settle(tester);
+  // Pressing a row also folds it, and what is selected is what is read next.
+  await toTheTile(tester, work);
 }

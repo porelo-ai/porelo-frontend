@@ -7,17 +7,23 @@ import 'package:flutter_test/flutter_test.dart';
 import './step/a_backend_with_work_on_it.dart';
 import './step/the_app_is_running.dart';
 import './step/the_section_shown_is.dart';
-import './step/the_work_is_in_the_group.dart';
+import './step/the_list_of_work_counts.dart';
+import './step/the_work_comes_before.dart';
 import './step/the_work_has_stopped.dart';
-import './step/the_group_is_shut.dart';
-import './step/i_open_the_group.dart';
 import './step/the_tile_is_folded.dart';
 import './step/i_open_the_tile.dart';
+import './step/the_work_is_waiting_on.dart';
+import './step/work_is_blocked_reaching.dart';
+import './step/i_unfold_every_row_of_the_work.dart';
+import './step/no_row_of_the_work_decides_anything.dart';
+import './step/i_see_in_needs_you.dart';
+import './step/the_view_shown_is_what_needs_a_person.dart';
 import './step/the_work_has_been_in_its_state_since.dart';
-import './step/the_work_comes_before.dart';
-import './step/i_narrow_the_work_to_the_project.dart';
+import './step/i_search_the_work_for.dart';
 import './step/no_tile_is_shown_for.dart';
-import './step/i_narrow_the_work_to_every_project.dart';
+import './step/the_list_of_work_shows.dart';
+import './step/the_list_of_work_is_sorted_by.dart';
+import './step/i_sort_the_work_by.dart';
 import './step/i_start_new_work.dart';
 import './step/i_choose_the_project_for_it.dart';
 import './step/it_says.dart';
@@ -62,19 +68,19 @@ void main() {
       await theAppIsRunning(tester);
     }
 
-    testWidgets('''the window opens on the work of every machine, what waits for a person first''', (tester) async {
+    testWidgets('''the window opens on one list of the work of every machine, what waits for a person first''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
       await theSectionShownIs(tester, 'Work');
-      await theWorkIsInTheGroup(tester, 'porelo-checkout-migrate', 'waiting');
-      await theWorkIsInTheGroup(tester, 'porelo-checkout-shell', 'running');
-      await theWorkIsInTheGroup(tester, 'porelo-billing-shell', 'running');
+      await theListOfWorkCounts(tester, 4);
+      await theWorkComesBefore(tester, 'porelo-checkout-migrate', 'porelo-checkout-shell');
+      await theWorkComesBefore(tester, 'porelo-checkout-migrate', 'porelo-billing-shell');
     });
-    testWidgets('''stopped work is shown apart, its group shut until opened''', (tester) async {
+    testWidgets('''stopped work stands after what runs''', (tester) async {
       await bddSetUp(tester);
       await theWorkHasStopped(tester, 'porelo-billing-shell');
-      await theGroupIsShut(tester, 'stopped', true);
-      await iOpenTheGroup(tester, 'stopped');
-      await theWorkIsInTheGroup(tester, 'porelo-billing-shell', 'stopped');
+      await theWorkComesBefore(tester, 'porelo-checkout-shell', 'porelo-billing-shell');
     });
     testWidgets('''a tile on the work page is folded to its work and machine, and opened for the rest''', (
       tester,
@@ -84,23 +90,39 @@ void main() {
       await iOpenTheTile(tester, 'porelo-billing-shell');
       await theTileIsFolded(tester, 'porelo-billing-shell', false);
     });
-    testWidgets('''a tile that asks something of a person is never folded''', (tester) async {
+    testWidgets('''no row decides anything, and work that asks leads to Needs you''', (tester) async {
       await bddSetUp(tester);
-      await theTileIsFolded(tester, 'porelo-checkout-migrate', false);
+      await theWorkIsWaitingOn(tester, 'porelo-billing-shell', 'api.example.test:443');
+      await workIsBlockedReaching(tester, 'api.example.test:443');
+      await iUnfoldEveryRowOfTheWork(tester);
+      await noRowOfTheWorkDecidesAnything(tester);
+      await iSeeInNeedsYou(tester, 'porelo-checkout-shell');
+      await theViewShownIsWhatNeedsAPerson(tester);
     });
-    testWidgets('''the work in a group is in the order of its last activity, newest first''', (tester) async {
+    testWidgets('''the work in one state is in the order of its last activity, newest first''', (tester) async {
       await bddSetUp(tester);
       await theWorkHasBeenInItsStateSince(tester, 'porelo-billing-shell', '2026-10-03T08:00:00Z');
       await theWorkHasBeenInItsStateSince(tester, 'porelo-checkout-shell', '2026-10-01T08:00:00Z');
       await theWorkComesBefore(tester, 'porelo-billing-shell', 'porelo-checkout-shell');
     });
-    testWidgets('''the work is narrowed to one project, and widened back''', (tester) async {
+    testWidgets('''the work is searched by project, by name and by machine''', (tester) async {
       await bddSetUp(tester);
-      await iNarrowTheWorkToTheProject(tester, 'billing');
+      await iSearchTheWorkFor(tester, 'billing');
       await noTileIsShownFor(tester, 'porelo-checkout-shell');
-      await theWorkIsInTheGroup(tester, 'porelo-billing-shell', 'running');
-      await iNarrowTheWorkToEveryProject(tester);
-      await theWorkIsInTheGroup(tester, 'porelo-checkout-shell', 'running');
+      await theListOfWorkShows(tester, 'porelo-billing-shell');
+      await iSearchTheWorkFor(tester, 'checkout-shell');
+      await theListOfWorkShows(tester, 'porelo-checkout-shell');
+      await noTileIsShownFor(tester, 'porelo-billing-shell');
+      await iSearchTheWorkFor(tester, 'this machine');
+      await theListOfWorkShows(tester, 'porelo-checkout-shell');
+      await theListOfWorkShows(tester, 'porelo-billing-shell');
+    });
+    testWidgets('''the work is sorted by state to begin with, and by name when asked''', (tester) async {
+      await bddSetUp(tester);
+      await theListOfWorkIsSortedBy(tester, 'Sorted by state');
+      await theWorkComesBefore(tester, 'porelo-checkout-migrate', 'porelo-billing-audit');
+      await iSortTheWorkBy(tester, 'Sorted by name');
+      await theWorkComesBefore(tester, 'porelo-billing-audit', 'porelo-checkout-migrate');
     });
     testWidgets('''new work asks in which project, and opens the start for it''', (tester) async {
       await bddSetUp(tester);
@@ -162,26 +184,23 @@ void main() {
       await theWorkHasBeenInItsStateSince(tester, 'porelo-billing-shell', '2026-10-01T08:00:00Z');
       await theWorkComesBefore(tester, 'porelo-checkout-shell', 'porelo-billing-shell');
     });
-    testWidgets('''removing stopped work counts it out of its group''', (tester) async {
+    testWidgets('''removing stopped work counts it out of the list''', (tester) async {
       await bddSetUp(tester);
       await theWorkHasStopped(tester, 'porelo-billing-shell');
-      await theWorkHasStopped(tester, 'porelo-billing-audit');
-      await iOpenTheGroup(tester, 'stopped');
-      await itSays(tester, 'Stopped (2)');
+      await theListOfWorkCounts(tester, 4);
       await iChooseFromTheMenuOfTheTile(tester, 'Remove it', 'porelo-billing-shell');
       await iPress(tester, 'Remove it');
-      await itSays(tester, 'Stopped (1)');
+      await theListOfWorkCounts(tester, 3);
     });
     testWidgets('''a removal the machine refuses is put in front of the person on the work page''', (tester) async {
       await bddSetUp(tester);
       await theWorkHasStopped(tester, 'porelo-billing-shell');
       await removingWillRefuseBecauseTheWorkIsHeld(tester);
-      await iOpenTheGroup(tester, 'stopped');
       await iChooseFromTheMenuOfTheTile(tester, 'Remove it', 'porelo-billing-shell');
       await iPress(tester, 'Remove it');
       await whatIsHeldIsShown(tester);
       await iChoose(tester, 'Leave it alone');
-      await theGroupIsShut(tester, 'stopped', false);
+      await theTileIsFolded(tester, 'porelo-billing-shell', false);
     });
     testWidgets('''machines are a list, and a machine's details show no work''', (tester) async {
       await bddSetUp(tester);
@@ -198,7 +217,7 @@ void main() {
       await iGoToItsWork(tester);
       await theSectionShownIs(tester, 'Work');
       await noTileIsShownFor(tester, 'porelo-checkout-shell');
-      await theWorkIsInTheGroup(tester, 'porelo-billing-shell', 'running');
+      await theListOfWorkShows(tester, 'porelo-billing-shell');
     });
     testWidgets('''removing a machine from the list stays on the list''', (tester) async {
       await bddSetUp(tester);

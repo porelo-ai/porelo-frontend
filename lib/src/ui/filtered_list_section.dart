@@ -38,8 +38,16 @@ class FilteredListSection extends StatefulWidget {
     this.commands = const [],
     this.sorts,
     this.reveal,
+    this.search,
+    this.searchHint,
     super.key,
   });
+
+  /// A search that is always there, held by whoever else may set it, in place of the magnifier.
+  final TextEditingController? search;
+
+  /// What [search] says it searches.
+  final String? searchHint;
 
   /// The title shown in the header.
   final String title;
@@ -93,8 +101,10 @@ class _FilteredListSectionState extends State<FilteredListSection> {
     if (_started) return;
     _started = true;
     final kept = PageStorage.maybeOf(context)?.readState(context, identifier: widget.storageId);
+    final held = widget.search;
+    if (held != null) held.addListener(_searched);
     if (kept is _Kept) {
-      _filter = TextEditingController(text: kept.filter);
+      _filter = held ?? TextEditingController(text: kept.filter);
       _open = kept.open;
       _foldChosen = kept.chosen;
       if (!_foldChosen && kept.empty != widget.rows.isEmpty) _open = _opensByItself;
@@ -102,7 +112,7 @@ class _FilteredListSectionState extends State<FilteredListSection> {
       _sort = kept.sort;
       _descending = kept.descending;
     } else {
-      _filter = TextEditingController();
+      _filter = held ?? TextEditingController();
       _open = _opensByItself;
       _searching = false;
     }
@@ -123,6 +133,10 @@ class _FilteredListSectionState extends State<FilteredListSection> {
   bool get _opensByItself {
     final compact = WindowSize.fromContext(context) == WindowSize.compact;
     return widget.initiallyOpen && (widget.openWhenCompact || !compact) && widget.rows.isNotEmpty;
+  }
+
+  void _searched() {
+    if (mounted) setState(() {});
   }
 
   void _reveal() {
@@ -178,7 +192,12 @@ class _FilteredListSectionState extends State<FilteredListSection> {
 
   @override
   void dispose() {
-    _filter.dispose();
+    final held = widget.search;
+    if (held == null) {
+      _filter.dispose();
+    } else {
+      held.removeListener(_searched);
+    }
     _filterFocus.dispose();
     super.dispose();
   }
@@ -188,17 +207,20 @@ class _FilteredListSectionState extends State<FilteredListSection> {
       key: ValueKey('${widget.storageId}-filter'),
       controller: _filter,
       focusNode: _filterFocus,
-      autofocus: true,
+      // A search that is always there does not take the keyboard from the page by being drawn.
+      autofocus: widget.search == null,
       decoration: InputDecoration(
         isDense: true,
-        hintText: 'Filter ${widget.title.toLowerCase()}',
+        hintText: widget.searchHint ?? 'Filter ${widget.title.toLowerCase()}',
         prefixIcon: const Icon(Icons.search, size: Sizes.rowIcon),
-        suffixIcon: IconButton(
-          key: ValueKey('${widget.storageId}-filter-close'),
-          tooltip: 'Close the filter',
-          icon: const Icon(Icons.close, size: Sizes.rowIcon),
-          onPressed: _closeSearch,
-        ),
+        suffixIcon: widget.search != null
+            ? null
+            : IconButton(
+                key: ValueKey('${widget.storageId}-filter-close'),
+                tooltip: 'Close the filter',
+                icon: const Icon(Icons.close, size: Sizes.rowIcon),
+                onPressed: _closeSearch,
+              ),
       ),
       onChanged: (_) => setState(_keep),
     );
@@ -300,7 +322,12 @@ class _FilteredListSectionState extends State<FilteredListSection> {
     final compact = size == WindowSize.compact;
     final target = size.showsTwoPanes ? Sizes.iconTarget : Sizes.touchTarget;
     final tools = [
-      if (_searching || _filter.text.isNotEmpty) _field(compact ? null : Sizes.listFilter) else _magnifier(target),
+      if (widget.search != null)
+        _field(compact ? null : Sizes.workSearch)
+      else if (_searching || _filter.text.isNotEmpty)
+        _field(compact ? null : Sizes.listFilter)
+      else
+        _magnifier(target),
       _sortMenu(target),
     ];
     final fold = widget.collapsible ? _foldButton(target) : null;

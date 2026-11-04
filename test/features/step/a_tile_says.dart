@@ -23,7 +23,7 @@ Future<void> aTileSays(WidgetTester tester, String words) async {
         matching: find.byWidgetPredicate((widget) => '${widget.key}'.startsWith("[<'tile-fold ")),
       );
       if (fold.evaluate().isEmpty) continue;
-      if (find.descendant(of: it, matching: find.byKey(const Key('tile-headline'))).evaluate().isNotEmpty) continue;
+      if (find.descendant(of: it, matching: find.byKey(const Key('tile-details'))).evaluate().isNotEmpty) continue;
       await tester.ensureVisible(fold.first);
       await tester.tap(fold.first);
       await tester.pump();

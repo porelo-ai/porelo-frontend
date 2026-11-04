@@ -44,8 +44,8 @@ Feature: Work in its machine's area, as tiles that carry their own actions
 
     # Reported: opened from Running and put away, it came back to the work's project.
     Scenario: work is opened by hand from the work page, and leaving it comes back there
-        When I work in {'porelo-checkout-shell'} by hand from its tile
-        Then the session runs {'porelo task attach porelo-checkout-shell'}
+        When I work in {'porelo-billing-shell'} by hand from its tile
+        Then the session runs {'porelo task attach porelo-billing-shell'}
         When I leave the session
         Then the view shown is the work
 
@@ -227,10 +227,11 @@ Feature: Work in its machine's area, as tiles that carry their own actions
         Then the tile of {'porelo-billing-shell'} shows {'[read] doc/Backend-API.md'}
         And its tail was asked for from its last {20} lines, formatted
 
-    Scenario: a tile's console is enlarged to the right side, following, and made small again
+    # Harm: a row that leads nowhere an agent can be followed.
+    Scenario: a row leads to its agent's tab, following
         Given the work {'porelo-billing-shell'} runs unattended
-        When I enlarge the console of {'porelo-billing-shell'}
-        Then the view shown is {'porelo-billing-shell · what its agent writes'}
+        When I go from the row to the console of {'porelo-billing-shell'}
+        Then the tab of {'porelo-billing-shell'} is chosen
 
     # Work in a terminal writes no log of its own; its screen comes with Porelo's Screen.
     Scenario: a tile of work in a terminal says where its agent's lines are, and reads no log
@@ -244,12 +245,14 @@ Feature: Work in its machine's area, as tiles that carry their own actions
         When {3} seconds pass
         Then the tile of {'porelo-billing-shell'} shows {'agent> make test'}
         When {9} seconds pass
-        Then the screen of {'porelo-billing-shell'} was asked for at most {5} times
+        # Once for the list each time the page opened, then every three seconds while it is unfolded.
+        Then the screen of {'porelo-billing-shell'} was asked for at most {7} times
 
-    # Walk 10: enlarging the console of work in a terminal opened its details, not its terminal.
-    Scenario: enlarging the console of work in a terminal opens its session
+    # Walk 10: from the row, work in a terminal opened its details, not its terminal.
+    # Harm: a row whose way to the terminal opens something else.
+    Scenario: a row of work in a terminal leads to its session
         Given the terminal of {'porelo-billing-shell'} shows {'agent> make test'}
         Then the tile of {'porelo-billing-shell'} shows {'Its agent works in its terminal - open it to see.'}
         When {3} seconds pass
-        And I enlarge the console of {'porelo-billing-shell'}
+        And I go from the row to the console of {'porelo-billing-shell'}
         Then {1} sessions are open

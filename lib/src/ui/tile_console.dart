@@ -7,7 +7,7 @@ import 'package:porelo_frontend/client.dart';
 
 import '../app/fleet_backend.dart';
 import '../app/vault_devices.dart' show clockTime;
-import 'ansi.dart';
+import 'console_lines.dart';
 import 'terminal_look.dart';
 import 'tokens.dart';
 
@@ -18,15 +18,19 @@ import 'tokens.dart';
 /// the agent formats it, keeps [shown] lines, and is redrawn at most every [drawnEvery], however
 /// fast lines arrive. It reads nothing while its tile is folded, since it is not built then.
 class TileConsole extends StatefulWidget {
-  /// Constructor taking whose log, from where, and what enlarging does.
+  /// Constructor taking whose log, and from where.
   const TileConsole({
     required this.backend,
     required this.task,
-    required this.onEnlarge,
     this.inATerminal = false,
     this.startedAt,
+    this.onSession,
     super.key,
   });
+
+  /// Told whether its terminal session is there, each time the machine's answer about it changes: a
+  /// session that ended is said by the row, with what can be done next, and not in here.
+  final void Function(bool live)? onSession;
 
   /// When the task was started, named over its lines, or null when its listing does not say: after
   /// a stop and a start, what the screen still shows from before is not its state now.
@@ -42,9 +46,6 @@ class TileConsole extends StatefulWidget {
 
   /// The task.
   final String task;
-
-  /// Shows the same lines on the whole right side, following.
-  final VoidCallback onEnlarge;
 
   /// How many lines it shows.
   static const int shown = 5;
@@ -129,6 +130,7 @@ class _TileConsoleState extends State<TileConsole> {
       // Redrawn only when the screen changed: a redraw every few seconds of the same lines made the
       // whole page flicker (walk 10).
       if (_screenShown && _sessionLive == screen.live && listEquals(lines, _lines)) return;
+      if (!_screenShown || _sessionLive != screen.live) widget.onSession?.call(screen.live);
       setState(() {
         _screenShown = true;
         _sessionLive = screen.live;
@@ -180,17 +182,23 @@ class _TileConsoleState extends State<TileConsole> {
 
   Widget _drawn(BuildContext context) {
     if (_unreadable) return const SizedBox.shrink();
-    if (widget.inATerminal && (!_screenShown || !_sessionLive)) {
+    // Nothing to show of a session that ended: the row says so, with its next step.
+    if (widget.inATerminal && _screenShown && !_sessionLive) return const SizedBox.shrink();
+    final console = TerminalLook.consoleOf(context);
+    final decoration = BoxDecoration(
+      color: console.background,
+      border: Border.all(color: console.edge, width: Sizes.divider),
+      borderRadius: BorderRadius.circular(Radii.small),
+    );
+    final text = TerminalLook.textOf(context, size: Sizes.terminalTextSmall);
+    if (widget.inATerminal && !_screenShown) {
       return Container(
         key: ValueKey<String>('tile-console ${widget.task}'),
         width: double.infinity,
         margin: const EdgeInsets.only(top: Space.small),
         padding: const EdgeInsets.all(Space.small),
-        decoration: BoxDecoration(color: TerminalLook.background, borderRadius: BorderRadius.circular(Radii.small)),
-        child: Text(
-          _screenShown ? 'Its terminal session has ended.' : 'Its agent works in its terminal - open it to see.',
-          style: TerminalLook.text(size: Sizes.terminalTextSmall),
-        ),
+        decoration: decoration,
+        child: Text('Its agent works in its terminal - open it to see.', style: text),
       );
     }
     return Container(
@@ -198,56 +206,39 @@ class _TileConsoleState extends State<TileConsole> {
       width: double.infinity,
       margin: const EdgeInsets.only(top: Space.small),
       padding: const EdgeInsets.fromLTRB(Space.small, Space.tight, Space.tight, Space.tight),
-      // A terminal, small: its background, its font and its colours, in any theme.
-      decoration: BoxDecoration(color: TerminalLook.background, borderRadius: BorderRadius.circular(Radii.small)),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          // Always as tall as its lines can be, so a screen with fewer lines never moves the page.
-          Expanded(
-            child: SizedBox(
-              height: TileConsole.shown * Sizes.terminalTextSmall * Sizes.terminalLineHeight,
-              child: ClipRect(
-                child: _lines.isEmpty
-                    ? Text('Nothing written yet.', style: TerminalLook.text(size: Sizes.terminalTextSmall))
-                    // Lines may be taller than reckoned (box drawing, emoji): they run past the box
-                    // and are cut there, the newest kept at the foot, never "overflowed".
-                    : OverflowBox(
-                        alignment: Alignment.bottomLeft,
-                        maxHeight: double.infinity,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            for (final line in _lines)
-                              Text.rich(
-                                TextSpan(
-                                  style: TerminalLook.text(size: Sizes.terminalTextSmall),
-                                  children: ansiSpans(
-                                    line.length <= TileConsole.longestShown
-                                        ? line
-                                        : '${line.substring(0, TileConsole.longestShown)} …',
-                                    TerminalLook.colours,
-                                  ),
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                softWrap: false,
-                              ),
-                          ],
+      decoration: decoration,
+      // Always as tall as its lines can be, so a screen with fewer lines never moves the page.
+      child: SizedBox(
+        height: TileConsole.shown * Sizes.terminalTextSmall * Sizes.terminalLineHeight,
+        child: ClipRect(
+          child: _lines.isEmpty
+              ? Text('Nothing written yet.', style: text)
+              // Lines may be taller than reckoned (box drawing, emoji): they run past the box
+              // and are cut there, the newest kept at the foot, never "overflowed".
+              : OverflowBox(
+                  alignment: Alignment.bottomLeft,
+                  maxHeight: double.infinity,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      for (final line in _lines)
+                        Text.rich(
+                          markedLine(
+                            context,
+                            line.length <= TileConsole.longestShown
+                                ? line
+                                : '${line.substring(0, TileConsole.longestShown)} …',
+                            size: Sizes.terminalTextSmall,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          softWrap: false,
                         ),
-                      ),
-              ),
-            ),
-          ),
-          IconButton(
-            key: ValueKey<String>('tile-console-enlarge ${widget.task}'),
-            icon: const Icon(Icons.open_in_full, size: Sizes.rowIcon, color: TerminalLook.foreground),
-            tooltip: 'Show what its agent writes on the whole right side',
-            visualDensity: VisualDensity.compact,
-            onPressed: widget.onEnlarge,
-          ),
-        ],
+                    ],
+                  ),
+                ),
+        ),
       ),
     );
   }

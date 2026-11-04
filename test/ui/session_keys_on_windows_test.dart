@@ -30,7 +30,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: SessionView(session: session, focusNode: focus, onLeave: () {}),
+          body: SessionView(session: session, focusNode: focus),
         ),
       ),
     );
@@ -60,7 +60,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: SessionView(session: session, focusNode: FocusNode(), onLeave: () {}),
+          body: SessionView(session: session, focusNode: FocusNode()),
         ),
       ),
     );

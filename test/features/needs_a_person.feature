@@ -168,11 +168,13 @@ Feature: What needs a person on every machine, without going anywhere
         And the count of what needs a person is {'1 need you'}
 
     # A review can wait for days, and it is still something only a person can do: one number counts it.
+    # Harm: the header and the badge disagree, and a review waits uncounted.
     Scenario: work at the gate counts like every other row, on the page and on the badge
         Then the count of what needs a person is {'1 need you'}
         And the rail says {'1'} is waiting
         And the row of {'porelo-checkout-migrate'} is in the group {'reviews'}
 
+    # Harm: a deadline under a review that can wait, or no way to see what is asking.
     Scenario: a question is above the reviews, in its own group, and also offers its terminal
         When work is blocked reaching {'api.example.test:443'}
         Then the row of {'porelo-checkout-shell'} is in the group {'decide'}
@@ -181,6 +183,7 @@ Feature: What needs a person on every machine, without going anywhere
         When I see the terminal of the question
         Then the session on screen is {'porelo-checkout-shell'}
 
+    # Harm: a failure that leaves no trace, or a row nothing can take away.
     Scenario: work that ended with a failure counts until it is put away, and stays under Work
         When the agent of {'porelo-checkout-shell'} ended with the provider's {402} {'This request requires more credits'}
         Then the count of what needs a person is {'2 need you'}
@@ -191,17 +194,20 @@ Feature: What needs a person on every machine, without going anywhere
         When I go to the place {'work'}
         Then the tile {'porelo-checkout-shell'} says {'Stopped before its end'}
 
+    # Harm: a row that stays after what it asks has been done.
     Scenario: work that ended with a failure counts until its log is opened
         When the agent of {'porelo-checkout-shell'} ended with the provider's {402} {'This request requires more credits'}
         And I read the log of how the work ended
         Then the rail says {'1'} is waiting
 
+    # Harm: changed files lost with the task because nothing said they exist.
     Scenario: work that left files outside the gate counts until it is put away
         When the agent of {'porelo-checkout-shell'} finished with {2} changed files outside the gate
         Then the count of what needs a person is {'2 need you'}
         When I put away how the work ended
         Then the count of what needs a person is {'1 need you'}
 
+    # Harm: a silent machine hiding a question behind a badge that reads nothing.
     Scenario: a row that is no work counts like any other
         When the tunnel drops
         Then the rail says {'1'} is waiting

@@ -9,6 +9,16 @@ import 'work_on_the_test_machine_was_started_with_a_key_its_provider_refuses.dar
 /// Read through the machine's `Tail` from the end, as the stub's formatter shows it.
 Future<void> itsTileShowsWhatItsAgentWrote(WidgetTester tester) async {
   await toThePlace(tester, 'work');
+  // A row is folded until it is opened, and reads nothing until then.
+  final fold = find.byKey(const ValueKey<String>('tile-fold $refusedTask'));
+  await pumpUntil(
+    tester,
+    () => fold.evaluate().isNotEmpty,
+    timeout: const Duration(seconds: 30),
+    what: 'the row of $refusedTask',
+  );
+  await tester.tap(fold.first);
+  await tester.pump();
   final console = find.byKey(const ValueKey<String>('tile-console $refusedTask'));
   await pumpUntil(
     tester,

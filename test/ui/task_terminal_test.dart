@@ -50,7 +50,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: SessionView(session: session, focusNode: focus, onLeave: () {}),
+          body: SessionView(session: session, focusNode: focus),
         ),
       ),
     );
@@ -118,7 +118,6 @@ void main() {
           body: TileConsole(
             backend: FakeBackend(const <Task>[]),
             task: 'porelo-sluice-dry-sluice',
-            onEnlarge: () {},
             startedAt: startedAt,
           ),
         ),

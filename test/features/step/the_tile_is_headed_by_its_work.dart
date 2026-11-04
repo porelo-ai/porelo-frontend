@@ -9,7 +9,7 @@ Future<void> theTileIsHeadedByItsWork(WidgetTester tester, String work) async {
   final heading = tester.widget<SelectableText>(
     find.descendant(of: tileFor(work), matching: find.byKey(const Key('tile-what'))),
   );
-  expect(heading.style?.fontWeight, FontWeight.bold);
+  expect(heading.style?.fontWeight, FontWeight.w600);
   // Above the machine, which is the same on every tile of a machine's page.
   final above = tester.getTopLeft(find.descendant(of: tileFor(work), matching: find.byKey(const Key('tile-what')))).dy;
   final machine = tester

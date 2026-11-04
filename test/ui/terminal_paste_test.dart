@@ -52,7 +52,7 @@ void main() {
           MaterialApp(
             home: Scaffold(
               body: switch (kind) {
-                'session' => SessionView(session: session, focusNode: focus, onLeave: () {}),
+                'session' => SessionView(session: session, focusNode: focus),
                 'vault' => NewMachineSteps(
                   run: run,
                   openTerminal: (executable, arguments, {int columns = 80, int rows = 24}) => far,

@@ -60,8 +60,8 @@ import './step/the_agent_of_writes.dart';
 import './step/the_tile_of_does_not_show_yet.dart';
 import './step/seconds_pass.dart';
 import './step/its_tail_was_asked_for_from_its_last_lines_formatted.dart';
-import './step/i_enlarge_the_console_of.dart';
-import './step/the_view_shown_is.dart';
+import './step/i_go_from_the_row_to_the_console_of.dart';
+import './step/the_tab_of_is_chosen.dart';
 import './step/the_terminal_of_shows.dart';
 import './step/the_screen_of_was_asked_for_at_most_times.dart';
 import './step/sessions_are_open.dart';
@@ -113,8 +113,8 @@ void main() {
     });
     testWidgets('''work is opened by hand from the work page, and leaving it comes back there''', (tester) async {
       await bddSetUp(tester);
-      await iWorkInByHandFromItsTile(tester, 'porelo-checkout-shell');
-      await theSessionRuns(tester, 'porelo task attach porelo-checkout-shell');
+      await iWorkInByHandFromItsTile(tester, 'porelo-billing-shell');
+      await theSessionRuns(tester, 'porelo task attach porelo-billing-shell');
       await iLeaveTheSession(tester);
       await theViewShownIsTheWork(tester);
     });
@@ -325,11 +325,11 @@ void main() {
       await theTileOfShows(tester, 'porelo-billing-shell', '[read] doc/Backend-API.md');
       await itsTailWasAskedForFromItsLastLinesFormatted(tester, 20);
     });
-    testWidgets('''a tile's console is enlarged to the right side, following, and made small again''', (tester) async {
+    testWidgets('''a row leads to its agent's tab, following''', (tester) async {
       await bddSetUp(tester);
       await theWorkRunsUnattended(tester, 'porelo-billing-shell');
-      await iEnlargeTheConsoleOf(tester, 'porelo-billing-shell');
-      await theViewShownIs(tester, 'porelo-billing-shell · what its agent writes');
+      await iGoFromTheRowToTheConsoleOf(tester, 'porelo-billing-shell');
+      await theTabOfIsChosen(tester, 'porelo-billing-shell');
     });
     testWidgets('''a tile of work in a terminal says where its agent's lines are, and reads no log''', (tester) async {
       await bddSetUp(tester);
@@ -344,14 +344,14 @@ void main() {
       await secondsPass(tester, 3);
       await theTileOfShows(tester, 'porelo-billing-shell', 'agent> make test');
       await secondsPass(tester, 9);
-      await theScreenOfWasAskedForAtMostTimes(tester, 'porelo-billing-shell', 5);
+      await theScreenOfWasAskedForAtMostTimes(tester, 'porelo-billing-shell', 7);
     });
-    testWidgets('''enlarging the console of work in a terminal opens its session''', (tester) async {
+    testWidgets('''a row of work in a terminal leads to its session''', (tester) async {
       await bddSetUp(tester);
       await theTerminalOfShows(tester, 'porelo-billing-shell', 'agent> make test');
       await theTileOfShows(tester, 'porelo-billing-shell', 'Its agent works in its terminal - open it to see.');
       await secondsPass(tester, 3);
-      await iEnlargeTheConsoleOf(tester, 'porelo-billing-shell');
+      await iGoFromTheRowToTheConsoleOf(tester, 'porelo-billing-shell');
       await sessionsAreOpen(tester, 1);
     });
   });

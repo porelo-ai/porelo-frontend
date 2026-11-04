@@ -4,6 +4,7 @@ import 'package:porelo_frontend/client.dart';
 
 import '../app/logs.dart';
 import 'ansi.dart';
+import 'console_lines.dart';
 import 'panes.dart';
 import 'terminal_look.dart';
 import 'tokens.dart';
@@ -14,7 +15,10 @@ import 'tokens.dart';
 /// survive five concurrent runs, which is the number this is for.
 class LogView extends StatefulWidget {
   /// Constructor taking what to show and how to leave it.
-  const LogView({required this.tail, required this.logs, required this.onClose, super.key});
+  const LogView({required this.tail, required this.logs, required this.onClose, this.headed = true, super.key});
+
+  /// Whether it says what it shows and holds its own switch; a tab has a bar above it that does.
+  final bool headed;
 
   /// The log being read.
   final LogTail tail;
@@ -40,22 +44,23 @@ class _LogViewState extends State<LogView> {
 
     return Column(
       children: <Widget>[
-        PaneHeader(
-          title: tail.formatted ? '${tail.task} · what its agent writes' : '${tail.log} · ${tail.task}',
-          trailing: Row(
-            children: <Widget>[
-              // Following is a switch and not a scroll position, so reading back cannot turn it
-              // off by accident and turning it on again cannot lose what arrived meanwhile.
-              Text('Follow', style: Theme.of(context).textTheme.labelMedium),
-              Switch(
-                key: const Key('follow'),
-                value: tail.following,
-                onChanged: (following) => widget.logs.follow(tail, following: following),
-              ),
-              IconButton(icon: const Icon(Icons.close), tooltip: 'Close (Esc)', onPressed: widget.onClose),
-            ],
+        if (widget.headed)
+          PaneHeader(
+            title: tail.formatted ? '${tail.task} · what its agent writes' : '${tail.log} · ${tail.task}',
+            trailing: Row(
+              children: <Widget>[
+                // Following is a switch and not a scroll position, so reading back cannot turn it
+                // off by accident and turning it on again cannot lose what arrived meanwhile.
+                Text('Follow', style: Theme.of(context).textTheme.labelMedium),
+                Switch(
+                  key: const Key('follow'),
+                  value: tail.following,
+                  onChanged: (following) => widget.logs.follow(tail, following: following),
+                ),
+                IconButton(icon: const Icon(Icons.close), tooltip: 'Close (Esc)', onPressed: widget.onClose),
+              ],
+            ),
           ),
-        ),
         if (tail.problem != null) _Problem(words: tail.problem!),
         if (tail.dropped > 0)
           Padding(
@@ -84,10 +89,10 @@ class _LogViewState extends State<LogView> {
       );
     }
 
-    // What an agent writes, enlarged from its tile, looks like the terminal it would work in; a
-    // plain log keeps the window's look.
+    // What an agent writes looks like the terminal it would work in, marked with what the window can
+    // tell of each line; a plain log keeps the window's look.
     final terminal = tail.formatted;
-    final scheme = terminal ? TerminalLook.colours : Theme.of(context).colorScheme;
+    final scheme = Theme.of(context).colorScheme;
     final list = Scrollbar(
       controller: _scroll,
       child: ListView.builder(
@@ -96,14 +101,16 @@ class _LogViewState extends State<LogView> {
         padding: const EdgeInsets.symmetric(horizontal: Space.normal, vertical: Space.small),
         itemCount: tail.lines.length,
         itemBuilder: (context, index) => SelectableText.rich(
-          TextSpan(
-            style: terminal ? TerminalLook.text() : const TextStyle(fontFamily: 'monospace', fontSize: 12),
-            children: ansiSpans(_shortened(tail.lines[index]), scheme),
-          ),
+          terminal
+              ? markedLine(context, _shortened(tail.lines[index]))
+              : TextSpan(
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                  children: ansiSpans(_shortened(tail.lines[index]), scheme),
+                ),
         ),
       ),
     );
-    return terminal ? ColoredBox(color: TerminalLook.background, child: list) : list;
+    return terminal ? ColoredBox(color: TerminalLook.consoleOf(context).background, child: list) : list;
   }
 
   /// How much of one line is drawn. An agent writes whole conversations as one line of JSON, 85 000

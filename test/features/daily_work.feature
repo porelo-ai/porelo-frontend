@@ -8,18 +8,18 @@ Feature: Daily work in front, setting up machines and projects apart
         Given a backend with work on it
         And the app is running
 
-    Scenario: the window opens on the work of every machine, what waits for a person first
+    # Harm: what waits on a person below what merely runs.
+    Scenario: the window opens on one list of the work of every machine, what waits for a person first
         Then the section shown is {'Work'}
-        And the work {'porelo-checkout-migrate'} is in the group {'waiting'}
-        And the work {'porelo-checkout-shell'} is in the group {'running'}
-        And the work {'porelo-billing-shell'} is in the group {'running'}
+        And the list of work counts {4}
+        And the work {'porelo-checkout-migrate'} comes before {'porelo-checkout-shell'}
+        And the work {'porelo-checkout-migrate'} comes before {'porelo-billing-shell'}
 
-    # Walk 9: stopped work is rarely what a person looks for, so its group starts shut.
-    Scenario: stopped work is shown apart, its group shut until opened
+    # Walk 9: stopped work is rarely what a person looks for, so it stands last.
+    # Harm: running work pushed down the page by what is over.
+    Scenario: stopped work stands after what runs
         Given the work {'porelo-billing-shell'} has stopped
-        Then the group {'stopped'} is shut {true}
-        When I open the group {'stopped'}
-        Then the work {'porelo-billing-shell'} is in the group {'stopped'}
+        Then the work {'porelo-checkout-shell'} comes before {'porelo-billing-shell'}
 
     # Walk 9: a tile is its work, its machine and its mark; the rest when opened.
     Scenario: a tile on the work page is folded to its work and machine, and opened for the rest
@@ -27,21 +27,40 @@ Feature: Daily work in front, setting up machines and projects apart
         When I open the tile {'porelo-billing-shell'}
         Then the tile {'porelo-billing-shell'} is folded {false}
 
-    Scenario: a tile that asks something of a person is never folded
-        Then the tile {'porelo-checkout-migrate'} is folded {false}
+    # What needs a decision is in Needs you alone: a row leads there.
+    # Harm: a decision given from a list where its question is not read whole.
+    Scenario: no row decides anything, and work that asks leads to Needs you
+        Given the work {'porelo-billing-shell'} is waiting on {'api.example.test:443'}
+        When work is blocked reaching {'api.example.test:443'}
+        And I unfold every row of the work
+        Then no row of the work decides anything
+        When I see {'porelo-checkout-shell'} in Needs you
+        Then the view shown is what needs a person
 
-    # Walk 9: within each group, the work active last comes first.
-    Scenario: the work in a group is in the order of its last activity, newest first
+    # Walk 9: within one state, the work active last comes first.
+    Scenario: the work in one state is in the order of its last activity, newest first
         Given the work {'porelo-billing-shell'} has been in its state since {'2026-10-03T08:00:00Z'}
         And the work {'porelo-checkout-shell'} has been in its state since {'2026-10-01T08:00:00Z'}
         Then the work {'porelo-billing-shell'} comes before {'porelo-checkout-shell'}
 
-    Scenario: the work is narrowed to one project, and widened back
-        When I narrow the work to the project {'billing'}
+    # Harm: work that cannot be found once the filters are gone.
+    Scenario: the work is searched by project, by name and by machine
+        When I search the work for {'billing'}
         Then no tile is shown for {'porelo-checkout-shell'}
-        And the work {'porelo-billing-shell'} is in the group {'running'}
-        When I narrow the work to every project
-        Then the work {'porelo-checkout-shell'} is in the group {'running'}
+        And the list of work shows {'porelo-billing-shell'}
+        When I search the work for {'checkout-shell'}
+        Then the list of work shows {'porelo-checkout-shell'}
+        And no tile is shown for {'porelo-billing-shell'}
+        When I search the work for {'this machine'}
+        Then the list of work shows {'porelo-checkout-shell'}
+        And the list of work shows {'porelo-billing-shell'}
+
+    # Harm: a sort that does nothing, or a list that does not begin by state.
+    Scenario: the work is sorted by state to begin with, and by name when asked
+        Then the list of work is sorted by {'Sorted by state'}
+        And the work {'porelo-checkout-migrate'} comes before {'porelo-billing-audit'}
+        When I sort the work by {'Sorted by name'}
+        Then the work {'porelo-billing-audit'} comes before {'porelo-checkout-migrate'}
 
     Scenario: new work asks in which project, and opens the start for it
         When I start new work
@@ -99,27 +118,25 @@ Feature: Daily work in front, setting up machines and projects apart
         Then the work {'porelo-checkout-shell'} comes before {'porelo-billing-shell'}
 
     # Walk 9: "Stopped (10)" stayed at 10 after one was removed.
-    Scenario: removing stopped work counts it out of its group
+    # Harm: a count that stays after work is gone.
+    Scenario: removing stopped work counts it out of the list
         Given the work {'porelo-billing-shell'} has stopped
-        And the work {'porelo-billing-audit'} has stopped
-        When I open the group {'stopped'}
-        Then it says {'Stopped (2)'}
+        Then the list of work counts {4}
         When I choose {'Remove it'} from the menu of the tile {'porelo-billing-shell'}
         And I press {'Remove it'}
-        Then it says {'Stopped (1)'}
+        Then the list of work counts {3}
 
     # Walk 9: a removal the machine refused was said only in the status line of the
     # work page, and "nothing happens" was what was seen.
     Scenario: a removal the machine refuses is put in front of the person on the work page
         Given the work {'porelo-billing-shell'} has stopped
         And removing will refuse because the work is held
-        When I open the group {'stopped'}
-        And I choose {'Remove it'} from the menu of the tile {'porelo-billing-shell'}
+        When I choose {'Remove it'} from the menu of the tile {'porelo-billing-shell'}
         And I press {'Remove it'}
         Then what is held is shown
-        # Walk 9: the group that had been opened was shut again once the refusal was decided.
+        # Walk 9: the row that had been opened was shut again once the refusal was decided.
         When I choose {'Leave it alone'}
-        Then the group {'stopped'} is shut {false}
+        Then the tile {'porelo-billing-shell'} is folded {false}
 
     # Walk 9: Machines is a list of machines, each with a page of its own; its work is under
     # Work, never on a machine's or a project's page.
@@ -136,7 +153,7 @@ Feature: Daily work in front, setting up machines and projects apart
         When I go to its work
         Then the section shown is {'Work'}
         And no tile is shown for {'porelo-checkout-shell'}
-        And the work {'porelo-billing-shell'} is in the group {'running'}
+        And the list of work shows {'porelo-billing-shell'}
 
     # Walk 9: removing a machine from the list sent the window to Needs you.
     Scenario: removing a machine from the list stays on the list

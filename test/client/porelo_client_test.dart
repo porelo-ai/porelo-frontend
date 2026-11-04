@@ -48,7 +48,7 @@ void main() {
     );
   });
 
-  // The harm: the page would say fewer tokens than the task used, or a number for a task with no record.
+  // Harm: the page would say fewer tokens than the task used, or a number for a task with no record.
   test('what a task used is summed over its kinds, and an empty record says no number', () async {
     Map<String, dynamic> used(String state) => <String, dynamic>{
       'usage': <String, dynamic>{
@@ -75,7 +75,7 @@ void main() {
     expect((await client.usage('gone')).tokens, isNull);
   });
 
-  // The harm: an older machine's refusal of an unknown method would break the row it was read for.
+  // Harm: an older machine's refusal of an unknown method would break the row it was read for.
   test('a machine without Usage answers as a feature it does not have', () async {
     await expectLater((await connect()).usage('here'), throwsA(isA<FeatureNotSupported>()));
   });
