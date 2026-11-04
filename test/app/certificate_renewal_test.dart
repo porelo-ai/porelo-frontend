@@ -10,6 +10,7 @@ void main() {
     'name': 'p-work',
     'task': 'work',
     'project': 'p',
+    'running': true,
     'certified': certified,
     'certifiedUntil': ?until?.toIso8601String(),
   });
@@ -23,6 +24,20 @@ void main() {
       contains('ends in 9 minutes'),
     );
     expect(certificateEnding(task(until: now.subtract(const Duration(hours: 1))), now: now), contains('has ended'));
+  });
+
+  // Harm: the tile tells a person to do what its menu refuses, or says "0 minutes".
+  test('a stopped task is told nothing, and the last minute is said as such', () {
+    final stopped = Task.from(<String, dynamic>{
+      'name': 'p-work',
+      'task': 'work',
+      'project': 'p',
+      'running': false,
+      'certified': true,
+      'certifiedUntil': now.toIso8601String(),
+    });
+    expect(certificateEnding(stopped, now: now.add(const Duration(hours: 1))), isNull);
+    expect(certificateEnding(task(until: now.add(const Duration(seconds: 30))), now: now), contains('within a minute'));
   });
 
   // Harm: a warning about a certificate nobody has, or a guess where the machine does not say.
@@ -42,7 +57,7 @@ void main() {
 
   // Harm: the wrong task on the wrong host, or `--host` without the project it requires.
   test('renewal names the task by itself, here or on its host', () {
-    expect(certifyAgainArguments(task()), <String>['task', 'certify', 'work']);
+    expect(certifyAgainArguments(task(), project: 'p'), <String>['task', 'certify', 'work', '--project', 'p']);
     expect(certifyAgainArguments(task(), host: 'alice@host', project: 'p'), <String>[
       'task',
       'certify',
@@ -52,5 +67,15 @@ void main() {
       '--project',
       'p',
     ]);
+  });
+
+  // Harm: a name a machine sent becomes an option of the command, which then reports a success.
+  test('a name that could be an option is not offered', () {
+    Task named(String name) =>
+        Task.from(<String, dynamic>{'name': 'p-x', 'task': name, 'project': 'p', 'running': true, 'certified': true});
+    expect(whyNoCertifyAgain(named('work')), isNull);
+    expect(whyNoCertifyAgain(named('--help')), isNotNull);
+    expect(whyNoCertifyAgain(named('')), isNotNull);
+    expect(whyNoCertifyAgain(task(certified: false)), isNotNull);
   });
 }

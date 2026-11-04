@@ -20,6 +20,7 @@ import 'settings.dart';
 import 'shell_model.dart';
 import 'start_agents.dart';
 import 'start_work.dart';
+import 'task_certifying.dart';
 import 'templates.dart';
 import 'vault.dart';
 import 'project_transfers.dart';
@@ -402,11 +403,9 @@ List<Command> workCommands({
           ? 'not offered here'
           : task == null
           ? nothingSelected
-          : !task.certified
-          ? 'its commits are not signed by a certified key'
-          : !task.running
-          ? 'it is not running'
-          : null,
+          : machine.needsATunnel || (machine.host.isEmpty && machine.socketPath == Backend.local().socketPath)
+          ? whyNoCertifyAgain(task)
+          : 'the command line reaches this computer or a host over ssh, and not this machine',
     ),
     Command(
       id: 'work.handIn',

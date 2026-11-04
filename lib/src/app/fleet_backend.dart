@@ -634,9 +634,11 @@ class PoreloBackend implements FleetBackend {
           certify: !dryRun,
         )
         .transform(startRefusalsSaid);
+    final certifying = _Certifying();
     await for (final progress in replies) {
       final asked = progress.certify;
-      if (asked != null) yield StartLine(await _certified(asked, project: project, task: task));
+      // A dry run starts nothing and asked for nothing: whatever a host sends, nothing is signed for it.
+      if (asked != null && !dryRun) yield StartLine(await _certified(asked, certifying, project: project, task: task));
       final line = progress.line;
       if (line != null) yield StartLine(line);
       for (final line in progress.output) {
@@ -650,6 +652,8 @@ class PoreloBackend implements FleetBackend {
       if (progress.exitCode != null) exitCode = progress.exitCode!;
       if (progress.action != null) action = progress.action;
     }
+    // The machine's later lines say only that it stopped: why it stopped is said last.
+    if (certifying.refused case final words?) yield StartLine(words);
     // A refusal is an ordinary final reply, and must not read as a start that worked.
     if (action != null && action.isKnown && !action.starts) throw StartRefused(action);
     if (exitCode != 0) throw OperationFailed(exitCode);
@@ -657,24 +661,29 @@ class PoreloBackend implements FleetBackend {
 
   /// Answers what a host asked to have certified, and says what was done. A refusal is answered to
   /// the host too, so its wait ends now and not in five minutes.
-  Future<String> _certified(StartCertify asked, {String? project, String? task}) async {
-    try {
-      final certificate = await certify(asked, project: project, task: task);
-      await _opened().certifyStart(asked.start, certificate: certificate);
-      return 'Certified ${asked.principal} until ${asked.validBefore.toUtc().toIso8601String()} by your agent on this computer.';
-    } on CertifyRefused catch (refused) {
-      await _opened().certifyStart(asked.start, refused: refused.words);
-      return refused.words;
-    } on VarlinkException {
-      rethrow;
-    } on VarlinkDisconnected {
-      rethrow;
-    } on Exception catch (failed) {
-      // A file not written, a program not there or past its limit: the host still waits for a word.
-      final words = 'This computer could not certify ${asked.principal}: $failed';
+  Future<String> _certified(StartCertify asked, _Certifying certifying, {String? project, String? task}) async {
+    final principal = printableForAPerson(asked.principal);
+    Future<String> refuse(String words) async {
+      certifying.refused = words;
       await _opened().certifyStart(asked.start, refused: words);
       return words;
     }
+
+    // One start, one key: a host asking again gets nothing more signed.
+    if (certifying.signed) return refuse('The host asked to certify more than once for one start.');
+    final String certificate;
+    try {
+      // A start named no project in Default, whose principal holds that word: a host names no other for it.
+      certificate = await certify(asked, project: project ?? defaultProject, task: task);
+    } on CertifyRefused catch (refused) {
+      return refuse(refused.words);
+    } on Exception catch (failed) {
+      // A file not written, a program not there or past its limit: the host still waits for a word.
+      return refuse('This computer could not certify $principal: $failed');
+    }
+    certifying.signed = true;
+    await _opened().certifyStart(asked.start, certificate: certificate);
+    return 'Certified $principal until ${asked.validBefore.toUtc().toIso8601String()} by your agent on this computer.';
   }
 
   @override
@@ -688,18 +697,20 @@ class PoreloBackend implements FleetBackend {
   Future<StartProgress> startAgain({required String project, required String task, String? repository}) async {
     var last = const StartProgress();
     final printed = <String>[];
+    final certifying = _Certifying();
     final replies = _opened()
         .start(project: project, task: task, repository: repository, certify: true)
         .transform(startRefusalsSaid);
     await for (final progress in replies) {
       final asked = progress.certify;
-      if (asked != null) printed.add(await _certified(asked, project: project, task: task));
+      if (asked != null) printed.add(await _certified(asked, certifying, project: project, task: task));
       final line = progress.line;
       if (line != null) printed.add(line);
       last = progress;
     }
     // The final reply carries only a code. What was printed before it is why, and dropping it left
     // "failed with exit code 70" where the machine had said which agent it wanted.
+    if (certifying.refused case final words?) return last.withOutput(<String>[...printed, ...last.output, words]);
     return last.output.isEmpty ? last.withOutput(printed) : last;
   }
 
@@ -1259,4 +1270,13 @@ class OperationFailed implements Exception {
           'what was refused is in the output above.',
     _ => 'The agent exited with code $exitCode.',
   };
+}
+
+/// What one start has done about being certified.
+class _Certifying {
+  /// Whether its one certificate was signed.
+  bool signed = false;
+
+  /// Why it was refused, to be said last.
+  String? refused;
 }

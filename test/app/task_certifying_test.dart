@@ -97,6 +97,12 @@ void main() {
         () => asking(before: DateTime.now().toUtc().add(const Duration(days: 8))),
         'longer than seven days',
       ),
+      'a key that does not decode': (() => asking(key: 'ssh-ed25519 AAAA', before: soon), 'not Ed25519'),
+      'a certifier that does not decode': (
+        () => asking(certifiers: <String>['ssh-ed25519 A'], before: soon),
+        'not an Ed25519 key',
+      ),
+      'an empty identity': (() => asking(keyId: '', before: soon), 'no identity'),
       'no certifier': (() => asking(certifiers: const <String>[], before: soon), 'named no key'),
     };
     for (final each in cases.entries) {
@@ -199,7 +205,7 @@ void main() {
       await backend.open();
       final events = await backend.startTask(project: 'foo-project', task: 'work').toList();
       expect(answers.single, <String, dynamic>{'start': 's1', 'refused': 'Your SSH agent does not hold it.'});
-      expect(events.whereType<StartLine>().single.line, 'Your SSH agent does not hold it.');
+      expect(events.whereType<StartLine>().last.line, 'Your SSH agent does not hold it.');
     });
 
     // Harm: *Start it again* on a host would wait five minutes for an answer never sent.
@@ -210,6 +216,80 @@ void main() {
       expect(started['certify'], true);
       expect(answers.single['certificate'], 'the-certificate');
       expect(result.output.single, contains('Certified task:foo-project:work'));
+    });
+
+    // Harm: a hostile host has a dry run sign for it.
+    test('a dry run signs nothing even if the host asks', () async {
+      var signed = 0;
+      final backend = backendAnswering((_) async {
+        signed++;
+        return 'x';
+      });
+      await backend.open();
+      await backend.startTask(project: 'foo-project', dryRun: true).toList();
+      expect(signed, 0);
+      expect(answers, isEmpty);
+    });
+
+    // Harm: a hostile host has one start sign certificates for several tasks.
+    test('one start signs once; a second request is refused unsigned', () async {
+      Map<String, dynamic> request(String task) => <String, dynamic>{
+        'certify': <String, dynamic>{
+          'start': 's1',
+          'key': taskKey,
+          'principal': 'task:foo-project:$task',
+          'key_id': 'alice',
+          'valid_before': DateTime.now().toUtc().add(const Duration(days: 1)).toIso8601String(),
+          'certifiers': <String>[person],
+        },
+      };
+      daemon.stream('Start', (parameters) async* {
+        yield request('one');
+        yield request('two');
+        yield <String, dynamic>{'exitCode': 0};
+      });
+      var signed = 0;
+      final backend = backendAnswering((_) async {
+        signed++;
+        return 'x';
+      });
+      await backend.open();
+      await backend.startTask(project: 'foo-project').toList();
+      expect(signed, 1);
+      expect(answers.last['refused'], contains('more than once'));
+    });
+
+    // Harm: the daemon's later lines hide why, and the person is told only that the start failed.
+    test('a refusal is the last word even when the daemon goes on', () async {
+      daemon.stream('Start', (parameters) async* {
+        yield <String, dynamic>{
+          'certify': <String, dynamic>{
+            'start': 's1',
+            'key': taskKey,
+            'principal': 'task:foo-project:work',
+            'key_id': 'alice',
+            'valid_before': DateTime.now().toUtc().add(const Duration(days: 1)).toIso8601String(),
+            'certifiers': <String>[person],
+          },
+        };
+        yield <String, dynamic>{'line': 'porelo: task certificate refused'};
+        yield <String, dynamic>{
+          'exitCode': 69,
+          'output': <String>['porelo: start failed'],
+        };
+      });
+      final backend = backendAnswering((_) async => throw const CertifyRefused('Your agent lacks it.'));
+      await backend.open();
+      final lines = <String>[];
+      await expectLater(
+        backend.startTask(project: 'foo-project', task: 'work').forEach((event) {
+          if (event is StartLine) lines.add(event.line);
+        }),
+        throwsA(anything),
+      );
+      expect(lines.last, 'Your agent lacks it.');
+      final again = await backend.startAgain(project: 'foo-project', task: 'work');
+      expect(again.output, contains('Your agent lacks it.'));
     });
 
     // Harm: asking a daemon without the input fails every start on every older machine.

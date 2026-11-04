@@ -111,7 +111,7 @@ Future<String> certifyHere(
 }
 
 void _check(StartCertify asked, {String? project, String? task, required DateTime now}) {
-  if (!_ed25519.hasMatch(asked.key)) {
+  if (!_isEd25519(asked.key)) {
     throw const CertifyRefused('The host asked to certify a key that is not Ed25519, so it was not certified.');
   }
   final principal = _principal.firstMatch(asked.principal);
@@ -130,13 +130,27 @@ void _check(StartCertify asked, {String? project, String? task, required DateTim
   if (asked.validBefore.isAfter(now.add(_longest))) {
     throw const CertifyRefused('The host asked for a certificate longer than seven days, so it was not certified.');
   }
+  if (_printable(asked.keyId).trim().isEmpty) {
+    throw const CertifyRefused('The host asked for a certificate with no identity, so it was not certified.');
+  }
   if (asked.certifiers.isEmpty) {
     throw const CertifyRefused('The host named no key of the project\'s members to certify with.');
   }
   for (final certifier in asked.certifiers) {
-    if (!_ed25519.hasMatch(certifier)) {
+    if (!_isEd25519(certifier)) {
       throw const CertifyRefused('The host named a certifier that is not an Ed25519 key, so nothing was certified.');
     }
+  }
+}
+
+/// Whether [key] is a whole Ed25519 public key: its type, and exactly the bytes such a key has.
+bool _isEd25519(String key) {
+  if (!_ed25519.hasMatch(key)) return false;
+  try {
+    final blob = base64.decode(_blob(key));
+    return blob.length == 51 && utf8.decode(blob.sublist(4, 15), allowMalformed: true) == 'ssh-ed25519';
+  } on FormatException {
+    return false;
   }
 }
 
@@ -165,7 +179,7 @@ String _named(List<String> keys) {
 }
 
 String _fingerprint(String key) {
-  final digest = sha256.convert(base64.decode(base64.normalize(_blob(key))));
+  final digest = sha256.convert(base64.decode(_blob(key)));
   return 'SHA256:${base64.encode(digest.bytes).replaceAll('=', '')}';
 }
 
@@ -179,14 +193,30 @@ String _stamp(DateTime utc) {
 /// task that still runs on it; null at all other times, and where the machine does not say.
 String? certificateEnding(Task task, {DateTime? now}) {
   final until = task.certifiedUntil;
-  if (!task.certified || until == null) return null;
+  if (!task.running || !task.certified || until == null) return null;
   final left = until.difference((now ?? DateTime.now()).toUtc());
   if (left <= Duration.zero) {
     return 'Its certificate has ended, so its commits and pushes are refused. Certify it for another week.';
   }
   if (left > const Duration(days: 1)) return null;
-  final words = left.inHours >= 1 ? '${left.inHours} hours' : '${left.inMinutes} minutes';
-  return 'Its certificate ends in $words. Certify it for another week.';
+  final words = left.inHours >= 1
+      ? 'in ${left.inHours} hours'
+      : left.inMinutes >= 1
+      ? 'in ${left.inMinutes} minutes'
+      : 'within a minute';
+  return 'Its certificate ends $words. Certify it for another week.';
+}
+
+/// Why [task] cannot be certified anew from here, or null. Its names came from a machine: one that
+/// could read as an option of the command is not passed to it.
+String? whyNoCertifyAgain(Task task) {
+  if (!task.certified) return 'its commits are not signed by a certified key';
+  if (!task.running) return 'it is not running';
+  if (!RegExp(r'^[a-zA-Z0-9][a-zA-Z0-9_.-]*$').hasMatch(task.task)) return 'the machine does not name it plainly';
+  if (task.project.isNotEmpty && !RegExp(r'^[a-z0-9][a-z0-9-]{0,62}$').hasMatch(task.project)) {
+    return 'the machine does not name its project plainly';
+  }
+  return null;
 }
 
 /// The command line that certifies [task] anew, by this computer's agent: on [host] when it runs
@@ -195,5 +225,9 @@ List<String> certifyAgainArguments(Task task, {String host = '', String project 
   'task',
   'certify',
   task.task,
-  if (host.isNotEmpty) ...<String>['--host', host, '--project', project],
+  if (host.isNotEmpty) ...<String>['--host', host],
+  if (project.isNotEmpty) ...<String>['--project', project],
 ];
+
+/// [text] with whatever could forge a line or hide a character shown as a question mark.
+String printableForAPerson(String text) => _printable(text);
