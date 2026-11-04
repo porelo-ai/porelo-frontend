@@ -25,6 +25,8 @@ The button on the machine's page stays for a later project or a failed try.
 
 **So there is a third place a token is kept, and this step reads none of the others.** Today it comes from the variable `PORELO_CENTRAL_TOKEN` or from a chosen secrets file. With neither it says "Choose your secrets file first", even for a person whose token is already in the vault and in the system's secret store.
 
+**On an install with neither, the button can never work.** Nothing in `lib` offers the choice of a file: `rememberSecretsFile` is called only by tests. So `_giveHostToken` ends in `_fleet.say`, a line in the status bar that the next read overwrites, and the page stays as it was. In the foo test the operator pressed it and saw nothing change, and went on by ssh, with `org refresh` and the token on standard input.
+
 **What the window could offer:**
 
 | Source | Can it feed the machine? |
@@ -35,15 +37,19 @@ The button on the machine's page stays for a later project or a failed try.
 
 **The recommendation:** offer the token the window keeps, after the person's confirming word, written to standard input and never on a command line or in a log. Using it means the window handles the token in memory for this step, where today it says "nothing here sees or keeps it", and that is a decision about a secret, so it is the operator's to make, not this issue's.
 
+**Its failure is words on the page,** beside the button, whatever the source: never a passing line in the status bar. Where no source exists, the step offers the file's choice in a dialog or says what is missing.
+
 ## Acceptance
 
 - *Put it on a machine…* reaches the token step in one flow, naming what it is for. Seen to fail first.
+- With no token to be had, the button's press leaves words on the page saying so and what to do. Seen to fail first.
 - A person whose token is kept by the window gives it with one confirming word and no terminal, if so decided.
 - The token appears on no command line, in no log and in no answer, proven by a test that looks for it.
 - A token without the needed rights says so, naming the right.
 
 ## To be checked
 
+- The same reading of `centralToken` in the window's other steps, which then fail the same way or are hidden.
 - How the two earlier steps go for a machine this computer has no connection to yet.
 - Whether the window's kept token has the needed right, since *Administration: write* is more than a person may have given it.
 - How this meets the issue on two token stores, as this makes a third.
