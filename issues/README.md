@@ -104,7 +104,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 |---|---|---|---|
 | <a id="f351"></a>[F351](F351-A-Host-Reached-From-Windows.md) | — | — | A host reached from Windows, measured first, probably by WSL's ssh. |
 | <a id="f352"></a>[F352](F352-A-Rental-State-Kept-Beyond-One-Computer.md) | — | — | OpenTofu's state in the organization's repository or at the provider. |
-| <a id="f353"></a>[F353](F353-The-Page-With-The-Work-Cards-Redesigned.md) | — | — | The operator's redesign of the page with the *Work* cards, with [F306](README.md#f306) in it. |
+| <a id="f353"></a>[F353](F353-The-Page-With-The-Work-Cards-Redesigned.md) | — | — | The redesign of *Work* and *Needs you*: a list and one tab per running agent, reviews under *Needs you*, one count; design accepted, built after the foo test, with [F306](README.md#f306) in it. |
 | <a id="f349"></a>[F349](F349-A-Way-Without-Administration-Rights.md) | — | — | A person creates the repository and enters each deploy key by hand, so their token needs no Administration. |
 | <a id="f328"></a>[F328](F328-Letters-Doubled-In-A-Slow-Window.md) | — | — | A key pressed once reaching a console once, however slowly the window answers. |
 | <a id="f324"></a>[F324](F324-Removing-A-Project-On-Windows.md) | — | — | A local project removed from the interface on Windows, where it runs in a WSL distribution. |
