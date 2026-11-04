@@ -123,7 +123,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f288"></a>[F288](F288-Small-Leftovers-Of-The-One-Click-Flow.md) | — | — | The small edge cases left over from the one-click flow gathered in one place for the operator to place: address forms, test gaps, texts. |
 | <a id="f284"></a>[F284](F284-The-Subagent-Number-Chosen-When-Starting.md) | — | — | How many subagents the agent may run at once, chosen when starting, with the number that applies and Core's refusal said before anything is made. |
 | <a id="f282"></a>[F282](F282-The-Providers-Usage-In-A-Status-Line.md) | — | — | A status line with one traffic light for the providers' usage, a popup per provider, and a *Needs you* warning past a set threshold. |
-| <a id="f233"></a>[F233](F233-The-Server-Type-And-Zone-Chosen-When-Renting.md) | — | — | The server type and zone chosen in *Prepare a server…*, stock shown before renting, the zone kept for down and give back. |
 | <a id="f236"></a>[F236](F236-Root-Reached-On-A-Rented-Server.md) | — | — | Root allowed in the rental's cloud-config; a "Please login as" answer refused at once, naming the user. |
 | <a id="f238"></a>[F238](F238-A-Server-With-No-Project-Is-Not-Silent.md) | — | — | A server prepared with no project not raised as *Not answering*; its row says "No project yet". |
 | <a id="f240"></a>[F240](F240-The-Walk-Hand-Over-Carries-Porelo-Host.md) | — | — | The walk hand-over ships `porelo-host` and the start script points the interface at it; a missing local program said without the container sentence. |
@@ -335,3 +334,4 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f299"></a>F299 | A Registry Row With The Host's Confirmed State | Replaced by the organization's pages: the registry rows and their confirmed state are gone. |
 | <a id="f301"></a>F301 | Persons Of A Project In One Place | Done on the organization's project page: its members stand in one section with *Add*. |
 | <a id="f305"></a>F305 | No Join For A Project Already On The Host | Replaced by *Connect* and *Disconnect* per machine: a project offers no *Join*. |
+| <a id="f233"></a>F233 | The Server Type And Zone Chosen When Renting | Replaced by `HostDialog` for a machine that exists: `porelo-host up` refuses renting, so no type or zone is chosen. |
