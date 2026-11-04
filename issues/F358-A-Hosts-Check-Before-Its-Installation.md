@@ -14,9 +14,15 @@
 4. A choice can be changed right there: VMs in its jobs, a forge of its own, concurrent jobs. The check runs again and the list follows.
 5. *Install* is offered only when the list passes. A failure of the check itself reads as that, never as a passed machine, and offers no installation.
 
-**The check is the collection's, not the window's.** The window asks and shows its machine-readable answer, with no limit of its own, so the window and the installation cannot differ; the installation runs the same checks first. The window shows a finding it does not know yet by its words, and does not read it as passed.
+**The check is the collection's, not the window's.** It is one script with no change to the machine, sent by ssh on standard input, the choices as JSON; a playbook cannot do it, since installing Ansible is already a change. The window shows its answer, with no limit of its own, so the window and the installation cannot differ. The installation runs the same script first. A finding the window does not know yet is shown by its words and is not read as passed.
 
-**What cannot be known beforehand is said as that,** where the check names it: the window does not turn it into a pass.
+**The answer:** one JSON object, with a version, `ok`, and `complete` for whether the check ran to its end; each finding has a stable `id`, `pass`, `fail`, `warn` or `unknown`, the value and unit found, what was asked and what to do. Exit 0 passes, 1 has findings, anything else means the check itself could not run.
+
+**This window's own part, before the script can answer:** the login, `sudo -n` and a missing `python3` are reported from the first ssh line, and the run of `porelo-host` checks before its first `apt-get`, on the command line too, or that run changes the machine first.
+
+**What cannot be known beforehand is said as that,** by `unknown`: that KVM really works, an account's controllers, the store's bucket, that packages install, reach from outside, behaviour under load. The window does not turn it into a pass.
+
+**Disk:** until it is measured it is shown with its value and refuses nothing, as the installation holds no limit today.
 
 ## Acceptance
 
@@ -25,9 +31,12 @@
 - No answer, a broken answer and a refused login each read as the check not having answered, with no *Install*.
 - A machine that passes changes in nothing by being checked.
 
+## Open questions
+
+- A machine this window rents can only be checked once it is paid for. The advice from the collection's side: compare what an offer's published data can answer, CPUs, memory, disk and virtualization, with the same limits before renting, and let the script check the rest after. By the hour a bad machine costs one hour at most, as far as is known; the price is unread. Is that wanted?
+
 ## To be checked
 
-- The check's form, and its answer's fields, when the collection has them. A pin moves with this dialog.
-- A machine this window rents itself: whether the check runs after the rental, as it must, and what the person is told before paying, as what was rented stays rented when the check finds something.
+- The answer's fields as the collection finally has them. A pin moves with this dialog.
 - A machine reached as a person other than root, and what the login's finding says.
 - What the step says for a host being prepared again, where the check's limits meet what is already there.

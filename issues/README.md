@@ -147,6 +147,8 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f356"></a>[F356](F356-The-Porelo-Organization-Named-Apart.md) | — | — | The window says *Porelo organization* wherever a forge's organization could also be meant, and says it lives in a repository inside that one. |
 | <a id="f357"></a>[F357](F357-A-Hosts-Forge-And-VMs-As-Plain-Choices.md) | — | — | The put-on-a-host dialog asks in plain words about a forge of its own and VMs in its jobs, with what each costs, and says what the machine can carry. |
 | <a id="f358"></a>[F358](F358-A-Hosts-Check-Before-Its-Installation.md) | — | — | The host dialog's first step after the address runs one reading check, lists every finding, and offers the installation only when it passes. |
+| <a id="f359"></a>[F359](F359-An-Empty-List-Starts-Folded.md) | — | — | A list with no rows starts folded and folds when emptied, a fold the person chose is kept, and the head's actions stay usable. |
+| <a id="f360"></a>[F360](F360-A-Count-Says-What-It-Counts.md) | — | — | Where the side bar and a page count different things under one name, such as *Machines*, the words say the difference. |
 
 ### Estimated
 

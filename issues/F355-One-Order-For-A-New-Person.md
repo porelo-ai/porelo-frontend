@@ -39,6 +39,8 @@ The order goes on past the organization: the project, its repositories, a host, 
 
 **A window that lets a person retry the card** should know that, with an organization already chosen, making a card reads that organization first, and a failure to reach it refuses.
 
+**A person who already has a suitable token makes no new one:** the step offers that path and names the rights to check.
+
 **The token's step says why a token is needed at all:** the forge is asked who owns the organization, only a token can ask that, and an ssh key does not replace it.
 
 ## What can be read today, and what cannot
