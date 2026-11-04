@@ -1,6 +1,6 @@
 # F204 — The Build Runs On The Local Forge As On The Central One
 
-**Status:** Analyzed.
+**Status:** Review.
 **Size:** M - the workflows, the leased profile and one test here, no contract another repository reads, and runs of a
 Flutter build on a throwaway Forgejo.
 
@@ -37,6 +37,11 @@ of 4 CPUs and 8 GiB in the job image the host pins, with `PORELO_PUBLISH=false`.
      pull request, so one from outside rents nothing and publishes nothing.
   6. `settings.xml` and `.mvn/` take the shape porelo-buildtools sets for reading snapshots from central and the host,
      together with the workflows' `MAVEN_SNAPSHOTS_URL` and read token. They are not designed here.
+  7. The artifact uploads run only where `PORELO_PUBLISH` is `true`: the artifact actions refuse every forge but the
+     central one. *Workflow check* installs Python's `yaml` where the job image lacks it.
+  8. The tests hold on a job of a host, root in a container on 4 CPUs: the limits of what compiles or settles under load
+     are raised, a process counts as dead once `/proc` says it is a zombie, since nothing reaps it there as init does, a
+     signal is repeated as a person would, and the test of a file unreadable by its mode is skipped for root.
 - **Red first:** today's `main` on that Forgejo: `Linux` and `Windows` are never taken by the runner, and `check-providers`
   on today's tree names the workflow, `pom.xml`, `tool/e2e.sh` and `AGENTS.md`.
 
@@ -53,6 +58,4 @@ A host lends no machine by kind to a job yet, so the leg stays off there: that i
 
 ## To be checked
 
-- The central forge's organization values reach this repository: `PORELO_PUBLISH`, `PORELO_MACHINES_API` and
-  `PORELO_MACHINES_SSH`.
 - The Build on a real host: its egress, its disk, and the socket gate's address in `MAVEN_SNAPSHOTS_URL`.
