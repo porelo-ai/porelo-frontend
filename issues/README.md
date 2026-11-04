@@ -153,6 +153,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f362"></a>[F362](F362-A-Click-Answers-At-Once.md) | — | — | A click on a row shows its page and its reading line at once; the delay seen in the foo test is measured down to its cause. |
 | <a id="f363"></a>[F363](F363-A-Grey-Button-Says-Why-In-Words.md) | — | — | A disabled action says why in text, not a tooltip, and creating at an https address says beforehand that a machine cannot follow it. |
 | <a id="f364"></a>[F364](F364-Repositories-Added-Before-A-Machine.md) | — | — | A repository added before the project has a machine is filed with its central address, so that order works; a row without one says so. |
+| <a id="f365"></a>[F365](F365-A-Host-Key-Fetched-Too-Early.md) | — | — | A machine's host key is compared by one named command and fetched again at *Prepare*; a refused key says what to do, and the name is a choice. |
 
 ### Estimated
 
