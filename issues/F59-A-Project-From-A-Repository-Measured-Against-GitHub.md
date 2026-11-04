@@ -9,18 +9,23 @@ GitHub itself, not only against stand-ins.
 
 ## Why
 
-Already measured against GitHub with two test repositories on a rented machine: a token connected
-and its refusals shown in GitHub's words, a `project.yml` written in the form, committed signed and
-pushed, the machine bound with a deploy key per repository titled
-`porelo <machine> <project>/<repository>`, a task started, and in `default` a task's approved work
-forwarded to the repository's `main`.
+`GitHub` in `lib/src/app/forge.dart` lists repositories and their permissions and reports refusals
+in words. `ProjectWorkspace` in `lib/src/app/project_workspace.dart` can commit and push signed
+changes; `Gate.approve` in `lib/src/app/gate.dart` forwards approved work.
+
+The deploy-key deletion promise is not met: `MachineClearing.clearIt` in
+`lib/src/app/machine_clearing.dart` only clears through the daemon, `MachineBinding` in
+`lib/src/app/machine_binding.dart` has no unbinding operation, and `Forge` in `lib/src/app/forge.dart`
+has no deploy-key operations. `test/ui/forge_credentials_test.dart` expects clearing to leave
+deploy keys at the forge. `lib/src/ui/forges_page.dart` offers no form to create `project.yml`, so
+the verified-commit criterion cannot be exercised through that form.
 
 The token needs *Contents* and *Administration: Read and write* for the test repositories. Neither
 the token nor the repositories are ever kept in this repository or the channel.
 
 ## Plan
 
-- **Against real GitHub, in a CI leg.** In a test organisation of its own (`porelo-ai-test`), with
+- **Against real GitHub, in a CI leg.** In a test organization of its own, with
   its test repositories made once by a script, and a fine-grained token scoped to that organisation
   only, kept as the Actions secret `PORELO_TEST_GITHUB_TOKEN` of this repository with the signing
   key `PORELO_TEST_SIGNING_KEY`. The leg runs in the Build's job against a leased machine, on a push
@@ -30,8 +35,7 @@ the token nor the repositories are ever kept in this repository or the channel.
   the interface built from this repository and the operator's token and test repositories. A step
   that fails becomes a fix with its test first.
 - **Deploy keys:** a machine cleared with `MachineClearing` (`lib/src/app/machine_clearing.dart`) and
-  one removed with `MachineBinding.remove` (`lib/src/app/machine_binding.dart`); then the keys are
-  listed at GitHub, by its own page and by `GitHub.deployKeys` in `lib/src/app/forge.dart`.
+  one unbound from the project; then the keys are listed at GitHub, by its own page and API.
 - **A verified commit:** `project.yml` committed by `ProjectWorkspace.commitAndPush` in
   `lib/src/app/project_workspace.dart`, then GitHub's commit page read for "Verified".
 - **Branch protection:** a rule set on the test repository's branch; a push through

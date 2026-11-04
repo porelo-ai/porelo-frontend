@@ -11,12 +11,15 @@ desktop.
 
 ## Why
 
-Every connection runs OpenSSH's `ssh` as a process (see *The interface raises and supervises its
+SSH connections run OpenSSH's `ssh` as a process (see *The interface raises and supervises its
 own ssh forward* in [decisions](../doc/decisions.md)): the forward to the daemon
 (`lib/src/app/tunnel.dart`), starting the daemon and `id -u` for the connection trial, and working
 in a task by hand (`lib/src/app/session.dart`). That inherits the person's the SSH config,
 ssh-agent, `known_hosts` and hardware keys, and nothing in `lib/` holds a private key. iOS and
 Android have no `ssh` binary.
+
+The no-private-key statement is not met by `lib/src/ui/connection_wizard.dart`, whose
+`NewConnection.key` carries a pasted or file-read private key for an outgoing connection.
 
 [`dartssh2`](https://pub.dev/packages/dartssh2) 4.1.0, read in its source and not run against a
 server, has forwarding to a Unix socket as a byte stream, exec, shell and pty, jump hosts by hand,
@@ -28,6 +31,9 @@ defects.
 
 A mobile client is more than a transport: a phone ends connections in the background, clearance
 questions have deadlines, and notifications need another path.
+
+`lib/src/app/tunnel.dart` and `lib/src/app/session.dart` use OpenSSH rather than the shared transport
+interface and `dartssh2` implementation required below; `pubspec.yaml` has no `dartssh2` dependency.
 
 ## The shape
 
@@ -42,10 +48,12 @@ questions have deadlines, and notifications need another path.
 
 - **Already there:** `VarlinkConnection.over` (`lib/src/wire/varlink_connection.dart`) speaks
   over any byte stream, and `Backend.open` (`lib/src/client/porelo_client.dart`) uses it for a
-  `relay` command, proven by `test/client/relay_test.dart` through a process. A test over an
-  in-memory stream, with no process and no socket file, is still missing.
+  `relay` command, covered by `test/client/relay_test.dart` through a process.
+  `test/wire/varlink_over_a_stream_test.dart` covers `VarlinkConnection.over` over in-memory
+  `StreamController`s without a process or socket file.
 - **Where `ssh` runs today:** `Tunnel` and `Tunnels` (`lib/src/app/tunnel.dart`, `ssh -L`);
-  `tryAMachine` (`lib/src/app/connection_trial.dart`) through `Tunnels.trial`; `Session.command`
+  `tryAMachine` (`lib/src/app/connection_trial.dart`) through `Tunnels.holdForTrial` for `hostCard`
+  machines and `Tunnels.trial` for other machines needing a forward without a relay; `Session.command`
   (`lib/src/app/session.dart`, `ssh -t … porelo task attach`), opened as a `SessionChannel`
   (`lib/src/app/pty.dart`).
 - **One transport interface:** a byte stream to the daemon, a command run there (starting the
@@ -55,7 +63,7 @@ questions have deadlines, and notifications need another path.
   its own kept owner-only; keys in the platform keychain through `flutter_secure_storage`, as
   `PlatformDeviceKeyStore` (`lib/src/app/keystore.dart`) keeps a device's; the stream to the
   daemon through `porelo daemon connect` or a forward to the Unix socket.
-- **Red first:** a test in `test/client/` speaking Varlink over an in-memory stream; then tests
+- **Red first:** `test/wire/varlink_over_a_stream_test.dart` speaking Varlink over an in-memory stream; then tests
   with an unknown and a changed host key against a fake server; then a leg in `tool/e2e.sh` over
   `dartssh2`.
 

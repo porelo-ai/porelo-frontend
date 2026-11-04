@@ -13,6 +13,13 @@ follows one organisation file, pinned by its administrator; a project's settings
 path through the tree, organisation, team, sub-team and its own `project.yml`. A project that breaks
 a lock starts no task. Without this a person learns of a binding setting only from a refused start.
 
+The interface reads the organization through `porelo org --json` in
+`PoreloOrganizationSource.read` (`lib/src/app/porelo_organization_source.dart`), rather than from a
+machine-followed pinned organization file.
+`OrganizationPage` (`lib/src/ui/organization_page.dart`) shows people, owners, Organization Admins,
+projects and machines as flat lists. It does not show the promised team and sub-team tree, resolved
+settings with their source files, or `fixed` and `narrow-only` lock badges.
+
 ## Acceptance
 
 - **The machine** shows which organisation it follows, and whether that chain of files is verified and

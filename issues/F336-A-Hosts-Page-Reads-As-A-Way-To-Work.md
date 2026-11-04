@@ -7,23 +7,26 @@ ending it does, and is led from there to working on the host.
 
 **The operator:** built with [F335](README.md#f335).
 
-In a walk the operator, told to click *Disconnect*, could not find it and could not tell what it belonged to: "The whole process
-is hard to follow for a user."
-
 ## How it reads now
 
 Read from the code, not run.
 
-- **The blocks, top to bottom:** the way back, the name, a line with organization, address and host key and the admin's two
-  buttons; how the host stands, for an admin; *Projects on this host*; *Host admins*; and last, under *Your connection*, one
-  sentence and the button. What concerns everyone stands below what concerns only an admin.
-- **Nothing says what the connection is,** or what ending it does. *Disconnect* asks nothing. It makes this computer forget the
-  machine and takes down its ssh connection; the person's account, work and vault on the host stay, and *Connect* brings it back.
-- **The words can disagree with the button.** While the host waits for a token the section says `Not connected yet`, and the
-  button beside it says *Disconnect*, because the connection stands and only the account is missing.
-- **The page leads to no work.** *Open it on <host>* under *Projects* opens this page where a project has not started on the
-  host yet, as the way on, and nothing on this page starts work: its project rows offer an admin *Take off the host* and no one
-  anything else. The way on is *New work* under *Work*, which nothing here says.
+- **The blocks, top to bottom:** `OrganizationHostPage` in `lib/src/ui/organization_host_pages.dart` shows
+  the way back, the name, the connection block, work details where supplied, then *Managing this machine*
+  for an admin, address and key, the machine's progress, *Projects on this machine* and *Machine Admins*.
+- **The connection block** explains not connected, connected while waiting for an account, and ready,
+  with *Connect*, *Disconnect* and *Start work* as applicable. It explains what *Disconnect* ends.
+  `CardHostConnections.disconnect` in `lib/src/app/organization_connections.dart` keeps the saved machine,
+  marked disconnected, through `Machines.disconnect` in `lib/src/app/machines.dart`.
+- **The row** is `OrganizationMachineRow` in `lib/src/ui/organization_host_pages.dart`; it shows
+  connection words and *Connect*, with a disabled button while its connection attempt is running.
+  That row and `OrganizationHostPage._connection` in the same file have no separate *Connecting* words,
+  so they do not meet step 2's promise to say so at once.
+- **The work path is incomplete.** `OrganizationHostPage._projects` in
+  `lib/src/ui/organization_host_pages.dart` has no *Start work* on project rows. The top *Start work*
+  callback in `lib/src/ui/shell.dart` calls `_startInDefault()`, so it does not fill in a named project
+  as the path below promises. *Work on it* on `OrganizationProjectsPage` opens the machine page when
+  the project is not yet listed by its daemon.
 
 ## The recommendation
 
@@ -56,7 +59,7 @@ Where this page stands, and what the row is called, follows [F335](README.md#f33
 
 ## To be checked
 
-- That *Open it on <host>* really ends on this page with nothing to do, by walking it.
+- That *Work on it* really ends on this page with nothing to do, by walking it.
 - That *New work* can be opened with a host and project already chosen, for a project the host does not list yet. A host lists
   a project only after the person's first start there.
 - Whether the account's five minutes and the token's wait can be told apart from what the host answers today.

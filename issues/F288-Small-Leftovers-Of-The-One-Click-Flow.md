@@ -7,6 +7,19 @@ address forms, quoting, encodings, texts and test gaps. A grave finding never go
 
 Each point is to be checked against the code before it is fixed.
 
+## How it stands
+
+`test/app/pty_test.dart` uses `os._exit(0)` in the detached child's release path.
+`Tunnel._itEnded` in `lib/src/app/tunnel.dart` cancels the card's unlocker when SSH ends.
+`HomeserverForwards._raiseOnce` in `lib/src/app/homeserver_forwards.dart` closes a forward that arrives after disposal.
+`lib/src/app/key_recovery.dart` implements backup-key requests and keeps uncertain requests for retry.
+`HostRuns._addHost` in `lib/src/app/host_runs.dart` saves `rememberHostUp` before adding the machine.
+The remaining live-host, Core contract and CI load claims below are not established by this source reading.
+
+The requirement below to withhold project person actions until the host answers each person's applied state is
+not met by `lib/src/ui/organization_project_pages.dart`: its member menus offer removal, locking and unlocking
+from the project read, without that host answer.
+
 ## Gathered
 
 1. **Linux CI timeout of the terminal close test:** `pty_test` "termination and close wait for the output consumer
@@ -78,9 +91,11 @@ finding; each is declined with its reason, and is read again where its code is r
 - **A card's address, against what can be reached:** a saved card takes `::`, `0.0.0.0` and a multicast address, which the check of a server's completion refuses; the upload and the stop feed then ask ssh for it, and the pinned host key still decides.
 - **A server that reports no usable address:** given by name or IPv6 address, it fails as "did not confirm completion" rather than in its own words; no server does it while the host's play needs an IPv4 default route.
 - **Push and pull in the command finder** stand only in the project's menu, as the project's other actions do.
-- **`test/ui/project_room_test.dart`:** its `project == null` branches no longer run where a loop holds only `checkout`; they go once the host's registry actions are taken out.
+- **`test/ui/project_room_test.dart`:** the tests cover machine-specific project actions and room joins; there are
+  no `project == null` branches to discard.
 - **`packages/porelo_host` tests over a real terminal or a process** (`secret_store_test`, `forge_key_test`, `project_transfer_test`, `down_cli_test`) run out of their 30 seconds when the machine is under a load of 30 or more, and pass when run alone.
-- **`HostRuns.setupAgain` and `_replaceLegacy`** have nothing that hands them a function any more; they go with the setups made before the organization.
+- **`HostRuns`** (`lib/src/app/host_runs.dart`) resumes setup through `again` and `resume`; it has no `setupAgain`
+  or `_replaceLegacy` method.
 - **A setup taken up again** writes its machine file anew under the data folder of that moment and reads the path it saved: the two differ only if the data folder has moved since.
 - **After a card's address moves:** the old connection lives on while the page says *Not connected yet*, until the next *Connect* replaces it.
 - **Prepare a server, after a card is made or a host named:** the access read at start stays until a full refresh, so the command stays off with the old reason meanwhile. Not reproduced, and older than the change it was read in.

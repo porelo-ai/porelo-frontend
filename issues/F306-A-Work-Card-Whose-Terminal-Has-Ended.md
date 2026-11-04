@@ -7,9 +7,15 @@ can be done next; it does not show a full-width black terminal bar that holds on
 
 ## Why
 
-After a run in a terminal ends, its card under *Work* keeps a terminal-sized black bar with that one line. It takes
-the room of a terminal, shows nothing a terminal would, and reads like a broken view. The design of the *Work* cards
-is to be reviewed as a whole; this issue holds the finding until then.
+`TileConsole._drawn` in `lib/src/ui/tile_console.dart` shows "Its terminal session has ended." in a padded,
+full-width terminal-colored container when the terminal screen is known and the session is no longer live.
+This branch has no fixed terminal height or enlarge button, but it still has the black bar the promise excludes.
+
+*Work in it by hand* in `workCommands` (`lib/src/app/commands.dart`) uses `Sessions.whyNot`
+(`lib/src/app/session.dart`), which checks that the task is running and that a local command reaches its daemon,
+without checking the terminal's live state. `TaskTile` in `lib/src/ui/attention_view.dart` offers that command
+whenever it is available. Those files do not provide next actions based on the ended terminal's state.
+The design of the *Work* cards is to be reviewed as a whole; this issue holds the finding until then.
 
 ## Open questions
 

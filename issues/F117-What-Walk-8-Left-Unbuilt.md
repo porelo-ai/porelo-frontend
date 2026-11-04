@@ -10,18 +10,17 @@ the machine follows is taken at once after the person's own push.
 
 ## Why
 
-Split off when the rest of walk 8's findings went to be walked: these three were found unbuilt when
-the walk was written.
-
 - **The tile's repository:** a tile is headed by its work and the machine (`tile-what`,
   `tile-machine` in `lib/src/ui/attention_view.dart`); the repository is named only in `tile-where`,
   and only when the project has more than one.
 - **A release Porelo refuses:** after *Release it*, a `NOT_DELIVERABLE` answer is a plain notice,
   "It cannot be sent: <Porelo's words>." (`lib/src/ui/held_message_view.dart`), not in the error's
   color, and gone with the dialog before it is read.
-- **The project file after one's own push:** a followed project is read again only on the poll or
-  on *Check it now* (`lib/src/app/project_check.dart`); nothing asks after a push the interface made
-  itself, such as writing `project.yml` when a machine is bound.
+- **The project file after one's own push:** `lib/src/app/machine_binding.dart` merges and pushes
+  configuration changes waiting at the gate and calls `landed`; it does not bind a machine or write
+  its signers. `ProjectCheck`, `lib/src/app/project_check.dart` and `test/features/following.feature`
+  have no implementation here. The immediate check promised below is not called by
+  `lib/src/app/machine_binding.dart`.
 
 ## Plan
 

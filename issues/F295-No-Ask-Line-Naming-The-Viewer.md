@@ -11,21 +11,21 @@ the viewer is the only one, the line says what they can do themselves instead, o
 
 ## Why
 
-The project's own admin reads "… Retry. Ask <name> (<login>)." naming themselves in *Register the project* and in
-*Projects you may join*. `RegistryRefusal.toString` (`lib/src/app/registry.dart`) appends " Ask $contacts." from
-`whoMay` without knowing who is asking.
+`HostAccess._ask` in `lib/src/app/host_access.dart` filters out `view.me` before naming contacts.
+`OrganizationRefused.toString` in `lib/src/app/organization_source.dart` returns the supplied words without adding
+contacts. `IdentityRefused.toString` in `lib/src/app/identity.dart` appends " Ask $contacts." from every entry in
+`whoMay`, without filtering the viewer. That file does not meet the promise above when Core includes the viewer.
 
 ## The shape
 
-- `RegistryRefusal` learns the viewer's login, or the contact lists are built without it: the proven person's card
-  login, from the identity the registry pages already hold.
+- `IdentityRefused` learns the viewer's login, or the contact lists are built without it: the proven person's card
+  login, from the identity the organization pages already hold.
 - The refusal's own words stay as they are; only the "Ask" line changes.
 
 ## Plan
 
-- `lib/src/app/registry.dart` (`RegistryRefusal`), `lib/src/app/project_access.dart` (`_contacts`),
-  `lib/src/app/project_join.dart` (`JoinUnreadable`, `JoinUnusable`), and the host access refusals that pass
-  `whoMay`.
+- `lib/src/app/identity.dart` (`IdentityRefused`, `Identity._contacts`),
+  `lib/src/app/organization_source.dart` (`OrganizationRefused`), and `lib/src/app/host_access.dart` (`_ask`).
 - **Red first:** a refusal whose only contact is the viewer ends without "Ask"; one with the viewer and another
   names only the other.
 

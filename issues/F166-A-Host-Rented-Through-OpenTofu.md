@@ -10,20 +10,23 @@ any provider the module covers. `--given` stays for a machine one has, which `to
 
 ## Why
 
-`porelo-host` calls `tofu` itself, rather than the administrator running it apart. Today
-`packages/porelo_host` rents at Scaleway by its own API calls (`lib/src/scaleway.dart`), one adapter
-per provider in Dart; that issue moves the renting into one OpenTofu module per provider, and this
-is the package's half of that contract.
+`porelo-host` calls `tofu` itself, rather than the administrator running it apart.
+`ScalewayElasticMetal` in `packages/porelo_host/lib/src/scaleway.dart` implements
+`HostProvider` with direct API calls, without OpenTofu.
+`packages/porelo_host/bin/porelo_host.dart` refuses `up` unless it prepares an existing server with
+`--given` and `--host-name`; the promised rental through OpenTofu is not built.
+`HostDialog` in `lib/src/ui/host_dialog.dart` takes no project or synced drive folder.
 
 ## To be checked
 
-- **The seam:** a `TofuProvider` behind the existing `HostProvider` (`lib/src/provider.dart`):
+- **The seam:** a `TofuProvider` behind the existing `HostProvider` (`packages/porelo_host/lib/src/provider.dart`):
   `find` and `state` from `tofu output -json`, `create` as `apply`, `release` as `destroy` and then
   `plan -detailed-exitcode` reading no change, so `HostRun`'s order (rent, readiness, trust, ssh,
   the plays, `down`'s kept host) stays as it is. Readiness: whether the provider's `apply` already
   waits for the installed system, or `HostRun` still asks until ssh answers.
 - **The provider as the guard,** as `porelo-host`'s plan has it: before `apply`, today's find by
-  the tag (`porelo-project=<project>`) is kept, and a tagged server the state lacks refuses `up`
+  the tag (`porelo-host=<host>`, from `HostPlan.serverTagFor` in
+  `packages/porelo_host/lib/src/host_run.dart`) is kept, and a tagged server the state lacks refuses `up`
   naming it, as a state not yet synced or written from another computer would; `down` with an empty
   state and a tagged server refuses too. A conflict copy of the state, made by the drive's client,
   refuses both until a person keeps one.
@@ -44,6 +47,6 @@ is the package's half of that contract.
   another computer, never in a file, an argument or the drive. What `up` says when that key is
   missing here, and when the drive's folder is not synced yet.
 - **Tests without renting:** a `tofu` stand-in answering `init`, `apply`, `output`, `destroy` and
-  `plan` from recorded answers, as `tool/host_standin.dart` stands in for `porelo-host`.
+  `plan` from recorded answers. There is no `tool/host_standin.dart` in this checkout.
 - **The interface:** the dialog of [F164](README.md#f164) asks for the same values; whether it
   gains anything (the state's place, a missing `tofu` said in words).

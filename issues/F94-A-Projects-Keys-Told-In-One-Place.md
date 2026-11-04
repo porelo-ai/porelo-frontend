@@ -9,18 +9,25 @@ and learns whether their own signing key satisfies a branch rule that demands si
 
 ## Why
 
-The forge's signing keys are already found for the person and all pinned at binding, so binding asks
-for no key again; what each key is for is not yet told together.
+`ProjectForgeDialog` in `lib/src/ui/project_forge_view.dart` reads the SSH agent's signing keys
+through `ProjectWorkspace.signingKeys`, and asks for a choice when needed. It does not list every
+project key with its owner and purpose. `lib/src/app/forge.dart` reads no branch rule requiring
+signed commits, and `lib/src/ui/project_forge_view.dart` does not check the person's key against
+such a rule, so the branch-rule promise is not met.
+
+`test/features/project_from_repository.feature` is not present, and
+`test/features/forge_repositories.feature` has no "every Porelo key and signer is listed" scenario.
+The planned key-list scenarios below have no current feature to extend as named.
 
 ## Plan
 
-- **Today's pieces.** `MachineBinding.survey` in `lib/src/app/machine_binding.dart` already
-  gathers the Porelo deploy keys at the forge (`keys`) and the `machine-signers` lines (`signers`);
-  `ProjectForgeDialog` in `lib/src/ui/project_forge_view.dart` shows them as two lists behind
-  "Machines that have keys to it". The person's keys come from `ProjectWorkspace.signingKeys` and
-  `Forge.signingKeys`; the keys a machine pinned are `Followed.signers` in
-  `lib/src/client/models.dart`.
-- **One list.** `survey` also reads the person's signing keys at the forge and what the machine
+- **Today's pieces.** `MachineBinding` in `lib/src/app/machine_binding.dart` handles pending
+  configuration changes and has no survey. `ProjectForgeDialog` in
+  `lib/src/ui/project_forge_view.dart` reads `ProjectWorkspace.signingKeys`, the SSH agent's keys,
+  without querying `Forge.signingKeys`. `Forge` in `lib/src/app/forge.dart` has no deploy-key
+  operations, and `lib/src/client/models.dart` has no `Followed.signers`. The dialog has neither
+  the two key lists nor their "Remove" rows.
+- **One list.** A survey reads the person's signing keys at the forge and what the machine
   pinned, and answers one list of records: the key (title or fingerprint), whose it is (a machine
   by name, or the person), and what it is for (fetching read-only, pushing, signing the person's
   commits, signing a machine's messages). The dialog renders that list in place of the two;
@@ -55,5 +62,5 @@ for no key again; what each key is for is not yet told together.
 
 ## To be checked
 
-- Is the one list the survey in today's dialog, or a view of its own reached from the project's
+- Is the one list a survey in `ProjectForgeDialog`, or a view of its own reached from the project's
   page? (Agent Frontend's)

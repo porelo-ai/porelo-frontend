@@ -11,8 +11,15 @@ repository to work as at GitHub, or is told what that forge does not allow.
 
 ## Why
 
-A project from a repository and work in `default` are built and measured against GitHub alone. Each
-forge's own API is the interface's; the backend is short of nothing known.
+`GitHub` is the only `Forge` implementation in `lib/src/app/forge.dart`. The interface lists its
+repositories and offers work in `default`. Each forge's own API is the interface's; the backend is
+short of nothing known.
+
+`lib/src/app/forge.dart` exposes no deploy-key operations, and `lib/src/app/machine_binding.dart`
+has no forge-key removal operation. The access-key steps below have no current entry point.
+`lib/src/ui/forges_page.dart` offers no form to create a project from a repository, and
+`test/features/project_from_repository.feature` is not present; the project-creation leg below
+cannot run as named.
 
 ## Bitbucket Data Center first
 
@@ -47,19 +54,20 @@ from Bitbucket Data Center and Jenkins, is not this issue.
 ## Plan
 
 - **The seam exists:** `Forge` in `lib/src/app/forge.dart` (`whoAmI`, `repositories`,
-  `hasProjectFile`, `repository`, `deployKeys`, `branches`, `hostKeyFingerprints`, `signingKeys`,
-  `whyNoKeys`, `addDeployKey`, `removeDeployKey`), with `GitHub` its only implementation, its
-  answers through the injectable `ForgeHttp`, and its refusals as `ForgeRefused` in words.
+  `hasProjectFile`, `repository`, `branches`, `hostKeyFingerprints`, `signingKeys`), with `GitHub`
+  its only implementation, its answers through the injectable `ForgeHttp`, and its refusals as
+  `ForgeRefused` in words.
 - **`BitbucketDataCenter`** beside `GitHub` in `lib/src/app/forge.dart`, against REST 1.0: who the
   token is, repositories by project and by name, `project.yml` read through `/raw/`, branches, access
   keys added and removed, and its refusals in words as `GitHub` gives them.
-- **A forge with an address:** the forges view (`lib/src/ui/forges_view.dart`) asks for the
-  installation's address beside the token, and the forge is kept by it.
+- **A forge with an address:** `ForgeForm` (`lib/src/ui/forges_view.dart`) already asks for the
+  installation's address; `ForgeConnection.add` (`lib/src/app/forge_connection.dart`) already
+  accepts and keeps it, with token entry in a terminal. Use them for the Bitbucket installation.
 - **Chosen by address:** the default `ForgeFor` in `ForgeConnection`
   (`lib/src/app/forge_connection.dart`) builds `GitHub` for every address; it picks by the forge's
   host, Bitbucket's being the address the person gave.
-- **Upstreams:** `onGitHub` in `lib/src/app/machine_binding.dart` reads github.com only, and
-  `removeAtTheForge` leaves anything else; both ask the forge which upstreams are its.
+- **Upstreams:** `onGitHub` in `lib/src/app/machine_binding.dart` reads github.com only; upstream
+  recognition and forge-key removal ask the forge which upstreams are its.
 - **A step the forge forbids** (as a push through Bitbucket's read-only access keys) is refused
   through `ForgeRefused` where it is offered, never left to fail.
 - **Red first:** `test/app/forge_test.dart` with the forge's answers through `ForgeHttp`; then a

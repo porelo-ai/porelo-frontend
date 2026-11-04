@@ -13,6 +13,13 @@ An organisation decides which providers its machines use. Porelo's part is
 the policy file, its refusals and `doctor`; the contract carries none of it yet: not the policy, its
 refusals, or whether a prompt may be allowed.
 
+`lib/src/app/machine_binding.dart` handles pending configuration changes, not following, and
+`lib/src/client/porelo_client.dart` exposes no unverified-follow operation. The following refusal
+criterion has no interface entry point here.
+`lib/src/app/start_work.dart` reads providers without filtering them by an organization policy;
+`lib/src/ui/attention_view.dart` offers both prompt decisions without that policy restriction.
+These do not meet the policy-dependent provider and prompt promises below.
+
 ## Plan
 
 - **The contract first:** once `porelo` carries it, the policy is read in
@@ -21,12 +28,11 @@ refusals, or whether a prompt may be allowed.
 - **With the machine:** under `MachineTitle` in `lib/src/ui/machine_view.dart`; nothing where there
   is none.
 - **Starting work:** `StartWork` (`lib/src/app/start_work.dart`) offers only the `providers` the
-  policy allows; a start refused for its provider is shown through `RefusalView`
-  (`lib/src/ui/refusal.dart`), naming the policy.
+  policy allows; a start refused for its provider is shown through `_NotReady` in `StartWorkDialog`
+  (`lib/src/ui/start_work_view.dart`), naming the policy.
 - **The clearance prompt:** `TaskTile` in `lib/src/ui/attention_view.dart` offers allow and deny
   through `onDecide`; under a policy with no allow it offers deny only, and says why.
-- **Following and `online`:** `ProjectFollowing.follow` (`lib/src/app/project_following.dart`)
-  with `Checking.unverified`, and a project whose `securityClass` is `online`, refused in the
+- **Following and `online`:** an unverified follow, and a project whose `securityClass` is `online`, refused in the
   machine's words.
 - **Red first:** a scenario in `test/features/task_creation.feature` starting work under a policy
   that allows one provider.

@@ -4,11 +4,15 @@
 
 **What must be true.** On a page with several lists a person sees at once where one ends and the next begins, can sort each, and meets a filter only when they ask for it.
 
-The operator on the pages: sections are not visibly separated, as the list of people from the list of machines. The filter field is far too large; perhaps it appears only after a click on a magnifier. Sorting is missing.
-
 ## How it stands
 
-Read from the code, not run. Every list is a `FilteredListSection`. Its header is a title, or a folding button, followed by a text field `Sizes.listFilter` wide, always shown, and the section's buttons in a `Wrap`. Nothing draws a section's edge: rows follow rows with a gap of `Space.normal`. Rows stand in the order the list gave them, and nothing sorts.
+Read from the code, not run. `FilteredListSection` in `lib/src/ui/filtered_list_section.dart` draws a bordered
+card with a header band, title and count, separated rows, a magnifier and a sort menu. The filter appears
+when requested. Filter, sort direction and expansion are kept per list in `PageStorage`. Lists may supply
+sort keys; the default is *Name*. `lib/src/ui/organization_page.dart` supplies *Name* and *State*, plus
+*Machine* for projects.
+Sections without explicit `sorts` in `lib/src/ui/filtered_list_section.dart` offer only *Name*, so
+*State* sorting is not available on every list as decided below.
 
 ## Three proposals
 
@@ -33,9 +37,19 @@ Proposal A, the cards. Sort keys: name and state, plus the machine for a project
 
 ## A narrow layout
 
-The Coordinator drew a narrow layout the operator found good, at 820 and 390 pixels: the rail becomes a menu behind a button, targets of 44 pixels, the header on one line on a tablet, and on a phone the title first, search and sort below it and the buttons behind ⋮, a row's state below its text, and only the first card open. Whether the app ships on those widths is not decided here.
+The Coordinator drew a narrow layout the operator found good, at 820 and 390 pixels: the rail becomes a menu behind a button, targets of 44 pixels,
+the header on one line on a tablet, and on a phone the title first, search and sort below it and the buttons
+behind ⋮, a row's state below its text, and only the first card open. Whether the app ships on those widths
+is not decided here.
 
-The page gives part of this today, read from the code: `WindowSize` is the one width rule, with the same steps at 600 and 840 pixels the drawings fall into. Below 840 the rail already stands in a drawer behind the menu button, as the drawings ask. A row of `expandable_list_row.dart` and of the organization's page puts its buttons below its words when compact. It lacks targets of 44 pixels, the header's narrow forms, a row's state below its text, and only the first card open. All of those are in the new section and row, so the cards built on `WindowSize` take them for little more: M, not L, if 44 pixels is accepted for every width or only below 840.
+Read from the code, not run. `WindowSize` in `lib/src/ui/window_size.dart` selects the layout at 600 and
+840 pixels; `lib/src/ui/shell.dart` puts the rail in a drawer below 840. `FilteredListSection` uses
+`Sizes.touchTarget` (44 pixels) for header controls below 840. Below 600 it puts the title first, search
+and sort below it, and header commands behind ⋮. `openWhenCompact` controls which cards start open;
+`lib/src/ui/organization_page.dart` starts only its first card open and puts row state below the text.
+`FilteredListSection` still uses a `Wrap` for the tablet header, so it does not guarantee the promised
+single line. `ExpandableListRow` in `lib/src/ui/expandable_list_row.dart` keeps state beside the title,
+so that row does not meet the narrow layout's state placement.
 
 ## Words
 

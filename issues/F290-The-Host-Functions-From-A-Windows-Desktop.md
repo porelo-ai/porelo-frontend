@@ -7,6 +7,19 @@ repository; Core's and Matrix's parts are their own.
 **What must be true.** On Windows, a person joins a project on a host, and a host admin prepares, admits and adds,
 as on Linux: through the host's card, with the same `-F` file and the same fixed ports. Linux stays as it is.
 
+## How it stands
+
+`Machine.whyNotReachableOn` in `lib/src/app/machines.dart` refuses card connections on Windows with
+"Machine card connections require OpenSSH Unix socket and master support on this platform."
+`HostCardSsh._contents` in `packages/porelo_host/lib/src/host_card_ssh.dart` always writes `ControlMaster`,
+`ControlPath` and `ControlPersist`. These files do not meet the Windows promise above.
+`Identity.cardFile` in `lib/src/app/identity.dart` uses `XDG_CONFIG_HOME`, else the home folder's config folder.
+`PoreloOrganizationSource` in `lib/src/app/porelo_organization_source.dart` runs the organization commands;
+`SshHostProgress` in `lib/src/app/host_progress.dart` reads host state over SSH as root.
+`SshHostProgress._ask` already turns a `ProcessException` into a refusal, but `_ssh` starts `ssh` by name.
+`lib/src/app/host_access_adapters.dart` proves the local identity and has no registry send to root matching the
+plan's transport step. `test/app/host_access_adapters_test.dart` tests identity proof and has no Windows skip.
+
 ## The shape
 
 The card connection of today, adapted; no new design.
@@ -28,8 +41,9 @@ The card connection of today, adapted; no new design.
   forward targets `127.0.0.1:<port>`. The tunnel counts as up once a connection through a service forward arrives, as
   there is no local socket to wait for.
 - `Machine` (`lib/src/app/machines.dart`): a card machine on Windows gets the relay above, and `whyNotReachableOn`
-  stops refusing it ("Host card tunnels require OpenSSH Unix socket and master support on this platform").
-- `join_adapters.dart`: no change expected; its ssh calls already take `ControlMaster=no` and the card's `-F` file.
+  stops refusing it ("Machine card connections require OpenSSH Unix socket and master support on this platform.").
+- `organization_connections.dart` (`CardHostConnections`): no change expected; `SshHostProgress`'s ssh calls
+  already take `ControlMaster=no` and the card's `-F` file.
 - `host_access_adapters.dart`: the registry's send to root starts `ssh` by name, so on Windows another `ssh.exe` on
   `PATH` or in the current folder is taken, and a missing one throws past the refusal. It takes `openSsh('ssh')`,
   Windows' own OpenSSH, and turns a `ProcessException` into a refusal with words, as its git and verify calls do.

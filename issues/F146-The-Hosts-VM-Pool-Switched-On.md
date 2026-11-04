@@ -5,14 +5,23 @@
 **What must be true.** A person bringing a host up chooses whether it runs a pool of small test VMs,
 which systems and how many accounts, on `porelo_host`'s command line and in the host dialog.
 
+## How it stands
+
+`HostRun._inventoryVariables` in `packages/porelo_host/lib/src/host_run.dart` writes the v2 server
+inventory with `porelo_host_name`, `porelo_host_network` and
+`HostPreparationSettings.roleSettings` (`packages/porelo_host/lib/src/server_contract.dart`),
+without `porelo_host_account` or `porelo_host_tresor`.
+`packages/porelo_host/bin/porelo_host.dart` accepts neither `--tresor` nor the promised `--vm-pool`
+options; `HostDialog` in `lib/src/ui/host_dialog.dart` has no VM pool choices.
+
 ## The shape
 
-- **The first inventory carries one more key beside `porelo_host_account`**, as agreed with
+- **The first server inventory carries one more key**, as agreed with
   `porelo-host`: `porelo_host_vm_pool`, absent by default (no pool), else a
   JSON object `{"systems": ["ubuntu", "fedora"], "accounts": 4}`: `systems` a list of strings, each
   of `ubuntu` and `fedora` at most once; `accounts` an integer from `1` to `8` per system. Written
-  by `_inventory(HostPlan)` in `packages/porelo_host/lib/src/host_run.dart`, left out when unset, as
-  `porelo_host_tresor` is.
+  by `HostRun._inventoryVariables(HostPlan)` in `packages/porelo_host/lib/src/host_run.dart`, left out
+  when unset.
 - **Set by the person** with `--vm-pool ubuntu,fedora` and `--vm-pool-accounts N` on `porelo_host`,
   and by the same two in the host dialog; both fill `HostPlan`.
 - **Checked here before anything is written**: each system known and at most once, `accounts` `1` to

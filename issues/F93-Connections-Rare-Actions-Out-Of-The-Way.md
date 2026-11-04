@@ -9,15 +9,20 @@ view's ⋮ instead of in the everyday view.
 
 ## Why
 
-Binding a machine to a project at a forge makes those entries itself. "Add a connection" is needed
+`Connections` in `lib/src/app/connections.dart` reads the daemon's credential declarations;
+`MachineBinding` in `lib/src/app/machine_binding.dart` handles pending configuration changes and
+does not bind a machine or create those entries. "Add a connection" is needed
 only for a repository on no forge set up here (an own git server with a token), "Forget" only to stop
 a machine using a key for an address.
+
+`lib/src/ui/connections_view.dart` still offers both actions in the everyday view, so it does not
+meet the requirement to put them in the view's ⋮.
 
 ## Plan
 
 - **The view.** In `lib/src/ui/connections_view.dart`, `ConnectionsView.build` drops the
   `FilledButton.icon` keyed `add-connection` and gives `PaneHeader` a ⋮ beside the close button: a
-  `PopupMenuButton<String>` as `forgeMenu` in `lib/src/ui/forges_page.dart` builds it, with "Add a
+  `CommandMenu` as `forgeMenu` in `lib/src/ui/forges_page.dart` builds it, with "Add a
   connection" (disabled while `Connections.busy`) and one "Forget <address>" entry per connection.
 - **The row.** `_ConnectionRow` loses its trailing `TextButton.icon` keyed `forget <match>`; it keeps
   what it shows: the kind, the purpose, where the value is kept, and whether it is there.

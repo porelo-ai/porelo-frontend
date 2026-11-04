@@ -24,7 +24,7 @@ approved commit keeps a moved pull request or a moved central branch from being 
   `doc/Contract-Gaps.md` take them first.
 - **The client:** a `HostPullRequest` in `lib/src/client/models.dart`, read and brought on through `PoreloClient`
   (`lib/src/client/porelo_client.dart`) and `FleetBackend` (`lib/src/app/fleet_backend.dart`), with `MockMachine`
-  (`lib/src/mock/machine.dart`) and `FakeBackend` (`test/fakes/fake_backend.dart`) holding every state.
+  (`lib/src/mock/machine.dart`) and `FakeBackend` (`test/features/support/world.dart`) holding every state.
 - **Where:** a *Ready to bring on* row in *Needs you* (`Attention` in `lib/src/app/attention.dart`, `AttentionView` in
   `lib/src/ui/attention_view.dart`) once a pull request is approved on its current commit, and the same row in a *Pull
   requests* list on the project's page. The row shows the pull request, its state, the approval and its commit, the
@@ -40,6 +40,12 @@ approved commit keeps a moved pull request or a moved central branch from being 
   with its time.
 - **Red first:** a scenario in `test/features/work_handover.feature` where the pull request moves after its approval
   and *Bring it on…* cannot run.
+
+## How it stands
+
+`CentralPullRequest` in `lib/src/app/central_reviews.dart` describes central pull requests only.
+`lib/src/client/models.dart` has no `HostPullRequest`, and `lib/src/app/commands.dart` has no
+*Bring it on…* command. The host approval and bring-on promised here are not built.
 
 ## What it drops
 

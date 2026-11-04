@@ -7,16 +7,17 @@ holds on to it.
 
 **The operator:** also on the project's row.
 
-In a walk a project was gone from the owner's list while the host still carried it, and the check of the host failed twice.
-
 ## Why
 
-Read from the code, not run. The rows are `host.projects` from `porelo org`, the organization's word. The host's own answer only adds words to a
-row that stands there. So a project leaves the list when the take-off is written to the organization, and the host follows up to five minutes
-later, or not at all where unpushed commits hold it.
+Read from the code, not run. `OrganizationHostPage._projects` in `lib/src/ui/organization_host_pages.dart`
+joins `host.projects` with `_progress?.projects` for a connected Machine Admin. It keeps a project the
+machine still names, says `being taken off, which can take up to five minutes` and `held: <why>`, and hides
+`gone` rows. Without that connection or role it shows the organization's projects alone.
 
-The page has words for that, `held: <why>` and `taken off`, and they can never show: the project they speak of has no row by then. A host
-admin cannot see from the page that a project is held, which is the one thing they could act on.
+`OrganizationPage._projects` in `lib/src/ui/organization_page.dart` and `OrganizationProjectsPage` in
+`lib/src/ui/organization_project_pages.dart` read the organization's placement without `HostProgress`.
+They do not show a machine retaining a project after take-off, so the promised state on the project's row
+is not built.
 
 ## The shape
 

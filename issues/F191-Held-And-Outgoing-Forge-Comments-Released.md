@@ -24,7 +24,7 @@ an external forge by themselves.
   outbound holding setting. `doc/Backend-API.md` and `doc/Contract-Gaps.md` take them first.
 - **The client:** `HeldForgeComment` and `OutgoingForgeComment` in `lib/src/client/models.dart`, read and decided
   through `PoreloClient` (`lib/src/client/porelo_client.dart`) and `FleetBackend` (`lib/src/app/fleet_backend.dart`),
-  with `MockMachine` (`lib/src/mock/machine.dart`) and `FakeBackend` (`test/fakes/fake_backend.dart`).
+  with `MockMachine` (`lib/src/mock/machine.dart`) and `FakeBackend` (`test/features/support/world.dart`).
 - **Where:** two rows in *Needs you* (`Attention` in `lib/src/app/attention.dart`, `AttentionView` in
   `lib/src/ui/attention_view.dart`), one per comment, built like `HeldMessageRow` and `HeldMessageDialog`
   (`lib/src/ui/held_message_view.dart`): *Comment held from a stranger* with *Dismiss it* / *Release it*, and *Comment
@@ -39,6 +39,13 @@ an external forge by themselves.
   `U+2066`–`U+2069`) and control characters (`< 0x20` except `\t` and `\n`, plus `0x7F`–`0x9F`) badged.
 - **Red first:** a scenario in `test/features/needs_a_person.feature` with two held comments, releasing one, which must
   send exactly that one.
+
+## How it stands
+
+`HeldMessageRow` in `lib/src/ui/held_message_view.dart` handles task messages.
+`lib/src/client/models.dart` has neither `HeldForgeComment` nor `OutgoingForgeComment`, and
+`Attention` in `lib/src/app/attention.dart` has no rows for those comments. The promised forge
+comment queues and decisions are not built.
 
 ## What it drops
 

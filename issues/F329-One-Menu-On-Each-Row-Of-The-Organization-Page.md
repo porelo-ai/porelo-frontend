@@ -5,9 +5,10 @@
 **What must be true.** The rows of the organization page look alike and read in one line of actions, whichever roles a
 person holds and however wide the window is.
 
-In a walk the operator found the row actions scattered: they sit at different widths, wrap to two lines in some rows and
-not in others, and differ from row to row. The operator asks for a redesign, perhaps with only a ⋮ menu on each element.
-The cause is in the row: each action is a button of its label's width, in a `Wrap` sharing the row's width with the words.
+Read from the code, not run. `_Row` in `lib/src/ui/organization_page.dart` puts its actions in one
+`CommandMenu`. Its machine rows use `OrganizationMachineRow` in `lib/src/ui/organization_host_pages.dart`,
+with *Connect* visible while not connected and one menu for the other actions.
+`OrganizationPage._hosts` adds `takeOff` once to each machine's commands.
 
 ## The operator's decision
 

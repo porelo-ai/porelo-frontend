@@ -10,10 +10,12 @@ words as well.
 
 ## Why
 
-Pressing *Refresh* gives no visible feedback on list pages. `_refreshAll` (`lib/src/ui/shell.dart`) reads the
-registry, the joinable projects and each connected machine, yet on the *Projects* list there is no status bar, so
-Refresh shows nothing at all; only a project page has the bottom bar, which says "Refreshed: 0 tasks."
-(`lib/src/app/fleet_model.dart`), reading as if nothing was looked at.
+The rail names *Organization* (`Section.organization` in `lib/src/app/shell_model.dart`). `_refreshAll` and
+`_readAll` in `lib/src/ui/shell.dart` read identity standings, the organization, host access and connected machines.
+`FleetModel.refresh` in `lib/src/app/fleet_model.dart` reports only "Refreshed: <n> tasks."
+`StatusLine` is shown under *Work* and the machine/project area, not on the list pages or *Organization*.
+The rail's *Refresh* in `lib/src/ui/shell_rail.dart` has no busy indicator or result summary. These files do not
+provide the promised immediate feedback and account of what was read wherever Refresh is pressed.
 
 ## The shape
 
@@ -24,7 +26,8 @@ Refresh shows nothing at all; only a project page has the bottom bar, which says
 
 ## Plan
 
-- `lib/src/ui/shell.dart` (`_refreshAll`, the rail's Refresh), `lib/src/app/fleet_model.dart` (`_say`).
+- `lib/src/ui/shell.dart` (`_refreshAll`), `lib/src/ui/shell_rail.dart` (the rail's Refresh),
+  `lib/src/app/fleet_model.dart` (`_say`).
 - **Red first:** a widget test pressing Refresh sees the spinner while a fake machine holds its answer, and then the
   summary naming the machine.
 

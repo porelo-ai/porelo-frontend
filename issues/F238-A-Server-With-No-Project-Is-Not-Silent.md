@@ -7,7 +7,15 @@
 
 ## Why
 
-After setup of a server with no project, *Needs you* shows "<server> · <server> — Not answering: This machine cannot be reached, and anything it is asking waits unseen. Cannot reach <server>: This server is prepared without a project account or daemon. Register a project from its menu." Nothing there waits on the person: no daemon is the expected state of such a host. The rows come from `lib/src/app/attention.dart` (the loop over `silent`), which counts every machine its fleet cannot reach. The words come from `Machine.whyNotReachableOn` in `lib/src/app/machines.dart` (`kind == 'host'` with no socket).
+`Machine.whyNotReachableOn` in `lib/src/app/machines.dart` already says "This server is prepared without a
+project account or daemon." `Attention.silent` in `lib/src/app/attention.dart` still includes such a host;
+`notConnectedYet` describes a host that has never answered as "You have not connected to this machine yet".
+`MachinesPage._row` in `lib/src/ui/machines_page.dart` uses "not connected yet" until a fleet has answered,
+rather than the promised "No project yet". No daemon is the expected state of a projectless server.
+
+Projects are placed through *Put it on a machine…* on the project row in `OrganizationPage`
+(`lib/src/ui/organization_page.dart`). `MachinesPage._row` in `lib/src/ui/machines_page.dart` has no
+*Register a project* action of its own; the host commands in `lib/src/app/commands.dart` do not provide one.
 
 ## Plan
 

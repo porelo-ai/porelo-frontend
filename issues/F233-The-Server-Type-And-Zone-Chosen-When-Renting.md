@@ -7,7 +7,11 @@
 
 ## Why
 
-When a rental is refused with "Rent the server — EM-I220E-NVME is out of stock in fr-par-1", nothing in the wizard can choose another offer or zone. `hostArguments` passes only `--scaleway-project` (`lib/src/app/settings.dart`), so `porelo-host` always rents its default offer in its default zone.
+`HostDialog` in `lib/src/ui/host_dialog.dart` is a single dialog for an existing server, with no rental step,
+server type, zone or stock choice. `runHostCommand` in `packages/porelo_host/bin/porelo_host.dart` accepts
+`--zone` and `--offer`, but refuses `up` without `--given` and `--host-name`. `HostUpRecord` in
+`lib/src/app/settings.dart` keeps neither zone nor offer; its `arguments` and `giveBackArguments` do not
+pass them. The rental choices and recorded zone promised here are not built.
 
 The zone matters after renting: `porelo-host` lists, reads and gives back servers under `/baremetal/v1/zones/<zone>/servers` (`packages/porelo_host/lib/src/scaleway.dart`). Down asked in another zone finds no server and reports the give-back as done ("no host carries the project tag"), while the server keeps running and costing. The offer is read only when renting.
 

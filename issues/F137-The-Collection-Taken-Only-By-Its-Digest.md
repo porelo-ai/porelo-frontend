@@ -7,6 +7,13 @@
 SHA-256 it was built to expect. A tarball that differs by one byte is refused before anything is
 copied, and again on the host before `ansible-galaxy collection install`, saying both digests.
 
+## How it stands
+
+Read from the code, not run. The promise is not kept on the host. `HostRun.up` in
+`packages/porelo_host/lib/src/host_run.dart` compares the collection's SHA-256 before the copy, then copies it and
+runs `ansible-galaxy collection install` with no check of it on the host; the one `sha256sum -c` there checks the
+machine file. A tarball swapped on the host after the copy is installed.
+
 ## Why
 
 Ubuntu 26.04's `ansible-core` 2.20.1 carries CVE-2026-89091: `ansible-galaxy collection install`

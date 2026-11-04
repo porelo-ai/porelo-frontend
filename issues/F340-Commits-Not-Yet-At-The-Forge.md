@@ -7,14 +7,20 @@ with the action beside it, and who may do it.
 
 **The operator:** *Push the approved main…* stands visible beside the row while commits wait, a second exception to [F329](README.md#f329).
 
-In a walk the operator asked: "It is unclear that I have to push at all, by the ⋮ menu. Where do I see that there is something to
-push?" Today nothing says so. *Push the approved main…* stands in the row's ⋮ whether there is anything to push or not.
+Read from the code, not run. `OrganizationProjectsPage` in `lib/src/ui/organization_project_pages.dart`
+shows the central forge state and its age on the project's row. While approved commits wait and no repository
+has moved on, it shows *Push the approved main…* beside the row for an unlocked member.
+`OrganizationProjectPage` in the same file does not read or display `CentralState`, so the promised
+state and action on the project's page, including a line per repository, are not built.
 
 ## The state
 
-Core's answer: the host can work this out with no central token, using the read-only key it already holds for each repository; its
-following can keep the result. Only root can read that today, so it takes a person-facing line from the host's command as well as
-this interface. Four answers, not a bare number:
+The host can work this out with no central token, using the read-only key it already holds for each
+repository; its following can keep the result. Host-side key use and following are not checked here.
+`CentralState` and `SshHostProgress.central` in `lib/src/app/host_progress.dart` read the answer of
+`/usr/local/sbin/porelo-host-push --central <project>` over ssh as root and sum the ahead commits across
+repositories. The answer includes `read_at`; a failed or unreadable answer cannot say. Four answers,
+not a bare number:
 
 | The host says | The row says | Action |
 |---|---|---|
@@ -32,9 +38,13 @@ Read from the code, not run. A person with a working role in the project, not lo
 under their own card; with a secrets file chosen, from which the central token comes. Where one of these is missing the action stays
 visible and greyed with its reason, as the menu does today. Pushing is no admin's privilege, so the row offers it to every member.
 
-## Blocked by
+`OrganizationProjectsPage` in `lib/src/ui/organization_project_pages.dart` hides the push button and menu
+for a locked member, rather than keeping the action visible and greyed as promised.
 
-- The person-facing line of the host's command, which is not filed yet.
+## The command
+
+`SshHostProgress.central` in `lib/src/app/host_progress.dart` calls the person-facing command. Its behavior
+on a real host is not checked here.
 
 ## To be checked
 

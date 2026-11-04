@@ -7,11 +7,16 @@
 
 ## Why
 
-The labels *Lock* and *Purge* on the server menu and their dialogs do not explain what each action does or how they differ.
+`lib/src/ui/organization_host_pages.dart` has no server *Lock* or *Purge* menu. A project member's menu in
+`lib/src/ui/organization_project_pages.dart` says *Lock* or *Unlock*. `_MemberRowState._lock` writes the change
+immediately, with no dialog explaining a lock. The explanation beside *Remove…* concerns removal, not locking.
+The lock explanation promised above is not provided by this file; the server account deletion dialog has no
+matching control here.
 
 ## Plan
 
-- Labels and dialog texts in `lib/src/ui/host_admin_dialog.dart`; walk and test keys unchanged.
+- Labels and dialog texts in `lib/src/ui/organization_project_pages.dart` and
+  `lib/src/ui/organization_host_pages.dart`; walk and test keys unchanged.
 - **Red first:** widget tests for the two labels and the sentences.
 
 ## Test

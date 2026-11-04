@@ -11,9 +11,13 @@ socket is used or ended, never a second one raised beside it.
 ## Why
 
 Closing the window takes every forward down: `_letGo` (`lib/src/ui/shell.dart`) answers the exit request with
-`Machines.letGoOfTheTunnels` and `letGoOfTheForwards`. An interface ended without that request leaves its `ssh -N -L`
-children running. Measured on the laptop after walk 18: the forward to `f148walk` raised at 12:41 local still ran after
-`q`, and the restarted interface raised a second one for the same machine beside it.
+`Machines.letGoOfTheTunnels` and `letGoOfTheForwards`.
+`Tunnel._endOrphanedMaster` in `lib/src/app/tunnel.dart` ends an orphaned card control master at startup
+when its configuration is absent or names the same login, leaving another login's master alone.
+For non-card tunnels, `Tunnel.raise` in that file refuses a socket that already answers and leaves it
+alone; it does not find and end the orphaned process. Neither it nor `_letGo` provides parent-watch or
+PID cleanup after `SIGKILL`. `lib/src/app/login_forward.dart` also holds its ssh processes only in
+memory and supplies no parent-watch or startup PID cleanup, so the promised cleanup is incomplete.
 
 ## Plan
 

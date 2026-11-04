@@ -11,8 +11,11 @@ once per machine in the same way.
 
 ## Why
 
-After *Register the project*, *Projects* lists the project twice and "Without a project" twice, one row for this
-machine ("on this machine") and one for the host. The rows differ only in "on <machine>" in their subtitles.
+`OrganizationProjectsPage` in `lib/src/ui/organization_project_pages.dart` lists each organization project once
+with its host. *All projects on your machines* opens `ProjectsPage` in `lib/src/ui/projects_page.dart`, which builds
+one row per machine and project, including *Without a project* per machine. That file does not meet the promised
+grouping of a project held on several machines. `projectsInRail` in `lib/src/ui/shell_rail.dart` counts organization
+projects when an organization is read, otherwise machine-project rows.
 
 ## The shape
 
@@ -23,7 +26,8 @@ machine ("on this machine") and one for the host. The rows differ only in "on <m
 
 ## Plan
 
-- `lib/src/ui/projects_page.dart` (`scopedProjectRows` callers), `lib/src/ui/shell.dart` (the count).
+- `lib/src/ui/projects_page.dart` (`projectListRow` callers), `lib/src/ui/shell.dart` and
+  `lib/src/ui/shell_rail.dart` (`projectsInRail`, the count).
 - **Red first:** a widget test with one project on two machines shows its name once, with both machines under it.
 
 ## Acceptance

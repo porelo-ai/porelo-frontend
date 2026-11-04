@@ -10,9 +10,10 @@ person sees at once which thing a menu belongs to.
 
 ## Why
 
-The ⋮ buttons sit at the far right edge, detached from the row or section they belong to: the page ⋮ far from its
-title, and a row's ⋮ far from its text on a wide window, so a person looking for a project action such as *Add a
-developer* does not connect the page's ⋮ with the project.
+`ProjectDetailsPage` in `lib/src/ui/project_details_page.dart` puts the page's ⋮ after an `Expanded` title, at the
+far right on a wide window. `ItemListRow` in `lib/src/ui/expandable_list_row.dart` uses a full-width `ListTile` with
+`trailing: menu`, without a bounded width. These files do not keep the menus visibly beside their titles on a wide
+window, as promised above.
 
 ## The shape
 
@@ -24,7 +25,7 @@ developer* does not connect the page's ⋮ with the project.
 ## Plan
 
 - `lib/src/ui/expandable_list_row.dart` (`ItemListRow`), `lib/src/ui/command_menu.dart`, the page headers in
-  `lib/src/ui/shell.dart`.
+  `lib/src/ui/project_details_page.dart`.
 - **Red first:** a widget test on a 1600-pixel-wide window: the page ⋮ lies within a short distance of the title's
   end, and each row's ⋮ within the row's bounded width.
 

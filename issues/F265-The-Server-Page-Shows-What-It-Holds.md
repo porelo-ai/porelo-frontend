@@ -7,16 +7,26 @@
 
 ## Why
 
-- A server prepared without a project shows *not answering* on *Machines* even while up; the label means no daemon connection, which the host admin never has to a host.
+`OrganizationHostPage` in `lib/src/ui/organization_host_pages.dart` shows connection state, projects and Machine
+Admins. A connected Machine Admin reads host progress through `SshHostProgress` in `lib/src/app/host_progress.dart`,
+using `/usr/local/sbin/porelo-host-person org status` over SSH as root. Project rows combine the organization's list
+with that answer. Locked people appear only when connected, as text naming their account deletion day, with no
+actions. The Machine Admin rows show card standing and offer removal of that role.
+
+`lib/src/ui/organization_host_pages.dart` does not provide the promised list of all persons with active or locked
+state and account actions. The project page in [F266](README.md#f266) covers the related project view.
+
 - A machine should show what it holds and offer actions from those rows.
-- The person list should show each person's state, so a locked person can be admitted again or deleted for good, making lock and delete visible.
+- The person list should show each person's state, so a locked person can be admitted again or deleted for good,
+  making lock and delete visible.
 
 The live state from the host comes as a Project screen design ([F266](README.md#f266)), this server page design, then a read-only query contract with Agent Machines. This is the second of the two designs.
 
 ## Plan
 
 - A design page with the server's state, its projects and persons with states and row actions, written before code.
-- The state read from what the host admin has today (`porelo-host find` and `state`, ssh as root); the lists from this computer's record ([F239](README.md#f239)) until the query contract gives them from the host.
+- The state read from `SshHostProgress` (`lib/src/app/host_progress.dart`, SSH as root); the lists from this
+  computer's record ([F239](README.md#f239)) until the query contract gives them from the host.
 - **Red first:** the built screen's widget test that a ready server reached by root ssh shows its state, not *not answering*.
 
 ## Test

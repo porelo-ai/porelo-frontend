@@ -24,7 +24,7 @@ IntelliJ; here a list of commits says enough.
   first.
 - **The client:** `Task` in `lib/src/client/models.dart` gains `lastMessage`; `PoreloClient`
   (`lib/src/client/porelo_client.dart`), `FleetBackend` (`lib/src/app/fleet_backend.dart`), `MockMachine`
-  (`lib/src/mock/machine.dart`) and `FakeBackend` (`test/fakes/fake_backend.dart`) take `TaskCommits`.
+  (`lib/src/mock/machine.dart`) and `FakeBackend` (`test/features/support/world.dart`) take `TaskCommits`.
 - **Where:** a section at the top of a piece of work, today `TaskTile` in `lib/src/ui/attention_view.dart` (its own page
   under *Work* once tiles become rows). Messages from `Mailboxes` (`lib/src/app/mailboxes.dart`), what waits from
   `Gate.waiting` (`lib/src/app/gate.dart`) with a *Review* button to the push's page, and the firewall's stops from the
@@ -39,6 +39,13 @@ IntelliJ; here a list of commits says enough.
   `\t` and `\n`, plus `0x7F`–`0x9F`) badged, never raw HTML or executable links.
 - **Red first:** a scenario in `test/features/work_tiles.feature` with nothing stopped, which must show no firewall
   part; then one per kind of fact, the class, a check not complete, and bidi escaping.
+
+## How it stands
+
+`Task` in `lib/src/client/models.dart` has no `lastMessage`, and
+`lib/src/client/porelo_client.dart` has no `TaskCommits` call. The promised summary is not built in
+`lib/src/ui/attention_view.dart`; `TileConsole` in `lib/src/ui/tile_console.dart` tails `task.log`
+with `formatted: true`.
 
 ## What it drops
 
@@ -59,4 +66,4 @@ IntelliJ; here a list of commits says enough.
 ## To be checked
 
 - Whether `Tasks1.List` / `Watch` already serves `lastMessage` (`Task` has `lastWrote` and `agentEnded`, and
-  `TileConsole` tails `agent.log` with `formatted: true`), or whether the daemon has to add it.
+  `TileConsole` tails `task.log` with `formatted: true`), or whether the daemon has to add it.

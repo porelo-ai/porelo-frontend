@@ -7,12 +7,13 @@
 
 ## Why
 
-In *Put <project> on a server*, Step 5 of 7 — *Your secrets file*, the secrets file field has no button that opens a file chooser and requires typing the path.
+The *Your KeePassXC database* fields in `lib/src/ui/identity_view.dart` are plain text fields in
+`FirstStartWizard`, `IdentityDialog` and `ReplaceLostKeyDialog`. They have no chooser or known path default,
+so they do not meet the promise above. `pickWithTheDesktop` in `lib/src/ui/pick_a_file.dart` provides a chooser.
 
-The fields differ today:
-- *Prepare a server…* has *Choose…* beside each path (`_pathField` in `lib/src/ui/host_dialog.dart`).
-- The bring has a separate button for its signing key, and the join one for its signing key.
-- The bring's *Secrets file path* and *Your SSH identity file*, the join's *Secrets file path* and the Developers dialog's two files have none.
+`HostDialog` in `lib/src/ui/host_dialog.dart` has no file path field or `_pathField` helper. The Bring, Join and
+Developers dialog files named in the plan have no file in this checkout; their field sets have no matching form.
+The plan's widget move and those field-specific requirements need a scope decision; they stay below unchanged.
 
 ## Plan
 

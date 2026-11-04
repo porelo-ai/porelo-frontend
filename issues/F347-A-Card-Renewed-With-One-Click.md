@@ -8,10 +8,24 @@
 
 Read from the code, not run.
 
-- **Renewing.** No command renews a card with the same key. `identity rotate` refuses the card's own key, and `identity create` makes only a first card. A person can only move to another key, by *Change my key…*.
-- **Before the end.** The card's section says *Valid from … until …*, and nothing else. No warning stands anywhere.
-- **After the end.** The window shows the same line, in the same color, while the card has stopped working: the person's key file on a host carries `expiry-time`, so ssh refuses that key from that moment, the window's ssh with it, and the documentation of `porelo-host` says the person also leaves the project's memberships. This is as Agent Machines read it, not run. Root's key has no expiry.
-- **After renewing.** A host gets the new end at its next follow, so up to five minutes later, also as read.
+- **Renewing.** `Identity.renew` in `lib/src/app/identity.dart` calls `porelo identity renew` with the
+  current key and the same operation ID on retry. `IdentityModel.renew` checks the returned key.
+  `IdentityRenewal` in `lib/src/ui/identity_view.dart` offers *Renew my card* with one click when the
+  agent holds the key, including after the card ends.
+- **Before the end.** `lib/src/app/identity.dart` reads Core's `days_left` and `renew_due`, checking
+  that renewal is due at seven days or fewer. `IdentityRenewal` shows the warning and action on the
+  card and on `OrganizationPage` in `lib/src/ui/organization_page.dart` when these fields are present.
+- **After the end.** `IdentityRenewal` shows *Your card ended on …* in the error color, explains that
+  ssh refuses the key and project memberships end, and still offers renewal. The person's key file on
+  a host carries `expiry-time`, so ssh refuses that key from that moment, the window's ssh with it.
+  Root's key has no expiry. Host-side expiry and membership behavior are not checked here.
+- **After renewing.** `IdentityRenewal` shows the new end and says each machine takes it at its next
+  follow, within five minutes. That follow has not been run here.
+
+`lib/src/app/tunnel.dart` explains an SSH key refusal as an account or key problem, without identifying
+an ended card. It does not meet the promised expiry-specific explanation below.
+`WorkPage` in `lib/src/ui/work_page.dart` has no card warning or renewal action, so the warning where
+the person works is not built there.
 
 ## What is needed
 
@@ -20,7 +34,9 @@ Read from the code, not run.
 
 ## To be checked
 
-- A refused ssh still reads as a machine not answering, not as the ended card: `lib/src/app/tunnel.dart` makes that word in two places, for a machine's card and for any other refusal. Left for a word from whoever tries it.
+- Check an SSH refusal for an ended card on a real machine. `lib/src/app/tunnel.dart` explains it as
+  an account or key refusal for a machine's card and for other SSH connections, without naming expiry.
 - `identity renew` against a real machine; only Core's contract is read, and fixtures stand for it.
 
-- How many days ahead the warning starts. Proposed: seven.
+- The warning starts at seven days when Core supplies `days_left` and `renew_due`; a real-machine
+  check of that answer is still needed.

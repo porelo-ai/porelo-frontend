@@ -7,21 +7,32 @@
 
 ## Why
 
-In *Register a project* and the other host and project wizards, fields whose values this computer already knows still require typing names into a text field instead of choosing from a dropdown. Each name typed by hand is a chance to type it wrong, and the signing key and the laptop line have to be copied and hand-assembled from what this computer has already shown.
+`OrganizationPage` (`lib/src/ui/organization_page.dart`), `OrganizationHostPage`
+(`lib/src/ui/organization_host_pages.dart`) and the project pages in `lib/src/ui/organization_project_pages.dart`
+offer people and machines from the organization in lists. `OrganizationPersonDialog` in
+`lib/src/ui/organization_dialogs.dart` offers people in a dropdown. These pages have no *Register a project*,
+*Admit*, *Bring*, *Join* or *Developers* wizard matching the field sets below.
+
+The repository address in `lib/src/ui/organization_page.dart` and the KeePassXC database paths in
+`lib/src/ui/identity_view.dart` still require free entry, without known-value choices. Where this computer knows
+those values, these fields do not meet the promise above.
 
 ## Plan
 
-Fields covered (`lib/src/ui/host_admin_dialog.dart` unless named):
+Fields covered (the wizard field sets below have no matching form in the current organization pages):
 
 - *Register a project*:
-  - *Project name*: the projects this computer follows (`ProjectFollowing`), the one selected in *Projects* preselected, plus "Another project…" for free entry.
+  - *Project name*: the projects this computer follows, the one selected in *Projects* preselected,
+    plus "Another project…" for free entry.
   - *Project admin account*: the project admins this computer admitted on that host, the last one preselected, plus "Another account…".
   - *Project signing public key*: the signers of the chosen followed project's verified `project.yml`, the one its follow is pinned to preselected. The pasted line stays only for "Another project…".
 - *Admit a project admin*: *Laptop public keys* takes the pasted *Copy my public keys for a host…* YAML block (`ssh_public_key`, `wireguard_public_key`), as the developers dialog does. The line is assembled from it with the laptop name and the next address in the host's network that this computer has not given out, shown and changeable. The one-line form stays accepted. The account name stays free; it is new.
 - *Lock* and *Purge a project admin*: the account from the admins this computer admitted on that host.
 - *Take a project off the server*: the project from those this computer registered on that host.
-- *Bring* (`project_bring_dialog.dart`), *Join* (`project_join_dialog.dart`) and *Developers* (`project_developers_dialog.dart`): *Project signing public key file* is offered from the followed project's pinned signing key, written to a file here, instead of a path typed by hand.
-- *Developers* (`project_developers_dialog.dart`): the signing key file, the project admin account and the SSH identity are remembered per project once a change was published, and filled the next time (today asked again each time).
+- *Bring*, *Join* and *Developers*: *Project signing public key file* is offered from the followed project's
+  pinned signing key, written to a file here, instead of a path typed by hand.
+- *Developers*: the signing key file, the project admin account and the SSH identity are remembered per project
+  once a change was published, and filled the next time.
 - The admitted admins, registered projects and given addresses are kept with this computer's record of the host when its *Admit* or *Register* is confirmed by the server, and dropped at *Purge* and *Take off*. The host stays the authority. Reading them from the host itself comes with the read-only query contract planned with Agent Machines; until then a value this computer did not record is typed.
 - **Red first:** widget tests that *Register a project* preselects the followed project, its pinned signer and the last admitted admin; and that *Admit* assembles the line from a pasted YAML block with the next free address.
 

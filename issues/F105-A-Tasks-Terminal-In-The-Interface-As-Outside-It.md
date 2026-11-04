@@ -34,6 +34,9 @@ passed through it, not tmux's history.
 - **Then make the interface send what a plain terminal sends**, and decide which scrollback a person
   uses: the interface's own or tmux's. They must not fight over the same keys.
 
+`lib/src/app/session.dart` handles OSC 52 writes through `_copied`, but does not check for a person's
+key or mouse action or ask for confirmation with a preview, so it does not meet the clipboard promise below.
+
 ## Plan
 
 - **Measure first.** On the VM, against one task, a plain terminal and the interface side by side,
@@ -47,13 +50,13 @@ passed through it, not tmux's history.
   beside `ModifiedKeys` in `lib/src/app/modified_keys.dart`, or a new file of its own, asked for by
   the far end where tmux asks for it.
 - **Focus events and OSC 52** are output the far end sends: read in `Session`'s `Terminal` set-up
-  (today `onPrivateOSC = _hyperlink` reads OSC 8 and `5379` only). OSC 52 writes this computer's
+  (`onPrivateOSC = _hyperlink` reads OSC 8, OSC 52 and `5379`). OSC 52 writes this computer's
   clipboard without a word only right after the person's own key or mouse action in that terminal,
   as tmux's copy mode does; any other write asks first, with a preview of what would be written.
   Focus reports go out when the `TerminalView`'s `focusNode` in
   `lib/src/ui/session_view.dart` gains and loses focus.
 - **Scrolling: tmux's alone.** For a task the interface gives up its own scrollback. The
-  `TerminalView`'s `shortcuts` (`copyAsShownShortcuts`, `lib/src/ui/terminal_copy.dart`) must not
+  `TerminalView`'s `shortcuts` (`terminalShortcuts`, `lib/src/ui/terminal_copy.dart`) must not
   take Shift+PageUp/PageDown, and the wheel goes to tmux everywhere, as `Session.wheel` does on
   Windows today. `Session.scrollback` and the `leaving-is-safe` line under the terminal follow the
   decision.

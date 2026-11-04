@@ -6,31 +6,30 @@
 machine, plus what they added. A server appears under *Machines* only after *Connect*, which is offered in *Organization* and on a project's row. It stands there once, with everything that
 can be done with it reached from that row. "Host" is a technical term and appears nowhere in the interface's words.
 
-In a walk one server stood twice on the page: under *Hosts* (`you administer it · connected`) and under *Machines*
-(`<host> · Connected`, with a ⋮ that holds *Give the server back*). The operator found this illogical and had already opened
-the wrong row's menu.
-
 ## The operator's decision
 
 To a person there is no difference between a host and a machine: there is one set of servers, called *Machines*, on which a person may run tasks where they have an
-account. Which of them are theirs to use is their own list, and it is not joined from the organization. This replaces the operator's earlier remark that no hosts
-belong under *Machines*, the options this issue listed, two rail entries among them, and a first reading of this decision in which everyone with a right saw a server
-under *Machines*.
+account. Which of them are theirs to use is their own list, and it is not joined from the organization.
 
-## Why there are two rows now
+## How the rows stand
 
-Read from the code, not run. The two sections read two lists, and nothing joins them. *Hosts* is what the organization says:
-`OrganizationHostsSection`, from `porelo org`, narrowed by `myHosts` to the servers a person administers or has a project on.
-*Machines* is what this computer watches: `Machines.all`, its own saved list. *Connect* adds a machine to that list, and *Give the
-server back* needs what this computer kept from setting it up, so one server gets a row in each. While a server is being prepared its
-row under *Machines* is a third kind, the preparation's, and it stands in *Hosts* as well.
+Read from the code, not run. `MachinesPage` in `lib/src/ui/machines_page.dart` has one *Machines* section,
+using the person's saved machines and `listedMachines` in `lib/src/app/machines.dart` to keep this computer
+listed. A preparation replaces the machine of the same name. `OrganizationPage._hosts` in
+`lib/src/ui/organization_page.dart` lists every organization machine under *Machines*, using
+`OrganizationMachineRow` and `view.myHosts` to offer *Connect* to a person with an account.
 
-| | Row under *Hosts* | Row under *Machines* |
-|---|---|---|
-| Says | administers it, the person's projects, connected or why not | where it is, connection, the last problem |
-| In the row | *Connect*, while not connected | ⋮ |
-| In its ⋮ | no ⋮ | *Open the machine*, the setup's protocol, *Give the server back*, *Run its setup again*, *Forget* |
-| Opens | the host's page: address and key, its projects, its admins, a backup key, *Give it the token…*, *Disconnect* | the machine's page, where its work, daemon and vault are |
+Both lists open `OrganizationHostPage` through `_machineOnePage` in `lib/src/ui/shell.dart` for a machine
+with a card. Work, daemon and vault details are included when its saved machine is opened.
+Each row has one menu; the organization's row also shows *Connect* while not connected.
+`MachinesPage._row` keeps *Connect* in its menu, so it does not meet the visible row action promised below.
+
+`_movedPast` in `lib/src/app/organization_connections.dart` notices a missing organization card, but
+`MachinesPage._row` in `lib/src/ui/machines_page.dart` does not read organization access or removal.
+`Machines.raiseAgainIfNeeded` in `lib/src/app/machines.dart` checks the disconnected mark without checking
+whether access has gone. The promised lost-access words and stop to retries are not built on that path.
+`_organizationHost` remains in `lib/src/ui/shell.dart`, and opening an unsaved organization machine moves
+to *Machines*. The *Start work* gaps are stated in [F336](README.md#f336).
 
 ## The shape
 
@@ -51,13 +50,16 @@ row under *Machines* is a third kind, the preparation's, and it stands in *Hosts
 | Under *Machines* | appears | stays, with *Connect* | gone | gone from the list of the person who did it |
 | In *Organization* | says connected | stands, with *Connect* | stands, with *Connect* | gone |
 
-The local machine stands always, and offers neither *Disconnect* nor *Forget*. Today it can be forgotten while another machine stands. Since *Forget* leaves the server in
-*Organization*, no forgetting needs remembering.
+The local machine stands always, and offers neither *Disconnect* nor *Forget*. `MachinesPage._row` in
+`lib/src/ui/machines_page.dart` omits its connection action and disables forgetting it; `_forget` in
+`lib/src/ui/shell.dart` also refuses it. Since *Forget* leaves the server in *Organization*, no forgetting
+needs remembering.
 
 ## A person with no right on a server
 
-**The right is an account,** and no separate right exists. By Agent Machines' reading, not run: a person has an account on a server by administering it or by belonging to a
-project it carries, and the server's task check takes a task of the default project from anyone admitted.
+**The right is an account,** and no separate right exists. Server behavior is not checked here: a person
+has an account on a server by administering it or by belonging to a project it carries, and the server's
+task check takes a task of the default project from anyone admitted.
 
 The rule stays and moves. `myHosts` no longer decides who has a row under *Machines*, as nobody has one before their own *Connect*. It decides who is offered *Connect* in
 *Organization*:
@@ -67,13 +69,15 @@ The rule stays and moves. `myHosts` no longer decides who has a row under *Machi
   change, does not keep retrying, and offers *Disconnect* and *Forget*. So a row under *Machines* still reads the organization for its words, though not for its existence.
 - **The server has left the organization,** taken down by someone else: the same row says so, and offers *Forget*. `_movedPast` in `organization_connections.dart` already sees that.
 
-**A task with no project is a task of the default project,** on a server as on any machine. By Agent Core's reading, not run:
+**A task with no project is a task of the default project,** on a server as on any machine.
+The Core command is not run here:
 `porelo task start --host <server> --project default` reaches the start, given an ssh login to the person's account there. A blank
 `--project` is refused, so the interface names the default project in that call.
 
 ## What else it changes
 
-Nothing of this is built, and nothing built stops for it.
+The lists, connection mark, shared page and role gates are built. Remaining gaps are named beside the code;
+the requirements below still apply.
 
 - **[F336](README.md#f336), first:** its path starts in *Organization*: step 1's row with *Connect* stands there, and only from step 2 on is there a row under *Machines*. The
   page's top block keeps its three states, and *Not connected* now also means disconnected, under *Machines*. It says that *Connect* brings it back and *Forget* takes it off
@@ -92,11 +96,12 @@ Nothing of this is built, and nothing built stops for it.
 - **[F331](README.md#f331), [F332](README.md#f332), [F333](README.md#f333), [F339](README.md#f339), [F340](README.md#f340):** the words only, *Prepare the host* among them.
 - **The pickers:** *New work* asks where it runs among the machines that answer, as `doc/decisions.md` says, so a connected server is there already and a disconnected one is not. The
   project picker that follows offers the default project on a server as well.
-- **The code of the rows:** `OrganizationHostsSection` and its `_HostRow` with *Connect* leave `MachinesPage` for `organization_page.dart`, whose *Open the host's page* is an admin's alone
-  today. No join by `machine.hostCard?.name == host.name` is built for the list.
-- **The words:** about 440 lines in `lib` hold "host" in a string, ids and ssh's own terms among them, so each is read rather than replaced.
-  Most are in `organization_host_pages.dart`, `tunnel.dart`, `organization_page.dart`, `machines.dart`, `commands.dart` and `host_dialog.dart`. Among
-  them: *host admin*, *Remove the host…*, *Open the host's page*, *Projects on this host*, *Saved hosts not watched*, *Complete setup on the host*.
+- **The code of the rows:** `OrganizationMachineRow` in `lib/src/ui/organization_host_pages.dart` is
+  used by `OrganizationPage._hosts` in `lib/src/ui/organization_page.dart`. `MachinesPage` in
+  `lib/src/ui/machines_page.dart` reads the person's own list without joining the organization's list.
+- **The words:** page and action labels in `organization_host_pages.dart`, `organization_page.dart`,
+  `machines_page.dart`, `host_dialog.dart` and `commands.dart` use *machine*, with *SSH host key* as decided.
+  Technical names remain. A complete audit of all interface words in `lib` is not checked here.
 - **Words from elsewhere:** a refused write shows the store's words as they come, and `org status`'s and `porelo-host`'s lines reach the screen
   too, and those say "host". Those lines belong to Core and Machines; until they change them, "host" still reaches the screen by that way.
 - **`doc/decisions.md`:** a section of its own for this decision. *Machines say where work runs* holds as it stands. *Daily work in front, setting up apart* keeps its rail. `doc/index.md`'s
@@ -135,11 +140,17 @@ Each level answers for the one below and may always create, change and delete th
 | Machine Admin | the machine's card, its carried projects, its token, taking Porelo off | |
 | Project Admin | developers, repositories and the project's address, `project.yml` | `projects/<project>/repository.yml` |
 
-A change or replacement of a Machine Admin by an Organization Admin takes effect on a running server at its next follow, with no confirmation by the former admin. Core and Machines file what that takes. Nothing of this is built, and what stands above of today's code is today's.
+A change or replacement of a Machine Admin by an Organization Admin takes effect on a running server at its
+next follow, with no confirmation by the former admin. Core and Machines file what that takes.
+The interface's role gates are built in `lib/src/app/organization_source.dart`; the server's follow is not
+checked here.
 
 **What the table asks of these pages,** read from the code, not run:
 
-- **`view.isOwner`** gates what is owners' in `organization_page.dart`: accepting and locking cards, adding projects and machines, removing a machine, and owners themselves. All but the last move to an Organization Admin, and an owner's page holds owners and Organization Admins. The role needs a field of its own in `OrganizationView`, from an answer Core has not defined.
+- **Role gates:** `lib/src/ui/organization_page.dart` uses `view.isOrganizationAdmin` for cards,
+  projects and machines, `view.mayRemove(host)` for removal, and `view.isOwner` for owners and
+  Organization Admins. `OrganizationView.organizationAdmins` in `lib/src/app/organization_source.dart`
+  reads `organization_admins` through `lib/src/app/porelo_organization_source.dart`.
 - **A new machine:** an Organization Admin enters it and names its Machine Admin, who may be themselves. That answers who enters one. *Prepare a machine…* in *Organization* then runs for that Machine Admin, as `access.unavailable` already asks.
 - **Removing a machine:** by the operator's word its Machine Admin may and an Organization Admin may. The owner no longer does. Taking Porelo off removes the entry, and *Remove the machine…* under *Organization* stands for the same right: `mayRemove` is the one rule for both, and the machine stays the guard for taking it down. Where the organization's answer says a person is neither, the window says so instead of offering.
 - **A return, or taking Porelo off, under *Organization*** starts for its Machine Admin or an Organization Admin. Under *Machines*, for its Machine Admin.
@@ -147,30 +158,44 @@ A change or replacement of a Machine Admin by an Organization Admin takes effect
 - **The project's page:** a Project Admin changes developers and repositories, and keeps *Change the address…*, as the page offers today.
 - **Words:** *Organization Admin*, *Machine Admin* and *Project Admin* in the interface. This replaces the *machine admin* decided above only in its capitals.
 
-**Built first, on the contract Core fixed:** `OrganizationView.organizationAdmins`, from `porelo org`'s `organization_admins`, is the one seam. While it is null, the rules from before hold. Once it exists, `isOrganizationAdmin`, `mayNameAdminsOf`, `mayRemove` and `mayChangeMember` gate these pages, and an owner lists people under *Organization Admins*.
+**The role contract:** `OrganizationView.organizationAdmins`, from `porelo org`'s `organization_admins`,
+is the one seam. While it is null, owners act as Organization Admins, Machine Admins name their peers,
+and Project Admins change member roles. Once it exists, `isOrganizationAdmin`, `mayNameAdminsOf`,
+`mayRemove` and `mayChangeMember` gate these pages, and an owner lists people under *Organization Admins*.
 
-**Built so far:** the list moved to *Organization* under *Machines*, with *Connect* for a person with an account and *Prepare a machine…* in its header. *Disconnect* keeps the entry with `disconnected: true`, and nothing raises it until *Connect*. The local machine cannot be forgotten, and the warning goes to a machine's admin or the person who set it up. A server has one page, from either list, with the details inside it once it stands under this person's *Machines*. That path has no test of its own yet.
+**Built:** *Organization* lists machines, with *Connect* for a person with an account and *Prepare a machine…*
+in its header. *Disconnect* keeps the entry with `disconnected: true`, and nothing raises it until *Connect*.
+The local machine cannot be forgotten, and the warning goes to a machine's admin or the person who set it up.
+A server has one page, from either list, with details inside it when its saved machine is opened.
+Test coverage of that path is not checked here.
 
 ## What the two operations ask of today's code
 
 Read from the code, not run.
 
-- **`disconnect` in `organization_connections.dart`** calls `machines.forget`, so today's *Disconnect* is a forget as well. It must keep the entry
-  and only end the connection.
-- **A saved mark.** A disconnected machine stays disconnected after a restart, so its entry in `frontend.json` says so. The entry holds no such thing
-  now, and `connected` in `organization_connections.dart` takes having a saved card to mean connected. `doc/design.md` makes that file a contract with
-  `porelo-intellij`, changed only after agreement in both, so the plugin must learn not to connect to such an entry.
-- **Nothing raises it again by itself.** At the start every saved machine is watched and connected, and a machine that stops answering is raised
-  again by `raiseAgainIfNeeded`. Both skip a disconnected machine, which is a decision, unlike a forward that dropped. Its row says *not connected*,
-  not *not answering*, and it is left out of what asks every machine: the notices, the refresh for all, and *New work*.
+- **`disconnect` in `lib/src/app/organization_connections.dart`** calls `machines.disconnect`.
+  It must keep the entry and only end the connection. `Machines._mark` in `lib/src/app/machines.dart` does so.
+- **A saved mark.** A disconnected machine stays disconnected after a restart, so its entry in
+  `frontend.json` says so. `Machine.stored` in `lib/src/app/machines.dart` writes `disconnected: true`,
+  and `connected` in `lib/src/app/organization_connections.dart` checks the mark. `doc/design.md` makes
+  that file a contract with `porelo-intellij`, changed only after agreement in both, so the plugin must
+  learn not to connect to such an entry. The plugin's behavior is not checked here.
+- **Nothing raises it again by itself.** `_openAndConnect` and `raiseAgainIfNeeded` in
+  `lib/src/app/machines.dart` skip a disconnected machine, which is a decision, unlike a forward that dropped.
+  Its row says *Not connected*, not *not answering*, and it is left out of what asks every machine:
+  the notices, the refresh for all, and *New work*. The notices path is not checked here.
 - **What *Connect* does on it.** A machine of the organization is written anew from its card, as today. Every other kind has only its saved entry
   to raise from.
 - **Every kind has to mean something.** `dropAndUnpublish` applies to a forward this interface raised. It is to be read per kind what *Disconnect* does on
   this computer, on WSL, and on a socket somebody else forwarded, which this interface can only stop watching.
-- **The local machine.** `canForget` asks only that another machine stands, so the local one can be forgotten today; it must not be. On Windows the local machine is a WSL
-  distribution, which is to be read for what *always* means when none is set up.
-- **Who gets the warning.** `_forget` in `shell.dart` warns where `machine.kind == 'host'`, in words of billing, with the way to give the server back.
-  The test becomes that the person is an admin of that server, one who rented it counting as one. It also says that the server stays in *Organization*.
+- **The local machine.** `MachinesPage._row` in `lib/src/ui/machines_page.dart` disables *Forget*
+  for this computer, and `_forget` in `lib/src/ui/shell.dart` refuses it; it must not be forgotten.
+  `Machine.local` in `lib/src/app/machines.dart` names the local socket; a WSL distribution is a
+  separate entry. What *always* means on Windows when no WSL distribution is set up is still to be checked.
+- **Who gets the warning.** `_warnsOnForgetting` in `lib/src/ui/shell.dart` checks for a host entry
+  and warns its admin, a person with a saved setup, or where the organization names no matching card.
+  The test becomes that the person is an admin of that server, one who rented it counting as one.
+  It also says that the server stays in *Organization*.
 - **[F336](README.md#f336):** its words for *Disconnect* come true only with this, so this comes first or with it.
 
 ## Taking a machine down: a machine that exists, and a rental
@@ -189,23 +214,32 @@ active rental with a later return. A return can be started in two places: always
 | What stays to do | nothing of Porelo's; the person ends any contract at their provider | nothing, once confirmed |
 | When a step of it fails | it stays, says what would be lost, and offers to go on anyway | the same, and it stays billed |
 
-*Take Porelo off* is what `down` on `--given` does by its own words, *nothing is rented or given back*. The label is wrong today the other way round: `commands.dart` says *Give the server
-back* where a host name is saved, which is the given server, and the dialog's words and buttons say give back on it too.
+*Take Porelo off* is what `down` on `--given` does by its own words, *nothing is rented or given back*.
+`lib/src/app/commands.dart` and `lib/src/ui/host_dialog.dart` choose *Take Porelo off this machine…*
+for a given machine and *Return this rental…* for a saved rental, with matching confirmation buttons.
 
 **Until 0.9 there is no second column to show.** `up` rents nothing, so every machine prepared now simply exists; only a saved rental from before can be returned.
 
-**The mark** is in the organization's settings and holds no secret. What it asks of Core and Machines, and what must move for another admin on another computer to start a return, they are asked. Today
-`_giveBack` and `machine.takeDown` need the record `settings.hostUp` keeps on the computer that set it up, or say *nothing was kept from putting it on a server*. So until that is settled a start from
-*Organization* can only say this on any other computer.
+**The mark** is in the organization's settings and holds no secret. What it asks of Core and Machines,
+and what must move for another admin on another computer to start a return, remains to be checked.
+`machine.takeDown` in `lib/src/app/commands.dart` needs the record `settings.hostUp` keeps, or says
+*nothing was kept from putting it on a server*. Under *Organization*, `_takeOffCommand` in
+`lib/src/ui/shell.dart` can instead use `HostAccess.takingOffRecord` from `lib/src/app/host_access.dart`
+for a given machine. Returning a rental from another computer is not checked here.
 
-Agent Machines' reading of the rental's plan, not built: the mark can stand on the machine's card as provider, zone and server id, none a secret, and never the state, which holds the machine's private key. Another admin lacks the state, its passphrase and a provider key. Machines proposes that they return it with their own provider key, found by the server id and the project tag, with no state moved. That leaves the renter's state stale, which the plan must learn to read. The operator decides.
+The rental proposal, not verified in the code here: the mark can stand on the machine's card as provider,
+zone and server id, none a secret, and never the state, which holds the machine's private key. Another admin
+lacks the state, its passphrase and a provider key. The proposal is that they return it with their own
+provider key, found by the server id and the project tag, with no state moved. That leaves the renter's
+state stale, which the plan must learn to read. The operator decides.
 
 ## What the third operation meets today
 
 Read from the code and from `doc/`, not run.
 
-**A card has to exist before `up`.** *Prepare a server…* reads `machineFile`, which refuses unless the organization names that host with this person
-among its admins, and pins the keys of `hosts[].admins`: that pin is whom a new server believes. `porelo-host up` refuses without that file. So the card comes
+**A card has to exist before `up`.** *Prepare a machine…* reads `machineFile`, which refuses unless the
+organization names that host with this person among its admins, and pins the keys of `hosts[].admins`:
+that pin is whom a new server believes. `porelo-host up` refuses without that file. So the card comes
 first, with no address, and `org host change` files the address, port and host key once `up` reports them. Whatever rents a server needs the
 same order, as the pin has to be written before the server exists.
 
@@ -217,22 +251,34 @@ server at the provider is the person's own step, which the list cannot see.
 
 | How it was set up | What enters the organization |
 |---|---|
-| *Prepare a server…* on a server that exists | its address and key on a card that must already be there; an owner's `org host add HOST --admin LOGIN` made that card |
+| *Prepare a machine…* on a server that exists | its address and key on a card that must already be there; an Organization Admin adds that card with `org host add HOST --admin LOGIN` |
 | `porelo-host up` in a terminal | nothing: `--machine-file` is read and no card is written, so its admin files it by hand on the page |
 | Added as a machine over ssh or WSL | nothing, as decided: it is private and stays in this computer's list |
 
-**What taking it down does to the card today:** nothing. `cardLeftBehind` in `host_access.dart` says *a host admin enters its new address, or an organization owner removes
-the host*, and `doc/design.md` says the same. `org host remove` is an owner's, and a host carrying on from its pin refuses it until its admin acts.
+**The card remains after taking Porelo off.** `HostRuns.confirmDown` in `lib/src/app/host_runs.dart`
+clears recovery; `_giveBack` in `lib/src/ui/host_dialog.dart` forgets the machine but does not remove its
+organization card. `cardLeftBehind` in `lib/src/app/host_access.dart` says a Machine Admin enters its
+new address or an organization owner removes the machine; `doc/design.md` says the same. This does
+not meet the promised card removal. `OrganizationView.mayRemove` in `lib/src/app/organization_source.dart`
+allows an Organization Admin, and a Machine Admin when `organization_admins` is present; the message
+does not describe that rule.
 
-**What outlasts a server,** by Agent Machines' reading: nothing on it keeps the pin alive, as `down` stops the follow's timer and removes `/etc/porelo-host/organization`.
+**The server-side teardown is not checked here:** nothing on it keeps the pin alive, as `down` stops the
+follow's timer and removes `/etc/porelo-host/organization`.
 What stays is its card in the organization and the public half of its read key on the central repository, which `down` does not remove and which opens nothing, its
 private half being gone.
 
 **What this asks:**
 
 - The give-back's last step removes the card, only once the provider has confirmed it or, on a given server, once `down` has finished. A kept server keeps its card. `cardLeftBehind` and that sentence in `doc/design.md` go.
-- *Prepare a machine…* enters the card itself where the person may, rather than refusing a name the organization does not hold. Today it can only refuse, and it needs the role still open. The first admin named by that step is the person adding it.
-- `org host remove` is an owner's in Core today, and the roles above move it. What that takes, and what the pin's refusal asks of a server that is gone, is Core's and Machines' to file.
+- *Prepare a machine…* enters the card itself where the person may, rather than refusing a name the
+  organization does not hold. `HostAccess.unavailable` in `lib/src/app/host_access.dart` refuses that
+  name and directs the person to an Organization Admin; `HostDialog._prepare` in
+  `lib/src/ui/host_dialog.dart` does not add its card, so the promised automatic entry is not built.
+  The first admin named by that step is the person adding it.
+- The roles above govern `org host remove`. The interface offers it through `view.mayRemove(host)`
+  in `lib/src/ui/organization_page.dart`; Core's enforcement and the pin's refusal on a server that is
+  gone are not checked here.
 
 ## Decided by the operator on the last two
 
@@ -242,14 +288,18 @@ private half being gone.
 **What exactly is missing there.** `porelo-host down` on a machine that simply exists asks only its name, its address and SSH host key and the person's key, as read from `packages/porelo_host`, not run on a second computer. The organization's card holds the first three and the person's card the last, so usually nothing is missing and the dialog goes by the card. What remains:
 
 - The card names no address or SSH host key: it was never set up, and the row leads to *Remove the machine…*.
-- The card names another ssh port than 22: taking Porelo off goes by the given address alone, and this was not read further.
-- The person's own card is not proven here.
+- The card names another ssh port than 22: `HostAccess.whatTakingOffLacks` in
+  `lib/src/app/host_access.dart` refuses taking Porelo off from another computer.
+- The person's own card must be proven: `HostAccess.whatTakingOffLacks` in
+  `lib/src/app/host_access.dart` refuses without an identity.
 - The machine does not take the person's key as root, which only the machine says.
 - A rental: its recovery data stand only on the computer that rented it, so another computer cannot return it. None exists until 0.9.
 
 ## To be checked
 
-- Whether someone can reach an organization's machine by adding it as a private one, past the official way. By Agent Machines' reading, not: without an account the login is refused, and with one it gives no more than *Connect*. Core's reading is outstanding. A removed member's
+- Whether someone can reach an organization's machine by adding it as a private one, past the official way.
+  Server behavior is not checked here: without an account the login is refused, and with one it gives no more
+  than *Connect*. A removed member's
   key still logs in until the next follow, at most five minutes while the follow succeeds, and a follow that cannot fetch makes that wait as long as it lasts.
 - Whether the interface should say so when an address added under *Machines* is an organization's machine. By reading, not built: `checkMachine` reads the key from `known_hosts` or `ssh-keyscan`, and a card holds `hostKey`, so it can compare them for an ssh entry where
   the organization is read and the card has a key. It cannot for WSL or a socket someone else forwarded, and a key nobody checks against a card proves nothing about rights, so it could only be a word, never a guard.

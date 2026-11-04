@@ -10,14 +10,17 @@ Linux: its projects, its work, its terminals and its gate, with the key Windows'
 ## Why
 
 On Linux a machine over ssh is reached through `ssh -L`, forwarding the daemon's socket to a local
-unix socket. `dart:io` opens no unix socket on Windows, so the Windows build shows such a machine as
-not reachable ("reached from the Linux build of the interface; this Windows build reaches WSL
-distributions only, so far", [F102](README.md#f102)).
+unix socket. On Windows `Machine.relayOn` in `lib/src/app/machines.dart` uses an ssh byte relay.
+Machine card connections are still refused on Windows by `Machine.whyNotReachableOn` in that file.
+
+The promise that every OpenSSH start uses `openSsh` is not met: `lib/src/app/host_progress.dart`
+starts plain `ssh`, and `packages/porelo_host/lib/src/remote.dart` starts plain `ssh`, while
+`packages/porelo_host/lib/src/host_run.dart` starts plain `ssh-keygen`.
 
 ## The shape
 
 - **The relay, as for WSL:** `ssh -o BatchMode=yes <host> porelo daemon connect`, started as a process
-  with its own byte streams, and Varlink spoken over them through `Backend.relay`. No local socket
+  with its own byte streams, and Varlink spoken over them through `Backend`'s `relay` argument. No local socket
   and no forward. `porelo daemon connect` finds the account's socket by itself, as it does under
   `wsl.exe`.
 - **The key** comes from Windows' "OpenSSH Authentication Agent" service, filled with `ssh-add`, as on
@@ -57,11 +60,10 @@ distributions only, so far", [F102](README.md#f102)).
   machine reached by a relay, and `machineKind` in `lib/src/ui/machine_switcher.dart` says it is
   reached over ssh instead of "forward raised here".
 - **WSL and ssh kept apart:** `onTheMachine` in `lib/src/app/connections.dart` and `Session.command`
-  in `lib/src/app/session.dart` read any relay as WSL today (`machine.relay != null` leads to
-  `Wsl.runIn`). They ask for the kind `wsl` instead, so a machine over ssh keeps `ssh -t`.
-- **What stopped it, in words:** `Backend.open` in `lib/src/client/porelo_client.dart` drains the
-  relay's standard error. It keeps its last lines instead, for the words of the
-  `VarlinkDisconnected`. `tryAMachine` in `lib/src/app/connection_trial.dart` skips
+  in `lib/src/app/session.dart` ask for the relay kind `wsl` before using `Wsl.runIn`, so a machine
+  over ssh keeps `ssh -t`.
+- **What stopped it, in words:** `Backend.open` in `lib/src/client/porelo_client.dart` keeps bounded
+  relay standard error for the words of `RelayDisconnected`. `tryAMachine` in `lib/src/app/connection_trial.dart` skips
   `tunnels.trial` for a relay, connects through it, and says no route, an unknown host key, no key
   that logs in, or no Porelo answering, from what ssh said.
 - **The trial exit-code rule:** the relay ends with a `VarlinkDisconnected` carrying bounded
@@ -70,9 +72,8 @@ distributions only, so far", [F102](README.md#f102)).
   An immediate exit keeps ssh's words even when writing its input fails.
 - **The wizard:** `_AskForAMachine` in `lib/src/ui/machine_switcher.dart` offers on Windows, beside
   the WSL distribution, a Porelo that already runs on a machine over ssh. Not the set-up as root.
-- **Red first:** in `test/app/wsl_test.dart`, "on Windows a WSL distribution is reached, and the
-  Linux ways are said not to be" expects the machine over ssh refused; it is turned to expect the
-  relay, holding `BatchMode=yes`. Then a test in `test/client/relay_test.dart` with a stand-in for
+- **Red first:** in `test/app/wsl_test.dart`, "on Windows ssh must not be refused or prompt for a
+  key" expects the relay, holding `BatchMode=yes`. Then a test in `test/client/relay_test.dart` with a stand-in for
   `ssh` that runs the joiner against the daemon's socket, and one where it refuses and nothing
   waits.
 

@@ -16,13 +16,13 @@ is there.
   endpoint (`/run/user/<uid>/porelo-tunnel-<host>.sock`) and local ports (forge web and git, Matrix) are named after
   the host only.
 - Two instances on one desktop — one for the project admin and one for a developer — share those paths on the same
-  host, so only one can hold a tunnel to it; the developer instance's Join is refused while the admin instance's is up.
-- When a master started before a restart of the interface is left running and Register's connect writes the
-  configuration again before raising, an orphan check requiring the control socket to exist while the configuration is
-  gone no longer holds, and Retry is refused with "an endpoint already exists and was left alone".
-- Quitting the interface (`q` in `flutter run`) can leave its card master running and holding the local ports until
-  ended by hand. Ending a same-login leftover on the next raise (commit c5aea871) does not release ports held by an
-  account that does not open the interface again.
+  host, so only one can hold a tunnel to it. `CardHostConnections.connect` in
+  `lib/src/app/organization_connections.dart` uses `Machine.endpointFor(card.name)` for *Connect*;
+  `lib/src/app/machines.dart` and `packages/porelo_host/lib/src/host_card_ssh.dart` omit the login from the local
+  endpoint, SSH config and control socket names. These files do not meet the per-login promise above.
+- `Tunnel._endOrphanedMaster` in `lib/src/app/tunnel.dart` ends a leftover master when its configuration is absent
+  or names the same login, including when the configuration is present. A master whose configuration names another
+  login is left alone. A leftover of an account that does not connect again can still hold the fixed local ports.
 - Ending or adopting a master this instance did not start is unsafe while paths are shared: it could end the other
   instance's live tunnel, or reach another person's daemon.
 
@@ -36,7 +36,7 @@ is there.
 ## Plan
 
 - `packages/porelo_host/lib/src/host_card_ssh.dart` (`configPath`, `controlSocket`, ports), `lib/src/app/tunnel.dart`
-  (`_endOrphanedMaster`), `lib/src/app/machines.dart` (`endpointFor`), `lib/src/app/join_adapters.dart`,
+  (`_endOrphanedMaster`), `lib/src/app/machines.dart` (`endpointFor`), `lib/src/app/organization_connections.dart`,
   `lib/src/app/homeserver_forwards.dart`, and the reading of machines kept with the old names.
 - **Red first:** two card machines of one host and two logins raise their tunnels side by side; a live master of the
   same login with its configuration present is ended on raise.

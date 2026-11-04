@@ -12,19 +12,22 @@ nothing of a forge is set up there.
 
 A host gets a local Forgejo of its own only where it is wanted; where a central
 forge is used, nothing is set up on the host. On by default is fine, as long as it can be switched off in the
-interface. Until this is built, the interface writes `porelo_host_forge: true` for every host
-([F202](README.md#f202)).
+interface. `HostUpRecord.forge` in `lib/src/app/settings.dart` defaults to true and passes
+`--forge true|false`; `runHostCommand` in `packages/porelo_host/bin/porelo_host.dart` accepts it, and
+`HostRun._inventoryVariables` in `packages/porelo_host/lib/src/host_run.dart` writes
+`porelo_host_forge`. `HostDialog` in `lib/src/ui/host_dialog.dart` does not offer the promised
+switch; its new records use the default. The dialog has no project step or review summary.
 
 ## Plan
 
 - **The record:** `HostUpRecord` (`lib/src/app/settings.dart`) keeps `forge`, true where absent, so a record kept
-  before reads as on; `arguments` passes `--no-forge` where it is off.
-- **The command:** `porelo-host up` takes `--no-forge`, which sets `HostPlan.forge` (`packages/porelo_host`) to
+  before reads as on; `arguments` passes `--forge false` where it is off.
+- **The command:** `porelo-host up` takes `--forge false`, which sets `HostPlan.forge` (`packages/porelo_host`) to
   false; the inventory writes the value already.
-- **The dialog:** a switch on *The project*, `host-forge`, on by default, restored from the kept record, and named in
-  the review's summary.
-- **Red first:** a widget test that switching it off makes the run's arguments carry `--no-forge`, and a package
-  test that `--no-forge` writes `porelo_host_forge: false`.
+- **The dialog:** a switch in `HostDialog` (`lib/src/ui/host_dialog.dart`), `host-forge`, on by default,
+  restored from the kept record, and named in the review's summary.
+- **Red first:** a widget test that switching it off makes the run's arguments carry `--forge false`, and a package
+  test that `--forge false` writes `porelo_host_forge: false`.
 
 ## Acceptance
 

@@ -13,6 +13,9 @@ themselves are read, written and answered in IntelliJ.
 Whether a push is ready to let through depends on what its checks found and whether they finished. The counts and
 completeness are enough for that decision; reading and answering each comment belongs where the code is read.
 
+`lib/src/ui/gate_view.dart` and `lib/src/ui/attention_view.dart` do not show the required finding and thread counts
+or per-check completeness; `lib/src/client/models.dart` has no `ReviewSummary` model.
+
 ## Plan
 
 - **Waits for the contract:** the daemon answers, per waiting push, the counts of open findings and open threads, and
@@ -21,7 +24,7 @@ completeness are enough for that decision; reading and answering each comment be
 - **The client:** a small `ReviewSummary` (the two counts, and per run its name, completeness as a plain string and its
   findings) in `lib/src/client/models.dart`, read by `PoreloClient` (`lib/src/client/porelo_client.dart`) and
   `FleetBackend` (`lib/src/app/fleet_backend.dart`); `MockMachine` (`lib/src/mock/machine.dart`) and `FakeBackend`
-  (`test/fakes/fake_backend.dart`) hold summaries in every state. A completeness this build does not know is kept as
+  (`test/features/support/world.dart`) hold summaries in every state. A completeness this build does not know is kept as
   the daemon said it.
 - **Red first:** a scenario in `test/features/work_handover.feature` with a run that is not complete and has zero
   results, which must not read clean.

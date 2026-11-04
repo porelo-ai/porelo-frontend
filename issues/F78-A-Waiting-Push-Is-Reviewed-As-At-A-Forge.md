@@ -19,14 +19,18 @@ highest risk first.
 
 Read in today's code: `Gate` (`lib/src/app/gate.dart`) holds the push's `diff`, `ranked` and `asked`; `ReviewView`
 (`lib/src/ui/gate_view.dart`) draws one list, a `_RankedFile` or `_File` per file opening to its `_Line`s, with
-`_OwnClone` above it and *Copy the diff*, *Drop the request* and *Forward it upstream…* in `_Decision`. `PendingPush`
-and `ReviewFile` (`lib/src/client/models.dart`) carry the rank (`DANGEROUS`, `ORDINARY`, `GENERATED`,
-`REFORMATTING`) but no source level and no `C0`–`C3` class.
+`_OwnClone` above it and *Copy the diff*, *Drop the request* and *Forward it upstream…* (or *Forward it to its origin…*
+in `default`) in `_Decision`. `PendingPush`
+(`lib/src/client/models.dart`) has no source level or highest risk class; `ReviewFile` in the same file carries the
+rank (`DANGEROUS`, `ORDINARY`, `GENERATED`, `REFORMATTING`) but no `C0`–`C3` class.
+
+`lib/src/ui/gate_view.dart` does not yet meet the issue's promise: it draws diffs and offers *Copy the diff*,
+without the source-level and risk-class header or the `C3` and incomplete-check confirmations.
 
 - **Waits for the contract:** the daemon answers the waiting push's source level and highest risk class on
   `PendingPush`, and each file's class on `ReviewFile` in the ranked list, in its own order. `doc/Backend-API.md`
   and `doc/Contract-Gaps.md` take them first; `MockMachine` (`lib/src/mock/machine.dart`) and `FakeBackend`
-  (`test/fakes/fake_backend.dart`) serve them. The let-through and turn-away calls are the gate's existing ones.
+  (`test/features/support/world.dart`) serve them. The let-through and turn-away calls are the gate's existing ones.
 - **Red first:** a scenario in `test/features/work_handover.feature` that opens a waiting push with one file of each
   class and finds the header's level and class and the list in the machine's order with a class per file.
 - **Header.** `ReviewView` shows above the list: project, repository, task, the waiting commit and its base, the

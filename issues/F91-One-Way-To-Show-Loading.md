@@ -11,11 +11,15 @@ reading and what, so a person never takes an empty view for a finished one.
 
 - A progress bar at the view's top with one sentence of what is being read ("Reading vm's
   connections…"), until the answer is there; then the answer, or why there is none.
-- The forge's page already shows it this way. The views still to go through: Connections, a machine's
+- The forge's page (`lib/src/ui/forges_page.dart`) shows a bare progress bar without the required
+  sentence. The views still to go through: Connections, a machine's
   page, the gate, backups, what a project may reach, Messages, Agents, the vault, the start form, a
   project's machines and keys at its forge, the Default dialog.
 - In a dialog the bar sits at the top of the dialog's content; that is the same way, and a dialog
   gets no header of its own.
+
+`ProjectForgeDialog` in `lib/src/ui/project_forge_view.dart` opens the workspace and reads the SSH
+agent's signing keys without a loading indicator; it does not survey machines or deploy keys.
 
 ## Plan
 
@@ -25,7 +29,8 @@ reading and what, so a person never takes an empty view for a finished one.
   uses it; that keeps the forge's scenarios as the first proof nothing changed.
 - **What "reading" is, per view.** Most models already carry `busy` (`Connections`, `Backups`,
   `Egress`, `AgentInventory`, `Vault`, `Gate`, `StartWork`, `MachineBinding`), but `busy` is also
-  true while an action runs. Each view shows `Reading` only before its first answer: a `loaded`
+  true while an action runs. `ProjectForgeDialog` keeps its opening read in `_keys`, not in
+  `MachineBinding.busy`. Each view shows `Reading` only before its first answer: a `loaded`
   flag or a null list, as `ForgeConnection.loaded` does today, added to a model where it is missing.
 - **The views, in order.** `ConnectionsView` (`connections_view.dart`), `BackupsView`
   (`backups_view.dart`, its own `busy && taken.isEmpty` branch), `EgressView` (`egress_view.dart`),
@@ -35,8 +40,8 @@ reading and what, so a person never takes an empty view for a finished one.
   (`start_work_view.dart`), `ProjectForgeDialog` (`project_forge_view.dart`), `DefaultDialog`
   (`default_view.dart`, its `_busy`), and the machine's page, `_ShellState._machineArea` in
   `lib/src/ui/shell.dart`. Each gets its sentence, naming the machine or project.
-- **Holding an answer back.** `FakeBackend` in `test/features/support/world.dart` holds only
-  credential checks today (`holdingChecks`). It gets a general hold: a step "the machine answers
+- **Holding an answer back.** `FakeBackend` in `test/features/support/world.dart` holds its initial
+  `open` (`answersLater`) and credential checks (`holdingChecks`). It gets a general hold: a step "the machine answers
   only when told", which parks every read in a `Completer`, and the existing "the machine
   answers" releases them. The hold for the root's setup (`holdRoot`) stays as it is.
 - **Red first.** In `test/features/connections.feature`: "while the machine is asked, the view says

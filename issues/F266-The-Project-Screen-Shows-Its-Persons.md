@@ -7,7 +7,14 @@
 
 ## Why
 
-A project screen does not show its persons, and actions on them require free-text dialogs instead of being chosen from those lists.
+`OrganizationProjectPage` in `lib/src/ui/organization_project_pages.dart` shows members, their roles, card standing
+and lock state. Member rows offer *Lock* or *Unlock*, *Remove…* and *Change the role…* to the permitted roles.
+It reads the project through `PoreloOrganizationSource.readProject` in `lib/src/app/porelo_organization_source.dart`.
+
+`lib/src/ui/organization_project_pages.dart` does not show the project's machine or offer taking it off that machine
+on its detail page, and it has no *pending sync* member state. *Take it off the machine…* is on the project's row
+under *Organization* in `lib/src/ui/organization_page.dart`. Those parts of the promise above are not met on the
+detail page. The related machine page is covered by [F265](README.md#f265).
 
 The Project screen design is the first of two designs ([F265](README.md#f265) is the second), followed by a read-only query contract with Agent Machines.
 

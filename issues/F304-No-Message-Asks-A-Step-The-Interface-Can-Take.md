@@ -12,10 +12,19 @@ decide or provide: a choice, a key in their agent, a confirmation, an operator's
 
 ## Why
 
-Several refusals instruct the person to run a refresh, read or retry that the interface can perform itself — for
-example, adding a developer refused with "Refresh the verified registry before changing this project. Read the verified
-project admission first." while a periodic registry read ran. Commits b8fa381e and 5090e9e5 fixed that case for a
-project's person changes; the same pattern remains elsewhere.
+`PoreloOrganizationSource._ask` in `lib/src/app/porelo_organization_source.dart` handles an unknown forge host key
+by offering `confirmForgeHost` and retrying once after confirmation. `trustOrganizationForge` in
+`lib/src/ui/organization_access_dialogs.dart` supplies that dialog, so this case asks no terminal command.
+
+Other messages still instruct a step: `lib/src/app/porelo_organization_source.dart` says "The project revision is
+unknown. Read it before signing a change." and `lib/src/ui/organization_project_pages.dart` says to read the project
+again before signing. Those messages do not meet the promise to run a needed read within the action.
+`lib/src/ui/host_dialog.dart` instructs root SSH bootstrap in a separate terminal, `lib/src/app/run_here.dart`
+suggests running a command in a terminal after a timeout, and `_NotReady` in `lib/src/ui/start_work_view.dart`
+displays the daemon's readiness instructions, with fix and retry actions where supplied. Whether each remaining
+terminal step needs the person's hand cannot be settled from these messages alone.
+The plan's quoted registry, access-checkout and pending-change instructions have no matching strings in `lib/src`;
+their cases remain below without changing the required behavior.
 
 ## The shape
 
@@ -26,7 +35,7 @@ project's person changes; the same pattern remains elsewhere.
 
 ## Plan
 
-- Today's instances, found with `grep -rhoE "'(Refresh|Read|Retry) [^']+\.'" lib/src`, among them:
+- Instruction cases to cover, searched with `git grep -hoE "'(Refresh|Read|Retry) [^']+\.'" -- lib/src`, among them:
   - "Refresh the registry before replacing a key.", "… before making a backup key.", "… before changing a host.",
     "Refresh the registry, then verify the signers again." (key recovery, backup key, host access);
   - "Refresh the selected project person before changing access.", "Refresh the verified access state before making a

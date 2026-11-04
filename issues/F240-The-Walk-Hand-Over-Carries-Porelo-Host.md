@@ -7,11 +7,19 @@
 
 ## Why
 
-On a walk VM, *Forges → Add a forge → Connect it* fails with "The way in could not be opened: there is no `/usr/lib/porelo-frontend/porelo-host` on this machine. A session lives in the container, so it is reachable only from the machine the daemon runs on." The VMs get only the porelo package and the debug bundle (`porelo-frontend-bundle.tar.gz`, `tool/walk23/hand-over.sh`), which holds no `porelo-host`. `laptop-b-start.sh` sets no `PORELO_HOST_STANDIN`, so `poreloHost()` (`lib/src/app/host_session.dart`) names the installed path, which only the frontend's own package provides. The second sentence comes from `lib/src/app/session.dart`, which adds it for every machine that needs no tunnel, including a command on this computer.
+`poreloHost()` in `lib/src/app/host_session.dart` uses `PORELO_HOST_STANDIN` in a debug build when it is set;
+on Linux its default is `/usr/lib/porelo-frontend/porelo-host`. `askForForgeToken` in
+`lib/src/ui/forges_view.dart` runs it on this computer. `Session._start` in `lib/src/app/session.dart` appends
+the container sentence when opening a terminal fails on a machine that needs no tunnel, including this computer.
+That does not meet the promise that a local failure says nothing about a container.
+
+`test/walks_test.dart` reads walks from the external folder named by `PORELO_WALKS`. This checkout has no
+`tool/walk23/hand-over.sh`; the external hand-over and `laptop-b-start.sh` are not checked here.
 
 ## Plan
 
-- `tool/walk23/hand-over.sh` (and the walk hand-over after it) builds `porelo-host` from the same commit as the bundle, with `-march=x86-64`. It adds the binary as its own file with its line in `SHA256SUMS`.
+- The walk hand-over in the folder named by `PORELO_WALKS` builds `porelo-host` from the same commit as the bundle,
+  with `-march=x86-64`. It adds the binary as its own file with its line in `SHA256SUMS`.
 - `laptop-b-start.sh` checks that file against `SHA256SUMS` with the rest, unpacks it next to the bundle, executable, and starts the interface with `PORELO_HOST_STANDIN` naming it.
 - `session.dart` adds the container sentence only for a daemon's session, not for a command started on this computer. Such a refusal reads "The way in could not be opened: there is no <path> on this machine."
 - **Red first:** a test that a local terminal whose program is missing shows no container sentence; a test of the hand-over script that `SHA256SUMS` lists `porelo-host` and the start script exports `PORELO_HOST_STANDIN`.
