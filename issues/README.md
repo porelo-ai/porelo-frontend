@@ -74,6 +74,8 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 |---|---|---|---|
 | <a id="f371"></a>[F371](F371-A-Task-Certified-From-The-Window.md) | M | — | Work started from the window on a host is certified by the desk's agent, never forwarded, and can be renewed from there. |
 | <a id="f368"></a>[F368](F368-A-Machines-Token-Given-In-The-Same-Flow.md) | M | — | *Put it on a machine…* ends in giving the machine its token, saying what for, from the token the window keeps if so decided. |
+| <a id="f353"></a>[F353](F353-The-Page-With-The-Work-Cards-Redesigned.md) | L | — | The redesign of *Work* and *Needs you*: a list and one tab per running agent, reviews under *Needs you*, one count; design accepted, built after the foo test, with [F306](README.md#f306) in it. |
+| <a id="f306"></a>[F306](F306-A-Work-Card-Whose-Terminal-Has-Ended.md) | S | — | A *Work* card whose terminal ended says so in words, without an empty black terminal bar. |
 | <a id="f366"></a>[F366](F366-Preparing-A-Machine-Says-What-It-Waits-For.md) | M | — | *Prepare a machine* says beside its button what it waits for, and a stopped login shows its words and exit code, naming root still closed. |
 | <a id="f367"></a>[F367](F367-A-Connect-That-Ends-Unconnected-Says-Why.md) | M | — | A *Connect* that ends unconnected says why beside the button, a machine waiting for its token leads to giving it, and row and page agree. |
 | <a id="f364"></a>[F364](F364-Repositories-Added-Before-A-Machine.md) | S | — | A repository added before the project has a machine is filed with its central address, so that order works; a row without one says so. |
@@ -118,9 +120,9 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f372"></a>[F372](F372-An-Unattended-Agents-Console-Reads-What-It-Did.md) | — | — | An unattended agent's console reads its text and what it did, in summaries, in place of one line per tool. |
 | <a id="f351"></a>[F351](F351-A-Host-Reached-From-Windows.md) | — | — | A host reached from Windows, measured first, probably by WSL's ssh. |
 | <a id="f352"></a>[F352](F352-A-Rental-State-Kept-Beyond-One-Computer.md) | — | — | OpenTofu's state in the organization's repository or at the provider. |
-| <a id="f353"></a>[F353](F353-The-Page-With-The-Work-Cards-Redesigned.md) | — | — | The redesign of *Work* and *Needs you*: a list and one tab per running agent, reviews under *Needs you*, one count; design accepted, built after the foo test, with [F306](README.md#f306) in it. |
 | <a id="f349"></a>[F349](F349-A-Way-Without-Administration-Rights.md) | — | — | A person creates the repository and enters each deploy key by hand, so their token needs no Administration. |
 | <a id="f328"></a>[F328](F328-Letters-Doubled-In-A-Slow-Window.md) | — | — | A key pressed once reaching a console once, however slowly the window answers. |
 | <a id="f324"></a>[F324](F324-Removing-A-Project-On-Windows.md) | — | — | A local project removed from the interface on Windows, where it runs in a WSL distribution. |
@@ -128,7 +130,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f318"></a>[F318](F318-An-Owner-Makes-An-Admin-A-Developer.md) | — | — | An Organization Admin turns a project's admin into a developer with an entry on the organization page. |
 | <a id="f317"></a>[F317](F317-A-Homeservers-Token-Reaches-The-Host.md) | — | — | A homeserver's registration token comes along with `porelo host unlock` through Core, and lies in the host's vault. |
 | <a id="f308"></a>[F308](F308-The-Needs-You-Header-Counts-What-It-Lists.md) | — | — | The *Needs you* header, the rail's badge and the rows agree on what needs the person. |
-| <a id="f306"></a>[F306](F306-A-Work-Card-Whose-Terminal-Has-Ended.md) | — | — | A *Work* card whose terminal ended says so in words, without an empty black terminal bar. |
 | <a id="f307"></a>[F307](F307-Push-And-Pull-Show-Their-Progress-In-The-Interface.md) | — | — | Push and pull on a card host show each repository's answer in the interface, the terminal only for the master password. |
 | <a id="f304"></a>[F304](F304-No-Message-Asks-A-Step-The-Interface-Can-Take.md) | M | — | No message tells the person to do a step the interface can take itself; actions read what they need and say so. |
 | <a id="f303"></a>[F303](F303-Menus-Beside-What-They-Act-On.md) | M | — | Each ⋮ menu placed with the row, section or title it acts on. |

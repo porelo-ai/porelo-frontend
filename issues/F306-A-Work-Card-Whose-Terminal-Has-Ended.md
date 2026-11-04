@@ -1,6 +1,7 @@
 # F306 — A Work Card Whose Terminal Has Ended
 
-**Status:** Idea. Waits for the foo test.
+**Status:** Backlog.
+**Size:** S - built with [F353](README.md#f353), which holds its shape.
 
 **What must be true.** A card under *Work* whose terminal session has ended says so in its own words and offers what
 can be done next; it does not show a full-width black terminal bar that holds only "Its terminal session has ended."
@@ -16,3 +17,11 @@ This branch has no fixed terminal height or enlarge button, but it still has the
 without checking the terminal's live state. `TaskTile` in `lib/src/ui/attention_view.dart` offers that command
 whenever it is available. Those files do not provide next actions based on the ended terminal's state.
 The page with the *Work* cards is redesigned as a whole: this issue goes into [F353](README.md#f353).
+
+## The shape
+
+A running task whose terminal has ended keeps its tab, with the sentence "Its terminal session has ended" and the next step: *Open a new terminal*, or *Read its log* where one cannot be opened. There is no black bar. The row says the same.
+
+## Acceptance
+
+- The ended terminal shows the sentence and the step, in both tab and row, and no full-width black bar. Seen to fail first.
