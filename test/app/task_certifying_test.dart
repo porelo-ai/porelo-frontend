@@ -7,6 +7,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/fleet_backend.dart';
+import 'package:porelo_frontend/src/app/run_here.dart';
 import 'package:porelo_frontend/src/app/task_certifying.dart';
 import 'package:porelo_frontend/src/mock/mock_daemon.dart';
 
@@ -116,6 +117,32 @@ void main() {
   });
 
   // Harm: a host's key_id reaches ssh-keygen and the certificate; control characters would forge lines.
+  // Harm: an older ssh-keygen refuses a time ending in Z, and every certified start fails; without
+  // the Z it reads local time, so a window asked for in UTC would be hours off unless it reads UTC too.
+  test('the window is written so every ssh-keygen reads it, and reads it as UTC', () async {
+    final end = DateTime.utc(2030, 1, 2, 3, 4, 5);
+    List<String>? arguments;
+    Map<String, String>? given;
+    final certificate = await certifyHere(
+      asking(before: end),
+      now: DateTime.utc(2030),
+      environment: <String, String>{...agent, 'TZ': 'America/New_York'},
+      run: (name, words, {inDirectory, environment = const {}, input}) async {
+        if (words.contains('-V')) {
+          arguments = words;
+          given = environment;
+        }
+        return runHere(name, words, inDirectory: inDirectory, environment: environment, input: input);
+      },
+    );
+    expect(arguments![arguments!.indexOf('-V') + 1], '20291231235900:20300102030405');
+    expect(given!['TZ'], 'UTC');
+    final path = '${home.path}/window-cert.pub';
+    await File(path).writeAsString('$certificate\n');
+    final read = await Process.run('ssh-keygen', ['-L', '-f', path], environment: {'TZ': 'UTC'});
+    expect('${read.stdout}', contains('Valid: from 2029-12-31T23:59:00 to 2030-01-02T03:04:05'));
+  });
+
   test('control characters in the identity do not reach the certificate', () async {
     final end = DateTime.now().toUtc().add(const Duration(days: 1));
     final certificate = await certified(

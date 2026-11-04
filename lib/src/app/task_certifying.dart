@@ -83,19 +83,24 @@ Future<String> certifyHere(
     final key = p.join(directory.path, 'task.pub');
     await File(person).writeAsString('$certifier\n');
     await File(key).writeAsString('${asked.key}\n');
-    final signed = await run(openSsh('ssh-keygen'), <String>[
-      '-q',
-      '-s',
-      person,
-      '-U',
-      '-I',
-      _printable(asked.keyId),
-      '-n',
-      asked.principal,
-      '-V',
-      '${_stamp(at.subtract(const Duration(seconds: 60)))}Z:${_stamp(asked.validBefore.toUtc())}Z',
-      key,
-    ], environment: environment);
+    final signed = await run(
+      openSsh('ssh-keygen'),
+      <String>[
+        '-q',
+        '-s',
+        person,
+        '-U',
+        '-I',
+        _printable(asked.keyId),
+        '-n',
+        asked.principal,
+        '-V',
+        // No Z, which an older ssh-keygen refuses; it reads local time, so local time is UTC here.
+        '${_stamp(at.subtract(const Duration(seconds: 60)))}:${_stamp(asked.validBefore.toUtc())}',
+        key,
+      ],
+      environment: <String, String>{...environment, 'TZ': 'UTC'},
+    );
     final written = File(p.join(directory.path, 'task-cert.pub'));
     if (signed.code != 0 || !await written.exists()) {
       final why = signed.err.trim();
