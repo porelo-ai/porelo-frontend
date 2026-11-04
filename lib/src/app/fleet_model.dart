@@ -131,6 +131,15 @@ class FleetModel extends ChangeNotifier {
   /// Returns a transport refusal before any daemon open, including refresh and retry.
   final Future<String?> Function()? prepareConnection;
 
+  bool _askedTry = false;
+
+  /// Whether the last try was asked for and nothing has answered that yet; asking takes the answer.
+  bool takeAskedTry() {
+    final asked = _askedTry;
+    _askedTry = false;
+    return asked;
+  }
+
   /// Whether a try nobody asked for may run [prepareConnection] now; the words why not, or null if it may.
   final String? Function()? mayPrepareOnItsOwn;
 
@@ -300,6 +309,7 @@ class FleetModel extends ChangeNotifier {
 
   /// Opens the backend, reads what is there and follows it.
   Future<void> connect({bool onItsOwn = false}) async {
+    if (!onItsOwn) _askedTry = true;
     _reachability = Reachability.connecting;
     _say('Connecting to ${backend.label}.');
     try {

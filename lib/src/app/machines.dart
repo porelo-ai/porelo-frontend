@@ -432,6 +432,7 @@ class Machines extends ChangeNotifier {
     bool Function()? poreloIsInstalledHere,
     this._now = DateTime.now,
     this._retryAfter = const Duration(seconds: 2),
+    this._relaysBySsh = _relaysBySshHere,
   }) : _reach = reach ?? _overSocket,
        _poreloHere = poreloIsInstalledHere ?? _porelodOnThePath,
        hostKeys = hostKeys ?? SshHostKeys(),
@@ -665,6 +666,7 @@ class Machines extends ChangeNotifier {
   Future<void> add(Machine machine) => _change(() => _add(machine));
 
   Future<void> _add(Machine machine) async {
+    _raiseHolds.remove(machine.name);
     final at = _machines.indexWhere((each) => each.name == machine.name);
     if (at >= 0) {
       final old = _machines[at];
@@ -721,6 +723,7 @@ class Machines extends ChangeNotifier {
   }
 
   Future<void> _forget(Machine machine) async {
+    _raiseHolds.remove(machine.name);
     if (_machines.length == 1) {
       if (machine.kind != 'host') return;
       await _add(Machine.local());
@@ -744,6 +747,9 @@ class Machines extends ChangeNotifier {
 
   final DateTime Function() _now;
   final Duration _retryAfter;
+  final bool Function(Machine) _relaysBySsh;
+
+  static bool _relaysBySshHere(Machine machine) => machine.relay?.kind == 'ssh';
 
   /// How long a machine waits after an ssh connection of its own came to nothing.
   ///
@@ -760,7 +766,8 @@ class Machines extends ChangeNotifier {
   String? _raiseHeld(Machine machine) {
     if (tunnels.of(machine)?.state == TunnelState.up) _raiseHolds.remove(machine.name);
     final hold = _raiseHolds[machine.name];
-    if (hold == null || !_now().isBefore(hold.until)) return null;
+    final raising = _raisingAgain.contains(machine.name);
+    if (!raising && (hold == null || !_now().isBefore(hold.until))) return null;
     final said = tunnels.of(machine)?.problem;
     return '${said ?? 'The machine did not answer.'} This computer tries again by itself, within five minutes, and Connect tries now.';
   }
@@ -768,9 +775,9 @@ class Machines extends ChangeNotifier {
   /// Notes how a raise of [machine] ended. Waiting for a key in the agent starts no connection.
   void _raiseEnded(Machine machine, {required bool up}) {
     final state = tunnels.of(machine)?.state;
-    if (up || state == TunnelState.up) {
+    if (up || state == TunnelState.up || state == TunnelState.waitingForKey) {
       _raiseHolds.remove(machine.name);
-    } else if (state != TunnelState.waitingForKey) {
+    } else {
       final last = _raiseHolds[machine.name]?.wait;
       final wait = last == null
           ? firstRaiseWait
@@ -785,7 +792,14 @@ class Machines extends ChangeNotifier {
     final fleet = FleetModel(
       _reach(machine),
       retryAfter: _retryAfter,
-      mayPrepareOnItsOwn: machine.hostCard == null ? null : () => _raiseHeld(machine),
+      mayPrepareOnItsOwn: () {
+        final relay = _relaysBySsh(machine);
+        if (machine.hostCard == null && !relay) return null;
+        final held = _raiseHeld(machine);
+        // A relay's connection is the opening itself, so its try is counted before it goes.
+        if (held == null && relay) _raiseEnded(machine, up: false);
+        return held;
+      },
       prepareConnection: machine.hostCard == null
           ? null
           : () async {
@@ -812,8 +826,11 @@ class Machines extends ChangeNotifier {
     // nobody should have to ask for it to come back.
     fleet.addListener(() {
       _notify();
+      if (fleet.reachability == Reachability.connected) _raiseHolds.remove(machine.name);
       if (fleet.reachability == Reachability.unreachable) {
-        unawaited(raiseAgainIfNeeded(machine));
+        // A card's asked try has raised already, in its connect; a forward's raise is this one.
+        final asked = fleet.takeAskedTry() && machine.hostCard == null;
+        unawaited(raiseAgainIfNeeded(machine, asked: asked));
       }
     });
     _watching[machine.name] = fleet;
@@ -829,8 +846,9 @@ class Machines extends ChangeNotifier {
     if (machine.kind == 'host' && machine.hostCard == null && machine.identity.isNotEmpty) {
       return;
     }
-    if (machine.hostCard == null) await tunnels.raiseFor(machine);
-    await fleet.connect();
+    if (machine.hostCard == null) _raiseEnded(machine, up: await tunnels.raiseFor(machine));
+    // That was this opening's raise; a card's is in the connect, which goes as asked.
+    await fleet.connect(onItsOwn: machine.hostCard == null);
     _notify();
     await _askWhichNode(machine, fleet);
   }

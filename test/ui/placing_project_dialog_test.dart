@@ -164,6 +164,18 @@ void main() {
     await close(tester);
   });
 
+  // Harm: each refused login counts against this address, and a dialog left open keeps the machine shut.
+  testWidgets('a machine that refuses is asked less and less often', (tester) async {
+    final connections = _RefusingProgress(['build']);
+    await open(tester, connections);
+    for (var tick = 0; tick < 11; tick++) {
+      await tester.pump(const Duration(seconds: 20));
+      await tester.pump();
+    }
+    expect(connections.asks, 4, reason: 'at ticks 1, 3, 6 and 11');
+    await close(tester);
+  });
+
   // Harm: a press whose giving throws leaves the button dead and the dialog following nothing.
   testWidgets('a giving that throws does not leave the button dead', (tester) async {
     final connections = FixtureConnections(['build'])..hostProgress = waiting;
@@ -176,4 +188,16 @@ void main() {
     expect(button.onPressed, isNotNull);
     await close(tester);
   });
+}
+
+class _RefusingProgress extends FixtureConnections {
+  _RefusingProgress(super.hosts);
+
+  int asks = 0;
+
+  @override
+  Future<HostProgress> progress(String host) async {
+    asks++;
+    throw const OrganizationRefused('Connection closed by 203.0.113.9 port 22');
+  }
 }

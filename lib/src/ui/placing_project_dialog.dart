@@ -54,6 +54,8 @@ class _PlacingProjectDialogState extends State<PlacingProjectDialog> {
   HostProgress? _progress;
   bool _giving = false;
   bool _asking = false;
+  int _quietAsks = 0;
+  int _nextQuiet = 1;
   late final DateTime _began = DateTime.now();
 
   @override
@@ -100,11 +102,19 @@ class _PlacingProjectDialogState extends State<PlacingProjectDialog> {
       });
       return;
     }
+    if (_quietAsks > 0) {
+      _quietAsks--;
+      return;
+    }
     _asking = true;
     try {
       await _take(widget.connections.progress(widget.host));
+      _nextQuiet = 1;
     } on OrganizationRefused catch (refused) {
-      // A machine that does not answer now is asked again; the patience above ends this.
+      // A machine that does not answer now is asked again, less and less often, as each refused login
+      // counts against this address; the patience above ends this.
+      _quietAsks = _nextQuiet;
+      _nextQuiet = _nextQuiet >= 8 ? 8 : _nextQuiet * 2;
       if (mounted) setState(() => _lastRefusal = refused.words);
     } finally {
       _asking = false;
