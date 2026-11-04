@@ -1,6 +1,7 @@
 # F362 — A Click Answers At Once
 
-**Status:** Idea. Nothing is built before the foo test.
+**Status:** Backlog.
+**Size:** S - a measurement on a real window first; the size of a fix follows from its cause.
 
 **What must be true.** Whatever a click starts, a person sees at once that it arrived: on a row that opens a page, the page with its "Reading…" line. In the foo test, clicking a row under *Projects*, for a moment nothing happens and then the page comes.
 

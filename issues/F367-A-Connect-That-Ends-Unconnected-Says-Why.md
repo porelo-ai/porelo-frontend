@@ -1,6 +1,7 @@
 # F367 — A Connect That Ends Unconnected Says Why
 
-**Status:** Idea. Nothing is built before the foo test.
+**Status:** Backlog.
+**Size:** M - one reading of the state for row and page, words beside *Connect*, a row in *Needs you*, and a kept attempt.
 
 **What must be true.** A person who presses *Connect* is told what came of it, and where to look. In the foo test, *Connect* on the organization's machine row greyed for a moment and returned to the same state, with no words, no log and nothing in *Needs you*. A machine waiting for its token leaves the person with the one button that cannot help.
 

@@ -1,6 +1,7 @@
 # F359 — An Empty List Starts Folded
 
-**Status:** Idea. Nothing is built before the foo test.
+**Status:** Backlog.
+**Size:** S - the empty state folds a list, in the one list section.
 
 **What must be true.** A list with nothing in it starts folded on a first visit, and folds when it is emptied, so the page shows what holds something; a fold the person chose is kept, and an action on the list's head stays usable while it is folded.
 

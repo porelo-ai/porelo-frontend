@@ -1,6 +1,7 @@
 # F365 — A Host Key Fetched Too Early
 
-**Status:** Idea. Nothing is built before the foo test.
+**Status:** Backlog.
+**Size:** M - a compare command and a second fetch in the dialog, words for a refused key, and the name as a choice.
 
 **What must be true.** In the dialog for a machine one already has, a person files the key the finished machine holds, knows how to compare it, and gets words that fit when the key is wrong. In the foo test, *Fetch SSH host key* took a key while the provider was still installing the server. Once the server read Ready, the machine itself named another. Only the person's comparison caught it.
 

@@ -1,6 +1,7 @@
 # F364 — Repositories Added Before A Machine
 
-**Status:** Idea. Nothing is built before the foo test.
+**Status:** Backlog.
+**Size:** S - the add dialog names `central` always, and a row with none says so.
 
 **What must be true.** A person's natural order is repositories first and a machine later, and that order works. In the foo test, `foo-1` and `foo-2` were added in the window before any machine carried the project.
 
