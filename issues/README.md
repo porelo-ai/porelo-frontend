@@ -18,6 +18,10 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f366"></a>[F366](F366-Preparing-A-Machine-Says-What-It-Waits-For.md) | — | — | *Prepare a machine* says beside its button what it waits for, and a stopped login shows its words and exit code, naming root still closed. |
+| <a id="f368"></a>[F368](F368-A-Machines-Token-Given-In-The-Same-Flow.md) | — | — | *Put it on a machine…* ends in giving the machine its token, saying what for, from the token the window keeps if so decided. |
+| <a id="f371"></a>[F371](F371-A-Task-Certified-From-The-Window.md) | — | — | Work started from the window on a host is certified by the desk's agent, never forwarded, and can be renewed from there. |
+| <a id="f370"></a>[F370](F370-Start-Work-In-A-Project-A-Machine-Carries.md) | — | — | A machine page's *Start work* leads into the project it carries, not into the Default project asking for an address. |
 | <a id="f204"></a>[F204](F204-The-Build-Runs-On-The-Local-Forge-As-On-The-Central-One.md) | — | — | The build green on the host's Forgejo and the central forge on the same commit, its machine asked for by kind and its registry a variable. |
 | <a id="f348"></a>[F348](F348-A-Start-With-No-Terminal.md) | M | Core's answer of a host's keys | One person starts an organization, a machine and a project with no terminal. |
 | <a id="f346"></a>[F346](F346-Do-You-Work-Alone.md) | S | Core's way to take the value | Creating a project asks "Do you work alone?"; yes writes `review: optional`, and it stays changeable. |
@@ -66,12 +70,8 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f366"></a>[F366](F366-Preparing-A-Machine-Says-What-It-Waits-For.md) | — | — | *Prepare a machine* says beside its button what it waits for, and a stopped login shows its words and exit code, naming root still closed. |
 | <a id="f367"></a>[F367](F367-A-Connect-That-Ends-Unconnected-Says-Why.md) | — | — | A *Connect* that ends unconnected says why beside the button, a machine waiting for its token leads to giving it, and row and page agree. |
 | <a id="f364"></a>[F364](F364-Repositories-Added-Before-A-Machine.md) | — | — | A repository added before the project has a machine is filed with its central address, so that order works; a row without one says so. |
-| <a id="f368"></a>[F368](F368-A-Machines-Token-Given-In-The-Same-Flow.md) | — | — | *Put it on a machine…* ends in giving the machine its token, saying what for, from the token the window keeps if so decided. |
-| <a id="f371"></a>[F371](F371-A-Task-Certified-From-The-Window.md) | — | — | Work started from the window on a host is certified by the desk's agent, never forwarded, and can be renewed from there. |
-| <a id="f370"></a>[F370](F370-Start-Work-In-A-Project-A-Machine-Carries.md) | — | — | A machine page's *Start work* leads into the project it carries, not into the Default project asking for an address. |
 
 ### Backlog
 

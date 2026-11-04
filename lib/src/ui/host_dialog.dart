@@ -228,10 +228,23 @@ class _HostDialogState extends State<HostDialog> {
   }
 
   // Only a named host's own admins may prepare it, so nothing is offered before the name.
+  /// The command to open root, where the last run stopped for want of it and this person may see it.
+  String? _rootCommandAgain(HostAccess? access, HostPreparation? run) {
+    if (access == null || _readingAccess || !_proven) return null;
+    if (!(run?.problem ?? _problem ?? '').contains(rootStillClosed)) return null;
+    try {
+      return access.bootstrapCommand();
+    } on HostAccessRefused {
+      return null;
+    }
+  }
+
   /// What *Prepare the machine* waits for now, in words that stay beside it; null once it can be pressed.
   String? _waitsFor(HostAccess? access) {
-    if (access == null) return 'Waiting: this computer cannot prepare a machine from here.';
-    if (_refusal(access) case final reason?) return reason == _problem ? null : reason;
+    if (access == null) return 'This computer cannot prepare a machine from here.';
+    if (_busy) return 'Checking that you may prepare it…';
+    if (_refusal(access) case final reason?)
+      return reason == _problem ? 'It stopped: the words above say why.' : reason;
     if (_fetchingKey) return 'Fetching the SSH host key, up to a few seconds.';
     if (_hostKey.text.trim().isEmpty) return 'Waiting for the machine\'s SSH host key: fetch it, or paste it above.';
     if (!_keyReady) return 'Waiting for you: tick "I compared this fingerprint" above.';
@@ -551,10 +564,12 @@ class _HostDialogState extends State<HostDialog> {
                   SelectableText(access.bootstrapCommand()),
                 ],
               ],
+              // The run stopped on the very command it asked for: it is shown again, above the words that say so.
+              if (_rootCommandAgain(access, run) case final command?) ...[
+                SelectableText(command, key: const Key('preparation-root-command')),
+                if (_problem == null && run?.problem != null) Text(run!.problem!),
+              ],
               if (_problem != null) Text(_problem!, key: _problemShown),
-              // The run stopped on the very command it asked for: it is shown again where the stop is read.
-              if (access != null && (run?.problem ?? _problem ?? '').contains(rootStillClosed))
-                SelectableText(access.bootstrapCommand(), key: const Key('preparation-root-command')),
               if (widget.takeDownOnly && !_givenBack) ...[
                 if (_checkingMemberships) const Text('Reading membership holders…'),
                 if (_membershipProblem != null) Text(_membershipProblem!),
@@ -609,7 +624,7 @@ class _HostDialogState extends State<HostDialog> {
           onPressed: _busy && (widget.takeDownOnly || run == null) ? null : () => Navigator.pop(context),
           child: const Text('Close'),
         ),
-        if (!widget.takeDownOnly && run == null && !_busy)
+        if (!widget.takeDownOnly && run == null)
           if (_waitsFor(access) case final waits?)
             ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 360),
@@ -625,6 +640,7 @@ class _HostDialogState extends State<HostDialog> {
         if (!widget.takeDownOnly && run != null && !run.ready && !run.running)
           FilledButton(
             onPressed: () async {
+              setState(() => _problem = null);
               await widget.hostRuns?.resume(run);
               if (mounted) setState(() => _problem = run.problem);
             },

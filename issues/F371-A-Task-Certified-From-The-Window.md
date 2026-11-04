@@ -1,6 +1,6 @@
 # F371 — A Task Certified From The Window
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** M - a signing step at the desk over the second call, and renewing a certificate; Core carries the request.
 
 **What must be true.** Work started from the window on a host starts. In the foo test, *Start work in foo-project* got through the project, machine, vault, gate mirror and login, then refused at "Preparing and building" with "this host starts a task only with a key of its own that you certify: add the key of your card to your agent (ssh-add) and start it again". The advice cannot help a person at their desk, as their agent is there and the host rightly gets none.

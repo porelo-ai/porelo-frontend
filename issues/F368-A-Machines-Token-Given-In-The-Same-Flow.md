@@ -1,6 +1,6 @@
 # F368 — A Machine's Token Given In The Same Flow
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** M - the step in the same flow, the kept token on standard input with a test proving where it goes, and words for a refusal.
 
 **What must be true.** A person who puts a project on a machine is led through giving that machine a token, with one line saying what it is for, and never has to find a button on another page. In the foo test the operator did not see why *Give it my GitHub token…* is a separate step that setup did not do.

@@ -1,6 +1,6 @@
 # F366 — Preparing A Machine Says What It Waits For
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** M - words beside the button in four states, the login's output and exit code kept, and a measurement on a real window.
 
 **What must be true.** In *Prepare a machine*, a person always reads what the dialog waits for and why a step stopped. In the foo test *Prepare the machine* stayed grey for a long time with nothing saying why, and the operator nearly closed the dialog. Then it went live before its required `sudo` command had run, and the run stopped on `ssh` with an empty reason, "the provider or the host could not be reached", for a server that answers.
@@ -60,6 +60,5 @@ The cause was found in the foo test: `ssh root@…` answered "Please login as th
 
 ## To be checked
 
-- The command shown again in the dialog on a real stop: the words and the step are tested, and the dialog's line by reading only.
 - Whether the identity read waits on the agent, and how long.
 - The same empty reason on the host's other steps, which use the same call.
