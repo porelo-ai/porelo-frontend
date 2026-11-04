@@ -21,7 +21,7 @@ class SectionSort {
 }
 
 /// What a section keeps per list while its page comes and goes.
-typedef _Kept = ({String filter, bool open, bool searching, String? sort, bool descending});
+typedef _Kept = ({String filter, bool open, bool chosen, bool empty, bool searching, String? sort, bool descending});
 
 /// A list in a card: its header holds the title and count, a magnifier that opens a small filter, the sort and the list's
 /// own buttons; rows stand under it, separated.
@@ -79,6 +79,9 @@ class _FilteredListSectionState extends State<FilteredListSection> {
   late final TextEditingController _filter;
   final _filterFocus = FocusNode();
   late bool _open;
+
+  /// Whether the person folded or opened it themselves; then the window leaves it be.
+  bool _foldChosen = false;
   late bool _searching;
   String? _sort;
   bool _descending = false;
@@ -93,13 +96,14 @@ class _FilteredListSectionState extends State<FilteredListSection> {
     if (kept is _Kept) {
       _filter = TextEditingController(text: kept.filter);
       _open = kept.open;
+      _foldChosen = kept.chosen;
+      if (!_foldChosen && kept.empty != widget.rows.isEmpty) _open = _opensByItself;
       _searching = kept.searching;
       _sort = kept.sort;
       _descending = kept.descending;
     } else {
       _filter = TextEditingController();
-      final compact = WindowSize.fromContext(context) == WindowSize.compact;
-      _open = widget.initiallyOpen && (widget.openWhenCompact || !compact);
+      _open = _opensByItself;
       _searching = false;
     }
     if (widget.reveal != null) _reveal();
@@ -109,10 +113,21 @@ class _FilteredListSectionState extends State<FilteredListSection> {
   void didUpdateWidget(FilteredListSection oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.reveal != null && widget.reveal != oldWidget.reveal) _reveal();
+    if (!_foldChosen && oldWidget.rows.isEmpty != widget.rows.isEmpty) {
+      _open = _opensByItself;
+      _keep();
+    }
+  }
+
+  /// What it does unasked: open, where it holds something and neither the page nor a narrow window says not.
+  bool get _opensByItself {
+    final compact = WindowSize.fromContext(context) == WindowSize.compact;
+    return widget.initiallyOpen && (widget.openWhenCompact || !compact) && widget.rows.isNotEmpty;
   }
 
   void _reveal() {
     _open = true;
+    _foldChosen = true;
     _filter.clear();
     _searching = false;
     _keep();
@@ -121,6 +136,8 @@ class _FilteredListSectionState extends State<FilteredListSection> {
   void _keep() => PageStorage.maybeOf(context)?.writeState(context, (
     filter: _filter.text,
     open: _open,
+    chosen: _foldChosen,
+    empty: widget.rows.isEmpty,
     searching: _searching,
     sort: _sort,
     descending: _descending,
@@ -242,6 +259,7 @@ class _FilteredListSectionState extends State<FilteredListSection> {
     icon: Icon(_open ? Icons.expand_more : Icons.chevron_right),
     onPressed: () => setState(() {
       _open = !_open;
+      _foldChosen = true;
       _keep();
     }),
   );

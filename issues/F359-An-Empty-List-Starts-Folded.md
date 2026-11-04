@@ -1,7 +1,6 @@
 # F359 — An Empty List Starts Folded
 
-**Status:** Backlog.
-**Size:** S - the empty state folds a list, in the one list section.
+**Status:** Review.
 
 **What must be true.** A list with nothing in it starts folded on a first visit, and folds when it is emptied, so the page shows what holds something; a fold the person chose is kept, and an action on the list's head stays usable while it is folded.
 
@@ -25,7 +24,7 @@
 - Removing a list's last row folds it; adding a first row opens it; neither overrides a fold the person chose.
 - A narrow window behaves as it does today for a list with rows.
 
-## To be checked
+## Checked
 
-- Every foldable list that holds an action in its body rather than its head, as folding would hide it.
-- Whether a list loading its rows reads as empty for a moment, which must not fold it or remember that it did.
+- **No foldable list holds an action in its body:** each of the ten has its actions in its head; the body of an empty one holds only the words that nothing is supplied, which the count 0 says while it is folded.
+- **A list loading its rows** reads as empty for that moment, such as a forge's repositories. It folds and opens again with its first row, and nothing of it is remembered, since only a press of the person, or a row the window was asked to show, counts as a choice.

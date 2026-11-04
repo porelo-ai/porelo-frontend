@@ -18,6 +18,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f359"></a>[F359](F359-An-Empty-List-Starts-Folded.md) | — | — | A list with no rows starts folded and folds when emptied, a fold the person chose is kept, and the head's actions stay usable. |
 | <a id="f365"></a>[F365](F365-A-Host-Key-Fetched-Too-Early.md) | — | — | A machine's host key is compared by one named command and fetched again at *Prepare*; a refused key says what to do, and the name is a choice. |
 | <a id="f366"></a>[F366](F366-Preparing-A-Machine-Says-What-It-Waits-For.md) | — | — | *Prepare a machine* says beside its button what it waits for, and a stopped login shows its words and exit code, naming root still closed. |
 | <a id="f368"></a>[F368](F368-A-Machines-Token-Given-In-The-Same-Flow.md) | — | — | *Put it on a machine…* ends in giving the machine its token, saying what for, from the token the window keeps if so decided. |
@@ -81,7 +82,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 |---|---|---|---|
 | <a id="f353"></a>[F353](F353-The-Page-With-The-Work-Cards-Redesigned.md) | L | — | The redesign of *Work* and *Needs you*: a list and one tab per running agent, reviews under *Needs you*, one count; design accepted, built after the foo test, with [F306](README.md#f306) in it. |
 | <a id="f306"></a>[F306](F306-A-Work-Card-Whose-Terminal-Has-Ended.md) | S | — | A *Work* card whose terminal ended says so in words, without an empty black terminal bar. |
-| <a id="f359"></a>[F359](F359-An-Empty-List-Starts-Folded.md) | S | — | A list with no rows starts folded and folds when emptied, a fold the person chose is kept, and the head's actions stay usable. |
 | <a id="f356"></a>[F356](F356-The-Porelo-Organization-Named-Apart.md) | M | — | The window says *Porelo organization* wherever a forge's organization could also be meant, and says it lives in a repository inside that one. |
 | <a id="f362"></a>[F362](F362-A-Click-Answers-At-Once.md) | S | — | A click on a row shows its page and its reading line at once; the delay seen in the foo test is measured down to its cause. |
 | <a id="f361"></a>[F361](F361-A-Project-With-No-Git-Repository-Yet.md) | M | — | A project with no Git repository says so on the Organization page, where its Project Admin creates it, told by *Needs you*; it then appears under *My projects*. |
