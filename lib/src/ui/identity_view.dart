@@ -265,7 +265,7 @@ class _IdentityDialogState extends State<IdentityDialog> {
       if (card.cardRefused case final why?) Text('Your card does not verify: $why', style: TextStyle(color: error)),
       const SizedBox(height: Space.small),
       Text('Organization', style: text.titleSmall),
-      if (card.organization.isEmpty) const Text('No organization is read on this computer yet.'),
+      if (card.organization.isEmpty) const Text('No Porelo organization is read on this computer yet.'),
       for (final organization in card.organization) _OrganizationRow(organization),
       const SizedBox(height: Space.small),
       Text('Central forge', style: text.titleSmall),
@@ -825,7 +825,7 @@ class _ForgeRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final listing = forge;
-    if (listing == null) return const Text('No organization is read yet, so no forge is known.');
+    if (listing == null) return const Text('No Porelo organization is read yet, so no forge is known.');
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

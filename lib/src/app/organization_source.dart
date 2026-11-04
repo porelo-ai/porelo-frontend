@@ -958,7 +958,7 @@ class Organization extends ChangeNotifier {
     final listed = _listed.value;
     if (listed == null) return 'Porelo has not said yet whose this project is.';
     if (listed.any((each) => each.stale)) {
-      return 'Porelo cannot reach the organization just now, so it cannot say whose this project is.';
+      return 'Porelo cannot reach the Porelo organization just now, so it cannot say whose this project is.';
     }
     final mine = listed.where((each) => each.name == project).firstOrNull;
     return switch (mine?.source) {
@@ -1009,7 +1009,7 @@ class Organization extends ChangeNotifier {
       noOrganization = refused.reason == 'no-organization';
     } on Exception {
       if (read != _reads) return;
-      problem = 'The organization could not be read.';
+      problem = 'The Porelo organization could not be read.';
       noOrganization = false;
     }
     _changed();
@@ -1029,7 +1029,7 @@ class Organization extends ChangeNotifier {
   }) async {
     final current = view;
     final beforeAny = change.standsBeforeAnOrganization || (noOrganization && change == OrganizationChange.addCard);
-    if (current == null && !beforeAny) return 'The organization has not been read yet.';
+    if (current == null && !beforeAny) return 'The Porelo organization has not been read yet.';
     if (busy) return 'Another change is still being asked for.';
     final sameChange = '${change.name} ${[for (final entry in input.entries) '${entry.key}=${entry.value}'].join(' ')}';
     // Asked again as it was asked: with no answer it may have been taken, at the revision it was decided on.
@@ -1084,7 +1084,7 @@ class Organization extends ChangeNotifier {
     }
     try {
       // Read in both cases: a store that moved on refused this change, and its new state is what is decided on next.
-      changeProgress = 'Reading the organization again…';
+      changeProgress = 'Reading the Porelo organization again…';
       _changed();
       await refresh();
       if (_writeReads.isNotEmpty) {

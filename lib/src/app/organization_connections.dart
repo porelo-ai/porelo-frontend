@@ -154,7 +154,9 @@ class CardHostConnections extends HostConnections {
     final entry = view?.hosts.where((each) => each.name == host).firstOrNull;
     if (view == null || entry == null) throw OrganizationRefused('The organization names no machine $host.');
     if (view.stale) {
-      throw OrganizationRefused('The organization could not be read just now, so no connection to $host was made.');
+      throw OrganizationRefused(
+        'The Porelo organization could not be read just now, so no connection to $host was made.',
+      );
     }
     final (address, port, hostKey) = (entry.address, entry.port, entry.hostKey);
     final (web, git, matrix) = (entry.webPort, entry.gitPort, entry.matrixPort);

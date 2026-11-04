@@ -219,7 +219,7 @@ class _HostDialogState extends State<HostDialog> {
     } catch (_) {
       if (mounted) {
         setState(() {
-          _problem = 'Your identity and the organization could not be read. Close this dialog and try again.';
+          _problem = 'Your identity and the Porelo organization could not be read. Close this dialog and try again.';
         });
       }
     } finally {
@@ -337,8 +337,8 @@ class _HostDialogState extends State<HostDialog> {
   }
 
   String? _refusal(HostAccess access) {
-    if (_readingAccess) return 'Reading your identity and the organization…';
-    if (!_proven) return _problem ?? 'Your identity and the organization have not been read.';
+    if (_readingAccess) return 'Reading your identity and the Porelo organization…';
+    if (!_proven) return _problem ?? 'Your identity and the Porelo organization have not been read.';
     final name = _name.text.trim();
     if (name.isEmpty) {
       return access.unavailable() ??

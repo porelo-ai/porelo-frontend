@@ -160,7 +160,7 @@ void main() {
     // Harm: the last state read, from when the store was out of reach, decides a removal; no check rests on stale.
     test('a stale list is not asked to vouch for one', () async {
       store.listed = const [ListedProject(name: 'mine', source: 'local', stale: true)];
-      expect(await asked('mine'), contains('cannot reach the organization'));
+      expect(await asked('mine'), contains('cannot reach the Porelo organization'));
     });
 
     // Harm: every frame of a project list starts another `porelo project list`.

@@ -430,12 +430,12 @@ class PoreloOrganizationSource implements OrganizationSource {
     if (prepareForgeWrite case final prepare?) {
       if (write.change == OrganizationChange.createOrganization) {
         final address = write.input['address'];
-        if (address == null) throw const OrganizationRefused('The organization needs a repository address.');
+        if (address == null) throw const OrganizationRefused('The Porelo organization needs a repository address.');
         await prepare(address);
       } else if (write.change == OrganizationChange.openProject) {
         final address = (await read()).address;
         if (address == null) {
-          throw const OrganizationRefused('Porelo cannot say where the organization is kept.', answered: false);
+          throw const OrganizationRefused('Porelo cannot say where the Porelo organization is kept.', answered: false);
         }
         await prepare(address);
       }

@@ -172,7 +172,7 @@ String _refusalWords(int? code, String? words) {
     69 => 'Porelo could not reach what it needs.',
     70 => 'Porelo failed inside.',
     77 => 'The vault is shut. Nothing changed.',
-    78 => 'This computer has no organization. Nothing changed.',
+    78 => 'This computer has no Porelo organization. Nothing changed.',
     _ => 'Porelo ended with exit $code.',
   };
 }

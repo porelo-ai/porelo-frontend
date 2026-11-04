@@ -315,7 +315,7 @@ String _noTokenThereWords(Connection entry) {
 /// Says which address on its own port has no token of its own, and where to give it one.
 String _noEntryForThePortWords(String address, int port, {required bool ssh}) => ssh
     ? 'Porelo lends no token to a forge reached by ssh on its own port, here $address:$port. '
-          'No token was handed over. Use its https address for the organization instead.'
+          'No token was handed over. Use its https address for the Porelo organization instead.'
     : 'A token is lent to one port only, and https://$address:$port has no entry of its own in $_theFile. '
           'No token was handed over. Add a token for that address under Connections, on this machine\'s menu.';
 

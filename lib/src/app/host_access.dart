@@ -72,13 +72,13 @@ class HostAccess extends ChangeNotifier {
 
   /// Said when Porelo's answer names no organization settings or forge to hand a host.
   static const noAddress =
-      "Porelo's answer does not name the organization's settings and forge, and a new machine needs them to follow it, "
+      "Porelo's answer does not name the Porelo organization's settings and forge, and a new machine needs them to follow it, "
       'so no server can be prepared.';
 
   /// Said of an organization at an https address, which a host's own key cannot read; other forms all can.
   static const noFollowing =
-      "This organization stands at an https address, and a machine follows it with an ssh key of its own, so a machine made "
-      'now could never follow it. No server is prepared until the organization stands at an ssh address.';
+      "This Porelo organization stands at an https address, and a machine follows it with an ssh key of its own, so a machine made "
+      'now could never follow it. No server is prepared until the Porelo organization stands at an ssh address.';
 
   static Future<String> _ownKnownHosts() async {
     final file = File(path.join(desk.home, '.ssh', 'known_hosts'));
@@ -105,7 +105,7 @@ class HostAccess extends ChangeNotifier {
     } on OrganizationRefused catch (refused) {
       why = refused.words;
     } on Exception {
-      why = 'The organization could not be read.';
+      why = 'The Porelo organization could not be read.';
     }
     if (read != _reading) return;
     _view = view;
@@ -177,10 +177,10 @@ class HostAccess extends ChangeNotifier {
   String? unavailable([String? host]) {
     if (_whyNoView case final why?) return why;
     final view = _view;
-    if (view == null) return 'The organization has not been read yet.';
+    if (view == null) return 'The Porelo organization has not been read yet.';
     // No security check rests on a state read earlier: a pin from one could trust the wrong people.
     if (view.stale) {
-      return 'Porelo could not reach the organization just now, and no machine is prepared on an older state. Try again.';
+      return 'Porelo could not reach the Porelo organization just now, and no machine is prepared on an older state. Try again.';
     }
     final actor = identity();
     if (actor == null) return proof?.whyNone ?? 'Your identity is not proven.';

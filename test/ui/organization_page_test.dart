@@ -473,7 +473,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text('What is the organization?'), findsNothing);
+      expect(find.text('What is the Porelo organization?'), findsNothing);
     });
 
     // Harm: the card goes to the organization under another key than the one the person chose.
@@ -682,12 +682,25 @@ void main() {
     expect(_action('revokeCard/mia'), findsOneWidget, reason: 'Another section keeps its rows.');
   });
 
+  // Harm: the help said the repository bears the GitHub organization's name, and it bears the person's.
+  testWidgets('the help names the forge\'s own word where it knows the forge', (tester) async {
+    await _pump(tester, 'olive', view: organizationFor('olive', forge: 'github.com'));
+    expect(find.textContaining('inside the GitHub organization'), findsOneWidget);
+    expect(find.textContaining('of the same name'), findsNothing);
+  });
+
+  testWidgets('the help of another forge names none', (tester) async {
+    await _pump(tester, 'olive', view: organizationFor('olive', forge: 'forge.example.org'));
+    expect(find.textContaining('inside the GitHub'), findsNothing);
+    expect(find.textContaining("inside your forge's organization"), findsOneWidget);
+  });
+
   testWidgets('the explanation can be hidden', (tester) async {
     await _pump(tester, 'olive');
-    expect(find.text('What is the organization?'), findsOneWidget);
+    expect(find.text('What is the Porelo organization?'), findsOneWidget);
     await tester.tap(find.byKey(const Key('organization-explanation-hide')));
     await tester.pumpAndSettle();
-    expect(find.text('What is the organization?'), findsNothing);
+    expect(find.text('What is the Porelo organization?'), findsNothing);
   });
 
   // Harm: once the list exists an unlisted owner still changes the organization, or a listed person cannot.
@@ -805,6 +818,20 @@ void main() {
     }
 
     // Harm: a person on a new computer has no way into their organization.
+    // Harm: at this moment a person has both a GitHub organization and this one, and the bare word means either.
+    testWidgets('it says Porelo organization wherever both could be meant', (tester) async {
+      await none(tester);
+      expect(find.text('This computer reads no Porelo organization yet'), findsOneWidget);
+      expect(find.text('What is the Porelo organization?'), findsOneWidget);
+      expect(find.text('Create the Porelo organization…'), findsOneWidget);
+      await _open(tester, find.text('Choose the Porelo organization…'));
+      expect(find.text('Choose the Porelo organization'), findsOneWidget);
+      expect(find.text("The Porelo organization's repository address"), findsOneWidget);
+      expect(find.textContaining('use *Create the Porelo organization…*'), findsOneWidget);
+      expect(find.textContaining('GitHub'), findsNothing, reason: 'no address is known, so no forge is named');
+      expect(find.textContaining("your forge's organization"), findsWidgets);
+    });
+
     testWidgets('choosing asks for the address and sets up', (tester) async {
       final (fixture, _) = await none(tester);
       expect(find.text('no organization here'), findsNothing);
@@ -861,7 +888,8 @@ void main() {
   testWidgets('another organization can be chosen, and it says what that does', (tester) async {
     final (fixture, _, _) = await _pump(tester, 'mia');
     await _open(tester, find.byKey(const ValueKey('chooseOrganization')));
-    expect(find.textContaining('reads one organization'), findsOneWidget);
+    expect(find.textContaining('reads one Porelo organization'), findsOneWidget);
+    expect(find.textContaining('filled by *Create another Porelo organization'), findsOneWidget);
     await tester.enterText(find.byKey(const Key('organization-address')), 'x');
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('organization-confirm')));

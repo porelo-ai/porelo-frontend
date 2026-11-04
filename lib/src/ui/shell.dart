@@ -3523,7 +3523,7 @@ class _ShellState extends State<Shell> {
         title: 'Give $host your $forge token, once',
         explanation:
             '$host has no account at $where. For setup it uses your $forge token once to add read-only keys '
-            "to the organization's repository and any waiting projects' central repositories, and to copy those "
+            "to the Porelo organization's repository and any waiting projects' central repositories, and to copy those "
             'projects to its own forge. From then on it reads with those keys. It does not keep the token. '
             'The token must be allowed to administer those repositories (Administration: write) and read their contents. '
             '${_centralTokenWords(secrets, host)}',

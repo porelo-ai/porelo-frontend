@@ -440,7 +440,7 @@ const settingsForm = 2;
 
 /// What a person is told, once, when their saved settings were dropped.
 const settingsDroppedWords =
-    'Your saved settings came from before organizations, so Porelo started afresh; the old file is kept as frontend.json.dropped.';
+    'Your saved settings came from before Porelo organizations, so Porelo started afresh; the old file is kept as frontend.json.dropped.';
 
 /// What the person chose about how the interface looks.
 class Settings extends ChangeNotifier {

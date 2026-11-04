@@ -237,7 +237,7 @@ class _OrganizationProjectsPageState extends State<OrganizationProjectsPage> {
           if (view != null && mine.isEmpty)
             const Text(
               'You are in no project yet. Nobody joins on their own: a Project Admin adds you. Every project of the '
-              'organization is listed under Organization.',
+              'Porelo organization is listed under Organization.',
             ),
           if (widget.onOthers case final others?)
             Align(

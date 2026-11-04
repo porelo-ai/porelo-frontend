@@ -306,7 +306,7 @@ class _RepositoriesDialogState extends State<RepositoriesDialog> {
           'choose it again here.';
       actions = const <Widget>[];
     } else {
-      says = 'It is a Porelo project. A project comes to a machine from the organization.';
+      says = 'It is a Porelo project. A project comes to a machine from the Porelo organization.';
       actions = <Widget>[
         TextButton(
           key: ValueKey<String>('repository-tools ${repository.fullName}'),

@@ -609,7 +609,7 @@ class _ForgeKeyRowState extends State<ForgeKeyRow> {
       ForgeKeyNoIdentity(:final words) => '$words Create your identity in Settings.',
       ForgeKeyUnavailable(:final words) => 'Whether your key is listed is not known. $words',
       ForgeKeyAnswered(forge: null, :final cardProblem) =>
-        '${cardProblem == null ? '' : '$cardProblem '}No forge is known yet: no organization has been read here.',
+        '${cardProblem == null ? '' : '$cardProblem '}No forge is known yet: no Porelo organization has been read here.',
       ForgeKeyAnswered(forge: final forge?, :final cardProblem) =>
         '${cardProblem == null ? '' : '$cardProblem '}'
             '${switch (forge.listed) {

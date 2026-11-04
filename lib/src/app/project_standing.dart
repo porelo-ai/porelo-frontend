@@ -4,7 +4,7 @@ import 'organization_source.dart';
 
 /// How this person stands in each project as `project list` last answered: the right to move a project's work.
 class ProjectStandings extends ChangeNotifier {
-  /// Reads through [source], absent where this computer reads no organization.
+  /// Reads through [source], absent where this computer reads no Porelo organization.
   ProjectStandings(this.source);
 
   /// Where the person's projects are read.
@@ -44,14 +44,14 @@ class ProjectStandings extends ChangeNotifier {
 
   /// Why the person may not move [project]'s work now, or null where they hold a role in it and are not locked.
   String? whyNoRight(String project) {
-    if (source == null) return 'Your role in $project cannot be read: this computer reads no organization.';
+    if (source == null) return 'Your role in $project cannot be read: this computer reads no Porelo organization.';
     if (_problem case final problem?) return 'Your role in $project cannot be read: $problem';
     final listed = _listed;
     if (listed == null) return 'Your role in $project is still being read.';
     final mine = listed.where((each) => each.name == project).firstOrNull;
     // No check rests on a state the store could not vouch for: a lock since then would not show.
     if (mine?.stale ?? false) {
-      return 'Porelo cannot reach the organization just now, so your role in $project is unsure.';
+      return 'Porelo cannot reach the Porelo organization just now, so your role in $project is unsure.';
     }
     if (mine == null || mine.role == null || mine.role!.isEmpty) return 'You have no role in $project.';
     if (mine.locked) return 'You are locked in $project: one of its admins can let you back in.';

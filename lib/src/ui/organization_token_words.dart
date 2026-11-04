@@ -21,6 +21,11 @@ String? organizationKeptTokenAddress(OrganizationView? view) {
   return address.isEmpty ? null : address;
 }
 
+/// The forge's own word for what holds the Porelo organization's repository, and none where it is not known.
+String forgeOrganizationWords(OrganizationView? view) => organizationForgeAddress(view).toLowerCase() == 'github.com'
+    ? 'the GitHub organization'
+    : "your forge's organization";
+
 /// Names the central forge where its address identifies it, otherwise keeps that address.
 String organizationForgeName(OrganizationView? view) {
   final address = organizationForgeAddress(view);
@@ -38,7 +43,7 @@ String organizationTokenWords(OrganizationView view, String machine, {String? pr
   final forge = organizationForgeName(view);
   final where = forge == 'central forge' ? 'the central forge' : forge;
   final purpose = project == null
-      ? "it adds its own read-only key to the organization's repository"
+      ? "it adds its own read-only key to the Porelo organization's repository"
       : 'it adds a read-only key for $project to its central repository and copies that repository to its own forge';
   return '$machine has no account at $where, so it needs your $forge token once'
       '${project == null ? '' : ', for $project'}: $purpose. '

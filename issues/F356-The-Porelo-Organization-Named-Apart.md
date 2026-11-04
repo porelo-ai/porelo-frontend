@@ -1,7 +1,6 @@
 # F356 — The Porelo Organization Named Apart
 
-**Status:** Backlog.
-**Size:** M - the table's words, then about 95 sentences read one by one.
+**Status:** Review.
 
 **What must be true.** A person never has to guess which organization a sentence means. "Create the organization" confuses, because a GitHub organization has the same word and the person has both at that moment; the window says *Porelo organization* wherever both could be meant, and says what it is: it lives in a repository inside the GitHub organization.
 
@@ -34,7 +33,10 @@ The dialogs' sentences change with them, such as "only a computer that reads no 
 - With an address on GitHub the help says "GitHub organization"; with no address known it names no forge.
 - A sentence about the forge's organization and one about Porelo's cannot be mistaken: no sentence holds the bare word where both could be meant.
 
-## To be checked
+## Checked
 
-- The rest of the window's words: about 95 sentences in `lib/src` hold the word, most on the organization page, in `organization_source.dart` and `host_access.dart`; each is read for whether both could be meant. The roles *Organization owner* and *Organization Admin* are read last, as they name a role in Porelo and appear on its own page.
-- The words that come from Core, as the window passes them on, follow Core's own change.
+- **The rest of the window's words,** read one by one. The sentences that speak of a repository, a forge, a token or the reading of one on this computer now say *Porelo organization*, as both could be meant there. Those about cards, roles and a machine's list stay as they are, in dialogs and pages about the organization itself: a forge's organization holds no card or Machine Admin, so only one can be meant.
+- **The roles** *Organization owner* and *Organization Admin* keep their names: they name a role in Porelo and stand on its own page.
+- **Only GitHub is named by its word:** the other forges' words are from memory, so another forge reads "your forge's organization".
+- **The words that come from Core** are passed on as they are, such as *Kept in the GitHub organization acme* on the page's head, and follow Core's own change.
+- *A project comes from your organization* on the Work page stays until that page's redesign is in.

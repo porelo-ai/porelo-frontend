@@ -1,4 +1,3 @@
-
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -15,6 +14,7 @@ import '../client/models.dart' show defaultProject;
 import 'command_menu.dart';
 import 'identity_view.dart';
 import 'filtered_list_section.dart';
+import 'organization_token_words.dart' show forgeOrganizationWords;
 import 'organization_dialogs.dart';
 import 'how_long.dart';
 import 'key_recovery_dialog.dart';
@@ -107,7 +107,7 @@ class _OrganizationPageState extends State<OrganizationPage> {
             if (widget.identity case final identity?) IdentityRenewal(model: identity, showProblems: true),
             OrganizationChangeMark(organization),
             if (!organization.explanationClosed)
-              _Explanation(onHide: () => setState(() => organization.explanationClosed = true)),
+              _Explanation(view: view, onHide: () => setState(() => organization.explanationClosed = true)),
             if (organization.noOrganization && view == null)
               _NoOrganization(
                 onChoose: () => _show(context, _AddressDialog(organization)),
@@ -168,7 +168,7 @@ class _OrganizationPageState extends State<OrganizationPage> {
         child: TextButton(
           key: const ValueKey('chooseOrganization'),
           onPressed: () => show(_AddressDialog(organization, replacing: true)),
-          child: const Text('Choose another organization…'),
+          child: const Text('Choose another Porelo organization…'),
         ),
       ),
       Align(
@@ -176,7 +176,7 @@ class _OrganizationPageState extends State<OrganizationPage> {
         child: TextButton(
           key: const ValueKey('createAnotherOrganization'),
           onPressed: () => show(_AddressDialog(organization, creating: true, replacing: true)),
-          child: const Text('Create another organization…'),
+          child: const Text('Create another Porelo organization…'),
         ),
       ),
       const SizedBox(height: Space.normal),
@@ -330,7 +330,7 @@ class _OrganizationPageState extends State<OrganizationPage> {
                   nameHint: 'e.g. sprint7-demo',
                   personLabel: 'Project Admin',
                   words:
-                      "The project's card is added to the organization now. Its Project Admin makes the project "
+                      "The project's card is added to the Porelo organization now. Its Project Admin makes the project "
                       'repository and signs its first project.yml when they first open the project under Projects, then '
                       'adds its members. No machine is chosen here: a machine\'s admin puts the project on it. A project cannot '
                       'hold a repository of its own name, so name it apart from its first repository.',
@@ -815,8 +815,9 @@ String _removingHostWords(OrganizationHost host) => [
 ].join(' ');
 
 class _Explanation extends StatelessWidget {
-  const _Explanation({required this.onHide});
+  const _Explanation({required this.view, required this.onHide});
 
+  final OrganizationView? view;
   final VoidCallback onHide;
 
   @override
@@ -846,14 +847,14 @@ class _Explanation extends StatelessWidget {
                 runSpacing: Space.small,
                 children: [
                   part(
-                    'What is the organization?',
+                    'What is the Porelo organization?',
                     'Who manages it, its people with their cards, its projects with their members, and its machines. '
                         'Porelo asks it whom to trust before anyone gets onto a machine.',
                   ),
                   part(
                     'Where it is kept',
-                    'Wherever the installed adapter keeps it; with GitHub, in the GitHub organization of the same '
-                        'name.',
+                    'In a repository inside ${forgeOrganizationWords(view)}: one is not the other. The repository holds '
+                        'the Porelo organization, and its name is yours to choose.',
                   ),
                   part(
                     'What you can do here',
@@ -993,7 +994,7 @@ class _NoOrganization extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('This computer reads no organization yet', style: Theme.of(context).textTheme.titleSmall),
+          Text('This computer reads no Porelo organization yet', style: Theme.of(context).textTheme.titleSmall),
           const Text(
             'Name the one you belong to by its repository. To start a new one you need a card on this computer first.',
           ),
@@ -1005,12 +1006,12 @@ class _NoOrganization extends StatelessWidget {
               FilledButton(
                 key: const ValueKey('chooseOrganization'),
                 onPressed: onChoose,
-                child: const Text('Choose the organization…'),
+                child: const Text('Choose the Porelo organization…'),
               ),
               OutlinedButton(
                 key: const ValueKey('createOrganization'),
                 onPressed: onCreate,
-                child: const Text('Create the organization…'),
+                child: const Text('Create the Porelo organization…'),
               ),
               OutlinedButton(key: const ValueKey('makeCard'), onPressed: onCard, child: const Text('Make my card…')),
             ],
@@ -1046,10 +1047,10 @@ class _AddressDialogState extends State<_AddressDialog> {
   Widget build(BuildContext context) => OrganizationChangeDialog(
     organization: widget.organization,
     title: widget.creating
-        ? (widget.replacing ? 'Create another organization' : 'Create the organization')
+        ? (widget.replacing ? 'Create another Porelo organization' : 'Create the Porelo organization')
         : widget.replacing
-        ? 'Choose another organization'
-        : 'Choose the organization',
+        ? 'Choose another Porelo organization'
+        : 'Choose the Porelo organization',
     confirm: widget.creating ? 'Create it' : 'Choose it',
     body: (context, changed) => Column(
       mainAxisSize: MainAxisSize.min,
@@ -1057,7 +1058,7 @@ class _AddressDialogState extends State<_AddressDialog> {
       children: [
         if (widget.creating && widget.replacing)
           const Text(
-            'Make an empty repository on your forge first: Porelo does not make it. This computer reads one organization, '
+            'Make an empty repository on your forge first: Porelo does not make it. This computer reads one Porelo organization, '
             'so it will read the new one instead of this one. This one stays on its forge, and you can choose it again.',
           )
         else if (widget.creating)
@@ -1067,14 +1068,16 @@ class _AddressDialogState extends State<_AddressDialog> {
           )
         else if (widget.replacing)
           const Text(
-            'This computer reads one organization, so it will read that one instead of this one. An empty repository '
-            'cannot be chosen here: only a computer that reads no organization yet can fill one.',
+            'This computer reads one Porelo organization, so it will read that one instead of this one. An empty repository '
+            'cannot be chosen here: it is filled by *Create another Porelo organization…*.',
           )
         else
-          const Text('An empty repository is not chosen but filled: cancel this and use *Create the organization…*.'),
+          const Text(
+            'An empty repository is not chosen but filled: cancel this and use *Create the Porelo organization…*.',
+          ),
         const SizedBox(height: Space.small),
-        const Text(
-          "An organization lives on a forge of its own, outside every machine: a machine follows it, and cannot hold it.",
+        Text(
+          "A Porelo organization lives in a repository inside ${forgeOrganizationWords(null)}, outside every machine: a machine follows it, and cannot hold it.",
         ),
         const SizedBox(height: Space.small),
         TextField(
@@ -1082,7 +1085,7 @@ class _AddressDialogState extends State<_AddressDialog> {
           controller: _address,
           autofocus: true,
           decoration: InputDecoration(
-            labelText: "The organization's repository address",
+            labelText: "The Porelo organization's repository address",
             errorText: _holdsCredential(_address.text.trim())
                 ? 'The address only: no password or token, so it stays out of what other programs can read.'
                 : null,

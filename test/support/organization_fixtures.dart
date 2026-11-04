@@ -181,7 +181,9 @@ OrganizationView organizationFor(
   List<String> owners = const ['olive'],
   List<String> ownersWithBackup = const [],
   List<String>? organizationAdmins,
+  String? forge,
 }) => OrganizationView(
+  forge: forge,
   stale: stale,
   name: 'acme',
   keptIn: 'the GitHub organization acme',
