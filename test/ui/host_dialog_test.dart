@@ -589,6 +589,42 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
+  // Harm: reopened by someone no longer a Machine Admin, the dialog throws while it draws.
+  testWidgets('a run stopped for root, reopened without the right to prepare, draws and shows no command', (
+    tester,
+  ) async {
+    final settings = Settings(MemorySettingsStore());
+    final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: RecordingTunnels());
+    final fixture = HostFixture();
+    final access = await fixture.access(settings);
+    final runs = HostRuns(machines, hostAccess: access);
+    addTearDown(() {
+      runs.dispose();
+      machines.dispose();
+      settings.dispose();
+    });
+    final process = HostProcess();
+    final session = HostSession(executable: 'fake', arguments: const [], start: (_, _) async => process);
+    final run = runs.start(project: 'orchard', record: signedSetup, session: session);
+    process.line(const host.Step('ssh', host.StepState.refused, fix: '${host.rootStillClosed} Nothing changed.'));
+    process.end(65);
+    await run.finished;
+    fixture.admin = false;
+    await access.readAgain();
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HostDialog(project: 'orchard', machines: machines, settings: settings, hostRuns: runs, existingRun: run),
+      ),
+    );
+    await World.settle(tester);
+    expect(tester.takeException(), isNull);
+    expect(find.byKey(const Key('preparation-root-command')), findsNothing);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   // Harm: preparation must use the chosen pinned host and limits, and the build's own collection, and retain readiness when signing is unavailable.
   // Harm: a server this computer reaches by name or IPv6 address cannot be prepared or read back after a restart.
   for (final address in ['203.0.113.7', 'orchard.example.org', '2001:db8::7']) {

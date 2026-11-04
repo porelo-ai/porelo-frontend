@@ -2634,7 +2634,7 @@ class _ShellState extends State<Shell> {
     final started = await widget.machines.startPoreloOn(machine);
     yield started.words;
     if (!started.went) throw FailedSaying(started.words);
-    await widget.machines.raiseAgainIfNeeded(machine);
+    await widget.machines.raiseAgainIfNeeded(machine, asked: true);
     await widget.machines.of(machine).connect();
     final answering = widget.machines.of(machine).reachability == Reachability.connected;
     yield answering ? 'It answers now.' : 'It still does not answer.';

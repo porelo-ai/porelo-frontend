@@ -430,6 +430,8 @@ class Machines extends ChangeNotifier {
     HostKeys? hostKeys,
     MachineSetup? setup,
     bool Function()? poreloIsInstalledHere,
+    this._now = DateTime.now,
+    this._retryAfter = const Duration(seconds: 2),
   }) : _reach = reach ?? _overSocket,
        _poreloHere = poreloIsInstalledHere ?? _porelodOnThePath,
        hostKeys = hostKeys ?? SshHostKeys(),
@@ -708,6 +710,7 @@ class Machines extends ChangeNotifier {
   Future<void> _mark(Machine machine, {required bool disconnected}) async {
     final at = _machines.indexWhere((each) => each.name == machine.name);
     if (at < 0 || _machines[at].disconnected == disconnected || _machines[at].isThisComputer) return;
+    _raiseHolds.remove(machine.name);
     final next = _machines[at].withDisconnected(disconnected);
     _watching.remove(machine.name)?.dispose();
     await tunnels.dropAndUnpublish(_machines[at]);
@@ -739,13 +742,56 @@ class Machines extends ChangeNotifier {
 
   final Set<String> _raisingAgain = <String>{};
 
+  final DateTime Function() _now;
+  final Duration _retryAfter;
+
+  /// How long a machine waits after an ssh connection of its own came to nothing.
+  ///
+  /// sshd counts each connection from an address that does not log in, and past a score refuses them
+  /// all for a while. A window asking every few seconds keeps a machine shut that would have opened
+  /// again by itself. What a person presses goes at once, whatever this says.
+  static const firstRaiseWait = Duration(seconds: 30);
+
+  /// The longest it waits.
+  static const longestRaiseWait = Duration(minutes: 5);
+  final Map<String, ({DateTime until, Duration wait})> _raiseHolds = {};
+
+  /// The words to say while [machine] waits, or null if it may try now.
+  String? _raiseHeld(Machine machine) {
+    if (tunnels.of(machine)?.state == TunnelState.up) _raiseHolds.remove(machine.name);
+    final hold = _raiseHolds[machine.name];
+    if (hold == null || !_now().isBefore(hold.until)) return null;
+    final said = tunnels.of(machine)?.problem;
+    return '${said ?? 'The machine did not answer.'} This computer tries again by itself, and Connect tries now.';
+  }
+
+  /// Notes how a raise of [machine] ended. Waiting for a key in the agent starts no connection.
+  void _raiseEnded(Machine machine, {required bool up}) {
+    final state = tunnels.of(machine)?.state;
+    if (up || state == TunnelState.up) {
+      _raiseHolds.remove(machine.name);
+    } else if (state != TunnelState.waitingForKey) {
+      final last = _raiseHolds[machine.name]?.wait;
+      final wait = last == null
+          ? firstRaiseWait
+          : last * 2 > longestRaiseWait
+          ? longestRaiseWait
+          : last * 2;
+      _raiseHolds[machine.name] = (until: _now().add(wait), wait: wait);
+    }
+  }
+
   void _open(Machine machine) {
     final fleet = FleetModel(
       _reach(machine),
+      retryAfter: _retryAfter,
+      mayPrepareOnItsOwn: machine.hostCard == null ? null : () => _raiseHeld(machine),
       prepareConnection: machine.hostCard == null
           ? null
           : () async {
-              if (await tunnels.raiseFor(machine)) return null;
+              final up = await tunnels.raiseFor(machine);
+              _raiseEnded(machine, up: up);
+              if (up) return null;
               return machine.whyNotReachableHere ?? tunnels.of(machine)?.problem ?? 'The machine could not be reached.';
             },
       hostConnection: machine.hostCard == null
@@ -826,8 +872,9 @@ class Machines extends ChangeNotifier {
   /// Without being asked: a forward that goes away is not a decision anybody made. Only for one
   /// this interface raised, and only for a machine that is not answering — a working connection
   /// is never disturbed to check on the thing underneath it.
-  Future<void> raiseAgainIfNeeded(Machine machine) async {
+  Future<void> raiseAgainIfNeeded(Machine machine, {bool asked = false}) async {
     if (machine.disconnected) return;
+    if (!asked && _raiseHeld(machine) != null) return;
     if (machine.kind == 'host' && machine.hostCard == null && machine.identity.isNotEmpty) {
       return;
     }
@@ -839,7 +886,9 @@ class Machines extends ChangeNotifier {
     if (!_raisingAgain.add(machine.name)) return;
     try {
       await tunnels.raiseAgainIfItDropped(machine);
-      if (tunnels.of(machine)?.state == TunnelState.up) await fleet.connect();
+      final up = tunnels.of(machine)?.state == TunnelState.up;
+      _raiseEnded(machine, up: up);
+      if (up) await fleet.connect();
     } finally {
       _raisingAgain.remove(machine.name);
     }

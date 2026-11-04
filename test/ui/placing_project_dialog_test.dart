@@ -108,7 +108,7 @@ void main() {
     await open(tester, connections);
     expect(words(tester), contains('within five minutes'));
     connections.hostProgress = carried;
-    await tester.pump(const Duration(seconds: 6));
+    await tester.pump(const Duration(seconds: 21));
     await tester.pump();
     expect(words(tester), 'build carries demo.');
     await close(tester);

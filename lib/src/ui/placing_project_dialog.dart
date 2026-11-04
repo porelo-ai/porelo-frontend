@@ -16,7 +16,7 @@ class PlacingProjectDialog extends StatefulWidget {
     required this.view,
     required this.connections,
     this.onGiveToken,
-    this.every = const Duration(seconds: 5),
+    this.every = const Duration(seconds: 20),
     this.patience = const Duration(minutes: 6),
     super.key,
   });
@@ -36,7 +36,7 @@ class PlacingProjectDialog extends StatefulWidget {
   /// Gives the machine the person's token; answers the words to show, if any. None: not offered.
   final Future<String?> Function(String host)? onGiveToken;
 
-  /// How often the machine is asked.
+  /// How often the machine is asked: a login each time, so not often, or sshd counts a refused one.
   final Duration every;
 
   /// How long this follows before it says the machine goes on alone.

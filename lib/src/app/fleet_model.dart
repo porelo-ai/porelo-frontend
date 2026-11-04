@@ -117,6 +117,7 @@ class FleetModel extends ChangeNotifier {
     this.hostConnection,
     this.hostRefusal,
     this.prepareConnection,
+    this.mayPrepareOnItsOwn,
   }) {
     // Once, here: connect() runs again on every reconnect, and each listener it added stayed.
     clearance.addListener(_notify);
@@ -129,6 +130,9 @@ class FleetModel extends ChangeNotifier {
 
   /// Returns a transport refusal before any daemon open, including refresh and retry.
   final Future<String?> Function()? prepareConnection;
+
+  /// Whether a try nobody asked for may run [prepareConnection] now; the words why not, or null if it may.
+  final String? Function()? mayPrepareOnItsOwn;
 
   /// The host transport state, separate from this daemon's readiness.
   final HostReachability? Function()? hostConnection;
@@ -295,11 +299,12 @@ class FleetModel extends ChangeNotifier {
   List<Task> get workInView => selectedProject?.tasks ?? const <Task>[];
 
   /// Opens the backend, reads what is there and follows it.
-  Future<void> connect() async {
+  Future<void> connect({bool onItsOwn = false}) async {
     _reachability = Reachability.connecting;
     _say('Connecting to ${backend.label}.');
     try {
-      final transportRefusal = await prepareConnection?.call();
+      final held = onItsOwn ? mayPrepareOnItsOwn?.call() : null;
+      final transportRefusal = held ?? await prepareConnection?.call();
       if (transportRefusal != null) throw VarlinkDisconnected(transportRefusal);
       final info = await backend.open();
       _info = info;
@@ -585,7 +590,7 @@ class FleetModel extends ChangeNotifier {
     _retry?.cancel();
     _retry = Timer(retryAfter, () {
       if (_disposed) return;
-      unawaited(connect());
+      unawaited(connect(onItsOwn: true));
     });
   }
 

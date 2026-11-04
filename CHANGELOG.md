@@ -76,6 +76,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- A machine that refuses connections is tried again after 30 seconds, then longer up to five minutes, not every two seconds, which kept sshd refusing the address. *Connect* still tries at once.
 - A machine's row under *Organization* offers taking Porelo off once, not twice.
 - A checkout's draft is read as Core answers it: a value with no line no longer makes the whole draft unreadable, and its
   lists read as words, not JSON. Two keys to choose from are offered as a choice.
