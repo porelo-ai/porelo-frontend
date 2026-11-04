@@ -332,13 +332,20 @@ void main() {
     await reading.cancel();
 
     // Asked until it is gone: hung up, it ends at once, and under load the kernel may take a
-    // moment to take it away. Two seconds is far more than that and far less than its 30. What is
+    // moment to take it away. Twenty seconds is far more than that and less than its 30. What is
     // held is that the command ends; whether by the group's SIGHUP or by the terminal hanging up
     // when the shell leading it is gone, both end it, so this does not tell the two apart.
-    final by = DateTime.now().add(const Duration(seconds: 2));
-    while (Process.killPid(running, ProcessSignal.sigcont) && DateTime.now().isBefore(by)) {
+    final by = DateTime.now().add(const Duration(seconds: 20));
+    while (_stillRuns(running) && DateTime.now().isBefore(by)) {
       await Future<void>.delayed(const Duration(milliseconds: 20));
     }
-    expect(Process.killPid(running, ProcessSignal.sigcont), isFalse, reason: 'sleep $running is left running');
+    expect(_stillRuns(running), isFalse, reason: 'sleep $running is left running');
   });
+}
+
+/// Whether [pid] runs. A dead one whose parent died first stays a zombie where nothing reaps as init does, as in a
+/// forge's job container, and a zombie still takes a signal.
+bool _stillRuns(int pid) {
+  final status = File('/proc/$pid/status');
+  return status.existsSync() && !status.readAsStringSync().contains(RegExp(r'^State:\s+Z', multiLine: true));
 }

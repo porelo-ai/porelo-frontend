@@ -17,6 +17,8 @@ permissions:
 jobs:
     windows:
         name: Test and build on Windows
+        # No host has a Windows runner, so a job there would wait for ever.
+        if: vars.PORELO_PUBLISH == 'true'
         runs-on: windows-2025
         timeout-minutes: 45
         steps:

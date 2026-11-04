@@ -15,7 +15,7 @@
 # The lease and the sweep around it are Java, in pom.xml.
 set -euo pipefail
 
-# A machine leased by the build (-Phetzner) names itself in this file; otherwise the caller does.
+# A machine leased by the build (-Pleased) names itself in this file; otherwise the caller does.
 leased=build/leased.properties
 forget_host=''
 if [ -z "${PORELO_E2E_HOST:-}" ] && [ -f "$leased" ]; then
@@ -35,7 +35,7 @@ if [ -z "${PORELO_E2E_HOST:-}" ] && [ -f "$leased" ]; then
     socket=$(value socket)
     hostkey=$(value hostkey)
     export PORELO_E2E_HOST="$user@$address" PORELO_E2E_REMOTE_SOCKET="$socket"
-    export PORELO_E2E_KEY="${PORELO_E2E_KEY:-${HETZNER_KEY:-}}"
+    export PORELO_E2E_KEY="${PORELO_E2E_KEY:-${PORELO_MACHINES_KEY:-}}"
     # The host key the lease made for the machine, and no other: what answers at the address is not
     # asked, and the interface never accepts a key on its own.
     mkdir -p ~/.ssh
@@ -69,14 +69,14 @@ trap cleanup EXIT
 mkdir -p "$here/run" "$here/config"
 chmod 700 "$here/run"
 
-if [ -n "${PORELO_E2E_KEY:-}" ] || [ -n "${HETZNER_SSH:-}" ]; then
+if [ -n "${PORELO_E2E_KEY:-}" ] || [ -n "${PORELO_MACHINES_SSH:-}" ]; then
     eval "$(ssh-agent -s -a "$here/agent.sock")" >/dev/null
     agent=$SSH_AGENT_PID
     if [ -n "${PORELO_E2E_KEY:-}" ]; then
         ssh-add -q "${PORELO_E2E_KEY/#\~/$HOME}"
     else
         # CI hands the key over as material, and a secret is never written to a file: a pipe it is.
-        printf '%s\n' "$HETZNER_SSH" | ssh-add -q -
+        printf '%s\n' "$PORELO_MACHINES_SSH" | ssh-add -q -
     fi
 fi
 

@@ -30,15 +30,17 @@ void main() {
   });
 
   // Harm: echoing a token exposes it in the terminal transcript and screen captures.
-  test('the forge prompt reads from its terminal with echo disabled and restores echo', () async {
-    final result = await Process.run('python3', [
-      '-c',
-      r'''import errno, json, os, pty, select, subprocess, sys, termios, time
+  test(
+    'the forge prompt reads from its terminal with echo disabled and restores echo',
+    () async {
+      final result = await Process.run('python3', [
+        '-c',
+        r'''import errno, json, os, pty, select, subprocess, sys, termios, time
 master, slave = pty.openpty()
 process = subprocess.Popen(sys.argv[1:], stdin=slave, stdout=slave, stderr=slave)
 transcript = b''
 echo = None
-deadline = time.monotonic() + 15
+deadline = time.monotonic() + 90
 try:
     while process.poll() is None:
         if time.monotonic() > deadline:
@@ -57,18 +59,22 @@ finally:
     os.close(master)
     os.close(slave)
 ''',
-      Platform.resolvedExecutable,
-      'bin/porelo_host.dart',
-      'key',
-      'set',
-      'github.com',
-    ]);
-    expect(result.exitCode, 0, reason: '${result.stderr}');
-    final terminal = jsonDecode(result.stdout as String) as Map<String, dynamic>;
-    expect(terminal['echo'], isFalse);
-    expect(terminal['restored'], isTrue);
-    expect(terminal['exit'], 64, reason: 'an empty terminal answer is refused without opening the store');
-  }, skip: !Platform.isLinux ? 'Terminal echo requires Linux PTYs.' : false);
+        Platform.resolvedExecutable,
+        'bin/porelo_host.dart',
+        'key',
+        'set',
+        'github.com',
+      ]);
+      expect(result.exitCode, 0, reason: '${result.stderr}');
+      final terminal = jsonDecode(result.stdout as String) as Map<String, dynamic>;
+      expect(terminal['echo'], isFalse);
+      expect(terminal['restored'], isTrue);
+      expect(terminal['exit'], 64, reason: 'an empty terminal answer is refused without opening the store');
+      // Starting the command compiles it, which took over 15 s on a runner of 4 CPUs among the other tests.
+    },
+    timeout: const Timeout(Duration(minutes: 2)),
+    skip: !Platform.isLinux ? 'Terminal echo requires Linux PTYs.' : false,
+  );
 
   // Harm: piped input can route a secret through an interface instead of its terminal.
   test('setting a forge token refuses redirected standard input before opening the store', () async {

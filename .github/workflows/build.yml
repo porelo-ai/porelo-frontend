@@ -23,6 +23,17 @@ on:
             - '.github/**'
             # The task image's draft: what a task builds from, not what the packages are made of.
             - 'porelo.yml'
+    # A task's branch on the host's forge is built through its pull request. A push builds `main` alone, so nothing
+    # builds twice on either forge.
+    pull_request:
+        branches: ['**']
+        paths-ignore:
+            - '**.md'
+            - 'doc/**'
+            - 'issues/**'
+            - 'mkdocs.yml'
+            - '.github/**'
+            - 'porelo.yml'
     workflow_dispatch:
 
 permissions:
@@ -31,6 +42,10 @@ permissions:
 # Every action is pinned to a commit, the version in a trailing comment: a tag is a name its owner
 # can repoint, and these jobs hold the publishing token. Dependabot keeps the pins current, and
 # test/packaging_test.dart rejects any action reference without a SHA.
+#
+# The same file runs on the central forge and on a host's Forgejo; only the values of variables and secrets differ.
+# `vars.PORELO_PUBLISH` is `true` where this build goes out and `false` on a host, whose runner has no Windows, no
+# container socket and no machine by kind yet, and which publishes nothing here.
 
 jobs:
     build:
@@ -40,8 +55,8 @@ jobs:
         # 24.04 the package refuses to install on 22.04, and the failure arrives at somebody else's
         # `apt`. Raising this is a decision about who can no longer install, not a maintenance chore —
         # and the same runner is used for the other two jobs so nothing is built against a newer GTK
-        # by accident.
-        runs-on: ubuntu-22.04
+        # by accident. A host's runner has no 22.04, and what it builds is never published, so no floor holds there.
+        runs-on: ${{ vars.PORELO_PUBLISH == 'true' && 'ubuntu-22.04' || 'ubuntu-24.04' }}
         # A run that hangs or crawls is stopped, never left to hold a runner for hours: one ran 1 h 29 min,
         # and never again. Limits are about three times what the last four
         # green runs took: this job 9-15 minutes, its build step 7-12.
@@ -55,6 +70,16 @@ jobs:
               with:
                   persist-credentials: false
                   fetch-depth: 0
+
+            # A misspelt or missing switch would leave the packages unpublished with every job green.
+            - name: The forge says whether it publishes
+              env:
+                  PORELO_PUBLISH: ${{ vars.PORELO_PUBLISH }}
+              run: |
+                  case "$PORELO_PUBLISH" in
+                      true | false) echo "PORELO_PUBLISH=$PORELO_PUBLISH" ;;
+                      *) echo "::error::vars.PORELO_PUBLISH is '$PORELO_PUBLISH', neither true nor false"; exit 1 ;;
+                  esac
 
             # Before anything is built, because the packages carry the version it decides: `main` makes
             # `<version>~snapshot.<run>` for `snapshots`; a tag `v<version>` makes `<version>` for
@@ -99,6 +124,10 @@ jobs:
                   java -cp "$(cat build/jdk-cp.txt)" org.fuin.porelo.release.Main check-readmes .
                   java -cp "$(cat build/jdk-cp.txt)" org.fuin.porelo.release.Main check-doc-site doc mkdocs.yml
 
+            # A machine is asked for by kind; which provider answers is the setup's.
+            - name: Check that nothing names a machine provider
+              run: java -cp "$(cat build/jdk-cp.txt)" org.fuin.porelo.release.Main check-providers .
+
             # A direct push to main never meets the pull request's check, so the push's own range is read here, by the
             # porelo-release the pinned JDK's classpath holds. A tag checks the commit it names. A new branch or a branch
             # pushed over has no start this checkout holds, so its range starts at main; main itself cannot be pushed over.
@@ -139,7 +168,9 @@ jobs:
             # here is Ubuntu's own. Chrome's cost run 93144262860.
             - name: Install what a Linux desktop build needs
               run: |
-                  sudo rm -f /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources
+                  # Ubuntu's own is ubuntu.sources there since 24.04, which a host's runner has.
+                  sudo find /etc/apt/sources.list.d -maxdepth 1 -type f \( -name '*.list' -o -name '*.sources' \) \
+                    ! -name ubuntu.sources -delete
                   sudo apt-get update
                   sudo apt-get install --no-install-recommends -y \
                     clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libsecret-1-dev gnome-keyring \
@@ -201,7 +232,9 @@ jobs:
                   ls -1 build/packages/*.deb build/packages/*.rpm > build/packages/fetched.txt
                   cat build/packages/fetched.txt
 
+            # Only for the jobs that publish: the artifact actions refuse every forge but the central one.
             - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              if: vars.PORELO_PUBLISH == 'true'
               with:
                   name: packages
                   path: |
@@ -212,6 +245,7 @@ jobs:
 
             # porelo-host on its own too, the very binary the packages carry.
             - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              if: vars.PORELO_PUBLISH == 'true'
               with:
                   name: host-linux
                   path: |
@@ -220,7 +254,7 @@ jobs:
                   if-no-files-found: error
 
             - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-              if: always()
+              if: always() && vars.PORELO_PUBLISH == 'true'
               with:
                   name: test-reports
                   path: |
@@ -234,6 +268,8 @@ jobs:
     # this workflow, checked with `gh attestation verify <zip> --repo porelo-ai/porelo-frontend`.
     windows:
         name: Windows
+        # No host has a Windows runner, and a pull request gets no token for the attestation.
+        if: vars.PORELO_PUBLISH == 'true' && github.event_name != 'pull_request'
         runs-on: windows-2025
         timeout-minutes: 45
         # The attestation's two, for this job only, as `check-actions`' list names them.
@@ -364,7 +400,7 @@ jobs:
         name: Whether the leased leg is proven
         runs-on: ubuntu-26.04
         timeout-minutes: 10
-        if: github.event_name == 'push' && github.ref_type == 'branch'
+        if: vars.PORELO_PUBLISH == 'true' && github.event_name == 'push' && github.ref_type == 'branch'
         permissions:
             contents: read
             actions: read
@@ -398,16 +434,16 @@ jobs:
         # by the hour, with ten minutes left under the job for the sweep.
         timeout-minutes: 50
         # A fork's pull request gets no secrets, and would rent nothing. A question that was not asked,
-        # failed or could not be answered counts as not proven.
+        # failed or could not be answered counts as not proven. A host lends no machine by kind to a job yet.
         if: >-
-            !cancelled() && github.event_name != 'pull_request'
+            !cancelled() && vars.PORELO_PUBLISH == 'true' && github.event_name != 'pull_request'
             && (github.ref_type == 'tag' || needs.legs.result != 'success' || needs.legs.outputs.proven != 'yes')
         env:
             # With GITHUB_RUN_ID this names the run, so the last step sweeps what this run leased.
             PORELO_CI_LEG: frontend-e2e
-            HETZNER_API: ${{ secrets.HETZNER_API }}
+            PORELO_MACHINES_API: ${{ secrets.PORELO_MACHINES_API }}
             # The key as material, never written to a file: the lease and tool/e2e.sh both read it.
-            HETZNER_SSH: ${{ secrets.HETZNER_SSH }}
+            PORELO_MACHINES_SSH: ${{ secrets.PORELO_MACHINES_SSH }}
         steps:
             # Without the job's token in .git/config: nothing here pushes with git.
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -435,7 +471,7 @@ jobs:
             - name: Resolve the machine tool
               run: |
                   mkdir -p build
-                  ./mvnw -B -q -s settings.xml -Phetzner dependency:build-classpath \
+                  ./mvnw -B -q -s settings.xml -Pleased dependency:build-classpath \
                     -Dmdep.outputFile=build/cp.txt
 
             # Its own limit, under the job's, so the sweep below still has time to run when it is hit.
@@ -443,7 +479,7 @@ jobs:
               timeout-minutes: 40
               run: |
                   set +e
-                  ./mvnw -B -s settings.xml verify -Pe2e,hetzner -DskipTests
+                  ./mvnw -B -s settings.xml verify -Pe2e,leased -DskipTests
                   built=$?
                   set -e
                   dart tool/test_report.dart build/e2e-results.json build/e2e-report.html \
@@ -468,6 +504,8 @@ jobs:
     installs:
         name: Prove the packages install
         needs: build
+        # Containers need a socket, which a host's runner does not give a job; what it builds is not published.
+        if: vars.PORELO_PUBLISH == 'true' && github.event_name != 'pull_request'
         runs-on: ubuntu-26.04
         timeout-minutes: 5
         # The systems Porelo supports, and only those: Ubuntu 26.04, Debian 13, Fedora 43 and 44. Each
@@ -524,7 +562,7 @@ jobs:
         # rented machine included, since it is never replaced; a snapshot needs only the build and the
         # installs, and is published whatever that leg says.
         if: >-
-            !cancelled() && github.event_name != 'pull_request'
+            !cancelled() && vars.PORELO_PUBLISH == 'true' && github.event_name != 'pull_request'
             && needs.build.result == 'success' && needs.installs.result == 'success'
             && (needs.integration.result == 'success' || !startsWith(github.ref, 'refs/tags/v'))
         env:

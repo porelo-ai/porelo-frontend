@@ -616,7 +616,7 @@ several machines over their varlink socket. Its issues carry the prefix `F`; its
   restart porelod`.
 - **A unix socket path is limited to about 108 bytes.**
 - **The integration leg runs headless under `xvfb-run` inside `dbus-run-session`**, the app with its
-  own config and runtime directories; `./mvnw verify -Pe2e,hetzner` rents a machine through
+  own config and runtime directories; `./mvnw verify -Pe2e,leased` rents a machine through
   `porelo-machines` and sweeps it after a red run too.
 - **A blank headless screenshot stops the GUI test until its display is understood.**
 - **When explicitly requested, the interface may run on the operator’s desktop with the operator’s

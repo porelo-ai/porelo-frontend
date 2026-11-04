@@ -227,7 +227,11 @@ void main() {
       };
       expect(building, containsAll(<String>['build']), reason: 'no job packages the Linux bundle any more');
       for (final job in building) {
-        expect(_jobs(workflow)[job], contains('runs-on: ubuntu-22.04'), reason: '$job builds the bundle');
+        expect(
+          _jobs(workflow)[job],
+          contains("runs-on: \${{ vars.PORELO_PUBLISH == 'true' && 'ubuntu-22.04' ||"),
+          reason: '$job builds the bundle, on 22.04 wherever it publishes',
+        );
       }
       expect(workflow.contains('runs-on: ubuntu-latest'), isFalse);
     });

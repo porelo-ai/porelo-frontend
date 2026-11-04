@@ -19,6 +19,8 @@ permissions:
 jobs:
     probe:
         name: Can the token annotate?
+        # A host has no Artifactory, only a placeholder for its address.
+        if: vars.PORELO_PUBLISH == 'true'
         runs-on: ubuntu-26.04
         timeout-minutes: 10
         steps:

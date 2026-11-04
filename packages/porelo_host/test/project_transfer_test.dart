@@ -126,7 +126,7 @@ void main() {
       await child.stdin.close();
       final out = child.stdout.transform(utf8.decoder).join();
       final err = child.stderr.transform(utf8.decoder).join();
-      expect(await child.exitCode.timeout(const Duration(seconds: 10)), 0, reason: await err);
+      expect(await child.exitCode.timeout(const Duration(seconds: 40)), 0, reason: await err);
       final answer = jsonDecode(await out) as Map<String, dynamic>;
       expect(answer['echoChecks'], everyElement(false), reason: 'no input phase may echo');
       expect(answer['restored'], isTrue);
@@ -138,7 +138,8 @@ void main() {
         expect(answer['submitted'], isFalse);
         expect(answer['notSubmitted'], isTrue);
       }
-    });
+      // A runner of 4 CPUs among the other tests took over 7 s for a child to settle.
+    }, timeout: const Timeout(Duration(minutes: 1)));
   }
 
   // Harm: porelo-host-push takes the bare token line; anything else pushes with a token the forge refuses.
@@ -376,7 +377,8 @@ def controlling():
     fcntl.ioctl(0, termios.TIOCSCTTY, 0)
 child = subprocess.Popen(command, stdin=slave, stdout=slave, stderr=slave, preexec_fn=controlling)
 checks, phases, output = [], [], b''
-limit = time.monotonic() + 7
+limit = time.monotonic() + 30
+again = None
 try:
     while time.monotonic() < limit:
         if select.select([master], [], [], 0.02)[0]:
@@ -388,9 +390,15 @@ try:
                 checks.append(bool(termios.tcgetattr(slave)[3] & termios.ECHO))
                 if phase == 'prompt':
                     if action == 'EOF': os.write(master, b'\x04')
-                    elif action != 'phases': os.killpg(child.pid, getattr(signal, 'SIG' + action))
+                    elif action != 'phases':
+                        os.killpg(child.pid, getattr(signal, 'SIG' + action))
+                        again = time.monotonic() + 1
                     else: os.write(master, b'fixture master\n')
                 else: os.write(master, b'unexpected typed input\n')
+        # A signal between bash printing the prompt and reading waits until the read ends, so it comes again, as from a person.
+        if again and time.monotonic() > again and child.poll() is None:
+            os.killpg(child.pid, getattr(signal, 'SIG' + action))
+            again = time.monotonic() + 1
         if child.poll() is not None:
             while select.select([master], [], [], 0)[0]: output += os.read(master, 65536)
             break

@@ -17,6 +17,9 @@ import 'package:porelo_frontend/src/mock/mock_daemon.dart';
 ///
 /// Each part is a call of its own, so these run the client against the stand-in machine rather
 /// than in a widget test, whose clock cannot carry a socket.
+final bool _readsThroughModes =
+    Platform.isLinux && (Process.runSync('id', <String>['-u']).stdout as String).trim() == '0';
+
 void main() {
   late MockDaemon daemon;
   late MockMachine machine;
@@ -61,7 +64,7 @@ void main() {
     expect(handing.busy, isFalse);
     expect(handing.failed, isTrue);
     expect(handing.said, contains('locked.bin'));
-  });
+  }, skip: _readsThroughModes ? "root, as a forge's job runs, reads through a file's mode" : false);
 
   test('a file that is not there ends the hand-in as failed, saying so', () async {
     final handing = HandingIn();

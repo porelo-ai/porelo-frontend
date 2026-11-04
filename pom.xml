@@ -246,14 +246,14 @@
             </build>
         </profile>
         <!-- A machine leased for the run and swept after it, whether the tests passed or not. With
-             e2e: ./mvnw verify -Pe2e,hetzner, HETZNER_API set, and the key as HETZNER_SSH (CI) or a
-             file named by HETZNER_KEY (a person). Only here, so no other build fetches the tool.
+             e2e: ./mvnw verify -Pe2e,leased, PORELO_MACHINES_API set, and the key as PORELO_MACHINES_SSH (CI) or
+             a file named by PORELO_MACHINES_KEY (a person). Only here, so no other build fetches the tool.
              PORELO_CANDIDATE names a directory of locally built porelo packages to install over the
              published ones, so the leg can test a porelo nobody has pushed yet. Not the parent's ci-tools,
              which only puts the tools on a classpath: this one also rents and sweeps. Its tool's version is
              the parent's. -->
         <profile>
-            <id>hetzner</id>
+            <id>leased</id>
             <dependencies>
                 <dependency>
                     <groupId>org.fuin.porelo</groupId>
@@ -267,9 +267,9 @@
                         <artifactId>exec-maven-plugin</artifactId>
                         <executions>
                             <!-- Its own JVM, so the tool's exit cannot take Maven down with it. The
-                                 classpath arrives as $0; with HETZNER_SSH set the tool needs no key file. -->
+                                 classpath arrives as $0; with PORELO_MACHINES_SSH set the tool needs no key file. -->
                             <execution>
-                                <id>hetzner-lease</id>
+                                <id>machine-lease</id>
                                 <phase>pre-integration-test</phase>
                                 <goals>
                                     <goal>exec</goal>
@@ -278,13 +278,13 @@
                                     <executable>bash</executable>
                                     <arguments>
                                         <argument>-c</argument>
-                                        <argument>test -z "$HETZNER_KEY" || set -- --key "$HETZNER_KEY"; test -z "$PORELO_CANDIDATE" || set -- "$@" --candidate "$PORELO_CANDIDATE"; exec java -classpath "$0" org.fuin.porelo.machines.Main lease --os ubuntu "$@" --write build/leased.properties</argument>
+                                        <argument>test -z "$PORELO_MACHINES_KEY" || set -- --key "$PORELO_MACHINES_KEY"; test -z "$PORELO_CANDIDATE" || set -- "$@" --candidate "$PORELO_CANDIDATE"; exec java -classpath "$0" org.fuin.porelo.machines.Main lease --os ubuntu --kind amd64 "$@" --write build/leased.properties</argument>
                                         <classpath/>
                                     </arguments>
                                 </configuration>
                             </execution>
                             <execution>
-                                <id>hetzner-sweep</id>
+                                <id>machine-sweep</id>
                                 <phase>post-integration-test</phase>
                                 <goals>
                                     <goal>exec</goal>
@@ -305,7 +305,7 @@
                             <!-- Only once the sweep has worked: a failed sweep leaves the file for a
                                  person, and a swept one must not be read as a machine still there. -->
                             <execution>
-                                <id>hetzner-done</id>
+                                <id>machine-done</id>
                                 <phase>post-integration-test</phase>
                                 <goals>
                                     <goal>exec</goal>

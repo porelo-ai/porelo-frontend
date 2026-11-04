@@ -18,6 +18,8 @@ permissions: {}
 jobs:
     delete:
         name: Runs up to ${{ inputs.before }}
+        # It calls the central forge's API.
+        if: vars.PORELO_PUBLISH == 'true'
         # The only permission this needs, and it is the one that lets it delete.
         permissions:
             actions: write
