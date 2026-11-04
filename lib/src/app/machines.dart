@@ -762,7 +762,7 @@ class Machines extends ChangeNotifier {
     final hold = _raiseHolds[machine.name];
     if (hold == null || !_now().isBefore(hold.until)) return null;
     final said = tunnels.of(machine)?.problem;
-    return '${said ?? 'The machine did not answer.'} This computer tries again by itself, and Connect tries now.';
+    return '${said ?? 'The machine did not answer.'} This computer tries again by itself, within five minutes, and Connect tries now.';
   }
 
   /// Notes how a raise of [machine] ended. Waiting for a key in the agent starts no connection.

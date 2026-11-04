@@ -10,6 +10,7 @@ import 'machines.dart';
 import 'host_keys.dart';
 import 'fleet_backend.dart';
 import 'owned_process.dart';
+import 'ssh_words.dart';
 
 /// What an attempt to start a daemon came back with.
 @immutable
@@ -534,7 +535,7 @@ class Tunnel {
                 'token has made none yet.'
           : words.contains('forwarding failed') || words.contains('Address already in use')
           ? 'The machine connection could not use its required local port or socket.'
-          : switch (said.map((line) => line.trim()).where((line) => line.isNotEmpty).lastOrNull) {
+          : switch (sshLastWords(said)) {
               final reason? => 'The SSH connection stopped: $reason',
               null => 'The SSH connection stopped (exit $code).',
             };

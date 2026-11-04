@@ -71,6 +71,7 @@ void main() {
     now = now.add(Machines.firstRaiseWait + const Duration(seconds: 1));
     expect(await triesAfterAWhile(), 2, reason: 'the second wait is longer');
 
+    expect(machines.of(machine).status, contains('within five minutes'), reason: 'why it does not come back at once');
     await machines.of(machine).connect();
     expect(tunnels.raises, 3, reason: 'what a person presses goes at once');
   });

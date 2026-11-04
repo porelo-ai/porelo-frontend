@@ -589,6 +589,109 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
+  // Harm: the words under *Prepare* say it waits for something when nothing can change that.
+  testWidgets('with no way to prepare from here it does not say it is waiting', (tester) async {
+    final settings = Settings(MemorySettingsStore());
+    final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: RecordingTunnels());
+    addTearDown(() {
+      machines.dispose();
+      settings.dispose();
+    });
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HostDialog(runKeyCommand: _noKeyScan, project: '', machines: machines, settings: settings),
+      ),
+    );
+    await World.settle(tester);
+    final said = tester.widget<Text>(find.byKey(const Key('preparation-waits'))).data!;
+    expect(said, contains('cannot prepare'));
+    expect(said, isNot(contains('Waiting')));
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  // Harm: a grey button with nothing beside it while permission is read; a stop saying "the command above"
+  // with the command below it; the old stop and its command staying up through the next try.
+  testWidgets('from Prepare to a stop for root and on to the next try, the words fit each moment', (tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final settings = Settings(MemorySettingsStore());
+    final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: RecordingTunnels());
+    final fixture = HostFixture();
+    final proof = FixtureProof(fixture);
+    final access = await fixture.access(settings, proof: proof);
+    final runs = HostRuns(machines, hostAccess: access);
+    addTearDown(() {
+      runs.dispose();
+      machines.dispose();
+      settings.dispose();
+    });
+    final processes = <HostProcess>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HostDialog(
+          runKeyCommand: _noKeyScan,
+          project: '',
+          machines: machines,
+          settings: settings,
+          hostRuns: runs,
+          start: (_, _) async {
+            processes.add(HostProcess());
+            return processes.last;
+          },
+        ),
+      ),
+    );
+    Future<void> type(String label, String value) async {
+      final field = find.widgetWithText(TextField, label);
+      await tester.ensureVisible(field);
+      await World.settle(tester);
+      await tester.enterText(field, value);
+    }
+
+    await type('Machine name', 'orchard');
+    await type('Server address', '203.0.113.7');
+    await type('SSH host key', hostKey);
+    await World.settle(tester);
+
+    final reading = Completer<void>();
+    proof.hold = reading;
+    await tester.ensureVisible(find.text('Prepare the machine'));
+    await World.settle(tester);
+    await tester.tap(find.text('Prepare the machine'));
+    await tester.pump();
+    expect(tester.widget<Text>(find.byKey(const Key('preparation-waits'))).data, contains('Checking'));
+    proof.hold = null;
+    reading.complete();
+    await World.settle(tester);
+
+    processes.last.line(
+      const host.Step('ssh', host.StepState.refused, fix: '${host.rootStillClosed} Nothing changed.'),
+    );
+    processes.last.end(65);
+    await World.settle(tester);
+    final command = find.byKey(const Key('preparation-root-command'));
+    expect(command, findsOneWidget);
+    expect(
+      tester.getTopLeft(command).dy,
+      lessThan(tester.getTopLeft(find.textContaining(host.rootStillClosed).first).dy),
+      reason: 'the words say "above"',
+    );
+
+    await tester.ensureVisible(find.text('Prepare the machine again'));
+    await World.settle(tester);
+    await tester.tap(find.text('Prepare the machine again'));
+    await tester.pump();
+    await tester.pump();
+    expect(command, findsNothing, reason: 'the new try is under way');
+    processes.last.end(1);
+    await World.settle(tester);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   // Harm: reopened by someone no longer a Machine Admin, the dialog throws while it draws.
   testWidgets('a run stopped for root, reopened without the right to prepare, draws and shows no command', (
     tester,

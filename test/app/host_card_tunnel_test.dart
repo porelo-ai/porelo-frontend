@@ -17,6 +17,7 @@ import 'package:porelo_frontend/src/app/homeserver_forwards.dart';
 import 'package:porelo_frontend/src/app/login_forward.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/settings.dart';
+import 'package:porelo_frontend/src/app/ssh_words.dart';
 import 'package:porelo_frontend/src/app/session.dart';
 import 'package:porelo_frontend/src/app/tunnel.dart';
 import 'package:porelo_frontend/src/ui/machines_page.dart' show machineRowWords;
@@ -1441,6 +1442,27 @@ void main() {
   });
 
   // Harm: an automatic retry hides the refusal while the person is deciding how to answer it.
+  // Harm: only ssh's last line is kept, so a real fault followed by its closing reads as "wait a minute".
+  test('a fault said before the connection closed is not lost', () async {
+    nextProcess = () => _Process()
+      ..end(
+        'Received disconnect from 203.0.113.9: Too many authentication failures\nConnection closed by 203.0.113.9 port 22\n',
+      );
+    checkControl = () async => ProcessResult(0, 1, '', '');
+    expect(await tunnels.raiseFor(host), isFalse);
+    expect(tunnels.of(host)?.problem, contains('Too many authentication failures'));
+    expect(sshRefusalWords(tunnels.of(host)?.problem), isNot(contains('Wait a minute')));
+  });
+
+  // Harm: a noise line before it hides the closing, and the person is not told to wait.
+  test('a warning before the closing does not change what it means', () async {
+    nextProcess = () =>
+        _Process()..end('Warning: Permanently added the host.\nConnection closed by 203.0.113.9 port 22\n');
+    checkControl = () async => ProcessResult(0, 1, '', '');
+    expect(await tunnels.raiseFor(host), isFalse);
+    expect(sshRefusalWords(tunnels.of(host)?.problem), contains('Wait a minute'));
+  });
+
   test('repeated SSH refusals keep the machine row steady during retries', () async {
     String row() {
       final tunnel = tunnels.of(host)!;

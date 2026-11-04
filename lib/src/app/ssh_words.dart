@@ -20,3 +20,20 @@ String? sshRefusalWords(String? said) {
       'few failed tries from one address, and while it restarts. Wait a minute and try again; if it goes on, '
       'look at the machine.';
 }
+
+/// What to keep of ssh's lines when none is known to mean something else: the last, or, where the last
+/// says only that the connection closed, the fault said before it with it. A warning is not a fault.
+String? sshLastWords(List<String> said) {
+  final lines = [
+    for (final line in said)
+      if (line.trim().isNotEmpty) line.trim(),
+  ];
+  if (lines.isEmpty) return null;
+  final closes = RegExp(r'^Connection (closed|reset) by ', caseSensitive: false).hasMatch(lines.last);
+  if (!closes) return lines.last;
+  final faults = [
+    for (final line in lines)
+      if (!line.startsWith('Warning:') && !line.startsWith('**')) line,
+  ];
+  return faults.join(' ');
+}
