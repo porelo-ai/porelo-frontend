@@ -256,6 +256,38 @@ void main() {
     expect(address(tester), 'git@forge.example:me/x.git');
   });
 
+  // Harm: a plugin that failed on the same checkout goes unsaid, as no question opens to hold its words.
+  testWidgets('a file not taken keeps what the plugins say', (tester) async {
+    await open(
+      tester,
+      const FirstStart(
+        outcome: FirstStart.askUnknownFile,
+        refusal: 'It does not read.',
+        notes: <String>['The Maven plugin ended with 1.'],
+      ),
+    );
+    await pick(tester);
+    expect(find.byKey(const Key('default-problem')), findsOneWidget);
+    expect(find.text('The Maven plugin ended with 1.'), findsOneWidget);
+  });
+
+  // Harm: a checkout that moved on is blamed on a file, and the person goes looking for a fault it does not have.
+  testWidgets('a refusal that is no fault of a file does not say a file was not used', (tester) async {
+    final backend = await open(
+      tester,
+      const FirstStart(outcome: FirstStart.askNew, file: 'project: {}', project: 'x-project', hash: 'abc'),
+    );
+    backend.confirmFails = const VarlinkException('org.fuin.porelo.Tasks1.FirstStartRefused', <String, dynamic>{
+      'reason': 'MOVED_ON',
+      'detail': 'the file is not what that hash named',
+    });
+    await pick(tester);
+    await tester.tap(find.byKey(const Key('first-start-yes')));
+    await tester.pumpAndSettle();
+    final said = tester.widget<Text>(find.byKey(const Key('default-problem')));
+    expect(said.data, 'the file is not what that hash named');
+  });
+
   // Harm: an older Porelo answers the same with no reason, as `67261bbc` does, and that must warn too.
   testWidgets('a file not taken with no reason given warns, and says where the reason is', (tester) async {
     await open(tester, const FirstStart(outcome: FirstStart.askUnknownFile));

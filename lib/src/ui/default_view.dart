@@ -141,7 +141,8 @@ class _DefaultDialogState extends State<DefaultDialog> {
         project = await _projectOf(checkout);
       } on VarlinkException catch (refusal) {
         if (refusal.simpleName != 'FirstStartRefused') rethrow;
-        _problem = _notTaken(refusal.parameters['detail'] as String? ?? refusal.simpleName);
+        final detail = refusal.parameters['detail'] as String? ?? refusal.simpleName;
+        _problem = _ofTheFile.contains(refusal.parameters['reason']) ? _notTaken(detail) : detail;
         await _fillTheOrigin(checkout);
         return;
       } on FeatureNotSupported {
@@ -163,6 +164,9 @@ class _DefaultDialogState extends State<DefaultDialog> {
     });
   }
 
+  /// The refusals that say the file itself cannot be used; the others, a checkout that moved on or is none, do not.
+  static const Set<String> _ofTheFile = <String>{'NAME_TAKEN', 'NO_NAME', 'FILE_UNREADABLE'};
+
   /// What a person reads of a file not taken: why, and what the start then does.
   static String _notTaken(String why) => '$why This start uses Porelo\u2019s own settings in Default, not that file.';
 
@@ -175,6 +179,7 @@ class _DefaultDialogState extends State<DefaultDialog> {
       // A question with nothing a yes could name is a file not taken. It is a warning: it is the person's own file
       // that is not used, and the start goes on without it.
       if (first.refusal.isNotEmpty || first.hash.isEmpty) {
+        _notes = first.notes;
         _problem = first.refusal.isEmpty
             ? 'The project.yml in this checkout was not taken, so this start uses Porelo\u2019s own settings in Default, '
                   'not that file. A start in a terminal in this checkout says why.'
