@@ -259,6 +259,14 @@ void main() {
       expect(started['certify'], isNot(true));
     });
 
+    // Harm: a fresh start goes while starting the same work again still waits for a person's key.
+    test('starting it again on this computer asks nothing of the person either', () async {
+      final here = PoreloBackend(Backend(socketPath: daemon.socketPath, label: 'here'), asksToCertify: false);
+      await here.open();
+      await here.startAgain(project: 'foo-project', task: 'work');
+      expect(started['certify'], isNot(true));
+    });
+
     test('the machine says whether it asks: another one does, this computer does not', () {
       expect(
         (Machines.overSocket(

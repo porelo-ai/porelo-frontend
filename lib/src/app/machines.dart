@@ -514,6 +514,7 @@ class Machines extends ChangeNotifier {
     }
   }
 
+  /// How [machine] is spoken to over its socket: a start asks for a certificate unless it is this computer.
   static FleetBackend overSocket(Machine machine) =>
       PoreloBackend(backendFor(machine), asksToCertify: !machine.isThisComputer);
 

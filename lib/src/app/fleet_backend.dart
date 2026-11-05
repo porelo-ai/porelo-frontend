@@ -706,7 +706,7 @@ class PoreloBackend implements FleetBackend {
     final printed = <String>[];
     final certifying = _Certifying();
     final replies = _opened()
-        .start(project: project, task: task, repository: repository, certify: true)
+        .start(project: project, task: task, repository: repository, certify: asksToCertify)
         .transform(startRefusalsSaid);
     await for (final progress in replies) {
       final asked = progress.certify;
