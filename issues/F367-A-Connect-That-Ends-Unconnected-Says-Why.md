@@ -33,6 +33,11 @@
 - A *Connect* refused for any other reason says it beside the button, and the attempt can be opened.
 - The row and the page agree in each state: not connected, waiting for the token, connected.
 
+## Decided while building
+
+- **The row goes once the token is given,** and stands under no *Recently resolved*: the connection coming up says so.
+- **A page whose read of the machine fails says that, and offers no token.** The row still leads there, where the refusal stands.
+
 ## To be checked
 
 - The same words on the *Machines* page and in *Needs you*'s list of machines, each from its own reading.

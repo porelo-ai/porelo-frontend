@@ -137,6 +137,27 @@ void main() {
       expect(find.textContaining('build waits for your token'), findsNothing);
     });
 
+    // Harm: a row leading to a page that offers a revoked person no button, in place of the row that says
+    // the machine cannot be reached.
+    testWidgets('has none for a Machine Admin whose card is revoked', (tester) async {
+      await World.startBackend(World.work);
+      await World.startApp(
+        tester,
+        organizationSource: FixtureOrganization(
+          organizationFor(
+            'hana',
+            persons: const [OrganizationPerson(login: 'hana', key: 'SHA256:hana', standing: CardStanding.revoked)],
+          ),
+        ),
+        hostConnections: waiting(),
+      );
+      await tester.tap(find.byKey(const ValueKey('rail organization')));
+      await World.settle(tester);
+      await tester.tap(find.byKey(const ValueKey('rail attention')));
+      await World.settle(tester);
+      expect(find.textContaining('build waits for your token'), findsNothing);
+    });
+
     testWidgets('has none for someone who cannot give it', (tester) async {
       await open(tester, 'mia', waiting());
       expect(find.textContaining('build waits for your token'), findsNothing);

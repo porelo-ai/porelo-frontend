@@ -192,7 +192,7 @@ class Attention extends ChangeNotifier {
   List<String> get _tokensWaited {
     final connections = _connections;
     final view = _tokensOf?.view;
-    if (connections == null || view == null) return const <String>[];
+    if (connections == null || view == null || !view.holdsRoles) return const <String>[];
     return <String>[
       for (final host in view.hosts)
         if (host.admins.contains(view.me) && connections.waitsForToken(host.name)) host.name,
