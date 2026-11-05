@@ -14,6 +14,10 @@ porelo-host up|down (--host-name NAME | --project NAME --account NAME)
             [--memberships | --purge LOGIN ...]
             [--collection FILE --collection-sha256 HEX]
             [--machine-file FILE]
+porelo-host check --given ADDRESS --host-key "TYPE BASE64" --public-key "TYPE BASE64"
+            [--forge true|false] [--kvm true|false] [--forge-runner-capacity N] [--forge-job-cpus N]
+            [--forge-job-memory SIZE] [--collection FILE --collection-sha256 HEX]
+porelo-host check --available [--collection FILE --collection-sha256 HEX]
 porelo-host find --project NAME --scaleway-project ID [--zone fr-par-1]
 porelo-host key set|forget PROVIDER
 porelo-host key set scaleway [--from-file FILE]
@@ -23,6 +27,10 @@ porelo-host --collection-info
 
   up      prepares an existing --given host as root using only --public-key from the local SSH agent; renting remains refused
   down    gives back the tagged rental after its down play; a failed play keeps the host
+  check   reads whether a given machine can carry what is chosen, by the carried collection's own check, as root over
+          ssh with only --public-key from the local SSH agent; it changes nothing on the machine. One JSON object on
+          standard output. Exit: 0 passed, 1 has findings, 2 the check gave no answer. --available exits 0 when the
+          carried collection holds a check and 4 when not, printing nothing.
   find    names the server rented for the project now, as one JSON line with its id, address and
           whether it is ready, or exits 69 when none is; it changes nothing
   key     checks and keeps Scaleway's secret key or keeps a forge token, or forgets it;
@@ -66,6 +74,7 @@ Future<int> runHostCommand(
   StringSink? errors,
   Map<String, String>? environment,
   Future<Process> Function(String, List<String>)? startSsh,
+  String? resolvedExecutable,
 }) async {
   final out = output ?? stdout;
   final err = errors ?? stderr;
@@ -82,6 +91,16 @@ Future<int> runHostCommand(
     return runKeyCommand(arguments.sublist(1), output: out, errors: err);
   }
   if (arguments.isNotEmpty && arguments.first == 'find') return _find(arguments.sublist(1), output: out, errors: err);
+  if (arguments.isNotEmpty && arguments.first == 'check') {
+    return _check(
+      arguments.sublist(1),
+      remote: remote,
+      output: out,
+      errors: err,
+      startSsh: startSsh,
+      resolvedExecutable: resolvedExecutable,
+    );
+  }
   if (arguments.isEmpty || !<String>{'up', 'down'}.contains(arguments.first)) return wrong('up or down first');
   final verb = arguments.first;
   final options = <String, String>{};
@@ -256,6 +275,118 @@ Future<int> runHostCommand(
   );
   if (memberships) return run.memberships(plan);
   return verb == 'up' ? run.up(plan) : run.down(plan, giveBackAnyway: giveBackAnyway, purge: purge);
+}
+
+/// `check`: what the carried collection's check answers of a given machine, as one JSON object.
+Future<int> _check(
+  List<String> arguments, {
+  required StringSink output,
+  required StringSink errors,
+  Remote? remote,
+  Future<Process> Function(String, List<String>)? startSsh,
+  String? resolvedExecutable,
+}) async {
+  int wrong(String why) => _wrong(why, errors: errors);
+  final options = <String, String>{};
+  var availableOnly = false;
+  for (var i = 0; i < arguments.length; i++) {
+    final name = arguments[i];
+    if (name == '--available') {
+      availableOnly = true;
+    } else if (const <String>{
+          '--given',
+          '--host-key',
+          '--public-key',
+          '--collection',
+          '--collection-sha256',
+          '--forge',
+          '--kvm',
+          '--forge-runner-capacity',
+          '--forge-job-cpus',
+          '--forge-job-memory',
+          '--forge-web-port',
+          '--forge-git-port',
+          '--matrix-port',
+        }.contains(name) &&
+        i + 1 < arguments.length) {
+      options[name.substring(2)] = arguments[++i];
+    } else {
+      return wrong('$name is not an option of check, or lacks its value');
+    }
+  }
+  if (options.containsKey('collection') != options.containsKey('collection-sha256')) {
+    return wrong('--collection needs --collection-sha256 and vice versa');
+  }
+  if (availableOnly && options.keys.any((name) => !name.startsWith('collection'))) {
+    return wrong('--available takes only a collection');
+  }
+  final carried = await readCarriedHostCheck(
+    collection: options['collection'],
+    collectionSha256: options['collection-sha256'],
+    resolvedExecutable: resolvedExecutable,
+  );
+  if (availableOnly) return carried == null ? hostCheckNotCarried : Exit.done;
+  for (final flag in const ['forge', 'kvm']) {
+    if (options[flag] != null && !const ['true', 'false'].contains(options[flag])) {
+      return wrong('--$flag needs true or false');
+    }
+  }
+  final missing = const ['given', 'host-key', 'public-key'].where((name) => !options.containsKey(name)).toList();
+  if (missing.isNotEmpty) return wrong('missing ${missing.map((name) => '--$name').join(', ')}');
+
+  int answered(HostCheckAnswer answer) {
+    output.writeln(jsonEncode(answer));
+    return answer.exitCode;
+  }
+
+  if (carried == null) {
+    return answered(const HostCheckAnswer.notAnswered('The collection carried here holds no check.'));
+  }
+  final HostPreparationSettings choices;
+  final address = options['given']!;
+  final hostKey = options['host-key']!;
+  final publicKey = options['public-key']!;
+  try {
+    choices = HostPreparationSettings.fromArguments([
+      for (final entry in options.entries) ...['--${entry.key}', entry.value],
+    ]);
+    PreparedHost.read({
+      'name': 'given',
+      'address': address,
+      'ssh_port': 22,
+      'ssh_host_key': hostKey,
+      'services': choices.localServices,
+    });
+    HostFiles.signingFingerprint(publicKey);
+  } on FormatException catch (error) {
+    return answered(HostCheckAnswer.notAnswered(error.message));
+  } on HostFilesRefused catch (error) {
+    return answered(HostCheckAnswer.notAnswered(error.message));
+  }
+  // Its own pin, gone with the run: trust() replaces a whole file, and up's or the shared one must not be touched.
+  final pinned = await HostFileWriter().createPrivateTemporary(Directory.systemTemp, prefix: 'porelo-check-');
+  try {
+    final ssh = OpenSsh(
+      knownHosts: File('${pinned.path}${Platform.pathSeparator}known_hosts'),
+      identity: '',
+      agentOnly: true,
+      agentPublicKey: publicKey,
+      start: startSsh,
+      deadline: hostCheckLimit,
+    );
+    await ssh.trust(address, hostKey);
+    return answered(
+      await askHostCheck(
+        carried,
+        choices: hostCheckChoices(choices, forge: options['forge'] != 'false', kvm: options['kvm']),
+        send: (command, script, onLine) => remote == null
+            ? ssh.runWithPublicInput(address, 'root', command, script: script, onLine: onLine)
+            : remote.run(address, 'root', command, input: script, onLine: onLine),
+      ),
+    );
+  } finally {
+    await pinned.delete(recursive: true);
+  }
 }
 
 /// `find`: the server rented for `--project` now, asked of the provider alone.

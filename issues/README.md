@@ -82,6 +82,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f358"></a>[F358](F358-A-Hosts-Check-Before-Its-Installation.md) | — | — | The host dialog's first step after the address runs one reading check, lists every finding, and offers the installation only when it passes. |
 
 ### Backlog
 
@@ -94,7 +95,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f356"></a>[F356](F356-The-Porelo-Organization-Named-Apart.md) | M | — | The window says *Porelo organization* wherever a forge's organization could also be meant, and says it lives in a repository inside that one. |
 | <a id="f362"></a>[F362](F362-A-Click-Answers-At-Once.md) | S | — | A click on a row shows its page and its reading line at once; the delay seen in the foo test is measured down to its cause. |
 | <a id="f357"></a>[F357](F357-A-Hosts-Forge-And-VMs-As-Plain-Choices.md) | M | — | The put-on-a-host dialog asks in plain words about a forge of its own and VMs in its jobs, with what each costs, and says what the machine can carry. |
-| <a id="f358"></a>[F358](F358-A-Hosts-Check-Before-Its-Installation.md) | L | — | The host dialog's first step after the address runs one reading check, lists every finding, and offers the installation only when it passes. |
 | <a id="f99"></a>[F99](F99-An-Attached-Agent-Shown-At-Rest-Or-Working.md) | S | — | A work tile says whether an attached agent is at rest or working. |
 | <a id="f117"></a>[F117](F117-What-Walk-8-Left-Unbuilt.md) | M | — | A tile's repository in its heading, a refused release said as an error that stays. |
 | <a id="f111"></a>[F111](F111-All-Of-A-Pieces-Logs-In-One-Timeline.md) | M | — | All of a piece's logs in one timeline, by time, filterable by source. |

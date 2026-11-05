@@ -183,17 +183,32 @@ class OpenSsh implements Remote {
     (identity) => _run(host, user, command, input: input, onLine: onLine, agentIdentity: identity),
   );
 
+  /// Runs [command] with the public [script] on its standard input: what it prints comes back whole, where [run] would
+  /// take every line of a secret input out of it, and a script's lone `}` out of the JSON it answers.
+  Future<RemoteResult> runWithPublicInput(
+    String host,
+    String user,
+    String command, {
+    required String script,
+    void Function(String line)? onLine,
+  }) => _withAgentIdentity(
+    (identity) =>
+        _run(host, user, command, input: script, inputIsPublic: true, onLine: onLine, agentIdentity: identity),
+  );
+
   Future<RemoteResult> _run(
     String host,
     String user,
     String command, {
     String? input,
+    bool inputIsPublic = false,
     void Function(String line)? onLine,
     File? agentIdentity,
   }) async {
     _checkCard(host, user);
     Process? process;
     String public(String text) {
+      if (inputIsPublic) return text;
       for (final value in const LineSplitter().convert(input ?? '').where((value) => value.isNotEmpty)) {
         text = text.replaceAll(value, '[redacted]');
       }

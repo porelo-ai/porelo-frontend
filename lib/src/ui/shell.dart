@@ -10,6 +10,7 @@ import '../app/desk.dart';
 import '../app/identity.dart';
 import '../app/environment_tokens.dart';
 import '../app/homeserver_forwards.dart';
+import '../app/host_check_run.dart';
 import '../app/host_access.dart';
 import '../app/host_runs.dart';
 import '../app/product.dart';
@@ -609,8 +610,17 @@ class _ShellState extends State<Shell> {
     stopEverything: _stopEverything,
     stopEverywhere: _stopEverywhere,
     watchAnotherMachine: _addAMachine,
-    prepareServer: () =>
-        openPrepareServerDialog(context, machines: widget.machines, settings: widget.settings, hostRuns: _hostRuns),
+    prepareServer: () async {
+      final hostCheck = await HostCheckRun().ifCarried();
+      if (!mounted) return;
+      await openPrepareServerDialog(
+        context,
+        machines: widget.machines,
+        settings: widget.settings,
+        hostRuns: _hostRuns,
+        hostCheck: hostCheck,
+      );
+    },
     startTheDaemon: () => unawaited(_startTheDaemon()),
     stopTheDaemon: () => unawaited(_stopTheDaemon()),
     forget: _forget,

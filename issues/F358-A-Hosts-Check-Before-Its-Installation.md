@@ -1,6 +1,6 @@
 # F358 — A Host's Check Before Its Installation
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** L - one check in the dialog with its list and choices, on the collection's answer, and an offer compared before renting.
 
 **What must be true.** A person who rented a machine anywhere and left their ssh key there learns at once, before anything is installed, whether it can do what they want: the host dialog's first step after the address runs one check, shows everything it found, offers the installation only when it passes, and lets a choice be changed there with the check run again.
@@ -33,6 +33,24 @@
 - Changing a choice runs the check again: a CPU without virtualization is a finding with VMs on and none with VMs off.
 - No answer, a broken answer and a refused login each read as the check not having answered, with no *Install*.
 - A machine that passes changes in nothing by being checked.
+
+## Decided while building
+
+- **The step stands only where the carried collection holds a check**, as `porelo-host check --available` says: a collection without one, an older command or none at all gives the dialog as it was.
+- **Prepare is called *Prepare the machine*, as the dialog already says,** and *Check this machine* stands in its place until the answer passes. Passing is `ok` and `complete` with exit 0 and at least one finding.
+- **An answer at odds with itself is no answer**: exit 0 without `ok` and `complete`, exit 1 with both, `ok` beside a failing finding, a failure said with no failing finding in a complete list, a pass of nothing, another version, a state out of the contract. A missing `found`, `unit`, `asked` or `do` is allowed, and such a field of the wrong type is not.
+- **`unknown` does not hold Prepare back and never reads as passed**: it reads *Cannot be known beforehand*, as most of what it covers can only ever be that.
+- **Exit 64 stays for a wrong command line**, as for every verb, and prints no JSON; the window reads it as no answer. A bad address, key or setting is exit 2 with the object saying so.
+- **The check logs in as root**, as the installation does, so the bootstrap line stands before it, and a refused login says to run that line.
+- **The pin of a check is a private file of its own, deleted after the run**, because writing a pin replaces a whole file and a check has no machine name to keep one under. Nothing stays behind on this computer.
+- **The script's lines are not taken out of its answer**: a secret input's lines are cut from what comes back, which would cut a lone `}` from the JSON, so public input has its own way in.
+- **`forge` is always sent**, the same word `up` turns an absent choice into; the window has no forge choice yet, so it says true.
+- **`ports` is not sent**: the ports the form holds are this computer's forwards, which the machine is never told. Which ports the check's own choice means is not read yet.
+- **The VMs choice stands in the dialog beside the form, off by default, and goes to the check alone.** It says so in its words. It is kept nowhere and writes nothing into the inventory; the inventory's own setting comes with its own work. The words on root access are left out until the collection confirms them.
+- **An ssh of the check is ended after three minutes, and an answer over a mebibyte is not read.**
+- **Findings stand in the order fail, warn, unknown, pass**, each in the check's own order, so what stands in the way is seen first.
+
+**Still to do:** the offer compared with the check's limits before renting; a pin to a collection holding the check, until which the step does not show; the answer's fields, `kvm`, `jobs`, `job_cpus` and `job_memory` read against the real script and a real machine, and the words a machine reached as another person than root gets.
 
 ## To be checked
 

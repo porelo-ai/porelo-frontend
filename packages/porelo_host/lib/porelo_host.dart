@@ -2,6 +2,7 @@
 library;
 
 export 'src/collection.dart';
+export 'src/host_check.dart';
 export 'src/host_run.dart';
 export 'src/provider.dart';
 export 'src/remote.dart';
