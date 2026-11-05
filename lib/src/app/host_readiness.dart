@@ -57,25 +57,44 @@ class HostReadiness extends ChangeNotifier {
     return 'This machine can run work. Nothing is missing.';
   }
 
+  /// The look whose answer is still wanted; an earlier one's answer is of another moment or machine.
+  Object? _asked;
+
+  /// Drops what was said, and any answer still on its way: it was of a machine no longer shown.
+  void forget() {
+    _asked = null;
+    health = null;
+    problem = null;
+    busy = false;
+    notifyListeners();
+  }
+
   /// Asks the machine whether it can run anything.
   Future<void> look(FleetBackend backend) async {
+    final asked = _asked = Object();
     busy = true;
+    // What another look found says nothing of this one, which may fail.
+    health = null;
     problem = null;
     notifyListeners();
+    Health? said;
+    String? why;
     try {
-      health = await backend.doctor();
+      said = await backend.doctor();
     } on VarlinkException catch (refusal) {
-      problem = 'Refused: ${refusal.simpleName}.';
+      why = 'Refused: ${refusal.simpleName}.';
     } on VarlinkDisconnected catch (ex) {
-      problem = 'Lost contact with the machine: ${ex.message}.';
+      why = 'Lost contact with the machine: ${ex.message}.';
     } on FeatureNotSupported catch (ex) {
       // A daemon older than `Doctor`. Saying so beats an empty screen that reads as a machine
       // with nothing wrong.
-      problem = '$ex';
-    } finally {
-      busy = false;
-      notifyListeners();
+      why = '$ex';
     }
+    if (!identical(asked, _asked)) return;
+    health = said;
+    problem = why;
+    busy = false;
+    notifyListeners();
   }
 
   /// Forgets what was read, for a switch to another machine.

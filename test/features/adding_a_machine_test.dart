@@ -21,6 +21,7 @@ import './step/i_go_back.dart';
 import './step/the_forwarded_socket_is.dart';
 import './step/i_watch_it.dart';
 import './step/nothing_was_raised_for.dart';
+import './step/the_machine_is_missing_because.dart';
 import './step/it_does_not_say.dart';
 import './step/i_switch_to_the_machine.dart';
 import './step/it_says.dart';
@@ -168,16 +169,17 @@ void main() {
       await iWatchIt(tester);
       await nothingWasRaisedFor(tester, 'the build machine');
     });
-    testWidgets('''a machine added is asked whether it can run work when the person goes there''', (tester) async {
+    testWidgets('''a machine added says what it lacks when the person goes there''', (tester) async {
       await bddSetUp(tester);
+      await theMachineIsMissingBecause(tester, 'nft', 'no nftables binary on PATH');
       await iSayItIsCalled(tester, 'the build machine');
       await iChoose(tester, 'Something else already connects it');
       await iGoOn(tester);
       await theForwardedSocketIs(tester, '/tmp/porelo-build.sock');
       await iWatchIt(tester);
-      await itDoesNotSay(tester, 'This machine can run work');
+      await itDoesNotSay(tester, 'This machine cannot run work');
       await iSwitchToTheMachine(tester, 'the build machine');
-      await itSays(tester, 'This machine can run work. Nothing is missing.');
+      await itSays(tester, 'This machine cannot run work: one thing it needs is missing.');
     });
     testWidgets('''a host reached for the first time shows its key before anything logs in''', (tester) async {
       await bddSetUp(tester);

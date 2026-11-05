@@ -1401,7 +1401,10 @@ class WorkRow extends StatelessWidget {
 
   /// What says its state in words: an ended terminal first, since nothing else on the row would.
   static String stateOf(Tile tile, {required bool terminalEnded}) =>
-      terminalEnded ? 'No terminal is open in it' : TaskTile._headline(tile);
+      terminalEnded && !_asksAPerson(tile) ? 'No terminal is open in it' : TaskTile._headline(tile);
+
+  /// Whether what it waits for is a person: that comes before anything said of its terminal.
+  static bool _asksAPerson(Tile tile) => const {Demand.question, Demand.ended, Demand.gate}.contains(tile.demand);
 
   /// The work's project as a person calls it.
   static String projectOf(Task? task) =>
@@ -1576,7 +1579,7 @@ class WorkRow extends StatelessWidget {
 
   Color? _stateColour(ColorScheme scheme) {
     final states = StateColours.of(scheme);
-    if (terminalEnded) return states.waiting;
+    if (terminalEnded && !_asksAPerson(tile)) return states.waiting;
     return switch (tile.demand) {
       Demand.question || Demand.ended || Demand.gate => scheme.error,
       Demand.working || Demand.unseen => states.working,

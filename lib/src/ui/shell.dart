@@ -2593,8 +2593,12 @@ class _ShellState extends State<Shell> {
   /// who came to it for a row of work goes on to that row. It stays one action away otherwise.
   Future<void> _checkFirstTime(Machine machine) async {
     await widget.readiness.look(_fleet.backend);
-    if (!mounted || widget.machines.current != machine) return;
-    if (widget.readiness.ready != true) widget.shell.openReadiness();
+    if (!mounted) return;
+    if (widget.machines.current != machine) {
+      widget.readiness.forget();
+    } else if (widget.readiness.ready != true) {
+      widget.shell.openReadiness();
+    }
   }
 
   /// Checks [machine] once it answers, if it is still the one shown. Waits half a minute at most.

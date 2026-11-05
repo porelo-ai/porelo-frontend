@@ -31,6 +31,7 @@ Future<void> theInterfaceSaysWhatTheTestMachineNeedsToRunWork(WidgetTester teste
   );
   // The harm: a machine that cannot run work shown as one that can. Its verdict is there, in its own place.
   expect(find.byKey(const Key('readiness-verdict')), findsOneWidget);
+  expect(find.textContaining(E2e.name), findsWidgets, reason: 'the verdict must be of the test machine');
 }
 
 /// Asks through the command finder, as a person does.
@@ -42,5 +43,8 @@ Future<void> askWhatTheMachineCanRun(WidgetTester tester) async {
   await tester.enterText(find.byKey(const Key('command-query')), 'Check whether this machine can run');
   await pumpFor(tester);
   await tester.tap(find.widgetWithText(ListTile, 'Check whether this machine can run anything'));
+  await pumpFor(tester, const Duration(milliseconds: 800));
+  // The finder shows a machine's command in its menu; choosing it there is the person's act.
+  await tester.tap(find.byKey(const Key('highlighted')).first);
   await pumpFor(tester);
 }
