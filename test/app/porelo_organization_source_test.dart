@@ -328,6 +328,23 @@ void main() {
     });
 
     // Harm: a locked member reads as a working one, or a local project vanishes.
+    // Harm: other programs' words read wrongly: Core's own answer is the contract.
+    test('asking what founding needs takes Core\'s words and files nothing', () async {
+      answer = (_) => says({
+        'ready': false,
+        'followable': true,
+        'needs': [
+          {'name': 'token', 'state': 'cannot-tell', 'words': 'The vault is shut.', 'next': 'porelo vault unlock'},
+          {'name': 'card', 'state': 'ready', 'words': 'You have a card.', 'next': null},
+        ],
+      });
+      final needs = await source.checkFounding('git@forge.example.org:acme/org.git', replace: true);
+      expect(asked.single, ['org', 'create', 'git@forge.example.org:acme/org.git', '--check', '--replace', '--json']);
+      expect(needs.first.state, 'cannot-tell');
+      expect(needs.first.next, 'porelo vault unlock');
+      expect(needs.last.next, isNull);
+    });
+
     test('project list is read with where each comes from, and who is locked', () async {
       answer = (_) => says({
         'revision': 'r',

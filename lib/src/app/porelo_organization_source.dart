@@ -9,7 +9,7 @@ import 'run_here.dart';
 ///
 /// Each answer is read field by field, and a field it does not know is passed over, since the answers may grow. A word
 /// Porelo says goes to the person as it came; what the program wrote elsewhere never does.
-class PoreloOrganizationSource implements OrganizationSource {
+class PoreloOrganizationSource implements OrganizationSource, FoundingChecks {
   /// Runs Porelo through [run].
   PoreloOrganizationSource({RunHere? run}) : _run = run ?? runHere;
 
@@ -392,6 +392,22 @@ class PoreloOrganizationSource implements OrganizationSource {
             locked: _truth(project, 'locked'),
             host: _maybeText(project, 'host'),
             stale: _flag(answer, 'stale'),
+          ),
+      ],
+    );
+  }
+
+  @override
+  Future<List<FoundingNeed>> checkFounding(String address, {bool replace = false}) async {
+    final answer = await _ask(['org', 'create', address, '--check', if (replace) '--replace']);
+    return _reading(
+      () => [
+        for (final need in _maps(answer, 'needs'))
+          FoundingNeed(
+            name: _text(need, 'name'),
+            state: _text(need, 'state'),
+            words: _text(need, 'words'),
+            next: _maybeText(need, 'next'),
           ),
       ],
     );

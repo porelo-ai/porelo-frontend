@@ -753,6 +753,30 @@ abstract class HostConnections extends ChangeNotifier {
   Future<CentralState> central(String host, String project) async => const CentralState();
 }
 
+/// One thing founding a Porelo organization needs, as Core says it: its words are shown, not read.
+class FoundingNeed {
+  /// Keeps what Core answered.
+  const FoundingNeed({required this.name, required this.state, required this.words, this.next});
+
+  /// Which need, such as `token`.
+  final String name;
+
+  /// `ready`, `missing`, `cannot-tell` or `not-known-until-created`.
+  final String state;
+
+  /// How it stands.
+  final String words;
+
+  /// What to do, where something is.
+  final String? next;
+}
+
+/// Asks what founding at an address needs, changing nothing.
+abstract interface class FoundingChecks {
+  /// What founding at [address] needs and how each need stands.
+  Future<List<FoundingNeed>> checkFounding(String address, {bool replace = false});
+}
+
 /// What the last *Connect* to a machine did, step by step, to be opened after it ended.
 class ConnectAttempt {
   /// Keeps [lines], begun at [at].

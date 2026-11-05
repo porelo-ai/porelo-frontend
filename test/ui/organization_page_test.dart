@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -62,6 +63,30 @@ Future<void> _pick(WidgetTester tester, Key field, String choice) async {
   await tester.pumpAndSettle();
   await tester.tap(find.text(choice).last);
   await tester.pumpAndSettle();
+}
+
+class _Checking extends FixtureOrganization implements FoundingChecks {
+  _Checking(super.view);
+
+  final asked = <String>[];
+  OrganizationRefused? refuseCheck;
+  Future<void>? hold;
+
+  @override
+  Future<List<FoundingNeed>> checkFounding(String address, {bool replace = false}) async {
+    asked.add(address);
+    await hold;
+    if (refuseCheck case final refused?) throw refused;
+    return const [
+      FoundingNeed(name: 'this-machine', state: 'ready', words: 'This machine is ready.'),
+      FoundingNeed(
+        name: 'key-listed',
+        state: 'missing',
+        words: 'The key is not listed.',
+        next: 'List it on the forge.',
+      ),
+    ];
+  }
 }
 
 void main() {
@@ -1193,6 +1218,71 @@ void main() {
       await World.settle(tester);
       expect(fixture.writes.single.change, OrganizationChange.createOrganization);
       expect([for (final entry in World.forges.entries) entry.address], contains('forge.example.org'));
+    });
+
+    // Harm: in the foo test creating failed at the end, on what could have been said before it.
+    group('asking what creating needs', () {
+      Future<_Checking> dialog(WidgetTester tester) async {
+        tester.view.physicalSize = const Size(1400, 2400);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final fixture = _Checking(organizationFor('olive'))
+          ..refuseReads = const OrganizationRefused('no organization here', reason: 'no-organization');
+        final organization = Organization(fixture);
+        addTearDown(organization.dispose);
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: OrganizationPage(organization: organization, onHost: (_) {}, onProject: (_) {}),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await _open(tester, find.byKey(const ValueKey('createOrganization')));
+        await tester.enterText(find.byKey(const Key('organization-address')), 'git@forge.example.org:acme/org.git');
+        await tester.pumpAndSettle();
+        return fixture;
+      }
+
+      testWidgets('shows Core\'s words and next step, and files nothing', (tester) async {
+        final fixture = await dialog(tester);
+        await tester.tap(find.byKey(const Key('organization-founding-check')));
+        await tester.pumpAndSettle();
+        expect(fixture.asked, ['git@forge.example.org:acme/org.git']);
+        expect(find.text('The key is not listed. List it on the forge.'), findsOneWidget);
+        expect(find.text('This machine is ready.'), findsOneWidget);
+        expect(fixture.writes, isEmpty);
+      });
+
+      testWidgets('an address changed since says nothing of the new one', (tester) async {
+        await dialog(tester);
+        await tester.tap(find.byKey(const Key('organization-founding-check')));
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byKey(const Key('organization-address')), 'git@forge.example.org:acme/two.git');
+        await tester.pumpAndSettle();
+        expect(find.text('This machine is ready.'), findsNothing);
+      });
+
+      testWidgets('a late answer of the old address is not shown', (tester) async {
+        final fixture = await dialog(tester);
+        final held = Completer<void>();
+        fixture.hold = held.future;
+        await tester.tap(find.byKey(const Key('organization-founding-check')));
+        await tester.pump();
+        await tester.enterText(find.byKey(const Key('organization-address')), 'git@forge.example.org:acme/two.git');
+        await tester.pump();
+        held.complete();
+        await tester.pumpAndSettle();
+        expect(find.text('This machine is ready.'), findsNothing);
+      });
+
+      testWidgets('a refusal is said in its words', (tester) async {
+        final fixture = await dialog(tester);
+        fixture.refuseCheck = const OrganizationRefused('The key store is not ready.');
+        await tester.tap(find.byKey(const Key('organization-founding-check')));
+        await tester.pumpAndSettle();
+        expect(find.text('The key store is not ready.'), findsOneWidget);
+      });
     });
 
     // Harm: creating at https works, and the stop comes only at the first machine.

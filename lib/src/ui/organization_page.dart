@@ -1114,6 +1114,36 @@ class _AddressDialog extends StatefulWidget {
 class _AddressDialogState extends State<_AddressDialog> {
   final _address = TextEditingController();
 
+  /// What Core said of the address now typed, or why it could not say.
+  List<FoundingNeed>? _needs;
+  String? _needsRefused;
+  bool _checking = false;
+  int _asked = 0;
+
+  Future<void> _check(FoundingChecks checks, VoidCallback changed) async {
+    final asked = ++_asked;
+    setState(() {
+      _checking = true;
+      _needs = null;
+      _needsRefused = null;
+    });
+    List<FoundingNeed>? needs;
+    String? refused;
+    try {
+      needs = await checks.checkFounding(_address.text.trim(), replace: widget.replacing);
+    } on OrganizationRefused catch (refusal) {
+      refused = refusal.words;
+    }
+    // An answer of an address since changed says nothing of this one.
+    if (!mounted || asked != _asked) return;
+    setState(() {
+      _checking = false;
+      _needs = needs;
+      _needsRefused = refused;
+    });
+    changed();
+  }
+
   @override
   void dispose() {
     _address.dispose();
@@ -1167,7 +1197,13 @@ class _AddressDialogState extends State<_AddressDialog> {
                 ? 'The address only: no password or token, so it stays out of what other programs can read.'
                 : null,
           ),
-          onChanged: (_) => changed(),
+          onChanged: (_) {
+            _asked++;
+            _checking = false;
+            _needs = null;
+            _needsRefused = null;
+            changed();
+          },
         ),
         // Before anything is filed: there it works, and the stop comes only at the first machine.
         if (widget.creating && _address.text.trim().toLowerCase().startsWith('https://')) ...[
@@ -1178,6 +1214,43 @@ class _AddressDialogState extends State<_AddressDialog> {
             key: Key('organization-https-word'),
           ),
         ],
+        if (widget.creating)
+          if (widget.organization.source case final FoundingChecks checks) ...[
+            const SizedBox(height: Space.small),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                key: const Key('organization-founding-check'),
+                onPressed: _checking || _address.text.trim().isEmpty || _holdsCredential(_address.text.trim())
+                    ? null
+                    : () => unawaited(_check(checks, () => changed())),
+                child: Text(_checking ? 'Asking…' : 'What does creating it need?'),
+              ),
+            ),
+            if (_needsRefused case final refused?) Text(refused, key: const Key('organization-founding-refused')),
+            for (final need in _needs ?? const <FoundingNeed>[])
+              Padding(
+                padding: const EdgeInsets.only(top: Space.small),
+                child: Row(
+                  key: ValueKey('organization-founding ${need.name}'),
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(switch (need.state) {
+                      'ready' => Icons.check_circle_outline,
+                      'missing' => Icons.error_outline,
+                      _ => Icons.help_outline,
+                    }, size: 18),
+                    const SizedBox(width: Space.small),
+                    Expanded(
+                      child: Text(switch (need.next) {
+                        final next? when next.isNotEmpty => '${need.words} $next',
+                        _ => need.words,
+                      }),
+                    ),
+                  ],
+                ),
+              ),
+          ],
       ],
     ),
     ask: () => _address.text.trim().isEmpty || _holdsCredential(_address.text.trim())
