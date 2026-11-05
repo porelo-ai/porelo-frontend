@@ -132,6 +132,7 @@ void main() {
         ProjectRepository(name: 'has', address: 'git@forge.example.org:acme/has.git', central: 'git@x:acme/has.git'),
         ProjectRepository(name: 'unsaid', address: 'git@forge.example.org:acme/unsaid.git'),
       ],
+      repositoriesRevision: 'r7',
       members: [ProjectMember(login: 'pat', role: 'admin', standing: CardStanding.trusted)],
     );
 
@@ -143,11 +144,53 @@ void main() {
       await tester.tap(find.byKey(const Key('organization-confirm')));
       await tester.pumpAndSettle();
       expect(fixture.writes.single.change, OrganizationChange.nameRepositoryCentral);
+      expect(fixture.writes.single.base, 'r7', reason: 'A row is changed against the revision of the repositories.');
       expect(fixture.writes.single.input, {
         'project': 'demo',
         'repository': 'none',
         'central': 'git@forge.example.org:acme/none.git',
       });
+    });
+
+    // Harm: a dialog keeps the revision it opened with, so a project that moved on refuses it for ever.
+    testWidgets('names it again against the revision read since a refusal', (tester) async {
+      final fixture = await _page(tester, 'pat', project: project);
+      fixture.refuseNext = const OrganizationRefused('The project moved on.', reason: 'moved-on');
+      await pressOrganizationAction(tester, 'nameCentral/none');
+      await tester.tap(find.byKey(const Key('organization-confirm')));
+      await tester.pumpAndSettle();
+      fixture.projects = {
+        'demo': ProjectView(
+          name: 'demo',
+          revision: 'p2',
+          host: project.host,
+          address: project.address,
+          roles: project.roles,
+          repositories: project.repositories,
+          repositoriesRevision: 'r8',
+          members: project.members,
+        ),
+      };
+      await pressOrganizationAction(tester, 'reviewChange/project-repositories demo/none');
+      await pressOrganizationAction(tester, 'retryChange/project-repositories demo/none');
+      expect(fixture.writes.last.change, OrganizationChange.nameRepositoryCentral);
+      expect(fixture.writes.last.base, 'r8');
+    });
+
+    testWidgets('offers no mending, and promises none, where it names no address either', (tester) async {
+      await _page(
+        tester,
+        'pat',
+        project: const ProjectView(
+          name: 'demo',
+          revision: 'p1',
+          roles: ['developer', 'admin'],
+          repositories: [ProjectRepository(name: 'none', central: '')],
+          members: [ProjectMember(login: 'pat', role: 'admin', standing: CardStanding.trusted)],
+        ),
+      );
+      expect(find.textContaining('has to be removed and added again'), findsOneWidget);
+      expect(find.textContaining('Name one'), findsNothing);
     });
 
     testWidgets('says so to anyone else, with nothing to press', (tester) async {

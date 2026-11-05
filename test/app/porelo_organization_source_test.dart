@@ -536,6 +536,25 @@ void main() {
       expect([for (final repository in project.repositories) repository.review], ['optional', 'required']);
     });
 
+    // Harm: every row reads as fine, so one a machine takes nothing from goes unsaid; or every row of an
+    // older Porelo, which does not say, is warned about.
+    test('a row names no central only where Core says it is empty', () async {
+      answer = (_) => says({
+        ..._project,
+        'repositories': {
+          'state': 'read',
+          'revision': 'p1',
+          'names': [
+            {'name': 'none', 'upstream': 'x', 'central': ''},
+            {'name': 'has', 'upstream': 'x', 'central': 'y'},
+            {'name': 'older', 'upstream': 'x'},
+          ],
+        },
+      });
+      final project = await source.readProject('demo');
+      expect([for (final repository in project.repositories) repository.namesNoCentral], [true, false, false]);
+    });
+
     // Harm: a key that cannot sign is offered.
     test('only usable keys are offered, each as the forge lists it', () async {
       answer = (_) => says({

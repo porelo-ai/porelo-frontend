@@ -536,9 +536,12 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
                     Text('${repository.address ?? 'no upstream named'} · ${_reviewWords(repository.review)}'),
                     if (repository.namesNoCentral)
                       Text(
-                        isAdmin
-                            ? 'It names no central address, so a machine takes nothing from it. Name one from its menu.'
-                            : 'It names no central address, so a machine takes nothing from it. Its Project Admin can name one.',
+                        'It names no central address, so a machine takes nothing from it. '
+                        '${(repository.address ?? '').isEmpty
+                            ? 'It names no address to take either, so it has to be removed and added again.'
+                            : isAdmin
+                            ? 'Name one from its menu.'
+                            : 'Its Project Admin can name one.'}',
                       ),
                   ],
                 ),

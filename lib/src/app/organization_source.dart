@@ -803,6 +803,11 @@ class OrganizationRowChange {
         name: input['repository'] ?? '',
         doing: 'Removing…',
       ),
+      OrganizationChange.nameRepositoryCentral => (
+        scope: 'project-repositories $project',
+        name: input['repository'] ?? '',
+        doing: 'Naming…',
+      ),
       OrganizationChange.addProjectMember => (scope: 'project-members $project', name: login, doing: 'Adding…'),
       OrganizationChange.removeProjectMember => (scope: 'project-members $project', name: login, doing: 'Removing…'),
       OrganizationChange.addCard => (scope: 'organization-people', name: login, doing: 'Adding…'),
@@ -881,7 +886,8 @@ class Organization extends ChangeNotifier {
     final project = _projectBases[change.input['project']];
     final repository =
         change.change == OrganizationChange.addProjectRepository ||
-        change.change == OrganizationChange.removeProjectRepository;
+        change.change == OrganizationChange.removeProjectRepository ||
+        change.change == OrganizationChange.nameRepositoryCentral;
     final base = change.base == null
         ? null
         : (repository ? project?.repositories : null) ?? project?.revision ?? change.base;
