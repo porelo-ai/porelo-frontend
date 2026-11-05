@@ -102,6 +102,21 @@ class _OrganizationProjectsPageState extends State<OrganizationProjectsPage> {
     );
   }
 
+  /// Why a grey button of [project]'s row is grey, said on the row: the same buttons, the same terms.
+  String _greyWords(OrganizationProject project, OrganizationView view) {
+    final host = project.host;
+    if (host == null || _isLocked(project)) return '';
+    final push = (_central[project.name]?.offersPush ?? false)
+        ? widget.menuFor?.call(project.name, host).where((each) => each.id == 'project.pushApprovedMain').firstOrNull
+        : null;
+    final connects = view.holdsRoles && !(widget.connections?.connected(host) ?? false);
+    return <String>[
+      if (push?.unavailable case final why?) '${push!.label.replaceAll('…', '')}: $why',
+      if (connects && widget.connections == null) 'This computer has no way to connect yet.',
+      if (connects && _connecting.contains(host)) 'Connecting to $host…',
+    ].map((words) => ' · $words').join();
+  }
+
   String? _centralWords(OrganizationView view, CentralState? state) {
     if (state == null) return null;
     final age = state.readAt == null ? null : DateTime.now().toUtc().difference(state.readAt!.toUtc()).inMinutes;
@@ -172,7 +187,8 @@ class _OrganizationProjectsPageState extends State<OrganizationProjectsPage> {
                         '${peopleOf(project)} · '
                         '${project.host == null ? 'not on a machine yet · a Machine Admin puts it on one' : 'on ${project.host}'}'
                         '${_centralWords(view, _central[project.name]) == null ? '' : ' · ${_centralWords(view, _central[project.name])}'}'
-                        '${_refusals[project.host] == null ? '' : ' · ${_refusals[project.host]}'}',
+                        '${_refusals[project.host] == null ? '' : ' · ${_refusals[project.host]}'}'
+                        '${_greyWords(project, view)}',
                       ),
                       trailing: Wrap(
                         crossAxisAlignment: WrapCrossAlignment.center,

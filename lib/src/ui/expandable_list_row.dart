@@ -77,6 +77,7 @@ class _ExpandableListRowState extends State<ExpandableListRow> {
     final compact = WindowSize.fromContext(context) == WindowSize.compact;
     final disclosure = listDisclosureCommand(expanded: _expanded, toggle: () => setState(() => _expanded = !_expanded));
     final primary = widget.primary?.visible == true ? widget.primary : null;
+    final why = primary?.unavailable == null ? null : '${primary!.label}: ${primary.unavailable}';
     return Semantics(
       selected: widget.selected,
       child: Card(
@@ -116,12 +117,17 @@ class _ExpandableListRowState extends State<ExpandableListRow> {
                                           style: text.titleSmall,
                                         ),
                                       ),
-                                      if (widget.subtitle case final subtitle?)
-                                        Text(
-                                          subtitle,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: text.bodySmall,
+                                      // The row's one line under its title: its height holds as a command
+                                      // goes grey, and what the reason covers is there when opened.
+                                      if (why ?? widget.subtitle case final line?)
+                                        Tooltip(
+                                          message: line,
+                                          child: Text(
+                                            line,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: text.bodySmall,
+                                          ),
                                         ),
                                     ],
                                   ),
@@ -193,10 +199,7 @@ class _ExpandableListRowState extends State<ExpandableListRow> {
                   padding: const EdgeInsets.all(Space.normal),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (primary?.unavailable case final reason?) Text('${primary!.label}: $reason'),
-                      widget.details,
-                    ],
+                    children: [if (why != null && widget.subtitle != null) Text(widget.subtitle!), widget.details],
                   ),
                 ),
             ],

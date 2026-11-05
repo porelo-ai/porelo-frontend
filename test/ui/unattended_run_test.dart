@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
+import 'package:porelo_frontend/src/app/commands.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
+import 'package:porelo_frontend/src/app/unattended_run.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
 import 'package:porelo_frontend/src/ui/operations.dart';
 import 'package:porelo_frontend/src/ui/start_work_view.dart';
@@ -61,6 +63,41 @@ void main() {
     expect(World.backend.starts, hasLength(1), reason: 'Leave must not launch another run');
     expect(World.backend.stops, isEmpty, reason: 'Leave must not stop any task');
     expect(World.backend.tasksNow.single.running, isTrue, reason: 'the work must carry on');
+  });
+
+  // Harm: a grey Start again whose reason only a hover can find.
+  testWidgets('a restart that cannot be asked says why in words', (tester) async {
+    await _start(tester);
+    World.backend.publish([_task(inbox: 2)]);
+    await World.backend.launch.close();
+    await World.settle(tester);
+    World.backend.publish([_task(activity: 'ENDED', inbox: 2)]);
+    await World.settle(tester);
+    final run = UnattendedRun(
+      machine: World.machines.current,
+      fleet: World.machines.fleet,
+      project: 'checkout',
+      named: 'check',
+      operation: World.operations.latest!,
+      operations: World.operations,
+    );
+    addTearDown(run.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: OperationOutputView(
+            operation: World.operations.latest!,
+            onBack: () {},
+            onClose: () {},
+            run: run,
+            restart: restartRunCommand(task: run.task, open: () {}, unavailable: 'the machine is not answering'),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.byKey(const Key('restart-run')), findsOneWidget);
+    expect(find.byKey(const Key('restart-run-why')), findsOneWidget);
   });
 
   // Harm: restarting from a watched run launches work on the selected machine or project instead of its own.

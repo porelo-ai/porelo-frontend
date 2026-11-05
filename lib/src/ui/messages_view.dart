@@ -132,6 +132,15 @@ class _MessagesDialogState extends State<MessagesDialog> {
                       style: TextStyle(color: scheme.error),
                     ),
                   ),
+                if (_greyWords(
+                      joining: joined == null && joinedAs == null ? join : null,
+                      resetting: joinedAs != null || (joined == null && model.alreadyJoined != null) ? reset : null,
+                    )
+                    case final words?)
+                  Padding(
+                    padding: const EdgeInsets.only(top: Space.small),
+                    child: Text(words, key: const Key('messages-why')),
+                  ),
                 if (joined != null) ..._login(context, model, joined),
               ],
             ),
@@ -165,6 +174,13 @@ class _MessagesDialogState extends State<MessagesDialog> {
       );
     },
   );
+
+  /// Why a grey button at the foot of the dialog is grey, once: both say the same while it answers.
+  String? _greyWords({Command? joining, Command? resetting}) =>
+      switch (<String?>{joining?.unavailable, resetting?.unavailable}.nonNulls.toList()) {
+        [] => null,
+        final said => 'Not now: ${said.join(' · ')}',
+      };
 
   Widget _member(BuildContext context, MessageMember member) {
     final model = widget.conversation;

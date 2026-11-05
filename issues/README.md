@@ -88,7 +88,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f373"></a>[F373](F373-A-Grey-Button-In-A-Row-Says-Why.md) | S | — | A grey button in a row, a pane or a dialog says why in words. |
 | <a id="f365"></a>[F365](F365-A-Host-Key-Fetched-Too-Early.md) | M | — | A machine's host key is compared by one named command and fetched again at *Prepare*; a refused key says what to do, and the name is a choice. |
 | <a id="f369"></a>[F369](F369-One-Name-For-The-Default-Project.md) | S | — | The project every machine has is called *Default* in the window, as in Core and its documents, in place of "Without a project". |
 | <a id="f359"></a>[F359](F359-An-Empty-List-Starts-Folded.md) | S | — | A list with no rows starts folded and folds when emptied, a fold the person chose is kept, and the head's actions stay usable. |

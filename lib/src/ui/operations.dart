@@ -297,6 +297,8 @@ class _RunState extends StatelessWidget {
                 child: Text(restart!.label),
               ),
             ),
+          if (task?.activity.name == 'ENDED' && (task?.inboxWaiting ?? 0) > 0)
+            if (restart?.unavailable case final why?) Text(why, key: const Key('restart-run-why')),
         ],
       ),
     );

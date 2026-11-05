@@ -90,6 +90,31 @@ void main() {
       });
     }
 
+    // Harm: a grey push whose reason only a hover can find.
+    testWidgets('a push that cannot be asked says why in the row', (tester) async {
+      final organization = Organization(FixtureOrganization(organizationFor('mia')));
+      addTearDown(organization.dispose);
+      await _settle(
+        tester,
+        OrganizationProjectsPage(
+          organization: organization,
+          connections: _Central(),
+          onProject: (_) {},
+          menuFor: (project, host) => [
+            Command(
+              id: 'project.pushApprovedMain',
+              label: 'Push the approved main…',
+              group: project,
+              run: () {},
+              unavailable: 'the host is not connected',
+            ),
+          ],
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Push the approved main: the host is not connected'), findsOneWidget);
+    });
+
     testWidgets('a row offers the push only while commits wait, beside the row', (tester) async {
       var pushed = 0;
       final organization = Organization(FixtureOrganization(organizationFor('mia')));
@@ -345,7 +370,7 @@ void main() {
     testWidgets('a project is one row, naming the one host carrying it', (tester) async {
       await opened(tester, 'pat');
       expect(find.byKey(const ValueKey('my-project demo')), findsOneWidget);
-      expect(find.text('2 repositories · 2 people · on build'), findsOneWidget);
+      expect(find.textContaining('2 repositories · 2 people · on build'), findsOneWidget);
       expect(find.text('Project Admin'), findsOneWidget);
     });
 

@@ -90,6 +90,33 @@ void main() {
     });
   }
 
+  // Harm: a grey Join whose reason only a hover can find.
+  testWidgets('Join says in words why it is grey', (tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final forwards = HomeserverForwards(
+      Settings(MemorySettingsStore()),
+      raise: (_, _) async => throw const ForwardRefused('forward refused'),
+    );
+    addTearDown(forwards.dispose);
+    final model = ProjectConversation(
+      _Backend(),
+      machine,
+      project,
+      settings: Settings(MemorySettingsStore()),
+      forwards: forwards,
+    );
+    addTearDown(model.dispose);
+    await tester.pumpWidget(MaterialApp(home: MessagesDialog(conversation: model)));
+    await tester.pump();
+    expect(find.byKey(const Key('messages-why')), findsOneWidget);
+    expect(find.textContaining('enter your name in the chat'), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('join-person')), 'anna');
+    await tester.pump();
+    expect(find.byKey(const Key('messages-why')), findsNothing);
+  });
+
   // Harm: a pending forward must not advertise a room as ready before it answers.
   test('a joined account becomes ready only after its forward answers', () async {
     final backend = _Backend();
