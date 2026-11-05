@@ -9,6 +9,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- The bottom line counts *Actions*: what was asked here, so that "0 running" does not read as a claim about running work.
 - A start this computer would not certify says that no agent ran. Any other start that ended says its code, without naming an agent that may never have run.
 - Creating a Porelo organization can ask first what that needs at the address, and says each need with what to do.
 - A grey command on a list's head says why under the head, not only behind a hover. Creating a Porelo organization at an https address says, before it is filed, that no machine can follow it.

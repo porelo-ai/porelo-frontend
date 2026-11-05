@@ -162,7 +162,8 @@ class _Operations extends StatelessWidget {
       child: Text(
         all.isEmpty
             ? 'nothing run yet'
-            : '$running running, ${all.length - running} finished${failed > 0 ? ', $failed failed' : ''}',
+            // Actions asked here, not work: "0 running" beside a running task reads as a contradiction.
+            : 'Actions: $running running, ${all.length - running} finished${failed > 0 ? ', $failed failed' : ''}',
         overflow: TextOverflow.ellipsis,
         style: Theme.of(context).textTheme.bodySmall,
       ),

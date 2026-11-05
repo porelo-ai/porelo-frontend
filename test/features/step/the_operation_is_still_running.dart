@@ -8,5 +8,5 @@ Future<void> theOperationIsStillRunning(WidgetTester tester) async {
   final indicator = tester.widget<Text>(
     find.descendant(of: find.byKey(const Key('operations-indicator')), matching: find.byType(Text)),
   );
-  expect(indicator.data, contains('running'));
+  expect(indicator.data, startsWith('Actions: 1 running'), reason: 'it counts what was asked here, not work');
 }
