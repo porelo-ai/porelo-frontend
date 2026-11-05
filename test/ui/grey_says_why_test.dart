@@ -44,5 +44,7 @@ void main() {
     await tester.pump();
     expect(find.text('what it is'), findsOneWidget);
     expect(find.text('Go: the machine is not answering'), findsOneWidget);
+    // Harm: a long reason stays cut, and the rest is behind a hover after all.
+    expect(tester.widget<Text>(find.text('Go: the machine is not answering')).maxLines, isNull);
   });
 }

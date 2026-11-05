@@ -118,8 +118,8 @@ class _ExpandableListRowState extends State<ExpandableListRow> {
                                         ),
                                       ),
                                       // The row's one line under its title: its height holds as a command
-                                      // goes grey, and what the reason covers is there when opened.
-                                      if (why ?? widget.subtitle case final line?)
+                                      // goes grey. Opened, the line is its own again and the reason is below, whole.
+                                      if ((_expanded ? null : why) ?? widget.subtitle case final line?)
                                         Tooltip(
                                           message: line,
                                           child: Text(
@@ -199,7 +199,7 @@ class _ExpandableListRowState extends State<ExpandableListRow> {
                   padding: const EdgeInsets.all(Space.normal),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [if (why != null && widget.subtitle != null) Text(widget.subtitle!), widget.details],
+                    children: [if (why != null) Text(why), widget.details],
                   ),
                 ),
             ],

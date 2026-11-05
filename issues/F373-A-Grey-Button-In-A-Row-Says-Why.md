@@ -19,7 +19,7 @@
 
 ## Decided while building
 
-- **A row's reason takes the line under its title**, in `ExpandableListRow`, so its height holds. What that line said moves into the opened row. A long reason is cut there, with a hover and the whole of it under the button's label kept by the row's own words when opened: the row is one line high on purpose.
+- **A row's reason takes the line under its title**, in `ExpandableListRow`, so its height holds. A long reason is cut there, with a hover; opened, the row has that line back and says the reason whole below it.
 - *Push approved main* and *Connect* say why at the end of the row's words in *My projects*, which already wrap.
 - *Restart* says why under its button.
 - *Join* and *Reset* say why once in the dialog's body, as `Not now: ...`: both give the same reason while the machine answers.
