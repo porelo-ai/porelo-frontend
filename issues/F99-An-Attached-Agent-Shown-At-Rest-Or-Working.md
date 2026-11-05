@@ -1,7 +1,6 @@
 # F99 — An Attached Agent Shown At Rest Or Working
 
-**Status:** Backlog.
-**Size:** S - one derivation, its tile words, the stand-in and two feature files.
+**Status:** Idea.
 
 **What must be true.** A person sees on a work tile whether the agent in an attached session is at
 rest or working, as the machine reads it from the agent's screen, never as a guess from silence.

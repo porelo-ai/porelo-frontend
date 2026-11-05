@@ -2345,7 +2345,7 @@ class _ShellState extends State<Shell> {
     );
     String said;
     try {
-      final ran = await runHere('porelo', arguments);
+      final ran = await certifyAgainRunner('porelo', arguments);
       final why = '${ran.err}\n${ran.out}'.trim();
       said = ran.code == 0
           ? '${task.name} is certified for another week.'
@@ -2356,8 +2356,10 @@ class _ShellState extends State<Shell> {
       said = refused.words;
     }
     if (!mounted) return;
+    // Read first, and quietly: a refresh's own line would replace what was said here.
+    await _fleet.refresh(quietly: true);
+    if (!mounted) return;
     _fleet.say(said);
-    await _fleet.refresh();
   }
 
   /// Takes back a file the work was handed, chosen from what it holds.

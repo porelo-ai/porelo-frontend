@@ -44,7 +44,7 @@ The contract with Core: `Start` takes `certify`; its stream gives one `certify` 
 
 ## To be checked
 
-- The renewal on a real host: `porelo task certify --host` takes the machine's ssh address and this computer's own known hosts, where the window's tunnel takes the host's card; a host on another port or known only by its card may refuse.
+- The renewal on a host known only by its card or on another port. From the window on an ordinary ssh machine it was seen to work, with the row's end not moving, which is the daemon's answer.
 - The tile's word on a real daemon, which says a certificate's end once Core gives the field.
 - A real start on a machine, with the desk's agent, and how the window reads the refusal when the person's words go back to the host.
 - How the rehearsal passed this step, as the coordinator asks, which is Core's to say.

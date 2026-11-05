@@ -23,4 +23,4 @@ Light was badly readable: pale text on white, and tmux's status line dark on gre
 
 ## To be checked
 
-- With a real agent and tmux in the window, whether both pick dark. tmux may answer from what it asked at attach. Runs on a machine of ours, needs no rented one.
+- A logged-in agent in the window, whether it picks dark. Inside the container's tmux, through a real attach, a shell's `OSC 10` and `OSC 11` were answered with these colours, and tmux's status line is black on green.

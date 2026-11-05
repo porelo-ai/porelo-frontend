@@ -232,6 +232,9 @@ String? whyNoCertifyAgain(Task task) {
   return null;
 }
 
+/// What runs that command line; a test stands in for it, as it asks a real agent.
+RunHere certifyAgainRunner = runHere;
+
 /// The command line that certifies [task] anew, by this computer's agent: on [host] when it runs
 /// on another machine. Only the command line asks the agent for this, and it asks here.
 List<String> certifyAgainArguments(Task task, {String host = '', String project = ''}) => <String>[

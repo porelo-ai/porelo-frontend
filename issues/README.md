@@ -107,7 +107,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f359"></a>[F359](F359-An-Empty-List-Starts-Folded.md) | S | — | A list with no rows starts folded and folds when emptied, a fold the person chose is kept, and the head's actions stay usable. |
 | <a id="f356"></a>[F356](F356-The-Porelo-Organization-Named-Apart.md) | M | — | The window says *Porelo organization* wherever a forge's organization could also be meant, and says it lives in a repository inside that one. |
 | <a id="f362"></a>[F362](F362-A-Click-Answers-At-Once.md) | S | — | A click on a row shows its page and its reading line at once; the delay seen in the foo test is measured down to its cause. |
-| <a id="f99"></a>[F99](F99-An-Attached-Agent-Shown-At-Rest-Or-Working.md) | S | — | A work tile says whether an attached agent is at rest or working; implementation waits for the verified screen-derived daemon answer. |
 | <a id="f117"></a>[F117](F117-What-Walk-8-Left-Unbuilt.md) | M | — | A tile's repository in its heading, a refused release said as an error that stays. |
 | <a id="f111"></a>[F111](F111-All-Of-A-Pieces-Logs-In-One-Timeline.md) | M | — | All of a piece's logs in one timeline, by time, filterable by source. |
 
@@ -137,6 +136,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f99"></a>[F99](F99-An-Attached-Agent-Shown-At-Rest-Or-Working.md) | — | — | A work tile says whether an attached agent is at rest or working; implementation waits for the verified screen-derived daemon answer. |
 | <a id="f386"></a>[F386](F386-A-Short-Name-People-Read.md) | — | — | A task and a project have a short name people read; the window's lists show only it. |
 | <a id="f384"></a>[F384](F384-Configure-The-Terminal.md) | — | — | The window's terminal can be configured: font sizes, colours and so on. |
 | <a id="f372"></a>[F372](F372-An-Unattended-Agents-Console-Reads-What-It-Did.md) | — | — | An unattended agent's console reads its text and what it did, in summaries, in place of one line per tool. |
