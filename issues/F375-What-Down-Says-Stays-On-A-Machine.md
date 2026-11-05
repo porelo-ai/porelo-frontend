@@ -23,6 +23,8 @@ From collection `0.5.11`, `down` ends with a `note` line: the firewall stays on 
 ## Decided while building
 
 - **A rental given back says nothing more.** The note speaks of a machine that is no longer the person's, and telling them how to change it would mislead. While the rental is still theirs, and when its return is not confirmed, the note stands.
+- **The notes of a try stay through a retry**, and a note after a failed task still goes out: the machine is still there, with what stays on it.
+- **On standard error a note is one line**, so a machine's words cannot forge a line of what the command said.
 
 ## To be checked
 

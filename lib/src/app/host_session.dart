@@ -579,12 +579,6 @@ class HostSession extends ChangeNotifier {
     }
     if (parsed == null) return;
     final step = parsed;
-    if (step.state == StepState.note) {
-      _echoes.addAll(const LineSplitter().convert(hostStepWords(step)));
-      if (step.words case final words? when _notes.length < notesKept) _notes.add(printableForAPerson(words));
-      _changed();
-      return;
-    }
     if (_upCommand && arguments.contains('--host-name') && step.state == StepState.waiting) {
       _hostProblem = 'The machine requested a retired root setup stop.';
       _changed();
@@ -605,6 +599,12 @@ class HostSession extends ChangeNotifier {
     }
     if (preparedHost != null) {
       _hostProblem = 'The machine record must be the last line of up.';
+      _changed();
+      return;
+    }
+    if (step.state == StepState.note) {
+      _echoes.addAll(const LineSplitter().convert(hostStepWords(step)));
+      if (step.words case final words? when _notes.length < notesKept) _notes.add(printableForAPerson(words));
       _changed();
       return;
     }

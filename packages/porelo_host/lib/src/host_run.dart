@@ -845,18 +845,18 @@ done''',
       '${plan.loginUser == 'root' ? '' : 'sudo '}env LC_ALL=C.UTF-8 LANG=C.UTF-8 ANSIBLE_COLLECTIONS_PATH=$_collections '
       'ANSIBLE_STDOUT_CALLBACK=porelo.host.lines ansible-playbook -c local -i $_workdir/inventory.yml $playbook',
       onLine: (line) {
-        if (hostProblem != null || failed != null || waiting != null) return;
+        final over = hostProblem != null || failed != null || waiting != null;
         Step? step;
         try {
           step = _relayed(line, address, plan.account, plan.loginUser, plan: plan);
         } on FormatException catch (error) {
-          refuseHost(error.message);
+          if (!over) refuseHost(error.message);
           return;
         }
         if (step == null) return;
-        // Told to a person, it ends nothing and no later line depends on it.
-        if (step.state == StepState.note) {
-          _write(step);
+        // Told to a person, even after a failure: the machine stays, with what it says stays on it.
+        if (over) {
+          if (step.state == StepState.note) _write(step);
           return;
         }
         if (step.state == StepState.host) {
@@ -883,6 +883,11 @@ done''',
         }
         if (host != null) {
           refuseHost('The host record must be the last line of up.');
+          return;
+        }
+        // It ends nothing, and no later line depends on it.
+        if (step.state == StepState.note) {
+          _write(step);
           return;
         }
         lastState = step.state;

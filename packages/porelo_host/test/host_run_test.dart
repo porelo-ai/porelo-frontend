@@ -654,6 +654,28 @@ void main() {
     expect(provider.released, ['h1']);
   });
 
+  // Harm: the last thing a machine says, as it stays with a person after a failed play, never arrives.
+  test('a note after a failed task still goes out', () async {
+    provider.rented = const RentedHost(id: 'h1', address: '203.0.113.7', hostKey: sshKey, ready: true);
+    final said = ScriptedRemote([
+      jsonEncode({'v': 1, 'play': 'down', 'task': 'a task', 'state': 'failed', 'msg': 'it failed'}),
+      jsonEncode({'v': 1, 'state': 'note', 'msg': 'The firewall stays on.'}),
+      'not a line of the collection',
+      jsonEncode({'v': 1, 'state': 'waiting', 'needs': 3}),
+    ], playExit: 2);
+    final run = HostRun(
+      provider: provider,
+      remote: said,
+      emit: steps.add,
+      environment: {'XDG_STATE_HOME': scratch.path},
+      trust: (_, _) async {},
+    );
+    expect(await run.down(plan), Exit.refused);
+    expect(steps.where((step) => step.state == StepState.note).single.words, 'The firewall stays on.');
+    expect(steps.where((step) => step.state == StepState.refused).first.fix, 'it failed');
+    expect(provider.released, isEmpty);
+  });
+
   test('failed down play retains the billed host', () async {
     provider.rented = const RentedHost(id: 'h1', address: '203.0.113.7', hostKey: sshKey, ready: true);
     remote.playExit = 65;

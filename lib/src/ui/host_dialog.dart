@@ -142,6 +142,9 @@ class HostDialog extends StatefulWidget {
 
 class _HostDialogState extends State<HostDialog> {
   HostSession? _down;
+
+  /// What earlier tries said stays on the machine: a later one, cut short, says it no more.
+  Set<String> _notesBefore = const {};
   HostSession? _membershipSession;
   List<HostMembership>? _holders;
   bool _checkingMemberships = false;
@@ -575,6 +578,7 @@ class _HostDialogState extends State<HostDialog> {
     setState(() {
       _busy = true;
       _problem = null;
+      _notesBefore = {..._notesBefore, ...?_down?.notes};
       _down?.dispose();
       _down = session;
     });
@@ -589,6 +593,7 @@ class _HostDialogState extends State<HostDialog> {
           record.isRental ? 'The rental return was not confirmed.' : 'Taking Porelo off was not confirmed.',
         );
       }
+      _returnedRental = record.isRental;
       final owner = widget.hostRuns;
       if (owner != null) {
         _problem = await owner.confirmDown(widget.project, session);
@@ -600,7 +605,6 @@ class _HostDialogState extends State<HostDialog> {
           in widget.machines.all.where((m) => m.kind == 'host' && m.hostProject == widget.project).toList()) {
         await widget.machines.forget(machine);
       }
-      _returnedRental = record.isRental;
       _givenBack = true;
     } catch (_) {
       _problem = session.protocolText.contains('Permission denied')
@@ -868,13 +872,13 @@ class _HostDialogState extends State<HostDialog> {
                     ],
                   ),
                 ),
-              if (_down case final session? when !(_givenBack && _returnedRental))
+              if (_down case final session? when !_returnedRental)
                 ListenableBuilder(
                   listenable: session,
                   builder: (_, _) => Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      for (final note in session.notes)
+                      for (final note in {..._notesBefore, ...session.notes})
                         Padding(
                           padding: const EdgeInsets.only(bottom: Space.small),
                           child: SelectableText('The machine says: $note'),

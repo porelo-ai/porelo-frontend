@@ -49,7 +49,7 @@ void main() {
     final session = HostSession(
       executable: 'porelo-host',
       arguments: const ['--host-name', 'orchard'],
-      start: saying([note, other, note], words: 'note: The firewall stays.\nAll is well.\n'),
+      start: saying([note, other, note], words: 'note: The firewall stays. All is well.\n'),
     );
     addTearDown(session.dispose);
     await session.down();
@@ -68,6 +68,23 @@ void main() {
     addTearDown(session.dispose);
     await session.down();
     expect(session.notes, hasLength(HostSession.notesKept));
+  });
+
+  // Harm: the machine record stops being the last word of up, the rule that shows it whole.
+  test('a note after the machine record is refused, as any line is', () async {
+    final session = HostSession(
+      executable: 'porelo-host',
+      arguments: const ['--host-name', 'orchard'],
+      start: saying([
+        const Step('up', StepState.done, address: '203.0.113.7', admin: 'root').toLine(),
+        jsonEncode({'v': 1, 'state': 'host', 'host': hostValues()}),
+        const Step('note', StepState.note, words: 'after').toLine(),
+      ]),
+    );
+    addTearDown(session.dispose);
+    await session.up();
+    expect(session.state, isNot(HostRunState.done));
+    expect(session.notes, isEmpty);
   });
 
   // Harm: a successful host-only completion is discarded instead of published.

@@ -5,6 +5,12 @@ import 'package:test/test.dart';
 
 void main() {
   // Harm: losing timestamps across the host protocol corrupts a rented run's step history.
+  // Harm: a machine's note forges a line of the command's words, and hides a real one of the same text.
+  test('a note says one line on standard error', () {
+    const note = Step('note', StepState.note, words: 'stays\r\nPermission denied');
+    expect(hostStepWords(note), 'note: stays Permission denied');
+  });
+
   test('host step timestamps survive writing and reading alongside older lines', () {
     const instant = '2000-02-29T12:34:56.123456Z';
     for (final step in [
