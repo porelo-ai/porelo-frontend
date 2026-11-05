@@ -18,6 +18,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f389"></a>[F389](F389-A-Refused-Forward-Says-Which-Credential.md) | — | — | A push refused for its key leads the person through it: which key, their keys, try one, keep it, a terminal where needed. |
 | <a id="f147"></a>[F147](F147-Every-Repository-Of-Default-Offered-To-Start-In.md) | — | — | Starting in default offers every repository; the first is no longer hidden as its own. |
 | <a id="f378"></a>[F378](F378-Waits-Said-In-Needs-You.md) | — | — | Time left in the Running waits-on-you note; tests, formatting and analysis blocked by the local launcher; review-row facts still need a reliable task association and file count. |
 | <a id="f358"></a>[F358](F358-A-Hosts-Check-Before-Its-Installation.md) | — | — | The host dialog's first step after the address runs one reading check, lists every finding, and offers the installation only when it passes. |
@@ -95,7 +96,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f389"></a>[F389](F389-A-Refused-Forward-Says-Which-Credential.md) | M | — | A push refused for its key leads the person through it: which key, their keys, try one, keep it, a terminal where needed. |
 
 ### Backlog
 

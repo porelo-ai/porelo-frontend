@@ -4626,11 +4626,15 @@ class SshKey {
   /// Whether the machine itself can sign with it. One it cannot may still serve ssh where it lies.
   final bool usable;
 
-  /// `DIRECTORY` or `CONFIGURED` — an `IdentityFile` in `~/.ssh/config` named it. Not an enum.
+  /// `DIRECTORY`, `CONFIGURED` — an `IdentityFile` in `~/.ssh/config` named it — or `AGENT`, held by the
+  /// account's ssh-agent. Not an enum.
   final String found;
 
   /// What stands in the way of using it, and what to do, in the machine's words; empty when nothing.
   final String obstacle;
+
+  /// The public half of a key the agent holds; empty for a file and from an older Porelo.
+  final String publicKey;
 
   /// Constructor taking every field.
   const SshKey({
@@ -4643,6 +4647,7 @@ class SshKey {
     this.usable = false,
     this.found = '',
     this.obstacle = '',
+    this.publicKey = '',
   });
 
   /// Reads one from a reply.
@@ -4656,10 +4661,89 @@ class SshKey {
     usable: map['usable'] == true,
     found: _string(map, 'found'),
     obstacle: _string(map, 'obstacle'),
+    publicKey: _string(map, 'publicKey'),
   );
+
+  /// Whether the account's ssh-agent holds it, so it is named by its fingerprint rather than a path.
+  bool get fromTheAgent => found == 'AGENT';
 
   /// Whether it can be named as a key kept where it lies: ssh signs with the private file itself.
   bool get servesWhereItLies => privateHalf;
+}
+
+/// A forward the machine did not make because of the ssh key it would push with, in parts the
+/// interface words itself. Nothing in it is the forge's raw answer.
+class PushRefused {
+  /// `NO_CREDENTIAL`, `KEY_UNAVAILABLE` or `PUSH_REFUSED`. Not an enum: a value added later renders.
+  final String outcome;
+
+  /// The upstream address the push was for.
+  final String address;
+
+  /// Where the key it used lives — `AGENT`, `FILE`, `VAULT` — or empty where none was declared.
+  final String source;
+
+  /// The declared key: a fingerprint or public key for the agent, a path for a file; empty where none.
+  final String id;
+
+  /// The `SHA256:` fingerprint of the key used, empty where none was, or the machine's words where it
+  /// could not tell.
+  final String fingerprint;
+
+  /// What the forge called the key: `DEPLOY_KEY`, or `UNKNOWN` where it did not say.
+  final String forge;
+
+  /// What only a terminal on the machine can do next, as arguments; empty where nothing.
+  final List<String> command;
+
+  /// The machine's own sentence, kept for an outcome this interface does not know.
+  final String message;
+
+  /// Constructor taking every field.
+  const PushRefused({
+    required this.outcome,
+    this.address = '',
+    this.source = '',
+    this.id = '',
+    this.fingerprint = '',
+    this.forge = '',
+    this.command = const <String>[],
+    this.message = '',
+  });
+
+  /// Reads one from the refusal's parameters.
+  factory PushRefused.from(Map<String, dynamic> map) => PushRefused(
+    outcome: _string(map, 'outcome'),
+    address: _string(map, 'address'),
+    source: _string(map, 'source'),
+    id: _string(map, 'id'),
+    fingerprint: _string(map, 'fingerprint'),
+    forge: _string(map, 'forge'),
+    command: _strings(map, 'command'),
+    message: _string(map, 'message'),
+  );
+}
+
+/// What one key alone answered when a push was tried with it and nothing written.
+class TriedPush {
+  /// Whether the forge would take the push with that key.
+  final bool accepted;
+
+  /// The fingerprint of the key that was tried.
+  final String fingerprint;
+
+  /// The machine's sentence on what the forge answered.
+  final String message;
+
+  /// Constructor taking every field.
+  const TriedPush({required this.accepted, this.fingerprint = '', this.message = ''});
+
+  /// Reads one from a reply.
+  factory TriedPush.from(Map<String, dynamic> map) => TriedPush(
+    accepted: map['accepted'] == true,
+    fingerprint: _string(map, 'fingerprint'),
+    message: _string(map, 'message'),
+  );
 }
 
 /// Which credential a destination would use, and whether it would work — asked before anything is

@@ -120,11 +120,18 @@ The IDL carries the detail, a comment per method and per field. The shape of it:
 | **Running tasks** | `Start` (creates or brings back; streams the build), `Stop` (keeps it), `Remove`, `Tail` (follows a log) |
 | **Builds of a push** | `Task.builds`, `buildReader`, `buildProblem` (no method: `Watch` carries them) |
 | **Files handed in** | `HandIn` (in parts), `TakeBack`, `HandIns` (the record, also after the task is gone) |
-| **The gate** | `Pending`, `Review`, `Approve`, `Reject` |
+| **The gate** | `Pending`, `Review`, `Approve`, `Reject`; `CredentialTryPush` tries a forward with one ssh key alone |
 | **Clearance** | `Prompts` (streams, and only streams), `Decide` |
 
 Worth knowing before designing around them:
 
+- **`Approve` refused for its key is `PushRefused`**, before the forge is reached where no single key is
+  declared for the address (`NO_CREDENTIAL`) or the declared one cannot be used (`KEY_UNAVAILABLE`), and
+  after it otherwise (`PUSH_REFUSED`). It carries the key used by fingerprint, `forge` `DEPLOY_KEY` only
+  where the forge said so, and the next command as arguments; never the forge's own line. The window
+  lists `SshKeys` (an agent's with `found: AGENT`), tries one with `CredentialTryPush`, which writes
+  nothing, and keeps one with `CredentialDeclare` (`SSH_KEY`, the refused address, `AGENT` by
+  fingerprint or `FILE` by path) before it calls `Approve` again.
 - **`Stop` refuses.** A task holding commits that never reached the gate comes back as
   `HOLDS_WORK` and is left exactly as it was. That refusal is a feature and needs a real place in
   the interface, not an error toast.

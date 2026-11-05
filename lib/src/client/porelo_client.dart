@@ -875,6 +875,24 @@ class PoreloClient {
     'commit': ?commit,
   });
 
+  /// Tries [refspec] with one ssh key alone, as a dry run: nothing is pushed and nothing is kept.
+  /// [source] is `AGENT` (with [id] a fingerprint) or `FILE` (with [id] a path on the machine).
+  Future<TriedPush> credentialTryPush(
+    String project, {
+    String? repository,
+    required String refspec,
+    required String source,
+    required String id,
+  }) async => TriedPush.from(
+    await _call('CredentialTryPush', {
+      'project': project,
+      'repository': ?repository,
+      'refspec': refspec,
+      'source': source,
+      'id': id,
+    }),
+  );
+
   /// Drops a pending push. The work stays in the mirror; only the request is gone.
   ///
   /// The task the work came from is told in its inbox, with [reason] when a person gave one. `told`

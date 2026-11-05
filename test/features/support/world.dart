@@ -2430,11 +2430,51 @@ diff --git a/lib/money.dart b/lib/money.dart
     );
   }
 
+  /// The address whose forward is refused for its key until a key is declared for it; null where none is.
+  String? refuseTheKeyFor;
+
+  /// What the refusal says, as `PushRefused` carries it.
+  Map<String, dynamic> theKeyRefusal = const <String, dynamic>{};
+
+  /// Every key tried, as it was asked.
+  final List<({String refspec, String source, String id, String? repository})> keysTried =
+      <({String refspec, String source, String id, String? repository})>[];
+
+  /// The keys a trial is accepted with.
+  Set<String> keysTheForgeTakes = <String>{};
+
+  /// Whether this machine's Porelo is older than trying a key.
+  bool tryingIsMissing = false;
+
+  @override
+  Future<TriedPush> credentialTryPush(
+    String project, {
+    String? repository,
+    required String refspec,
+    required String source,
+    required String id,
+  }) async {
+    if (tryingIsMissing) throw const FeatureNotSupported('CredentialTryPush');
+    keysTried.add((refspec: refspec, source: source, id: id, repository: repository));
+    final accepted = keysTheForgeTakes.contains(id);
+    return TriedPush(
+      accepted: accepted,
+      fingerprint: id,
+      message: accepted ? 'The dry run succeeded.' : 'The dry run was refused.',
+    );
+  }
+
   @override
   Future<void> approve(String projectFile, String name, String branch, {String? repository, String? commit}) async {
     mustBeAProject(projectFile);
     final refusal = refuseTheGate;
     if (refusal != null) throw refusal;
+    // As Porelo answers it: refused before the forge is reached, until a single key is declared for the address.
+    final address = refuseTheKeyFor;
+    if (address != null &&
+        !declared.any((each) => each.match == address && (each.source == 'AGENT' || each.source == 'FILE'))) {
+      throw VarlinkException('org.fuin.porelo.Tasks1.PushRefused', theKeyRefusal);
+    }
     approvals.add((name: name, branch: branch, repository: repository));
     approvedCommits.add(commit);
     projectsListedAtTheGate = projectsListed;

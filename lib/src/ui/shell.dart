@@ -2493,11 +2493,80 @@ class _ShellState extends State<Shell> {
     );
     if (branch == null) return;
     final said = await widget.gate.approve(_fleet.backend, branch);
+    _afterAForward(said);
+  }
+
+  /// Says what came of a forward and goes back to the gate, unless it was refused: a refused key's way
+  /// through stays in the review.
+  void _afterAForward(String said) {
     if (said.isNotEmpty) _fleet.say(said);
-    if (widget.gate.problem == null) widget.shell.openGate();
+    if (widget.gate.problem == null && widget.gate.keyRefused == null) widget.shell.openGate();
     // What waits is read again at once: the project's badge said "1" after the push was through
     // (walk 8).
     unawaited(_fleet.refresh(quietly: true));
+  }
+
+  /// Keeps [key] for the refused forward's address, then forwards again onto the same branch.
+  Future<void> _keepKey(SshKey key) async {
+    final said = await widget.gate.keepKey(_fleet.backend, key);
+    if (!mounted) return;
+    _afterAForward(said);
+  }
+
+  /// Opens a terminal on the machine with what the refusal names to run, shown first and started only
+  /// when the person says so; then reads the keys again.
+  Future<void> _refusedKeyInATerminal() async {
+    final refused = widget.gate.keyRefused?.refused;
+    final machine = widget.machines.current;
+    if (refused == null || refused.command.isEmpty) return;
+    final command = onTheMachine(machine, refused.command, terminal: true);
+    if (command == null) {
+      _fleet.say('${machine.name} is not a machine a terminal is opened on from here.');
+      return;
+    }
+    final start = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('A terminal on ${machine.name}'),
+        content: SizedBox(
+          width: Sizes.dialog,
+          child: DialogScroll(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const Text('This runs on the machine, in a terminal here, once you start it:'),
+                const SizedBox(height: Space.small),
+                SelectableText(
+                  refused.command.join(' '),
+                  key: const Key('refused-key-command'),
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: <Widget>[
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Not now')),
+          FilledButton(
+            key: const Key('refused-key-start'),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Start it'),
+          ),
+        ],
+      ),
+    );
+    if (start != true || !mounted) return;
+    await runInATerminal(
+      context,
+      title: 'On ${machine.name}',
+      explanation: 'It runs on the machine. Nothing it shows goes through this program.',
+      machine: machine,
+      command: command,
+      open: widget.sessions.openTerminal,
+    );
+    if (!mounted) return;
+    await widget.gate.readKeys(_fleet.backend);
   }
 
   /// The host key fingerprints the first forge kept here publishes for itself; none where none
@@ -4067,6 +4136,14 @@ class _ShellState extends State<Shell> {
           onApprove: _approve,
           onReject: _reject,
           login: widget.machines.current.needsATunnel ? widget.machines.current.host : null,
+          machine: widget.machines.current.name,
+          onRefreshKeys: () => unawaited(widget.gate.readKeys(_fleet.backend)),
+          onTryKey: (key) => unawaited(widget.gate.tryKey(_fleet.backend, key)),
+          onKeepKey: (key) => unawaited(_keepKey(key)),
+          // Offered only where a terminal opens on the machine from here.
+          onKeyTerminal: onTheMachine(widget.machines.current, const <String>['porelo'], terminal: true) == null
+              ? null
+              : () => unawaited(_refusedKeyInATerminal()),
         );
       case LogOpened(:final task, :final log, :final formatted):
         final tail = widget.logs.find(task, log, formatted: formatted);

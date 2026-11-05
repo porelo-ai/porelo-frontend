@@ -540,6 +540,15 @@ abstract class FleetBackend {
   /// inferred: a push forwarded onto a guess is one nobody decided about.
   Future<void> approve(String projectFile, String name, String branch, {String? repository, String? commit});
 
+  /// Tries a forward with one ssh key alone and writes nothing; see [PoreloClient.credentialTryPush].
+  Future<TriedPush> credentialTryPush(
+    String project, {
+    String? repository,
+    required String refspec,
+    required String source,
+    required String id,
+  });
+
   /// Drops the request. The work stays in the mirror; only the asking is gone.
   Future<({bool? told})> reject(String projectFile, String name, {String? repository, String? reason});
 
@@ -1031,6 +1040,15 @@ class PoreloBackend implements FleetBackend {
   @override
   Future<void> approve(String projectFile, String name, String branch, {String? repository, String? commit}) =>
       _opened().approve(projectFile, name, branch, repository: repository, commit: commit);
+
+  @override
+  Future<TriedPush> credentialTryPush(
+    String project, {
+    String? repository,
+    required String refspec,
+    required String source,
+    required String id,
+  }) => _opened().credentialTryPush(project, repository: repository, refspec: refspec, source: source, id: id);
 
   @override
   Future<({bool? told})> reject(String projectFile, String name, {String? repository, String? reason}) =>

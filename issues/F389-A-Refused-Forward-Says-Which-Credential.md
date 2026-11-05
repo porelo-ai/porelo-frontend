@@ -1,6 +1,6 @@
 # F389 — A Refused Forward Says Which Credential
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** M - a led path in the window on daemon calls not there yet: words, a list of keys, a try, a keep.
 
 **What must be true.** A push refused for its key leads the person through it in the window, with no need to read git's raw line, which does not appear.
@@ -19,9 +19,14 @@ A real test showed `'git --git-dir ... push --end-of-options git@github.com:<org
 
 ## Plan
 
-- Agree the contract in the room with Agent Core: the refusal's words and the key it used, the list of keys, the dry run, and naming one key of the agent for an address. Today a declaration cannot name one key of the agent, so the wrong key would still win.
-- Build the window's path on those calls, on a machine that has them, and say plainly on one that has not.
-- Split it into smaller issues if the contract shows parts that stand alone.
+The contract, agreed with Agent Core: `Approve` refuses with `PushRefused(outcome, address, source, id, fingerprint, forge, command, message)`, `outcome` one of `NO_CREDENTIAL`, `KEY_UNAVAILABLE`, `PUSH_REFUSED`, `forge` `DEPLOY_KEY` or `UNKNOWN`, no raw remote output; `SshKeys` answers agent keys too (`found: AGENT`, `publicKey`); `CredentialTryPush(project, repository, refspec, source, id)` answers `accepted`, `fingerprint`, `message` and writes nothing; `CredentialDeclare` with `source: AGENT` takes one fingerprint as `id`.
+
+- `lib/src/client/`: `PushRefused` read from the refusal's parameters, field by field; `SshKey.publicKey`; `credentialTryPush` and its answer `TriedPush`; `FleetBackend` passes both through. A daemon without `CredentialTryPush` is `FeatureNotSupported` for Try alone.
+- `lib/src/app/gate.dart`: `approve` keeps a `PushRefused` with the branch and commit it was for, instead of a line of words; `keys` reads `SshKeys` (and again on refresh); `tryKey` asks `CredentialTryPush` with `refs/porelo/incoming/<name>:refs/heads/<branch>`; `keepKey` declares the key for the refusal's address (`SSH_KEY`, purpose `git`, `AGENT` by fingerprint or `FILE` by path) and only then calls `Approve` again with the same branch and commit.
+- `lib/src/ui/gate_view.dart`: the refusal in the review, worded here from its parts (what happened, the address, the key by fingerprint, the forge's word); the keys with where each was found, *Try* and *Keep and forward again* on each, the KeePassXC line beside *Refresh*; *Open a terminal* with the refusal's `command`.
+- The terminal is the in-window terminal on that machine, the same on every desktop, never a desktop terminal of its own. A dialog shows the command first, and the terminal opens and runs it only on *Start it*; the keys are read again after it.
+- `doc/Backend-API.md` names the refusal and the calls.
+- Red first: scenarios in `work_handover.feature` that *Keep* declares exactly the refusal's address with the chosen key and forwards again with the reviewed commit, that *Try* asks with the refused branch and keeps nothing, and that a refusal shows no `git` line; `test/client/push_refused_test.dart` that `PushRefused` and `TriedPush` read every field and an unknown outcome renders. The mock daemon is not extended: the real test is against a daemon with these calls.
 
 ## Acceptance
 
@@ -34,8 +39,7 @@ A real test showed `'git --git-dir ... push --end-of-options git@github.com:<org
 
 ## Decided while building
 
-## Open questions
-
-- Whether a terminal can be opened the same way on each desktop and on Windows, and what the window says where it cannot.
+- What only a terminal can do runs in the in-window terminal on that machine, never a desktop terminal.
+- From the reading: a key listed twice is not deduplicated, since two rows with one key neither threw on building nor on building again; a refusal with an empty address or key is not guarded, since the daemon always names the address it refused and lists every key by fingerprint or path.
 
 ## To be checked

@@ -74,6 +74,88 @@ Feature: Reviewing what work pushed, and what it holds back
         And it says {'Nothing was forwarded'}
         And it says {'onto another branch, such as fix-rounding-2'}
 
+    # A real forward offered a deploy key ssh picked by itself, and the window showed git's raw line.
+    Scenario: a forward refused for its key says which key, and not git's line
+        When I review what is waiting at the gate
+        And I open the waiting push
+        And the forge refuses the push for its deploy key
+        And I forward it onto the branch {'fix-rounding'}
+        Then it says {'Nothing was forwarded'}
+        And it says {'The forge knows the key as a deploy key'}
+        And it says {'Key used: SHA256:deployKeyOfTheRepository, held by the ssh-agent.'}
+        And it says {'SHA256:personalKeyOfThePerson'}
+        And it says {'/home/alice/.ssh/id_rsa'}
+        And it does not say {'exit code'}
+        And it does not say {'--git-dir'}
+        And no push went upstream
+
+    Scenario: a forward with no key declared for its address says so
+        When I review what is waiting at the gate
+        And I open the waiting push
+        And no ssh key is declared for the forge
+        And I forward it onto the branch {'fix-rounding'}
+        Then it says {'No ssh key is declared for ssh://git@github.com/acme/money.git'}
+        And no push went upstream
+
+    Scenario: a key tried alone is answered, and nothing is pushed or kept
+        When I review what is waiting at the gate
+        And I open the waiting push
+        And the forge refuses the push for its deploy key
+        And the forge takes the key {'SHA256:personalKeyOfThePerson'}
+        And I forward it onto the branch {'fix-rounding'}
+        And I try the key {'SHA256:personalKeyOfThePerson'}
+        Then it says {'The forge would take the push with this key. Nothing was pushed.'}
+        And the key {'SHA256:personalKeyOfThePerson'} was tried alone for {'refs/porelo/incoming/migrate:refs/heads/fix-rounding'}
+        And no push went upstream
+        And nothing was declared
+
+    Scenario: keeping a key keeps it for that address alone, and forwards the reviewed commit again
+        When I review what is waiting at the gate
+        And I open the waiting push
+        And the forge refuses the push for its deploy key
+        And I forward it onto the branch {'fix-rounding'}
+        And I keep the key {'SHA256:personalKeyOfThePerson'}
+        Then the key {'SHA256:personalKeyOfThePerson'} was kept for {'ssh://git@github.com/acme/money.git'}, from {'AGENT'}
+        And it was forwarded onto {'fix-rounding'}
+        And the forward named the commit reviewed {'9a3c1f2e4b5d6a7c8e9f0a1b2c3d4e5f6a7b8c9d'}
+
+    Scenario: a key kept from a file is named by its path
+        When I review what is waiting at the gate
+        And I open the waiting push
+        And the forge refuses the push for its deploy key
+        And I forward it onto the branch {'fix-rounding'}
+        And I keep the key {'/home/alice/.ssh/id_rsa'}
+        Then the key {'/home/alice/.ssh/id_rsa'} was kept for {'ssh://git@github.com/acme/money.git'}, from {'FILE'}
+
+    # The way through a refused key stayed on after the next forward was refused for another reason, and kept its old branch.
+    Scenario: a forward refused for another reason after a refused key leaves no stale way through
+        When I review what is waiting at the gate
+        And I open the waiting push
+        And the forge refuses the push for its deploy key
+        And I forward it onto the branch {'fix-rounding'}
+        And the branch {'other-branch'} already holds earlier work
+        And I forward it onto the branch {'other-branch'}
+        Then it says {'other-branch already holds 4d2e9a1'}
+        And it does not say {'Choose the key to forward fix-rounding'}
+
+    Scenario: a key file the machine cannot sign with is not offered to keep
+        When I review what is waiting at the gate
+        And I open the waiting push
+        And the forge refuses the push for its deploy key
+        And the account also has a key file locked by a passphrase {'/home/alice/.ssh/id_locked'}
+        And I forward it onto the branch {'fix-rounding'}
+        Then the key {'/home/alice/.ssh/id_locked'} cannot be kept
+
+    Scenario: what only a terminal can do is shown ready, and nothing runs until it is started
+        When I review what is waiting at the gate
+        And I open the waiting push
+        And the forge refuses the push for its deploy key
+        And I forward it onto the branch {'fix-rounding'}
+        And I open the terminal for the refused key
+        Then it says {'porelo credentials keys'}
+        And I do not start it
+        And no terminal was opened
+
     # Return and the button are two ways to answer, and only the button refused an empty name once.
     Scenario: an empty branch is not an answer, however it is given
         When I review what is waiting at the gate

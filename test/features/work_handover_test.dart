@@ -25,8 +25,21 @@ import './step/the_status_line_mentions.dart';
 import './step/the_projects_were_read_again_after_it.dart';
 import './step/the_push_moves_before_it_is_forwarded.dart';
 import './step/the_branch_already_holds_earlier_work.dart';
-import './step/i_press_return_on_the_branch.dart';
+import './step/the_forge_refuses_the_push_for_its_deploy_key.dart';
 import './step/no_push_went_upstream.dart';
+import './step/no_ssh_key_is_declared_for_the_forge.dart';
+import './step/the_forge_takes_the_key.dart';
+import './step/i_try_the_key.dart';
+import './step/the_key_was_tried_alone_for.dart';
+import './step/nothing_was_declared.dart';
+import './step/i_keep_the_key.dart';
+import './step/the_key_was_kept_for_from.dart';
+import './step/the_account_also_has_a_key_file_locked_by_a_passphrase.dart';
+import './step/the_key_cannot_be_kept.dart';
+import './step/i_open_the_terminal_for_the_refused_key.dart';
+import './step/i_do_not_start_it.dart';
+import './step/no_terminal_was_opened.dart';
+import './step/i_press_return_on_the_branch.dart';
 import './step/i_drop_the_request.dart';
 import './step/nothing_was_forwarded.dart';
 import './step/i_drop_the_request_saying.dart';
@@ -137,6 +150,107 @@ void main() {
       await itSays(tester, 'fix-rounding already holds 4d2e9a1, from earlier work');
       await itSays(tester, 'Nothing was forwarded');
       await itSays(tester, 'onto another branch, such as fix-rounding-2');
+    });
+    testWidgets('''a forward refused for its key says which key, and not git's line''', (tester) async {
+      await bddSetUp(tester);
+      await iReviewWhatIsWaitingAtTheGate(tester);
+      await iOpenTheWaitingPush(tester);
+      await theForgeRefusesThePushForItsDeployKey(tester);
+      await iForwardItOntoTheBranch(tester, 'fix-rounding');
+      await itSays(tester, 'Nothing was forwarded');
+      await itSays(tester, 'The forge knows the key as a deploy key');
+      await itSays(tester, 'Key used: SHA256:deployKeyOfTheRepository, held by the ssh-agent.');
+      await itSays(tester, 'SHA256:personalKeyOfThePerson');
+      await itSays(tester, '/home/alice/.ssh/id_rsa');
+      await itDoesNotSay(tester, 'exit code');
+      await itDoesNotSay(tester, '--git-dir');
+      await noPushWentUpstream(tester);
+    });
+    testWidgets('''a forward with no key declared for its address says so''', (tester) async {
+      await bddSetUp(tester);
+      await iReviewWhatIsWaitingAtTheGate(tester);
+      await iOpenTheWaitingPush(tester);
+      await noSshKeyIsDeclaredForTheForge(tester);
+      await iForwardItOntoTheBranch(tester, 'fix-rounding');
+      await itSays(tester, 'No ssh key is declared for ssh://git@github.com/acme/money.git');
+      await noPushWentUpstream(tester);
+    });
+    testWidgets('''a key tried alone is answered, and nothing is pushed or kept''', (tester) async {
+      await bddSetUp(tester);
+      await iReviewWhatIsWaitingAtTheGate(tester);
+      await iOpenTheWaitingPush(tester);
+      await theForgeRefusesThePushForItsDeployKey(tester);
+      await theForgeTakesTheKey(tester, 'SHA256:personalKeyOfThePerson');
+      await iForwardItOntoTheBranch(tester, 'fix-rounding');
+      await iTryTheKey(tester, 'SHA256:personalKeyOfThePerson');
+      await itSays(tester, 'The forge would take the push with this key. Nothing was pushed.');
+      await theKeyWasTriedAloneFor(
+        tester,
+        'SHA256:personalKeyOfThePerson',
+        'refs/porelo/incoming/migrate:refs/heads/fix-rounding',
+      );
+      await noPushWentUpstream(tester);
+      await nothingWasDeclared(tester);
+    });
+    testWidgets('''keeping a key keeps it for that address alone, and forwards the reviewed commit again''', (
+      tester,
+    ) async {
+      await bddSetUp(tester);
+      await iReviewWhatIsWaitingAtTheGate(tester);
+      await iOpenTheWaitingPush(tester);
+      await theForgeRefusesThePushForItsDeployKey(tester);
+      await iForwardItOntoTheBranch(tester, 'fix-rounding');
+      await iKeepTheKey(tester, 'SHA256:personalKeyOfThePerson');
+      await theKeyWasKeptForFrom(
+        tester,
+        'SHA256:personalKeyOfThePerson',
+        'ssh://git@github.com/acme/money.git',
+        'AGENT',
+      );
+      await itWasForwardedOnto(tester, 'fix-rounding');
+      await theForwardNamedTheCommitReviewed(tester, '9a3c1f2e4b5d6a7c8e9f0a1b2c3d4e5f6a7b8c9d');
+    });
+    testWidgets('''a key kept from a file is named by its path''', (tester) async {
+      await bddSetUp(tester);
+      await iReviewWhatIsWaitingAtTheGate(tester);
+      await iOpenTheWaitingPush(tester);
+      await theForgeRefusesThePushForItsDeployKey(tester);
+      await iForwardItOntoTheBranch(tester, 'fix-rounding');
+      await iKeepTheKey(tester, '/home/alice/.ssh/id_rsa');
+      await theKeyWasKeptForFrom(tester, '/home/alice/.ssh/id_rsa', 'ssh://git@github.com/acme/money.git', 'FILE');
+    });
+    testWidgets('''a forward refused for another reason after a refused key leaves no stale way through''', (
+      tester,
+    ) async {
+      await bddSetUp(tester);
+      await iReviewWhatIsWaitingAtTheGate(tester);
+      await iOpenTheWaitingPush(tester);
+      await theForgeRefusesThePushForItsDeployKey(tester);
+      await iForwardItOntoTheBranch(tester, 'fix-rounding');
+      await theBranchAlreadyHoldsEarlierWork(tester, 'other-branch');
+      await iForwardItOntoTheBranch(tester, 'other-branch');
+      await itSays(tester, 'other-branch already holds 4d2e9a1');
+      await itDoesNotSay(tester, 'Choose the key to forward fix-rounding');
+    });
+    testWidgets('''a key file the machine cannot sign with is not offered to keep''', (tester) async {
+      await bddSetUp(tester);
+      await iReviewWhatIsWaitingAtTheGate(tester);
+      await iOpenTheWaitingPush(tester);
+      await theForgeRefusesThePushForItsDeployKey(tester);
+      await theAccountAlsoHasAKeyFileLockedByAPassphrase(tester, '/home/alice/.ssh/id_locked');
+      await iForwardItOntoTheBranch(tester, 'fix-rounding');
+      await theKeyCannotBeKept(tester, '/home/alice/.ssh/id_locked');
+    });
+    testWidgets('''what only a terminal can do is shown ready, and nothing runs until it is started''', (tester) async {
+      await bddSetUp(tester);
+      await iReviewWhatIsWaitingAtTheGate(tester);
+      await iOpenTheWaitingPush(tester);
+      await theForgeRefusesThePushForItsDeployKey(tester);
+      await iForwardItOntoTheBranch(tester, 'fix-rounding');
+      await iOpenTheTerminalForTheRefusedKey(tester);
+      await itSays(tester, 'porelo credentials keys');
+      await iDoNotStartIt(tester);
+      await noTerminalWasOpened(tester);
     });
     testWidgets('''an empty branch is not an answer, however it is given''', (tester) async {
       await bddSetUp(tester);

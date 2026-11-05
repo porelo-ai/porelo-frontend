@@ -84,6 +84,15 @@ class _Wedged implements FleetBackend {
   Future<void> approve(String projectFile, String name, String branch, {String? repository, String? commit}) async {}
 
   @override
+  Future<TriedPush> credentialTryPush(
+    String project, {
+    String? repository,
+    required String refspec,
+    required String source,
+    required String id,
+  }) async => throw UnimplementedError();
+
+  @override
   Future<({bool? told})> reject(String projectFile, String name, {String? repository, String? reason}) async =>
       (told: null);
 
@@ -459,6 +468,15 @@ class _Machine implements FleetBackend {
 
   @override
   Future<void> approve(String projectFile, String name, String branch, {String? repository, String? commit}) async {}
+
+  @override
+  Future<TriedPush> credentialTryPush(
+    String project, {
+    String? repository,
+    required String refspec,
+    required String source,
+    required String id,
+  }) async => throw UnimplementedError();
 
   @override
   Future<({bool? told})> reject(String projectFile, String name, {String? repository, String? reason}) async =>

@@ -5,6 +5,7 @@ import 'package:porelo_frontend/client.dart';
 import '../app/diff.dart';
 import '../app/gate.dart';
 import 'panes.dart';
+import 'refused_key.dart';
 import 'selection_list.dart';
 import 'tokens.dart';
 import 'dialog_scroll.dart';
@@ -184,8 +185,28 @@ class ReviewView extends StatelessWidget {
     required this.onApprove,
     required this.onReject,
     this.login,
+    this.machine = '',
+    this.onRefreshKeys,
+    this.onTryKey,
+    this.onKeepKey,
+    this.onKeyTerminal,
     super.key,
   });
+
+  /// The machine's name, as the window shows it.
+  final String machine;
+
+  /// Reads the account's keys again, once a forward was refused for its key.
+  final VoidCallback? onRefreshKeys;
+
+  /// Tries a forward with one key alone, writing nothing.
+  final void Function(SshKey key)? onTryKey;
+
+  /// Keeps one key for the refused address and forwards again.
+  final void Function(SshKey key)? onKeepKey;
+
+  /// Opens a terminal on the machine with what the refusal names to run; null where it names nothing.
+  final VoidCallback? onKeyTerminal;
 
   /// How this computer reaches the machine over ssh (`user@host`, or a `Host` of its own), put in
   /// the fetch in place of the name the machine gives itself; null where it is reached otherwise.
@@ -227,6 +248,7 @@ class ReviewView extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(vertical: Space.small),
                   children: gate.ranked.isEmpty
                       ? <Widget>[
+                          ..._refusedKey(),
                           if (push.fetch.isNotEmpty) _OwnClone(fetch: push.fetchFrom(login)),
                           for (final file in files) _File(file: file),
                           if (files.isEmpty)
@@ -236,6 +258,7 @@ class ReviewView extends StatelessWidget {
                             ),
                         ]
                       : <Widget>[
+                          ..._refusedKey(),
                           if (push.fetch.isNotEmpty) _OwnClone(fetch: push.fetchFrom(login)),
                           ..._ranked(context, gate, files),
                         ],
@@ -245,6 +268,21 @@ class ReviewView extends StatelessWidget {
       ],
     );
   }
+}
+
+extension on ReviewView {
+  /// The way through a forward refused for its key, first, where there is one.
+  List<Widget> _refusedKey() => <Widget>[
+    if (gate.keyRefused != null)
+      RefusedKey(
+        gate: gate,
+        machine: machine,
+        onRefresh: onRefreshKeys ?? () {},
+        onTry: onTryKey ?? (_) {},
+        onKeep: onKeepKey ?? (_) {},
+        onTerminal: gate.keyRefused!.refused.command.isEmpty ? null : onKeyTerminal,
+      ),
+  ];
 }
 
 /// The review as the machine ranked it: what the task was asked, apart from what it touched, then

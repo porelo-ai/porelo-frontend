@@ -54,6 +54,27 @@ class Gate extends ChangeNotifier {
   /// it was started without an instruction. Shown beside what it touched, and never compared with it.
   String? asked;
 
+  /// The forward the machine just refused for its ssh key, with the branch it was for; null otherwise.
+  ({PushRefused refused, String branch})? keyRefused;
+
+  /// The keys the machine's account has, from its ssh-agent and its files, read when a forward is
+  /// refused for its key and again on [readKeys]. Never with a value.
+  List<SshKey> keys = const <SshKey>[];
+
+  /// Why the keys could not be listed, in words; null when they were.
+  String? keysProblem;
+
+  /// What trying each key answered, by [keyId].
+  Map<String, TriedPush> tried = const <String, TriedPush>{};
+
+  /// Why a key could not be tried, by [keyId].
+  Map<String, String> notTried = const <String, String>{};
+
+  /// How a key is named to the machine: an agent's by its fingerprint, a file's by its path.
+  static String keyId(SshKey key) => key.fromTheAgent ? key.fingerprint : key.path;
+
+  static String _source(SshKey key) => key.fromTheAgent ? 'AGENT' : 'FILE';
+
   /// Whether this project can be asked about at all.
   ///
   /// Every gate method takes the project's file, so a project without one is listed and cannot be
@@ -64,6 +85,7 @@ class Gate extends ChangeNotifier {
   Future<void> lookAt(FleetBackend backend, Project project) async {
     this.project = project;
     looking = null;
+    _forgetTheRefusal();
     diff = '';
     log = '';
     ranked = const <ReviewFile>[];
@@ -82,6 +104,7 @@ class Gate extends ChangeNotifier {
   /// Opens one waiting push, so it can be judged before it is forwarded.
   Future<void> look(FleetBackend backend, PendingPush push, {String? against}) async {
     looking = push;
+    _forgetTheRefusal();
     diff = '';
     log = '';
     ranked = const <ReviewFile>[];
@@ -104,6 +127,8 @@ class Gate extends ChangeNotifier {
     final push = looking;
     if (file == null || push == null) return '';
     var said = '';
+    // A way through an earlier refusal is for that forward; this one is answered on its own.
+    _forgetTheRefusal();
     await _asking(() async {
       // The commit that was reviewed, where the machine takes it: a push that moved since is then
       // refused, not forwarded unseen. An older Porelo is not sent it.
@@ -111,6 +136,14 @@ class Gate extends ChangeNotifier {
       try {
         await backend.approve(file, push.name, branch, repository: _where(push), commit: commit);
       } on VarlinkException catch (refusal) {
+        if (refusal.simpleName == 'PushRefused') {
+          // Nothing went upstream; what to do about the key is shown beside the review, not as a line.
+          keyRefused = (refused: PushRefused.from(refusal.parameters), branch: branch);
+          tried = const <String, TriedPush>{};
+          notTried = const <String, String>{};
+          await _listKeys(backend);
+          return;
+        }
         // What it holds now is read again, so the review shows it rather than what was read before.
         if (refusal.simpleName == 'MovedSinceReview') {
           looking = null;
@@ -120,11 +153,103 @@ class Gate extends ChangeNotifier {
       }
       said = '${push.subject} was forwarded to $branch.';
       looking = null;
+      _forgetTheRefusal();
       await _readAgain(backend, file);
     });
     // Once the call itself went through, that is what happened — whatever reading the gate again
     // then found.
     return said.isNotEmpty ? said : (problem ?? said);
+  }
+
+  /// Reads the account's keys again: one the agent took on since, from an unlocked KeePassXC, then shows.
+  Future<void> readKeys(FleetBackend backend) async {
+    busy = true;
+    notifyListeners();
+    try {
+      await _listKeys(backend);
+    } finally {
+      busy = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> _listKeys(FleetBackend backend) async {
+    try {
+      keys = await backend.sshKeys();
+      keysProblem = null;
+    } on VarlinkException catch (refusal) {
+      keys = const <SshKey>[];
+      keysProblem = 'The machine did not list its keys: ${_wordsFor(refusal)}';
+    } on VarlinkDisconnected catch (ex) {
+      keys = const <SshKey>[];
+      keysProblem = 'Lost contact with the machine: ${ex.message}';
+    } on FeatureNotSupported {
+      keys = const <SshKey>[];
+      keysProblem = 'This machine’s Porelo cannot list its ssh keys.';
+    }
+  }
+
+  /// Tries the refused forward with [key] alone, as a dry run: nothing is pushed and nothing kept.
+  Future<void> tryKey(FleetBackend backend, SshKey key) async {
+    final file = project?.name;
+    final push = looking;
+    final refusal = keyRefused;
+    if (file == null || push == null || refusal == null) return;
+    final id = keyId(key);
+    busy = true;
+    notifyListeners();
+    String? why;
+    try {
+      final answer = await backend.credentialTryPush(
+        file,
+        repository: _where(push),
+        refspec: 'refs/porelo/incoming/${push.name}:refs/heads/${refusal.branch}',
+        source: _source(key),
+        id: id,
+      );
+      tried = <String, TriedPush>{...tried, id: answer};
+      notTried = <String, String>{...notTried}..remove(id);
+    } on VarlinkException catch (refusal) {
+      why = _wordsFor(refusal);
+    } on VarlinkDisconnected catch (ex) {
+      why = 'Lost contact with the machine: ${ex.message}';
+    } on FeatureNotSupported {
+      why = 'This machine’s Porelo cannot try a key on its own.';
+    } finally {
+      if (why != null) {
+        notTried = <String, String>{...notTried, id: why};
+        tried = <String, TriedPush>{...tried}..remove(id);
+      }
+      busy = false;
+      notifyListeners();
+    }
+  }
+
+  /// Keeps [key] for the refused forward's address, and only then forwards again onto the same branch.
+  Future<String> keepKey(FleetBackend backend, SshKey key) async {
+    final refusal = keyRefused;
+    if (refusal == null || looking == null) return '';
+    var kept = false;
+    await _asking(() async {
+      await backend.credentialDeclare(
+        kind: 'SSH_KEY',
+        match: refusal.refused.address,
+        purpose: 'git',
+        source: _source(key),
+        id: keyId(key),
+      );
+      kept = true;
+    });
+    if (!kept) return problem ?? '';
+    return approve(backend, refusal.branch);
+  }
+
+  void _forgetTheRefusal() {
+    keyRefused = null;
+    keys = const <SshKey>[];
+    keysProblem = null;
+    tried = const <String, TriedPush>{};
+    notTried = const <String, String>{};
   }
 
   Future<bool> _takesTheCommit(FleetBackend backend) async {
@@ -154,6 +279,7 @@ class Gate extends ChangeNotifier {
       };
       said = '${push.subject} was dropped. The work is still in the mirror.$told';
       looking = null;
+      _forgetTheRefusal();
       await _readAgain(backend, file);
     });
     // Once the call itself went through, that is what happened — whatever reading the gate again

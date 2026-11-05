@@ -12,6 +12,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - *Image settings* in *Work*, on an opened row and on *Running*, shows what a task's image was built with and where each thing comes from.
 - *New work* on this computer can start from a checkout there, asking the same question as a first start in a terminal before it writes `project.yml`, with what the plugins say of the checkout above it and beside each thing found; on another machine it says that nothing is detected there.
 - A checkout's `project.yml` that is not taken is a warning in *New work*: why, what to write, and that this start uses Default and not that file.
+- A forward refused for its ssh key says in the review what happened and which key was used, lists the account's keys from its ssh-agent and its files, tries one alone without pushing anything, keeps one for that address and forwards again, and opens what only a terminal can do in a terminal on the machine once you start it.
 
 ### Changed
 
