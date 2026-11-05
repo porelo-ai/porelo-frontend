@@ -286,9 +286,13 @@ class FakeBackend implements FleetBackend {
   int projectsListed = 0;
   int projectsListedAtTheGate = -1;
 
+  /// What listing the projects fails with, in place of an answer. Set by the scenario.
+  Object? listingProjectsFails;
+
   @override
   Future<List<Project>> projects() async {
     projectsListed++;
+    if (listingProjectsFails case final failure?) throw failure;
     return _projects();
   }
 

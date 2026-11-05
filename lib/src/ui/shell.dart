@@ -2349,8 +2349,10 @@ class _ShellState extends State<Shell> {
   /// Certifies a task for another week, by the command line, which asks this computer's agent.
   Future<void> _certifyAgain(Task task) async {
     final machine = widget.machines.current;
+    // Its machine's, whichever is selected when the command has answered.
+    final fleet = _fleet;
     if (machine.needsATunnel && task.project.isEmpty) {
-      _fleet.say('${task.name} names no project, so nothing here can certify it on ${machine.name}.');
+      fleet.say('${task.name} names no project, so nothing here can certify it on ${machine.name}.');
       return;
     }
     final arguments = certifyAgainArguments(
@@ -2372,9 +2374,15 @@ class _ShellState extends State<Shell> {
     }
     if (!mounted) return;
     // Read first, and quietly: a refresh's own line would replace what was said here.
-    await _fleet.refresh(quietly: true);
+    try {
+      await fleet.refresh(quietly: true);
+    } on VarlinkException {
+      // What the machine said of the certificate still stands; the next reading says what it says then.
+    } on FeatureNotSupported {
+      // The same.
+    }
     if (!mounted) return;
-    _fleet.say(said);
+    fleet.say(said);
   }
 
   /// Takes back a file the work was handed, chosen from what it holds.
