@@ -14,10 +14,14 @@
 
 An earlier issue, *A Server Dialog Opens At Once*, settled one dialog, not this row, and *A Long Change Shows That It Runs* covers a change, not a page.
 
+- **A real window on a hidden display** takes 65 to 117 ms from the pointer's release to the end of the frame that shows the page, in eight rounds each: a debug build, software drawing, with made-up data and with the real `porelo` answering the read. The real `porelo` changed nothing, as the page does not wait for it. The slowest of about 230 frames took 50 ms. A hidden window is not the person's click: the click was made by the test.
+- **The read itself takes 2.1 s here,** `porelo project show` on a project it does not find, three runs of 2.08 to 2.18 s, and `porelo org --json` 2.4 s, against 0.03 s for `porelo --version`. So the page's content comes about two seconds after its first frame, which may be the moment that was seen: the head of the page stands at once, and what the person came for does not.
+
 ## What to measure next
 
 - In the operator's window: does the row's press effect show at once? If it does, the wait is between the click and the page; if it does not, the window itself is busy or drawing late.
-- A window of the published package on a hidden display, with a real organization, measuring from the click to the frame. Not while the operator's test runs, since one computer holds one window of its account.
+- A window of the published package with a real organization, as the measure above held no organization of its own to read. Not while the operator's test runs, since one computer holds one window of its account.
+- Where the 2 s of a read go, in Core's command.
 
 ## Acceptance
 
