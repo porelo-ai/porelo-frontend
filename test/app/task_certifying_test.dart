@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/fleet_backend.dart';
 import 'package:porelo_frontend/src/app/run_here.dart';
+import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/task_certifying.dart';
 import 'package:porelo_frontend/src/mock/mock_daemon.dart';
 
@@ -114,6 +115,29 @@ void main() {
         );
       });
     }
+  });
+
+  // Harm: work in Default on a host cannot start, as Default has no members to name, and the contract
+  // says its starter's key certifies it.
+  test('a task of no project is certified by the key the agent holds first', () async {
+    final certificate = await certified(
+      asking(principal: 'task:default:work', certifiers: const <String>[]),
+      project: 'default',
+      task: 'work',
+    );
+    expect(certificate, startsWith('ssh-ed25519-cert-v01@openssh.com '));
+  });
+
+  // Harm: a host signs a project's task with any key by naming no certifier.
+  test('a task of a project naming no certifier is refused, whatever the agent holds', () async {
+    await expectLater(
+      certified(
+        asking(certifiers: const <String>[]),
+        project: 'foo-project',
+        task: 'work',
+      ),
+      throwsA(isA<CertifyRefused>().having((r) => r.words, 'words', contains('named no key'))),
+    );
   });
 
   // Harm: a host's key_id reaches ssh-keygen and the certificate; control characters would forge lines.
@@ -224,6 +248,28 @@ void main() {
       expect(started['certify'], true);
       expect(answers.single, <String, dynamic>{'start': 's1', 'certificate': 'the-certificate'});
       expect(events.whereType<StartLine>().single.line, contains('Certified task:foo-project:work'));
+    });
+
+    // Harm: a start on this computer waits for what a person's computer signs, and work in Default,
+    // with nobody to name, cannot start at all; the contract asks this only of a machine not its own.
+    test('a start on this computer asks nothing of the person, as the command line does', () async {
+      final here = PoreloBackend(Backend(socketPath: daemon.socketPath, label: 'here'), asksToCertify: false);
+      await here.open();
+      await here.startTask(task: 'work').toList();
+      expect(started['certify'], isNot(true));
+    });
+
+    test('the machine says whether it asks: another one does, this computer does not', () {
+      expect(
+        (Machines.overSocket(
+          Machine(name: 'here', socketPath: Backend.local().socketPath),
+        ) as PoreloBackend).asksToCertify,
+        isFalse,
+      );
+      expect(
+        (Machines.overSocket(Machine(name: 'elsewhere', socketPath: daemon.socketPath)) as PoreloBackend).asksToCertify,
+        isTrue,
+      );
     });
 
     // Harm: the person must read why, and the host must not wait out its five minutes.

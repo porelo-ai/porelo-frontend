@@ -433,7 +433,7 @@ class Machines extends ChangeNotifier {
     this._now = DateTime.now,
     this._retryAfter = const Duration(seconds: 2),
     this._relaysBySsh = _relaysBySshHere,
-  }) : _reach = reach ?? _overSocket,
+  }) : _reach = reach ?? overSocket,
        _poreloHere = poreloIsInstalledHere ?? _porelodOnThePath,
        hostKeys = hostKeys ?? SshHostKeys(),
        setup = setup ?? MachineSetup(),
@@ -514,7 +514,8 @@ class Machines extends ChangeNotifier {
     }
   }
 
-  static FleetBackend _overSocket(Machine machine) => PoreloBackend(backendFor(machine));
+  static FleetBackend overSocket(Machine machine) =>
+      PoreloBackend(backendFor(machine), asksToCertify: !machine.isThisComputer);
 
   /// Where [machine]'s daemon is: its socket, or the relay into its WSL distribution, which is
   /// asked before each connection whether the distribution runs.

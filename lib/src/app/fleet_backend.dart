@@ -565,7 +565,11 @@ abstract class FleetBackend {
 /// A real Porelo daemon, local or forwarded.
 class PoreloBackend implements FleetBackend {
   /// Constructor taking where the daemon is.
-  PoreloBackend(this.backend, {this.certify = certifyHere});
+  PoreloBackend(this.backend, {this.certify = certifyHere, this.asksToCertify = true});
+
+  /// Whether a start asks the person's computer for its certificate: on a machine not its own only,
+  /// as the daemon's contract has it. This computer's own daemon starts as the command line does.
+  final bool asksToCertify;
 
   /// The socket and its name.
   final Backend backend;
@@ -634,7 +638,7 @@ class PoreloBackend implements FleetBackend {
           repository: repository,
           credentials: credentials,
           now: now,
-          certify: !dryRun,
+          certify: asksToCertify && !dryRun,
         )
         .transform(startRefusalsSaid);
     final certifying = _Certifying();

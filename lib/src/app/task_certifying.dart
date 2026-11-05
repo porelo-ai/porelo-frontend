@@ -65,12 +65,19 @@ Future<String> certifyHere(
   }
   if (listed.code != 0 && listed.code != 1) {
     throw CertifyRefused(
-      'No SSH agent answers on this computer, so ${_named(asked.certifiers)} cannot certify this task. '
+      'No SSH agent answers on this computer, so '
+      '${asked.certifiers.isEmpty ? 'no key of yours' : _named(asked.certifiers)} can certify this task. '
       'Open your agent, or KeePassXC, and start it again.',
     );
   }
   final held = _keysOf(listed.out);
-  final String? certifier = _firstHeld(asked.certifiers, held);
+  final String? certifier = asked.certifiers.isEmpty ? held.values.firstOrNull : _firstHeld(asked.certifiers, held);
+  if (certifier == null && asked.certifiers.isEmpty) {
+    throw const CertifyRefused(
+      'Your SSH agent holds no Ed25519 key to certify this task with. '
+      'Add one (ssh-add), or unlock KeePassXC, and start it again.',
+    );
+  }
   if (certifier == null) {
     throw CertifyRefused(
       'Your SSH agent does not hold ${_named(asked.certifiers)}, which this project lets certify. '
@@ -138,7 +145,8 @@ void _check(StartCertify asked, {String? project, String? task, required DateTim
   if (_printable(asked.keyId).trim().isEmpty) {
     throw const CertifyRefused('The host asked for a certificate with no identity, so it was not certified.');
   }
-  if (asked.certifiers.isEmpty) {
+  // The one task with no members to name: its starter's key certifies it, as the contract says.
+  if (asked.certifiers.isEmpty && principal.group(1) != defaultProject) {
     throw const CertifyRefused('The host named no key of the project\'s members to certify with.');
   }
   for (final certifier in asked.certifiers) {
