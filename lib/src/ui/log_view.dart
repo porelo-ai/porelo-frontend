@@ -10,6 +10,9 @@ import 'small_switch.dart';
 import 'terminal_look.dart';
 import 'tokens.dart';
 
+/// The log an agent writes as it works.
+const String taskLog = 'task.log';
+
 /// One of a task's logs, as it is written.
 ///
 /// Inside the interface, deliberately. The alternative — a window per piece of work — does not
@@ -115,7 +118,7 @@ class _LogViewState extends State<LogView> {
         ),
       ),
     );
-    return terminal ? ColoredBox(color: TerminalLook.consoleOf(context).background, child: list) : list;
+    return terminal ? ColoredBox(color: TerminalLook.screen.background, child: list) : list;
   }
 
   /// How much of one line is drawn. An agent writes whole conversations as one line of JSON, 85 000

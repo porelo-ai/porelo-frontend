@@ -73,7 +73,7 @@ import './step/the_work_started_without_is_removed_again.dart';
 import './step/the_test_machine_has_porelos_stub_agent.dart';
 import './step/work_on_the_test_machine_was_started_with_a_key_its_provider_refuses.dart';
 import './step/what_needs_a_person_says_its_provider_refused_it.dart';
-import './step/its_tile_shows_what_its_agent_wrote.dart';
+import './step/its_log_shows_what_its_agent_wrote.dart';
 import './step/the_work_its_provider_refused_is_removed_again_with_the_key.dart';
 import './step/the_test_machine_has_a_repository_to_work_on.dart';
 import './step/i_start_work_on_the_repository_in_default_from_the_interface_and_put_the_start_away.dart';
@@ -295,7 +295,7 @@ void main() {
       await theWorkStartedWithoutIsRemovedAgain(tester, 'e2e-needed');
       await theEntryAndItsStandinAreRemovedAgain(tester, 'e2e-needed');
     });
-    testWidgets('''work whose provider refused its key needs a person, and its tile shows what its agent wrote''', (
+    testWidgets('''work whose provider refused its key needs a person, and its log shows what its agent wrote''', (
       tester,
     ) async {
       await bddSetUp(tester);
@@ -304,7 +304,7 @@ void main() {
       await theTestMachineHasPorelosStubAgent(tester);
       await workOnTheTestMachineWasStartedWithAKeyItsProviderRefuses(tester, 'anthropic');
       await whatNeedsAPersonSaysItsProviderRefusedIt(tester);
-      await itsTileShowsWhatItsAgentWrote(tester);
+      await itsLogShowsWhatItsAgentWrote(tester);
       await theWorkItsProviderRefusedIsRemovedAgainWithTheKey(tester, 'anthropic');
     });
     testWidgets('''a repository goes into default as work starts on it from the interface, and is taken out again''', (

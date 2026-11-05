@@ -108,7 +108,7 @@ class _SessionViewState extends State<SessionView> {
             ),
           Expanded(
             child: ColoredBox(
-              color: TerminalLook.consoleOf(context).background,
+              color: TerminalLook.screen.background,
               // On Windows the wheel is reported to tmux by the session itself; see
               // [Session.wheel]. Elsewhere the terminal answers it, as tmux asked it to.
               child: Listener(

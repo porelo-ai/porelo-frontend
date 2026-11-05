@@ -69,12 +69,12 @@ Feature: A tab per running agent, the one place terminals are
         And it does not say {'No terminal is open in it'}
 
     # Harm: a row saying nothing of it, or the bar that holds only a sentence.
-    Scenario: the row of a running task whose terminal has ended says the same, and draws no console for it
+    Scenario: the row of a running task whose terminal has ended says the same
         Given the terminal session of {'porelo-billing-shell'} has ended
         When I go to the list of work
+        And {30} seconds pass
         And I open the tile {'porelo-billing-shell'}
         Then the tile {'porelo-billing-shell'} says {'No terminal is open in it'}
-        And the tile of {'porelo-billing-shell'} draws no console
         And the row of {'porelo-billing-shell'} offers {'Open a new terminal'}
         When I open a new terminal from the row of {'porelo-billing-shell'}
         Then the tab of {'porelo-billing-shell'} is chosen

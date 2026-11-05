@@ -14,7 +14,6 @@ import 'log_view.dart';
 import 'small_switch.dart';
 import 'session_view.dart';
 import 'terminal_look.dart';
-import 'tile_console.dart';
 import 'tokens.dart';
 import 'window_size.dart';
 import 'work_page.dart';
@@ -393,7 +392,7 @@ class _RunningViewState extends State<RunningView> {
   Widget _followSwitch(BuildContext context, Tile tile, TextStyle? style) => ListenableBuilder(
     listenable: widget.logs,
     builder: (context, _) {
-      final tail = widget.logs.find(tile.task!.name, TileConsole.log, formatted: true);
+      final tail = widget.logs.find(tile.task!.name, taskLog, formatted: true);
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
@@ -621,7 +620,7 @@ class _LogTabState extends State<_LogTab> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final task = widget.tile.task!.name;
-      setState(() => _tail = widget.logs.open(widget.tile.fleet.backend, task, TileConsole.log, formatted: true));
+      setState(() => _tail = widget.logs.open(widget.tile.fleet.backend, task, taskLog, formatted: true));
     });
   }
 
@@ -637,7 +636,7 @@ class _LogTabState extends State<_LogTab> {
   @override
   Widget build(BuildContext context) {
     final tail = _tail;
-    if (tail == null) return ColoredBox(color: TerminalLook.consoleOf(context).background);
+    if (tail == null) return ColoredBox(color: TerminalLook.screen.background);
     return ListenableBuilder(
       listenable: widget.logs,
       builder: (context, _) => LogView(tail: tail, logs: widget.logs, onClose: () {}, headed: false),

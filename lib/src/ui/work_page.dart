@@ -214,8 +214,8 @@ class _WorkPageState extends State<WorkPage> {
   bool get _withoutAProject => _view.withoutAProject;
   set _withoutAProject(bool value) => _view.withoutAProject = value;
 
-  /// How often the terminal of a row not unfolded is looked at: one call a row, one at a time, on the
-  /// connection the person's own actions go through. An unfolded row looks more often by itself.
+  /// How often the terminal of a row is looked at: one call a row, one at a time, on the connection
+  /// the person's own actions go through.
   static const Duration _terminalsEvery = Duration(seconds: 30);
 
   Timer? _lookingAtTerminals;
@@ -246,7 +246,6 @@ class _WorkPageState extends State<WorkPage> {
         for (final tile in widget.attention.tilesOn(machine)) {
           final task = tile.task;
           if (task == null || !task.running || task.mode == Mode.unattended) continue;
-          if (_view.open.contains(_placeOf(tile))) continue;
           if (!mounted) return;
           try {
             final asked = _view.newTerminalsAsked;

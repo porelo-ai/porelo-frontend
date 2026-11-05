@@ -54,7 +54,7 @@ LineMark markOf(String line) {
 /// [line] as the console draws it: marked with what the window can tell, and whatever the agent
 /// coloured itself keeps its colour.
 TextSpan markedLine(BuildContext context, String line, {double? size}) {
-  final console = TerminalLook.consoleOf(context);
+  const console = TerminalLook.screen;
   final base = size == null ? TerminalLook.textOf(context) : TerminalLook.textOf(context, size: size);
   return TextSpan(
     style: switch (markOf(line)) {

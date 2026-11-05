@@ -53,6 +53,10 @@ void main() {
       expect(_contrast(console.noteText, console.noteBackground), greaterThanOrEqualTo(4.5));
     });
     reads('dark', TerminalLook.darkConsole, ConsoleColours.dark);
-    reads('light', TerminalLook.lightConsole, ConsoleColours.light);
+
+    // Harm: tmux's status line, black on green by default, that does not read.
+    test('a status line of black on green reads', () {
+      expect(_contrast(TerminalLook.darkConsole.black, TerminalLook.darkConsole.green), greaterThanOrEqualTo(4.5));
+    });
   });
 }

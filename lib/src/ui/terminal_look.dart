@@ -4,9 +4,9 @@ import 'package:xterm/xterm.dart';
 import 'tokens.dart';
 
 /// How something that shows what an agent writes looks: like the terminal a person works in, by
-/// hand (walk 9). A console of a piece of work follows the window's light or dark, through [consoleOf]
-/// and [themeOf], so the small one on a row and the session look alike; a terminal in a dialog keeps
-/// the dark [theme].
+/// hand (walk 9). What a terminal or an agent's log shows stays dark in the light theme too, as in a
+/// console, through [screen] and [themeOf]; the bars around it follow the window, through [consoleOf].
+/// A terminal in a dialog keeps the dark [theme].
 abstract final class TerminalLook {
   /// The colours of a terminal in a dialog.
   static const TerminalTheme theme = TerminalTheme(
@@ -63,45 +63,20 @@ abstract final class TerminalLook {
   );
 
   /// A session's colours on the light console: the same hues darkened until they read on white, and
-  /// its white and bright white darkened too, since an agent writes in them expecting a dark ground.
-  static const TerminalTheme lightConsole = TerminalTheme(
-    cursor: Primitives.petrol,
-    selection: Color(0x55006872),
-    foreground: Color(0xFF1E2440),
-    background: Color(0xFFFFFFFF),
-    black: Color(0xFF0B0B1A),
-    red: Primitives.deepRed,
-    green: Color(0xFF2F5200),
-    yellow: Primitives.brown,
-    blue: Color(0xFF1F3FB8),
-    magenta: Primitives.deepMagenta,
-    cyan: Primitives.petrol,
-    white: Color(0xFF565E80),
-    brightBlack: Color(0xFF565E80),
-    brightRed: Color(0xFFA30F34),
-    brightGreen: Primitives.olive,
-    brightYellow: Color(0xFF7A4900),
-    brightBlue: Color(0xFF2A4BC4),
-    brightMagenta: Color(0xFF8E0F6E),
-    brightCyan: Color(0xFF005A63),
-    brightWhite: Color(0xFF0B0B1A),
-    searchHitBackground: Primitives.amber,
-    searchHitBackgroundCurrent: Primitives.lime,
-    searchHitForeground: Color(0xFF0B0B1A),
-  );
+  /// The colours of what a terminal or an agent's log shows: dark in the light theme too.
+  static const ConsoleColours screen = ConsoleColours.dark;
 
   /// The console's colours for the window's light or dark.
   static ConsoleColours consoleOf(BuildContext context) => ConsoleColours.of(Theme.of(context).brightness);
 
-  /// A session's colours for the window's light or dark.
-  static TerminalTheme themeOf(BuildContext context) =>
-      Theme.of(context).brightness == Brightness.dark ? darkConsole : lightConsole;
+  /// A session's colours, dark in the light theme too. [context] stays for those who read it from one.
+  static TerminalTheme themeOf(BuildContext context) => darkConsole;
 
   /// The colours an agent's escapes map to on the console; what `ansiSpans` is given.
   static ColorScheme coloursOf(BuildContext context) {
     final terminal = themeOf(context);
-    final console = consoleOf(context);
-    return ColorScheme.fromSeed(seedColor: terminal.cyan, brightness: Theme.of(context).brightness).copyWith(
+    const console = screen;
+    return ColorScheme.fromSeed(seedColor: terminal.cyan, brightness: Brightness.dark).copyWith(
       surface: console.background,
       onSurface: console.text,
       onSurfaceVariant: console.muted,
@@ -113,12 +88,8 @@ abstract final class TerminalLook {
   }
 
   /// The console's text, monospace, at [size].
-  static TextStyle textOf(BuildContext context, {double size = Sizes.terminalText}) => TextStyle(
-    fontFamily: 'monospace',
-    fontSize: size,
-    color: consoleOf(context).text,
-    height: Sizes.terminalLineHeight,
-  );
+  static TextStyle textOf(BuildContext context, {double size = Sizes.terminalText}) =>
+      TextStyle(fontFamily: 'monospace', fontSize: size, color: screen.text, height: Sizes.terminalLineHeight);
 
   /// The terminal's background.
   static const Color background = Primitives.ground2;

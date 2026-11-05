@@ -55,15 +55,9 @@ import './step/the_tile_of_does_not_end_with.dart';
 import './step/the_agent_of_finished_with_changed_files_outside_the_gate.dart';
 import './step/the_agent_of_ended_with_the_providers.dart';
 import './step/the_work_runs_unattended.dart';
-import './step/the_tile_of_shows.dart';
-import './step/the_agent_of_writes.dart';
-import './step/the_tile_of_does_not_show_yet.dart';
-import './step/seconds_pass.dart';
-import './step/its_tail_was_asked_for_from_its_last_lines_formatted.dart';
 import './step/i_go_from_the_row_to_the_console_of.dart';
 import './step/the_tab_of_is_chosen.dart';
 import './step/the_terminal_of_shows.dart';
-import './step/the_screen_of_was_asked_for_at_most_times.dart';
 import './step/sessions_are_open.dart';
 
 void main() {
@@ -184,7 +178,7 @@ void main() {
       await bddSetUp(tester);
       await theProjectHasTheRepositories(tester, 'checkout', 'checkout, payments-api');
       await theWorkWorksInTheRepository(tester, 'porelo-checkout-shell', 'payments-api');
-      await theTileSays(tester, 'porelo-checkout-shell', 'in payments-api');
+      await theTileSays(tester, 'porelo-checkout-shell', 'payments-api');
     });
     testWidgets('''work started again starts in the repository it worked in''', (tester) async {
       await bddSetUp(tester);
@@ -200,7 +194,7 @@ void main() {
       await theProjectHasTheRepositories(tester, 'checkout', 'checkout, payments-api');
       await theWorkHasStopped(tester, 'porelo-checkout-shell');
       await iSelectTheProject(tester, 'checkout');
-      await theTileSays(tester, 'porelo-checkout-shell', 'in checkout');
+      await theTileSays(tester, 'porelo-checkout-shell', 'checkout');
       await iChooseFromTheMenuOfTheTile(tester, 'Start it again', 'porelo-checkout-shell');
       await itWasStartedAgainInTheRepository(tester, 'checkout');
     });
@@ -313,44 +307,15 @@ void main() {
         'Stopped before its end, and nothing waits at the gate: its output above says why.',
       );
     });
-    testWidgets('''a tile shows the newest lines its agent writes, drawn only now and then''', (tester) async {
-      await bddSetUp(tester);
-      await theWorkRunsUnattended(tester, 'porelo-billing-shell');
-      await theTileOfShows(tester, 'porelo-billing-shell', 'Nothing written yet.');
-      await theAgentOfWrites(tester, 'porelo-billing-shell', 'reading the contracts');
-      await theTileOfShows(tester, 'porelo-billing-shell', 'reading the contracts');
-      await theAgentOfWrites(tester, 'porelo-billing-shell', '[read] doc/Backend-API.md');
-      await theTileOfDoesNotShowYet(tester, 'porelo-billing-shell', '[read] doc/Backend-API.md');
-      await secondsPass(tester, 3);
-      await theTileOfShows(tester, 'porelo-billing-shell', '[read] doc/Backend-API.md');
-      await itsTailWasAskedForFromItsLastLinesFormatted(tester, 20);
-    });
     testWidgets('''a row leads to its agent's tab, following''', (tester) async {
       await bddSetUp(tester);
       await theWorkRunsUnattended(tester, 'porelo-billing-shell');
       await iGoFromTheRowToTheConsoleOf(tester, 'porelo-billing-shell');
       await theTabOfIsChosen(tester, 'porelo-billing-shell');
     });
-    testWidgets('''a tile of work in a terminal says where its agent's lines are, and reads no log''', (tester) async {
-      await bddSetUp(tester);
-      await theTileOfShows(tester, 'porelo-billing-shell', 'Its agent works in its terminal - open it to see.');
-    });
-    testWidgets('''a tile of work in a terminal shows what its session shows, asked only every few seconds''', (
-      tester,
-    ) async {
-      await bddSetUp(tester);
-      await theTerminalOfShows(tester, 'porelo-billing-shell', 'agent> make test');
-      await theTileOfShows(tester, 'porelo-billing-shell', 'Its agent works in its terminal - open it to see.');
-      await secondsPass(tester, 3);
-      await theTileOfShows(tester, 'porelo-billing-shell', 'agent> make test');
-      await secondsPass(tester, 9);
-      await theScreenOfWasAskedForAtMostTimes(tester, 'porelo-billing-shell', 7);
-    });
     testWidgets('''a row of work in a terminal leads to its session''', (tester) async {
       await bddSetUp(tester);
       await theTerminalOfShows(tester, 'porelo-billing-shell', 'agent> make test');
-      await theTileOfShows(tester, 'porelo-billing-shell', 'Its agent works in its terminal - open it to see.');
-      await secondsPass(tester, 3);
       await iGoFromTheRowToTheConsoleOf(tester, 'porelo-billing-shell');
       await sessionsAreOpen(tester, 1);
     });

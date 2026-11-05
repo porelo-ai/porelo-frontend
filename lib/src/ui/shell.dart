@@ -131,7 +131,6 @@ import 'prepare_view.dart';
 import 'refusal.dart';
 import 'status_line.dart';
 import 'running_view.dart';
-import 'tile_console.dart';
 import 'tokens.dart';
 import 'window_size.dart';
 import 'work_page.dart';
@@ -2800,8 +2799,8 @@ class _ShellState extends State<Shell> {
     final task = tile.task;
     if (task == null) return;
     _actOn(tile);
-    widget.logs.open(tile.fleet.backend, task.name, TileConsole.log, formatted: true);
-    widget.shell.openLog(task.name, TileConsole.log, formatted: true);
+    widget.logs.open(tile.fleet.backend, task.name, taskLog, formatted: true);
+    widget.shell.openLog(task.name, taskLog, formatted: true);
   }
 
   /// Asks which log, then opens it. Reading starts whether or not it stays on screen.
@@ -3283,7 +3282,6 @@ class _ShellState extends State<Shell> {
       onNewTerminal: task == null ? null : () => _workView.showNewTerminal(tile.machine.name, task),
       onReadLog: task == null ? null : () => _readLogOf(tile),
       onSeeInNeedsYou: () => widget.shell.goTo(Section.attention),
-      onSession: task == null ? null : (live) => _workView.terminalSaid(tile.machine.name, task, live: live),
     );
   }
 

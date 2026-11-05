@@ -196,15 +196,15 @@ Feature: Reaching a real machine, reading it, and working in a project
         And the work started without {'e2e-needed'} is removed again
         And the entry {'e2e-needed'} and its stand-in are removed again
 
-    # An agent that ended is said where a person looks, in its provider's words, and what it wrote is on
-    # its tile, read from the end of its log as the agent formats it.
-    Scenario: work whose provider refused its key needs a person, and its tile shows what its agent wrote
+    # An agent that ended is said where a person looks, in its provider's words, and what it wrote is
+    # in its log, as the agent formats it.
+    Scenario: work whose provider refused its key needs a person, and its log shows what its agent wrote
         Given the test machine is being watched
         And the test machine has an open vault
         And the test machine has Porelo's stub agent
         And work on the test machine was started with a key {'anthropic'} its provider refuses
         Then what needs a person says its provider refused it
-        And its tile shows what its agent wrote
+        And its log shows what its agent wrote
         And the work its provider refused is removed again, with the key {'anthropic'}
 
     # Work without writing a project: default is every machine's, listed first, and a

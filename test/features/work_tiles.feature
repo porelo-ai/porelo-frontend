@@ -112,7 +112,7 @@ Feature: Work in its machine's area, as tiles that carry their own actions
     Scenario: a tile names the repository its work is in, once there is more than one
         Given the project {'checkout'} has the repositories {'checkout, payments-api'}
         And the work {'porelo-checkout-shell'} works in the repository {'payments-api'}
-        Then the tile {'porelo-checkout-shell'} says {'in payments-api'}
+        Then the tile {'porelo-checkout-shell'} says {'payments-api'}
 
     Scenario: work started again starts in the repository it worked in
         Given the project {'checkout'} has the repositories {'checkout, payments-api'}
@@ -126,7 +126,7 @@ Feature: Work in its machine's area, as tiles that carry their own actions
         Given the project {'checkout'} has the repositories {'checkout, payments-api'}
         And the work {'porelo-checkout-shell'} has stopped
         When I select the project {'checkout'}
-        Then the tile {'porelo-checkout-shell'} says {'in checkout'}
+        Then the tile {'porelo-checkout-shell'} says {'checkout'}
         When I choose {'Start it again'} from the menu of the tile {'porelo-checkout-shell'}
         Then it was started again in the repository {'checkout'}
 
@@ -216,43 +216,15 @@ Feature: Work in its machine's area, as tiles that carry their own actions
         When the agent of {'porelo-checkout-shell'} ended with the provider's {402} {'This request requires more credits'}
         Then the tile of {'porelo-checkout-shell'} ends with {'Stopped before its end, and nothing waits at the gate: its output above says why.'}
 
-    Scenario: a tile shows the newest lines its agent writes, drawn only now and then
-        Given the work {'porelo-billing-shell'} runs unattended
-        Then the tile of {'porelo-billing-shell'} shows {'Nothing written yet.'}
-        When the agent of {'porelo-billing-shell'} writes {'reading the contracts'}
-        Then the tile of {'porelo-billing-shell'} shows {'reading the contracts'}
-        When the agent of {'porelo-billing-shell'} writes {'[read] doc/Backend-API.md'}
-        Then the tile of {'porelo-billing-shell'} does not show {'[read] doc/Backend-API.md'} yet
-        When {3} seconds pass
-        Then the tile of {'porelo-billing-shell'} shows {'[read] doc/Backend-API.md'}
-        And its tail was asked for from its last {20} lines, formatted
-
     # Harm: a row that leads nowhere an agent can be followed.
     Scenario: a row leads to its agent's tab, following
         Given the work {'porelo-billing-shell'} runs unattended
         When I go from the row to the console of {'porelo-billing-shell'}
         Then the tab of {'porelo-billing-shell'} is chosen
 
-    # Work in a terminal writes no log of its own; its screen comes with Porelo's Screen.
-    Scenario: a tile of work in a terminal says where its agent's lines are, and reads no log
-        Then the tile of {'porelo-billing-shell'} shows {'Its agent works in its terminal - open it to see.'}
-
-    # Walk 9: work by hand shows on its tile what its terminal shows, like a picture of it,
-    # asked of the machine every few seconds without attaching.
-    Scenario: a tile of work in a terminal shows what its session shows, asked only every few seconds
-        Given the terminal of {'porelo-billing-shell'} shows {'agent> make test'}
-        Then the tile of {'porelo-billing-shell'} shows {'Its agent works in its terminal - open it to see.'}
-        When {3} seconds pass
-        Then the tile of {'porelo-billing-shell'} shows {'agent> make test'}
-        When {9} seconds pass
-        # Once for the list each time the page opened, then every three seconds while it is unfolded.
-        Then the screen of {'porelo-billing-shell'} was asked for at most {7} times
-
     # Walk 10: from the row, work in a terminal opened its details, not its terminal.
     # Harm: a row whose way to the terminal opens something else.
     Scenario: a row of work in a terminal leads to its session
         Given the terminal of {'porelo-billing-shell'} shows {'agent> make test'}
-        Then the tile of {'porelo-billing-shell'} shows {'Its agent works in its terminal - open it to see.'}
-        When {3} seconds pass
-        And I go from the row to the console of {'porelo-billing-shell'}
+        When I go from the row to the console of {'porelo-billing-shell'}
         Then {1} sessions are open

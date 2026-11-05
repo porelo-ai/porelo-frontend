@@ -6,8 +6,6 @@ import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/session.dart';
 import 'package:porelo_frontend/src/ui/session_view.dart';
 import 'package:porelo_frontend/src/ui/terminal_look.dart';
-import 'package:porelo_frontend/src/ui/tile_console.dart';
-import 'package:porelo_frontend/src/ui/tokens.dart';
 import 'package:xterm/xterm.dart';
 
 import '../features/support/world.dart';
@@ -61,12 +59,9 @@ void main() {
       ),
     );
 
-    for (final (name, brightness, look, colours) in <(String, Brightness, TerminalTheme, ConsoleColours)>[
-      ('light', Brightness.light, TerminalLook.lightConsole, ConsoleColours.light),
-      ('dark', Brightness.dark, TerminalLook.darkConsole, ConsoleColours.dark),
-    ]) {
-      // Harm: a black terminal in a light window, or a console whose lines were coloured for the other one.
-      testWidgets('a session and a row console read $name', (tester) async {
+    for (final (name, brightness) in <(String, Brightness)>[('light', Brightness.light), ('dark', Brightness.dark)]) {
+      // Harm: a terminal pale on white, where an agent's and tmux's own colours do not read.
+      testWidgets('a session stays dark in a $name window', (tester) async {
         final focus = FocusNode();
         addTearDown(focus.dispose);
         final session = Session(
@@ -78,12 +73,7 @@ void main() {
         final theme = ThemeData(brightness: brightness);
         await pump(tester, theme, SessionView(session: session, focusNode: focus));
         await tester.pump();
-        expect(tester.widget<TerminalView>(find.byKey(const Key('terminal'))).theme, look);
-
-        await pump(tester, theme, TileConsole(backend: FakeBackend(const <Task>[]), task: 'porelo-x-work'));
-        await tester.pump();
-        final box = tester.widget<Container>(find.byKey(const ValueKey<String>('tile-console porelo-x-work')));
-        expect((box.decoration! as BoxDecoration).color, colours.background);
+        expect(tester.widget<TerminalView>(find.byKey(const Key('terminal'))).theme, TerminalLook.darkConsole);
         await tester.pumpWidget(const SizedBox());
       });
     }

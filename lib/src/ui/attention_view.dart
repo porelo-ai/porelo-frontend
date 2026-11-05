@@ -21,7 +21,6 @@ import 'held_message_view.dart';
 import 'how_long.dart';
 import 'operations.dart';
 import 'needs_machine.dart';
-import 'tile_console.dart';
 import 'organization_token_words.dart';
 import 'filtered_list_section.dart';
 import 'tokens.dart';
@@ -1304,12 +1303,7 @@ class TaskTile extends StatelessWidget {
 
   /// What a row of *Work* adds to the project, agent and machine it already says.
   static String _whereOnARow(Tile tile) {
-    final task = tile.task;
-    final project = task == null ? null : tile.fleet.projectOf(task);
-    return <String>[
-      if (tile.machine.host.isNotEmpty) tile.machine.host,
-      if (task != null && project != null && project.repositories.length > 1) 'in ${project.repositoryOf(task)}',
-    ].join(' · ');
+    return <String>[if (tile.machine.host.isNotEmpty) tile.machine.host].join(' · ');
   }
 
   static String _where(Tile tile) {
@@ -1344,7 +1338,6 @@ class WorkRow extends StatelessWidget {
     this.onNewTerminal,
     this.onReadLog,
     this.onSeeInNeedsYou,
-    this.onSession,
     this.highlight,
     this.onShown,
     super.key,
@@ -1376,9 +1369,6 @@ class WorkRow extends StatelessWidget {
 
   /// Goes to what needs a person.
   final VoidCallback? onSeeInNeedsYou;
-
-  /// Told what its console learned of its terminal session.
-  final void Function(bool live)? onSession;
 
   /// The command the finder went to.
   final String? highlight;
@@ -1555,16 +1545,6 @@ class WorkRow extends StatelessWidget {
                       ),
                     ),
                     if (task != null) _WorkFacts(tile: tile),
-                    if (task != null && (task.running || task.agentEnded != null))
-                      TileConsole(
-                        key: ValueKey<String>('tile-console-of ${tile.machine.name} ${task.name}'),
-                        backend: tile.fleet.backend,
-                        task: task.name,
-                        // `since` is when its current state began, so a start only while it runs.
-                        startedAt: task.running ? task.startedAt : null,
-                        inATerminal: task.mode != Mode.unattended,
-                        onSession: onSession,
-                      ),
                     ...TileSaid.of(context, tile, onTheRow: true),
                     // The last answer, so a question that ran out does not quietly disappear.
                     if (tile.questions.isEmpty && tile.settled != null)

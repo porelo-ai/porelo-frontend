@@ -67,6 +67,10 @@ enum SessionState {
   over,
 }
 
+/// The terminal's colours as a program asks for them, the same as `TerminalLook.darkConsole`.
+const _background = 'rgb:0505/0505/0c0c';
+const _foreground = 'rgb:e8e8/ecec/ffff';
+
 /// One session against one piece of work.
 ///
 /// **The session is not this object and does not end with it.** What is being drawn here is a way
@@ -186,6 +190,10 @@ class Session extends ChangeNotifier with QuietAfterDispose {
     // Left or put away: what the closing program still prints is read for its last line, never acted on here.
     if (_gone) return;
     if (code == '5379') return _forwardTheReply(arguments);
+    // A program choosing its colours asks: the terminal is dark whatever the window's theme.
+    if ((code == '10' || code == '11') && arguments.singleOrNull == '?') {
+      return type('\x1b]$code;${code == '11' ? _background : _foreground}\x1b\\');
+    }
     if (code == '52') return _copied(arguments);
     final link = hyperlinkOf(code, arguments);
     if (link == null || links.contains(link)) return;

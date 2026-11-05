@@ -5,16 +5,13 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:porelo_frontend/src/ui/terminal_look.dart';
 import 'package:porelo_frontend/src/ui/tokens.dart';
-import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/pty.dart';
 import 'package:porelo_frontend/src/app/session.dart';
 import 'package:porelo_frontend/src/ui/session_view.dart';
-import 'package:porelo_frontend/src/ui/tile_console.dart';
 import 'package:xterm/xterm.dart';
-
-import '../features/support/world.dart';
 
 /// A task's terminal in the interface, as walk 21 found it wanting.
 ///
@@ -112,26 +109,14 @@ void main() {
     expect(find.byKey(const Key('session-started')), findsNothing);
   });
 
-  testWidgets('a tile says when its task was started, and nothing where that is unknown', (tester) async {
-    Future<void> tile({DateTime? startedAt}) => tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: TileConsole(
-            backend: FakeBackend(const <Task>[]),
-            task: 'porelo-sluice-dry-sluice',
-            startedAt: startedAt,
-          ),
-        ),
-      ),
-    );
-
-    atTheTestSize(tester);
-    await tile(startedAt: DateTime(2026, 10, 28, 20, 10));
-    expect(find.text('started 20:10'), findsOneWidget);
-
-    await tile();
-    expect(find.textContaining('started'), findsNothing);
-    await tester.pumpWidget(const SizedBox());
+  // Harm: an agent asking what its background is hears nothing, and picks colours for a light one.
+  testWidgets('a program asking for the colours hears those of the dark terminal', (tester) async {
+    expect(TerminalLook.darkConsole.background, const Color(0xFF05050C), reason: 'what it hears is what it gets');
+    expect(TerminalLook.darkConsole.foreground, const Color(0xFFE8ECFF));
+    final (_, channel) = await open(tester);
+    await prints(tester, channel, '\x1b]11;?\x07\x1b]10;?\x07');
+    expect(channel.sent, contains('\x1b]11;rgb:0505/0505/0c0c\x1b\\'));
+    expect(channel.sent, contains('\x1b]10;rgb:e8e8/ecec/ffff\x1b\\'));
   });
 
   group('the mouse, while the program asked for mouse reports', () {

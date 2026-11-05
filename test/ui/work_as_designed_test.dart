@@ -6,7 +6,9 @@ import 'package:porelo_frontend/src/ui/attention_view.dart';
 import 'package:porelo_frontend/src/ui/console_lines.dart';
 import 'package:porelo_frontend/src/ui/filtered_list_section.dart';
 import 'package:porelo_frontend/src/ui/small_switch.dart';
+import 'package:porelo_frontend/src/ui/terminal_look.dart';
 import 'package:porelo_frontend/src/ui/theme.dart';
+import 'package:porelo_frontend/src/ui/tokens.dart';
 
 import '../features/support/world.dart';
 
@@ -105,6 +107,39 @@ void main() {
       tester.widget<ColoredBox>(find.descendant(of: box, matching: find.byType(ColoredBox)).first).color,
       listHeadColour(colors),
     );
+  });
+
+  // Harm: the list repeats, in a block on each opened row, what the terminal under Running shows.
+  testWidgets('an opened row shows its status and the way on, and no console', (tester) async {
+    await World.startBackend(World.work);
+    await World.startApp(tester);
+    World.shell.goTo(Section.work);
+    await World.settle(tester);
+    await tester.tap(find.byKey(ValueKey<String>('tile ${World.machines.current.name} porelo-checkout-shell')));
+    await World.settle(tester);
+    expect(find.byKey(const Key('tile-fact started')), findsWidgets);
+    expect(find.textContaining('Its agent works in its terminal'), findsNothing);
+    expect(find.textContaining(RegExp(r'^started ')), findsNothing, reason: 'Started says it');
+    expect(find.textContaining(RegExp(r'^in ')), findsNothing, reason: 'Repository says it');
+  });
+
+  // Harm: a terminal pale on white in the light theme, where an agent's and tmux's own colours do not read.
+  testWidgets('the terminal stays dark in the light theme, and the bar around it follows', (tester) async {
+    late BuildContext context;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: PoreloTheme.light,
+        home: Builder(
+          builder: (each) {
+            context = each;
+            return const SizedBox.shrink();
+          },
+        ),
+      ),
+    );
+    expect(TerminalLook.themeOf(context).background, TerminalLook.darkConsole.background);
+    expect(TerminalLook.screen.background, ConsoleColours.dark.background);
+    expect(TerminalLook.consoleOf(context).background, ConsoleColours.light.background, reason: 'the bar follows');
   });
 
   // Harm: a bar's switch standing out over the words beside it.
