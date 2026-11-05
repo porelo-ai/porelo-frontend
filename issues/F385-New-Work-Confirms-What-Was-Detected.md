@@ -18,6 +18,7 @@
 
 - The window had no way to name a checkout, so *New work* on this computer has a step *Use a checkout on this computer*, which picks one with the desktop's folder dialog. Naming an address asks nothing, as an address is no checkout.
 - After a no, or an answer with no question, the checkout's `origin` goes into the address field, and the person starts as without one.
+- On Windows there is no daemon of this computer's own: a WSL distribution is another machine, so nothing is detected or asked there, and the window says so.
 - With a host only the checkout names, focus stands on No.
 - On another machine the window cannot see what a repository holds without a start, so it says in advance what happens with no `project.yml`, rather than after looking.
 

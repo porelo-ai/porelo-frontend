@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
@@ -8,6 +10,9 @@ import 'package:porelo_frontend/src/ui/default_view.dart';
 import '../features/support/world.dart';
 
 void main() {
+  // Windows has no daemon of this computer's own: a WSL distribution is another machine, so nothing is asked there.
+  final noOwnDaemon = Platform.isWindows;
+
   const asks = FirstStart(outcome: FirstStart.askNew, project: 'x-project', file: 'project: x-project\n', hash: 'h1');
 
   Future<void> toTheQuestion(WidgetTester tester) async {
@@ -43,7 +48,7 @@ void main() {
     await World.settle(tester);
     expect(World.backend.firstStartsConfirmed.single.$2, 'h1');
     expect(World.machines.current, asked);
-  });
+  }, skip: noOwnDaemon);
 
   // Harm: a checkout that asks nothing starts at once, and what its plugin said of it goes with the dialog.
   testWidgets('a known checkout\'s notes are said where its work starts', (tester) async {
@@ -69,7 +74,7 @@ void main() {
     await tester.tap(find.byKey(const Key('default-checkout')));
     await World.settle(tester);
     expect(World.fleet.status, contains('The lookup did not answer.'));
-  });
+  }, skip: noOwnDaemon);
 
   // Harm: the start fails at once, its words replace the plugin's, and the dialog that held them is gone.
   testWidgets('a known checkout\'s notes stay though its start cannot go on', (tester) async {
@@ -96,7 +101,7 @@ void main() {
     await World.settle(tester);
     expect(World.fleet.status, contains('does not list not-listed'));
     expect(World.fleet.status, contains('The lookup did not answer.'));
-  });
+  }, skip: noOwnDaemon);
 
   // Harm: the person said yes, the file was written, and the window then did nothing and said nothing.
   testWidgets('a project the machine does not list after a yes is said, not left silent', (tester) async {
@@ -104,5 +109,5 @@ void main() {
     await tester.tap(find.byKey(const Key('first-start-yes')));
     await World.settle(tester);
     expect(find.textContaining('does not list x-project'), findsOneWidget);
-  });
+  }, skip: noOwnDaemon);
 }
