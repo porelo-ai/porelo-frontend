@@ -10,6 +10,7 @@ import 'package:porelo_frontend/src/app/organization_source.dart';
 import 'package:porelo_frontend/src/ui/filtered_list_section.dart';
 import 'package:porelo_frontend/src/ui/organization_dialogs.dart';
 import 'package:porelo_frontend/src/ui/organization_page.dart';
+import 'package:porelo_frontend/src/ui/tokens.dart';
 import 'package:porelo_frontend/src/ui/shell_rail.dart';
 
 import '../features/support/world.dart';
@@ -562,10 +563,43 @@ void main() {
     expect(find.textContaining('Choose another Porelo organization'), findsNothing, reason: 'in the menu');
     final warning = find.byKey(const Key('organization-owner-warning'));
     final holdsIt = view.isOwner && view.owners.length == 1 && !view.ownersWithBackup.contains(view.me);
-    expect(warning, holdsIt ? findsOneWidget : findsNothing);
+    expect(holdsIt, isTrue, reason: 'this fixture is an only owner with no backup key');
+    expect(warning, findsOneWidget);
     await tester.tap(find.byKey(ValueKey<String>('explanation-fold organization')));
     await tester.pumpAndSettle();
-    expect(warning, holdsIt ? findsOneWidget : findsNothing, reason: 'it never folds away');
+    expect(warning, findsOneWidget, reason: 'it never folds away');
+    final line = tester.getCenter(find.byKey(const Key('organization-refresh'))).dy;
+    expect((tester.getCenter(warning).dy - line).abs(), lessThan(Sizes.rowIcon), reason: 'one line');
+    expect(
+      tester.getBottomLeft(find.byKey(const Key('organization-refresh'))).dy,
+      lessThanOrEqualTo(tester.getTopLeft(find.text('People').first).dy),
+      reason: 'and the lists begin under it',
+    );
+  });
+
+  // Harm: the warning that leads to the owners leads nowhere, when the list is far down or folded.
+  testWidgets('the warning opens Organization owners, wherever they are', (tester) async {
+    await _pump(tester, 'olive', size: const Size(400, 500));
+    await tester.tap(find.byKey(ValueKey<String>('explanation-fold organization')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('organization-owner-warning')));
+    await tester.pumpAndSettle();
+    final title = find.text('Organization owners');
+    expect(title, findsOneWidget);
+    expect(tester.getTopLeft(title).dy, inInclusiveRange(0, 500), reason: 'scrolled to');
+    expect(find.textContaining('backup key', findRichText: true), findsWidgets);
+  });
+
+  // Harm: scrolling down and back closes an explanation that was being read.
+  testWidgets('scrolling down and back leaves the explanation open', (tester) async {
+    await _pump(tester, 'olive', size: const Size(400, 200));
+    expect(find.byKey(ValueKey<String>('explanation-fold organization')), findsOneWidget);
+    final page = find.byKey(const Key('organization-page'));
+    await tester.drag(page, const Offset(0, -3000));
+    await tester.pumpAndSettle();
+    await tester.drag(page, const Offset(0, 3000));
+    await tester.pumpAndSettle();
+    expect(find.byKey(ValueKey<String>('explanation-fold organization')), findsOneWidget);
   });
 
   // Harm: an unasked or revoked card reads as a good one, and someone is trusted who should not be.

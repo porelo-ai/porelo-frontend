@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/settings.dart';
+import 'package:porelo_frontend/src/app/organization_source.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
+import 'package:porelo_frontend/src/ui/organization_project_pages.dart';
+import 'package:porelo_frontend/src/ui/page_explanation.dart';
 
 import '../features/support/world.dart';
 import '../support/organization_fixtures.dart';
@@ -20,17 +23,38 @@ void main() {
     expect(after.explanationsSeen, <String>{'work'});
   });
 
+  // Harm: an explanation someone closed comes open again after the upgrade.
+  test('one folded in the version before counts as seen', () async {
+    final store = MemorySettingsStore();
+    await store.write(<String, Object?>{
+      'explanationsFolded': <String>['work'],
+    });
+    final settings = Settings(store);
+    await settings.load();
+    expect(settings.explanationsSeen, <String>{'work'});
+  });
+
   // Harm: a small window that overflows under the explanation, open or folded.
   testWidgets('the explanation fits a small window', (tester) async {
+    await World.startBackend(World.work);
+    await World.startApp(tester);
+    // After the start, which sets a window of its own.
     tester.view.physicalSize = const Size(480, 400);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    await World.startBackend(World.work);
-    await World.startApp(tester);
-    for (final section in <Section>[Section.work, Section.attention, Section.machines]) {
+    await World.settle(tester);
+    expect(tester.getSize(find.byType(Scaffold).first).width, 480);
+    for (final (section, id) in <(Section, String)>[
+      (Section.work, 'work'),
+      (Section.attention, 'needs-you'),
+      (Section.machines, 'machines'),
+    ]) {
       World.shell.goTo(section);
       await World.settle(tester);
-      expect(tester.takeException(), isNull);
+      expect(tester.takeException(), isNull, reason: '$id open');
+      await tester.tap(find.byKey(ValueKey<String>('explanation-fold $id')));
+      await World.settle(tester);
+      expect(tester.takeException(), isNull, reason: '$id folded');
     }
   });
 
@@ -70,4 +94,26 @@ void main() {
       expect(info, findsOneWidget);
     });
   }
+
+  // Harm: an explanation closed before anything was read, and no way to open it again.
+  testWidgets('My projects keeps its i with nothing read yet', (tester) async {
+    final organization = Organization(
+      FixtureOrganization(organizationFor('pat'))..refuseReads = const OrganizationRefused('not reached'),
+    );
+    addTearDown(organization.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: PageExplanationScope(
+            title: 'My projects',
+            id: 'projects',
+            settings: Settings(MemorySettingsStore()),
+            child: OrganizationProjectsPage(organization: organization, onProject: (_) {}),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey<String>('explanation-open projects')), findsOneWidget);
+  });
 }

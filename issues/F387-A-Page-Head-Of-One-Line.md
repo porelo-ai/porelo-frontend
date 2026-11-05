@@ -26,6 +26,11 @@
 
 ## Decided while building
 
+- *Organization* is no longer a lazy list: a lazy one drops the explanation while it is read, and the warning could not reach *Organization owners* far down. All its lists are built at once.
+- The warning opens *Organization owners* when folded, and scrolls to it.
+- An explanation folded in the version before counts as seen.
+- *Projects on my machines*, reached from *My projects* with a way back, has no explanation of its own, as before: *My projects* explains it.
+
 - **The `i` on a list's own title** on *My machines*, *My forges* and *My projects*, and in a head of its own on *Work* and *Needs you*, which have no such title.
 - **"Kept in ..." and "keys vouched ..." go into the explanation,** in its *Where it is kept*.
 - **An explanation opened stands until the page is left,** or closed; only the first opening is its own.

@@ -10,6 +10,7 @@ import '../app/repository_address.dart';
 import '../app/run_here.dart' show WorkspaceRefused;
 import 'command_menu.dart';
 import 'filtered_list_section.dart';
+import 'page_explanation.dart';
 import 'organization_dialogs.dart';
 import 'organization_host_pages.dart';
 import 'tokens.dart';
@@ -180,6 +181,9 @@ class _OrganizationProjectsPageState extends State<OrganizationProjectsPage> {
         children: [
           OrganizationChangeMark(widget.organization),
           if (widget.organization.problem case final problem?) _Problem(problem),
+          if (view == null && defaults.isEmpty && !_listed.any((listed) => listed.source == 'local'))
+            if (PageExplanationScope.of(context) case final scope?)
+              PageHead(title: scope.title, id: scope.id, settings: scope.settings),
           if (view != null || defaults.isNotEmpty || _listed.any((listed) => listed.source == 'local'))
             FilteredListSection(
               title: 'My projects',

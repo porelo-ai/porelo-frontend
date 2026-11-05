@@ -110,53 +110,57 @@ class _OrganizationPageState extends State<OrganizationPage> {
       listenable: organization,
       builder: (context, _) {
         final view = organization.view;
-        return ListView(
+        // Not lazy: an explanation being read stays open, and the warning can reach the owners.
+        return SingleChildScrollView(
           key: const Key('organization-page'),
           padding: const EdgeInsets.all(Space.normal),
-          children: [
-            if (widget.identity case final identity?) IdentityRenewal(model: identity, showProblems: true),
-            OrganizationChangeMark(organization),
-            if (widget.settings case final settings?) ...[
-              if (view == null) PageHead(title: 'Porelo organization', id: 'organization', settings: settings),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (widget.identity case final identity?) IdentityRenewal(model: identity, showProblems: true),
+              OrganizationChangeMark(organization),
+              if (widget.settings case final settings?) ...[
+                if (view == null) PageHead(title: 'Porelo organization', id: 'organization', settings: settings),
+              ],
+              if (view != null) _head(context, organization, view),
+              if (widget.settings case final settings?)
+                PageExplanation(
+                  id: 'organization',
+                  settings: settings,
+                  parts: <({String title, String words})>[
+                    (
+                      title: 'What is the Porelo organization?',
+                      words:
+                          'Who manages it, its people with their cards, its projects with their members, and its machines. '
+                          'Porelo asks it whom to trust before anyone gets onto a machine.',
+                    ),
+                    (
+                      title: 'Where it is kept',
+                      words:
+                          '${view == null ? '' : 'Kept in ${view.keptIn} · keys vouched for by ${view.vouchedBy}. '}'
+                          'In a repository inside ${forgeOrganizationWords(view)}: one is not the other. The repository holds '
+                          'the Porelo organization, and its name is yours to choose.',
+                    ),
+                    (
+                      title: 'What you can do here',
+                      words: 'Everyone reads all of it. Each action shows only for the role it belongs to.',
+                    ),
+                  ],
+                ),
+              if (organization.noOrganization && view == null)
+                _NoOrganization(
+                  onChoose: () => _show(context, _AddressDialog(organization)),
+                  onCreate: () => _show(context, _AddressDialog(organization, creating: true)),
+                  onCard: () => _show(context, _KeyDialog(organization, adding: true)),
+                )
+              else if (organization.problem case final problem?)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: Space.small),
+                  child: Text(problem, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                ),
+              if (view != null) ..._organization(context, organization, view),
             ],
-            if (view != null) _head(context, organization, view),
-            if (widget.settings case final settings?)
-              PageExplanation(
-                id: 'organization',
-                settings: settings,
-                parts: <({String title, String words})>[
-                  (
-                    title: 'What is the Porelo organization?',
-                    words:
-                        'Who manages it, its people with their cards, its projects with their members, and its machines. '
-                        'Porelo asks it whom to trust before anyone gets onto a machine.',
-                  ),
-                  (
-                    title: 'Where it is kept',
-                    words:
-                        '${view == null ? '' : 'Kept in ${view.keptIn} · keys vouched for by ${view.vouchedBy}. '}'
-                        'In a repository inside ${forgeOrganizationWords(view)}: one is not the other. The repository holds '
-                        'the Porelo organization, and its name is yours to choose.',
-                  ),
-                  (
-                    title: 'What you can do here',
-                    words: 'Everyone reads all of it. Each action shows only for the role it belongs to.',
-                  ),
-                ],
-              ),
-            if (organization.noOrganization && view == null)
-              _NoOrganization(
-                onChoose: () => _show(context, _AddressDialog(organization)),
-                onCreate: () => _show(context, _AddressDialog(organization, creating: true)),
-                onCard: () => _show(context, _KeyDialog(organization, adding: true)),
-              )
-            else if (organization.problem case final problem?)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: Space.small),
-                child: Text(problem, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-              ),
-            if (view != null) ..._organization(context, organization, view),
-          ],
+          ),
         );
       },
     );
@@ -213,8 +217,11 @@ class _OrganizationPageState extends State<OrganizationPage> {
                   key: const Key('organization-owner-warning'),
                   style: TextButton.styleFrom(foregroundColor: scheme.error, visualDensity: VisualDensity.compact),
                   onPressed: () {
-                    final owners = _ownersPlace.currentContext;
-                    if (owners != null) unawaited(Scrollable.ensureVisible(owners));
+                    setState(() => _ownersAsked++);
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      final owners = _ownersPlace.currentContext;
+                      if (owners != null && owners.mounted) unawaited(Scrollable.ensureVisible(owners));
+                    });
                   },
                   icon: const Icon(Icons.warning_amber, size: Sizes.rowIcon),
                   label: const Text('only owner, no backup key'),
@@ -251,6 +258,9 @@ class _OrganizationPageState extends State<OrganizationPage> {
   }
 
   final _ownersPlace = GlobalKey();
+
+  /// How often the warning has asked for the owners: each time opens their list again.
+  int _ownersAsked = 0;
 
   List<Widget> _organization(BuildContext context, Organization organization, OrganizationView view) {
     void show(Widget dialog) => unawaited(showDialog<void>(context: context, builder: (_) => dialog));
@@ -665,6 +675,7 @@ class _OrganizationPageState extends State<OrganizationPage> {
   Widget _owners(OrganizationView view, Organization organization, void Function(Widget) show) => FilteredListSection(
     title: 'Organization owners',
     storageId: 'organization-owners',
+    reveal: _ownersAsked == 0 ? null : 'owners $_ownersAsked',
     collapsible: true,
     openWhenCompact: false,
     commands: [

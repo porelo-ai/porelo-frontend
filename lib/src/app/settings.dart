@@ -636,6 +636,11 @@ class Settings extends ChangeNotifier {
     if (seen is List) _seenSilent = seen.whereType<String>().toList();
     final explained = stored['explanationsSeen'];
     if (explained is List) _explanationsSeen = explained.whereType<String>().toList();
+    // What the version before kept: one folded there has been seen.
+    final folded = stored['explanationsFolded'];
+    if (folded is List) {
+      _explanationsSeen = (<String>{..._explanationsSeen, ...folded.whereType<String>()}.toList()..sort());
+    }
     final putAway = stored['endedPutAway'];
     if (putAway is List) _endedPutAway = putAway.whereType<String>().toList();
     final ranOut = stored['ranOut'];
