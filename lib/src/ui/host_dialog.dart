@@ -496,6 +496,8 @@ class _HostDialogState extends State<HostDialog> {
   }
 
   Future<void> _prepareWith(HostAccess access, HostRuns runs, String name, String machineFile) async {
+    // Read anew: a choice may have changed while the card was read, and then the answer is of another request.
+    if (!_checkPassed) throw const FormatException('A choice changed, so the check runs again. Nothing was started.');
     final record = HostUpRecord.fromStored(
       HostUpRecord(
         hostName: name,

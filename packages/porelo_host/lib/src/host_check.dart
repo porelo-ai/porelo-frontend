@@ -144,6 +144,16 @@ class HostCheckAnswer {
     return why is String && why.isNotEmpty ? '$_couldNotRun It said: $why.' : _couldNotRun;
   }
 
+  /// What a run that stops on this answer says: every fault at once, or why nothing is known.
+  String get refusalWords {
+    if (!answered) return said ?? 'The check gave no answer, so nothing was installed.';
+    final faults = [
+      for (final finding in findings)
+        if (finding.state.name == 'fail') '${finding.id}: ${finding.todo ?? 'it failed'}',
+    ];
+    return 'The machine\'s check found: ${faults.join('; ')}. Nothing was installed.';
+  }
+
   /// Whether nothing fails, as the check says it.
   final bool ok;
 
@@ -217,6 +227,7 @@ Map<String, Uint8List> _tarFiles(Uint8List tar, Set<String> wanted) {
     if (header.every((byte) => byte == 0)) break;
     _checkTarSum(header);
     final size = _tarNumber(Uint8List.sublistView(header, 124, 136));
+    if (size < 0) throw const FormatException('A tar entry says it has less than nothing.');
     final start = at + block;
     if (start + size > tar.length) throw const FormatException('A tar entry runs past its end.');
     final type = header[156];
@@ -292,8 +303,23 @@ Map<String, Object> hostCheckChoices(HostPreparationSettings settings, {required
   if (kvm != null) 'kvm': kvm == 'true',
   'jobs': ?settings.forgeRunnerCapacity,
   'job_cpus': ?settings.forgeJobCpus,
-  'job_memory': ?settings.forgeJobMemory,
+  // Podman also takes `b`, as bytes, and the check reads bytes with no letter.
+  'job_memory': ?settings.forgeJobMemory?.replaceFirst(RegExp('[bB]\$'), ''),
 };
+
+/// Sends a public script on [remote]: whole answers where [remote] can give them.
+HostCheckSend hostCheckSender(Remote remote, String host) =>
+    (command, script, onLine) => switch (remote) {
+      final OpenSsh ssh => ssh.runWithPublicInput(
+        host,
+        'root',
+        command,
+        script: script,
+        onLine: onLine,
+        limit: _mostAnswer,
+      ),
+      _ => remote.run(host, 'root', command, input: script, onLine: onLine),
+    };
 
 /// Sends [script] to the machine on standard input and runs [command] on it.
 typedef HostCheckSend = Future<RemoteResult> Function(String command, String script, void Function(String line) onLine);
@@ -312,14 +338,16 @@ Future<HostCheckAnswer> askHostCheck(
       'python3 - --limits ${quoteForAShell(files.limits)} --choices ${quoteForAShell(jsonEncode(choices))}',
       files.script,
       (line) {
-        size += line.length;
+        size += line.length + 1;
         if (size <= _mostAnswer) lines.add(line);
       },
     );
   } on Exception {
     return const HostCheckAnswer.notAnswered('ssh could not be started on this computer.');
   }
-  if (size > _mostAnswer) return const HostCheckAnswer.notAnswered('The machine answered far more than a check says.');
+  if (size > _mostAnswer || result.exitCode == OpenSsh.answeredTooMuch) {
+    return const HostCheckAnswer.notAnswered('The machine answered far more than a check says.');
+  }
   if (_sshOrShellFault(result) case final why?) return HostCheckAnswer.notAnswered(why);
   final answer = HostCheckAnswer.read(lines.join('\n'), exitCode: result.exitCode);
   final tail = _lastLine(result.stderr);

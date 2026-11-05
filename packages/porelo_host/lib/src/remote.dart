@@ -191,10 +191,22 @@ class OpenSsh implements Remote {
     String command, {
     required String script,
     void Function(String line)? onLine,
+    int? limit,
   }) => _withAgentIdentity(
-    (identity) =>
-        _run(host, user, command, input: script, inputIsPublic: true, onLine: onLine, agentIdentity: identity),
+    (identity) => _run(
+      host,
+      user,
+      command,
+      input: script,
+      inputIsPublic: true,
+      onLine: onLine,
+      agentIdentity: identity,
+      limit: limit,
+    ),
   );
+
+  /// The exit of a run ended here for printing more than its limit.
+  static const answeredTooMuch = -1000;
 
   Future<RemoteResult> _run(
     String host,
@@ -204,6 +216,7 @@ class OpenSsh implements Remote {
     bool inputIsPublic = false,
     void Function(String line)? onLine,
     File? agentIdentity,
+    int? limit,
   }) async {
     _checkCard(host, user);
     Process? process;
@@ -222,11 +235,20 @@ class OpenSsh implements Remote {
         command,
       ]);
       final child = process;
-      final out = child.stdout
+      var printed = 0;
+      // Counted in bytes as they come, before a line or a string can grow from them.
+      Stream<List<int>> bounded(Stream<List<int>> stream) => limit == null
+          ? stream
+          : stream.where((chunk) {
+              printed += chunk.length;
+              if (printed > limit) child.kill(ProcessSignal.sigkill);
+              return printed <= limit;
+            });
+      final out = bounded(child.stdout)
           .transform(const Utf8Decoder(allowMalformed: true))
           .transform(const LineSplitter())
           .forEach((line) => onLine?.call(public(line)));
-      final err = child.stderr.transform(const Utf8Decoder(allowMalformed: true)).join();
+      final err = bounded(child.stderr).transform(const Utf8Decoder(allowMalformed: true)).join();
       final work = (() async {
         final writing = (() async {
           try {
@@ -237,6 +259,7 @@ class OpenSsh implements Remote {
           }
         })();
         final results = await Future.wait<Object?>([out, err, child.exitCode, writing], eagerError: true);
+        if (limit != null && printed > limit) return const RemoteResult(answeredTooMuch, '');
         return RemoteResult(results[2]! as int, public(results[1]! as String));
       })();
       return await (deadline == null ? work : work.timeout(deadline!));

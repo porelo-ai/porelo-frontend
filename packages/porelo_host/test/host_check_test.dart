@@ -7,6 +7,7 @@ import 'package:porelo_host/porelo_host.dart';
 import 'package:test/test.dart';
 
 import '../bin/porelo_host.dart' show runHostCommand;
+import 'host_run_test.dart' show ScriptedRemote;
 import 'server_contract_test.dart' show sshKey;
 
 const _script = 'import json\nanswer = {\n  "v": 1,\n}\nprint(json.dumps(answer))\n';
@@ -87,10 +88,133 @@ class _Ssh implements Process {
   @override
   Future<int> get exitCode async => code;
   @override
+  bool kill([ProcessSignal signal = ProcessSignal.sigterm]) => killed = true;
+  bool killed = false;
+  @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+class _Checked extends ScriptedRemote {
+  _Checked(this.answer, this.answerExit)
+    : super([
+        jsonEncode({'v': 1, 'state': 'ok', 'task': 'finished', 'text': 'Host ready'}),
+        jsonEncode({
+          'v': 1,
+          'state': 'host',
+          'host': {
+            'address': '192.0.2.7',
+            'ssh_host_key': sshKey,
+            'homeserver': 'orchard',
+            'services': {
+              'forge': {'web_port': 3000, 'git_port': 3001},
+            },
+          },
+        }),
+      ]);
+
+  final String answer;
+  final int answerExit;
+  var asked = 0;
+  var changedBefore = false;
+
+  @override
+  Future<RemoteResult> run(
+    String host,
+    String user,
+    String command, {
+    String? input,
+    void Function(String line)? onLine,
+  }) async {
+    if (command.startsWith('python3 - --limits ')) {
+      asked++;
+      changedBefore = commands.any((each) => each.contains('mkdir'));
+      for (final line in const LineSplitter().convert(answer)) {
+        onLine?.call(line);
+      }
+      return RemoteResult(answerExit, '');
+    }
+    return super.run(host, user, command, input: input, onLine: onLine);
+  }
+}
+
 void main() {
+  // Harm: `up` on the command line, or a run started again, changes the machine first and finds out after.
+  group('up, with a collection that holds a check', () {
+    Future<(int, _Checked, String)> upWith(String answer, int exit) async {
+      final scratch = await Directory.systemTemp.createTemp('up-check-');
+      addTearDown(() => scratch.delete(recursive: true));
+      final tar = _collection({'roles/check/files/porelo-host-check': _script, 'roles/check/files/limits.json': '{}'});
+      final collection = await File('${scratch.path}/c.tar.gz').writeAsBytes(tar);
+      final machine = await File('${scratch.path}/machine.yml').writeAsString('organization:\n  pin: "x"\n');
+      final remote = _Checked(answer, exit);
+      final output = StringBuffer();
+      final code = await runHostCommand(
+        [
+          'up',
+          '--public-key',
+          sshKey,
+          '--given',
+          '192.0.2.7',
+          '--host-key',
+          sshKey,
+          '--host-name',
+          'orchard',
+          '--collection',
+          collection.path,
+          '--collection-sha256',
+          sha256.convert(tar).toString(),
+          '--machine-file',
+          machine.path,
+        ],
+        remote: remote,
+        output: output,
+        errors: StringBuffer(),
+        environment: {'XDG_STATE_HOME': scratch.path, 'LOCALAPPDATA': scratch.path},
+      );
+      return (code, remote, '$output');
+    }
+
+    test('a machine that fails it is refused, with every fault, before any change', () async {
+      final (code, remote, output) = await upWith(_answer(ok: false, findings: [_finding('fail')]), 1);
+      expect(code, Exit.refused);
+      expect(remote.asked, 1);
+      expect(remote.changedBefore, isFalse);
+      expect(remote.commands.where((each) => each.contains('mkdir') || each.contains('apt-get')), isEmpty);
+      expect(output, contains('memory'));
+    });
+
+    test('a check that gives no answer installs nothing', () async {
+      final (code, remote, _) = await upWith('not json', 2);
+      expect(code, Exit.refused);
+      expect(remote.commands.where((each) => each.contains('apt-get')), isEmpty);
+    });
+
+    test('a machine that passes goes on', () async {
+      final (_, remote, _) = await upWith(_answer(), 0);
+      expect(remote.asked, 1);
+      expect(remote.commands.any((each) => each.contains('apt-get') || each.contains('collection.tar.gz')), isTrue);
+    });
+  });
+
+  // Harm: a limit a person may give is read as none by the check, and a large machine fails.
+  test('a memory limit in bytes with its letter reaches the check as the check reads it', () {
+    final choices = hostCheckChoices(const HostPreparationSettings(forgeJobMemory: '805306368b'), forge: true);
+    expect(choices['job_memory'], '805306368');
+    final kept = hostCheckChoices(const HostPreparationSettings(forgeJobMemory: '768m'), forge: true);
+    expect(kept['job_memory'], '768m');
+  });
+
+  // Harm: a hostile size repeats one header for ever, on the window's thread.
+  test('a tar entry with a size below nothing is refused rather than read again and again', () {
+    final tar = gzip.decode(_collection({'a': 'b'}));
+    final bytes = List<int>.of(tar);
+    bytes.setRange(124, 136, latin1.encode('-0000002000\u0000'));
+    bytes.fillRange(148, 156, 32);
+    final sum = bytes.sublist(0, 512).reduce((a, b) => a + b);
+    bytes.setRange(148, 156, latin1.encode('${sum.toRadixString(8).padLeft(6, '0')}\u0000 '));
+    expect(readHostCheckFiles(gzip.encode(bytes)), isNull);
+  });
+
   // Harm: the script says what kind of fault stopped it, and the person reads only that it could not run.
   test('the script\'s own reason at exit 2 is said', () {
     final answer = HostCheckAnswer.read(
@@ -314,9 +438,19 @@ void main() {
       expect(await check(), 0);
       expect(started, hasLength(1));
       expect(started.single, contains('root@192.0.2.7'));
+      expect(started.single, containsAllInOrder(['-F', '/dev/null']), reason: 'No configuration of this computer.');
+      expect(started.single, contains('PreferredAuthentications=publickey'));
       expect(started.single.last, startsWith('python3 - --limits '));
       expect('${ssh.given}', _script);
       expect(printed()['ok'], isTrue);
+    });
+
+    // Harm: a machine streaming without end fills this computer's memory before any deadline.
+    test('an answer without end is cut off and reads as no answer', () async {
+      ssh = _Ssh(out: 'x' * (2 * 1024 * 1024));
+      expect(await check(), 2);
+      expect(ssh.killed, isTrue);
+      expect(printed()['said'], contains('far more'));
     });
 
     // Harm: the script's own lines, such as a lone `}`, are cut out of its answer, and no answer ever reads.

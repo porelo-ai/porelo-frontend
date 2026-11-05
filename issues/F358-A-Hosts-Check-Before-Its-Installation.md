@@ -52,6 +52,10 @@
 
 **Still to do:** the offer compared with the check's limits before renting; a pin to a collection holding the check, until which the step does not show; the answer's fields, `kvm`, `jobs`, `job_cpus` and `job_memory` read against the real script and a real machine, and the words a machine reached as another person than root gets.
 
+- **`up` asks the check itself** before this run's first change, wherever the carried collection holds one, so the command line and a run started again are stopped too. Its refusal names every fault.
+- **The comparison of an offer before renting waits for a place.** The window prepares a machine a person gives, and rents none, so it has no list of offers to compare; `limits.json` stands ready for it.
+- **`ports` is not sent yet.** The window's ports are this computer's forwards; what the machine itself must find free is for the collection to say, as the check's `ports` then reads it.
+
 ## To be checked
 
 - The answer's fields as the collection finally has them. A pin moves with this dialog.

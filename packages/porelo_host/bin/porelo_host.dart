@@ -379,9 +379,7 @@ Future<int> _check(
       await askHostCheck(
         carried,
         choices: hostCheckChoices(choices, forge: options['forge'] != 'false', kvm: options['kvm']),
-        send: (command, script, onLine) => remote == null
-            ? ssh.runWithPublicInput(address, 'root', command, script: script, onLine: onLine)
-            : remote.run(address, 'root', command, input: script, onLine: onLine),
+        send: hostCheckSender(remote ?? ssh, address),
       ),
     );
   } finally {

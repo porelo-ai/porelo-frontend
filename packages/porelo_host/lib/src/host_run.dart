@@ -6,6 +6,7 @@ import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as path;
 
 import 'collection.dart';
+import 'host_check.dart';
 import 'provider.dart';
 import 'remote.dart';
 import 'steps.dart';
@@ -468,6 +469,18 @@ class HostRun {
       final host = await _rented(plan);
       if (host == null) return Exit.unreachable;
       final address = host.address!;
+      // The check, where the collection holds one: before this run's first change, and so on any way in.
+      if (readHostCheckFiles(bytes) case final check?) {
+        final answer = await askHostCheck(
+          check,
+          choices: hostCheckChoices(plan.preparationSettings, forge: plan.forge),
+          send: hostCheckSender(remote, address),
+        );
+        if (!answer.passed) {
+          _write(Step('copy', StepState.refused, fix: answer.refusalWords));
+          return Exit.refused;
+        }
+      }
       _write(const Step('copy', StepState.started));
       var result = await remote.run(
         address,
