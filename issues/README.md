@@ -136,6 +136,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f392"></a>[F392](F392-Work-Starts-On-Its-Checkouts-Branch.md) | — | — | Work started from a checkout here starts from that checkout's branch, and says which branch it started from and why. |
 | <a id="f391"></a>[F391](F391-Who-Signs-Comes-From-The-Organization.md) | — | — | Who signs an access commit, and whose signature is accepted, is read from the organization; no daemon serves `ProjectSigners`. |
 | <a id="f99"></a>[F99](F99-An-Attached-Agent-Shown-At-Rest-Or-Working.md) | — | — | A work tile says whether an attached agent is at rest or working; implementation waits for the verified screen-derived daemon answer. |
 | <a id="f386"></a>[F386](F386-A-Short-Name-People-Read.md) | — | — | A task and a project have a short name people read; the window's lists show only it. |
