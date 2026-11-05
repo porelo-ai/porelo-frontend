@@ -733,6 +733,9 @@ abstract class HostConnections extends ChangeNotifier {
   /// Whether the last *Connect* found [host] waiting for its first token, so its connection cannot be up.
   bool waitsForToken(String host) => false;
 
+  /// What the last *Connect* to [host] in this run did, or null where there was none.
+  ConnectAttempt? lastAttempt(String host) => null;
+
   /// Sets up the connection to [host] and raises it.
   Future<void> connect(String host);
 
@@ -748,6 +751,18 @@ abstract class HostConnections extends ChangeNotifier {
 
   /// How [project] on [host] stands with the central forge; cannot say where this computer cannot ask.
   Future<CentralState> central(String host, String project) async => const CentralState();
+}
+
+/// What the last *Connect* to a machine did, step by step, to be opened after it ended.
+class ConnectAttempt {
+  /// Keeps [lines], begun at [at].
+  const ConnectAttempt(this.at, this.lines);
+
+  /// When it began.
+  final DateTime at;
+
+  /// What it did and what it was told, in order.
+  final List<String> lines;
 }
 
 /// One answer a frame uses without waiting for it, and when it came.

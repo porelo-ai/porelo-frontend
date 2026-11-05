@@ -79,6 +79,25 @@ void main() {
       expect(find.text('other has no address yet, so no machine can follow it.'), findsOneWidget);
     });
 
+    // Harm: a Connect that ended unconnected left nothing to look at but its one sentence.
+    testWidgets('the last attempt can be opened until it connects', (tester) async {
+      final connections = FixtureConnections();
+      connections.lastAttempts['build'] = ConnectAttempt(DateTime(2026), const ['ssh said: no route to host']);
+      await organization(tester, connections: connections);
+      final open = find.byKey(const ValueKey('organization.attempt/build'));
+      await tester.ensureVisible(open);
+      await _tap(tester, open);
+      expect(find.textContaining('ssh said: no route to host'), findsOneWidget);
+      await _tap(tester, find.text('Close'));
+    });
+
+    testWidgets('and is gone once it stands connected', (tester) async {
+      final connections = FixtureConnections(['build']);
+      connections.lastAttempts['build'] = ConnectAttempt(DateTime(2026), const ['The connection is up.']);
+      await organization(tester, connections: connections);
+      expect(find.byKey(const ValueKey('organization.attempt/build')), findsNothing);
+    });
+
     // Harm: a project just put on waits five minutes for a token nobody was asked for.
     testWidgets('putting one on asks a connected machine to fetch at once', (tester) async {
       final connections = FixtureConnections(['build']);

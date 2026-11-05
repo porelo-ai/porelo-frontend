@@ -204,6 +204,12 @@ void main() {
     );
     expect(made.connected('build'), isFalse);
     expect(File(config('build')).existsSync(), isFalse);
+    expect(made.lastAttempt('build')!.lines, [
+      contains('The organization names build'),
+      'Opening the connection.',
+      contains('a port is busy'),
+      contains('It ended unconnected: '),
+    ], reason: 'What it did, kept to be opened.');
     portsBusy = false;
     await made.connect('build');
     expect(made.connected('build'), isTrue);

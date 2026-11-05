@@ -81,14 +81,37 @@ class CardHostConnections extends HostConnections {
         (mine != null && mine != HostFiles.signingFingerprint(card.publicKey));
   }
 
+  final _attempts = <String, ConnectAttempt>{};
+
+  @override
+  ConnectAttempt? lastAttempt(String host) => _attempts[host];
+
   @override
   Future<void> connect(String host) async {
+    final lines = <String>[];
+    _attempts[host] = ConnectAttempt(DateTime.now(), lines);
+    try {
+      await _connect(host, lines);
+    } on OrganizationRefused catch (refused) {
+      lines.add('It ended unconnected: ${refused.words}');
+      rethrow;
+    } finally {
+      notifyListeners();
+    }
+  }
+
+  Future<void> _connect(String host, List<String> lines) async {
     final card = await _card(host);
+    lines.add('The organization names ${card.name} at ${card.address}, ssh port ${card.sshPort}.');
     final known = _machine(host);
     _waiting.remove(card.name);
     // Connected already with what the organization names: nothing to do, whatever number of projects it carries.
-    if (known?.hostCard == card && machines.tunnels.of(known!)?.state == TunnelState.up) return;
+    if (known?.hostCard == card && machines.tunnels.of(known!)?.state == TunnelState.up) {
+      lines.add('This computer is connected already with what the organization names.');
+      return;
+    }
     if (known != null) {
+      lines.add('A connection kept here is taken down and made anew.');
       await machines.tunnels.dropAndUnpublish(known);
       await machines.forget(known);
     }
@@ -104,9 +127,14 @@ class CardHostConnections extends HostConnections {
     );
     // A new host makes no account before it has a token, and a host admin gives it that as root: the connection's
     // files stay for that, and *Connect* is asked again after it.
-    if (!await machines.tunnels.raiseFor(machine)) {
+    lines.add('Opening the connection.');
+    if (await machines.tunnels.raiseFor(machine)) {
+      lines.add('The connection is up.');
+    } else {
+      if (machines.tunnels.of(machine)?.problem case final problem?) lines.add('ssh said: $problem');
       if (await _waitsForToken(machine, card.name)) {
         _waiting.add(card.name);
+        lines.add('${card.name} says it waits for its first token, and makes no account before it has one.');
       } else {
         final why =
             machine.whyNotReachableHere ??

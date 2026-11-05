@@ -179,10 +179,34 @@ class _OrganizationMachineRowState extends State<OrganizationMachineRow> {
                       'Connect again after that.',
           ),
         if (_refusal case final refusal?) _Problem(refusal),
+        if (!connected)
+          if (widget.connections?.lastAttempt(host.name) case final attempt?)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                key: ValueKey('organization.attempt/${host.name}'),
+                onPressed: () => unawaited(_showAttempt(context, host.name, attempt)),
+                child: const Text('Show the last attempt'),
+              ),
+            ),
       ],
     );
   }
 }
+
+Future<void> _showAttempt(BuildContext context, String host, ConnectAttempt attempt) => showDialog<void>(
+  context: context,
+  builder: (context) => AlertDialog(
+    title: Text('The last Connect to $host'),
+    content: SingleChildScrollView(
+      child: SelectableText(
+        key: const Key('organization-attempt-lines'),
+        ['Began ${TimeOfDay.fromDateTime(attempt.at).format(context)}.', ...attempt.lines].join('\n'),
+      ),
+    ),
+    actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close'))],
+  ),
+);
 
 /// One host: how it is reached, the projects it carries and its host admins, changed by its host admins alone, and the
 /// person's own connection to it.

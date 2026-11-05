@@ -1,6 +1,6 @@
 # F367 — A Connect That Ends Unconnected Says Why
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** M - one reading of the state for row and page, words beside *Connect*, a row in *Needs you*, and a kept attempt.
 
 **What must be true.** A person who presses *Connect* is told what came of it, and where to look. In the foo test, *Connect* on the organization's machine row greyed for a moment and returned to the same state, with no words, no log and nothing in *Needs you*. A machine waiting for its token leaves the person with the one button that cannot help.
@@ -24,7 +24,7 @@
 2. The page says *Connected* only with the connection up, as the row does.
 3. A connection closed before login says to wait, in ssh's forms of it, without saying why for certain.
 4. The row in *Needs you*, for the Machine Admin, leading to the machine's page, in place of the row saying it cannot be reached.
-5. The last attempt's protocol: `connect()` keeps none today.
+5. The last attempt's protocol: what `connect()` did and was told, kept in this run for each machine.
 
 ## Acceptance
 
@@ -36,10 +36,10 @@
 ## Decided while building
 
 - **The row goes once the token is given,** and stands under no *Recently resolved*: the connection coming up says so.
+- **The last attempt holds this run's steps and what ssh said,** not ssh's full output, which the tunnel does not keep. It stands until the machine is connected, and is lost with the window.
 - **A page whose read of the machine fails says that, and offers no token.** The row still leads there, where the refusal stands.
 
 ## To be checked
 
 - The same words on the *Machines* page and in *Needs you*'s list of machines, each from its own reading.
 - What *Needs you* holds today for a machine that waits, and whether it comes without being connected.
-- What the last attempt can hold, since `connect()` keeps no protocol today.

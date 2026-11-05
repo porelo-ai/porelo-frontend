@@ -82,6 +82,12 @@ class FixtureOrganization implements OrganizationSource {
 
 /// Connections that record what is asked, and can refuse the next one.
 class FixtureConnections extends HostConnections {
+  /// What [lastAttempt] answers.
+  final lastAttempts = <String, ConnectAttempt>{};
+
+  @override
+  ConnectAttempt? lastAttempt(String host) => lastAttempts[host];
+
   /// Starts connected to [hosts].
   FixtureConnections([Iterable<String> hosts = const []]) : hosts = {...hosts};
 
