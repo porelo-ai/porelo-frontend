@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:porelo_frontend/src/app/host_progress.dart';
 import 'package:porelo_frontend/src/app/organization_source.dart';
 import 'package:porelo_frontend/src/ui/organization_page.dart';
 import 'package:porelo_frontend/src/ui/shell_rail.dart';
@@ -97,6 +98,49 @@ void main() {
     await tester.tap(find.byKey(const Key('projects-of-organization')));
     await World.settle(tester);
     expect(find.byKey(const ValueKey('my-project demo')), findsOneWidget);
+  });
+
+  // Harm: in the foo test a machine waited for its token with nothing under Needs you, so only someone
+  // who opened its page by chance found out what it waited for.
+  group('a machine that waits for its first token', () {
+    FixtureConnections waiting() => FixtureConnections(['build'])
+      ..waiting.add('build')
+      ..hostProgress = const HostProgress(waitsForToken: true);
+
+    Future<void> open(WidgetTester tester, String me, FixtureConnections connections) async {
+      await World.startBackend(World.work);
+      await World.startApp(
+        tester,
+        organizationSource: FixtureOrganization(organizationFor(me)),
+        hostConnections: connections,
+      );
+      // The organization is read when its page opens, which a *Connect* comes from.
+      await tester.tap(find.byKey(const ValueKey('rail organization')));
+      await World.settle(tester);
+      await tester.tap(find.byKey(const ValueKey('rail attention')));
+      await World.settle(tester);
+    }
+
+    testWidgets('has a row for its Machine Admin, which leads to the token and goes once it is given', (tester) async {
+      final connections = waiting();
+      await open(tester, 'hana', connections);
+      expect(find.textContaining('build waits for your token'), findsOneWidget);
+      await tester.tap(find.text('Go to its token'));
+      await World.settle(tester);
+      expect(find.byKey(const ValueKey('organization.giveToken')), findsOneWidget);
+
+      connections.waiting.clear();
+      connections.hostProgress = const HostProgress(waitsForToken: false);
+      connections.notifyListeners();
+      await tester.tap(find.byKey(const ValueKey('rail attention')));
+      await World.settle(tester);
+      expect(find.textContaining('build waits for your token'), findsNothing);
+    });
+
+    testWidgets('has none for someone who cannot give it', (tester) async {
+      await open(tester, 'mia', waiting());
+      expect(find.textContaining('build waits for your token'), findsNothing);
+    });
   });
 
   // Harm: a person finds their hosts nowhere, or cannot come back from one.

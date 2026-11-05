@@ -23,7 +23,8 @@
 1. `HostConnections.waitsForToken` says what the last *Connect* found. The row names the step and leads to the token, for the Machine Admin; anyone else reads who it waits for; *Connect* goes meanwhile.
 2. The page says *Connected* only with the connection up, as the row does.
 3. A connection closed before login says to wait, in ssh's forms of it, without saying why for certain.
-4. The row in *Needs you* comes with the redrawn page, in [F353](README.md#f353), which moves those rows. The last attempt's protocol follows: `connect()` keeps none today.
+4. The row in *Needs you*, for the Machine Admin, leading to the machine's page, in place of the row saying it cannot be reached.
+5. The last attempt's protocol: `connect()` keeps none today.
 
 ## Acceptance
 

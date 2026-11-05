@@ -9,6 +9,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- A machine waiting for its first token has a row under *Needs you* for its Machine Admin, leading to its page, in place of one saying it cannot be reached.
 - A repository with no central address says so on its project's page, because a machine takes nothing from it, and its Project Admin can name one from its menu.
 - The window says *Porelo organization* wherever a forge's organization could be meant too, and the help says what it is: it lives in a repository inside the GitHub organization, or your forge's. The navigation item stays *Organization*.
 - A foldable list with nothing in it starts folded and folds when emptied, and opens with its first row, so a page shows what holds something; a fold you chose stays, and the actions on a list's head stay usable.

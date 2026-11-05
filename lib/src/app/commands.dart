@@ -1537,6 +1537,10 @@ Command _attentionRowCommand({
 Command retryAttentionForwardCommand({required VoidCallback run, String? unavailable}) =>
     _attentionRowCommand(id: 'messages.retryForward', label: 'Try again', run: run, unavailable: unavailable);
 
+/// Leads to where a machine waiting for its first token is given it.
+Command giveMachineTokenCommand({required VoidCallback run, String? unavailable}) =>
+    _attentionRowCommand(id: 'machine.giveToken', label: 'Go to its token', run: run, unavailable: unavailable);
+
 /// Reads a held message before any release or refusal can be decided.
 Command readAttentionMessageCommand({required HeldMessage message, required VoidCallback run, String? unavailable}) =>
     _attentionRowCommand(

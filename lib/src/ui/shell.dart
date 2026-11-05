@@ -359,6 +359,9 @@ class _ShellState extends State<Shell> {
     _homeservers = HomeserverForwards(widget.settings);
     // One that cannot be raised is said under Needs you; the project's page says the address.
     _attention.homeservers = _homeservers;
+    if ((_hostConnections, _organization) case (final connections?, final organization?)) {
+      _attention.watchTokens(connections, organization);
+    }
     _homeservers.addListener(_homeserversChanged);
     _organization?.addListener(_homeserversChanged);
     // What was joined before is reachable again from the start, at the same port.
@@ -3308,6 +3311,10 @@ class _ShellState extends State<Shell> {
           }
         },
         attention: _attention,
+        onGiveToken: (host) {
+          setState(() => _organizationHost = host);
+          widget.shell.goTo(Section.machines);
+        },
         onOpenHost: (project) {
           final run = _hostRuns.of(project);
           if (run != null) unawaited(_openHostRun(run));

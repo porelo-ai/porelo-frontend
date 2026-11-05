@@ -23,6 +23,7 @@ import 'operations.dart';
 import 'needs_machine.dart';
 import 'panes.dart';
 import 'tile_console.dart';
+import 'organization_token_words.dart';
 import 'tokens.dart';
 
 /// What needs a person, from every machine at once. The window opens here.
@@ -47,6 +48,7 @@ class AttentionView extends StatefulWidget {
     this.onSelect,
     this.onOpenOperation,
     this.onOpenHost,
+    this.onGiveToken,
     this.onReadLog,
     super.key,
   });
@@ -83,6 +85,9 @@ class AttentionView extends StatefulWidget {
 
   /// Opens the retained host stop and its terminal before a daemon exists.
   final void Function(String project)? onOpenHost;
+
+  /// Leads to where a machine's first token is given.
+  final void Function(String host)? onGiveToken;
 
   /// Opens what a failed operation printed, which is what puts it away.
   final void Function(Operation operation)? onOpenOperation;
@@ -245,6 +250,15 @@ extension on _AttentionViewState {
         state = attention.notConnectedYet(each.machine) ? 'Not connected yet' : 'Not answering';
         icon = Icons.cloud_off_outlined;
         primary = retrySilentMachine(each.machine, attention.fleetOf(each.machine)).unless(reason);
+      case AttentionKind.token:
+        final host = row.value as String;
+        title = '$host waits for your token';
+        state = 'Waits for your token';
+        icon = Icons.key_outlined;
+        primary = giveMachineTokenCommand(
+          run: () => widget.onGiveToken?.call(host),
+          unavailable: reason ?? (widget.onGiveToken == null ? 'its page is not available here' : null),
+        );
       case AttentionKind.forward:
         final each = row.value as ({String machine, String project, String words});
         final machine = attention.machineNamed(each.machine);
@@ -494,6 +508,13 @@ extension on _AttentionViewState {
           words: each.words,
           retry: retrySilentMachine(each.machine, attention.fleetOf(each.machine)).unless(reason),
           onSeen: resolved ? null : () => attention.markSeen(each.machine),
+        );
+      case AttentionKind.token:
+        final host = row.value as String;
+        final view = attention.tokenView;
+        return ListTile(
+          key: ValueKey<String>('token-details $host'),
+          title: Text(view == null ? '$host waits for your token' : organizationTokenWords(view, host)),
         );
       case AttentionKind.forward:
         final each = row.value as ({String machine, String project, String words});
