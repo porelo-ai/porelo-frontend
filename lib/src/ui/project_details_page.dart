@@ -61,7 +61,11 @@ class ProjectDetailsPage extends StatelessWidget {
       children: [
         Align(
           alignment: Alignment.centerLeft,
-          child: TextButton.icon(onPressed: onBack, icon: const Icon(Icons.arrow_back), label: const Text('My projects')),
+          child: TextButton.icon(
+            onPressed: onBack,
+            icon: const Icon(Icons.arrow_back),
+            label: const Text('My projects'),
+          ),
         ),
         Row(
           children: [
