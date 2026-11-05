@@ -100,6 +100,8 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f389"></a>[F389](F389-A-Refused-Forward-Says-Which-Credential.md) | S | — | A refused forward says which credential was used, or that none is declared, in place of git's raw line. |
+| <a id="f390"></a>[F390](F390-A-Change-Mostly-Of-Line-Endings.md) | S | — | A change mostly of line endings says so, with the real count beside the raw one. |
 | <a id="f388"></a>[F388](F388-The-Stubs-Pin-Stays-Fetchable.md) | XS | — | A scenario that needs the stub does not go red because its pinned version left the folder. |
 | <a id="f379"></a>[F379](F379-Add-A-Project-In-One-Step-From-The-Window.md) | S | — | A person naming themselves Project Admin adds a project in one step from the window. |
 | <a id="f377"></a>[F377](F377-A-Hosts-Channel-Follows-The-Window.md) | S | — | A host the window prepares installs from the window's own channel. |
