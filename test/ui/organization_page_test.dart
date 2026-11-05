@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:porelo_frontend/src/app/settings.dart';
 import 'package:porelo_frontend/src/app/commands.dart';
 import 'package:porelo_frontend/src/app/host_progress.dart';
 import 'package:porelo_frontend/src/app/organization_source.dart';
@@ -40,6 +41,7 @@ Future<(FixtureOrganization, Organization, _Opened)> _pump(
     MaterialApp(
       home: Scaffold(
         body: OrganizationPage(
+          settings: Settings(MemorySettingsStore()),
           organization: organization,
           onProject: (name) => opened.project = name,
           onHost: (name) => opened.host = name,
@@ -802,20 +804,6 @@ void main() {
     });
 
     // Harm: a closed explanation back on every visit, pushing the page down.
-    testWidgets('a closed explanation stays closed when the page comes back', (tester) async {
-      final (_, organization, _) = await _pump(tester, 'olive');
-      await tester.tap(find.byIcon(Icons.close));
-      await tester.pumpAndSettle();
-      await tester.pumpWidget(const MaterialApp(home: Scaffold()));
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(body: OrganizationPage(organization: organization)),
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('What is the Porelo organization?'), findsNothing);
-    });
-
     // Harm: the card goes to the organization under another key than the one the person chose.
     testWidgets('changing the key sends the key chosen, and never offers the one the card has', (tester) async {
       const persons = [OrganizationPerson(login: 'olive', standing: CardStanding.trusted, key: 'SHA256:old')];
@@ -1035,14 +1023,6 @@ void main() {
     expect(find.textContaining("inside your forge's organization"), findsOneWidget);
   });
 
-  testWidgets('the explanation can be hidden', (tester) async {
-    await _pump(tester, 'olive');
-    expect(find.text('What is the Porelo organization?'), findsOneWidget);
-    await tester.tap(find.byKey(const Key('organization-explanation-hide')));
-    await tester.pumpAndSettle();
-    expect(find.text('What is the Porelo organization?'), findsNothing);
-  });
-
   // Harm: once the list exists an unlisted owner still changes the organization, or a listed person cannot.
   group('Organization Admins', () {
     testWidgets('while the list is absent an owner does the work and may list someone', (tester) async {
@@ -1149,7 +1129,12 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: OrganizationPage(organization: organization, onProject: (_) {}, onHost: (_) {}),
+            body: OrganizationPage(
+              settings: Settings(MemorySettingsStore()),
+              organization: organization,
+              onProject: (_) {},
+              onHost: (_) {},
+            ),
           ),
         ),
       );

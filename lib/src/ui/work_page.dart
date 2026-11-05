@@ -152,6 +152,7 @@ class WorkView extends ChangeNotifier {
 class WorkPage extends StatefulWidget {
   /// Constructor taking the machines, the tiles and how one is drawn.
   const WorkPage({
+    this.explanation,
     required this.machines,
     required this.attention,
     required this.tile,
@@ -163,6 +164,9 @@ class WorkPage extends StatefulWidget {
     this.onAddAMachine,
     super.key,
   });
+
+  /// What the list is for, above it.
+  final Widget? explanation;
 
   /// How the page was left, kept by the window.
   final WorkView view;
@@ -465,6 +469,8 @@ class _WorkPageState extends State<WorkPage> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
         _head(context),
+        // A terminal under *Running* needs the height.
+        if (!_view.running) ?widget.explanation,
         Expanded(
           child: _view.running
               ? widget.running(context)

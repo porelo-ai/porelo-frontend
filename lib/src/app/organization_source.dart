@@ -962,9 +962,6 @@ class Organization extends ChangeNotifier {
   /// How long [addressOf] and [whyNoRemoval] go on using an answer before the next need reads it again.
   static const answersKeptFor = Duration(minutes: 5);
 
-  /// Whether the person closed the page's explanation; kept while the window is open, as the page comes and goes.
-  bool explanationClosed = false;
-
   /// The last state read, or null before any.
   OrganizationView? view;
 

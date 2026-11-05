@@ -625,6 +625,8 @@ class Settings extends ChangeNotifier {
     }
     final seen = stored['seenSilent'];
     if (seen is List) _seenSilent = seen.whereType<String>().toList();
+    final folded = stored['explanationsFolded'];
+    if (folded is List) _explanationsFolded = folded.whereType<String>().toList();
     final putAway = stored['endedPutAway'];
     if (putAway is List) _endedPutAway = putAway.whereType<String>().toList();
     final ranOut = stored['ranOut'];
@@ -925,6 +927,23 @@ class Settings extends ChangeNotifier {
     await _write();
   }
 
+  /// The pages whose explanation somebody has folded.
+  Set<String> get explanationsFolded => Set<String>.unmodifiable(_explanationsFolded);
+  List<String> _explanationsFolded = const <String>[];
+
+  /// Keeps whether the explanation of the page [id] is folded.
+  Future<void> setExplanationFolded(String id, {required bool folded}) async {
+    final kept = <String>{..._explanationsFolded};
+    if (folded) {
+      kept.add(id);
+    } else {
+      kept.remove(id);
+    }
+    _explanationsFolded = kept.toList()..sort();
+    notifyListeners();
+    await _write();
+  }
+
   /// Keeps which ends of work somebody has opened or put away.
   Future<void> setEndedPutAway(Set<String> ends) async {
     _endedPutAway = ends.toList()..sort();
@@ -1044,6 +1063,7 @@ class Settings extends ChangeNotifier {
     ],
     'seenSilent': _seenSilent,
     'endedPutAway': _endedPutAway,
+    'explanationsFolded': _explanationsFolded,
     'ranOut': [for (final each in _ranOut) each.stored],
     'place': _place,
     'templates': _templates,

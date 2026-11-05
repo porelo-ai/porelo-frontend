@@ -122,6 +122,7 @@ import 'repositories_view.dart';
 import 'project_forge_view.dart';
 import 'organization_host_pages.dart';
 import 'organization_page.dart';
+import 'page_explanation.dart';
 import 'organization_dialogs.dart';
 import 'organization_project_pages.dart';
 import 'default_view.dart';
@@ -1424,6 +1425,7 @@ class _ShellState extends State<Shell> {
         (organization == null
             ? const SizedBox.shrink()
             : OrganizationPage(
+                settings: widget.settings,
                 organization: organization,
                 identity: widget.identity,
                 connections: _hostConnections,
@@ -1457,18 +1459,27 @@ class _ShellState extends State<Shell> {
   /// Every forge set up here, as a page beside Machines and Projects.
   Widget _forgesPage() =>
       _opened() ??
-      ListenableBuilder(
-        listenable: _fleet,
-        builder: (context, _) => ForgesPage(
-          forges: _forges,
-          usedBy: _usedBy,
-          onMachine: (name) {
-            final machine = widget.machines.all.where((machine) => machine.name == name).firstOrNull;
-            if (machine != null) _openPageMachine(machine);
-          },
-          onOpen: (entry) => unawaited(_openTheForge(entry)),
-          keyCheck: widget.forgeKeyCheck,
-          tokenVault: _forgeTokenVault,
+      _explained(
+        'forges',
+        const <({String title, String words})>[
+          (
+            title: 'What is in My forges?',
+            words: 'Where your repositories are, each reached with a token kept in this computer\'s keychain.',
+          ),
+        ],
+        ListenableBuilder(
+          listenable: _fleet,
+          builder: (context, _) => ForgesPage(
+            forges: _forges,
+            usedBy: _usedBy,
+            onMachine: (name) {
+              final machine = widget.machines.all.where((machine) => machine.name == name).firstOrNull;
+              if (machine != null) _openPageMachine(machine);
+            },
+            onOpen: (entry) => unawaited(_openTheForge(entry)),
+            keyCheck: widget.forgeKeyCheck,
+            tokenVault: _forgeTokenVault,
+          ),
         ),
       );
 
@@ -2957,7 +2968,12 @@ class _ShellState extends State<Shell> {
                             Section.attention => _needsYou(),
                             Section.machines =>
                               _organizationHost == null || _organization == null
-                                  ? _machinesPage()
+                                  ? _explained('machines', const <({String title, String words})>[
+                                      (
+                                        title: 'What is in My machines?',
+                                        words: 'Where work runs. Its projects are under My projects, and its work under Work.',
+                                      ),
+                                    ], _machinesPage())
                                   : _machineOnePage(_organizationHost!),
                             Section.projects => _projectsPage(),
                             Section.forges => _forgesPage(),
@@ -3169,6 +3185,15 @@ class _ShellState extends State<Shell> {
 
   /// Every project on every machine, and the ways to set one up: setting up, out of the daily way.
   /// Today's list of a machine's projects, with the way back to the organization's where it is opened from there.
+  /// What the page [id] is for, in [parts], above [page].
+  Widget _explained(String id, List<({String title, String words})> parts, Widget page) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: <Widget>[
+      PageExplanation(id: id, settings: widget.settings, parts: parts),
+      Expanded(child: page),
+    ],
+  );
+
   Widget _withWayBack(Widget page) => !_machineProjects
       ? page
       : Column(
@@ -3184,10 +3209,21 @@ class _ShellState extends State<Shell> {
           ],
         );
 
+  Widget _explainedProjects(Widget page) => _explained('projects', const <({String title, String words})>[
+    (
+      title: 'What is in My projects?',
+      words: 'How work runs: its repositories, who reviews what it pushes, whom it may talk to.',
+    ),
+  ], page);
+
   Widget _projectsPage() =>
       _opened() ??
-      (_organization == null || _machineProjects ? null : _organizationProjects(_organization)) ??
-      _withWayBack(
+      (_organization == null || _machineProjects
+          ? null
+          : _organizationProject != null
+          ? _organizationProjects(_organization)
+          : _explainedProjects(_organizationProjects(_organization))) ??
+      (_machineProjects ? _withWayBack : _explainedProjects)(
         ListenableBuilder(
           listenable: Listenable.merge(<Listenable>[
             _attention,
@@ -3222,6 +3258,16 @@ class _ShellState extends State<Shell> {
     final page =
         opened ??
         WorkPage(
+          explanation: PageExplanation(
+            id: 'work',
+            settings: widget.settings,
+            parts: const <({String title, String words})>[
+              (
+                title: 'What is Work?',
+                words: 'All work on your machines: what is running, what has stopped, and the way to its terminal.',
+              ),
+            ],
+          ),
           view: _workView,
           listFocus: _openedFocus,
           reveal: widget.shell.highlight != null && _fleet.selectedTask != null
@@ -3372,48 +3418,57 @@ class _ShellState extends State<Shell> {
   Widget _needsYou() {
     final opened = _opened();
     if (opened != null) return opened;
-    return Focus(
-      focusNode: _openedFocus,
-      child: AttentionView(
-        onOpened: () {
-          for (final machine in widget.machines.all) {
-            widget.machines.of(machine).mailboxes.askAgain();
-          }
-        },
-        attention: _attention,
-        onCreateRepository: (project) {
-          if (_organization case final organization?) {
-            unawaited(
-              showDialog<void>(context: context, builder: (_) => CreateRepositoryDialog(organization, project)),
-            );
-          }
-        },
-        onGiveToken: (host) {
-          setState(() => _organizationHost = host);
-          widget.shell.goTo(Section.machines);
-        },
-        onOpenHost: (project) {
-          final run = _hostRuns.of(project);
-          if (run != null) unawaited(_openHostRun(run));
-        },
-        unlockFor: _unlockFor,
-        onRemoveProject: (machine, project) =>
-            unawaited(_previewProjectRemoval(widget.machines.of(machine), project.name)),
-        whyNoRemoval: _whyNoRemoval,
-        onDecide: (tile, prompt, {required allow}) =>
-            tile.fleet.clearance.decide(tile.fleet.backend, prompt, allow: allow),
-        onPutAway: (tile, prompt) {
-          tile.fleet.clearance.forget(prompt);
-          _attention.questionPutAway(tile.machine, prompt);
-        },
-        onOpenOperation: (operation) => widget.shell.openOperation(operation.id),
-        actionsFor: _tileActions,
-        onSelect: _goToWork,
-        onReadLog: _readLogOf,
-        onReview: (tile) {
-          _actOn(tile);
-          unawaited(_openTheGate(tile.task));
-        },
+    return _explained(
+      'needs-you',
+      const <({String title, String words})>[
+        (
+          title: 'What is Needs you?',
+          words: 'What waits for a person: questions, reviews and work that stopped. Nothing else asks for your attention.',
+        ),
+      ],
+      Focus(
+        focusNode: _openedFocus,
+        child: AttentionView(
+          onOpened: () {
+            for (final machine in widget.machines.all) {
+              widget.machines.of(machine).mailboxes.askAgain();
+            }
+          },
+          attention: _attention,
+          onCreateRepository: (project) {
+            if (_organization case final organization?) {
+              unawaited(
+                showDialog<void>(context: context, builder: (_) => CreateRepositoryDialog(organization, project)),
+              );
+            }
+          },
+          onGiveToken: (host) {
+            setState(() => _organizationHost = host);
+            widget.shell.goTo(Section.machines);
+          },
+          onOpenHost: (project) {
+            final run = _hostRuns.of(project);
+            if (run != null) unawaited(_openHostRun(run));
+          },
+          unlockFor: _unlockFor,
+          onRemoveProject: (machine, project) =>
+              unawaited(_previewProjectRemoval(widget.machines.of(machine), project.name)),
+          whyNoRemoval: _whyNoRemoval,
+          onDecide: (tile, prompt, {required allow}) =>
+              tile.fleet.clearance.decide(tile.fleet.backend, prompt, allow: allow),
+          onPutAway: (tile, prompt) {
+            tile.fleet.clearance.forget(prompt);
+            _attention.questionPutAway(tile.machine, prompt);
+          },
+          onOpenOperation: (operation) => widget.shell.openOperation(operation.id),
+          actionsFor: _tileActions,
+          onSelect: _goToWork,
+          onReadLog: _readLogOf,
+          onReview: (tile) {
+            _actOn(tile);
+            unawaited(_openTheGate(tile.task));
+          },
+        ),
       ),
     );
   }

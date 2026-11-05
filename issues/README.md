@@ -25,6 +25,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f376"></a>[F376](F376-Work-And-Needs-You-Closer-To-The-Design.md) | — | — | The differences from the design the operator named in *Work* and *Needs you*, with *My machines* as the model. |
 | <a id="f380"></a>[F380](F380-Default-On-My-Projects.md) | — | — | *Default* stands in *My projects* beside the organization's projects, and is counted. |
 | <a id="f383"></a>[F383](F383-The-Terminal-Stays-Dark.md) | — | — | A terminal stays dark in the light theme, and answers a program asking for its colours. |
+| <a id="f381"></a>[F381](F381-Fold-A-Pages-Explanation.md) | — | — | Every page has an explanation; closing it folds it, and it stays folded across a restart. |
 | <a id="f356"></a>[F356](F356-The-Porelo-Organization-Named-Apart.md) | — | — | The window says *Porelo organization* wherever a forge's organization could also be meant, and says it lives in a repository inside that one. |
 | <a id="f359"></a>[F359](F359-An-Empty-List-Starts-Folded.md) | — | — | A list with no rows starts folded and folds when emptied, a fold the person chose is kept, and the head's actions stay usable. |
 | <a id="f369"></a>[F369](F369-One-Name-For-The-Default-Project.md) | — | — | The project every machine has is called *Default* in the window, as in Core and its documents, in place of "Without a project". |
@@ -96,7 +97,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f379"></a>[F379](F379-Add-A-Project-In-One-Step-From-The-Window.md) | S | — | A person naming themselves Project Admin adds a project in one step from the window. |
 | <a id="f377"></a>[F377](F377-A-Hosts-Channel-Follows-The-Window.md) | S | — | A host the window prepares installs from the window's own channel. |
 | <a id="f378"></a>[F378](F378-Waits-Said-In-Needs-You.md) | S | — | A review's waiting time and file counts, and the time left in the waits-on-you note. |
-| <a id="f381"></a>[F381](F381-Fold-A-Pages-Explanation.md) | S | — | Every page has an explanation; closing it folds it, and it stays folded across a restart. |
 | <a id="f382"></a>[F382](F382-An-Images-Settings-In-Work.md) | S | — | A button in *Work* shows which settings the task's image was built with, and where each comes from. |
 | <a id="f385"></a>[F385](F385-New-Work-Confirms-What-Was-Detected.md) | S | — | *New work* on this computer asks the same question as a first start before it writes `project.yml`. |
 | <a id="f365"></a>[F365](F365-A-Host-Key-Fetched-Too-Early.md) | M | — | A machine's host key is compared by one named command and fetched again at *Prepare*; a refused key says what to do, and the name is a choice. |

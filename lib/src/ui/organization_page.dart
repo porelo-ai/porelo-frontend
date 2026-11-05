@@ -14,6 +14,8 @@ import '../client/models.dart' show defaultProject;
 import 'command_menu.dart';
 import 'identity_view.dart';
 import 'filtered_list_section.dart';
+import '../app/settings.dart';
+import 'page_explanation.dart';
 import 'organization_token_words.dart' show forgeOrganizationWords;
 import 'organization_dialogs.dart';
 import 'how_long.dart';
@@ -33,6 +35,7 @@ final _projectName = RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$');
 class OrganizationPage extends StatefulWidget {
   /// Reads [organization].
   const OrganizationPage({
+    this.settings,
     required this.organization,
     this.onProject,
     this.onHost,
@@ -47,6 +50,9 @@ class OrganizationPage extends StatefulWidget {
     this.pickFolder = pickFolderWithTheDesktop,
     super.key,
   });
+
+  /// Where the fold of the page's explanation is kept; none draws no explanation.
+  final Settings? settings;
 
   /// The organization.
   final Organization organization;
@@ -110,8 +116,29 @@ class _OrganizationPageState extends State<OrganizationPage> {
           children: [
             if (widget.identity case final identity?) IdentityRenewal(model: identity, showProblems: true),
             OrganizationChangeMark(organization),
-            if (!organization.explanationClosed)
-              _Explanation(view: view, onHide: () => setState(() => organization.explanationClosed = true)),
+            if (widget.settings case final settings?)
+              PageExplanation(
+                id: 'organization',
+                settings: settings,
+                parts: <({String title, String words})>[
+                  (
+                    title: 'What is the Porelo organization?',
+                    words:
+                        'Who manages it, its people with their cards, its projects with their members, and its machines. '
+                        'Porelo asks it whom to trust before anyone gets onto a machine.',
+                  ),
+                  (
+                    title: 'Where it is kept',
+                    words:
+                        'In a repository inside ${forgeOrganizationWords(view)}: one is not the other. The repository holds '
+                        'the Porelo organization, and its name is yours to choose.',
+                  ),
+                  (
+                    title: 'What you can do here',
+                    words: 'Everyone reads all of it. Each action shows only for the role it belongs to.',
+                  ),
+                ],
+              ),
             if (organization.noOrganization && view == null)
               _NoOrganization(
                 onChoose: () => _show(context, _AddressDialog(organization)),
@@ -881,68 +908,6 @@ String _removingHostWords(OrganizationHost host) => [
   if (host.projects.isNotEmpty) 'It still carries ${host.projects.join(', ')}.',
   'The machine itself keeps running.',
 ].join(' ');
-
-class _Explanation extends StatelessWidget {
-  const _Explanation({required this.view, required this.onHide});
-
-  final OrganizationView? view;
-  final VoidCallback onHide;
-
-  @override
-  Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
-    Widget part(String title, String words) => SizedBox(
-      width: Sizes.dialogSmall,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: text.titleSmall),
-          Text(words),
-        ],
-      ),
-    );
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(Space.normal),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Icon(Icons.info_outline),
-            const SizedBox(width: Space.normal),
-            Expanded(
-              child: Wrap(
-                spacing: Space.normal,
-                runSpacing: Space.small,
-                children: [
-                  part(
-                    'What is the Porelo organization?',
-                    'Who manages it, its people with their cards, its projects with their members, and its machines. '
-                        'Porelo asks it whom to trust before anyone gets onto a machine.',
-                  ),
-                  part(
-                    'Where it is kept',
-                    'In a repository inside ${forgeOrganizationWords(view)}: one is not the other. The repository holds '
-                        'the Porelo organization, and its name is yours to choose.',
-                  ),
-                  part(
-                    'What you can do here',
-                    'Everyone reads all of it. Each action shows only for the role it belongs to.',
-                  ),
-                ],
-              ),
-            ),
-            IconButton(
-              key: const Key('organization-explanation-hide'),
-              tooltip: 'Hide this explanation',
-              onPressed: onHide,
-              icon: const Icon(Icons.close),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 class _NoCard extends StatelessWidget {
   const _NoCard({required this.view, required this.onAdd});
