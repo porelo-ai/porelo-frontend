@@ -23,6 +23,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f373"></a>[F373](F373-A-Grey-Button-In-A-Row-Says-Why.md) | — | — | A grey button in a row, a pane or a dialog says why in words. |
 | <a id="f375"></a>[F375](F375-What-Down-Says-Stays-On-A-Machine.md) | — | — | `down`'s note, that the firewall stays and how to take it off, reaches the take-down dialog. |
 | <a id="f376"></a>[F376](F376-Work-And-Needs-You-Closer-To-The-Design.md) | — | — | The differences from the design the operator named in *Work* and *Needs you*, with *My machines* as the model. |
+| <a id="f380"></a>[F380](F380-Default-On-My-Projects.md) | — | — | *Default* stands in *My projects* beside the organization's projects, and is counted. |
 | <a id="f356"></a>[F356](F356-The-Porelo-Organization-Named-Apart.md) | — | — | The window says *Porelo organization* wherever a forge's organization could also be meant, and says it lives in a repository inside that one. |
 | <a id="f359"></a>[F359](F359-An-Empty-List-Starts-Folded.md) | — | — | A list with no rows starts folded and folds when emptied, a fold the person chose is kept, and the head's actions stay usable. |
 | <a id="f369"></a>[F369](F369-One-Name-For-The-Default-Project.md) | — | — | The project every machine has is called *Default* in the window, as in Core and its documents, in place of "Without a project". |

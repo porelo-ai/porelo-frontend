@@ -37,11 +37,19 @@ class OrganizationProjectsPage extends StatefulWidget {
     this.connections,
     this.onListed,
     this.onOthers,
+    this.defaultRows,
+    this.machinesChange,
     super.key,
   });
 
   /// Opens the projects of a machine this computer watches, which no organization holds: `default` and local ones.
   final VoidCallback? onOthers;
+
+  /// *Default*'s rows, one for each machine listed, which stand beside the organization's projects.
+  final List<FilteredRow> Function()? defaultRows;
+
+  /// Says when [defaultRows] may have changed.
+  final Listenable? machinesChange;
 
   /// The organization.
   final Organization organization;
@@ -153,9 +161,10 @@ class _OrganizationProjectsPageState extends State<OrganizationProjectsPage> {
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-    listenable: Listenable.merge([widget.organization, ?widget.connections]),
+    listenable: Listenable.merge([widget.organization, ?widget.connections, ?widget.machinesChange]),
     builder: (context, _) {
       final view = widget.organization.view;
+      final defaults = widget.defaultRows?.call() ?? const <FilteredRow>[];
       final mine = view == null
           ? const <OrganizationProject>[]
           : [
@@ -171,82 +180,86 @@ class _OrganizationProjectsPageState extends State<OrganizationProjectsPage> {
         children: [
           OrganizationChangeMark(widget.organization),
           if (widget.organization.problem case final problem?) _Problem(problem),
-          if (view != null)
+          if (view != null || defaults.isNotEmpty)
             FilteredListSection(
               title: 'My projects',
               storageId: 'my-projects',
               rows: [
-                for (final project in mine)
-                  (
-                    words: project.name,
-                    child: ListTile(
-                      key: ValueKey('my-project ${project.name}'),
-                      leading: const Icon(Icons.folder_outlined),
-                      title: Text(project.name),
-                      subtitle: Text(
-                        '${project.repositories == null ? '' : '${_count(project.repositories!, 'repository', 'repositories')} · '}'
-                        '${peopleOf(project)} · '
-                        '${project.host == null ? 'not on a machine yet · a Machine Admin puts it on one' : 'on ${project.host}'}'
-                        '${_centralWords(view, _central[project.name]) == null ? '' : ' · ${_centralWords(view, _central[project.name])}'}'
-                        '${_refusals[project.host] == null ? '' : ' · ${_refusals[project.host]}'}'
-                        '${_greyWords(project, view)}',
-                      ),
-                      trailing: Wrap(
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        spacing: Space.normal,
-                        children: [
-                          Chip(label: Text(_isLocked(project) ? 'locked' : _roleIn(view, project)!)),
-                          if (_central[project.name]?.offersPush ?? false)
-                            if (project.host case final host? when !_isLocked(project))
-                              for (final command in widget.menuFor?.call(project.name, host) ?? const <Command>[])
-                                if (command.id == 'project.pushApprovedMain')
-                                  Tooltip(
-                                    message: command.unavailable ?? command.label,
-                                    child: OutlinedButton(
-                                      key: ValueKey('organization.pushApprovedMain ${project.name}'),
-                                      onPressed: command.available ? command.run : null,
-                                      child: Text(command.label),
+                ...defaults,
+                if (view != null)
+                  for (final project in mine)
+                    (
+                      words: project.name,
+                      child: ListTile(
+                        key: ValueKey('my-project ${project.name}'),
+                        leading: const Icon(Icons.folder_outlined),
+                        title: Text(project.name),
+                        subtitle: Text(
+                          '${project.repositories == null ? '' : '${_count(project.repositories!, 'repository', 'repositories')} · '}'
+                          '${peopleOf(project)} · '
+                          '${project.host == null ? 'not on a machine yet · a Machine Admin puts it on one' : 'on ${project.host}'}'
+                          '${_centralWords(view, _central[project.name]) == null ? '' : ' · ${_centralWords(view, _central[project.name])}'}'
+                          '${_refusals[project.host] == null ? '' : ' · ${_refusals[project.host]}'}'
+                          '${_greyWords(project, view)}',
+                        ),
+                        trailing: Wrap(
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: Space.normal,
+                          children: [
+                            Chip(label: Text(_isLocked(project) ? 'locked' : _roleIn(view, project)!)),
+                            if (_central[project.name]?.offersPush ?? false)
+                              if (project.host case final host? when !_isLocked(project))
+                                for (final command in widget.menuFor?.call(project.name, host) ?? const <Command>[])
+                                  if (command.id == 'project.pushApprovedMain')
+                                    Tooltip(
+                                      message: command.unavailable ?? command.label,
+                                      child: OutlinedButton(
+                                        key: ValueKey('organization.pushApprovedMain ${project.name}'),
+                                        onPressed: command.available ? command.run : null,
+                                        child: Text(command.label),
+                                      ),
                                     ),
+                            if (project.host case final host? when !_isLocked(project))
+                              if (view.holdsRoles && !(widget.connections?.connected(host) ?? false))
+                                Tooltip(
+                                  message: widget.connections == null
+                                      ? 'This computer has no way to connect yet.'
+                                      : _connecting.contains(host)
+                                      ? 'Connecting to $host…'
+                                      : 'Connect to $host',
+                                  child: FilledButton(
+                                    key: ValueKey('organization.connectToHost ${project.name}'),
+                                    onPressed: widget.connections == null || _connecting.contains(host)
+                                        ? null
+                                        : () => unawaited(_connect(host)),
+                                    child: Text('Connect to $host'),
                                   ),
-                          if (project.host case final host? when !_isLocked(project))
-                            if (view.holdsRoles && !(widget.connections?.connected(host) ?? false))
-                              Tooltip(
-                                message: widget.connections == null
-                                    ? 'This computer has no way to connect yet.'
-                                    : _connecting.contains(host)
-                                    ? 'Connecting to $host…'
-                                    : 'Connect to $host',
-                                child: FilledButton(
-                                  key: ValueKey('organization.connectToHost ${project.name}'),
-                                  onPressed: widget.connections == null || _connecting.contains(host)
-                                      ? null
-                                      : () => unawaited(_connect(host)),
-                                  child: Text('Connect to $host'),
                                 ),
+                            if (project.host case final host? when !_isLocked(project))
+                              if (widget.connections case final held?
+                                  when _refusals[host] != null && !_connecting.contains(host))
+                                LastConnectAttempt(held, host),
+                            if (project.host case final host? when !_isLocked(project))
+                              CommandMenu(
+                                key: ValueKey('organization.projectMenu ${project.name}'),
+                                commands: [
+                                  if (widget.onHost != null &&
+                                      view.holdsRoles &&
+                                      (widget.connections?.up(host) ?? false))
+                                    organizationCommand(
+                                      id: 'openOnHost ${project.name}',
+                                      label: 'Work on it',
+                                      run: () => widget.onHost!(project.name, host),
+                                    ),
+                                  ...?widget.menuFor?.call(project.name, host),
+                                ],
+                                tooltip: 'What can be done with ${project.name}',
                               ),
-                          if (project.host case final host? when !_isLocked(project))
-                            if (widget.connections case final held?
-                                when _refusals[host] != null && !_connecting.contains(host))
-                              LastConnectAttempt(held, host),
-                          if (project.host case final host? when !_isLocked(project))
-                            CommandMenu(
-                              key: ValueKey('organization.projectMenu ${project.name}'),
-                              commands: [
-                                if (widget.onHost != null && view.holdsRoles && (widget.connections?.up(host) ?? false))
-                                  organizationCommand(
-                                    id: 'openOnHost ${project.name}',
-                                    label: 'Work on it',
-                                    run: () => widget.onHost!(project.name, host),
-                                  ),
-                                ...?widget.menuFor?.call(project.name, host),
-                              ],
-                              tooltip: 'What can be done with ${project.name}',
-                            ),
-                        ],
+                          ],
+                        ),
+                        onTap: () => widget.onProject(project.name),
                       ),
-                      onTap: () => widget.onProject(project.name),
                     ),
-                  ),
                 for (final listed in _listed)
                   if (listed.source == 'local')
                     (

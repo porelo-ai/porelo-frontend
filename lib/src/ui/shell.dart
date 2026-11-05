@@ -91,6 +91,7 @@ import 'connections_view.dart';
 import 'pick_a_file.dart';
 import 'unlock_terminal.dart';
 import 'project_deletion_view.dart';
+import 'filtered_list_section.dart';
 import 'projects_page.dart';
 import 'machine_details_page.dart';
 import 'project_details_page.dart';
@@ -1343,6 +1344,29 @@ class _ShellState extends State<Shell> {
     if (mounted && local != _localProjects) setState(() => _localProjects = local);
   }
 
+  /// *Default* on each machine listed: every machine has it, with no organization to name it.
+  Iterable<({Machine machine, ProjectOnScreen project})> get _defaults => [
+    for (final machine in listedMachines(widget.machines))
+      for (final project in projectsOnMachine(widget.machines, machine))
+        if (project.name == defaultProject) (machine: machine, project: project),
+  ];
+
+  /// *Default*'s rows for *My projects*, the same rows the page of every machine's projects draws.
+  List<FilteredRow> _defaultRows() => [
+    for (final row in _defaults)
+      (
+        words: 'Default ${row.machine.name}',
+        child: projectListRow(
+          machine: row.machine,
+          project: row.project,
+          machines: widget.machines,
+          muted: widget.notifications.muted.contains(row.project.name),
+          onOpen: () => _openPageProject(row.machine, row.project.name),
+          commands: _pageProjectCommands(row.machine, row.project),
+        ),
+      ),
+  ];
+
   /// How many projects are only on this computer, which *My projects* lists beside the organization's.
   int _localProjects = 0;
 
@@ -1379,6 +1403,10 @@ class _ShellState extends State<Shell> {
             );
           },
           onOthers: () => setState(() => _machineProjects = true),
+          defaultRows: _defaultRows,
+          machinesChange: Listenable.merge(<Listenable>[
+            for (final machine in widget.machines.all) widget.machines.of(machine),
+          ]),
         )
       : OrganizationProjectPage(
           key: ValueKey((_organizationProject, _organizationPageRefresh)),
@@ -3084,6 +3112,7 @@ class _ShellState extends State<Shell> {
           _organization?.view,
           fromOrganization: _organization != null && !_machineProjects,
           local: _localProjects,
+          builtIn: _defaults.length,
           onMachines: listedMachines(widget.machines)
               .fold<int>(0, (count, machine) => count + projectsOnMachine(widget.machines, machine).length),
         ),

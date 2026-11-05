@@ -774,6 +774,12 @@ void main() {
       expect(count(organizationFor('pat')), 1, reason: 'A role in one of two.');
       expect(count(organizationFor('pat'), local: 1), 2, reason: 'And one only on this computer.');
       expect(
+        projectsInRail(organizationFor('pat'), onMachines: 7, fromOrganization: true, builtIn: 2),
+        3,
+        reason: 'And Default on each of two machines.',
+      );
+      expect(projectsInRail(null, onMachines: 7, fromOrganization: true, builtIn: 1), 1, reason: 'Nothing read yet.');
+      expect(
         count(
           organizationFor(
             'pat',
