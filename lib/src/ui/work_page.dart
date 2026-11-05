@@ -385,6 +385,10 @@ class _WorkPageState extends State<WorkPage> {
         SegmentedButton<bool>(
           key: const Key('work-view'),
           showSelectedIcon: false,
+          style: SegmentedButton.styleFrom(
+            selectedBackgroundColor: Theme.of(context).colorScheme.primaryContainer,
+            selectedForegroundColor: Theme.of(context).colorScheme.onPrimaryContainer,
+          ),
           segments: const <ButtonSegment<bool>>[
             ButtonSegment<bool>(value: false, label: Text('List', key: Key('work-view-list'))),
             ButtonSegment<bool>(value: true, label: Text('Running', key: Key('work-view-running'))),

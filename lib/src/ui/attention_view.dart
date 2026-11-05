@@ -355,7 +355,7 @@ extension on _AttentionViewState {
       case AttentionKind.ranOut:
         final each = row.value as RanOutQuestion;
         title = '${each.task} asked to reach ${each.shown}';
-        state = 'Ran out';
+        state = 'It ran out, and it stays blocked';
         icon = Icons.timer_off_outlined;
         primary = putAwayQuestionCommand(run: () => attention.ranOutSeen(each), unavailable: reason);
         primaryKey = const Key('ran-out-seen');
@@ -370,10 +370,15 @@ extension on _AttentionViewState {
         );
     }
     final navigation = listOpenCommand(label: 'Open details', home: Home.attentionRow, open: open);
+    final said = !resolved && row.kind == AttentionKind.tile ? TaskTile.saidOnItsRow(row.value as Tile) : null;
     return ExpandableListRow(
       key: ValueKey('attention-row ${row.id}'),
-      leading: Icon(icon),
-      title: '$title · ${row.machine}',
+      leading: row.kind == AttentionKind.tile
+          ? _StateMark((row.value as Tile).demand, Theme.of(context).colorScheme)
+          : Icon(icon),
+      title: said?.title ?? '$title · ${row.machine}',
+      subtitle: said?.under,
+      primaryFilled: row.kind == AttentionKind.tile,
       state: resolved ? resolvedState : state,
       onOpen: navigation.run,
       primary: resolved || steps.isNotEmpty ? null : primary ?? navigation,
@@ -622,7 +627,7 @@ extension on _AttentionViewState {
         return Text(row.value as String);
       case AttentionKind.ranOut:
         final each = row.value as RanOutQuestion;
-        return Text('The question ran out with nobody answering it, so ${each.shown} stays blocked.');
+        return Text('Nobody answered in time, so ${each.shown} stays blocked.');
       case AttentionKind.missed:
         final each = row.value as ({Machine machine, int count});
         return _MissedQuestions(
@@ -1218,6 +1223,32 @@ class TaskTile extends StatelessWidget {
     };
   }
 
+  /// What a row of *Needs you* says of work: a sentence, and under it the facts of that sentence. Null
+  /// where only the state's own words say what it is.
+  static ({String title, String under})? saidOnItsRow(Tile tile) {
+    final task = tile.task;
+    final first = tile.questions.firstOrNull;
+    final name = task?.name ?? first?.task ?? '';
+    final where = 'on ${tile.machine.name}';
+    if (tile.demand == Demand.question && first != null) {
+      final more = tile.questions.length - 1;
+      final when = _question(tile.questions).split(' · ').skip(1).join(' · ');
+      return (
+        title: '$name asks to reach ${first.shown}${more > 0 ? ' and $more more' : ''}',
+        under: <String>[
+          if (when.isNotEmpty) when,
+          '${first.protocol}${first.prefix.isEmpty ? '' : ', stopped by ${first.prefix}'}',
+          where,
+        ].join(' · '),
+      );
+    }
+    if (tile.demand == Demand.gate && task != null) {
+      final commits = task.waiting == 1 ? '1 commit waits' : '${task.waiting} commits wait';
+      return (title: '$name: $commits at the gate', under: '${WorkRow.projectOf(task)} · $where');
+    }
+    return null;
+  }
+
   /// Time left when the machine says when it runs out; how long it has waited when it does not.
   static String _question(List<Prompt> questions) {
     final first = questions.first;
@@ -1342,10 +1373,7 @@ class WorkRow extends StatelessWidget {
   static String wayOf(Task? task) => task?.mode == Mode.unattended ? 'Unattended' : 'In a terminal';
 
   bool get _needsSomebody =>
-      tile.demand == Demand.question ||
-      tile.demand == Demand.ended ||
-      tile.demand == Demand.gate ||
-      tile.settled != null;
+      tile.demand == Demand.question || tile.demand == Demand.ended || tile.demand == Demand.gate;
 
   @override
   Widget build(BuildContext context) {
@@ -1420,7 +1448,9 @@ class WorkRow extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: Space.small),
+                          // Its whole share, so the state stands beside the fold whatever its length.
                           Flexible(
+                            fit: FlexFit.tight,
                             child: Text(
                               stateOf(tile, terminalEnded: terminalEnded),
                               key: const Key('tile-headline'),
@@ -1498,7 +1528,6 @@ class WorkRow extends StatelessWidget {
                   ],
                 ),
               ),
-            const Divider(height: Sizes.divider),
           ],
         ),
       ),

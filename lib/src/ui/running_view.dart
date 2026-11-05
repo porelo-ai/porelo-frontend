@@ -15,6 +15,7 @@ import 'session_view.dart';
 import 'terminal_look.dart';
 import 'tile_console.dart';
 import 'tokens.dart';
+import 'window_size.dart';
 import 'work_page.dart';
 
 /// *Running*: one tab per running agent, and the console of the one chosen.
@@ -320,12 +321,9 @@ class _RunningViewState extends State<RunningView> {
       color: console.background,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: Space.normal, vertical: Space.small),
-        child: Wrap(
-          key: const Key('running-bar'),
-          spacing: Space.normal,
-          runSpacing: Space.tight,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: <Widget>[
+        child: _barLayout(
+          context,
+          <Widget>[
             Text(
               name,
               key: const Key('running-name'),
@@ -346,6 +344,8 @@ class _RunningViewState extends State<RunningView> {
                 child: Text(WorkRow.wayOf(task), key: const Key('running-way'), style: small),
               ),
             ),
+          ],
+          <Widget>[
             if (terminal) Text('Ctrl+PgUp / PgDn: next agent', style: small),
             if (terminal && task.mode == Mode.unattended)
               TextButton(
@@ -357,6 +357,27 @@ class _RunningViewState extends State<RunningView> {
           ],
         ),
       ),
+    );
+  }
+
+  /// What the bar names, and at its far end what can be done here; one after the other on a narrow window.
+  Widget _barLayout(BuildContext context, List<Widget> names, List<Widget> doing) {
+    Widget wrap(List<Widget> children) => Wrap(
+      spacing: Space.normal,
+      runSpacing: Space.tight,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: children,
+    );
+    if (WindowSize.fromContext(context) == WindowSize.compact) {
+      return KeyedSubtree(key: const Key('running-bar'), child: wrap(<Widget>[...names, ...doing]));
+    }
+    return Row(
+      key: const Key('running-bar'),
+      children: <Widget>[
+        Expanded(child: wrap(names)),
+        const SizedBox(width: Space.normal),
+        wrap(doing),
+      ],
     );
   }
 
@@ -384,6 +405,8 @@ class _RunningViewState extends State<RunningView> {
     final words = switch (tile.demand) {
       Demand.question when tile.questions.isNotEmpty => 'Waits on you: asks to reach ${tile.questions.first.shown}.',
       Demand.question => 'Waits on you: it asks for an answer.',
+      Demand.gate when (tile.task?.waiting ?? 0) > 0 =>
+        'Waits on you: ${tile.task!.waiting == 1 ? 'its commit waits' : 'its ${tile.task!.waiting} commits wait'} at the gate.',
       Demand.gate => 'Waits on you: its work waits at the gate.',
       Demand.ended => 'Waits on you: how it ended has not been seen.',
       _ => null,

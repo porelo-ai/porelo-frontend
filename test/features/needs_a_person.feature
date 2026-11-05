@@ -41,6 +41,9 @@ Feature: What needs a person on every machine, without going anywhere
         Then the row of {'porelo-checkout-shell'} under recently resolved says {'is now reachable'}
         And the count of what needs a person is {'1 need you'}
         And the rail says {'1'} is waiting
+        When I go to the list of work
+        And I open the tile {'porelo-checkout-shell'}
+        Then the row of {'porelo-checkout-shell'} does not offer {'See it in Needs you'}
 
     # Harm: a question that ran out while nobody looked leaves without a trace, and a blocked task with no reason.
     Scenario: a question that ran out counts until it is seen, past a restart

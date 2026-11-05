@@ -19,11 +19,20 @@ class ExpandableListRow extends StatefulWidget {
     this.bodyKey,
     this.selected = false,
     this.steps = const <Widget>[],
+    this.subtitle,
+    this.primaryFilled = false,
     super.key,
   });
 
-  /// Next steps offered on the row itself, under its title, for a row with more than one.
+  /// Next steps offered on the row itself, for a row with more than one: beside its title, or under
+  /// it on a narrow window.
   final List<Widget> steps;
+
+  /// The facts of what [title] says, under it, in place of [state].
+  final String? subtitle;
+
+  /// Whether the main command is what the row is there for, and so filled.
+  final bool primaryFilled;
 
   /// The item's outlined mark, filled only when selected.
   final Widget leading;
@@ -93,45 +102,72 @@ class _ExpandableListRowState extends State<ExpandableListRow> {
                                 const SizedBox(width: Space.small),
                                 Expanded(
                                   flex: 2,
-                                  child: Tooltip(
-                                    message: widget.title,
-                                    child: Text(
-                                      widget.title,
-                                      key: widget.titleKey,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: text.titleSmall,
-                                    ),
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Tooltip(
+                                        message: widget.title,
+                                        child: Text(
+                                          widget.title,
+                                          key: widget.titleKey,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: text.titleSmall,
+                                        ),
+                                      ),
+                                      if (widget.subtitle case final subtitle?)
+                                        Text(
+                                          subtitle,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: text.bodySmall,
+                                        ),
+                                    ],
                                   ),
                                 ),
-                                const SizedBox(width: Space.small),
-                                Flexible(
-                                  child: Tooltip(
-                                    message: widget.state,
-                                    child: Text(
-                                      widget.state,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: text.labelSmall,
+                                if (widget.subtitle == null) ...[
+                                  const SizedBox(width: Space.small),
+                                  Flexible(
+                                    child: Tooltip(
+                                      message: widget.state,
+                                      child: Text(
+                                        widget.state,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: text.labelSmall,
+                                      ),
                                     ),
                                   ),
-                                ),
+                                ],
                               ],
                             ),
                           ),
                         ),
                       ),
                     ),
+                    if (!compact)
+                      for (final step in widget.steps)
+                        Padding(
+                          padding: const EdgeInsets.only(left: Space.small),
+                          child: step,
+                        ),
                     if (primary != null)
                       ConstrainedBox(
                         constraints: BoxConstraints(maxWidth: compact ? Sizes.listActionCompact : Sizes.listAction),
                         child: Tooltip(
                           message: primary.unavailable ?? primary.label,
-                          child: TextButton(
-                            key: widget.primaryKey,
-                            onPressed: primary.available ? primary.run : null,
-                            child: Text(primary.label, maxLines: 1, overflow: TextOverflow.ellipsis),
-                          ),
+                          child: widget.primaryFilled
+                              ? FilledButton(
+                                  key: widget.primaryKey,
+                                  onPressed: primary.available ? primary.run : null,
+                                  child: Text(primary.label, maxLines: 1, overflow: TextOverflow.ellipsis),
+                                )
+                              : TextButton(
+                                  key: widget.primaryKey,
+                                  onPressed: primary.available ? primary.run : null,
+                                  child: Text(primary.label, maxLines: 1, overflow: TextOverflow.ellipsis),
+                                ),
                         ),
                       ),
                     IconButton(
@@ -142,7 +178,7 @@ class _ExpandableListRowState extends State<ExpandableListRow> {
                   ],
                 ),
               ),
-              if (widget.steps.isNotEmpty)
+              if (compact && widget.steps.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(Space.small, 0, Space.small, Space.small),
                   child: Wrap(

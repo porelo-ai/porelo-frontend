@@ -454,7 +454,7 @@ void main() {
       backend.asking.add(asked);
       await pumpEventQueue();
       final counted = attention.needingSomebody;
-      backend.asking.add(World.settled(asked, 'timeout'));
+      backend.asking.add(World.settled(asked, 'allow'));
       await pumpEventQueue();
       expect(attention.needingSomebody, counted - 1);
       Iterable<ResolvedAttention> outcome() =>

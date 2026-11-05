@@ -19,6 +19,9 @@ import './step/the_rail_says_is_waiting.dart';
 import './step/the_answer_comes_back.dart';
 import './step/the_row_of_under_recently_resolved_says.dart';
 import './step/the_count_of_what_needs_a_person_is.dart';
+import './step/i_go_to_the_list_of_work.dart';
+import './step/i_open_the_tile.dart';
+import './step/the_row_of_does_not_offer.dart';
 import './step/the_question_runs_out.dart';
 import './step/the_app_is_restarted.dart';
 import './step/i_say_i_have_seen_the_question_that_ran_out.dart';
@@ -115,6 +118,9 @@ void main() {
       await theRowOfUnderRecentlyResolvedSays(tester, 'porelo-checkout-shell', 'is now reachable');
       await theCountOfWhatNeedsAPersonIs(tester, '1 need you');
       await theRailSaysIsWaiting(tester, '1');
+      await iGoToTheListOfWork(tester);
+      await iOpenTheTile(tester, 'porelo-checkout-shell');
+      await theRowOfDoesNotOffer(tester, 'porelo-checkout-shell', 'See it in Needs you');
     });
     testWidgets('''a question that ran out counts until it is seen, past a restart''', (tester) async {
       await bddSetUp(tester);
