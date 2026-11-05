@@ -1218,6 +1218,8 @@ void main() {
         await World.settle(tester);
         expect(run.ready, isTrue);
         expect(settings.hostUp('orchard')!.preparedHost!.address, address);
+        // Harm: a host set up already gives no word of what it was set to.
+        expect(find.textContaining('It has a forge of its own, and runs no VMs in its jobs.'), findsOneWidget);
         expect(fixture.writes.single.input['address'], address);
         final restored = hostUpRestored(settings.hostUp('orchard')!);
         expect(restored.givenAddress, address);

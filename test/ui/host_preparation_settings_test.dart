@@ -67,4 +67,30 @@ void main() {
     expect(choices.single.forge, isFalse);
     expect(choices.single.roleSettings, isEmpty);
   });
+
+  // Harm: a value that stays in a field the forge's going hid refuses the settings with no way to see why.
+  testWidgets('a bad value in a field the forge took along does not refuse', (tester) async {
+    final choices = <HostPreparationSettings>[];
+    Widget form(bool forge) => MaterialApp(
+      home: Scaffold(
+        body: SingleChildScrollView(
+          child: HostPreparationSettingsForm(
+            value: HostPreparationSettings(forge: forge),
+            onChanged: choices.add,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpWidget(form(true));
+    await tester.tap(find.text('More settings'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('forge_runner_capacity')), '0');
+    await tester.pumpWidget(form(false));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Use settings'));
+    await tester.tap(find.text('Use settings'));
+    await tester.pump();
+    expect(choices, hasLength(1));
+    expect(choices.single.roleSettings, isEmpty);
+  });
 }
