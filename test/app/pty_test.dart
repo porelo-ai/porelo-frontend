@@ -319,8 +319,15 @@ void main() {
   });
 
   test('closing it ends the far end rather than leaving it running', () async {
-    final pty = Pty.start('sh', <String>['-c', 'sleep 30']);
-    unawaited(whatItPrinted(pty));
+    final pty = Pty.start('sh', <String>['-c', 'echo ready; sleep 30']);
+    final running = Completer<void>();
+    final said = StringBuffer();
+    pty.output.listen((bytes) {
+      said.write(String.fromCharCodes(bytes));
+      if (said.toString().contains('ready') && !running.isCompleted) running.complete();
+    });
+    // A hangup sent before its shell has started finds nobody, and the close's later kill ends it.
+    await running.future.timeout(const Duration(seconds: 30));
 
     await pty.close();
 
