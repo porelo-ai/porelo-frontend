@@ -29,6 +29,11 @@ class ProjectShape {
     final project = read is YamlMap ? read['project'] : null;
     final name = project is YamlMap ? project['name'] : null;
     if (name is! String || name.isEmpty) throw const WorkspaceRefused('project.yml names no project.');
+    if (name.toLowerCase() == defaultProject) {
+      throw const WorkspaceRefused(
+        'project.yml names Default, the project every machine has: it needs a name of its own.',
+      );
+    }
     final repositories = read is YamlMap ? read['repositories'] : null;
     return ProjectShape(
       name: name,

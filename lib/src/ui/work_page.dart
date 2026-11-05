@@ -197,9 +197,9 @@ class _WorkPageState extends State<WorkPage> {
         step(
           2,
           'project',
-          'A project, or none',
+          'A project, or Default',
           'How work runs: its repositories, who reviews what it pushes. A project comes from your organization; '
-              'work can also run without one.',
+              'work can also run in Default, the project every machine has.',
           projectReady,
           machineReady,
           <Widget>[

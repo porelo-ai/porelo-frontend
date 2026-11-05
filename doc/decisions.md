@@ -233,11 +233,11 @@ Machines say where work runs, forges where its repositories are, and projects ho
 set up rarely, while tasks are the daily work. So the rail holds *Work* and *Needs you* first, and
 under *Set up* *Machines*, *Forges* and *Projects*, with the refresh and the stop for every machine
 at its foot. **The window opens on *Work***: every piece of work on every machine, grouped by what
-it asks, each tile naming its machine, narrowed to a machine, a project or work in no project.
+it asks, each tile naming its machine, narrowed to a machine or a project, *Default* among them.
 Work is shown only there; a machine's or a project's page leads to it, narrowed.
 
-- ***New work*** asks where it runs when more than one machine answers, then in which project or in
-  none. Where the project has work with a conversation on another machine, it says before the start
+- ***New work*** asks where it runs when more than one machine answers, then in which project,
+  *Default* among them. Where the project has work with a conversation on another machine, it says before the start
   that the two cannot talk.
 - ***Machines*** and ***Projects*** list them, each opening a page of its own with its tools.
   *Projects* lists *Default*, the project every machine has, with a row and a page like any other: a

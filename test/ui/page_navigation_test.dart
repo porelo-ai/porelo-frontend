@@ -136,10 +136,7 @@ void main() {
       await World.settle(tester);
       await tester.enterText(find.byKey(const Key('projects-filter')), 'Default');
       await World.settle(tester);
-      expect(
-        find.byWidgetPredicate((widget) => widget is Text && widget.data == 'Default'),
-        findsNWidgets(2),
-      );
+      expect(find.byWidgetPredicate((widget) => widget is Text && widget.data == 'Default'), findsNWidgets(2));
       await tester.enterText(find.byKey(const Key('projects-filter')), 'offline');
       await World.settle(tester);
       await World.tapInView(tester, 'project offline/default');

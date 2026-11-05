@@ -1,6 +1,6 @@
 # F369 — One Name For The Default Project
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** S - words in eight files with their tests, features and two documents.
 
 **What must be true.** The project every machine has carries one name everywhere: the *Default* project. In the foo test the row "Without a project" under *Projects* read oddly to the operator, who gave this word. It is a row with a name, a page and tasks of its own, so it is a project and reads as one.
