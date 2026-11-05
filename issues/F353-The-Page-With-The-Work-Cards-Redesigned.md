@@ -50,7 +50,8 @@
 
 ## Decided while building
 
-- **What came out of a question needs nobody.** It goes under *Recently resolved* for that list's time, an hour by default, with its words, and does not count; where its work has a row anyway it stays on that row with *Got it*. So a question that ran out unseen leaves a trace for that hour and not past a restart.
+- **An answer needs nobody.** What came of a question somebody answered goes under *Recently resolved* for that list's time, an hour by default, with its words, and does not count; where its work has a row anyway it stays on that row with *Got it*.
+- **A question that ran out counts until seen, past a restart.** It has a row of its own, kept in the settings, until *Got it* is pressed. The window cannot tell whether a person was looking when it ran out, so every one counts.
 - **A row's *Tokens used*** is read when it unfolds, and every 30 seconds while a running row stays unfolded.
 - **One node reached two ways** has one tab and one row. A tab whose machine does not answer stays, says so and opens nothing, as its agent may still run.
 

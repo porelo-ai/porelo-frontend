@@ -103,6 +103,9 @@ enum AttentionKind {
   /// A machine dropped questions unseen.
   missed,
 
+  /// A question ran out with nobody answering it.
+  ranOut,
+
   /// Stored machines are kept unread and not watched, as their host card does not read in this version.
   setAside,
 }
@@ -219,6 +222,11 @@ class Attention extends ChangeNotifier {
         count: fleetOf(machine).clearance.missed,
       ));
     }
+    for (final question in _ranOut) {
+      if (!question.seen) {
+        yield AttentionRow(AttentionKind.ranOut, 'ran out ${question.id}', question.machine, question);
+      }
+    }
     for (final machine in silent) {
       final fleet = fleetOf(machine);
       final what = switch (fleet.reachability) {
@@ -281,6 +289,7 @@ class Attention extends ChangeNotifier {
   );
 
   void _rememberRows() {
+    _noteRanOut();
     final rows = _rows().toList();
     final ids = rows.map((row) => row.id).toSet();
     _readMessages.removeWhere((id) => !ids.contains(id));
@@ -292,6 +301,7 @@ class Attention extends ChangeNotifier {
       // Losing contact is not resolution; retain the last facts until this machine answers again.
       final resolved =
           row.kind == AttentionKind.operation ||
+          row.kind == AttentionKind.ranOut ||
           row.kind == AttentionKind.host && _hostResolved(row.value as HostStop) ||
           (row.kind != AttentionKind.host &&
               machine != null &&
@@ -305,7 +315,10 @@ class Attention extends ChangeNotifier {
       (id, row) =>
           open.containsKey(id) ||
           _resolved.containsKey(id) ||
-          row.kind != AttentionKind.operation && row.kind != AttentionKind.host && machineNamed(row.machine) == null,
+          row.kind != AttentionKind.operation &&
+              row.kind != AttentionKind.ranOut &&
+              row.kind != AttentionKind.host &&
+              machineNamed(row.machine) == null,
     );
     _lastRows.addAll(open);
     for (final id in open.keys) {
@@ -314,11 +327,74 @@ class Attention extends ChangeNotifier {
     _resolved.removeWhere(
       (_, each) =>
           each.row.kind != AttentionKind.operation &&
+          each.row.kind != AttentionKind.ranOut &&
           each.row.kind != AttentionKind.host &&
           machineNamed(each.row.machine) == null,
     );
     _prune();
     _scheduleExpiry();
+  }
+
+  /// Questions that ran out, where no settings keep them.
+  List<RanOutQuestion> _ranOutHere = const <RanOutQuestion>[];
+
+  List<RanOutQuestion> get _ranOut => _settings?.ranOut ?? _ranOutHere;
+
+  /// How many seen questions are kept, so a machine saying one again does not bring it back.
+  static const _ranOutSeenKept = 50;
+
+  void _setRanOut(List<RanOutQuestion> questions) {
+    final settings = _settings;
+    if (settings == null) {
+      _ranOutHere = questions;
+    } else {
+      unawaited(settings.setRanOut(questions));
+    }
+  }
+
+  /// Files each question a machine says ran out, once, so it counts until seen and past a restart.
+  void _noteRanOut() {
+    final known = {for (final each in _ranOut) each.id};
+    final fresh = <RanOutQuestion>[
+      for (final machine in _machines.all)
+        for (final prompt in fleetOf(machine).clearance.settled)
+          if (prompt.expired && !known.contains('${machine.name}/${prompt.identity}'))
+            RanOutQuestion(
+              id: '${machine.name}/${prompt.identity}',
+              machine: machine.name,
+              task: prompt.task,
+              shown: prompt.shown,
+            ),
+    ];
+    if (fresh.isNotEmpty) _setRanOut([..._ranOut, ...fresh]);
+  }
+
+  /// Takes a question that ran out off what needs a person: somebody has seen it.
+  void ranOutSeen(RanOutQuestion question) {
+    final seen = [
+      for (final each in _ranOut)
+        if (each.id != question.id && each.seen) each,
+    ];
+    _setRanOut([
+      ...seen.skip(seen.length > _ranOutSeenKept ? seen.length - _ranOutSeenKept : 0),
+      question.asSeen,
+      for (final each in _ranOut)
+        if (each.id != question.id && !each.seen) each,
+    ]);
+    for (final machine in _machines.all.where((each) => each.name == question.machine)) {
+      final clearance = fleetOf(machine).clearance;
+      for (final prompt in clearance.settled) {
+        if ('${machine.name}/${prompt.identity}' == question.id) clearance.forget(prompt);
+      }
+    }
+    _changed();
+  }
+
+  /// The same for a question whose words stand on a row of its work.
+  void questionPutAway(Machine machine, Prompt prompt) {
+    for (final each in _ranOut) {
+      if (each.id == '${machine.name}/${prompt.identity}') ranOutSeen(each);
+    }
   }
 
   /// Outcomes already placed under *Recently resolved*, so one whose time is up does not return.
@@ -333,7 +409,8 @@ class Attention extends ChangeNotifier {
         _outcomesKept.remove(keyOf(tile.machine.name, asked));
       }
       final settled = tile.settled;
-      if (settled == null) continue;
+      // One that ran out has a row of its own until it is seen.
+      if (settled == null || settled.expired) continue;
       final row = _tileRow(tile);
       if (open.containsKey(row.id) || !_outcomesKept.add(keyOf(tile.machine.name, settled))) continue;
       _resolved[row.id] = ResolvedAttention(row, _clock());

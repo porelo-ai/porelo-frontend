@@ -10,6 +10,7 @@ import '../app/task_certifying.dart';
 import '../app/vault_devices.dart' show clockTime;
 import '../app/attention.dart';
 import '../app/commands.dart';
+import '../app/settings.dart' show RanOutQuestion;
 import '../app/fleet_model.dart';
 import '../app/machines.dart';
 import '../app/operations.dart';
@@ -351,6 +352,13 @@ extension on _AttentionViewState {
         title = 'Saved machines not watched';
         state = 'Set aside';
         icon = Icons.inventory_2_outlined;
+      case AttentionKind.ranOut:
+        final each = row.value as RanOutQuestion;
+        title = '${each.task} asked to reach ${each.shown}';
+        state = 'Ran out';
+        icon = Icons.timer_off_outlined;
+        primary = putAwayQuestionCommand(run: () => attention.ranOutSeen(each), unavailable: reason);
+        primaryKey = const Key('ran-out-seen');
       case AttentionKind.missed:
         final each = row.value as ({Machine machine, int count});
         title = 'Dropped questions';
@@ -612,6 +620,9 @@ extension on _AttentionViewState {
         );
       case AttentionKind.setAside:
         return Text(row.value as String);
+      case AttentionKind.ranOut:
+        final each = row.value as RanOutQuestion;
+        return Text('The question ran out with nobody answering it, so ${each.shown} stays blocked.');
       case AttentionKind.missed:
         final each = row.value as ({Machine machine, int count});
         return _MissedQuestions(

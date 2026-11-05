@@ -442,6 +442,46 @@ const settingsForm = 2;
 const settingsDroppedWords =
     'Your saved settings came from before Porelo organizations, so Porelo started afresh; the old file is kept as frontend.json.dropped.';
 
+/// A question about a blocked connection that ran out with nobody answering it.
+class RanOutQuestion {
+  /// Keeps what the row says of it.
+  const RanOutQuestion({
+    required this.id,
+    required this.machine,
+    required this.task,
+    required this.shown,
+    this.seen = false,
+  });
+
+  /// Reads one from the settings file, or null for one it cannot read.
+  static RanOutQuestion? fromStored(Map<String, dynamic> stored) {
+    final (id, machine, task, shown) = (stored['id'], stored['machine'], stored['task'], stored['shown']);
+    if (id is! String || machine is! String || task is! String || shown is! String) return null;
+    return RanOutQuestion(id: id, machine: machine, task: task, shown: shown, seen: stored['seen'] == true);
+  }
+
+  /// The machine and the question's identity there.
+  final String id;
+
+  /// The machine's name.
+  final String machine;
+
+  /// The work that asked.
+  final String task;
+
+  /// What it asked to reach.
+  final String shown;
+
+  /// Whether somebody said they have seen it.
+  final bool seen;
+
+  /// The same question, seen.
+  RanOutQuestion get asSeen => RanOutQuestion(id: id, machine: machine, task: task, shown: shown, seen: true);
+
+  /// What the settings file holds of it.
+  Map<String, Object> get stored => {'id': id, 'machine': machine, 'task': task, 'shown': shown, 'seen': seen};
+}
+
 /// What the person chose about how the interface looks.
 class Settings extends ChangeNotifier {
   /// Constructor taking where the choices are kept.
@@ -587,6 +627,10 @@ class Settings extends ChangeNotifier {
     if (seen is List) _seenSilent = seen.whereType<String>().toList();
     final putAway = stored['endedPutAway'];
     if (putAway is List) _endedPutAway = putAway.whereType<String>().toList();
+    final ranOut = stored['ranOut'];
+    if (ranOut is List) {
+      _ranOut = ranOut.whereType<Map<String, dynamic>>().map(RanOutQuestion.fromStored).nonNulls.toList();
+    }
     final muted = stored['muted'];
     if (muted is List) _muted = muted.whereType<String>().toList();
     final homeservers = stored['homeservers'];
@@ -869,6 +913,18 @@ class Settings extends ChangeNotifier {
   Set<String> get endedPutAway => Set<String>.unmodifiable(_endedPutAway);
   List<String> _endedPutAway = const <String>[];
 
+  /// Questions that ran out with nobody answering, the seen ones kept so a machine saying one again does not
+  /// bring it back.
+  List<RanOutQuestion> get ranOut => List<RanOutQuestion>.unmodifiable(_ranOut);
+  List<RanOutQuestion> _ranOut = const <RanOutQuestion>[];
+
+  /// Keeps the questions that ran out.
+  Future<void> setRanOut(List<RanOutQuestion> questions) async {
+    _ranOut = List<RanOutQuestion>.of(questions);
+    notifyListeners();
+    await _write();
+  }
+
   /// Keeps which ends of work somebody has opened or put away.
   Future<void> setEndedPutAway(Set<String> ends) async {
     _endedPutAway = ends.toList()..sort();
@@ -988,6 +1044,7 @@ class Settings extends ChangeNotifier {
     ],
     'seenSilent': _seenSilent,
     'endedPutAway': _endedPutAway,
+    'ranOut': [for (final each in _ranOut) each.stored],
     'place': _place,
     'templates': _templates,
     'forges': _forges,

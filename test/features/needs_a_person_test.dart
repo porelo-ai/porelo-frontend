@@ -20,6 +20,8 @@ import './step/the_answer_comes_back.dart';
 import './step/the_row_of_under_recently_resolved_says.dart';
 import './step/the_count_of_what_needs_a_person_is.dart';
 import './step/the_question_runs_out.dart';
+import './step/the_app_is_restarted.dart';
+import './step/i_say_i_have_seen_the_question_that_ran_out.dart';
 import './step/i_watch_another_machine_called.dart';
 import './step/work_on_is_blocked_reaching.dart';
 import './step/the_tunnel_drops.dart';
@@ -114,13 +116,21 @@ void main() {
       await theCountOfWhatNeedsAPersonIs(tester, '1 need you');
       await theRailSaysIsWaiting(tester, '1');
     });
-    testWidgets('''a question that ran out says so under recently resolved and stops counting''', (tester) async {
+    testWidgets('''a question that ran out counts until it is seen, past a restart''', (tester) async {
       await bddSetUp(tester);
       await workIsBlockedReaching(tester, 'api.example.test:443');
       await theQuestionRunsOut(tester);
-      await theRowOfUnderRecentlyResolvedSays(tester, 'porelo-checkout-shell', 'ran out');
+      await theCountOfWhatNeedsAPersonIs(tester, '2 need you');
+      await theRailSaysIsWaiting(tester, '2');
+      await theAppIsRestarted(tester);
+      await iGoToWhatNeedsAPerson(tester);
+      await theCountOfWhatNeedsAPersonIs(tester, '2 need you');
+      await iSayIHaveSeenTheQuestionThatRanOut(tester);
       await theCountOfWhatNeedsAPersonIs(tester, '1 need you');
       await theRailSaysIsWaiting(tester, '1');
+      await theAppIsRestarted(tester);
+      await iGoToWhatNeedsAPerson(tester);
+      await theCountOfWhatNeedsAPersonIs(tester, '1 need you');
     });
     testWidgets('''a question on another machine is in the same list, with its machine on it''', (tester) async {
       await bddSetUp(tester);

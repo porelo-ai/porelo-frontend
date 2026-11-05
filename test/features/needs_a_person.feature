@@ -42,13 +42,21 @@ Feature: What needs a person on every machine, without going anywhere
         And the count of what needs a person is {'1 need you'}
         And the rail says {'1'} is waiting
 
-    # Harm: a question that ran out while nobody looked leaves without a trace, or counts for ever.
-    Scenario: a question that ran out says so under recently resolved and stops counting
+    # Harm: a question that ran out while nobody looked leaves without a trace, and a blocked task with no reason.
+    Scenario: a question that ran out counts until it is seen, past a restart
         When work is blocked reaching {'api.example.test:443'}
         And the question runs out
-        Then the row of {'porelo-checkout-shell'} under recently resolved says {'ran out'}
-        And the count of what needs a person is {'1 need you'}
+        Then the count of what needs a person is {'2 need you'}
+        And the rail says {'2'} is waiting
+        When the app is restarted
+        And I go to what needs a person
+        Then the count of what needs a person is {'2 need you'}
+        When I say I have seen the question that ran out
+        Then the count of what needs a person is {'1 need you'}
         And the rail says {'1'} is waiting
+        When the app is restarted
+        And I go to what needs a person
+        Then the count of what needs a person is {'1 need you'}
 
     Scenario: a question on another machine is in the same list, with its machine on it
         When I watch another machine called {'elsewhere'}
