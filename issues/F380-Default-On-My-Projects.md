@@ -18,4 +18,4 @@
 - **One row of *Default* for each machine listed,** as on the second page: each has its own, with its own words.
 - **While the organization has not been read,** *Default* still stands.
 
-- **The second page stays,** by the operator's word: it lists every project on every watched machine. Beside an organization it is titled *Projects on my machines*, with its back link *My projects*. With no organization it is *My projects* itself.
+- **The second page stays,** by the operator's word: it lists every project on every watched machine. Whenever the main page stands before it, as it does also for a person of no organization, it is titled *Projects on my machines*, with its back link *My projects*. Only a window with no organization's source at all, where it is the one page, calls it *My projects*.

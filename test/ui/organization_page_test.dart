@@ -780,6 +780,11 @@ void main() {
       );
       expect(projectsInRail(null, onMachines: 7, fromOrganization: true, builtIn: 1), 1, reason: 'Nothing read yet.');
       expect(
+        projectsInRail(null, onMachines: 7, fromOrganization: true, builtIn: 1, local: 1),
+        2,
+        reason: 'The page lists the local one with no organization read, too.',
+      );
+      expect(
         count(
           organizationFor(
             'pat',
@@ -791,7 +796,7 @@ void main() {
         1,
         reason: 'One with no repository yet stands on the Organization page.',
       );
-      expect(count(null, local: 1), 0, reason: 'With nothing read the page has no rows.');
+      expect(count(null), 0, reason: 'With nothing read and nothing local the page has no rows.');
       expect(projectsInRail(organizationFor('pat'), onMachines: 7), 7, reason: 'All projects on the machines.');
       expect(projectsInRail(null, onMachines: 7), 7);
     });

@@ -15,7 +15,7 @@ int projectsInRail(
   bool fromOrganization = false,
   int local = 0,
   int builtIn = 0,
-}) => !fromOrganization ? onMachines : builtIn + (view == null ? 0 : view.projects.where(view.isMine).length + local);
+}) => !fromOrganization ? onMachines : builtIn + local + (view == null ? 0 : view.projects.where(view.isMine).length);
 
 /// The left of the window: the daily work first - what runs, and what needs a person - and setting
 /// up apart under it, machines and projects, which are rarely needed once they are set up.

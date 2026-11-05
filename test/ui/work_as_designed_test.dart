@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/attention.dart';
@@ -121,6 +123,23 @@ void main() {
     expect(find.textContaining('Its agent works in its terminal'), findsNothing);
     expect(find.textContaining(RegExp(r'^started ')), findsNothing, reason: 'Started says it');
     expect(find.textContaining(RegExp(r'^in ')), findsNothing, reason: 'Repository says it');
+  });
+
+  // Harm: a machine slower to answer than the look's period gets a second, third and tenth call queued
+  // behind the first, on the one connection the person's own actions go through.
+  testWidgets('a look at a terminal not answered yet is not asked again beside itself', (tester) async {
+    await World.startBackend(World.work);
+    final hold = Completer<void>();
+    World.backend.screenHolds['porelo-billing-shell'] = hold;
+    await World.startApp(tester);
+    World.shell.goTo(Section.work);
+    await World.settle(tester);
+    for (var look = 0; look < 5; look++) {
+      await tester.pump(const Duration(seconds: 30));
+    }
+    expect(World.backend.screensAsked['porelo-billing-shell'], 1);
+    hold.complete();
+    await World.settle(tester);
   });
 
   // Harm: a terminal pale on white in the light theme, where an agent's and tmux's own colours do not read.

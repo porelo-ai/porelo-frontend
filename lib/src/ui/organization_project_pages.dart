@@ -180,7 +180,7 @@ class _OrganizationProjectsPageState extends State<OrganizationProjectsPage> {
         children: [
           OrganizationChangeMark(widget.organization),
           if (widget.organization.problem case final problem?) _Problem(problem),
-          if (view != null || defaults.isNotEmpty)
+          if (view != null || defaults.isNotEmpty || _listed.any((listed) => listed.source == 'local'))
             FilteredListSection(
               title: 'My projects',
               storageId: 'my-projects',

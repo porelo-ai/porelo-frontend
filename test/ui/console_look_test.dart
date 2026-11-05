@@ -54,6 +54,15 @@ void main() {
     });
     reads('dark', TerminalLook.darkConsole, ConsoleColours.dark);
 
+    // Harm: a bar beside the terminal that follows the light window and does not read.
+    test('the bars of a light window read', () {
+      const console = ConsoleColours.light;
+      for (final each in <Color>[console.text, console.strong, console.muted, console.ok, console.error]) {
+        expect(_contrast(each, console.background), greaterThanOrEqualTo(4.5), reason: '$each');
+      }
+      expect(_contrast(console.noteText, console.noteBackground), greaterThanOrEqualTo(4.5));
+    });
+
     // Harm: tmux's status line, black on green by default, that does not read.
     test('a status line of black on green reads', () {
       expect(_contrast(TerminalLook.darkConsole.black, TerminalLook.darkConsole.green), greaterThanOrEqualTo(4.5));

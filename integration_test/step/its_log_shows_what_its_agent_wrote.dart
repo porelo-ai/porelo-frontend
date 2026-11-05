@@ -37,9 +37,14 @@ Future<void> itsLogShowsWhatItsAgentWrote(WidgetTester tester) async {
   await tester.pump();
   await tester.tap(fold.first);
   await tester.pump();
-  // *Follow its log* while its task still runs, *Read its log* once it has stopped.
-  final follow = find.byKey(const Key('tile-follow'));
-  final read = find.byKey(const Key('tile-read-log'));
+  // *Follow its log* while its task still runs, *Read its log* once it has stopped; of this row, as
+  // another may stand open.
+  final row = find.byElementPredicate((element) {
+    final key = '${element.widget.key}';
+    return key.contains("'tile ") && key.endsWith(" $refusedTask'>]");
+  });
+  final follow = find.descendant(of: row, matching: find.byKey(const Key('tile-follow')));
+  final read = find.descendant(of: row, matching: find.byKey(const Key('tile-read-log')));
   await pumpUntil(
     tester,
     () => follow.evaluate().isNotEmpty || read.evaluate().isNotEmpty,
@@ -51,7 +56,8 @@ Future<void> itsLogShowsWhatItsAgentWrote(WidgetTester tester) async {
   await tester.pump();
   await tester.tap(way.first);
   await tester.pump();
-  final written = find.descendant(of: find.byType(LogView), matching: find.byType(RichText));
+  // Each line is a SelectableText; the head and the words of an empty log are not.
+  final written = find.descendant(of: find.byType(LogView), matching: find.byType(SelectableText));
   await pumpUntil(
     tester,
     () => written.evaluate().isNotEmpty,
