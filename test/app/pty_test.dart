@@ -247,11 +247,18 @@ void main() {
     addTearDown(() => directory.deleteSync(recursive: true));
     final release = File('${directory.path}/release');
     final unrelated = File('${directory.path}/unrelated')..writeAsStringSync('unrelated file contents');
+    // A descriptor may close between the listing and the look, the listing's own among them.
+    String? pointsAt(FileSystemEntity entry) {
+      try {
+        return Link(entry.path).targetSync();
+      } on FileSystemException {
+        return null;
+      }
+    }
+
     Set<int> masters() => {
-      for (final entry in Directory('/proc/self/fd').listSync())
-        if (FileSystemEntity.typeSync(entry.path, followLinks: false) == FileSystemEntityType.link &&
-            const {'/dev/ptmx', '/dev/pts/ptmx'}.contains(Link(entry.path).targetSync()))
-          int.parse(entry.path.split('/').last),
+      for (final entry in Directory('/proc/self/fd').listSync(followLinks: false))
+        if (const {'/dev/ptmx', '/dev/pts/ptmx'}.contains(pointsAt(entry))) int.parse(entry.path.split('/').last),
     };
     final before = masters();
     final pty = Pty.start(
