@@ -1,6 +1,6 @@
 # F390 — A Change Mostly Of Line Endings
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** S - a sentence and a count, if the machine can give the count.
 
 **What must be true.** Where a change is mostly line endings, *What it touched* says so, with the real count beside the raw one, and the person can read the diff without them, or is told that the diff shown holds them.
@@ -11,8 +11,12 @@ A real test showed a change of three lines as `+1042 -1043`: the agent's commit 
 
 ## Plan
 
-- Read whether the daemon's diff can give both counts; if not, agree it in the room.
-- Show both counts where the change is mostly line endings, and say so in words.
+The contract, agreed with Agent Core: `ReviewFile` gains `addedIgnoringLineEndings: ?int` and `removedIgnoringLineEndings: ?int`, git's `--numstat --ignore-space-at-eol` over the same range, `-1` for a binary as `added` and `removed` are, absent from an older daemon; `Review` takes `ignoreLineEndings: ?bool`, which answers the diff without them.
+
+- `lib/src/client/`: the two counts on `ReviewFile`, read field by field; `review` passes `ignoreLineEndings` only when asked.
+- `lib/src/app/gate.dart`: a file is mostly line endings where both counts are there and the real change is far smaller than the raw one; the switch reads the review again with `ignoreLineEndings`.
+- `lib/src/ui/gate_view.dart`: *What it touched* says "mostly line endings" with the real count beside the raw one; the review offers *Without line endings* only where the daemon serves it, and otherwise says that the diff shown holds them.
+- Red first: a client test that both counts and their absence read right, and a widget test that a CRLF to LF file of three real lines shows both counts and the words.
 
 ## Acceptance
 
@@ -21,8 +25,6 @@ A real test showed a change of three lines as `+1042 -1043`: the agent's commit 
 
 ## Decided while building
 
-## Open questions
-
-- Whether the review shows a diff that ignores line endings, or says that the one shown holds them.
+- Both: the review says the change is mostly line endings with both counts, and offers the diff without them where the daemon serves it.
 
 ## To be checked
