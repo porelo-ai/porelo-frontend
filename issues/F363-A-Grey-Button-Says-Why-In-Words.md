@@ -28,7 +28,8 @@
 ## Decided while building
 
 - **The next step is Core's own sentence** at creating at https: `porelo setup --organization <its ssh address> --replace`, on the computer.
-- **The line covers every command on a list's head,** those a list draws in its menu and those it draws itself. A grey button inside a row, a dialog or a details pane keeps its tooltip here; that is the next step of the same rule.
+- **The line covers every command on a list's head,** those a list draws in its menu and those it draws itself. A grey button inside a row, a dialog or a details pane is apart, in its own issue.
+- **Whether a machine needs ssh at a project's or repository's address** waits for Core's answer; nothing is said there yet.
 
 ## To be checked
 

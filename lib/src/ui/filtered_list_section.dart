@@ -38,6 +38,7 @@ class FilteredListSection extends StatefulWidget {
     this.actions = const [],
     this.commands = const [],
     this.drawnCommands = const [],
+    this.greyWords = const [],
     this.sorts,
     this.reveal,
     this.search,
@@ -80,6 +81,9 @@ class FilteredListSection extends StatefulWidget {
 
   /// The commands [actions] draws itself: why one cannot run is said under the head like any of [commands].
   final List<Command> drawnCommands;
+
+  /// Why a button of [actions] that holds no command is grey, said under the head with the others.
+  final List<String> greyWords;
 
   /// The orders offered, the first being the one it starts in. Left out, a row's words give the one order, *Name*.
   final List<SectionSort>? sorts;
@@ -413,6 +417,11 @@ class _FilteredListSectionState extends State<FilteredListSection> {
                   children: [
                     _header(),
                     // Where a person looks, and not behind a hover.
+                    for (final words in widget.greyWords)
+                      Padding(
+                        padding: const EdgeInsets.only(top: Space.small),
+                        child: Text(words, style: theme.textTheme.bodySmall),
+                      ),
                     for (final command in [...widget.commands, ...widget.drawnCommands])
                       if (command.visible && !command.available && command.unavailable != null)
                         Padding(

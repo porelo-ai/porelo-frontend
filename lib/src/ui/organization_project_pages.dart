@@ -611,6 +611,12 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
     return FilteredListSection(
       title: 'Members',
       storageId: 'project-members ${view.name}',
+      greyWords: [
+        if (isAdmin && view.roles.isEmpty)
+          'Add a member: ${view.name} has no role to give yet.'
+        else if (isAdmin && candidates.isEmpty)
+          'Add a member: everyone holding a role in the organization is in ${view.name} already.',
+      ],
       actions: [
         if (isAdmin)
           OutlinedButton.icon(

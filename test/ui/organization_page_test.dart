@@ -6,6 +6,7 @@ import 'package:porelo_frontend/src/app/commands.dart';
 import 'package:porelo_frontend/src/app/host_progress.dart';
 import 'package:porelo_frontend/src/app/organization_source.dart';
 import 'package:porelo_frontend/src/ui/filtered_list_section.dart';
+import 'package:porelo_frontend/src/ui/organization_dialogs.dart';
 import 'package:porelo_frontend/src/ui/organization_page.dart';
 import 'package:porelo_frontend/src/ui/shell_rail.dart';
 
@@ -255,6 +256,25 @@ void main() {
     );
     expect(find.text('Prepare a machine: it stands at https'), findsOneWidget);
     expect(find.textContaining('Add a machine:'), findsNothing);
+  });
+
+  // Harm: a grey *Add* with nothing to say why, on a list that goes through a page's pending changes.
+  testWidgets('a button a list draws itself says why too, through pending changes', (tester) async {
+    final held = Organization(FixtureOrganization(organizationFor('hana')));
+    addTearDown(held.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: const FilteredListSection(
+            title: 'Members',
+            storageId: 'grey',
+            greyWords: ['Add: nobody is left'],
+            rows: [],
+          ).withOrganizationChanges(held, names: const []),
+        ),
+      ),
+    );
+    expect(find.text('Add: nobody is left'), findsOneWidget);
   });
 
   // Harm: a machine named and not yet prepared offers a page that goes on leaving, and *Change address
@@ -1163,7 +1183,7 @@ void main() {
       expect(word, findsNothing);
       await tester.enterText(find.byKey(const Key('organization-address')), 'https://github.com/acme/org.git');
       await tester.pumpAndSettle();
-      expect(word, findsOneWidget);
+      expect(tester.widget<Text>(word).data, allOf(contains('no machine can follow'), contains('git@')));
       expect(fixture.writes, isEmpty);
       await tester.tap(find.byKey(const Key('organization-confirm')));
       await tester.pumpAndSettle();

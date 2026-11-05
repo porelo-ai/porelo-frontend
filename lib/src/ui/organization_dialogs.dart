@@ -202,6 +202,8 @@ class OrganizationListSection extends StatelessWidget {
       title: section.title,
       storageId: section.storageId,
       emptyWords: section.emptyWords,
+      greyWords: section.greyWords,
+      drawnCommands: section.drawnCommands,
       collapsible: section.collapsible,
       initiallyOpen: section.initiallyOpen,
       openWhenCompact: section.openWhenCompact,

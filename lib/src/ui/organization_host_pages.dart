@@ -587,6 +587,10 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     return FilteredListSection(
       title: 'Machine Admins',
       storageId: 'host-admins ${host.name}',
+      greyWords: [
+        if (view.mayNameAdminsOf(host) && candidates.isEmpty)
+          'Add a Machine Admin: everyone holding a role in the organization is one already.',
+      ],
       actions: [
         if (view.mayNameAdminsOf(host))
           OutlinedButton.icon(

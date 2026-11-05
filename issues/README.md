@@ -18,6 +18,10 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f367"></a>[F367](F367-A-Connect-That-Ends-Unconnected-Says-Why.md) | — | — | A *Connect* that ends unconnected says why beside the button, a machine waiting for its token leads to giving it, and row and page agree. |
+| <a id="f363"></a>[F363](F363-A-Grey-Button-Says-Why-In-Words.md) | — | — | A disabled action says why in text, not a tooltip, and creating at an https address says beforehand that a machine cannot follow it. |
+| <a id="f361"></a>[F361](F361-A-Project-With-No-Git-Repository-Yet.md) | — | — | A project with no Git repository says so on the Organization page, where its Project Admin creates it, told by *Needs you*; it then appears under *My projects*. |
+| <a id="f360"></a>[F360](F360-A-Count-Says-What-It-Counts.md) | — | — | Where the side bar and a page count different things under one name, such as *Machines*, the words say the difference. |
 | <a id="f369"></a>[F369](F369-One-Name-For-The-Default-Project.md) | — | — | The project every machine has is called *Default* in the window, as in Core and its documents, in place of "Without a project". |
 | <a id="f356"></a>[F356](F356-The-Porelo-Organization-Named-Apart.md) | — | — | The window says *Porelo organization* wherever a forge's organization could also be meant, and says it lives in a repository inside that one. |
 | <a id="f359"></a>[F359](F359-An-Empty-List-Starts-Folded.md) | — | — | A list with no rows starts folded and folds when emptied, a fold the person chose is kept, and the head's actions stay usable. |
@@ -76,21 +80,18 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f367"></a>[F367](F367-A-Connect-That-Ends-Unconnected-Says-Why.md) | — | — | A *Connect* that ends unconnected says why beside the button, a machine waiting for its token leads to giving it, and row and page agree. |
 | <a id="f364"></a>[F364](F364-Repositories-Added-Before-A-Machine.md) | — | — | A repository added before the project has a machine is filed with its central address, so that order works; a row without one says so. |
 
 ### Backlog
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f373"></a>[F373](F373-A-Grey-Button-In-A-Row-Says-Why.md) | S | — | A grey button in a row, a pane or a dialog says why in words. |
 | <a id="f365"></a>[F365](F365-A-Host-Key-Fetched-Too-Early.md) | M | — | A machine's host key is compared by one named command and fetched again at *Prepare*; a refused key says what to do, and the name is a choice. |
 | <a id="f369"></a>[F369](F369-One-Name-For-The-Default-Project.md) | S | — | The project every machine has is called *Default* in the window, as in Core and its documents, in place of "Without a project". |
 | <a id="f359"></a>[F359](F359-An-Empty-List-Starts-Folded.md) | S | — | A list with no rows starts folded and folds when emptied, a fold the person chose is kept, and the head's actions stay usable. |
 | <a id="f356"></a>[F356](F356-The-Porelo-Organization-Named-Apart.md) | M | — | The window says *Porelo organization* wherever a forge's organization could also be meant, and says it lives in a repository inside that one. |
 | <a id="f362"></a>[F362](F362-A-Click-Answers-At-Once.md) | S | — | A click on a row shows its page and its reading line at once; the delay seen in the foo test is measured down to its cause. |
-| <a id="f361"></a>[F361](F361-A-Project-With-No-Git-Repository-Yet.md) | — | — | A project with no Git repository says so on the Organization page, where its Project Admin creates it, told by *Needs you*; it then appears under *My projects*. |
-| <a id="f360"></a>[F360](F360-A-Count-Says-What-It-Counts.md) | — | — | Where the side bar and a page count different things under one name, such as *Machines*, the words say the difference. |
-| <a id="f363"></a>[F363](F363-A-Grey-Button-Says-Why-In-Words.md) | — | — | A disabled action says why in text, not a tooltip, and creating at an https address says beforehand that a machine cannot follow it. |
 | <a id="f357"></a>[F357](F357-A-Hosts-Forge-And-VMs-As-Plain-Choices.md) | M | — | The put-on-a-host dialog asks in plain words about a forge of its own and VMs in its jobs, with what each costs, and says what the machine can carry. |
 | <a id="f358"></a>[F358](F358-A-Hosts-Check-Before-Its-Installation.md) | L | — | The host dialog's first step after the address runs one reading check, lists every finding, and offers the installation only when it passes. |
 | <a id="f99"></a>[F99](F99-An-Attached-Agent-Shown-At-Rest-Or-Working.md) | S | — | A work tile says whether an attached agent is at rest or working. |
