@@ -1,6 +1,6 @@
 # F358 — A Host's Check Before Its Installation
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** L - one check in the dialog with its list and choices, on the collection's answer, and an offer compared before renting.
 
 **What must be true.** A person who rented a machine anywhere and left their ssh key there learns at once, before anything is installed, whether it can do what they want: the host dialog's first step after the address runs one check, shows everything it found, offers the installation only when it passes, and lets a choice be changed there with the check run again.

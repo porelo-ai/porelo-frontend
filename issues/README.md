@@ -18,6 +18,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f358"></a>[F358](F358-A-Hosts-Check-Before-Its-Installation.md) | — | — | The host dialog's first step after the address runs one reading check, lists every finding, and offers the installation only when it passes. |
 | <a id="f374"></a>[F374](F374-What-Founding-Needs-Said-Before-Founding.md) | — | — | The dialog of creating asks Core what founding needs at the address, each need with what to do, before anything is filed. |
 | <a id="f356"></a>[F356](F356-The-Porelo-Organization-Named-Apart.md) | — | — | The window says *Porelo organization* wherever a forge's organization could also be meant, and says it lives in a repository inside that one. |
 | <a id="f359"></a>[F359](F359-An-Empty-List-Starts-Folded.md) | — | — | A list with no rows starts folded and folds when emptied, a fold the person chose is kept, and the head's actions stay usable. |
@@ -82,7 +83,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f358"></a>[F358](F358-A-Hosts-Check-Before-Its-Installation.md) | — | — | The host dialog's first step after the address runs one reading check, lists every finding, and offers the installation only when it passes. |
 
 ### Backlog
 
