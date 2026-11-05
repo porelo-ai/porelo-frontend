@@ -153,6 +153,9 @@ method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
     daemon.method('Node', (_) => <String, dynamic>{'id': _nodeId});
     daemon.method('Backups', _backups);
     daemon.method('WorkHeld', _workHeld);
+    daemon.method('ImageSettings', _imageSettings);
+    daemon.method('FirstStart', _firstStart);
+    daemon.method('ConfirmFirstStart', _confirmFirstStart);
     daemon.method('DeleteBackup', _deleteBackup);
     daemon.method('RestoreBackup', _restoreBackup);
     daemon.method('SyncUpstream', _syncUpstream);
@@ -1259,6 +1262,66 @@ method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
 
   /// What a task holds that never reached the gate.
   ///
+  /// A first start in a checkout: found Maven, once, and known after a yes.
+  Map<String, dynamic> _firstStart(Map<String, dynamic> parameters) {
+    final checkout = parameters['checkout'] as String? ?? '';
+    final name = '${checkout.split('/').last}-project';
+    if (_firstStartsApproved.contains(checkout)) {
+      return <String, dynamic>{
+        'outcome': 'KNOWN',
+        'found': const <Object>[],
+        'hosts': const <Object>[],
+        'marked': const <Object>[],
+        'file': '',
+        'project': name,
+        'hash': '',
+      };
+    }
+    return <String, dynamic>{
+      'outcome': 'ASK_NEW',
+      'found': <Map<String, dynamic>>[
+        <String, dynamic>{'what': 'tool', 'value': 'maven', 'source': 'pom.xml'},
+      ],
+      'hosts': const <String>['repo.maven.apache.org'],
+      'marked': const <String>[],
+      'file': 'project: $name\n',
+      'project': name,
+      'hash': 'mock-hash',
+    };
+  }
+
+  /// A yes to the first start asked about.
+  Map<String, dynamic> _confirmFirstStart(Map<String, dynamic> parameters) {
+    final checkout = parameters['checkout'] as String? ?? '';
+    _firstStartsApproved.add(checkout);
+    return <String, dynamic>{'project': '${checkout.split('/').last}-project'};
+  }
+
+  final Set<String> _firstStartsApproved = <String>{};
+
+  /// What a task's image was built with: a project's from its `project.yml`, Default's from Porelo.
+  Map<String, dynamic> _imageSettings(Map<String, dynamic> parameters) {
+    final name = parameters['task'] as String? ?? '';
+    final task = tasks.firstWhere((each) => each['name'] == name, orElse: () => const <String, dynamic>{});
+    if (task.isEmpty) throw MockRefusal('org.fuin.porelo.Tasks1.NoSuchTask');
+    final source = task['project'] == 'default' ? 'porelo' : 'project.yml';
+    Map<String, dynamic> from(String value, [String? where]) => <String, dynamic>{
+      'value': value,
+      'source': where ?? source,
+    };
+    return <String, dynamic>{
+      'known': true,
+      'baseImage': from('ubuntu:26.04'),
+      'packages': <Map<String, dynamic>>[from('jq')],
+      'tools': <Map<String, dynamic>>[from('git', 'porelo')],
+      'lines': <Map<String, dynamic>>[from('RUN apt-get install -y jq')],
+      'agent': from('claude', 'agent package'),
+      'agentVersion': '1.0.0',
+      'securityClass': from('standard'),
+      'recorded': '2026-11-05T09:00:00Z',
+    };
+  }
+
   /// **Three answers, and the mock has to be able to give all three** — *holds nothing*, *holds
   /// this much*, and *nobody could look* — because a fake that only ever succeeded would prove
   /// none of what the screen is careful about.

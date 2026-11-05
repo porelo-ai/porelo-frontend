@@ -82,6 +82,8 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f316"></a>[F316](F316-An-Owner-Accepts-A-Lost-Keys-New-Card.md) | — | — | An owner puts a person's new card in place of a lost key from their row under *People*. |
 | <a id="f320"></a>[F320](F320-A-First-Organization-Without-Hand-Work.md) | M | — | A forge's ssh host key confirmed in the interface, so a first organization needs no hand work. |
 | <a id="f323"></a>[F323](F323-Refuse-An-Organization-A-Host-Cannot-Follow.md) | — | — | An organization a host cannot follow refused before the host is prepared. |
+| <a id="f382"></a>[F382](F382-An-Images-Settings-In-Work.md) | — | — | A button in *Work* shows which settings the task's image was built with, and where each comes from. |
+| <a id="f385"></a>[F385](F385-New-Work-Confirms-What-Was-Detected.md) | — | — | *New work* on this computer asks the same question as a first start before it writes `project.yml`. |
 
 ### Rework
 
@@ -100,8 +102,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 |---|---|---|---|
 | <a id="f379"></a>[F379](F379-Add-A-Project-In-One-Step-From-The-Window.md) | S | — | A person naming themselves Project Admin adds a project in one step from the window. |
 | <a id="f377"></a>[F377](F377-A-Hosts-Channel-Follows-The-Window.md) | S | — | A host the window prepares installs from the window's own channel. |
-| <a id="f382"></a>[F382](F382-An-Images-Settings-In-Work.md) | S | — | A button in *Work* shows which settings the task's image was built with, and where each comes from. |
-| <a id="f385"></a>[F385](F385-New-Work-Confirms-What-Was-Detected.md) | S | — | *New work* on this computer asks the same question as a first start before it writes `project.yml`. |
 | <a id="f365"></a>[F365](F365-A-Host-Key-Fetched-Too-Early.md) | M | — | A machine's host key is compared by one named command and fetched again at *Prepare*; a refused key says what to do, and the name is a choice. |
 | <a id="f369"></a>[F369](F369-One-Name-For-The-Default-Project.md) | S | — | The project every machine has is called *Default* in the window, as in Core and its documents, in place of "Without a project". |
 | <a id="f359"></a>[F359](F359-An-Empty-List-Starts-Folded.md) | S | — | A list with no rows starts folded and folds when emptied, a fold the person chose is kept, and the head's actions stay usable. |

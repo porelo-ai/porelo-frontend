@@ -1337,6 +1337,7 @@ class WorkRow extends StatelessWidget {
     this.onFollow,
     this.onNewTerminal,
     this.onReadLog,
+    this.onImageSettings,
     this.onSeeInNeedsYou,
     this.highlight,
     this.onShown,
@@ -1366,6 +1367,9 @@ class WorkRow extends StatelessWidget {
 
   /// Opens a log of it.
   final VoidCallback? onReadLog;
+
+  /// Shows what its image was built with.
+  final VoidCallback? onImageSettings;
 
   /// Goes to what needs a person.
   final VoidCallback? onSeeInNeedsYou;
@@ -1600,6 +1604,7 @@ class WorkRow extends StatelessWidget {
         else
           readLog(),
       ],
+      if (task != null && onImageSettings != null) step('tile-image-settings', 'Image settings', onImageSettings),
       if (_needsSomebody) step('tile-see-needs', 'See it in Needs you', onSeeInNeedsYou),
       if (task != null && !task.running) ...<Widget>[
         readLog(),

@@ -138,6 +138,7 @@ import 'work_page.dart';
 import 'wsl_machine.dart';
 import 'dialog_scroll.dart';
 import 'host_dialog.dart';
+import 'image_settings_view.dart';
 
 /// The one window: a rail saying where you are, and that place beside it.
 ///
@@ -952,6 +953,8 @@ class _ShellState extends State<Shell> {
       return picked;
     },
     onStartWork: onStartWork,
+    thisComputer: widget.machines.current.isThisComputer,
+    onStartProject: _startWorkIn,
   );
 
   /// [project]'s address as last read, empty where none is known: it then matches no forge.
@@ -3306,6 +3309,7 @@ class _ShellState extends State<Shell> {
             focusNode: _openedFocus,
             onAnswer: () => widget.shell.goTo(Section.attention),
             onReadLog: _readLogOf,
+            onImageSettings: _showImageSettings,
           ),
           tile: _workRow,
         );
@@ -3345,8 +3349,16 @@ class _ShellState extends State<Shell> {
       onFollow: place == null ? null : () => _workView.showTab(place),
       onNewTerminal: task == null ? null : () => _workView.showNewTerminal(tile.machine.name, task),
       onReadLog: task == null ? null : () => _readLogOf(tile),
+      onImageSettings: task == null ? null : () => _showImageSettings(tile),
       onSeeInNeedsYou: () => widget.shell.goTo(Section.attention),
     );
+  }
+
+  /// Shows what a row's image was built with, read from its own machine.
+  void _showImageSettings(Tile tile) {
+    final task = tile.task;
+    if (task == null) return;
+    unawaited(showImageSettings(context, backend: tile.fleet.backend, task: task.name));
   }
 
   /// Opens a log of [tile]'s work: what its agent wrote where it wrote one, or the ones it has to choose

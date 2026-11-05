@@ -5,6 +5,9 @@ import 'package:porelo_frontend/client.dart';
 
 import '../app/fleet_backend.dart';
 import '../app/forge.dart';
+import '../app/run_here.dart';
+import 'first_start_view.dart';
+import 'pick_a_file.dart';
 import 'dialog_scroll.dart';
 import 'tokens.dart';
 
@@ -21,10 +24,18 @@ Future<void> showTheDefault(
   required String machineName,
   Future<({ForgeRepository repository, Forge forge})?> Function()? pickAtAForge,
   Future<void> Function(String repository)? onStartWork,
+  bool thisComputer = false,
+  Future<void> Function(String project)? onStartProject,
 }) => showDialog<void>(
   context: context,
-  builder: (_) =>
-      DefaultDialog(machine: machine, machineName: machineName, pickAtAForge: pickAtAForge, onStartWork: onStartWork),
+  builder: (_) => DefaultDialog(
+    machine: machine,
+    machineName: machineName,
+    pickAtAForge: pickAtAForge,
+    onStartWork: onStartWork,
+    thisComputer: thisComputer,
+    onStartProject: onStartProject,
+  ),
 );
 
 /// `default`: what a machine works on in the Default project, with Porelo's own settings, fixed.
@@ -35,6 +46,10 @@ class DefaultDialog extends StatefulWidget {
     required this.machineName,
     this.pickAtAForge,
     this.onStartWork,
+    this.thisComputer = false,
+    this.onStartProject,
+    this.pickAFolder = pickFolderWithTheDesktop,
+    this.runGit = runHere,
     super.key,
   });
 
@@ -50,6 +65,19 @@ class DefaultDialog extends StatefulWidget {
   /// Starts work on the repository named, once it is in `default`; null where the dialog only lists
   /// what is there to take out.
   final Future<void> Function(String repository)? onStartWork;
+
+  /// Whether the machine is the window's own computer: only there is a checkout's question asked, as no
+  /// plugin runs on another machine and a path here means nothing there.
+  final bool thisComputer;
+
+  /// Starts work by the project a checkout's first start names.
+  final Future<void> Function(String project)? onStartProject;
+
+  /// Asks the desktop for a checkout.
+  final PickAFolder pickAFolder;
+
+  /// Reads a checkout's origin on this computer.
+  final RunHere runGit;
 
   @override
   State<DefaultDialog> createState() => _DefaultDialogState();
@@ -90,6 +118,83 @@ class _DefaultDialogState extends State<DefaultDialog> {
     Navigator.of(context).pop();
     unawaited(widget.onStartWork!(added.name));
   });
+
+  /// A checkout of this computer: the same question as a first start in a terminal, and work by what it
+  /// answers. Anything but a yes leaves the start as it is without one: its origin in the field.
+  Future<void> _fromACheckout() async {
+    final checkout = await widget.pickAFolder(title: 'Use this checkout');
+    if (checkout == null || !mounted) return;
+    await _asking(() async {
+      _said = null;
+      final String? project;
+      try {
+        project = await _projectOf(checkout);
+      } on VarlinkException catch (refusal) {
+        if (refusal.simpleName != 'FirstStartRefused') rethrow;
+        _problem = refusal.parameters['detail'] as String? ?? refusal.simpleName;
+        await _fillTheOrigin(checkout);
+        return;
+      } on FeatureNotSupported {
+        _said =
+            '${widget.machineName} runs a Porelo that does not ask about a checkout yet, so this start uses '
+            'Porelo\u2019s own settings.';
+        await _fillTheOrigin(checkout);
+        return;
+      }
+      if (!mounted) return;
+      if (project != null) {
+        Navigator.of(context).pop();
+        unawaited(widget.onStartProject!(project));
+      } else {
+        await _fillTheOrigin(checkout);
+      }
+    });
+  }
+
+  /// The project to start in, or null where this start goes on as it is without one.
+  Future<String?> _projectOf(String checkout) async {
+    final first = await widget.machine.firstStart(checkout);
+    if (!mounted) return null;
+    if (first.asks) {
+      if (first.hash.isEmpty) {
+        _said = 'The machine asked nothing that a yes could name, so nothing was written.';
+        return null;
+      }
+      if (await askFirstStart(context, first: first) != true) {
+        _said = 'Nothing was written or kept, and the next start in this checkout asks again.';
+        return null;
+      }
+      return widget.machine.confirmFirstStart(checkout, first.hash);
+    }
+    if (first.outcome == FirstStart.known || first.outcome == FirstStart.notDefault) {
+      if (first.project.isNotEmpty) return first.project;
+    }
+    _said = switch (first.outcome) {
+      'NO_PLUGIN' =>
+        'No plugin on this computer can read this checkout, so this start uses Porelo\u2019s own settings.',
+      'NOTHING_RECOGNIZED' => 'Nothing in this checkout was recognized, so this start uses Porelo\u2019s own settings.',
+      _ => null,
+    };
+    return null;
+  }
+
+  /// The address a start without a project works on, read from [checkout]; said where there is none.
+  Future<void> _fillTheOrigin(String checkout) async {
+    final Ran origin;
+    try {
+      origin = await widget.runGit('git', const <String>['remote', 'get-url', 'origin'], inDirectory: checkout);
+    } on Object {
+      _problem ??= 'Git could not read this checkout\u2019s origin here, so name its address below.';
+      return;
+    }
+    if (!mounted) return;
+    final address = origin.out.trim();
+    if (origin.code != 0 || address.isEmpty) {
+      _problem ??= 'This checkout names no origin, so name its address below.';
+      return;
+    }
+    setState(() => _address.text = address);
+  }
 
   Future<void> _remove(DefaultRepository repository) => _asking(() async {
     final done = await widget.machine.removeFromDefault(repository.name);
@@ -211,6 +316,22 @@ class _DefaultDialogState extends State<DefaultDialog> {
                   (repositories ?? const <DefaultRepository>[]).isEmpty ? 'Which repository' : 'Or another one',
                   style: text.titleSmall,
                 ),
+                if (widget.thisComputer && widget.onStartProject != null) ...<Widget>[
+                  const SizedBox(height: Space.tight),
+                  OutlinedButton(
+                    key: const Key('default-checkout'),
+                    onPressed: _busy ? null : () => unawaited(_fromACheckout()),
+                    child: const Text('Use a checkout on this computer'),
+                  ),
+                  const SizedBox(height: Space.tight),
+                ],
+                if (!widget.thisComputer)
+                  Text(
+                    'Nothing is detected on ${widget.machineName}: work there uses what the repository holds, and '
+                    'with no project.yml in it, Porelo\u2019s own settings.',
+                    key: const Key('default-nothing-detected'),
+                    style: text.bodySmall,
+                  ),
                 // Two ways to fill the same field, side by side: typed, or picked at a forge.
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.center,

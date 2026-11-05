@@ -1322,6 +1322,47 @@ class FakeBackend implements FleetBackend {
     return theWorkItHolds;
   }
 
+  /// What the next first start answers. Set by the scenario.
+  FirstStart theFirstStartSays = const FirstStart(outcome: 'NOTHING_RECOGNIZED');
+
+  /// What a yes to a first start fails with, in place of an answer. Set by the scenario.
+  Object? confirmFails;
+
+  /// Every checkout asked about.
+  final List<String> firstStartsAsked = <String>[];
+
+  /// Every yes: the checkout and the hash.
+  final List<(String, String)> firstStartsConfirmed = <(String, String)>[];
+
+  @override
+  Future<FirstStart> firstStart(String checkout) async {
+    firstStartsAsked.add(checkout);
+    return theFirstStartSays;
+  }
+
+  @override
+  Future<String> confirmFirstStart(String checkout, String hash) async {
+    if (confirmFails case final failure?) throw failure;
+    firstStartsConfirmed.add((checkout, hash));
+    return theFirstStartSays.project;
+  }
+
+  /// What every task's image was built with. Set by the scenario.
+  ImageSettings theImageSays = const ImageSettings(known: false);
+
+  /// What asking for an image's settings fails with, in place of an answer. Set by the scenario.
+  Object? imageSettingsFails;
+
+  /// Every task whose image was asked about.
+  final List<String> imagesAsked = <String>[];
+
+  @override
+  Future<ImageSettings> imageSettings(String task) async {
+    imagesAsked.add(task);
+    if (imageSettingsFails case final failure?) throw failure;
+    return theImageSays;
+  }
+
   /// What the next sync answers. Set by the scenario.
   Synced theSyncAnswers = const Synced(outcome: 'MEASURED', behind: 3, measured: true, reason: 'MEASURED', detail: '');
 

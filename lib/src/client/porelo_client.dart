@@ -800,6 +800,20 @@ class PoreloClient {
     return Usage.from(reply['usage'] is Map ? (reply['usage'] as Map).cast<String, dynamic>() : const {});
   }
 
+  /// What [task]'s image was built with and where each thing came from, as the image recorded it.
+  Future<ImageSettings> imageSettings(String task) async =>
+      ImageSettings.from(await _call('ImageSettings', {'task': task}));
+
+  /// What a first start in [checkout], a folder of the machine's own computer, is to do. Changes nothing.
+  Future<FirstStart> firstStart(String checkout) async =>
+      FirstStart.from(await _call('FirstStart', {'checkout': checkout}));
+
+  /// A person's yes to the text [hash] names: answers the project a start then names.
+  Future<String> confirmFirstStart(String checkout, String hash) async {
+    final reply = await _call('ConfirmFirstStart', {'checkout': checkout, 'hash': hash});
+    return reply['project'] as String? ?? '';
+  }
+
   // --------------------------------------------------------------------- the gate
 
   /// What is waiting at a project's gate.

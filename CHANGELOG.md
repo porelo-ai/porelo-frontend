@@ -7,6 +7,11 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- *Image settings* in *Work*, on an opened row and on *Running*, shows what a task's image was built with and where each thing comes from.
+- *New work* on this computer can start from a checkout there, asking the same question as a first start in a terminal before it writes `project.yml`; on another machine it says that nothing is detected there.
+
 ### Changed
 
 - The waits-on-you note under *Running* shows a question's time left, updates while it counts down, and says when time is up or the machine gives no deadline.

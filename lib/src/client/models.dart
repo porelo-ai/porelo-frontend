@@ -2666,6 +2666,178 @@ class HeldWork {
   bool get current => asOf == null;
 }
 
+/// One thing a first start found in a checkout, and the file it was read from.
+class Finding {
+  /// What kind of thing it is: a package, a tool, another setting.
+  final String what;
+
+  /// What it is; beginning `unknown: `, it could not be read without running something, and says why.
+  final String value;
+
+  /// The file it was read from.
+  final String source;
+
+  /// Constructor taking every field.
+  const Finding({this.what = '', this.value = '', this.source = ''});
+
+  /// Reads one from a reply.
+  factory Finding.from(Map<String, dynamic> map) => Finding(
+    what: map['what'] as String? ?? '',
+    value: map['value'] as String? ?? '',
+    source: map['source'] as String? ?? '',
+  );
+}
+
+/// What a first start in a checkout on this computer is to do. Asking changes nothing.
+class FirstStart {
+  /// Nothing is configured and something was recognized: [file] would be written.
+  static const askNew = 'ASK_NEW';
+
+  /// The checkout holds a `project.yml` this machine has not approved.
+  static const askUnknownFile = 'ASK_UNKNOWN_FILE';
+
+  /// This machine approved what the checkout holds: nothing to ask.
+  static const known = 'KNOWN';
+
+  /// A repository of an organization's project: no question.
+  static const notDefault = 'NOT_DEFAULT';
+
+  /// One of the words above, or `NO_PLUGIN` or `NOTHING_RECOGNIZED`.
+  final String outcome;
+
+  /// What was found, for a person to read before a yes.
+  final List<Finding> found;
+
+  /// The network access a yes opens.
+  final List<String> hosts;
+
+  /// Those of [hosts] only the checkout names, in no curated set; with any, a yes is not the default.
+  final List<String> marked;
+
+  /// The text a yes approves; for a file already there, each line printable, under a `--- <name> ---` line.
+  final String file;
+
+  /// The project it would be or is.
+  final String project;
+
+  /// What a yes names, so that it holds only for the text shown.
+  final String hash;
+
+  /// Constructor taking every field.
+  const FirstStart({
+    required this.outcome,
+    this.found = const <Finding>[],
+    this.hosts = const <String>[],
+    this.marked = const <String>[],
+    this.file = '',
+    this.project = '',
+    this.hash = '',
+  });
+
+  /// Whether it asks a person.
+  bool get asks => outcome == askNew || outcome == askUnknownFile;
+
+  /// Reads one from a reply.
+  factory FirstStart.from(Map<String, dynamic> map) {
+    List<String> words(Object? list) => list is List ? list.whereType<String>().toList() : const <String>[];
+    final found = map['found'];
+    return FirstStart(
+      outcome: map['outcome'] as String? ?? '',
+      found: found is List
+          ? <Finding>[
+              for (final each in found.whereType<Map<Object?, Object?>>()) Finding.from(each.cast<String, dynamic>()),
+            ]
+          : const <Finding>[],
+      hosts: words(map['hosts']),
+      marked: words(map['marked']),
+      file: map['file'] as String? ?? '',
+      project: map['project'] as String? ?? '',
+      hash: map['hash'] as String? ?? '',
+    );
+  }
+}
+
+/// One thing a task's image was built with, and where that came from.
+class ImageSetting {
+  /// What it is; a value may hold `<withheld>` where the machine does not repeat it.
+  final String value;
+
+  /// Where it came from: `project.yml`, `porelo`, `agent package`, or the words a start prints for a
+  /// repository's own image; one this client does not know is shown as it comes.
+  final String source;
+
+  /// Constructor taking both.
+  const ImageSetting({this.value = '', this.source = ''});
+
+  /// Reads one from a reply; nothing there is an empty one.
+  factory ImageSetting.from(Object? map) => map is Map
+      ? ImageSetting(value: map['value'] as String? ?? '', source: map['source'] as String? ?? '')
+      : const ImageSetting();
+
+  static List<ImageSetting> _list(Object? list) =>
+      list is List ? <ImageSetting>[for (final each in list) ImageSetting.from(each)] : const <ImageSetting>[];
+}
+
+/// What a task's image was built with, as the image itself recorded it.
+///
+/// **Asked for one task, when somebody opens it**, and read from the image's label: an older image, or a
+/// label that cannot be read, answers [known] false with every value empty, which says nothing about
+/// what is in it.
+class ImageSettings {
+  /// Whether the image says at all. Everything below is empty when it does not.
+  final bool known;
+
+  /// The image it was built on.
+  final ImageSetting baseImage;
+
+  /// Packages, read from install commands only, so a snippet may install more than this names.
+  final List<ImageSetting> packages;
+
+  /// Tools.
+  final List<ImageSetting> tools;
+
+  /// The snippet's lines, verbatim.
+  final List<ImageSetting> lines;
+
+  /// The agent.
+  final ImageSetting agent;
+
+  /// The agent's version; empty unless shaped like a version.
+  final String agentVersion;
+
+  /// The security class.
+  final ImageSetting securityClass;
+
+  /// When the image was built, as the machine wrote it.
+  final String recorded;
+
+  /// Constructor taking every field.
+  const ImageSettings({
+    required this.known,
+    this.baseImage = const ImageSetting(),
+    this.packages = const <ImageSetting>[],
+    this.tools = const <ImageSetting>[],
+    this.lines = const <ImageSetting>[],
+    this.agent = const ImageSetting(),
+    this.agentVersion = '',
+    this.securityClass = const ImageSetting(),
+    this.recorded = '',
+  });
+
+  /// Reads one from a reply.
+  factory ImageSettings.from(Map<String, dynamic> map) => ImageSettings(
+    known: map['known'] == true,
+    baseImage: ImageSetting.from(map['baseImage']),
+    packages: ImageSetting._list(map['packages']),
+    tools: ImageSetting._list(map['tools']),
+    lines: ImageSetting._list(map['lines']),
+    agent: ImageSetting.from(map['agent']),
+    agentVersion: map['agentVersion'] as String? ?? '',
+    securityClass: ImageSetting.from(map['securityClass']),
+    recorded: map['recorded'] as String? ?? '',
+  );
+}
+
 /// What asking the upstream how far behind a project is answered.
 ///
 /// **Its own call rather than a flag on a listing**, and that is the point: a listing that reached

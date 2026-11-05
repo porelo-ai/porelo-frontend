@@ -35,6 +35,7 @@ class RunningView extends StatefulWidget {
     required this.focusNode,
     required this.onAnswer,
     required this.onReadLog,
+    this.onImageSettings,
     super.key,
   });
 
@@ -61,6 +62,9 @@ class RunningView extends StatefulWidget {
 
   /// Opens a log of work that has no terminal to open.
   final void Function(Tile tile) onReadLog;
+
+  /// Shows what a task's image was built with.
+  final void Function(Tile tile)? onImageSettings;
 
   @override
   State<RunningView> createState() => _RunningViewState();
@@ -370,6 +374,12 @@ class _RunningViewState extends State<RunningView> {
                 child: Text(WorkRow.wayOf(task), key: const Key('running-way'), style: small),
               ),
             ),
+            if (widget.onImageSettings case final show?)
+              TextButton(
+                key: const Key('running-image-settings'),
+                onPressed: () => show(tile),
+                child: const Text('Image settings'),
+              ),
           ],
           <Widget>[
             if (terminal) Text('Ctrl+PgUp / PgDn: next agent', style: small),

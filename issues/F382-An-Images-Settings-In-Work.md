@@ -1,6 +1,6 @@
 # F382 — An Image's Settings In Work
 
-**Status:** Backlog.
+**Status:** Review.
 **Size:** S - a step and a dialog, once the daemon says what it was built with.
 
 **What must be true.** In *Work*, a button shows which settings the task's image was built with: base image, packages and tools, the agent and its version, security class, and where each comes from: `project.yml`, or Porelo's settings for *Default*.
@@ -16,6 +16,11 @@
 
 ## Decided while building
 
+- The daemon's answer is `ImageSettings(task)`; an image that does not say is shown as not saying, never as empty, and an older Porelo is said.
+- A whole path to a project's file on a real machine is shown as the file and where in it: the folder only repeated itself on each line. A source this window does not know is shown as it comes.
+
 ## Open questions
 
 ## To be checked
+
+- Seen once in the real window on a real daemon's task of a project, from the row and from *Running*. A task in *Default* is held by a unit test alone.

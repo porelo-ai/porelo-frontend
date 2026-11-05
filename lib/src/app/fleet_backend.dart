@@ -560,6 +560,16 @@ abstract class FleetBackend {
 
   /// What [task] used so far; [FeatureNotSupported] from a Porelo without `Usage`.
   Future<Usage> usage(String task);
+
+  /// What [task]'s image was built with; [FeatureNotSupported] from a Porelo without `ImageSettings`.
+  Future<ImageSettings> imageSettings(String task);
+
+  /// What a first start in [checkout] is to do; call it only for the window's own computer.
+  /// [FeatureNotSupported] from a Porelo without `FirstStart`.
+  Future<FirstStart> firstStart(String checkout);
+
+  /// A person's yes to the text [hash] names; answers the project a start then names.
+  Future<String> confirmFirstStart(String checkout, String hash);
 }
 
 /// A real Porelo daemon, local or forwarded.
@@ -1048,6 +1058,15 @@ class PoreloBackend implements FleetBackend {
 
   @override
   Future<Usage> usage(String task) => _opened().usage(task);
+
+  @override
+  Future<ImageSettings> imageSettings(String task) => _opened().imageSettings(task);
+
+  @override
+  Future<FirstStart> firstStart(String checkout) => _opened().firstStart(checkout);
+
+  @override
+  Future<String> confirmFirstStart(String checkout, String hash) => _opened().confirmFirstStart(checkout, hash);
 
   /// Which of `last` and `formatted` this machine's `Tail` takes, read off its contract once.
   Future<Set<String>> _whatTailTakes() async {
