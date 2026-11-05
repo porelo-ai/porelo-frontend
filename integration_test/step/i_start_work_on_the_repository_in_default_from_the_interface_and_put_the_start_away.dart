@@ -8,7 +8,27 @@ import 'the_test_machine_has_a_repository_to_work_on.dart';
 /// Default is no project listed under Projects any more).
 Future<void> openTheDefaultFromWork(WidgetTester tester) async {
   await toThePlace(tester, 'work');
-  await tester.tap(find.byKey(const Key('new-work')));
+  // Stands on the list's own head. A machine with no work has only the first steps, whose third
+  // opens once the second is skipped for Default.
+  final list = find.byKey(const Key('work-view-list'));
+  if (list.evaluate().isNotEmpty) {
+    await tester.tap(list);
+    await pumpFor(tester);
+  }
+  final newWork = find.byKey(const Key('new-work'));
+  final first = find.byKey(const Key('first-new-work'));
+  final skip = find.byKey(const Key('first-no-project'));
+  await pumpUntil(
+    tester,
+    () => newWork.evaluate().isNotEmpty || first.evaluate().isNotEmpty || skip.evaluate().isNotEmpty,
+    timeout: const Duration(seconds: 30),
+    what: 'the way to new work',
+  );
+  if (newWork.evaluate().isEmpty && first.evaluate().isEmpty) {
+    await tester.tap(skip);
+    await pumpFor(tester);
+  }
+  await tester.tap(newWork.evaluate().isNotEmpty ? newWork : first);
   await pumpFor(tester);
   final machine = find.byKey(ValueKey<String>('new-work-on ${E2e.name}'));
   if (machine.evaluate().isNotEmpty) {
