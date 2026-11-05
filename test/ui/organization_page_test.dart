@@ -2,8 +2,10 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:porelo_frontend/src/app/commands.dart';
 import 'package:porelo_frontend/src/app/host_progress.dart';
 import 'package:porelo_frontend/src/app/organization_source.dart';
+import 'package:porelo_frontend/src/ui/filtered_list_section.dart';
 import 'package:porelo_frontend/src/ui/organization_page.dart';
 import 'package:porelo_frontend/src/ui/shell_rail.dart';
 
@@ -228,6 +230,33 @@ void main() {
     });
   });
 
+  // Harm: in the foo test nothing said anything at creating, and later *Prepare a machine…* was simply grey.
+  testWidgets('a list says why a command is grey, in words and with no hover', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: FilteredListSection(
+            title: 'Machines',
+            storageId: 'grey',
+            commands: [
+              Command(
+                id: 'grey',
+                label: 'Prepare a machine…',
+                group: 'Machines',
+                run: () {},
+                unavailable: 'it stands at https',
+              ),
+              Command(id: 'open', label: 'Add a machine…', group: 'Machines', run: () {}),
+            ],
+            rows: const [],
+          ),
+        ),
+      ),
+    );
+    expect(find.text('Prepare a machine: it stands at https'), findsOneWidget);
+    expect(find.textContaining('Add a machine:'), findsNothing);
+  });
+
   // Harm: a machine named and not yet prepared offers a page that goes on leaving, and *Change address
   // and key…*, the wrong thing to press first for a machine still to be rented.
   group('a machine with no address yet', () {
@@ -351,6 +380,8 @@ void main() {
     );
     expect(find.byKey(const ValueKey('my-host build')), findsOneWidget);
     expect(find.text('My machines'), findsWidgets);
+    await tester.ensureVisible(find.byKey(const ValueKey('my-host build')));
+    await World.settle(tester);
     await tester.tap(find.byKey(const ValueKey('my-host build')));
     await World.settle(tester);
     expect(find.byKey(const ValueKey('organization-host build')), findsOneWidget);
@@ -1115,6 +1146,24 @@ void main() {
       await tester.tap(find.byKey(const Key('organization-confirm')));
       await tester.pumpAndSettle();
       expect(fixture.writes.single.change, OrganizationChange.createOrganization);
+    });
+
+    // Harm: creating at https works, and the stop comes only at the first machine.
+    testWidgets('creating at an https address says so before anything is filed', (tester) async {
+      final (fixture, _) = await none(tester);
+      await _open(tester, find.byKey(const ValueKey('createOrganization')));
+      final word = find.byKey(const Key('organization-https-word'));
+      expect(word, findsNothing);
+      await tester.enterText(find.byKey(const Key('organization-address')), 'git@github.com:acme/org.git');
+      await tester.pumpAndSettle();
+      expect(word, findsNothing);
+      await tester.enterText(find.byKey(const Key('organization-address')), 'https://github.com/acme/org.git');
+      await tester.pumpAndSettle();
+      expect(word, findsOneWidget);
+      expect(fixture.writes, isEmpty);
+      await tester.tap(find.byKey(const Key('organization-confirm')));
+      await tester.pumpAndSettle();
+      expect(fixture.writes.single.change, OrganizationChange.createOrganization, reason: 'It is allowed.');
     });
 
     // Harm: creating needs a card, and a person with none cannot make one because no organization is read.

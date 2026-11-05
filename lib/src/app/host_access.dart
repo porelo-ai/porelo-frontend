@@ -76,9 +76,10 @@ class HostAccess extends ChangeNotifier {
       'so no server can be prepared.';
 
   /// Said of an organization at an https address, which a host's own key cannot read; other forms all can.
-  static const noFollowing =
-      "This Porelo organization stands at an https address, and a machine follows it with an ssh key of its own, so a machine made "
-      'now could never follow it. No server is prepared until the Porelo organization stands at an ssh address.';
+  static String noFollowing(String address) =>
+      'This Porelo organization stands at $address, and a machine follows it with an ssh key of its own, so a machine '
+      'made now could never follow it. To move it, on this computer: porelo setup --organization <its ssh address> '
+      '--replace';
 
   static Future<String> _ownKnownHosts() async {
     final file = File(path.join(desk.home, '.ssh', 'known_hosts'));
@@ -202,7 +203,7 @@ class HostAccess extends ChangeNotifier {
       return 'Only a Machine Admin of $host may do this.${_ask(view, named.admins)}';
     }
     if ((view.settings ?? '').isEmpty || (view.forge ?? '').isEmpty) return noAddress;
-    if (view.address?.toLowerCase().startsWith('https://') ?? false) return noFollowing;
+    if (view.address?.toLowerCase().startsWith('https://') ?? false) return noFollowing(view.address!);
     return named == null ? null : _whyNoPin(view, named);
   }
 

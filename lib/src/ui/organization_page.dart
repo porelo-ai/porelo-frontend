@@ -1169,6 +1169,15 @@ class _AddressDialogState extends State<_AddressDialog> {
           ),
           onChanged: (_) => changed(),
         ),
+        // Before anything is filed: there it works, and the stop comes only at the first machine.
+        if (widget.creating && _address.text.trim().toLowerCase().startsWith('https://')) ...[
+          const SizedBox(height: Space.small),
+          const Text(
+            'A machine follows a Porelo organization with an ssh key of its own, so no machine can follow an https '
+            'address. If it is to have machines, give the ssh form: git@…',
+            key: Key('organization-https-word'),
+          ),
+        ],
       ],
     ),
     ask: () => _address.text.trim().isEmpty || _holdsCredential(_address.text.trim())

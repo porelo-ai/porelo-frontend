@@ -79,6 +79,7 @@ class MachinesPage extends StatelessWidget {
         FilteredListSection(
           title: 'My machines',
           storageId: 'machines',
+          drawnCommands: [?prepareServer],
           actions: [
             FilledButton.icon(
               key: const Key('machines-add'),

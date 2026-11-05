@@ -209,7 +209,8 @@ void main() {
     test('an organization at an https address prepares nothing, and says why', () async {
       final fixture = HostFixture()..address = 'https://forge.example.org/acme/org';
       final access = await fixture.access(settings);
-      expect(access.unavailable('orchard'), contains('https'));
+      expect(access.unavailable('orchard'), contains('https://forge.example.org/acme/org'));
+      expect(access.unavailable('orchard'), contains('porelo setup --organization'));
       await expectLater(access.machineFile('orchard'), throwsA(isA<HostAccessRefused>()));
       expect(fixture.machineFiles, isEmpty);
     });

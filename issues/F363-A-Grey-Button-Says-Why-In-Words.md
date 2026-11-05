@@ -1,6 +1,6 @@
 # F363 — A Grey Button Says Why In Words
 
-**Status:** Backlog.
+**Status:** Review.
 **Size:** S - a line of text beside a disabled action, and a word at creating.
 
 **What must be true.** A person never finds a grey button with its reason only behind a hover, and is told at the moment of choosing an address what that address will stop later. In the foo test the Porelo organization stood at an https address, nothing said anything at creating, and later *Prepare a machine…* was simply grey.
@@ -24,6 +24,11 @@
 
 - With an organization at https, the *Machines* list says the reason and the next step in text, with no hover. Seen to fail first.
 - Typing an https address when creating says so before *Create it*; an ssh address says nothing of it.
+
+## Decided while building
+
+- **The next step is Core's own sentence** at creating at https: `porelo setup --organization <its ssh address> --replace`, on the computer.
+- **The line covers every command on a list's head,** those a list draws in its menu and those it draws itself. A grey button inside a row, a dialog or a details pane keeps its tooltip here; that is the next step of the same rule.
 
 ## To be checked
 

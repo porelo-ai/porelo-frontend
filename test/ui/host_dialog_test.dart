@@ -208,6 +208,36 @@ void main() {
     await World.settle(tester);
   });
 
+  // Harm: in the foo test *Prepare a machine…* was simply grey, its reason behind a hover, under an https organization.
+  testWidgets('My machines says why it cannot prepare, with the next step, in words', (tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final settings = Settings(MemorySettingsStore());
+    final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: RecordingTunnels());
+    final access = await (HostFixture()..address = 'https://forge.example.org/acme/org').access(settings);
+    addTearDown(() {
+      machines.dispose();
+      settings.dispose();
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: MachinesPage(
+            machines: machines,
+            onAdd: () {},
+            onDetails: (_) {},
+            onForget: (_) {},
+            prepareServer: prepareServerCommand(open: () {}, access: access),
+          ),
+        ),
+      ),
+    );
+    final said = find.byKey(const ValueKey('machines-why host.prepare'));
+    expect(tester.widget<Text>(said).data, contains('https://forge.example.org/acme/org'));
+    expect(tester.widget<Text>(said).data, contains('porelo setup --organization'));
+  });
+
   // Harm: closing progress cancels a machine setup, loses its row or starts a second command when reopened.
   testWidgets('closing a running preparation leaves its row and live protocol available', (tester) async {
     tester.view.physicalSize = const Size(1280, 800);

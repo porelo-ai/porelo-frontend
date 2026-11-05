@@ -37,6 +37,7 @@ class FilteredListSection extends StatefulWidget {
     this.openWhenCompact = true,
     this.actions = const [],
     this.commands = const [],
+    this.drawnCommands = const [],
     this.sorts,
     this.reveal,
     this.search,
@@ -76,6 +77,9 @@ class FilteredListSection extends StatefulWidget {
 
   /// What adds to this list: buttons in the header, and behind a menu where a phone has no room for them.
   final List<Command> commands;
+
+  /// The commands [actions] draws itself: why one cannot run is said under the head like any of [commands].
+  final List<Command> drawnCommands;
 
   /// The orders offered, the first being the one it starts in. Left out, a row's words give the one order, *Name*.
   final List<SectionSort>? sorts;
@@ -404,7 +408,23 @@ class _FilteredListSectionState extends State<FilteredListSection> {
               color: colors.surfaceContainerHighest,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: Space.normal, vertical: Space.tight),
-                child: _header(),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _header(),
+                    // Where a person looks, and not behind a hover.
+                    for (final command in [...widget.commands, ...widget.drawnCommands])
+                      if (command.visible && !command.available && command.unavailable != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: Space.small),
+                          child: Text(
+                            '${command.label.replaceAll('…', '')}: ${command.unavailable}',
+                            key: ValueKey('${widget.storageId}-why ${command.id}'),
+                            style: theme.textTheme.bodySmall,
+                          ),
+                        ),
+                  ],
+                ),
               ),
             ),
             if (!widget.collapsible || _open)

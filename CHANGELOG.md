@@ -9,6 +9,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- A grey command on a list's head says why under the head, not only behind a hover. Creating a Porelo organization at an https address says, before it is filed, that no machine can follow it.
 - The side bar and its pages say *My projects*, *My machines* and *My forges*, and each number counts that page's rows. Creating a Porelo organization lists its forge under *My forges*, asking for nothing.
 - A project with no Git repository yet says so on its row under *Organization*, with *Create the project's Git repository* for its Project Admin and a row under *Needs you*, and it stands under *Projects* only once it exists. Whoever names themselves as Project Admin creates it in the same step. The window asks `porelo project create-repository` rather than `project open`.
 - A machine waiting for its first token has a row under *Needs you* for its Machine Admin, leading to its page, in place of one saying it cannot be reached.
