@@ -802,6 +802,11 @@ void main() {
         ['project', 'repository', 'add', 'p', 'r', '--upstream', 'x'],
       ),
       (
+        OrganizationChange.nameRepositoryCentral,
+        {'project': 'p', 'repository': 'r', 'central': 'x'},
+        ['project', 'repository', 'change', 'p', 'r', '--central', 'x'],
+      ),
+      (
         OrganizationChange.removeProjectRepository,
         {'project': 'p', 'repository': 'r'},
         ['project', 'repository', 'remove', 'p', 'r'],

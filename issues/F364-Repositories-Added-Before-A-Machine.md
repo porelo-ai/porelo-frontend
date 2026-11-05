@@ -1,6 +1,6 @@
 # F364 — Repositories Added Before A Machine
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** S - the add dialog names `central` always, and a row with none says so.
 
 **What must be true.** A person's natural order is repositories first and a machine later, and that order works. In the foo test, `foo-1` and `foo-2` were added in the window before any machine carried the project.
@@ -28,6 +28,11 @@
 - A repository added on a project on a machine with a known port is filed as today.
 - A row with no `central` says so on the project's page, and says what to do.
 - On a machine, rows filed before it came are taken over by the first refresh, with no second one.
+
+## Decided while building
+
+- **A row names no central only where `project show` says it is empty.** An older Porelo gives no field, and then the page says nothing rather than warn about every row.
+- **Mending names the row's own address as its `central`,** through `project repository change`, after a dialog naming it. Only a row filed before a machine has no `central`, and its upstream is what was typed. A row with no address has nothing to name, so it offers no mending.
 
 ## To be checked
 

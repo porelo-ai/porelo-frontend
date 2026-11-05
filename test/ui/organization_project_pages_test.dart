@@ -119,6 +119,44 @@ void main() {
   });
 
   // Harm: a locked member takes their project for one they can work on; a local project cannot be found from here.
+  // Harm: a machine takes nothing from such a row, and the first sign comes when a task starts on it.
+  group('a repository with no central address', () {
+    const project = ProjectView(
+      name: 'demo',
+      revision: 'p1',
+      host: 'build',
+      address: 'git@forge.example.org:acme/demo-project.git',
+      roles: ['developer', 'admin'],
+      repositories: [
+        ProjectRepository(name: 'none', address: 'git@forge.example.org:acme/none.git', central: ''),
+        ProjectRepository(name: 'has', address: 'git@forge.example.org:acme/has.git', central: 'git@x:acme/has.git'),
+        ProjectRepository(name: 'unsaid', address: 'git@forge.example.org:acme/unsaid.git'),
+      ],
+      members: [ProjectMember(login: 'pat', role: 'admin', standing: CardStanding.trusted)],
+    );
+
+    testWidgets('says so to its Project Admin, who mends it with its own address', (tester) async {
+      final fixture = await _page(tester, 'pat', project: project);
+      expect(find.textContaining('no central address'), findsOneWidget);
+      await pressOrganizationAction(tester, 'nameCentral/none');
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('organization-confirm')));
+      await tester.pumpAndSettle();
+      expect(fixture.writes.single.change, OrganizationChange.nameRepositoryCentral);
+      expect(fixture.writes.single.input, {
+        'project': 'demo',
+        'repository': 'none',
+        'central': 'git@forge.example.org:acme/none.git',
+      });
+    });
+
+    testWidgets('says so to anyone else, with nothing to press', (tester) async {
+      await _page(tester, 'olive', project: project);
+      expect(find.textContaining('no central address'), findsOneWidget);
+      expect(_action('nameCentral/none'), findsNothing);
+    });
+  });
+
   testWidgets('the list says who is locked, and a project of this computer alone leads to the machines', (
     tester,
   ) async {

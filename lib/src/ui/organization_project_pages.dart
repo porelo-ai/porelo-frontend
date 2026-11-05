@@ -530,12 +530,45 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
               child: ListTile(
                 leading: const Icon(Icons.book_outlined),
                 title: Text(repository.name),
-                subtitle: Text('${repository.address ?? 'no upstream named'} · ${_reviewWords(repository.review)}'),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('${repository.address ?? 'no upstream named'} · ${_reviewWords(repository.review)}'),
+                    if (repository.namesNoCentral)
+                      Text(
+                        isAdmin
+                            ? 'It names no central address, so a machine takes nothing from it. Name one from its menu.'
+                            : 'It names no central address, so a machine takes nothing from it. Its Project Admin can name one.',
+                      ),
+                  ],
+                ),
                 trailing: isAdmin
                     ? CommandMenu(
                         commands: [
                           for (final policy in ['required', 'optional'])
                             _reviewCommand(view, policy, repository: repository.name),
+                          if (repository.namesNoCentral && (repository.address ?? '').isNotEmpty)
+                            organizationCommand(
+                              id: 'nameCentral/${repository.name}',
+                              label: 'Name its central address…',
+                              run: () => _show(
+                                OrganizationConfirmDialog(
+                                  widget.organization,
+                                  base: view.repositoriesRevision ?? view.revision,
+                                  title: 'Name where a machine takes ${repository.name} from?',
+                                  words:
+                                      'A machine takes it from ${repository.address}, its own address. '
+                                      'This change is signed with your key.',
+                                  confirm: 'Name it',
+                                  change: OrganizationChange.nameRepositoryCentral,
+                                  input: {
+                                    'project': view.name,
+                                    'repository': repository.name,
+                                    'central': repository.address!,
+                                  },
+                                ),
+                              ),
+                            ),
                           organizationCommand(
                             id: 'removeRepository/${repository.name}',
                             label: 'Remove…',

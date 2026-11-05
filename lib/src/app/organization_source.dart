@@ -328,14 +328,21 @@ class KnownAddress {
 /// One repository of a project: a place of work, named by the address it is worked on at.
 @immutable
 class ProjectRepository {
-  /// Keeps its name, address and review policy.
-  const ProjectRepository({required this.name, this.address, this.review});
+  /// Keeps its name, addresses and review policy.
+  const ProjectRepository({required this.name, this.address, this.central, this.review});
 
   /// Its name.
   final String name;
 
   /// Where it is worked on, absent where no upstream is named.
   final String? address;
+
+  /// Where a machine takes it from: empty where the row names none, so a machine takes nothing from
+  /// it, and null where an older Porelo does not say.
+  final String? central;
+
+  /// Whether the row is known to name nowhere a machine takes it from.
+  bool get namesNoCentral => central != null && central!.isEmpty;
 
   /// The review policy Core names for it, or null where it names none; unknown words remain visible.
   final String? review;
@@ -583,6 +590,9 @@ enum OrganizationChange {
 
   /// Remove a repository from a project.
   removeProjectRepository,
+
+  /// Names where a machine takes a repository from, on a row that names nowhere.
+  nameRepositoryCentral,
 
   /// Add a member to a project, with their role.
   addProjectMember,

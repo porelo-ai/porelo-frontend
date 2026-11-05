@@ -241,6 +241,7 @@ class PoreloOrganizationSource implements OrganizationSource {
               ProjectRepository(
                 name: _text(repository, 'name'),
                 address: _maybeText(repository, 'upstream'),
+                central: _maybeText(repository, 'central'),
                 review: _maybeText(repository, 'review'),
               ),
         ],
@@ -572,6 +573,15 @@ class PoreloOrganizationSource implements OrganizationSource {
         given('address'),
         if (input['central'] case final central?) ...['--central', central],
         if (input.containsKey('review')) ...['--review', review()],
+      ],
+      OrganizationChange.nameRepositoryCentral => [
+        'project',
+        'repository',
+        'change',
+        given('project'),
+        given('repository'),
+        '--central',
+        given('central'),
       ],
       OrganizationChange.removeProjectRepository => [
         'project',
