@@ -43,7 +43,17 @@ read the agent's declared rest from its screen, as it reads waiting.
 - `doc/Contract-Gaps.md` no longer lists a quiet attached task as a guess. Seen to fail: the page
   still says it once this is built.
 
+## Decided while building
+
+- Implementation waits for the daemon's exact field or activity value identifying screen-declared
+  rest. The current `Activity` model describes `IDLE` as producing no output and `UNKNOWN` as the
+  ordinary attached-session answer. `Task.from` decodes no source for that activity; `Screen`
+  carries terminal lines and session liveness only. The stand-ins provide no independent contract
+  for screen-declared rest. Neither silence nor terminal text is interpreted here as rest.
+- No product code or tests change while that contract is unverified. This issue stays in Backlog;
+  the next issue has not started.
+
 ## To be checked
 
-- Whether *at rest* arrives as an `activity` value of its own or as `idle` read from the screen
-  (the daemon's own open question); the tile follows the machine's answer either way (Agent Core's).
+- Read the daemon-served contract establishing the precise at-rest value or field and its
+  screen-derived meaning, including the working answer and the fallback for older daemons.

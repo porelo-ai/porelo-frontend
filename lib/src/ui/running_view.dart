@@ -10,6 +10,7 @@ import '../app/logs.dart';
 import '../app/machines.dart';
 import '../app/session.dart';
 import 'attention_view.dart';
+import 'how_long.dart';
 import 'log_view.dart';
 import 'small_switch.dart';
 import 'session_view.dart';
@@ -70,6 +71,7 @@ class _RunningViewState extends State<RunningView> {
   final ScrollController _tabsScroll = ScrollController();
   Session? _watched;
   String? _shownTab;
+  Timer? _questionTicker;
 
   /// The tab on screen: the one chosen, or the first where none is, or the chosen one has gone.
   String? _chosen;
@@ -86,8 +88,23 @@ class _RunningViewState extends State<RunningView> {
   void dispose() {
     HardwareKeyboard.instance.removeHandler(_key);
     _watched?.removeListener(_sessionChanged);
+    _questionTicker?.cancel();
     _tabsScroll.dispose();
     super.dispose();
+  }
+
+  void _keepQuestionTime(Tile? tile) {
+    final ends = tile?.questions.firstOrNull?.expiresAt;
+    final counting = tile?.demand == Demand.question && ends != null && ends.isAfter(widget.attention.now);
+    if (counting && _questionTicker == null) {
+      // A quiet daemon must not leave the note overstating the time available to answer.
+      _questionTicker = Timer.periodic(const Duration(seconds: 15), (_) {
+        if (mounted) setState(() {});
+      });
+    } else if (!counting) {
+      _questionTicker?.cancel();
+      _questionTicker = null;
+    }
   }
 
   /// Every running agent, in an order that does not move while somebody works: a tab that jumps
@@ -249,6 +266,7 @@ class _RunningViewState extends State<RunningView> {
       final tabs = _tabs();
       final tile = tabs.where((each) => _idOf(each) == _view.tab).firstOrNull ?? tabs.firstOrNull;
       _chosen = tile == null ? null : _idOf(tile);
+      _keepQuestionTime(tile);
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         // Which tab this is, also where nobody chose: coming back shows the same one.
@@ -413,7 +431,8 @@ class _RunningViewState extends State<RunningView> {
   /// Work that waits on a person says so, and where: the answer is given there.
   Widget? _note(BuildContext context, Tile tile) {
     final words = switch (tile.demand) {
-      Demand.question when tile.questions.isNotEmpty => 'Waits on you: asks to reach ${tile.questions.first.shown}.',
+      Demand.question when tile.questions.isNotEmpty =>
+        'Waits on you: asks to reach ${tile.questions.first.shown} · ${_timeLeft(tile.questions.first)}.',
       Demand.question => 'Waits on you: it asks for an answer.',
       Demand.gate when (tile.task?.waiting ?? 0) > 0 =>
         'Waits on you: ${tile.task!.waiting == 1 ? 'its commit waits' : 'its ${tile.task!.waiting} commits wait'} at the gate.',
@@ -443,6 +462,15 @@ class _RunningViewState extends State<RunningView> {
         ),
       ),
     );
+  }
+
+  String _timeLeft(Prompt question) {
+    if (question.neverRunsOut) return 'this one does not run out';
+    final ends = question.expiresAt;
+    if (ends == null) return 'the machine does not say when it runs out';
+    final now = widget.attention.now;
+    final left = ends.isAfter(now) ? howLongUntil(ends, now: now) : null;
+    return left == null ? 'out of time' : '$left left';
   }
 
   Widget _console(BuildContext context, Tile tile) {

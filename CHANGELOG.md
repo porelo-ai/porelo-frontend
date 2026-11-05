@@ -9,6 +9,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- The waits-on-you note under *Running* shows a question's time left, updates while it counts down, and says when time is up or the machine gives no deadline.
 - Taking Porelo off a machine says what the machine says stays on it, such as the firewall and the command that takes it off, whole and copyable. A rental given back says nothing of a machine now gone.
 - *Work* keeps only the *List*/*Running* switch at its top: *New work* stands in the card's title row, and its search opens from a magnifier, as on the other pages. *Needs you* has no title or rule of its own. A row of work says its state in a few words, with the sentence when opened.
 - Rows of a list stand on white in the light theme, under a paler head. The *Follow* switch is smaller, a terminal's text stands further from its edges, and only `✻ Finished` is green among an agent's star lines.
