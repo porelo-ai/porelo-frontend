@@ -122,6 +122,9 @@ class OrganizationHost {
   /// Its address, absent until its host admin entered it.
   final String? address;
 
+  /// Whether neither its address nor its SSH host key is there yet, so it is prepared and not changed.
+  bool get hasNoReach => address == null && hostKey == null;
+
   /// Its ssh port, absent until its host admin entered it.
   final int? port;
 

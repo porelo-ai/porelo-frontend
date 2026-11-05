@@ -40,6 +40,7 @@ class OrganizationPage extends StatefulWidget {
     this.onGiveToken,
     this.identity,
     this.prepareMachine,
+    this.onPrepare,
     this.takeOff,
     this.keys,
     this.pickFile = pickWithTheDesktop,
@@ -67,6 +68,9 @@ class OrganizationPage extends StatefulWidget {
 
   /// *Prepare a machine…*, absent where this computer offers none.
   final Command? prepareMachine;
+
+  /// Prepares the machine named, absent where this computer offers none.
+  final void Function(String host)? onPrepare;
 
   /// Taking Porelo off a machine, or returning its rental, as its row offers it to who may.
   final Command Function(OrganizationHost host)? takeOff;
@@ -537,13 +541,20 @@ class _OrganizationPageState extends State<OrganizationPage> {
             words: _hostWords(host),
             connections: widget.connections,
             onOpen: () => widget.onHost?.call(host.name),
+            onPrepare: widget.onPrepare == null ? null : () => widget.onPrepare!(host.name),
             commands: [
               if (widget.takeOff != null &&
                   (view.mayRemove(host) || (view.holdsRoles && host.admins.contains(view.me))))
                 widget.takeOff!(host),
               for (final action in <_Action>[
-                if (view.holdsRoles && widget.onHost != null && host.admins.contains(view.me))
-                  _command('openHost/${host.name}', "Open the machine's page", () => widget.onHost!(host.name)),
+                if (view.holdsRoles && widget.onHost != null && host.admins.contains(view.me) && host.address != null)
+                  _command('openHost/${host.name}', 'Go to the machine', () => widget.onHost!(host.name)),
+                if (view.holdsRoles && host.admins.contains(view.me) && host.hasNoReach)
+                  _command(
+                    'enterHost/${host.name}',
+                    'Enter address and key…',
+                    () => show(HostAddressDialog(organization, host)),
+                  ),
                 if (view.mayRemove(host))
                   _command(
                     'removeHost/${host.name}',

@@ -59,6 +59,7 @@
 - **An older Porelo that does not say `opened` reads as before.** No project is said to lack a repository on its word.
 - **A project page reached anyway** names who it waits for and goes back; the button stands on the Organization page and in *Needs you* only.
 - **Someone naming themselves** answers about review in *Add a project*, and the one call adds and creates. Stopping halfway leaves the row with its button.
+- **A machine with no address** has *Prepare this machine…* on its row and its page, with its name chosen in the dialog, and *Enter address and key…* in its row's menu and on its page. Its row's own tap still opens its page.
 - **The empty list's words** are now "No <title> yet.", and a list can say its own.
 
 ## To be checked

@@ -177,7 +177,7 @@ void main() {
     // Harm: Connect fails with no way to tell why, or no address is mistaken for a broken network.
     testWidgets('a host with no address says so and cannot be connected to', (tester) async {
       await section(tester, organizationFor('olive'));
-      expect(find.textContaining('Its Machine Admin has not entered its address yet.'), findsOneWidget);
+      expect(find.textContaining('spare has no address yet.'), findsOneWidget);
       expect(tester.widget<FilledButton>(_action('connect/spare')).onPressed, isNull);
     });
 
@@ -209,6 +209,7 @@ void main() {
       Future<String?> Function(String host)? onGiveToken,
       Future<String?> Function(String host, String? project)? onStartWork,
       OrganizationHost shown = buildHost,
+      void Function(String host)? onPrepare,
     }) async {
       final source = FixtureOrganization(organizationFor(me, moreProjects: moreProjects, host: shown));
       final organization = Organization(source);
@@ -223,6 +224,7 @@ void main() {
           host: host,
           onBack: () {},
           onGiveToken: onGiveToken,
+          onPrepare: onPrepare,
           onStartWork: onStartWork,
         ),
       );
@@ -318,6 +320,23 @@ void main() {
         ),
         findsOneWidget,
       );
+    });
+
+    // Harm: *Change address and key…* is pressed first for a machine still to be rented, which has no
+    // address anyone could enter.
+    testWidgets('a machine with no address offers preparing it, and entering them by hand second', (tester) async {
+      String? prepared;
+      await page(tester, 'olive', host: 'spare', onPrepare: (host) => prepared = host);
+      expect(find.text('Change address and key…'), findsNothing);
+      expect(find.text('Enter address and key…'), findsOneWidget);
+      await pressOrganizationAction(tester, 'prepareHost');
+      expect(prepared, 'spare');
+    });
+
+    testWidgets('a machine with an address offers changing them, and not preparing it', (tester) async {
+      await page(tester, 'hana', onPrepare: (_) {});
+      expect(find.text('Change address and key…'), findsOneWidget);
+      expect(_action('prepareHost'), findsNothing);
     });
 
     // Harm: a person who may not manage a host is offered what the store refuses.

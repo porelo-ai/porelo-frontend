@@ -52,8 +52,12 @@ class OrganizationMachineRow extends StatefulWidget {
     required this.onOpen,
     this.commands = const [],
     this.words,
+    this.onPrepare,
     super.key,
   });
+
+  /// *Prepare this machine…*, absent where this computer offers none.
+  final VoidCallback? onPrepare;
 
   /// What the organization says now.
   final OrganizationView view;
@@ -132,6 +136,8 @@ class _OrganizationMachineRowState extends State<OrganizationMachineRow> {
                 'waits for a first token'
               else if (connected)
                 mine.isEmpty ? 'connected' : 'connected, ready to work on'
+              else if (host.address == null)
+                '${host.name} has no address yet.${givesIt ? '' : ' It waits for ${host.admins.join(' or ')}.'}'
               else
                 why ?? 'not connected yet',
             ].join(' · '),
@@ -140,6 +146,12 @@ class _OrganizationMachineRowState extends State<OrganizationMachineRow> {
             crossAxisAlignment: WrapCrossAlignment.center,
             spacing: Space.small,
             children: [
+              if (host.address == null && givesIt && widget.onPrepare != null && view.holdsRoles)
+                FilledButton(
+                  key: ValueKey('organization.prepare/${host.name}'),
+                  onPressed: widget.onPrepare,
+                  child: const Text('Prepare this machine…'),
+                ),
               if (waiting && givesIt)
                 FilledButton(
                   key: ValueKey('organization.toToken/${host.name}'),
@@ -186,8 +198,12 @@ class OrganizationHostPage extends StatefulWidget {
     this.onStartWork,
     this.keys,
     this.work,
+    this.onPrepare,
     super.key,
   });
+
+  /// *Prepare this machine…*, absent where this computer offers none.
+  final void Function(String host)? onPrepare;
 
   /// The organization.
   final Organization organization;
@@ -443,10 +459,16 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     children: [
       Text('Organization ${view.name} · ${_reach(host)} · SSH host key ${host.hostKey ?? 'not entered yet'}'),
       if (isAdmin) ...[
+        if (host.hasNoReach && widget.onPrepare != null)
+          FilledButton(
+            key: const ValueKey('organization.prepareHost'),
+            onPressed: () => widget.onPrepare!(host.name),
+            child: const Text('Prepare this machine…'),
+          ),
         OutlinedButton(
           key: const ValueKey('organization.changeHost'),
-          onPressed: () => _show(_ChangeHostDialog(widget.organization, host)),
-          child: const Text('Change address and key…'),
+          onPressed: () => _show(HostAddressDialog(widget.organization, host)),
+          child: Text(host.hasNoReach ? 'Enter address and key…' : 'Change address and key…'),
         ),
         Tooltip(
           message: 'Fetch and apply the organization on this machine now, rather than at its next follow.',
@@ -735,17 +757,22 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
 }
 
 /// Asks for a host's address, port and host key, which its host admin enters.
-class _ChangeHostDialog extends StatefulWidget {
-  const _ChangeHostDialog(this.organization, this.host);
+/// Enters a machine's address and SSH host key by hand, or changes them.
+class HostAddressDialog extends StatefulWidget {
+  /// Asks [organization] to file them for [host].
+  const HostAddressDialog(this.organization, this.host, {super.key});
 
+  /// The organization the change is asked of.
   final Organization organization;
+
+  /// The machine.
   final OrganizationHost host;
 
   @override
-  State<_ChangeHostDialog> createState() => _ChangeHostDialogState();
+  State<HostAddressDialog> createState() => _HostAddressDialogState();
 }
 
-class _ChangeHostDialogState extends State<_ChangeHostDialog> {
+class _HostAddressDialogState extends State<HostAddressDialog> {
   late final _address = TextEditingController(text: widget.host.address);
   late final _port = TextEditingController(text: '${widget.host.port ?? 22}');
   late final _key = TextEditingController(text: widget.host.hostKey);
@@ -793,7 +820,7 @@ class _ChangeHostDialogState extends State<_ChangeHostDialog> {
   Widget build(BuildContext context) => OrganizationChangeDialog(
     organization: widget.organization,
     title: 'Address and SSH key of ${widget.host.name}',
-    confirm: 'Change them',
+    confirm: widget.host.hasNoReach ? 'Enter them' : 'Change them',
     body: (context, changed) => Column(
       mainAxisSize: MainAxisSize.min,
       spacing: Space.small,

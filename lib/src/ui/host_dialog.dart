@@ -49,10 +49,17 @@ Future<void> openPrepareServerDialog(
   required Settings settings,
   required HostRuns hostRuns,
   RunHere? runKeyCommand,
+  String? machineName,
 }) => showDialog<void>(
   context: context,
-  builder: (_) =>
-      HostDialog(project: '', machines: machines, settings: settings, hostRuns: hostRuns, runKeyCommand: runKeyCommand),
+  builder: (_) => HostDialog(
+    project: '',
+    machines: machines,
+    settings: settings,
+    hostRuns: hostRuns,
+    runKeyCommand: runKeyCommand,
+    machineName: machineName,
+  ),
 );
 
 /// Opens the retained public setup protocol.
@@ -82,9 +89,13 @@ class HostDialog extends StatefulWidget {
     this.start,
     this.runKeyCommand,
     this.takeDownOnly = false,
+    this.machineName,
     this.fromTheCard,
     super.key,
   });
+
+  /// The machine to prepare, where it is known from where this was asked.
+  final String? machineName;
 
   /// The existing rental's stable identity.
   final String project;
@@ -127,7 +138,7 @@ class _HostDialogState extends State<HostDialog> {
   bool _checkingMemberships = false;
   String? _membershipProblem;
   final _scroll = ScrollController();
-  final _name = TextEditingController();
+  late final _name = TextEditingController(text: widget.machineName);
   final _address = TextEditingController();
   final _hostKey = TextEditingController();
   Timer? _keyDebounce;

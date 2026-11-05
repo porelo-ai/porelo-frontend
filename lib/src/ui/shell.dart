@@ -1373,6 +1373,7 @@ class _ShellState extends State<Shell> {
                 identity: widget.identity,
                 connections: _hostConnections,
                 onGiveToken: _giveHostToken,
+                onPrepare: _prepareThisMachine,
                 prepareMachine: _commands()
                     .where((command) => command.id == 'host.prepare' && command.visible)
                     .firstOrNull,
@@ -3737,7 +3738,22 @@ class _ShellState extends State<Shell> {
   }
 
   /// One server's one page, reached from either list: where a person stands, what they do there, and its managing.
+  /// Prepares the machine named, where this computer offers preparing at all.
+  void Function(String)? get _prepareThisMachine =>
+      _commands().any((command) => command.id == 'host.prepare' && command.visible)
+      ? (host) => unawaited(
+          openPrepareServerDialog(
+            context,
+            machines: widget.machines,
+            settings: widget.settings,
+            hostRuns: _hostRuns,
+            machineName: host,
+          ),
+        )
+      : null;
+
   Widget _machineOnePage(String host, {Widget? work}) => OrganizationHostPage(
+    onPrepare: _prepareThisMachine,
     key: ValueKey(host),
     organization: _organization!,
     connections: _hostConnections,

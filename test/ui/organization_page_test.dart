@@ -222,6 +222,46 @@ void main() {
     });
   });
 
+  // Harm: a machine named and not yet prepared offers a page that goes on leaving, and *Change address
+  // and key…*, the wrong thing to press first for a machine still to be rented.
+  group('a machine with no address yet', () {
+    testWidgets('says so, and its Machine Admin prepares it with its name filled in', (tester) async {
+      tester.view.physicalSize = const Size(1400, 2400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final organization = Organization(FixtureOrganization(organizationFor('olive')));
+      addTearDown(organization.dispose);
+      String? prepared;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: OrganizationPage(organization: organization, onHost: (_) {}, onPrepare: (host) => prepared = host),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.textContaining('spare has no address yet.'), findsOneWidget);
+      expect(_action('openHost/spare'), findsNothing);
+      expect(_action('enterHost/spare'), findsOneWidget);
+      await tester.ensureVisible(find.byKey(const ValueKey('organization.prepare/spare')));
+      await tester.tap(find.byKey(const ValueKey('organization.prepare/spare')));
+      expect(prepared, 'spare');
+    });
+
+    testWidgets('anyone else reads who it waits for, with nothing to press', (tester) async {
+      await _pump(tester, 'hana');
+      expect(find.textContaining('spare has no address yet. It waits for olive.'), findsOneWidget);
+      expect(find.byKey(const ValueKey('organization.prepare/spare')), findsNothing);
+      expect(_action('enterHost/spare'), findsNothing);
+    });
+
+    testWidgets('one with an address says Go to the machine', (tester) async {
+      await _pump(tester, 'hana');
+      expect(_action('openHost/build'), findsOneWidget);
+      expect(_action('enterHost/build'), findsNothing);
+    });
+  });
+
   // Harm: in the foo test a machine waited for its token with nothing under Needs you, so only someone
   // who opened its page by chance found out what it waited for.
   group('a machine that waits for its first token', () {
@@ -375,7 +415,7 @@ void main() {
       expect(_action('revokeCard/rex'), findsNothing, reason: 'A revoked card has nothing left to revoke.');
       expect(_action('goToProject/demo'), findsNothing, reason: 'They are not in it.');
       expect(_action('openHost/build'), findsNothing, reason: 'They are not its host admin.');
-      expect(_action('openHost/spare'), findsOneWidget);
+      expect(_action('enterHost/spare'), findsOneWidget);
     });
 
     for (final (me, opens) in const [
