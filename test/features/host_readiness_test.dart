@@ -12,6 +12,9 @@ import './step/it_says.dart';
 import './step/the_machine_is_missing_because.dart';
 import './step/the_machine_is_degraded_at_because.dart';
 import './step/the_machine_cannot_establish.dart';
+import './step/i_watch_another_machine_called.dart';
+import './step/i_switch_to_the_machine.dart';
+import './step/it_does_not_say.dart';
 import './step/i_check_the_machine_again.dart';
 import './step/the_machine_was_asked_twice_whether_it_can_run_anything.dart';
 import './step/the_machine_cannot_answer_whether_it_can_run_anything.dart';
@@ -50,6 +53,21 @@ void main() {
       await iCheckWhetherThisMachineCanRunAnything(tester);
       await itSays(tester, 'could not be established');
       await itSays(tester, 'This machine runs work. One thing is worth knowing about.');
+    });
+    testWidgets('''a machine with nothing missing does not take the page the first time it is gone to''', (
+      tester,
+    ) async {
+      await bddSetUp(tester);
+      await iWatchAnotherMachineCalled(tester, 'the build machine');
+      await iSwitchToTheMachine(tester, 'the build machine');
+      await itDoesNotSay(tester, 'This machine can run work. Nothing is missing.');
+    });
+    testWidgets('''a machine with something missing says so the first time it is gone to''', (tester) async {
+      await bddSetUp(tester);
+      await theMachineIsMissingBecause(tester, 'nft', 'no nftables binary on PATH');
+      await iWatchAnotherMachineCalled(tester, 'the build machine');
+      await iSwitchToTheMachine(tester, 'the build machine');
+      await itSays(tester, 'This machine cannot run work: one thing it needs is missing.');
     });
     testWidgets('''the same check can be run again on demand''', (tester) async {
       await bddSetUp(tester);

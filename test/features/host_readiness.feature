@@ -36,6 +36,19 @@ Feature: Checking whether a machine can run work at all
         Then it says {'could not be established'}
         And it says {'This machine runs work. One thing is worth knowing about.'}
 
+    # Harm: a click on a row of a machine first gone to opens a page saying all is well, not the row.
+    Scenario: a machine with nothing missing does not take the page the first time it is gone to
+        When I watch another machine called {'the build machine'}
+        And I switch to the machine {'the build machine'}
+        Then it does not say {'This machine can run work. Nothing is missing.'}
+
+    # Harm: a machine that cannot run work is first learned of by starting work on it.
+    Scenario: a machine with something missing says so the first time it is gone to
+        Given the machine is missing {'nft'} because {'no nftables binary on PATH'}
+        When I watch another machine called {'the build machine'}
+        And I switch to the machine {'the build machine'}
+        Then it says {'This machine cannot run work: one thing it needs is missing.'}
+
     Scenario: the same check can be run again on demand
         When I check whether this machine can run anything
         And I check the machine again

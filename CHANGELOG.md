@@ -9,6 +9,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- A machine first gone to takes the page only when it lacks something, so a click on a row of its work opens the row. Asking what it can run stays one action away.
 - The bottom line counts *Actions*: what was asked here, so that "0 running" does not read as a claim about running work.
 - A start this computer would not certify says that no agent ran. Any other start that ended says its code, without naming an agent that may never have run.
 - Creating a Porelo organization can ask first what that needs at the address, and says each need with what to do.

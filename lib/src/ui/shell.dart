@@ -2581,12 +2581,20 @@ class _ShellState extends State<Shell> {
       fleet.removeListener(look);
       // After the frame that shows the machine: going there closes what was open for the one before.
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && widget.machines.current == machine) unawaited(_checkTheMachine());
+        if (mounted && widget.machines.current == machine) unawaited(_checkFirstTime(machine));
       });
     };
     widget.machines.addListener(look);
     fleet.addListener(look);
     look();
+  }
+
+  /// Asks [machine] what it can run, and takes the page only where it has something to say: a person
+  /// who came to it for a row of work goes on to that row. It stays one action away otherwise.
+  Future<void> _checkFirstTime(Machine machine) async {
+    await widget.readiness.look(_fleet.backend);
+    if (!mounted || widget.machines.current != machine) return;
+    if (widget.readiness.ready != true) widget.shell.openReadiness();
   }
 
   /// Checks [machine] once it answers, if it is still the one shown. Waits half a minute at most.
