@@ -34,6 +34,16 @@ Feature: Work on a repository without writing a project first
         Then the repository {'tools'} is chosen
         And nothing was put into default again
 
+    # Harm: a repository default holds cannot be worked on, as the first was taken for its own.
+    Scenario: default offers every repository it holds, and the one started on is chosen
+        Given default holds {'utils4j'} at {'git@example.org:acme/utils4j.git'} already
+        And default holds {'units4j'} at {'git@example.org:acme/units4j.git'} already
+        When I select the project {'default'}
+        And I start work in this project
+        And I start work in default on the one called {'utils4j'}
+        Then the repository {'utils4j'} is chosen
+        And the repository {'units4j'} is offered to start in
+
     # Harm: adding and removing a repository must not change access at its forge.
     Scenario: a repository picked at a forge fills its https address without deploy keys
         Given the forge reaches {'acme/api'} as an admin, and {'acme/web'} without admin rights

@@ -26,6 +26,58 @@ void main() {
     }
   });
 
+  group('the repositories work starts in', () {
+    // Harm: a repository of the machine's is withheld from the person, or a start is sent where the
+    // machine refuses it, because the guess at the own repository went the wrong way.
+    test('states of which none is own hold no own repository, and offer every one', () {
+      final project = projectWith(<String, dynamic>{
+        'repositories': <Map<String, dynamic>>[
+          <String, dynamic>{'name': 'utils4j', 'own': false},
+          <String, dynamic>{'name': 'units4j', 'own': false},
+        ],
+      });
+
+      expect(project.ownRepository, isNull);
+      expect(project.workRepositories, <String>['utils4j', 'units4j']);
+    });
+
+    test('a repository marked own is not offered', () {
+      final project = projectWith(<String, dynamic>{
+        'repositories': <Map<String, dynamic>>[
+          <String, dynamic>{'name': 'payments-api', 'own': false},
+          <String, dynamic>{'name': 'checkout', 'own': true},
+        ],
+      });
+
+      expect(project.ownRepository, 'checkout');
+      expect(project.workRepositories, <String>['payments-api']);
+    });
+
+    test('bare names from an older machine still take the first as the own one', () {
+      final project = projectWith(<String, dynamic>{
+        'repositories': <String>['checkout', 'payments-api'],
+      });
+
+      expect(project.ownRepository, 'checkout');
+      expect(project.workRepositories, <String>['payments-api']);
+    });
+
+    test('default never has an own repository, whatever shape names its repositories', () {
+      for (final repositories in <List<Object>>[
+        <String>['utils4j', 'units4j'],
+        <Map<String, dynamic>>[
+          <String, dynamic>{'name': 'utils4j', 'own': true},
+          <String, dynamic>{'name': 'units4j', 'own': false},
+        ],
+      ]) {
+        final project = projectWith(<String, dynamic>{'name': defaultProject, 'repositories': repositories});
+
+        expect(project.ownRepository, isNull, reason: '$repositories');
+        expect(project.workRepositories, <String>['utils4j', 'units4j'], reason: '$repositories');
+      }
+    });
+  });
+
   test('a count is only a measurement when the reason says it was measured', () {
     // The one that would be invisible: a stale 7 beside a failure, drawn as though somebody had
     // counted it this morning.

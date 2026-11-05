@@ -110,6 +110,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- *Start work in default* offers every repository default holds, and *Start work on it* beside the first one opens the dialog with it chosen.
 - A machine that refuses connections is tried again after 30 seconds, then longer up to five minutes, not every two seconds, which kept sshd refusing the address; a machine back by itself may take that long to reconnect, and *Connect* still tries at once.
 - A machine's row under *Organization* offers taking Porelo off once, not twice.
 - A checkout's draft is read as Core answers it: a value with no line no longer makes the whole draft unreadable, and its

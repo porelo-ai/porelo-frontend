@@ -21,6 +21,7 @@ import './step/default_holds_at_already.dart';
 import './step/i_start_work_in_this_project.dart';
 import './step/i_start_work_in_default_on_the_one_called.dart';
 import './step/nothing_was_put_into_default_again.dart';
+import './step/the_repository_is_offered_to_start_in.dart';
 import './step/the_forge_reaches_as_an_admin_and_without_admin_rights.dart';
 import './step/the_keychain_here_keeps_the_token_for_the_forge.dart';
 import './step/i_pick_at_the_forge_for_default.dart';
@@ -79,6 +80,16 @@ void main() {
       await iStartWorkInDefaultOnTheOneCalled(tester, 'tools');
       await theRepositoryIsChosen(tester, 'tools');
       await nothingWasPutIntoDefaultAgain(tester);
+    });
+    testWidgets('''default offers every repository it holds, and the one started on is chosen''', (tester) async {
+      await bddSetUp(tester);
+      await defaultHoldsAtAlready(tester, 'utils4j', 'git@example.org:acme/utils4j.git');
+      await defaultHoldsAtAlready(tester, 'units4j', 'git@example.org:acme/units4j.git');
+      await iSelectTheProject(tester, 'default');
+      await iStartWorkInThisProject(tester);
+      await iStartWorkInDefaultOnTheOneCalled(tester, 'utils4j');
+      await theRepositoryIsChosen(tester, 'utils4j');
+      await theRepositoryIsOfferedToStartIn(tester, 'units4j');
     });
     testWidgets('''a repository picked at a forge fills its https address without deploy keys''', (tester) async {
       await bddSetUp(tester);

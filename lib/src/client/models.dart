@@ -2106,8 +2106,13 @@ class Project {
     ];
   }
 
-  /// The project's own repository, or null where the machine names none.
-  String? get ownRepository => repositoryStates.where((each) => each.own).firstOrNull?.name ?? repositories.firstOrNull;
+  /// The project's own repository, or null where it has none: default never has one, and a machine
+  /// that sent states marks it. Only names with no states at all leave the first to stand for it.
+  String? get ownRepository {
+    if (name == defaultProject) return null;
+    if (repositoryStates.isEmpty) return repositories.firstOrNull;
+    return repositoryStates.where((each) => each.own).firstOrNull?.name;
+  }
 
   /// The repository [task] works in, as a start takes it: the project's own where the task says
   /// nothing, which is what saying nothing means — and so null where the machine names none.
@@ -4108,14 +4113,19 @@ class Repository {
   );
 
   /// A project's repositories, **the project's own first**, from either shape Porelo has answered:
-  /// names alone, as it first did, or an object each, as it does since. One without a name is
-  /// left out — nothing could be started in it or asked about it.
+  /// names alone, as it first did, where the first name is the project's own, or an object each, as
+  /// it does since, where `own` says so. One without a name is left out — nothing could be started
+  /// in it or asked about it.
   static List<Repository> allIn(Map<String, dynamic> project) {
     final value = project['repositories'];
     if (value is! List) return const <Repository>[];
+    final firstName = value.whereType<String>().where((each) => each.isNotEmpty).firstOrNull;
     final all = <Repository>[
       for (final each in value)
-        if (each is String) Repository(name: each) else if (each is Map<String, dynamic>) Repository.from(each),
+        if (each is String)
+          Repository(name: each, own: each == firstName)
+        else if (each is Map<String, dynamic>)
+          Repository.from(each),
     ].where((each) => each.name.isNotEmpty).toList();
     return <Repository>[...all.where((each) => each.own), ...all.where((each) => !each.own)];
   }
