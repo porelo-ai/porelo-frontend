@@ -11,6 +11,9 @@ import 'pick_a_file.dart';
 import 'dialog_scroll.dart';
 import 'tokens.dart';
 
+/// What a checkout is picked with: the desktop's folder dialog, stood in for in tests.
+PickAFolder pickACheckout = pickFolderWithTheDesktop;
+
 /// Opens the repositories a machine works on in the Default project.
 ///
 /// With [onStartWork], it is **the one way to start work in `default`**:
@@ -35,6 +38,7 @@ Future<void> showTheDefault(
     onStartWork: onStartWork,
     thisComputer: thisComputer,
     onStartProject: onStartProject,
+    pickAFolder: pickACheckout,
   ),
 );
 

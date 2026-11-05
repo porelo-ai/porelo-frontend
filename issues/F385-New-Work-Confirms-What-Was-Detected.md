@@ -26,4 +26,4 @@
 ## To be checked
 
 - Seen once in the real window on a real daemon and the real Maven plugin: the question, a yes, the file in the checkout, the start form, and a later start asking nothing. The window held the daemon's socket as this computer's. A no, and its `origin`, are held by unit tests.
-- *On another machine ... says if nothing is there* is said beforehand as a condition, not found out per repository: Open for the person who reads this to judge.
+- *On another machine ... says if nothing is there* is said beforehand as a condition, not found out per repository, as the window cannot look there without a start.

@@ -224,6 +224,16 @@ class _Wedged implements FleetBackend {
   Future<Usage> usage(String task) async => throw const FeatureNotSupported('Usage');
 
   @override
+  Future<ImageSettings> imageSettings(String task) async => throw const FeatureNotSupported('ImageSettings');
+
+  @override
+  Future<FirstStart> firstStart(String checkout) async => throw const FeatureNotSupported('FirstStart');
+
+  @override
+  Future<String> confirmFirstStart(String checkout, String hash) async =>
+      throw const FeatureNotSupported('ConfirmFirstStart');
+
+  @override
   Stream<List<String>> tailLog(String task, String log, {int? last, bool formatted = false}) =>
       const Stream<List<String>>.empty();
   @override
@@ -588,6 +598,16 @@ class _Machine implements FleetBackend {
 
   @override
   Future<Usage> usage(String task) async => throw const FeatureNotSupported('Usage');
+
+  @override
+  Future<ImageSettings> imageSettings(String task) async => throw const FeatureNotSupported('ImageSettings');
+
+  @override
+  Future<FirstStart> firstStart(String checkout) async => throw const FeatureNotSupported('FirstStart');
+
+  @override
+  Future<String> confirmFirstStart(String checkout, String hash) async =>
+      throw const FeatureNotSupported('ConfirmFirstStart');
 
   @override
   Stream<List<String>> tailLog(String task, String log, {int? last, bool formatted = false}) =>

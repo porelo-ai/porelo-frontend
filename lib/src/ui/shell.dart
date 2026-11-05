@@ -936,26 +936,33 @@ class _ShellState extends State<Shell> {
   Future<void> _startInDefault() =>
       _askTheDefault(onStartWork: (repository) => _startWorkIn(defaultProject, repository: repository));
 
-  Future<void> _askTheDefault({Future<void> Function(String repository)? onStartWork}) => showTheDefault(
-    context,
-    machine: _fleet.backend,
-    machineName: widget.machines.current.name,
-    pickAtAForge: () async {
-      ({ForgeRepository repository, Forge forge})? picked;
-      await showRepositories(
-        context,
-        _forges,
-        machine: _fleet.backend,
-        machineName: widget.machines.current.name,
-        usedBy: _usedBy,
-        onPick: (repository, forge) => picked = (repository: repository, forge: forge),
-      );
-      return picked;
-    },
-    onStartWork: onStartWork,
-    thisComputer: widget.machines.current.isThisComputer,
-    onStartProject: _startWorkIn,
-  );
+  Future<void> _askTheDefault({Future<void> Function(String repository)? onStartWork}) {
+    // The machine that was asked: a project its first start names is that machine's, whichever is selected by then.
+    final asked = widget.machines.current;
+    return showTheDefault(
+      context,
+      machine: _fleet.backend,
+      machineName: widget.machines.current.name,
+      pickAtAForge: () async {
+        ({ForgeRepository repository, Forge forge})? picked;
+        await showRepositories(
+          context,
+          _forges,
+          machine: _fleet.backend,
+          machineName: widget.machines.current.name,
+          usedBy: _usedBy,
+          onPick: (repository, forge) => picked = (repository: repository, forge: forge),
+        );
+        return picked;
+      },
+      onStartWork: onStartWork,
+      thisComputer: asked.isThisComputer,
+      onStartProject: (project) async {
+        if (widget.machines.current != asked) widget.machines.select(asked);
+        await _startWorkIn(project);
+      },
+    );
+  }
 
   /// [project]'s address as last read, empty where none is known: it then matches no forge.
   ///
@@ -1988,7 +1995,12 @@ class _ShellState extends State<Shell> {
       unawaited(_fleet.refresh(quietly: true));
     }
     final project = listed();
-    if (project == null || !mounted) return;
+    if (!mounted) return;
+    if (project == null) {
+      return _fleet.say(
+        '${widget.machines.current.name} does not list $name, so work in it cannot start from here now.',
+      );
+    }
     // The project the work starts in is the one shown in the tree: a project made from a repository
     // appeared there unselected, and the person looked for it (walk 8).
     if (name != defaultProject) {

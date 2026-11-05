@@ -1294,7 +1294,11 @@ method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
   Map<String, dynamic> _confirmFirstStart(Map<String, dynamic> parameters) {
     final checkout = parameters['checkout'] as String? ?? '';
     _firstStartsApproved.add(checkout);
-    return <String, dynamic>{'project': '${checkout.split('/').last}-project'};
+    final name = '${checkout.split('/').last}-project';
+    if (!_listedProjects.any((each) => each['name'] == name)) {
+      _listedProjects.add(<String, dynamic>{'name': name, 'securityClass': 'guarded', 'repositories': <String>[]});
+    }
+    return <String, dynamic>{'project': name};
   }
 
   final Set<String> _firstStartsApproved = <String>{};
