@@ -100,6 +100,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f388"></a>[F388](F388-The-Stubs-Pin-Stays-Fetchable.md) | XS | — | A scenario that needs the stub does not go red because its pinned version left the folder. |
 | <a id="f379"></a>[F379](F379-Add-A-Project-In-One-Step-From-The-Window.md) | S | — | A person naming themselves Project Admin adds a project in one step from the window. |
 | <a id="f377"></a>[F377](F377-A-Hosts-Channel-Follows-The-Window.md) | S | — | A host the window prepares installs from the window's own channel. |
 | <a id="f365"></a>[F365](F365-A-Host-Key-Fetched-Too-Early.md) | M | — | A machine's host key is compared by one named command and fetched again at *Prepare*; a refused key says what to do, and the name is a choice. |
