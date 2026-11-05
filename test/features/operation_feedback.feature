@@ -47,7 +47,7 @@ Feature: Running long operations without blocking the frame
         And the operation fails
         And I close what is open
         And I show what this session has run
-        Then the record shows {'exited with code 1'}
+        Then the record shows {'ended with code 1'}
         And the record marks it as failed
         When I open the last operation
         Then the operation shows {'could not read project.yml'}

@@ -659,7 +659,7 @@ class PoreloBackend implements FleetBackend {
     if (certifying.refused case final words?) yield StartLine(words);
     // A refusal is an ordinary final reply, and must not read as a start that worked.
     if (action != null && action.isKnown && !action.starts) throw StartRefused(action);
-    if (exitCode != 0) throw OperationFailed(exitCode, notCertified: certifying.refused != null);
+    if (exitCode != 0) throw OperationFailed(exitCode, notCertified: certifying.refused != null && !certifying.signed);
   }
 
   /// Answers what a host asked to have certified, and says what was done. A refusal is answered to
@@ -1250,7 +1250,7 @@ class OperationFailed implements Exception {
   /// Two of the bands are not failed runs at all. `69` means the run was **refused before
   /// anything was created**, so there is nothing to read — offering a log view there opens an
   /// empty window on a file that was never written.
-  bool get leftALog => exitCode != 69 && !notCertified;
+  bool get leftALog => exitCode != 69;
 
   /// Whether the run was stopped by its own time limit rather than by going wrong.
   ///

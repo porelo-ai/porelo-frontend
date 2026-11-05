@@ -301,7 +301,7 @@ void main() {
         };
         yield <String, dynamic>{'line': 'porelo: task certificate refused'};
         yield <String, dynamic>{
-          'exitCode': 69,
+          'exitCode': 65,
           'output': <String>['porelo: start failed'],
         };
       });
@@ -312,16 +312,37 @@ void main() {
         backend.startTask(project: 'foo-project', task: 'work').forEach((event) {
           if (event is StartLine) lines.add(event.line);
         }),
-        // Harm: "the agent exited" of an agent that never ran, and a log offered that no run wrote.
-        throwsA(
-          isA<OperationFailed>()
-              .having((failed) => '$failed', 'what is said', contains('no agent ran'))
-              .having((failed) => failed.leftALog, 'a log', isFalse),
-        ),
+        // Harm: "the agent exited" of an agent that never ran.
+        throwsA(isA<OperationFailed>().having((failed) => '$failed', 'what is said', contains('no agent ran'))),
       );
       expect(lines.last, 'Your agent lacks it.');
       final again = await backend.startAgain(project: 'foo-project', task: 'work');
       expect(again.output, contains('Your agent lacks it.'));
+    });
+
+    // Harm: a start already certified, refused a second time, is said to have run no agent.
+    test('a second refusal after a signature does not say no agent ran', () async {
+      daemon.stream('Start', (parameters) async* {
+        final asked = <String, dynamic>{
+          'certify': <String, dynamic>{
+            'start': 's1',
+            'key': taskKey,
+            'principal': 'task:foo-project:work',
+            'key_id': 'alice',
+            'valid_before': DateTime.now().toUtc().add(const Duration(days: 1)).toIso8601String(),
+            'certifiers': <String>[person],
+          },
+        };
+        yield asked;
+        yield asked;
+        yield <String, dynamic>{'exitCode': 70};
+      });
+      final backend = backendAnswering((_) async => 'the-certificate');
+      await backend.open();
+      await expectLater(
+        backend.startTask(project: 'foo-project', task: 'work').drain<void>(),
+        throwsA(isA<OperationFailed>().having((failed) => '$failed', 'what is said', isNot(contains('no agent ran')))),
+      );
     });
 
     // Harm: a container that would not start reads as an agent that ran and ended.

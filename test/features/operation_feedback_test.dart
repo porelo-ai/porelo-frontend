@@ -91,7 +91,7 @@ void main() {
       await theOperationFails(tester);
       await iCloseWhatIsOpen(tester);
       await iShowWhatThisSessionHasRun(tester);
-      await theRecordShows(tester, 'exited with code 1');
+      await theRecordShows(tester, 'ended with code 1');
       await theRecordMarksItAsFailed(tester);
       await iOpenTheLastOperation(tester);
       await theOperationShows(tester, 'could not read project.yml');
