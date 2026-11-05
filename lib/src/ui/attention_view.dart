@@ -23,6 +23,7 @@ import 'operations.dart';
 import 'needs_machine.dart';
 import 'tile_console.dart';
 import 'organization_token_words.dart';
+import 'filtered_list_section.dart';
 import 'tokens.dart';
 
 /// What needs a person, from every machine at once. The window opens here.
@@ -835,7 +836,7 @@ class _GroupCard extends StatelessWidget {
       key: ValueKey<String>('needs-group ${group.name}'),
       padding: const EdgeInsets.only(bottom: Space.wide),
       child: Material(
-        color: colors.surfaceContainerLow,
+        color: listCardColour(colors),
         clipBehavior: Clip.antiAlias,
         shape: RoundedRectangleBorder(
           side: BorderSide(color: colors.outlineVariant, width: Space.hairline),
@@ -845,7 +846,7 @@ class _GroupCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
             ColoredBox(
-              color: colors.surfaceContainerHighest,
+              color: listHeadColour(colors),
               child: Padding(
                 padding: const EdgeInsets.all(Space.normal),
                 child: Row(

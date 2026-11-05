@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/attention.dart';
+import 'package:porelo_frontend/src/app/shell_model.dart';
 import 'package:porelo_frontend/src/ui/attention_view.dart';
 import 'package:porelo_frontend/src/ui/console_lines.dart';
 import 'package:porelo_frontend/src/ui/filtered_list_section.dart';
@@ -88,6 +89,24 @@ void main() {
     expect(head, contains(const Color(0xFFEAEDF7)));
   });
 
+  // Harm: the boxes of Needs you grey on grey beside lists on white.
+  testWidgets('a box of Needs you has its rows on white, under the pale head', (tester) async {
+    await World.startBackend(World.work);
+    await World.startApp(tester);
+    World.shell.goTo(Section.attention);
+    await World.settle(tester);
+    final box = find.byKey(const ValueKey<String>('needs-group reviews'));
+    final colors = Theme.of(tester.element(box)).colorScheme;
+    expect(
+      tester.widget<Material>(find.descendant(of: box, matching: find.byType(Material)).first).color,
+      listCardColour(colors),
+    );
+    expect(
+      tester.widget<ColoredBox>(find.descendant(of: box, matching: find.byType(ColoredBox)).first).color,
+      listHeadColour(colors),
+    );
+  });
+
   // Harm: a bar's switch standing out over the words beside it.
   testWidgets('the small switch has the size of the design, and says what it is', (tester) async {
     var on = false;
@@ -101,6 +120,14 @@ void main() {
     expect(tester.getSize(find.byKey(const Key('small'))), const Size(38, 22));
     await tester.tap(find.byKey(const Key('small')));
     expect(on, isTrue);
+    final colors = Theme.of(tester.element(find.byKey(const Key('small')))).colorScheme;
+    expect(
+      tester
+          .widget<Material>(find.descendant(of: find.byKey(const Key('small')), matching: find.byType(Material)))
+          .color,
+      colors.outline,
+      reason: 'off, it must be told from the page',
+    );
   });
 
   // Harm: the time an agent worked reads as a result, when only its finishing is one.
@@ -108,5 +135,6 @@ void main() {
     expect(markOf('✻ Finished at 09:02'), LineMark.result);
     expect(markOf('✻ Worked for 3m 40s'), isNot(LineMark.result));
     expect(markOf('✻ Worked for 3m 40s'), isNot(LineMark.plain));
+    expect(markOf('✻ Error: provider refused the request'), LineMark.error);
   });
 }

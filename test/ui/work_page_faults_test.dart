@@ -402,6 +402,19 @@ void main() {
       expect(find.byKey(const Key('command-query')), findsOneWidget);
     });
 
+    // Harm: a grey New work whose reason only a guess can find.
+    testWidgets('New work says why it is grey, when no machine answers', (tester) async {
+      await theApp(tester);
+      await toSection(tester, Section.work);
+      expect(find.text('New work: no machine answers.'), findsNothing);
+      World.backend.absent = const VarlinkDisconnected('nothing there');
+      World.backend.lose();
+      await World.settle(tester);
+      expect(tester.widget<FilledButton>(find.byKey(const Key('new-work'))).onPressed, isNull);
+      expect(find.text('New work: no machine answers.'), findsOneWidget);
+      await itAnswersAgain(tester);
+    });
+
     // Harm: the window deaf to its own keys after something opened over the list and closed.
     testWidgets('the window keeps the keyboard on the list after what opened over it closes', (tester) async {
       await theApp(tester);

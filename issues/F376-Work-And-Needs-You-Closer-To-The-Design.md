@@ -20,7 +20,11 @@
 - **Stay as built, by the operator's word:** the fold at the end of a *Needs you* row, the two hints under a terminal, the hollow ring. Round buttons, the side bar's width and marks, the head's icons and the title's weight and font act across the window and do not change here.
 - **The white rows are every list's**, as they share one card.
 - **A row's sentence stands in the row opened**, so what ended a piece of work, or how long it has been quiet, is not lost with the short state.
-- **Under *Running* no *New work* is drawn**, since it stands on the card of the list; the finder and the list still have it.
+- **Under *Running* no *New work* is drawn**, and none on the first steps of an empty window, which lead to it themselves. Both as the operator's words on the page's top.
+- **A compact window's *Needs you* has no total beside its boxes**: its rail is in the drawer, and each box still counts its own.
+- **An off switch's track is darker than the design's**, as the design's cannot be told from the page.
+- **The boxes of *Needs you* have the same colours as a list's.**
+- **`✻` with an error in it stays an error.**
 
 ## To be checked
 

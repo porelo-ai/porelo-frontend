@@ -44,9 +44,9 @@ final _heading = RegExp(r'^\s*(#{1,6}\s|❯\s|==+\s|--+\s\S)');
 LineMark markOf(String line) {
   final words = line.replaceAll(_control, '');
   if (_heading.hasMatch(words)) return LineMark.heading;
-  if (_worked.hasMatch(words)) return LineMark.quiet;
   if (_nothingWrong.hasMatch(words)) return LineMark.result;
   if (_wrong.hasMatch(words)) return LineMark.error;
+  if (_worked.hasMatch(words)) return LineMark.quiet;
   if (_went.hasMatch(words)) return LineMark.result;
   return LineMark.plain;
 }

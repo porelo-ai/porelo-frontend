@@ -25,7 +25,8 @@ class SmallSwitch extends StatelessWidget {
       toggled: value,
       enabled: change != null,
       child: Material(
-        color: value ? colors.primary : colors.outlineVariant,
+        // Off, the design's paler track cannot be told from the page.
+        color: value ? colors.primary : colors.outline,
         shape: const StadiumBorder(),
         clipBehavior: Clip.antiAlias,
         child: InkWell(

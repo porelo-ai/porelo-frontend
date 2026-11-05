@@ -431,6 +431,7 @@ class _WorkPageState extends State<WorkPage> {
               storageId: 'work-list',
               search: _view.search,
               searchHint: 'Name, project or machine',
+              greyWords: <String>[if (widget.onNewWork == null) 'New work: no machine answers.'],
               actions: <Widget>[
                 FilledButton.icon(
                   key: const Key('new-work'),
