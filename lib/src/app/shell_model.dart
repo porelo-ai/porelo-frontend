@@ -16,13 +16,13 @@ enum Section {
   attention('Needs you'),
 
   /// Every machine watched, to set one up or look after it.
-  machines('Machines'),
+  machines('My machines'),
 
   /// Every forge set up on this computer: where the repositories are, and the tokens reaching them.
-  forges('Forges'),
+  forges('My forges'),
 
   /// Every project on every machine, to set one up or look after it.
-  projects('Projects'),
+  projects('My projects'),
 
   /// The organization: its people, its projects, its hosts and its owners.
   organization('Organization'),

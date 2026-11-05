@@ -37,6 +37,31 @@ const _repository = ForgeRepository(
 );
 
 void main() {
+  // Harm: right after creating a Porelo organization on GitHub, *My forges* said 0 and asked for the token again.
+  group('creating a Porelo organization lists its forge', () {
+    ForgeConnection forges(ForgeTokens tokens) {
+      final made = ForgeConnection(tokens);
+      addTearDown(made.dispose);
+      return made;
+    }
+
+    test('from the address of its repository, in either form, once', () async {
+      for (final address in ['git@forge.example.org:acme/org.git', 'https://forge.example.org/acme/org.git']) {
+        final each = forges(MemoryForgeTokens());
+        await each.enterForgeOf(address);
+        await each.enterForgeOf(address);
+        expect([for (final entry in each.entries) entry.address], ['forge.example.org']);
+      }
+    });
+
+    test('and says why where no token is kept here, asking for nothing', () async {
+      final each = forges(MemoryForgeTokens());
+      await each.enterForgeOf('git@forge.example.org:acme/org.git');
+      expect(each.entries, hasLength(1));
+      expect(each.problem, isNotNull);
+    });
+  });
+
   group('a forge\'s token in the machine\'s vault', () {
     Future<List<List<String>>> pump(WidgetTester tester, String address, {ForgeTokenVault? vault}) async {
       tester.view

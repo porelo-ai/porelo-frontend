@@ -281,7 +281,7 @@ class _HostDialogState extends State<HostDialog> {
     final refused = [for (final each in mine) ?access.unavailable(each)];
     return refused.isNotEmpty
         ? refused.first
-        : 'Each machine of yours has a preparation already: open it from its row under Machines.';
+        : 'Each machine of yours has a preparation already: open it from its row under My machines.';
   }
 
   /// Only a machine that can be prepared is offered, so the name cannot be typed into a refusal.

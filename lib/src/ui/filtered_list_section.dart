@@ -432,7 +432,7 @@ class _FilteredListSectionState extends State<FilteredListSection> {
                           padding: const EdgeInsets.symmetric(vertical: Space.normal),
                           child: Text(
                             widget.rows.isEmpty
-                                ? (widget.emptyWords ?? 'No ${widget.title.toLowerCase()} yet.')
+                                ? (widget.emptyWords ?? 'No ${widget.title.toLowerCase().replaceFirst('my ', '')} yet.')
                                 : 'Nothing matches.',
                           ),
                         ),

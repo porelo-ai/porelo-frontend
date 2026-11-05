@@ -96,7 +96,7 @@ class _ForgesPageState extends State<ForgesPage> {
           if (_said case final said?) Text(said),
           if (widget.keyCheck case final check?) ForgeKeyRow(check: check),
           FilteredListSection(
-            title: 'Forges',
+            title: 'My forges',
             storageId: 'forges',
             actions: [
               FilledButton.icon(
@@ -378,7 +378,7 @@ class _ForgePageState extends State<ForgePage> {
             child: TextButton.icon(
               onPressed: widget.onBack,
               icon: const Icon(Icons.arrow_back),
-              label: const Text('Forges'),
+              label: const Text('My forges'),
             ),
           ),
           Row(

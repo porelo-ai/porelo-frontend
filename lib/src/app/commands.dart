@@ -1650,7 +1650,7 @@ List<Command> cardHostTransferCommands({
   final why = running
       ? 'A push or pull of this project runs already; wait for its end.'
       : whyNoRight ??
-            (hasSecrets ? null : 'Choose your secrets file under Forges first: the central token is read from it.');
+            (hasSecrets ? null : 'Choose your secrets file under My forges first: the central token is read from it.');
   return [
     for (final command in projectTransferCommands(transfers: transfers, selection: selection, start: start))
       why == null

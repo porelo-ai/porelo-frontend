@@ -261,6 +261,11 @@ class OrganizationView {
   bool mayChangeMember(String role, {required bool isProjectAdmin}) =>
       organizationAdmins == null || role != ProjectView.adminRole ? isProjectAdmin : isOrganizationAdmin;
 
+  /// Whether [project] stands under *My projects*: this person holds a role in it, and it has its Git
+  /// repository, as one with none yet stands on the Organization page, where it is made.
+  bool isMine(OrganizationProject project) =>
+      holdsRoles && !project.hasNoRepository && (project.admins.contains(me) || project.members.contains(me));
+
   /// The hosts this person has to do with: those they administer, and those carrying a project of theirs.
   List<OrganizationHost> get myHosts => !holdsRoles
       ? const []
@@ -847,6 +852,10 @@ class Organization extends ChangeNotifier {
   final _addresses = <String, _Kept<KnownAddress>>{};
   final _listed = _Kept<List<ListedProject>>();
   Future<void> _answersInTurn = Future<void>.value();
+
+  /// Told of each change the store took, for what the window keeps of it itself.
+  void Function(OrganizationChange change, Map<String, String> input)? afterWrite;
+
   final _rowChanges = <OrganizationRowChange>[];
   final _writeReads = <Future<void> Function()>[];
   final _projectBases = <String, ({String revision, String? repositories})>{};
@@ -1095,6 +1104,7 @@ class Organization extends ChangeNotifier {
           input['review'] != null) {
         _signedReviewChoices[input['project']!] = input['review']!;
       }
+      afterWrite?.call(change, input);
       if (change == OrganizationChange.chooseOrganization) {
         _rowChanges.clear();
         _projectBases.clear();

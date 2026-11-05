@@ -52,7 +52,7 @@ class ProjectsPage extends StatelessWidget {
       children: [
         FilteredListSection(
           storageId: 'projects',
-          title: 'Projects',
+          title: 'My projects',
           rows: [
             for (final row in rows)
               (

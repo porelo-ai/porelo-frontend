@@ -344,7 +344,7 @@ void main() {
           .first,
     );
     expect(find.byKey(const ValueKey('my-host build')), findsOneWidget);
-    expect(find.text('Machines'), findsWidgets);
+    expect(find.text('My machines'), findsWidgets);
     await tester.tap(find.byKey(const ValueKey('my-host build')));
     await World.settle(tester);
     expect(find.byKey(const ValueKey('organization-host build')), findsOneWidget);
@@ -683,8 +683,22 @@ void main() {
     });
 
     // Harm: the rail says one number and the page it opens lists another.
-    test('the rail counts what the Projects page lists', () {
-      expect(projectsInRail(organizationFor('olive'), onMachines: 7), 2);
+    test('the rail counts what the My projects page lists', () {
+      expect(projectsInRail(organizationFor('olive'), onMachines: 7), 0, reason: 'They hold no role in either.');
+      expect(projectsInRail(organizationFor('pat'), onMachines: 7), 1, reason: 'A role in one of two.');
+      expect(
+        projectsInRail(
+          organizationFor(
+            'pat',
+            moreProjects: const [
+              OrganizationProject(name: 'fresh', admins: ['pat'], opened: false),
+            ],
+          ),
+          onMachines: 7,
+        ),
+        1,
+        reason: 'One with no repository yet stands on the Organization page.',
+      );
       expect(projectsInRail(null, onMachines: 7), 7);
     });
 

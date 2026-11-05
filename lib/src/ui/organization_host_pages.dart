@@ -381,7 +381,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
               key: const Key('organization-host-back'),
               onPressed: widget.onBack,
               icon: const Icon(Icons.arrow_back),
-              label: const Text('Machines'),
+              label: const Text('My machines'),
             ),
           ),
           Text(widget.host, style: Theme.of(context).textTheme.headlineSmall),

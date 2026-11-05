@@ -74,7 +74,7 @@ Feature: Daily work in front, setting up machines and projects apart
 
     Scenario: machines are a page of setting up, each with its projects under it
         When I go to the place {'machines'}
-        Then the section shown is {'Machines'}
+        Then the section shown is {'My machines'}
         And the project {'checkout'} is listed
         And the project {'billing'} is listed
 
@@ -159,13 +159,13 @@ Feature: Daily work in front, setting up machines and projects apart
     Scenario: removing a machine from the list stays on the list
         When I watch another machine called {'elsewhere'}
         And I remove {'elsewhere'} from the list of machines
-        Then the section shown is {'Machines'}
+        Then the section shown is {'My machines'}
         And the machine {'elsewhere'} is listed {false}
 
     Scenario: a project's page whose project went goes back to the list of projects
         When I select the project {'billing'}
         And the machine no longer has the project {'billing'}
-        Then the section shown is {'Projects'}
+        Then the section shown is {'My projects'}
 
     # Walk 9: this computer itself is never removed from the list.
     Scenario: this computer cannot be removed from the list of machines, another can

@@ -514,7 +514,7 @@ class _OrganizationPageState extends State<OrganizationPage> {
               words:
                   "The machine's card is added with its name and first Machine Admin. The Machine Admin enters its address "
                   "and SSH key when they set the machine up, then puts projects on it and names further Machine "
-                  "Admins, all on the machine's page under Machines.",
+                  "Admins, all on the machine's page under My machines.",
               confirm: 'Add the machine',
               check: (name) {
                 try {

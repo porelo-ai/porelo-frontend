@@ -327,7 +327,7 @@ class _WorkPageState extends State<WorkPage> {
           2,
           'project',
           'A project, or Default',
-          'How work runs: its repositories, who reviews what it pushes. A project comes from your organization; '
+          'How work runs: its repositories, who reviews what it pushes. A project comes from your Porelo organization; '
               'work can also run in Default, the project every machine has.',
           projectReady,
           machineReady,

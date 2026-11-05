@@ -361,6 +361,12 @@ class _ShellState extends State<Shell> {
     // One that cannot be raised is said under Needs you; the project's page says the address.
     _attention.homeservers = _homeservers;
     if (_organization case final organization?) _attention.watchOrganization(organization, _hostConnections);
+    // A person is never asked for the same token twice: what created the organization is the forge's access.
+    _organization?.afterWrite = (change, input) {
+      if (change == OrganizationChange.createOrganization && input['address'] != null) {
+        unawaited(_forges.enterForgeOf(input['address']!));
+      }
+    };
     _homeservers.addListener(_homeserversChanged);
     _organization?.addListener(_homeserversChanged);
     // What was joined before is reachable again from the start, at the same port.
@@ -3045,7 +3051,7 @@ class _ShellState extends State<Shell> {
           onMachines: listedMachines(widget.machines)
               .fold<int>(0, (count, machine) => count + projectsOnMachine(widget.machines, machine).length),
         ),
-        forges: _forges.entries.length,
+        forges: _forges.allEntries.length,
         width: width,
         onGo: (section) {
           _leaveDrawer();
@@ -3069,7 +3075,7 @@ class _ShellState extends State<Shell> {
   );
 
   /// Every machine watched, as a list: setting up, out of the daily way. A machine's details are its
-  /// page; its projects are under Projects and its work under Work.
+  /// page; its projects are under My projects and its work under Work.
   Widget _machinesPage() => ListenableBuilder(
     listenable: Listenable.merge(<Listenable>[
       widget.machines,

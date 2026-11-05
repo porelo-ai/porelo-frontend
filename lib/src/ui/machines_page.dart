@@ -77,7 +77,7 @@ class MachinesPage extends StatelessWidget {
       padding: const EdgeInsets.all(Space.normal),
       children: [
         FilteredListSection(
-          title: 'Machines',
+          title: 'My machines',
           storageId: 'machines',
           actions: [
             FilledButton.icon(

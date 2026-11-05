@@ -138,8 +138,7 @@ class _OrganizationProjectsPageState extends State<OrganizationProjectsPage> {
           ? const <OrganizationProject>[]
           : [
               for (final project in view.projects)
-                // One with no repository yet stands on the Organization page, where it is made.
-                if (_roleIn(view, project) != null && !project.hasNoRepository) project,
+                if (view.isMine(project)) project,
             ];
       for (final project in mine) {
         _askCentral(project);
@@ -152,7 +151,7 @@ class _OrganizationProjectsPageState extends State<OrganizationProjectsPage> {
           if (widget.organization.problem case final problem?) _Problem(problem),
           if (view != null)
             FilteredListSection(
-              title: 'Projects',
+              title: 'My projects',
               storageId: 'my-projects',
               rows: [
                 for (final project in mine)
@@ -270,7 +269,7 @@ class _Problem extends StatelessWidget {
 }
 
 /// One project: its repositories and its members with their role. Its project admins change them here; a member reads
-/// the same page and changes nothing. Work on it starts from its row under Projects, which names its host.
+/// the same page and changes nothing. Work on it starts from its row under My projects, which names its host.
 class OrganizationProjectPage extends StatefulWidget {
   /// Reads [project] from [organization].
   const OrganizationProjectPage({required this.organization, required this.project, required this.onBack, super.key});
@@ -372,7 +371,7 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
             key: const Key('organization-project-back'),
             onPressed: widget.onBack,
             icon: const Icon(Icons.arrow_back),
-            label: const Text('Projects'),
+            label: const Text('My projects'),
           ),
         ),
         Wrap(

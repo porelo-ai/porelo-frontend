@@ -39,4 +39,3 @@ The dialogs' sentences change with them, such as "only a computer that reads no 
 - **The roles** *Organization owner* and *Organization Admin* keep their names: they name a role in Porelo and stand on its own page.
 - **Only GitHub is named by its word:** the other forges' words are from memory, so another forge reads "your forge's organization".
 - **The words that come from Core** are passed on as they are, such as *Kept in the GitHub organization acme* on the page's head, and follow Core's own change.
-- *A project comes from your organization* on the Work page stays until that page's redesign is in.

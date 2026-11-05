@@ -116,13 +116,13 @@ is only as trustworthy as the ZIP or the MSIX it came in, which is why the check
    one tresor of yours into that user's home. The first time you go to it and it answers, the interface shows
    what it says about itself, as `porelo doctor` does on a terminal: each check green, yellow or red, with what to do.
    Nothing is repaired from here, and the machine is added either way.
-3. **Add your forge** under *Forges*, with a token, so a repository can be picked rather than typed.
+3. **Add your forge** under *My forges*, with a token, so a repository can be picked rather than typed.
 4. **Start work** with *New work* on *Work*: a machine and a repository. In the *Default* project it runs
    with the machine's own settings. Pick no agent and the machine chooses one, and the form says which
    and why. The first time, the agent asks you to sign in; the sign-in is kept in the machine's vault.
 5. **Review what the agent did**: what it changed, the most far-reaching first, and what it was
    asked. Forward it to the repository's origin, or drop it.
-6. **Work in a project of your organization** under *Projects* when work needs settings of its own: a
+6. **Work in a project of your organization** under *My projects* when work needs settings of its own: a
    repository holding a `project.yml`, whose settings are changed in that repository.
 
 *Needs you* lists everything a person has to answer, on every machine, the most urgent first.

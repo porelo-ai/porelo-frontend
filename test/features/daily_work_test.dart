@@ -139,7 +139,7 @@ void main() {
     testWidgets('''machines are a page of setting up, each with its projects under it''', (tester) async {
       await bddSetUp(tester);
       await iGoToThePlace(tester, 'machines');
-      await theSectionShownIs(tester, 'Machines');
+      await theSectionShownIs(tester, 'My machines');
       await theProjectIsListed(tester, 'checkout');
       await theProjectIsListed(tester, 'billing');
     });
@@ -223,14 +223,14 @@ void main() {
       await bddSetUp(tester);
       await iWatchAnotherMachineCalled(tester, 'elsewhere');
       await iRemoveFromTheListOfMachines(tester, 'elsewhere');
-      await theSectionShownIs(tester, 'Machines');
+      await theSectionShownIs(tester, 'My machines');
       await theMachineIsListed(tester, 'elsewhere', false);
     });
     testWidgets('''a project's page whose project went goes back to the list of projects''', (tester) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'billing');
       await theMachineNoLongerHasTheProject(tester, 'billing');
-      await theSectionShownIs(tester, 'Projects');
+      await theSectionShownIs(tester, 'My projects');
     });
     testWidgets('''this computer cannot be removed from the list of machines, another can''', (tester) async {
       await bddSetUp(tester);

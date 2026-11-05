@@ -20,7 +20,7 @@ String? tokenGivenWords(String host, String forge, Ran ran) {
 
 /// What is said where no token is to be had for [forge], and what to do about it.
 String noTokenWords(String host, String forge) =>
-    'No $forge token is kept on this computer, so $host was given none. Sign in to $forge under Forges, '
+    'No $forge token is kept on this computer, so $host was given none. Sign in to $forge under My forges, '
     'and give it from here.';
 
 /// What the kept token is for, and what happens to it, for the person's confirming word.

@@ -1,6 +1,6 @@
 # F360 — A Count Says What It Counts
 
-**Status:** Backlog.
+**Status:** Review.
 **Size:** M - the side bar's names and counts, and a forge entered on creating; the one store is apart.
 
 **What must be true.** Two numbers for one word never leave a person wondering which is wrong: where the side bar and a page count different things under the same name, the words say the difference.
@@ -46,6 +46,11 @@ One person can hold the same token twice. `porelo vault` holds `git.token.<host>
 - **A computer with no local Porelo,** only reaching machines, has the system store and no vault of its own.
 
 **The way this issue takes, to be settled when it is analyzed:** the vault as the one store, with the window's forge questions asked through Core, and a shut vault reading as shut, with what is already known still shown.
+
+## Decided while building
+
+- **The entry names the forge by the host of the organization's repository,** and is a GitHub entry as *Add a forge* makes by default. Where no token is kept in this computer's store, it stands and says so; a token only in the vault is that case.
+- **A section of one machine's or one project's page keeps its short title,** such as *Projects* on a machine's page, as it counts neither of the side bar's numbers.
 
 ## To be checked
 

@@ -242,6 +242,20 @@ class ForgeConnection extends ChangeNotifier with QuietAfterDispose {
     notifyListeners();
   }
 
+  /// Lists the forge of [address], the Porelo organization's repository, where it is not listed yet,
+  /// asking for nothing: the token that created the organization is the access. Where it cannot be read
+  /// the entry still stands and says why.
+  Future<void> enterForgeOf(String address) async {
+    final where = hostOf(address);
+    if (where == null || allEntries.any((entry) => entry.address == where)) return;
+    final entry = ForgeEntry(id: where, kind: 'github', name: where, address: where, authentication: 'token');
+    await _asking(() async {
+      entries = [...entries, entry];
+      await _keep();
+      await _open(entry);
+    });
+  }
+
   /// Adds a forge using the person's identity, without prompting for a token.
   Future<ForgeEntry?> addIdentity({required String name, required String address}) async {
     final where = forgeAddress(address);
