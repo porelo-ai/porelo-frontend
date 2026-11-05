@@ -6,10 +6,15 @@ import '../app/shell_model.dart';
 import 'machine_tree.dart';
 import 'tokens.dart';
 
-/// What the rail counts under *My projects*: what that page lists, so the organization's projects this person
-/// holds a role in where one is read, and those [onMachines] otherwise.
-int projectsInRail(OrganizationView? view, {required int onMachines}) =>
-    view?.projects.where(view.isMine).length ?? onMachines;
+/// What the rail counts under *My projects*: what that page lists. Where it shows [fromOrganization], the
+/// organization's projects this person holds a role in and the [local] ones, or none while it has read nothing;
+/// otherwise those [onMachines].
+int projectsInRail(OrganizationView? view, {required int onMachines, bool fromOrganization = false, int local = 0}) =>
+    !fromOrganization
+    ? onMachines
+    : view == null
+    ? 0
+    : view.projects.where(view.isMine).length + local;
 
 /// The left of the window: the daily work first - what runs, and what needs a person - and setting
 /// up apart under it, machines and projects, which are rarely needed once they are set up.

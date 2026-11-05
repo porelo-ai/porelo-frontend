@@ -52,6 +52,10 @@ One person can hold the same token twice. `porelo vault` holds `git.token.<host>
 - **The entry names the forge by the host of the organization's repository,** and is a GitHub entry as *Add a forge* makes by default. Where no token is kept in this computer's store, it stands and says so; a token only in the vault is that case.
 - **A section of one machine's or one project's page keeps its short title,** such as *Projects* on a machine's page, as it counts neither of the side bar's numbers.
 
+- **The number is the page's rows, with no filter counted:** a filter narrows what is shown, and the head of a list keeps saying how many there are.
+- **"All projects on your machines" counts what it lists** while it is shown, and the number goes back with the way back.
+- **A forge open in the window stays open** when an organization is created on another.
+
 ## To be checked
 
 - Words elsewhere that name these places, such as "under Projects", the help, the pictures and their alt text.

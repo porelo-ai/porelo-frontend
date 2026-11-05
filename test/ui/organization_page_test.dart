@@ -721,21 +721,25 @@ void main() {
 
     // Harm: the rail says one number and the page it opens lists another.
     test('the rail counts what the My projects page lists', () {
-      expect(projectsInRail(organizationFor('olive'), onMachines: 7), 0, reason: 'They hold no role in either.');
-      expect(projectsInRail(organizationFor('pat'), onMachines: 7), 1, reason: 'A role in one of two.');
+      int count(OrganizationView? view, {int local = 0}) =>
+          projectsInRail(view, onMachines: 7, fromOrganization: true, local: local);
+      expect(count(organizationFor('olive')), 0, reason: 'They hold no role in either.');
+      expect(count(organizationFor('pat')), 1, reason: 'A role in one of two.');
+      expect(count(organizationFor('pat'), local: 1), 2, reason: 'And one only on this computer.');
       expect(
-        projectsInRail(
+        count(
           organizationFor(
             'pat',
             moreProjects: const [
               OrganizationProject(name: 'fresh', admins: ['pat'], opened: false),
             ],
           ),
-          onMachines: 7,
         ),
         1,
         reason: 'One with no repository yet stands on the Organization page.',
       );
+      expect(count(null, local: 1), 0, reason: 'With nothing read the page has no rows.');
+      expect(projectsInRail(organizationFor('pat'), onMachines: 7), 7, reason: 'All projects on the machines.');
       expect(projectsInRail(null, onMachines: 7), 7);
     });
 

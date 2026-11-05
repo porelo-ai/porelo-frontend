@@ -33,6 +33,7 @@ class OrganizationProjectsPage extends StatefulWidget {
     this.onHost,
     this.menuFor,
     this.connections,
+    this.onListed,
     this.onOthers,
     super.key,
   });
@@ -52,6 +53,9 @@ class OrganizationProjectsPage extends StatefulWidget {
   /// What can be done with a project on its host from here: a host lists a project only after the person's first start
   /// there, so no machine's list holds these until then.
   final List<Command> Function(String project, String host)? menuFor;
+
+  /// Told what `project list` answered, for the side bar's count.
+  final void Function(List<ListedProject> listed)? onListed;
 
   /// Asks a connected machine how a project stands with the central forge, absent where this computer cannot.
   final HostConnections? connections;
@@ -124,6 +128,7 @@ class _OrganizationProjectsPageState extends State<OrganizationProjectsPage> {
     try {
       final listed = await widget.organization.source.myProjects();
       if (mounted) setState(() => _listed = listed);
+      widget.onListed?.call(listed);
     } on OrganizationRefused {
       // Said by the organization's own read, whose words are the same.
     }

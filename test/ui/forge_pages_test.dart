@@ -54,6 +54,16 @@ void main() {
       }
     });
 
+    test('and leaves open the forge the person has open', () async {
+      final tokens = MemoryForgeTokens();
+      final each = ForgeConnection(tokens, identityAccess: (_) async => throw const ForgeRefused('no'));
+      addTearDown(each.dispose);
+      final open = await each.addIdentity(name: 'Mine', address: 'mine.example.org');
+      await each.enterForgeOf('git@forge.example.org:acme/org.git');
+      expect(each.current?.id, open?.id);
+      expect(each.entries, hasLength(2));
+    });
+
     test('and says why where no token is kept here, asking for nothing', () async {
       final each = forges(MemoryForgeTokens());
       await each.enterForgeOf('git@forge.example.org:acme/org.git');

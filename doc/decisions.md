@@ -91,7 +91,7 @@ Three choices Porelo's remote access leaves to the client:
 - **The interface manages `ssh` itself** for a machine described by where it is: one process per
   machine, `BatchMode=yes` so it fails with ssh's own sentence rather than prompting, and
   `ExitOnForwardFailure=yes` so a forward that cannot bind does not read as connected. When a
-  login is refused, the refusal is explained in plain words beside the machine on *Machines* as well
+  login is refused, the refusal is explained in plain words beside the machine on *My machines* as well
   as when it is added, naming the key `ssh`'s configuration resolves for the host or saying that
   none is named. It owns only what it raised, and closing the window takes those down.
 - **A cut stream is a disconnection, never an empty machine.** A forward that drops is raised again
@@ -831,11 +831,11 @@ secrets file inside a terminal; it is never on a command line, in a file, or in 
 
 To a person there is no difference between a host and a machine, so nothing a person reads says host; *SSH host key* stays, as
 ssh's own term a person compares. *Organization* lists every machine of the organization and is where a machine is connected,
-prepared and managed. *Machines* is the person's own list, of those they connected to or added, and it is not joined from the
+prepared and managed. *My machines* is the person's own list, of those they connected to or added, and it is not joined from the
 organization. A server has one page, from either list.
 
 Taking a machine down has two names, as it means two things: *Take Porelo off this machine…* where the machine simply exists,
 and *Return this rental…* only where a saved rental stands. Every machine prepared now simply exists, as `up` rents nothing
 until 0.9.
 
-**What it costs:** a person who wants to work on a server connects to it first, and only then finds it under *Machines*.
+**What it costs:** a person who wants to work on a server connects to it first, and only then finds it under *My machines*.

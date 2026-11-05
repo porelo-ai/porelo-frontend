@@ -71,7 +71,7 @@ class MachineDetailsPage extends StatelessWidget {
       else ...[
         Align(
           alignment: Alignment.centerLeft,
-          child: TextButton.icon(onPressed: onBack, icon: const Icon(Icons.arrow_back), label: const Text('Machines')),
+          child: TextButton.icon(onPressed: onBack, icon: const Icon(Icons.arrow_back), label: const Text('My machines')),
         ),
         Row(
           children: [

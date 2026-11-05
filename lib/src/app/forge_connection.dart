@@ -252,7 +252,8 @@ class ForgeConnection extends ChangeNotifier with QuietAfterDispose {
     await _asking(() async {
       entries = [...entries, entry];
       await _keep();
-      await _open(entry);
+      // A forge the person has open stays open: the new one is there to be chosen.
+      if (current == null) await _open(entry);
     });
   }
 
