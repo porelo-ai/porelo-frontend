@@ -215,8 +215,12 @@ void main() {
       late StreamSubscription<List<int>> reading;
       reading = pty.output.listen((bytes) {
         said.write(utf8.decode(bytes));
-        reading.pause();
-        if (!ready.isCompleted) ready.complete();
+        // Held once: a terminal may hand one line over in two reads, and a second pause here
+        // would never be resumed, so the end of the output would never come.
+        if (!ready.isCompleted) {
+          reading.pause();
+          ready.complete();
+        }
       }, onDone: eof.complete);
       addTearDown(() async {
         reading.resume();
