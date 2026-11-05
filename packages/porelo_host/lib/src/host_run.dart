@@ -854,6 +854,11 @@ done''',
           return;
         }
         if (step == null) return;
+        // Told to a person, it ends nothing and no later line depends on it.
+        if (step.state == StepState.note) {
+          _write(step);
+          return;
+        }
         if (step.state == StepState.host) {
           final values = step.host!;
           final problem = playbook != 'porelo.host.up'
@@ -953,6 +958,7 @@ done''',
     }
     final name = decoded['task'] as String? ?? decoded['play'] as String? ?? 'play';
     return switch (state) {
+      'note' => words == null || words.isEmpty ? null : Step('note', StepState.note, words: words),
       'started' => Step(name, StepState.started, text: text, seconds: seconds, words: words),
       'ok' || 'changed' || 'skipped' => Step(name, StepState.done, text: text, seconds: seconds, words: words),
       // Where `up` refuses for a secret it then takes on its own call, the call needs the host and its login user.

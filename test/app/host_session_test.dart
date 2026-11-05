@@ -42,6 +42,34 @@ void main() {
 
   String kept(String name) => File('${scratch.path}/$name').readAsStringSync();
 
+  // Harm: what the machine says stays there goes unread among its steps, or can arrange the dialog.
+  test('a note is kept apart from the steps, once, and shown as plain text', () async {
+    const note = '{"step":"note","state":"note","words":"The firewall stays.\\nAll is well."}';
+    const other = '{"step":"play","state":"done"}';
+    final session = HostSession(
+      executable: 'porelo-host',
+      arguments: const ['--host-name', 'orchard'],
+      start: saying([note, other, note], words: 'note: The firewall stays.\nAll is well.\n'),
+    );
+    addTearDown(session.dispose);
+    await session.down();
+    expect(session.notes, ['The firewall stays.?All is well.']);
+    expect(session.steps.map((step) => step.step), ['play']);
+    expect(session.said, isEmpty);
+  });
+
+  // Harm: a machine that keeps saying notes fills the dialog and the memory.
+  test('a session keeps only so many notes', () async {
+    final session = HostSession(
+      executable: 'porelo-host',
+      arguments: const ['--host-name', 'orchard'],
+      start: saying([for (var each = 0; each < 40; each++) '{"step":"note","state":"note","words":"note $each"}']),
+    );
+    addTearDown(session.dispose);
+    await session.down();
+    expect(session.notes, hasLength(HostSession.notesKept));
+  });
+
   // Harm: a successful host-only completion is discarded instead of published.
   test('up completes host metadata from its preparation name and default local forwards', () async {
     final raw = hostValues()

@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'host_record.dart';
 
 /// Where a step has got to.
-enum StepState { started, done, refused, waiting, plan, host }
+enum StepState { started, done, refused, waiting, plan, host, note }
 
 /// One line of what `up` or `down` is doing, as a program reads it.
 ///

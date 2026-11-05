@@ -21,6 +21,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f358"></a>[F358](F358-A-Hosts-Check-Before-Its-Installation.md) | — | — | The host dialog's first step after the address runs one reading check, lists every finding, and offers the installation only when it passes. |
 | <a id="f374"></a>[F374](F374-What-Founding-Needs-Said-Before-Founding.md) | — | — | The dialog of creating asks Core what founding needs at the address, each need with what to do, before anything is filed. |
 | <a id="f373"></a>[F373](F373-A-Grey-Button-In-A-Row-Says-Why.md) | — | — | A grey button in a row, a pane or a dialog says why in words. |
+| <a id="f375"></a>[F375](F375-What-Down-Says-Stays-On-A-Machine.md) | — | — | `down`'s note, that the firewall stays and how to take it off, reaches the take-down dialog. |
 | <a id="f356"></a>[F356](F356-The-Porelo-Organization-Named-Apart.md) | — | — | The window says *Porelo organization* wherever a forge's organization could also be meant, and says it lives in a repository inside that one. |
 | <a id="f359"></a>[F359](F359-An-Empty-List-Starts-Folded.md) | — | — | A list with no rows starts folded and folds when emptied, a fold the person chose is kept, and the head's actions stay usable. |
 | <a id="f369"></a>[F369](F369-One-Name-For-The-Default-Project.md) | — | — | The project every machine has is called *Default* in the window, as in Core and its documents, in place of "Without a project". |

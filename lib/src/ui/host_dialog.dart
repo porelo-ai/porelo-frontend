@@ -868,6 +868,20 @@ class _HostDialogState extends State<HostDialog> {
                     ],
                   ),
                 ),
+              if (_down case final session? when !(_givenBack && _returnedRental))
+                ListenableBuilder(
+                  listenable: session,
+                  builder: (_, _) => Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (final note in session.notes)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: Space.small),
+                          child: SelectableText('The machine says: $note'),
+                        ),
+                    ],
+                  ),
+                ),
               if (_down case final session?)
                 ListenableBuilder(listenable: session, builder: (_, _) => _following(session.protocolText)),
             ],

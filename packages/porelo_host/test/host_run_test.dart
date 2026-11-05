@@ -633,6 +633,27 @@ void main() {
   });
 
   // Harm: a failed backup must not delete the only remaining copy of server data.
+  // Harm: what a person must be told after a success stops at the first reader, which skips a state it does not know.
+  test('a note from the play goes out as a note, and ends nothing', () async {
+    provider.rented = const RentedHost(id: 'h1', address: '203.0.113.7', hostKey: sshKey, ready: true);
+    final said = ScriptedRemote([
+      jsonEncode({'v': 1, 'play': 'down', 'task': 'a task', 'state': 'ok', 'msg': ''}),
+      jsonEncode({'v': 1, 'state': 'note', 'msg': 'The firewall stays on.'}),
+    ]);
+    final run = HostRun(
+      provider: provider,
+      remote: said,
+      emit: steps.add,
+      environment: {'XDG_STATE_HOME': scratch.path},
+      trust: (_, _) async {},
+    );
+    expect(await run.down(plan), Exit.done);
+    final notes = steps.where((step) => step.state == StepState.note).toList();
+    expect(notes.single.words, 'The firewall stays on.');
+    expect(Step.fromLine(notes.single.toLine())?.state, StepState.note);
+    expect(provider.released, ['h1']);
+  });
+
   test('failed down play retains the billed host', () async {
     provider.rented = const RentedHost(id: 'h1', address: '203.0.113.7', hostKey: sshKey, ready: true);
     remote.playExit = 65;

@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:porelo_host/porelo_host.dart';
 
 import 'settings.dart';
+import 'task_certifying.dart';
 import 'host_protocol.dart';
 
 /// Uses the chosen, digest-checked collection when supplied.
@@ -447,6 +448,13 @@ class HostSession extends ChangeNotifier {
   /// The account daemon socket named by the completed up line.
   String? socket;
 
+  /// How many notes one run keeps: a machine must not fill the dialog or the memory.
+  static const notesKept = 8;
+
+  /// What the machine told a person though nothing failed, each once, as plain text.
+  List<String> get notes => List.unmodifiable(_notes);
+  Set<String> _notes = {};
+
   /// On a refusal, what fixes it, and what the command said on standard error.
   String? fix;
 
@@ -503,6 +511,7 @@ class HostSession extends ChangeNotifier {
     _history.clear();
     _echoes = {};
     _words = [];
+    _notes = {};
     needs = const <String>[];
     address = null;
     releasedAddress = null;
@@ -570,6 +579,12 @@ class HostSession extends ChangeNotifier {
     }
     if (parsed == null) return;
     final step = parsed;
+    if (step.state == StepState.note) {
+      _echoes.addAll(const LineSplitter().convert(hostStepWords(step)));
+      if (step.words case final words? when _notes.length < notesKept) _notes.add(printableForAPerson(words));
+      _changed();
+      return;
+    }
     if (_upCommand && arguments.contains('--host-name') && step.state == StepState.waiting) {
       _hostProblem = 'The machine requested a retired root setup stop.';
       _changed();

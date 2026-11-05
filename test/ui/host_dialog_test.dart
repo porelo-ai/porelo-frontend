@@ -408,6 +408,52 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
+  // Harm: a machine kept after down shuts out what is put on it next, and nobody said so or how to end it.
+  testWidgets('taking Porelo off says what the machine says stays, in full and copyable', (tester) async {
+    const said = 'The firewall stays on this machine. To take it off: systemctl disable --now a-firewall.service';
+    final state = await openTakeDown(
+      tester,
+      record: HostUpRecord(
+        hostName: 'orchard',
+        host: 'orchard',
+        givenAddress: '203.0.113.7',
+        givenHostKey: hostKey,
+        preparationSettings: const host.HostPreparationSettings(),
+        machineFile: signedSetup.machineFile,
+        publicKey: signedSetup.publicKey,
+      ),
+    );
+    answerHolders(state.processes.single, []);
+    await World.settle(tester);
+    await tester.tap(find.byKey(const Key('host-confirm-down')));
+    await World.settle(tester);
+    state.processes.last.line(const host.Step('note', host.StepState.note, words: said));
+    state.processes.last.line(const host.Step('give-back', host.StepState.done));
+    state.processes.last.end(0);
+    await World.settle(tester);
+    expect(find.textContaining('Porelo was taken off.'), findsOneWidget);
+    expect(find.widgetWithText(SelectableText, 'The machine says: $said'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  // Harm: a person told how to change a server that no longer is theirs.
+  testWidgets('a rental given back says nothing of a machine now gone', (tester) async {
+    final state = await openTakeDown(tester);
+    answerHolders(state.processes.single, []);
+    await World.settle(tester);
+    await tester.tap(find.byKey(const Key('host-confirm-down')));
+    await World.settle(tester);
+    state.processes.last.line(const host.Step('note', host.StepState.note, words: 'The firewall stays.'));
+    await World.settle(tester);
+    expect(find.textContaining('The machine says: The firewall stays.'), findsOneWidget, reason: 'it is still there');
+    state.processes.last.line(const host.Step('give-back', host.StepState.done));
+    state.processes.last.end(0);
+    await World.settle(tester);
+    expect(find.textContaining('Billing has ended.'), findsOneWidget);
+    expect(find.textContaining('The machine says:'), findsNothing);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   // Harm: someone admitted after confirmation must never be purged without a new explicit choice.
   testWidgets('a refused down reads new holders and waits for their confirmation', (tester) async {
     final state = await openTakeDown(tester);
@@ -1384,13 +1430,14 @@ void answerHolders(HostProcess process, List<Map<String, Object?>> persons) {
 }
 
 Future<({Settings settings, List<List<String>> commands, List<HostProcess> processes})> openTakeDown(
-  WidgetTester tester,
-) async {
+  WidgetTester tester, {
+  HostUpRecord record = signedSetup,
+}) async {
   tester.view.physicalSize = const Size(1280, 800);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   final settings = Settings(MemorySettingsStore());
-  await settings.rememberHostUp('orchard', signedSetup);
+  await settings.rememberHostUp('orchard', record);
   final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: RecordingTunnels());
   addTearDown(() {
     machines.dispose();

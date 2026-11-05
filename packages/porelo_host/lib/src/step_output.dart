@@ -13,6 +13,7 @@ void writeHostStep(Step step, {required StringSink output, required StringSink e
 
 /// The stderr echo paired with a machine-readable step.
 String hostStepWords(Step step) {
+  if (step.state == StepState.note) return 'note: ${step.words ?? ''}';
   final said = <String?>[step.words, step.fix].whereType<String>().join(': ');
   return '${step.step} ${step.state.name}${said.isEmpty ? '' : ' — $said'}';
 }

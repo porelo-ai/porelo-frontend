@@ -9,6 +9,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Taking Porelo off a machine says what the machine says stays on it, such as the firewall and the command that takes it off, whole and copyable. A rental given back says nothing of a machine now gone.
 - A grey button says why in words, with no hover: a row's button on the line under its title, *Push approved main* and *Connect* in a row of *My projects*, *Start again* under it, *Join* and *New password* in the messages dialog.
 - Work with no terminal open says so, rather than that its session ended: a machine says the same of one never opened. A row waiting on a person says that first. A terminal the machine refused keeps what it said, whatever a later look finds.
 - What a machine can run is no longer kept from the look before: a check that fails says so, and a late answer from a machine left behind is dropped.
