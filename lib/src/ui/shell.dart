@@ -610,17 +610,7 @@ class _ShellState extends State<Shell> {
     stopEverything: _stopEverything,
     stopEverywhere: _stopEverywhere,
     watchAnotherMachine: _addAMachine,
-    prepareServer: () async {
-      final hostCheck = await HostCheckRun().ifCarried();
-      if (!mounted) return;
-      await openPrepareServerDialog(
-        context,
-        machines: widget.machines,
-        settings: widget.settings,
-        hostRuns: _hostRuns,
-        hostCheck: hostCheck,
-      );
-    },
+    prepareServer: _openPrepare,
     startTheDaemon: () => unawaited(_startTheDaemon()),
     stopTheDaemon: () => unawaited(_stopTheDaemon()),
     forget: _forget,
@@ -3778,18 +3768,24 @@ class _ShellState extends State<Shell> {
   }
 
   /// One server's one page, reached from either list: where a person stands, what they do there, and its managing.
+  /// Opens *Prepare a machine*, with the check where the collection carried here holds one.
+  Future<void> _openPrepare({String? machineName}) async {
+    final hostCheck = await HostCheckRun().ifCarried();
+    if (!mounted) return;
+    await openPrepareServerDialog(
+      context,
+      machines: widget.machines,
+      settings: widget.settings,
+      hostRuns: _hostRuns,
+      machineName: machineName,
+      hostCheck: hostCheck,
+    );
+  }
+
   /// Prepares the machine named, where this computer offers preparing at all.
   void Function(String)? get _prepareThisMachine =>
       _commands().any((command) => command.id == 'host.prepare' && command.visible)
-      ? (host) => unawaited(
-          openPrepareServerDialog(
-            context,
-            machines: widget.machines,
-            settings: widget.settings,
-            hostRuns: _hostRuns,
-            machineName: host,
-          ),
-        )
+      ? (host) => unawaited(_openPrepare(machineName: host))
       : null;
 
   Widget _machineOnePage(String host, {Widget? work}) => OrganizationHostPage(

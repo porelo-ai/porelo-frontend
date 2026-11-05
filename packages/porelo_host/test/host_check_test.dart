@@ -91,6 +91,16 @@ class _Ssh implements Process {
 }
 
 void main() {
+  // Harm: the script says what kind of fault stopped it, and the person reads only that it could not run.
+  test('the script\'s own reason at exit 2 is said', () {
+    final answer = HostCheckAnswer.read(
+      '{"v": 1, "ok": false, "complete": false, "findings": [], "why": "PermissionError"}',
+      exitCode: 2,
+    );
+    expect(answer.answered, isFalse);
+    expect(answer.said, contains('PermissionError'));
+  });
+
   group('the answer', () {
     // Harm: an answer of any finding's state is not shown as it is, and a machine is prepared on a misread.
     for (final state in HostCheckState.values) {

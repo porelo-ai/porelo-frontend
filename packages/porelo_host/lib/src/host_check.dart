@@ -138,7 +138,10 @@ class HostCheckAnswer {
 
   static String _saidBy(Map<dynamic, dynamic> json) {
     final said = json['said'];
-    return said is String && said.isNotEmpty ? said : _couldNotRun;
+    if (said is String && said.isNotEmpty) return said;
+    // The script's own answer at exit 2 names the fault's kind alone.
+    final why = json['why'];
+    return why is String && why.isNotEmpty ? '$_couldNotRun It said: $why.' : _couldNotRun;
   }
 
   /// Whether nothing fails, as the check says it.
