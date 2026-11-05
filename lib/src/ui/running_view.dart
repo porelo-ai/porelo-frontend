@@ -145,6 +145,7 @@ class _RunningViewState extends State<RunningView> {
       _view.terminalSaid(tile.machine.name, task, live: true);
       return;
     }
+    if (_keepsWhatWasSaid(tile)) return;
     if (_view.terminalEnded(tile.machine.name, task) ||
         Sessions.whyNot(task, tile.machine) != null ||
         tile.fleet.reachability != Reachability.connected) {
@@ -153,6 +154,13 @@ class _RunningViewState extends State<RunningView> {
     }
     if (_isSessionOf(widget.sessions.current, tile)) return;
     unawaited(_open(tile));
+  }
+
+  /// Whether [tile]'s session ended with a problem: what the machine said is on its terminal, and a
+  /// later look at the machine says nothing of why, so that look neither closes nor covers it.
+  bool _keepsWhatWasSaid(Tile tile) {
+    final session = widget.sessions.current;
+    return _isSessionOf(session, tile) && session!.state == SessionState.over && session.problem != null;
   }
 
   /// The tab being looked at before opening its session; moving on leaves that look to nobody.
@@ -441,9 +449,10 @@ class _RunningViewState extends State<RunningView> {
       return _LogTab(key: ValueKey<String>('running-log ${_idOf(tile)}'), tile: tile, logs: widget.logs);
     }
     final whyNot = Sessions.whyNot(task, tile.machine);
-    if (_view.terminalEnded(tile.machine.name, task)) {
+    // A machine tells a terminal that ended from one never opened by neither: not live is all it says.
+    if (_view.terminalEnded(tile.machine.name, task) && !_keepsWhatWasSaid(tile)) {
       return _Ended(
-        saying: 'Its terminal session has ended',
+        saying: 'No terminal is open in it',
         step: whyNot == null
             ? OutlinedButton(
                 key: const Key('running-new-terminal'),

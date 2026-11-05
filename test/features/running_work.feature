@@ -52,18 +52,28 @@ Feature: A tab per running agent, the one place terminals are
     Scenario: a running task whose terminal has ended keeps its tab, says so, and offers a new one
         Given the terminal session of {'porelo-billing-shell'} has ended
         When I choose the tab of {'porelo-billing-shell'}
-        Then it says {'Its terminal session has ended'}
+        Then it says {'No terminal is open in it'}
         And no session is open
         When I open a new terminal from the tab
         Then {1} sessions are open
         And the session on screen is {'porelo-billing-shell'}
+
+    # Measured on a real daemon: a look after the refusal took the session, and with it what the
+    # machine had said, and left a sentence that told nothing.
+    Scenario: a terminal the machine would not open keeps what was said, whatever a look says after
+        When I choose the tab of {'porelo-billing-shell'}
+        And the session ends with {69}
+        And the terminal session of {'porelo-billing-shell'} has ended
+        And {60} seconds pass
+        Then it says {'The machine would not open a session here'}
+        And it does not say {'No terminal is open in it'}
 
     # Harm: a row saying nothing of it, or the bar that holds only a sentence.
     Scenario: the row of a running task whose terminal has ended says the same, and draws no console for it
         Given the terminal session of {'porelo-billing-shell'} has ended
         When I go to the list of work
         And I open the tile {'porelo-billing-shell'}
-        Then the tile {'porelo-billing-shell'} says {'Its terminal session has ended'}
+        Then the tile {'porelo-billing-shell'} says {'No terminal is open in it'}
         And the tile of {'porelo-billing-shell'} draws no console
         And the row of {'porelo-billing-shell'} offers {'Open a new terminal'}
         When I open a new terminal from the row of {'porelo-billing-shell'}

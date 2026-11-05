@@ -208,7 +208,7 @@ void main() {
       await bddSetUp(tester);
       await iWorkInItByHand(tester);
       await theSessionEndsWith(tester, 0);
-      await itSays(tester, 'Its terminal session has ended');
+      await itSays(tester, 'No terminal is open in it');
       await itDoesNotSay(tester, 'Closing this window leaves the session running');
       await noSessionIsOpen(tester);
       await iOpenANewTerminalFromTheTab(tester);

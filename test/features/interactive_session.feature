@@ -158,7 +158,7 @@ Feature: Working inside a container by hand, locally or over ssh
     Scenario: somebody who typed exit is not told that anything went wrong, and is offered a new terminal
         When I work in it by hand
         And the session ends with {0}
-        Then it says {'Its terminal session has ended'}
+        Then it says {'No terminal is open in it'}
         And it does not say {'Closing this window leaves the session running'}
         And no session is open
         When I open a new terminal from the tab

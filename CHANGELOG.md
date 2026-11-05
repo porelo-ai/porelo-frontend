@@ -9,6 +9,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Work with no terminal open says so, rather than that its session ended: a machine says the same of one never opened. A terminal the machine refused keeps what it said, whatever a later look finds.
 - A machine first gone to takes the page only when it lacks something, so a click on a row of its work opens the row. Asking what it can run stays one action away.
 - The bottom line counts *Actions*: what was asked here, so that "0 running" does not read as a claim about running work.
 - A start this computer would not certify says that no agent ran. Any other start that ended says its code, without naming an agent that may never have run.

@@ -27,6 +27,9 @@ import './step/the_terminal_session_of_has_ended.dart';
 import './step/it_says.dart';
 import './step/no_session_is_open.dart';
 import './step/i_open_a_new_terminal_from_the_tab.dart';
+import './step/the_session_ends_with.dart';
+import './step/seconds_pass.dart';
+import './step/it_does_not_say.dart';
 import './step/i_go_to_the_list_of_work.dart';
 import './step/i_open_the_tile.dart';
 import './step/the_tile_says.dart';
@@ -36,12 +39,10 @@ import './step/i_open_a_new_terminal_from_the_row_of.dart';
 import './step/i_watch_another_machine_called.dart';
 import './step/the_tab_offers_to_read_its_log.dart';
 import './step/work_is_blocked_reaching.dart';
-import './step/it_does_not_say.dart';
 import './step/i_answer_in_needs_you.dart';
 import './step/the_view_shown_is_what_needs_a_person.dart';
 import './step/the_work_runs_unattended.dart';
 import './step/the_agent_of_writes.dart';
-import './step/seconds_pass.dart';
 import './step/the_console_says.dart';
 import './step/the_console_has_a_switch_to_follow_it.dart';
 import './step/i_choose_from_the_menu_of_the_tile.dart';
@@ -106,11 +107,22 @@ void main() {
       await bddSetUp(tester);
       await theTerminalSessionOfHasEnded(tester, 'porelo-billing-shell');
       await iChooseTheTabOf(tester, 'porelo-billing-shell');
-      await itSays(tester, 'Its terminal session has ended');
+      await itSays(tester, 'No terminal is open in it');
       await noSessionIsOpen(tester);
       await iOpenANewTerminalFromTheTab(tester);
       await sessionsAreOpen(tester, 1);
       await theSessionOnScreenIs(tester, 'porelo-billing-shell');
+    });
+    testWidgets('''a terminal the machine would not open keeps what was said, whatever a look says after''', (
+      tester,
+    ) async {
+      await bddSetUp(tester);
+      await iChooseTheTabOf(tester, 'porelo-billing-shell');
+      await theSessionEndsWith(tester, 69);
+      await theTerminalSessionOfHasEnded(tester, 'porelo-billing-shell');
+      await secondsPass(tester, 60);
+      await itSays(tester, 'The machine would not open a session here');
+      await itDoesNotSay(tester, 'No terminal is open in it');
     });
     testWidgets('''the row of a running task whose terminal has ended says the same, and draws no console for it''', (
       tester,
@@ -119,7 +131,7 @@ void main() {
       await theTerminalSessionOfHasEnded(tester, 'porelo-billing-shell');
       await iGoToTheListOfWork(tester);
       await iOpenTheTile(tester, 'porelo-billing-shell');
-      await theTileSays(tester, 'porelo-billing-shell', 'Its terminal session has ended');
+      await theTileSays(tester, 'porelo-billing-shell', 'No terminal is open in it');
       await theTileOfDrawsNoConsole(tester, 'porelo-billing-shell');
       await theRowOfOffers(tester, 'porelo-billing-shell', 'Open a new terminal');
       await iOpenANewTerminalFromTheRowOf(tester, 'porelo-billing-shell');

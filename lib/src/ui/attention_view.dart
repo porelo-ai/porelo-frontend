@@ -1401,7 +1401,7 @@ class WorkRow extends StatelessWidget {
 
   /// What says its state in words: an ended terminal first, since nothing else on the row would.
   static String stateOf(Tile tile, {required bool terminalEnded}) =>
-      terminalEnded ? 'Its terminal session has ended' : TaskTile._headline(tile);
+      terminalEnded ? 'No terminal is open in it' : TaskTile._headline(tile);
 
   /// The work's project as a person calls it.
   static String projectOf(Task? task) =>
@@ -1542,11 +1542,7 @@ class WorkRow extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     if (terminalEnded)
-                      Text(
-                        'Its terminal session has ended.',
-                        key: const Key('tile-terminal-ended'),
-                        style: text.bodyMedium,
-                      ),
+                      Text('No terminal is open in it.', key: const Key('tile-terminal-ended'), style: text.bodyMedium),
                     if (task != null) _WorkFacts(tile: tile),
                     if (task != null && (task.running || task.agentEnded != null))
                       TileConsole(
