@@ -34,7 +34,6 @@ class HostCheckRun {
     required String hostKey,
     required String publicKey,
     required HostPreparationSettings settings,
-    required bool vmsInJobs,
   }) async {
     try {
       final ran = await _run(_program, [
@@ -45,8 +44,6 @@ class HostCheckRun {
         hostKey,
         '--public-key',
         publicKey,
-        '--kvm',
-        '$vmsInJobs',
         ...settings.arguments,
       ]);
       return HostCheckAnswer.read(ran.out, exitCode: ran.code);

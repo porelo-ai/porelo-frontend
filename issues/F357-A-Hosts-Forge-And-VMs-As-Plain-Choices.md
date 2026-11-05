@@ -1,7 +1,6 @@
 # F357 — A Host's Forge And VMs As Plain Choices
 
-**Status:** Backlog.
-**Size:** M - the host dialog's two plain choices and what each means, and the inventory's `porelo_host_kvm`.
+**Status:** Review.
 
 **What must be true.** Putting a project on a host, a person chooses in plain words whether the host runs a forge of its own and whether it runs VMs in its jobs, reads what each choice costs, and sees what the machine can carry when setting its concurrent jobs. A CPU without virtualization stops only a host that asked for VMs, and says what to do.
 
@@ -26,6 +25,12 @@
 - With VMs off, the inventory says `porelo_host_kvm: false` and a CPU without virtualization goes through; with VMs on, it says true, and that CPU is refused with the words above, seen to fail first.
 - With the forge off, the inventory says so, and the jobs' fields and the VMs' choice do not stand there as if they meant something.
 - A dialog reopened on a host shows what that host was set to, and an existing host is not silently changed.
+
+## Decided while building
+
+- **The two choices are kept with the host's other preparation settings,** and only where they differ from the default, so an older host's record reads as it did. Once a host is prepared the dialog does not offer them, so an existing host is not changed.
+- **With the forge off, VMs are off,** and the switch and the forge's own fields do not stand there. A pool of VMs, the other use of VMs, is not offered yet.
+- **Concurrent forge jobs says what an empty field gives,** that the machine's role works it out from what the machine has. No number, and no carrying of a machine, as the host's page of servers has not measured them.
 
 ## To be checked
 

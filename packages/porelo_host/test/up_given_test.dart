@@ -108,6 +108,25 @@ void main() {
   });
 
   // Harm: preparation cannot run, or records a host ready before executing the checked setup.
+  // Harm: a person chooses VMs in the dialog, and the host is installed without them, or the other way round.
+  test('up writes the chosen VMs into the inventory', () async {
+    expect(
+      await up(given: '192.0.2.7', extra: ['--kvm', 'true']),
+      Exit.done,
+      reason: '$output $errors',
+    );
+    final inventory = jsonDecode(
+      remote.runs.singleWhere((r) => r.command == 'cat > /var/tmp/porelo-host/inventory.yml').input,
+    ) as Map<String, Object?>;
+    final variables = (inventory['all']! as Map<String, Object?>)['vars']! as Map<String, Object?>;
+    expect(variables['porelo_host_kvm'], true);
+  });
+
+  test('up refuses --kvm with anything but true or false', () async {
+    expect(await up(given: '192.0.2.7', extra: ['--kvm', 'maybe']), isNot(Exit.done));
+    expect(errors.toString(), contains('--kvm needs true or false'));
+  });
+
   test('up given runs the rehearsed preparation in order and completes the host', () async {
     expect(await up(), Exit.done, reason: errors.toString());
     expect(remote.commands, [
@@ -139,6 +158,7 @@ void main() {
           'porelo_host_network': 0,
           'porelo_host_distribution': 'snapshots',
           'porelo_host_forge': true,
+          'porelo_host_kvm': false,
           'forge_runner_capacity': 1,
           'forge_job_cpus': 1,
           'forge_job_memory': '768m',
@@ -314,6 +334,7 @@ void main() {
       'porelo_host_network',
       'porelo_host_distribution',
       'porelo_host_forge',
+      'porelo_host_kvm',
     });
     expect(Step.fromLine(LineSplitter.split(output.toString()).last)!.host!.services['forge']!['web_port'], 3100);
   });

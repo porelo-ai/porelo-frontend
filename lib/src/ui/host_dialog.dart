@@ -173,12 +173,24 @@ class _HostDialogState extends State<HostDialog> {
   String? _checkedFor;
   bool _checking = false;
   bool _checkAgain = false;
-  bool _vmsInJobs = false;
   int _checkRequest = 0;
   Timer? _checkDebounce;
   final _checkShown = GlobalKey();
   Settings get _settings => widget.settings ?? widget.machines.settings;
   HostUpRecord? get _record => _settings.hostUp(widget.project) ?? widget.fromTheCard;
+
+  /// Takes [value] as the choices, says the check must run again, and keeps them on a saved record.
+  Future<void> _choose(HostPreparationSettings value) async {
+    setState(() => _choices = value);
+    _checkInputsMoved();
+    if (_record case final saved?) {
+      try {
+        await _settings.rememberHostUp(widget.project, saved.withPreparationSettings(value));
+      } on Exception {
+        if (mounted) setState(() => _problem = 'The preparation settings could not be saved.');
+      }
+    }
+  }
 
   @override
   void initState() {
@@ -247,8 +259,7 @@ class _HostDialogState extends State<HostDialog> {
   }
 
   /// Everything the shown answer was given; another of these makes it an answer about something else.
-  String get _checkInputs =>
-      [_address.text.trim(), _hostKey.text.trim(), ..._choices.arguments, '$_vmsInJobs'].join('\n');
+  String get _checkInputs => [_address.text.trim(), _hostKey.text.trim(), ..._choices.arguments].join('\n');
 
   bool get _checkPassed => widget.hostCheck == null || (_checkAnswer?.passed == true && _checkedFor == _checkInputs);
 
@@ -290,7 +301,6 @@ class _HostDialogState extends State<HostDialog> {
             hostKey: _hostKey.text.trim(),
             publicKey: identity.key,
             settings: _choices,
-            vmsInJobs: _vmsInJobs,
           );
     if (!mounted || request != _checkRequest) return;
     setState(() {
@@ -785,37 +795,32 @@ class _HostDialogState extends State<HostDialog> {
                 // Below the fields, so that what it says as the name is typed moves none of them.
               ],
               if (!widget.takeDownOnly && run == null && record?.preparedHost == null) ...[
-                if (widget.hostCheck != null)
+                SwitchListTile(
+                  key: const Key('host-forge'),
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('This host has a forge of its own'),
+                  subtitle: const Text(
+                    'On: builds run here, and take memory and CPUs from the tasks. Off: a central forge alone, with '
+                    'less to run on the machine.',
+                  ),
+                  value: _choices.forge,
+                  onChanged: _busy
+                      ? null
+                      : (value) => _choose(_choices.withPlainChoices(forge: value, kvm: value && _choices.kvm)),
+                ),
+                if (_choices.forge)
                   SwitchListTile(
                     key: const Key('host-check-vms'),
                     contentPadding: EdgeInsets.zero,
                     title: const Text('This host runs VMs in its jobs'),
                     subtitle: const Text(
-                      'Needs a CPU with virtualization, and is for a job that makes a VM; a job in a container needs '
-                      'none of it. For now this is asked of the check alone: what gets installed does not follow it.',
+                      'On installs KVM and libvirt, needs a CPU with virtualization, and is for a job that makes a VM; '
+                      'a job in a container needs none of it.',
                     ),
-                    value: _vmsInJobs,
-                    onChanged: _busy
-                        ? null
-                        : (value) {
-                            setState(() => _vmsInJobs = value);
-                            _checkInputsMoved();
-                          },
+                    value: _choices.kvm,
+                    onChanged: _busy ? null : (value) => _choose(_choices.withPlainChoices(forge: true, kvm: value)),
                   ),
-                HostPreparationSettingsForm(
-                  value: _choices,
-                  onChanged: (value) async {
-                    setState(() => _choices = value);
-                    _checkInputsMoved();
-                    if (_record case final saved?) {
-                      try {
-                        await _settings.rememberHostUp(widget.project, saved.withPreparationSettings(value));
-                      } on Exception {
-                        if (mounted) setState(() => _problem = 'The preparation settings could not be saved.');
-                      }
-                    }
-                  },
-                ),
+                HostPreparationSettingsForm(value: _choices, onChanged: (value) => _choose(value)),
                 if (access != null && _proven && _refusal(access) == null) ...[
                   const Text(
                     'Before setup: log in to the server with the user your provider gave you, such as ubuntu, and run '

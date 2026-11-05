@@ -6,7 +6,7 @@ import 'package:porelo_host/porelo_host.dart';
 const _usage = '''
 porelo-host up|down (--host-name NAME | --project NAME --account NAME)
             [--public-key "TYPE BASE64"]
-            [--forge true|false]
+            [--forge true|false] [--kvm true|false]
             (--scaleway-project ID [--zone fr-par-1] [--offer EM-I220E-NVME] | --given ADDRESS --host-key "TYPE BASE64")
             [--login-user NAME] [--distribution snapshots|releases]
             [--rental-tag TAG]
@@ -125,6 +125,7 @@ Future<int> runHostCommand(
           '--host-name',
           '--rental-tag',
           '--forge',
+          '--kvm',
           '--forge-runner-capacity',
           '--forge-job-cpus',
           '--forge-job-memory',
@@ -177,8 +178,10 @@ Future<int> runHostCommand(
       (options.containsKey('project') || options.containsKey('account') || options.containsKey('bundle'))) {
     return wrong('a server takes no project, account or bundle');
   }
-  if (options['forge'] != null && !const ['true', 'false'].contains(options['forge'])) {
-    return wrong('--forge needs true or false');
+  for (final flag in const ['forge', 'kvm']) {
+    if (options[flag] != null && !const ['true', 'false'].contains(options[flag])) {
+      return wrong('--$flag needs true or false');
+    }
   }
   final missing = needed.where((n) => !options.containsKey(n)).toList();
   if (missing.isNotEmpty) return wrong('missing ${missing.map((n) => '--$n').join(', ')}');

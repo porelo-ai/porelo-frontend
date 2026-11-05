@@ -473,7 +473,11 @@ class HostRun {
       if (readHostCheckFiles(bytes) case final check?) {
         final answer = await askHostCheck(
           check,
-          choices: hostCheckChoices(plan.preparationSettings, forge: plan.forge),
+          choices: hostCheckChoices(
+            plan.preparationSettings,
+            forge: plan.forge,
+            kvm: '${plan.preparationSettings.kvm}',
+          ),
           send: hostCheckSender(remote, address),
         );
         if (!answer.passed) {
@@ -1025,5 +1029,6 @@ done''',
     },
     'porelo_host_distribution': plan.distribution,
     'porelo_host_forge': plan.forge,
+    'porelo_host_kvm': plan.preparationSettings.kvm,
   };
 }

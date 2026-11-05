@@ -139,7 +139,7 @@ void main() {
     expect(_within('cpus', 'Asked: 2 CPUs'), findsOneWidget);
     expect(_within('cpus', 'What to do: Choose a machine with more CPUs.'), findsOneWidget);
     expect(_within('virtualization', 'Found: no'), findsOneWidget);
-    expect(_within('virtualization', 'What to do: Turn off VMs'), findsOneWidget);
+    expect(_within('virtualization', "This machine's CPU offers no virtualization"), findsOneWidget);
     expect(_within('disk', 'Warning'), findsOneWidget);
     expect(_within('never.heard.of', 'Fails'), findsOneWidget);
     expect(_within('never.heard.of', '{"a":1}'), findsOneWidget);
@@ -191,6 +191,41 @@ void main() {
     expect(asked, hasLength(3));
     expect(find.byKey(const ValueKey('host-check-finding-virtualization')), findsNothing);
     _expectPrepareOffered(tester);
+  });
+
+  // Harm: a host without a forge still offers its jobs and VMs, as if they meant something there.
+  testWidgets('without a forge, neither its jobs nor VMs stand there, and it asks accordingly', (tester) async {
+    final asked = <List<String>>[];
+    await _open(tester, (arguments) {
+      asked.add(arguments);
+      return _passing;
+    });
+    await _pressCheck(tester);
+    expect(find.textContaining('builds run here'), findsOneWidget, reason: 'what each choice costs');
+    await _flipVms(tester);
+    expect(asked.last[asked.last.indexOf('--kvm') + 1], 'true');
+
+    await tester.ensureVisible(find.byKey(const Key('host-forge')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('host-forge')));
+    await tester.pump();
+    await _rest(tester);
+    expect(asked.last[asked.last.indexOf('--forge') + 1], 'false');
+    expect(asked.last[asked.last.indexOf('--kvm') + 1], 'false', reason: 'VMs mean nothing without a forge here');
+    expect(find.byKey(const Key('host-check-vms')), findsNothing);
+    await tester.ensureVisible(find.text('More settings'));
+    await tester.tap(find.text('More settings'));
+    await World.settle(tester);
+    expect(find.byKey(const Key('forge_runner_capacity')), findsNothing);
+    expect(find.byKey(const Key('matrix_port')), findsOneWidget);
+  });
+
+  // Harm: a refused CPU in the check's own terms, with no way on.
+  testWidgets('a CPU without virtualization says so in plain words', (tester) async {
+    await _open(tester, (arguments) => _answer([_finding('virtualization', 'fail', found: false, asked: true)]));
+    await _pressCheck(tester);
+    expect(find.textContaining("This machine's CPU offers no virtualization"), findsOneWidget);
+    expect(find.textContaining('turn off This host runs VMs in its jobs'), findsOneWidget);
   });
 
   // Harm: the check's answer outlives the settings it was given, and Prepare stands on limits never asked about.

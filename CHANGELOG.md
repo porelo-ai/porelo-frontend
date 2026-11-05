@@ -14,6 +14,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Rows of a list stand on white in the light theme, under a paler head. The *Follow* switch is smaller, a terminal's text stands further from its edges, and only `✻ Finished` is green among an agent's star lines.
 - *My projects* lists *Default* beside the organization's projects, with its words and menu, and the header and the side bar count it.
 - The page of every project on your machines is titled *Projects on my machines* beside an organization, and its back link says *My projects*.
+- Preparing a host asks in plain words whether it has a forge of its own and whether it runs VMs in its jobs, says what each costs, and installs what was chosen; a CPU that cannot run VMs says so before anything is installed.
 - Every page explains itself above its list: closing the explanation folds it to a small block that opens it again, and what is folded stays folded across a restart.
 - A terminal stays dark in the light theme, as in a console, and answers a program asking for its colours; the tab's head and the page around it follow the theme.
 - An opened row in *Work* shows only the work's status and its way on: the block of the terminal's last lines is gone, as *Running* has them.

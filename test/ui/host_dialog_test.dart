@@ -1345,7 +1345,8 @@ void main() {
   // Harm: the field a person clicks moves under the pointer as the words about the name change, and a floating
   // label is cut by the hint of the field above it.
   testWidgets('the fields of Prepare a server stay put and clear of each other', (tester) async {
-    tester.view.physicalSize = const Size(1280, 720);
+    // Tall enough that nothing scrolls to reach the choice, as what is measured is what the name's words move.
+    tester.view.physicalSize = const Size(1280, 1000);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     final settings = Settings(MemorySettingsStore());

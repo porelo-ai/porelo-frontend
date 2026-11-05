@@ -553,6 +553,7 @@ void main() {
       'porelo_host_network',
       'porelo_host_distribution',
       'porelo_host_forge',
+      'porelo_host_kvm',
       'forge_runner_capacity',
       'forge_job_cpus',
       'forge_job_memory',

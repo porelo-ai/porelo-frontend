@@ -31,6 +31,8 @@ class _HostPreparationSettingsFormState extends State<HostPreparationSettingsFor
   String? _problem;
 
   HostPreparationSettings _read() => HostPreparationSettings.read({
+    'forge': widget.value.forge,
+    'kvm': widget.value.kvm,
     for (final entry in _fields.entries)
       if (entry.value.text.trim().isNotEmpty)
         entry.key: entry.key == 'forge_job_memory'
@@ -66,7 +68,11 @@ class _HostPreparationSettingsFormState extends State<HostPreparationSettingsFor
           spacing: Space.small,
           children: [
             for (final entry in const {
-              'forge_runner_capacity': ('Concurrent forge jobs', 'Leave empty for the machine role default.'),
+              'forge_runner_capacity': (
+                'Concurrent forge jobs',
+                'How many jobs run at once, each with its CPUs and memory. Leave empty and the machine\'s role '
+                    'works it out from what the machine has.',
+              ),
               'forge_job_cpus': ('CPUs per forge job', 'Leave empty for the machine role default.'),
               'forge_job_memory': (
                 'Memory per forge job',
@@ -76,11 +82,12 @@ class _HostPreparationSettingsFormState extends State<HostPreparationSettingsFor
               'forge_git_port': ('Local forge Git port', 'The SSH forward on this computer.'),
               'matrix_port': ('Local Matrix port', 'The SSH forward on this computer.'),
             }.entries)
-              TextFormField(
-                key: Key(entry.key),
-                controller: _fields[entry.key],
-                decoration: InputDecoration(labelText: entry.value.$1, helperText: entry.value.$2),
-              ),
+              if (widget.value.forge || !entry.key.startsWith('forge_'))
+                TextFormField(
+                  key: Key(entry.key),
+                  controller: _fields[entry.key],
+                  decoration: InputDecoration(labelText: entry.value.$1, helperText: entry.value.$2),
+                ),
             if (_problem != null) Text(_problem!),
             OutlinedButton(onPressed: _apply, child: const Text('Use settings')),
           ],

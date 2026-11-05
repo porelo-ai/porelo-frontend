@@ -74,7 +74,10 @@ class _FindingRow extends StatelessWidget {
         ),
         if (finding.found != null) SelectableText('Found: ${_value(finding.found, finding.unit)}'),
         if (finding.asked != null) SelectableText('Asked: ${_value(finding.asked, finding.unit)}'),
-        if (finding.todo case final todo? when todo.isNotEmpty) SelectableText('What to do: $todo'),
+        if (finding.plainWords case final words?)
+          SelectableText(words)
+        else if (finding.todo case final todo? when todo.isNotEmpty)
+          SelectableText('What to do: $todo'),
       ],
     );
   }

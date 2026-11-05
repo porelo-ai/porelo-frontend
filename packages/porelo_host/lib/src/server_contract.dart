@@ -35,7 +35,15 @@ class HostPreparationSettings {
     this.forgeWebPort = 3000,
     this.forgeGitPort = 3001,
     this.matrixPort = 8448,
+    this.forge = true,
+    this.kvm = false,
   });
+
+  /// Whether the host has a forge of its own.
+  final bool forge;
+
+  /// Whether the host runs VMs in its jobs: KVM and libvirt, which only a forge of its own has a use for.
+  final bool kvm;
 
   /// The runner's concurrent jobs, absent for the role default.
   final int? forgeRunnerCapacity;
@@ -54,6 +62,18 @@ class HostPreparationSettings {
 
   /// The person's local Matrix forward.
   final int matrixPort;
+
+  /// These settings with the two plain choices changed.
+  HostPreparationSettings withPlainChoices({required bool forge, required bool kvm}) => HostPreparationSettings(
+    forgeRunnerCapacity: forgeRunnerCapacity,
+    forgeJobCpus: forgeJobCpus,
+    forgeJobMemory: forgeJobMemory,
+    forgeWebPort: forgeWebPort,
+    forgeGitPort: forgeGitPort,
+    matrixPort: matrixPort,
+    forge: forge,
+    kvm: kvm,
+  );
 
   /// Refuses invalid limits or colliding local service ports before setup.
   void check() {
@@ -88,11 +108,19 @@ class HostPreparationSettings {
     'forge_web_port': forgeWebPort,
     'forge_git_port': forgeGitPort,
     'matrix_port': matrixPort,
+    // Only where chosen, so an older host's record reads the same.
+    if (!forge) 'forge': false,
+    if (kvm) 'kvm': true,
   };
 
   /// The public setup arguments, using the same field names as saved choices.
   List<String> get arguments => [
-    for (final entry in stored.entries) ...['--${entry.key.replaceAll('_', '-')}', '${entry.value}'],
+    for (final entry in stored.entries)
+      if (entry.key != 'forge' && entry.key != 'kvm') ...['--${entry.key.replaceAll('_', '-')}', '${entry.value}'],
+    '--forge',
+    '$forge',
+    '--kvm',
+    '$kvm',
   ];
 
   /// Reads the public preparation options from a host command's arguments.
@@ -105,13 +133,19 @@ class HostPreparationSettings {
       'forge_web_port',
       'forge_git_port',
       'matrix_port',
+      'forge',
+      'kvm',
     ]) {
       final option = '--${key.replaceAll('_', '-')}';
       final index = arguments.indexOf(option);
       if (index < 0) continue;
       if (index + 1 >= arguments.length) throw FormatException('Missing $option.');
       final value = arguments[index + 1];
-      values[key] = key == 'forge_job_memory' ? value : int.tryParse(value) ?? value;
+      values[key] = switch (key) {
+        'forge_job_memory' => value,
+        'forge' || 'kvm' => value == 'true' ? true : (value == 'false' ? false : value),
+        _ => int.tryParse(value) ?? value,
+      };
     }
     return HostPreparationSettings.read(values);
   }
@@ -127,7 +161,15 @@ class HostPreparationSettings {
 
     final memory = value['forge_job_memory'];
     if (memory != null && memory is! String) throw const FormatException('Invalid job memory.');
+    bool choice(String key, {required bool otherwise}) {
+      final item = value[key];
+      if (item != null && item is! bool) throw FormatException('Invalid $key.');
+      return item as bool? ?? otherwise;
+    }
+
     final result = HostPreparationSettings(
+      forge: choice('forge', otherwise: true),
+      kvm: choice('kvm', otherwise: false),
       forgeRunnerCapacity: number('forge_runner_capacity'),
       forgeJobCpus: number('forge_job_cpus'),
       forgeJobMemory: memory as String?,

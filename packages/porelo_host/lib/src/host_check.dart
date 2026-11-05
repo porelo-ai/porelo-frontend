@@ -40,6 +40,12 @@ enum HostCheckState {
 /// One thing the check looked at. An id this window does not know is shown the same as any other.
 class HostCheckFinding {
   /// Constructor taking what the check said of it.
+  /// What the window and a stopped run say of this finding where the check's own words are not enough.
+  String? get plainWords => id == 'virtualization' && state.name == 'fail'
+      ? "This machine's CPU offers no virtualization, so it cannot run VMs in its jobs. Nothing was installed. "
+            'Choose a machine with hardware virtualization, or turn off This host runs VMs in its jobs.'
+      : null;
+
   const HostCheckFinding({required this.id, required this.state, this.found, this.unit, this.asked, this.todo});
 
   /// The finding's stable name.
@@ -149,7 +155,7 @@ class HostCheckAnswer {
     if (!answered) return said ?? 'The check gave no answer, so nothing was installed.';
     final faults = [
       for (final finding in findings)
-        if (finding.state.name == 'fail') '${finding.id}: ${finding.todo ?? 'it failed'}',
+        if (finding.state.name == 'fail') '${finding.id}: ${finding.plainWords ?? finding.todo ?? 'it failed'}',
     ];
     return 'The machine\'s check found: ${faults.join('; ')}. Nothing was installed.';
   }
