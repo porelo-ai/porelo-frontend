@@ -217,7 +217,7 @@ jobs:
             - name: Package
               run: |
                   nfpm_sha=a80d5f724ed70b192ffa8a2bde469c013cef559c8afa3441eb51dd9a918beb6b
-                  curl -sSL --fail -o nfpm.tar.gz \
+                  curl -sSL --fail --retry 5 --retry-all-errors -o nfpm.tar.gz \
                     https://github.com/goreleaser/nfpm/releases/download/v2.43.0/nfpm_2.43.0_Linux_x86_64.tar.gz
                   echo "$nfpm_sha  nfpm.tar.gz" | sha256sum -c -
                   tar xzf nfpm.tar.gz nfpm
