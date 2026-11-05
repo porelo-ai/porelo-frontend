@@ -5099,6 +5099,13 @@ class ReviewFile {
   /// Why it is ranked so, in the machine's words, e.g. which kind of dangerous file it is.
   final String reason;
 
+  /// Lines added when changes at line ends are left out (git's `--ignore-space-at-eol`, which also
+  /// leaves out spaces there); -1 for a binary file, null where the machine does not count them.
+  final int? addedIgnoringLineEndings;
+
+  /// Lines removed when changes at line ends are left out; as [addedIgnoringLineEndings].
+  final int? removedIgnoringLineEndings;
+
   /// Constructor taking every field.
   const ReviewFile({
     required this.path,
@@ -5107,6 +5114,8 @@ class ReviewFile {
     required this.removed,
     required this.rank,
     required this.reason,
+    this.addedIgnoringLineEndings,
+    this.removedIgnoringLineEndings,
   });
 
   /// Reads one from a reply.
@@ -5117,7 +5126,26 @@ class ReviewFile {
     removed: map['removed'] is num ? (map['removed'] as num).toInt() : 0,
     rank: _string(map, 'rank'),
     reason: _string(map, 'reason'),
+    // Absent is not zero: zero would read as a change made only of line endings.
+    addedIgnoringLineEndings: map['addedIgnoringLineEndings'] is num
+        ? (map['addedIgnoringLineEndings'] as num).toInt()
+        : null,
+    removedIgnoringLineEndings: map['removedIgnoringLineEndings'] is num
+        ? (map['removedIgnoringLineEndings'] as num).toInt()
+        : null,
   );
+
+  /// Whether most of what it changes is at line ends: both counts are there for a text file, and
+  /// leaving line ends out takes away more than half of the lines git counts.
+  bool get mostlyLineEndings {
+    final added = addedIgnoringLineEndings;
+    final removed = removedIgnoringLineEndings;
+    if (added == null || removed == null || added < 0 || removed < 0 || this.added < 0 || this.removed < 0) {
+      return false;
+    }
+    final raw = this.added + this.removed;
+    return raw > 0 && (added + removed) * 2 < raw;
+  }
 
   /// Whether it is dangerous by kind: named first, however small its change.
   bool get dangerous => rank == 'DANGEROUS';

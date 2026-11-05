@@ -1902,7 +1902,17 @@ class FakeBackend implements FleetBackend {
 
   @override
   Future<String> contract() async =>
-      'method Approve(project: string, name: string, branch: string, repository: ?string, commit: ?string) -> ()\n';
+      'method Approve(project: string, name: string, branch: string, repository: ?string, commit: ?string) -> ()\n'
+      '${servesWithoutLineEndings ? 'method Review(project: string, name: string, ignoreLineEndings: ?bool) -> ()\n' : ''}';
+
+  /// Whether `Review` takes `ignoreLineEndings`; a machine older than it refuses the parameter.
+  bool servesWithoutLineEndings = true;
+
+  /// What `ignoreLineEndings` each review was asked with, null where it was not sent.
+  final List<bool?> reviewedWithoutLineEndings = <bool?>[];
+
+  /// The diff `Review` answers when line endings are left out.
+  String theDiffWithoutLineEndings = '';
 
   /// Pending work handed out as a bundle, and what was asked whether it landed.
   final List<String> bundlesTaken = <String>[];
@@ -2419,11 +2429,18 @@ diff --git a/lib/money.dart b/lib/money.dart
     String name, {
     String? against,
     String? repository,
+    bool? ignoreLineEndings,
   }) async {
     mustBeAProject(projectFile);
+    if (ignoreLineEndings != null && !servesWithoutLineEndings) {
+      throw const VarlinkException('org.varlink.service.InvalidParameter', <String, dynamic>{
+        'parameter': 'ignoreLineEndings',
+      });
+    }
     reviewedIn.add(repository);
+    reviewedWithoutLineEndings.add(ignoreLineEndings);
     return (
-      diff: theDiff,
+      diff: ignoreLineEndings == true ? theDiffWithoutLineEndings : theDiff,
       log: 'commit 9a3c1f2\n\n    Round to the nearest penny',
       files: theRanking,
       asked: theInstruction,

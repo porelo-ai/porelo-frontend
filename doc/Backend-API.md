@@ -132,6 +132,11 @@ Worth knowing before designing around them:
   lists `SshKeys` (an agent's with `found: AGENT`), tries one with `CredentialTryPush`, which writes
   nothing, and keeps one with `CredentialDeclare` (`SSH_KEY`, the refused address, `AGENT` by
   fingerprint or `FILE` by path) before it calls `Approve` again.
+- **`Review` counts each file twice where the machine can**: `added` and `removed` as git counts
+  them, and `addedIgnoringLineEndings` and `removedIgnoringLineEndings` without what changed at line
+  ends (git's `--ignore-space-at-eol`, which also leaves out spaces there). Absent is not zero. Its
+  `ignoreLineEndings` answers the diff without them, and is sent only to a machine whose `Review`
+  names it, since an older one refuses a parameter it does not know.
 - **`Stop` refuses.** A task holding commits that never reached the gate comes back as
   `HOLDS_WORK` and is left exactly as it was. That refusal is a feature and needs a real place in
   the interface, not an error toast.

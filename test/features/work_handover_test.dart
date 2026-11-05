@@ -64,6 +64,11 @@ import './step/the_machine_ranks_the_waiting_push_with_a_ci_definition_the_chang
 import './step/the_review_lists_in_that_order.dart';
 import './step/the_file_is_marked.dart';
 import './step/the_file_is_under_what_is_almost_never_a_finding.dart';
+import './step/the_machine_counts_a_crlf_to_lf_file_of_three_real_lines.dart';
+import './step/i_show_the_diff_without_line_endings.dart';
+import './step/the_review_was_asked_without_line_endings.dart';
+import './step/the_machine_cannot_leave_line_endings_out_of_a_review.dart';
+import './step/no_review_was_asked_without_line_endings.dart';
 import './step/the_task_that_pushed_was_asked.dart';
 import './step/the_review_says_it_was_asked.dart';
 import './step/the_task_that_pushed_was_asked_nothing.dart';
@@ -394,6 +399,41 @@ void main() {
       await itSays(tester, 'a CI definition, which runs with the credentials of CI');
       await theFileIsUnderWhatIsAlmostNeverAFinding(tester, 'lib/money.g.dart');
       await itSays(tester, 'detects nothing: no file here is judged safe or injected');
+    });
+    testWidgets('''a change mostly of line endings says so, with the real count beside the raw one''', (tester) async {
+      await bddSetUp(tester);
+      await theMachineCountsACrlfToLfFileOfThreeRealLines(tester, 'lib/legacy.dart');
+      await iReviewWhatIsWaitingAtTheGate(tester);
+      await iOpenTheWaitingPush(tester);
+      await itSays(tester, 'Mostly line endings: +1 −2 without them, +1042 −1043 with them.');
+      await itSays(tester, 'The diff below holds every such line');
+    });
+    testWidgets('''a change that is not of line endings reads as before''', (tester) async {
+      await bddSetUp(tester);
+      await theMachineRanksTheWaitingPushWithACiDefinitionTheChangeAndAGeneratedFile(tester);
+      await iReviewWhatIsWaitingAtTheGate(tester);
+      await iOpenTheWaitingPush(tester);
+      await itDoesNotSay(tester, 'line endings');
+    });
+    testWidgets('''the diff can be read without line endings, and says it leaves them out''', (tester) async {
+      await bddSetUp(tester);
+      await theMachineCountsACrlfToLfFileOfThreeRealLines(tester, 'lib/legacy.dart');
+      await iReviewWhatIsWaitingAtTheGate(tester);
+      await iOpenTheWaitingPush(tester);
+      await iShowTheDiffWithoutLineEndings(tester);
+      await theReviewWasAskedWithoutLineEndings(tester);
+      await itSays(tester, 'The diff below leaves out what changed at line ends');
+    });
+    testWidgets('''a machine that cannot leave line endings out is never asked to, and says the diff holds them''', (
+      tester,
+    ) async {
+      await bddSetUp(tester);
+      await theMachineCountsACrlfToLfFileOfThreeRealLines(tester, 'lib/legacy.dart');
+      await theMachineCannotLeaveLineEndingsOutOfAReview(tester);
+      await iReviewWhatIsWaitingAtTheGate(tester);
+      await iOpenTheWaitingPush(tester);
+      await itSays(tester, 'this machine cannot leave them out');
+      await noReviewWasAskedWithoutLineEndings(tester);
     });
     testWidgets('''what the task was asked is shown apart from what it touched''', (tester) async {
       await bddSetUp(tester);

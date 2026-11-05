@@ -532,6 +532,7 @@ abstract class FleetBackend {
     String name, {
     String? against,
     String? repository,
+    bool? ignoreLineEndings,
   });
 
   /// Forwards a waiting push upstream, onto a branch the caller names.
@@ -1033,8 +1034,15 @@ class PoreloBackend implements FleetBackend {
     String name, {
     String? against,
     String? repository,
+    bool? ignoreLineEndings,
   }) async {
-    return _opened().review(projectFile, name, against: against, repository: repository);
+    return _opened().review(
+      projectFile,
+      name,
+      against: against,
+      repository: repository,
+      ignoreLineEndings: ignoreLineEndings,
+    );
   }
 
   @override

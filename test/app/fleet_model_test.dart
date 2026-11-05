@@ -78,6 +78,7 @@ class _Wedged implements FleetBackend {
     String name, {
     String? against,
     String? repository,
+    bool? ignoreLineEndings,
   }) async => (diff: '', log: '', files: const <ReviewFile>[], asked: null);
 
   @override
@@ -464,6 +465,7 @@ class _Machine implements FleetBackend {
     String name, {
     String? against,
     String? repository,
+    bool? ignoreLineEndings,
   }) async => (diff: '', log: '', files: const <ReviewFile>[], asked: null);
 
   @override

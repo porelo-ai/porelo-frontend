@@ -44,6 +44,43 @@ void main() {
     expect(said, contains('was forwarded to fix-rounding'));
     expect(backend.approvedIn, <String?>['checkout']);
   });
+
+  // The harm: the window said the diff left line ends out while the machine had sent it whole.
+  test('the diff is said to leave line ends out only when it was asked without them', () async {
+    final backend = _ContractReadOnce();
+    final gate = Gate();
+    await gate.lookAt(backend, Project.from(const <String, dynamic>{'name': 'checkout', 'file': '/srv/p.yml'}));
+    await gate.look(backend, gate.waiting.single);
+    expect(gate.servesWithoutLineEndings, isTrue);
+
+    await gate.showWithoutLineEndings(backend, true);
+    expect(backend.asked.last, isNull, reason: 'the contract could not be read this time, so nothing was sent');
+    expect(gate.withoutLineEndings, isFalse, reason: 'the diff shown holds the line ends');
+  });
+}
+
+/// Serves the line-end switch, and then cannot say what it serves.
+class _ContractReadOnce extends _OneOfTwoGatesReadable {
+  final asked = <bool?>[];
+  var reads = 0;
+
+  @override
+  Future<String> contract() async {
+    if (reads++ > 0) throw const VarlinkDisconnected('gone for a moment');
+    return 'method Review(project: string, name: string, ignoreLineEndings: ?bool) -> ()';
+  }
+
+  @override
+  Future<({String diff, String log, List<ReviewFile> files, String? asked})> reviewOf(
+    String projectFile,
+    String name, {
+    String? against,
+    String? repository,
+    bool? ignoreLineEndings,
+  }) async {
+    asked.add(ignoreLineEndings);
+    return (diff: '', log: '', files: const <ReviewFile>[], asked: null);
+  }
 }
 
 /// The project's own repository answers; the other's mirror is gone.
@@ -71,6 +108,7 @@ class _OneOfTwoGatesReadable implements FleetBackend {
     String name, {
     String? against,
     String? repository,
+    bool? ignoreLineEndings,
   }) async => (diff: '', log: '', files: const <ReviewFile>[], asked: null);
 
   @override

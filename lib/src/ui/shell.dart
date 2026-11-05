@@ -4140,6 +4140,7 @@ class _ShellState extends State<Shell> {
           onRefreshKeys: () => unawaited(widget.gate.readKeys(_fleet.backend)),
           onTryKey: (key) => unawaited(widget.gate.tryKey(_fleet.backend, key)),
           onKeepKey: (key) => unawaited(_keepKey(key)),
+          onWithoutLineEndings: (without) => unawaited(widget.gate.showWithoutLineEndings(_fleet.backend, without)),
           // Offered only where a terminal opens on the machine from here.
           onKeyTerminal: onTheMachine(widget.machines.current, const <String>['porelo'], terminal: true) == null
               ? null

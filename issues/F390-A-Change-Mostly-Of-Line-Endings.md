@@ -1,6 +1,6 @@
 # F390 — A Change Mostly Of Line Endings
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** S - a sentence and a count, if the machine can give the count.
 
 **What must be true.** Where a change is mostly line endings, *What it touched* says so, with the real count beside the raw one, and the person can read the diff without them, or is told that the diff shown holds them.
@@ -26,5 +26,6 @@ The contract, agreed with Agent Core: `ReviewFile` gains `addedIgnoringLineEndin
 ## Decided while building
 
 - Both: the review says the change is mostly line endings with both counts, and offers the diff without them where the daemon serves it.
+- From the reading: no wire test against the mock daemon for `ignoreLineEndings`, since the served contract of a real daemon was read to declare it and the scenarios hold what is sent and when; no test that the narrower diff renders, since its hunks go through the same unchanged reader as every diff.
 
 ## To be checked

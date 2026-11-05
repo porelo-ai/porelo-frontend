@@ -75,6 +75,12 @@ class Gate extends ChangeNotifier {
 
   static String _source(SshKey key) => key.fromTheAgent ? 'AGENT' : 'FILE';
 
+  /// Whether the diff shown leaves out changes at line ends, as the person asked.
+  bool withoutLineEndings = false;
+
+  /// Whether this machine's `Review` can leave out line ends; false until asked, and on an older one.
+  bool servesWithoutLineEndings = false;
+
   /// Whether this project can be asked about at all.
   ///
   /// Every gate method takes the project's file, so a project without one is listed and cannot be
@@ -103,6 +109,7 @@ class Gate extends ChangeNotifier {
 
   /// Opens one waiting push, so it can be judged before it is forwarded.
   Future<void> look(FleetBackend backend, PendingPush push, {String? against}) async {
+    if (!identical(looking, push)) withoutLineEndings = false;
     looking = push;
     _forgetTheRefusal();
     diff = '';
@@ -112,8 +119,19 @@ class Gate extends ChangeNotifier {
     notifyListeners();
     final file = project?.name;
     if (file == null || file.isEmpty) return;
+    _against = against;
     await _asking(() async {
-      final review = await backend.reviewOf(file, push.name, against: against, repository: _where(push));
+      servesWithoutLineEndings = await _reviewTakes(backend, 'ignoreLineEndings');
+      // Never sent to a machine that does not take it, which would refuse the whole review; what the
+      // window says follows what was asked.
+      withoutLineEndings = withoutLineEndings && servesWithoutLineEndings;
+      final review = await backend.reviewOf(
+        file,
+        push.name,
+        against: against,
+        repository: _where(push),
+        ignoreLineEndings: withoutLineEndings ? true : null,
+      );
       diff = review.diff;
       log = review.log;
       ranked = review.files;
@@ -250,6 +268,26 @@ class Gate extends ChangeNotifier {
     keysProblem = null;
     tried = const <String, TriedPush>{};
     notTried = const <String, String>{};
+  }
+
+  /// Reads the push being looked at again, with or without what changed at line ends.
+  Future<void> showWithoutLineEndings(FleetBackend backend, bool without) async {
+    final push = looking;
+    if (push == null) return;
+    withoutLineEndings = without;
+    await look(backend, push, against: _against);
+  }
+
+  String? _against;
+
+  Future<bool> _reviewTakes(FleetBackend backend, String parameter) async {
+    try {
+      final contract = await backend.contract();
+      return RegExp(r'method Review\((.*?)\)\s*->', dotAll: true).firstMatch(contract)?.group(1)?.contains(parameter) ??
+          false;
+    } on Object {
+      return false;
+    }
   }
 
   Future<bool> _takesTheCommit(FleetBackend backend) async {

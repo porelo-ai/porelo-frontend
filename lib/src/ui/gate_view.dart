@@ -190,8 +190,12 @@ class ReviewView extends StatelessWidget {
     this.onTryKey,
     this.onKeepKey,
     this.onKeyTerminal,
+    this.onWithoutLineEndings,
     super.key,
   });
+
+  /// What reads the review again with or without what changed at line ends.
+  final ValueChanged<bool>? onWithoutLineEndings;
 
   /// The machine's name, as the window shows it.
   final String machine;
@@ -260,7 +264,7 @@ class ReviewView extends StatelessWidget {
                       : <Widget>[
                           ..._refusedKey(),
                           if (push.fetch.isNotEmpty) _OwnClone(fetch: push.fetchFrom(login)),
-                          ..._ranked(context, gate, files),
+                          ..._ranked(context, gate, files, onWithoutLineEndings),
                         ],
                 ),
         ),
@@ -287,7 +291,12 @@ extension on ReviewView {
 
 /// The review as the machine ranked it: what the task was asked, apart from what it touched, then
 /// every file in the machine's order, the volume that is almost never a finding last.
-List<Widget> _ranked(BuildContext context, Gate gate, List<ChangedFile> hunks) {
+List<Widget> _ranked(
+  BuildContext context,
+  Gate gate,
+  List<ChangedFile> hunks,
+  ValueChanged<bool>? onWithoutLineEndings,
+) {
   final text = Theme.of(context).textTheme;
   final byPath = <String, ChangedFile>{for (final each in hunks) each.path: each};
   final read = <ReviewFile>[
@@ -330,8 +339,9 @@ List<Widget> _ranked(BuildContext context, Gate gate, List<ChangedFile> hunks) {
         style: text.bodySmall,
       ),
     ),
+    ..._lineEndings(context, gate, onWithoutLineEndings),
     const SizedBox(height: Space.small),
-    for (final file in read) _RankedFile(file: file, hunks: byPath[file.path]),
+    for (final file in read) _RankedFile(file: file, hunks: byPath[file.path], without: gate.withoutLineEndings),
     if (volume.isNotEmpty) ...<Widget>[
       Padding(
         padding: const EdgeInsets.fromLTRB(Space.normal, Space.normal, Space.normal, Space.tight),
@@ -341,17 +351,64 @@ List<Widget> _ranked(BuildContext context, Gate gate, List<ChangedFile> hunks) {
           style: text.labelMedium,
         ),
       ),
-      for (final file in volume) _RankedFile(file: file, hunks: byPath[file.path]),
+      for (final file in volume) _RankedFile(file: file, hunks: byPath[file.path], without: gate.withoutLineEndings),
     ],
+  ];
+}
+
+/// Whether leaving line ends out changes [file]'s count, where the machine counts both.
+bool _countsDiffer(ReviewFile file) =>
+    file.addedIgnoringLineEndings != null &&
+    file.removedIgnoringLineEndings != null &&
+    file.added >= 0 &&
+    (file.addedIgnoringLineEndings != file.added || file.removedIgnoringLineEndings != file.removed);
+
+/// What changed at line ends, said rather than hidden: which diff is shown, and the other where the
+/// machine can give it.
+List<Widget> _lineEndings(BuildContext context, Gate gate, ValueChanged<bool>? onWithoutLineEndings) {
+  final mostly = gate.ranked.any((file) => file.mostlyLineEndings);
+  if (!mostly && !gate.withoutLineEndings) return const <Widget>[];
+  final offered = gate.servesWithoutLineEndings && onWithoutLineEndings != null;
+  final said = switch ((gate.withoutLineEndings, offered)) {
+    (true, _) =>
+      'The diff below leaves out what changed at line ends, and spaces there. Where that changes a '
+          "file's count, both counts stand beside it.",
+    (false, true) =>
+      'Some files changed mostly at their line ends, such as CRLF to LF. The diff below holds every '
+          'such line; it can be shown without them.',
+    (false, false) =>
+      'Some files changed mostly at their line ends, such as CRLF to LF. The diff below holds every '
+          'such line, and this machine cannot leave them out.',
+  };
+  return <Widget>[
+    Padding(
+      padding: const EdgeInsets.fromLTRB(Space.normal, Space.small, Space.normal, 0),
+      child: Text(said, key: const Key('review-line-endings')),
+    ),
+    if (offered)
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: Space.small),
+        child: CheckboxListTile(
+          key: const Key('review-without-line-endings'),
+          dense: true,
+          controlAffinity: ListTileControlAffinity.leading,
+          value: gate.withoutLineEndings,
+          onChanged: gate.busy ? null : (value) => onWithoutLineEndings(value ?? false),
+          title: const Text('Show the diff without line endings'),
+        ),
+      ),
   ];
 }
 
 /// One file as the machine ranked it: its rank and reason beside its name, its hunks on opening.
 class _RankedFile extends StatefulWidget {
-  const _RankedFile({required this.file, this.hunks});
+  const _RankedFile({required this.file, this.hunks, this.without = false});
 
   final ReviewFile file;
   final ChangedFile? hunks;
+
+  /// Whether the diff shown leaves out line ends, so every count that changes with that is given twice.
+  final bool without;
 
   @override
   State<_RankedFile> createState() => _RankedFileState();
@@ -409,6 +466,17 @@ class _RankedFileState extends State<_RankedFile> {
                       child: Text(
                         file.reason,
                         key: ValueKey<String>('review-reason ${file.path}'),
+                        style: text.bodySmall,
+                      ),
+                    ),
+                  if (file.mostlyLineEndings || (widget.without && _countsDiffer(file)))
+                    Padding(
+                      padding: const EdgeInsets.only(left: Space.loose),
+                      child: Text(
+                        '${file.mostlyLineEndings ? 'Mostly line endings' : 'Without line endings'}: '
+                        '+${file.addedIgnoringLineEndings} −${file.removedIgnoringLineEndings} without them, '
+                        '+${file.added} −${file.removed} with them.',
+                        key: ValueKey<String>('review-line-endings ${file.path}'),
                         style: text.bodySmall,
                       ),
                     ),

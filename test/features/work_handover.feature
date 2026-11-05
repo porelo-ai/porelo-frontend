@@ -304,6 +304,37 @@ Feature: Reviewing what work pushed, and what it holds back
         And the file {'lib/money.g.dart'} is under what is almost never a finding
         And it says {'detects nothing: no file here is judged safe or injected'}
 
+    # A real test showed three changed lines as +1042 -1043: the commit turned a CRLF file into LF.
+    Scenario: a change mostly of line endings says so, with the real count beside the raw one
+        Given the machine counts a CRLF to LF file of three real lines {'lib/legacy.dart'}
+        When I review what is waiting at the gate
+        And I open the waiting push
+        Then it says {'Mostly line endings: +1 −2 without them, +1042 −1043 with them.'}
+        And it says {'The diff below holds every such line'}
+
+    Scenario: a change that is not of line endings reads as before
+        Given the machine ranks the waiting push with a CI definition, the change and a generated file
+        When I review what is waiting at the gate
+        And I open the waiting push
+        Then it does not say {'line endings'}
+
+    Scenario: the diff can be read without line endings, and says it leaves them out
+        Given the machine counts a CRLF to LF file of three real lines {'lib/legacy.dart'}
+        When I review what is waiting at the gate
+        And I open the waiting push
+        And I show the diff without line endings
+        Then the review was asked without line endings
+        And it says {'The diff below leaves out what changed at line ends'}
+
+    # A machine older than the switch refuses a parameter it does not know, and the whole review with it.
+    Scenario: a machine that cannot leave line endings out is never asked to, and says the diff holds them
+        Given the machine counts a CRLF to LF file of three real lines {'lib/legacy.dart'}
+        And the machine cannot leave line endings out of a review
+        When I review what is waiting at the gate
+        And I open the waiting push
+        Then it says {'this machine cannot leave them out'}
+        And no review was asked without line endings
+
     # What the task was asked is kept apart from what it touched, and never compared with it.
     Scenario: what the task was asked is shown apart from what it touched
         Given the machine ranks the waiting push with a CI definition, the change and a generated file

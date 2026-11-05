@@ -827,13 +827,16 @@ class PoreloClient {
   /// files in the order to show them and what the task that pushed was asked.
   ///
   /// `asked` is null where the machine does not say, an empty string where the task was started
-  /// without an instruction; `files` is empty from a Porelo older than the ranked review.
+  /// without an instruction; `files` is empty from a Porelo older than the ranked review. With
+  /// [ignoreLineEndings] `true` the diff leaves out what changed at line ends; only a machine whose
+  /// `Review` declares it may be sent it.
   Future<({String diff, String log, List<ReviewFile> files, String? asked})> review(
     String project,
     String name, {
     String? upstream,
     String? against,
     String? repository,
+    bool? ignoreLineEndings,
   }) async {
     final reply = await _call('Review', {
       'project': project,
@@ -841,6 +844,8 @@ class PoreloClient {
       'upstream': ?upstream,
       'against': ?against,
       'repository': ?repository,
+      // Sent only when asked: a machine older than the switch refuses a parameter it does not know.
+      if (ignoreLineEndings == true) 'ignoreLineEndings': true,
     });
     final diff = reply['diff'];
     final log = reply['log'];
