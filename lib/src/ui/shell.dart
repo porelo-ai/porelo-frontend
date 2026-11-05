@@ -957,8 +957,9 @@ class _ShellState extends State<Shell> {
       },
       onStartWork: onStartWork,
       thisComputer: asked.isThisComputer,
-      onStartProject: (project) async {
+      onStartProject: (project, notes) async {
         if (widget.machines.current != asked) widget.machines.select(asked);
+        if (notes.isNotEmpty) _fleet.say(notes.join(' '));
         await _startWorkIn(project);
       },
     );

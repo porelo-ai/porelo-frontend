@@ -28,7 +28,7 @@ Future<void> showTheDefault(
   Future<({ForgeRepository repository, Forge forge})?> Function()? pickAtAForge,
   Future<void> Function(String repository)? onStartWork,
   bool thisComputer = false,
-  Future<void> Function(String project)? onStartProject,
+  Future<void> Function(String project, List<String> notes)? onStartProject,
 }) => showDialog<void>(
   context: context,
   builder: (_) => DefaultDialog(
@@ -75,7 +75,9 @@ class DefaultDialog extends StatefulWidget {
   final bool thisComputer;
 
   /// Starts work by the project a checkout's first start names.
-  final Future<void> Function(String project)? onStartProject;
+  ///
+  /// With the notes of an answer that asked nothing, which have no question to stand above.
+  final Future<void> Function(String project, List<String> notes)? onStartProject;
 
   /// Asks the desktop for a checkout.
   final PickAFolder pickAFolder;
@@ -94,6 +96,9 @@ class _DefaultDialogState extends State<DefaultDialog> {
 
   String? _problem;
   String? _said;
+
+  /// What the plugins said of a checkout whose answer asked nothing.
+  List<String> _notes = const <String>[];
   bool _busy = false;
 
   @override
@@ -130,6 +135,7 @@ class _DefaultDialogState extends State<DefaultDialog> {
     if (checkout == null || !mounted) return;
     await _asking(() async {
       _said = null;
+      _notes = const <String>[];
       final String? project;
       try {
         project = await _projectOf(checkout);
@@ -147,8 +153,10 @@ class _DefaultDialogState extends State<DefaultDialog> {
       }
       if (!mounted) return;
       if (project != null) {
+        // The dialog goes, and with it this place to read them: they are said where the work starts.
+        final notes = _notes;
         Navigator.of(context).pop();
-        unawaited(widget.onStartProject!(project));
+        unawaited(widget.onStartProject!(project, notes));
       } else {
         await _fillTheOrigin(checkout);
       }
@@ -159,6 +167,7 @@ class _DefaultDialogState extends State<DefaultDialog> {
   Future<String?> _projectOf(String checkout) async {
     final first = await widget.machine.firstStart(checkout);
     if (!mounted) return null;
+    if (!first.asks) _notes = first.notes;
     if (first.asks) {
       if (first.hash.isEmpty) {
         _said = 'The machine asked nothing that a yes could name, so nothing was written.';
@@ -272,6 +281,7 @@ class _DefaultDialogState extends State<DefaultDialog> {
                   style: TextStyle(color: scheme.error),
                 ),
               if (_said != null) Text(_said!, key: const Key('default-said')),
+              for (final (at, note) in _notes.indexed) SelectableText(note, key: ValueKey<String>('default-note $at')),
               if (_busy) const Text('Asking the machine… Any failure will appear here.'),
               if (repositories == null && _problem == null) const Text('Asking the machine…'),
               if (repositories != null && repositories.isEmpty && !starting)

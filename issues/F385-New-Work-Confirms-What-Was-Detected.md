@@ -21,6 +21,8 @@
 - With a host only the checkout names, focus stands on No.
 - On another machine the window cannot see what a repository holds without a start, so it says in advance what happens with no `project.yml`, rather than after looking.
 
+- What the plugins say stands above the question and beside each thing found, before a yes. An answer that asks nothing shows it in the dialog, and one that starts at once says it where the work starts, as its dialog goes.
+
 ## Open questions
 
 ## To be checked

@@ -2677,14 +2677,18 @@ class Finding {
   /// The file it was read from.
   final String source;
 
+  /// What the plugin says of it, such as why a lookup could not confirm it; empty where it says nothing.
+  final String note;
+
   /// Constructor taking every field.
-  const Finding({this.what = '', this.value = '', this.source = ''});
+  const Finding({this.what = '', this.value = '', this.source = '', this.note = ''});
 
   /// Reads one from a reply.
   factory Finding.from(Map<String, dynamic> map) => Finding(
     what: map['what'] as String? ?? '',
     value: map['value'] as String? ?? '',
     source: map['source'] as String? ?? '',
+    note: map['note'] as String? ?? '',
   );
 }
 
@@ -2704,6 +2708,10 @@ class FirstStart {
 
   /// One of the words above, or `NO_PLUGIN` or `NOTHING_RECOGNIZED`.
   final String outcome;
+
+  /// What the plugins say of this checkout, in any outcome: one that failed or was refused, or a lookup that did not
+  /// answer. Changes nothing a yes writes.
+  final List<String> notes;
 
   /// What was found, for a person to read before a yes.
   final List<Finding> found;
@@ -2726,6 +2734,7 @@ class FirstStart {
   /// Constructor taking every field.
   const FirstStart({
     required this.outcome,
+    this.notes = const <String>[],
     this.found = const <Finding>[],
     this.hosts = const <String>[],
     this.marked = const <String>[],
@@ -2743,6 +2752,7 @@ class FirstStart {
     final found = map['found'];
     return FirstStart(
       outcome: map['outcome'] as String? ?? '',
+      notes: words(map['notes']),
       found: found is List
           ? <Finding>[
               for (final each in found.whereType<Map<Object?, Object?>>()) Finding.from(each.cast<String, dynamic>()),

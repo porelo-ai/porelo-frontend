@@ -21,6 +21,7 @@ void main() {
   );
 
   late List<String> started;
+  late List<String> startedWith;
   late List<List<String>> gitAsked;
 
   Future<FakeBackend> open(
@@ -49,7 +50,10 @@ void main() {
                   machineName: 'here',
                   thisComputer: thisComputer,
                   onStartWork: (_) async {},
-                  onStartProject: (project) async => started.add(project),
+                  onStartProject: (project, notes) async {
+                    started.add(project);
+                    startedWith = notes;
+                  },
                   pickAFolder: ({initialDirectory, title}) async => picked,
                   runGit: (program, arguments, {inDirectory, environment = const <String, String>{}, input}) async {
                     gitAsked.add(<String>[program, ...arguments, inDirectory ?? '']);
@@ -75,6 +79,88 @@ void main() {
 
   String address(WidgetTester tester) =>
       tester.widget<TextField>(find.byKey(const Key('default-address'))).controller!.text;
+
+  // Harm: a plugin failed or a lookup did not answer, and the person says yes to a guess with no word of it.
+  testWidgets('the plugins\' notes stand above the question, and a finding\'s note beside it', (tester) async {
+    await open(
+      tester,
+      const FirstStart(
+        outcome: FirstStart.askNew,
+        notes: <String>['The Maven plugin found no JDK vendor to ask.'],
+        found: <Finding>[
+          Finding(what: 'package.maven', value: 'maven', source: 'pom.xml', note: 'the distribution\'s package'),
+        ],
+        project: 'x-project',
+        hash: 'h1',
+      ),
+    );
+    await pick(tester);
+    final note = find.byKey(const ValueKey<String>('first-start-note 0'));
+    expect(tester.widget<SelectableText>(note).data, 'The Maven plugin found no JDK vendor to ask.');
+    expect(find.text('package: maven  (pom.xml): the distribution\'s package'), findsOneWidget);
+    expect(
+      tester.getTopLeft(note).dy,
+      lessThan(tester.getTopLeft(find.textContaining('package: maven')).dy),
+      reason: 'read before what it speaks of',
+    );
+  });
+
+  // Harm: a real machine answers several notes, and the question drew an error in place of what it asks.
+  testWidgets('several notes, even the same one twice, all stand in both places', (tester) async {
+    const notes = <String>['one note', 'another note', 'one note'];
+    await open(tester, const FirstStart(outcome: FirstStart.askNew, notes: notes, project: 'x', hash: 'h'));
+    await pick(tester);
+    expect(tester.takeException(), isNull);
+    expect(find.text('another note'), findsOneWidget);
+    expect(find.text('one note'), findsNWidgets(2));
+    await tester.tap(find.byKey(const Key('first-start-no')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    await open(tester, const FirstStart(outcome: 'NO_PLUGIN', notes: notes));
+    await pick(tester);
+    expect(tester.takeException(), isNull);
+    expect(find.text('another note'), findsOneWidget);
+    expect(find.text('one note'), findsNWidgets(2));
+  });
+
+  // Harm: `NOTHING_RECOGNIZED` hides that the plugin that would have recognized it failed.
+  testWidgets('an answer that asks nothing shows its notes too', (tester) async {
+    await open(
+      tester,
+      const FirstStart(outcome: 'NOTHING_RECOGNIZED', notes: <String>['The Maven plugin ended with 1.']),
+    );
+    await pick(tester);
+    expect(find.byKey(const Key('first-start')), findsNothing);
+    final note = find.byKey(const ValueKey<String>('default-note 0'));
+    expect(tester.widget<SelectableText>(note).data, 'The Maven plugin ended with 1.');
+  });
+
+  testWidgets('a known checkout hands its notes to where the work starts', (tester) async {
+    await open(tester, const FirstStart(outcome: FirstStart.known, project: 'x', notes: <String>['a note']));
+    await pick(tester);
+    expect(startedWith, <String>['a note']);
+  });
+
+  test('an answer from a Porelo without notes reads as having none', () {
+    final said = FirstStart.from(const <String, dynamic>{
+      'outcome': 'ASK_NEW',
+      'found': <Map<String, dynamic>>[
+        <String, dynamic>{'what': 'w', 'value': 'v', 'source': 's'},
+      ],
+    });
+    expect(said.notes, isEmpty);
+    expect(said.found.single.note, isEmpty);
+    final withThem = FirstStart.from(const <String, dynamic>{
+      'outcome': 'ASK_NEW',
+      'notes': <String>['n'],
+      'found': <Map<String, dynamic>>[
+        <String, dynamic>{'what': 'w', 'value': 'v', 'source': 's', 'note': 'm'},
+      ],
+    });
+    expect(withThem.notes, <String>['n']);
+    expect(withThem.found.single.note, 'm');
+  });
 
   // Harm: a repository's file opens the network with nobody having said yes to its text.
   testWidgets('a yes names the hash of what was shown, and work starts in its project', (tester) async {

@@ -10,7 +10,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - *Image settings* in *Work*, on an opened row and on *Running*, shows what a task's image was built with and where each thing comes from.
-- *New work* on this computer can start from a checkout there, asking the same question as a first start in a terminal before it writes `project.yml`; on another machine it says that nothing is detected there.
+- *New work* on this computer can start from a checkout there, asking the same question as a first start in a terminal before it writes `project.yml`, with what the plugins say of the checkout above it and beside each thing found; on another machine it says that nothing is detected there.
 
 ### Changed
 

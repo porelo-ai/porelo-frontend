@@ -31,7 +31,8 @@ class FirstStartDialog extends StatelessWidget {
         : said.isEmpty
         ? kind
         : '$kind: $said';
-    return finding.source.isEmpty ? what : '$what  (${finding.source})';
+    final from = finding.source.isEmpty ? what : '$what  (${finding.source})';
+    return finding.note.isEmpty ? from : '$from: ${finding.note}';
   }
 
   @override
@@ -64,6 +65,11 @@ class FirstStartDialog extends StatelessWidget {
                           'asks again.',
                 key: const Key('first-start-explained'),
               ),
+              if (first.notes.isNotEmpty) ...<Widget>[
+                heading('What the plugins say'),
+                for (final (at, note) in first.notes.indexed)
+                  SelectableText(note, key: ValueKey<String>('first-start-note $at')),
+              ],
               if (first.found.isNotEmpty) heading('Found'),
               for (final finding in first.found) SelectableText(_findingWords(finding)),
               heading('The network it opens'),
