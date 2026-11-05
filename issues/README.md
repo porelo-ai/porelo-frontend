@@ -18,16 +18,17 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f356"></a>[F356](F356-The-Porelo-Organization-Named-Apart.md) | — | — | The window says *Porelo organization* wherever a forge's organization could also be meant, and says it lives in a repository inside that one. |
+| <a id="f359"></a>[F359](F359-An-Empty-List-Starts-Folded.md) | — | — | A list with no rows starts folded and folds when emptied, a fold the person chose is kept, and the head's actions stay usable. |
+| <a id="f369"></a>[F369](F369-One-Name-For-The-Default-Project.md) | — | — | The project every machine has is called *Default* in the window, as in Core and its documents, in place of "Without a project". |
+| <a id="f365"></a>[F365](F365-A-Host-Key-Fetched-Too-Early.md) | — | — | A machine's host key is compared by one named command and fetched again at *Prepare*; a refused key says what to do, and the name is a choice. |
+| <a id="f364"></a>[F364](F364-Repositories-Added-Before-A-Machine.md) | — | — | A repository added before the project has a machine is filed with its central address, so that order works; a row without one says so. |
 | <a id="f367"></a>[F367](F367-A-Connect-That-Ends-Unconnected-Says-Why.md) | — | — | A *Connect* that ends unconnected says why beside the button, a machine waiting for its token leads to giving it, and row and page agree. |
 | <a id="f363"></a>[F363](F363-A-Grey-Button-Says-Why-In-Words.md) | — | — | A disabled action says why in text, not a tooltip, and creating at an https address says beforehand that a machine cannot follow it. |
 | <a id="f361"></a>[F361](F361-A-Project-With-No-Git-Repository-Yet.md) | — | — | A project with no Git repository says so on the Organization page, where its Project Admin creates it, told by *Needs you*; it then appears under *My projects*. |
 | <a id="f360"></a>[F360](F360-A-Count-Says-What-It-Counts.md) | — | — | Where the side bar and a page count different things under one name, such as *Machines*, the words say the difference. |
-| <a id="f369"></a>[F369](F369-One-Name-For-The-Default-Project.md) | — | — | The project every machine has is called *Default* in the window, as in Core and its documents, in place of "Without a project". |
-| <a id="f356"></a>[F356](F356-The-Porelo-Organization-Named-Apart.md) | — | — | The window says *Porelo organization* wherever a forge's organization could also be meant, and says it lives in a repository inside that one. |
-| <a id="f359"></a>[F359](F359-An-Empty-List-Starts-Folded.md) | — | — | A list with no rows starts folded and folds when emptied, a fold the person chose is kept, and the head's actions stay usable. |
 | <a id="f353"></a>[F353](F353-The-Page-With-The-Work-Cards-Redesigned.md) | — | — | The redesign of *Work* and *Needs you*: a list and one tab per running agent, reviews under *Needs you*, one count; with [F306](README.md#f306) in it. |
 | <a id="f306"></a>[F306](F306-A-Work-Card-Whose-Terminal-Has-Ended.md) | — | — | A *Work* card whose terminal ended says so in words, without an empty black terminal bar. |
-| <a id="f365"></a>[F365](F365-A-Host-Key-Fetched-Too-Early.md) | — | — | A machine's host key is compared by one named command and fetched again at *Prepare*; a refused key says what to do, and the name is a choice. |
 | <a id="f366"></a>[F366](F366-Preparing-A-Machine-Says-What-It-Waits-For.md) | — | — | *Prepare a machine* says beside its button what it waits for, and a stopped login shows its words and exit code, naming root still closed. |
 | <a id="f368"></a>[F368](F368-A-Machines-Token-Given-In-The-Same-Flow.md) | — | — | *Put it on a machine…* ends in giving the machine its token, saying what for, from the token the window keeps if so decided. |
 | <a id="f371"></a>[F371](F371-A-Task-Certified-From-The-Window.md) | — | — | Work started from the window on a host is certified by the desk's agent, never forwarded, and can be renewed from there. |
@@ -80,7 +81,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f364"></a>[F364](F364-Repositories-Added-Before-A-Machine.md) | — | — | A repository added before the project has a machine is filed with its central address, so that order works; a row without one says so. |
 
 ### Backlog
 
