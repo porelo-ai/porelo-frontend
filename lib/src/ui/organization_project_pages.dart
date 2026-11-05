@@ -10,6 +10,7 @@ import '../app/run_here.dart' show WorkspaceRefused;
 import 'command_menu.dart';
 import 'filtered_list_section.dart';
 import 'organization_dialogs.dart';
+import 'organization_host_pages.dart';
 import 'tokens.dart';
 
 /// What is true of a repository's name, as for any folder it becomes.
@@ -206,6 +207,10 @@ class _OrganizationProjectsPageState extends State<OrganizationProjectsPage> {
                                   child: Text('Connect to $host'),
                                 ),
                               ),
+                          if (project.host case final host? when !_isLocked(project))
+                            if (widget.connections case final held?
+                                when _refusals[host] != null && !_connecting.contains(host))
+                              LastConnectAttempt(held, host),
                           if (project.host case final host? when !_isLocked(project))
                             CommandMenu(
                               key: ValueKey('organization.projectMenu ${project.name}'),

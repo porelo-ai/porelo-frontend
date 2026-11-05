@@ -215,6 +215,26 @@ void main() {
     expect(made.connected('build'), isTrue);
   });
 
+  // Harm: a person sees last time's protocol, of a Connect that worked, on a machine taken down since.
+  test('a disconnect puts the attempt away', () async {
+    final made = await connections(_mia());
+    await made.connect('build');
+    expect(made.lastAttempt('build'), isNotNull);
+    await made.disconnect('build');
+    expect(made.lastAttempt('build'), isNull);
+  });
+
+  // Harm: two presses raise one tunnel twice, and the first's saving drops the second's.
+  test('a second Connect while one runs joins it', () async {
+    final made = await connections(_mia());
+    final first = made.connect('build');
+    final attempt = made.lastAttempt('build');
+    final second = made.connect('build');
+    await Future.wait([first, second]);
+    expect(identical(made.lastAttempt('build'), attempt), isTrue);
+    expect(attempt!.lines.where((line) => line == 'Opening the connection.'), hasLength(1));
+  });
+
   // Harm: a person connects to an address nobody vouched for.
   // Harm: a host running no forge and no homeserver can never be reached, and its admin is told to enter something.
   test('a host with no forge and no homeserver is connected', () async {

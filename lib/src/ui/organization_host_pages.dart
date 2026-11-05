@@ -179,34 +179,50 @@ class _OrganizationMachineRowState extends State<OrganizationMachineRow> {
                       'Connect again after that.',
           ),
         if (_refusal case final refusal?) _Problem(refusal),
-        if (!connected)
-          if (widget.connections?.lastAttempt(host.name) case final attempt?)
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton(
-                key: ValueKey('organization.attempt/${host.name}'),
-                onPressed: () => unawaited(_showAttempt(context, host.name, attempt)),
-                child: const Text('Show the last attempt'),
-              ),
-            ),
+        if (!connected && !_connecting)
+          if (widget.connections case final connections?)
+            Align(alignment: Alignment.centerLeft, child: LastConnectAttempt(connections, host.name)),
       ],
     );
   }
 }
 
-Future<void> _showAttempt(BuildContext context, String host, ConnectAttempt attempt) => showDialog<void>(
-  context: context,
-  builder: (context) => AlertDialog(
-    title: Text('The last Connect to $host'),
-    content: SingleChildScrollView(
-      child: SelectableText(
-        key: const Key('organization-attempt-lines'),
-        ['Began ${TimeOfDay.fromDateTime(attempt.at).format(context)}.', ...attempt.lines].join('\n'),
+/// *Show the last attempt*, where a *Connect* to [host] in this run has ended; nothing otherwise.
+class LastConnectAttempt extends StatelessWidget {
+  /// Reads the attempt from [connections].
+  const LastConnectAttempt(this.connections, this.host, {super.key});
+
+  /// Who kept it.
+  final HostConnections connections;
+
+  /// The machine.
+  final String host;
+
+  @override
+  Widget build(BuildContext context) {
+    final attempt = connections.lastAttempt(host);
+    if (attempt == null) return const SizedBox.shrink();
+    return TextButton(
+      key: ValueKey('organization.attempt/$host'),
+      onPressed: () => unawaited(
+        showDialog<void>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('The last Connect to $host'),
+            content: SingleChildScrollView(
+              child: SelectableText(
+                key: const Key('organization-attempt-lines'),
+                ['Began ${TimeOfDay.fromDateTime(attempt.at).format(context)}.', ...attempt.lines].join('\n'),
+              ),
+            ),
+            actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close'))],
+          ),
+        ),
       ),
-    ),
-    actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close'))],
-  ),
-);
+      child: const Text('Show the last attempt'),
+    );
+  }
+}
 
 /// One host: how it is reached, the projects it carries and its host admins, changed by its host admins alone, and the
 /// person's own connection to it.
@@ -713,6 +729,8 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
           onPressed: _acting || why != null ? null : () => unawaited(_act(() => connections!.connect(name))),
           child: const Text('Connect'),
         ),
+      if (!ready && !_acting)
+        if (connections case final held?) LastConnectAttempt(held, name),
     ];
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: Space.small),

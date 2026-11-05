@@ -36,7 +36,7 @@
 ## Decided while building
 
 - **The row goes once the token is given,** and stands under no *Recently resolved*: the connection coming up says so.
-- **The last attempt holds this run's steps and what ssh said,** not ssh's full output, which the tunnel does not keep. It stands until the machine is connected, and is lost with the window.
+- **The last attempt holds this run's steps and what ssh said,** not ssh's full output, which the tunnel does not keep. It is shown while the machine is not connected, on its row, its page and the project's row after a refusal; a disconnect puts it away, and it is lost with the window.
 - **A page whose read of the machine fails says that, and offers no token.** The row still leads there, where the refusal stands.
 
 ## To be checked

@@ -86,8 +86,17 @@ class CardHostConnections extends HostConnections {
   @override
   ConnectAttempt? lastAttempt(String host) => _attempts[host];
 
+  /// The *Connect* running for each host: a second press joins it, as two would raise one tunnel twice.
+  final _running = <String, Future<void>>{};
+  bool _disposed = false;
+
   @override
-  Future<void> connect(String host) async {
+  Future<void> connect(String host) => _running[host] ??= _attempt(host).whenComplete(() {
+    // In a block: a callback answering this very future would wait for itself.
+    _running.remove(host);
+  });
+
+  Future<void> _attempt(String host) async {
     final lines = <String>[];
     _attempts[host] = ConnectAttempt(DateTime.now(), lines);
     try {
@@ -95,8 +104,11 @@ class CardHostConnections extends HostConnections {
     } on OrganizationRefused catch (refused) {
       lines.add('It ended unconnected: ${refused.words}');
       rethrow;
+    } on Exception catch (error) {
+      lines.add('It ended unconnected: $error');
+      throw OrganizationRefused('The connection to $host could not be set up: $error');
     } finally {
-      notifyListeners();
+      if (!_disposed) notifyListeners();
     }
   }
 
@@ -222,6 +234,7 @@ class CardHostConnections extends HostConnections {
   Future<void> disconnect(String host) async {
     final machine = _machine(host);
     _waiting.remove(host);
+    _attempts.remove(host);
     if (machine == null) return;
     await machines.disconnect(machine);
     notifyListeners();
@@ -246,6 +259,7 @@ class CardHostConnections extends HostConnections {
 
   @override
   void dispose() {
+    _disposed = true;
     machines.removeListener(notifyListeners);
     super.dispose();
   }
