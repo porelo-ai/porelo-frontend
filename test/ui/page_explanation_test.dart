@@ -7,17 +7,17 @@ import '../features/support/world.dart';
 import '../support/organization_fixtures.dart';
 
 void main() {
-  // Harm: a fold undone by each restart, and the explanation read again every morning.
-  test('a folded explanation stays folded across a restart, and the others do not', () async {
+  // Harm: an explanation that comes back every morning, or that opens nowhere after its first time.
+  test('an explanation seen stays seen across a restart, and the others do not', () async {
     final store = MemorySettingsStore();
     final before = Settings(store);
     await before.load();
-    expect(before.explanationsFolded, isEmpty);
-    await before.setExplanationFolded('work', folded: true);
+    expect(before.explanationsSeen, isEmpty);
+    await before.markExplanationSeen('work');
 
     final after = Settings(store);
     await after.load();
-    expect(after.explanationsFolded, <String>{'work'});
+    expect(after.explanationsSeen, <String>{'work'});
   });
 
   // Harm: a small window that overflows under the explanation, open or folded.
@@ -43,28 +43,31 @@ void main() {
     (Section.projects, 'projects', 'What is in My projects?', 'How work runs'),
     (Section.organization, 'organization', 'What is the Porelo organization?', 'Who manages it'),
   ]) {
-    testWidgets('$question folds, and opens again', (tester) async {
+    testWidgets('$question stands open the first time, and after that behind its i', (tester) async {
       await World.startBackend(World.work);
       await World.startApp(tester, organizationSource: FixtureOrganization(organizationFor('pat')));
       World.shell.goTo(section);
       await World.settle(tester);
-      expect(find.text(question), findsOneWidget);
+      final info = find.byKey(ValueKey<String>('explanation-open $id'));
+      expect(find.text(question), findsOneWidget, reason: 'the first time');
       expect(find.textContaining(words), findsOneWidget);
-      final fold = find.byKey(ValueKey<String>('explanation-fold $id'));
-      expect(fold, findsOneWidget);
+      expect(info, findsOneWidget);
 
-      await tester.tap(fold);
+      // Gone from the page, and back.
+      World.shell.goTo(section == Section.forges ? Section.machines : Section.forges);
       await World.settle(tester);
-      expect(fold, findsNothing);
-      expect(find.text(question), findsOneWidget, reason: 'it folds, and is never removed');
+      World.shell.goTo(section);
+      await World.settle(tester);
+      expect(find.textContaining(words), findsNothing, reason: 'once');
+      expect(info, findsOneWidget);
+
+      await tester.tap(info);
+      await World.settle(tester);
+      expect(find.textContaining(words), findsOneWidget);
+      await tester.tap(find.byKey(ValueKey<String>('explanation-fold $id')));
+      await World.settle(tester);
       expect(find.textContaining(words), findsNothing);
-      expect(World.settings.explanationsFolded, contains(id));
-
-      await tester.tap(find.byKey(ValueKey<String>('explanation-open $id')));
-      await World.settle(tester);
-      expect(fold, findsOneWidget);
-      expect(find.textContaining(words), findsOneWidget);
-      expect(World.settings.explanationsFolded, isNot(contains(id)));
+      expect(info, findsOneWidget);
     });
   }
 }

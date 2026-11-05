@@ -116,6 +116,10 @@ class _OrganizationPageState extends State<OrganizationPage> {
           children: [
             if (widget.identity case final identity?) IdentityRenewal(model: identity, showProblems: true),
             OrganizationChangeMark(organization),
+            if (widget.settings case final settings?) ...[
+              if (view == null) PageHead(title: 'Porelo organization', id: 'organization', settings: settings),
+            ],
+            if (view != null) _head(context, organization, view),
             if (widget.settings case final settings?)
               PageExplanation(
                 id: 'organization',
@@ -130,6 +134,7 @@ class _OrganizationPageState extends State<OrganizationPage> {
                   (
                     title: 'Where it is kept',
                     words:
+                        '${view == null ? '' : 'Kept in ${view.keptIn} · keys vouched for by ${view.vouchedBy}. '}'
                         'In a repository inside ${forgeOrganizationWords(view)}: one is not the other. The repository holds '
                         'the Porelo organization, and its name is yours to choose.',
                   ),
@@ -178,15 +183,79 @@ class _OrganizationPageState extends State<OrganizationPage> {
     await organization.refresh();
   }
 
-  List<Widget> _organization(BuildContext context, Organization organization, OrganizationView view) {
+  /// The page's one line: a normal state is not described, a departure is, and a warning never folds away.
+  Widget _head(BuildContext context, Organization organization, OrganizationView view) {
+    final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
     void show(Widget dialog) => unawaited(showDialog<void>(context: context, builder: (_) => dialog));
     final read = howLongSince(organization.readAt);
+    final card = view.myCard?.standing;
+    final onlyOwner = view.isOwner && view.owners.length == 1 && !view.ownersWithBackup.contains(view.me);
+    final readWords = read == null ? null : Text('read $read ago', style: text.bodySmall);
+    final narrow = MediaQuery.sizeOf(context).width < Sizes.dialog;
+    return Row(
+      children: [
+        Expanded(
+          child: Wrap(
+            spacing: Space.small,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(view.name, style: text.titleLarge),
+              if (widget.settings case final settings?) PageExplanationButton(id: 'organization', settings: settings),
+              if (card != null && card != CardStanding.trusted)
+                Text(
+                  _myCardWords(view),
+                  key: const Key('organization-card-warning'),
+                  style: TextStyle(color: scheme.error),
+                ),
+              if (onlyOwner)
+                TextButton.icon(
+                  key: const Key('organization-owner-warning'),
+                  style: TextButton.styleFrom(foregroundColor: scheme.error, visualDensity: VisualDensity.compact),
+                  onPressed: () {
+                    final owners = _ownersPlace.currentContext;
+                    if (owners != null) unawaited(Scrollable.ensureVisible(owners));
+                  },
+                  icon: const Icon(Icons.warning_amber, size: Sizes.rowIcon),
+                  label: const Text('only owner, no backup key'),
+                ),
+              if (narrow) ?readWords,
+            ],
+          ),
+        ),
+        if (!narrow) ?readWords,
+        IconButton(
+          key: const Key('organization-refresh'),
+          tooltip: 'Read it again',
+          onPressed: () => unawaited(organization.refresh()),
+          icon: const Icon(Icons.refresh),
+        ),
+        CommandMenu(
+          key: const Key('organization-menu'),
+          tooltip: 'What can be done with ${view.name}',
+          commands: [
+            _command(
+              'chooseOrganization',
+              'Choose another Porelo organization…',
+              () => show(_AddressDialog(organization, replacing: true)),
+            ).command,
+            _command(
+              'createAnotherOrganization',
+              'Create another Porelo organization…',
+              () => show(_AddressDialog(organization, creating: true, replacing: true)),
+            ).command,
+          ],
+        ),
+      ],
+    );
+  }
+
+  final _ownersPlace = GlobalKey();
+
+  List<Widget> _organization(BuildContext context, Organization organization, OrganizationView view) {
+    void show(Widget dialog) => unawaited(showDialog<void>(context: context, builder: (_) => dialog));
     return [
       if (view.myCard == null) _NoCard(view: view, onAdd: () => show(_KeyDialog(organization, adding: true))),
-      Text(view.name, style: text.headlineSmall),
-      Text('Kept in ${view.keptIn} · keys vouched for by ${view.vouchedBy}'),
-      Text([_myCardWords(view), ?_rolesWords(view), if (read != null) 'read $read ago'].join(' · ')),
       if (view.stale)
         Text(
           key: const Key('organization-stale'),
@@ -194,27 +263,11 @@ class _OrganizationPageState extends State<OrganizationPage> {
           style: TextStyle(color: Theme.of(context).colorScheme.error),
         ),
       for (final note in view.notes) Text(note),
-      Align(
-        alignment: Alignment.centerLeft,
-        child: TextButton(
-          key: const ValueKey('chooseOrganization'),
-          onPressed: () => show(_AddressDialog(organization, replacing: true)),
-          child: const Text('Choose another Porelo organization…'),
-        ),
-      ),
-      Align(
-        alignment: Alignment.centerLeft,
-        child: TextButton(
-          key: const ValueKey('createAnotherOrganization'),
-          onPressed: () => show(_AddressDialog(organization, creating: true, replacing: true)),
-          child: const Text('Create another Porelo organization…'),
-        ),
-      ),
       const SizedBox(height: Space.normal),
       _people(view, organization, show),
       _projects(view, organization, show),
       _hosts(view, organization, show),
-      _owners(view, organization, show),
+      KeyedSubtree(key: _ownersPlace, child: _owners(view, organization, show)),
       ?_organizationAdmins(view, organization, show),
     ];
   }
@@ -828,17 +881,6 @@ String _myCardWords(OrganizationView view) => switch (view.myCard?.standing) {
   CardStanding.refused => 'My card: refused',
   CardStanding.revoked => 'My card: revoked',
 };
-
-String? _rolesWords(OrganizationView view) {
-  if (!view.holdsRoles) return null;
-  final roles = [
-    if (view.isOwner) 'an organization owner',
-    if (view.isOrganizationAdmin) 'an Organization Admin',
-    for (final host in view.hosts)
-      if (host.admins.contains(view.me)) 'Machine Admin of ${host.name}',
-  ];
-  return roles.isEmpty ? null : 'you are ${roles.join(' and ')}';
-}
 
 String _personWords(OrganizationView view, OrganizationPerson person) => [
   person.key ?? 'its key could not be read',

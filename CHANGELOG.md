@@ -15,7 +15,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - *My projects* lists *Default* beside the organization's projects, with its words and menu, and the header and the side bar count it.
 - The page of every project on your machines is titled *Projects on my machines* beside an organization, and its back link says *My projects*.
 - Preparing a host asks in plain words whether it has a forge of its own and whether it runs VMs in its jobs, says what each costs, and installs what was chosen; a CPU that cannot run VMs says so before anything is installed.
-- Every page explains itself above its list: closing the explanation folds it to a small block that opens it again, and what is folded stays folded across a restart.
+- Every page has an `i` beside its title that opens its explanation, which stands open only the first time the page is opened; *Organization*'s head is one line, with a warning in it where there is one.
 - A terminal stays dark in the light theme, as in a console, and answers a program asking for its colours; the tab's head and the page around it follow the theme.
 - An opened row in *Work* shows only the work's status and its way on: the block of the terminal's last lines is gone, as *Running* has them.
 - Work starts in the *Default* project again. A start on this computer asks for no certificate, as the command line does, and on a host the person's agent certifies a task of no project with the first key it holds.

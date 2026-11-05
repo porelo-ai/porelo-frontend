@@ -554,12 +554,26 @@ void main() {
     });
   });
 
+  // Harm: the block above the lists pushes the important ones out of sight, or a warning folds away with it.
+  testWidgets('the head is one line, and an only owner with no backup key is warned in it', (tester) async {
+    final (_, organization, _) = await _pump(tester, 'olive');
+    final view = organization.view!;
+    expect(find.text(view.name), findsWidgets);
+    expect(find.textContaining('Choose another Porelo organization'), findsNothing, reason: 'in the menu');
+    final warning = find.byKey(const Key('organization-owner-warning'));
+    final holdsIt = view.isOwner && view.owners.length == 1 && !view.ownersWithBackup.contains(view.me);
+    expect(warning, holdsIt ? findsOneWidget : findsNothing);
+    await tester.tap(find.byKey(ValueKey<String>('explanation-fold organization')));
+    await tester.pumpAndSettle();
+    expect(warning, holdsIt ? findsOneWidget : findsNothing, reason: 'it never folds away');
+  });
+
   // Harm: an unasked or revoked card reads as a good one, and someone is trusted who should not be.
   testWidgets("a card's state is said, never read as trusted", (tester) async {
     await _pump(tester, 'olive');
     expect(find.textContaining('GitHub not reached, asked again on the next read'), findsOneWidget);
     expect(find.textContaining('revoked'), findsOneWidget);
-    expect(find.textContaining('My card: filed, trusted'), findsOneWidget);
+    expect(find.textContaining('My card'), findsNothing, reason: 'a normal state is not described');
     expect(find.textContaining('Kept in the GitHub organization acme'), findsOneWidget);
   });
 
@@ -1340,7 +1354,7 @@ void main() {
   // Harm: a person who chose the wrong organization is stuck with it.
   testWidgets('another organization can be chosen, and it says what that does', (tester) async {
     final (fixture, _, _) = await _pump(tester, 'mia');
-    await _open(tester, find.byKey(const ValueKey('chooseOrganization')));
+    await pressOrganizationAction(tester, 'chooseOrganization');
     expect(find.textContaining('reads one Porelo organization'), findsOneWidget);
     expect(find.textContaining('filled by *Create another Porelo organization'), findsOneWidget);
     await tester.enterText(find.byKey(const Key('organization-address')), 'x');
@@ -1353,7 +1367,7 @@ void main() {
   // Harm: a person who holds one organization cannot start a second, or starts it thinking the first is lost.
   testWidgets('another organization can be created, and it says the first stays', (tester) async {
     final (fixture, _, _) = await _pump(tester, 'mia');
-    await _open(tester, find.byKey(const ValueKey('createAnotherOrganization')));
+    await pressOrganizationAction(tester, 'createAnotherOrganization');
     expect(find.textContaining('This one stays on its forge'), findsOneWidget);
     await tester.enterText(find.byKey(const Key('organization-address')), 'x');
     await tester.pumpAndSettle();

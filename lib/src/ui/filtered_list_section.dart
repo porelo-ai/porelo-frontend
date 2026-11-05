@@ -4,6 +4,7 @@ import '../app/commands.dart';
 import 'command_menu.dart';
 import 'tokens.dart';
 import 'window_size.dart';
+import 'page_explanation.dart';
 
 /// One searchable row, with its independent item identity retained by its widget key.
 typedef FilteredRow = ({String words, Widget child});
@@ -323,6 +324,8 @@ class _FilteredListSectionState extends State<FilteredListSection> {
         Flexible(
           child: Text(widget.title, style: theme.textTheme.titleMedium, overflow: TextOverflow.ellipsis),
         ),
+        if (PageExplanationScope.of(context) case final scope? when scope.title == widget.title)
+          PageExplanationButton(id: scope.id, settings: scope.settings),
         const SizedBox(width: Space.small),
         DecoratedBox(
           decoration: BoxDecoration(color: theme.colorScheme.surface, borderRadius: BorderRadius.circular(Radii.small)),

@@ -1,7 +1,6 @@
 # F387 — A Page Head Of One Line
 
-**Status:** Backlog.
-**Size:** S - one line on *Organization*, and every page's explanation behind an `i`.
+**Status:** Review.
 
 **What must be true.** What is important stands in sight, and the block above the lists no longer pushes it out. The rule: a normal state is not described, a departure is.
 
@@ -17,6 +16,8 @@
 
 **Every page's explanation** is just an `i` beside the title, opening the explanation. It stands open once, the first time that page is opened; after that it stays folded unless opened, kept across a restart.
 
+**On *Work*** the explanation belongs to the page, not to *List*: its `i` stands in the page's head beside the title, above *List* and *Running*, and can be reached from both. Opened, it stands above that switch.
+
 ## Acceptance
 
 - *Organization*'s lists start right under one line, in a normal state and with a warning.
@@ -25,6 +26,10 @@
 
 ## Decided while building
 
+- **The `i` on a list's own title** on *My machines*, *My forges* and *My projects*, and in a head of its own on *Work* and *Needs you*, which have no such title.
+- **"Kept in ..." and "keys vouched ..." go into the explanation,** in its *Where it is kept*.
+- **An explanation opened stands until the page is left,** or closed; only the first opening is its own.
+- **A menu for *Choose another...* and *Create another...*,** and a refresh, as the page had none.
 ## Open questions
 
 ## To be checked

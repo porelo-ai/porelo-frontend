@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -625,8 +626,8 @@ class Settings extends ChangeNotifier {
     }
     final seen = stored['seenSilent'];
     if (seen is List) _seenSilent = seen.whereType<String>().toList();
-    final folded = stored['explanationsFolded'];
-    if (folded is List) _explanationsFolded = folded.whereType<String>().toList();
+    final explained = stored['explanationsSeen'];
+    if (explained is List) _explanationsSeen = explained.whereType<String>().toList();
     final putAway = stored['endedPutAway'];
     if (putAway is List) _endedPutAway = putAway.whereType<String>().toList();
     final ranOut = stored['ranOut'];
@@ -927,20 +928,36 @@ class Settings extends ChangeNotifier {
     await _write();
   }
 
-  /// The pages whose explanation somebody has folded.
-  Set<String> get explanationsFolded => Set<String>.unmodifiable(_explanationsFolded);
-  List<String> _explanationsFolded = const <String>[];
+  /// The pages whose explanation has stood open its one time.
+  Set<String> get explanationsSeen => Set<String>.unmodifiable(_explanationsSeen);
+  List<String> _explanationsSeen = const <String>[];
 
-  /// Keeps whether the explanation of the page [id] is folded.
-  Future<void> setExplanationFolded(String id, {required bool folded}) async {
-    final kept = <String>{..._explanationsFolded};
-    if (folded) {
-      kept.add(id);
-    } else {
-      kept.remove(id);
-    }
-    _explanationsFolded = kept.toList()..sort();
+  /// The explanations open now, which no restart keeps.
+  final Set<String> _explanationsOpen = <String>{};
+
+  /// Whether the explanation of the page [id] stands open now.
+  bool explanationOpen(String id) => _explanationsOpen.contains(id);
+
+  /// Opens or closes the explanation of the page [id].
+  void setExplanationOpen(String id, {required bool open}) {
+    if (open ? !_explanationsOpen.add(id) : !_explanationsOpen.remove(id)) return;
     notifyListeners();
+  }
+
+  /// Forgets that the explanation of the page [id] is open, as its page goes: nothing listening is told.
+  void forgetExplanationOpen(String id) => _explanationsOpen.remove(id);
+
+  /// Opens the explanation of the page [id] if it never stood open, as the page first draws: nothing
+  /// listening is told, as what draws it has not drawn yet.
+  void showExplanationTheFirstTime(String id) {
+    if (_explanationsSeen.contains(id)) return;
+    _explanationsOpen.add(id);
+    unawaited(markExplanationSeen(id));
+  }
+
+  /// Keeps that the explanation of the page [id] has stood open its one time.
+  Future<void> markExplanationSeen(String id) async {
+    _explanationsSeen = (<String>{..._explanationsSeen, id}.toList()..sort());
     await _write();
   }
 
@@ -1063,7 +1080,7 @@ class Settings extends ChangeNotifier {
     ],
     'seenSilent': _seenSilent,
     'endedPutAway': _endedPutAway,
-    'explanationsFolded': _explanationsFolded,
+    'explanationsSeen': _explanationsSeen,
     'ranOut': [for (final each in _ranOut) each.stored],
     'place': _place,
     'templates': _templates,

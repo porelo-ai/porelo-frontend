@@ -1461,6 +1461,7 @@ class _ShellState extends State<Shell> {
       _opened() ??
       _explained(
         'forges',
+        'My forges',
         const <({String title, String words})>[
           (
             title: 'What is in My forges?',
@@ -2968,7 +2969,7 @@ class _ShellState extends State<Shell> {
                             Section.attention => _needsYou(),
                             Section.machines =>
                               _organizationHost == null || _organization == null
-                                  ? _explained('machines', const <({String title, String words})>[
+                                  ? _explained('machines', 'My machines', const <({String title, String words})>[
                                       (
                                         title: 'What is in My machines?',
                                         words: 'Where work runs. Its projects are under My projects, and its work under Work.',
@@ -3185,13 +3186,26 @@ class _ShellState extends State<Shell> {
 
   /// Every project on every machine, and the ways to set one up: setting up, out of the daily way.
   /// Today's list of a machine's projects, with the way back to the organization's where it is opened from there.
-  /// What the page [id] is for, in [parts], above [page].
-  Widget _explained(String id, List<({String title, String words})> parts, Widget page) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: <Widget>[
-      PageExplanation(id: id, settings: widget.settings, parts: parts),
-      Expanded(child: page),
-    ],
+  /// What the page [id] is for, in [parts], above [page]. Its `i` stands on the list titled [title]; where
+  /// the page has no such list, [ownHead] gives it a head of its own.
+  Widget _explained(
+    String id,
+    String title,
+    List<({String title, String words})> parts,
+    Widget page, {
+    bool ownHead = false,
+  }) => PageExplanationScope(
+    title: title,
+    id: id,
+    settings: widget.settings,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        if (ownHead) PageHead(title: title, id: id, settings: widget.settings),
+        PageExplanation(key: ValueKey<String>('explanation $id'), id: id, settings: widget.settings, parts: parts),
+        Expanded(child: page),
+      ],
+    ),
   );
 
   Widget _withWayBack(Widget page) => !_machineProjects
@@ -3209,12 +3223,13 @@ class _ShellState extends State<Shell> {
           ],
         );
 
-  Widget _explainedProjects(Widget page) => _explained('projects', const <({String title, String words})>[
-    (
-      title: 'What is in My projects?',
-      words: 'How work runs: its repositories, who reviews what it pushes, whom it may talk to.',
-    ),
-  ], page);
+  Widget _explainedProjects(Widget page) =>
+      _explained('projects', 'My projects', const <({String title, String words})>[
+        (
+          title: 'What is in My projects?',
+          words: 'How work runs: its repositories, who reviews what it pushes, whom it may talk to.',
+        ),
+      ], page);
 
   Widget _projectsPage() =>
       _opened() ??
@@ -3258,6 +3273,7 @@ class _ShellState extends State<Shell> {
     final page =
         opened ??
         WorkPage(
+          head: PageHead(title: 'Work', id: 'work', settings: widget.settings),
           explanation: PageExplanation(
             id: 'work',
             settings: widget.settings,
@@ -3420,6 +3436,7 @@ class _ShellState extends State<Shell> {
     if (opened != null) return opened;
     return _explained(
       'needs-you',
+      'Needs you',
       const <({String title, String words})>[
         (
           title: 'What is Needs you?',
@@ -3470,6 +3487,7 @@ class _ShellState extends State<Shell> {
           },
         ),
       ),
+      ownHead: true,
     );
   }
 
