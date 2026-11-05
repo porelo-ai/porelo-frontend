@@ -237,6 +237,36 @@ void main() {
     });
   }
 
+  // Harm: the person's own file is not used, the start goes on in Default, and it passes as one more line.
+  testWidgets('a file that is not taken is a warning, with its reason, and asks nothing', (tester) async {
+    final backend = await open(
+      tester,
+      const FirstStart(
+        outcome: FirstStart.askUnknownFile,
+        refusal: 'project.name must differ from the repository, such as x-project.',
+      ),
+    );
+    await pick(tester);
+    expect(find.byKey(const Key('first-start')), findsNothing);
+    expect(backend.firstStartsConfirmed, isEmpty);
+    final said = tester.widget<Text>(find.byKey(const Key('default-problem')));
+    expect(said.data, contains('project.name must differ from the repository, such as x-project.'));
+    expect(said.data, contains('in Default, not that file'));
+    expect(said.style?.color, Theme.of(tester.element(find.byKey(const Key('default-problem')))).colorScheme.error);
+    expect(address(tester), 'git@forge.example:me/x.git');
+  });
+
+  // Harm: an older Porelo answers the same with no reason, as `67261bbc` does, and that must warn too.
+  testWidgets('a file not taken with no reason given warns, and says where the reason is', (tester) async {
+    await open(tester, const FirstStart(outcome: FirstStart.askUnknownFile));
+    await pick(tester);
+    expect(find.byKey(const Key('first-start')), findsNothing);
+    final said = tester.widget<Text>(find.byKey(const Key('default-problem')));
+    expect(said.data, contains('was not taken'));
+    expect(said.data, contains('in a terminal'));
+    expect(find.byKey(const Key('default-said')), findsNothing);
+  });
+
   // Harm: the person pressed yes, nothing happened, and nothing said why.
   testWidgets('a refused yes says the machine\'s words and leaves the start as it is', (tester) async {
     final backend = await open(tester, asks);
@@ -247,7 +277,9 @@ void main() {
     await pick(tester);
     await tester.tap(find.byKey(const Key('first-start-yes')));
     await tester.pumpAndSettle();
-    expect(find.text('x-project is another project of this machine.'), findsOneWidget);
+    final said = tester.widget<Text>(find.byKey(const Key('default-problem')));
+    expect(said.data, contains('x-project is another project of this machine.'));
+    expect(said.data, contains('in Default, not that file'));
     expect(started, isEmpty);
     expect(address(tester), 'git@forge.example:me/x.git');
   });

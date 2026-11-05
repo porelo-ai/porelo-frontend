@@ -2709,6 +2709,10 @@ class FirstStart {
   /// One of the words above, or `NO_PLUGIN` or `NOTHING_RECOGNIZED`.
   final String outcome;
 
+  /// Why a file there cannot be taken, what is wrong and what to write; empty where nothing stands against it, or
+  /// from a Porelo that does not say.
+  final String refusal;
+
   /// What the plugins say of this checkout, in any outcome: one that failed or was refused, or a lookup that did not
   /// answer. Changes nothing a yes writes.
   final List<String> notes;
@@ -2734,6 +2738,7 @@ class FirstStart {
   /// Constructor taking every field.
   const FirstStart({
     required this.outcome,
+    this.refusal = '',
     this.notes = const <String>[],
     this.found = const <Finding>[],
     this.hosts = const <String>[],
@@ -2752,6 +2757,7 @@ class FirstStart {
     final found = map['found'];
     return FirstStart(
       outcome: map['outcome'] as String? ?? '',
+      refusal: map['refusal'] as String? ?? '',
       notes: words(map['notes']),
       found: found is List
           ? <Finding>[

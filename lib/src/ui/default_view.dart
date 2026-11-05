@@ -141,7 +141,7 @@ class _DefaultDialogState extends State<DefaultDialog> {
         project = await _projectOf(checkout);
       } on VarlinkException catch (refusal) {
         if (refusal.simpleName != 'FirstStartRefused') rethrow;
-        _problem = refusal.parameters['detail'] as String? ?? refusal.simpleName;
+        _problem = _notTaken(refusal.parameters['detail'] as String? ?? refusal.simpleName);
         await _fillTheOrigin(checkout);
         return;
       } on FeatureNotSupported {
@@ -163,14 +163,22 @@ class _DefaultDialogState extends State<DefaultDialog> {
     });
   }
 
+  /// What a person reads of a file not taken: why, and what the start then does.
+  static String _notTaken(String why) => '$why This start uses Porelo\u2019s own settings in Default, not that file.';
+
   /// The project to start in, or null where this start goes on as it is without one.
   Future<String?> _projectOf(String checkout) async {
     final first = await widget.machine.firstStart(checkout);
     if (!mounted) return null;
     if (!first.asks) _notes = first.notes;
     if (first.asks) {
-      if (first.hash.isEmpty) {
-        _said = 'The machine asked nothing that a yes could name, so nothing was written.';
+      // A question with nothing a yes could name is a file not taken. It is a warning: it is the person's own file
+      // that is not used, and the start goes on without it.
+      if (first.refusal.isNotEmpty || first.hash.isEmpty) {
+        _problem = first.refusal.isEmpty
+            ? 'The project.yml in this checkout was not taken, so this start uses Porelo\u2019s own settings in Default, '
+                  'not that file. A start in a terminal in this checkout says why.'
+            : _notTaken(first.refusal);
         return null;
       }
       if (await askFirstStart(context, first: first) != true) {

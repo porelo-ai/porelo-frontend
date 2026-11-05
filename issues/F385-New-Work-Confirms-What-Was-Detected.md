@@ -24,6 +24,8 @@
 
 - What the plugins say stands above the question and beside each thing found, before a yes. An answer that asks nothing shows it in the dialog, and one that starts at once says it where the work starts, as its dialog goes.
 
+- A file that is not taken is a warning in the error color: what the machine says of it, and that this start uses Default and not that file. With no reason given, it says a start in a terminal gives it.
+
 ## Open questions
 
 ## To be checked
