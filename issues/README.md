@@ -95,12 +95,12 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f389"></a>[F389](F389-A-Refused-Forward-Says-Which-Credential.md) | M | — | A push refused for its key leads the person through it: which key, their keys, try one, keep it, a terminal where needed. |
 
 ### Backlog
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f389"></a>[F389](F389-A-Refused-Forward-Says-Which-Credential.md) | M | — | A push refused for its key leads the person through it: which key, their keys, try one, keep it, a terminal where needed. |
 | <a id="f390"></a>[F390](F390-A-Change-Mostly-Of-Line-Endings.md) | S | — | A change mostly of line endings says so, with the real count beside the raw one. |
 | <a id="f388"></a>[F388](F388-The-Stubs-Pin-Stays-Fetchable.md) | XS | — | A scenario that needs the stub does not go red because its pinned version left the folder. |
 | <a id="f379"></a>[F379](F379-Add-A-Project-In-One-Step-From-The-Window.md) | S | — | A person naming themselves Project Admin adds a project in one step from the window. |

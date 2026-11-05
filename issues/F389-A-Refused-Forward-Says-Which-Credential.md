@@ -1,6 +1,6 @@
 # F389 — A Refused Forward Says Which Credential
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** M - a led path in the window on daemon calls not there yet: words, a list of keys, a try, a keep.
 
 **What must be true.** A push refused for its key leads the person through it in the window, with no need to read git's raw line, which does not appear.
