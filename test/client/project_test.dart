@@ -156,4 +156,16 @@ void main() {
     expect(talking.loopbackOnly, isTrue);
     expect(projectWith(const <String, dynamic>{}).messages, isNull);
   });
+
+  // Harm: *Start again* removes a task of Default and has nowhere to start its replacement.
+  test('a task of default naming no repository stays in its first, as a start takes it', () {
+    final project = Project.from(<String, dynamic>{
+      'name': defaultProject,
+      'securityClass': 'guarded',
+      'repositories': <String>['utils4j', 'units4j'],
+    });
+    final task = Task.from(<String, dynamic>{'id': 'a', 'name': 'a', 'project': defaultProject});
+    expect(project.ownRepository, isNull, reason: 'none of them is own');
+    expect(project.repositoryOf(task), 'utils4j');
+  });
 }

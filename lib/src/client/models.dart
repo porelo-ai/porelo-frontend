@@ -2115,8 +2115,11 @@ class Project {
   }
 
   /// The repository [task] works in, as a start takes it: the project's own where the task says
-  /// nothing, which is what saying nothing means — and so null where the machine names none.
-  String? repositoryOf(Task task) => task.repository.isEmpty ? ownRepository : task.repository;
+  /// nothing, which is what saying nothing means — and so null where the machine names none. Default
+  /// has no own one, so a task there saying nothing stays in its first.
+  String? repositoryOf(Task task) => task.repository.isNotEmpty
+      ? task.repository
+      : ownRepository ?? (name == defaultProject ? repositories.firstOrNull : null);
 
   /// Constructor taking every field.
   const Project({
