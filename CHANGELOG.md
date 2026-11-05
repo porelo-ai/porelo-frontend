@@ -627,7 +627,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   it is chosen or typed, with a check mark or an error icon beside it.
 - Server setup fills in your public ssh key from the private key's own `.pub` whenever there is
   one, also over a key kept from an earlier run, and refuses a public key of another pair at once.
-- Server setup installs porelo-host's collection 0.5.11, which brings up the host's forge and gives
+- Server setup installs porelo-host's collection 0.5.12, which brings up the host's forge and gives
   each agent its own forge account and token, the person a forge login of their own, and each
   account's gate its token, with every repository's main protected and merged by fast-forward
   only. The forge's runner takes four jobs at once and keeps a cache between runs. The host
