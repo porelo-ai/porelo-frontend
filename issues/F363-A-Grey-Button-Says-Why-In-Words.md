@@ -29,7 +29,7 @@
 
 - **The next step is Core's own sentence** at creating at https: `porelo setup --organization <its ssh address> --replace`, on the computer.
 - **The line covers every command on a list's head,** those a list draws in its menu and those it draws itself. A grey button inside a row, a dialog or a details pane is apart, in its own issue.
-- **Whether a machine needs ssh at a project's or repository's address** waits for Core's answer; nothing is said there yet.
+- **Project and repository addresses say nothing of it.** By Core's reading of its code, https works there with a token that may read them, and only the organization's read key needs ssh.
 
 ## To be checked
 
