@@ -95,6 +95,9 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f379"></a>[F379](F379-Add-A-Project-In-One-Step-From-The-Window.md) | S | — | A person naming themselves Project Admin adds a project in one step from the window. |
 | <a id="f377"></a>[F377](F377-A-Hosts-Channel-Follows-The-Window.md) | S | — | A host the window prepares installs from the window's own channel. |
 | <a id="f378"></a>[F378](F378-Waits-Said-In-Needs-You.md) | S | — | A review's waiting time and file counts, and the time left in the waits-on-you note. |
+| <a id="f381"></a>[F381](F381-Fold-A-Pages-Explanation.md) | S | — | Every page has an explanation; closing it folds it, and it stays folded across a restart. |
+| <a id="f382"></a>[F382](F382-An-Images-Settings-In-Work.md) | S | — | A button in *Work* shows which settings the task's image was built with, and where each comes from. |
+| <a id="f385"></a>[F385](F385-New-Work-Confirms-What-Was-Detected.md) | S | — | *New work* on this computer asks the same question as a first start before it writes `project.yml`. |
 | <a id="f365"></a>[F365](F365-A-Host-Key-Fetched-Too-Early.md) | M | — | A machine's host key is compared by one named command and fetched again at *Prepare*; a refused key says what to do, and the name is a choice. |
 | <a id="f369"></a>[F369](F369-One-Name-For-The-Default-Project.md) | S | — | The project every machine has is called *Default* in the window, as in Core and its documents, in place of "Without a project". |
 | <a id="f359"></a>[F359](F359-An-Empty-List-Starts-Folded.md) | S | — | A list with no rows starts folded and folds when emptied, a fold the person chose is kept, and the head's actions stay usable. |
@@ -132,6 +135,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f384"></a>[F384](F384-Configure-The-Terminal.md) | — | — | The window's terminal can be configured: font sizes, colours and so on. |
 | <a id="f372"></a>[F372](F372-An-Unattended-Agents-Console-Reads-What-It-Did.md) | — | — | An unattended agent's console reads its text and what it did, in summaries, in place of one line per tool. |
 | <a id="f351"></a>[F351](F351-A-Host-Reached-From-Windows.md) | — | — | A host reached from Windows, measured first, probably by WSL's ssh. |
 | <a id="f352"></a>[F352](F352-A-Rental-State-Kept-Beyond-One-Computer.md) | — | — | OpenTofu's state in the organization's repository or at the provider. |
