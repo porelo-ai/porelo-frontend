@@ -210,7 +210,7 @@ class Attention extends ChangeNotifier {
     if (view == null || view.stale || !view.holdsRoles) return const <String>[];
     return <String>[
       for (final project in view.projects)
-        if (project.hasNoRepository && project.admins.contains(view.me)) project.name,
+        if (view.saysNoRepository(project) && project.admins.contains(view.me)) project.name,
     ];
   }
 

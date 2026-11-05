@@ -261,10 +261,13 @@ class OrganizationView {
   bool mayChangeMember(String role, {required bool isProjectAdmin}) =>
       organizationAdmins == null || role != ProjectView.adminRole ? isProjectAdmin : isOrganizationAdmin;
 
+  /// Whether [project] is known to have no Git repository: a stale read cannot tell that one is missing.
+  bool saysNoRepository(OrganizationProject project) => !stale && project.hasNoRepository;
+
   /// Whether [project] stands under *My projects*: this person holds a role in it, and it has its Git
   /// repository, as one with none yet stands on the Organization page, where it is made.
   bool isMine(OrganizationProject project) =>
-      holdsRoles && !project.hasNoRepository && (project.admins.contains(me) || project.members.contains(me));
+      holdsRoles && !saysNoRepository(project) && (project.admins.contains(me) || project.members.contains(me));
 
   /// The hosts this person has to do with: those they administer, and those carrying a project of theirs.
   List<OrganizationHost> get myHosts => !holdsRoles

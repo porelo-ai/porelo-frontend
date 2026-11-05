@@ -100,7 +100,7 @@ void main() {
     expect(find.byKey(const ValueKey('my-project demo')), findsOneWidget);
   });
 
-  // Harm: in the foo test a project stood under Projects with its repository unmade and nothing said so:
+  // Harm: in the foo test a project stood under My projects with its repository unmade and nothing said so:
   // "Open under Projects" named a place in the side bar while *Open the project* made a repository.
   group('a project with no Git repository yet', () {
     const fresh = OrganizationProject(name: 'fresh', admins: ['pat'], opened: false);
@@ -123,6 +123,13 @@ void main() {
       expect(fixture.writes.single.change, OrganizationChange.createProjectRepository);
       expect(fixture.writes.single.input, {'project': 'fresh', 'review': 'optional'});
       expect(fixture.writes.single.base, 'p9');
+    });
+
+    // Harm: a stale read says a repository is missing, and a person creates what is there.
+    testWidgets('a stale organization does not say it has none', (tester) async {
+      await _pump(tester, 'pat', view: organizationFor('pat', moreProjects: const [fresh], stale: true));
+      expect(find.textContaining('no Git repository yet'), findsNothing);
+      expect(find.byKey(const ValueKey('organization.createRepository fresh')), findsNothing);
     });
 
     testWidgets('anyone else reads who it waits for, with nothing to press', (tester) async {
@@ -187,8 +194,7 @@ void main() {
       final source = FixtureOrganization(organizationFor(me, moreProjects: const [fresh]));
       await World.startBackend(World.work);
       await World.startApp(tester, organizationSource: source);
-      await tester.tap(find.byKey(const ValueKey('rail organization')));
-      await World.settle(tester);
+      // Straight there: this may be the first page anyone looks at.
       await tester.tap(find.byKey(const ValueKey('rail attention')));
       await World.settle(tester);
       return source;

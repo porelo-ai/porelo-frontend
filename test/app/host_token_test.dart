@@ -123,6 +123,6 @@ void main() {
     expect(words, contains('Administration: write'));
     expect(words, contains('It does not keep the token'));
     expect(words, contains('on no command line, in no log and in no file'));
-    expect(noTokenWords('build', 'GitHub'), contains('under Forges'));
+    expect(noTokenWords('build', 'GitHub'), contains('under My forges'));
   });
 }

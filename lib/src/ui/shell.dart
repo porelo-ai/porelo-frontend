@@ -360,7 +360,11 @@ class _ShellState extends State<Shell> {
     _homeservers = HomeserverForwards(widget.settings);
     // One that cannot be raised is said under Needs you; the project's page says the address.
     _attention.homeservers = _homeservers;
-    if (_organization case final organization?) _attention.watchOrganization(organization, _hostConnections);
+    if (_organization case final organization?) {
+      _attention.watchOrganization(organization, _hostConnections);
+      // *Needs you* may be the first place looked at, and says nothing of an organization not read.
+      unawaited(organization.refresh());
+    }
     // A person is never asked for the same token twice: what created the organization is the forge's access.
     _organization?.afterWrite = (change, input) {
       if (change == OrganizationChange.createOrganization && input['address'] != null) {

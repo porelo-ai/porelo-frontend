@@ -334,12 +334,15 @@ class _OrganizationPageState extends State<OrganizationPage> {
                 title: project.name,
                 subtitle: _projectWords(project),
                 state: _standingIn(view, project),
-                below: project.hasNoRepository ? _noRepository(view, organization, project, show) : null,
+                below: view.saysNoRepository(project) ? _noRepository(view, organization, project, show) : null,
                 actions: [
-                  if (!project.hasNoRepository && view.holdsRoles && widget.onProject != null && _isIn(view, project))
+                  if (!view.saysNoRepository(project) &&
+                      view.holdsRoles &&
+                      widget.onProject != null &&
+                      _isIn(view, project))
                     _command('goToProject/${project.name}', 'Go to the project', () => widget.onProject!(project.name)),
                   // It files what a checkout holds in the project's own repository, so that comes first.
-                  if (!project.hasNoRepository &&
+                  if (!view.saysNoRepository(project) &&
                       (view.isOrganizationAdmin || (view.holdsRoles && project.admins.contains(view.me))))
                     _command(
                       'initializeProject/${project.name}',

@@ -201,6 +201,7 @@ class OrganizationListSection extends StatelessWidget {
     return FilteredListSection(
       title: section.title,
       storageId: section.storageId,
+      emptyWords: section.emptyWords,
       collapsible: section.collapsible,
       initiallyOpen: section.initiallyOpen,
       openWhenCompact: section.openWhenCompact,

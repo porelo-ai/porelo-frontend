@@ -116,7 +116,7 @@ class _OrganizationMachineRowState extends State<OrganizationMachineRow> {
     final mine = [
       for (final project in view.projects)
         if (project.host == host.name &&
-            !project.hasNoRepository &&
+            !view.saysNoRepository(project) &&
             (project.admins.contains(view.me) || project.members.contains(view.me)))
           project.name,
     ];
@@ -522,7 +522,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     final progress = _progress?.of(name);
     if (progress == null) return null;
     if (progress.hasNoAddress) {
-      return "the machine has no address for it: a token cannot help until the project's admin opens it or files its "
+      return "the machine has no address for it: a token cannot help until the project's admin creates its Git repository or files its "
           'address anew, and it then needs your token once more';
     }
     return switch (progress.state) {
@@ -657,7 +657,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     final mine = [
       for (final project in view.projects)
         if (project.host == host.name &&
-            !project.hasNoRepository &&
+            !view.saysNoRepository(project) &&
             (project.admins.contains(view.me) || project.members.contains(view.me)))
           project.name,
     ];

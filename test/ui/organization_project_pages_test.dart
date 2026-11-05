@@ -193,6 +193,21 @@ void main() {
       expect(find.textContaining('Name one'), findsNothing);
     });
 
+    // Harm: an empty list that does not say what comes first.
+    testWidgets('a project with none says how to add one, to its admin', (tester) async {
+      await _page(
+        tester,
+        'pat',
+        project: const ProjectView(
+          name: 'demo',
+          revision: 'p1',
+          roles: ['developer', 'admin'],
+          members: [ProjectMember(login: 'pat', role: 'admin', standing: CardStanding.trusted)],
+        ),
+      );
+      expect(find.text('No repositories yet. Add one with Add.'), findsOneWidget);
+    });
+
     testWidgets('says so to anyone else, with nothing to press', (tester) async {
       await _page(tester, 'olive', project: project);
       expect(find.textContaining('no central address'), findsOneWidget);

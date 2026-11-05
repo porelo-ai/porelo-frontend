@@ -178,7 +178,7 @@ class _PlacingProjectDialogState extends State<PlacingProjectDialog> {
       'held' || 'refused' =>
         '${widget.host} did not take ${widget.project}${why == null ? '' : ': $why'}. Its page says what to do.',
       _ when mine?.hasNoAddress == true =>
-        '${widget.project} has no address yet: its Project Admin opens it first, and ${widget.host} takes it then.',
+        '${widget.project} has no address yet: its Project Admin creates its Git repository first, and ${widget.host} takes it then.',
       _ when _wantsToken => switch (widget.view) {
         final view? => organizationTokenWords(view, widget.host, project: widget.project),
         null => '${widget.host} waits for a token.',
