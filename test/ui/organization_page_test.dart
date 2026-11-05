@@ -1172,6 +1172,29 @@ void main() {
       expect(fixture.writes.single.change, OrganizationChange.createOrganization);
     });
 
+    // Harm: right after creating an organization on GitHub, *My forges* said 0.
+    testWidgets('creating from the window lists its forge, asking for nothing', (tester) async {
+      tester.view.physicalSize = const Size(1400, 2400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final fixture = FixtureOrganization(
+        organizationFor('olive'),
+        keys: const [OrganizationKey(fingerprint: 'SHA256:k', vouched: true)],
+      )..refuseReads = const OrganizationRefused('no organization here', reason: 'no-organization');
+      await World.startBackend(World.work);
+      await World.startApp(tester, organizationSource: fixture);
+      await tester.tap(find.byKey(const ValueKey('rail organization')));
+      await World.settle(tester);
+      await tester.tap(find.byKey(const ValueKey('createOrganization')));
+      await World.settle(tester);
+      await tester.enterText(find.byKey(const Key('organization-address')), 'git@forge.example.org:acme/org.git');
+      await World.settle(tester);
+      await tester.tap(find.byKey(const Key('organization-confirm')));
+      await World.settle(tester);
+      expect(fixture.writes.single.change, OrganizationChange.createOrganization);
+      expect([for (final entry in World.forges.entries) entry.address], contains('forge.example.org'));
+    });
+
     // Harm: creating at https works, and the stop comes only at the first machine.
     testWidgets('creating at an https address says so before anything is filed', (tester) async {
       final (fixture, _) = await none(tester);
