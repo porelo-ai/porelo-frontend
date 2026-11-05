@@ -312,11 +312,21 @@ void main() {
         backend.startTask(project: 'foo-project', task: 'work').forEach((event) {
           if (event is StartLine) lines.add(event.line);
         }),
-        throwsA(anything),
+        // Harm: "the agent exited" of an agent that never ran, and a log offered that no run wrote.
+        throwsA(
+          isA<OperationFailed>()
+              .having((failed) => '$failed', 'what is said', contains('no agent ran'))
+              .having((failed) => failed.leftALog, 'a log', isFalse),
+        ),
       );
       expect(lines.last, 'Your agent lacks it.');
       final again = await backend.startAgain(project: 'foo-project', task: 'work');
       expect(again.output, contains('Your agent lacks it.'));
+    });
+
+    // Harm: a container that would not start reads as an agent that ran and ended.
+    test('a start that ended says so, and names no agent', () {
+      expect('${const OperationFailed(70)}', 'It ended with code 70. What it said is in the output above.');
     });
 
     // Harm: asking a daemon without the input fails every start on every older machine.

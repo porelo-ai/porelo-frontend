@@ -659,7 +659,7 @@ class PoreloBackend implements FleetBackend {
     if (certifying.refused case final words?) yield StartLine(words);
     // A refusal is an ordinary final reply, and must not read as a start that worked.
     if (action != null && action.isKnown && !action.starts) throw StartRefused(action);
-    if (exitCode != 0) throw OperationFailed(exitCode);
+    if (exitCode != 0) throw OperationFailed(exitCode, notCertified: certifying.refused != null);
   }
 
   /// Answers what a host asked to have certified, and says what was done. A refusal is answered to
@@ -1237,17 +1237,20 @@ class NoSuchDestination implements Exception {
 /// said in the same place a success would have been said.
 class OperationFailed implements Exception {
   /// Constructor taking what the launch returned.
-  const OperationFailed(this.exitCode);
+  const OperationFailed(this.exitCode, {this.notCertified = false});
 
   /// What the launch returned. Never zero.
   final int exitCode;
+
+  /// Whether this computer refused to certify the start, so the host stopped before any agent ran.
+  final bool notCertified;
 
   /// Whether there is a log worth offering.
   ///
   /// Two of the bands are not failed runs at all. `69` means the run was **refused before
   /// anything was created**, so there is nothing to read — offering a log view there opens an
   /// empty window on a file that was never written.
-  bool get leftALog => exitCode != 69;
+  bool get leftALog => exitCode != 69 && !notCertified;
 
   /// Whether the run was stopped by its own time limit rather than by going wrong.
   ///
@@ -1263,19 +1266,21 @@ class OperationFailed implements Exception {
   bool get nothingRan => exitCode == 69;
 
   @override
-  String toString() => switch (exitCode) {
-    // Four bands, not two. Reading every non-zero code as "it failed" throws away the two
-    // that are not failures of the work at all.
-    124 =>
-      'It ran out of the time it was given and was stopped. What it managed to do is '
-          'in the log.',
-    // Not "no agent is installed": more than one refusal answers 69, and the daemon prints
-    // which. Naming one of them here would be wrong exactly when it was believed.
-    69 =>
-      'Nothing ran, and nothing was created. It was refused before it began; '
-          'what was refused is in the output above.',
-    _ => 'The agent exited with code $exitCode.',
-  };
+  String toString() => notCertified
+      ? 'It was not certified, so no agent ran. What to do is in the output above.'
+      : switch (exitCode) {
+          // Four bands, not two. Reading every non-zero code as "it failed" throws away the two
+          // that are not failures of the work at all.
+          124 =>
+            'It ran out of the time it was given and was stopped. What it managed to do is '
+                'in the log.',
+          // Not "no agent is installed": more than one refusal answers 69, and the daemon prints
+          // which. Naming one of them here would be wrong exactly when it was believed.
+          69 =>
+            'Nothing ran, and nothing was created. It was refused before it began; '
+                'what was refused is in the output above.',
+          _ => 'It ended with code $exitCode. What it said is in the output above.',
+        };
 }
 
 /// What one start has done about being certified.
