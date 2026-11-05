@@ -307,10 +307,8 @@ class HostUpRecord {
         '--scaleway-project',
         scalewayProject,
       ],
-      '--forge',
-      '$forge',
       if (machineFile.isNotEmpty) ...['--machine-file', machineFile],
-      ...preparationSettings.arguments,
+      ..._settingsAsChosen.arguments,
       if (rentalTag != null) ...['--rental-tag', rentalTag!],
     ];
   }
@@ -328,8 +326,18 @@ class HostUpRecord {
       '--scaleway-project',
       scalewayProject,
     ],
+    '--forge',
+    '${_settingsAsChosen.forge}',
+    '--kvm',
+    '${_settingsAsChosen.kvm}',
     if (rentalTag != null) ...['--rental-tag', rentalTag!],
   ];
+
+  /// The settings with this record's own forge, which an older record holds beside them.
+  HostPreparationSettings get _settingsAsChosen => preparationSettings.withPlainChoices(
+    forge: forge && preparationSettings.forge,
+    kvm: forge && preparationSettings.forge && preparationSettings.kvm,
+  );
 }
 
 /// Where the interface's own preferences live.

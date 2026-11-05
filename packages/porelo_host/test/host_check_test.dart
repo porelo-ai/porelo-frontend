@@ -495,7 +495,7 @@ void main() {
         '--kvm',
         'true',
         '--forge',
-        'false',
+        'true',
         '--forge-runner-capacity',
         '2',
         '--forge-job-cpus',
@@ -507,7 +507,7 @@ void main() {
       ]);
       final choices = started.single.last.split('--choices ').last;
       expect(jsonDecode(choices.substring(1, choices.length - 1)), {
-        'forge': false,
+        'forge': true,
         'kvm': true,
         'jobs': 2,
         'job_cpus': 3,

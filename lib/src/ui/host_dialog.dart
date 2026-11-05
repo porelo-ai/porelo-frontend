@@ -179,6 +179,12 @@ class _HostDialogState extends State<HostDialog> {
   Settings get _settings => widget.settings ?? widget.machines.settings;
   HostUpRecord? get _record => _settings.hostUp(widget.project) ?? widget.fromTheCard;
 
+  String _setTo(HostUpRecord record) {
+    final forge = record.forge && record.preparationSettings.forge;
+    return '${forge ? 'It has a forge of its own' : 'It has no forge of its own'}'
+        '${forge && record.preparationSettings.kvm ? ', and runs VMs in its jobs.' : ', and runs no VMs in its jobs.'}';
+  }
+
   /// Takes [value] as the choices, says the check must run again, and keeps them on a saved record.
   Future<void> _choose(HostPreparationSettings value) async {
     setState(() => _choices = value);
@@ -794,6 +800,8 @@ class _HostDialogState extends State<HostDialog> {
                 ],
                 // Below the fields, so that what it says as the name is typed moves none of them.
               ],
+              // A host set up already: what it was set to, which this dialog changes no more.
+              if (record?.preparedHost case final _?) Text(key: const Key('host-choices'), _setTo(record!)),
               if (!widget.takeDownOnly && run == null && record?.preparedHost == null) ...[
                 SwitchListTile(
                   key: const Key('host-forge'),

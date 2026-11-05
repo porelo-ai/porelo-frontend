@@ -97,9 +97,11 @@ class HostPreparationSettings {
 
   /// The role's exact optional inventory variables, omitted for its defaults.
   Map<String, Object> get roleSettings => {
-    'forge_runner_capacity': ?forgeRunnerCapacity,
-    'forge_job_cpus': ?forgeJobCpus,
-    'forge_job_memory': ?forgeJobMemory,
+    if (forge) ...{
+      'forge_runner_capacity': ?forgeRunnerCapacity,
+      'forge_job_cpus': ?forgeJobCpus,
+      'forge_job_memory': ?forgeJobMemory,
+    },
   };
 
   /// The public preparation choices saved for retries.

@@ -36,6 +36,9 @@ class HostPlan {
     this.forge = true,
   });
 
+  /// Whether this host has a forge: only where this plan and its chosen settings both say so.
+  bool get hasForge => forge && preparationSettings.forge;
+
   /// The name for a server prepared independently of a project.
   final String? hostName;
 
@@ -475,8 +478,8 @@ class HostRun {
           check,
           choices: hostCheckChoices(
             plan.preparationSettings,
-            forge: plan.forge,
-            kvm: '${plan.preparationSettings.kvm}',
+            forge: plan.hasForge,
+            kvm: '${plan.hasForge && plan.preparationSettings.kvm}',
           ),
           send: hostCheckSender(remote, address),
         );
@@ -1028,7 +1031,7 @@ done''',
       ...plan.preparationSettings.roleSettings,
     },
     'porelo_host_distribution': plan.distribution,
-    'porelo_host_forge': plan.forge,
-    'porelo_host_kvm': plan.preparationSettings.kvm,
+    'porelo_host_forge': plan.hasForge,
+    'porelo_host_kvm': plan.hasForge && plan.preparationSettings.kvm,
   };
 }

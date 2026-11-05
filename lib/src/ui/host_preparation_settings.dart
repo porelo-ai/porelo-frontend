@@ -34,7 +34,8 @@ class _HostPreparationSettingsFormState extends State<HostPreparationSettingsFor
     'forge': widget.value.forge,
     'kvm': widget.value.kvm,
     for (final entry in _fields.entries)
-      if (entry.value.text.trim().isNotEmpty)
+      // A hidden field neither refuses nor counts; what it holds is there again with the forge.
+      if (entry.value.text.trim().isNotEmpty && (widget.value.forge || !entry.key.startsWith('forge_')))
         entry.key: entry.key == 'forge_job_memory'
             ? entry.value.text.trim()
             : int.tryParse(entry.value.text.trim()) ?? entry.value.text.trim(),

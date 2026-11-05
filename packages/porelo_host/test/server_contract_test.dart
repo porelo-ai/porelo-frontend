@@ -186,4 +186,26 @@ void main() {
       throwsFormatException,
     );
   });
+
+  // Harm: a host without a forge given the limits of a forge it does not have.
+  test('with the forge off, its job limits reach neither the role nor the check', () {
+    const settings = HostPreparationSettings(forge: false, forgeRunnerCapacity: 1, forgeJobCpus: 1);
+    expect(settings.roleSettings, isEmpty);
+    expect(hostCheckChoices(settings, forge: false).containsKey('jobs'), isFalse);
+    expect(hostCheckChoices(settings, forge: false).containsKey('job_cpus'), isFalse);
+  });
+
+  // Harm: the package asked with one choice, and installing the other.
+  test('a plan has a forge only where both its own word and its settings say so', () {
+    HostPlan plan(bool forge, bool chosen) => HostPlan(
+      project: 'p',
+      account: 'a',
+      publicKey: '',
+      forge: forge,
+      preparationSettings: HostPreparationSettings(forge: chosen),
+    );
+    expect(plan(true, true).hasForge, isTrue);
+    expect(plan(true, false).hasForge, isFalse);
+    expect(plan(false, true).hasForge, isFalse);
+  });
 }

@@ -21,6 +21,26 @@ import '../support/host_organization.dart';
 const _record = HostUpRecord(scalewayProject: 'provider', hostName: 'demo', publicKey: '/keys/person.pub');
 
 void main() {
+  // Harm: an older record's forge off turns on at a retry, or a host is taken down with choices other than its own.
+  test('a record says its forge and VMs once, also to give the host back', () {
+    const older = HostUpRecord(givenAddress: '192.0.2.7', givenHostKey: 'k', hostName: 'h', forge: false);
+    final up = older.arguments('p');
+    expect(up.where((each) => each == '--forge'), hasLength(1));
+    expect(up[up.indexOf('--forge') + 1], 'false');
+
+    const vms = HostUpRecord(
+      givenAddress: '192.0.2.7',
+      givenHostKey: 'k',
+      hostName: 'h',
+      preparationSettings: HostPreparationSettings(kvm: true),
+    );
+    final down = vms.giveBackArguments('p');
+    expect(down[down.indexOf('--forge') + 1], 'true');
+    expect(down[down.indexOf('--kvm') + 1], 'true');
+    final off = older.giveBackArguments('p');
+    expect(off[off.indexOf('--forge') + 1], 'false');
+  });
+
   late Directory scratch;
   late FileSettingsStore store;
   late Settings settings;

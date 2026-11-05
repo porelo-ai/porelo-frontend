@@ -34,6 +34,9 @@
 
 ## To be checked
 
+- **A host that had a forge, set up again without one:** the organization's card keeps its forge ports, as `changeHost` has no way to clear them, and connections would still forward them. The dialog offers no such change on a prepared host, so only a preparation run anew reaches it; it needs a contract with the daemon.
+- **Whether the pinned collection refuses such a CPU:** the tests use a stand-in for the check, and only a run on a machine without virtualization shows the collection's part.
+
 - Which collection reads `porelo_host_kvm`, and how a pool of VMs combines with VMs off: the collection stops at that with both named, and the window also offers no pool yet.
 - Whether what a machine can carry can be read before it is put on, for a machine that is only given by its address.
 - An existing host: what turning either choice off does, as nothing is removed by it.

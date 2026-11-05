@@ -43,4 +43,28 @@ void main() {
     expect(choices.single.roleSettings, {'forge_runner_capacity': 1, 'forge_job_cpus': 1, 'forge_job_memory': '768m'});
     expect(choices.single.matrixPort, 8548);
   });
+
+  // Harm: a field nobody can see refuses the settings, or a limit nobody can see goes along.
+  testWidgets('with the forge off its hidden fields neither refuse nor count', (tester) async {
+    final choices = <HostPreparationSettings>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: HostPreparationSettingsForm(
+              value: const HostPreparationSettings(forge: false, forgeJobCpus: 1),
+              onChanged: choices.add,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('More settings'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Use settings'));
+    await tester.tap(find.text('Use settings'));
+    await tester.pump();
+    expect(choices.single.forge, isFalse);
+    expect(choices.single.roleSettings, isEmpty);
+  });
 }

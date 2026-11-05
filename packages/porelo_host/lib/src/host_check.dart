@@ -307,10 +307,12 @@ Future<HostCheckFiles?> readCarriedHostCheck({
 Map<String, Object> hostCheckChoices(HostPreparationSettings settings, {required bool forge, String? kvm}) => {
   'forge': forge,
   if (kvm != null) 'kvm': kvm == 'true',
-  'jobs': ?settings.forgeRunnerCapacity,
-  'job_cpus': ?settings.forgeJobCpus,
-  // Podman also takes `b`, as bytes, and the check reads bytes with no letter.
-  'job_memory': ?settings.forgeJobMemory?.replaceFirst(RegExp('[bB]\$'), ''),
+  if (forge && settings.forge) ...{
+    'jobs': ?settings.forgeRunnerCapacity,
+    'job_cpus': ?settings.forgeJobCpus,
+    // Podman also takes `b`, as bytes, and the check reads bytes with no letter.
+    'job_memory': ?settings.forgeJobMemory?.replaceFirst(RegExp('[bB]\$'), ''),
+  },
 };
 
 /// Sends a public script on [remote]: whole answers where [remote] can give them.
