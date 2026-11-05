@@ -97,6 +97,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f379"></a>[F379](F379-Add-A-Project-In-One-Step-From-The-Window.md) | S | — | A person naming themselves Project Admin adds a project in one step from the window. |
 | <a id="f377"></a>[F377](F377-A-Hosts-Channel-Follows-The-Window.md) | S | — | A host the window prepares installs from the window's own channel. |
 | <a id="f378"></a>[F378](F378-Waits-Said-In-Needs-You.md) | S | — | A review's waiting time and file counts, and the time left in the waits-on-you note. |
+| <a id="f387"></a>[F387](F387-A-Page-Head-Of-One-Line.md) | S | — | *Organization*'s head is one line, and every page's explanation stands behind an `i`. |
 | <a id="f382"></a>[F382](F382-An-Images-Settings-In-Work.md) | S | — | A button in *Work* shows which settings the task's image was built with, and where each comes from. |
 | <a id="f385"></a>[F385](F385-New-Work-Confirms-What-Was-Detected.md) | S | — | *New work* on this computer asks the same question as a first start before it writes `project.yml`. |
 | <a id="f365"></a>[F365](F365-A-Host-Key-Fetched-Too-Early.md) | M | — | A machine's host key is compared by one named command and fetched again at *Prepare*; a refused key says what to do, and the name is a choice. |
