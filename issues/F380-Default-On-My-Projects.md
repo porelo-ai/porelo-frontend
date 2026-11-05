@@ -18,6 +18,4 @@
 - **One row of *Default* for each machine listed,** as on the second page: each has its own, with its own words.
 - **While the organization has not been read,** *Default* still stands.
 
-## Open questions
-
-- The second page keeps a reason to exist: it lists every project on every watched machine, also those of no organization of this person's. Its title and its back link's words *Projects of the organization* are for the operator: a title of its own, such as *Projects on my machines*, would tell it from this page.
+- **The second page stays,** by the operator's word: it lists every project on every watched machine. Beside an organization it is titled *Projects on my machines*, with its back link *My projects*. With no organization it is *My projects* itself.

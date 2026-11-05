@@ -13,6 +13,7 @@ import 'tokens.dart';
 class ProjectsPage extends StatelessWidget {
   /// Creates the list without merging equal project names across machines.
   const ProjectsPage({
+    this.title = 'My projects',
     required this.machines,
     required this.muted,
     required this.onProject,
@@ -21,6 +22,9 @@ class ProjectsPage extends StatelessWidget {
     this.onShown,
     super.key,
   });
+
+  /// The list's title: another where this page stands beside the organization's *My projects*.
+  final String title;
 
   /// The watched machines and their daemon state.
   final Machines machines;
@@ -52,7 +56,7 @@ class ProjectsPage extends StatelessWidget {
       children: [
         FilteredListSection(
           storageId: 'projects',
-          title: 'My projects',
+          title: title,
           rows: [
             for (final row in rows)
               (

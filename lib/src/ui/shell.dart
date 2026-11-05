@@ -3179,7 +3179,7 @@ class _ShellState extends State<Shell> {
               key: const Key('projects-of-organization'),
               onPressed: () => setState(() => _machineProjects = false),
               icon: const Icon(Icons.arrow_back),
-              label: const Text('Projects of the organization'),
+              label: const Text('My projects'),
             ),
             Expanded(child: page),
           ],
@@ -3196,6 +3196,7 @@ class _ShellState extends State<Shell> {
             for (final machine in widget.machines.all) widget.machines.of(machine),
           ]),
           builder: (context, _) => ProjectsPage(
+            title: _organization == null ? 'My projects' : 'Projects on my machines',
             machines: widget.machines,
             muted: widget.notifications.muted,
             highlight: widget.shell.highlight,

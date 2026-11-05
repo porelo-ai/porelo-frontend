@@ -27,6 +27,13 @@ void main() {
       findsOneWidget,
       reason: 'one of the organization and Default, on the rail as on the page',
     );
+    // Harm: two pages of one title, with a way back that does not say where it goes.
+    await tester.tap(find.byKey(const Key('projects-of-machines')));
+    await World.settle(tester);
+    expect(find.text('Projects on my machines'), findsOneWidget);
+    expect(find.widgetWithText(TextButton, 'My projects'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('projects-of-organization')));
+    await World.settle(tester);
     await tester.tap(find.byKey(row));
     await World.settle(tester);
     expect(find.byKey(const Key('organization-projects-page')), findsNothing, reason: 'its page opens as any other');
