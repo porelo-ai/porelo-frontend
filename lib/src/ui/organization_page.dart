@@ -1121,6 +1121,7 @@ class _AddressDialogState extends State<_AddressDialog> {
   int _asked = 0;
 
   Future<void> _check(FoundingChecks checks, VoidCallback changed) async {
+    if (!mounted) return;
     final asked = ++_asked;
     setState(() {
       _checking = true;
@@ -1133,6 +1134,8 @@ class _AddressDialogState extends State<_AddressDialog> {
       needs = await checks.checkFounding(_address.text.trim(), replace: widget.replacing);
     } on OrganizationRefused catch (refusal) {
       refused = refusal.words;
+    } on Exception {
+      refused = 'Porelo could not say what creating needs here.';
     }
     // An answer of an address since changed says nothing of this one.
     if (!mounted || asked != _asked) return;
@@ -1239,7 +1242,7 @@ class _AddressDialogState extends State<_AddressDialog> {
                       'ready' => Icons.check_circle_outline,
                       'missing' => Icons.error_outline,
                       _ => Icons.help_outline,
-                    }, size: 18),
+                    }, size: Sizes.rowIcon),
                     const SizedBox(width: Space.small),
                     Expanded(
                       child: Text(switch (need.next) {
@@ -1496,6 +1499,8 @@ class _KeyDialogState extends State<_KeyDialog> {
 
 /// Whether [address] carries more before its host than the `git@` an ssh address has.
 bool _holdsCredential(String address) {
+  // A repository's address has no query: what stands there is a token, or nothing it needs.
+  if (address.contains('?') || address.contains('#')) return true;
   final carried = RegExp(r'^[A-Za-z][A-Za-z0-9+.-]*://([^/@]*)@').firstMatch(address)?.group(1);
   return carried != null && carried != 'git';
 }

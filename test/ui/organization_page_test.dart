@@ -71,11 +71,13 @@ class _Checking extends FixtureOrganization implements FoundingChecks {
   final asked = <String>[];
   OrganizationRefused? refuseCheck;
   Future<void>? hold;
+  bool failCheck = false;
 
   @override
   Future<List<FoundingNeed>> checkFounding(String address, {bool replace = false}) async {
     asked.add(address);
     await hold;
+    if (failCheck) throw const FormatException('broken');
     if (refuseCheck case final refused?) throw refused;
     return const [
       FoundingNeed(name: 'this-machine', state: 'ready', words: 'This machine is ready.'),
@@ -1274,6 +1276,28 @@ void main() {
         held.complete();
         await tester.pumpAndSettle();
         expect(find.text('This machine is ready.'), findsNothing);
+      });
+
+      // Harm: a token in the address reaches a command line, which other programs read.
+      testWidgets('an address with a token in its query is not asked about', (tester) async {
+        final fixture = await dialog(tester);
+        await tester.enterText(
+          find.byKey(const Key('organization-address')),
+          'https://forge.example.org/acme/org.git?access_token=example',
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('organization-founding-check')));
+        await tester.pumpAndSettle();
+        expect(fixture.asked, isEmpty);
+      });
+
+      testWidgets('a fault that is no refusal does not leave it asking', (tester) async {
+        final fixture = await dialog(tester);
+        fixture.failCheck = true;
+        await tester.tap(find.byKey(const Key('organization-founding-check')));
+        await tester.pumpAndSettle();
+        expect(find.text('Porelo could not say what creating needs here.'), findsOneWidget);
+        expect(find.text('What does creating it need?'), findsOneWidget);
       });
 
       testWidgets('a refusal is said in its words', (tester) async {
