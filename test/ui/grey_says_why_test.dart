@@ -37,6 +37,12 @@ void main() {
     expect(find.text('Go: the machine is not answering'), findsOneWidget);
   });
 
+  // Harm: a machine's words forge a line of the row, or turn its reason round.
+  testWidgets('a reason is shown as text it cannot arrange', (tester) async {
+    await tester.pumpWidget(_row(_go(unavailable: 'refused\nall is well\u202e')));
+    expect(find.text('Go: refused?all is well?'), findsOneWidget);
+  });
+
   // Harm: the line the reason took is gone for good.
   testWidgets('what the reason covers is there, opened, and the reason once', (tester) async {
     await tester.pumpWidget(_row(_go(unavailable: 'the machine is not answering'), subtitle: 'what it is'));

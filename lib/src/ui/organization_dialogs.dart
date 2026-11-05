@@ -578,6 +578,7 @@ class _CreateRepositoryDialogState extends State<CreateRepositoryDialog> {
           'first project.yml with your key.',
         ),
         if (_problem case final problem?) Text(problem),
+        if (_base == null && _problem == null) const Text('Reading the organization, before this can be made.'),
         ProjectReviewChoice(
           review: _review,
           onChosen: (review) {

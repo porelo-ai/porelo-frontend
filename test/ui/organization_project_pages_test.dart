@@ -90,6 +90,31 @@ void main() {
       });
     }
 
+    // Harm: a machine's words forge a line of the row, or turn its reason round.
+    testWidgets('a reason from a machine is shown as text it cannot arrange', (tester) async {
+      final organization = Organization(FixtureOrganization(organizationFor('mia')));
+      addTearDown(organization.dispose);
+      await _settle(
+        tester,
+        OrganizationProjectsPage(
+          organization: organization,
+          connections: _Central(),
+          onProject: (_) {},
+          menuFor: (project, host) => [
+            Command(
+              id: 'project.pushApprovedMain',
+              label: 'Push the approved main…',
+              group: project,
+              run: () {},
+              unavailable: 'refused\nall is well\u202e',
+            ),
+          ],
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.textContaining('refused?all is well?'), findsOneWidget);
+    });
+
     // Harm: a grey push whose reason only a hover can find.
     testWidgets('a push that cannot be asked says why in the row', (tester) async {
       final organization = Organization(FixtureOrganization(organizationFor('mia')));
@@ -547,6 +572,14 @@ void main() {
         findsOneWidget,
         reason: 'The store still answers developer.',
       );
+    });
+
+    // Harm: a confirm greyed with the dialog already filled, and nothing says what it waits for.
+    testWidgets('the dialog of a role says another must be chosen', (tester) async {
+      await _page(tester, 'pat');
+      await pressOrganizationAction(tester, 'memberRole/pat');
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Choose a role other than'), findsOneWidget);
     });
 
     // Harm: a refused role change loses its refusal when the menu closes.

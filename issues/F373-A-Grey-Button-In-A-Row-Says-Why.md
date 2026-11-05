@@ -23,7 +23,8 @@
 - *Push approved main* and *Connect* say why at the end of the row's words in *My projects*, which already wrap.
 - *Restart* says why under its button.
 - *Join* and *Reset* say why once in the dialog's body, as `Not now: ...`: both give the same reason while the machine answers.
-- **The organization's dialogs say nothing more.** Their confirm stays grey until the dialog is filled or while it asks, and each field and the dialog's progress line already say that.
+- **The organization's dialogs:** a confirm grey until a field is filled says nothing more. Two did not read plain, and now say: the role's dialog, already filled, asks for a role other than the current one; creating the repository says it is reading the organization.
+- **Left as read:** *Join*'s `the machine is still answering` also covers the forward to the homeserver, a machine's work too. An opened row of a silent machine says its reason beside the notice's retry, as before this issue.
 
 ## To be checked
 

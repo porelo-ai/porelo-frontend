@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../app/commands.dart';
+import '../app/task_certifying.dart';
 import 'tokens.dart';
 import 'window_size.dart';
 
@@ -77,7 +78,7 @@ class _ExpandableListRowState extends State<ExpandableListRow> {
     final compact = WindowSize.fromContext(context) == WindowSize.compact;
     final disclosure = listDisclosureCommand(expanded: _expanded, toggle: () => setState(() => _expanded = !_expanded));
     final primary = widget.primary?.visible == true ? widget.primary : null;
-    final why = primary?.unavailable == null ? null : '${primary!.label}: ${primary.unavailable}';
+    final why = primary?.unavailable == null ? null : '${primary!.label}: ${printableForAPerson(primary.unavailable!)}';
     return Semantics(
       selected: widget.selected,
       child: Card(

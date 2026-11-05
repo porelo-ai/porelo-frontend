@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../app/commands.dart';
+import '../app/task_certifying.dart';
 import '../app/host_progress.dart';
 import '../app/organization_source.dart';
 import '../app/repository_address.dart';
@@ -111,7 +112,7 @@ class _OrganizationProjectsPageState extends State<OrganizationProjectsPage> {
         : null;
     final connects = view.holdsRoles && !(widget.connections?.connected(host) ?? false);
     return <String>[
-      if (push?.unavailable case final why?) '${push!.label.replaceAll('…', '')}: $why',
+      if (push?.unavailable case final why?) '${push!.label.replaceAll('…', '')}: ${printableForAPerson(why)}',
       if (connects && widget.connections == null) 'This computer has no way to connect yet.',
       if (connects && _connecting.contains(host)) 'Connecting to $host…',
     ].map((words) => ' · $words').join();
@@ -757,6 +758,7 @@ class _MemberRowState extends State<_MemberRow> {
           body: (_, changed) => DropdownButtonFormField<String>(
             key: const Key('organization-member-role'),
             initialValue: role,
+            decoration: InputDecoration(helperText: 'Choose a role other than ${widget.member.role}.'),
             items: [for (final choice in widget.roles) DropdownMenuItem(value: choice, child: Text(choice))],
             onChanged: (choice) {
               if (choice != null) role = choice;
