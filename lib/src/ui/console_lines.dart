@@ -16,6 +16,9 @@ enum LineMark {
 
   /// Something came to an end, and went well.
   result,
+
+  /// How long it worked, and nothing more to read in it.
+  quiet,
 }
 
 const _escape = '\u001B';
@@ -34,12 +37,14 @@ final _went = RegExp(
   r'^\s*(✓|✔|✅|✻|ok\b|done\b|passed\b|finished\b|success\b)|\b(tests? passed|build success|all tests passed|tests run:)',
   caseSensitive: false,
 );
+final _worked = RegExp(r'^\s*✻(?!\s*finished\b)', caseSensitive: false);
 final _heading = RegExp(r'^\s*(#{1,6}\s|❯\s|==+\s|--+\s\S)');
 
 /// What [line] is, its colours left out.
 LineMark markOf(String line) {
   final words = line.replaceAll(_control, '');
   if (_heading.hasMatch(words)) return LineMark.heading;
+  if (_worked.hasMatch(words)) return LineMark.quiet;
   if (_nothingWrong.hasMatch(words)) return LineMark.result;
   if (_wrong.hasMatch(words)) return LineMark.error;
   if (_went.hasMatch(words)) return LineMark.result;
@@ -57,6 +62,7 @@ TextSpan markedLine(BuildContext context, String line, {double? size}) {
       LineMark.heading => base.copyWith(color: console.strong, fontWeight: FontWeight.w600),
       LineMark.error => base.copyWith(color: console.error),
       LineMark.result => base.copyWith(color: console.ok),
+      LineMark.quiet => base.copyWith(color: console.muted),
     },
     children: ansiSpans(line, TerminalLook.coloursOf(context)),
   );

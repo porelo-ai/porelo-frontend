@@ -135,7 +135,7 @@ class _SessionViewState extends State<SessionView> {
                       focusNode: widget.focusNode,
                       onKeyEvent: widget.onKey,
                       autofocus: true,
-                      padding: const EdgeInsets.all(Space.small),
+                      padding: const EdgeInsets.symmetric(horizontal: Sizes.terminalSide, vertical: Space.normal),
                       // Read-only once it is over, so keys typed at a dead session do not look
                       // like they went somewhere.
                       readOnly: !session.live,

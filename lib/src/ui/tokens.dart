@@ -307,6 +307,18 @@ abstract final class Space {
 
 /// Fixed sizes that carry a decision rather than a measurement.
 abstract final class Sizes {
+  /// The small switch of a bar: its width, height and knob.
+  static const double smallSwitchWidth = 38;
+
+  /// See [smallSwitchWidth].
+  static const double smallSwitchHeight = 22;
+
+  /// See [smallSwitchWidth].
+  static const double smallSwitchKnob = 16;
+
+  /// How far a terminal's or an agent's log text stands from the sides of the pane.
+  static const double terminalSide = 26;
+
   /// Words beside a dialog's button, saying what it waits for.
   static const dialogWords = 360.0;
 

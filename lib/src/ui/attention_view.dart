@@ -21,7 +21,6 @@ import 'held_message_view.dart';
 import 'how_long.dart';
 import 'operations.dart';
 import 'needs_machine.dart';
-import 'panes.dart';
 import 'tile_console.dart';
 import 'organization_token_words.dart';
 import 'tokens.dart';
@@ -133,24 +132,11 @@ class _AttentionViewState extends State<AttentionView> {
     builder: (context, _) {
       final rows = widget.attention.openRows;
       final resolved = widget.attention.recentlyResolved;
-      final needing = widget.attention.needingSomebody;
       _keepTicking(
         widget.attention.needing.any((tile) => tile.questions.any((question) => question.expiresAt != null)),
       );
       return Column(
         children: <Widget>[
-          PaneHeader(
-            title: 'Needs you',
-            trailing: Flexible(
-              child: Text(
-                needing == 0 ? 'nothing needs you' : '$needing need you',
-                key: const Key('needing-count'),
-                overflow: TextOverflow.ellipsis,
-                softWrap: false,
-                style: Theme.of(context).textTheme.labelMedium,
-              ),
-            ),
-          ),
           Expanded(
             child: rows.isEmpty && resolved.isEmpty
                 ? const Center(child: Text('Nothing needs you on any machine.', key: Key('nothing-needs-you')))
@@ -1400,7 +1386,21 @@ class WorkRow extends StatelessWidget {
   final VoidCallback? onShown;
 
   /// What says its state in words: an ended terminal first, since nothing else on the row would.
-  static String stateOf(Tile tile, {required bool terminalEnded}) =>
+  static String stateOf(Tile tile, {required bool terminalEnded}) => terminalEnded && !_asksAPerson(tile)
+      ? 'no terminal open'
+      : switch (tile.demand) {
+          Demand.question when tile.questions.isNotEmpty => 'asks to reach a host',
+          Demand.question => 'waits for an answer',
+          Demand.ended => 'its agent ended',
+          Demand.gate => 'waits for review',
+          Demand.working => 'working',
+          Demand.quiet => 'quiet',
+          Demand.unseen => 'running',
+          Demand.stopped => 'not running',
+        };
+
+  /// The state's whole sentence, for a row opened: what ended it, how long, what it asks for.
+  static String sentenceOf(Tile tile, {required bool terminalEnded}) =>
       terminalEnded && !_asksAPerson(tile) ? 'No terminal is open in it' : TaskTile._headline(tile);
 
   /// Whether what it waits for is a person: that comes before anything said of its terminal.
@@ -1546,6 +1546,13 @@ class WorkRow extends StatelessWidget {
                   children: <Widget>[
                     if (terminalEnded)
                       Text('No terminal is open in it.', key: const Key('tile-terminal-ended'), style: text.bodyMedium),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: Space.small),
+                      child: Text(
+                        WorkRow.sentenceOf(tile, terminalEnded: terminalEnded),
+                        key: const Key('tile-sentence'),
+                      ),
+                    ),
                     if (task != null) _WorkFacts(tile: tile),
                     if (task != null && (task.running || task.agentEnded != null))
                       TileConsole(
@@ -1711,7 +1718,11 @@ class _WorkFactsState extends State<_WorkFacts> {
             task.running && started != null ? clockTime(started.toIso8601String()) : 'not said',
           ),
           fact('tokens', 'Tokens used', _tokens ?? 'not said'),
-          fact('gate', 'Commits at the gate', task.hasWorkWaiting ? '${task.waiting}' : 'none'),
+          fact(
+            'gate',
+            'Commits at the gate',
+            task.hasWorkWaiting ? '${task.waiting}' : (task.running ? 'none yet' : 'none'),
+          ),
         ],
       ),
     );

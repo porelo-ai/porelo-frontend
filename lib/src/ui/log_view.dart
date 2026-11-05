@@ -6,6 +6,7 @@ import '../app/logs.dart';
 import 'ansi.dart';
 import 'console_lines.dart';
 import 'panes.dart';
+import 'small_switch.dart';
 import 'terminal_look.dart';
 import 'tokens.dart';
 
@@ -52,8 +53,10 @@ class _LogViewState extends State<LogView> {
                 // Following is a switch and not a scroll position, so reading back cannot turn it
                 // off by accident and turning it on again cannot lose what arrived meanwhile.
                 Text('Follow', style: Theme.of(context).textTheme.labelMedium),
-                Switch(
+                const SizedBox(width: Space.small),
+                SmallSwitch(
                   key: const Key('follow'),
+                  label: 'Follow',
                   value: tail.following,
                   onChanged: (following) => widget.logs.follow(tail, following: following),
                 ),
@@ -98,7 +101,9 @@ class _LogViewState extends State<LogView> {
       child: ListView.builder(
         controller: _scroll,
         primary: false,
-        padding: const EdgeInsets.symmetric(horizontal: Space.normal, vertical: Space.small),
+        padding: terminal
+            ? const EdgeInsets.symmetric(horizontal: Sizes.terminalSide, vertical: Space.normal)
+            : const EdgeInsets.symmetric(horizontal: Space.normal, vertical: Space.small),
         itemCount: tail.lines.length,
         itemBuilder: (context, index) => SelectableText.rich(
           terminal

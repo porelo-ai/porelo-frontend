@@ -11,6 +11,7 @@ import '../app/machines.dart';
 import '../app/session.dart';
 import 'attention_view.dart';
 import 'log_view.dart';
+import 'small_switch.dart';
 import 'session_view.dart';
 import 'terminal_look.dart';
 import 'tile_console.dart';
@@ -397,9 +398,11 @@ class _RunningViewState extends State<RunningView> {
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
           Text('Follow', style: style),
+          const SizedBox(width: Space.small),
           // Following is a switch and not a scroll position, so reading back cannot turn it off by accident.
-          Switch(
+          SmallSwitch(
             key: const Key('follow'),
+            label: 'Follow',
             value: tail?.following ?? true,
             onChanged: tail == null ? null : (following) => widget.logs.follow(tail, following: following),
           ),

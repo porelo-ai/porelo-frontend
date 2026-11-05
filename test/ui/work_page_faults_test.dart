@@ -65,7 +65,10 @@ void main() {
         'unpushed': unpushed,
       };
 
-  String count(WidgetTester tester) => tester.widget<Text>(find.byKey(const Key('needing-count'))).data!;
+  String count(WidgetTester tester) {
+    final badge = tester.widget<Badge>(find.byKey(const Key('needing-count-badge')));
+    return badge.isLabelVisible ? '${(badge.label! as Text).data} need you' : 'nothing needs you';
+  }
 
   /// Republishes [name] in a terminal mode with the end given.
   void aTerminalEnded(String name, Map<String, dynamic> ended) {
@@ -403,6 +406,8 @@ void main() {
     testWidgets('the window keeps the keyboard on the list after what opened over it closes', (tester) async {
       await theApp(tester);
       await toSection(tester, Section.work);
+      await tester.tap(find.byKey(const ValueKey<String>('work-list-search')));
+      await World.settle(tester);
       await tester.tap(find.byKey(const Key('work-list-filter')));
       await World.settle(tester);
       World.shell.openOperations();

@@ -23,6 +23,14 @@ class SectionSort {
 /// What a section keeps per list while its page comes and goes.
 typedef _Kept = ({String filter, bool open, bool chosen, bool empty, bool searching, String? sort, bool descending});
 
+/// A list's card: its rows on white in the light theme.
+Color listCardColour(ColorScheme colors) =>
+    colors.brightness == Brightness.light ? colors.surfaceContainerLowest : colors.surfaceContainerLow;
+
+/// A list's head, pale over the white of its rows in the light theme.
+Color listHeadColour(ColorScheme colors) =>
+    colors.brightness == Brightness.light ? colors.surfaceContainer : colors.surfaceContainerHighest;
+
 /// A list in a card: its header holds the title and count, a magnifier that opens a small filter, the sort and the list's
 /// own buttons; rows stand under it, separated.
 class FilteredListSection extends StatefulWidget {
@@ -219,20 +227,18 @@ class _FilteredListSectionState extends State<FilteredListSection> {
       key: ValueKey('${widget.storageId}-filter'),
       controller: _filter,
       focusNode: _filterFocus,
-      // A search that is always there does not take the keyboard from the page by being drawn.
-      autofocus: widget.search == null,
+      // A search held by the page and shown for what it holds does not take the keyboard from it.
+      autofocus: widget.search == null || _searching,
       decoration: InputDecoration(
         isDense: true,
         hintText: widget.searchHint ?? 'Filter ${widget.title.toLowerCase()}',
         prefixIcon: const Icon(Icons.search, size: Sizes.rowIcon),
-        suffixIcon: widget.search != null
-            ? null
-            : IconButton(
-                key: ValueKey('${widget.storageId}-filter-close'),
-                tooltip: 'Close the filter',
-                icon: const Icon(Icons.close, size: Sizes.rowIcon),
-                onPressed: _closeSearch,
-              ),
+        suffixIcon: IconButton(
+          key: ValueKey('${widget.storageId}-filter-close'),
+          tooltip: 'Close the filter',
+          icon: const Icon(Icons.close, size: Sizes.rowIcon),
+          onPressed: _closeSearch,
+        ),
       ),
       onChanged: (_) => setState(_keep),
     );
@@ -334,10 +340,8 @@ class _FilteredListSectionState extends State<FilteredListSection> {
     final compact = size == WindowSize.compact;
     final target = size.showsTwoPanes ? Sizes.iconTarget : Sizes.touchTarget;
     final tools = [
-      if (widget.search != null)
-        _field(compact ? null : Sizes.workSearch)
-      else if (_searching || _filter.text.isNotEmpty)
-        _field(compact ? null : Sizes.listFilter)
+      if (_searching || _filter.text.isNotEmpty)
+        _field(compact ? null : (widget.search == null ? Sizes.listFilter : Sizes.workSearch))
       else
         _magnifier(target),
       _sortMenu(target),
@@ -399,7 +403,7 @@ class _FilteredListSectionState extends State<FilteredListSection> {
       padding: const EdgeInsets.only(bottom: Space.wide),
       // A Material and not a box: the rows are list tiles, which paint on the nearest Material.
       child: Material(
-        color: colors.surfaceContainerLow,
+        color: listCardColour(colors),
         clipBehavior: Clip.antiAlias,
         shape: RoundedRectangleBorder(
           side: BorderSide(color: colors.outlineVariant, width: Space.hairline),
@@ -409,7 +413,7 @@ class _FilteredListSectionState extends State<FilteredListSection> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             ColoredBox(
-              color: colors.surfaceContainerHighest,
+              color: listHeadColour(colors),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: Space.normal, vertical: Space.tight),
                 child: Column(

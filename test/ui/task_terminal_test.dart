@@ -5,6 +5,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:porelo_frontend/src/ui/tokens.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/pty.dart';
@@ -137,7 +138,7 @@ void main() {
     const mouseReports = '\x1b[?1000h\x1b[?1006h';
 
     Offset cell(WidgetTester tester, int column) =>
-        tester.getTopLeft(find.byKey(const Key('terminal'))) + Offset(12 + column * 8.0, 12);
+        tester.getTopLeft(find.byKey(const Key('terminal'))) + Offset(Sizes.terminalSide + 4 + column * 8.0, 16);
 
     TerminalController selection(WidgetTester tester) =>
         tester.widget<TerminalView>(find.byKey(const Key('terminal'))).controller!;

@@ -375,13 +375,6 @@ class _WorkPageState extends State<WorkPage> {
       runSpacing: Space.small,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: <Widget>[
-        Text('Work', style: Theme.of(context).textTheme.headlineSmall),
-        FilledButton.icon(
-          key: const Key('new-work'),
-          onPressed: widget.onNewWork,
-          icon: const Icon(Icons.add, size: Sizes.rowIcon),
-          label: const Text('New work'),
-        ),
         SegmentedButton<bool>(
           key: const Key('work-view'),
           showSelectedIcon: false,
@@ -438,6 +431,14 @@ class _WorkPageState extends State<WorkPage> {
               storageId: 'work-list',
               search: _view.search,
               searchHint: 'Name, project or machine',
+              actions: <Widget>[
+                FilledButton.icon(
+                  key: const Key('new-work'),
+                  onPressed: widget.onNewWork,
+                  icon: const Icon(Icons.add, size: Sizes.rowIcon),
+                  label: const Text('New work'),
+                ),
+              ],
               reveal: reveal,
               sorts: <SectionSort>[
                 SectionSort('Sorted by state', (row) => _stateKey(tiles[row])),

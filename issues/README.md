@@ -22,6 +22,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f374"></a>[F374](F374-What-Founding-Needs-Said-Before-Founding.md) | — | — | The dialog of creating asks Core what founding needs at the address, each need with what to do, before anything is filed. |
 | <a id="f373"></a>[F373](F373-A-Grey-Button-In-A-Row-Says-Why.md) | — | — | A grey button in a row, a pane or a dialog says why in words. |
 | <a id="f375"></a>[F375](F375-What-Down-Says-Stays-On-A-Machine.md) | — | — | `down`'s note, that the firewall stays and how to take it off, reaches the take-down dialog. |
+| <a id="f376"></a>[F376](F376-Work-And-Needs-You-Closer-To-The-Design.md) | — | — | The differences from the design the operator named in *Work* and *Needs you*, with *My machines* as the model. |
 | <a id="f356"></a>[F356](F356-The-Porelo-Organization-Named-Apart.md) | — | — | The window says *Porelo organization* wherever a forge's organization could also be meant, and says it lives in a repository inside that one. |
 | <a id="f359"></a>[F359](F359-An-Empty-List-Starts-Folded.md) | — | — | A list with no rows starts folded and folds when emptied, a fold the person chose is kept, and the head's actions stay usable. |
 | <a id="f369"></a>[F369](F369-One-Name-For-The-Default-Project.md) | — | — | The project every machine has is called *Default* in the window, as in Core and its documents, in place of "Without a project". |
@@ -90,6 +91,9 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f379"></a>[F379](F379-Add-A-Project-In-One-Step-From-The-Window.md) | S | — | A person naming themselves Project Admin adds a project in one step from the window. |
+| <a id="f377"></a>[F377](F377-A-Hosts-Channel-Follows-The-Window.md) | S | — | A host the window prepares installs from the window's own channel. |
+| <a id="f378"></a>[F378](F378-Waits-Said-In-Needs-You.md) | S | — | A review's waiting time and file counts, and the time left in the waits-on-you note. |
 | <a id="f365"></a>[F365](F365-A-Host-Key-Fetched-Too-Early.md) | M | — | A machine's host key is compared by one named command and fetched again at *Prepare*; a refused key says what to do, and the name is a choice. |
 | <a id="f369"></a>[F369](F369-One-Name-For-The-Default-Project.md) | S | — | The project every machine has is called *Default* in the window, as in Core and its documents, in place of "Without a project". |
 | <a id="f359"></a>[F359](F359-An-Empty-List-Starts-Folded.md) | S | — | A list with no rows starts folded and folds when emptied, a fold the person chose is kept, and the head's actions stay usable. |
