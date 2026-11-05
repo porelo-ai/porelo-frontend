@@ -478,6 +478,56 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
+  // Harm: a person told a server they gave back is still billed, when the provider said it is not.
+  testWidgets('a confirmed return never says it stays billed, though forgetting it fails', (tester) async {
+    final store = _RefusingStore();
+    final state = await openTakeDown(tester, store: store);
+    answerHolders(state.processes.single, []);
+    await World.settle(tester);
+    await tester.tap(find.byKey(const Key('host-confirm-down')));
+    await World.settle(tester);
+    state.processes.last.line(const host.Step('give-back', host.StepState.done));
+    store.refuses = true;
+    state.processes.last.end(0);
+    await World.settle(tester);
+    expect(find.textContaining('stays billed'), findsNothing);
+    expect(find.textContaining('not confirmed'), findsNothing);
+    expect(find.textContaining('The provider confirmed the rental return. Billing has ended.'), findsOneWidget);
+    expect(state.commands.where((command) => command.contains('--memberships')), hasLength(1));
+    store.refuses = false;
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  // Harm: the same of a machine kept: Porelo is off it, and the window said it could not tell.
+  testWidgets('Porelo confirmed off a machine never says it was not, though forgetting it fails', (tester) async {
+    final store = _RefusingStore();
+    final state = await openTakeDown(
+      tester,
+      store: store,
+      record: HostUpRecord(
+        hostName: 'orchard',
+        host: 'orchard',
+        givenAddress: '203.0.113.7',
+        givenHostKey: hostKey,
+        preparationSettings: const host.HostPreparationSettings(),
+        machineFile: signedSetup.machineFile,
+        publicKey: signedSetup.publicKey,
+      ),
+    );
+    answerHolders(state.processes.single, []);
+    await World.settle(tester);
+    await tester.tap(find.byKey(const Key('host-confirm-down')));
+    await World.settle(tester);
+    state.processes.last.line(const host.Step('give-back', host.StepState.done));
+    store.refuses = true;
+    state.processes.last.end(0);
+    await World.settle(tester);
+    expect(find.textContaining('not confirmed'), findsNothing);
+    expect(find.textContaining('Porelo was taken off.'), findsOneWidget);
+    store.refuses = false;
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   // Harm: a person told how to change a server that no longer is theirs.
   testWidgets('a rental given back says nothing of a machine now gone', (tester) async {
     final state = await openTakeDown(tester);

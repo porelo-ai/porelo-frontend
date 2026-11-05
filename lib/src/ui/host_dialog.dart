@@ -583,6 +583,7 @@ class _HostDialogState extends State<HostDialog> {
       _down = session;
     });
     var readAgain = false;
+    var confirmed = false;
     try {
       await session.down(
         giveBackAnyway: anyway,
@@ -593,6 +594,7 @@ class _HostDialogState extends State<HostDialog> {
           record.isRental ? 'The rental return was not confirmed.' : 'Taking Porelo off was not confirmed.',
         );
       }
+      confirmed = true;
       _returnedRental = record.isRental;
       final owner = widget.hostRuns;
       if (owner != null) {
@@ -607,18 +609,25 @@ class _HostDialogState extends State<HostDialog> {
       }
       _givenBack = true;
     } catch (_) {
-      _problem = session.protocolText.contains('Permission denied')
+      _problem = confirmed
+          ? '${_doneWords(rental: record.isRental)} This window could not forget it, and shows it until it can.'
+          : session.protocolText.contains('Permission denied')
           ? notTheAdminsKey(record.hostName)
           : record.isRental
           ? 'The rental return was not confirmed. It stays billed, and its recovery data were kept.'
           : 'Taking Porelo off was not confirmed. The machine and recovery data were kept.';
-      readAgain = !anyway;
+      readAgain = !anyway && !confirmed;
     } finally {
       if (mounted) setState(() => _busy = false);
     }
     // Not under busy: a host that stalls here must leave Close and the give-back without a backup open.
     if (readAgain && mounted) unawaited(_readHolders());
   }
+
+  /// What a confirmed take-down has done, whatever this window then manages to keep of it.
+  static String _doneWords({required bool rental}) => rental
+      ? 'The provider confirmed the rental return. Billing has ended.'
+      : 'Porelo was taken off. The machine itself stays yours.';
 
   /// A run's steps, kept at their newest unless the person has scrolled up to read.
   Widget _following(String steps) {
@@ -848,12 +857,7 @@ class _HostDialogState extends State<HostDialog> {
                 ),
               if (!widget.takeDownOnly)
                 if (record?.preparedHost != null) const PreparedHostPanel(),
-              if (_givenBack)
-                Text(
-                  rental
-                      ? 'The provider confirmed the rental return. Billing has ended.'
-                      : 'Porelo was taken off. The machine itself stays yours.',
-                ),
+              if (_givenBack) Text(_doneWords(rental: rental)),
               if (run != null)
                 ListenableBuilder(
                   listenable: widget.hostRuns ?? run.session,
