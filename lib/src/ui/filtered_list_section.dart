@@ -30,6 +30,7 @@ class FilteredListSection extends StatefulWidget {
   const FilteredListSection({
     required this.title,
     required this.storageId,
+    this.emptyWords,
     required this.rows,
     this.collapsible = false,
     this.initiallyOpen = true,
@@ -51,6 +52,9 @@ class FilteredListSection extends StatefulWidget {
 
   /// The title shown in the header.
   final String title;
+
+  /// What it says with nothing in it, where it knows more than that nothing is there.
+  final String? emptyWords;
 
   /// The full list identity used to retain its filter, sort and expansion.
   final String storageId;
@@ -427,7 +431,9 @@ class _FilteredListSectionState extends State<FilteredListSection> {
                         Padding(
                           padding: const EdgeInsets.symmetric(vertical: Space.normal),
                           child: Text(
-                            widget.rows.isEmpty ? 'No ${widget.title.toLowerCase()} supplied.' : 'Nothing matches.',
+                            widget.rows.isEmpty
+                                ? (widget.emptyWords ?? 'No ${widget.title.toLowerCase()} yet.')
+                                : 'Nothing matches.',
                           ),
                         ),
                     ],

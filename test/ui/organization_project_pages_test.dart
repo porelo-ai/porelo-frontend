@@ -679,26 +679,17 @@ void main() {
         members: [ProjectMember(login: 'pat', role: 'admin', standing: CardStanding.trusted)],
       );
 
-      testWidgets('its project admin opens it, and is asked to confirm', (tester) async {
-        final fixture = await _page(tester, 'pat', project: fresh);
-        await pressOrganizationAction(tester, 'openProject');
-        expect(fixture.writes, isEmpty);
-        await tester.tap(find.byKey(const Key('organization-confirm')));
-        await tester.pumpAndSettle();
-        expect(fixture.writes.single.change, OrganizationChange.openProject);
-        expect(fixture.writes.single.input, {'project': 'demo', 'review': 'required'});
-        expect(fixture.writes.single.base, 'p1');
+      testWidgets('says so to whoever reaches its page, and goes back', (tester) async {
+        await _page(tester, 'pat', project: fresh);
+        expect(find.textContaining('demo has no Git repository yet.'), findsOneWidget);
+        expect(find.textContaining('Porelo does not name'), findsNothing);
+        expect(find.textContaining('none named yet'), findsNothing);
+        expect(find.byKey(const ValueKey('organization.backFromProject')), findsOneWidget);
       });
 
-      testWidgets('anyone else reads that it is not open and has no way to open it', (tester) async {
-        await _page(tester, 'mia', project: fresh);
-        expect(_action('openProject'), findsNothing);
-        expect(find.text('pat has not opened this project yet.'), findsOneWidget);
-      });
-
-      testWidgets('an opened project offers no opening', (tester) async {
+      testWidgets('a project with its repository does not say it has none', (tester) async {
         await _page(tester, 'pat');
-        expect(_action('openProject'), findsNothing);
+        expect(find.textContaining('no Git repository yet'), findsNothing);
       });
     });
 
@@ -747,9 +738,8 @@ void main() {
     });
 
     // Harm: changes are written to a project whose project.yml does not exist yet.
-    testWidgets('a project not opened yet offers its admin nothing but opening it', (tester) async {
+    testWidgets('a project with no repository yet offers nothing on its page', (tester) async {
       await opened(tester, withMe(member, opened: false));
-      expect(_action('openProject'), findsOneWidget);
       expect(_action('changeAddress'), findsNothing);
       expect(_action('addRepository'), findsNothing);
       expect(_action('addMember'), findsNothing);

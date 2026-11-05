@@ -319,32 +319,7 @@ class _OrganizationPageState extends State<OrganizationPage> {
         ],
         commands: [
           if (view.isOrganizationAdmin)
-            _command(
-              'addProject',
-              'Add a project',
-              () => show(
-                OrganizationPersonDialog(
-                  organization,
-                  title: 'Add a project to ${view.name}',
-                  nameLabel: 'Name',
-                  nameHint: 'e.g. sprint7-demo',
-                  personLabel: 'Project Admin',
-                  words:
-                      "The project's card is added to the Porelo organization now. Its Project Admin makes the project "
-                      'repository and signs its first project.yml when they first open the project under Projects, then '
-                      'adds its members. No machine is chosen here: a machine\'s admin puts the project on it. A project cannot '
-                      'hold a repository of its own name, so name it apart from its first repository.',
-                  confirm: 'Add the project',
-                  check: (name) => name.toLowerCase() == defaultProject
-                      ? 'Default is the project every machine has. Give this one another name.'
-                      : _projectName.hasMatch(name)
-                      ? null
-                      : 'A project name holds letters, digits, ".", "_" and "-", and opens with a letter or digit.',
-                  change: OrganizationChange.addProject,
-                  input: (name, person) => {'project': name, 'admin': person},
-                ),
-              ),
-            ).command,
+            _command('addProject', 'Add a project', () => show(_AddProjectDialog(organization, view))).command,
         ],
         rows: [
           for (final project in view.projects)
@@ -355,8 +330,13 @@ class _OrganizationPageState extends State<OrganizationPage> {
                 title: project.name,
                 subtitle: _projectWords(project),
                 state: _standingIn(view, project),
+                below: project.hasNoRepository ? _noRepository(view, organization, project, show) : null,
                 actions: [
-                  if (view.isOrganizationAdmin || (view.holdsRoles && project.admins.contains(view.me)))
+                  if (!project.hasNoRepository && view.holdsRoles && widget.onProject != null && _isIn(view, project))
+                    _command('goToProject/${project.name}', 'Go to the project', () => widget.onProject!(project.name)),
+                  // It files what a checkout holds in the project's own repository, so that comes first.
+                  if (!project.hasNoRepository &&
+                      (view.isOrganizationAdmin || (view.holdsRoles && project.admins.contains(view.me))))
                     _command(
                       'initializeProject/${project.name}',
                       'Fill it from a checkout…',
@@ -367,12 +347,6 @@ class _OrganizationPageState extends State<OrganizationPage> {
                           pickFolder: widget.pickFolder,
                         ),
                       ),
-                    ),
-                  if (view.holdsRoles && widget.onProject != null && _isIn(view, project))
-                    _command(
-                      'openProject/${project.name}',
-                      'Open under Projects',
-                      () => widget.onProject!(project.name),
                     ),
                   if (project.host == null && _hostsOf(view).isNotEmpty)
                     _command(
@@ -484,6 +458,32 @@ class _OrganizationPageState extends State<OrganizationPage> {
         names: [for (final project in view.projects) project.name],
         reviewProject: widget.onProject,
       );
+
+  /// What comes next for a project with no Git repository: its Project Admin makes it, here.
+  Widget _noRepository(
+    OrganizationView view,
+    Organization organization,
+    OrganizationProject project,
+    void Function(Widget) show,
+  ) => Wrap(
+    crossAxisAlignment: WrapCrossAlignment.center,
+    spacing: Space.normal,
+    runSpacing: Space.small,
+    children: [
+      if (view.holdsRoles && project.admins.contains(view.me)) ...[
+        Text('${project.name} has no Git repository yet.', key: ValueKey('no-repository ${project.name}')),
+        FilledButton(
+          key: ValueKey('organization.createRepository ${project.name}'),
+          onPressed: () => show(CreateRepositoryDialog(organization, project.name)),
+          child: const Text("Create the project's Git repository"),
+        ),
+      ] else
+        Text(
+          '${project.name} has no Git repository yet. It waits for ${project.admins.isEmpty ? 'its Project Admin' : project.admins.join(' or ')}.',
+          key: ValueKey('no-repository ${project.name}'),
+        ),
+    ],
+  );
 
   Widget _hosts(OrganizationView view, Organization organization, void Function(Widget) show) => FilteredListSection(
     title: 'Machines',
@@ -701,6 +701,60 @@ Widget? _organizationAdmins(OrganizationView view, Organization organization, vo
         ),
     ],
   ).withOrganizationChanges(organization, names: admins);
+}
+
+/// Adds a project; whoever names themselves makes its repository in the same step, and says about review here.
+class _AddProjectDialog extends StatefulWidget {
+  const _AddProjectDialog(this.organization, this.view);
+
+  final Organization organization;
+  final OrganizationView view;
+
+  @override
+  State<_AddProjectDialog> createState() => _AddProjectDialogState();
+}
+
+class _AddProjectDialogState extends State<_AddProjectDialog> {
+  String? _review;
+
+  @override
+  Widget build(BuildContext context) => OrganizationPersonDialog(
+    widget.organization,
+    title: 'Add a project to ${widget.view.name}',
+    nameLabel: 'Name',
+    nameHint: 'e.g. sprint7-demo',
+    personLabel: 'Project Admin',
+    words:
+        "The project's card is added to the Porelo organization now. Its Project Admin makes the project's Git "
+        'repository and signs its first project.yml when they create its Git repository, on its row here, then adds '
+        "its members. No machine is chosen here: a machine's admin puts the project on it. A project cannot hold a "
+        'repository of its own name, so name it apart from its first repository.',
+    confirm: 'Add the project',
+    check: (name) => name.toLowerCase() == defaultProject
+        ? 'Default is the project every machine has. Give this one another name.'
+        : _projectName.hasMatch(name)
+        ? null
+        : 'A project name holds letters, digits, ".", "_" and "-", and opens with a letter or digit.',
+    change: OrganizationChange.addProject,
+    input: (name, person) => {'project': name, 'admin': person, if (person == widget.view.me) 'review': _review!},
+    ready: (person) => person != widget.view.me || _review != null,
+    below: (person, changed) => person != widget.view.me
+        ? null
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: Space.small),
+              const Text("You are its Project Admin, so its Git repository is created with it, with your forge token."),
+              ProjectReviewChoice(
+                review: _review,
+                onChosen: (review) {
+                  setState(() => _review = review);
+                  changed();
+                },
+              ),
+            ],
+          ),
+  );
 }
 
 class _Action {
@@ -921,7 +975,11 @@ class _Row extends StatelessWidget {
     this.state,
     this.tone = _Tone.plain,
     this.actions = const [],
+    this.below,
   });
+
+  /// What stands under its words, where the next step is said on the row.
+  final Widget? below;
 
   final IconData icon;
   final String title;
@@ -958,6 +1016,11 @@ class _Row extends StatelessWidget {
                   Text(title),
                   Text(subtitle, style: small),
                   if (compact && said != null) Text(said, style: small?.copyWith(color: color)),
+                  if (below case final next?)
+                    Padding(
+                      padding: const EdgeInsets.only(top: Space.small),
+                      child: next,
+                    ),
                 ],
               ),
             ),

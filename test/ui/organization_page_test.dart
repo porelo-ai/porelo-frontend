@@ -100,6 +100,128 @@ void main() {
     expect(find.byKey(const ValueKey('my-project demo')), findsOneWidget);
   });
 
+  // Harm: in the foo test a project stood under Projects with its repository unmade and nothing said so:
+  // "Open under Projects" named a place in the side bar while *Open the project* made a repository.
+  group('a project with no Git repository yet', () {
+    const fresh = OrganizationProject(name: 'fresh', admins: ['pat'], opened: false);
+
+    testWidgets('its Project Admin creates it on its row, once the review is chosen', (tester) async {
+      final (fixture, _, _) = await _pump(tester, 'pat', view: organizationFor('pat', moreProjects: const [fresh]));
+      fixture.projects = {
+        'fresh': const ProjectView(name: 'fresh', revision: 'p9', roles: ['admin'], repositories: [], members: []),
+      };
+      expect(find.text('fresh has no Git repository yet.'), findsOneWidget);
+      await tester.ensureVisible(find.byKey(const ValueKey('organization.createRepository fresh')));
+      await tester.tap(find.byKey(const ValueKey('organization.createRepository fresh')));
+      await tester.pumpAndSettle();
+      final confirm = find.byKey(const Key('organization-confirm'));
+      expect(tester.widget<FilledButton>(confirm).onPressed, isNull, reason: 'Nobody has said about review yet.');
+      await tester.tap(find.byKey(const Key('organization-review-optional')));
+      await tester.pumpAndSettle();
+      await tester.tap(confirm);
+      await tester.pumpAndSettle();
+      expect(fixture.writes.single.change, OrganizationChange.createProjectRepository);
+      expect(fixture.writes.single.input, {'project': 'fresh', 'review': 'optional'});
+      expect(fixture.writes.single.base, 'p9');
+    });
+
+    testWidgets('anyone else reads who it waits for, with nothing to press', (tester) async {
+      await _pump(tester, 'mia', view: organizationFor('mia', moreProjects: const [fresh]));
+      expect(find.text('fresh has no Git repository yet. It waits for pat.'), findsOneWidget);
+      expect(find.byKey(const ValueKey('organization.createRepository fresh')), findsNothing);
+    });
+
+    testWidgets('offers neither a way to it nor to fill it, and an older Porelo that says nothing reads as before', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        'pat',
+        view: organizationFor(
+          'pat',
+          moreProjects: const [
+            fresh,
+            OrganizationProject(name: 'older', admins: ['pat']),
+          ],
+        ),
+      );
+      expect(_action('goToProject/fresh'), findsNothing);
+      expect(_action('initializeProject/fresh'), findsNothing);
+      expect(_action('goToProject/older'), findsOneWidget);
+      expect(find.text('older has no Git repository yet.'), findsNothing);
+    });
+
+    testWidgets('someone naming themselves makes it in one step with the review choice', (tester) async {
+      final (fixture, _, _) = await _pump(tester, 'olive');
+      await pressOrganizationAction(tester, 'addProject');
+      await tester.enterText(find.byKey(const Key('organization-name')), 'mine');
+      await tester.tap(find.byKey(const Key('organization-person')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('olive (you)').last);
+      await tester.pumpAndSettle();
+      final confirm = find.byKey(const Key('organization-confirm'));
+      expect(tester.widget<FilledButton>(confirm).onPressed, isNull);
+      await tester.tap(find.byKey(const Key('organization-review-required')));
+      await tester.pumpAndSettle();
+      await tester.tap(confirm);
+      await tester.pumpAndSettle();
+      expect(fixture.writes.single.input, {'project': 'mine', 'admin': 'olive', 'review': 'required'});
+    });
+
+    testWidgets('someone naming another only adds it, as that person makes it', (tester) async {
+      final (fixture, _, _) = await _pump(tester, 'olive');
+      await pressOrganizationAction(tester, 'addProject');
+      await tester.enterText(find.byKey(const Key('organization-name')), 'theirs');
+      await tester.tap(find.byKey(const Key('organization-person')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('pat').last);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('organization-review-required')), findsNothing);
+      await tester.tap(find.byKey(const Key('organization-confirm')));
+      await tester.pumpAndSettle();
+      expect(fixture.writes.single.input, {'project': 'theirs', 'admin': 'pat'});
+    });
+
+    // Harm: nothing tells a Project Admin named by someone else, so the project just stands there.
+    Future<FixtureOrganization> needsYouOf(WidgetTester tester, String me) async {
+      final source = FixtureOrganization(organizationFor(me, moreProjects: const [fresh]));
+      await World.startBackend(World.work);
+      await World.startApp(tester, organizationSource: source);
+      await tester.tap(find.byKey(const ValueKey('rail organization')));
+      await World.settle(tester);
+      await tester.tap(find.byKey(const ValueKey('rail attention')));
+      await World.settle(tester);
+      return source;
+    }
+
+    testWidgets('has a row under Needs you for its named Project Admin, until it exists', (tester) async {
+      final source = await needsYouOf(tester, 'pat');
+      expect(find.text('fresh has no Git repository yet'), findsOneWidget);
+      await tester.tap(find.text("Create the project's Git repository"));
+      await World.settle(tester);
+      expect(find.text('Create the Git repository of fresh?'), findsOneWidget);
+      await tester.tap(find.text('Cancel'));
+      await World.settle(tester);
+
+      source.view = organizationFor(
+        'pat',
+        moreProjects: const [
+          OrganizationProject(name: 'fresh', admins: ['pat'], opened: true),
+        ],
+      );
+      await tester.tap(find.byKey(const ValueKey('rail organization')));
+      await World.settle(tester);
+      await tester.tap(find.byKey(const ValueKey('rail attention')));
+      await World.settle(tester);
+      expect(find.text('fresh has no Git repository yet'), findsNothing);
+    });
+
+    testWidgets('has none for an Organization Admin who is not its Project Admin', (tester) async {
+      await needsYouOf(tester, 'olive');
+      expect(find.text('fresh has no Git repository yet'), findsNothing);
+    });
+  });
+
   // Harm: in the foo test a machine waited for its token with nothing under Needs you, so only someone
   // who opened its page by chance found out what it waited for.
   group('a machine that waits for its first token', () {
@@ -202,13 +324,13 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('rail organization')));
     await World.settle(tester);
     await tester.scrollUntilVisible(
-      _action('openProject/demo'),
+      _action('goToProject/demo'),
       200,
       scrollable: find
           .descendant(of: find.byKey(const Key('organization-page')), matching: find.byType(Scrollable))
           .first,
     );
-    await pressOrganizationAction(tester, 'openProject/demo');
+    await pressOrganizationAction(tester, 'goToProject/demo');
     await World.settle(tester);
     expect(find.byKey(const ValueKey('organization-project demo')), findsOneWidget);
     expect(find.text('Project Admin pat. Only they change this project.'), findsOneWidget);
@@ -251,14 +373,14 @@ void main() {
       expect(_action('withdrawCard'), findsOneWidget);
       expect(_action('revokeCard/olive'), findsNothing, reason: 'Their own card is withdrawn, not revoked.');
       expect(_action('revokeCard/rex'), findsNothing, reason: 'A revoked card has nothing left to revoke.');
-      expect(_action('openProject/demo'), findsNothing, reason: 'They are not in it.');
+      expect(_action('goToProject/demo'), findsNothing, reason: 'They are not in it.');
       expect(_action('openHost/build'), findsNothing, reason: 'They are not its host admin.');
       expect(_action('openHost/spare'), findsOneWidget);
     });
 
     for (final (me, opens) in const [
-      ('pat', 'openProject/demo'),
-      ('mia', 'openProject/demo'),
+      ('pat', 'goToProject/demo'),
+      ('mia', 'goToProject/demo'),
       ('hana', 'openHost/build'),
     ]) {
       testWidgets('$me changes nothing of the structure and has their own row and $opens', (tester) async {
@@ -435,11 +557,11 @@ void main() {
       expect(fixture.writes, isEmpty);
     });
 
-    testWidgets('Open under Projects and the host page go there', (tester) async {
+    testWidgets('Go to the project and the host page go there', (tester) async {
       final (_, _, opened) = await _pump(tester, 'olive', view: organizationFor('hana'));
       await pressOrganizationAction(tester, 'openHost/build');
       expect(opened.host, 'build');
-      await pressOrganizationAction(tester, 'openProject/other');
+      await pressOrganizationAction(tester, 'goToProject/other');
       expect(opened.project, 'other');
     });
   });

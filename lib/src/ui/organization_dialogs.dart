@@ -368,7 +368,15 @@ class OrganizationPersonDialog extends StatefulWidget {
     this.base,
     this.changeFor,
     this.helper = 'Any person of the organization whose card is not revoked.',
+    this.below,
+    this.ready,
   });
+
+  /// What else this person is asked, under the words.
+  final Widget? Function(String? person, VoidCallback changed)? below;
+
+  /// Whether what else was asked of this person is answered.
+  final bool Function(String person)? ready;
 
   /// The organization the change is asked of.
   final Organization organization;
@@ -463,6 +471,7 @@ class _OrganizationPersonDialogState extends State<OrganizationPersonDialog> {
           ),
           const SizedBox(height: Space.small),
           Text(widget.words),
+          ?widget.below?.call(_person, changed),
         ],
       ),
       invalid: () => widget.check?.call(_name.text.trim()),
@@ -470,8 +479,114 @@ class _OrganizationPersonDialogState extends State<OrganizationPersonDialog> {
         final person = _person;
         final name = _name.text.trim();
         if (person == null || (widget.nameLabel != null && name.isEmpty)) return null;
+        if (!(widget.ready?.call(person) ?? true)) return null;
         return (change: widget.changeFor?.call(person) ?? widget.change, input: widget.input(name, person));
       },
     );
   }
+}
+
+/// Whether work on a project needs another person's review, chosen by nobody until it is chosen: it goes
+/// into the first `project.yml`, so a side taken already would answer what nobody has read.
+class ProjectReviewChoice extends StatelessWidget {
+  /// Shows [review], `required`, `optional` or null, and tells [onChosen].
+  const ProjectReviewChoice({super.key, required this.review, required this.onChosen});
+
+  /// What is chosen so far.
+  final String? review;
+
+  /// Told what is chosen.
+  final void Function(String review) onChosen;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: Space.small),
+    child: Wrap(
+      spacing: Space.small,
+      runSpacing: Space.small,
+      children: [
+        ChoiceChip(
+          key: const Key('organization-review-required'),
+          label: const Text('Someone else reviews: review required'),
+          selected: review == 'required',
+          onSelected: (_) => onChosen('required'),
+        ),
+        ChoiceChip(
+          key: const Key('organization-review-optional'),
+          label: const Text('I work alone: review optional'),
+          selected: review == 'optional',
+          onSelected: (_) => onChosen('optional'),
+        ),
+      ],
+    ),
+  );
+}
+
+/// Creates a project's Git repository, against the project's own revision, read here where it is not given.
+class CreateRepositoryDialog extends StatefulWidget {
+  /// Asks [organization] to create the repository of [project].
+  const CreateRepositoryDialog(this.organization, this.project, {super.key, this.base});
+
+  /// The organization the change is asked of.
+  final Organization organization;
+
+  /// The project's name.
+  final String project;
+
+  /// The project's revision, where it was read already.
+  final String? base;
+
+  @override
+  State<CreateRepositoryDialog> createState() => _CreateRepositoryDialogState();
+}
+
+class _CreateRepositoryDialogState extends State<CreateRepositoryDialog> {
+  String? _review;
+  late String? _base = widget.base;
+  String? _problem;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_base == null) unawaited(_read());
+  }
+
+  Future<void> _read() async {
+    try {
+      final read = await widget.organization.source.readProject(widget.project);
+      if (mounted) setState(() => _base = read.revision);
+    } on OrganizationRefused catch (refused) {
+      if (mounted) setState(() => _problem = refused.words);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => OrganizationChangeDialog(
+    organization: widget.organization,
+    base: _base,
+    title: 'Create the Git repository of ${widget.project}?',
+    confirm: "Create the project's Git repository",
+    body: (context, changed) => Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "Porelo makes the project repository on the organization's forge, private and empty, and signs its "
+          'first project.yml with your key.',
+        ),
+        if (_problem case final problem?) Text(problem),
+        ProjectReviewChoice(
+          review: _review,
+          onChosen: (review) {
+            _review = review;
+            changed();
+          },
+        ),
+        const Text('You can change the review policy later from the project menu.'),
+      ],
+    ),
+    ask: () => _review == null || _base == null
+        ? null
+        : (change: OrganizationChange.createProjectRepository, input: {'project': widget.project, 'review': _review!}),
+  );
 }

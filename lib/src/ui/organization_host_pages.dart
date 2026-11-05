@@ -111,7 +111,9 @@ class _OrganizationMachineRowState extends State<OrganizationMachineRow> {
     final hasAccount = view.myHosts.any((each) => each.name == host.name);
     final mine = [
       for (final project in view.projects)
-        if (project.host == host.name && (project.admins.contains(view.me) || project.members.contains(view.me)))
+        if (project.host == host.name &&
+            !project.hasNoRepository &&
+            (project.admins.contains(view.me) || project.members.contains(view.me)))
           project.name,
     ];
     return Column(
@@ -470,6 +472,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     return FilteredListSection(
       title: 'Projects on this machine',
       storageId: 'host-projects ${host.name}',
+      emptyWords: 'No projects on this machine yet. A project goes on a machine once the machine is prepared.',
       rows: [
         for (final name in names)
           (
@@ -631,7 +634,9 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     final why = _whyNotConnect(host, connections);
     final mine = [
       for (final project in view.projects)
-        if (project.host == host.name && (project.admins.contains(view.me) || project.members.contains(view.me)))
+        if (project.host == host.name &&
+            !project.hasNoRepository &&
+            (project.admins.contains(view.me) || project.members.contains(view.me)))
           project.name,
     ];
     final name = host.name;

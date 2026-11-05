@@ -190,7 +190,7 @@ void main() {
       prepared.add(address);
       throw const OrganizationRefused('The vault is shut.');
     };
-    for (final change in [OrganizationChange.createOrganization, OrganizationChange.openProject]) {
+    for (final change in [OrganizationChange.createOrganization, OrganizationChange.createProjectRepository]) {
       answer = (_) => says({..._org, 'address': repository});
       await expectLater(
         source.apply(
@@ -555,6 +555,21 @@ void main() {
       expect([for (final repository in project.repositories) repository.namesNoCentral], [true, false, false]);
     });
 
+    // Harm: a project with its repository unmade reads as any other; or, on an older Porelo that does not
+    // say, every project reads as one without.
+    test('a project says whether its repository is filed only where Core says', () async {
+      answer = (_) => says({
+        ..._org,
+        'projects': [
+          {'project': 'none', 'admins': <String>[], 'members': <String>[], 'opened': false},
+          {'project': 'has', 'admins': <String>[], 'members': <String>[], 'opened': true},
+          {'project': 'older', 'admins': <String>[], 'members': <String>[]},
+        ],
+      });
+      final view = await source.read();
+      expect([for (final project in view.projects) project.hasNoRepository], [true, false, false]);
+    });
+
     // Harm: a key that cannot sign is offered.
     test('only usable keys are offered, each as the forge lists it', () async {
       answer = (_) => says({
@@ -792,7 +807,12 @@ void main() {
       (OrganizationChange.removeHostAdmin, {'host': 'h', 'login': 'a'}, ['org', 'host', 'admin', 'remove', 'h', 'a']),
       (OrganizationChange.addProjectToHost, {'host': 'h', 'project': 'p'}, ['org', 'host', 'carry', 'h', 'p']),
       (OrganizationChange.removeProjectFromHost, {'host': 'h', 'project': 'p'}, ['org', 'host', 'uncarry', 'h', 'p']),
-      (OrganizationChange.openProject, {'project': 'p'}, ['project', 'open', 'p']),
+      (
+        OrganizationChange.addProject,
+        {'project': 'p', 'admin': 'a', 'review': 'optional'},
+        ['org', 'project', 'add', 'p', '--admin', 'a', '--create-repository', '--review', 'optional'],
+      ),
+      (OrganizationChange.createProjectRepository, {'project': 'p'}, ['project', 'create-repository', 'p']),
       (OrganizationChange.changeProjectRepository, {'project': 'p', 'address': 'x'}, ['project', 'address', 'p', 'x']),
       (
         OrganizationChange.addProjectMember,

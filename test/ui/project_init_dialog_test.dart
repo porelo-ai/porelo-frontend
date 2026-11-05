@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/organization_source.dart';
+import 'package:porelo_frontend/src/ui/organization_dialogs.dart';
 import 'package:porelo_frontend/src/ui/organization_page.dart';
 import 'package:porelo_frontend/src/ui/organization_project_pages.dart';
 import 'package:porelo_frontend/src/ui/pick_a_file.dart';
@@ -289,7 +290,8 @@ void main() {
   });
 
   // Harm: enabling optional review without a Project Admin's signed choice lets work leave unchecked.
-  testWidgets('opening defaults to required and a solo choice carries through to each new repository', (tester) async {
+  testWidgets('a solo choice on creating its repository carries through to each new repository', (tester) async {
+    Organization? made;
     final source = _Source('pat')
       ..projects = {
         'demo': const ProjectView(
@@ -299,14 +301,19 @@ void main() {
           members: [ProjectMember(login: 'pat', role: 'admin', standing: CardStanding.trusted)],
         ),
       };
-    await _organization(
-      tester,
-      source,
-      (organization) => OrganizationProjectPage(organization: organization, project: 'demo', onBack: () {}),
+    await _organization(tester, source, (organization) {
+      made = organization;
+      return OrganizationProjectPage(organization: organization, project: 'demo', onBack: () {});
+    });
+    unawaited(
+      showDialog<void>(
+        context: tester.element(find.byType(OrganizationProjectPage)),
+        builder: (_) => CreateRepositoryDialog(made!, 'demo', base: 'org-base'),
+      ),
     );
-    await pressOrganizationAction(tester, 'openProject', settle: () => World.settle(tester));
-    expect(tester.widget<SwitchListTile>(find.byKey(const Key('organization-work-alone'))).value, isFalse);
-    await tester.tap(find.byKey(const Key('organization-work-alone')));
+    await World.settle(tester);
+    await tester.tap(find.byKey(const Key('organization-review-optional')));
+    await World.settle(tester);
     source.projects['demo'] = const ProjectView(
       name: 'demo',
       revision: 'org-after',

@@ -143,6 +143,7 @@ class PoreloOrganizationSource implements OrganizationSource {
             admins: _texts(project, 'admins'),
             members: _texts(project, 'members'),
             host: _maybeText(project, 'host'),
+            opened: project.containsKey('opened') ? _flag(project, 'opened') : null,
           ),
       ],
       hosts: [for (final host in _maps(answer, 'hosts')) _host(host)],
@@ -433,7 +434,8 @@ class PoreloOrganizationSource implements OrganizationSource {
         final address = write.input['address'];
         if (address == null) throw const OrganizationRefused('The Porelo organization needs a repository address.');
         await prepare(address);
-      } else if (write.change == OrganizationChange.openProject) {
+      } else if (write.change == OrganizationChange.createProjectRepository ||
+          (write.change == OrganizationChange.addProject && write.input['review'] != null)) {
         final address = (await read()).address;
         if (address == null) {
           throw const OrganizationRefused('Porelo cannot say where the Porelo organization is kept.', answered: false);
@@ -495,7 +497,16 @@ class PoreloOrganizationSource implements OrganizationSource {
       OrganizationChange.removeOrganizationOwner => ['org', 'owner', 'remove', given('login')],
       OrganizationChange.addOrganizationAdmin => ['org', 'admin', 'add', given('login')],
       OrganizationChange.removeOrganizationAdmin => ['org', 'admin', 'remove', given('login')],
-      OrganizationChange.addProject => ['org', 'project', 'add', given('project'), '--admin', given('admin')],
+      OrganizationChange.addProject => [
+        'org',
+        'project',
+        'add',
+        given('project'),
+        '--admin',
+        given('admin'),
+        // Whoever names themselves creates its repository with it, one step for one person.
+        if (input.containsKey('review')) ...['--create-repository', '--review', review()],
+      ],
       OrganizationChange.changeProjectAdmin => ['org', 'project', 'admin', given('project'), given('admin')],
       OrganizationChange.removeProject => ['org', 'project', 'remove', given('project')],
       OrganizationChange.addHost => ['org', 'host', 'add', given('host'), '--admin', given('admin')],
@@ -517,9 +528,9 @@ class PoreloOrganizationSource implements OrganizationSource {
       OrganizationChange.removeHostAdmin => ['org', 'host', 'admin', 'remove', given('host'), given('login')],
       OrganizationChange.addProjectToHost => ['org', 'host', 'carry', given('host'), given('project')],
       OrganizationChange.removeProjectFromHost => ['org', 'host', 'uncarry', given('host'), given('project')],
-      OrganizationChange.openProject => [
+      OrganizationChange.createProjectRepository => [
         'project',
-        'open',
+        'create-repository',
         given('project'),
         if (input.containsKey('review')) ...['--review', review()],
       ],

@@ -269,9 +269,9 @@ void main() {
     result = (code: 0, out: '{}', err: '');
     for (final (change, input, command) in [
       (
-        OrganizationChange.openProject,
+        OrganizationChange.createProjectRepository,
         {'project': 'demo', 'review': 'optional'},
-        ['project', 'open', 'demo', '--review', 'optional'],
+        ['project', 'create-repository', 'demo', '--review', 'optional'],
       ),
       (
         OrganizationChange.addProjectRepository,

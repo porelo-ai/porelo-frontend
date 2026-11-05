@@ -110,6 +110,9 @@ enum AttentionKind {
   /// A machine waits for its first token, from the person looking.
   token,
 
+  /// A project waits for its Git repository, from its Project Admin looking.
+  repository,
+
   /// Stored machines are kept unread and not watched, as their host card does not read in this version.
   setAside,
 }
@@ -176,11 +179,12 @@ class Attention extends ChangeNotifier {
 
   HostRuns? _hostRuns;
 
-  /// Follows the machines of [organization] that the last *Connect* found waiting for a first token.
-  void watchTokens(HostConnections connections, Organization organization) {
+  /// Follows what [organization] waits for from this person: a machine's first token, as the last *Connect*
+  /// found it, and a project's Git repository.
+  void watchOrganization(Organization organization, HostConnections? connections) {
     _connections?.removeListener(_changed);
     _tokensOf?.removeListener(_changed);
-    _connections = connections..addListener(_changed);
+    _connections = connections?..addListener(_changed);
     _tokensOf = organization..addListener(_changed);
     _changed();
   }
@@ -196,6 +200,17 @@ class Attention extends ChangeNotifier {
     return <String>[
       for (final host in view.hosts)
         if (host.admins.contains(view.me) && connections.waitsForToken(host.name)) host.name,
+    ];
+  }
+
+  /// The projects waiting for a Git repository this person can create. A stale or unread organization
+  /// says nothing, as it cannot tell a repository is missing.
+  List<String> get _repositoriesWaited {
+    final view = _tokensOf?.view;
+    if (view == null || view.stale || !view.holdsRoles) return const <String>[];
+    return <String>[
+      for (final project in view.projects)
+        if (project.hasNoRepository && project.admins.contains(view.me)) project.name,
     ];
   }
 
@@ -257,6 +272,9 @@ class Attention extends ChangeNotifier {
       if (!question.seen) {
         yield AttentionRow(AttentionKind.ranOut, 'ran out ${question.id}', question.machine, question);
       }
+    }
+    for (final project in _repositoriesWaited) {
+      yield AttentionRow(AttentionKind.repository, 'repository $project', project, project);
     }
     final tokens = _tokensWaited;
     for (final host in tokens) {

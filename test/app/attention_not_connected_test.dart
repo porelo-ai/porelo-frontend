@@ -62,7 +62,7 @@ void main() {
       settings.dispose();
     });
     await organization.refresh();
-    attention.watchTokens(connections, organization);
+    attention.watchOrganization(organization, connections);
     await machines.add(
       Machine.fromHostCard(
         HostCardSsh(

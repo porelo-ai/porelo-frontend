@@ -52,10 +52,17 @@ class OrganizationProject {
     this.members = const [],
     this.host,
     this.repositories,
+    this.opened,
   });
 
   /// Its name.
   final String name;
+
+  /// Whether its Git repository is filed, or null where an older Porelo does not say.
+  final bool? opened;
+
+  /// Whether it is known to have no Git repository yet: an older Porelo saying nothing is not that.
+  bool get hasNoRepository => opened == false;
 
   /// The logins of its project admins.
   final List<String> admins;
@@ -573,8 +580,8 @@ enum OrganizationChange {
   /// Take someone off the list of Organization Admins.
   removeOrganizationAdmin,
 
-  /// Its project admin's first opening of a project, which only their key can do.
-  openProject,
+  /// Creates a project's Git repository, and signs its first `project.yml`.
+  createProjectRepository,
 
   /// Change whether the project or one of its repositories requires review.
   changeProjectReview,
@@ -780,7 +787,11 @@ class OrganizationRowChange {
     final host = input['host'] ?? '';
     final login = input['login'] ?? '';
     return switch (change) {
-      OrganizationChange.openProject => (scope: 'project-open $project', name: project, doing: 'Opening…'),
+      OrganizationChange.createProjectRepository => (
+        scope: 'project-create $project',
+        name: project,
+        doing: 'Creating…',
+      ),
       OrganizationChange.addProject => (scope: 'organization-projects', name: project, doing: 'Adding…'),
       OrganizationChange.removeProject => (scope: 'organization-projects', name: project, doing: 'Removing…'),
       OrganizationChange.addHost => (scope: 'organization-hosts', name: host, doing: 'Adding…'),
@@ -1073,7 +1084,9 @@ class Organization extends ChangeNotifier {
         OrganizationWrite(change: change, input: input, person: current?.me ?? '', base: asked.base, id: asked.id),
       );
       _unanswered.remove(sameChange);
-      if ((change == OrganizationChange.openProject || change == OrganizationChange.changeProjectReview) &&
+      if ((change == OrganizationChange.createProjectRepository ||
+              change == OrganizationChange.addProject ||
+              change == OrganizationChange.changeProjectReview) &&
           input['repository'] == null &&
           input['project'] != null &&
           input['review'] != null) {

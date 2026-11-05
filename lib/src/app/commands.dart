@@ -1537,6 +1537,14 @@ Command _attentionRowCommand({
 Command retryAttentionForwardCommand({required VoidCallback run, String? unavailable}) =>
     _attentionRowCommand(id: 'messages.retryForward', label: 'Try again', run: run, unavailable: unavailable);
 
+/// Creates a project's Git repository, from what needs its Project Admin.
+Command createRepositoryCommand({required VoidCallback run, String? unavailable}) => _attentionRowCommand(
+  id: 'project.createRepository',
+  label: "Create the project's Git repository",
+  run: run,
+  unavailable: unavailable,
+);
+
 /// Leads to where a machine waiting for its first token is given it.
 Command giveMachineTokenCommand({required VoidCallback run, String? unavailable}) =>
     _attentionRowCommand(id: 'machine.giveToken', label: 'Go to its token', run: run, unavailable: unavailable);

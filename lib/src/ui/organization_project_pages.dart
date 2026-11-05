@@ -138,7 +138,8 @@ class _OrganizationProjectsPageState extends State<OrganizationProjectsPage> {
           ? const <OrganizationProject>[]
           : [
               for (final project in view.projects)
-                if (_roleIn(view, project) != null) project,
+                // One with no repository yet stands on the Organization page, where it is made.
+                if (_roleIn(view, project) != null && !project.hasNoRepository) project,
             ];
       for (final project in mine) {
         _askCentral(project);
@@ -395,13 +396,13 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
         OrganizationChangeMark(widget.organization),
         for (final change in widget.organization.rowChanges)
           if (change.input['project'] == widget.project &&
-              (view == null || change.change == OrganizationChange.openProject))
+              (view == null || change.change == OrganizationChange.createProjectRepository))
             OrganizationPendingRow(widget.organization, change, onReview: () => unawaited(_read())),
-        if (view != null) ...[
+        if (view != null && !view.opened) _notOpened(view),
+        if (view != null && view.opened) ...[
           Text(_reviewWords(view.review)),
           if (!isAdmin) Text('${_adminsWords(view)} Only they change this project.'),
           const SizedBox(height: Space.normal),
-          if (!view.opened) _notOpened(view, isAdmin),
           _address(view, changes),
           if (view.repositoriesProblem case final problem?) _Problem(problem),
           _repositories(view, changes),
@@ -473,31 +474,25 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
     ),
   );
 
-  Widget _notOpened(ProjectView view, bool isAdmin) => Padding(
+  /// A page reached with an old link or a stale list: its repository is made on the Organization page.
+  Widget _notOpened(ProjectView view) => Padding(
     padding: const EdgeInsets.only(bottom: Space.normal),
-    child:
-        isAdmin &&
-            !widget.organization.rowChanges.any(
-              (change) => change.change == OrganizationChange.openProject && change.input['project'] == view.name,
-            )
-        ? Wrap(
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: Space.normal,
-            runSpacing: Space.small,
-            children: [
-              const Text(
-                'This project has not been opened yet. Opening it makes its project repository, signed by you.',
-              ),
-              FilledButton(
-                key: const ValueKey('organization.openProject'),
-                onPressed: () => _show(_OpenProjectDialog(widget.organization, view)),
-                child: const Text('Open the project'),
-              ),
-            ],
-          )
-        : Text(
-            '${view.admins.isEmpty ? 'Its Project Admin' : view.admins.join(' or ')} has not opened this project yet.',
-          ),
+    child: Wrap(
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: Space.normal,
+      runSpacing: Space.small,
+      children: [
+        Text(
+          '${view.name} has no Git repository yet. '
+          'It waits for ${view.admins.isEmpty ? 'its Project Admin' : view.admins.join(' or ')}, on the Organization page.',
+        ),
+        OutlinedButton(
+          key: const ValueKey('organization.backFromProject'),
+          onPressed: widget.onBack,
+          child: const Text('Go back'),
+        ),
+      ],
+    ),
   );
 
   String _myRole(ProjectView view, OrganizationView organization) {
@@ -514,6 +509,7 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
       FilteredListSection(
         title: 'Repositories',
         storageId: 'project-repositories ${view.name}',
+        emptyWords: isAdmin ? 'No repositories yet. Add one with Add.' : 'No repositories yet.',
         actions: [
           if (isAdmin)
             OutlinedButton.icon(
@@ -946,49 +942,5 @@ class _AddRepositoryDialogState extends State<_AddRepositoryDialog> {
               'review': _requireReview ? 'required' : 'optional',
             },
           ),
-  );
-}
-
-class _OpenProjectDialog extends StatefulWidget {
-  const _OpenProjectDialog(this.organization, this.view);
-
-  final Organization organization;
-  final ProjectView view;
-
-  @override
-  State<_OpenProjectDialog> createState() => _OpenProjectDialogState();
-}
-
-class _OpenProjectDialogState extends State<_OpenProjectDialog> {
-  bool _alone = false;
-
-  @override
-  Widget build(BuildContext context) => OrganizationChangeDialog(
-    organization: widget.organization,
-    base: widget.view.revision,
-    title: 'Open ${widget.view.name}?',
-    confirm: 'Open the project',
-    body: (context, changed) => Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('Porelo makes the project repository and signs its first project.yml with your key.'),
-        SwitchListTile(
-          key: const Key('organization-work-alone'),
-          title: const Text('Do you work alone?'),
-          subtitle: Text(_alone ? 'Yes. Review will be optional.' : 'No. Review will be required.'),
-          value: _alone,
-          onChanged: (alone) {
-            _alone = alone;
-            changed();
-          },
-        ),
-        const Text('You can change the review policy later from the project menu.'),
-      ],
-    ),
-    ask: () => (
-      change: OrganizationChange.openProject,
-      input: {'project': widget.view.name, 'review': _alone ? 'optional' : 'required'},
-    ),
   );
 }

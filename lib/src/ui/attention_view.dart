@@ -49,6 +49,7 @@ class AttentionView extends StatefulWidget {
     this.onOpenOperation,
     this.onOpenHost,
     this.onGiveToken,
+    this.onCreateRepository,
     this.onReadLog,
     super.key,
   });
@@ -88,6 +89,9 @@ class AttentionView extends StatefulWidget {
 
   /// Leads to where a machine's first token is given.
   final void Function(String host)? onGiveToken;
+
+  /// Asks to create a project's Git repository.
+  final void Function(String project)? onCreateRepository;
 
   /// Opens what a failed operation printed, which is what puts it away.
   final void Function(Operation operation)? onOpenOperation;
@@ -250,6 +254,15 @@ extension on _AttentionViewState {
         state = attention.notConnectedYet(each.machine) ? 'Not connected yet' : 'Not answering';
         icon = Icons.cloud_off_outlined;
         primary = retrySilentMachine(each.machine, attention.fleetOf(each.machine)).unless(reason);
+      case AttentionKind.repository:
+        final project = row.value as String;
+        title = '$project has no Git repository yet';
+        state = 'Waits for you';
+        icon = Icons.create_new_folder_outlined;
+        primary = createRepositoryCommand(
+          run: () => widget.onCreateRepository?.call(project),
+          unavailable: reason ?? (widget.onCreateRepository == null ? 'it cannot be created from here' : null),
+        );
       case AttentionKind.token:
         final host = row.value as String;
         title = '$host waits for your token';
@@ -390,7 +403,10 @@ extension on _AttentionViewState {
       leading: row.kind == AttentionKind.tile
           ? _StateMark((row.value as Tile).demand, Theme.of(context).colorScheme)
           : Icon(icon),
-      title: said?.title ?? '$title · ${row.machine}',
+      // These two name it in their sentence, and the second is a project's.
+      title:
+          said?.title ??
+          (row.kind == AttentionKind.token || row.kind == AttentionKind.repository ? title : '$title · ${row.machine}'),
       subtitle: said?.under,
       primaryFilled: row.kind == AttentionKind.tile,
       state: resolved ? resolvedState : state,
@@ -508,6 +524,12 @@ extension on _AttentionViewState {
           words: each.words,
           retry: retrySilentMachine(each.machine, attention.fleetOf(each.machine)).unless(reason),
           onSeen: resolved ? null : () => attention.markSeen(each.machine),
+        );
+      case AttentionKind.repository:
+        final project = row.value as String;
+        return ListTile(
+          key: ValueKey<String>('repository-details $project'),
+          title: Text('$project has no Git repository yet. You are its Project Admin, so it waits for you.'),
         );
       case AttentionKind.token:
         final host = row.value as String;
