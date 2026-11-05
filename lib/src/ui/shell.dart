@@ -959,8 +959,7 @@ class _ShellState extends State<Shell> {
       thisComputer: asked.isThisComputer,
       onStartProject: (project, notes) async {
         if (widget.machines.current != asked) widget.machines.select(asked);
-        if (notes.isNotEmpty) _fleet.say(notes.join(' '));
-        await _startWorkIn(project);
+        await _startWorkIn(project, notes: notes);
       },
     );
   }
@@ -1982,11 +1981,16 @@ class _ShellState extends State<Shell> {
 
   /// Starts work in the project called [name], once the machine lists it: what binding a machine
   /// from a repository leads to.
-  Future<void> _startWorkIn(String name, {String? repository}) async {
+  ///
+  /// [notes] are what a checkout's plugins said, whose dialog has gone: said here, and with any reason it stops.
+  Future<void> _startWorkIn(String name, {String? repository, List<String> notes = const <String>[]}) async {
+    final said = notes.join(' ');
+    if (said.isNotEmpty) _fleet.say(said);
+    String withNotes(String words) => said.isEmpty ? words : '$words $said';
     Project? listed() => _listed(name);
     final why = await _takeIfCarried(name);
     if (!mounted) return;
-    if (why != null) return _fleet.say(why);
+    if (why != null) return _fleet.say(withNotes(why));
     // Asked of the machine first only when it is not known yet: a round trip before the form opened
     // was a pause a person noticed.
     final known = listed();
@@ -1999,7 +2003,7 @@ class _ShellState extends State<Shell> {
     if (!mounted) return;
     if (project == null) {
       return _fleet.say(
-        '${widget.machines.current.name} does not list $name, so work in it cannot start from here now.',
+        withNotes('${widget.machines.current.name} does not list $name, so work in it cannot start from here now.'),
       );
     }
     // The project the work starts in is the one shown in the tree: a project made from a repository

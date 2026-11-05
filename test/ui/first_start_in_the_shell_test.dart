@@ -71,6 +71,33 @@ void main() {
     expect(World.fleet.status, contains('The lookup did not answer.'));
   });
 
+  // Harm: the start fails at once, its words replace the plugin's, and the dialog that held them is gone.
+  testWidgets('a known checkout\'s notes stay though its start cannot go on', (tester) async {
+    final picker = pickACheckout;
+    addTearDown(() => pickACheckout = picker);
+    pickACheckout = ({initialDirectory, title}) async => '/home/me/x';
+    await World.startBackend(World.work);
+    await World.startApp(tester);
+    World.backend.theFirstStartSays = const FirstStart(
+      outcome: FirstStart.known,
+      project: 'not-listed',
+      notes: <String>['The lookup did not answer.'],
+    );
+    World.shell.goTo(Section.work);
+    await World.settle(tester);
+    await tester.tap(find.byKey(const Key('new-work')));
+    await World.settle(tester);
+    final inDefault = find.byKey(const ValueKey<String>('new-work-in default'));
+    if (inDefault.evaluate().isNotEmpty) {
+      await tester.tap(inDefault);
+      await World.settle(tester);
+    }
+    await tester.tap(find.byKey(const Key('default-checkout')));
+    await World.settle(tester);
+    expect(World.fleet.status, contains('does not list not-listed'));
+    expect(World.fleet.status, contains('The lookup did not answer.'));
+  });
+
   // Harm: the person said yes, the file was written, and the window then did nothing and said nothing.
   testWidgets('a project the machine does not list after a yes is said, not left silent', (tester) async {
     await toTheQuestion(tester);
