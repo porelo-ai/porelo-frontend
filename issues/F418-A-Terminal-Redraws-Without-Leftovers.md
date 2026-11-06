@@ -17,6 +17,9 @@ One character, always in the first column, before an indented line: the shape of
 indents by a sequence the vendored `packages/xterm` handles otherwise than tmux expects (erase or insert of
 characters, a cursor move by column, or a tab), while the rest of the line is rewritten.
 
+The operator's screenshot (same day) also shows three rows of dots (`.....`) below the agent's prompt that belong to
+no output: the same leftovers, or a program's own fill drawn where a clear was expected; the recording tells which.
+
 ## Plan
 
 - **To be checked first:** the raw output that draws it, recorded in the task (`script -q -c 'tmux attach' out.raw`,
