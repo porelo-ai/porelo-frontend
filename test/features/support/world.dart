@@ -2001,7 +2001,7 @@ class FakeBackend implements FleetBackend {
       ),
       ProjectFileKey(
         section: 'image',
-        name: 'base_image',
+        name: 'from',
         describe: 'The image a task\'s container is built from.',
         type: 'string',
         values: <String>[],
