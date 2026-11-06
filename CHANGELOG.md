@@ -126,6 +126,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- A project being put on a machine says "Putting it on <machine>…", and one taken off "Taking it off <machine>…", where it said "Adding…" and "Removing…".
 - Every list section on every page folds and unfolds and stays as it was left, the repositories and members of a project page and the projects and Machine Admins of a machine's page among them.
 - A machine this computer is preparing says so on the organization's page and its own page - its state, since when, its address - and offers its protocol rather than a second start; a preparation's row shows a small mark of its state, under *My machines* too.
 - *Prepare a server* shows the line to run before setup in its own box, in a console font, with a copy button, and says it runs on the server under the provider's first login, not on this computer; the same for the line shown again when a run stopped on it.

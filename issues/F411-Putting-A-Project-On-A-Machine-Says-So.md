@@ -17,3 +17,7 @@ was not being added.
 - `lib/src/app/organization_source.dart` (the pending row of each change): `addProjectToHost` says
   `Putting it on $host…`, `removeProjectFromHost` `Taking it off $host…`.
 - No test goes red first: words alone, nothing a person loses by them.
+
+## Done
+
+The pending words of the two changes name the machine. No test: words alone.

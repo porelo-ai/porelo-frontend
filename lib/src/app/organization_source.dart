@@ -890,8 +890,16 @@ class OrganizationRowChange {
       OrganizationChange.removeOrganizationAdmin => (scope: 'organization-admins', name: login, doing: 'Removing…'),
       OrganizationChange.addHostAdmin => (scope: 'host-admins $host', name: login, doing: 'Adding…'),
       OrganizationChange.removeHostAdmin => (scope: 'host-admins $host', name: login, doing: 'Removing…'),
-      OrganizationChange.addProjectToHost => (scope: 'organization-projects', name: project, doing: 'Adding…'),
-      OrganizationChange.removeProjectFromHost => (scope: 'organization-projects', name: project, doing: 'Removing…'),
+      OrganizationChange.addProjectToHost => (
+        scope: 'organization-projects',
+        name: project,
+        doing: 'Putting it on $host…',
+      ),
+      OrganizationChange.removeProjectFromHost => (
+        scope: 'organization-projects',
+        name: project,
+        doing: 'Taking it off $host…',
+      ),
       OrganizationChange.addProjectMember => (scope: 'project-members $project', name: login, doing: 'Adding…'),
       OrganizationChange.removeProjectMember => (scope: 'project-members $project', name: login, doing: 'Removing…'),
       OrganizationChange.addCard => (scope: 'organization-people', name: login, doing: 'Adding…'),
