@@ -155,12 +155,17 @@ be lost, and names the ways out: `down` again, or `down --give-back-anyway`. Eve
 on standard output.
 
 **In the interface,** *Prepare a machine…* under *Organization* does this for a Machine Admin of that very machine: it
-asks the machine's name, the server's address and its SSH host key, shows the line to run on the server that
+asks the machine's name and the server's address, fetches its SSH host key for you to compare and confirm, shows the line to run on the server that
 lets you in as root, writes the machine file, and files the real address and ports on the machine's card
 when `up` reports them. Starting setup marks the machine as *In preparation*, showing the current step, start
 times, durations and estimated time remaining; closing the interface keeps it across restarts with *Go on*.
-*Take Porelo off this machine…*, or *Return this rental…* where a saved rental stands, confirms the consequences
-before running `down` from the kept record.
+*Take Porelo off this machine…*, or *Return this rental…* where a saved rental stands, confirms the consequences,
+naming who still holds an account on the machine and deleting only the accounts you confirm, before running `down`
+from the kept record.
+
+**Your card** lasts 30 days. From seven days before its end, the card's section and *Organization* say so and offer
+*Renew my card*, one click where your agent holds the key, also after it ended. An ended card shuts your key out of the
+machines and ends your project memberships. Every machine takes a renewed card at its next follow, within five minutes.
 
 ## What the other pages hold
 

@@ -65,6 +65,9 @@ taken, `git log` answers.
 | [Each repository's agent is started one after another, a stopped one brought back, and leaving does not cancel](#each-repositorys-agent-is-started-one-after-another) |
 | [Host joining uses verified signed state and SSH](#host-joining-uses-verified-signed-state-and-ssh) |
 | [One set of servers, called machines, and two lists of them](#one-set-of-servers-called-machines-and-two-lists-of-them) |
+| [A row's actions are behind one menu, and a page's lists are cards](#a-rows-actions-are-behind-one-menu-and-a-pages-lists-are-cards) |
+| [A change that adds to or takes from a list closes onto a provisional row](#a-change-that-adds-to-or-takes-from-a-list-closes-onto-a-provisional-row) |
+| [Each organization role answers for the one below](#each-organization-role-answers-for-the-one-below) |
 
 ## The interface can do what a console can
 
@@ -198,6 +201,7 @@ the entry Porelo says to write, verbatim, with the file it goes in and a way to 
 project's admin commits it signed; for a removal, Porelo's words say what to take out. Nothing of it
 is signed in the window. An older Porelo that still writes the change itself and answers the
 revision it wrote is taken as written, and the pages are read again, so that nothing is asked twice.
+Opening a project asks whether its person works alone, and a yes opens it with review optional.
 
 What stays in the window is what is no setting of the project: letting running work reach a host it
 was refused, for that run or that work; and the brake on a project's messages to a peer.
@@ -210,6 +214,12 @@ Accepted, because a second way to write the file would be a second source of tru
 The person's signing key is found, never chosen from every key the ssh agent holds: the SSH signing
 keys their forge account lists, and git's `user.signingkey`, marked as theirs. Any other key is
 offered only after them, as *another key*. Signatures are ssh signatures, never GPG.
+
+*Make my card…* takes what Core found and where each came from. The login comes from a token or `ssh -T`. The key comes from
+`git config user.signingkey` where it names an SSH key, then from a key in the agent that the forge lists for signing, then
+from one it lists for authentication. Name and email come from `git config`, then from the forge's public profile. The
+window shows them in one line with *Sign*, asks only what was not found or found more than once, and shows the `ssh-add`
+line for a key that is not in the agent. Porelo reads no private key.
 
 ## A refused project signature is a state of the project
 
@@ -242,6 +252,11 @@ under *Set up* *My machines*, *My forges* and *My projects*, with the refresh an
 at its foot. **The window opens on *Work***: every piece of work on every machine, grouped by what
 it asks, each tile naming its machine, narrowed to a machine or a project, *Default* among them.
 Work is shown only there; a machine's or a project's page leads to it, narrowed.
+A rail entry always lands on the first page it opens, whatever was open under it: *Work* from the rail shows all work,
+and only a machine's or a project's page leads to it narrowed. *Refresh* at the rail's foot also reads the page shown
+again, a machine's page by `org status`, which only reads. A machine's own *Fetch now* is what makes it fetch the
+organization at once, and the page says when the machine last answered. The quiet refresh leaves the store and the
+machines alone.
 
 - ***New work*** asks where it runs when more than one machine answers, then in which project,
   *Default* among them. Where the project has work with a conversation on another machine, it says before the start
@@ -483,8 +498,18 @@ the person's ssh key. The interface makes, lists, checks and removes no deploy k
 needs no right to administer them. Device-code login can use the same terminals when the forge's
 OAuth application is available.
 
+For `porelo org create` and `porelo project open`, a forge token missing from Core's local vault goes there from the system
+secret store by `porelo vault put git.token.<address>`, on standard input alone, with the vault opened first. Where the
+secret store has none, it is asked for in the `porelo-host key set` terminal, as above. A forge reached by ssh on a port of
+its own is lent no token this way. A machine, which has no account at the forge, takes its Machine Admin's token once, on
+its own command's standard input. With it, the machine adds its own read-only key to the organization's repository and to
+each waiting project's, and copies the project's repository to its own forge. It holds the token in memory for that run
+alone, which is read on one host and not checked against the token itself. For that, the token needs the repository's
+Administration (write) and Contents (read).
+
 **The exposure:** each machine holding the person's token can use its repository rights. Keep its
-scope to the repositories and Contents rights it needs. **What would change the answer:** a forge
+scope to the repositories it needs, with Contents for git, and Administration only while a machine is given it to add
+its read key. **What would change the answer:** a forge
 login that grants narrower access without requiring repository administration.
 
 ## The review only shows
@@ -845,4 +870,60 @@ Taking a machine down has two names, as it means two things: *Take Porelo off th
 and *Return this rental…* only where a saved rental stands. Every machine prepared now simply exists, as `up` rents nothing
 until 0.9.
 
+*Connect* stands on a machine's row in *Organization* and on a project's row, and connects at once. *Disconnect* ends this
+computer's connection and asks nothing, as *Connect* undoes it: the machine stays under *My machines*, and nothing connects
+to it by itself, after a restart either, nor does *New work* offer it. *Forget* takes the entry off the person's list and
+leaves it in *Organization*, warning a machine's admin first that the server keeps running. This computer's own machine is
+never disconnected or forgotten. A machine added over ssh or WSL is private: it stands only under *My machines*, and
+*Forget* deletes it. A machine's row says *Connecting…*, connected or the refusal, never a forward, and a retry after a
+refusal keeps the refusal on the row. Taking a machine down names the projects still on it, says that only what reached
+the central forge is safe, and stays possible. A Machine Admin with no record on this computer is offered it by the
+organization's card, and is told what is missing where the card is not enough.
+
 **What it costs:** a person who wants to work on a server connects to it first, and only then finds it under *My machines*.
+
+## A row's actions are behind one menu, and a page's lists are cards
+
+Every row of *Organization*, of a machine's page and of a project's page holds its actions in one ⋮, as *Machines*,
+*Projects* and *Forges* already did, because a row with five actions is wider than the pane. Two stand beside the row:
+*Connect* while not connected, and *Push the approved main…* while approved commits wait. A person sees only the actions
+of their roles, so a row with none shows no menu, and what cannot be run stays greyed with its reason. What adds to a
+section, and *Add me*, is on no row and stays visible.
+
+A page of several lists draws each as a card: a header band with its title and count, a magnifier that opens its filter,
+and a sort menu, by name and by state, and by machine for projects, the choice kept per list. No card starts folded
+because it is long.
+
+**What it costs:** an action is two clicks and cannot be seen at a glance. Tabs or a table sort more naturally, but hide
+the rest of the organization or cut off a row's words, which a person's roles need.
+
+## A change that adds to or takes from a list closes onto a provisional row
+
+Adding or removing a member, a repository, a project, a machine or an owner closes its dialog at once, and the row stands
+marked as running until the source has answered and the page has read again. A refusal stays on that row in the
+source's words, with a way to ask again or to drop it. A change with no row of its own, such as an address or *Create the
+organization*, keeps its dialog and says what runs, through the reads after it. Nothing is shown as done before the
+source's own answer.
+
+**What it costs:** a refusal outlives the page, so it is kept with the organization per project. One change runs at a
+time, so the others wait visibly. Closing the window mid-change loses what makes asking again safe, and the page then
+reads what stands. None of it shortens the wait, which is the forge's.
+
+## Each organization role answers for the one below
+
+Owners answer for owners and Organization Admins. An Organization Admin answers for cards, projects, machines and the
+admins of projects and machines. A Machine Admin answers for the machine's card, the projects it carries, its token and
+taking Porelo off. A Project Admin answers for developers, repositories and the project's address. Each level may create,
+change and delete in the one below, and the owner acts rarely. A Project Admin or a Machine Admin names no further admin of
+their own level, which the Organization Admin does under *Organization*. A machine leaves the organization by its Machine
+Admin or an Organization Admin.
+
+A project is put on a machine, and taken off it, from the organization's row of that project, by that machine's Machine
+Admin alone. An Organization Admin does it by first naming themselves its Machine Admin, a signed change like any other.
+The machine's page lists its projects read only: it answers whether the machine carries one, and is no second way to
+change it. A Machine Admin changed or replaced by an Organization Admin takes effect on a running server at its next
+follow, without the former admin's confirmation. While `porelo org` names no `organization_admins`, owners act as
+Organization Admins.
+
+**What it costs:** a Machine Admin who is in no project of it reaches that project only from *Organization*, as
+`porelo project show` keeps a non-member out of *Projects*.

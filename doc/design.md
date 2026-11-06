@@ -229,6 +229,12 @@ run over a real IPv6 network, have not been tried.
 every refresh and again when either is chosen. While it cannot be read, or where this computer reads no
 organization, both stay listed as unavailable with the reason.
 
+A project's row says how its machine's approved commits stand with the central forge, from `porelo-host-push --central`
+read as root over the person's connection: so many waiting, up to date, the forge moved on, or that it cannot say, which
+never reads as up to date. The answer can be five minutes old and says when it was read. It only prompts: *Push the
+approved main…* stands beside the row while commits wait, for every member not locked, as pushing is no admin's
+privilege, and the push itself decides.
+
 *Prepare a machine…* opens for a person the organization names as a Machine Admin of that very machine, judged on what
 `porelo org --json` answers, read again before anything happens; a `stale` answer prepares nothing. The dialog
 names the person's own key in the line that lets them in as root, in a terminal of their own. Before `up` starts,
@@ -236,14 +242,27 @@ the interface writes the machine file whose `organization` part the host reads: 
 central forge's lines from the person's own `known_hosts` (first use is not trusted, so none stops here) and a
 `login key` pin from every row of `hosts[].admins`, backup keys included; a row with no key refuses the whole pin.
 
+The dialog opens at the click and does that read inside it, *Prepare the host* unavailable until the answer and a refusal
+shown there. A run belongs to the window, not to its dialog: the dialog says at once what runs and that it can take
+minutes, closes while the run goes on, and the machine's row opens the protocol again. No role is given at the interface's
+start: what a person is offered follows from the organization's answer alone, and *Prepare a machine…* shows for an
+Organization Admin, a Machine Admin, or a person who reads no organization yet. The server's SSH host key is fetched and
+its fingerprint shown to confirm. Over ssh only the card's key is offered, so that more than six keys in the agent do not
+stop `up` at sshd's limit. Root's first login with another key than the card's stays by hand.
+
 When `up` reports the host, its real address, ssh port, host key and service ports go on its card by `porelo org
 host change`, the machine is added and followed, and the token is handed over once. Should `up` stop, or the card be
 refused, nothing is given back, as `up` rents nothing: it takes only a server given to it, and renting returns as
-planned for 0.9, sprint 5. The server stays as it is, and that is said in words. On a given server *Give the server back*
+planned for 0.9, sprint 5. The server stays as it is, and that is said in words. On a given server *Take Porelo off this machine…*
 takes the setup off, and releasing it at the provider is the person's own step; a saved rental from before is
 released by the provider's confirmation, and a give-back that fails keeps the recovery record.
-After a give-back the card still names the host, which only an organization owner can remove, and the interface
-says that too. SSH forwarding and unlock integration belong to the shared host transport. Provider sign-ins and the
+Before Porelo is taken off or a rental returned, the dialog reads, by `org status` as root, who still holds machine
+administration or a project on the machine. The person confirms the removal of exactly those named accounts and all they
+hold. Each is purged as root before the down play, and the first failure stops the rest, the play and the release. A
+status that cannot be read purges nothing and leaves the ordinary take-down, whose play still refuses while anyone holds a
+membership. A holder new after a refused play needs another confirmation, and a failed take-down then offers the one
+confirmed as a loss.
+After Porelo is taken off, the card still names the machine, which its Machine Admin or an Organization Admin removes. SSH forwarding and unlock integration belong to the shared host transport. Provider sign-ins and the
 local vault keep their own terminal paths.
 
 A saved rental made before one-click joining stays visible for give-back or setup again. Its provider
