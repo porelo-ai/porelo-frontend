@@ -9,6 +9,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- *Put it on a machine…* offers the whole project, chosen to begin with, or some of its repositories; a repository already on a machine is named with it and not offered. A machine's page lists the repositories it carries of a project carried in part, each with *Take it off this machine…*, whose question says the machine deletes its read key for it and takes that key off the central forge. Needs a porelo whose `org host carry` takes `--repository`.
 - A project's own page offers *Put it on a machine…* and *Take it off the machine…* to whoever administers the machine, with the same dialog, words and follow afterwards as its row on *Organization*.
 - *My forges* also lists, and counts, the forges the machine shown already holds a credential for in its git connections, saying where each comes from (its vault, a file, a variable or the ssh agent) and whether it is there now, beside a forge set up here for the same host rather than twice, marks the Porelo organization's forge, and asks for no token for one the machine holds.
 - *New work* in Default shows what a repository's `porelo.yml` sets that this machine has not allowed yet, only what is new, changed or removed, and allows exactly that with one press before it asks again whether the work can start; a file changed after it was shown is not allowed. In an organization's project, a `porelo.yml` changed without a signature is said with its file and commit, and nothing here allows it.

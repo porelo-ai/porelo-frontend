@@ -658,12 +658,13 @@ Future<void> putProjectOnAMachine(
 }) async {
   final view = organization.view;
   if (view == null) return;
+  final carrying = CarryingChoice(view, project);
   await showDialog<void>(
     context: context,
     builder: (_) => OrganizationPersonDialog(
       organization,
       people: [for (final host in hostsAdministeredBy(view)) host.name],
-      helper: 'A project is on one machine at a time.',
+      helper: 'A repository is on one machine at a time.',
       title: 'Put $project on a machine',
       personLabel: 'Machine',
       words:
@@ -672,12 +673,23 @@ Future<void> putProjectOnAMachine(
           'This can take up to five minutes.',
       confirm: 'Put it on the machine',
       change: OrganizationChange.addProjectToHost,
-      input: (_, machine) => {'host': machine, 'project': project},
+      below: (_, changed) => CarryChoice(organization: organization, carrying: carrying, changed: changed),
+      ready: (_) => carrying.whole || carrying.chosen.isNotEmpty,
+      input: (_, machine) => {
+        'host': carrying.machine = machine,
+        'project': project,
+        if (!carrying.whole) 'repositories': carrying.chosen.join(','),
+      },
     ),
   );
   await organization.whenIdle;
-  final machine = organization.view?.hosts.where((host) => host.projects.contains(project)).firstOrNull?.name;
-  if (machine == null || connections == null || !context.mounted) return;
+  // The machine chosen, once the organization says it carries the project: a part may be on another too.
+  final machine = carrying.machine;
+  if (machine == null ||
+      !(organization.view?.hosts.any((host) => host.name == machine && host.projects.contains(project)) ?? false)) {
+    return;
+  }
+  if (connections == null || !context.mounted) return;
   await showDialog<void>(
     context: context,
     builder: (_) => PlacingProjectDialog(
@@ -690,16 +702,169 @@ Future<void> putProjectOnAMachine(
   );
 }
 
-/// Asks before [project] is taken off [machine], and says what goes with it and what stays.
-Widget takeProjectOffTheMachine(Organization organization, {required String project, required String machine}) =>
-    OrganizationConfirmDialog(
-      organization,
-      title: 'Take $project off $machine?',
-      words:
-          'Its members can no longer work on it there, once it holds no unpushed work. Its copy there '
-          'goes then, with its conversation, where the machine runs its own. The project itself stays '
-          'in the organization. This can take up to five minutes.',
-      confirm: 'Take it off',
-      change: OrganizationChange.removeProjectFromHost,
-      input: {'host': machine, 'project': project},
+/// Asks before [project], or only its [repository], is taken off [machine], and says what goes with it and what
+/// stays.
+Widget takeProjectOffTheMachine(
+  Organization organization, {
+  required String project,
+  required String machine,
+  String? repository,
+}) => repository == null
+    ? OrganizationConfirmDialog(
+        organization,
+        title: 'Take $project off $machine?',
+        words:
+            'Its members can no longer work on it there, once it holds no unpushed work. Its copy there '
+            'goes then, with its conversation, where the machine runs its own. The project itself stays '
+            'in the organization. This can take up to five minutes.',
+        confirm: 'Take it off',
+        change: OrganizationChange.removeProjectFromHost,
+        input: {'host': machine, 'project': project},
+      )
+    : OrganizationConfirmDialog(
+        organization,
+        title: 'Take $repository of $project off $machine?',
+        words:
+            'Nobody can work in $repository there any more, once it holds no unpushed work; its copy there goes '
+            'then. At its next follow the machine also deletes its read key for $repository, and takes that key '
+            'off the central forge. The project and its other repositories stay on $machine, and taking off the '
+            'last one takes the project off. This can take up to five minutes.',
+        confirm: 'Take it off',
+        change: OrganizationChange.removeProjectFromHost,
+        input: {'host': machine, 'project': project, 'repositories': repository},
+      );
+
+/// What of a project is put on a machine: the whole project, or some of its repositories.
+class CarryingChoice {
+  /// Starts from the whole project where no machine carries any of it, from a choice of repositories otherwise.
+  CarryingChoice(OrganizationView view, this.project)
+    : elsewhere = {
+        for (final host in view.hosts)
+          for (final name in host.repositories[project] ?? const <String>[]) name: host.name,
+      } {
+    whole = elsewhere.isEmpty;
+  }
+
+  /// The project's name.
+  final String project;
+
+  /// Each repository of it a machine carries already, with that machine: none can go on a second one.
+  final Map<String, String> elsewhere;
+
+  /// Whether the whole project is put on the machine.
+  late bool whole;
+
+  /// The repositories chosen, where not the whole project.
+  final Set<String> chosen = <String>{};
+
+  /// The machine it was asked to go on.
+  String? machine;
+}
+
+/// Offers the whole project, chosen to begin with, or some of its repositories, read from the project's own
+/// repository; one already on a machine is named with it and not offered.
+class CarryChoice extends StatefulWidget {
+  /// Shows [carrying] and tells [changed] of each choice.
+  const CarryChoice({super.key, required this.organization, required this.carrying, required this.changed});
+
+  /// Where the project's repositories are read.
+  final Organization organization;
+
+  /// What is chosen.
+  final CarryingChoice carrying;
+
+  /// Told of each choice.
+  final VoidCallback changed;
+
+  @override
+  State<CarryChoice> createState() => _CarryChoiceState();
+}
+
+class _CarryChoiceState extends State<CarryChoice> {
+  List<String>? _names;
+  String? _problem;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_read());
+  }
+
+  Future<void> _read() async {
+    try {
+      final project = await widget.organization.source.readProject(widget.carrying.project);
+      if (!mounted) return;
+      setState(() {
+        _names = [for (final repository in project.repositories) repository.name];
+        _problem = project.repositoriesProblem;
+      });
+    } on OrganizationRefused catch (refused) {
+      if (mounted) setState(() => _problem = 'Its repositories could not be read: ${refused.words}');
+    }
+  }
+
+  void _choose(void Function() change) {
+    setState(change);
+    widget.changed();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final carrying = widget.carrying;
+    final names = _names;
+    return Padding(
+      padding: const EdgeInsets.only(top: Space.small),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Wrap(
+            spacing: Space.small,
+            children: [
+              ChoiceChip(
+                key: const Key('organization-carry-whole'),
+                label: const Text('The whole project'),
+                selected: carrying.whole,
+                onSelected: carrying.elsewhere.isNotEmpty ? null : (_) => _choose(() => carrying.whole = true),
+              ),
+              ChoiceChip(
+                key: const Key('organization-carry-some'),
+                label: const Text('Some of its repositories'),
+                selected: !carrying.whole,
+                onSelected: (_) => _choose(() => carrying.whole = false),
+              ),
+            ],
+          ),
+          if (carrying.elsewhere.isNotEmpty)
+            Text(
+              'Already on a machine, so the project cannot go on another whole: '
+              '${[for (final MapEntry(:key, :value) in carrying.elsewhere.entries) '$key on $value'].join(', ')}.',
+            ),
+          if (!carrying.whole) ...[
+            const SizedBox(height: Space.small),
+            if (names == null && _problem == null)
+              const Text('Reading its repositories…')
+            else if (_problem case final problem?)
+              Text(problem)
+            else
+              Wrap(
+                spacing: Space.small,
+                runSpacing: Space.small,
+                children: [
+                  for (final name in names!)
+                    if (!carrying.elsewhere.containsKey(name))
+                      FilterChip(
+                        key: Key('organization-carry-repository-$name'),
+                        label: Text(name),
+                        selected: carrying.chosen.contains(name),
+                        onSelected: (on) =>
+                            _choose(() => on ? carrying.chosen.add(name) : carrying.chosen.remove(name)),
+                      ),
+                ],
+              ),
+          ],
+        ],
+      ),
     );
+  }
+}

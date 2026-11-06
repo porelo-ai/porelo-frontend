@@ -293,6 +293,28 @@ void main() {
       expect(view.persons.first.expires, '2028-11-02');
     });
 
+    // Harm: a machine carrying only some of a project's repositories reads as carrying it whole.
+    test('a host names the repositories it carries of a project carried in part, and no others', () async {
+      answer = (_) => says({
+        ..._org,
+        'hosts': [
+          {
+            ...((_org['hosts']! as List<Object?>).first! as Map<String, Object?>),
+            'projects': ['whole', 'part'],
+            'repositories': {
+              'part': ['api', 'web'],
+            },
+          },
+        ],
+      });
+      final host = (await source.read()).hosts.single;
+      expect(host.repositories, {
+        'part': ['api', 'web'],
+      });
+      expect(host.carriesWhole('whole'), isTrue);
+      expect(host.carriesWhole('part'), isFalse);
+    });
+
     // Harm: a card is shown as holding what it does not, and a role is taken from a card that holds it.
     test('a card stands as the rule says: trusted and first-seen hold, revoked and refused do not', () async {
       final view = await source.read();
@@ -824,6 +846,17 @@ void main() {
       (OrganizationChange.removeHostAdmin, {'host': 'h', 'login': 'a'}, ['org', 'host', 'admin', 'remove', 'h', 'a']),
       (OrganizationChange.addProjectToHost, {'host': 'h', 'project': 'p'}, ['org', 'host', 'carry', 'h', 'p']),
       (OrganizationChange.removeProjectFromHost, {'host': 'h', 'project': 'p'}, ['org', 'host', 'uncarry', 'h', 'p']),
+      // Harm: a whole project carried, or taken off, when some of its repositories were meant.
+      (
+        OrganizationChange.addProjectToHost,
+        {'host': 'h', 'project': 'p', 'repositories': 'api,web'},
+        ['org', 'host', 'carry', 'h', 'p', '--repository', 'api', '--repository', 'web'],
+      ),
+      (
+        OrganizationChange.removeProjectFromHost,
+        {'host': 'h', 'project': 'p', 'repositories': 'api'},
+        ['org', 'host', 'uncarry', 'h', 'p', '--repository', 'api'],
+      ),
       (
         OrganizationChange.addProject,
         {'project': 'p', 'admin': 'a', 'review': 'optional'},

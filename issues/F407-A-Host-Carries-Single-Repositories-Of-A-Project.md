@@ -39,3 +39,30 @@ deploy key off the central forge. Each is filed in its repository.
 ## To be checked
 
 - The form of porelo's answer, field by field, once it is filed; until then the plan's names are this window's.
+
+## Done
+
+Built against Agent Core's local commit aec57d17 (branch `work-b479-core`, porelo's carried repositories and `--repository`), read only by `git show`, and re-checked
+against its amended head 4d4ce6e3, which adds 9 lines and leaves the commands unchanged. Its `porelo org host carry --help`,
+run from a scratch build, takes `HOST PROJECT [--repository=NAME]...`.
+
+- `organization_source.dart`: `OrganizationHost.repositories`, the projects carried in part with their repositories,
+  and `carriesWhole`; `OrganizationView.carriedWhole`; `OrganizationRowChange.repositoriesOf` reads the change's
+  `repositories` input, comma-separated, none for the whole project, and the row says which are put on or taken off.
+- `porelo_organization_source.dart`: reads `org status`'s `hosts[].repositories`; `carry` and `uncarry` send each
+  named repository as `--repository`. porelo's refusals (`on-another-host`, `exists`, `not-found`, `refused-state`)
+  stand in its own words, as every refusal does.
+- `organization_dialogs.dart`: `CarryChoice` under the machine: *The whole project*, chosen to begin with, or *Some of
+  its repositories*, read by `project show`; a repository on a machine already is named and not offered, and then the
+  whole project cannot be chosen. The machine followed afterwards is the one chosen. `takeProjectOffTheMachine` takes a
+  `repository`, and its question says the read key goes off the central forge at the machine's next follow.
+- `organization_page.dart`, `organization_project_pages.dart`: *Put it on a machine…* stays offered for a project
+  carried in part.
+- `organization_host_pages.dart`: a project carried in part lists its repositories, each with *Take it off this
+  machine…* for the Machine Admin.
+
+Red first, each against the old code: carrying one repository sent the whole project, the machine page had no
+repository to take off alone, the verbs sent no `--repository`, and a host's `repositories` was not read.
+
+Left for Core's hand-over: `porelo project list --json`'s `repositories` per hosted project, not posted yet, is not
+read.

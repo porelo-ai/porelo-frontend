@@ -650,6 +650,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ),
+                      ..._carriedPart(host, name, isAdmin: isAdmin),
                       if (readsMachine) ..._notTaken(name),
                     ],
                   )
@@ -664,6 +665,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
                           'From the organization: ${organizationWords(name)}',
                         ),
                       ),
+                      ..._carriedPart(host, name, isAdmin: isAdmin),
                       if (readsMachine) ..._notTaken(name),
                     ],
                   ),
@@ -671,6 +673,38 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
       ],
     );
   }
+
+  /// The repositories of [name] that [host] carries, where it carries only some: each named, and taken off alone by
+  /// its Machine Admin.
+  List<Widget> _carriedPart(OrganizationHost host, String name, {required bool isAdmin}) => [
+    if (host.repositories[name] case final repositories?)
+      for (final repository in repositories)
+        ListTile(
+          key: ValueKey('organization.carried/$name/$repository'),
+          dense: true,
+          contentPadding: const EdgeInsets.only(left: Space.loose, right: Space.normal),
+          leading: const Icon(Icons.source_outlined),
+          title: Text(repository),
+          subtitle: Text('Of $name, carried here alone'),
+          trailing: !isAdmin
+              ? null
+              : TextButton(
+                  key: ValueKey('organization.takeOffRepository/$name/$repository'),
+                  onPressed: () => unawaited(
+                    showDialog<void>(
+                      context: context,
+                      builder: (_) => takeProjectOffTheMachine(
+                        widget.organization,
+                        project: name,
+                        machine: host.name,
+                        repository: repository,
+                      ),
+                    ),
+                  ),
+                  child: const Text('Take it off this machine…'),
+                ),
+        ),
+  ];
 
   /// The repositories of [name] the machine has not taken, one line per reason with how many, opened on demand to
   /// name them and say the reason once: never one sentence per repository.

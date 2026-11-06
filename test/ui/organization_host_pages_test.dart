@@ -58,6 +58,29 @@ void main() {
       expect(write.input, {'host': 'build', 'project': 'other'});
     });
 
+    // Harm: a whole project put on a machine when one repository of it was meant.
+    testWidgets('carrying one repository of a project sends that repository alone', (tester) async {
+      final (source, _) = await organization(tester);
+      source.projects['other'] = const ProjectView(
+        name: 'other',
+        revision: 'p2',
+        roles: ['admin'],
+        repositories: [
+          ProjectRepository(name: 'api', address: 'git@forge.example.org:acme/api.git'),
+          ProjectRepository(name: 'web', address: 'git@forge.example.org:acme/web.git'),
+        ],
+      );
+      await pressOrganizationAction(tester, 'putOnMachine/other');
+      await _tap(tester, find.byKey(const Key('organization-person')));
+      await _tap(tester, find.text('build').hitTestable());
+      await _tap(tester, find.byKey(const Key('organization-carry-some')));
+      await _tap(tester, find.byKey(const Key('organization-carry-repository-api')));
+      await _tap(tester, _confirm());
+      final write = source.writes.single;
+      expect(write.change, OrganizationChange.addProjectToHost);
+      expect(write.input, {'host': 'build', 'project': 'other', 'repositories': 'api'});
+    });
+
     // Harm: a machine's admin deletes a room's conversation with no word of it.
     testWidgets('taking one off says what stays until its unpushed work is gone, and what goes then', (tester) async {
       final (source, _) = await organization(tester);
@@ -253,6 +276,32 @@ void main() {
       );
       return (source: source, connections: made);
     }
+
+    // Harm: a whole project taken off a machine when one repository of it was meant, its other repositories with it.
+    testWidgets('a project carried in part lists its repositories, and one is taken off alone', (tester) async {
+      final made = await page(
+        tester,
+        'hana',
+        shown: const OrganizationHost(
+          name: 'build',
+          admins: ['hana'],
+          projects: ['demo', 'other'],
+          repositories: {
+            'other': ['api'],
+          },
+        ),
+      );
+      expect(find.byKey(const ValueKey('organization.carried/other/api')), findsOneWidget);
+      expect(find.byKey(const ValueKey('organization.carried/other/web')), findsNothing);
+      expect(find.byKey(const ValueKey('organization.carried/demo/demo')), findsNothing, reason: 'demo is whole');
+
+      await _tap(tester, find.byKey(const ValueKey('organization.takeOffRepository/other/api')));
+      expect(find.textContaining('takes that key off the central forge'), findsOneWidget);
+      await _tap(tester, _confirm());
+      final write = made.source.writes.single;
+      expect(write.change, OrganizationChange.removeProjectFromHost);
+      expect(write.input, {'host': 'build', 'project': 'other', 'repositories': 'api'});
+    });
 
     // Harm: unpushed work holding a removed project on a machine disappears from the only list its admin can act on.
     testWidgets('the read-only list keeps what the machine carries until it is gone, for a connected admin only', (

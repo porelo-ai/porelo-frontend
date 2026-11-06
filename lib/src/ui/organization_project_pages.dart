@@ -452,7 +452,7 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
     if (organization == null || project == null) return const [];
     final hosts = hostsAdministeredBy(organization);
     return [
-      if (project.host == null && hosts.isNotEmpty)
+      if (!organization.carriedWhole(project.name) && hosts.isNotEmpty)
         Command(
           id: 'project.putOnMachine',
           label: 'Put it on a machine…',

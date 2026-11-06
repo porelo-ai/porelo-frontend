@@ -114,6 +114,7 @@ class OrganizationHost {
     this.admins = const [],
     this.adminKeys = const [],
     this.projects = const [],
+    this.repositories = const {},
   });
 
   /// Its name.
@@ -146,8 +147,15 @@ class OrganizationHost {
   /// Every key of its host admins, backup keys among them: the pin a first `up` starts from.
   final List<HostAdminKey> adminKeys;
 
-  /// The projects it carries.
+  /// The projects it carries, whole or by some of their repositories.
   final List<String> projects;
+
+  /// For each project it carries by some of its repositories, their names; a project in [projects] and not here it
+  /// carries whole.
+  final Map<String, List<String>> repositories;
+
+  /// Whether it carries [project] whole.
+  bool carriesWhole(String project) => projects.contains(project) && !repositories.containsKey(project);
 }
 
 /// One state of the organization, as the store answered it for the person asking.
@@ -263,6 +271,13 @@ class OrganizationView {
 
   /// Whether [project] is known to have no Git repository: a stale read cannot tell that one is missing.
   bool saysNoRepository(OrganizationProject project) => !stale && project.hasNoRepository;
+
+  /// Whether a machine carries [project] whole, or the store names a machine for it and none says it carries a part:
+  /// one carried in part may have its other repositories put on a machine.
+  bool carriedWhole(String project) =>
+      hosts.any((host) => host.carriesWhole(project)) ||
+      (projects.any((each) => each.name == project && each.host != null) &&
+          !hosts.any((host) => host.repositories.containsKey(project)));
 
   /// Whether [project] stands under *My projects*: this person holds a role in it, and it has its Git
   /// repository, as one with none yet stands on the Organization page, where it is made.
@@ -869,6 +884,18 @@ class OrganizationRowChange {
     return null;
   }
 
+  /// The repositories a carry or uncarry names, as said in its row, or "it " for the whole project.
+  static String _some(Map<String, String> input) => switch (repositoriesOf(input)) {
+    [] => 'it ',
+    final names => '${names.join(', ')} ',
+  };
+
+  /// The repositories a carry or uncarry names, comma-separated in its input; none for the whole project.
+  static List<String> repositoriesOf(Map<String, String> input) => [
+    for (final name in (input['repositories'] ?? '').split(','))
+      if (name.trim().isNotEmpty) name.trim(),
+  ];
+
   /// The list and row it marks, absent for changes that stay in a dialog.
   static ({String scope, String name, String doing})? target(OrganizationChange change, Map<String, String> input) {
     final project = input['project'] ?? '';
@@ -893,12 +920,12 @@ class OrganizationRowChange {
       OrganizationChange.addProjectToHost => (
         scope: 'organization-projects',
         name: project,
-        doing: 'Putting it on $host…',
+        doing: 'Putting ${_some(input)}on $host…',
       ),
       OrganizationChange.removeProjectFromHost => (
         scope: 'organization-projects',
         name: project,
-        doing: 'Taking it off $host…',
+        doing: 'Taking ${_some(input)}off $host…',
       ),
       OrganizationChange.addProjectMember => (scope: 'project-members $project', name: login, doing: 'Adding…'),
       OrganizationChange.removeProjectMember => (scope: 'project-members $project', name: login, doing: 'Removing…'),

@@ -415,7 +415,7 @@ class _OrganizationPageState extends State<OrganizationPage> {
                         ),
                       ),
                     ),
-                  if (project.host == null && hostsAdministeredBy(view).isNotEmpty)
+                  if (!view.carriedWhole(project.name) && hostsAdministeredBy(view).isNotEmpty)
                     _command(
                       'putOnMachine/${project.name}',
                       'Put it on a machine…',

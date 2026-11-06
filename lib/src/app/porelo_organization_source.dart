@@ -211,6 +211,15 @@ class PoreloOrganizationSource implements OrganizationSource, FoundingChecks {
           HostAdminKey(login: _text(row, 'login'), key: _maybeText(row, 'key'), backup: row['backup'] == true),
       ],
       projects: _texts(host, 'projects'),
+      // Only the projects carried in part; an older porelo says nothing, and every project is carried whole.
+      repositories: {
+        for (final MapEntry(:key, :value) in (_maybeMap(host, 'repositories') ?? const <String, Object?>{}).entries)
+          if (value is List)
+            key: [
+              for (final name in value)
+                if (name is String) name,
+            ],
+      },
     );
   }
 
@@ -567,8 +576,29 @@ class PoreloOrganizationSource implements OrganizationSource, FoundingChecks {
       ],
       OrganizationChange.addHostAdmin => ['org', 'host', 'admin', 'add', given('host'), given('login')],
       OrganizationChange.removeHostAdmin => ['org', 'host', 'admin', 'remove', given('host'), given('login')],
-      OrganizationChange.addProjectToHost => ['org', 'host', 'carry', given('host'), given('project')],
-      OrganizationChange.removeProjectFromHost => ['org', 'host', 'uncarry', given('host'), given('project')],
+      // Named repositories each with its own --repository; none is the whole project.
+      OrganizationChange.addProjectToHost => [
+        'org',
+        'host',
+        'carry',
+        given('host'),
+        given('project'),
+        for (final name in OrganizationRowChange.repositoriesOf(input)) ...[
+          '--repository',
+          _positional(name, 'repository'),
+        ],
+      ],
+      OrganizationChange.removeProjectFromHost => [
+        'org',
+        'host',
+        'uncarry',
+        given('host'),
+        given('project'),
+        for (final name in OrganizationRowChange.repositoriesOf(input)) ...[
+          '--repository',
+          _positional(name, 'repository'),
+        ],
+      ],
       OrganizationChange.createProjectRepository => [
         'project',
         'create-repository',
