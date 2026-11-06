@@ -20,7 +20,7 @@ looks for it there. A Bug: the action is missing where the project is shown.
   not on a machine and a machine there to put it on; on one the organization lists.
 - `lib/src/ui/organization_project_pages.dart`: the project page's head offers both, under the same conditions and
   keys `project.putOnMachine` and `project.takeOffMachine`.
-- When F407 is built, the choice of repositories comes to both through the shared dialog.
+- When [F407](README.md#f407) is built, the choice of repositories comes to both through the shared dialog.
 - **The test that goes red first:** a widget test of a project page for a project on no machine, in an organization
   with one: *Put it on a machine…* is there and sends `org host carry <host> <project>`. It guards the action missing
   from the page a person opens.
