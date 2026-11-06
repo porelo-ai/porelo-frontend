@@ -1,6 +1,6 @@
 # F412 — A Machine Page Says Why It Offers No Start Work
 
-**Status:** Backlog.
+**Status:** Accepted (operator, 2026-11-06).
 **Size:** XS - where an organization's machine page offers no *Start work*, it says why in one line, and the window's
 two connections on it are told apart in words.
 

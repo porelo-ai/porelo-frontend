@@ -1,6 +1,6 @@
 # F408 — Every List Section Folds
 
-**Status:** Backlog.
+**Status:** Accepted (operator, 2026-11-06).
 **Size:** S - the shared list section folds unless a dialog says otherwise, so every page's lists fold and a new page
 cannot miss it; the nine sections that do not fold today follow without a change of their own.
 

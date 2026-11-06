@@ -1,6 +1,6 @@
 # F406 — A Machine's Page Lists Its Projects Once
 
-**Status:** Backlog.
+**Status:** Accepted (operator, 2026-11-06).
 **Size:** S - one list of the machine's projects from the two sources the page holds, each row saying where it comes
 from and how it stands, and *Managing this machine* as a section of its own; layout and words, no new call.
 

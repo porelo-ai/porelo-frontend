@@ -1,6 +1,6 @@
 # F409 — A Project's Page Puts It On A Machine
 
-**Status:** Backlog.
+**Status:** Accepted (operator, 2026-11-06).
 **Size:** S - *Put it on a machine…* and *Take it off the machine…* offered on the project's own page, the same
 dialogs and the same follow as on the Organization page's project row, moved where both pages share them.
 

@@ -1,6 +1,6 @@
 # F420 — The Gate View Says It Reads, And What Waits Stays Reachable
 
-**Status:** Backlog.
+**Status:** Accepted (operator, 2026-11-06).
 **Size:** S - the gate view shows that it reads, gathers the repositories it could not read into one line per cause
 opened on demand, and keeps the waiting pushes and *Approve* on screen whatever the errors say.
 

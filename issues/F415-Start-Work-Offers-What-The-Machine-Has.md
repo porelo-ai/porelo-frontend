@@ -1,6 +1,6 @@
 # F415 — Start Work Offers What The Machine Has
 
-**Status:** Backlog.
+**Status:** Accepted (operator, 2026-11-06).
 **Size:** S - *Start work* on an organization's machine offers only the repositories the machine has taken, with one
 line saying why the others are not offered.
 

@@ -1,6 +1,6 @@
 # F419 — A Terminal Offers Only Printed Links
 
-**Status:** Backlog.
+**Status:** Accepted (operator, 2026-11-06).
 **Size:** XS - links under a terminal leave out an address that still holds a variable or a template, and one that
 only the task can reach.
 

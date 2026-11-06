@@ -1,6 +1,6 @@
 # F417 — A Task's Terminal Selects With The Mouse
 
-**Status:** Backlog.
+**Status:** Accepted (operator, 2026-11-06).
 **Size:** S - the cause found on the operator's setup first, then a drag, and a Shift+drag always, selecting in a
 task's terminal as the line under it promises, and a plain drag no longer leaving tmux a press with no release.
 

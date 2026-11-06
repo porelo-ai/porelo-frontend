@@ -1,13 +1,13 @@
 # F421 — An Action On A Machine Shows It Works, And Answers Where It Was Pressed
 
-**Status:** Backlog.
+**Status:** Accepted (operator, 2026-11-06).
 **Size:** M - one shared button for an action that asks a machine, holding its own working state and its answer
-beside it, and the pages' actions moved onto it; F413 and F420 are two of its cases.
+beside it, and the pages' actions moved onto it; [F413](README.md#f413) and [F420](README.md#f420) are two of its cases.
 
 **What must be true.** Every press in the window that asks a machine and waits - fetching, starting work, reading the
 gate, putting a project on a machine, connecting, giving a token, refreshing - shows from the press to the answer that
 it works (the button disabled with a small ring, and what it waits for), and its answer, done or refused, stands
-beside the button pressed, where the person looks. A new action gets both by using the shared button, as F408 makes
+beside the button pressed, where the person looks. A new action gets both by using the shared button, as [F408](README.md#f408) makes
 folding the list section's own.
 
 ## Why
@@ -35,10 +35,10 @@ afterwards could not be seen. Before it, *Start work* ([F413](README.md#f413)) a
   answering null or refusal words; it disables itself and shows a small ring with its words while the action runs,
   and its answer under itself until the next press. One press at a time: a second press while it runs sends
   nothing.
-- The machine page's buttons, *Start work* (F413's case), *Give it my token…*, *Fetch now*, *Connect*, the
+- The machine page's buttons, *Start work* ([F413](README.md#f413)'s case), *Give it my token…*, *Fetch now*, *Connect*, the
   organization page's row actions and the forges' sign-in move onto it; the page-head `_refusal` stays only for what
   no button asked.
-- The gate view takes F420's reading line.
+- The gate view takes [F420](README.md#f420)'s reading line.
 - **The test that goes red first:** `AskingButton` with an action not yet answered shows its ring and words and is
   disabled, a second press calls nothing, and the refusal shows under it; and the machine page's *Fetch now* refused
   shows its words beside the button. It guards a person who presses again, or leaves, because nothing answered where

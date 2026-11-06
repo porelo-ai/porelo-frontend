@@ -1,6 +1,6 @@
 # F416 — A Started Task Opens Its Terminal
 
-**Status:** Backlog.
+**Status:** Accepted (operator, 2026-11-06).
 **Size:** S - a task this window just started with a person taking part lands on Work with its terminal open and
 attached, not on "No terminal is open in it"; the cause is found first, then the opening made sure.
 

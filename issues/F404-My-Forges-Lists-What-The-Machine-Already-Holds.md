@@ -1,6 +1,6 @@
 # F404 — My Forges Lists What The Machine Already Holds
 
-**Status:** Backlog.
+**Status:** Accepted (operator, 2026-11-06).
 **Size:** S - *My forges* takes the forge connections the machine's vault declares beside those set up in the window,
 each with where it comes from, and marks the organization's forge; no daemon change.
 

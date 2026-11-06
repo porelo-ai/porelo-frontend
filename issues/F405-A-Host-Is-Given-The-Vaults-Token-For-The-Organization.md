@@ -1,6 +1,6 @@
 # F405 — A Host Is Given The Vault's Token For The Organization
 
-**Status:** Backlog.
+**Status:** Accepted (operator, 2026-11-06).
 **Size:** S - the machine page's *Give it my token…* finds the declaration matching the organization's forge address,
 names it, and has Porelo hand it on; blocked by porelo's verb for that.
 

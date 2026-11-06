@@ -1,6 +1,6 @@
 # F413 — Start Work Shows It Is Starting
 
-**Status:** Backlog.
+**Status:** Accepted (operator, 2026-11-06).
 **Size:** XS - from the press of *Start work* on a machine's page until its answer, the button is disabled and a line
 says what it waits for.
 

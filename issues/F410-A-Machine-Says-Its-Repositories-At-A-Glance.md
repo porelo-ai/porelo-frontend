@@ -1,6 +1,6 @@
 # F410 — A Machine Says Its Repositories At A Glance
 
-**Status:** Backlog.
+**Status:** Accepted (operator, 2026-11-06).
 **Size:** S - the machine page's row of a carried project reads the machine's answer per repository, names the taken
 ones first and gathers the rest by reason into one line each, opened on demand.
 

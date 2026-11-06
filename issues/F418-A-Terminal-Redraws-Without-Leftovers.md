@@ -1,6 +1,6 @@
 # F418 — A Terminal Redraws Without Leftovers
 
-**Status:** Backlog.
+**Status:** Accepted (operator, 2026-11-06).
 **Size:** S - the escape sequence the vendored terminal mishandles found from a recording of the agent's output, fixed
 in `packages/xterm`, and the recording kept as the test.
 

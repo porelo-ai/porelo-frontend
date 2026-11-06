@@ -1,6 +1,6 @@
 # F411 — Putting A Project On A Machine Says So
 
-**Status:** Backlog.
+**Status:** Accepted (operator, 2026-11-06).
 **Size:** XS - the pending words of putting a project on a machine and taking it off name the machine.
 
 **What must be true.** While a project is put on a machine, its row says "Putting it on <machine>…"; while it is taken

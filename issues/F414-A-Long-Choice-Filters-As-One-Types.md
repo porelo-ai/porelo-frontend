@@ -1,6 +1,6 @@
 # F414 — A Long Choice Filters As One Types
 
-**Status:** Backlog.
+**Status:** Accepted (operator, 2026-11-06).
 **Size:** S - the shared choice field opens a small dialog with a filter field where its list is long, used by every
 choice that grows with what is listed (repositories, machines, people).
 
