@@ -100,6 +100,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f112"></a>[F112](F112-What-A-Piece-Of-Work-Did-In-Words.md) | M | — | What a piece of work did, in words, at its top: last answer, commits as a list with their highest risk class, what waits with its checks, messages, firewall stops; no diff. | — |
 | <a id="f190"></a>[F190](F190-Approved-Work-Brought-To-The-Central-Forge.md) | M | — | A host pull request's state and approval, and approved work brought on to the central forge bound to commit, repository and pull request, with level, class and checks in one line. | — |
 | <a id="f191"></a>[F191](F191-Held-And-Outgoing-Forge-Comments-Released.md) | M | — | Held inbound forge comments and outgoing ones in *Needs you*, each released, dismissed, sent or refused alone, a person's own from IntelliJ too, bound to commit and pull request. | — |
+| <a id="f394"></a>[F394](F394-A-Tunnel-Forward-Only-The-Person-Reaches.md) | M | — | What the window forwards from a machine is reached only by the person: a relay of the window's own lets in only the person's connections, the host refusing other sites' requests to the forge's web. | 2 |
 
 ### Accepted
 
@@ -107,7 +108,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 |---|---|---|---|
 | <a id="f123"></a>[F123](F123-Where-A-Machine-And-A-Project-Stand-In-Their-Organisations-Tree.md) | — | — | Where a machine and a project stand in their organisation's tree, and which settings bind them. |
 | <a id="f166"></a>[F166](F166-A-Host-Rented-Through-OpenTofu.md) | M | — | `porelo-host up` and `down` renting and giving back through the OpenTofu module, its secrets only in `tofu`'s environment; `--given` kept. |
-| <a id="f394"></a>[F394](F394-A-Tunnel-Forward-Only-The-Person-Reaches.md) | — | — | What the window forwards from a machine is reached only by the person: today a host's forge, git and homeserver, a joined homeserver and a sign-in's redirect listen on loopback for every local user. |
 
 ### Idea
 
