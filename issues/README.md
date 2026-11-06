@@ -108,6 +108,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f401"></a>[F401](F401-The-Bootstrap-Line-Says-Where-It-Runs.md) | XS | — | The bootstrap line of *Prepare a server* in its own box with a copy button, saying it runs on the server. |
 | <a id="f123"></a>[F123](F123-Where-A-Machine-And-A-Project-Stand-In-Their-Organisations-Tree.md) | — | — | Where a machine and a project stand in their organisation's tree, and which settings bind them. |
 | <a id="f166"></a>[F166](F166-A-Host-Rented-Through-OpenTofu.md) | M | — | `porelo-host up` and `down` renting and giving back through the OpenTofu module, its secrets only in `tofu`'s environment; `--given` kept. |
 
@@ -115,6 +116,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f402"></a>[F402](F402-Prepare-A-Server-As-The-Standard-Wizard.md) | — | — | *Prepare a server* as steps of the standard wizard, each fitting the window. |
 | <a id="f99"></a>[F99](F99-An-Attached-Agent-Shown-At-Rest-Or-Working.md) | — | — | A work tile says whether an attached agent is at rest or working; implementation waits for the verified screen-derived daemon answer. |
 | <a id="f386"></a>[F386](F386-A-Short-Name-People-Read.md) | — | — | A task and a project have a short name people read; the window's lists show only it. |
 | <a id="f384"></a>[F384](F384-Configure-The-Terminal.md) | — | — | The window's terminal can be configured: font sizes, colours and so on. |
