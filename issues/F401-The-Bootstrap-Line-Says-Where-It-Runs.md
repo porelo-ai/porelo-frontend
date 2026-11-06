@@ -1,6 +1,6 @@
 # F401 — The Bootstrap Line Says Where It Runs
 
-**Status:** Accepted.
+**Status:** Review.
 **Size:** XS - the root bootstrap line of *Prepare a server* in the shared box with its copy button, and words beside
 it that say where it runs.
 

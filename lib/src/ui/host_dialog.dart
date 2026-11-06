@@ -14,6 +14,7 @@ import '../app/preparation_host_key.dart';
 import '../app/run_here.dart';
 import '../app/session.dart';
 import '../app/settings.dart';
+import 'command_to_copy.dart';
 import 'tokens.dart';
 import 'host_check_list.dart';
 import 'host_preparation_settings.dart';
@@ -831,11 +832,11 @@ class _HostDialogState extends State<HostDialog> {
                 HostPreparationSettingsForm(value: _choices, onChanged: (value) => _choose(value)),
                 if (access != null && _proven && _refusal(access) == null) ...[
                   const Text(
-                    'Before setup: log in to the server with the user your provider gave you, such as ubuntu, and run '
-                    'this there. It replaces root’s authorized keys with your Machine Admin card key, and from then on '
-                    'Porelo logs in as root.',
+                    'Before setup, on the server, not on this computer: log in there with the first login your '
+                    'provider gave you, such as ubuntu, and run this line. It replaces root’s authorized keys with '
+                    'your Machine Admin card key, and from then on Porelo logs in as root.',
                   ),
-                  SelectableText(access.bootstrapCommand()),
+                  CommandToCopy(command: access.bootstrapCommand(), textKey: const Key('host-bootstrap-command')),
                 ],
               ],
               if (!widget.takeDownOnly && run == null) ...[
@@ -844,7 +845,8 @@ class _HostDialogState extends State<HostDialog> {
               ],
               // The run stopped on the very command it asked for: it is shown again, above the words that say so.
               if (_rootCommandAgain(access, run) case final command?) ...[
-                SelectableText(command, key: const Key('preparation-root-command')),
+                const Text('Run it on the server, logged in with your provider’s first login, not on this computer:'),
+                CommandToCopy(command: command, textKey: const Key('preparation-root-command')),
                 if (_problem == null && run?.problem != null) Text(run!.problem!),
               ],
               if (_problem != null) Text(_problem!, key: _problemShown),
