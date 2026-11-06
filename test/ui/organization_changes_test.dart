@@ -89,7 +89,7 @@ void main() {
     expect(source.projectReads, readsBefore + 1, reason: 'The project read still follows the organization read.');
     expect(pending, findsOneWidget);
     expect(running, findsOneWidget, reason: 'The last read is still part of the change.');
-    await organization.write(OrganizationChange.removeProjectRepository, {'project': 'demo', 'repository': 'demo'});
+    await organization.write(OrganizationChange.removeProjectMember, {'project': 'demo', 'login': 'mia'});
     expect(source.writes, hasLength(1), reason: 'A competing write cannot use the old revision.');
     projectAnswer.complete(demoProject);
     await tester.pump();
@@ -133,7 +133,7 @@ void main() {
     final removed = Completer<void>();
     source.holdWrites = removed.future;
     source.refuseNext = const OrganizationRefused('The project moved on.', reason: 'moved-on');
-    await pressOrganizationAction(tester, 'removeRepository/demo-docs');
+    await pressOrganizationAction(tester, 'removeMember/mia');
     await tester.tap(find.byKey(const Key('organization-confirm')));
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
@@ -144,12 +144,12 @@ void main() {
     await page();
     await tester.pumpAndSettle();
     expect(
-      find.byKey(const ValueKey('organization-pending project-repositories demo demo-docs')),
+      find.byKey(const ValueKey('organization-pending project-members demo mia')),
       findsOneWidget,
       reason: 'A refused removal stays reachable even if reopening the project fails.',
     );
     final writesBefore = source.writes.length;
-    await pressOrganizationAction(tester, 'retryChange/project-repositories demo/demo-docs');
+    await pressOrganizationAction(tester, 'retryChange/project-members demo/mia');
     expect(source.writes, hasLength(writesBefore), reason: 'An answered refusal needs a fresh revision first.');
     // A disabled retry keeps its menu open.
     await tester.tapAt(Offset.zero);
@@ -164,9 +164,9 @@ void main() {
         roles: demoProject.roles,
       ),
     };
-    await pressOrganizationAction(tester, 'reviewChange/project-repositories demo/demo-docs');
+    await pressOrganizationAction(tester, 'reviewChange/project-members demo/mia');
     source.holdWrites = null;
-    await pressOrganizationAction(tester, 'retryChange/project-repositories demo/demo-docs');
+    await pressOrganizationAction(tester, 'retryChange/project-members demo/mia');
     expect(source.writes.last.base, 'p2', reason: 'A new attempt uses the revision the person has just reviewed.');
     expect(
       source.writes.last.id,

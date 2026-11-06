@@ -194,37 +194,28 @@ void main() {
       await tester.tap(find.byKey(const Key('organization-confirm')));
       await tester.pumpAndSettle();
       expect(fixture.writes.single.change, OrganizationChange.nameRepositoryCentral);
-      expect(fixture.writes.single.base, 'r7', reason: 'A row is changed against the revision of the repositories.');
       expect(fixture.writes.single.input, {
         'project': 'demo',
         'repository': 'none',
         'central': 'git@forge.example.org:acme/none.git',
       });
+      expect(find.text('entry: nameRepositoryCentral\n'), findsOneWidget);
+      expect(find.textContaining('project.yml in the own repository of project demo'), findsOneWidget);
     });
 
-    // Harm: a dialog keeps the revision it opened with, so a project that moved on refuses it for ever.
-    testWidgets('names it again against the revision read since a refusal', (tester) async {
+    // Harm: Porelo's refusal is lost, or an entry from an earlier answer stays beside it.
+    testWidgets('a refusal is said in the dialog, and no entry with it', (tester) async {
       final fixture = await _page(tester, 'pat', project: project);
-      fixture.refuseNext = const OrganizationRefused('The project moved on.', reason: 'moved-on');
+      fixture.refuseNext = const OrganizationRefused('That repository is not in the project.');
       await pressOrganizationAction(tester, 'nameCentral/none');
       await tester.tap(find.byKey(const Key('organization-confirm')));
       await tester.pumpAndSettle();
-      fixture.projects = {
-        'demo': ProjectView(
-          name: 'demo',
-          revision: 'p2',
-          host: project.host,
-          address: project.address,
-          roles: project.roles,
-          repositories: project.repositories,
-          repositoriesRevision: 'r8',
-          members: project.members,
-        ),
-      };
-      await pressOrganizationAction(tester, 'reviewChange/project-repositories demo/none');
-      await pressOrganizationAction(tester, 'retryChange/project-repositories demo/none');
-      expect(fixture.writes.last.change, OrganizationChange.nameRepositoryCentral);
-      expect(fixture.writes.last.base, 'r8');
+      expect(find.text('That repository is not in the project.'), findsOneWidget);
+      expect(find.byKey(const Key('project-file-entry')), findsNothing);
+      await tester.tap(find.byKey(const Key('organization-confirm')));
+      await tester.pumpAndSettle();
+      expect(find.text('That repository is not in the project.'), findsNothing);
+      expect(find.byKey(const Key('project-file-entry')), findsOneWidget);
     });
 
     testWidgets('offers no mending, and promises none, where it names no address either', (tester) async {
@@ -729,18 +720,67 @@ void main() {
       expect(fixture.writes.single.input, {'project': 'demo', 'repository': 'demo-docs'});
     });
 
-    testWidgets('what the store reads after a change is shown', (tester) async {
+    // Harm: an older Porelo removed it itself, and the page goes on listing it as if it had not.
+    testWidgets('a repository an older Porelo removed itself is gone from the page', (tester) async {
       final fixture = await _page(tester, 'pat');
-      fixture.afterWrite = (_) {
-        fixture.projects = {
+      fixture
+        ..writesProjectFiles = true
+        ..projects = {
           'demo': const ProjectView(name: 'demo', revision: 'p2', roles: ['developer']),
         };
-        return fixture.view;
-      };
       await pressOrganizationAction(tester, 'removeRepository/demo-docs');
       await tester.tap(find.byKey(const Key('organization-confirm')));
       await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsNothing);
       expect(find.text('demo-docs'), findsNothing);
+    });
+
+    // Harm: the entry for a name no longer typed is shown, and copied, beside the new one.
+    testWidgets('an entry asked for before the last edit is not shown', (tester) async {
+      final fixture = await _page(tester, 'pat');
+      await pressOrganizationAction(tester, 'addRepository');
+      await tester.enterText(find.byKey(const Key('organization-repository-name')), 'first');
+      await tester.enterText(
+        find.byKey(const Key('organization-repository-address')),
+        'https://forge.example.org/f.git',
+      );
+      await tester.pumpAndSettle();
+      final held = Completer<void>();
+      fixture.holdWrites = held.future;
+      await tester.tap(find.byKey(const Key('organization-confirm')));
+      await tester.pump();
+      await tester.enterText(find.byKey(const Key('organization-repository-name')), 'second');
+      held.complete();
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('project-file-entry')), findsNothing);
+    });
+
+    // Harm: a write asked for a project-file change swallows the entry and says nothing changed for an unknown reason.
+    testWidgets('a write is never asked for a project-file change', (tester) async {
+      final fixture = await _page(tester, 'pat');
+      final organization = Organization(fixture);
+      addTearDown(organization.dispose);
+      await organization.refresh();
+      final said = await organization.write(OrganizationChange.removeProjectRepository, {
+        'project': 'demo',
+        'repository': 'demo-docs',
+      });
+      expect(said, contains('entry'));
+      expect(fixture.writes, isEmpty);
+    });
+
+    // Harm: a repository looks removed while the project file, which Porelo does not change, still holds it.
+    testWidgets('a repository asked to be removed stays listed until its entry is committed', (tester) async {
+      final fixture = await _page(tester, 'pat');
+      await pressOrganizationAction(tester, 'removeRepository/demo-docs');
+      await tester.tap(find.byKey(const Key('organization-confirm')));
+      await tester.pumpAndSettle();
+      expect(find.text('take the entry out'), findsOneWidget);
+      expect(find.byKey(const Key('copy-project-file-entry')), findsNothing, reason: 'There is nothing to copy.');
+      await tester.tap(find.text('Close'));
+      await tester.pumpAndSettle();
+      expect(find.text('demo-docs'), findsOneWidget);
+      expect(fixture.writes, hasLength(1));
     });
 
     // Harm: a project nobody opened reads as an empty one, or only its project admin's key could open it and another tries.

@@ -853,21 +853,6 @@ void main() {
         ['project', 'member', 'unlock', 'p', 'a'],
       ),
       (
-        OrganizationChange.addProjectRepository,
-        {'project': 'p', 'repository': 'r', 'address': 'x'},
-        ['project', 'repository', 'add', 'p', 'r', '--upstream', 'x'],
-      ),
-      (
-        OrganizationChange.nameRepositoryCentral,
-        {'project': 'p', 'repository': 'r', 'central': 'x'},
-        ['project', 'repository', 'change', 'p', 'r', '--central', 'x'],
-      ),
-      (
-        OrganizationChange.removeProjectRepository,
-        {'project': 'p', 'repository': 'r'},
-        ['project', 'repository', 'remove', 'p', 'r'],
-      ),
-      (
         OrganizationChange.changeHost,
         {'host': 'h', 'address': 'x', 'port': '22', 'hostKey': 'k', 'webPort': '', 'gitPort': '', 'matrixPort': ''},
         ['org', 'host', 'change', 'h', '--address', 'x', '--ssh-port', '22', '--host-key', 'k'],
@@ -906,6 +891,90 @@ void main() {
         expect(await asking(change, input), [...command, '--base', 'b', '--id', 'i', '--json']);
       });
     }
+
+    for (final (change, input, command) in <(OrganizationChange, Map<String, String>, List<String>)>[
+      (
+        OrganizationChange.addProjectRepository,
+        {'project': 'p', 'repository': 'r', 'address': 'x'},
+        ['project', 'repository', 'add', 'p', 'r', '--upstream', 'x'],
+      ),
+      (
+        OrganizationChange.nameRepositoryCentral,
+        {'project': 'p', 'repository': 'r', 'central': 'x'},
+        ['project', 'repository', 'change', 'p', 'r', '--central', 'x'],
+      ),
+      (
+        OrganizationChange.removeProjectRepository,
+        {'project': 'p', 'repository': 'r'},
+        ['project', 'repository', 'remove', 'p', 'r'],
+      ),
+      (
+        OrganizationChange.changeProjectReview,
+        {'project': 'p', 'review': 'optional'},
+        ['project', 'review', 'p', 'optional'],
+      ),
+    ]) {
+      // Harm: a revision or id Porelo no longer takes refuses every change to a project's own file, and the person never
+      // learns the entry to write.
+      test('${change.name} runs ${command.take(3).join(' ')} with no base or id, and answers the entry', () async {
+        answer = (_) => (
+          code: 65,
+          out: jsonEncode({
+            'reason': 'by-hand',
+            'words': 'Porelo changes no project file: …',
+            'entry': 'repositories:\n  r: {}\n',
+            'revision': null,
+          }),
+          err: '',
+        );
+        await expectLater(
+          source.apply(OrganizationWrite(change: change, input: input, person: 'alice', base: 'b', id: 'i')),
+          throwsA(
+            isA<ProjectFileByHand>()
+                .having((byHand) => byHand.entry, 'entry', 'repositories:\n  r: {}\n')
+                .having((byHand) => byHand.project, 'project', 'p'),
+          ),
+        );
+        expect(asked.last, [...command, '--json']);
+      });
+    }
+
+    // Harm: a removal, which has nothing to write, reads as refused, or a cut-up entry is committed wrong.
+    test('a by-hand answer with no entry is said in its own words, and as nothing changed', () async {
+      answer = (_) =>
+          (code: 65, out: jsonEncode({'reason': 'by-hand', 'words': 'add this entry: …', 'revision': null}), err: '');
+      await expectLater(
+        source.apply(
+          const OrganizationWrite(
+            change: OrganizationChange.removeProjectRepository,
+            input: {'project': 'p', 'repository': 'r'},
+            person: 'alice',
+            base: 'b',
+            id: 'i',
+          ),
+        ),
+        throwsA(
+          isA<ProjectFileByHand>()
+              .having((byHand) => byHand.entry, 'entry', isNull)
+              .having((byHand) => byHand.words, 'words', 'add this entry: …'),
+        ),
+      );
+    });
+
+    // Harm: an older Porelo wrote and signed the change itself; read as refused, asking again commits it twice.
+    test('an older Porelo that wrote the change itself is taken as written', () async {
+      answer = (_) => says({'revision': '9d0fcc5', 'id': 'org-1', 'again': false, 'of': 'project'});
+      await source.apply(
+        const OrganizationWrite(
+          change: OrganizationChange.addProjectRepository,
+          input: {'project': 'p', 'repository': 'r', 'address': 'x'},
+          person: 'alice',
+          base: '',
+          id: '',
+        ),
+      );
+      expect(asked.last, ['project', 'repository', 'add', 'p', 'r', '--upstream', 'x', '--json']);
+    });
 
     // Harm: a first organization cannot be made, or a set-up runs with an id or base the contract does not take.
     test('a write with nothing accepted yet names no base', () async {

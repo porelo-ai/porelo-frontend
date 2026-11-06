@@ -15,11 +15,14 @@ import '../features/support/world.dart';
 import '../support/organization_fixtures.dart';
 import 'organization_actions.dart';
 
-ProjectInitDraft _draft({String? revision = 'preview-base'}) => ProjectInitDraft(
+const _entry = 'repositories:\n  app: {}\n';
+
+ProjectInitDraft _draft({String? entry = _entry}) => ProjectInitDraft(
   repository: 'app',
   upstream: null,
   draft: 'review: required\n',
-  revision: revision,
+  revision: null,
+  entry: entry,
   values: const [
     ProjectInitValue(
       key: 'build',
@@ -81,6 +84,13 @@ Future<Organization> _dialog(WidgetTester tester, _Source source, {PickAFolder? 
   return organization;
 }
 
+Finder get _entryShown => find.byKey(const Key('project-file-entry'));
+
+Future<void> _close(WidgetTester tester) async {
+  await tester.tap(find.text('Close'));
+  await World.settle(tester);
+}
+
 Future<void> _confirm(WidgetTester tester) async {
   final confirm = find.byKey(const Key('organization-confirm'));
   await tester.ensureVisible(confirm);
@@ -139,12 +149,13 @@ void main() {
   });
 
   // Harm: a task on a machine reads the central forge, past the machine's gate, or what is signed differs from what was read.
-  testWidgets('a project on a machine is read and signed with the machine\'s own address', (tester) async {
+  testWidgets('a project on a machine is read with the machine\'s own address, and its entry shown', (tester) async {
     final source = _Source('pat');
     await _dialog(tester, source);
     expect(source.upstreams, [null, 'http://127.0.0.1:8082/demo/app.git']);
-    await _confirm(tester);
-    expect(source.writes.single.input['upstream'], 'http://127.0.0.1:8082/demo/app.git');
+    expect(find.text(_entry), findsOneWidget);
+    expect(find.textContaining("project.yml in the own repository of project demo"), findsOneWidget);
+    expect(source.writes, isEmpty);
   });
 
   // Harm: a person signs a security class and a project address the dialog never showed them.
@@ -158,7 +169,8 @@ void main() {
         repository: 'app',
         upstream: 'http://127.0.0.1:8082/demo/app.git',
         draft: proposed,
-        revision: 'preview-base',
+        revision: null,
+        entry: _entry,
         values: const [],
         disagreements: const [],
         unplaced: '',
@@ -188,13 +200,14 @@ void main() {
   });
 
   // Harm: a first project named as its repository meets Core's refusal with no way on, or is signed and refused later.
-  testWidgets('a checkout named as the project cannot be signed, and another name is offered', (tester) async {
+  testWidgets('a checkout named as the project shows no entry, and another name is offered', (tester) async {
     final source = _Source('pat');
     source.preview = () async => ProjectInitDraft(
       repository: 'demo',
       upstream: null,
       draft: 'review: required\n',
-      revision: 'preview-base',
+      revision: null,
+      entry: _entry,
       values: const [],
       disagreements: const [],
       unplaced: '',
@@ -206,47 +219,44 @@ void main() {
     await tester.tap(find.text('Choose a checkout folder…'));
     await World.settle(tester);
     expect(find.textContaining('demo-project'), findsOneWidget);
-    expect(tester.widget<FilledButton>(find.byKey(const Key('organization-confirm'))).onPressed, isNull);
+    expect(_entryShown, findsNothing);
     expect(source.writes, isEmpty);
   });
 
-  // Harm: canceling a native picker or confirming while a preview is incomplete must never sign anything.
-  testWidgets('canceling a folder choice and waiting for a preview leave signing disabled', (tester) async {
+  // Harm: an entry is shown for a folder never read, or before its draft is complete.
+  testWidgets('canceling a folder choice and waiting for a preview show no entry', (tester) async {
     final source = _Source('pat');
     await _dialog(tester, source, pick: ({initialDirectory, title}) async => null);
     expect(source.previews, isEmpty);
-    expect(tester.widget<FilledButton>(find.byKey(const Key('organization-confirm'))).onPressed, isNull);
-    expect(source.writes, isEmpty);
-    await tester.tap(find.text('Cancel'));
-    await World.settle(tester);
+    expect(_entryShown, findsNothing);
+    await _close(tester);
     final reading = Completer<ProjectInitDraft>();
     source.preview = () => reading.future;
     await _dialog(tester, source);
-    expect(tester.widget<FilledButton>(find.byKey(const Key('organization-confirm'))).onPressed, isNull);
-    expect(source.writes, isEmpty);
+    expect(_entryShown, findsNothing);
     reading.complete(_draft());
     await World.settle(tester);
-    expect(tester.widget<FilledButton>(find.byKey(const Key('organization-confirm'))).onPressed, isNotNull);
-  });
-
-  // Harm: malformed input or a missing revision could bypass review and sign against an unseen state.
-  testWidgets('an unreadable draft or a draft with no revision cannot be signed', (tester) async {
-    final source = _Source('pat')..preview = () async => throw const OrganizationRefused('Unreadable JSON.');
-    await _dialog(tester, source);
-    expect(find.textContaining('cannot say what to sign'), findsOneWidget);
-    expect(tester.widget<FilledButton>(find.byKey(const Key('organization-confirm'))).onPressed, isNull);
-    await tester.tap(find.text('Cancel'));
-    await World.settle(tester);
-    source.preview = () async => _draft(revision: null);
-    await _dialog(tester, source);
-    expect(find.textContaining('names no project revision'), findsOneWidget);
-    expect(tester.widget<FilledButton>(find.byKey(const Key('organization-confirm'))).onPressed, isNull);
+    expect(_entryShown, findsOneWidget);
     expect(source.writes, isEmpty);
   });
 
-  // Harm: a lost signing answer followed by Retry could create two commits or use an unreviewed revision.
-  testWidgets('warnings precede signing and an uncertain retry keeps its base and ID', (tester) async {
-    final source = _Source('pat')..refuseNext = const OrganizationRefused('No answer came.', answered: false);
+  // Harm: an unreadable draft, or one with no entry, leaves the person with nothing to commit and no word why.
+  testWidgets('an unreadable draft or a draft with no entry says so, and shows none', (tester) async {
+    final source = _Source('pat')..preview = () async => throw const OrganizationRefused('Unreadable JSON.');
+    await _dialog(tester, source);
+    expect(find.textContaining('cannot say the entry'), findsOneWidget);
+    expect(_entryShown, findsNothing);
+    await _close(tester);
+    source.preview = () async => _draft(entry: null);
+    await _dialog(tester, source);
+    expect(find.textContaining('did not say the entry'), findsOneWidget);
+    expect(_entryShown, findsNothing);
+    expect(source.writes, isEmpty);
+  });
+
+  // Harm: the person commits an entry without the warnings Porelo found beside it, or the window signs something.
+  testWidgets('warnings stand beside the entry, and nothing is signed or written', (tester) async {
+    final source = _Source('pat');
     await _dialog(tester, source);
     expect(source.previews.first, (checkout: '/checkouts/app', project: 'demo'));
     expect(find.textContaining('verify or package'), findsOneWidget);
@@ -256,37 +266,12 @@ void main() {
     expect(find.textContaining('not detected'), findsOneWidget);
     expect(find.textContaining('build: mvn verify · unknown'), findsOneWidget);
     expect(find.byType(TextField), findsNothing);
+    expect(find.text(_entry), findsOneWidget);
+    expect(find.byKey(const Key('organization-confirm')), findsNothing);
+    expect(find.textContaining('Sign'), findsNothing);
+    await _close(tester);
     expect(source.writes, isEmpty);
-    await _confirm(tester);
-    expect(find.text('No answer came.'), findsOneWidget);
-    await _confirm(tester);
-    expect(source.writes, hasLength(2));
-    expect(source.writes.first.change, OrganizationChange.initializeProject);
-    expect(source.writes.first.input, {
-      'project': 'demo',
-      'checkout': '/checkouts/app',
-      'upstream': 'http://127.0.0.1:8082/demo/app.git',
-    });
-    expect(source.writes.map((write) => write.base), everyElement('preview-base'));
-    expect(source.writes.last.id, source.writes.first.id);
     expect(find.byType(ProjectInitDialog), findsNothing);
-  });
-
-  // Harm: retrying a refused stale draft could apply a new revision without showing the corresponding preview.
-  testWidgets('a definitive moved-on refusal can be reopened with a fresh preview and a new change ID', (tester) async {
-    final source = _Source('pat')..refuseNext = const OrganizationRefused('The project moved on.', reason: 'moved-on');
-    final organization = await _dialog(tester, source);
-    await _confirm(tester);
-    expect(source.writes.single.base, 'preview-base');
-    await tester.tap(find.text('Cancel'));
-    await World.settle(tester);
-    source.preview = () async => _draft(revision: 'fresh-base');
-    await _dialog(tester, source, existing: organization);
-    await _confirm(tester);
-    expect(source.writes.last.base, 'fresh-base');
-    expect(source.writes.last.id, isNot(source.writes.first.id));
-    // Each read asks twice on a machine: for the name, then with the machine's own address.
-    expect(source.previews, hasLength(4));
   });
 
   // Harm: enabling optional review without a Project Admin's signed choice lets work leave unchecked.
@@ -333,11 +318,13 @@ void main() {
       );
       await World.settle(tester);
       await _confirm(tester);
+      expect(source.writes.last.change, OrganizationChange.addProjectRepository);
       expect(source.writes.last.input['review'], 'optional');
-      expect(source.writes.last.base, 'file-after');
+      expect(find.text('entry: addProjectRepository\n'), findsOneWidget);
       // Harm: a task reads central past the machine's gate, or Core refuses an address that ends otherwise.
       expect(source.writes.last.input['address'], 'http://127.0.0.1:8082/demo/$name.git');
       expect(source.writes.last.input['central'], 'https://forge.example.org/$name.git');
+      await _close(tester);
     }
     expect(source.writes, hasLength(3));
   });
@@ -352,13 +339,7 @@ void main() {
     testWidgets('review changes follow the Project Admin role and policy $review for $me', (tester) async {
       final source = _Source(me)
         ..projects = {
-          'demo': ProjectView(
-            name: 'demo',
-            revision: 'org-base',
-            repositoriesRevision: 'file-base',
-            review: review,
-            members: demoProject.members,
-          ),
+          'demo': ProjectView(name: 'demo', revision: 'org-base', review: review, members: demoProject.members),
         };
       await _organization(
         tester,
@@ -373,7 +354,8 @@ void main() {
         await _confirm(tester);
         expect(source.writes.single.change, OrganizationChange.changeProjectReview);
         expect(source.writes.single.input, {'project': 'demo', 'review': 'required'});
-        expect(source.writes.single.base, 'file-base');
+        expect((source.writes.single.base, source.writes.single.id), ('', ''), reason: 'Nothing is signed.');
+        expect(find.text('entry: changeProjectReview\n'), findsOneWidget);
       }
     });
   }
@@ -386,7 +368,6 @@ void main() {
           'demo': ProjectView(
             name: 'demo',
             revision: 'org-base',
-            repositoriesRevision: 'file-base',
             members: demoProject.members,
             repositories: demoProject.repositories,
           ),
@@ -401,7 +382,7 @@ void main() {
       await _confirm(tester);
       expect(source.writes.single.change, OrganizationChange.changeProjectReview);
       expect(source.writes.single.input, {'project': 'demo', 'repository': 'demo', 'review': policy});
-      expect(source.writes.single.base, 'file-base');
+      expect(find.text('entry: changeProjectReview\n'), findsOneWidget);
     });
   }
 }

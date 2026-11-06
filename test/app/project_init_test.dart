@@ -8,7 +8,7 @@ import 'package:porelo_frontend/src/app/run_here.dart';
 Map<String, Object?> _preview() => {
   'repository': 'app',
   'upstream': 'https://forge.example.org/acme/app.git',
-  'revision': 'project-before',
+  'entry': 'repositories:\n  app:\n    upstream: https://forge.example.org/acme/app.git\n',
   'draft': 'review: required\n',
   'values': [
     {
@@ -75,7 +75,8 @@ void main() {
     );
     final draft = await source.readProjectInit('/checkouts/app', project: 'demo', name: 'app');
     expect(calls.single, ['project', 'init', '/checkouts/app', '--project', 'demo', '--name', 'app', '--json']);
-    expect(draft.revision, 'project-before');
+    expect(draft.entry, 'repositories:\n  app:\n    upstream: https://forge.example.org/acme/app.git\n');
+    expect(draft.revision, isNull, reason: 'current Porelo names none, as nothing is signed');
     expect(draft.values.map((value) => (value.key, value.value, value.file, value.line, value.origin, value.unknown)), [
       ('build', 'mvn verify', 'pom.xml', 7, null, false),
       ('check', 'null', null, null, 'not detected', true),
@@ -150,28 +151,31 @@ void main() {
   });
 
   // Harm: the address given for a machine's own forge never reaches Core, so the file names central.
-  test('the local address goes to Core as upstream, in the preview and the filing', () async {
+  test('the local address goes to Core as upstream, in the preview and the entry', () async {
     await source.readProjectInit('/c', project: 'demo', upstream: 'http://127.0.0.1:3001/demo/app.git');
     expect(calls.last, containsAllInOrder(['--upstream', 'http://127.0.0.1:3001/demo/app.git']));
-    await source.apply(
-      const OrganizationWrite(
-        change: OrganizationChange.initializeProject,
-        input: {'project': 'demo', 'checkout': '/c', 'upstream': 'http://127.0.0.1:3001/demo/app.git'},
-        person: 'pat',
-        base: 'b',
-        id: 'i',
+    await expectLater(
+      source.apply(
+        const OrganizationWrite(
+          change: OrganizationChange.initializeProject,
+          input: {'project': 'demo', 'checkout': '/c', 'upstream': 'http://127.0.0.1:3001/demo/app.git'},
+          person: 'pat',
+          base: 'b',
+          id: 'i',
+        ),
       ),
+      throwsA(isA<ProjectFileByHand>()),
     );
-    expect(calls.last, containsAllInOrder(['--yes', '--upstream', 'http://127.0.0.1:3001/demo/app.git']));
+    expect(calls.last, containsAllInOrder(['--upstream', 'http://127.0.0.1:3001/demo/app.git']));
   });
 
   // Harm: a partial or malformed draft must never become permission to sign an incomplete project.
-  test('malformed drafts and missing project revisions fail closed', () async {
+  test('malformed drafts fail closed', () async {
     final bad = <Object?>[
       null,
       [],
-      {..._preview()}..remove('revision'),
-      {..._preview(), 'revision': ''},
+      {..._preview(), 'entry': ''},
+      {..._preview(), 'entry': 7},
       {..._preview(), 'draft': 7},
       for (final field in ['values', 'disagreements', 'plugins', 'credentials_needed', 'unplaced', 'not_placed'])
         {..._preview()}..remove(field),
@@ -213,16 +217,23 @@ void main() {
     expect(calls.every((call) => !call.contains('--yes')), isTrue);
   });
 
-  // Harm: signing against the wrong revision overwrites work; retrying without an ID can file the change twice.
-  test('signing sends the reviewed base and ID and only explicit policy choices', () async {
-    result = (code: 0, out: '{}', err: '');
-    await source.apply(
-      const OrganizationWrite(
-        change: OrganizationChange.initializeProject,
-        input: {'project': 'demo', 'checkout': '/checkouts/app', 'review': 'optional', 'central': 'required'},
-        person: 'pat',
-        base: 'project-before',
-        id: 'same-change',
+  // Harm: `--yes`, a base or an id is refused by Porelo, which changes no project file, so the person never gets the
+  // entry; a policy not chosen is written into it anyway.
+  test('the entry is asked with only explicit policy choices, and with no --yes, base or id', () async {
+    await expectLater(
+      source.apply(
+        const OrganizationWrite(
+          change: OrganizationChange.initializeProject,
+          input: {'project': 'demo', 'checkout': '/checkouts/app', 'review': 'optional', 'central': 'required'},
+          person: 'pat',
+          base: 'project-before',
+          id: 'same-change',
+        ),
+      ),
+      throwsA(
+        isA<ProjectFileByHand>()
+            .having((byHand) => byHand.project, 'project', 'demo')
+            .having((byHand) => byHand.entry, 'entry', startsWith('repositories:')),
       ),
     );
     expect(calls.single, [
@@ -231,48 +242,79 @@ void main() {
       '/checkouts/app',
       '--project',
       'demo',
-      '--yes',
       '--review',
       'optional',
       '--central',
       'required',
-      '--base',
-      'project-before',
-      '--id',
-      'same-change',
       '--json',
     ]);
   });
 
-  // Harm: a malformed folder could be interpreted as a write option, and a missing base could overwrite later work.
-  test('unsafe checkout arguments and missing bases start no process', () async {
-    await expectLater(source.readProjectInit('--yes', project: 'demo'), throwsA(isA<OrganizationRefused>()));
-    for (final change in [OrganizationChange.initializeProject, OrganizationChange.changeProjectReview]) {
-      await expectLater(
-        source.apply(
-          OrganizationWrite(
-            change: change,
-            input: const {'project': 'demo', 'checkout': '/checkouts/app', 'review': 'optional'},
-            person: 'pat',
-            base: '',
-            id: 'one',
-          ),
+  // Harm: an answer with no entry is taken as done, and the person believes the project holds the repository.
+  test('a draft with no entry is no entry', () async {
+    result = (code: 0, out: jsonEncode({..._preview()}..remove('entry')), err: '');
+    await expectLater(
+      source.apply(
+        const OrganizationWrite(
+          change: OrganizationChange.initializeProject,
+          input: {'project': 'demo', 'checkout': '/checkouts/app'},
+          person: 'pat',
+          base: '',
+          id: '',
         ),
-        throwsA(isA<OrganizationRefused>()),
-      );
-    }
+      ),
+      throwsA(isA<OrganizationRefused>().having((refused) => refused.words, 'words', contains('did not say'))),
+    );
+  });
+
+  // Harm: an older Porelo's draft, which says no entry, is refused as unreadable, or an entry is made up for it.
+  test('a draft read with no entry has none', () async {
+    result = (code: 0, out: jsonEncode({..._preview()}..remove('entry')), err: '');
+    expect((await source.readProjectInit('/checkouts/app', project: 'demo')).entry, isNull);
+  });
+
+  // Harm: an unreadable draft says twice that it cannot, and still of signing.
+  test('an unreadable draft is said once, with no word of signing', () async {
+    result = (code: 0, out: jsonEncode({..._preview(), 'draft': 7}), err: '');
+    await expectLater(
+      source.readProjectInit('/checkouts/app', project: 'demo'),
+      throwsA(isA<OrganizationRefused>().having((refused) => refused.words, 'words', isNot(contains('sign')))),
+    );
+  });
+
+  // Harm: a malformed folder could be interpreted as an option.
+  test('unsafe checkout arguments start no process', () async {
+    await expectLater(source.readProjectInit('--yes', project: 'demo'), throwsA(isA<OrganizationRefused>()));
     expect(calls, isEmpty);
   });
 
   // Harm: changing review on the wrong scope could let work leave a different repository without review.
   test('review and creation choices use the exact project and repository commands', () async {
     result = (code: 0, out: '{}', err: '');
-    for (final (change, input, command) in [
-      (
-        OrganizationChange.createProjectRepository,
-        {'project': 'demo', 'review': 'optional'},
-        ['project', 'create-repository', 'demo', '--review', 'optional'],
+    await source.apply(
+      const OrganizationWrite(
+        change: OrganizationChange.createProjectRepository,
+        input: {'project': 'demo', 'review': 'optional'},
+        person: 'pat',
+        base: 'before',
+        id: 'one',
       ),
+    );
+    // A new project's repository is still written, and signed.
+    expect(calls.last, [
+      'project',
+      'create-repository',
+      'demo',
+      '--review',
+      'optional',
+      '--base',
+      'before',
+      '--id',
+      'one',
+      '--json',
+    ]);
+    result = (code: 65, out: jsonEncode({'reason': 'by-hand', 'words': '…', 'entry': 'review: optional\n'}), err: '');
+    for (final (change, input, command) in [
       (
         OrganizationChange.addProjectRepository,
         {'project': 'demo', 'repository': 'app', 'address': 'upstream', 'review': 'optional'},
@@ -289,8 +331,11 @@ void main() {
         ['project', 'review', 'demo', 'app', 'optional'],
       ),
     ]) {
-      await source.apply(OrganizationWrite(change: change, input: input, person: 'pat', base: 'before', id: 'one'));
-      expect(calls.last, [...command, '--base', 'before', '--id', 'one', '--json']);
+      await expectLater(
+        source.apply(OrganizationWrite(change: change, input: input, person: 'pat', base: 'before', id: 'one')),
+        throwsA(isA<ProjectFileByHand>()),
+      );
+      expect(calls.last, [...command, '--json']);
     }
     calls.clear();
     await expectLater(

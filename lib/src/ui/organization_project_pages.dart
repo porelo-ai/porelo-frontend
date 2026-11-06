@@ -472,20 +472,15 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
     return organizationCommand(
       id: repository == null ? 'projectReview/$policy' : 'repositoryReview/$repository/$policy',
       label: policy == 'required' ? 'Require review…' : 'Make review optional…',
-      unavailable: widget.organization.busy
-          ? 'Another change is still being asked for.'
-          : view.repositoriesRevision == null || view.repositoriesRevision!.isEmpty
-          ? 'The project repository revision is unknown. Read the project again before signing.'
-          : null,
+      unavailable: widget.organization.busy ? 'Another change is still being asked for.' : null,
       run: () => _show(
         OrganizationConfirmDialog(
           widget.organization,
-          base: view.repositoriesRevision,
           title: policy == 'required' ? 'Require review in $target?' : 'Make review optional in $target?',
           words: policy == 'required'
-              ? 'Work must be reviewed before it leaves the gate. This change is signed with your key.'
-              : 'Work may leave the gate without a review. This change is signed with your key.',
-          confirm: policy == 'required' ? 'Require review' : 'Make review optional',
+              ? 'Work must be reviewed before it leaves the gate. $_byHandWords'
+              : 'Work may leave the gate without a review. $_byHandWords',
+          confirm: _showTheEntry,
           change: OrganizationChange.changeProjectReview,
           input: {'project': view.name, 'repository': ?repository, 'review': policy},
         ),
@@ -596,12 +591,11 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
                               run: () => _show(
                                 OrganizationConfirmDialog(
                                   widget.organization,
-                                  base: view.repositoriesRevision ?? view.revision,
                                   title: 'Name where a machine takes ${repository.name} from?',
                                   words:
                                       'A machine takes it from ${repository.address}, its own address. '
-                                      'This change is signed with your key.',
-                                  confirm: 'Name it',
+                                      '$_byHandWords',
+                                  confirm: _showTheEntry,
                                   change: OrganizationChange.nameRepositoryCentral,
                                   input: {
                                     'project': view.name,
@@ -618,10 +612,11 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
                             run: () => _show(
                               OrganizationConfirmDialog(
                                 widget.organization,
-                                base: view.repositoriesRevision ?? view.revision,
                                 title: 'Remove ${repository.name} from ${view.name}?',
-                                words: 'It is no longer part of the project. The repository itself stays where it is.',
-                                confirm: 'Remove',
+                                words:
+                                    'It is no longer part of the project. The repository itself stays where it is. '
+                                    '$_byHandWords',
+                                confirm: _showTheEntry,
                                 change: OrganizationChange.removeProjectRepository,
                                 input: {'project': view.name, 'repository': repository.name},
                               ),
@@ -931,12 +926,12 @@ class _AddRepositoryDialogState extends State<_AddRepositoryDialog> {
   @override
   Widget build(BuildContext context) => OrganizationChangeDialog(
     organization: widget.organization,
-    base: widget.view.repositoriesRevision ?? widget.view.revision,
     title: 'Add a repository to ${widget.view.name}',
-    confirm: 'Add',
+    confirm: _showTheEntry,
     body: (context, changed) => Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        const Text(_byHandWords),
         TextField(
           key: const Key('organization-repository-name'),
           controller: _name,
@@ -994,3 +989,9 @@ class _AddRepositoryDialogState extends State<_AddRepositoryDialog> {
           ),
   );
 }
+
+/// What a change to the project's own file does now: Porelo says the entry, and a project admin commits it.
+const _byHandWords = 'Porelo changes no project file: it says the entry to write, and you commit it.';
+
+/// The button that asks Porelo for that entry.
+const _showTheEntry = 'Show the entry';

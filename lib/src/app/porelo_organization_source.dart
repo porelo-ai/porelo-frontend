@@ -84,8 +84,12 @@ class PoreloOrganizationSource implements OrganizationSource, FoundingChecks {
           : 'Porelo refused this, and did not say why (exit ${ran.code}).',
       answered: !mayHaveMade,
       reason: refusal?['reason'] is String ? refusal!['reason']! as String : null,
+      entry: _entry(refusal?['entry']),
     );
   }
+
+  /// An entry to write, where one with something in it was given.
+  static String? _entry(Object? given) => given is String && given.trim().isNotEmpty ? given : null;
 
   /// The id is this program's to keep, and asking again here sends the same one; the person never types it.
   static final _askedAgainWithItsId = RegExp(r'ask\s+again with (?:the same )?--id(?: [A-Za-z0-9_-]+)?');
@@ -276,13 +280,13 @@ class PoreloOrganizationSource implements OrganizationSource, FoundingChecks {
         for (final field in ['values', 'disagreements', 'plugins']) {
           if (answer[field] is! List) throw _Unreadable(field);
         }
-        final revision = _maybeText(answer, 'revision');
-        if (project != null && (revision == null || revision.isEmpty)) throw const _Unreadable('revision');
+        if (answer.containsKey('entry') && _entry(answer['entry']) == null) throw const _Unreadable('entry');
         return ProjectInitDraft(
           repository: _text(answer, 'repository'),
           upstream: _maybeText(answer, 'upstream'),
           draft: _text(answer, 'draft'),
-          revision: revision,
+          revision: _maybeText(answer, 'revision'),
+          entry: _entry(answer['entry']),
           values: [
             for (final value in _maps(answer, 'values'))
               ProjectInitValue(
@@ -310,7 +314,7 @@ class PoreloOrganizationSource implements OrganizationSource, FoundingChecks {
         );
       });
     } on OrganizationRefused {
-      throw const OrganizationRefused('Porelo cannot say what to sign: the checkout draft could not be read.');
+      throw const OrganizationRefused('The checkout draft could not be read.');
     }
   }
 
@@ -440,11 +444,7 @@ class PoreloOrganizationSource implements OrganizationSource, FoundingChecks {
 
   @override
   Future<void> apply(OrganizationWrite write) async {
-    if ((write.change == OrganizationChange.initializeProject ||
-            write.change == OrganizationChange.changeProjectReview) &&
-        write.base.isEmpty) {
-      throw const OrganizationRefused('The project revision is unknown. Read it before signing a change.');
-    }
+    if (write.change.byHand) return _byHand(write);
     if (prepareForgeWrite case final prepare?) {
       if (write.change == OrganizationChange.createOrganization) {
         final address = write.input['address'];
@@ -471,6 +471,27 @@ class PoreloOrganizationSource implements OrganizationSource, FoundingChecks {
       // A set-up writes this computer's file alone, and is simply asked again.
       if (write.change != OrganizationChange.chooseOrganization) ...['--id', write.id],
     ]);
+  }
+
+  /// Porelo changes no project file that exists: it says the entry, with exit 0 for `project init` and as a `by-hand`
+  /// refusal for the rest, and it takes no revision or id for them, as nothing is signed.
+  Future<void> _byHand(OrganizationWrite write) async {
+    final project = write.input['project'] ?? '';
+    final Map<String, Object?> answer;
+    try {
+      answer = await _ask(_arguments(write));
+    } on OrganizationRefused catch (refused) {
+      // Removing has nothing to write, so it comes with no entry: its words say what to take out.
+      if (refused.reason == 'by-hand') {
+        throw ProjectFileByHand(project: project, entry: refused.entry, words: refused.words);
+      }
+      rethrow;
+    }
+    if (_entry(answer['entry']) case final entry?) throw ProjectFileByHand(project: project, entry: entry);
+    // An older Porelo still writes these itself, and answers the revision it wrote: taken as written, so that asking
+    // again cannot make a second commit.
+    if (write.change != OrganizationChange.initializeProject && _maybeText(answer, 'revision') != null) return;
+    throw const OrganizationRefused('Porelo did not say the entry to write.', answered: false);
   }
 
   static List<String> _arguments(OrganizationWrite write) {
@@ -563,7 +584,6 @@ class PoreloOrganizationSource implements OrganizationSource, FoundingChecks {
         _positional(given('checkout'), 'checkout folder'),
         '--project',
         _positional(given('project'), 'project'),
-        '--yes',
         if (input['name'] case final name?) ...['--name', _positional(name, 'name')],
         if (input.containsKey('review')) ...['--review', review()],
         if (input['central'] case final central?) ...['--central', central],

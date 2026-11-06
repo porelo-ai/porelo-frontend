@@ -3,11 +3,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../app/organization_source.dart';
-import 'organization_dialogs.dart';
 import 'pick_a_file.dart';
+import 'project_file_entry.dart';
 import 'tokens.dart';
 
-/// Previews a checkout without writing, then offers the usual signed project change.
+/// Reads a checkout without writing, and says the entry a project admin adds to the project's file for it.
 class ProjectInitDialog extends StatefulWidget {
   /// Reads a checkout chosen by [pickFolder] for [project].
   const ProjectInitDialog({
@@ -17,7 +17,7 @@ class ProjectInitDialog extends StatefulWidget {
     super.key,
   });
 
-  /// The source of the draft and its signed write.
+  /// The source of the draft and its entry.
   final Organization organization;
 
   /// The project to fill.
@@ -91,10 +91,9 @@ class _ProjectInitDialogState extends State<ProjectInitDialog> {
       setState(() {
         if (draft.repository == widget.project) {
           _problem = _namedAsItsRepository;
-        } else if (draft.revision == null || draft.revision!.isEmpty) {
-          _problem = 'Porelo cannot say what to sign: the draft names no project revision.';
         } else {
           _draft = draft;
+          if (draft.entry == null) _problem = 'Porelo did not say the entry to write for this checkout.';
         }
       });
     } on OrganizationRefused catch (refused) {
@@ -102,92 +101,92 @@ class _ProjectInitDialogState extends State<ProjectInitDialog> {
         setState(() {
           _problem = refused.words.contains("project's own")
               ? '${refused.words} $_namedAsItsRepository'
-              : 'Porelo cannot say what to sign. ${refused.words}';
+              : 'Porelo cannot say the entry. ${refused.words}';
         });
       }
     } on Exception {
-      if (mounted) setState(() => _problem = 'Porelo cannot say what to sign: the checkout draft could not be read.');
+      if (mounted) setState(() => _problem = 'Porelo cannot say the entry: the checkout draft could not be read.');
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final draft = _draft;
-    return OrganizationChangeDialog(
-      // A new preview must not retain a refusal or an in-flight change from the earlier one.
-      key: ObjectKey(draft),
-      organization: widget.organization,
-      base: draft?.revision,
-      title: 'Fill ${widget.project} from a checkout',
-      confirm: 'Sign it into the project',
-      body: (context, changed) => Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('Reading the checkout writes nothing. Review the draft before signing it with your key.'),
-          if (_checkout case final checkout?) Text('Checkout: $checkout'),
-          if (_reading) const Text('Reading the checkout…'),
-          if (_problem case final problem?) Text(problem, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-          if (draft == null)
-            OutlinedButton(
-              key: const Key('project-init-choose'),
-              onPressed: _reading || widget.organization.busy ? null : () => unawaited(_choose()),
-              child: const Text('Choose a checkout folder…'),
-            ),
-          if (draft != null) ...[
-            const Text(
-              'If Porelo refuses because the project moved on, cancel and choose “Fill it from a checkout…” again '
-              'to read a fresh draft. If no answer came, sign again here to retry the same change safely.',
-            ),
-            Text('Repository: ${draft.repository}'),
-            Text('Upstream: ${draft.upstream ?? 'none named'}'),
-            Text('Revision: ${draft.revision}'),
-            const SizedBox(height: Space.small),
-            Text('Disagreements', style: Theme.of(context).textTheme.titleSmall),
-            if (draft.disagreements.isEmpty) const Text('None reported.'),
-            for (final disagreement in draft.disagreements) Text('${disagreement.key}: ${disagreement.values}'),
-            Text('Credentials needed: ${_orNone(draft.credentialsNeeded)}'),
-            const Text('Enter credentials only through Porelo’s own terminal or the provider’s sign-in.'),
-            Text('Plugins', style: Theme.of(context).textTheme.titleSmall),
-            if (draft.plugins.isEmpty) const Text('None reported.'),
-            for (final plugin in draft.plugins)
-              Text('${plugin.name}: ${plugin.state}${plugin.why == null ? '' : ' · ${plugin.why}'}'),
-            Text('Unplaced: ${_orNone(draft.unplaced)}'),
-            Text('Not placed: ${_orNone(draft.notPlaced)}'),
-            const SizedBox(height: Space.small),
-            Text('Values', style: Theme.of(context).textTheme.titleSmall),
-            if (draft.values.isEmpty) const Text('No values reported.'),
-            for (final value in draft.values)
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(
-                  '${value.key}${value.value.isEmpty ? '' : ': ${value.value}'}${value.unknown ? ' · unknown' : ''}',
+    final entry = draft?.entry;
+    return AlertDialog(
+      title: Text('Fill ${widget.project} from a checkout'),
+      content: SizedBox(
+        width: Sizes.dialogSmall,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Reading the checkout writes nothing. Porelo says the entry to add for it; you commit it.'),
+              if (_checkout case final checkout?) Text('Checkout: $checkout'),
+              if (_reading) const Text('Reading the checkout…'),
+              if (_problem case final problem?)
+                Text(problem, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+              if (draft == null)
+                OutlinedButton(
+                  key: const Key('project-init-choose'),
+                  onPressed: _reading || widget.organization.busy ? null : () => unawaited(_choose()),
+                  child: const Text('Choose a checkout folder…'),
                 ),
-                subtitle: Text(
-                  [
-                    if (value.file != null) '${value.file}${value.line == null ? '' : ':${value.line}'}',
-                    if (value.origin != null) _whose(value.origin!),
-                    if (value.file == null && value.origin == null) 'Origin not named.',
-                    if (value.note != null) 'Note: ${value.note}',
-                    if (value.plugin != null) 'Plugin: ${value.plugin}',
-                  ].join('\n'),
-                ),
-              ),
-            Text('Draft', style: Theme.of(context).textTheme.titleSmall),
-            SelectableText(draft.draft),
-          ],
-        ],
+              if (draft != null) ...[
+                if (entry != null) ...[
+                  const SizedBox(height: Space.small),
+                  ProjectFileEntry(ProjectFileByHand(project: widget.project, entry: entry)),
+                ],
+                const SizedBox(height: Space.small),
+                Text('What Porelo read', style: Theme.of(context).textTheme.titleSmall),
+                Text('Repository: ${draft.repository}'),
+                Text('Upstream: ${draft.upstream ?? 'none named'}'),
+                const SizedBox(height: Space.small),
+                Text('Disagreements', style: Theme.of(context).textTheme.titleSmall),
+                if (draft.disagreements.isEmpty) const Text('None reported.'),
+                for (final disagreement in draft.disagreements) Text('${disagreement.key}: ${disagreement.values}'),
+                Text('Credentials needed: ${_orNone(draft.credentialsNeeded)}'),
+                const Text('Enter credentials only through Porelo’s own terminal or the provider’s sign-in.'),
+                Text('Plugins', style: Theme.of(context).textTheme.titleSmall),
+                if (draft.plugins.isEmpty) const Text('None reported.'),
+                for (final plugin in draft.plugins)
+                  Text('${plugin.name}: ${plugin.state}${plugin.why == null ? '' : ' · ${plugin.why}'}'),
+                Text('Unplaced: ${_orNone(draft.unplaced)}'),
+                Text('Not placed: ${_orNone(draft.notPlaced)}'),
+                const SizedBox(height: Space.small),
+                Text('Values', style: Theme.of(context).textTheme.titleSmall),
+                if (draft.values.isEmpty) const Text('No values reported.'),
+                for (final value in draft.values)
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(
+                      '${value.key}${value.value.isEmpty ? '' : ': ${value.value}'}${value.unknown ? ' · unknown' : ''}',
+                    ),
+                    subtitle: Text(
+                      [
+                        if (value.file != null) '${value.file}${value.line == null ? '' : ':${value.line}'}',
+                        if (value.origin != null) _whose(value.origin!),
+                        if (value.file == null && value.origin == null) 'Origin not named.',
+                        if (value.note != null) 'Note: ${value.note}',
+                        if (value.plugin != null) 'Plugin: ${value.plugin}',
+                      ].join('\n'),
+                    ),
+                  ),
+                Text('Draft', style: Theme.of(context).textTheme.titleSmall),
+                SelectableText(draft.draft),
+              ],
+            ],
+          ),
+        ),
       ),
-      ask: () => draft == null || _reading || _checkout == null
-          ? null
-          : (
-              change: OrganizationChange.initializeProject,
-              input: {
-                'project': widget.project,
-                'checkout': _checkout!,
-                'upstream': ?widget.organization.view?.localAddress(widget.project, draft.repository),
-              },
-            ),
+      actions: [
+        TextButton(
+          key: const Key('project-init-close'),
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Close'),
+        ),
+      ],
     );
   }
 }

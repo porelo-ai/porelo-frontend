@@ -496,6 +496,7 @@ class ProjectInitDraft {
     required this.upstream,
     required this.draft,
     required this.revision,
+    this.entry,
     required this.values,
     required this.disagreements,
     required this.unplaced,
@@ -513,8 +514,11 @@ class ProjectInitDraft {
   /// The proposed project file, shown without editing.
   final String draft;
 
-  /// The revision this draft stands on; absent for a draft with no target project.
+  /// The revision this draft stands on, where Porelo names one; current Porelo names none, as nothing is signed.
   final String? revision;
+
+  /// The entry a project admin adds to the project's file, where Porelo says it; absent from an older Porelo.
+  final String? entry;
 
   /// The proposed settings, with their provenance.
   final List<ProjectInitValue> values;
@@ -597,7 +601,7 @@ enum OrganizationChange {
   /// Change whether the project or one of its repositories requires review.
   changeProjectReview,
 
-  /// Sign the draft read from a checkout into a project.
+  /// Say the entry that adds a checkout's repository to a project.
   initializeProject,
 
   /// Change the address of a project's repository.
@@ -635,6 +639,37 @@ enum OrganizationChange {
 
   /// Whether it can be asked for with no organization read, and so is made against no revision.
   bool get standsBeforeAnOrganization => this == createOrganization || this == chooseOrganization;
+
+  /// Whether it changes a project file that exists, which Porelo never does: a project admin writes the entry Porelo
+  /// says, and commits it.
+  bool get byHand => switch (this) {
+    initializeProject || changeProjectReview || addProjectRepository || nameRepositoryCentral => true,
+    removeProjectRepository => true,
+    _ => false,
+  };
+}
+
+/// The entry a project admin writes into a project file and commits, as Porelo says it: Porelo changes no project file
+/// that exists.
+@immutable
+class ProjectFileByHand implements Exception {
+  /// Keeps the project whose file it goes in, the entry as Porelo gave it, and its words.
+  const ProjectFileByHand({required this.project, required this.entry, this.words = ''});
+
+  /// The project whose own repository holds the file.
+  final String project;
+
+  /// The YAML to write, exactly as Porelo gave it; null where there is nothing to write, only something to take out.
+  final String? entry;
+
+  /// What Porelo says to do, for a person; the only guide where there is no [entry].
+  final String words;
+
+  /// Where it goes, in words.
+  String get file => "project.yml in the own repository of project $project";
+
+  @override
+  String toString() => entry == null ? words : 'Write this into $file:\n$entry';
 }
 
 /// One change as the store is asked for it: who asks, against which revision, and an id, so that the same id asked again
@@ -685,7 +720,7 @@ class OrganizationKey {
 /// A refusal in the store's own words, or no answer at all.
 class OrganizationRefused implements Exception {
   /// Keeps the words; [answered] is false where no answer came, so the same id is asked again.
-  const OrganizationRefused(this.words, {this.answered = true, this.reason});
+  const OrganizationRefused(this.words, {this.answered = true, this.reason, this.entry});
 
   /// The sentence shown.
   final String words;
@@ -695,6 +730,9 @@ class OrganizationRefused implements Exception {
 
   /// Its reason for a program, where it gave one.
   final String? reason;
+
+  /// The entry a project admin writes, where the reason is `by-hand` and Porelo gave it.
+  final String? entry;
 
   @override
   String toString() => words;
@@ -854,21 +892,6 @@ class OrganizationRowChange {
       OrganizationChange.removeHostAdmin => (scope: 'host-admins $host', name: login, doing: 'Removing…'),
       OrganizationChange.addProjectToHost => (scope: 'organization-projects', name: project, doing: 'Adding…'),
       OrganizationChange.removeProjectFromHost => (scope: 'organization-projects', name: project, doing: 'Removing…'),
-      OrganizationChange.addProjectRepository => (
-        scope: 'project-repositories $project',
-        name: input['repository'] ?? '',
-        doing: 'Adding…',
-      ),
-      OrganizationChange.removeProjectRepository => (
-        scope: 'project-repositories $project',
-        name: input['repository'] ?? '',
-        doing: 'Removing…',
-      ),
-      OrganizationChange.nameRepositoryCentral => (
-        scope: 'project-repositories $project',
-        name: input['repository'] ?? '',
-        doing: 'Naming…',
-      ),
       OrganizationChange.addProjectMember => (scope: 'project-members $project', name: login, doing: 'Adding…'),
       OrganizationChange.removeProjectMember => (scope: 'project-members $project', name: login, doing: 'Removing…'),
       OrganizationChange.addCard => (scope: 'organization-people', name: login, doing: 'Adding…'),
@@ -900,7 +923,7 @@ class Organization extends ChangeNotifier {
 
   final _rowChanges = <OrganizationRowChange>[];
   final _writeReads = <Future<void> Function()>[];
-  final _projectBases = <String, ({String revision, String? repositories})>{};
+  final _projectBases = <String, String>{};
   final _signedReviewChoices = <String, String>{};
   Completer<void>? _writeFinished;
 
@@ -912,7 +935,7 @@ class Organization extends ChangeNotifier {
 
   /// Keeps only the revisions already read by a project's page, for an answered request's next attempt.
   void rememberProjectRevision(ProjectView project) {
-    _projectBases[project.name] = (revision: project.revision, repositories: project.repositoriesRevision);
+    _projectBases[project.name] = project.revision;
   }
 
   /// The default for a new repository: Core's policy, or this window's last confirmed project choice.
@@ -948,14 +971,7 @@ class Organization extends ChangeNotifier {
   /// Retries the original request, reusing its id where no answer came.
   Future<void> retryRowChange(OrganizationRowChange change) async {
     if (change.running || whyNoRetry(change) != null) return;
-    final project = _projectBases[change.input['project']];
-    final repository =
-        change.change == OrganizationChange.addProjectRepository ||
-        change.change == OrganizationChange.removeProjectRepository ||
-        change.change == OrganizationChange.nameRepositoryCentral;
-    final base = change.base == null
-        ? null
-        : (repository ? project?.repositories : null) ?? project?.revision ?? change.base;
+    final base = change.base == null ? null : _projectBases[change.input['project']] ?? change.base;
     await write(change.change, change.input, base: base, provisional: true);
   }
 
@@ -1105,6 +1121,8 @@ class Organization extends ChangeNotifier {
     String? base,
     bool provisional = false,
   }) async {
+    // Its answer is an entry to show, which a write has nowhere to put.
+    if (change.byHand) return 'Porelo changes no project file: ask it for the entry to write.';
     final current = view;
     final beforeAny = change.standsBeforeAnOrganization || (noOrganization && change == OrganizationChange.addCard);
     if (current == null && !beforeAny) return 'The Porelo organization has not been read yet.';
@@ -1135,9 +1153,7 @@ class Organization extends ChangeNotifier {
         OrganizationWrite(change: change, input: input, person: current?.me ?? '', base: asked.base, id: asked.id),
       );
       _unanswered.remove(sameChange);
-      if ((change == OrganizationChange.createProjectRepository ||
-              change == OrganizationChange.addProject ||
-              change == OrganizationChange.changeProjectReview) &&
+      if ((change == OrganizationChange.createProjectRepository || change == OrganizationChange.addProject) &&
           input['repository'] == null &&
           input['project'] != null &&
           input['review'] != null) {
@@ -1188,6 +1204,46 @@ class Organization extends ChangeNotifier {
       _changed();
     }
     return refusal;
+  }
+
+  /// Asks Porelo for the entry a project admin writes for [change], which changes a project file that exists.
+  ///
+  /// Nothing is written, so nothing is read again and no id is kept: asking twice asks twice. Answers the entry, or
+  /// Porelo's refusal in words; both null where the source made the change itself, as only an older Porelo does.
+  Future<({ProjectFileByHand? byHand, String? refusal})> entryFor(
+    OrganizationChange change,
+    Map<String, String> input,
+  ) async {
+    assert(change.byHand, '$change changes no project file');
+    if (busy) return (byHand: null, refusal: 'Another change is still being asked for.');
+    busy = true;
+    changeProgress = 'Asking Porelo for the entry…';
+    _changed();
+    try {
+      await source.apply(OrganizationWrite(change: change, input: input, person: view?.me ?? '', base: '', id: ''));
+      // Made by the source itself, as an older Porelo does: what it holds now is what the page shows next.
+      changeProgress = 'Reading the Porelo organization again…';
+      _changed();
+      await refresh();
+      if (_writeReads.isNotEmpty) {
+        changeProgress = 'Reading the project again…';
+        _changed();
+        for (final read in List.of(_writeReads)) {
+          await read();
+        }
+      }
+      return (byHand: null, refusal: null);
+    } on ProjectFileByHand catch (byHand) {
+      return (byHand: byHand, refusal: null);
+    } on OrganizationRefused catch (refused) {
+      return (byHand: null, refusal: refused.words);
+    } on Exception {
+      return (byHand: null, refusal: 'Porelo could not be asked for the entry. Nothing was changed.');
+    } finally {
+      busy = false;
+      changeProgress = null;
+      _changed();
+    }
   }
 
   String _newId() => [for (var i = 0; i < 16; i++) _random.nextInt(256).toRadixString(16).padLeft(2, '0')].join();

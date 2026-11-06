@@ -24,6 +24,9 @@ class FixtureOrganization implements OrganizationSource {
   /// What every write waits for, where a test needs one still being asked for.
   Future<void>? holdWrites;
 
+  /// Whether a project-file change is written by the store itself, as an older Porelo does.
+  bool writesProjectFiles = false;
+
   /// What a taken write changes, where a test needs the page to read something new.
   OrganizationView Function(OrganizationWrite write)? afterWrite;
 
@@ -76,8 +79,18 @@ class FixtureOrganization implements OrganizationSource {
       refuseNext = null;
       throw refused;
     }
+    // As Porelo does: a project file that exists is the project admin's to change, from the entry it says.
+    // Removing has nothing to write, so it comes with words alone.
+    if (write.change.byHand && !writesProjectFiles) {
+      throw write.change == OrganizationChange.removeProjectRepository
+          ? ProjectFileByHand(project: write.input['project'] ?? '', entry: null, words: 'take the entry out')
+          : ProjectFileByHand(project: write.input['project'] ?? '', entry: entryFor(write));
+    }
     if (afterWrite case final change?) view = change(write);
   }
+
+  /// The entry a project-file change answers.
+  static String entryFor(OrganizationWrite write) => 'entry: ${write.change.name}\n';
 }
 
 /// Connections that record what is asked, and can refuse the next one.

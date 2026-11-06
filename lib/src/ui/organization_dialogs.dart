@@ -6,6 +6,7 @@ import '../app/commands.dart';
 import '../app/organization_source.dart';
 import 'command_menu.dart';
 import 'filtered_list_section.dart';
+import 'project_file_entry.dart';
 import 'tokens.dart';
 
 /// List changes close onto a provisional row; other changes keep their progress and refusal in the dialog.
@@ -50,6 +51,10 @@ class OrganizationChangeDialog extends StatefulWidget {
 class _OrganizationChangeDialogState extends State<OrganizationChangeDialog> {
   String? _refusal;
   bool _asking = false;
+  ProjectFileByHand? _byHand;
+
+  // Counts what was typed since the entry was asked for: an entry for what is no longer typed is never shown.
+  int _edits = 0;
 
   Future<void> _confirm() async {
     if (widget.organization.busy) {
@@ -62,6 +67,7 @@ class _OrganizationChangeDialogState extends State<OrganizationChangeDialog> {
     }
     final asked = widget.ask();
     if (asked == null) return;
+    if (asked.change.byHand) return _askForTheEntry(asked.change, asked.input);
     if (widget.organization.view != null && OrganizationRowChange.target(asked.change, asked.input) != null) {
       unawaited(widget.organization.write(asked.change, asked.input, base: widget.base, provisional: true));
       Navigator.of(context).pop();
@@ -83,6 +89,28 @@ class _OrganizationChangeDialogState extends State<OrganizationChangeDialog> {
     }
   }
 
+  // A project file is the project admin's to change: the dialog stays open on the entry Porelo says to write.
+  Future<void> _askForTheEntry(OrganizationChange change, Map<String, String> input) async {
+    setState(() {
+      _asking = true;
+      _refusal = null;
+    });
+    final asked = _edits;
+    final answer = await widget.organization.entryFor(change, input);
+    if (!mounted) return;
+    if (answer.byHand == null && answer.refusal == null) {
+      Navigator.of(context).pop();
+      return;
+    }
+    setState(() {
+      _asking = false;
+      if (asked == _edits) {
+        _byHand = answer.byHand;
+        _refusal = answer.refusal;
+      }
+    });
+  }
+
   @override
   // Open until its change is answered, or the store's refusal would have nowhere to be said.
   Widget build(BuildContext context) => PopScope(
@@ -97,7 +125,14 @@ class _OrganizationChangeDialogState extends State<OrganizationChangeDialog> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // A refusal answers what was asked, not what is being typed since.
-              widget.body(context, () => setState(() => _refusal = null)),
+              widget.body(
+                context,
+                () => setState(() {
+                  _refusal = null;
+                  _byHand = null;
+                  _edits++;
+                }),
+              ),
               if (_asking) ...[
                 const SizedBox(height: Space.small),
                 Text('${widget.confirm}…'),
@@ -108,17 +143,22 @@ class _OrganizationChangeDialogState extends State<OrganizationChangeDialog> {
                 const SizedBox(height: Space.small),
                 Text(refusal, style: TextStyle(color: Theme.of(context).colorScheme.error)),
               ],
+              if (_byHand case final byHand?) ...[const SizedBox(height: Space.small), ProjectFileEntry(byHand)],
             ],
           ),
         ),
       ),
       actions: [
-        TextButton(onPressed: _asking ? null : () => Navigator.of(context).pop(), child: const Text('Cancel')),
-        FilledButton(
-          key: const Key('organization-confirm'),
-          onPressed: _asking || widget.ask() == null ? null : () => unawaited(_confirm()),
-          child: Text(widget.confirm),
+        TextButton(
+          onPressed: _asking ? null : () => Navigator.of(context).pop(),
+          child: Text(_byHand == null ? 'Cancel' : 'Close'),
         ),
+        if (_byHand == null)
+          FilledButton(
+            key: const Key('organization-confirm'),
+            onPressed: _asking || widget.ask() == null ? null : () => unawaited(_confirm()),
+            child: Text(widget.confirm),
+          ),
       ],
     ),
   );
