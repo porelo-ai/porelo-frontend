@@ -55,7 +55,8 @@ class _AskingButtonState extends State<AskingButton> {
   Future<void> _press() async {
     if (_asking) return;
     if (widget.first case final first? when !await first()) return;
-    if (!mounted) return;
+    // Asked again, or no longer possible, while the person chose.
+    if (!mounted || _asking || widget.onAsk == null) return;
     setState(() {
       _asking = true;
       _answer = null;

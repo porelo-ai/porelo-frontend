@@ -329,7 +329,10 @@ class OrganizationHostPage extends StatefulWidget {
 }
 
 class _OrganizationHostPageState extends State<OrganizationHostPage> {
-  bool _acting = false;
+  /// How many asks of the machine run now: the page is busy while any does, and one ending does not free it while
+  /// another still runs.
+  int _working = 0;
+  bool get _acting => _working > 0;
   String? _refusal;
 
   /// What the host last said of itself, asked only of a host admin who is connected to it.
@@ -387,7 +390,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
   Future<String?> _read(Future<HostProgress> Function() ask, {bool byAButton = false}) async {
     final read = ++_progressReads;
     setState(() {
-      _acting = true;
+      _working++;
       _refusal = null;
     });
     HostProgress? progress;
@@ -397,15 +400,16 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     } on OrganizationRefused catch (refused) {
       refusal = refused.words;
     }
+    if (!mounted) return refusal;
     // An earlier status answer must not replace the result of a later fetch.
-    if (!mounted || read != _progressReads) return refusal;
+    final latest = read == _progressReads;
     setState(() {
-      if (progress != null) {
+      _working--;
+      if (latest && progress != null) {
         _progress = progress;
         _answeredAt = DateTime.now();
       }
-      _acting = false;
-      if (!byAButton) _refusal = refusal;
+      if (latest && !byAButton) _refusal = refusal;
     });
     return refusal;
   }
@@ -418,10 +422,12 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     if (!mounted || connections == null) return words;
     final refusal = await _read(() => connections.progress(widget.host), byAButton: true);
     // The host has made the account it could not make before: now the connection itself can come up.
-    if (mounted && first && !(_progress?.waitsForToken ?? true)) {
-      return words ?? await _act(() => connections.connect(widget.host), byAButton: true);
-    }
-    return words ?? refusal;
+    final answer = mounted && first && !(_progress?.waitsForToken ?? true)
+        ? words ?? await _act(() => connections.connect(widget.host), byAButton: true)
+        : words ?? refusal;
+    // The button goes once the machine wants no token: its answer then stands at the page's head, not nowhere.
+    if (mounted && answer != null && !(_progress?.wantsToken ?? false)) setState(() => _refusal = answer);
+    return answer;
   }
 
   void _show(Widget dialog) => unawaited(showDialog<void>(context: context, builder: (_) => dialog));
@@ -435,7 +441,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
   /// nothing is shown as done before its answer.
   Future<String?> _act(Future<void> Function() action, {bool byAButton = false}) async {
     setState(() {
-      _acting = true;
+      _working++;
       _refusal = null;
     });
     String? refusal;
@@ -446,7 +452,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     }
     if (!mounted) return refusal;
     setState(() {
-      _acting = false;
+      _working--;
       if (!byAButton) _refusal = refusal;
     });
     return refusal;
@@ -580,7 +586,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
                 ? null
                 : () async =>
                       await _read(() => widget.connections!.refresh(host.name), byAButton: true) ??
-                      '${host.name} fetched and applied the organization.',
+                      _fetchedWords(host.name),
             label: const Text('Fetch now'),
           ),
         ),
@@ -619,6 +625,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       machines[name]!,
+                      if (readsMachine) ..._notTaken(name),
                       Padding(
                         padding: const EdgeInsets.only(left: Space.normal, bottom: Space.small),
                         child: Text(
@@ -633,18 +640,64 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
                       ),
                     ],
                   )
-                : ListTile(
-                    leading: const Icon(Icons.folder_outlined),
-                    title: Text(name),
-                    subtitle: Text(
-                      key: ValueKey('organization.projectSource/$name'),
-                      'From the organization: ${organizationWords(name)}',
-                    ),
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      ListTile(
+                        leading: const Icon(Icons.folder_outlined),
+                        title: Text(name),
+                        subtitle: Text(
+                          key: ValueKey('organization.projectSource/$name'),
+                          'From the organization: ${organizationWords(name)}',
+                        ),
+                      ),
+                      if (readsMachine) ..._notTaken(name),
+                    ],
                   ),
           ),
       ],
     );
   }
+
+  /// The repositories of [name] the machine has not taken, one line per reason with how many, opened on demand to
+  /// name them and say the reason once: never one sentence per repository.
+  List<Widget> _notTaken(String name) {
+    final byState = <String, List<({String repository, String state, String? why})>>{};
+    for (final each
+        in _progress?.of(name)?.repositories ?? const <({String repository, String state, String? why})>[]) {
+      if (each.state != 'taken') (byState[each.state] ??= []).add(each);
+    }
+    return [
+      for (final MapEntry(key: state, value: rows) in byState.entries)
+        ExpansionTile(
+          key: ValueKey('organization.notTaken/$name/$state'),
+          dense: true,
+          tilePadding: const EdgeInsets.symmetric(horizontal: Space.normal),
+          childrenPadding: const EdgeInsets.fromLTRB(Space.normal, 0, Space.normal, Space.small),
+          expandedCrossAxisAlignment: CrossAxisAlignment.start,
+          title: Text(switch (state) {
+            'no-central' =>
+              '${_count(rows.length)} ${rows.length == 1 ? 'names' : 'name'} no central address, so the machine does not take ${rows.length == 1 ? 'it' : 'them'}',
+            'waiting' => '${_count(rows.length)} still to be taken',
+            _ => '${_count(rows.length)}: $state',
+          }),
+          children: [
+            Text(rows.map((each) => each.repository).join(', ')),
+            for (final why in {for (final each in rows) ?each.why})
+              Text(why, style: Theme.of(context).textTheme.bodySmall),
+          ],
+        ),
+    ];
+  }
+
+  /// What a fetch that was not refused came to, in the machine's own answer.
+  String _fetchedWords(String name) => switch (_progress) {
+    HostProgress(refused: final refused?) => '$name did not apply the organization: $refused',
+    HostProgress(waitsForToken: true) => '$name fetched the organization and waits for your token.',
+    _ => '$name fetched and applied the organization.',
+  };
+
+  String _count(int n) => n == 1 ? '1 repository' : '$n repositories';
 
   /// The host's own word on [name], which only a host admin reads: the organization's word is carried or not.
   String? _progressWords(OrganizationView view, OrganizationHost host, String name) {
@@ -653,6 +706,12 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     if (progress.hasNoAddress) {
       return "the machine has no address for it: a token cannot help until the project's admin creates its Git repository or files its "
           'address anew, and it then needs your token once more';
+    }
+    // Where it says each repository, the ones on the machine are named first; the rest are its own lines below.
+    if (progress.state == 'carried' && progress.repositories.isNotEmpty) {
+      return progress.taken.isEmpty
+          ? 'on the machine, none of its repositories taken yet'
+          : 'on the machine: ${progress.taken.join(', ')}';
     }
     return switch (progress.state) {
       'carried' => switch (progress.why) {
@@ -798,12 +857,13 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     final buttons = [
       if (ready && widget.onStartWork != null)
         AskingButton(
+          key: const ValueKey('asking startWork'),
           buttonKey: ValueKey('organization.startWork/$name'),
           answerKey: const ValueKey('organization.startWhy'),
           filled: true,
           waiting: 'Starting work on $name, which can take a minute while it takes the project…',
           first: () => _chooseWhereToStart(mine),
-          onAsk: () => _startWork(name),
+          onAsk: _acting ? null : () => _startWork(name),
           label: Text(switch (mine) {
             [] => 'Start work',
             [final one] => 'Start work in $one',
@@ -812,6 +872,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
         ),
       if (connected)
         AskingButton(
+          key: const ValueKey('asking disconnect'),
           buttonKey: ValueKey('organization.disconnect/$name'),
           answerKey: const ValueKey('organization.connectWhy'),
           waiting: 'Disconnecting from $name…',
@@ -820,6 +881,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
         ),
       if ((!connected || isDown) && view.myHosts.contains(host))
         AskingButton(
+          key: const ValueKey('asking connect'),
           buttonKey: ValueKey('organization.connect/$name'),
           answerKey: const ValueKey('organization.connectWhy'),
           filled: true,
@@ -907,7 +969,15 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
   /// Where the last choice said to start; null is Default.
   String? _startIn;
 
-  Future<String?> _startWork(String host) async => widget.onStartWork?.call(host, _startIn);
+  /// Starts work, the page busy meanwhile, so nothing else is asked of the machine at once.
+  Future<String?> _startWork(String host) async {
+    setState(() => _working++);
+    try {
+      return await widget.onStartWork?.call(host, _startIn);
+    } finally {
+      if (mounted) setState(() => _working--);
+    }
+  }
 }
 
 /// Asks for a host's address, port and host key, which its host admin enters.

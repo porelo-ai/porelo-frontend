@@ -13,7 +13,18 @@ class HostProjectProgress {
     this.why,
     this.since,
     this.hasNoAddress = false,
+    this.repositories = const [],
   });
+
+  /// Each repository of its file as the host says it stands: `taken`, `waiting`, `no-central`, or a word of a later
+  /// host, with why where it said; empty where it did not say.
+  final List<({String repository, String state, String? why})> repositories;
+
+  /// The repositories the host has taken.
+  List<String> get taken => [
+    for (final each in repositories)
+      if (each.state == 'taken') each.repository,
+  ];
 
   /// The project.
   final String project;
@@ -36,8 +47,14 @@ class HostProjectProgress {
   bool get waitsForToken => state == 'waiting-for-token' && !hasNoAddress;
 
   /// The same word, knowing the host took no address for it.
-  HostProjectProgress withNoAddress() =>
-      HostProjectProgress(project: project, state: state, why: why, since: since, hasNoAddress: true);
+  HostProjectProgress withNoAddress() => HostProjectProgress(
+    project: project,
+    state: state,
+    why: why,
+    since: since,
+    hasNoAddress: true,
+    repositories: repositories,
+  );
 }
 
 /// A person locked on a host, whose account goes by itself on [purgeOn].
@@ -96,6 +113,12 @@ class HostProgress {
               state: state,
               why: project['why'] is String ? project['why']! as String : null,
               since: project['since'] is String ? project['since']! as String : null,
+              repositories: [
+                if (project['repositories'] case final List<dynamic> rows)
+                  for (final row in rows)
+                    if (row case {'repository': final String repository, 'state': final String state})
+                      (repository: repository, state: state, why: row['why'] is String ? row['why']! as String : null),
+              ],
             ),
       ],
       locked: [

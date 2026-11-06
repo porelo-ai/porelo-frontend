@@ -29,3 +29,7 @@ were taken.
 ## Acceptance
 
 - The taken repositories are named first; the others are counted per reason and named on demand.
+
+## Done
+
+`host_progress.dart`: `HostProjectProgress.repositories` reads porelo-host's per-repository answer (`repository`, `state`, `why`), and `taken` names those taken. `organization_host_pages.dart`: a carried project says "on the machine: <taken>", and `_notTaken` adds one folded line per other state with the count ("15 repositories name no central address, so the machine does not take them"), opened to name them and say the reason once. Where the host says no repositories, as before. Red first: the old page repeated the reason and named no taken repository.

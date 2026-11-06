@@ -609,6 +609,44 @@ void main() {
       expect(_action('giveToken'), findsNothing);
     });
 
+    // Harm: a person cannot see what is on the machine for a wall of the same sentence.
+    testWidgets('a project names its repositories on the machine first, and counts the rest once', (tester) async {
+      const why = 'no central address, so this host cannot take it; name one in the project file for a task here';
+      final connections = FixtureConnections(['build'])
+        ..hostProgress = HostProgress(
+          projects: [
+            HostProjectProgress(
+              project: 'demo',
+              state: 'carried',
+              why: List.filled(15, why).join('; '),
+              repositories: [
+                (repository: 'core', state: 'taken', why: null),
+                (repository: 'sluice', state: 'taken', why: null),
+                for (var i = 0; i < 15; i++) (repository: 'library-$i', state: 'no-central', why: why),
+              ],
+            ),
+          ],
+        );
+      await page(tester, 'hana', connections: connections);
+      expect(find.textContaining('on the machine: core, sluice'), findsOneWidget);
+      expect(find.text('15 repositories name no central address, so the machine does not take them'), findsOneWidget);
+      expect(find.textContaining(why), findsNothing, reason: 'the reason is opened on demand');
+      await _tap(tester, find.byKey(const ValueKey('organization.notTaken/demo/no-central')));
+      expect(find.text(why), findsOneWidget, reason: 'said once, not per repository');
+    });
+
+    // Harm: a fetch the machine refused is said as applied.
+    testWidgets("Fetch now says the machine's own refusal, not that it applied", (tester) async {
+      final connections = FixtureConnections(['build'])
+        ..hostProgress = const HostProgress(refused: 'the commit is signed by no key in force');
+      await page(tester, 'hana', connections: connections);
+      await pressOrganizationAction(tester, 'refreshHost');
+      expect(
+        tester.widget<Text>(find.byKey(const ValueKey('organization.refreshWhy'))).data,
+        'build did not apply the organization: the commit is signed by no key in force',
+      );
+    });
+
     // Harm: a fetch gives no answer, or a refusal is shown as done.
     testWidgets('Fetch now asks the machine, and a refusal is shown', (tester) async {
       final made = await page(tester, 'hana', connections: FixtureConnections(['build']));

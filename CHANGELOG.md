@@ -128,6 +128,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- A carried project on a machine's page names the repositories on the machine first, and gathers the others into one line per reason with how many, opened on demand to name them, where it said the same long reason once per repository.
 - A choice from a list of more than eight, such as *Start work*'s repository or the machine or person a project or a role goes to, opens a small dialog whose field narrows the list as one types, and Enter takes the only one left; a short list stays a drop-down.
 - *Waiting at the gate* says that it reads, and how many repositories, while it does; the repositories it could not read stand one line per reason, opened on demand, in a box a few lines high that scrolls, so the pushes that wait and their forward stay on screen below it.
 - Work started with the agent or a shell lands on its tab with a new terminal open in it, as *Open a new terminal* does, rather than saying no terminal is open where the start's own one ended with it.
