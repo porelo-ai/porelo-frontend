@@ -37,6 +37,27 @@ class StartWork extends ChangeNotifier {
   /// The repository whose row opened this form, or null for a project-wide start.
   String? openedForRepository;
 
+  /// The checkout on this computer this start was asked from, or null where none was.
+  CheckoutHere? checkout;
+
+  /// The branch the checkout is on, where the work starts in the repository the checkout is of: the machine cannot
+  /// see a checkout here, so it is told. Null for a detached checkout or another repository, which start as the
+  /// machine decides.
+  String? get checkoutBranch {
+    final here = checkout;
+    final branch = here?.branch;
+    if (here == null || branch == null) return null;
+    if (repository != null && repository == here.repository) return branch;
+    final project = this.project;
+    final chosen = project?.repositoryStates.where((each) => each.name == repository).firstOrNull;
+    if (project == null || chosen == null) return null;
+    if (sameAddress(chosen.upstream, here.origin) || sameAddress(chosen.upstream, here.path)) return branch;
+    // A project the checkout itself named, whose file names no upstream: the checkout is its one repository, or the
+    // one called as the project, as the machine itself matches a checkout.
+    final itself = chosen.upstream.isEmpty && (project.workRepositories.length == 1 || chosen.name == project.name);
+    return here.namedTheProject && itself ? branch : null;
+  }
+
   /// Whether a repository has to be chosen: whenever the machine named any. A machine older than
   /// repositories per project names none and is sent none.
   bool get needsARepository => (project?.workRepositories ?? const <String>[]).isNotEmpty;
@@ -331,6 +352,7 @@ class StartWork extends ChangeNotifier {
   Future<void> openFrom(FleetBackend backend, Project project, Template template) async {
     this.project = project;
     openedForRepository = null;
+    checkout = null;
     // Where the job was named to start — unless the project no longer has that repository, when
     // it is chosen again rather than sent to be refused.
     repository = project.workRepositories.contains(template.repository) ? template.repository : null;
@@ -349,9 +371,10 @@ class StartWork extends ChangeNotifier {
   }
 
   /// Opens it on a project, and reads what agents the machine has.
-  Future<void> open(FleetBackend backend, Project project, {String? repository}) async {
+  Future<void> open(FleetBackend backend, Project project, {String? repository, CheckoutHere? checkout}) async {
     this.project = project;
     openedForRepository = repository;
+    this.checkout = checkout;
     this.repository = repository;
     continuing = null;
     restarting = null;
@@ -398,6 +421,7 @@ class StartWork extends ChangeNotifier {
   }) async {
     this.project = project;
     openedForRepository = null;
+    checkout = null;
     // Continued where it worked: the same repository, not a new choice.
     repository = project.repositoryOf(task);
     continuing = restarting ? null : task;
@@ -420,6 +444,7 @@ class StartWork extends ChangeNotifier {
     project = null;
     repository = null;
     openedForRepository = null;
+    checkout = null;
     continuing = null;
     restarting = null;
     notifyListeners();
@@ -516,6 +541,7 @@ class StartWork extends ChangeNotifier {
       prompt: takesAPrompt ? prompt.trim() : null,
       repository: repository,
       credentials: credentials,
+      from: checkoutBranch,
     );
   }
 
@@ -738,4 +764,67 @@ class StartWork extends ChangeNotifier {
       notifyListeners();
     }
   }
+}
+
+/// A checkout on this computer that work was asked to start from: the branch it is on, null where it is detached,
+/// and the address of its origin.
+class CheckoutHere {
+  /// Constructor taking what was read of it.
+  const CheckoutHere({
+    required this.branch,
+    required this.origin,
+    this.path = '',
+    this.repository,
+    this.namedTheProject = false,
+  });
+
+  /// The branch the checkout is on, or null where it is on none.
+  final String? branch;
+
+  /// Its origin's address, as git names it, or empty where it names none.
+  final String origin;
+
+  /// Its folder on this computer, which a project's file may name as its upstream where it has no origin.
+  final String path;
+
+  /// The repository it was put in as, by name, or null where it was not put in from here.
+  final String? repository;
+
+  /// Whether the project work starts in is the one this checkout's own file or plugins named.
+  final bool namedTheProject;
+
+  /// The same checkout, put in as [name].
+  CheckoutHere putInAs(String name) =>
+      CheckoutHere(branch: branch, origin: origin, path: path, repository: name, namedTheProject: namedTheProject);
+
+  /// The same checkout, as the one that named the project work starts in.
+  CheckoutHere get naming =>
+      CheckoutHere(branch: branch, origin: origin, path: path, repository: repository, namedTheProject: true);
+}
+
+/// Whether two addresses name one repository, as the machine's own `RepositoryAddress.sameUpstream` judges it: host,
+/// port and the whole path agree, whatever the scheme, the user, a port that is its scheme's own, a trailing `.git` or
+/// `/` and the host's case; a path on this computer only ever matches the same path.
+bool sameAddress(String one, String other) {
+  final left = _upstreamKey(one);
+  return left != null && left == _upstreamKey(other);
+}
+
+String? _upstreamKey(String address) {
+  final trimmed = address.trim();
+  if (trimmed.isEmpty) return null;
+  String path(String raw) =>
+      raw.replaceFirst(RegExp(r'^/+'), '').replaceFirst(RegExp(r'/+$'), '').replaceFirst(RegExp(r'\.git$'), '');
+  final scheme = trimmed.indexOf('://');
+  if (scheme >= 0 && !trimmed.startsWith('file://')) {
+    final uri = Uri.tryParse(trimmed);
+    if (uri == null || uri.host.isEmpty) return null;
+    const own = <String, int>{'ssh': 22, 'https': 443, 'http': 80, 'git': 9418};
+    final port = uri.hasPort && uri.port != own[uri.scheme.toLowerCase()] ? ':${uri.port}' : '';
+    return 'remote ${uri.host.toLowerCase()}$port/${path(uri.path)}';
+  }
+  final scp = RegExp(r'^[^/@]+@([^/:]+):(.*)$').firstMatch(trimmed);
+  if (scp != null) return 'remote ${scp.group(1)!.toLowerCase()}/${path(scp.group(2)!)}';
+  final local = trimmed.startsWith('file://') ? trimmed.substring('file://'.length) : trimmed;
+  return 'local ${local.startsWith('/') ? '/' : ''}${path(local)}';
 }

@@ -45,6 +45,112 @@ void main() {
     });
   }
 
+  // Harm: an older daemon refuses a start that names an input it does not have.
+  for (final declaration in <({String description, bool from})>[
+    (description: 'method Start(task: ?string) -> ()', from: false),
+    (description: '# from: ?string\nmethod Start(task: ?string) -> ()', from: false),
+    (description: 'method Start(task: ?string, from: ?string) -> ()', from: true),
+  ]) {
+    test('Start names a checkout\'s branch only to one that declares it: ${declaration.description}', () async {
+      daemon.description = declaration.description;
+      Map<String, dynamic>? asked;
+      daemon.stream('Start', (parameters) async* {
+        asked = parameters;
+        yield <String, dynamic>{'exitCode': 0};
+      });
+      await (await connect()).start(task: 'work', from: 'feature/x').toList();
+      expect(asked, <String, dynamic>{'task': 'work', if (declaration.from) 'from': 'feature/x'});
+    });
+  }
+
+  test('Start names no branch where none was given', () async {
+    daemon.description = 'method Start(task: ?string, from: ?string) -> ()';
+    Map<String, dynamic>? asked;
+    daemon.stream('Start', (parameters) async* {
+      asked = parameters;
+      yield <String, dynamic>{'exitCode': 0};
+    });
+    await (await connect()).start(task: 'work').toList();
+    expect(asked, <String, dynamic>{'task': 'work'});
+  });
+
+  // Harm: work that started from another branch than the person's reads as having started from theirs.
+  for (final settled in <({String? source, String? sent, String words})>[
+    (source: 'FROM', sent: 'feature/x', words: 'the branch your checkout on this computer is on'),
+    (source: 'FROM', sent: null, words: 'the branch named for it'),
+    (source: 'PROJECT', sent: null, words: 'the base branch the project\u2019s file names'),
+    (source: 'DEFAULT', sent: null, words: 'the repository\u2019s default branch'),
+    (source: 'LATER', sent: null, words: 'The work starts from feature/x.'),
+  ]) {
+    test('a start says which branch it started from and why: ${settled.source}, sent ${settled.sent}', () async {
+      daemon.description = 'method Start(task: ?string, from: ?string) -> ()';
+      daemon.stream('Start', (_) async* {
+        yield <String, dynamic>{'exitCode': 0, 'baseBranch': 'feature/x', 'baseSource': settled.source};
+      });
+      final backend = PoreloBackend(Backend(socketPath: daemon.socketPath, label: 'mock'));
+      await backend.open();
+      final lines = await backend
+          .startTask(task: 'work', from: settled.sent)
+          .where((event) => event is StartLine)
+          .map((event) => (event as StartLine).line)
+          .toList();
+      expect(lines.single, startsWith('The work starts from feature/x'));
+      expect(lines.single, contains(settled.words));
+    });
+  }
+
+  // Harm: a start that failed or was refused reads as work that started from a branch.
+  for (final stopped in <({String name, Map<String, dynamic> reply})>[
+    (name: 'a failed start', reply: {'exitCode': 70, 'baseBranch': 'feature/x', 'baseSource': 'FROM'}),
+    (
+      name: 'a refused start',
+      reply: {'exitCode': 0, 'action': 'RUNNING', 'baseBranch': 'feature/x', 'baseSource': 'FROM'},
+    ),
+  ]) {
+    test('${stopped.name} says no branch it started from', () async {
+      daemon.description = 'method Start(task: ?string, from: ?string) -> ()';
+      daemon.stream('Start', (_) async* {
+        yield stopped.reply;
+      });
+      final backend = PoreloBackend(Backend(socketPath: daemon.socketPath, label: 'mock'));
+      await backend.open();
+      final lines = <String>[];
+      try {
+        await for (final event in backend.startTask(task: 'work', from: 'feature/x')) {
+          if (event is StartLine) lines.add(event.line);
+        }
+      } on Exception {
+        // The failure is said by the operation; only what came before it is read here.
+      }
+      expect(lines.where((line) => line.contains('starts from')), isEmpty);
+    });
+  }
+
+  // Harm: work that goes on reads as started anew, from a branch "named for it" nobody named now.
+  test('resumed work says it goes on from the branch it started from', () async {
+    daemon.description = 'method Start(task: ?string, from: ?string) -> ()';
+    daemon.stream('Start', (_) async* {
+      yield <String, dynamic>{'exitCode': 0, 'action': 'RESUME', 'baseBranch': 'feature/x', 'baseSource': 'FROM'};
+    });
+    final backend = PoreloBackend(Backend(socketPath: daemon.socketPath, label: 'mock'));
+    await backend.open();
+    final lines = await backend
+        .startTask(task: 'work')
+        .where((event) => event is StartLine)
+        .map((event) => (event as StartLine).line)
+        .toList();
+    expect(lines.single, 'The work goes on from feature/x, the branch it started from.');
+  });
+
+  test('a machine that does not say the branch says nothing of it', () async {
+    daemon.stream('Start', (_) async* {
+      yield <String, dynamic>{'exitCode': 0};
+    });
+    final backend = PoreloBackend(Backend(socketPath: daemon.socketPath, label: 'mock'));
+    await backend.open();
+    expect(await backend.startTask(task: 'work').where((event) => event is StartLine).toList(), isEmpty);
+  });
+
   // Harm: losing the failed dependency leaves a start looking as though it still waits.
   test('the waiting mock start delivers its failed dependency and ends with exit 69', () async {
     final machine = MockMachine(daemon, situation: 'start-waits', pace: Duration.zero);

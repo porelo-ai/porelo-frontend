@@ -168,6 +168,127 @@ void main() {
     expect(starting.name, 'payments-api-3');
   });
 
+  // Harm: the machine cannot see a checkout here, and work on it would start from a branch the person is not on.
+  group('a checkout on this computer', () {
+    final project = Project.from(const <String, dynamic>{
+      'name': 'checkout',
+      'file': '/home/me/checkout/project.yml',
+      'repositories': <Map<String, dynamic>>[
+        <String, dynamic>{'name': 'checkout', 'own': true, 'upstream': 'git@forge.example:me/checkout.git'},
+        <String, dynamic>{'name': 'payments-api', 'upstream': 'git@forge.example:me/payments-api.git'},
+        <String, dynamic>{'name': 'web', 'upstream': 'https://forge.example/me/web'},
+      ],
+    });
+
+    Future<(FakeBackend, StartWork)> opened(CheckoutHere? checkout) async {
+      final machine = FakeBackend(const <Task>[])..theProjectsItHas = <Project>[project];
+      final starting = StartWork();
+      addTearDown(starting.dispose);
+      await starting.open(machine, project, checkout: checkout);
+      return (machine, starting);
+    }
+
+    Future<String?> startedFrom(FakeBackend machine, StartWork starting) async {
+      starting
+        ..mode = Mode.shell
+        ..callIt('work');
+      await starting.askAgain();
+      unawaited(starting.begin(machine).listen((_) {}).asFuture<void>());
+      await pumpEventQueue();
+      return machine.startedFrom.single;
+    }
+
+    test('names its branch for the repository it is a checkout of', () async {
+      final (machine, starting) = await opened(
+        const CheckoutHere(branch: 'feature/x', origin: 'git@forge.example:me/payments-api.git'),
+      );
+      starting.chooseRepository('payments-api');
+      expect(starting.checkoutBranch, 'feature/x');
+      expect(await startedFrom(machine, starting), 'feature/x');
+    });
+
+    test('knows its repository written another way', () async {
+      final (_, starting) = await opened(
+        const CheckoutHere(branch: 'feature/x', origin: 'git@forge.example:me/web.git'),
+      );
+      starting.chooseRepository('web');
+      expect(starting.checkoutBranch, 'feature/x');
+    });
+
+    test('names no branch for another repository of the project', () async {
+      final (machine, starting) = await opened(
+        const CheckoutHere(branch: 'feature/x', origin: 'git@forge.example:me/payments-api.git'),
+      );
+      starting.chooseRepository('web');
+      expect(starting.checkoutBranch, isNull);
+      expect(await startedFrom(machine, starting), isNull);
+    });
+
+    test('names its branch for the repository it was put in as, whatever the machine lists', () async {
+      final (_, starting) = await opened(
+        const CheckoutHere(branch: 'feature/x', origin: 'git@elsewhere.example:me/x.git', repository: 'web'),
+      );
+      starting.chooseRepository('web');
+      expect(starting.checkoutBranch, 'feature/x');
+    });
+
+    // Harm: a checkout with no origin, whose project's file names its folder, starts from the machine's choice.
+    test('knows its repository by its folder where the file names that', () async {
+      final local = Project.from(const <String, dynamic>{
+        'name': 'mine',
+        'repositories': <Map<String, dynamic>>[
+          <String, dynamic>{'name': 'mine', 'upstream': '/home/me/mine'},
+        ],
+      });
+      final starting = StartWork();
+      addTearDown(starting.dispose);
+      await starting.open(
+        FakeBackend(const <Task>[])..theProjectsItHas = <Project>[local],
+        local,
+        checkout: const CheckoutHere(branch: 'feature/x', origin: '', path: '/home/me/mine/'),
+      );
+      starting.chooseRepository('mine');
+      expect(starting.checkoutBranch, 'feature/x');
+    });
+
+    // Harm: a project the checkout named, whose file names no upstream, starts from the machine's choice.
+    test('knows the one repository of a project it named, whose file names no upstream', () async {
+      final guarded = Project.from(const <String, dynamic>{
+        'name': 'guarded',
+        'repositories': <Map<String, dynamic>>[
+          <String, dynamic>{'name': 'guarded', 'upstream': ''},
+        ],
+      });
+      Future<String?> branchFor(CheckoutHere checkout) async {
+        final starting = StartWork();
+        addTearDown(starting.dispose);
+        await starting.open(
+          FakeBackend(const <Task>[])..theProjectsItHas = <Project>[guarded],
+          guarded,
+          checkout: checkout,
+        );
+        starting.chooseRepository('guarded');
+        return starting.checkoutBranch;
+      }
+
+      const here = CheckoutHere(branch: 'feature/x', origin: 'git@fork.example:me/guarded.git');
+      expect(await branchFor(here.naming), 'feature/x');
+      expect(await branchFor(here), isNull, reason: 'a checkout that named another project is not this one');
+    });
+
+    test('a detached checkout names none', () async {
+      final (_, starting) = await opened(const CheckoutHere(branch: null, origin: 'git@forge.example:me/web.git'));
+      starting.chooseRepository('web');
+      expect(starting.checkoutBranch, isNull);
+    });
+
+    test('work opened another way names none', () async {
+      final (machine, starting) = await opened(null);
+      starting.chooseRepository('web');
+      expect(await startedFrom(machine, starting), isNull);
+    });
+  });
+
   group('the agent the machine found', () {
     Future<StartWork> opened(FakeBackend machine) async {
       final starting = StartWork();
@@ -339,6 +460,27 @@ void main() {
 
       expect(starting.asTemplate?.agent, 'codex');
     });
+  });
+
+  // Harm: a branch sent to another repository, or none to the right one, where the machine's own match differs.
+  group('two addresses of one repository', () {
+    for (final same in <(String, String)>[
+      ('git@gitlab.example:group/sub/repo.git', 'https://gitlab.example/group/sub/repo'),
+      ('https://gitlab.example/group/sub/repo.git', 'https://GitLab.example/group/sub/repo/'),
+      ('/path/to/repo.git', '/path/to/repo/'),
+      ('ssh://git@forge.example:22/me/x.git', 'git@forge.example:me/x'),
+      ('https://forge.example:443/me/x', 'https://forge.example/me/x.git'),
+    ]) {
+      test('are one: ${same.$1} and ${same.$2}', () => expect(sameAddress(same.$1, same.$2), isTrue));
+    }
+    for (final other in <(String, String)>[
+      ('http://127.0.0.1:3001/acme/api.git', 'http://127.0.0.1:3002/acme/api.git'),
+      ('git@forge.example:me/x.git', 'git@forge.example:you/x.git'),
+      ('/path/to/repo', 'git@forge.example:path/to/repo'),
+      ('', ''),
+    ]) {
+      test('are two: ${other.$1} and ${other.$2}', () => expect(sameAddress(other.$1, other.$2), isFalse));
+    }
   });
 }
 

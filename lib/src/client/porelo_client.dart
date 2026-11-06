@@ -191,6 +191,7 @@ class PoreloClient {
 
   Future<bool>? _startSteps;
   Future<bool>? _startCertify;
+  Future<bool>? _startFrom;
 
   Future<bool> _declaresStartSteps() => _declaresStartInput('steps');
 
@@ -337,6 +338,7 @@ class PoreloClient {
     int? minutes,
     String? repository,
     Map<String, String>? credentials,
+    String? from,
     bool certify = false,
   }) async* {
     // Only what the caller named is sent, so the backend's own defaults stay the only defaults.
@@ -365,6 +367,8 @@ class PoreloClient {
       // Required by a Porelo with repositories per project, with no default; sent only when named, so an older one never
       // meets a parameter it does not know.
       'repository': ?repository,
+      // The branch a checkout here is on, which the machine cannot see; only one that takes it is told.
+      if (from != null && await (_startFrom ??= _declaresStartInput('from'))) 'from': from,
       if (await (_startSteps ??= _declaresStartSteps())) 'steps': true,
       // Only one that says what to do with a request asks; an older daemon has no such input.
       if (certify && await (_startCertify ??= _declaresStartInput('certify'))) 'certify': true,
@@ -1242,6 +1246,12 @@ class StartProgress {
   /// one that streamed gathers the lines itself, because on a failure they are the reason.
   final List<String> output;
 
+  /// The branch the work started from, once settled; null where the machine did not say.
+  final String? baseBranch;
+
+  /// Where [baseBranch] came from: `CHECKOUT`, `FROM`, `PROJECT` or `DEFAULT`, or another word a later Porelo adds.
+  final String? baseSource;
+
   /// Constructor taking every field.
   const StartProgress({
     this.line,
@@ -1256,6 +1266,8 @@ class StartProgress {
     this.problems = const <String>[],
     this.imageDrift = '',
     this.output = const <String>[],
+    this.baseBranch,
+    this.baseSource,
   });
 
   /// The same reply, carrying [lines] as what the launch printed.
@@ -1272,6 +1284,8 @@ class StartProgress {
     problems: problems,
     imageDrift: imageDrift,
     output: List<String>.unmodifiable(lines),
+    baseBranch: baseBranch,
+    baseSource: baseSource,
   );
 
   /// Reads one from a reply.
@@ -1288,6 +1302,8 @@ class StartProgress {
     final problems = map['problems'];
     final drift = map['imageDrift'];
     final output = map['output'];
+    final baseBranch = map['baseBranch'];
+    final baseSource = map['baseSource'];
     return StartProgress(
       line: line is String ? line : null,
       step: step is Map<String, dynamic> ? StartStep.from(step) : null,
@@ -1301,6 +1317,8 @@ class StartProgress {
       problems: problems is List ? problems.whereType<String>().toList() : const <String>[],
       imageDrift: drift is String ? drift : '',
       output: output is List ? output.whereType<String>().toList() : const <String>[],
+      baseBranch: baseBranch is String && baseBranch.isNotEmpty ? baseBranch : null,
+      baseSource: baseSource is String && baseSource.isNotEmpty ? baseSource : null,
     );
   }
 

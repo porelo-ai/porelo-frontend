@@ -6,6 +6,7 @@ import 'package:porelo_frontend/client.dart';
 import '../app/fleet_backend.dart';
 import '../app/forge.dart';
 import '../app/run_here.dart';
+import '../app/start_work.dart' show CheckoutHere, sameAddress;
 import 'first_start_view.dart';
 import 'pick_a_file.dart';
 import 'dialog_scroll.dart';
@@ -26,9 +27,9 @@ Future<void> showTheDefault(
   required FleetBackend machine,
   required String machineName,
   Future<({ForgeRepository repository, Forge forge})?> Function()? pickAtAForge,
-  Future<void> Function(String repository)? onStartWork,
+  Future<void> Function(String repository, CheckoutHere? checkout)? onStartWork,
   bool thisComputer = false,
-  Future<void> Function(String project, List<String> notes)? onStartProject,
+  Future<void> Function(String project, List<String> notes, CheckoutHere? checkout)? onStartProject,
 }) => showDialog<void>(
   context: context,
   builder: (_) => DefaultDialog(
@@ -66,9 +67,9 @@ class DefaultDialog extends StatefulWidget {
   /// Lets the person pick a repository at a forge set up here, or null where none is.
   final Future<({ForgeRepository repository, Forge forge})?> Function()? pickAtAForge;
 
-  /// Starts work on the repository named, once it is in `default`; null where the dialog only lists
-  /// what is there to take out.
-  final Future<void> Function(String repository)? onStartWork;
+  /// Starts work on the repository named, once it is in `default`, with the checkout here it was named from, if
+  /// any; null where the dialog only lists what is there to take out.
+  final Future<void> Function(String repository, CheckoutHere? checkout)? onStartWork;
 
   /// Whether the machine is the window's own computer: only there is a checkout's question asked, as no
   /// plugin runs on another machine and a path here means nothing there.
@@ -76,8 +77,8 @@ class DefaultDialog extends StatefulWidget {
 
   /// Starts work by the project a checkout's first start names.
   ///
-  /// With the notes of an answer that asked nothing, which have no question to stand above.
-  final Future<void> Function(String project, List<String> notes)? onStartProject;
+  /// With the notes of an answer that asked nothing, which have no question to stand above, and the checkout.
+  final Future<void> Function(String project, List<String> notes, CheckoutHere? checkout)? onStartProject;
 
   /// Asks the desktop for a checkout.
   final PickAFolder pickAFolder;
@@ -99,6 +100,9 @@ class _DefaultDialogState extends State<DefaultDialog> {
 
   /// What the plugins said of a checkout whose answer asked nothing.
   List<String> _notes = const <String>[];
+
+  /// The checkout last picked here, with the branch it is on: work started on its repository starts from that branch.
+  CheckoutHere? _checkout;
   bool _busy = false;
 
   @override
@@ -124,8 +128,13 @@ class _DefaultDialogState extends State<DefaultDialog> {
     final there = (_repositories ?? const <DefaultRepository>[]).where((each) => each.upstream == address).firstOrNull;
     final added = there ?? await widget.machine.addToDefault(address, name: name);
     if (!mounted) return;
+    // Only the repository the checkout is of starts from its branch: an address typed over it is another one.
+    final checkout = _checkout;
+    final from = checkout != null && (sameAddress(address, checkout.origin) || sameAddress(address, checkout.path))
+        ? checkout.putInAs(added.name)
+        : null;
     Navigator.of(context).pop();
-    unawaited(widget.onStartWork!(added.name));
+    unawaited(widget.onStartWork!(added.name, from));
   });
 
   /// A checkout of this computer: the same question as a first start in a terminal, and work by what it
@@ -136,6 +145,7 @@ class _DefaultDialogState extends State<DefaultDialog> {
     await _asking(() async {
       _said = null;
       _notes = const <String>[];
+      _checkout = await _readTheCheckout(checkout);
       final String? project;
       try {
         project = await _projectOf(checkout);
@@ -156,8 +166,9 @@ class _DefaultDialogState extends State<DefaultDialog> {
       if (project != null) {
         // The dialog goes, and with it this place to read them: they are said where the work starts.
         final notes = _notes;
+        final picked = _checkout?.naming;
         Navigator.of(context).pop();
-        unawaited(widget.onStartProject!(project, notes));
+        unawaited(widget.onStartProject!(project, notes, picked));
       } else {
         await _fillTheOrigin(checkout);
       }
@@ -204,8 +215,36 @@ class _DefaultDialogState extends State<DefaultDialog> {
     return null;
   }
 
+  /// The branch [checkout] is on and its origin, or null where git cannot read it here: what cannot be read is
+  /// said when its origin is read, and work then starts as the machine decides.
+  Future<CheckoutHere?> _readTheCheckout(String checkout) async {
+    try {
+      final branch = await widget.runGit('git', const <String>[
+        'symbolic-ref',
+        '--quiet',
+        '--short',
+        'HEAD',
+      ], inDirectory: checkout);
+      final origin = await widget.runGit('git', const <String>['remote', 'get-url', 'origin'], inDirectory: checkout);
+      final name = branch.out.trim();
+      // Detached, it is on no branch: none is named, and the machine's choice is said where the work starts.
+      return CheckoutHere(
+        branch: branch.code == 0 && name.isNotEmpty ? name : null,
+        origin: origin.code == 0 ? origin.out.trim() : '',
+        path: checkout,
+      );
+    } on Object {
+      return null;
+    }
+  }
+
   /// The address a start without a project works on, read from [checkout]; said where there is none.
   Future<void> _fillTheOrigin(String checkout) async {
+    // Read already with its branch: asked again only where that could not read it.
+    if (_checkout?.origin case final known? when known.isNotEmpty) {
+      if (mounted) setState(() => _address.text = known);
+      return;
+    }
     final Ran origin;
     try {
       origin = await widget.runGit('git', const <String>['remote', 'get-url', 'origin'], inDirectory: checkout);

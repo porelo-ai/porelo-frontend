@@ -933,10 +933,11 @@ class _ShellState extends State<Shell> {
   }
 
   /// Starts work in `default`: a repository named, or one worked on before, and work started on it.
-  Future<void> _startInDefault() =>
-      _askTheDefault(onStartWork: (repository) => _startWorkIn(defaultProject, repository: repository));
+  Future<void> _startInDefault() => _askTheDefault(
+    onStartWork: (repository, checkout) => _startWorkIn(defaultProject, repository: repository, checkout: checkout),
+  );
 
-  Future<void> _askTheDefault({Future<void> Function(String repository)? onStartWork}) {
+  Future<void> _askTheDefault({Future<void> Function(String repository, CheckoutHere? checkout)? onStartWork}) {
     // The machine that was asked: a project its first start names is that machine's, whichever is selected by then.
     final asked = widget.machines.current;
     return showTheDefault(
@@ -957,9 +958,9 @@ class _ShellState extends State<Shell> {
       },
       onStartWork: onStartWork,
       thisComputer: asked.isThisComputer,
-      onStartProject: (project, notes) async {
+      onStartProject: (project, notes, checkout) async {
         if (widget.machines.current != asked) widget.machines.select(asked);
-        await _startWorkIn(project, notes: notes);
+        await _startWorkIn(project, notes: notes, checkout: checkout);
       },
     );
   }
@@ -1983,7 +1984,12 @@ class _ShellState extends State<Shell> {
   /// from a repository leads to.
   ///
   /// [notes] are what a checkout's plugins said, whose dialog has gone: said here, and with any reason it stops.
-  Future<void> _startWorkIn(String name, {String? repository, List<String> notes = const <String>[]}) async {
+  Future<void> _startWorkIn(
+    String name, {
+    String? repository,
+    List<String> notes = const <String>[],
+    CheckoutHere? checkout,
+  }) async {
     final said = notes.join(' ');
     if (said.isNotEmpty) _fleet.say(said);
     String withNotes(String words) => said.isEmpty ? words : '$words $said';
@@ -2014,7 +2020,7 @@ class _ShellState extends State<Shell> {
     }
     widget.starting.publishedHostKeys = _publishedHostKeys;
     widget.starting.runningElsewhere = _runningElsewhere(project.name);
-    unawaited(widget.starting.open(_fleet.backend, project));
+    unawaited(widget.starting.open(_fleet.backend, project, checkout: checkout));
     if (repository != null) widget.starting.chooseRepository(repository);
     await _offerToStart();
   }

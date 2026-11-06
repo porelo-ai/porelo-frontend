@@ -86,6 +86,22 @@ String startWords(String task, StartProgress result, {bool afterARestart = false
   };
 }
 
+/// Which branch work started from and why, as the machine settled it.
+///
+/// [sent] is the branch this window told the machine, a checkout's here: the machine says that one was named, and
+/// for the person it is the checkout's. A word a later Porelo adds says only the branch.
+String startedFromWords(String branch, String? source, {String? sent}) => switch (source) {
+  'CHECKOUT' => 'The work starts from $branch, the branch your checkout is on.',
+  'FROM' when branch == sent => 'The work starts from $branch, the branch your checkout on this computer is on.',
+  'FROM' => 'The work starts from $branch, the branch named for it.',
+  'PROJECT' => 'The work starts from $branch, the base branch the project\u2019s file names.',
+  'DEFAULT' => 'The work starts from $branch, the repository\u2019s default branch.',
+  _ => 'The work starts from $branch.',
+};
+
+/// Which branch resumed work is on: the one it started from, as the machine recorded it, whatever named it then.
+String resumedFromWords(String branch) => 'The work goes on from $branch, the branch it started from.';
+
 /// What a failed launch said last, as one sentence: its last unindented line and the indented lines
 /// that continue it. What came before is the plan it printed on the way, not why it stopped.
 String _reasonIn(List<String> printed) {

@@ -7,6 +7,7 @@ import 'package:crypto/crypto.dart' show sha256;
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_host/porelo_host.dart' show HostCardSsh, HostFilesRefused;
 
+import 'outcome_words.dart' show resumedFromWords, startedFromWords;
 import 'owned_process.dart';
 import 'task_certifying.dart';
 
@@ -228,6 +229,8 @@ abstract class FleetBackend {
   /// Yields detailed lines and the daemon's steps, without composing words about those steps.
   /// With [dryRun] it does everything up to starting the container and then reports, creating
   /// nothing. With [now] it ends once the task exists, without waiting for its image to be built.
+  /// [from] is the branch a checkout on this computer is on, for work started from that checkout: the machine cannot
+  /// see it. Where the machine says which branch the work started from, and why, that is a line of its own.
   Stream<StartEvent> startTask({
     String? task,
     String? project,
@@ -241,6 +244,7 @@ abstract class FleetBackend {
     String? repository,
     Map<String, String>? credentials,
     bool? now,
+    String? from,
   });
 
   /// Stops a task, keeping it and its workspace.
@@ -640,10 +644,13 @@ class PoreloBackend implements FleetBackend {
     String? repository,
     Map<String, String>? credentials,
     bool? now,
+    String? from,
   }) async* {
     // Keep final output too, so a refusal returned without intermediate replies retains its words.
     var exitCode = 0;
     StartAction? action;
+    // Said only once the start went through: the machine settles the branch before what can still stop it.
+    StartProgress? base;
     final replies = _opened()
         .start(
           task: task,
@@ -658,6 +665,7 @@ class PoreloBackend implements FleetBackend {
           repository: repository,
           credentials: credentials,
           now: now,
+          from: from,
           certify: asksToCertify && !dryRun,
         )
         .transform(startRefusalsSaid);
@@ -678,12 +686,18 @@ class PoreloBackend implements FleetBackend {
       }
       if (progress.exitCode != null) exitCode = progress.exitCode!;
       if (progress.action != null) action = progress.action;
+      if (progress.baseBranch != null) base = progress;
     }
     // The machine's later lines say only that it stopped: why it stopped is said last.
     if (certifying.refused case final words?) yield StartLine(words);
     // A refusal is an ordinary final reply, and must not read as a start that worked.
     if (action != null && action.isKnown && !action.starts) throw StartRefused(action);
     if (exitCode != 0) throw OperationFailed(exitCode, notCertified: certifying.refused != null && !certifying.signed);
+    if (base case StartProgress(baseBranch: final branch?) when certifying.refused == null) {
+      yield StartLine(
+        action == StartAction.resume ? resumedFromWords(branch) : startedFromWords(branch, base.baseSource, sent: from),
+      );
+    }
   }
 
   /// Answers what a host asked to have certified, and says what was done. A refusal is answered to

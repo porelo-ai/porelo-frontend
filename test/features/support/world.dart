@@ -123,6 +123,9 @@ class FakeBackend implements FleetBackend {
   /// Whether each launch asked to be answered once its task exists, rather than after its build.
   final List<bool?> startedNow = <bool?>[];
 
+  /// The branch each start named as a checkout's, null where it named none.
+  final List<String?> startedFrom = <String?>[];
+
   /// What `Agents` answers, and what could not be read.
   List<Agent> theAgentsItHas = <Agent>[
     Agent.from(const <String, dynamic>{
@@ -367,10 +370,12 @@ class FakeBackend implements FleetBackend {
     String? repository,
     Map<String, String>? credentials,
     bool? now,
+    String? from,
   }) {
     if (project != null) mustBeAProject(project);
     launched.add(dryRun);
     startedNow.add(now);
+    startedFrom.add(from);
     starts.add((task: task, project: project, agent: agent, mode: mode, prompt: prompt, repository: repository));
     startedWith.add(credentials ?? const <String, String>{});
     launch = StreamController<Object>();

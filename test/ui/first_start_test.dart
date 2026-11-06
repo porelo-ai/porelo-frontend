@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
+import 'package:porelo_frontend/src/app/start_work.dart' show CheckoutHere;
 import 'package:porelo_frontend/src/ui/default_view.dart';
 
 import '../features/support/world.dart';
@@ -22,6 +23,8 @@ void main() {
 
   late List<String> started;
   late List<String> startedWith;
+  late CheckoutHere? startedFrom;
+  late List<(String, CheckoutHere?)> startedOn;
   late List<List<String>> gitAsked;
 
   Future<FakeBackend> open(
@@ -30,6 +33,7 @@ void main() {
     bool thisComputer = true,
     String origin = 'git@forge.example:me/x.git\n',
     int gitCode = 0,
+    String? branch = 'feature/x',
     String? picked = '/home/me/x',
   }) async {
     tester.view.physicalSize = const Size(1280, 1400);
@@ -37,6 +41,8 @@ void main() {
     addTearDown(tester.view.reset);
     started = <String>[];
     gitAsked = <List<String>>[];
+    startedFrom = null;
+    startedOn = <(String, CheckoutHere?)>[];
     final backend = FakeBackend(const <Task>[])..theFirstStartSays = first;
     await tester.pumpWidget(
       MaterialApp(
@@ -49,13 +55,20 @@ void main() {
                   machine: backend,
                   machineName: 'here',
                   thisComputer: thisComputer,
-                  onStartWork: (_) async {},
-                  onStartProject: (project, notes) async {
+                  onStartWork: (repository, checkout) async => startedOn.add((repository, checkout)),
+                  onStartProject: (project, notes, checkout) async {
                     started.add(project);
                     startedWith = notes;
+                    startedFrom = checkout;
                   },
                   pickAFolder: ({initialDirectory, title}) async => picked,
                   runGit: (program, arguments, {inDirectory, environment = const <String, String>{}, input}) async {
+                    // Detached, symbolic-ref ends with 1 and prints nothing.
+                    if (arguments.first == 'symbolic-ref') {
+                      // The chosen checkout's branch, never the one this program runs in.
+                      if (inDirectory != picked) return (code: 0, out: 'elsewhere\n', err: '');
+                      return branch == null ? (code: 1, out: '', err: '') : (code: 0, out: '$branch\n', err: '');
+                    }
                     gitAsked.add(<String>[program, ...arguments, inDirectory ?? '']);
                     return (code: gitCode, out: origin, err: '');
                   },
@@ -217,6 +230,45 @@ void main() {
     expect(find.byKey(const Key('first-start')), findsNothing);
     expect(backend.firstStartsConfirmed, isEmpty);
     expect(started, <String>['x-project']);
+  });
+
+  // Harm: the machine cannot see this checkout, so without its branch work starts from another one.
+  testWidgets('a project a checkout names starts with the branch that checkout is on', (tester) async {
+    await open(tester, const FirstStart(outcome: FirstStart.known, project: 'x-project'));
+    await pick(tester);
+    expect(started, <String>['x-project']);
+    expect(startedFrom?.branch, 'feature/x');
+    expect(startedFrom?.origin, 'git@forge.example:me/x.git');
+    expect(startedFrom?.path, '/home/me/x', reason: 'a file may name the folder where there is no origin');
+    expect(startedFrom?.namedTheProject, isTrue, reason: 'the project is the one this checkout named');
+  });
+
+  testWidgets('a detached checkout names no branch, and the machine decides', (tester) async {
+    await open(tester, const FirstStart(outcome: FirstStart.known, project: 'x-project'), branch: null);
+    await pick(tester);
+    expect(started, <String>['x-project']);
+    expect(startedFrom?.branch, isNull);
+  });
+
+  testWidgets('a checkout started in default goes with the repository it is the origin of', (tester) async {
+    await open(tester, const FirstStart(outcome: 'NOTHING_RECOGNIZED'));
+    await pick(tester);
+    await tester.tap(find.byKey(const Key('default-start-new')));
+    await tester.pumpAndSettle();
+    final (repository, checkout) = startedOn.single;
+    expect(checkout?.branch, 'feature/x');
+    expect(checkout?.repository, repository);
+  });
+
+  // Harm: another repository typed over the checkout's address would start from a branch of the checkout's.
+  testWidgets('an address typed over the checkout\'s starts with no branch of it', (tester) async {
+    await open(tester, const FirstStart(outcome: 'NOTHING_RECOGNIZED'));
+    await pick(tester);
+    await tester.enterText(find.byKey(const Key('default-address')), 'git@forge.example:me/other.git');
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('default-start-new')));
+    await tester.pumpAndSettle();
+    expect(startedOn.single.$2, isNull);
   });
 
   testWidgets('a repository of an organization\'s project has no question', (tester) async {
