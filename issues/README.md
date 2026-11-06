@@ -18,6 +18,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f403"></a>[F403](F403-A-Machine-In-Preparation-Says-So-Everywhere.md) | S | — | A machine this computer prepares says so on the organization's row and page, offers its protocol and no second start, with a mark of its state. |
 | <a id="f401"></a>[F401](F401-The-Bootstrap-Line-Says-Where-It-Runs.md) | XS | — | The bootstrap line of *Prepare a server* in its own box with a copy button, saying it runs on the server. |
 | <a id="f399"></a>[F399](F399-Porelos-Command-Line-Reached-In-WSL-From-Windows.md) | M | — | On Windows every use of Porelo's command line runs in the WSL distribution through `wsl.exe`. |
 | <a id="f398"></a>[F398](F398-A-Windows-Start-Leads-To-The-WSL-Distribution.md) | M | — | On Windows "This computer" is the default WSL distribution, reached through `wsl.exe`, never a socket. |

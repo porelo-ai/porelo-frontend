@@ -6,6 +6,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/settings.dart';
 import 'package:porelo_frontend/src/app/commands.dart';
 import 'package:porelo_frontend/src/app/host_progress.dart';
+import 'package:porelo_frontend/src/app/host_runs.dart';
+import 'package:porelo_frontend/src/app/host_session.dart';
 import 'package:porelo_frontend/src/app/organization_source.dart';
 import 'package:porelo_frontend/src/ui/filtered_list_section.dart';
 import 'package:porelo_frontend/src/ui/organization_dialogs.dart';
@@ -163,6 +165,47 @@ void main() {
       await _pump(tester, 'pat', view: organizationFor('pat', moreProjects: const [fresh], stale: true));
       expect(find.textContaining('no Git repository yet'), findsNothing);
       expect(find.byKey(const ValueKey('organization.createRepository fresh')), findsNothing);
+    });
+
+    // Harm: a second preparation started beside one that already runs on the server.
+    testWidgets('one in preparation offers no second start, and opens the running protocol', (tester) async {
+      tester.view.physicalSize = const Size(1400, 2400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final organization = Organization(FixtureOrganization(organizationFor('olive')));
+      addTearDown(organization.dispose);
+      final run = HostPreparation(
+        project: 'spare',
+        session: HostSession(executable: 'unused', arguments: const []),
+        record: const HostUpRecord(
+          scalewayProject: '',
+          hostName: 'spare',
+          givenAddress: '192.168.122.241',
+          publicKey: '/keys/person.pub',
+        ),
+      );
+      HostPreparation? opened;
+      String? prepared;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: OrganizationPage(
+              organization: organization,
+              onHost: (_) {},
+              onPrepare: (host) => prepared = host,
+              preparing: (host) => host == 'spare' ? run : null,
+              onProtocol: (each) => opened = each,
+            ),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.byKey(const ValueKey('organization.prepare/spare')), findsNothing);
+      expect(find.textContaining('192.168.122.241'), findsOneWidget);
+      await tester.ensureVisible(find.byKey(const ValueKey('organization.protocol/spare')));
+      await tester.tap(find.byKey(const ValueKey('organization.protocol/spare')));
+      expect(opened, same(run));
+      expect(prepared, isNull);
     });
 
     testWidgets('anyone else reads who it waits for, with nothing to press', (tester) async {

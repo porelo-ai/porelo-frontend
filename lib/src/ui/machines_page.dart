@@ -101,7 +101,7 @@ class MachinesPage extends StatelessWidget {
           rows: [
             for (final run in rows.preparations)
               (
-                words: '${run.name} ${_hostState(run)}',
+                words: '${run.name} ${hostPreparationWords(run)}',
                 child: _HostPreparationRow(
                   key: ValueKey('host-preparing ${run.project}'),
                   run: run,
@@ -190,7 +190,8 @@ class MachinesPage extends StatelessWidget {
   }
 }
 
-String _hostState(HostPreparation run) => run.interrupted
+/// A preparation's state in a word, wherever its row appears.
+String hostPreparationWords(HostPreparation run) => run.interrupted
     ? 'Interrupted'
     : run.needsYou
     ? 'Needs you'
@@ -206,6 +207,26 @@ Command _hostProtocol(HostPreparation run, VoidCallback? open) =>
             : hostProtocolCommand(project: run.project, open: open ?? () {}))
         .unless(open == null ? 'machine setup is unavailable here' : null);
 
+/// A preparation's state at a glance, beside its words: a small turning ring while it works, a person where it waits
+/// for one, a warning where it was interrupted.
+class HostPreparationMark extends StatelessWidget {
+  /// Shows [run]'s state.
+  const HostPreparationMark(this.run, {super.key});
+
+  /// The preparation.
+  final HostPreparation run;
+
+  @override
+  Widget build(BuildContext context) => SizedBox.square(
+    dimension: Sizes.rowIcon,
+    child: run.interrupted
+        ? Icon(Icons.warning_amber_outlined, size: Sizes.rowIcon, color: Theme.of(context).colorScheme.error)
+        : run.needsYou
+        ? const Icon(Icons.person_outline, size: Sizes.rowIcon)
+        : const CircularProgressIndicator(strokeWidth: 2, semanticsLabel: 'In preparation'),
+  );
+}
+
 class _HostPreparationRow extends StatelessWidget {
   const _HostPreparationRow({required this.run, required this.actions, this.open, super.key});
   final HostPreparation run;
@@ -217,9 +238,9 @@ class _HostPreparationRow extends StatelessWidget {
     final command = _hostProtocol(run, open);
     final detail = run.problem ?? run.session.fix ?? run.session.stepText;
     return ItemListRow(
-      leading: Icon(run.needsYou ? Icons.person_outline : Icons.dns_outlined),
+      leading: HostPreparationMark(run),
       title: run.name,
-      subtitle: [_hostState(run), if (detail.isNotEmpty) detail].join(' · '),
+      subtitle: [hostPreparationWords(run), if (detail.isNotEmpty) detail].join(' · '),
       onOpen: command.available ? command.run : null,
       menu: CommandMenu(commands: [command, ...actions], tooltip: 'Setup of ${run.name}'),
     );

@@ -6,6 +6,7 @@ import 'package:crypto/crypto.dart' show sha256;
 import 'package:flutter/material.dart';
 import 'package:porelo_host/porelo_host.dart' show checkHostName;
 
+import '../app/host_runs.dart' show HostPreparation;
 import '../app/commands.dart';
 import '../app/identity.dart';
 import '../app/key_recovery.dart' show BackupScope;
@@ -44,6 +45,8 @@ class OrganizationPage extends StatefulWidget {
     this.identity,
     this.prepareMachine,
     this.onPrepare,
+    this.preparing,
+    this.onProtocol,
     this.takeOff,
     this.keys,
     this.pickFile = pickWithTheDesktop,
@@ -77,6 +80,12 @@ class OrganizationPage extends StatefulWidget {
 
   /// Prepares the machine named, absent where this computer offers none.
   final void Function(String host)? onPrepare;
+
+  /// The preparation running for a machine on this computer, as *My machines* shows it; null where none runs.
+  final HostPreparation? Function(String host)? preparing;
+
+  /// Opens a running preparation's protocol.
+  final void Function(HostPreparation run)? onProtocol;
 
   /// Taking Porelo off a machine, or returning its rental, as its row offers it to who may.
   final Command Function(OrganizationHost host)? takeOff;
@@ -635,6 +644,8 @@ class _OrganizationPageState extends State<OrganizationPage> {
             connections: widget.connections,
             onOpen: () => widget.onHost?.call(host.name),
             onPrepare: widget.onPrepare == null ? null : () => widget.onPrepare!(host.name),
+            preparation: widget.preparing?.call(host.name),
+            onProtocol: widget.onProtocol,
             commands: [
               if (widget.takeOff != null &&
                   (view.mayRemove(host) || (view.holdsRoles && host.admins.contains(view.me))))

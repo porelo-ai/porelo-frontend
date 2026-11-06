@@ -1390,28 +1390,34 @@ class _ShellState extends State<Shell> {
     return _opened() ??
         (organization == null
             ? const SizedBox.shrink()
-            : OrganizationPage(
-                settings: widget.settings,
-                organization: organization,
-                identity: widget.identity,
-                connections: _hostConnections,
-                onGiveToken: _giveHostToken,
-                onPrepare: _prepareThisMachine,
-                prepareMachine: _commands()
-                    .where((command) => command.id == 'host.prepare' && command.visible)
-                    .firstOrNull,
-                takeOff: _hostRuns.hostAccess == null ? null : _takeOffCommand,
-                keys: _keys,
-                onProject: (name) {
-                  setState(() => _organizationProject = name);
-                  widget.shell.goTo(Section.projects);
-                },
-                onHost: (host) {
-                  final machine = widget.machines.all.where((machine) => machine.hostCard?.name == host).firstOrNull;
-                  if (machine != null) return _openPageMachine(machine);
-                  setState(() => _organizationHost = host);
-                  widget.shell.goTo(Section.machines);
-                },
+            // Read again as a preparation starts and ends, so a machine's row says it runs.
+            : ListenableBuilder(
+                listenable: _hostRuns,
+                builder: (context, _) => OrganizationPage(
+                  settings: widget.settings,
+                  organization: organization,
+                  identity: widget.identity,
+                  connections: _hostConnections,
+                  onGiveToken: _giveHostToken,
+                  onPrepare: _prepareThisMachine,
+                  preparing: _preparingFor,
+                  onProtocol: (run) => unawaited(_openHostRun(run)),
+                  prepareMachine: _commands()
+                      .where((command) => command.id == 'host.prepare' && command.visible)
+                      .firstOrNull,
+                  takeOff: _hostRuns.hostAccess == null ? null : _takeOffCommand,
+                  keys: _keys,
+                  onProject: (name) {
+                    setState(() => _organizationProject = name);
+                    widget.shell.goTo(Section.projects);
+                  },
+                  onHost: (host) {
+                    final machine = widget.machines.all.where((machine) => machine.hostCard?.name == host).firstOrNull;
+                    if (machine != null) return _openPageMachine(machine);
+                    setState(() => _organizationHost = host);
+                    widget.shell.goTo(Section.machines);
+                  },
+                ),
               ));
   }
 
@@ -3994,42 +4000,52 @@ class _ShellState extends State<Shell> {
       ? (host) => unawaited(_openPrepare(machineName: host))
       : null;
 
-  Widget _machineOnePage(String host, {Widget? work}) => OrganizationHostPage(
-    onPrepare: _prepareThisMachine,
-    key: ValueKey(host),
-    organization: _organization!,
-    connections: _hostConnections,
-    onGiveToken: _giveHostToken,
-    onStartWork: (host, project) async {
-      final machine = widget.machines.all.where((machine) => machine.hostCard?.name == host).firstOrNull;
-      if (machine == null) return 'This window does not have $host among its machines, so it cannot start there.';
-      widget.machines.select(machine);
-      if (project == null) {
-        // The organization's view may be older than what the machine lists: Default is not taken unasked.
-        await _fleet.refresh(quietly: true);
-        if (!mounted) return null;
-        final others = _fleet.projects.where(
-          (each) => each.name != defaultProject && (each.canBeActedOn || each.project.carried),
-        );
-        if (others.isNotEmpty) {
-          unawaited(_newWork(on: machine));
+  /// The preparation running on this computer for the organization's machine [host], as *My machines* lists it.
+  HostPreparation? _preparingFor(String host) =>
+      _hostRuns.preparing.where((run) => run.record.hostName == host).firstOrNull;
+
+  Widget _machineOnePage(String host, {Widget? work}) => ListenableBuilder(
+    // Read again as a preparation starts and ends, so the page offers its protocol, not a second start.
+    listenable: _hostRuns,
+    builder: (context, _) => OrganizationHostPage(
+      onPrepare: _prepareThisMachine,
+      preparing: _preparingFor,
+      onProtocol: (run) => unawaited(_openHostRun(run)),
+      key: ValueKey(host),
+      organization: _organization!,
+      connections: _hostConnections,
+      onGiveToken: _giveHostToken,
+      onStartWork: (host, project) async {
+        final machine = widget.machines.all.where((machine) => machine.hostCard?.name == host).firstOrNull;
+        if (machine == null) return 'This window does not have $host among its machines, so it cannot start there.';
+        widget.machines.select(machine);
+        if (project == null) {
+          // The organization's view may be older than what the machine lists: Default is not taken unasked.
+          await _fleet.refresh(quietly: true);
+          if (!mounted) return null;
+          final others = _fleet.projects.where(
+            (each) => each.name != defaultProject && (each.canBeActedOn || each.project.carried),
+          );
+          if (others.isNotEmpty) {
+            unawaited(_newWork(on: machine));
+            return null;
+          }
+          // Its output and its session are shown under Work, and not on this page.
+          widget.shell.goTo(Section.work);
+          unawaited(_startInDefault());
           return null;
         }
-        // Its output and its session are shown under Work, and not on this page.
-        widget.shell.goTo(Section.work);
-        unawaited(_startInDefault());
-        return null;
-      }
-      return _startFromTheMachinePage(host, project);
-    },
-    keys: _keys,
-    refresh: _organizationPageRefresh,
-    host: host,
-    work: work,
-    onBack: () {
-      setState(() => _organizationHost = null);
-      widget.shell.goTo(work == null ? Section.organization : Section.machines);
-    },
+        return _startFromTheMachinePage(host, project);
+      },
+      keys: _keys,
+      refresh: _organizationPageRefresh,
+      host: host,
+      work: work,
+      onBack: () {
+        setState(() => _organizationHost = null);
+        widget.shell.goTo(work == null ? Section.organization : Section.machines);
+      },
+    ),
   );
 
   void _homeserversChanged() {

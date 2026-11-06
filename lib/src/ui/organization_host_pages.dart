@@ -6,14 +6,26 @@ import 'package:porelo_host/porelo_host.dart' show checkedEd25519, isUsableHostA
 
 import '../app/commands.dart';
 import '../app/host_progress.dart';
+import '../app/host_runs.dart' show HostPreparation;
 import '../app/key_recovery.dart' show BackupScope;
 import '../app/organization_source.dart';
 import 'command_menu.dart';
 import 'filtered_list_section.dart';
 import 'key_recovery_dialog.dart';
+import 'machines_page.dart' show HostPreparationMark, hostPreparationWords;
 import 'organization_dialogs.dart';
 import 'organization_token_words.dart';
 import 'tokens.dart';
+
+/// What a preparation running for a machine says on the organization's row: its state, since when, and where.
+String _preparingWords(HostPreparation run) {
+  final started = run.record.startedAt?.toLocal();
+  final since = started == null
+      ? ''
+      : ' since ${started.hour.toString().padLeft(2, '0')}:${started.minute.toString().padLeft(2, '0')}';
+  final address = run.record.givenAddress;
+  return '${hostPreparationWords(run)}$since${address.isEmpty ? '' : ' on $address'}';
+}
 
 String _reach(OrganizationHost host) {
   final address = host.address;
@@ -53,11 +65,20 @@ class OrganizationMachineRow extends StatefulWidget {
     this.commands = const [],
     this.words,
     this.onPrepare,
+    this.preparation,
+    this.onProtocol,
     super.key,
   });
 
   /// *Prepare this machine…*, absent where this computer offers none.
   final VoidCallback? onPrepare;
+
+  /// The preparation running for it on this computer, null where none runs: the row says so, and offers its
+  /// protocol rather than a second start.
+  final HostPreparation? preparation;
+
+  /// Opens [preparation]'s protocol.
+  final void Function(HostPreparation run)? onProtocol;
 
   /// What the organization says now.
   final OrganizationView view;
@@ -125,14 +146,19 @@ class _OrganizationMachineRowState extends State<OrganizationMachineRow> {
       children: [
         ListTile(
           key: ValueKey('my-host ${host.name}'),
-          leading: const Icon(Icons.dns_outlined),
+          leading: switch (widget.preparation) {
+            final run? => HostPreparationMark(run),
+            null => const Icon(Icons.dns_outlined),
+          },
           title: Text(host.name),
           subtitle: Text(
             [
-              ?widget.words,
+              if (widget.preparation case final run?) _preparingWords(run) else ?widget.words,
               if (host.admins.contains(view.me)) 'you administer it',
               if (mine.isNotEmpty) 'your projects: ${mine.join(', ')}',
-              if (waiting)
+              if (widget.preparation != null)
+                ...const <String>[]
+              else if (waiting)
                 'waits for a first token'
               else if (connected)
                 mine.isEmpty ? 'connected' : 'connected, ready to work on'
@@ -146,7 +172,13 @@ class _OrganizationMachineRowState extends State<OrganizationMachineRow> {
             crossAxisAlignment: WrapCrossAlignment.center,
             spacing: Space.small,
             children: [
-              if (host.address == null && givesIt && widget.onPrepare != null && view.holdsRoles)
+              if (widget.preparation case final run? when widget.onProtocol != null)
+                FilledButton(
+                  key: ValueKey('organization.protocol/${host.name}'),
+                  onPressed: () => widget.onProtocol!(run),
+                  child: const Text('Open the protocol'),
+                )
+              else if (host.address == null && givesIt && widget.onPrepare != null && view.holdsRoles)
                 FilledButton(
                   key: ValueKey('organization.prepare/${host.name}'),
                   onPressed: widget.onPrepare,
@@ -239,11 +271,19 @@ class OrganizationHostPage extends StatefulWidget {
     this.keys,
     this.work,
     this.onPrepare,
+    this.preparing,
+    this.onProtocol,
     super.key,
   });
 
   /// *Prepare this machine…*, absent where this computer offers none.
   final void Function(String host)? onPrepare;
+
+  /// The preparation running for a machine on this computer; null where none runs.
+  final HostPreparation? Function(String host)? preparing;
+
+  /// Opens a running preparation's protocol.
+  final void Function(HostPreparation run)? onProtocol;
 
   /// The organization.
   final Organization organization;
@@ -499,7 +539,13 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     children: [
       Text('Organization ${view.name} · ${_reach(host)} · SSH host key ${host.hostKey ?? 'not entered yet'}'),
       if (isAdmin) ...[
-        if (host.hasNoReach && widget.onPrepare != null)
+        if (widget.preparing?.call(host.name) case final run? when widget.onProtocol != null)
+          FilledButton(
+            key: const ValueKey('organization.hostProtocol'),
+            onPressed: () => widget.onProtocol!(run),
+            child: Text('${hostPreparationWords(run)}: open the protocol'),
+          )
+        else if (host.hasNoReach && widget.onPrepare != null)
           FilledButton(
             key: const ValueKey('organization.prepareHost'),
             onPressed: () => widget.onPrepare!(host.name),
