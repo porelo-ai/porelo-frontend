@@ -53,3 +53,4 @@ Red first: none of it existed, so the two tests (the declaration chosen, the ver
 against the old code. The dialog in the shell has no test of its own: the shell's machine page needs the whole window
 standing; the operator's walk on rehearsal checks it.
 
+Review reading: the declaration was looked for in the selected machine's vault, cached, while Porelo hands on this computer's; `thisComputersDeclarations` (`organization_access_dialogs.dart`) reads this computer's own vault at the press, as the forge token handoff does. Its test reads a declaration from the local vault whatever is selected.

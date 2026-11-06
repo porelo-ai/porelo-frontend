@@ -59,6 +59,25 @@ void main() {
     expect(tokens.reads, 0);
   });
 
+  // Harm: the token a machine is given is looked for in the selected machine's vault, while Porelo hands on this
+  // computer's: the person is told none is kept, or shown another machine's declaration.
+  test("this computer's declarations are read from its own vault, whatever machine is selected", () async {
+    final backend = FakeBackend([])
+      ..theStoreIs = const VaultState(vault: '/vault', exists: true, readable: true, credentials: []);
+    backend.theConnections = const [
+      Connection(
+        id: 'org-token',
+        kind: 'TOKEN',
+        match: 'https://github.com/porelo-ai/',
+        purpose: 'git',
+        source: 'VAULT',
+        present: true,
+      ),
+    ];
+    final held = await thisComputersDeclarations(localBackend: backend, deviceKeys: MemoryDeviceKeyStore());
+    expect(held.map((each) => each.id), ['org-token']);
+  });
+
   // Harm: a configured forge on another HTTPS port is blocked, or receives a token meant for the default port.
   testWidgets('an explicit forge port uses only its existing declared token', (tester) async {
     final context = await page(tester);

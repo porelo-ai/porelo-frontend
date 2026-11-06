@@ -296,6 +296,25 @@ Future<void> prepareOrganizationForge(
   }
 }
 
+/// What this computer's vault declares, which Porelo's organization commands read whatever machine is selected in the
+/// window; none where it cannot be asked now. Declarations only: no value is read.
+Future<List<Connection>> thisComputersDeclarations({FleetBackend? localBackend, DeviceKeyStore? deviceKeys}) async {
+  final machine = desk.isWindows
+      ? Machine.local()
+      : Machine(name: 'this machine', socketPath: Backend.local().socketPath);
+  final vault = Vault(keys: deviceKeys ?? PlatformDeviceKeyStore());
+  try {
+    final backend = localBackend ?? PoreloBackend(Machines.backendFor(machine));
+    await backend.open();
+    await vault.lookAt(backend, machine.name);
+    return vault.state?.connections ?? const <Connection>[];
+  } on Exception {
+    return const <Connection>[];
+  } finally {
+    vault.dispose();
+  }
+}
+
 /// Says which entry names a token that is not there, where it should come from, and what can be done.
 String _noTokenThereWords(Connection entry) {
   final (from, missing, fix) = switch (entry.source) {

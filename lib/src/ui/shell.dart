@@ -3830,7 +3830,10 @@ class _ShellState extends State<Shell> {
     try {
       // A token this machine's vault declares for the organization is named and handed on by Porelo, never read here;
       // another can still be given.
-      if (declaredOrganizationToken(view?.address ?? '', _heldConnections) case final declared?) {
+      // This computer's vault, which Porelo's command reads, not the selected machine's.
+      final declarations = await thisComputersDeclarations();
+      if (!mounted) return null;
+      if (declaredOrganizationToken(view?.address ?? '', declarations) case final declared?) {
         final word = await showDialog<String>(
           context: context,
           builder: (context) => AlertDialog(
