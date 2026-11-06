@@ -3976,7 +3976,18 @@ class _ShellState extends State<Shell> {
             )
           : null,
     );
-    return onePage ? _machineOnePage(machine.hostCard!.name, work: details) : details;
+    return onePage
+        ? _machineOnePage(
+            machine.hostCard!.name,
+            work: details,
+            machineProjects: machineProjectRows(
+              machine: machine,
+              machines: widget.machines,
+              onProject: (project) => _openPageProject(machine, project),
+              projectCommands: (project) => _pageProjectCommands(machine, project),
+            ),
+          )
+        : details;
   }
 
   /// One server's one page, reached from either list: where a person stands, what they do there, and its managing.
@@ -4004,49 +4015,51 @@ class _ShellState extends State<Shell> {
   HostPreparation? _preparingFor(String host) =>
       _hostRuns.preparing.where((run) => run.record.hostName == host).firstOrNull;
 
-  Widget _machineOnePage(String host, {Widget? work}) => ListenableBuilder(
-    // Read again as a preparation starts and ends, so the page offers its protocol, not a second start.
-    listenable: _hostRuns,
-    builder: (context, _) => OrganizationHostPage(
-      onPrepare: _prepareThisMachine,
-      preparing: _preparingFor,
-      onProtocol: (run) => unawaited(_openHostRun(run)),
-      key: ValueKey(host),
-      organization: _organization!,
-      connections: _hostConnections,
-      onGiveToken: _giveHostToken,
-      onStartWork: (host, project) async {
-        final machine = widget.machines.all.where((machine) => machine.hostCard?.name == host).firstOrNull;
-        if (machine == null) return 'This window does not have $host among its machines, so it cannot start there.';
-        widget.machines.select(machine);
-        if (project == null) {
-          // The organization's view may be older than what the machine lists: Default is not taken unasked.
-          await _fleet.refresh(quietly: true);
-          if (!mounted) return null;
-          final others = _fleet.projects.where(
-            (each) => each.name != defaultProject && (each.canBeActedOn || each.project.carried),
-          );
-          if (others.isNotEmpty) {
-            unawaited(_newWork(on: machine));
-            return null;
-          }
-          // Its output and its session are shown under Work, and not on this page.
-          widget.shell.goTo(Section.work);
-          unawaited(_startInDefault());
-          return null;
-        }
-        return _startFromTheMachinePage(host, project);
-      },
-      keys: _keys,
-      refresh: _organizationPageRefresh,
-      host: host,
-      work: work,
-      onBack: () {
-        setState(() => _organizationHost = null);
-        widget.shell.goTo(work == null ? Section.organization : Section.machines);
-      },
-    ),
-  );
+  Widget _machineOnePage(String host, {Widget? work, List<({String name, Widget row})>? machineProjects}) =>
+      ListenableBuilder(
+        // Read again as a preparation starts and ends, so the page offers its protocol, not a second start.
+        listenable: _hostRuns,
+        builder: (context, _) => OrganizationHostPage(
+          onPrepare: _prepareThisMachine,
+          preparing: _preparingFor,
+          onProtocol: (run) => unawaited(_openHostRun(run)),
+          key: ValueKey(host),
+          organization: _organization!,
+          connections: _hostConnections,
+          onGiveToken: _giveHostToken,
+          onStartWork: (host, project) async {
+            final machine = widget.machines.all.where((machine) => machine.hostCard?.name == host).firstOrNull;
+            if (machine == null) return 'This window does not have $host among its machines, so it cannot start there.';
+            widget.machines.select(machine);
+            if (project == null) {
+              // The organization's view may be older than what the machine lists: Default is not taken unasked.
+              await _fleet.refresh(quietly: true);
+              if (!mounted) return null;
+              final others = _fleet.projects.where(
+                (each) => each.name != defaultProject && (each.canBeActedOn || each.project.carried),
+              );
+              if (others.isNotEmpty) {
+                unawaited(_newWork(on: machine));
+                return null;
+              }
+              // Its output and its session are shown under Work, and not on this page.
+              widget.shell.goTo(Section.work);
+              unawaited(_startInDefault());
+              return null;
+            }
+            return _startFromTheMachinePage(host, project);
+          },
+          keys: _keys,
+          refresh: _organizationPageRefresh,
+          host: host,
+          work: work,
+          machineProjects: machineProjects,
+          onBack: () {
+            setState(() => _organizationHost = null);
+            widget.shell.goTo(work == null ? Section.organization : Section.machines);
+          },
+        ),
+      );
 
   void _homeserversChanged() {
     if (mounted) setState(() {});

@@ -9,6 +9,26 @@ import 'machine_switcher.dart';
 import 'projects_page.dart';
 import 'tokens.dart';
 
+/// The rows of the projects [machine] itself lists, from its last answer: each project's name and its row.
+List<({String name, Widget row})> machineProjectRows({
+  required Machine machine,
+  required Machines machines,
+  required void Function(String project) onProject,
+  required List<Command> Function(ProjectOnScreen project) projectCommands,
+}) => [
+  for (final project in projectsOnMachine(machines, machine))
+    (
+      name: project.name,
+      row: projectListRow(
+        machine: machine,
+        project: project,
+        machines: machines,
+        onOpen: () => onProject(project.name),
+        commands: projectCommands(project),
+      ),
+    ),
+];
+
 /// One machine's information and Projects.
 class MachineDetailsPage extends StatelessWidget {
   /// Creates a machine page with its own scoped commands.
@@ -98,25 +118,23 @@ class MachineDetailsPage extends StatelessWidget {
                         : 'This window does not reach its Porelo now; last known state')),
         ),
       ?tools,
-      FilteredListSection(
-        key: ValueKey('machine-projects ${machine.name}'),
-        title: 'Projects',
-        storageId: 'machine-projects ${machine.name}',
-        collapsible: true,
-        rows: [
-          for (final project in projectsOnMachine(machines, machine))
-            (
-              words: project.name,
-              child: projectListRow(
-                machine: machine,
-                project: project,
-                machines: machines,
-                onOpen: () => onProject(project.name),
-                commands: projectCommands(project),
-              ),
-            ),
-        ],
-      ),
+      // Inside a machine's one page its projects join the page's one list of them, with the organization's.
+      if (!embedded)
+        FilteredListSection(
+          key: ValueKey('machine-projects ${machine.name}'),
+          title: 'Projects',
+          storageId: 'machine-projects ${machine.name}',
+          collapsible: true,
+          rows: [
+            for (final row in machineProjectRows(
+              machine: machine,
+              machines: machines,
+              onProject: onProject,
+              projectCommands: projectCommands,
+            ))
+              (words: row.name, child: row.row),
+          ],
+        ),
     ];
     return embedded
         ? Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: children)

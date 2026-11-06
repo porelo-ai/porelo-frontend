@@ -277,6 +277,7 @@ class OrganizationHostPage extends StatefulWidget {
     this.onStartWork,
     this.keys,
     this.work,
+    this.machineProjects,
     this.onPrepare,
     this.preparing,
     this.onProtocol,
@@ -306,6 +307,10 @@ class OrganizationHostPage extends StatefulWidget {
 
   /// What this computer does there: its work, daemon and vault, where the person's list holds the machine.
   final Widget? work;
+
+  /// The projects the machine itself last listed, each with its row, where the person's list holds the machine:
+  /// they join the organization's in the page's one list of projects.
+  final List<({String name, Widget row})>? machineProjects;
 
   /// Starts work on the machine, absent where this computer cannot.
   final Future<String?> Function(String host, String? project)? onStartWork;
@@ -478,19 +483,18 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
             if (widget.preparing?.call(host.name) case final run?)
               Text('This computer prepares it: ${_preparingWords(run)}', key: const ValueKey('organization.preparing')),
             ?widget.work,
-            if (isAdmin) ...[
-              const SizedBox(height: Space.normal),
-              Text('Managing this machine', style: Theme.of(context).textTheme.titleMedium),
-            ],
-            _reachRow(view, host, isAdmin),
-            if (isAdmin) ..._howItStands(view, host),
-            if (!isAdmin)
-              const Text(
-                "The project list is the organization's word; only a connected Machine Admin can read "
-                'what the machine still carries.',
-              ),
+            // One list of the machine's projects, then its managing as a section of its own, never between two lists.
             const SizedBox(height: Space.normal),
             _projects(view, host, isAdmin),
+            if (!isAdmin)
+              const Text(
+                "Where a project comes from the organization, that is the organization's word; only a connected "
+                'Machine Admin can read what the machine still carries.',
+              ),
+            const SizedBox(height: Space.normal),
+            if (isAdmin) Text('Managing this machine', style: Theme.of(context).textTheme.titleMedium),
+            _reachRow(view, host, isAdmin),
+            if (isAdmin) ..._howItStands(view, host),
             _admins(view, host, isAdmin),
           ],
         ],
@@ -586,32 +590,57 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
 
   Widget _projects(OrganizationView view, OrganizationHost host, bool isAdmin) {
     final readsMachine = isAdmin && (widget.connections?.connected(host.name) ?? false);
-    final names = {
+    final organizations = {
       ...host.projects,
       if (readsMachine)
         for (final project in _progress?.projects ?? const <HostProjectProgress>[]) project.project,
     };
+    final machines = {
+      for (final row in widget.machineProjects ?? const <({String name, Widget row})>[]) row.name: row.row,
+    };
+    // The organization's word on a project, and the machine's own where its Machine Admin reads it.
+    String organizationWords(String name) => [
+      _projectWords(view, name),
+      if (readsMachine) ...[
+        if (!host.projects.contains(name)) 'being taken off, which can take up to five minutes',
+        ?_progressWords(view, host, name),
+      ],
+    ].join(' · ');
     return FilteredListSection(
-      title: 'Projects on this machine',
+      title: 'Projects',
       storageId: 'host-projects ${host.name}',
       emptyWords: 'No projects on this machine yet. A project goes on a machine once the machine is prepared.',
       rows: [
-        for (final name in names)
+        for (final name in {...machines.keys, ...organizations})
           (
             words: name,
-            child: ListTile(
-              leading: const Icon(Icons.folder_outlined),
-              title: Text(name),
-              subtitle: Text(
-                [
-                  _projectWords(view, name),
-                  if (readsMachine) ...[
-                    if (!host.projects.contains(name)) 'being taken off, which can take up to five minutes',
-                    ?_progressWords(view, host, name),
-                  ],
-                ].join(' · '),
-              ),
-            ),
+            child: machines[name] != null
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      machines[name]!,
+                      Padding(
+                        padding: const EdgeInsets.only(left: Space.normal, bottom: Space.small),
+                        child: Text(
+                          key: ValueKey('organization.projectSource/$name'),
+                          organizations.contains(name)
+                              ? 'Listed by the machine and by the organization: ${organizationWords(name)}'
+                              : name == defaultProject
+                              ? "Listed by the machine: every machine's own Default project"
+                              : 'Listed by the machine; the organization does not name it here',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ),
+                    ],
+                  )
+                : ListTile(
+                    leading: const Icon(Icons.folder_outlined),
+                    title: Text(name),
+                    subtitle: Text(
+                      key: ValueKey('organization.projectSource/$name'),
+                      'From the organization: ${organizationWords(name)}',
+                    ),
+                  ),
           ),
       ],
     );

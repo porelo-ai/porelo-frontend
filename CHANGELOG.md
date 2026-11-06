@@ -126,6 +126,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- A machine's page lists its projects once, the machine's own and the organization's, each saying where it comes from, with *Managing this machine* after the list, where two lists of projects stood with the managing between them.
 - A machine's page that offers no *Start work* says what stands in its way, and an organization's machine says "This window reaches its Porelo" where it said only "Connected", which read as the connection work starts through.
 - On a machine's page, *Start work*, *Fetch now*, *Connect*, *Disconnect* and *Give it my token…* show from the press to the answer that they work, with a small ring and what they wait for, send nothing on a second press, and say their answer under the button pressed, where a refusal used to stand at the page's head out of sight.
 - A project being put on a machine says "Putting it on <machine>…", and one taken off "Taking it off <machine>…", where it said "Adding…" and "Removing…".

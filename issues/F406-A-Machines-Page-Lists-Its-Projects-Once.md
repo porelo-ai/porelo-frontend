@@ -33,3 +33,7 @@ on this machine yet". A Bug: the page contradicts itself.
 
 - One list of projects on a machine's page, each row naming its source and state.
 - *Managing this machine* is a section of its own, not between lists.
+
+## Done
+
+`machine_details_page.dart` `machineProjectRows` gives the machine's own project rows; inside a machine's one page (`embedded`) it no longer draws its own list, and `shell.dart` passes the rows to `OrganizationHostPage.machineProjects`. The page's one *Projects* list holds each name once: the machine's row with a line saying it is listed by the machine, by the organization too (with the organization's and the machine's words), or that it is every machine's own Default; a project only the organization names says "From the organization". *Managing this machine* (address and key, how it stands, its Machine Admins) follows the list. Red first: the page could not take the machine's projects at all (the test did not compile against the old page).

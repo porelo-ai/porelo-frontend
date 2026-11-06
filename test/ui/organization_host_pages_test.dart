@@ -231,6 +231,7 @@ void main() {
       Future<String?> Function(String host, String? project)? onStartWork,
       OrganizationHost shown = buildHost,
       void Function(String host)? onPrepare,
+      List<({String name, Widget row})>? machineProjects,
     }) async {
       final source = FixtureOrganization(organizationFor(me, moreProjects: moreProjects, host: shown));
       final organization = Organization(source);
@@ -247,6 +248,7 @@ void main() {
           onGiveToken: onGiveToken,
           onPrepare: onPrepare,
           onStartWork: onStartWork,
+          machineProjects: machineProjects,
         ),
       );
       return (source: source, connections: made);
@@ -691,6 +693,25 @@ void main() {
       );
       await _tap(tester, find.byKey(const ValueKey('organization.startWork/build')));
       expect(find.text('build does not list demo yet.'), findsOneWidget);
+    });
+
+    // Harm: a page tells a person both that a project is on the machine and that none is.
+    testWidgets("the machine's projects and the organization's are one list, each saying where it comes from", (
+      tester,
+    ) async {
+      await page(tester, 'mia', machineProjects: [(name: 'default', row: const Text('the machine lists default'))]);
+      expect(find.text('Projects'), findsOneWidget);
+      expect(find.text('Projects on this machine'), findsNothing);
+      expect(find.text('the machine lists default'), findsOneWidget);
+      expect(
+        tester.widget<Text>(find.byKey(const ValueKey('organization.projectSource/default'))).data,
+        startsWith('Listed by the machine'),
+      );
+      expect(
+        tester.widget<Text>(find.byKey(const ValueKey('organization.projectSource/demo'))).data,
+        startsWith('From the organization'),
+      );
+      expect(find.textContaining('No projects on this machine yet'), findsNothing);
     });
 
     // Harm: a person looks for Start work with nothing saying why it is not there.
