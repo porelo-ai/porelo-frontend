@@ -126,6 +126,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- A terminal clearing the start of a line, as tmux does before an indented line, clears the cell under the cursor too, so no character of an earlier line stays before the indented text.
 - A plain drag in a task's terminal goes to tmux whole, its press, each move and its release, so tmux selects past the screen's edge instead of being left a press with no release; Shift+drag still selects in the window.
 - Under a terminal the window no longer offers a link that still holds a variable or a template, such as `$VERSION` or `${…}`, nor lists one only the task reaches; a login's terminal still offers its own.
 - A machine's page lists its projects once, the machine's own and the organization's, each saying where it comes from, with *Managing this machine* after the list, where two lists of projects stood with the managing between them.

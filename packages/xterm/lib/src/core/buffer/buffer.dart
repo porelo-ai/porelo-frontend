@@ -190,7 +190,9 @@ class Buffer {
   /// cursor.
   void eraseLineToCursor() {
     currentLine.isWrapped = false;
-    currentLine.eraseRange(0, _cursorX, terminal.cursor);
+    // The cursor's own cell too, as xterm does: tmux clears the start of a
+    // line by EL 1 with the cursor on the last cell to clear.
+    currentLine.eraseRange(0, cursorX + 1, terminal.cursor);
   }
 
   /// Erases the line at the current cursor position.

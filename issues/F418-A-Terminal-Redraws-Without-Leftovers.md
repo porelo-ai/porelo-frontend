@@ -28,3 +28,16 @@ no output: the same leftovers, or a program's own fill drawn where a clear was e
 - Fix it in `packages/xterm` (its escape handler or buffer), with the upstream's behaviour as reference.
 - **The test that goes red first:** the recorded bytes replayed into a `Terminal` of the same size leave no leftover
   in the first column of those lines. It guards a person reading an agent's transcript that says what it did not.
+
+## Found and built
+
+- No recording was taken; the cause is read from tmux's `tty.c` (`tty_clear_line`): a run of cleared cells at a
+  line's start is cleared by moving the cursor onto its last cell and sending EL 1 (`CSI 1 K`), which erases up to
+  the cursor *inclusive* (xterm, ECMA-48). The vendored `Buffer.eraseLineToCursor` stopped before the cursor, so the
+  last cell of every cleared indent kept what stood there: exactly one character directly before the indented text
+  (`N"decision"`). ED 1 (`CSI 1 J`) shares it and is fixed with it.
+- Red first, `test/ui/terminal_redraw_test.dart`: `Expected: '  "decision"'  Actual: ' o"decision"'`.
+- The rows of dots were not reproduced; the same cleared-start path is the likely source, unconfirmed.
+- Also seen and left as they were, since tmux positions the cursor absolutely before each of them: HT with no stop
+  left enters pending wrap where xterm stops in the last column; ECH, ICH, DCH, IL, DL, SU, SD take a parameter 0 as
+  0, not 1; BS and CUB from the pending-wrap column were not checked against xterm.
