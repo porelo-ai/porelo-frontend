@@ -6,8 +6,6 @@ import 'forge.dart';
 import 'commit_signing.dart';
 import 'run_here.dart';
 
-import 'package:porelo_frontend/client.dart' show ProjectSigners;
-
 export 'run_here.dart';
 
 /// A key in the person's ssh agent, which signs a commit to the project's configuration.
@@ -226,9 +224,9 @@ class ProjectWorkspace {
   /// Refuses [commit] before it is pushed unless it is signed, in namespace `git`, by [key] alone.
   Future<void> _signedBy(SigningKey key, String commit, {required String login}) async {
     final plain = key.publicKey.trim().split(RegExp(r'\s+')).take(2).join(' ');
-    final signers = ProjectSigners(login: login, key: plain, allowedSigners: ['$login namespaces="git" $plain']);
+    final signers = OwnSigner(key: plain, allowedSigners: ['$login namespaces="git" $plain']);
     try {
-      await CommitSigning(null, run: _run).checkOwn(folder, commit, signers, scratchIn: Directory(root));
+      await CommitSigning(run: _run).checkOwn(folder, commit, signers, scratchIn: Directory(root));
     } on WorkspaceRefused {
       // The commit stays here, unpushed, where the next try makes it again over itself.
       throw const WorkspaceRefused(

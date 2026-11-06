@@ -1,109 +1,47 @@
 import 'dart:io';
 
-import 'package:porelo_frontend/client.dart';
 import 'package:porelo_host/porelo_host.dart' show HostFiles;
 
 import 'machines.dart' show openSsh;
 import 'run_here.dart';
-import 'signer_policy.dart';
 
-/// The environment every Git call of a signed checkout runs in: none of the person's or the system's Git
-/// configuration, so nothing there chooses how, or with what, a commit is signed.
-const isolatedGit = <String, String>{
+/// The environment the check's Git calls run in: none of the person's or the system's Git configuration, so nothing
+/// there chooses how a commit object is read.
+const _isolatedGit = <String, String>{
   'GIT_CONFIG_GLOBAL': '/dev/null',
   'GIT_CONFIG_NOSYSTEM': '1',
   'GIT_TERMINAL_PROMPT': '0',
 };
 
-/// Commits signed with the person's key through their SSH agent, and accepted only as Core's signer policy says.
+/// The check that a commit made here is signed with the person's own key.
 ///
-/// Signing names the person's public key as `key::`, so `ssh-keygen` asks the agent and no private key file is
-/// read. A signature is checked with `ssh-keygen -Y` against Core's allowed-signers lines at the present time, never
+/// A signature is checked with `ssh-keygen -Y` against the given allowed-signers lines at the present time, never
 /// at the time a commit claims, which its signer chooses.
 class CommitSigning {
-  /// Constructor taking Core's policy, absent where none is available, and how programs are run.
-  CommitSigning(this.policy, {RunHere? run}) : _run = run ?? runHere;
-
-  /// Core's signer policy; without it nothing is signed or accepted.
-  final SignerPolicy? policy;
+  /// Constructor taking how programs are run.
+  CommitSigning({RunHere? run}) : _run = run ?? runHere;
 
   final RunHere _run;
 
-  static const _unsigned = WorkspaceRefused(
-    'The commit is not signed by a signer Porelo accepts for this project. Nothing was moved or pushed.',
-  );
+  static const _unsigned = WorkspaceRefused('The commit is not signed with the chosen key. Nothing was pushed.');
 
-  /// Core's signers for [project], refused when there is no policy or Core answers nothing usable.
-  Future<ProjectSigners> signersFor(String project) async {
-    final policy = this.policy;
-    if (policy == null) throw const WorkspaceRefused(_noPolicy);
-    try {
-      return await policy.signers(project);
-    } on FeatureNotSupported {
-      throw const WorkspaceRefused(_noPolicy);
-    } catch (_) {
-      // Whatever Core's side throws, an error as much as an exception, nothing is cloned, moved or signed.
-      throw const WorkspaceRefused('Porelo did not say who signs for this project. Nothing was signed or pushed.');
-    }
-  }
-
-  static const _noPolicy =
-      'Porelo on this computer cannot say yet who signs for this project, so nothing is signed or pushed.';
-
-  /// The options that sign one commit with the person's key from [signers] through the agent, authored as [login].
-  static List<String> signingOptions(ProjectSigners signers, {required String login}) => [
-    '-c',
-    'gpg.format=ssh',
-    '-c',
-    'gpg.ssh.program=${openSsh('ssh-keygen')}',
-    '-c',
-    'user.signingkey=key::${signers.key}',
-    '-c',
-    'commit.gpgsign=true',
-    '-c',
-    'user.name=$login',
-    '-c',
-    'user.email=$login@users.noreply.github.com',
-  ];
-
-  /// Checks that [revision], a commit made here, is signed with the person's key and accepted by the lines in force.
-  Future<void> checkOwn(String folder, String revision, ProjectSigners signers, {required Directory scratchIn}) async {
+  /// Checks that [revision], a commit made here, is signed in namespace `git` with [signers]' key, which its
+  /// allowed-signers lines name.
+  Future<void> checkOwn(String folder, String revision, OwnSigner signers, {required Directory scratchIn}) async {
     final signer = await _acceptedNow(folder, revision, signers, scratchIn);
     if (signer != HostFiles.signingFingerprint(signers.key)) throw _unsigned;
   }
 
-  /// Accepts [revision], a commit that arrived from elsewhere, by Core's recorded verdict, or, where Core recorded
-  /// none, as a commit arriving now.
-  Future<void> checkArrived(
-    String project,
-    String folder,
-    String revision,
-    ProjectSigners signers, {
-    required Directory scratchIn,
-  }) async {
-    final policy = this.policy;
-    if (policy == null) throw const WorkspaceRefused(_noPolicy);
-    final CommitVerdict verdict;
-    try {
-      verdict = await policy.verdict(project, revision);
-    } catch (_) {
-      throw const WorkspaceRefused('Porelo did not say whether it accepted this commit. Nothing was moved.');
-    }
-    if (verdict.accepted) return;
-    if (!verdict.unrecorded) throw _unsigned;
-    await _acceptedNow(folder, revision, signers, scratchIn);
-  }
-
-  /// Answers the fingerprint of the key that signed [revision] in namespace `git`, as Core's lines accept it now.
-  Future<String> _acceptedNow(String folder, String revision, ProjectSigners signers, Directory scratchIn) async {
-    final raw = await _run('git', ['cat-file', 'commit', revision], inDirectory: folder, environment: isolatedGit);
+  /// Answers the fingerprint of the key that signed [revision] in namespace `git`, as [signers]' lines accept it now.
+  Future<String> _acceptedNow(String folder, String revision, OwnSigner signers, Directory scratchIn) async {
+    final raw = await _run('git', ['cat-file', 'commit', revision], inDirectory: folder, environment: _isolatedGit);
     if (raw.code != 0) throw _unsigned;
     // Git checks only the signature header of the repository's own hash; another one is never taken for it.
     final format = await _run(
       'git',
       ['rev-parse', '--show-object-format'],
       inDirectory: folder,
-      environment: isolatedGit,
+      environment: _isolatedGit,
     );
     final signed = _split(
       raw.out,
@@ -177,4 +115,16 @@ class CommitSigning {
     if (signatures != 1 || signature.first != '-----BEGIN SSH SIGNATURE-----') throw _unsigned;
     return (signature: '${signature.join('\n')}\n', payload: payload.join('\n'));
   }
+}
+
+/// The person's own key and the allowed-signers lines a commit made here is checked against.
+class OwnSigner {
+  /// Constructor taking both.
+  const OwnSigner({required this.key, required this.allowedSigners});
+
+  /// The person's public key, its type and its key without a comment: the one a commit made here is signed with.
+  final String key;
+
+  /// Git's allowed-signers lines the commit is checked against, verbatim, never rewritten here.
+  final List<String> allowedSigners;
 }

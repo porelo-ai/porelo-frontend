@@ -267,9 +267,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   instead of refusing it, and takes that first commit only when it has no parent. A failed first filing can be
   retried, and adding a person before the project is registered is refused in words.
 
-- Access commits are signed with Core's key for the person through their SSH agent, ignoring any Git
-  signing configuration, and an origin commit is accepted only by Core's allowed signers or by Core's
-  recorded verdict. Workspace commits and merges are pushed only when signed by the chosen key.
+- Workspace commits and merges are pushed only when signed by the chosen key.
 
 - A developer joins a project at one click from Core's verified admission, shown as "in project P on host X".
   The join asks Core again, follows with Core's signers through the host's tunnel, and saves only what
