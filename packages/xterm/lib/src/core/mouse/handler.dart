@@ -22,12 +22,17 @@ class TerminalMouseEvent {
   /// The platform of the terminal.
   final TerminalTargetPlatform platform;
 
+  /// Whether the pointer moved with [button] held, rather than pressed or
+  /// released it.
+  final bool motion;
+
   TerminalMouseEvent({
     required this.button,
     required this.buttonState,
     required this.position,
     required this.state,
     required this.platform,
+    this.motion = false,
   });
 }
 
@@ -67,7 +72,8 @@ class ClickMouseHandler implements TerminalMouseHandler {
     switch (event.state.mouseMode) {
       case MouseMode.clickOnly:
         // Only clicks and only the first 3 buttons are reported.
-        if (event.buttonState == TerminalMouseButtonState.down &&
+        if (!event.motion &&
+            event.buttonState == TerminalMouseButtonState.down &&
             (event.button.id < 3)) {
           return MouseReporter.report(
             event.button,
@@ -98,6 +104,10 @@ class UpDownMouseHandler implements TerminalMouseHandler {
       case MouseMode.upDownScroll:
       case MouseMode.upDownScrollDrag:
       case MouseMode.upDownScrollMove:
+        // Motion is reported only to a program that asked for it (1002, 1003).
+        if (event.motion && event.state.mouseMode == MouseMode.upDownScroll) {
+          return null;
+        }
         // Up events are never reported for mouse wheel buttons.
         if (event.button.isWheel &&
             event.buttonState == TerminalMouseButtonState.up) {
@@ -108,6 +118,7 @@ class UpDownMouseHandler implements TerminalMouseHandler {
           event.buttonState,
           event.position,
           event.state.mouseReportMode,
+          motion: event.motion,
         );
     }
   }

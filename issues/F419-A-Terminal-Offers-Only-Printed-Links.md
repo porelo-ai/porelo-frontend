@@ -21,3 +21,11 @@ only reachable inside the task".
   is not listed (the login's reply, which the window forwards, stays as today).
 - `lib/src/ui/terminal_links.dart`: the line "only reachable inside the task" goes with it.
 - No test goes red first beyond the link finder's own: a link that leads nowhere is offered, nothing is lost or sent.
+
+## Built
+
+- `links.dart`: `hyperlinkOf` takes no address holding `$`, `{`, `}`, `%7B` or `%7D` (either case).
+- `terminal_links.dart`: a link only the task reaches is left out of the list, with its "only reachable inside the
+  task" line; in a terminal that forwards a login's reply, and for the login's own page, it stays as before.
+- `task_terminal_test.dart`'s link test holds both; red first on the old code (eight "only reachable inside the task"
+  lines, and the `shfmt` template offered).

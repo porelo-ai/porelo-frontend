@@ -50,8 +50,9 @@ class SessionView extends StatefulWidget {
 }
 
 class _SessionViewState extends State<SessionView> {
-  /// What is selected, so a copy can be made of it as it shows.
-  final _selection = TerminalController();
+  /// What is selected, so a copy can be made of it as it shows. A plain drag is the program's whole
+  /// where it asked for a drag's motion, so tmux selects past the screen's edge.
+  final _selection = TerminalController(pointerInputs: const PointerInputs({PointerInput.tap, PointerInput.drag}));
 
   Session get session => widget.session;
 

@@ -64,14 +64,15 @@ class TerminalPasteHint extends StatelessWidget {
   /// Creates the shared terminal hint.
   const TerminalPasteHint({super.key, this.shiftSelects = false});
 
-  /// Whether a Shift+drag selects in this terminal whatever its program asked of the mouse.
+  /// Whether a Shift+drag selects in this terminal whatever its program asked of the mouse, and a
+  /// plain drag goes to the task's tmux, which selects past the screen's edge.
   final bool shiftSelects;
 
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.symmetric(horizontal: Space.small, vertical: Space.tight),
     child: Text(
-      '${shiftSelects ? 'Select with Shift+drag · ' : ''}'
+      '${shiftSelects ? 'Select with Shift+drag (this screen) · Drag to select in tmux · ' : ''}'
       '${defaultTargetPlatform == TargetPlatform.macOS ? 'Paste with ⌘V' : 'Paste with Ctrl+Shift+V'}',
     ),
   );

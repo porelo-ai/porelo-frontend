@@ -46,12 +46,18 @@ class TerminalLink {
 }
 
 /// The link an OSC 8 hyperlink carries, or null for the sequence that ends one, or for anything
-/// that is not a web address — a terminal's link is never a way to run something here.
+/// that is not a web address — a terminal's link is never a way to run something here — or that
+/// still holds a variable or a template, which leads nowhere.
 TerminalLink? hyperlinkOf(String code, List<String> arguments) {
   if (code != '8' || arguments.length < 2) return null;
-  final address = Uri.tryParse(arguments.sublist(1).join(';'));
+  final printed = arguments.sublist(1).join(';');
+  if (_unexpanded.hasMatch(printed)) return null;
+  final address = Uri.tryParse(printed);
   if (address == null || !(address.isScheme('https') || address.isScheme('http'))) return null;
   // OSC 8's parameters are key=value pairs separated by colons.
   final marked = arguments.first.split(':').contains('id=porelo-login');
   return TerminalLink(address, isTheLogin: marked);
 }
+
+/// `$`, `{`, `}` or their encoded braces: a script's text with its variables unexpanded.
+final _unexpanded = RegExp(r'[${}]|%7[bd]', caseSensitive: false);

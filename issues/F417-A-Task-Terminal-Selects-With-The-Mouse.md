@@ -54,3 +54,14 @@ shows tmux in copy mode (`[56/379]` top right) with the highlight in tmux's colo
 - **The test that goes red first:** a terminal whose program asked for 1002 and 1006 sends a press, motions and a
   release for a plain mouse drag, and keeps no selection of its own. It guards a person who cannot select more than a
   screen of what the agent said.
+
+## Built
+
+- `packages/xterm`: a mouse report can be a motion (button + 32, `TerminalMouseEvent.motion`), heard only under 1002
+  or 1003. Where the program asked for it and the controller lets drags through (`PointerInput.drag`), a mouse drag
+  reports its press (unless the held tap already did), one motion per cell crossed and its release, and selects
+  nothing. Any press told to the program is released when the drag ends, so 1000 alone no longer leaves a button held.
+- `session_view.dart` lets drags through; Shift still suspends pointer input, so Shift+drag selects here as before.
+  The line under the terminal says "Select with Shift+drag (this screen) · Drag to select in tmux".
+- Red first: `task_terminal_test.dart`, "a plain drag is the program's whole where it asked for motion": no motion
+  was reported (`Actual: []`).

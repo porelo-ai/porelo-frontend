@@ -8,6 +8,7 @@ import 'package:xterm/src/core/buffer/range.dart';
 import 'package:xterm/src/core/buffer/segment.dart';
 import 'package:xterm/src/core/mouse/button.dart';
 import 'package:xterm/src/core/mouse/button_state.dart';
+import 'package:xterm/src/core/mouse/mode.dart';
 import 'package:xterm/src/terminal.dart';
 import 'package:xterm/src/ui/controller.dart';
 import 'package:xterm/src/ui/cursor_type.dart';
@@ -299,14 +300,27 @@ class RenderTerminal extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
   }
 
   /// Send a mouse event at [offset] with [button] being currently in [buttonState].
+  /// With [motion], the pointer moved to [offset] with [button] held.
   bool mouseEvent(
     TerminalMouseButton button,
     TerminalMouseButtonState buttonState,
-    Offset offset,
-  ) {
+    Offset offset, {
+    bool motion = false,
+  }) {
     final position = getCellOffset(offset);
-    return _terminal.mouseInput(button, buttonState, position);
+    return _terminal.mouseInput(
+      button,
+      buttonState,
+      position,
+      motion: motion,
+    );
   }
+
+  /// Whether the program asked to hear a drag's motion (1002 or 1003), so a
+  /// drag is its own rather than a selection here.
+  bool get programTakesDrags =>
+      _terminal.mouseMode == MouseMode.upDownScrollDrag ||
+      _terminal.mouseMode == MouseMode.upDownScrollMove;
 
   void _notifyEditableRect() {
     final cursor = localToGlobal(cursorOffset);

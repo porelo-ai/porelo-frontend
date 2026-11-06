@@ -59,6 +59,17 @@ class _TerminalGestureHandlerState extends State<TerminalGestureHandler> {
 
   LongPressStartDetails? _lastLongPressStartDetails;
 
+  /// Whether the program was told of a left press it has not yet heard
+  /// released.
+  bool _leftPressReported = false;
+
+  /// Whether the current drag is the program's, reported to it, rather than a
+  /// selection here.
+  bool _dragIsProgram = false;
+
+  /// Where the current drag last was, to report its release there.
+  Offset? _lastDragPosition;
+
   @override
   Widget build(BuildContext context) {
     return TerminalGestureDetector(
@@ -75,6 +86,8 @@ class _TerminalGestureHandlerState extends State<TerminalGestureHandler> {
       // onLongPressUp: onLongPressUp,
       onDragStart: onDragStart,
       onDragUpdate: onDragUpdate,
+      onDragEnd: onDragEnd,
+      onDragCancel: onDragCancel,
       onDoubleTapDown: onDoubleTapDown,
     );
   }
@@ -82,6 +95,11 @@ class _TerminalGestureHandlerState extends State<TerminalGestureHandler> {
   bool get _shouldSendTapEvent =>
       !widget.readOnly &&
       widget.terminalController.shouldSendPointerInput(PointerInput.tap);
+
+  bool get _shouldSendDragEvent =>
+      !widget.readOnly &&
+      widget.terminalController.shouldSendPointerInput(PointerInput.drag) &&
+      renderTerminal.programTakesDrags;
 
   void _tapDown(
     GestureTapDownCallback? callback,
@@ -97,6 +115,9 @@ class _TerminalGestureHandlerState extends State<TerminalGestureHandler> {
         TerminalMouseButtonState.down,
         details.localPosition,
       );
+      if (handled && button == TerminalMouseButton.left) {
+        _leftPressReported = true;
+      }
     }
     // If the event was not handled by the terminal, use the supplied callback.
     if (!handled || forceCallback) {
@@ -118,6 +139,9 @@ class _TerminalGestureHandlerState extends State<TerminalGestureHandler> {
         TerminalMouseButtonState.up,
         details.localPosition,
       );
+      if (handled && button == TerminalMouseButton.left) {
+        _leftPressReported = false;
+      }
     }
     // If the event was not handled by the terminal, use the supplied callback.
     if (!handled || forceCallback) {
@@ -176,6 +200,23 @@ class _TerminalGestureHandlerState extends State<TerminalGestureHandler> {
 
   void onDragStart(DragStartDetails details) {
     _lastDragStartDetails = details;
+    _lastDragPosition = details.localPosition;
+
+    // A program that asked for a drag's motion (tmux selecting in its own
+    // copy mode, past the screen's edge) hears the whole drag: its press, each
+    // motion and its release, and nothing is selected here.
+    _dragIsProgram =
+        details.kind == PointerDeviceKind.mouse && _shouldSendDragEvent;
+    if (_dragIsProgram) {
+      if (!_leftPressReported) {
+        _leftPressReported = renderTerminal.mouseEvent(
+          TerminalMouseButton.left,
+          TerminalMouseButtonState.down,
+          details.localPosition,
+        );
+      }
+      return;
+    }
 
     details.kind == PointerDeviceKind.mouse
         ? renderTerminal.selectCharacters(details.localPosition)
@@ -183,9 +224,45 @@ class _TerminalGestureHandlerState extends State<TerminalGestureHandler> {
   }
 
   void onDragUpdate(DragUpdateDetails details) {
+    final before = _lastDragPosition;
+    _lastDragPosition = details.localPosition;
+    if (_dragIsProgram) {
+      // One report per cell crossed, not per pixel, as other terminals do.
+      if (before == null ||
+          renderTerminal.getCellOffset(before) !=
+              renderTerminal.getCellOffset(details.localPosition)) {
+        renderTerminal.mouseEvent(
+          TerminalMouseButton.left,
+          TerminalMouseButtonState.down,
+          details.localPosition,
+          motion: true,
+        );
+      }
+      return;
+    }
     renderTerminal.selectCharacters(
       _lastDragStartDetails!.localPosition,
       details.localPosition,
     );
+  }
+
+  void onDragEnd(DragEndDetails details) => _endDrag();
+
+  void onDragCancel() => _endDrag();
+
+  /// Releases a press the program was told of, so it never holds a button the
+  /// hand let go of.
+  void _endDrag() {
+    final at = _lastDragPosition;
+    if (_leftPressReported && at != null && !widget.readOnly) {
+      renderTerminal.mouseEvent(
+        TerminalMouseButton.left,
+        TerminalMouseButtonState.up,
+        at,
+      );
+    }
+    _leftPressReported = false;
+    _dragIsProgram = false;
+    _lastDragPosition = null;
   }
 }

@@ -64,7 +64,7 @@ void main() {
 
   bool offered(String address) => find.byKey(ValueKey<String>('terminal-link $address')).evaluate().isNotEmpty;
 
-  testWidgets('a link only the container reaches gets no browser button; one this computer reaches does', (
+  testWidgets('a link only the container reaches, or still a template, is not offered; one this computer reaches is', (
     tester,
   ) async {
     final (_, channel) = await open(tester);
@@ -78,19 +78,31 @@ void main() {
       'http://0.0.0.0:8000/',
       'http://gate/sluice.git',
     ];
+    const templates = <String>[
+      r'https://github.com/mvdan/sh/releases/download/v/$VERSION/shfmt_v/$%7BVERSION%7D_linux_amd64',
+      r'https://example.org/${name}.tar.gz',
+      'https://example.org/%7bname%7d.tar.gz',
+    ];
     const outside = <String>[
       'https://github.com/example/sluice/pull/1',
       'https://127.example.com/',
       'http://192.0.2.10/',
     ];
-    for (final address in <String>[...inside, ...outside]) {
+    for (final address in <String>[...inside, ...templates, ...outside]) {
       await prints(tester, channel, '\x1b]8;;$address\x1b\\$address\x1b]8;;\x1b\\\r\n');
     }
 
     for (final address in inside) {
       expect(offered(address), isFalse, reason: 'the laptop’s browser cannot reach $address inside the task');
     }
-    expect(find.textContaining('only reachable inside the task'), findsNWidgets(inside.length));
+    expect(find.textContaining('only reachable inside the task'), findsNothing, reason: 'not listed at all');
+    for (final printed in <String>['shfmt', 'tar.gz']) {
+      expect(
+        find.textContaining(printed),
+        findsNothing,
+        reason: 'an address with its variables unexpanded leads nowhere',
+      );
+    }
     for (final address in outside) {
       expect(offered(address), isTrue, reason: '$address is reached from this computer and keeps its button');
     }
@@ -151,6 +163,34 @@ void main() {
       await tester.pump(const Duration(milliseconds: 500));
       final reports = channel.sent.where((each) => each.startsWith('\x1b[<0;')).toList();
       expect(reports.map((each) => each[each.length - 1]), <String>['M', 'm'], reason: 'press, then release');
+    });
+
+    testWidgets('a plain drag is the program’s whole where it asked for motion, and selects nothing here', (
+      tester,
+    ) async {
+      final (_, channel) = await open(tester);
+      await prints(tester, channel, '\x1b[?1000h\x1b[?1002h\x1b[?1006hhello world');
+
+      final drag = await tester.startGesture(cell(tester, 0), kind: PointerDeviceKind.mouse);
+      await tester.pump(const Duration(milliseconds: 200));
+      await drag.moveTo(cell(tester, 4));
+      await tester.pump();
+      await drag.moveTo(cell(tester, 8));
+      await tester.pump();
+      await drag.up();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      final reports = channel.sent.where((each) => each.startsWith('\x1b[<')).toList();
+      expect(reports.first, startsWith('\x1b[<0;1;'), reason: 'the press, where the drag began');
+      expect(reports.first, endsWith('M'));
+      final motions = reports.where((each) => each.startsWith('\x1b[<32;')).toList();
+      expect(motions, hasLength(2), reason: 'each motion to another cell, the button held');
+      expect(
+        reports.last,
+        motions.last.replaceFirst('<32;', '<0;').replaceFirst(RegExp(r'M$'), 'm'),
+        reason: 'the release, where the drag ended',
+      );
+      expect(selection(tester).selection, isNull, reason: 'tmux selects, not the window');
     });
 
     testWidgets('a plain click still reaches the program, its press and its release', (tester) async {
