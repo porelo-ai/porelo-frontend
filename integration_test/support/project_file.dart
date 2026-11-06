@@ -11,4 +11,4 @@ image:
   from: "ubuntu:24.04"
 repositories:
   backend:
-    upstream: "$backend"''';
+    central: "$backend"''';

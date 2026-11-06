@@ -17,3 +17,5 @@ Those follow porelo's form as Agent Core hands it over.
 
 `machine_binding.dart`: `ProjectShape.of` reads `central:`, else `upstream:`. Red first: a file naming `central:` read
 as having no repositories.
+
+Review reading: the end-to-end tests' project file (`integration_test/support/project_file.dart`) wrote `upstream:`, which a porelo past the rename refuses; it writes `central:` now, so `tool/e2e.sh` needs that porelo on the test machine.
