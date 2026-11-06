@@ -443,6 +443,17 @@ Feature: Starting work with an agent, a mode and a credential
         And the start brings up {'porelo-checkout-schema-work'} in {'checkout'}, running {'SHELL'}
         Then the session on screen is {'porelo-checkout-schema-work'}
 
+    # The start's own terminal may have ended with it: the person is met by a new one, as if they
+    # had asked for it, not by a page saying none is open.
+    Scenario: work started by hand opens a new terminal where the start's own has ended
+        When I start work in this project
+        And I call it {'schema-work'}
+        And I choose the agent {'An Agent'}
+        And I start it
+        And the terminal session of {'porelo-checkout-schema-work'} has ended
+        And the start brings up {'porelo-checkout-schema-work'} in {'checkout'}, running {'SHELL'}
+        Then the session on screen is {'porelo-checkout-schema-work'}
+
     # An unattended run has nobody at it: its log is what there is to watch.
     Scenario: an unattended run opens no session when it is up
         When I start work in this project

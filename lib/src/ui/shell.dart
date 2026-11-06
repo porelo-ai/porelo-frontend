@@ -2287,7 +2287,16 @@ class _ShellState extends State<Shell> {
     final task =
         (named.isEmpty ? null : up.where((each) => each.task == named).firstOrNull) ??
         up.where((each) => !runningBefore.contains(each.name)).firstOrNull;
-    if (task != null) _openSession(task);
+    if (task == null) return;
+    // The start's own terminal may have ended with it, and a look would then say none is open: the
+    // person came to meet the agent, so a new one opens, as *Open a new terminal* does.
+    final machine = widget.machines.current;
+    if (Sessions.whyNot(task, machine) == null) {
+      await widget.sessions.leave();
+      if (!mounted) return;
+      _workView.showNewTerminal(machine.name, task);
+    }
+    _openSession(task);
   }
 
   /// Changes what running work does with a blocked connection. **It opens nothing.**

@@ -32,3 +32,12 @@ on Work → Running with the new task, but said "No terminal is open in it" and 
 - **The test that goes red first:** a by-hand start whose operation ends well lands on the task with a terminal
   opened in it (the sessions' stand-in asked once), not on "No terminal is open in it". It guards a person who
   started work to meet the agent and found an empty page.
+
+## Built
+
+- Not checked on rehearsal which of the two it was; the fix holds for both. `shell.dart` `_workInItOnceUp`: once the
+  started task is found and `Sessions.whyNot` has nothing against it, it leaves the open session and asks for a new
+  terminal on the task's tab (`WorkView.showNewTerminal`, what `running_view.dart` `_openNew` does), then opens the
+  tab as before; refused, it opens the tab alone, which says why.
+- Red first: `task_creation.feature`, "work started by hand opens a new terminal where the start's own has ended"
+  (the machine says the terminal is not live): `Expected: 'porelo-checkout-schema-work'  Actual: <null>`.

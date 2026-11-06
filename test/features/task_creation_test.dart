@@ -96,6 +96,7 @@ import './step/i_ask_again_from_the_start.dart';
 import './step/the_machine_fails_to_say_whether_work_can_start_with.dart';
 import './step/the_start_brings_up_in_running.dart';
 import './step/the_session_on_screen_is.dart';
+import './step/the_terminal_session_of_has_ended.dart';
 import './step/no_session_was_opened.dart';
 import './step/the_vault_is_locked.dart';
 import './step/opening_it_with_this_device_is_not_offered.dart';
@@ -604,6 +605,16 @@ void main() {
       await iCallIt(tester, 'schema-work');
       await iChooseTheAgent(tester, 'An Agent');
       await iStartIt(tester);
+      await theStartBringsUpInRunning(tester, 'porelo-checkout-schema-work', 'checkout', 'SHELL');
+      await theSessionOnScreenIs(tester, 'porelo-checkout-schema-work');
+    });
+    testWidgets('''work started by hand opens a new terminal where the start's own has ended''', (tester) async {
+      await bddSetUp(tester);
+      await iStartWorkInThisProject(tester);
+      await iCallIt(tester, 'schema-work');
+      await iChooseTheAgent(tester, 'An Agent');
+      await iStartIt(tester);
+      await theTerminalSessionOfHasEnded(tester, 'porelo-checkout-schema-work');
       await theStartBringsUpInRunning(tester, 'porelo-checkout-schema-work', 'checkout', 'SHELL');
       await theSessionOnScreenIs(tester, 'porelo-checkout-schema-work');
     });
