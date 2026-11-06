@@ -26,3 +26,7 @@ the button stays as it was and `_startWhy` is set only at the end.
 - **The test that goes red first:** a page whose `onStartWork` has not answered yet shows the line and a disabled
   button after one press, and a second press calls it no second time. It guards a second start sent by a person who saw
   nothing happen.
+
+## Done
+
+Built as a case of [F421](README.md#f421)'s shared button: from the press to the answer *Start work* is disabled and says "Starting work on <machine>…" beside a small ring; the project is chosen before, without the ring. Red first: nothing said it was starting, after one press.

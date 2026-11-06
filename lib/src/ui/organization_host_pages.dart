@@ -9,6 +9,7 @@ import '../app/host_progress.dart';
 import '../app/host_runs.dart' show HostPreparation;
 import '../app/key_recovery.dart' show BackupScope;
 import '../app/organization_source.dart';
+import 'asking_button.dart';
 import 'command_menu.dart';
 import 'filtered_list_section.dart';
 import 'key_recovery_dialog.dart';
@@ -326,12 +327,6 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
   bool _acting = false;
   String? _refusal;
 
-  /// Why the last press of *Start work* did not start, in words.
-  String? _startWhy;
-
-  /// Why the token was not given, from the last press.
-  String? _tokenWhy;
-
   /// What the host last said of itself, asked only of a host admin who is connected to it.
   HostProgress? _progress;
   bool _askedProgress = false;
@@ -382,13 +377,13 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     unawaited(_read(() => connections.progress(widget.host)));
   }
 
-  /// Takes what the host says; a refusal is shown on the page, never read as a state.
-  Future<void> _read(Future<HostProgress> Function() ask) async {
+  /// Takes what the host says; a refusal is shown on the page, never read as a state. Asked by a button, the refusal
+  /// is answered to it, to stand beside it, and the page's head keeps none.
+  Future<String?> _read(Future<HostProgress> Function() ask, {bool byAButton = false}) async {
     final read = ++_progressReads;
     setState(() {
       _acting = true;
       _refusal = null;
-      _startWhy = null;
     });
     HostProgress? progress;
     String? refusal;
@@ -398,28 +393,30 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
       refusal = refused.words;
     }
     // An earlier status answer must not replace the result of a later fetch.
-    if (!mounted || read != _progressReads) return;
+    if (!mounted || read != _progressReads) return refusal;
     setState(() {
       if (progress != null) {
         _progress = progress;
         _answeredAt = DateTime.now();
       }
       _acting = false;
-      _refusal = refusal;
+      if (!byAButton) _refusal = refusal;
     });
+    return refusal;
   }
 
-  Future<void> _giveToken() async {
+  /// Gives the host the token, then reads it again; answers why it was not given, or why the reading failed.
+  Future<String?> _giveToken() async {
     final first = _progress?.waitsForToken ?? false;
-    setState(() => _tokenWhy = null);
     final words = await widget.onGiveToken?.call(widget.host);
-    if (!mounted) return;
-    setState(() => _tokenWhy = words);
     final connections = widget.connections;
-    if (connections == null) return;
-    await _read(() => connections.progress(widget.host));
+    if (!mounted || connections == null) return words;
+    final refusal = await _read(() => connections.progress(widget.host), byAButton: true);
     // The host has made the account it could not make before: now the connection itself can come up.
-    if (mounted && first && !(_progress?.waitsForToken ?? true)) await _act(() => connections.connect(widget.host));
+    if (mounted && first && !(_progress?.waitsForToken ?? true)) {
+      return words ?? await _act(() => connections.connect(widget.host), byAButton: true);
+    }
+    return words ?? refusal;
   }
 
   void _show(Widget dialog) => unawaited(showDialog<void>(context: context, builder: (_) => dialog));
@@ -429,12 +426,12 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     await widget.organization.refresh();
   }
 
-  /// Runs one thing of the connection's, its refusal shown on the page; nothing is shown as done before its answer.
-  Future<void> _act(Future<void> Function() action) async {
+  /// Runs one thing of the connection's, its refusal shown on the page, or answered to the button that asked;
+  /// nothing is shown as done before its answer.
+  Future<String?> _act(Future<void> Function() action, {bool byAButton = false}) async {
     setState(() {
       _acting = true;
       _refusal = null;
-      _startWhy = null;
     });
     String? refusal;
     try {
@@ -442,11 +439,12 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     } on OrganizationRefused catch (refused) {
       refusal = refused.words;
     }
-    if (!mounted) return;
+    if (!mounted) return refusal;
     setState(() {
       _acting = false;
-      _refusal = refusal;
+      if (!byAButton) _refusal = refusal;
     });
+    return refusal;
   }
 
   @override
@@ -519,13 +517,15 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
           if (project.waitsForToken) Text(organizationTokenWords(view, host.name, project: project.project)),
         Align(
           alignment: Alignment.centerLeft,
-          child: FilledButton(
-            key: const ValueKey('organization.giveToken'),
-            onPressed: _acting || widget.onGiveToken == null ? null : () => unawaited(_giveToken()),
-            child: Text('Give it my ${organizationForgeName(view)} token…'),
+          child: AskingButton(
+            buttonKey: const ValueKey('organization.giveToken'),
+            answerKey: const ValueKey('organization.tokenWhy'),
+            filled: true,
+            waiting: 'Giving ${host.name} your token, then asking how it stands…',
+            onAsk: _acting || widget.onGiveToken == null ? null : _giveToken,
+            label: Text('Give it my ${organizationForgeName(view)} token…'),
           ),
         ),
-        if (_tokenWhy case final why?) Text(why, key: const ValueKey('organization.tokenWhy')),
       ],
       if (progress?.refused case final refused?)
         Text(
@@ -568,12 +568,16 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
         ),
         Tooltip(
           message: 'Fetch and apply the organization on this machine now, rather than at its next follow.',
-          child: OutlinedButton(
-            key: const ValueKey('organization.refreshHost'),
-            onPressed: _acting || !(widget.connections?.connected(host.name) ?? false)
+          child: AskingButton(
+            buttonKey: const ValueKey('organization.refreshHost'),
+            answerKey: const ValueKey('organization.refreshWhy'),
+            waiting: '${host.name} fetches and applies the organization…',
+            onAsk: _acting || !(widget.connections?.connected(host.name) ?? false)
                 ? null
-                : () => unawaited(_read(() => widget.connections!.refresh(host.name))),
-            child: const Text('Fetch now'),
+                : () async =>
+                      await _read(() => widget.connections!.refresh(host.name), byAButton: true) ??
+                      '${host.name} fetched and applied the organization.',
+            label: const Text('Fetch now'),
           ),
         ),
       ],
@@ -764,26 +768,35 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     final name = host.name;
     final buttons = [
       if (ready && widget.onStartWork != null)
-        FilledButton(
-          key: ValueKey('organization.startWork/$name'),
-          onPressed: () => unawaited(_startWork(mine, name)),
-          child: Text(switch (mine) {
+        AskingButton(
+          buttonKey: ValueKey('organization.startWork/$name'),
+          answerKey: const ValueKey('organization.startWhy'),
+          filled: true,
+          waiting: 'Starting work on $name, which can take a minute while it takes the project…',
+          first: () => _chooseWhereToStart(mine),
+          onAsk: () => _startWork(name),
+          label: Text(switch (mine) {
             [] => 'Start work',
             [final one] => 'Start work in $one',
             _ => 'Start work…',
           }),
         ),
       if (connected)
-        OutlinedButton(
-          key: ValueKey('organization.disconnect/$name'),
-          onPressed: _acting ? null : () => unawaited(_act(() => connections!.disconnect(name))),
-          child: const Text('Disconnect'),
+        AskingButton(
+          buttonKey: ValueKey('organization.disconnect/$name'),
+          answerKey: const ValueKey('organization.connectWhy'),
+          waiting: 'Disconnecting from $name…',
+          onAsk: _acting ? null : () => _act(() => connections!.disconnect(name), byAButton: true),
+          label: const Text('Disconnect'),
         ),
       if ((!connected || isDown) && view.myHosts.contains(host))
-        FilledButton(
-          key: ValueKey('organization.connect/$name'),
-          onPressed: _acting || why != null ? null : () => unawaited(_act(() => connections!.connect(name))),
-          child: const Text('Connect'),
+        AskingButton(
+          buttonKey: ValueKey('organization.connect/$name'),
+          answerKey: const ValueKey('organization.connectWhy'),
+          filled: true,
+          waiting: 'Connecting to $name…',
+          onAsk: _acting || why != null ? null : () => _act(() => connections!.connect(name), byAButton: true),
+          label: const Text('Connect'),
         ),
       if (!ready && !_acting)
         if (connections case final held?) LastConnectAttempt(held, name),
@@ -816,11 +829,6 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
             const SizedBox(height: Space.small),
             Wrap(spacing: Space.small, runSpacing: Space.small, children: buttons),
           ],
-          if (_startWhy case final why?)
-            Padding(
-              padding: const EdgeInsets.only(top: Space.small),
-              child: Text(why, key: const ValueKey('organization.startWhy')),
-            ),
         ],
       ),
     );
@@ -828,11 +836,9 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
 
   /// Starts work from this page in what the person has here: the one project, or the one they choose among several.
   /// The way into `default` is taken only with no project here, or by its name.
-  Future<void> _startWork(List<String> mine, String host) async {
-    final start = widget.onStartWork;
-    if (start == null) return;
-    setState(() => _startWhy = null);
-    final String? project;
+  /// Which project a press of *Start work* starts in, chosen before the machine is asked: the one, or the one chosen
+  /// among several. Answers whether to go on.
+  Future<bool> _chooseWhereToStart(List<String> mine) async {
     if (mine.length > 1) {
       final chosen = await showDialog<String>(
         context: context,
@@ -848,14 +854,18 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
           ],
         ),
       );
-      if (chosen == null) return;
-      project = chosen == defaultProject ? null : chosen;
+      if (chosen == null) return false;
+      _startIn = chosen == defaultProject ? null : chosen;
     } else {
-      project = mine.firstOrNull;
+      _startIn = mine.firstOrNull;
     }
-    final why = await start(host, project);
-    if (mounted) setState(() => _startWhy = why);
+    return true;
   }
+
+  /// Where the last choice said to start; null is Default.
+  String? _startIn;
+
+  Future<String?> _startWork(String host) async => widget.onStartWork?.call(host, _startIn);
 }
 
 /// Asks for a host's address, port and host key, which its host admin enters.

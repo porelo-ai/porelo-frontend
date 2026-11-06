@@ -47,3 +47,7 @@ afterwards could not be seen. Before it, *Start work* ([F413](README.md#f413)) a
 ## Acceptance
 
 - Every listed action shows its working state and answers beside itself.
+
+## Done
+
+`lib/src/ui/asking_button.dart`: `AskingButton` disables itself, shows a small ring and what it waits for from the press to the answer, ignores a second press, and keeps its answer under itself; `first` lets the person choose before anything is asked, so nothing turns behind a dialog. On the machine's page (`organization_host_pages.dart`) *Start work*, *Fetch now*, *Connect*, *Disconnect* and *Give it my token…* use it; their refusals stand under them, and the page's head keeps only what no button asked (the page's own first reading). Left as they were: the organization page's changes, which already say themselves on their row ("Putting it on …"); the row's *Connect*, whose refusal already stands under the row; the forges' sign-in, which is a terminal; the gate view's reading, which is [F420](README.md#f420)'s. Red first: *Fetch now* refused showed its words at the page's head, not under the button.

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/host_progress.dart';
@@ -612,7 +614,11 @@ void main() {
       expect(made.connections.asked, contains('refresh build'));
       made.connections.refuseNext = const OrganizationRefused('Connect to build first.');
       await pressOrganizationAction(tester, 'refreshHost');
-      expect(find.text('Connect to build first.'), findsOneWidget);
+      // Beside the button pressed, where the person looks, not at the page's head scrolled away.
+      expect(
+        tester.widget<Text>(find.byKey(const ValueKey('organization.refreshWhy'))).data,
+        'Connect to build first.',
+      );
     });
 
     // Harm: a person cannot tell whether this computer is connected, what that means, or how to go on from it.
@@ -684,6 +690,34 @@ void main() {
         onStartWork: (_, _) async => 'build does not list demo yet.',
       );
       await _tap(tester, find.byKey(const ValueKey('organization.startWork/build')));
+      expect(find.text('build does not list demo yet.'), findsOneWidget);
+    });
+
+    // Harm: a press that shows nothing for a minute is pressed again, and starts a second piece of work.
+    testWidgets('Start work shows it is starting until its answer, and a second press sends nothing', (tester) async {
+      final answer = Completer<String?>();
+      var asked = 0;
+      await page(
+        tester,
+        'mia',
+        connections: FixtureConnections(['build']),
+        onStartWork: (_, _) {
+          asked++;
+          return answer.future;
+        },
+      );
+      final start = find.byKey(const ValueKey('organization.startWork/build'));
+      await tester.ensureVisible(start);
+      await tester.pumpAndSettle();
+      await tester.tap(start);
+      await tester.pump();
+      expect(find.textContaining('Starting work on build'), findsOneWidget);
+      await tester.tap(start, warnIfMissed: false);
+      await tester.pump();
+      expect(asked, 1);
+      answer.complete('build does not list demo yet.');
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Starting work on build'), findsNothing);
       expect(find.text('build does not list demo yet.'), findsOneWidget);
     });
 

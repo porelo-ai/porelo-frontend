@@ -126,6 +126,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- On a machine's page, *Start work*, *Fetch now*, *Connect*, *Disconnect* and *Give it my token…* show from the press to the answer that they work, with a small ring and what they wait for, send nothing on a second press, and say their answer under the button pressed, where a refusal used to stand at the page's head out of sight.
 - A project being put on a machine says "Putting it on <machine>…", and one taken off "Taking it off <machine>…", where it said "Adding…" and "Removing…".
 - Every list section on every page folds and unfolds and stays as it was left, the repositories and members of a project page and the projects and Machine Admins of a machine's page among them.
 - A machine this computer is preparing says so on the organization's page and its own page - its state, since when, its address - and offers its protocol rather than a second start; a preparation's row shows a small mark of its state, under *My machines* too.
