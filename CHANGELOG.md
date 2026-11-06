@@ -121,6 +121,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- The mouse wheel scrolls a task's terminal on Linux again: it reached tmux as Shift+wheel, which tmux binds to nothing.
 - What *Certify it for another week* says, that it worked or why not, stays on the line rather than giving way to *Refreshed*.
 - *Start work in default* offers every repository default holds, and *Start work on it* beside the first one opens the dialog with it chosen.
 - A machine that refuses connections is tried again after 30 seconds, then longer up to five minutes, not every two seconds, which kept sshd refusing the address; a machine back by itself may take that long to reconnect, and *Connect* still tries at once.

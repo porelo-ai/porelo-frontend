@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -49,7 +50,7 @@ void main() {
     expect((await typeIn(tester, operatingSystem: 'windows')).join(), 'a1\r');
   });
 
-  Future<List<String>> wheel(WidgetTester tester, {required String operatingSystem}) async {
+  Future<List<String>> wheel(WidgetTester tester, {required String operatingSystem, String before = ''}) async {
     desk = Desk.of(operatingSystem, const <String, String>{});
     final channel = _Channel();
     final session = Session(
@@ -65,6 +66,12 @@ void main() {
       ),
     );
     await tester.pump();
+    // What tmux writes on attaching: its own screen, and the mouse asked for in SGR form.
+    if (before.isNotEmpty) {
+      channel.emit(before);
+      await tester.pump();
+      await tester.pump();
+    }
     final terminal = tester.getCenter(find.byKey(const Key('terminal')));
     final mouse = TestPointer(1, PointerDeviceKind.mouse);
     await tester.sendEventToBinding(mouse.hover(terminal));
@@ -84,6 +91,16 @@ void main() {
   testWidgets('on Linux the terminal itself answers the wheel, as before', (tester) async {
     expect(await wheel(tester, operatingSystem: 'linux'), isEmpty);
   });
+
+  // Harm: on Linux tmux asks for the mouse, and the terminal reported the wheel as Shift+wheel (68 and 69), which
+  // tmux binds to nothing: the wheel did not scroll a task's terminal at all.
+  testWidgets('on Linux the wheel reaches tmux as a plain wheel report, up and down', (tester) async {
+    final sent = await wheel(tester, operatingSystem: 'linux', before: '\x1b[?1049h\x1b[?1000h\x1b[?1002h\x1b[?1006h');
+    expect(sent, isNotEmpty);
+    expect(sent.where((each) => each.startsWith('\x1b[<64;')), isNotEmpty, reason: 'up, as $sent');
+    expect(sent.where((each) => each.startsWith('\x1b[<65;')), isNotEmpty, reason: 'down, as $sent');
+    expect(sent.where((each) => !each.startsWith('\x1b[<64;') && !each.startsWith('\x1b[<65;')), isEmpty);
+  });
 }
 
 class _Channel implements SessionChannel {
@@ -93,6 +110,9 @@ class _Channel implements SessionChannel {
 
   @override
   Stream<List<int>> get output => _output.stream;
+
+  /// Has the far end write [text].
+  void emit(String text) => _output.add(utf8.encode(text));
 
   @override
   void send(String input) => sent.add(input);
