@@ -8,6 +8,7 @@ import 'package:porelo_frontend/client.dart';
 
 import 'machines.dart';
 import 'run_here.dart';
+import 'run_porelo.dart';
 
 /// Why this computer does not certify what a host asked, in words a person can act on.
 class CertifyRefused implements Exception {
@@ -233,7 +234,7 @@ String? whyNoCertifyAgain(Task task) {
 }
 
 /// What runs that command line; a test stands in for it, as it asks a real agent.
-RunHere certifyAgainRunner = runHere;
+RunHere certifyAgainRunner = runPorelo;
 
 /// The command line that certifies [task] anew, by this computer's agent: on [host] when it runs
 /// on another machine. Only the command line asks the agent for this, and it asks here.

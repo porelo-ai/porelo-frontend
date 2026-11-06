@@ -126,6 +126,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- On Windows the organization pages, identity and key recovery, a forge's key check, forge tokens in the vault and certifying a task again run Porelo's command line in the WSL distribution that is this computer, through `wsl.exe`, with Windows paths named as the distribution reaches them; before, each said Porelo's command line could not be started.
 - On Windows *This computer* is the WSL distribution `wsl.exe` marks as the default, reached through `wsl.exe`, instead of an entry naming a Linux socket that Windows cannot open; one added by hand before is taken as it, and with none found it says how to add one.
 - The mouse wheel scrolls a task's terminal on Linux again: it reached tmux as Shift+wheel, which tmux binds to nothing.
 - What *Certify it for another week* says, that it worked or why not, stays on the line rather than giving way to *Refreshed*.

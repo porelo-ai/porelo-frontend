@@ -18,6 +18,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f399"></a>[F399](F399-Porelos-Command-Line-Reached-In-WSL-From-Windows.md) | M | — | On Windows every use of Porelo's command line runs in the WSL distribution through `wsl.exe`. |
 | <a id="f398"></a>[F398](F398-A-Windows-Start-Leads-To-The-WSL-Distribution.md) | M | — | On Windows "This computer" is the default WSL distribution, reached through `wsl.exe`, never a socket. |
 | <a id="f397"></a>[F397](F397-A-Repository-Of-Its-Own-Works-In-Default.md) | L | — | A repository of its own listed and started in Default, its `porelo.yml` allowed at a start, each setting shown with its source; the machine's proposal before a repository's first task there. |
 | <a id="f396"></a>[F396](F396-My-Projects-Lists-The-Organizations-Projects-Alone.md) | S | — | *My projects* lists only the organization's projects the person holds a role in; a checkout's local copy and *Default* stand under *All projects on your machines*. |
@@ -163,7 +164,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f399"></a>[F399](F399-Porelos-Command-Line-Reached-In-WSL-From-Windows.md) | M | — | On Windows every use of Porelo's command line runs in the WSL distribution through `wsl.exe`. |
 | <a id="f145"></a>[F145](F145-The-Hosts-Forge-Switched-Off-In-The-Server-Setup.md) | S | — | *Set up a forge on the server* in the server setup dialog, on by default; switched off, the host's inventory says `porelo_host_forge: false`. |
 | <a id="f93"></a>[F93](F93-Connections-Rare-Actions-Out-Of-The-Way.md) | S | — | Connections' rare actions in its ⋮. |
 | <a id="f91"></a>[F91](F91-One-Way-To-Show-Loading.md) | M | — | Every view shows the same way that it is reading. |

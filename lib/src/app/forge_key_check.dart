@@ -4,6 +4,7 @@ import 'dart:io' show ProcessException;
 import 'package:flutter/foundation.dart';
 
 import 'run_here.dart';
+import 'run_porelo.dart';
 
 /// Whether the forge lists the person's key; `unknown` is "could not be asked", never "fine".
 enum ForgeKeyListed {
@@ -85,8 +86,8 @@ abstract interface class ForgeKeyCheck {
 
 /// Reads `porelo identity show --json` through an argument list.
 class ForgeKeyCheckCli implements ForgeKeyCheck {
-  /// Uses [run] for the process, `runHere` by default.
-  ForgeKeyCheckCli({RunHere? run}) : _run = run ?? runHere;
+  /// Uses [run] for the process, `runPorelo` by default.
+  ForgeKeyCheckCli({RunHere? run}) : _run = run ?? runPorelo;
 
   final RunHere _run;
 

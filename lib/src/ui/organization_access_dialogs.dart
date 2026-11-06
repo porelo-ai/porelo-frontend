@@ -3,6 +3,7 @@ import 'package:porelo_frontend/client.dart';
 import 'package:porelo_host/porelo_host.dart' show forgeAddress;
 
 import '../app/core_credentials.dart';
+import '../app/desk.dart';
 import '../app/device_key.dart';
 import '../app/fleet_backend.dart';
 import '../app/forge_connection.dart';
@@ -195,7 +196,10 @@ Future<void> prepareOrganizationForge(
     );
   }
   // Organization commands run here, regardless of which machine happens to be selected in the window.
-  final machine = Machine(name: 'this machine', socketPath: Backend.local().socketPath);
+  // On Windows this computer is the WSL distribution, which Porelo's command line also runs in.
+  final machine = desk.isWindows
+      ? Machine.local()
+      : Machine(name: 'this machine', socketPath: Backend.local().socketPath);
   final backend = localBackend ?? PoreloBackend(Machines.backendFor(machine));
   final vault = Vault(keys: deviceKeys ?? PlatformDeviceKeyStore());
   try {

@@ -4,6 +4,7 @@ import 'dart:io';
 import 'organization_source.dart';
 import 'core_credentials.dart';
 import 'run_here.dart';
+import 'run_porelo.dart';
 
 /// The organization as Porelo's own commands answer: the interface reads no organization file and keeps no checkout.
 ///
@@ -11,7 +12,7 @@ import 'run_here.dart';
 /// Porelo says goes to the person as it came; what the program wrote elsewhere never does.
 class PoreloOrganizationSource implements OrganizationSource, FoundingChecks {
   /// Runs Porelo through [run].
-  PoreloOrganizationSource({RunHere? run}) : _run = run ?? runHere;
+  PoreloOrganizationSource({RunHere? run}) : _run = run ?? runPorelo;
 
   final RunHere _run;
 
@@ -36,6 +37,9 @@ class PoreloOrganizationSource implements OrganizationSource, FoundingChecks {
         "Porelo's command line could not be started here, so nothing was asked.",
         answered: false,
       );
+    } on PoreloNotStarted catch (refused) {
+      // Nothing was started, so nothing was done: a refusal, never an answer still to come.
+      throw OrganizationRefused(refused.words);
     } on WorkspaceRefused catch (refused) {
       // It ran out its limit: it may have done what it was asked.
       throw OrganizationRefused(refused.words, answered: false);

@@ -52,8 +52,8 @@ with one `SHA256SUMS` over them and the build's attestation,
 **Tried once on a person's Windows computer.** Each build is checked on GitHub's Windows runner, where
 its tests run, the ZIP and the MSIX are built, and the MSIX is installed and started. On 2026-11-06 it
 was tried with Porelo 0.5.1~snapshot.423 in WSL Ubuntu: the daemon was reached once the distribution was
-added by hand, which *This computer* now does itself, and Porelo's command line is not yet run in the
-distribution ([F399](https://github.com/porelo-ai/porelo-frontend/blob/main/issues/README.md#f399)).
+added by hand, which *This computer* now does itself, and Porelo's command line, which the window asks
+for the organization, the identity and the vault, now runs in that distribution too.
 
 #### Portable (ZIP)
 

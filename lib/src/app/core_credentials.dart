@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'run_here.dart';
+import 'run_porelo.dart';
 
 /// One SSH key offered by a host, without trusting it.
 typedef OfferedHostKey = ({String type, String fingerprint});
@@ -8,7 +9,7 @@ typedef OfferedHostKey = ({String type, String fingerprint});
 /// Core's credential commands, with checked JSON answers and no private diagnostics.
 class CoreCredentials {
   /// Uses the ordinary process boundary, replaceable in tests.
-  CoreCredentials({RunHere? run}) : _run = run ?? runHere;
+  CoreCredentials({RunHere? run}) : _run = run ?? runPorelo;
 
   final RunHere _run;
 
@@ -37,6 +38,8 @@ class CoreCredentials {
     final Ran ran;
     try {
       ran = await _run('porelo', [...arguments, '--json'], input: input);
+    } on PoreloNotStarted {
+      rethrow;
     } on Exception {
       throw const WorkspaceRefused('Porelo could not be asked. Its result is unconfirmed.');
     }

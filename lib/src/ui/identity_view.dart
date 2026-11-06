@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:async';
 import 'dart:io' show File, FileSystemException;
 
@@ -9,6 +10,7 @@ import '../app/identity.dart';
 import '../app/key_recovery.dart' show BackupScope;
 import '../app/links.dart';
 import '../app/machines.dart';
+import '../app/run_porelo.dart';
 import '../app/session.dart';
 import 'pick_a_file.dart';
 import 'tokens.dart';
@@ -35,6 +37,14 @@ Future<({int code, String last})> _keyTerminal(
   OpenTerminal? open,
 }) async {
   var last = '';
+  final List<String> here;
+  try {
+    here = await poreloCommandHere(command);
+  } on PoreloNotStarted catch (refused) {
+    // Not started, so nothing was made: said as Porelo's own typed refusal, with a code that made nothing.
+    return (code: 127, last: jsonEncode({'reason': 'not-started', 'words': refused.words}));
+  }
+  if (!context.mounted) return (code: 127, last: '');
   final end = await runInATerminal(
     context,
     title: title,
@@ -42,7 +52,7 @@ Future<({int code, String last})> _keyTerminal(
         'KeePassXC asks for its master password in this terminal. It goes to KeePassXC and never through this '
         'program. The new key is kept in KeePassXC only, never in a file.',
     machine: Machine.local(),
-    command: command,
+    command: here,
     open: open,
     lastLine: (line) => last = line,
     stillWorking: 'Waiting for KeePassXC and its SSH agent.',

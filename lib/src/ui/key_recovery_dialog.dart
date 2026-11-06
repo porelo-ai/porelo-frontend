@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../app/identity.dart';
 import '../app/key_recovery.dart';
 import '../app/machines.dart';
+import '../app/run_porelo.dart';
 import '../app/pty.dart' show TerminalStillRunning;
 import '../app/session.dart';
 import 'identity_view.dart';
@@ -92,7 +93,7 @@ class KeyCommands {
         : await pickAFile(title: 'Use this backup key');
     if (file == null || !context.mounted) return null;
     try {
-      final command = await request.start(file, card: Identity.cardFile(environment));
+      final command = await poreloCommandHere(await request.start(file, card: Identity.cardFile(environment)));
       // From here the request is kept: a terminal that never opened restores it as it was.
       var opened = false;
       TerminalEnd? end;
@@ -121,6 +122,8 @@ class KeyCommands {
       }
     } on FormatException catch (error) {
       return error.message;
+    } on PoreloNotStarted catch (refused) {
+      return refused.words;
     } on TerminalStillRunning catch (still) {
       // Core may still write the key: the attempt runs until its program has ended.
       try {

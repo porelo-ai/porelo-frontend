@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'owned_process.dart';
@@ -18,18 +19,20 @@ typedef RunHere = Future<Ran> Function(
 /// How long one local command may run before it is ended and refused as [WorkspaceRefused].
 Duration runHereLimit = const Duration(minutes: 5);
 
-/// Runs a process with this computer's environment plus [environment].
+/// Runs a process with this computer's environment plus [environment], reading and writing it in [encoding].
 Future<Ran> runHere(
   String program,
   List<String> arguments, {
   String? inDirectory,
   Map<String, String> environment = const <String, String>{},
   String? input,
+  Encoding encoding = systemEncoding,
 }) async {
   final process = await Process.start(program, arguments, workingDirectory: inDirectory, environment: environment);
-  final out = _Gathered(process.stdout.transform(const SystemEncoding().decoder));
-  final err = _Gathered(process.stderr.transform(const SystemEncoding().decoder));
+  final out = _Gathered(process.stdout.transform(encoding.decoder));
+  final err = _Gathered(process.stderr.transform(encoding.decoder));
   _feed(process, (stdin) {
+    stdin.encoding = encoding;
     if (input != null) stdin.write(input);
   });
   return _answered(process, program, arguments, out: out, err: err);

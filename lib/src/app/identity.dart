@@ -5,6 +5,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 
 import 'run_here.dart';
+import 'run_porelo.dart';
 import 'quiet_after_dispose.dart';
 
 /// Whether the agent `SSH_AUTH_SOCK` names serves the card's key, as Core answers it.
@@ -598,7 +599,7 @@ String newOperationId(String action, {DateTime? now, Random? random}) {
 /// Core's `porelo identity` verbs, every answer checked field by field.
 class Identity implements AgentKeyList {
   /// Constructor taking the process runner, a fake in tests.
-  Identity({RunHere? run}) : _run = run ?? runHere;
+  Identity({RunHere? run}) : _run = run ?? runPorelo;
 
   final RunHere _run;
 
@@ -1162,6 +1163,11 @@ class IdentityModel extends ChangeNotifier with QuietAfterDispose {
       return null;
     } on FormatException catch (error) {
       problem = '${error.message} Nothing is assumed from this answer.';
+      return null;
+    } on PoreloNotStarted catch (refused) {
+      // Nothing was started, so nothing was made: 127, a command that was not found, which [mayHaveMade] denies.
+      problem = refused.words;
+      problemCode = 127;
       return null;
     } on Exception {
       problem = 'Core could not be run.';
