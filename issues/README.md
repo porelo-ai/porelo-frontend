@@ -82,6 +82,8 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f404"></a>[F404](F404-My-Forges-Lists-What-The-Machine-Already-Holds.md) | S | — | *My forges* also lists the forges the machine already holds credentials for, with where each comes from, and marks the organization's. |
+| <a id="f405"></a>[F405](F405-A-Host-Is-Given-The-Vaults-Token-For-The-Organization.md) | S | porelo's command handing a declared vault token to a host | *Give it my token…* offers the vault's token declared for the organization's forge, named, never read by the window. |
 | <a id="f203"></a>[F203](F203-This-Repository-Worked-In-A-Porelo-Task.md) | S | — | This repository's agent working in an attended Porelo task on the host, its build green on the host's Forgejo, reached in the room, with a way back. |
 | <a id="f388"></a>[F388](F388-The-Stubs-Pin-Stays-Fetchable.md) | XS | — | A scenario that needs the stub does not go red because its pinned version left the folder. |
 | <a id="f379"></a>[F379](F379-Add-A-Project-In-One-Step-From-The-Window.md) | S | — | A person naming themselves Project Admin adds a project in one step from the window. |
