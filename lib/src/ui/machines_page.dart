@@ -228,7 +228,7 @@ class HostPreparationMark extends StatelessWidget {
         // A run that stopped, refused or unreachable, does not turn as if it worked.
         : !run.running
         ? const Icon(Icons.pause_circle_outline, size: Sizes.rowIcon)
-        : const CircularProgressIndicator(strokeWidth: 2, semanticsLabel: 'In preparation'),
+        : const CircularProgressIndicator(strokeWidth: Sizes.spinnerStroke, semanticsLabel: 'In preparation'),
   );
 }
 
