@@ -1,6 +1,6 @@
 # F399 — Porelo's Command Line Reached In WSL From Windows
 
-**Status:** Idea.
+**Status:** Estimated.
 **Size:** M - one way to run Porelo's command line that knows the WSL distribution, taken by the six places that run
 it, with Windows paths handed over as the distribution reads them, and their tests.
 
