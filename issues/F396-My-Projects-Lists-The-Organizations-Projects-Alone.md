@@ -1,6 +1,6 @@
 # F396 — My Projects Lists The Organization's Projects Alone
 
-**Status:** Idea.
+**Status:** Implementing (Backlog by the operator, 2026-11-06).
 **Size:** S - one page's list, the rail's count and their tests; no contract.
 
 **What must be true.** Where the window reads an organization, *My projects* lists the projects of that organization
@@ -28,22 +28,22 @@ pages and menus. Removing a local project (`OrganizationSource.whyNoRemoval`, th
 
 ## Plan
 
-- `OrganizationProjectsPage` stops listing the rows of source `local`; the rail's count drops `local`.
-- *Default*: as the operator decides (see *Open questions*). If it leaves too, `_defaultRows` and `builtIn` go, and the
-  section *Daily work in front, setting up apart* in `doc/decisions.md` says *Default* stands with every machine's
-  projects instead.
-- The words below the list say where the rest stands: the link *All projects on your machines* stays, and a person with
-  no project of the organization still reads that a Project Admin adds them.
+- `OrganizationProjectsPage` lists no row of source `local` and no row of *Default*; the rail's count is the
+  organization's projects the person holds a role in, without `local` or `builtIn`.
+- *Default* stays under *All projects on your machines* and in *New work*. This takes back the row F380 put on
+  *My projects*; F380's own state stays the operator's.
+- The section *Daily work in front, setting up apart* in `doc/decisions.md` says *My projects* lists the organization's
+  projects the person holds a role in, and *Default* stands with every machine's projects.
+- The link *All projects on your machines* stays, and a person with no project of the organization still reads that a
+  Project Admin adds them.
 - Without an organization read, nothing changes: *My projects* is then the page of every machine's projects.
-- Tests in `test/ui/organization_page_test.dart` and the rail's: a `local` project, and *Default* if it leaves, stand on
-  *Projects on my machines* and not on *My projects*, and the count says the same; each seen red first.
+- Tests in `test/ui/organization_page_test.dart` and the rail's: a `local` project and *Default* stand on *Projects on my
+  machines* and not on *My projects*, and the count says the same; each seen red first.
 
-## Open questions
+## Decided
 
-- **Does *Default* stay on *My projects*?** It is no project of the organization, but F380 put it there after the
-  decision above, so that work without a project has a row of its own beside the person's projects. Proposed: it leaves
-  with the local copies, as *My projects* then answers one question, and *Default* stays one click away with every
-  machine's projects and in *New work*. F380, still in Review, would then be undone by this issue.
+- **Default leaves *My projects* too** (operator, 2026-11-06): *My projects* lists only the organization's projects the
+  person holds a role in, and the rail counts the same.
 
 ## To be checked
 
