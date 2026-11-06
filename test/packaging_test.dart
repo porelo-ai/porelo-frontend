@@ -271,7 +271,7 @@ void main() {
     });
 
     test('the packages are proven to install before they are published', () {
-      expect(workflow, contains('needs: [build, installs, integration, windows]'));
+      expect(workflow, contains('needs: [build, installs, legs, integration, windows]'));
       expect(workflow, contains("needs.build.result == 'success' && needs.installs.result == 'success'"));
       for (final system in <String>[
         'ubuntu:26.04@sha256:',
@@ -285,10 +285,22 @@ void main() {
       expect(workflow, isNot(contains('fedora:40')), reason: 'below what Porelo supports');
     });
 
-    // A release is never replaced, so it is never published beside a leg still
-    // running or red; a snapshot does not wait on a rented machine's verdict.
-    test('a release waits for the rented machine\'s leg to pass, a snapshot does not', () {
-      expect(workflow, contains("(needs.integration.result == 'success' || !startsWith(github.ref, 'refs/tags/v'))"));
+    // Nothing is published from a red build: a release and a snapshot both wait for the rented
+    // machine's leg, which passed in this run or proved this very tree in one before.
+    test('a release and a snapshot wait for the rented machine\'s leg to pass', () {
+      expect(workflow, contains("(needs.integration.result == 'success'\n"));
+      expect(
+        workflow,
+        contains(
+          "|| (needs.integration.result == 'skipped' && needs.legs.outputs.proven == 'yes'\n"
+          "                    && !startsWith(github.ref, 'refs/tags/')))",
+        ),
+      );
+      expect(
+        workflow,
+        isNot(contains("!startsWith(github.ref, 'refs/tags/v'))")),
+        reason: 'a red leg published a snapshot',
+      );
       expect(workflow, contains('!cancelled()'), reason: 'a skipped or red job must not make Publish run anyway');
     });
 

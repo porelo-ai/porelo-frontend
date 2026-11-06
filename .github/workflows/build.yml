@@ -424,8 +424,8 @@ jobs:
                     --jobs "Test against a leased machine" | tee -a "$GITHUB_STEP_SUMMARY"
 
     # Against a machine rented for the run: Maven leases it, the GUI tests run headless over ssh,
-    # and the sweep takes it down whether they passed or not. Not a gate for publishing: a rented
-    # machine that cannot be had is not a fault in this interface.
+    # and the sweep takes it down whether they passed or not. A gate for publishing, as every test
+    # job is: a tree it did not prove is not published.
     integration:
         name: Test against a leased machine
         needs: legs
@@ -554,17 +554,19 @@ jobs:
 
     publish:
         name: Publish to Artifactory
-        needs: [build, installs, integration, windows]
+        needs: [build, installs, legs, integration, windows]
         runs-on: ubuntu-26.04
         timeout-minutes: 5
         # A pull request from a fork has no access to the token, and a run that publishes nothing is
-        # better than one that fails at the last step. A release waits for every job, the leg on a
-        # rented machine included, since it is never replaced; a snapshot needs only the build and the
-        # installs, and is published whatever that leg says.
+        # better than one that fails at the last step. A snapshot waits for every test job as a release
+        # does, the leg on a rented machine included: it passed in this run, or it was not run because
+        # a run before proved this very tree. A red, cancelled or unasked leg publishes nothing.
         if: >-
             !cancelled() && vars.PORELO_PUBLISH == 'true' && github.event_name != 'pull_request'
             && needs.build.result == 'success' && needs.installs.result == 'success'
-            && (needs.integration.result == 'success' || !startsWith(github.ref, 'refs/tags/v'))
+            && (needs.integration.result == 'success'
+                || (needs.integration.result == 'skipped' && needs.legs.outputs.proven == 'yes'
+                    && !startsWith(github.ref, 'refs/tags/')))
         env:
             CHANNEL: ${{ needs.build.outputs.channel }}
         steps:
