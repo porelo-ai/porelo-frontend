@@ -129,6 +129,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- A project file naming each repository's forge as `central:` is read so, and one still naming `upstream:` as before.
 - *Start work* restricts its choice to the machine's repositories however it is opened (from a project, a job or the command bar), never shows a repository it no longer offers, chooses the only one left, and says when the machine could not be asked.
 - *Fetch now* tells the fetch's own answer, including a project that waits for a token; the page is busy while a token is given; the folded repositories not on a machine follow the ones that are, and only for a carried project.
 - Forwarding or dropping a push no longer leaves an empty pane when other repositories of the project could not be read, and a repository named like a word of git's message groups with the others refused for the same reason.

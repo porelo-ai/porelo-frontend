@@ -126,6 +126,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f419"></a>[F419](F419-A-Terminal-Offers-Only-Printed-Links.md) | XS | — | A terminal offers only printed links, no template and none only the task reaches. |
 | <a id="f420"></a>[F420](F420-The-Gate-View-Reads-And-Stays-Reachable.md) | S | — | The gate view says it reads, gathers its errors, and keeps what waits reachable. |
 | <a id="f421"></a>[F421](F421-An-Action-On-A-Machine-Shows-It-Works.md) | M | — | Every action asking a machine shows it works and answers beside itself, by one shared button. |
+| <a id="f422"></a>[F422](F422-A-Project-File-Names-Central.md) | XS | — | The window reads a repository's address from `central:`, and from `upstream:` until the file is renamed. |
 |---|---|---|---|
 | <a id="f407"></a>[F407](F407-A-Host-Carries-Single-Repositories-Of-A-Project.md) | M | porelo's carried repositories and `--repository` | Putting a project on a machine chooses its repositories, and one is taken off alone. |
 | <a id="f123"></a>[F123](F123-Where-A-Machine-And-A-Project-Stand-In-Their-Organisations-Tree.md) | — | — | Where a machine and a project stand in their organisation's tree, and which settings bind them. |

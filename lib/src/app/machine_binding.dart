@@ -12,7 +12,7 @@ class ProjectShape {
   /// Its name, which every machine knows it by.
   final String name;
 
-  /// Its work repositories: each name to its upstream.
+  /// Its work repositories: each name to its central forge's address.
   final Map<String, String> repositories;
 
   /// Constructor taking both.
@@ -40,8 +40,9 @@ class ProjectShape {
       repositories: <String, String>{
         if (repositories is YamlMap)
           for (final entry in repositories.entries)
-            if (entry.value case final YamlMap each when each['upstream'] is String)
-              '${entry.key}': each['upstream'] as String,
+            // `central:` names it; `upstream:` in a file written before the rename.
+            if (entry.value case final YamlMap each when (each['central'] ?? each['upstream']) is String)
+              '${entry.key}': (each['central'] ?? each['upstream']) as String,
       },
     );
   }
