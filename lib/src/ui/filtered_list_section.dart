@@ -41,7 +41,7 @@ class FilteredListSection extends StatefulWidget {
     required this.storageId,
     this.emptyWords,
     required this.rows,
-    this.collapsible = false,
+    this.collapsible = true,
     this.initiallyOpen = true,
     this.openWhenCompact = true,
     this.actions = const [],
@@ -73,7 +73,7 @@ class FilteredListSection extends StatefulWidget {
   /// The rows and their searchable public words.
   final List<FilteredRow> rows;
 
-  /// Whether this section may be folded shut.
+  /// Whether this section may be folded shut: every list may, unless it says otherwise, so a new page cannot miss it.
   final bool collapsible;
 
   /// Whether a new section starts expanded.

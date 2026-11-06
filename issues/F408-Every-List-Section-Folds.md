@@ -31,3 +31,7 @@ The operator's walk on the rehearsal VM (2026-11-06): porelo's 17 repositories f
 ## Acceptance
 
 - Every page's list sections fold; the dialog's does not.
+
+## Done
+
+The shared section folds unless it says otherwise (`collapsible` defaults to true); the organization's section passes on what it is given, and no list is in a dialog, so none opts out. An empty list starts folded, as the folding sections did before; a project page's test opens it to read its words. Red first: a section built without saying showed no fold control.

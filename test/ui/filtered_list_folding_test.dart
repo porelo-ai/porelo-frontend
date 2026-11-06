@@ -40,6 +40,20 @@ void main() {
   bool folded(WidgetTester tester) =>
       tester.widget<IconButton>(find.byKey(const ValueKey('things-fold'))).tooltip == 'Open things';
 
+  // Harm: a page whose list cannot be folded, which a person asked of every list.
+  testWidgets('a list section folds unless it says otherwise', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: FilteredListSection(title: 'Plain', storageId: 'plain', rows: const [row]),
+          ),
+        ),
+      ),
+    );
+    expect(find.byKey(const ValueKey('plain-fold')), findsOneWidget);
+  });
+
   // Harm: a page opens every list, and the empty ones push down what holds something.
   testWidgets('an empty list starts folded, showing its count and its head\'s action', (tester) async {
     wide(tester);
