@@ -97,13 +97,28 @@ class Machine {
   /// while the interface is being worked on. [environment] is injectable so this can be held to
   /// that: it was quietly dropped once during the rework that made several machines possible, and
   /// nothing noticed until the window said it could not connect to a daemon nobody was running.
+  ///
+  /// On Windows this computer is the person's WSL distribution, reached through `wsl.exe`
+  /// ([thisComputersDistribution]); until it is found, an entry of the kind `wsl` naming none, which says so.
   factory Machine.local({Map<String, String>? environment}) {
+    if (desk.isWindows) {
+      final distribution = thisComputersDistribution ?? '';
+      return Machine(
+        name: distribution.isEmpty ? 'this computer' : distribution,
+        socketPath: '',
+        kind: 'wsl',
+        distribution: distribution,
+      );
+    }
     final socket = (environment ?? Platform.environment)['PORELO_SOCKET'];
     if (socket == null || socket.isEmpty) {
       return Machine(name: 'this machine', socketPath: Backend.local().socketPath);
     }
     return Machine(name: socket.split('/').last, socketPath: socket);
   }
+
+  /// On Windows, the WSL distribution that is this computer once it was found; null before, and on Linux.
+  static String? thisComputersDistribution;
 
   /// The mock, when somebody is working on the interface: where `PORELO_SOCKET` points, or where
   /// `tool/mock_daemon.dart` puts its socket by default.
@@ -253,6 +268,9 @@ class Machine {
     '' || 'host' when windows && needsATunnel => null,
     '' || 'host' when windows => 'This entry names a socket on a Linux computer, which Windows cannot open.',
     '' || 'host' => null,
+    'wsl' when windows && distribution.isEmpty =>
+      'Porelo runs in a WSL distribution on Windows, and none was found. Install one with wsl --install, or '
+          'choose one under Add a machine, WSL.',
     'wsl' when windows => null,
     'wsl' =>
       'The WSL distribution ${distribution.isEmpty ? '' : '$distribution '}is reached from '
@@ -268,7 +286,7 @@ class Machine {
   /// Builds the relay without consulting the test machine's platform or environment.
   ({String kind, List<String> command})? relayOn({required bool windows, required Map<String, String> environment}) {
     if (!windows) return null;
-    if (kind == 'wsl') return (kind: 'wsl', command: Wsl.relayTo(distribution));
+    if (kind == 'wsl') return distribution.isEmpty ? null : (kind: 'wsl', command: Wsl.relayTo(distribution));
     if ((kind.isNotEmpty && kind != 'host') || !needsATunnel) return null;
     if (kind == 'host' && whyNotReachableOn(windows: windows) != null) return null;
     if (host.startsWith('-') || !_plainRemoteSocket) return null;
@@ -327,6 +345,15 @@ class Machine {
   /// nor a machine with no socket: on Windows there is no local daemon, and its socket reads as `''`.
   bool get isThisComputer =>
       kind.isEmpty && !needsATunnel && socketPath.isNotEmpty && socketPath == Backend.local().socketPath;
+
+  /// Whether it is the entry this computer always has, listed always and never forgotten: [Machine.local], or on
+  /// Windows the WSL distribution that is this computer, whatever name it was added under.
+  bool get isAlwaysListed {
+    final local = Machine.local();
+    return desk.isWindows
+        ? kind == 'wsl' && distribution == local.distribution
+        : name == local.name && socketPath == local.socketPath;
+  }
 
   /// Whether this interface can start the daemon itself: over its own login, or here.
   bool get canBeStartedHere => whyNotReachableHere == null && (needsATunnel || isThisComputer);
@@ -433,12 +460,16 @@ class Machines extends ChangeNotifier {
     this._now = DateTime.now,
     this._retryAfter = const Duration(seconds: 2),
     this._relaysBySsh = _relaysBySshHere,
-  }) : _reach = reach ?? overSocket,
+    Future<String?> Function()? thisComputersDistribution,
+  }) : _findThisComputer = thisComputersDistribution ?? _defaultDistribution,
+       _reach = reach ?? overSocket,
        _poreloHere = poreloIsInstalledHere ?? _porelodOnThePath,
        hostKeys = hostKeys ?? SshHostKeys(),
        setup = setup ?? MachineSetup(),
        _answers = answers ?? _answersAt,
        tunnels = tunnels ?? Tunnels() {
+    // On Windows the distribution is found again by [load], for this list, whatever an earlier one found.
+    if (desk.isWindows) Machine.thisComputersDistribution = null;
     final local = Machine.local();
     _machines.add(local);
     _selected = local.name;
@@ -446,6 +477,18 @@ class Machines extends ChangeNotifier {
   }
 
   final Settings _settings;
+
+  /// Which WSL distribution is this computer, on Windows.
+  final Future<String?> Function() _findThisComputer;
+
+  /// The distribution `wsl.exe` marks as the default, else the first it lists; null where it lists none.
+  static Future<String?> _defaultDistribution() async {
+    final all = await Wsl().distributions();
+    for (final each in all) {
+      if (each.isDefault) return each.name;
+    }
+    return all.isEmpty ? null : all.first.name;
+  }
 
   /// The persisted interface choices shared with host preparation.
   Settings get settings => _settings;
@@ -620,8 +663,10 @@ class Machines extends ChangeNotifier {
   Future<void> load() => _change(_load);
 
   Future<void> _load() async {
+    final found = desk.isWindows ? await _theDistribution() : null;
     final stored = await _settings.machines();
     if (stored.isNotEmpty) await _adopt(stored);
+    if (desk.isWindows && !_disposed) _listThisComputer(found);
     // An older card is saved again without what it no longer holds, so the plugin reads today's endpoint too.
     if (_settings.olderMachines) await _remember();
     final extra = _lookFor;
@@ -634,6 +679,44 @@ class Machines extends ChangeNotifier {
       _open(extra);
     }
     _notify();
+  }
+
+  /// The WSL distribution `wsl.exe` names as this computer, or null where it names none or cannot be asked.
+  Future<String?> _theDistribution() async {
+    try {
+      final found = await _findThisComputer();
+      return found == null || found.isEmpty ? null : found;
+    } on Object {
+      return null;
+    }
+  }
+
+  /// On Windows this computer is listed whatever was stored, as on Linux the local daemon is from the start: the
+  /// distribution [found], else one stored, else the entry naming none, and each opened once.
+  void _listThisComputer(String? found) {
+    final stored = _machines.where((each) => each.kind == 'wsl' && each.distribution.isNotEmpty);
+    Machine.thisComputersDistribution = found ?? (stored.isEmpty ? null : stored.first.distribution);
+    _dropTheStandIn();
+    if (_machines.any((each) => each.isAlwaysListed)) return;
+    var local = Machine.local();
+    // A machine of another kind may carry the distribution's name; names tell machines apart.
+    if (_machines.any((each) => each.name == local.name)) {
+      local = Machine(name: 'WSL ${local.distribution}', socketPath: '', kind: 'wsl', distribution: local.distribution);
+    }
+    _machines.insert(0, local);
+    _open(local);
+    if (!_machines.any((each) => each.name == _selected)) _selected = local.name;
+  }
+
+  /// Takes out the entry naming no distribution, once one is known, and what watched it.
+  void _dropTheStandIn() {
+    if (Machine.thisComputersDistribution == null) return;
+    final standIns = _machines.where((each) => each.kind == 'wsl' && each.distribution.isEmpty).toList();
+    for (final standIn in standIns) {
+      _machines.remove(standIn);
+      _watching.remove(standIn.name)?.dispose();
+      if (_selected == standIn.name && _machines.isNotEmpty) _selected = _machines.first.name;
+    }
   }
 
   /// Replaces the set of machines being watched, closing what watched the old ones.
@@ -689,6 +772,19 @@ class Machines extends ChangeNotifier {
       _notify();
       return;
     }
+    if (desk.isWindows && machine.kind == 'wsl') {
+      // A distribution is one machine, whatever name it was added under.
+      if (_machines.any((each) => each.kind == 'wsl' && each.distribution == machine.distribution)) return;
+      // With none found, the first one added is this computer, in place of the entry naming none.
+      if (Machine.thisComputersDistribution == null) {
+        Machine.thisComputersDistribution = machine.distribution;
+        final selectedTheStandIn = _machines.any(
+          (each) => each.name == _selected && each.kind == 'wsl' && each.distribution.isEmpty,
+        );
+        _dropTheStandIn();
+        if (selectedTheStandIn || _machines.isEmpty) _selected = machine.name;
+      }
+    }
     await tunnels.registerCards([machine]);
     _machines.add(machine);
     _open(machine);
@@ -713,7 +809,9 @@ class Machines extends ChangeNotifier {
 
   Future<void> _mark(Machine machine, {required bool disconnected}) async {
     final at = _machines.indexWhere((each) => each.name == machine.name);
-    if (at < 0 || _machines[at].disconnected == disconnected || _machines[at].isThisComputer) return;
+    if (at < 0) return;
+    final old = _machines[at];
+    if (old.disconnected == disconnected || old.isThisComputer || old.isAlwaysListed) return;
     _raiseHolds.remove(machine.name);
     final next = _machines[at].withDisconnected(disconnected);
     _watching.remove(machine.name)?.dispose();
@@ -923,7 +1021,8 @@ class Machines extends ChangeNotifier {
 
   Future<void> _remember() => _settings.rememberMachines(<Machine>[
     for (final machine in _machines)
-      if (!_passing.contains(machine.name)) machine,
+      // The entry naming no distribution is never stored: it stands only until one is found.
+      if (!_passing.contains(machine.name) && !(machine.kind == 'wsl' && machine.distribution.isEmpty)) machine,
   ]);
 
   void _notify() {
@@ -957,6 +1056,10 @@ List<ProjectOnScreen> projectsOnMachine(Machines machines, Machine machine) {
 List<Machine> listedMachines(Machines machines) {
   final all = <Machine>[...machines.all];
   final local = Machine.local();
-  if (!all.any((machine) => machine.socketPath == local.socketPath && !machine.needsATunnel)) all.add(local);
+  if (desk.isWindows) {
+    if (!all.any((machine) => machine.isAlwaysListed)) all.add(local);
+  } else if (!all.any((machine) => machine.socketPath == local.socketPath && !machine.needsATunnel)) {
+    all.add(local);
+  }
   return all;
 }

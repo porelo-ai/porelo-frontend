@@ -126,6 +126,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- On Windows *This computer* is the WSL distribution `wsl.exe` marks as the default, reached through `wsl.exe`, instead of an entry naming a Linux socket that Windows cannot open; one added by hand before is taken as it, and with none found it says how to add one.
 - The mouse wheel scrolls a task's terminal on Linux again: it reached tmux as Shift+wheel, which tmux binds to nothing.
 - What *Certify it for another week* says, that it worked or why not, stays on the line rather than giving way to *Refreshed*.
 - *Start work in default* offers every repository default holds, and *Start work on it* beside the first one opens the dialog with it chosen.

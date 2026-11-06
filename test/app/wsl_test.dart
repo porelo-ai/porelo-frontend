@@ -29,9 +29,9 @@ void main() {
     },
   );
 
-  test('names, which run, and the version are read without the translated state column', () async {
+  test('names, which run, the version and the default are read without the translated state column', () async {
     expect(await german().distributions(), <WslDistribution>[
-      const WslDistribution(name: 'Ubuntu', running: true, version: 2),
+      const WslDistribution(name: 'Ubuntu', running: true, version: 2, isDefault: true),
       const WslDistribution(name: 'Debian', running: false, version: 2),
       const WslDistribution(name: 'Old', running: false, version: 1),
     ]);

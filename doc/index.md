@@ -40,7 +40,8 @@ over ssh.
 ### Windows
 
 On Windows the interface reaches a Porelo in a WSL distribution of yours, through `wsl.exe`, with no
-ssh and no open port. It comes two ways, from the same Artifactory as the packages, one folder per
+ssh and no open port. That distribution is *This computer*: the one `wsl.exe` marks as the default, or
+the first it lists, and where it lists none, the first one added under *Add a machine*, *WSL*. It comes two ways, from the same Artifactory as the packages, one folder per
 version, `<version>/`: the [releases](https://fuinorg.jfrog.io/artifactory/porelo-dist-windows/releases/),
 and each build of `main` among the
 [snapshots](https://fuinorg.jfrog.io/artifactory/porelo-dist-windows/snapshots/). Each folder holds both,
@@ -48,10 +49,11 @@ with one `SHA256SUMS` over them and the build's attestation,
 `porelo-frontend-<version>-windows-x64.sigstore.json`. Both read and write the same machine list,
 `%APPDATA%\porelo\frontend.json`, so either can be used, and the other taken up later.
 
-**Untested on a Windows machine.** Each build is checked on GitHub's Windows runner, where its tests
-run, the ZIP and the MSIX are built, and the MSIX is installed and started; neither has yet been
-tried with a WSL distribution on a person's Windows computer. Once such a test is done, this says
-on which version.
+**Tried once on a person's Windows computer.** Each build is checked on GitHub's Windows runner, where
+its tests run, the ZIP and the MSIX are built, and the MSIX is installed and started. On 2026-11-06 it
+was tried with Porelo 0.5.1~snapshot.423 in WSL Ubuntu: the daemon was reached once the distribution was
+added by hand, which *This computer* now does itself, and Porelo's command line is not yet run in the
+distribution ([F399](https://github.com/porelo-ai/porelo-frontend/blob/main/issues/README.md#f399)).
 
 #### Portable (ZIP)
 

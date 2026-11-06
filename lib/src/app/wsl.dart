@@ -9,7 +9,7 @@ typedef RunWsl = Future<({int code, List<int> printed})> Function(List<String> a
 /// A WSL distribution of the Windows user, as `wsl.exe` lists it.
 class WslDistribution {
   /// Constructor taking each field as `wsl.exe` lists it.
-  const WslDistribution({required this.name, required this.running, required this.version});
+  const WslDistribution({required this.name, required this.running, required this.version, this.isDefault = false});
 
   /// Its name, as `wsl.exe -d` takes it.
   final String name;
@@ -21,12 +21,19 @@ class WslDistribution {
   /// 2 for WSL2, 1 for WSL1, 0 where `wsl.exe` did not say.
   final int version;
 
-  @override
-  bool operator ==(Object other) =>
-      other is WslDistribution && other.name == name && other.running == running && other.version == version;
+  /// Whether `wsl.exe` marks it as the default, the one `wsl` alone starts.
+  final bool isDefault;
 
   @override
-  int get hashCode => Object.hash(name, running, version);
+  bool operator ==(Object other) =>
+      other is WslDistribution &&
+      other.name == name &&
+      other.running == running &&
+      other.version == version &&
+      other.isDefault == isDefault;
+
+  @override
+  int get hashCode => Object.hash(name, running, version, isDefault);
 
   @override
   String toString() => '$name (${running ? 'running' : 'stopped'}, WSL$version)';
@@ -49,10 +56,17 @@ class Wsl {
     final all = await _names(<String>['-l', '-q']);
     if (all.isEmpty) return const <WslDistribution>[];
     final running = (await _names(<String>['-l', '--running', '-q'])).toSet();
-    final versions = _versions(await _text(<String>['-l', '-v']));
+    final verbose = await _text(<String>['-l', '-v']);
+    final versions = _versions(verbose);
+    final standard = _default(verbose);
     return <WslDistribution>[
       for (final name in all)
-        WslDistribution(name: name, running: running.contains(name), version: versions[name] ?? 0),
+        WslDistribution(
+          name: name,
+          running: running.contains(name),
+          version: versions[name] ?? 0,
+          isDefault: name == standard,
+        ),
     ];
   }
 
@@ -108,6 +122,15 @@ class Wsl {
     } on ProcessException {
       return '';
     }
+  }
+
+  /// The distribution `wsl.exe -l -v` marks with `*`, or null.
+  static String? _default(String verbose) {
+    for (final line in const LineSplitter().convert(verbose).skip(1)) {
+      final marked = RegExp(r'^\s*\*\s*(\S+)').firstMatch(line);
+      if (marked != null) return marked.group(1);
+    }
+    return null;
   }
 
   static Map<String, int> _versions(String verbose) {

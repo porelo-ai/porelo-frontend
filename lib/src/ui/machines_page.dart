@@ -139,8 +139,7 @@ class MachinesPage extends StatelessWidget {
     void open() => onDetails(machine);
 
     final identity = machine.name;
-    final local = Machine.local();
-    final thisComputer = machine.name == local.name && machine.socketPath == local.socketPath;
+    final thisComputer = machine.isAlwaysListed;
     final actions = <Command>[
       listOpenCommand(label: 'Open the machine', home: Home.machineRow, open: open),
       ...?hostCommands?.call(machine),

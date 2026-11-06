@@ -557,7 +557,7 @@ class _ShellState extends State<Shell> {
           ),
         ),
     ],
-    canForget: widget.machines.all.length > 1 && widget.machines.current != Machine.local(),
+    canForget: widget.machines.all.length > 1 && !widget.machines.current.isAlwaysListed,
     shell: widget.shell,
     settings: widget.settings,
     operations: widget.operations,
@@ -674,7 +674,7 @@ class _ShellState extends State<Shell> {
     machine: widget.machines.current,
     hostRuns: _hostRuns,
     hostActions: _hostCommands(widget.machines.current),
-    canForget: widget.machines.all.length > 1 && widget.machines.current != Machine.local(),
+    canForget: widget.machines.all.length > 1 && !widget.machines.current.isAlwaysListed,
     reachedOverSsh: widget.machines.current.needsATunnel,
     canStart: widget.machines.current.canBeStartedHere,
     checkTheMachine: _checkTheMachine,
@@ -1712,7 +1712,7 @@ class _ShellState extends State<Shell> {
 
   Future<void> _forget() async {
     final machine = widget.machines.current;
-    if (widget.machines.all.length < 2 || machine == Machine.local()) return;
+    if (widget.machines.all.length < 2 || machine.isAlwaysListed) return;
     if (_warnsOnForgetting(machine)) {
       final takeDown = _hostCommands(machine).singleWhere((command) => command.id == 'machine.takeDown');
       final decision = await showDialog<String>(
