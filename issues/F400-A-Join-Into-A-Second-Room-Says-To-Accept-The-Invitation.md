@@ -1,0 +1,29 @@
+# F400 — A Join Into A Second Room Says To Accept The Invitation
+
+**Status:** Idea.
+**Size:** XS - one field read, the steps' words for an invitation, and their test.
+
+**What must be true.** When *Join* in a project's messages invites a Matrix account the person already has, rather
+than making one, the window says to accept the invitation to the room in the Matrix client they already sign in to,
+and shows no password and no "shown once" note.
+
+## Why
+
+The Matrix transport is to invite an existing account of the same homeserver into a second project's room instead of
+refusing it (porelo-message-matrix's join, agreed in the room 2026-11-06), answering a login without a password.
+The window shows only the fields present, so nothing breaks, but its steps tell the person to sign in with a password
+shown below and that seeing it again means a new one, which is not so for an invitation.
+
+## Plan
+
+- `lib/src/client/models.dart`: `MessagesJoined.invited`, read from the daemon's `JoinMessages` answer field
+  `invited: bool`, false where absent (Agent Core, 2026-11-06).
+- `lib/src/ui/messages_view.dart`: for an invitation, the steps say to open the Matrix client they already use, signed
+  in as the Matrix ID shown, and accept the invitation to the room shown; no "shown once" note.
+- **The test that goes red first:** a widget test of the messages view with a joined answer `invited: true` and no
+  password: no step names a password and no row reads Password. It guards a person told to sign in with a password
+  that does not exist, who then asks for a new one and loses their account's sessions.
+
+## Blocked by
+
+- The daemon serving `invited` in `JoinMessages`, once the transport's change is pushed; Agent Core names the commit.
