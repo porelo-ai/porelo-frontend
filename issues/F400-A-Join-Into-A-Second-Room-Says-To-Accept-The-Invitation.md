@@ -1,6 +1,6 @@
 # F400 — A Join Into A Second Room Says To Accept The Invitation
 
-**Status:** Idea.
+**Status:** Estimated.
 **Size:** XS - one field read, the steps' words for an invitation, and their test.
 
 **What must be true.** When *Join* in a project's messages invites a Matrix account the person already has, rather
