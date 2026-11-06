@@ -91,6 +91,8 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f411"></a>[F411](F411-Putting-A-Project-On-A-Machine-Says-So.md) | XS | — | A project being put on or taken off a machine says so, not "Adding…". |
 | <a id="f412"></a>[F412](F412-A-Machine-Page-Says-Why-No-Start-Work.md) | XS | — | A machine page that offers no *Start work* says why, and its two "Connected" are told apart. |
 | <a id="f413"></a>[F413](F413-Start-Work-Shows-It-Is-Starting.md) | XS | — | A press of *Start work* on a machine's page shows at once that it is starting, until its answer. |
+| <a id="f414"></a>[F414](F414-A-Long-Choice-Filters-As-One-Types.md) | S | — | A choice from a long list opens a small dialog that filters as one types. |
+| <a id="f415"></a>[F415](F415-Start-Work-Offers-What-The-Machine-Has.md) | S | [F410](#f410) | *Start work* on a machine offers only the repositories it has taken, saying why not the others. |
 | <a id="f203"></a>[F203](F203-This-Repository-Worked-In-A-Porelo-Task.md) | S | — | This repository's agent working in an attended Porelo task on the host, its build green on the host's Forgejo, reached in the room, with a way back. |
 | <a id="f388"></a>[F388](F388-The-Stubs-Pin-Stays-Fetchable.md) | XS | — | A scenario that needs the stub does not go red because its pinned version left the folder. |
 | <a id="f379"></a>[F379](F379-Add-A-Project-In-One-Step-From-The-Window.md) | S | — | A person naming themselves Project Admin adds a project in one step from the window. |
