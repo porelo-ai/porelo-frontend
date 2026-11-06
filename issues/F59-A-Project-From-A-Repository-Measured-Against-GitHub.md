@@ -17,7 +17,7 @@ The promise on a host's read-only keys is not met: `Forge` in `lib/src/app/forge
 and taking a project off and `down` remove nothing at the forge. `test/ui/forge_credentials_test.dart` expects
 clearing a machine to leave deploy keys at the forge. The host's side of this is Agent Machines'.
 
-`project.yml` comes from *Fill it from a checkout…* ([F350](README.md#f350)), under *Organization*.
+`project.yml` comes from *Fill it from a checkout…*, under *Organization*.
 
 The token needs *Contents* and *Administration: Read and write* for the test repositories. Neither
 the token nor the repositories are ever kept in this repository or the channel.
@@ -36,8 +36,8 @@ the token nor the repositories are ever kept in this repository or the channel.
 - **A host's read-only keys:** taking a project off and `down` delete them at the central forge, with the forge's token
   asked once and kept nowhere. Where that is impossible, they are named with a link to where they are removed by
   hand. Then the keys are listed at GitHub, by its own page and API.
-- **A verified commit:** `project.yml` signed into a project by *Fill it from a checkout…*
-  ([F350](README.md#f350)), then GitHub's commit page read for "Verified".
+- **A verified commit:** `project.yml` from the entry *Fill it from a checkout…* shows, committed signed by the project's
+  admin, then GitHub's commit page read for "Verified".
 - **Branch protection:** a rule set on the test repository's branch; a push through
   `ProjectWorkspace` and a forward through `Gate.approve` (`lib/src/app/gate.dart`) are made against
   it, and the words shown are compared with GitHub's.

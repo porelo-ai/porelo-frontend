@@ -15,7 +15,7 @@ repository to work as at GitHub, or is told what that forge does not allow.
 repositories and offers work in `default`. Each forge's own API is the interface's; the backend is
 short of nothing known.
 
-A project is filled from a checkout ([F350](README.md#f350)), not from a form at the forge, and the interface
+A project is filled from a checkout, by *Fill it from a checkout…* under *Organization*, not from a form at the forge, and the interface
 places no key on a repository: a machine follows the organization.
 
 ## Bitbucket Data Center first
