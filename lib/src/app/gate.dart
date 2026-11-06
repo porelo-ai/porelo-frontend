@@ -33,6 +33,17 @@ class Gate extends ChangeNotifier {
   /// Why the gate could not be read or acted on, in words. Null when nothing is wrong.
   String? problem;
 
+  /// The repositories whose gate could not be read, each with why in words; empty when all were.
+  List<({String name, String words})> unread = const <({String name, String words})>[];
+
+  /// How many repositories' gates are being read right now; 0 when none are.
+  int reading = 0;
+
+  /// [problem] where it says more than which repositories could not be read, which [unread] says.
+  String? get otherProblem => problem == _unreadSaid ? null : problem;
+
+  String? _unreadSaid;
+
   /// The push being looked at, or null.
   PendingPush? looking;
 
@@ -96,6 +107,7 @@ class Gate extends ChangeNotifier {
     log = '';
     ranked = const <ReviewFile>[];
     asked = null;
+    unread = const <({String name, String words})>[];
     if (!project.canBeActedOn) {
       waiting = const <PendingPush>[];
       problem =
@@ -335,6 +347,18 @@ class Gate extends ChangeNotifier {
   /// One repository that cannot be read is named, and does not hide what the others hold.
   Future<void> _readAgain(FleetBackend backend, String file) async {
     final names = project?.repositories ?? const <String>[];
+    unread = const <({String name, String words})>[];
+    _unreadSaid = null;
+    reading = names.isEmpty ? 1 : names.length;
+    notifyListeners();
+    try {
+      await _readEach(backend, file, names);
+    } finally {
+      reading = 0;
+    }
+  }
+
+  Future<void> _readEach(FleetBackend backend, String file, List<String> names) async {
     if (names.isEmpty) {
       final gate = await backend.gateOf(file);
       mirror = gate.mirror;
@@ -350,9 +374,9 @@ class Gate extends ChangeNotifier {
       for (final (name, gate, _) in answers)
         if (gate != null) (name, gate),
     ];
-    final unread = <String>[
+    unread = <({String name, String words})>[
       for (final (name, _, why) in answers)
-        if (why != null) '$name could not be read: $why',
+        if (why != null) (name: name, words: why),
     ];
     // Mirror and mode as the project's own repository answers them, or the first that did.
     mirror = read.isEmpty ? '' : read.first.$2.mirror;
@@ -362,7 +386,10 @@ class Gate extends ChangeNotifier {
         for (final push in gate.pending) push.inRepository(name),
     ];
     repositories = <String>[for (final (name, _) in read) name];
-    if (unread.isNotEmpty) problem = unread.join(' ');
+    if (unread.isNotEmpty) {
+      problem = _unreadSaid = <String>[for (final each in unread) '${each.name} could not be read: ${each.words}']
+          .join(' ');
+    }
   }
 
   Future<(String, GateState?, String?)> _gateIn(FleetBackend backend, String file, String repository) async {

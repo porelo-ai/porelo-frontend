@@ -126,6 +126,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- *Waiting at the gate* says that it reads, and how many repositories, while it does; the repositories it could not read stand one line per reason, opened on demand, in a box a few lines high that scrolls, so the pushes that wait and their forward stay on screen below it.
 - Work started with the agent or a shell lands on its tab with a new terminal open in it, as *Open a new terminal* does, rather than saying no terminal is open where the start's own one ended with it.
 - A terminal clearing the start of a line, as tmux does before an indented line, clears the cell under the cursor too, so no character of an earlier line stays before the indented text.
 - A plain drag in a task's terminal goes to tmux whole, its press, each move and its release, so tmux selects past the screen's edge instead of being left a press with no release; Shift+drag still selects in the window.

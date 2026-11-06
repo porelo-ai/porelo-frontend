@@ -33,3 +33,17 @@ with its whole message), running out of the window's bottom with no scrollbar an
 - **The test that goes red first:** a gate whose sixteen repositories refuse with a long message and whose one
   repository has a push waiting shows that push and its *Approve* within the view's height. It guards a commit that
   cannot be approved because errors cover it.
+
+## Built
+
+- `Gate` keeps `unread` (name and words per repository) and `reading` (how many are asked) beside `problem`, which
+  still joins the refusals for callers that read it; `otherProblem` is `problem` when it says more than that.
+- `GateView` shows "Reading the gate of <n> repositories…" with a small ring, then one line per distinct reason ("16
+  repositories could not be read: <its first line>") that opens to the names and the whole message, in a box of at
+  most `Sizes.problemBox` that scrolls. `GateProblem`, in the review too, sits in the same bounded box, so a long
+  refusal never pushes the forward off screen.
+- Grouping is by the exact words: a refusal that names its own repository's address groups alone, still in the box.
+- `test/ui/gate_reachable_test.dart` went red on the old code (the push and *Forward it upstream…* not hit-testable,
+  the column overflowing by 1939 pixels) and passes now.
+
+On review: the refusals are grouped by reason, not by their exact words - each names its own repository, address and mirror, which are left out (`unreadReason`), so the rehearsal's sixteen are one line. Red first: grouped by exact words they stood as sixteen.

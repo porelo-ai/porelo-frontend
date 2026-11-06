@@ -37,7 +37,9 @@ class GateView extends StatelessWidget {
         title: 'Waiting at the gate · ${gate.project?.name ?? ''}',
         trailing: IconButton(icon: const Icon(Icons.close), tooltip: 'Close (Esc)', onPressed: onClose),
       ),
-      if (gate.problem != null) GateProblem(words: gate.problem!),
+      if (gate.reading > 0) _Reading(count: gate.reading),
+      if (gate.unread.isNotEmpty) _Unread(unread: gate.unread),
+      if (gate.otherProblem != null) GateProblem(words: gate.otherProblem!),
       if (gate.mode.isNotEmpty)
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: Space.normal, vertical: Space.small),
@@ -639,15 +641,136 @@ class GateProblem extends StatelessWidget {
   final String words;
 
   @override
+  Widget build(BuildContext context) => _ProblemBox(
+    child: Padding(
+      padding: const EdgeInsets.all(Space.normal),
+      child: Text(words, key: const Key('gate-problem')),
+    ),
+  );
+}
+
+/// A box for what went wrong, a few lines high at most and scrolling beyond them, so what waits
+/// below it stays on screen whatever it says.
+class _ProblemBox extends StatefulWidget {
+  const _ProblemBox({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_ProblemBox> createState() => _ProblemBoxState();
+}
+
+class _ProblemBoxState extends State<_ProblemBox> {
+  final _scroll = ScrollController();
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) => Container(
     width: double.infinity,
+    constraints: const BoxConstraints(maxHeight: Sizes.problemBox),
     decoration: BoxDecoration(
       color: Theme.of(context).colorScheme.surfaceContainerLow,
       border: Border.all(color: Theme.of(context).colorScheme.outlineVariant, width: Sizes.divider),
     ),
-    padding: const EdgeInsets.all(Space.normal),
-    child: Text(words, key: const Key('gate-problem')),
+    // Its own surface, so a row that opens inside it draws on the box rather than under it.
+    child: Material(
+      type: MaterialType.transparency,
+      child: Scrollbar(
+        controller: _scroll,
+        thumbVisibility: true,
+        child: SingleChildScrollView(controller: _scroll, child: widget.child),
+      ),
+    ),
   );
+}
+
+/// Says that the gate is being read, and how many repositories are asked.
+class _Reading extends StatelessWidget {
+  const _Reading({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    key: const Key('gate-reading'),
+    padding: const EdgeInsets.symmetric(horizontal: Space.normal, vertical: Space.small),
+    child: Row(
+      children: <Widget>[
+        const SizedBox.square(
+          dimension: Sizes.operationSpinner,
+          child: CircularProgressIndicator(strokeWidth: Sizes.spinnerStroke),
+        ),
+        const SizedBox(width: Space.small),
+        Expanded(
+          child: Text(
+            count == 1 ? 'Reading the gate…' : 'Reading the gate of $count repositories…',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+/// Why [repository]'s gate could not be read, from [words] with what names it alone left out: its name, and every
+/// address and path, each said as "…".
+String unreadReason(String repository, String words) =>
+    words.replaceAll(RegExp(r"'[^']*'"), '…').replaceAll(RegExp(r'\S*[/@]\S*'), '…').replaceAll(repository, '…').trim();
+
+/// The repositories whose gate could not be read, one line per reason, opened on demand.
+class _Unread extends StatelessWidget {
+  const _Unread({required this.unread});
+
+  final List<({String name, String words})> unread;
+
+  @override
+  Widget build(BuildContext context) {
+    // By reason, not by exact words: each refusal names its own repository, address and mirror, so sixteen of the same
+    // reason would otherwise stand as sixteen lines.
+    final byWords = <String, List<String>>{};
+    for (final each in unread) {
+      (byWords[unreadReason(each.name, each.words)] ??= <String>[]).add(each.name);
+    }
+    return _ProblemBox(
+      child: Column(
+        key: const Key('gate-unread'),
+        children: <Widget>[
+          for (final MapEntry(key: words, value: names) in byWords.entries) _UnreadReason(words: words, names: names),
+        ],
+      ),
+    );
+  }
+}
+
+class _UnreadReason extends StatelessWidget {
+  const _UnreadReason({required this.words, required this.names});
+
+  final String words;
+  final List<String> names;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final first = words.trim().split('\n').first;
+    final which = names.length == 1 ? names.single : '${names.length} repositories';
+    return ExpansionTile(
+      dense: true,
+      tilePadding: const EdgeInsets.symmetric(horizontal: Space.normal),
+      childrenPadding: const EdgeInsets.fromLTRB(Space.normal, 0, Space.normal, Space.small),
+      expandedCrossAxisAlignment: CrossAxisAlignment.start,
+      title: Text('$which could not be read: $first', maxLines: 1, overflow: TextOverflow.ellipsis),
+      children: <Widget>[
+        if (names.length > 1) SelectableText(names.join(', '), style: text.labelMedium),
+        const SizedBox(height: Space.tight),
+        SelectableText(words, style: text.bodySmall),
+      ],
+    );
+  }
 }
 
 /// Asks which branch to forward onto.

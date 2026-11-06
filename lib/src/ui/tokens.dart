@@ -388,6 +388,9 @@ abstract final class Sizes {
   /// A dialog holding a single field or a single sentence of answer.
   static const dialogNarrow = 420.0;
 
+  /// What could not be read, above what could: a few lines at most, then it scrolls.
+  static const problemBox = 132.0;
+
   /// The command finder's width.
   static const finder = 560.0;
 
