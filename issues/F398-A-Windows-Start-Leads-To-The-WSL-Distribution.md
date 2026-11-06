@@ -1,12 +1,12 @@
 # F398 — A Windows Start Leads To The WSL Distribution
 
 **Status:** Estimated.
-**Size:** M - the list's first entry on Windows, the first start's offer of the distributions, a row that says
-where to go, their tests with a Windows desk, and the Windows page.
+**Size:** M - "This computer" on Windows as the WSL distribution, the default one read from `wsl.exe`, an older empty
+entry taken over by it, the first start's choice where there are several, and their tests with a Windows desk.
 
-**What must be true.** On Windows the window never lists or opens a "this machine" entry for a daemon Windows
-cannot have; with no machine of its own yet, it offers the person's WSL distributions and leads them to connect one,
-and a list that holds no WSL machine says where to add it.
+**What must be true.** On Windows "This computer" is the person's WSL distribution, reached through `wsl.exe` as a
+machine of the kind `wsl` (operator, 2026-11-06: "Für Windows ist WSL = This machine"); the window never lists or
+opens a socket entry Windows cannot open.
 
 ## Why
 
@@ -20,26 +20,28 @@ Windows offers the distribution again: it is found only under *Add a machine*, *
 
 ## Plan
 
-- `lib/src/app/machines.dart`: on Windows (`desk.isWindows`) the `Machines` constructor adds no `Machine.local()`, and
-  `listedMachines` adds no "this computer"; an entry of kind `''` with no socket and no host, as an older build saved
-  it, is dropped when read, as an unusable entry already is.
-- The first start on Windows with no machine (`lib/src/ui/shell.dart`, the empty state of *My machines*): the
-  distributions `Wsl().distributions()` lists, each with *Connect*, which opens *Add a machine* at *WSL* with that
-  distribution chosen (`askForAMachine(only: MachineKind.wsl)` and `WslSteps`, their checks and the offer to set Porelo
-  up); none found says how to install one.
-- The status line and the machine row: where the list holds no WSL machine on Windows, the words name *Add a machine*,
-  *WSL*, never a socket.
-- `doc/index.md`, *Windows*: the first step after starting it is connecting the distribution; "Untested on a Windows
-  machine" says the version the operator's test ran.
-- **The test that goes red first:** `test/app/machines_test.dart` with a Windows `Desk`: a first start lists no
-  machine the window cannot reach, and a stored list with only an old empty local entry reads as no machine. Then a
-  widget test with a stand-in `Wsl` listing `Ubuntu`: the empty state offers it, and *Connect* opens the WSL steps
-  for it. They guard a window that opens to a refusal it cannot fix and a person who cannot find their daemon.
+- `lib/src/app/wsl.dart`: `WslDistribution.isDefault`, read from the `*` that `wsl.exe -l -v` puts before the default
+  distribution.
+- `lib/src/app/machines.dart`: on Windows (`desk.isWindows`) `Machine.local()` is the `wsl` machine of the default
+  distribution (`kind: 'wsl'`, its name), found when the list is loaded rather than in the constructor, since
+  `wsl.exe` is a process; `isThisComputer` and `listedMachines` take it as this computer, so it is always listed and
+  never forgotten, as on Linux. With no distribution at all, no entry, and the empty state below.
+- An entry an older build stored on Windows with kind `''` and no socket and no host is dropped when read; a stored
+  `wsl` machine of the same distribution, as added by hand today, becomes this computer and is kept once.
+- The first start on Windows with several distributions and no default running Porelo: *My machines* offers each, and
+  the one chosen is this computer (`askForAMachine(only: MachineKind.wsl)`, `WslSteps`, their checks and the offer to
+  set Porelo up). None found says how to install one.
+- `doc/index.md`, *Windows*: this computer is the WSL distribution; "Untested on a Windows machine" names the version
+  the operator's test ran.
+- **The test that goes red first:** `test/app/machines_test.dart` with a Windows `Desk` and a stand-in `Wsl` listing
+  `Ubuntu` as default: the first start lists `Ubuntu` as this computer, of kind `wsl`, reached through `wsl.exe`, and
+  no socket entry; a stored list with an older empty entry and a hand-added `Ubuntu` reads as one this computer. It
+  guards a window that opens to a refusal it cannot fix and a daemon listed twice.
 
 ## Acceptance
 
-- A first start on Windows, and one after the settings were put aside, shows no "this machine" and no socket refusal;
-  it offers the distributions found and connects the one chosen.
+- A first start on Windows, and one after the settings were put aside, shows "This computer" as the default WSL
+  distribution, connected through `wsl.exe`, and no socket refusal.
 - A Windows list with a WSL machine opens it as before; Linux is unchanged.
 - The Windows runner's suite runs the new tests (no WSL there: the stand-in lists the distributions).
 
