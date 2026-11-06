@@ -1,6 +1,6 @@
 # F397 — A Repository Of Its Own Works In Default
 
-**Status:** Idea.
+**Status:** Accepted.
 
 **What must be true.** A repository worked on outside any project of an organization is listed and started in
 `default`, never as a project of its own: the window lists Default's repositories, and when a task is started from

@@ -106,13 +106,13 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="f123"></a>[F123](F123-Where-A-Machine-And-A-Project-Stand-In-Their-Organisations-Tree.md) | — | — | Where a machine and a project stand in their organisation's tree, and which settings bind them. |
+| <a id="f397"></a>[F397](F397-A-Repository-Of-Its-Own-Works-In-Default.md) | — | — | A repository of its own listed and started in Default, its `porelo.yml` allowed at a start, each setting shown with its source. |
 | <a id="f166"></a>[F166](F166-A-Host-Rented-Through-OpenTofu.md) | M | — | `porelo-host up` and `down` renting and giving back through the OpenTofu module, its secrets only in `tofu`'s environment; `--given` kept. |
 
 ### Idea
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f397"></a>[F397](F397-A-Repository-Of-Its-Own-Works-In-Default.md) | — | — | A repository of its own listed and started in Default, its `porelo.yml` allowed at a start, each setting shown with its source. |
 | <a id="f99"></a>[F99](F99-An-Attached-Agent-Shown-At-Rest-Or-Working.md) | — | — | A work tile says whether an attached agent is at rest or working; implementation waits for the verified screen-derived daemon answer. |
 | <a id="f386"></a>[F386](F386-A-Short-Name-People-Read.md) | — | — | A task and a project have a short name people read; the window's lists show only it. |
 | <a id="f384"></a>[F384](F384-Configure-The-Terminal.md) | — | — | The window's terminal can be configured: font sizes, colours and so on. |
