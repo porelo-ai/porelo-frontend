@@ -29,6 +29,17 @@ right, but in a row that looked like any other.
   *Prepare this machine…*, names its address, and its button opens the running protocol. It guards a second
   preparation started beside one that already runs on the server.
 
+## Found in the reading
+
+- A stopped run - refused, unreachable, or not run yet - turned and said "In preparation" as if it worked: it says
+  "Stopped" with a pause mark, and the organization's row adds what stopped it.
+- Without a way to open the protocol, the row and the page fell back to *Prepare this machine…* beside the run: while
+  it is prepared, no second start is offered at all.
+- The machine page left out since when and where, and said nothing to a reader who is not its Machine Admin: it says
+  "This computer prepares it" with both, to whoever reads the page here.
+- Declined: a protocol reopened from the row does not redraw the stopped run's line and its buttons until it is
+  opened again; that is the dialog's behaviour from before, not this issue's, and is filed apart if it bites.
+
 ## Acceptance
 
 - Closing *Prepare* while it runs leaves the organization's row and page saying it runs, with its protocol a press away.

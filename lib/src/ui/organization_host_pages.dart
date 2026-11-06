@@ -24,7 +24,11 @@ String _preparingWords(HostPreparation run) {
       ? ''
       : ' since ${started.hour.toString().padLeft(2, '0')}:${started.minute.toString().padLeft(2, '0')}';
   final address = run.record.givenAddress;
-  return '${hostPreparationWords(run)}$since${address.isEmpty ? '' : ' on $address'}';
+  final problem = run.problem ?? run.session.fix;
+  return [
+    '${hostPreparationWords(run)}$since${address.isEmpty ? '' : ' on $address'}',
+    if (problem != null && problem.isNotEmpty) problem,
+  ].join(' · ');
 }
 
 String _reach(OrganizationHost host) {
@@ -172,13 +176,15 @@ class _OrganizationMachineRowState extends State<OrganizationMachineRow> {
             crossAxisAlignment: WrapCrossAlignment.center,
             spacing: Space.small,
             children: [
-              if (widget.preparation case final run? when widget.onProtocol != null)
-                FilledButton(
-                  key: ValueKey('organization.protocol/${host.name}'),
-                  onPressed: () => widget.onProtocol!(run),
-                  child: const Text('Open the protocol'),
-                )
-              else if (host.address == null && givesIt && widget.onPrepare != null && view.holdsRoles)
+              // While it is prepared, never a second start: its protocol, where this computer can open it.
+              if (widget.preparation case final run?) ...[
+                if (widget.onProtocol case final open?)
+                  FilledButton(
+                    key: ValueKey('organization.protocol/${host.name}'),
+                    onPressed: () => open(run),
+                    child: const Text('Open the protocol'),
+                  ),
+              ] else if (host.address == null && givesIt && widget.onPrepare != null && view.holdsRoles)
                 FilledButton(
                   key: ValueKey('organization.prepare/${host.name}'),
                   onPressed: widget.onPrepare,
@@ -470,6 +476,9 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
           if (view != null && host == null) Text('${view.name} has no machine ${widget.host}.'),
           if (view != null && host != null) ...[
             _connection(view, host),
+            // Said to whoever reads the page here, Machine Admin or not: it is this computer's own run.
+            if (widget.preparing?.call(host.name) case final run?)
+              Text('This computer prepares it: ${_preparingWords(run)}', key: const ValueKey('organization.preparing')),
             ?widget.work,
             if (isAdmin) ...[
               const SizedBox(height: Space.normal),
@@ -539,13 +548,14 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     children: [
       Text('Organization ${view.name} · ${_reach(host)} · SSH host key ${host.hostKey ?? 'not entered yet'}'),
       if (isAdmin) ...[
-        if (widget.preparing?.call(host.name) case final run? when widget.onProtocol != null)
-          FilledButton(
-            key: const ValueKey('organization.hostProtocol'),
-            onPressed: () => widget.onProtocol!(run),
-            child: Text('${hostPreparationWords(run)}: open the protocol'),
-          )
-        else if (host.hasNoReach && widget.onPrepare != null)
+        if (widget.preparing?.call(host.name) case final run?) ...[
+          if (widget.onProtocol case final open?)
+            FilledButton(
+              key: const ValueKey('organization.hostProtocol'),
+              onPressed: () => open(run),
+              child: const Text('Open the protocol'),
+            ),
+        ] else if (host.hasNoReach && widget.onPrepare != null)
           FilledButton(
             key: const ValueKey('organization.prepareHost'),
             onPressed: () => widget.onPrepare!(host.name),

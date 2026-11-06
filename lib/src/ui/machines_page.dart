@@ -199,6 +199,8 @@ String hostPreparationWords(HostPreparation run) => run.interrupted
     ? 'Setting up again'
     : run.session.state == HostRunState.busy
     ? 'Still running'
+    : !run.running
+    ? 'Stopped'
     : 'In preparation';
 
 Command _hostProtocol(HostPreparation run, VoidCallback? open) =>
@@ -208,7 +210,7 @@ Command _hostProtocol(HostPreparation run, VoidCallback? open) =>
         .unless(open == null ? 'machine setup is unavailable here' : null);
 
 /// A preparation's state at a glance, beside its words: a small turning ring while it works, a person where it waits
-/// for one, a warning where it was interrupted.
+/// for one, a pause where it stopped, a warning where it was interrupted.
 class HostPreparationMark extends StatelessWidget {
   /// Shows [run]'s state.
   const HostPreparationMark(this.run, {super.key});
@@ -223,6 +225,9 @@ class HostPreparationMark extends StatelessWidget {
         ? Icon(Icons.warning_amber_outlined, size: Sizes.rowIcon, color: Theme.of(context).colorScheme.error)
         : run.needsYou
         ? const Icon(Icons.person_outline, size: Sizes.rowIcon)
+        // A run that stopped, refused or unreachable, does not turn as if it worked.
+        : !run.running
+        ? const Icon(Icons.pause_circle_outline, size: Sizes.rowIcon)
         : const CircularProgressIndicator(strokeWidth: 2, semanticsLabel: 'In preparation'),
   );
 }

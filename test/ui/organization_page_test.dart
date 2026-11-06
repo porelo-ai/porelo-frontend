@@ -202,10 +202,28 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
       expect(find.byKey(const ValueKey('organization.prepare/spare')), findsNothing);
       expect(find.textContaining('192.168.122.241'), findsOneWidget);
+      // Its session has not run, so nothing turns as if it worked.
+      expect(find.byType(CircularProgressIndicator), findsNothing);
       await tester.ensureVisible(find.byKey(const ValueKey('organization.protocol/spare')));
       await tester.tap(find.byKey(const ValueKey('organization.protocol/spare')));
       expect(opened, same(run));
       expect(prepared, isNull);
+
+      // Where this computer cannot open its protocol, still no second start.
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: OrganizationPage(
+              organization: organization,
+              onHost: (_) {},
+              onPrepare: (host) => prepared = host,
+              preparing: (host) => host == 'spare' ? run : null,
+            ),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.byKey(const ValueKey('organization.prepare/spare')), findsNothing);
     });
 
     testWidgets('anyone else reads who it waits for, with nothing to press', (tester) async {
