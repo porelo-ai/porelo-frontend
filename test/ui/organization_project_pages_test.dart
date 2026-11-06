@@ -890,4 +890,64 @@ void main() {
       await tester.pumpAndSettle();
     });
   });
+
+  group("a project's page and its machine", () {
+    Future<FixtureOrganization> onPage(WidgetTester tester, {String? host}) async {
+      final view = organizationFor(
+        'olive',
+        moreProjects: [
+          OrganizationProject(name: 'mine', admins: const ['olive'], host: host),
+        ],
+      );
+      final fixture = FixtureOrganization(view)
+        ..projects = {
+          'mine': ProjectView(
+            name: 'mine',
+            revision: 'p1',
+            host: host,
+            members: const [ProjectMember(login: 'olive', role: 'admin', standing: CardStanding.trusted)],
+          ),
+        };
+      final organization = Organization(fixture);
+      addTearDown(organization.dispose);
+      await organization.refresh();
+      await _settle(tester, OrganizationProjectPage(organization: organization, project: 'mine', onBack: () {}));
+      return fixture;
+    }
+
+    Future<void> press(WidgetTester tester, String id) async {
+      await _tap(
+        tester,
+        find.byWidgetPredicate((widget) => widget is CommandMenu && widget.commands.any((each) => each.id == id)),
+      );
+      await _tap(tester, find.byKey(ValueKey<String>(id)));
+    }
+
+    // Harm: the action is missing from the page a person opens the project on.
+    testWidgets('a project on no machine is put on one the person administers', (tester) async {
+      final fixture = await onPage(tester);
+      await press(tester, 'project.putOnMachine');
+      await _tap(tester, find.byKey(const Key('organization-person')));
+      await _tap(tester, find.text('spare').hitTestable());
+      await _tap(tester, find.byKey(const Key('organization-confirm')));
+      expect(fixture.writes.single.change, OrganizationChange.addProjectToHost);
+      expect(fixture.writes.single.input, {'host': 'spare', 'project': 'mine'});
+    });
+
+    // Harm: a project is taken off a machine other than the one carrying it.
+    testWidgets('a project on a machine is taken off that machine, after asking', (tester) async {
+      final fixture = await onPage(tester, host: 'spare');
+      expect(
+        find.byWidgetPredicate(
+          (widget) => widget is CommandMenu && widget.commands.any((each) => each.id == 'project.putOnMachine'),
+        ),
+        findsNothing,
+      );
+      await press(tester, 'project.takeOffMachine');
+      expect(fixture.writes, isEmpty);
+      await _tap(tester, find.byKey(const Key('organization-confirm')));
+      expect(fixture.writes.single.change, OrganizationChange.removeProjectFromHost);
+      expect(fixture.writes.single.input, {'host': 'spare', 'project': 'mine'});
+    });
+  });
 }

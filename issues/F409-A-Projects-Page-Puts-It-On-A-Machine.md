@@ -28,3 +28,14 @@ looks for it there. A Bug: the action is missing where the project is shown.
 ## Acceptance
 
 - The project page offers putting it on and taking it off a machine, as the project row does.
+
+## Built
+
+- The Organization page's `_putOn`, its take-off confirmation and `_hostsOf` moved to `organization_dialogs.dart` as
+  `putProjectOnAMachine`, `takeProjectOffTheMachine` and `hostsAdministeredBy`; the project row calls them as before.
+- `OrganizationProjectPage` takes `connections` and `onGiveToken` (the shell passes the same as to the Organization
+  page) and offers `project.putOnMachine` and `project.takeOffMachine` in its head's menu, under the row's conditions,
+  read from the organization's own entry for the project. The menu now shows to a non-admin who has only these.
+- Two widget tests in `test/ui/organization_project_pages_test.dart` (put on sends `addProjectToHost` with the chosen
+  machine; take off asks, then sends `removeProjectFromHost` for the carrying machine) went red on the old code ("Bad
+  state: No element", no such action) and pass now.

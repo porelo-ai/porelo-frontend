@@ -29,3 +29,15 @@ person pickers.
 ## Acceptance
 
 - Every choice from a long list filters as one types; short fixed lists are unchanged.
+
+## Built
+
+- `ChoiceField` keeps its drop-down up to `ChoiceField.filterAbove` (eight) choices; above that the field (still keyed by
+  its `id`) opens a dialog no taller than `Sizes.finderHeight` with a filter field (`<id>-filter`) over the labels,
+  each entry keyed by its `Choice.id` as before, and Enter takes the only one left. *Start work*'s repository choice
+  uses it without a change of its own.
+- `OrganizationPersonDialog`, the person and machine picker, now uses `ChoiceField` (`organization-person`, entries
+  `organization-person-<login>`), so a long list of people or machines filters the same way.
+- Left as drop-downs: the fixed short lists (roles, modes, review policy), *Start work*'s agent and credential choices
+  and the preparation's machine name in `host_dialog.dart`.
+- `test/ui/choice_filter_test.dart` went red on the old code (no filter field: "Bad state: No element") and passes now.

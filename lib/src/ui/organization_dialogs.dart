@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 
 import '../app/commands.dart';
 import '../app/organization_source.dart';
+import 'choice_field.dart';
 import 'command_menu.dart';
 import 'filtered_list_section.dart';
+import 'placing_project_dialog.dart';
 import 'project_file_entry.dart';
 import 'tokens.dart';
 
@@ -498,14 +500,15 @@ class _OrganizationPersonDialogState extends State<OrganizationPersonDialog> {
               onChanged: (_) => changed(),
             ),
           const SizedBox(height: Space.small),
-          DropdownButtonFormField<String>(
-            key: const Key('organization-person'),
-            isExpanded: true,
-            initialValue: _person,
-            decoration: InputDecoration(labelText: widget.personLabel, helperText: widget.helper),
-            items: [
+          // A long list of people or machines narrows as one types.
+          ChoiceField<String>(
+            id: 'organization-person',
+            label: widget.personLabel,
+            helper: widget.helper,
+            value: _person,
+            choices: [
               for (final login in widget.people ?? [for (final person in view.holdingRoles) person.login])
-                DropdownMenuItem(value: login, child: Text(login == view.me ? '$login (you)' : login)),
+                Choice(login, login == view.me ? '$login (you)' : login, id: 'organization-person-$login'),
             ],
             onChanged: (person) {
               _person = person;
@@ -634,3 +637,69 @@ class _CreateRepositoryDialogState extends State<CreateRepositoryDialog> {
         : (change: OrganizationChange.createProjectRepository, input: {'project': widget.project, 'review': _review!}),
   );
 }
+
+/// The machines [view]'s person administers, read from the organization, connected or not.
+List<OrganizationHost> hostsAdministeredBy(OrganizationView view) => !view.holdsRoles
+    ? const []
+    : [
+        for (final host in view.hosts)
+          if (host.admins.contains(view.me)) host,
+      ];
+
+/// Puts [project] on one of the machines this person administers, then follows that machine until it carries the
+/// project or says why not. A project just put on a machine waits for a token: once it was taken, the machine is
+/// asked to fetch at once.
+Future<void> putProjectOnAMachine(
+  BuildContext context, {
+  required Organization organization,
+  required String project,
+  HostConnections? connections,
+  Future<String?> Function(String host)? onGiveToken,
+}) async {
+  final view = organization.view;
+  if (view == null) return;
+  await showDialog<void>(
+    context: context,
+    builder: (_) => OrganizationPersonDialog(
+      organization,
+      people: [for (final host in hostsAdministeredBy(view)) host.name],
+      helper: 'A project is on one machine at a time.',
+      title: 'Put $project on a machine',
+      personLabel: 'Machine',
+      words:
+          'Every member comes with the project. Next this follows the machine: it connects, offers to give the '
+          'machine your token once if it waits for one, and says when the project is carried or why not. '
+          'This can take up to five minutes.',
+      confirm: 'Put it on the machine',
+      change: OrganizationChange.addProjectToHost,
+      input: (_, machine) => {'host': machine, 'project': project},
+    ),
+  );
+  await organization.whenIdle;
+  final machine = organization.view?.hosts.where((host) => host.projects.contains(project)).firstOrNull?.name;
+  if (machine == null || connections == null || !context.mounted) return;
+  await showDialog<void>(
+    context: context,
+    builder: (_) => PlacingProjectDialog(
+      project: project,
+      host: machine,
+      view: organization.view,
+      connections: connections,
+      onGiveToken: onGiveToken,
+    ),
+  );
+}
+
+/// Asks before [project] is taken off [machine], and says what goes with it and what stays.
+Widget takeProjectOffTheMachine(Organization organization, {required String project, required String machine}) =>
+    OrganizationConfirmDialog(
+      organization,
+      title: 'Take $project off $machine?',
+      words:
+          'Its members can no longer work on it there, once it holds no unpushed work. Its copy there '
+          'goes then, with its conversation, where the machine runs its own. The project itself stays '
+          'in the organization. This can take up to five minutes.',
+      confirm: 'Take it off',
+      change: OrganizationChange.removeProjectFromHost,
+      input: {'host': machine, 'project': project},
+    );

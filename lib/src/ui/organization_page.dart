@@ -23,7 +23,6 @@ import 'how_long.dart';
 import 'key_recovery_dialog.dart';
 import 'organization_host_pages.dart';
 import 'pick_a_file.dart';
-import 'placing_project_dialog.dart';
 import 'project_init_dialog.dart';
 import 'tokens.dart';
 import 'window_size.dart';
@@ -367,44 +366,6 @@ class _OrganizationPageState extends State<OrganizationPage> {
     ],
   ).withOrganizationChanges(organization, names: [for (final person in view.persons) person.login]);
 
-  /// A project just put on a machine waits for a token: once it was taken, the machine is asked to fetch at once.
-  Future<void> _putOn(OrganizationProject project, OrganizationView view, void Function(Widget) show) async {
-    await showDialog<void>(
-      context: context,
-      builder: (_) => OrganizationPersonDialog(
-        widget.organization,
-        people: [for (final host in _hostsOf(view)) host.name],
-        helper: 'A project is on one machine at a time.',
-        title: 'Put ${project.name} on a machine',
-        personLabel: 'Machine',
-        words:
-            'Every member comes with the project. Next this follows the machine: it connects, offers to give the '
-            'machine your token once if it waits for one, and says when the project is carried or why not. '
-            'This can take up to five minutes.',
-        confirm: 'Put it on the machine',
-        change: OrganizationChange.addProjectToHost,
-        input: (_, machine) => {'host': machine, 'project': project.name},
-      ),
-    );
-    await widget.organization.whenIdle;
-    final machine = widget.organization.view?.hosts
-        .where((host) => host.projects.contains(project.name))
-        .firstOrNull
-        ?.name;
-    final connections = widget.connections;
-    if (machine == null || connections == null || !mounted) return;
-    await showDialog<void>(
-      context: context,
-      builder: (_) => PlacingProjectDialog(
-        project: project.name,
-        host: machine,
-        view: widget.organization.view,
-        connections: connections,
-        onGiveToken: widget.onGiveToken,
-      ),
-    );
-  }
-
   Widget _projects(OrganizationView view, Organization organization, void Function(Widget) show) =>
       FilteredListSection(
         title: 'Projects',
@@ -454,30 +415,27 @@ class _OrganizationPageState extends State<OrganizationPage> {
                         ),
                       ),
                     ),
-                  if (project.host == null && _hostsOf(view).isNotEmpty)
+                  if (project.host == null && hostsAdministeredBy(view).isNotEmpty)
                     _command(
                       'putOnMachine/${project.name}',
                       'Put it on a machine…',
-                      () => unawaited(_putOn(project, view, show)),
+                      () => unawaited(
+                        putProjectOnAMachine(
+                          context,
+                          organization: organization,
+                          project: project.name,
+                          connections: widget.connections,
+                          onGiveToken: widget.onGiveToken,
+                        ),
+                      ),
                     ),
-                  if (project.host case final machine? when _hostsOf(view).any((host) => host.name == machine))
+                  if (project.host case final machine?
+                      when hostsAdministeredBy(view).any((host) => host.name == machine))
                     _command(
                       'takeOffMachine/${project.name}',
                       'Take it off the machine…',
                       danger: true,
-                      () => show(
-                        OrganizationConfirmDialog(
-                          organization,
-                          title: 'Take ${project.name} off $machine?',
-                          words:
-                              'Its members can no longer work on it there, once it holds no unpushed work. Its copy there '
-                              'goes then, with its conversation, where the machine runs its own. The project itself stays '
-                              'in the organization. This can take up to five minutes.',
-                          confirm: 'Take it off',
-                          change: OrganizationChange.removeProjectFromHost,
-                          input: {'host': machine, 'project': project.name},
-                        ),
-                      ),
+                      () => show(takeProjectOffTheMachine(organization, project: project.name, machine: machine)),
                     ),
                   if (view.isOrganizationAdmin) ...[
                     _command(
@@ -884,14 +842,6 @@ _Action _command(String id, String label, VoidCallback run, {bool danger = false
   organizationCommand(id: id, label: label, run: run, danger: danger),
   danger: danger,
 );
-
-/// The machines this person administers, read from the organization, connected or not.
-List<OrganizationHost> _hostsOf(OrganizationView view) => !view.holdsRoles
-    ? const []
-    : [
-        for (final host in view.hosts)
-          if (host.admins.contains(view.me)) host,
-      ];
 
 bool _isIn(OrganizationView view, OrganizationProject project) =>
     project.admins.contains(view.me) || project.members.contains(view.me);

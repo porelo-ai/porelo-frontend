@@ -288,10 +288,23 @@ class _Problem extends StatelessWidget {
 /// the same page and changes nothing. Work on it starts from its row under My projects, which names its host.
 class OrganizationProjectPage extends StatefulWidget {
   /// Reads [project] from [organization].
-  const OrganizationProjectPage({required this.organization, required this.project, required this.onBack, super.key});
+  const OrganizationProjectPage({
+    required this.organization,
+    required this.project,
+    required this.onBack,
+    this.connections,
+    this.onGiveToken,
+    super.key,
+  });
 
   /// The organization.
   final Organization organization;
+
+  /// How this computer reaches the machines, to follow one the project was just put on; null where it cannot.
+  final HostConnections? connections;
+
+  /// Gives a machine waiting for one this person's token; null where it cannot be given from here.
+  final Future<String?> Function(String host)? onGiveToken;
 
   /// The project's name.
   final String project;
@@ -377,6 +390,12 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
         );
     // Before it is opened there is no project.yml to change: opening it is all there is to do.
     final changes = isAdmin && view.opened;
+    final commands = [
+      if (changes)
+        for (final policy in ['required', 'optional'])
+          if (view.review != policy) _reviewCommand(view, policy),
+      ..._machineCommands(organization),
+    ];
     return ListView(
       key: ValueKey('organization-project ${widget.project}'),
       padding: const EdgeInsets.all(Space.normal),
@@ -396,14 +415,8 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
           children: [
             Text(widget.project, style: Theme.of(context).textTheme.headlineSmall),
             if (view != null && organization != null) Chip(label: Text(_myRole(view, organization))),
-            if (changes)
-              CommandMenu(
-                tooltip: 'What can be done with ${view.name}',
-                commands: [
-                  for (final policy in ['required', 'optional'])
-                    if (view.review != policy) _reviewCommand(view, policy),
-                ],
-              ),
+            if (commands.isNotEmpty)
+              CommandMenu(tooltip: 'What can be done with ${widget.project}', commands: commands),
           ],
         ),
         if (_problem case final problem?) _Problem(problem),
@@ -426,6 +439,41 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
         ],
       ],
     );
+  }
+
+  /// Putting the project on a machine and taking it off, as its row on the Organization page offers them: to whoever
+  /// administers a machine to put it on, or the one carrying it.
+  List<Command> _machineCommands(OrganizationView? organization) {
+    final project = organization?.projects.where((each) => each.name == widget.project).firstOrNull;
+    if (organization == null || project == null) return const [];
+    final hosts = hostsAdministeredBy(organization);
+    return [
+      if (project.host == null && hosts.isNotEmpty)
+        Command(
+          id: 'project.putOnMachine',
+          label: 'Put it on a machine…',
+          group: 'Organization',
+          home: Home.organizationRow,
+          run: () => unawaited(
+            putProjectOnAMachine(
+              context,
+              organization: widget.organization,
+              project: widget.project,
+              connections: widget.connections,
+              onGiveToken: widget.onGiveToken,
+            ),
+          ),
+        ),
+      if (project.host case final machine? when hosts.any((host) => host.name == machine))
+        Command(
+          id: 'project.takeOffMachine',
+          label: 'Take it off the machine…',
+          group: 'Organization',
+          home: Home.organizationRow,
+          danger: true,
+          run: () => _show(takeProjectOffTheMachine(widget.organization, project: widget.project, machine: machine)),
+        ),
+    ];
   }
 
   String _reviewWords(String? review) => switch (review) {

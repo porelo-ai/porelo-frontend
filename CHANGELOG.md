@@ -9,6 +9,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- A project's own page offers *Put it on a machine…* and *Take it off the machine…* to whoever administers the machine, with the same dialog, words and follow afterwards as its row on *Organization*.
 - *My forges* also lists, and counts, the forges the machine shown already holds a credential for in its git connections, saying where each comes from (its vault, a file, a variable or the ssh agent) and whether it is there now, beside a forge set up here for the same host rather than twice, marks the Porelo organization's forge, and asks for no token for one the machine holds.
 - *New work* in Default shows what a repository's `porelo.yml` sets that this machine has not allowed yet, only what is new, changed or removed, and allows exactly that with one press before it asks again whether the work can start; a file changed after it was shown is not allowed. In an organization's project, a `porelo.yml` changed without a signature is said with its file and commit, and nothing here allows it.
 - *Image settings* and what a project may reach list what a repository's `porelo.yml` took away from its project's settings, and what took it away.
@@ -127,6 +128,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- A choice from a list of more than eight, such as *Start work*'s repository or the machine or person a project or a role goes to, opens a small dialog whose field narrows the list as one types, and Enter takes the only one left; a short list stays a drop-down.
 - *Waiting at the gate* says that it reads, and how many repositories, while it does; the repositories it could not read stand one line per reason, opened on demand, in a box a few lines high that scrolls, so the pushes that wait and their forward stay on screen below it.
 - Work started with the agent or a shell lands on its tab with a new terminal open in it, as *Open a new terminal* does, rather than saying no terminal is open where the start's own one ended with it.
 - A terminal clearing the start of a line, as tmux does before an indented line, clears the cell under the cursor too, so no character of an earlier line stays before the indented text.
