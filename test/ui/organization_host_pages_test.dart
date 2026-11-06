@@ -693,6 +693,13 @@ void main() {
       expect(find.text('build does not list demo yet.'), findsOneWidget);
     });
 
+    // Harm: a person looks for Start work with nothing saying why it is not there.
+    testWidgets('a page that offers no Start work says what stands in its way', (tester) async {
+      await page(tester, 'mia', connections: FixtureConnections(), onStartWork: (_, _) async => null);
+      expect(find.byKey(const ValueKey('organization.startWork/build')), findsNothing);
+      expect(find.byKey(const ValueKey('organization.noStartWhy')), findsOneWidget);
+    });
+
     // Harm: a press that shows nothing for a minute is pressed again, and starts a second piece of work.
     testWidgets('Start work shows it is starting until its answer, and a second press sends nothing', (tester) async {
       final answer = Completer<String?>();

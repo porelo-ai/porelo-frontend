@@ -26,3 +26,7 @@ shows only where the organization's connection to the machine is up and it waits
   connected to its Porelo".
 - **The test that goes red first:** a machine page whose host waits for a token shows no *Start work* and says it waits
   for the token. It guards a person left looking for a button with nothing saying why it is not there.
+
+## Done
+
+`organization_host_pages.dart` `_connection`: where *Start work* is not offered to one of the machine's people, one line says what it waits for (this computer's connection, the connection coming back up, or the account the machine makes once given the token). `machine_details_page.dart`: on a machine with an organization's card the window's own connection reads "This window reaches its Porelo". Red first: a page with no connection said nothing of *Start work*.

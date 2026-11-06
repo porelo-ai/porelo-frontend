@@ -829,6 +829,19 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
             const SizedBox(height: Space.small),
             Wrap(spacing: Space.small, runSpacing: Space.small, children: buttons),
           ],
+          // Where *Start work* is not offered, what stands in its way, said once beside where it would be.
+          if (!ready && widget.onStartWork != null && view.myHosts.contains(host))
+            Padding(
+              padding: const EdgeInsets.only(top: Space.small),
+              child: Text(
+                key: const ValueKey('organization.noStartWhy'),
+                'Start work comes ${!connected
+                    ? 'once this computer is connected to $name'
+                    : isDown
+                    ? 'once the connection to $name is up again'
+                    : 'once $name has made your account, after its Machine Admin gave it the token'}.',
+              ),
+            ),
         ],
       ),
     );
