@@ -102,8 +102,10 @@ class _Wedged implements FleetBackend {
   Future<String> tell(String task, String text) async => '';
 
   @override
-  Future<(List<EgressHost>, List<String>)> egressOf(String projectFile, {String? repository}) async =>
-      (const <EgressHost>[], const <String>[]);
+  Future<(List<EgressHost>, List<String>, List<RemovedSetting>)> egressOf(
+    String projectFile, {
+    String? repository,
+  }) async => (const <EgressHost>[], const <String>[], const <RemovedSetting>[]);
 
   @override
   Future<(List<EgressSet>, List<String>)> egressSets() async => (const <EgressSet>[], const <String>[]);
@@ -245,6 +247,13 @@ class _Wedged implements FleetBackend {
       throw const FeatureNotSupported('ConfirmFirstStart');
 
   @override
+  Future<FirstStart> firstStartOf(String repository) async => throw const FeatureNotSupported('FirstStart');
+
+  @override
+  Future<String> confirmFirstStartOf(String repository, String hash) async =>
+      throw const FeatureNotSupported('ConfirmFirstStart');
+
+  @override
   Stream<List<String>> tailLog(String task, String log, {int? last, bool formatted = false}) =>
       const Stream<List<String>>.empty();
   @override
@@ -339,6 +348,10 @@ class _Wedged implements FleetBackend {
 
   @override
   Future<HostKeyTrusted> trustHostKey(String host, String fingerprint) async => const HostKeyTrusted();
+
+  @override
+  Future<SettingsAllowed> allowSettings(String repository, String hash) async =>
+      const SettingsAllowed(outcome: 'ALLOWED');
 
   @override
   Future<Deletion> removeProject(String project, {bool? dryRun, bool? force}) async => const Deletion(
@@ -597,8 +610,10 @@ class _Machine implements FleetBackend {
   @override
   Future<void> decide(Prompt prompt, {required bool allow}) async {}
   @override
-  Future<(List<EgressHost>, List<String>)> egressOf(String projectFile, {String? repository}) async =>
-      (const <EgressHost>[], const <String>[]);
+  Future<(List<EgressHost>, List<String>, List<RemovedSetting>)> egressOf(
+    String projectFile, {
+    String? repository,
+  }) async => (const <EgressHost>[], const <String>[], const <RemovedSetting>[]);
 
   @override
   Future<(List<EgressSet>, List<String>)> egressSets() async => (const <EgressSet>[], const <String>[]);
@@ -629,6 +644,13 @@ class _Machine implements FleetBackend {
 
   @override
   Future<String> confirmFirstStart(String checkout, String hash) async =>
+      throw const FeatureNotSupported('ConfirmFirstStart');
+
+  @override
+  Future<FirstStart> firstStartOf(String repository) async => throw const FeatureNotSupported('FirstStart');
+
+  @override
+  Future<String> confirmFirstStartOf(String repository, String hash) async =>
       throw const FeatureNotSupported('ConfirmFirstStart');
 
   @override
@@ -726,6 +748,10 @@ class _Machine implements FleetBackend {
 
   @override
   Future<HostKeyTrusted> trustHostKey(String host, String fingerprint) async => const HostKeyTrusted();
+
+  @override
+  Future<SettingsAllowed> allowSettings(String repository, String hash) async =>
+      const SettingsAllowed(outcome: 'ALLOWED');
 
   @override
   Future<Deletion> removeProject(String project, {bool? dryRun, bool? force}) async => const Deletion(

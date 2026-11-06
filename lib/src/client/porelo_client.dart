@@ -290,6 +290,10 @@ class PoreloClient {
   Future<HostKeyTrusted> trustHostKey(String host, String fingerprint) async =>
       HostKeyTrusted.from(await _call('TrustHostKey', <String, dynamic>{'host': host, 'fingerprint': fingerprint}));
 
+  /// Allows what [repository]'s `porelo.yml` sets in `default`, and only the text [hash] names, as `CanStart` showed it.
+  Future<SettingsAllowed> allowSettings(String repository, String hash) async =>
+      SettingsAllowed.from(await _call('AllowSettings', <String, dynamic>{'repository': repository, 'hash': hash}));
+
   /// The ssh keys the account already has on the machine, never with a value.
   Future<List<SshKey>> sshKeys() async {
     final keys = (await _call('SshKeys', const <String, dynamic>{}))['keys'];
@@ -431,13 +435,18 @@ class PoreloClient {
   ///
   /// Without [repository] it is what every repository of the project may reach; with one, that and
   /// what the repository adds, each host naming where it came from.
-  Future<(List<EgressHost>, List<String>)> egress(String project, {String? agent, String? repository}) async {
+  Future<(List<EgressHost>, List<String>, List<RemovedSetting>)> egress(
+    String project, {
+    String? agent,
+    String? repository,
+  }) async {
     final reply = await _call('Egress', {'project': project, 'agent': ?agent, 'repository': ?repository});
     final hosts = reply['hosts'];
     final refused = reply['refused'];
     return (
       hosts is List ? hosts.whereType<Map<String, dynamic>>().map(EgressHost.from).toList() : <EgressHost>[],
       refused is List ? refused.whereType<String>().toList() : <String>[],
+      RemovedSetting.list(reply['removed']),
     );
   }
 
@@ -800,6 +809,18 @@ class PoreloClient {
   /// A person's yes to the text [hash] names: answers the project a start then names.
   Future<String> confirmFirstStart(String checkout, String hash) async {
     final reply = await _call('ConfirmFirstStart', {'checkout': checkout, 'hash': hash});
+    return reply['project'] as String? ?? '';
+  }
+
+  /// What a first start of [repository], a repository in `default` with no checkout here, is to do: read from the
+  /// gate's mirror, `KNOWN` where it has its settings already. Changes nothing.
+  Future<FirstStart> firstStartOf(String repository) async =>
+      FirstStart.from(await _call('FirstStart', {'repository': repository}));
+
+  /// A person's yes to the text [hash] names for [repository]: writes this machine's own settings for it, never into
+  /// the repository, and allows them. Answers the project a start then names.
+  Future<String> confirmFirstStartOf(String repository, String hash) async {
+    final reply = await _call('ConfirmFirstStart', {'repository': repository, 'hash': hash});
     return reply['project'] as String? ?? '';
   }
 

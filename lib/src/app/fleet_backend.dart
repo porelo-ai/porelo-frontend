@@ -388,6 +388,9 @@ abstract class FleetBackend {
   /// Records the one key of [host] a person confirmed, if the host still offers it.
   Future<HostKeyTrusted> trustHostKey(String host, String fingerprint);
 
+  /// Allows what [repository]'s `porelo.yml` sets in `default`, and only the text [hash] names.
+  Future<SettingsAllowed> allowSettings(String repository, String hash);
+
   /// Blocked connections from every task on this machine, as they happen.
   ///
   /// Streaming only, and one subscription covers tasks started after the call.
@@ -494,7 +497,7 @@ abstract class FleetBackend {
   ///
   /// With [repository], what that repository adds as well — grants a repository declares are added
   /// to the project's, never in place of them.
-  Future<(List<EgressHost>, List<String>)> egressOf(String projectFile, {String? repository});
+  Future<(List<EgressHost>, List<String>, List<RemovedSetting>)> egressOf(String projectFile, {String? repository});
 
   /// The destination sets installed on this machine, and where they were found.
   Future<(List<EgressSet>, List<String>)> egressSets();
@@ -584,6 +587,13 @@ abstract class FleetBackend {
 
   /// A person's yes to the text [hash] names; answers the project a start then names.
   Future<String> confirmFirstStart(String checkout, String hash);
+
+  /// What a first start of [repository] in `default` is to do, with no checkout here; changes nothing.
+  /// [FeatureNotSupported] from a Porelo without `FirstStart`.
+  Future<FirstStart> firstStartOf(String repository);
+
+  /// A person's yes to the text [hash] names for [repository] in `default`; answers the project a start then names.
+  Future<String> confirmFirstStartOf(String repository, String hash);
 }
 
 /// A real Porelo daemon, local or forwarded.
@@ -898,6 +908,9 @@ class PoreloBackend implements FleetBackend {
   Future<HostKeyTrusted> trustHostKey(String host, String fingerprint) => _opened().trustHostKey(host, fingerprint);
 
   @override
+  Future<SettingsAllowed> allowSettings(String repository, String hash) => _opened().allowSettings(repository, hash);
+
+  @override
   Stream<Prompt> prompts() => _opened().prompts();
 
   @override
@@ -1009,7 +1022,7 @@ class PoreloBackend implements FleetBackend {
   Future<void> decide(Prompt prompt, {required bool allow}) async => _opened().decide(prompt, allow: allow);
 
   @override
-  Future<(List<EgressHost>, List<String>)> egressOf(String projectFile, {String? repository}) =>
+  Future<(List<EgressHost>, List<String>, List<RemovedSetting>)> egressOf(String projectFile, {String? repository}) =>
       _opened().egress(projectFile, repository: repository);
 
   @override
@@ -1107,6 +1120,12 @@ class PoreloBackend implements FleetBackend {
 
   @override
   Future<String> confirmFirstStart(String checkout, String hash) => _opened().confirmFirstStart(checkout, hash);
+
+  @override
+  Future<FirstStart> firstStartOf(String repository) => _opened().firstStartOf(repository);
+
+  @override
+  Future<String> confirmFirstStartOf(String repository, String hash) => _opened().confirmFirstStartOf(repository, hash);
 
   /// Which of `last` and `formatted` this machine's `Tail` takes, read off its contract once.
   Future<Set<String>> _whatTailTakes() async {

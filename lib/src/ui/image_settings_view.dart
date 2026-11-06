@@ -17,18 +17,27 @@ Future<void> showImageSettings(BuildContext context, {required FleetBackend back
 /// A real machine names a project's file by its whole path and where in it; the folder only repeats itself
 /// on every line, so it is left out, and what the file says stays.
 String imageSourceWords(String source) {
-  final inTheFile = RegExp(r'^/\S*/project\.yml\b').hasMatch(source)
+  final inTheFile = RegExp(r'^/\S*/(project|porelo)\.yml\b').hasMatch(source)
       ? source.replaceFirst(RegExp(r'^/\S*/'), '')
       : source;
   return switch (inTheFile) {
     'project.yml' => "from the project's project.yml",
+    'porelo.yml' => "from the repository's porelo.yml",
     'porelo' => "from Porelo's settings",
     'agent package' => "from the agent's package",
+    'the project' || 'the local override' || "Porelo's default" => 'from $inTheFile',
     '' => 'source not recorded',
     _ when inTheFile.startsWith('project.yml') => "from the project's $inTheFile",
+    // The machine names the repository: `porelo.yml of x`.
+    _ when inTheFile.startsWith('porelo.yml of ') => 'from $inTheFile',
+    _ when inTheFile.startsWith('porelo.yml') => "from the repository's $inTheFile",
     _ => source,
   };
 }
+
+/// A setting the repository took away, and what took it away as the machine names it.
+String removedWords(RemovedSetting removed) =>
+    removed.by.isEmpty ? '${removed.key}  removed' : '${removed.key}  removed by ${removed.by}';
 
 /// The dialog [showImageSettings] shows: every setting, and where it comes from.
 class ImageSettingsDialog extends StatefulWidget {
@@ -135,6 +144,10 @@ class _ImageSettingsDialogState extends State<ImageSettingsDialog> {
           _setting(context, said.agent, value: agent),
           _heading(context, 'Security class'),
           _setting(context, said.securityClass),
+          if (said.removed.isNotEmpty) ...<Widget>[
+            _heading(context, 'Taken away from the project\'s settings'),
+            for (final each in said.removed) SelectableText(removedWords(each)),
+          ],
           if (said.recorded.isNotEmpty) ...<Widget>[_heading(context, 'Built'), SelectableText(said.recorded)],
         ],
       ),

@@ -4,19 +4,23 @@ import 'package:porelo_frontend/client.dart';
 import 'dialog_scroll.dart';
 import 'tokens.dart';
 
-/// Asks a person the first start's question in a checkout; true on a yes, anything else leaves it as it is.
-Future<bool?> askFirstStart(BuildContext context, {required FirstStart first}) => showDialog<bool>(
+/// Asks a person the first start's question in a checkout, or for [repository] in default with none here; true on a
+/// yes, anything else leaves it as it is.
+Future<bool?> askFirstStart(BuildContext context, {required FirstStart first, String? repository}) => showDialog<bool>(
   context: context,
-  builder: (_) => FirstStartDialog(first: first),
+  builder: (_) => FirstStartDialog(first: first, repository: repository),
 );
 
 /// The question a first start in a terminal asks: what was found, what it opens, and the file.
 class FirstStartDialog extends StatelessWidget {
   /// Constructor taking what the machine answered.
-  const FirstStartDialog({required this.first, super.key});
+  const FirstStartDialog({required this.first, this.repository, super.key});
 
   /// What the machine answered.
   final FirstStart first;
+
+  /// The repository in default it is asked for when there is no checkout here; null for a checkout.
+  final String? repository;
 
   static const _unknown = 'unknown: ';
 
@@ -48,7 +52,13 @@ class FirstStartDialog extends StatelessWidget {
     );
     return AlertDialog(
       key: const Key('first-start'),
-      title: Text(isNew ? 'Write a project.yml for this checkout?' : 'Use the project.yml in this checkout?'),
+      title: Text(
+        repository != null
+            ? 'Keep these settings for $repository on this machine?'
+            : isNew
+            ? 'Write ${first.fileWords} for this checkout?'
+            : 'Use the ${first.fileWords} in this checkout?',
+      ),
       content: SizedBox(
         width: Sizes.dialog,
         child: DialogScroll(
@@ -57,7 +67,11 @@ class FirstStartDialog extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               SelectableText(
-                isNew
+                repository != null
+                    ? 'A yes keeps these settings for $repository on this machine only, never in the repository, '
+                          'allows them, and work starts in ${first.project}. A no starts with Porelo\u2019s own '
+                          'settings, keeps nothing, and the next first task asks again.'
+                    : isNew
                     ? 'A yes writes it into the checkout, for you to commit, and work starts in ${first.project}. '
                           'A no starts as it would without one, keeps nothing, and the next start asks again.'
                     : 'This machine has not approved this file. A yes approves this text, and work starts in '

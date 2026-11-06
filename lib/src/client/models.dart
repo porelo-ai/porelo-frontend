@@ -2729,11 +2729,18 @@ class FirstStart {
   /// The text a yes approves; for a file already there, each line printable, under a `--- <name> ---` line.
   final String file;
 
+  /// Which file a yes writes or approves, `porelo.yml` or `project.yml`; empty from a Porelo older than the field,
+  /// which writes `project.yml`.
+  final String fileName;
+
   /// The project it would be or is.
   final String project;
 
   /// What a yes names, so that it holds only for the text shown.
   final String hash;
+
+  /// The file a yes writes or approves, as a person reads its name.
+  String get fileWords => fileName.isEmpty ? 'project.yml' : fileName;
 
   /// Constructor taking every field.
   const FirstStart({
@@ -2744,6 +2751,7 @@ class FirstStart {
     this.hosts = const <String>[],
     this.marked = const <String>[],
     this.file = '',
+    this.fileName = '',
     this.project = '',
     this.hash = '',
   });
@@ -2767,6 +2775,7 @@ class FirstStart {
       hosts: words(map['hosts']),
       marked: words(map['marked']),
       file: map['file'] as String? ?? '',
+      fileName: map['fileName'] as String? ?? '',
       project: map['project'] as String? ?? '',
       hash: map['hash'] as String? ?? '',
     );
@@ -2827,6 +2836,9 @@ class ImageSettings {
   /// When the image was built, as the machine wrote it.
   final String recorded;
 
+  /// What the repository took away from its project's settings; empty from a Porelo older than the field.
+  final List<RemovedSetting> removed;
+
   /// Constructor taking every field.
   const ImageSettings({
     required this.known,
@@ -2838,6 +2850,7 @@ class ImageSettings {
     this.agentVersion = '',
     this.securityClass = const ImageSetting(),
     this.recorded = '',
+    this.removed = const <RemovedSetting>[],
   });
 
   /// Reads one from a reply.
@@ -2851,7 +2864,29 @@ class ImageSettings {
     agentVersion: map['agentVersion'] as String? ?? '',
     securityClass: ImageSetting.from(map['securityClass']),
     recorded: map['recorded'] as String? ?? '',
+    removed: RemovedSetting.list(map['removed']),
   );
+}
+
+/// A setting a repository's `porelo.yml` took away from what its project sets, and what took it away.
+class RemovedSetting {
+  /// Where, as a dotted path, with the entry where one entry of a list went: `egress.domains: repo.example.org`.
+  final String key;
+
+  /// What removed it, as the machine names it: `porelo.yml of x`.
+  final String by;
+
+  /// Constructor taking every field.
+  const RemovedSetting({required this.key, this.by = ''});
+
+  /// Reads one from a reply.
+  factory RemovedSetting.from(Map<String, dynamic> map) =>
+      RemovedSetting(key: _string(map, 'key'), by: _string(map, 'by'));
+
+  /// Reads a list of them, none where there is no list.
+  static List<RemovedSetting> list(Object? value) => value is List
+      ? value.whereType<Map<String, dynamic>>().map(RemovedSetting.from).toList()
+      : const <RemovedSetting>[];
 }
 
 /// What asking the upstream how far behind a project is answered.
@@ -3518,6 +3553,14 @@ class StartOutcome {
   /// The upstream could not be read for another cause; `detail` carries git's own last line.
   static const upstreamUnreadable = StartOutcome('UPSTREAM_UNREADABLE');
 
+  /// In `default`, the repository's `porelo.yml` sets what this machine has not allowed; `settingsToAllow` lists
+  /// only what changed, and `settingsHash` is what an allowance of exactly that names.
+  static const settingsNotAllowed = StartOutcome('SETTINGS_NOT_ALLOWED');
+
+  /// In a project of an organization, a commit changed `porelo.yml` with nobody's signature who may sign it; `file`
+  /// and `commit` name it. Nothing here allows it.
+  static const settingsUnsigned = StartOutcome('SETTINGS_UNSIGNED');
+
   /// The values this build knows.
   static const known = <StartOutcome>[
     ready,
@@ -3540,6 +3583,8 @@ class StartOutcome {
     upstreamNotFound,
     upstreamUnreachable,
     upstreamUnreadable,
+    settingsNotAllowed,
+    settingsUnsigned,
   ];
 
   /// Whether this build knows what it means.
@@ -3628,6 +3673,19 @@ class Readiness {
   /// The keys that host offers now, with those outcomes.
   final List<HostKey> hostKeys;
 
+  /// With `SETTINGS_NOT_ALLOWED`, what the repository's `porelo.yml` sets that this machine has not allowed: only
+  /// what is new, changed or removed since the last allowance.
+  final List<SettingToAllow> settingsToAllow;
+
+  /// With `SETTINGS_NOT_ALLOWED`, what an allowance names, so that it holds only for [settingsToAllow] as shown.
+  final String settingsHash;
+
+  /// With `SETTINGS_UNSIGNED`, the file whose change nobody who may sign it signed.
+  final String file;
+
+  /// With `SETTINGS_UNSIGNED`, the commit that changed it.
+  final String commit;
+
   /// Constructor taking every field.
   const Readiness({
     required this.ready,
@@ -3643,6 +3701,10 @@ class Readiness {
     this.signedIn = const <String>[],
     this.host = '',
     this.hostKeys = const <HostKey>[],
+    this.settingsToAllow = const <SettingToAllow>[],
+    this.settingsHash = '',
+    this.file = '',
+    this.commit = '',
   });
 
   /// The same answer, naming [chosen] where the machine named no agent: a refusal about an agent
@@ -3663,6 +3725,10 @@ class Readiness {
           signedIn: signedIn,
           host: host,
           hostKeys: hostKeys,
+          settingsToAllow: settingsToAllow,
+          settingsHash: settingsHash,
+          file: file,
+          commit: commit,
         );
 
   /// Reads one from a reply.
@@ -3682,6 +3748,12 @@ class Readiness {
     hostKeys: map['hostKeys'] is List
         ? (map['hostKeys'] as List).whereType<Map<String, dynamic>>().map(HostKey.from).toList()
         : const <HostKey>[],
+    settingsToAllow: map['settingsToAllow'] is List
+        ? (map['settingsToAllow'] as List).whereType<Map<String, dynamic>>().map(SettingToAllow.from).toList()
+        : const <SettingToAllow>[],
+    settingsHash: _string(map, 'settingsHash'),
+    file: _string(map, 'file'),
+    commit: _string(map, 'commit'),
   );
 
   /// What to do about it, in one line, or empty when there is nothing to do.
@@ -3724,9 +3796,60 @@ class Readiness {
       'Nobody has granted $credential yet. It is granted once, in a browser, and later tasks use it.',
     'UNKNOWN_DESTINATION' =>
       detail.isEmpty ? '$credential is for a destination this machine does not declare.' : detail,
+    'SETTINGS_NOT_ALLOWED' =>
+      'The repository\'s porelo.yml sets what this machine has not allowed yet. Read it, and allow it to start.',
+    'SETTINGS_UNSIGNED' =>
+      '${file.isEmpty ? 'porelo.yml' : file} was changed${commit.isEmpty ? '' : ' in $commit'} without the signature '
+          'of a project admin or a developer of this repository, so nothing starts with it. It is signed in the '
+          'repository, not here.',
     // Added after this build shipped: the daemon's own words rather than silence.
     _ => detail.isEmpty ? 'This cannot start, and nothing said why.' : detail,
   };
+}
+
+/// One setting a repository's `porelo.yml` sets that this machine has not allowed, as the machine words it.
+class SettingToAllow {
+  /// Where in the file, as a dotted path: `egress.domains`.
+  final String key;
+
+  /// What it is to be, as text to show; empty when it is removed.
+  final String value;
+
+  /// What it was when last allowed, as text to show; empty when it is new.
+  final String was;
+
+  /// Whether the repository takes it away.
+  final bool removed;
+
+  /// Constructor taking every field.
+  const SettingToAllow({required this.key, this.value = '', this.was = '', this.removed = false});
+
+  /// Reads one from a reply.
+  factory SettingToAllow.from(Map<String, dynamic> map) => SettingToAllow(
+    key: _string(map, 'key'),
+    value: _string(map, 'value'),
+    was: _string(map, 'was'),
+    removed: map['removed'] == true,
+  );
+}
+
+/// What a machine said to an allowance of a repository's settings.
+class SettingsAllowed {
+  /// `ALLOWED`, `CHANGED` when the file moved since it was shown, or one added later, as it came.
+  final String outcome;
+
+  /// The machine's own words. Never parsed.
+  final String detail;
+
+  /// Constructor taking every field.
+  const SettingsAllowed({required this.outcome, this.detail = ''});
+
+  /// Whether the settings shown are allowed now; nothing else is.
+  bool get allowed => outcome == 'ALLOWED';
+
+  /// Reads one from a reply.
+  factory SettingsAllowed.from(Map<String, dynamic> map) =>
+      SettingsAllowed(outcome: _string(map, 'outcome'), detail: _string(map, 'detail'));
 }
 
 /// One piece of work an emergency stop reached.

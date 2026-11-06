@@ -58,7 +58,171 @@ class _NeverMetGitHub extends FakeBackend {
         );
 }
 
+/// A repository in `default` whose `porelo.yml` sets what the machine has not allowed, as Porelo answers it: only an
+/// allowance of the text shown starts it, and a file changed since asks again.
+class _SettingsToAllow extends FakeBackend {
+  _SettingsToAllow() : super(const <Task>[]);
+
+  /// What the file sets now, and the hash naming it.
+  var setting = const SettingToAllow(key: 'egress.domains', value: 'repo.example.org', was: '');
+  var hash = 'h1';
+
+  /// The hash the machine holds as allowed.
+  String allowedHash = '';
+
+  @override
+  Future<Readiness> canStart({
+    String? project,
+    String? agent,
+    String? task,
+    String? repository,
+    Map<String, String>? credentials,
+  }) async => allowedHash == hash
+      ? const Readiness(ready: true, outcome: StartOutcome.ready, agent: '', provider: '', credential: '', detail: '')
+      : Readiness(
+          ready: false,
+          outcome: StartOutcome.settingsNotAllowed,
+          agent: '',
+          provider: '',
+          credential: '',
+          detail: 'porelo.yml of x sets what is not allowed here',
+          settingsToAllow: <SettingToAllow>[
+            setting,
+            const SettingToAllow(key: 'limits.memory', was: '4g', removed: true),
+          ],
+          settingsHash: hash,
+        );
+
+  @override
+  Future<SettingsAllowed> allowSettings(String repository, String hash) async {
+    await super.allowSettings(repository, hash);
+    if (hash != this.hash) return const SettingsAllowed(outcome: 'CHANGED', detail: 'porelo.yml of x changed');
+    allowedHash = hash;
+    return const SettingsAllowed(outcome: 'ALLOWED');
+  }
+}
+
 void main() {
+  // Harm: a task reaching hosts or credentials the person never allowed, or an allowance of a text nobody was shown.
+  test("a repository's settings are allowed by the hash that was shown, and asked about again", () async {
+    final machine = _SettingsToAllow();
+    final starting = StartWork();
+    addTearDown(starting.dispose);
+    await starting.open(machine, machine.theProjectsItHas.first, repository: 'x');
+    starting
+      ..mode = Mode.agent
+      ..callIt('work')
+      ..chooseAgent(machine.theAgentsItHas.first.name);
+    await starting.askAgain();
+    expect(starting.readiness?.outcome, StartOutcome.settingsNotAllowed);
+    expect(starting.readiness?.settingsToAllow.map((each) => each.key), <String>['egress.domains', 'limits.memory']);
+    expect(starting.ready, isFalse, reason: 'nothing starts before the settings are allowed');
+
+    await starting.allowTheSettings();
+
+    expect(machine.settingsAllowedAsked, <(String, String)>[('x', 'h1')]);
+    expect(starting.ready, isTrue, reason: 'the machine answered READY after the allowance');
+  });
+
+  group('the proposal before the first task on a repository in default', () {
+    const asks = FirstStart(
+      outcome: FirstStart.askNew,
+      hosts: <String>['repo.example.org'],
+      file: 'egress:\n  domains: [repo.example.org]\n',
+      fileName: '.porelo.yml (this machine)',
+      project: defaultProject,
+      hash: 'h1',
+    );
+
+    // Harm: settings written and allowed with nobody having said yes to the text shown.
+    test('a yes is sent for exactly the text shown, and the start goes on', () async {
+      final machine = FakeBackend(const <Task>[])..theFirstStartOfSays['shop'] = asks;
+      FirstStart? shown;
+      final after = await askBeforeTheFirstTask(machine, 'shop', (first) async {
+        shown = first;
+        return true;
+      });
+      expect(shown?.hash, 'h1');
+      expect(machine.firstStartsOfConfirmed, <(String, String)>[('shop', 'h1')]);
+      expect(after, AfterTheProposal.start);
+    });
+
+    // Harm: work started though the person closed the question, or settings written on a no.
+    test('a no writes nothing and starts; closing it writes nothing and starts nothing', () async {
+      final machine = FakeBackend(const <Task>[])..theFirstStartOfSays['shop'] = asks;
+      expect(await askBeforeTheFirstTask(machine, 'shop', (_) async => false), AfterTheProposal.start);
+      expect(await askBeforeTheFirstTask(machine, 'shop', (_) async => null), AfterTheProposal.startNothing);
+      expect(machine.firstStartsOfConfirmed, isEmpty);
+    });
+
+    test('a repository with its settings, and a machine without the question, start without asking', () async {
+      final machine = FakeBackend(const <Task>[])
+        ..theFirstStartOfSays['known'] = const FirstStart(outcome: FirstStart.known, project: defaultProject);
+      var asked = 0;
+      Future<bool?> ask(FirstStart _) async {
+        asked++;
+        return true;
+      }
+
+      expect(await askBeforeTheFirstTask(machine, 'known', ask), AfterTheProposal.start);
+      expect(await askBeforeTheFirstTask(machine, 'older', ask), AfterTheProposal.start);
+      expect(asked, 0);
+      expect(machine.firstStartsOfAsked, <String>['known', 'older']);
+    });
+  });
+
+  // Harm: work started on a porelo.yml nobody who may sign it signed.
+  test('a start refused for an unsigned porelo.yml is offered in no mode', () async {
+    final machine = FakeBackend(const <Task>[])
+      ..nextReadiness = const Readiness(
+        ready: false,
+        outcome: StartOutcome.settingsUnsigned,
+        agent: '',
+        provider: '',
+        credential: '',
+        detail: 'porelo.yml of x changed in abc123 without a signature',
+        file: 'porelo.yml',
+        commit: 'abc123',
+      );
+    final starting = StartWork();
+    addTearDown(starting.dispose);
+    await starting.open(machine, machine.theProjectsItHas.first);
+    for (final mode in <Mode>[Mode.agent, Mode.shell]) {
+      starting
+        ..mode = mode
+        ..callIt('work')
+        ..chooseAgent(machine.theAgentsItHas.first.name);
+      await starting.askAgain();
+      expect(starting.ready, isFalse, reason: '$mode');
+      expect(starting.whatItWouldCost, isNull, reason: 'no start is offered in spite of it in $mode');
+    }
+  });
+
+  // Harm: an allowance taken for a file that changed after it was shown.
+  test('settings that changed after they were shown are not allowed, and the new ones are shown', () async {
+    final machine = _SettingsToAllow();
+    final starting = StartWork();
+    addTearDown(starting.dispose);
+    await starting.open(machine, machine.theProjectsItHas.first, repository: 'x');
+    starting
+      ..mode = Mode.agent
+      ..callIt('work')
+      ..chooseAgent(machine.theAgentsItHas.first.name);
+    await starting.askAgain();
+    machine
+      ..setting = const SettingToAllow(key: 'egress.domains', value: 'elsewhere.example.org')
+      ..hash = 'h2';
+
+    await starting.allowTheSettings();
+
+    expect(machine.settingsAllowedAsked, <(String, String)>[('x', 'h1')]);
+    expect(machine.allowedHash, isEmpty);
+    expect(starting.ready, isFalse);
+    expect(starting.readiness?.settingsHash, 'h2');
+    expect(starting.readiness?.settingsToAllow.first.value, 'elsewhere.example.org');
+    expect(starting.problem, contains('changed'));
+  });
+
   test('a host the machine never met is trusted by the key the forge publishes, and asked about again', () async {
     final machine = _NeverMetGitHub();
     final starting = StartWork()

@@ -18,6 +18,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f397"></a>[F397](F397-A-Repository-Of-Its-Own-Works-In-Default.md) | L | — | A repository of its own listed and started in Default, its `porelo.yml` allowed at a start, each setting shown with its source; the machine's proposal before a repository's first task there. |
 | <a id="f396"></a>[F396](F396-My-Projects-Lists-The-Organizations-Projects-Alone.md) | S | — | *My projects* lists only the organization's projects the person holds a role in; a checkout's local copy and *Default* stand under *All projects on your machines*. |
 | <a id="f392"></a>[F392](F392-Work-Starts-On-Its-Checkouts-Branch.md) | — | — | Work started from a checkout here starts from that checkout's branch, and says which branch it started from and why. |
 | <a id="f391"></a>[F391](F391-The-Dead-Signer-Path-Removed.md) | — | — | Nothing asks a daemon `ProjectSigners` or `CommitVerdict`, which none serves; a commit made here is still checked against the person's own key. |
@@ -72,7 +73,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f397"></a>[F397](F397-A-Repository-Of-Its-Own-Works-In-Default.md) | L | — | A repository of its own listed and started in Default, its `porelo.yml` allowed at a start, each setting shown with its source; waits on the machine serving the calls. |
 
 ### Backlog
 
@@ -89,7 +89,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
-| <a id="f142"></a>[F142](F142-The-Drafts-Offered-Before-The-First-Task-In-Default.md) | M | — | The machine's proposed tools and rules shown before the first task on a repository in `default`, and the choice passed back. | — |
 | <a id="f219"></a>[F219](F219-An-Interface-Ended-Without-Asking-Leaves-No-Forward-Behind.md) | S | — | The ssh forwards this interface raised ended with it also when it ends without asking, and one left over found again by its socket at the next start. | — |
 | <a id="f114"></a>[F114](F114-Windows-Notifications-From-The-MSIX.md) | M | — | Windows notifications from the MSIX's identity. | — |
 | <a id="f115"></a>[F115](F115-A-Fine-Grained-Token-Waiting-For-An-Organisations-Approval.md) | S | the test organisation at GitHub from the operator | A fine-grained token waiting for an organisation's approval said as waiting. | — |
@@ -334,6 +333,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Title | Why |
 |---|---|---|
+| <a id="f142"></a>F142 | The Drafts Offered Before The First Task In Default | Folded into [F397](#f397): the proposal is the first-start question for a repository in Default, writing its `porelo.yml`, with no project draft to keep. |
 | <a id="f221"></a>F221 | A Host's Vault Unlocked From The Secrets File | Replaced by the host vault opened by the person's key: no value of a secrets file is fed to a host's vault. |
 | <a id="f244"></a>F244 | A Bring Reads A Private Repository With The Follow's Credential | Replaced by a host that carries its projects and follows them by itself: no bundle of a private repository is made here for a bring. |
 | <a id="f245"></a>F245 | The Forge Password Kept Only Once The Forge Took It | No forge password is typed or kept here any more: a forge is reached with a person's key and token. |

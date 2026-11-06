@@ -260,6 +260,42 @@ void main() {
     expect(checkout?.repository, repository);
   });
 
+  // Harm: a yes that wrote the repository's porelo.yml would start work as a project of its own, outside default.
+  testWidgets('a yes answered in default starts on the checkout\'s repository there, as no project', (tester) async {
+    final backend = await open(
+      tester,
+      const FirstStart(outcome: FirstStart.askNew, file: 'image: {}\n', project: defaultProject, hash: 'h1'),
+    );
+    await pick(tester);
+    await tester.tap(find.byKey(const Key('first-start-yes')));
+    await tester.pumpAndSettle();
+    expect(backend.firstStartsConfirmed, <(String, String)>[('/home/me/x', 'h1')]);
+    expect(started, isEmpty);
+    expect(backend.addedToDefault, <String>['git@forge.example:me/x.git']);
+    final (repository, checkout) = startedOn.single;
+    expect(repository, 'x');
+    expect(checkout?.branch, 'feature/x');
+  });
+
+  // Harm: work started on an address typed before, as if it were the checkout's repository.
+  testWidgets('a yes in default for a checkout whose origin cannot be read starts nothing', (tester) async {
+    final backend = await open(
+      tester,
+      const FirstStart(outcome: FirstStart.askNew, file: 'image: {}\n', project: defaultProject, hash: 'h1'),
+      gitCode: 1,
+      origin: '',
+    );
+    await tester.enterText(find.byKey(const Key('default-address')), 'git@forge.example:me/other.git');
+    await tester.pump();
+    await pick(tester);
+    await tester.tap(find.byKey(const Key('first-start-yes')));
+    await tester.pumpAndSettle();
+    expect(backend.firstStartsConfirmed, <(String, String)>[('/home/me/x', 'h1')]);
+    expect(startedOn, isEmpty);
+    expect(backend.addedToDefault, isEmpty);
+    expect(find.textContaining('names no origin'), findsOneWidget);
+  });
+
   // Harm: another repository typed over the checkout's address would start from a branch of the checkout's.
   testWidgets('an address typed over the checkout\'s starts with no branch of it', (tester) async {
     await open(tester, const FirstStart(outcome: 'NOTHING_RECOGNIZED'));

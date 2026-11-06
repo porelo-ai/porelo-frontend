@@ -197,6 +197,36 @@ class StartWork extends ChangeNotifier {
     await _askWhetherItCanStart(machine);
   }
 
+  /// Whether an allowance is on its way to the machine, so that it is not sent twice.
+  bool allowing = false;
+
+  /// Allows what the repository's `porelo.yml` sets, exactly as shown, then asks again whether work can start.
+  Future<void> allowTheSettings() async {
+    final shown = readiness;
+    final repository = this.repository;
+    final machine = _machine;
+    if (allowing || shown == null || shown.outcome != StartOutcome.settingsNotAllowed) return;
+    if (shown.settingsHash.isEmpty || repository == null || machine == null) return;
+    allowing = true;
+    problem = null;
+    notifyListeners();
+    try {
+      final allowed = await machine.allowSettings(repository, shown.settingsHash);
+      if (!allowed.allowed) {
+        problem = allowed.outcome == 'CHANGED'
+            ? 'porelo.yml changed after it was shown, so nothing was allowed. Read what it sets now.'
+            : (allowed.detail.isEmpty ? 'Nothing was allowed (${allowed.outcome}).' : allowed.detail);
+      }
+    } on VarlinkException catch (refusal) {
+      problem = _refused(refusal, "allowing $repository's settings");
+    } finally {
+      allowing = false;
+    }
+    readiness = null;
+    notifyListeners();
+    await _askWhetherItCanStart(machine);
+  }
+
   /// Whether the agent list is being read.
   bool busy = false;
 
@@ -287,7 +317,13 @@ class StartWork extends ChangeNotifier {
   /// Whether a credential is for a destination the machine does not declare. **Refused in every
   /// mode**: `Start` answers it with `NoSuchDestination` before anything exists, so there is
   /// nothing to offer anyway, unlike a credential missing from the vault.
-  bool get refusedForADestination => readiness?.outcome == StartOutcome.unknownDestination;
+  ///
+  /// So are settings of the repository's `porelo.yml` this machine has not allowed, or that nobody who may sign
+  /// signed: the allowance or the signature is the decision, and a start around it would be one nobody made.
+  bool get refusedForADestination => switch (readiness?.outcome) {
+    StartOutcome.unknownDestination || StartOutcome.settingsNotAllowed || StartOutcome.settingsUnsigned => true,
+    _ => false,
+  };
 
   /// Whether the machine's answer is only that a repository has to be chosen — **the dialog's own
   /// required choice**, never a refusal, and never a reason to warn about what starting costs.
@@ -827,4 +863,38 @@ String? _upstreamKey(String address) {
   if (scp != null) return 'remote ${scp.group(1)!.toLowerCase()}/${path(scp.group(2)!)}';
   final local = trimmed.startsWith('file://') ? trimmed.substring('file://'.length) : trimmed;
   return 'local ${local.startsWith('/') ? '/' : ''}${path(local)}';
+}
+
+/// What becomes of a start after the machine's first-start question for its repository.
+enum AfterTheProposal {
+  /// The start goes on: with the settings a yes wrote, or with Porelo's own.
+  start,
+
+  /// The person closed the question: nothing starts, and nothing was sent.
+  startNothing,
+}
+
+/// Before the first task on [repository] in `default`, with no checkout here: the machine's proposal, put to the
+/// person by [ask] (true for a yes, false for a no, null for closing it), and a yes sent for exactly the text shown.
+Future<AfterTheProposal> askBeforeTheFirstTask(
+  FleetBackend machine,
+  String repository,
+  Future<bool?> Function(FirstStart first) ask,
+) async {
+  final FirstStart first;
+  try {
+    first = await machine.firstStartOf(repository);
+  } on FeatureNotSupported {
+    return AfterTheProposal.start;
+  } on VarlinkException catch (refusal) {
+    // A Porelo that takes no repository here starts as it did before it could propose.
+    if (refusal.name == 'org.varlink.service.InvalidParameter') return AfterTheProposal.start;
+    rethrow;
+  }
+  // Only a question with a text a yes could name is put; anything else starts as the machine would without one.
+  if (!first.asks || first.hash.isEmpty || first.refusal.isNotEmpty) return AfterTheProposal.start;
+  final said = await ask(first);
+  if (said == null) return AfterTheProposal.startNothing;
+  if (said) await machine.confirmFirstStartOf(repository, first.hash);
+  return AfterTheProposal.start;
 }

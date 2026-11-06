@@ -985,6 +985,18 @@ class FakeBackend implements FleetBackend {
     return HostKeyTrusted(recorded: true, type: offered.first.type, fingerprint: fingerprint);
   }
 
+  /// Each allowance asked for, as the repository and the hash it named.
+  final settingsAllowedAsked = <(String, String)>[];
+
+  /// What the machine answers an allowance: `ALLOWED`, or `CHANGED` for a file that moved since it was shown.
+  String allowSettingsAnswers = 'ALLOWED';
+
+  @override
+  Future<SettingsAllowed> allowSettings(String repository, String hash) async {
+    settingsAllowedAsked.add((repository, hash));
+    return SettingsAllowed(outcome: allowSettingsAnswers);
+  }
+
   /// The keys the machine's account has; null answers as a Porelo older than the method.
   List<SshKey>? keysOnTheMachine = const <SshKey>[];
 
@@ -1354,6 +1366,29 @@ class FakeBackend implements FleetBackend {
     if (confirmFails case final failure?) throw failure;
     firstStartsConfirmed.add((checkout, hash));
     return theFirstStartSays.project;
+  }
+
+  /// What a first start of a repository in default answers, by its name; absent answers as a Porelo older than
+  /// the parameter.
+  final Map<String, FirstStart> theFirstStartOfSays = <String, FirstStart>{};
+
+  /// Every repository asked about, and every yes to one: the repository and the hash.
+  final List<String> firstStartsOfAsked = <String>[];
+  final List<(String, String)> firstStartsOfConfirmed = <(String, String)>[];
+
+  @override
+  Future<FirstStart> firstStartOf(String repository) async {
+    firstStartsOfAsked.add(repository);
+    return theFirstStartOfSays[repository] ??
+        (throw const VarlinkException('org.varlink.service.InvalidParameter', <String, dynamic>{
+          'parameter': 'repository',
+        }));
+  }
+
+  @override
+  Future<String> confirmFirstStartOf(String repository, String hash) async {
+    firstStartsOfConfirmed.add((repository, hash));
+    return defaultProject;
   }
 
   /// What every task's image was built with. Set by the scenario.
@@ -2305,15 +2340,21 @@ diff --git a/lib/money.dart b/lib/money.dart
   /// Every change asked for, and whether it was only a preview.
   final List<({List<String> addSets, bool preview})> changes = <({List<String> addSets, bool preview})>[];
 
+  /// What the repository's `porelo.yml` takes away from what the project lets its work reach.
+  List<RemovedSetting> theRepositoryRemoves = const <RemovedSetting>[];
+
   @override
-  Future<(List<EgressHost>, List<String>)> egressOf(String projectFile, {String? repository}) async {
+  Future<(List<EgressHost>, List<String>, List<RemovedSetting>)> egressOf(
+    String projectFile, {
+    String? repository,
+  }) async {
     mustBeAProject(projectFile);
     egressAskedIn.add(repository);
     final adds = theRepositoryAdds[repository];
     if (adds != null) {
-      return (<EgressHost>[...theHostsItMayReach, ...adds], theHostsItIsRefused);
+      return (<EgressHost>[...theHostsItMayReach, ...adds], theHostsItIsRefused, theRepositoryRemoves);
     }
-    return (theHostsItMayReach, theHostsItIsRefused);
+    return (theHostsItMayReach, theHostsItIsRefused, theRepositoryRemoves);
   }
 
   @override

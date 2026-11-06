@@ -20,6 +20,9 @@ class Egress extends ChangeNotifier {
   /// first grant wins, so the order is what says which source a host came from.
   List<EgressHost> reachable = const <EgressHost>[];
 
+  /// What the repository's `porelo.yml` took away from what the project lets its work reach.
+  List<RemovedSetting> removed = const <RemovedSetting>[];
+
   /// What an agent asks for and is deliberately not given.
   ///
   /// The distinction a dropped packet cannot make: "we said no" and "nobody added it" look
@@ -51,6 +54,7 @@ class Egress extends ChangeNotifier {
     if (!project.canBeActedOn) {
       reachable = const <EgressHost>[];
       refused = const <String>[];
+      removed = const <RemovedSetting>[];
       problem =
           '${project.name} is not on this machine, so nothing can be asked '
           'about its egress.';
@@ -58,10 +62,11 @@ class Egress extends ChangeNotifier {
       return;
     }
     await _asking(() async {
-      final (hosts, notGiven) = await backend.egressOf(project.name, repository: repository);
+      final (hosts, notGiven, takenAway) = await backend.egressOf(project.name, repository: repository);
       final (installed, where) = await backend.egressSets();
       reachable = hosts;
       refused = notGiven;
+      removed = takenAway;
       sets = installed;
       locations = where;
     });

@@ -9,6 +9,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- *New work* in Default shows what a repository's `porelo.yml` sets that this machine has not allowed yet, only what is new, changed or removed, and allows exactly that with one press before it asks again whether the work can start; a file changed after it was shown is not allowed. In an organization's project, a `porelo.yml` changed without a signature is said with its file and commit, and nothing here allows it.
+- *Image settings* and what a project may reach list what a repository's `porelo.yml` took away from its project's settings, and what took it away.
+- Before the first task on a repository in Default with no settings of its own yet, the window shows what the machine proposes - what it found, the hosts it opens, the settings - and a yes keeps them on this machine only and allows them; a no starts with Porelo's own settings, and closing the question starts nothing.
+- A first start from a checkout names the file it writes, and where the machine keeps the repository in Default, the work starts on the checkout's repository there rather than as a project of its own.
 - *Image settings* in *Work*, on an opened row and on *Running*, shows what a task's image was built with and where each thing comes from.
 - *New work* on this computer can start from a checkout there, asking the same question as a first start in a terminal before it writes `project.yml`, with what the plugins say of the checkout above it and beside each thing found; on another machine it says that nothing is detected there.
 - Work started from a checkout on this computer starts from the branch that checkout is on, for the repository it is a checkout of; once started, the work says which branch it started from and why: the checkout's, the project's base branch or the repository's default. A detached checkout names none, and a machine whose Porelo takes no branch is not told one.
@@ -18,6 +22,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Where a setting can come from a repository's own `porelo.yml`, the window names it beside `project.yml`: an image setting's source, what a project may reach and what one repository adds to it or takes away, the credentials a start is given, and Default on another machine.
 - Adding, changing or removing a project's repository, changing its review policy and filling a project from a checkout no longer sign a change: Porelo changes no project file that exists, so the dialog shows the entry it says to write, the file it goes in, and a button to copy it, and a project admin commits it.
 - The waits-on-you note under *Running* shows a question's time left, updates while it counts down, and says when time is up or the machine gives no deadline.
 - Taking Porelo off a machine says what the machine says stays on it, such as the firewall and the command that takes it off, whole and copyable. A rental given back says nothing of a machine now gone.

@@ -515,7 +515,7 @@ class _MoreCredentials extends StatelessWidget {
     if (project == null || !project.credentialsAnswered) {
       return <Widget>[
         Text(
-          "What its project names under credentials: in project.yml it is given anyway; this "
+          "What project.yml or the repository's porelo.yml names under credentials is given anyway; this "
           'machine does not say what that is.',
           key: const Key('start-project-credentials-unsaid'),
           style: text.bodySmall,
@@ -721,6 +721,13 @@ class _NotReady extends StatelessWidget {
   final Future<void> Function()? onOpenWithThisDevice;
   final Future<void> Function()? onFixInATerminal;
 
+  /// One setting to allow, in the machine's words: where, what it was, and what it is to be.
+  static String _settingWords(SettingToAllow setting) => switch (setting) {
+    SettingToAllow(removed: true, :final key, :final was) => '$key  removed${was.isEmpty ? '' : ' (was $was)'}',
+    SettingToAllow(:final key, :final value, was: '') => '$key  $value  (new)',
+    SettingToAllow(:final key, :final value, :final was) => '$key  $value  (was $was)',
+  };
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -800,6 +807,24 @@ class _NotReady extends StatelessWidget {
                 'compare one with what the machine publishes, and trust it at the machine.',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
+          ],
+          // In default the person allows what the repository's porelo.yml sets: only what changed, and exactly that.
+          if (answer.outcome == StartOutcome.settingsNotAllowed && answer.settingsToAllow.isNotEmpty) ...<Widget>[
+            const SizedBox(height: Space.small),
+            for (final each in answer.settingsToAllow)
+              SelectableText(
+                _settingWords(each),
+                key: ValueKey<String>('start-setting ${each.key}'),
+                style: const TextStyle(fontFamily: 'monospace'),
+              ),
+            if (answer.settingsHash.isNotEmpty) ...<Widget>[
+              const SizedBox(height: Space.small),
+              FilledButton(
+                key: const Key('start-allow-settings'),
+                onPressed: starting.allowing ? null : () => starting.allowTheSettings(),
+                child: const Text('Allow these settings on this machine, and ask again'),
+              ),
+            ],
           ],
           // The one way a locked vault opens from here: a device enrolled there, never a passphrase.
           if (onOpenWithThisDevice != null && answer.outcome.name == 'VAULT_LOCKED') ...<Widget>[

@@ -163,7 +163,15 @@ class _DefaultDialogState extends State<DefaultDialog> {
         return;
       }
       if (!mounted) return;
-      if (project != null) {
+      // A machine that keeps a repository of its own in default wrote its porelo.yml: the work starts there, on the
+      // repository the checkout is of, never as a project of its own.
+      if (project == defaultProject) {
+        // Started at once only on the checkout's own origin, and only with nothing of the machine's left to read.
+        if (await _fillTheOrigin(checkout) && _notes.isEmpty && widget.onStartWork != null && mounted) {
+          final name = _name.text.trim();
+          await _startOn(_address.text.trim(), name: name.isEmpty ? null : name);
+        }
+      } else if (project != null) {
         // The dialog goes, and with it this place to read them: they are said where the work starts.
         final notes = _notes;
         final picked = _checkout?.naming;
@@ -192,8 +200,8 @@ class _DefaultDialogState extends State<DefaultDialog> {
       if (first.refusal.isNotEmpty || first.hash.isEmpty) {
         _notes = first.notes;
         _problem = first.refusal.isEmpty
-            ? 'The project.yml in this checkout was not taken, so this start uses Porelo\u2019s own settings in Default, '
-                  'not that file. A start in a terminal in this checkout says why.'
+            ? 'The ${first.fileWords} in this checkout was not taken, so this start uses Porelo\u2019s own settings in '
+                  'Default, not that file. A start in a terminal in this checkout says why.'
             : _notTaken(first.refusal);
         return null;
       }
@@ -239,26 +247,27 @@ class _DefaultDialogState extends State<DefaultDialog> {
   }
 
   /// The address a start without a project works on, read from [checkout]; said where there is none.
-  Future<void> _fillTheOrigin(String checkout) async {
+  Future<bool> _fillTheOrigin(String checkout) async {
     // Read already with its branch: asked again only where that could not read it.
     if (_checkout?.origin case final known? when known.isNotEmpty) {
       if (mounted) setState(() => _address.text = known);
-      return;
+      return mounted;
     }
     final Ran origin;
     try {
       origin = await widget.runGit('git', const <String>['remote', 'get-url', 'origin'], inDirectory: checkout);
     } on Object {
       _problem ??= 'Git could not read this checkout\u2019s origin here, so name its address below.';
-      return;
+      return false;
     }
-    if (!mounted) return;
+    if (!mounted) return false;
     final address = origin.out.trim();
     if (origin.code != 0 || address.isEmpty) {
       _problem ??= 'This checkout names no origin, so name its address below.';
-      return;
+      return false;
     }
     setState(() => _address.text = address);
+    return true;
   }
 
   Future<void> _remove(DefaultRepository repository) => _asking(() async {
@@ -394,7 +403,7 @@ class _DefaultDialogState extends State<DefaultDialog> {
                 if (!widget.thisComputer)
                   Text(
                     'Nothing is detected on ${widget.machineName}: work there uses what the repository holds, and '
-                    'with no project.yml in it, Porelo\u2019s own settings.',
+                    'with no porelo.yml or project.yml in it, Porelo\u2019s own settings.',
                     key: const Key('default-nothing-detected'),
                     style: text.bodySmall,
                   ),

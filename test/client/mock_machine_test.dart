@@ -243,19 +243,19 @@ void main() {
     final client = await connect();
     const project = 'checkout';
 
-    final (before, _) = await client.egress(project);
+    final (before, _, _) = await client.egress(project);
     final previewed = await client.setEgress(project, addSets: <String>['containers'], dryRun: true);
 
     expect(previewed.outcome, EgressOutcome.previewed);
     expect(previewed.opens, isNotEmpty);
     // Hosts, not set names: adding one set opens three here.
     expect(previewed.opens.map((host) => host.host), contains('quay.io'));
-    final (stillBefore, _) = await client.egress(project);
+    final (stillBefore, _, _) = await client.egress(project);
     expect(stillBefore.length, before.length, reason: 'a preview wrote something');
 
     final done = await client.setEgress(project, addSets: <String>['containers']);
     expect(done.outcome, EgressOutcome.changed);
-    final (after, _) = await client.egress(project);
+    final (after, _, _) = await client.egress(project);
     expect(after.length, greaterThan(before.length));
   });
 
@@ -516,7 +516,7 @@ void main() {
     await machineIn('work');
     final client = await connect();
 
-    final (hosts, refused) = await client.egress('checkout');
+    final (hosts, refused, _) = await client.egress('checkout');
 
     expect(hosts.first.origin, startsWith('agent '));
     expect(refused, isNotEmpty);

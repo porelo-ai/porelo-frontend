@@ -66,7 +66,7 @@ void main() {
     testWidgets('''what a project may reach is shown, and said to be changed only in its repository''', (tester) async {
       await bddSetUp(tester);
       await iOpenWhatThisProjectMayReach(tester);
-      await itSays(tester, 'under egress; a machine with it takes the change');
+      await itSays(tester, 'Reachable now');
       await itDoesNotSay(tester, 'Make this change');
     });
     testWidgets('''a project that declares no egress at all is not offered it''', (tester) async {

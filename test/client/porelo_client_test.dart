@@ -103,6 +103,75 @@ void main() {
       expect(answer.whatToDo, contains("'foo-bar' would do"));
     });
 
+    // Harm: an allowance sent for another repository or another text than the one the machine showed.
+    test("a repository's settings to allow are read, and allowed by the repository and the hash", () async {
+      Map<String, dynamic>? asked;
+      daemon
+        ..method(
+          'CanStart',
+          (_) => <String, dynamic>{
+            'ready': false,
+            'outcome': 'SETTINGS_NOT_ALLOWED',
+            'agent': '',
+            'provider': '',
+            'credential': '',
+            'detail': 'porelo.yml of x sets what is not allowed here',
+            'settingsToAllow': <Map<String, dynamic>>[
+              <String, dynamic>{'key': 'egress.domains', 'value': 'repo.example.org', 'was': '', 'removed': false},
+              <String, dynamic>{'key': 'limits.memory', 'value': '', 'was': '4g', 'removed': true},
+            ],
+            'settingsHash': 'h1',
+          },
+        )
+        ..method('AllowSettings', (parameters) {
+          asked = parameters;
+          return <String, dynamic>{'outcome': 'CHANGED', 'detail': 'porelo.yml of x changed'};
+        });
+      final client = await connect();
+
+      final answer = await client.canStart(project: 'default', repository: 'x');
+      final allowed = await client.allowSettings('x', answer.settingsHash);
+
+      expect(answer.outcome, StartOutcome.settingsNotAllowed);
+      expect(answer.settingsToAllow.map((each) => (each.key, each.value, each.was, each.removed)), <Object>[
+        ('egress.domains', 'repo.example.org', '', false),
+        ('limits.memory', '', '4g', true),
+      ]);
+      expect(asked, <String, dynamic>{'repository': 'x', 'hash': 'h1'});
+      expect(allowed.allowed, isFalse, reason: 'CHANGED allows nothing');
+    });
+
+    // Harm: settings written for another repository, or a checkout's question asked where there is none.
+    test("a repository's first start in default is asked and confirmed by its name", () async {
+      final asked = <Map<String, dynamic>>[];
+      daemon
+        ..method('FirstStart', (parameters) {
+          asked.add(parameters);
+          return <String, dynamic>{
+            'outcome': 'ASK_NEW',
+            'file': 'egress: {}',
+            'fileName': '.porelo.yml (this machine)',
+            'project': 'default',
+            'hash': 'h1',
+          };
+        })
+        ..method('ConfirmFirstStart', (parameters) {
+          asked.add(parameters);
+          return <String, dynamic>{'project': 'default'};
+        });
+      final client = await connect();
+
+      final first = await client.firstStartOf('shop');
+      final project = await client.confirmFirstStartOf('shop', first.hash);
+
+      expect(asked, <Map<String, dynamic>>[
+        <String, dynamic>{'repository': 'shop'},
+        <String, dynamic>{'repository': 'shop', 'hash': 'h1'},
+      ]);
+      expect(first.fileName, '.porelo.yml (this machine)');
+      expect(project, 'default');
+    });
+
     test('reads the task list over the socket', () async {
       daemon.method(
         'List',

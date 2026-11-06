@@ -3,6 +3,7 @@ import 'package:porelo_frontend/client.dart';
 
 import '../app/egress.dart';
 import 'panes.dart';
+import 'image_settings_view.dart' show removedWords;
 import 'tokens.dart';
 
 /// What a project's work may reach, and where each host came from. **Shown, never changed here**: the
@@ -50,9 +51,9 @@ class EgressView extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.fromLTRB(Space.normal, Space.small, Space.normal, 0),
                 child: Text(
-                  'Changed only in project.yml in the project\'s repository, under egress; '
-                  'a machine with it takes the change at its next look. Work already running keeps '
-                  'what it started with.',
+                  'Changed only under egress, in project.yml in the project\'s repository or in a '
+                  'repository\'s own porelo.yml; a machine with it takes the change at its next look. Work '
+                  'already running keeps what it started with.',
                   key: const Key('egress-where-changed'),
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
@@ -63,9 +64,8 @@ class EgressView extends StatelessWidget {
                   padding: const EdgeInsets.fromLTRB(Space.normal, 0, Space.normal, Space.small),
                   child: Text(
                     'What every repository of ${egress.project?.name ?? ''} may reach, and what '
-                    '$repository adds to it. A repository only ever adds: nothing it names can take '
-                    'away what the project grants. What it adds is in $repository\'s own block of '
-                    'project.yml.',
+                    '$repository adds to it or takes away from it, as its own block of project.yml or '
+                    'its own porelo.yml says.',
                     key: const Key('what-a-repository-adds'),
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
@@ -73,6 +73,14 @@ class EgressView extends StatelessWidget {
               // In the order the sources granted them: the first grant wins, so the order is what
               // says where a host came from. Sorting would destroy the answer.
               for (final host in egress.reachable) _Reachable(host: host, added: egress.addedByTheRepository(host)),
+              if (egress.removed.isNotEmpty) ...<Widget>[
+                _Heading(words: 'Taken away from what the project grants'),
+                for (final each in egress.removed)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(Space.normal, 0, Space.normal, Space.tight),
+                    child: SelectableText(removedWords(each)),
+                  ),
+              ],
               if (egress.refused.isNotEmpty) ...<Widget>[
                 _Heading(words: 'Asked for and refused'),
                 Padding(

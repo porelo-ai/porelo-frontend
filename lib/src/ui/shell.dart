@@ -99,6 +99,7 @@ import 'shell_rail.dart';
 import 'vault_actions.dart';
 import 'vault_view.dart';
 import 'start_agents_view.dart';
+import 'first_start_view.dart' show askFirstStart;
 import 'start_work_view.dart';
 import 'widening_view.dart';
 import 'gate_view.dart';
@@ -2206,7 +2207,33 @@ class _ShellState extends State<Shell> {
   }
 
   /// Runs it, and hands the stream to the session record rather than to this view.
-  void _beginTheRun() {
+  void _beginTheRun() => unawaited(_beginAfterTheProposal());
+
+  /// Before the first task on a repository in default with no checkout here, the machine's proposal is put first.
+  Future<void> _beginAfterTheProposal() async {
+    final starting = widget.starting;
+    final repository = starting.repository;
+    if (starting.project?.name == defaultProject && repository != null && starting.checkout == null) {
+      final AfterTheProposal after;
+      try {
+        after = await askBeforeTheFirstTask(
+          _fleet.backend,
+          repository,
+          (first) => mounted ? askFirstStart(context, first: first, repository: repository) : Future<bool?>.value(),
+        );
+      } on VarlinkException catch (refusal) {
+        _fleet.say(
+          '${widget.machines.current.name} could not say what a first task on $repository is to do, so nothing '
+          'started: ${refusal.parameters['message'] ?? refusal.parameters['detail'] ?? refusal.simpleName}',
+        );
+        return;
+      }
+      if (after == AfterTheProposal.startNothing || !mounted) return;
+    }
+    _run();
+  }
+
+  void _run() {
     final starting = widget.starting;
     final project = starting.project?.name ?? '';
     final named = starting.name.trim();

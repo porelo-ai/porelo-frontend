@@ -26,7 +26,7 @@ Feature: What a project may reach, and removing one
     # Walk 10: project.yml in the repository is the one place it is changed.
     Scenario: what a project may reach is shown, and said to be changed only in its repository
         When I open what this project may reach
-        Then it says {'under egress; a machine with it takes the change'}
+        Then it says {'Reachable now'}
         And it does not say {'Make this change'}
 
     Scenario: a project that declares no egress at all is not offered it
