@@ -72,6 +72,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f397"></a>[F397](F397-A-Repository-Of-Its-Own-Works-In-Default.md) | L | — | A repository of its own listed and started in Default, its `porelo.yml` allowed at a start, each setting shown with its source; waits on the machine serving the calls. |
 
 ### Backlog
 
@@ -88,7 +89,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
-| <a id="f397"></a>[F397](F397-A-Repository-Of-Its-Own-Works-In-Default.md) | L | — | A repository of its own listed and started in Default, its `porelo.yml` allowed at a start, each setting shown with its source; waits on the machine serving the calls. | 3 |
 | <a id="f142"></a>[F142](F142-The-Drafts-Offered-Before-The-First-Task-In-Default.md) | M | — | The machine's proposed tools and rules shown before the first task on a repository in `default`, and the choice passed back. | — |
 | <a id="f219"></a>[F219](F219-An-Interface-Ended-Without-Asking-Leaves-No-Forward-Behind.md) | S | — | The ssh forwards this interface raised ended with it also when it ends without asking, and one left over found again by its socket at the next start. | — |
 | <a id="f114"></a>[F114](F114-Windows-Notifications-From-The-MSIX.md) | M | — | Windows notifications from the MSIX's identity. | — |
