@@ -818,22 +818,9 @@ void main() {
 
     // Harm: the rail says one number and the page it opens lists another.
     test('the rail counts what the My projects page lists', () {
-      int count(OrganizationView? view, {int local = 0}) =>
-          projectsInRail(view, onMachines: 7, fromOrganization: true, local: local);
+      int count(OrganizationView? view) => projectsInRail(view, onMachines: 7, fromOrganization: true);
       expect(count(organizationFor('olive')), 0, reason: 'They hold no role in either.');
-      expect(count(organizationFor('pat')), 1, reason: 'A role in one of two.');
-      expect(count(organizationFor('pat'), local: 1), 2, reason: 'And one only on this computer.');
-      expect(
-        projectsInRail(organizationFor('pat'), onMachines: 7, fromOrganization: true, builtIn: 2),
-        3,
-        reason: 'And Default on each of two machines.',
-      );
-      expect(projectsInRail(null, onMachines: 7, fromOrganization: true, builtIn: 1), 1, reason: 'Nothing read yet.');
-      expect(
-        projectsInRail(null, onMachines: 7, fromOrganization: true, builtIn: 1, local: 1),
-        2,
-        reason: 'The page lists the local one with no organization read, too.',
-      );
+      expect(count(organizationFor('pat')), 1, reason: 'A role in one of two; Default and local ones are not counted.');
       expect(
         count(
           organizationFor(
@@ -846,7 +833,7 @@ void main() {
         1,
         reason: 'One with no repository yet stands on the Organization page.',
       );
-      expect(count(null), 0, reason: 'With nothing read and nothing local the page has no rows.');
+      expect(count(null), 0, reason: 'With nothing read the page has no rows.');
       expect(projectsInRail(organizationFor('pat'), onMachines: 7), 7, reason: 'All projects on the machines.');
       expect(projectsInRail(null, onMachines: 7), 7);
     });

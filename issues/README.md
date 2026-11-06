@@ -18,6 +18,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f396"></a>[F396](F396-My-Projects-Lists-The-Organizations-Projects-Alone.md) | S | — | *My projects* lists only the organization's projects the person holds a role in; a checkout's local copy and *Default* stand under *All projects on your machines*. |
 | <a id="f392"></a>[F392](F392-Work-Starts-On-Its-Checkouts-Branch.md) | — | — | Work started from a checkout here starts from that checkout's branch, and says which branch it started from and why. |
 | <a id="f391"></a>[F391](F391-The-Dead-Signer-Path-Removed.md) | — | — | Nothing asks a daemon `ProjectSigners` or `CommitVerdict`, which none serves; a commit made here is still checked against the person's own key. |
 | <a id="f147"></a>[F147](F147-Every-Repository-Of-Default-Offered-To-Start-In.md) | — | — | Starting in default offers every repository; the first is no longer hidden as its own. |
@@ -72,7 +73,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f396"></a>[F396](F396-My-Projects-Lists-The-Organizations-Projects-Alone.md) | S | — | *My projects* lists only the organization's projects the person holds a role in; a checkout's local copy and *Default* stand under *All projects on your machines*. |
 
 ### Backlog
 

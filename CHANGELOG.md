@@ -23,7 +23,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Taking Porelo off a machine says what the machine says stays on it, such as the firewall and the command that takes it off, whole and copyable. A rental given back says nothing of a machine now gone.
 - *Work* keeps only the *List*/*Running* switch at its top: *New work* stands in the card's title row, and its search opens from a magnifier, as on the other pages. *Needs you* has no title or rule of its own. A row of work says its state in a few words, with the sentence when opened.
 - Rows of a list stand on white in the light theme, under a paler head. The *Follow* switch is smaller, a terminal's text stands further from its edges, and only `✻ Finished` is green among an agent's star lines.
-- *My projects* lists *Default* beside the organization's projects, with its words and menu, and the header and the side bar count it.
+- *My projects* lists only the organization's projects the person holds a role in, and the side bar counts the same; *Default* and a project a start in a checkout copied stand under *All projects on your machines*.
 - The page of every project on your machines is titled *Projects on my machines* beside an organization, and its back link says *My projects*.
 - Preparing a host asks in plain words whether it has a forge of its own and whether it runs VMs in its jobs, says what each costs, and installs what was chosen; a CPU that cannot run VMs says so before anything is installed.
 - Every page has an `i` beside its title that opens its explanation, which stands open only the first time the page is opened; *Organization*'s head is one line, with a warning in it where there is one.

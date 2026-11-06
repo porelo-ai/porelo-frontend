@@ -256,7 +256,8 @@ void main() {
     });
   });
 
-  testWidgets('the list says who is locked, and a project of this computer alone leads to the machines', (
+  // Harm: a checkout's local copy listed among the organization's projects, as the operator found.
+  testWidgets('the list says who is locked, lists no project of this computer alone, and leads to the machines', (
     tester,
   ) async {
     final source = FixtureOrganization(organizationFor('mia'))
@@ -272,7 +273,8 @@ void main() {
       OrganizationProjectsPage(organization: organization, onProject: (_) {}, onOthers: () => others++),
     );
     expect(find.text('locked'), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('my-project mine')));
+    expect(find.byKey(const ValueKey('my-project mine')), findsNothing);
+    await tester.tap(find.byKey(const Key('projects-of-machines')));
     await tester.pumpAndSettle();
     expect(others, 1);
   });

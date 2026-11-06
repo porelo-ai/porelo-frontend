@@ -262,8 +262,10 @@ machines alone.
   *Default* among them. Where the project has work with a conversation on another machine, it says before the start
   that the two cannot talk.
 - ***My machines*** and ***My projects*** list them, each opening a page of its own with its tools.
-  *My projects* lists *Default*, the project every machine has, with a row and a page like any other: a
-  repository is put into it from its card on its forge's page.
+  Beside an organization, *My projects* lists the organization's projects the person holds a role in, and the rail
+  counts the same. *Default*, the project every machine has, and a project a start in a checkout copied onto a machine
+  stand under *All projects on your machines*, with a row and a page like any other: a repository is put into *Default*
+  from its card on its forge's page.
 - ***My forges*** lists every forge set up on this computer; a forge's page lists its repositories with
   a filter, each card saying on which watched machines it is worked on.
 - **The first start**, while there is no work anywhere, leads through a machine that answers, a
