@@ -192,6 +192,13 @@ truth. A repository without one is said to be no Porelo project, and nothing is 
 a project may reach is shown, with where each host comes from, and said to be changed only in its
 `project.yml`.
 
+Porelo changes no project file that exists either. Where a person adds, changes or removes a
+project's repository, changes its review policy or fills a project from a checkout, the window shows
+the entry Porelo says to write, verbatim, with the file it goes in and a way to copy it, and the
+project's admin commits it signed; for a removal, Porelo's words say what to take out. Nothing of it
+is signed in the window. An older Porelo that still writes the change itself and answers the
+revision it wrote is taken as written, and the pages are read again, so that nothing is asked twice.
+
 What stays in the window is what is no setting of the project: letting running work reach a host it
 was refused, for that run or that work; and the brake on a project's messages to a peer.
 

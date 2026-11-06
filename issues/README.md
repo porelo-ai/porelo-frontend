@@ -18,9 +18,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f389"></a>[F389](F389-A-Refused-Forward-Says-Which-Credential.md) | — | — | A push refused for its key leads the person through it: which key, their keys, try one, keep it, a terminal where needed. |
-| <a id="f390"></a>[F390](F390-A-Change-Mostly-Of-Line-Endings.md) | — | — | A change mostly of line endings says so, with the real count beside the raw one. |
-| <a id="f393"></a>[F393](F393-A-Project-File-Is-Changed-By-Its-Admin.md) | — | — | A change to a project's own file shows the entry Porelo says to write, and the project admin commits it. |
 | <a id="f147"></a>[F147](F147-Every-Repository-Of-Default-Offered-To-Start-In.md) | — | — | Starting in default offers every repository; the first is no longer hidden as its own. |
 | <a id="f378"></a>[F378](F378-Waits-Said-In-Needs-You.md) | — | — | Time left in the Running waits-on-you note; tests, formatting and analysis blocked by the local launcher; review-row facts still need a reliable task association and file count. |
 | <a id="f358"></a>[F358](F358-A-Hosts-Check-Before-Its-Installation.md) | — | — | The host dialog's first step after the address runs one reading check, lists every finding, and offers the installation only when it passes. |
@@ -208,6 +205,9 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Title | What was built |
 |---|---|---|
+| <a id="f389"></a>F389 | A Refused Forward Says Which Credential | A push refused for its key names the key, lists the person's keys, tries one, keeps the one that works, and opens a terminal on the machine where only one can help. |
+| <a id="f390"></a>F390 | A Change Mostly Of Line Endings | A review says when a change is mostly line endings, with the real count beside the raw one, and offers the diff without them where the daemon serves it. |
+| <a id="f393"></a>F393 | A Project File Is Changed By Its Admin | A change to a project's own file shows the entry Porelo says to write, the file it goes in and a copy button, and the project's admin commits it. |
 | <a id="f222"></a>F222 | A Refused Unlock Asks Again In Its Terminal | A wrong vault passphrase asked again in the same terminal, up to three times, before the terminal ends. |
 | <a id="f291"></a>F291 | A Host Card With A Name Or An IPv6 Address Read | A host whose card names a host name or an IPv6 address written, raised, read back after a restart and given as a server, as one at an IPv4 address. |
 | <a id="f315"></a>F315 | Saved Settings Dropped Once And Said | Settings from before the organization put aside at the first start, without a migration, and said once in one sentence. |
