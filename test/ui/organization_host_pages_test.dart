@@ -303,6 +303,26 @@ void main() {
       expect(write.input, {'host': 'build', 'project': 'other', 'repositories': 'api'});
     });
 
+    // Harm: a repository the machine would not let go reads as gone, its refusal said nowhere.
+    testWidgets("taking one repository off says the machine's refusal on its page", (tester) async {
+      final made = await page(
+        tester,
+        'hana',
+        shown: const OrganizationHost(
+          name: 'build',
+          admins: ['hana'],
+          projects: ['demo', 'other'],
+          repositories: {
+            'other': ['api'],
+          },
+        ),
+      );
+      made.source.refuseNext = const OrganizationRefused('api is carried whole by another rule.');
+      await _tap(tester, find.byKey(const ValueKey('organization.takeOffRepository/other/api')));
+      await _tap(tester, _confirm());
+      expect(find.textContaining('api is carried whole by another rule.'), findsOneWidget);
+    });
+
     // Harm: unpushed work holding a removed project on a machine disappears from the only list its admin can act on.
     testWidgets('the read-only list keeps what the machine carries until it is gone, for a connected admin only', (
       tester,

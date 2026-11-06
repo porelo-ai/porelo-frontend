@@ -66,3 +66,5 @@ repository to take off alone, the verbs sent no `--repository`, and a host's `re
 
 Left for Core's hand-over: `porelo project list --json`'s `repositories` per hosted project, not posted yet, is not
 read.
+
+Review reading: the machine is followed only once what it carries of the project changed, never after a cancelled or refused dialog; a carry or uncarry refused stands on the machine's page too; a host's `repositories` that does not read refuses the reading rather than reading a part as the whole; a project carried in part counts as on every machine that carries some of it, for its members' machines and *Start work*. Red first: the refusal and the unreadable part.

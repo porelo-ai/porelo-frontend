@@ -315,6 +315,21 @@ void main() {
       expect(host.carriesWhole('part'), isFalse);
     });
 
+    // Harm: a part the answer garbles reads as the whole project, and no other machine is offered the rest.
+    test('a host whose carried repositories do not read is refused, never read as carrying the whole', () async {
+      answer = (_) => says({
+        ..._org,
+        'hosts': [
+          {
+            ...((_org['hosts']! as List<Object?>).first! as Map<String, Object?>),
+            'projects': ['part'],
+            'repositories': {'part': 'api'},
+          },
+        ],
+      });
+      await expectLater(source.read(), throwsA(isA<OrganizationRefused>()));
+    });
+
     // Harm: a card is shown as holding what it does not, and a role is taken from a card that holds it.
     test('a card stands as the rule says: trusted and first-seen hold, revoked and refused do not', () async {
       final view = await source.read();

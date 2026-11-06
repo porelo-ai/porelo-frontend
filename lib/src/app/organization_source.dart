@@ -292,7 +292,8 @@ class OrganizationView {
             if (host.admins.contains(me) ||
                 projects.any(
                   (project) =>
-                      project.host == host.name && (project.admins.contains(me) || project.members.contains(me)),
+                      (project.host == host.name || host.projects.contains(project.name)) &&
+                      (project.admins.contains(me) || project.members.contains(me)),
                 ))
               host,
         ];

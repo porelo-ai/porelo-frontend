@@ -683,12 +683,17 @@ Future<void> putProjectOnAMachine(
     ),
   );
   await organization.whenIdle;
-  // The machine chosen, once the organization says it carries the project: a part may be on another too.
-  final machine = carrying.machine;
-  if (machine == null ||
-      !(organization.view?.hosts.any((host) => host.name == machine && host.projects.contains(project)) ?? false)) {
-    return;
+  // The machine chosen, once what it carries of the project changed: a dialog cancelled or refused changed nothing,
+  // and the machine may carry a part already.
+  String carried(OrganizationView? view, String machine) {
+    final host = view?.hosts.where((each) => each.name == machine).firstOrNull;
+    return host == null || !host.projects.contains(project)
+        ? ''
+        : (host.repositories[project] ?? ['(whole)']).join(',');
   }
+
+  final machine = carrying.machine;
+  if (machine == null || carried(organization.view, machine) == carried(view, machine)) return;
   if (connections == null || !context.mounted) return;
   await showDialog<void>(
     context: context,

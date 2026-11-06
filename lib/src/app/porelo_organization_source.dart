@@ -214,11 +214,10 @@ class PoreloOrganizationSource implements OrganizationSource, FoundingChecks {
       // Only the projects carried in part; an older porelo says nothing, and every project is carried whole.
       repositories: {
         for (final MapEntry(:key, :value) in (_maybeMap(host, 'repositories') ?? const <String, Object?>{}).entries)
-          if (value is List)
-            key: [
-              for (final name in value)
-                if (name is String) name,
-            ],
+          // Unread, never carried whole: a part read as the whole would offer it to no other machine.
+          key: value is List && value.every((name) => name is String)
+              ? value.cast<String>().toList()
+              : throw _Unreadable('repositories'),
       },
     );
   }

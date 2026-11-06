@@ -141,7 +141,8 @@ class _OrganizationMachineRowState extends State<OrganizationMachineRow> {
     final hasAccount = view.myHosts.any((each) => each.name == host.name);
     final mine = [
       for (final project in view.projects)
-        if (project.host == host.name &&
+        // A project carried in part may be on this machine and another, and the store names one host for it.
+        if ((project.host == host.name || host.projects.contains(project.name)) &&
             !view.saysNoRepository(project) &&
             (project.admins.contains(view.me) || project.members.contains(view.me)))
           project.name,
@@ -625,7 +626,16 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
         ?_progressWords(view, host, name),
       ],
     ].join(' · ');
-    return FilteredListSection(
+    // A project put on this machine or taken off it, or one repository of it, asked from here or elsewhere: its
+    // refusal stands here too, or the dialog that asked closed on nothing.
+    final pending = [
+      for (final change in widget.organization.rowChanges)
+        if (change.input['host'] == host.name &&
+            (change.change == OrganizationChange.addProjectToHost ||
+                change.change == OrganizationChange.removeProjectFromHost))
+          OrganizationPendingRow(widget.organization, change),
+    ];
+    final list = FilteredListSection(
       title: 'Projects',
       storageId: 'host-projects ${host.name}',
       emptyWords: 'No projects on this machine yet. A project goes on a machine once the machine is prepared.',
@@ -672,6 +682,9 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
           ),
       ],
     );
+    return pending.isEmpty
+        ? list
+        : Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [...pending, list]);
   }
 
   /// The repositories of [name] that [host] carries, where it carries only some: each named, and taken off alone by
@@ -897,7 +910,8 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     final why = _whyNotConnect(host, connections);
     final mine = [
       for (final project in view.projects)
-        if (project.host == host.name &&
+        // A project carried in part may be on this machine and another, and the store names one host for it.
+        if ((project.host == host.name || host.projects.contains(project.name)) &&
             !view.saysNoRepository(project) &&
             (project.admins.contains(view.me) || project.members.contains(view.me)))
           project.name,
