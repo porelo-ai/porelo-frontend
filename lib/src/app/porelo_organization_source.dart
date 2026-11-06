@@ -233,6 +233,15 @@ class PoreloOrganizationSource implements OrganizationSource, FoundingChecks {
   ];
 
   @override
+  Future<bool> handTokenTo(String host) async {
+    final answer = await _ask(['org', 'host', 'refresh', _positional(host, 'host')]);
+    return _reading(() {
+      if (answer['handedOver'] is! bool) throw const _Unreadable('handedOver');
+      return answer['handedOver']! as bool;
+    });
+  }
+
+  @override
   Future<ProjectView> readProject(String project) async {
     final answer = await _ask(['project', 'show', project]);
     return _reading(() {

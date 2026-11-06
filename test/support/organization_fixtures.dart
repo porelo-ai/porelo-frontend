@@ -30,6 +30,22 @@ class FixtureOrganization implements OrganizationSource {
   /// What a taken write changes, where a test needs the page to read something new.
   OrganizationView Function(OrganizationWrite write)? afterWrite;
 
+  /// The hosts Porelo was asked to hand the vault's token to, and what it answers.
+  final List<String> handedTo = [];
+
+  /// Whether Porelo says it handed the token over.
+  bool handsOver = true;
+
+  @override
+  Future<bool> handTokenTo(String host) async {
+    if (refuseNext case final refused?) {
+      refuseNext = null;
+      throw refused;
+    }
+    handedTo.add(host);
+    return handsOver;
+  }
+
   @override
   Future<OrganizationView> read() async {
     if (refuseReads case final refused?) throw refused;

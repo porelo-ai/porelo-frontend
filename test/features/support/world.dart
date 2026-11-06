@@ -68,6 +68,9 @@ class EveryProjectLocal implements OrganizationSource {
   ];
 
   @override
+  Future<bool> handTokenTo(String host) async => false;
+
+  @override
   Future<OrganizationView> read() async =>
       const OrganizationView(name: 'none', keptIn: '', vouchedBy: '', revision: 'r1', me: 'me');
 

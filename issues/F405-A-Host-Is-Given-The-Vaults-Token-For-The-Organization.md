@@ -35,3 +35,21 @@ the workaround is signing in under *My forges* with the same token. The window l
 ## Blocked by
 
 - porelo's command that hands a declared vault token to a host's `org refresh` (to be filed by Agent Core).
+
+## Done
+
+Built against Agent Core's local commit 7be32f40 (branch `work-b478-codex`, porelo's `org host refresh HOST --json`
+answering `handedOver`), read only by `git show`.
+
+- `host_token.dart`: `declaredOrganizationToken` picks the declaration for the organization's repository address,
+  kind `TOKEN`, purpose `git` or `any`, present, longest match, with `git@host:path` and `ssh://` read as https;
+  `declaredTokenWords` names it and says Porelo hands it on, never this window.
+- `OrganizationSource.handTokenTo`, run by `PoreloOrganizationSource` as `porelo org host refresh HOST --json`; a
+  refusal stands in porelo's words.
+- `shell.dart` `_giveHostToken`: where the vault declares one, the confirmation names it, *Give it* has Porelo hand it
+  on, and *Give another…* goes on to the window's kept token or the secrets file as before.
+
+Red first: none of it existed, so the two tests (the declaration chosen, the verb and its refusal) did not compile
+against the old code. The dialog in the shell has no test of its own: the shell's machine page needs the whole window
+standing; the operator's walk on rehearsal checks it.
+

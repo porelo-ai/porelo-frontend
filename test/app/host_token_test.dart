@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:porelo_frontend/client.dart' show Connection;
 import 'package:porelo_frontend/src/app/forge.dart';
 import 'package:porelo_frontend/src/app/forge_connection.dart';
 import 'package:porelo_frontend/src/app/host_token.dart';
@@ -124,5 +125,32 @@ void main() {
     expect(words, contains('It does not keep the token'));
     expect(words, contains('on no command line, in no log and in no file'));
     expect(noTokenWords('build', 'GitHub'), contains('under My forges'));
+  });
+
+  // Harm: a person who declared the organization's token by the command line is told none is kept, and the machine
+  // waits for a token it could have had.
+  test("the vault's token for the organization is the longest present declaration for git", () {
+    Connection token(String id, String match, {String kind = 'TOKEN', String purpose = 'git', bool present = true}) =>
+        Connection(
+          id: id,
+          kind: kind,
+          match: match,
+          user: '',
+          purpose: purpose,
+          source: 'VAULT',
+          protected: true,
+          present: present,
+          expires: '',
+        );
+    final held = [
+      token('wide', 'https://github.com/'),
+      token('org', 'https://github.com/porelo-ai/'),
+      token('key', 'https://github.com/porelo-ai/porelo', kind: 'SSH_KEY'),
+      token('images', 'https://github.com/porelo-ai/porelo.git', purpose: 'registry'),
+      token('gone', 'https://github.com/porelo-ai/porelo.g', present: false),
+    ];
+    expect(declaredOrganizationToken('git@github.com:porelo-ai/porelo.git', held)?.id, 'org');
+    expect(declaredOrganizationToken('https://github.com/porelo-ai/porelo.git', held)?.id, 'org');
+    expect(declaredOrganizationToken('git@gitlab.com:porelo-ai/porelo.git', held), isNull);
   });
 }

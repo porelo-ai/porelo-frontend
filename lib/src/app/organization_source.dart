@@ -759,6 +759,10 @@ abstract interface class OrganizationSource {
   /// The organization's current state for this person.
   Future<OrganizationView> read();
 
+  /// Has Porelo hand [host] the token this machine's vault declares for the organization's forge, once, for its
+  /// `org refresh`; answers whether it was handed over. The value never reaches this window.
+  Future<bool> handTokenTo(String host);
+
   /// One project's current state.
   Future<ProjectView> readProject(String project);
 

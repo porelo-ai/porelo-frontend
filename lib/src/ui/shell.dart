@@ -3828,6 +3828,39 @@ class _ShellState extends State<Shell> {
     final card = machine?.hostCard;
     if (machine == null || card == null) return 'Connect to $host first.';
     try {
+      // A token this machine's vault declares for the organization is named and handed on by Porelo, never read here;
+      // another can still be given.
+      if (declaredOrganizationToken(view?.address ?? '', _heldConnections) case final declared?) {
+        final word = await showDialog<String>(
+          context: context,
+          builder: (context) => AlertDialog(
+            key: const Key('organization.giveToken.declared'),
+            title: Text('Give $host your $forge token, once'),
+            content: SelectableText(declaredTokenWords(host, forge, where, declared)),
+            actions: [
+              TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+              TextButton(
+                key: const Key('organization.giveToken.another'),
+                onPressed: () => Navigator.of(context).pop('another'),
+                child: const Text('Give another…'),
+              ),
+              FilledButton(
+                key: const Key('organization.giveToken.yes'),
+                onPressed: () => Navigator.of(context).pop('declared'),
+                child: const Text('Give it'),
+              ),
+            ],
+          ),
+        );
+        if (word == null || !mounted) return null;
+        if (word == 'declared') {
+          try {
+            return handedOverWords(host, declared, handedOver: await _organization!.source.handTokenTo(host));
+          } on OrganizationRefused catch (refused) {
+            return '$host was given no token: ${refused.words}';
+          }
+        }
+      }
       final kept = address != null && await _forges.hasToken(address);
       if (!mounted) return null;
       if (kept) {

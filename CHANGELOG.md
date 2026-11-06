@@ -129,6 +129,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- *Give it my token…* on a machine's page offers the token this machine's vault declares for the Porelo organization's forge, named by its declaration, and has Porelo hand it to the machine; the window never reads it. *Give another…* keeps the other ways. Needs a porelo with `org host refresh`.
 - A project file naming each repository's forge as `central:` is read so, and one still naming `upstream:` as before.
 - *Start work* restricts its choice to the machine's repositories however it is opened (from a project, a job or the command bar), never shows a repository it no longer offers, chooses the only one left, and says when the machine could not be asked.
 - *Fetch now* tells the fetch's own answer, including a project that waits for a token; the page is busy while a token is given; the folded repositories not on a machine follow the ones that are, and only for a carried project.

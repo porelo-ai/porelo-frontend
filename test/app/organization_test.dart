@@ -13,6 +13,9 @@ class _Slow implements OrganizationSource {
   Completer<void>? writing;
 
   @override
+  Future<bool> handTokenTo(String host) async => false;
+
+  @override
   Future<OrganizationView> read() {
     final read = Completer<OrganizationView>();
     reads.add(read);

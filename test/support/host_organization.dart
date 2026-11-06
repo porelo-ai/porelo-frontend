@@ -90,6 +90,9 @@ class HostFixture implements OrganizationSource {
   }
 
   @override
+  Future<bool> handTokenTo(String host) async => false;
+
+  @override
   Future<OrganizationView> read() async {
     if (readRefusal case final words?) throw OrganizationRefused(words);
     return OrganizationView(

@@ -1092,4 +1092,14 @@ void main() {
       expect(asked, isEmpty);
     });
   });
+
+  // Harm: a machine left without the token the vault holds for it, or a value the window has no need to read.
+  test("the vault's token is handed to a host by Porelo, with nothing of it on the window's side", () async {
+    answer = (_) => says({'handedOver': true, 'answer': null});
+    expect(await source.handTokenTo('build'), isTrue);
+    expect(asked.single, ['org', 'host', 'refresh', 'build', '--json']);
+
+    answer = (_) => (code: 69, out: jsonEncode({'reason': 'unavailable', 'words': 'No token is declared.'}), err: '');
+    await expectLater(source.handTokenTo('build'), throwsA(isA<OrganizationRefused>()));
+  });
 }

@@ -1,3 +1,5 @@
+import 'package:porelo_frontend/client.dart' show Connection;
+
 import 'run_here.dart';
 
 /// What a person is told once a machine was given a token kept here; null when it took it.
@@ -31,3 +33,43 @@ String keptTokenWords(String host, String forge, String where) =>
     'administer those repositories (Administration: write) and read their contents.\n\n'
     "This window reads the token this computer keeps for $forge, and writes it to $host's command over ssh, on its "
     'standard input: on no command line, in no log and in no file.';
+
+/// The token this machine's vault declares for the organization's repository at [address], or null where none is
+/// there now: kind `TOKEN`, for `git` or `any`, whose match is the longest prefix of the repository's address, as
+/// Porelo picks it. Named to the person, never read: Porelo hands it on itself.
+Connection? declaredOrganizationToken(String address, List<Connection> held) {
+  final https = _https(address)?.toLowerCase();
+  if (https == null) return null;
+  Connection? best;
+  for (final each in held) {
+    final match = each.match.toLowerCase();
+    if (each.kind != 'TOKEN' || !(each.purpose == 'git' || each.purpose == 'any') || !each.present) continue;
+    if (match.isEmpty || !https.startsWith(match)) continue;
+    if (best == null || match.length > best.match.length) best = each;
+  }
+  return best;
+}
+
+/// [address] as the https address a declaration matches against: `git@host:path` and `ssh://user@host/path` are read
+/// as `https://host/path`, as Porelo normalizes them; null for anything else.
+String? _https(String address) {
+  final trimmed = address.trim();
+  if (trimmed.startsWith('https://') || trimmed.startsWith('http://')) return trimmed;
+  final ssh = Uri.tryParse(trimmed);
+  if (ssh != null && ssh.scheme == 'ssh' && ssh.host.isNotEmpty) return 'https://${ssh.host}${ssh.path}';
+  final scp = RegExp(r'^[^@/\s]+@([^:/\s]+):(.+)$').firstMatch(trimmed);
+  return scp == null ? null : 'https://${scp.group(1)}/${scp.group(2)}';
+}
+
+/// What the declared token is for, and that this window never reads it, for the person's confirming word.
+String declaredTokenWords(String host, String forge, String where, Connection declared) =>
+    '$host has no account at $where. For setup it uses your $forge token once to add read-only keys to the '
+    "Porelo organization's repository and any waiting projects' central repositories, and to copy those projects to its "
+    'own forge. From then on it reads with those keys. It does not keep the token. The token must be allowed to '
+    'administer those repositories (Administration: write) and read their contents.\n\n'
+    'It gives the token declared on this machine for ${declared.match}, ${declared.id} in its vault. Porelo hands it '
+    "to $host's command over the machine's pinned ssh, on its standard input; this window never reads it.";
+
+/// What is said once Porelo handed the declared token on, or did not.
+String? handedOverWords(String host, Connection declared, {required bool handedOver}) =>
+    handedOver ? null : '$host was given no token: Porelo did not hand on the one declared for ${declared.match}.';
