@@ -91,7 +91,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
-| <a id="f203"></a>[F203](F203-This-Repository-Worked-In-A-Porelo-Task.md) | S | — | This repository's agent working in an attended Porelo task on the host, its build green on the host's Forgejo, reached in the room, with a way back. | — |
 | <a id="f219"></a>[F219](F219-An-Interface-Ended-Without-Asking-Leaves-No-Forward-Behind.md) | S | — | The ssh forwards this interface raised ended with it also when it ends without asking, and one left over found again by its socket at the next start. | — |
 | <a id="f114"></a>[F114](F114-Windows-Notifications-From-The-MSIX.md) | M | — | Windows notifications from the MSIX's identity. | — |
 | <a id="f115"></a>[F115](F115-A-Fine-Grained-Token-Waiting-For-An-Organisations-Approval.md) | S | the test organisation at GitHub from the operator | A fine-grained token waiting for an organisation's approval said as waiting. | — |
@@ -164,6 +163,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f203"></a>[F203](F203-This-Repository-Worked-In-A-Porelo-Task.md) | S | — | This repository's agent working in an attended Porelo task on the host, its build green on the host's Forgejo, reached in the room, with a way back. |
 | <a id="f145"></a>[F145](F145-The-Hosts-Forge-Switched-Off-In-The-Server-Setup.md) | S | — | *Set up a forge on the server* in the server setup dialog, on by default; switched off, the host's inventory says `porelo_host_forge: false`. |
 | <a id="f93"></a>[F93](F93-Connections-Rare-Actions-Out-Of-The-Way.md) | S | — | Connections' rare actions in its ⋮. |
 | <a id="f91"></a>[F91](F91-One-Way-To-Show-Loading.md) | M | — | Every view shows the same way that it is reading. |
