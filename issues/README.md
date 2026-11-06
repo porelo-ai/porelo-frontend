@@ -95,6 +95,9 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f415"></a>[F415](F415-Start-Work-Offers-What-The-Machine-Has.md) | S | [F410](#f410) | *Start work* on a machine offers only the repositories it has taken, saying why not the others. |
 | <a id="f416"></a>[F416](F416-A-Started-Task-Opens-Its-Terminal.md) | S | — | A task started by hand from this window lands on Work with its terminal open. |
 | <a id="f417"></a>[F417](F417-A-Task-Terminal-Selects-With-The-Mouse.md) | S | — | A task's terminal selects with Shift+drag as it says, and a plain drag leaves tmux no held button. |
+| <a id="f418"></a>[F418](F418-A-Terminal-Redraws-Without-Leftovers.md) | S | — | A terminal's redraw leaves no characters of earlier lines. |
+| <a id="f419"></a>[F419](F419-A-Terminal-Offers-Only-Printed-Links.md) | XS | — | A terminal offers only printed links, no template and none only the task reaches. |
+| <a id="f420"></a>[F420](F420-The-Gate-View-Reads-And-Stays-Reachable.md) | S | — | The gate view says it reads, gathers its errors, and keeps what waits reachable. |
 | <a id="f203"></a>[F203](F203-This-Repository-Worked-In-A-Porelo-Task.md) | S | — | This repository's agent working in an attended Porelo task on the host, its build green on the host's Forgejo, reached in the room, with a way back. |
 | <a id="f388"></a>[F388](F388-The-Stubs-Pin-Stays-Fetchable.md) | XS | — | A scenario that needs the stub does not go red because its pinned version left the folder. |
 | <a id="f379"></a>[F379](F379-Add-A-Project-In-One-Step-From-The-Window.md) | S | — | A person naming themselves Project Admin adds a project in one step from the window. |
