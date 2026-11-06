@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:porelo_frontend/client.dart' show Connection;
 import 'package:porelo_host/porelo_host.dart' show forgeAddress;
 
 import 'session.dart';
@@ -610,6 +611,60 @@ class ForgeConnection extends ChangeNotifier with QuietAfterDispose {
       notifyListeners();
     }
   }
+}
+
+/// A forge of *My forges*: one set up in this window, one a machine holds a credential for, or both at once.
+@immutable
+class ListedForge {
+  /// Constructor taking the forge's host and where it comes from.
+  const ListedForge({required this.address, this.entry, this.held = const <Connection>[]});
+
+  /// The forge's host, as a forge entry's address is written.
+  final String address;
+
+  /// The forge as it was set up in this window, or null where only a machine holds a credential for it.
+  final ForgeEntry? entry;
+
+  /// What the machine declares for this forge's git, each by name, kind and source; never with a value.
+  final List<Connection> held;
+}
+
+/// The forges of [entries], each with what [held] - a machine's declared connections - names for its host's git,
+/// then one forge per host only the machine holds a credential for, in the order declared. A forge both set up here
+/// and declared there is one forge with both sources.
+List<ListedForge> listedForges(List<ForgeEntry> entries, List<Connection> held) {
+  final forGit = <(String, Connection)>[
+    for (final each in held)
+      if (each.purpose == 'git' || each.purpose == 'any')
+        if (_hostOfMatch(each.match) case final host?) (host, each),
+  ];
+  List<Connection> heldFor(String host) => [
+    for (final (at, each) in forGit)
+      if (at == host) each,
+  ];
+  final listed = <ListedForge>[
+    for (final entry in entries)
+      ListedForge(address: entry.address, entry: entry, held: entry.isHost ? const [] : heldFor(entry.address)),
+  ];
+  final hosts = <String>{
+    for (final entry in entries)
+      if (!entry.isHost) entry.address,
+  };
+  for (final (host, _) in forGit) {
+    if (hosts.add(host)) listed.add(ListedForge(address: host, held: heldFor(host)));
+  }
+  return listed;
+}
+
+/// The host a declared connection's match names: an address prefix such as `https://github.com/acme/`,
+/// `git@github.com:acme/` or `github.com/acme`. Null where it names none.
+String? _hostOfMatch(String match) {
+  final said = match.trim();
+  if (said.isEmpty) return null;
+  final host = said.contains('://') || RegExp(r'^[^@/:]+@[^:/]+:').hasMatch(said)
+      ? hostOf(said)
+      : said.split('/').first.split('@').last.split(':').first.toLowerCase();
+  return host == null || host.isEmpty ? null : host;
 }
 
 /// The host a repository's address names, as a forge entry's address is written: `github.com` for

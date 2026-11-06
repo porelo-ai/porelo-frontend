@@ -1378,6 +1378,8 @@ class _ShellState extends State<Shell> {
           key: ValueKey((_organizationProject, _organizationPageRefresh)),
           organization: organization,
           project: _organizationProject!,
+          connections: _hostConnections,
+          onGiveToken: _giveHostToken,
           onBack: () => setState(() => _organizationProject = null),
         );
 
@@ -1428,6 +1430,11 @@ class _ShellState extends State<Shell> {
     open: widget.sessions.openTerminal,
   );
 
+  /// What the machine shown declares it connects out with, read with its vault; another machine's never.
+  List<Connection> get _heldConnections => widget.vault.about == widget.machines.current.name
+      ? widget.vault.state?.connections ?? const <Connection>[]
+      : const <Connection>[];
+
   /// Every forge set up here, as a page beside Machines and Projects.
   Widget _forgesPage() =>
       _opened() ??
@@ -1441,9 +1448,12 @@ class _ShellState extends State<Shell> {
           ),
         ],
         ListenableBuilder(
-          listenable: _fleet,
+          listenable: Listenable.merge(<Listenable>[_fleet, widget.vault]),
           builder: (context, _) => ForgesPage(
             forges: _forges,
+            held: _heldConnections,
+            heldOn: widget.machines.current.name,
+            organizationForge: organizationForgeAddress(_organization?.view),
             usedBy: _usedBy,
             onMachine: (name) {
               final machine = widget.machines.all.where((machine) => machine.name == name).firstOrNull;
@@ -3231,7 +3241,7 @@ class _ShellState extends State<Shell> {
           onMachines: listedMachines(widget.machines)
               .fold<int>(0, (count, machine) => count + projectsOnMachine(widget.machines, machine).length),
         ),
-        forges: _forges.allEntries.length,
+        forges: listedForges(_forges.allEntries, _heldConnections).length,
         width: width,
         onGo: (section) {
           _leaveDrawer();

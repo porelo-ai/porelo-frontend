@@ -48,11 +48,23 @@ class ForgesPage extends StatefulWidget {
     this.onMachine,
     this.keyCheck,
     this.tokenVault,
+    this.held = const <Connection>[],
+    this.heldOn = '',
+    this.organizationForge = '',
     super.key,
   });
 
   /// The configured forges and current access state.
   final ForgeConnection forges;
+
+  /// What the machine [heldOn] declares it connects out with, each by name and source and never with a value.
+  final List<Connection> held;
+
+  /// The machine whose declarations [held] are, by name.
+  final String heldOn;
+
+  /// The Porelo organization's forge, by host; empty where no organization was read.
+  final String organizationForge;
 
   /// Lists projects using this forge before forgetting it.
   final List<String> Function(ForgeEntry entry) usedBy;
@@ -107,36 +119,68 @@ class _ForgesPageState extends State<ForgesPage> {
               ),
             ],
             rows: [
-              for (final entry in forges.allEntries)
-                (
-                  words: '${entry.name} ${entry.address} ${entry.hostMachine ?? ''}',
-                  child: ItemListRow(
-                    key: ValueKey('forges-row ${entry.id}'),
-                    bodyKey: ValueKey('forge ${entry.name}'),
-                    title: entry.name,
-                    subtitle: entry.isHost
-                        ? 'Through ${entry.hostMachine} · ${entry.browserAddress ?? 'tunnel not reached'}'
-                        : '${entry.address} · ${entry.authentication == 'ssh' ? 'by SSH key' : 'token chosen explicitly'}',
-                    leading: const Icon(Icons.hub_outlined),
-                    onOpen: () => widget.onOpen(entry),
-                    menu: forgeMenu(
-                      context,
-                      forges,
-                      entry,
-                      widget.usedBy,
-                      open: () => widget.onOpen(entry),
-                      onMachine: widget.onMachine,
-                      tokenVault: widget.tokenVault,
-                      said: (words) => setState(() => _said = words),
+              for (final ListedForge(:address, :entry, :held) in listedForges(forges.allEntries, widget.held))
+                if (entry == null)
+                  (
+                    words: '$address ${_heldWords(held)}',
+                    // Only the machine holds it: nothing here asks for a token it already has.
+                    child: ItemListRow(
+                      key: ValueKey('forges-row held $address'),
+                      bodyKey: ValueKey('forge $address'),
+                      title: address,
+                      subtitle: [_heldWords(held), ?_organizationWords(address)].join(' · '),
+                      leading: const Icon(Icons.hub_outlined),
+                      onOpen: null,
+                      menu: const SizedBox.shrink(),
+                    ),
+                  )
+                else
+                  (
+                    words: '${entry.name} ${entry.address} ${entry.hostMachine ?? ''}',
+                    child: ItemListRow(
+                      key: ValueKey('forges-row ${entry.id}'),
+                      bodyKey: ValueKey('forge ${entry.name}'),
+                      title: entry.name,
+                      subtitle: entry.isHost
+                          ? 'Through ${entry.hostMachine} · ${entry.browserAddress ?? 'tunnel not reached'}'
+                          : [
+                              entry.address,
+                              entry.authentication == 'ssh' ? 'by SSH key' : 'token chosen explicitly',
+                              if (held.isNotEmpty) _heldWords(held),
+                              ?_organizationWords(entry.address),
+                            ].join(' · '),
+                      leading: const Icon(Icons.hub_outlined),
+                      onOpen: () => widget.onOpen(entry),
+                      menu: forgeMenu(
+                        context,
+                        forges,
+                        entry,
+                        widget.usedBy,
+                        open: () => widget.onOpen(entry),
+                        onMachine: widget.onMachine,
+                        tokenVault: widget.tokenVault,
+                        said: (words) => setState(() => _said = words),
+                      ),
                     ),
                   ),
-                ),
             ],
           ),
         ],
       );
     },
   );
+
+  /// Where the machine's credentials for a forge come from, by name and source, and whether each is there now.
+  String _heldWords(List<Connection> held) {
+    final on = widget.heldOn.isEmpty ? 'the machine' : widget.heldOn;
+    return 'declared on $on: ${[for (final each in held) '${each.kindWords} ${each.sourceWords}${each.present ? '' : ' (not there now)'}'].join(', ')}';
+  }
+
+  /// Marks the Porelo organization's forge, or null on any other.
+  String? _organizationWords(String address) =>
+      widget.organizationForge.isNotEmpty && widget.organizationForge.toLowerCase() == address.toLowerCase()
+      ? "your Porelo organization's forge"
+      : null;
 }
 
 /// The forge's own operations, with token entry offered only as an explicit terminal alternative.

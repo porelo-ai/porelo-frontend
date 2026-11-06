@@ -35,3 +35,18 @@ holds a token declared for `https://github.com/porelo-ai/` (`porelo credentials 
 - A token declared for the organization's address shows its forge under *My forges*, from the vault, marked as the
   organization's, with nothing to paste.
 - A forge set up in the window and declared on the machine is listed once, with both sources.
+
+## Built
+
+- `forge_connection.dart`: `listedForges(entries, held)` joins the window's forges with the machine's declared
+  connections of purpose `git` or `any`, by the host their `match` names (URL, scp form or bare host); a host set up
+  here and declared there is one `ListedForge` with both, a host only declared is a forge of its own. A host forge
+  reached through a tunnel takes no declared connection.
+- `forges_page.dart`: `ForgesPage` takes `held`, `heldOn` and `organizationForge`; a row says "declared on <machine>: a
+  token in the vault as <entry>" (and "(not there now)" where it is absent), marks the organization's forge, and a
+  forge only the machine holds has no menu, so nothing on it asks for a token. Only names and sources are shown,
+  never a value.
+- `shell.dart` passes the shown machine's `VaultState.connections` (only when the vault was read for that machine),
+  its name and `organizationForgeAddress`, and the rail counts the same list.
+- The tests in `test/ui/forge_pages_test.dart` ("what the machine already holds") went red with the join broken back
+  to the window's forges alone (no row `forges-row held github.com`) and pass now.

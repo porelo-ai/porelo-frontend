@@ -10,6 +10,7 @@ import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/host_session.dart';
 import 'package:porelo_frontend/src/app/forge.dart';
 import 'package:porelo_frontend/src/app/forge_connection.dart';
+import 'package:porelo_frontend/src/ui/command_menu.dart';
 import 'package:porelo_frontend/src/ui/forges_page.dart';
 import 'package:porelo_frontend/src/ui/forges_view.dart';
 
@@ -36,7 +37,75 @@ const _repository = ForgeRepository(
   private: true,
 );
 
+/// A token declared on the machine for the organization's address and kept in its vault, as `Credentials` answers it.
+const _declared = Connection(
+  id: 'git.token.github.com',
+  kind: 'TOKEN',
+  match: 'https://github.com/porelo-ai/',
+  purpose: 'git',
+  source: 'VAULT',
+  present: true,
+);
+
 void main() {
+  // Harm: a person who set up by the command line is told the machine holds nothing, and to paste a token again.
+  group('what the machine already holds', () {
+    test('a forge declared on the machine is listed once, beside one set up here for the same host', () {
+      const setUp = ForgeEntry(id: 'github.com', kind: 'github', name: 'GitHub', address: 'github.com');
+      const registry = Connection(
+        id: 'registry.token',
+        kind: 'TOKEN',
+        match: 'https://ghcr.io/',
+        purpose: 'registry',
+        source: 'VAULT',
+      );
+      final alone = listedForges(const [], const [_declared, registry]);
+      String ids(ListedForge forge) => [for (final held in forge.held) held.id].join(' ');
+      expect([for (final each in alone) (each.address, each.entry, ids(each))], [('github.com', null, _declared.id)]);
+      final both = listedForges(const [setUp], const [_declared, registry]);
+      expect(
+        [for (final each in both) (each.address, each.entry?.id, ids(each))],
+        [('github.com', 'github.com', _declared.id)],
+      );
+    });
+
+    testWidgets('My forges says where it comes from, marks the organization, and asks for no token', (tester) async {
+      tester.view
+        ..physicalSize = const Size(1280, 800)
+        ..devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final forges = ForgeConnection(MemoryForgeTokens());
+      addTearDown(forges.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ForgesPage(
+              forges: forges,
+              usedBy: (_) => [],
+              onOpen: (_) {},
+              held: const [_declared],
+              heldOn: 'build',
+              organizationForge: 'github.com',
+            ),
+          ),
+        ),
+      );
+      await World.settle(tester);
+      final row = find.byKey(const ValueKey('forges-row held github.com'));
+      expect(row, findsOneWidget);
+      expect(
+        find.descendant(of: row, matching: find.textContaining('declared on build: a token in the vault as git.token')),
+        findsOneWidget,
+      );
+      expect(find.descendant(of: row, matching: find.textContaining("organization's forge")), findsOneWidget);
+      expect(
+        find.descendant(of: row, matching: find.byType(CommandMenu)),
+        findsNothing,
+        reason: 'nothing to sign in',
+      );
+    });
+  });
+
   // Harm: right after creating a Porelo organization on GitHub, *My forges* said 0 and asked for the token again.
   group('creating a Porelo organization lists its forge', () {
     ForgeConnection forges(ForgeTokens tokens) {

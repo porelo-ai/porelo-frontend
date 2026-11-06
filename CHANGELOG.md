@@ -9,6 +9,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- *My forges* also lists, and counts, the forges the machine shown already holds a credential for in its git connections, saying where each comes from (its vault, a file, a variable or the ssh agent) and whether it is there now, beside a forge set up here for the same host rather than twice, marks the Porelo organization's forge, and asks for no token for one the machine holds.
 - *New work* in Default shows what a repository's `porelo.yml` sets that this machine has not allowed yet, only what is new, changed or removed, and allows exactly that with one press before it asks again whether the work can start; a file changed after it was shown is not allowed. In an organization's project, a `porelo.yml` changed without a signature is said with its file and commit, and nothing here allows it.
 - *Image settings* and what a project may reach list what a repository's `porelo.yml` took away from its project's settings, and what took it away.
 - Before the first task on a repository in Default with no settings of its own yet, the window shows what the machine proposes - what it found, the hosts it opens, the settings - and a yes keeps them on this machine only and allows them; a no starts with Porelo's own settings, and closing the question starts nothing.
