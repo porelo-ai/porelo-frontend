@@ -1,6 +1,6 @@
 # F398 — A Windows Start Leads To The WSL Distribution
 
-**Status:** Idea.
+**Status:** Estimated.
 **Size:** M - the list's first entry on Windows, the first start's offer of the distributions, a row that says
 where to go, their tests with a Windows desk, and the Windows page.
 
