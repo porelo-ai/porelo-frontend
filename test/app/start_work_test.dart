@@ -299,6 +299,27 @@ void main() {
     expect(starting.ready, isFalse);
   });
 
+  // Harm: a task started in a repository the organization's machine does not have, with nothing to work in.
+  test('on a machine that said what it has taken, only those repositories are offered, and why not the rest', () async {
+    final machine = FakeBackend(const <Task>[]);
+    final project = Project.from(const <String, dynamic>{
+      'name': 'porelo',
+      'file': '/home/me/porelo/project.yml',
+      'repositories': <String>['porelo-project', 'core', 'sluice', 'frontend', 'matrix'],
+    });
+    machine.theProjectsItHas = <Project>[project];
+    final starting = StartWork();
+    addTearDown(starting.dispose);
+    await starting.open(machine, project);
+    starting.chooseRepository('frontend');
+
+    starting.offerOnly({'core', 'sluice'}, '2 repositories name no central address.');
+
+    expect(starting.offeredRepositories, ['core', 'sluice']);
+    expect(starting.repository, isNull, reason: 'the one chosen is not on the machine');
+    expect(starting.notOfferedWords, '2 repositories name no central address.');
+  });
+
   test("a suggested name never reuses one of the project's tasks, and is one a task can have", () async {
     final machine = FakeBackend(<Task>[
       // As a machine lists them: the container's name, and the name a person gave it as `task`.

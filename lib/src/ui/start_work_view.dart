@@ -563,12 +563,13 @@ class _WhichRepository extends StatelessWidget {
     return ChoiceField<String>(
       id: 'start-repository',
       label: 'Which repository',
+      helper: starting.notOfferedWords,
       value: starting.repository,
       onChanged: (chosen) => chosen == null ? null : starting.chooseRepository(chosen),
       choices: <Choice<String>>[
         // Only where work happens: a project naming others under `repositories:` is never worked
         // in itself, and the person found the two kinds side by side unclear.
-        for (final name in project.workRepositories)
+        for (final name in starting.offeredRepositories)
           Choice(
             name,
             name,

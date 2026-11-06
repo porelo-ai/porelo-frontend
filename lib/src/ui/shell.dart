@@ -12,6 +12,7 @@ import '../app/environment_tokens.dart';
 import '../app/homeserver_forwards.dart';
 import '../app/host_check_run.dart';
 import '../app/host_access.dart';
+import '../app/host_progress.dart' show HostProgress;
 import '../app/host_runs.dart';
 import '../app/product.dart';
 import '../app/forge.dart';
@@ -1993,7 +1994,56 @@ class _ShellState extends State<Shell> {
     widget.starting.runningElsewhere = _runningElsewhere(project.name);
     unawaited(widget.starting.open(_fleet.backend, project, checkout: checkout));
     if (repository != null) widget.starting.chooseRepository(repository);
+    unawaited(_offerWhatTheHostHas(project.name));
     await _offerToStart();
+  }
+
+  /// On an organization's machine, offers only the repositories of [project] it has taken, and says why not the
+  /// others; where it cannot be asked, says so, and every one stays offered.
+  Future<void> _offerWhatTheHostHas(String project) async {
+    final host = widget.machines.current.hostCard?.name;
+    final connections = _hostConnections;
+    if (host == null || connections == null || project == defaultProject) return;
+    final starting = widget.starting;
+    if (!connections.connected(host)) {
+      starting.notOfferedWords = '$host was not asked which repositories it has taken, so every one is offered.';
+      return starting.offerOnly(
+        starting.project?.workRepositories.toSet() ?? const <String>{},
+        starting.notOfferedWords,
+      );
+    }
+    final HostProgress progress;
+    try {
+      progress = await connections.progress(host);
+    } on OrganizationRefused {
+      return;
+    }
+    final rows = progress.of(project)?.repositories ?? const [];
+    if (!mounted || rows.isEmpty || starting.project?.name != project) return;
+    final work = starting.project!.workRepositories.toSet();
+    final byState = <String, int>{};
+    for (final row in rows) {
+      if (row.state != 'taken' && work.contains(row.repository)) byState[row.state] = (byState[row.state] ?? 0) + 1;
+    }
+    String count(int n) => n == 1 ? '1 repository' : '$n repositories';
+    starting.offerOnly(
+      {
+        for (final row in rows)
+          if (row.state == 'taken') row.repository,
+      },
+      byState.isEmpty
+          ? null
+          : [
+              for (final MapEntry(key: state, value: n) in byState.entries)
+                switch (state) {
+                  'no-central' =>
+                    '${count(n)} ${n == 1 ? 'names' : 'name'} no central address, so $host has not taken '
+                        '${n == 1 ? 'it' : 'them'}.',
+                  'waiting' => '${count(n)} ${n == 1 ? 'is' : 'are'} still to be taken by $host.',
+                  _ => '${count(n)}: $state on $host.',
+                },
+            ].join(' '),
+    );
   }
 
   /// Continues a finished unattended run, with what it was asked to do last time in the box.

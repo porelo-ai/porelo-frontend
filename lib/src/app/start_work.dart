@@ -37,6 +37,28 @@ class StartWork extends ChangeNotifier {
   /// The repository whose row opened this form, or null for a project-wide start.
   String? openedForRepository;
 
+  /// The project's repositories an organization's machine has taken, where it said so; null offers every one, as on
+  /// a machine that is no organization's.
+  Set<String>? takenHere;
+
+  /// Why the project's other repositories are not offered, one line per reason; null where all are.
+  String? notOfferedWords;
+
+  /// Offers only [taken], the repositories the machine has, saying [words] of the others: a task started in one it
+  /// does not have would have nothing to work in.
+  void offerOnly(Set<String> taken, String? words) {
+    takenHere = taken;
+    notOfferedWords = words;
+    if (repository != null && !taken.contains(repository)) repository = null;
+    notifyListeners();
+  }
+
+  /// The repositories to choose among: the work repositories, of them only those the machine has where it said.
+  List<String> get offeredRepositories => [
+    for (final name in project?.workRepositories ?? const <String>[])
+      if (takenHere == null || takenHere!.contains(name)) name,
+  ];
+
   /// The checkout on this computer this start was asked from, or null where none was.
   CheckoutHere? checkout;
 
@@ -412,6 +434,8 @@ class StartWork extends ChangeNotifier {
     openedForRepository = repository;
     this.checkout = checkout;
     this.repository = repository;
+    takenHere = null;
+    notOfferedWords = null;
     continuing = null;
     restarting = null;
     from = null;
