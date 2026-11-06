@@ -22,6 +22,7 @@ class TerminalGestureDetector extends StatefulWidget {
     this.onDragEnd,
     this.onDragCancel,
     this.onDoubleTapDown,
+    this.onDoubleTapUp,
   });
 
   final Widget? child;
@@ -37,6 +38,10 @@ class TerminalGestureDetector extends StatefulWidget {
   final GestureTapUpCallback? onSecondaryTapUp;
 
   final GestureTapDownCallback? onDoubleTapDown;
+
+  /// The release of a double tap's second press, which a single tap's up does
+  /// not see.
+  final GestureTapUpCallback? onDoubleTapUp;
 
   final GestureTapDownCallback? onTertiaryTapDown;
 
@@ -92,6 +97,8 @@ class _TerminalGestureDetectorState extends State<TerminalGestureDetector> {
       widget.onSingleTapUp?.call(details);
       _lastTapOffset = details.globalPosition;
       _doubleTapTimer = Timer(kDoubleTapTimeout, _doubleTapTimeout);
+    } else {
+      widget.onDoubleTapUp?.call(details);
     }
     _isDoubleTap = false;
   }

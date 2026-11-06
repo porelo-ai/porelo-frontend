@@ -50,3 +50,5 @@ holds a token declared for `https://github.com/porelo-ai/` (`porelo credentials 
   its name and `organizationForgeAddress`, and the rail counts the same list.
 - The tests in `test/ui/forge_pages_test.dart` ("what the machine already holds") went red with the join broken back
   to the window's forges alone (no row `forges-row held github.com`) and pass now.
+
+Review reading: *My forges* reads the current machine's vault when shown.

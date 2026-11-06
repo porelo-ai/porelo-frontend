@@ -65,3 +65,5 @@ shows tmux in copy mode (`[56/379]` top right) with the highlight in tmux's colo
   The line under the terminal says "Select with Shift+drag (this screen) · Drag to select in tmux".
 - Red first: `task_terminal_test.dart`, "a plain drag is the program's whole where it asked for motion": no motion
   was reported (`Actual: []`).
+
+Review reading: a double tap's second release is reported, so no button stays held and the next drag reports its press.

@@ -71,6 +71,7 @@ class WorkView extends ChangeNotifier {
     _newTerminal = placeOf(machine, task.name);
     _newTerminalsAsked++;
     _endedTerminals.remove(_terminalOf(machine, task));
+    _freshTerminals.add(_terminalOf(machine, task));
     moveToTab(_newTerminal!);
   }
 
@@ -136,8 +137,18 @@ class WorkView extends ChangeNotifier {
   /// Keeps what was learned of [task]'s terminal session.
   void terminalSaid(String machine, Task task, {required bool live}) {
     final key = _terminalOf(machine, task);
+    // A terminal asked for anew is not ended by a look that may have begun before it was up: only its being live
+    // ends that, and then the machine's word counts again.
+    if (live) {
+      _freshTerminals.remove(key);
+    } else if (_freshTerminals.contains(key)) {
+      return;
+    }
     if (live ? _endedTerminals.remove(key) : _endedTerminals.add(key)) notifyListeners();
   }
+
+  /// The terminals asked for anew and not yet seen live.
+  final Set<String> _freshTerminals = <String>{};
 
   @override
   void dispose() {

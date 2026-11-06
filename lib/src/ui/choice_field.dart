@@ -72,7 +72,15 @@ class ChoiceField<T> extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          if (choices.length > filterAbove) _filtered(context, chosen) else _dropDown(chosen),
+          if (choices.length > filterAbove)
+            _filtered(context, chosen)
+          else
+            // Built afresh when its choices change: a drop-down keeps the value it started with, and one no longer
+            // offered fails it.
+            KeyedSubtree(
+              key: ValueKey(Object.hashAll([for (final each in choices) each.value])),
+              child: _dropDown(chosen),
+            ),
           if (chosen != null && chosen.means.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: Space.tight),

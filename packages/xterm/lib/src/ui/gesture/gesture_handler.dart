@@ -89,6 +89,7 @@ class _TerminalGestureHandlerState extends State<TerminalGestureHandler> {
       onDragEnd: onDragEnd,
       onDragCancel: onDragCancel,
       onDoubleTapDown: onDoubleTapDown,
+      onDoubleTapUp: onDoubleTapUp,
     );
   }
 
@@ -178,6 +179,18 @@ class _TerminalGestureHandlerState extends State<TerminalGestureHandler> {
 
   void onTertiaryTapUp(TapUpDetails details) {
     _tapUp(widget.onTertiaryTapUp, details, TerminalMouseButton.right);
+  }
+
+  /// The second press of a double tap was told to the program as a press: its
+  /// release is told too, so the program never holds a button let go of.
+  void onDoubleTapUp(TapUpDetails details) {
+    if (!_leftPressReported || widget.readOnly) return;
+    renderTerminal.mouseEvent(
+      TerminalMouseButton.left,
+      TerminalMouseButtonState.up,
+      details.localPosition,
+    );
+    _leftPressReported = false;
   }
 
   void onDoubleTapDown(TapDownDetails details) {

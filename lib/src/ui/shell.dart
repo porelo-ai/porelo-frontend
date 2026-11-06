@@ -1436,8 +1436,14 @@ class _ShellState extends State<Shell> {
       ? widget.vault.state?.connections ?? const <Connection>[]
       : const <Connection>[];
 
-  /// Every forge set up here, as a page beside Machines and Projects.
-  Widget _forgesPage() =>
+  /// Every forge set up here, as a page beside Machines and Projects. The machine's vault is read for it too, since
+  /// the forges it already holds are listed from it.
+  Widget _forgesPage() {
+    _keepTheVaultButtonTrue(widget.machines.current, _fleet);
+    return _forgesPageItself();
+  }
+
+  Widget _forgesPageItself() =>
       _opened() ??
       _explained(
         'forges',
@@ -1881,6 +1887,7 @@ class _ShellState extends State<Shell> {
     widget.starting.publishedHostKeys = _publishedHostKeys;
     widget.starting.runningElsewhere = _runningElsewhere(project.name);
     unawaited(widget.starting.openFrom(_fleet.backend, project, job));
+    unawaited(_offerWhatTheHostHas(project.name));
     await _offerToStart();
   }
 
@@ -1898,6 +1905,7 @@ class _ShellState extends State<Shell> {
     widget.starting.publishedHostKeys = _publishedHostKeys;
     widget.starting.runningElsewhere = _runningElsewhere(project.name);
     unawaited(widget.starting.open(_fleet.backend, project, repository: repository));
+    unawaited(_offerWhatTheHostHas(project.name));
     await _offerToStart();
   }
 
@@ -2013,13 +2021,19 @@ class _ShellState extends State<Shell> {
       );
     }
     final HostProgress progress;
+    // Still the same start on the same machine, after the wait: another opened meanwhile is not this one.
+    bool same() => mounted && starting.project?.name == project && widget.machines.current.hostCard?.name == host;
     try {
       progress = await connections.progress(host);
-    } on OrganizationRefused {
-      return;
+    } on OrganizationRefused catch (refused) {
+      if (!same()) return;
+      return starting.offerOnly(
+        starting.project!.workRepositories.toSet(),
+        '$host could not be asked which repositories it has taken, so every one is offered: ${refused.words}',
+      );
     }
     final rows = progress.of(project)?.repositories ?? const [];
-    if (!mounted || rows.isEmpty || starting.project?.name != project) return;
+    if (!same() || rows.isEmpty) return;
     final work = starting.project!.workRepositories.toSet();
     final byState = <String, int>{};
     for (final row in rows) {
@@ -2352,9 +2366,10 @@ class _ShellState extends State<Shell> {
     // person came to meet the agent, so a new one opens, as *Open a new terminal* does.
     final machine = widget.machines.current;
     if (Sessions.whyNot(task, machine) == null) {
+      // On the new task's tab before the session open now is left, so leaving it opens nothing again where it was.
+      _workView.showNewTerminal(machine.name, task);
       await widget.sessions.leave();
       if (!mounted) return;
-      _workView.showNewTerminal(machine.name, task);
     }
     _openSession(task);
   }
@@ -2562,7 +2577,8 @@ class _ShellState extends State<Shell> {
   /// through stays in the review.
   void _afterAForward(String said) {
     if (said.isNotEmpty) _fleet.say(said);
-    if (widget.gate.problem == null && widget.gate.keyRefused == null) widget.shell.openGate();
+    // Repositories that could not be read are said in the gate's list, not a reason to stay on a review gone.
+    if (widget.gate.otherProblem == null && widget.gate.keyRefused == null) widget.shell.openGate();
     // What waits is read again at once: the project's badge said "1" after the push was through
     // (walk 8).
     unawaited(_fleet.refresh(quietly: true));
@@ -2682,7 +2698,7 @@ class _ShellState extends State<Shell> {
     if (reason == null || !mounted) return;
     final said = await widget.gate.reject(_fleet.backend, reason: reason);
     if (said.isNotEmpty) _fleet.say(said);
-    if (widget.gate.problem == null) widget.shell.openGate();
+    if (widget.gate.otherProblem == null) widget.shell.openGate();
     // What waits is read again at once: the project's badge said "1" after the push was through
     // (walk 8).
     unawaited(_fleet.refresh(quietly: true));

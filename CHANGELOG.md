@@ -128,6 +128,13 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- *Start work* restricts its choice to the machine's repositories however it is opened (from a project, a job or the command bar), never shows a repository it no longer offers, chooses the only one left, and says when the machine could not be asked.
+- *Fetch now* tells the fetch's own answer, including a project that waits for a token; the page is busy while a token is given; the folded repositories not on a machine follow the ones that are, and only for a carried project.
+- Forwarding or dropping a push no longer leaves an empty pane when other repositories of the project could not be read, and a repository named like a word of git's message groups with the others refused for the same reason.
+- *My forges* reads the machine's vault when it opens, so the forges the machine holds are listed before any machine page was visited.
+- A refusal to put a project on a machine or take it off, asked from the project's page, stands on that page.
+- A double click in a task terminal releases the button it pressed, so the next drag starts where it was pressed.
+- Work started by hand opens on its new terminal without opening the one left meanwhile again, or showing it ended for a moment.
 - *Start work* on an organization's machine offers only the repositories it has taken, saying under the choice why the others are not offered, such as that they name no central address; where the machine cannot be asked, it says so and offers every one.
 - A carried project on a machine's page names the repositories on the machine first, and gathers the others into one line per reason with how many, opened on demand to name them, where it said the same long reason once per repository.
 - A choice from a list of more than eight, such as *Start work*'s repository or the machine or person a project or a role goes to, opens a small dialog whose field narrows the list as one types, and Enter takes the only one left; a short list stays a drop-down.

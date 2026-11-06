@@ -41,3 +41,5 @@ on Work → Running with the new task, but said "No terminal is open in it" and 
   tab as before; refused, it opens the tab alone, which says why.
 - Red first: `task_creation.feature`, "work started by hand opens a new terminal where the start's own has ended"
   (the machine says the terminal is not live): `Expected: 'porelo-checkout-schema-work'  Actual: <null>`.
+
+Review reading: the new task's tab is shown before the old session is left; a terminal asked anew is ended only by a look after it was live.

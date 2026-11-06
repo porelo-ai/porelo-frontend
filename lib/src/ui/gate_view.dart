@@ -719,8 +719,16 @@ class _Reading extends StatelessWidget {
 
 /// Why [repository]'s gate could not be read, from [words] with what names it alone left out: its name, and every
 /// address and path, each said as "…".
-String unreadReason(String repository, String words) =>
-    words.replaceAll(RegExp(r"'[^']*'"), '…').replaceAll(RegExp(r'\S*[/@]\S*'), '…').replaceAll(repository, '…').trim();
+String unreadReason(String repository, String words) => words
+    .replaceAll(RegExp(r"'[^']*'"), '…')
+    .replaceAll(RegExp(r'\S*[/@]\S*'), '…')
+    .replaceAll(
+      // Only where it stands as a name, before punctuation or at the end, never as a word of the message: a
+      // repository called "key" leaves "Host key verification" alone.
+      RegExp('(?<![\\w.-])${RegExp.escape(repository)}(?=[:;,)\\]]|\\.git\\b|\\s*\$)', multiLine: true),
+      '…',
+    )
+    .trim();
 
 /// The repositories whose gate could not be read, one line per reason, opened on demand.
 class _Unread extends StatelessWidget {

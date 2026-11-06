@@ -423,8 +423,12 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
         if (_reading) Text('Reading ${widget.project}: its address, repositories, and members…'),
         OrganizationChangeMark(widget.organization),
         for (final change in widget.organization.rowChanges)
+          // Putting it on a machine or taking it off is asked from here too: its refusal stands here.
           if (change.input['project'] == widget.project &&
-              (view == null || change.change == OrganizationChange.createProjectRepository))
+              (view == null ||
+                  change.change == OrganizationChange.createProjectRepository ||
+                  change.change == OrganizationChange.addProjectToHost ||
+                  change.change == OrganizationChange.removeProjectFromHost))
             OrganizationPendingRow(widget.organization, change, onReview: () => unawaited(_read())),
         if (view != null && !view.opened) _notOpened(view),
         if (view != null && view.opened) ...[

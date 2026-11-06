@@ -55,3 +55,5 @@ afterwards could not be seen. Before it, *Start work* ([F413](README.md#f413)) a
 ## Found in the reading
 
 The reading found five; all fixed: the page's buttons carry keys, so one's answer or ring never passes to another as buttons come and go; *Give it my token…*'s answer stands at the page's head where its button has gone; *Fetch now* says the machine's own refusal or its waiting for a token, not "applied"; a press re-checks after the person's choice; the page is busy while any ask runs (a count, not one flag), and *Start work* counts as one. Red first for the fetch: a refused fetch was said as applied.
+
+Review reading: *Fetch now* says its own answer (`wantsToken`, not only the host's own token); the page counts as busy while the token is given.

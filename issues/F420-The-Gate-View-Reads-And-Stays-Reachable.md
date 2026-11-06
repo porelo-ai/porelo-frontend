@@ -47,3 +47,5 @@ with its whole message), running out of the window's bottom with no scrollbar an
   the column overflowing by 1939 pixels) and passes now.
 
 On review: the refusals are grouped by reason, not by their exact words - each names its own repository, address and mirror, which are left out (`unreadReason`), so the rehearsal's sixteen are one line. Red first: grouped by exact words they stood as sixteen.
+
+Review reading: after forwarding or dropping, only another problem than unread repositories keeps the review open; a repository's name is replaced only where it stands as a name. Red first: a repository called `key` stood apart.

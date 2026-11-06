@@ -33,3 +33,5 @@ there. A task started in one of them has nothing to work in.
 ## Done
 
 `start_work.dart`: `takenHere`, `notOfferedWords`, `offerOnly` and `offeredRepositories`; a chosen repository the machine does not have is unchosen. `shell.dart` `_offerWhatTheHostHas`: on a machine with an organization's card, after the form opens, it asks the host's progress and offers only the taken work repositories, one sentence per reason for the rest; not connected to the host, it says the machine was not asked and offers every one. `start_work_view.dart`: the choice lists `offeredRepositories` and says `notOfferedWords` under itself. Red first: the start offered every work repository (the test did not compile against the old model).
+
+Review reading: every opening (project page, command bar, job, continue) asks the machine; a form opened on a repository not taken is opened afresh; a drop-down built anew when its choices change; the only one left is chosen; a machine that could not be asked is said; an answer for another machine or start is dropped; `openFrom`, `continueFrom` and `close` forget what a machine said. Red first: the form opened on an untaken repository kept it.

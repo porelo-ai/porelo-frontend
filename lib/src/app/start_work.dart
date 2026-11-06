@@ -49,8 +49,23 @@ class StartWork extends ChangeNotifier {
   void offerOnly(Set<String> taken, String? words) {
     takenHere = taken;
     notOfferedWords = words;
-    if (repository != null && !taken.contains(repository)) repository = null;
+    if (openedForRepository != null && !taken.contains(openedForRepository)) openedForRepository = null;
+    if (repository != null && !taken.contains(repository)) {
+      // Unchosen as a choice is: its name and its answer went with it.
+      repository = null;
+      readiness = null;
+      _suggestAName();
+    }
     notifyListeners();
+    // One left to work in has nothing to choose, as on opening.
+    final offered = offeredRepositories;
+    if (repository == null && offered.length == 1) chooseRepository(offered.single);
+  }
+
+  /// Forgets what a machine said it has, for a start opened afresh.
+  void _offerEvery() {
+    takenHere = null;
+    notOfferedWords = null;
   }
 
   /// The repositories to choose among: the work repositories, of them only those the machine has where it said.
@@ -411,6 +426,7 @@ class StartWork extends ChangeNotifier {
     this.project = project;
     openedForRepository = null;
     checkout = null;
+    _offerEvery();
     // Where the job was named to start — unless the project no longer has that repository, when
     // it is chosen again rather than sent to be refused.
     repository = project.workRepositories.contains(template.repository) ? template.repository : null;
@@ -434,8 +450,7 @@ class StartWork extends ChangeNotifier {
     openedForRepository = repository;
     this.checkout = checkout;
     this.repository = repository;
-    takenHere = null;
-    notOfferedWords = null;
+    _offerEvery();
     continuing = null;
     restarting = null;
     from = null;
@@ -455,8 +470,8 @@ class StartWork extends ChangeNotifier {
     await _reading(backend);
     // A project with one repository to work in has nothing to choose: asked anyway, right after
     // the person chose it in the dialog before, it read as asked twice.
-    if (this.project == project && project.workRepositories.length == 1 && this.repository == null) {
-      chooseRepository(project.workRepositories.single);
+    if (this.project == project && offeredRepositories.length == 1 && this.repository == null) {
+      chooseRepository(offeredRepositories.single);
     }
   }
 
@@ -482,6 +497,7 @@ class StartWork extends ChangeNotifier {
     this.project = project;
     openedForRepository = null;
     checkout = null;
+    _offerEvery();
     // Continued where it worked: the same repository, not a new choice.
     repository = project.repositoryOf(task);
     continuing = restarting ? null : task;
@@ -507,6 +523,7 @@ class StartWork extends ChangeNotifier {
     checkout = null;
     continuing = null;
     restarting = null;
+    _offerEvery();
     notifyListeners();
   }
 

@@ -417,7 +417,14 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
   /// Gives the host the token, then reads it again; answers why it was not given, or why the reading failed.
   Future<String?> _giveToken() async {
     final first = _progress?.waitsForToken ?? false;
-    final words = await widget.onGiveToken?.call(widget.host);
+    // The page is busy while the token is given, as for any other ask of the machine.
+    setState(() => _working++);
+    final String? words;
+    try {
+      words = await widget.onGiveToken?.call(widget.host);
+    } finally {
+      if (mounted) setState(() => _working--);
+    }
     final connections = widget.connections;
     if (!mounted || connections == null) return words;
     final refusal = await _read(() => connections.progress(widget.host), byAButton: true);
@@ -584,9 +591,15 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
             waiting: '${host.name} fetches and applies the organization…',
             onAsk: _acting || !(widget.connections?.connected(host.name) ?? false)
                 ? null
-                : () async =>
-                      await _read(() => widget.connections!.refresh(host.name), byAButton: true) ??
-                      _fetchedWords(host.name),
+                : () async {
+                    // Said of this fetch's own answer, not of whatever the page last read.
+                    HostProgress? fetched;
+                    final refusal = await _read(
+                      () async => fetched = await widget.connections!.refresh(host.name),
+                      byAButton: true,
+                    );
+                    return refusal ?? _fetchedWords(host.name, fetched);
+                  },
             label: const Text('Fetch now'),
           ),
         ),
@@ -625,7 +638,6 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       machines[name]!,
-                      if (readsMachine) ..._notTaken(name),
                       Padding(
                         padding: const EdgeInsets.only(left: Space.normal, bottom: Space.small),
                         child: Text(
@@ -638,6 +650,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ),
+                      if (readsMachine) ..._notTaken(name),
                     ],
                   )
                 : Column(
@@ -663,8 +676,10 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
   /// name them and say the reason once: never one sentence per repository.
   List<Widget> _notTaken(String name) {
     final byState = <String, List<({String repository, String state, String? why})>>{};
-    for (final each
-        in _progress?.of(name)?.repositories ?? const <({String repository, String state, String? why})>[]) {
+    final progress = _progress?.of(name);
+    // Only beside "on the machine: …", which names the taken ones; another state says its own why.
+    if (progress == null || progress.state != 'carried') return const [];
+    for (final each in progress.repositories) {
       if (each.state != 'taken') (byState[each.state] ??= []).add(each);
     }
     return [
@@ -691,9 +706,9 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
   }
 
   /// What a fetch that was not refused came to, in the machine's own answer.
-  String _fetchedWords(String name) => switch (_progress) {
+  String _fetchedWords(String name, HostProgress? fetched) => switch (fetched) {
     HostProgress(refused: final refused?) => '$name did not apply the organization: $refused',
-    HostProgress(waitsForToken: true) => '$name fetched the organization and waits for your token.',
+    HostProgress(wantsToken: true) => '$name fetched the organization and waits for your token.',
     _ => '$name fetched and applied the organization.',
   };
 

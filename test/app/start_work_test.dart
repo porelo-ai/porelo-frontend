@@ -320,6 +320,25 @@ void main() {
     expect(starting.notOfferedWords, '2 repositories name no central address.');
   });
 
+  test('a start opened on a repository the machine has not taken is opened afresh, and one left is chosen', () async {
+    final machine = FakeBackend(const <Task>[]);
+    final project = Project.from(const <String, dynamic>{
+      'name': 'porelo',
+      'file': '/home/me/porelo/project.yml',
+      'repositories': <String>['porelo-project', 'core', 'frontend'],
+    });
+    machine.theProjectsItHas = <Project>[project];
+    final starting = StartWork();
+    addTearDown(starting.dispose);
+    await starting.open(machine, project, repository: 'frontend');
+
+    starting.offerOnly({'core'}, '1 repository names no central address.');
+
+    // Opened for frontend, the form showed it fixed; gone from the offer, it showed nothing and failed.
+    expect(starting.openedForRepository, isNull);
+    expect(starting.repository, 'core', reason: 'the only one offered needs no choosing');
+  });
+
   test("a suggested name never reuses one of the project's tasks, and is one a task can have", () async {
     final machine = FakeBackend(<Task>[
       // As a machine lists them: the container's name, and the name a person gave it as `task`.

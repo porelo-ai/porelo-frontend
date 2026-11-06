@@ -39,3 +39,5 @@ looks for it there. A Bug: the action is missing where the project is shown.
 - Two widget tests in `test/ui/organization_project_pages_test.dart` (put on sends `addProjectToHost` with the chosen
   machine; take off asks, then sends `removeProjectFromHost` for the carrying machine) went red on the old code ("Bad
   state: No element", no such action) and pass now.
+
+Review reading: the project page shows the refusal of putting it on a machine or taking it off.
