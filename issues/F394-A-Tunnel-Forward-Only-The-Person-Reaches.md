@@ -1,6 +1,6 @@
 # F394 — A Tunnel Forward Only The Person Reaches
 
-**Status:** Idea.
+**Status:** Accepted (operator, 2026-11-06).
 
 **What must be true.** What the window forwards from a machine to this computer is reached only by the person the window runs for, not by every other local user of this computer.
 
