@@ -109,26 +109,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 ### Accepted
 
 | # | Size | Blocked by | What it covers |
-| <a id="f404"></a>[F404](F404-My-Forges-Lists-What-The-Machine-Already-Holds.md) | S | — | *My forges* also lists the forges the machine already holds credentials for, with where each comes from, and marks the organization's. |
-| <a id="f405"></a>[F405](F405-A-Host-Is-Given-The-Vaults-Token-For-The-Organization.md) | S | porelo's command handing a declared vault token to a host | *Give it my token…* offers the vault's token declared for the organization's forge, named, never read by the window. |
-| <a id="f406"></a>[F406](F406-A-Machines-Page-Lists-Its-Projects-Once.md) | S | — | A machine's page lists its projects once, each with its source and state, and *Managing this machine* as its own section. |
-| <a id="f409"></a>[F409](F409-A-Projects-Page-Puts-It-On-A-Machine.md) | S | — | A project's own page puts it on a machine and takes it off, as its row on the Organization page does. |
-| <a id="f408"></a>[F408](F408-Every-List-Section-Folds.md) | S | — | Every list section folds, by the shared section's default; only a dialog's may not. |
-| <a id="f410"></a>[F410](F410-A-Machine-Says-Its-Repositories-At-A-Glance.md) | S | — | A carried project says first which repositories are on the machine, and gathers those with no central address into one line. |
-| <a id="f411"></a>[F411](F411-Putting-A-Project-On-A-Machine-Says-So.md) | XS | — | A project being put on or taken off a machine says so, not "Adding…". |
-| <a id="f412"></a>[F412](F412-A-Machine-Page-Says-Why-No-Start-Work.md) | XS | — | A machine page that offers no *Start work* says why, and its two "Connected" are told apart. |
-| <a id="f413"></a>[F413](F413-Start-Work-Shows-It-Is-Starting.md) | XS | — | A press of *Start work* on a machine's page shows at once that it is starting, until its answer. |
-| <a id="f414"></a>[F414](F414-A-Long-Choice-Filters-As-One-Types.md) | S | — | A choice from a long list opens a small dialog that filters as one types. |
-| <a id="f415"></a>[F415](F415-Start-Work-Offers-What-The-Machine-Has.md) | S | [F410](#f410) | *Start work* on a machine offers only the repositories it has taken, saying why not the others. |
-| <a id="f416"></a>[F416](F416-A-Started-Task-Opens-Its-Terminal.md) | S | — | A task started by hand from this window lands on Work with its terminal open. |
-| <a id="f417"></a>[F417](F417-A-Task-Terminal-Selects-With-The-Mouse.md) | S | — | A task's terminal selects with Shift+drag as it says, and a plain drag leaves tmux no held button. |
-| <a id="f418"></a>[F418](F418-A-Terminal-Redraws-Without-Leftovers.md) | S | — | A terminal's redraw leaves no characters of earlier lines. |
-| <a id="f419"></a>[F419](F419-A-Terminal-Offers-Only-Printed-Links.md) | XS | — | A terminal offers only printed links, no template and none only the task reaches. |
-| <a id="f420"></a>[F420](F420-The-Gate-View-Reads-And-Stays-Reachable.md) | S | — | The gate view says it reads, gathers its errors, and keeps what waits reachable. |
-| <a id="f421"></a>[F421](F421-An-Action-On-A-Machine-Shows-It-Works.md) | M | — | Every action asking a machine shows it works and answers beside itself, by one shared button. |
-| <a id="f422"></a>[F422](F422-A-Project-File-Names-Central.md) | XS | — | The window reads a repository's address from `central:`, and from `upstream:` until the file is renamed. |
 |---|---|---|---|
-| <a id="f407"></a>[F407](F407-A-Host-Carries-Single-Repositories-Of-A-Project.md) | M | porelo's carried repositories and `--repository` | Putting a project on a machine chooses its repositories, and one is taken off alone. |
 | <a id="f123"></a>[F123](F123-Where-A-Machine-And-A-Project-Stand-In-Their-Organisations-Tree.md) | — | — | Where a machine and a project stand in their organisation's tree, and which settings bind them. |
 | <a id="f166"></a>[F166](F166-A-Host-Rented-Through-OpenTofu.md) | M | — | `porelo-host up` and `down` renting and giving back through the OpenTofu module, its secrets only in `tofu`'s environment; `--given` kept. |
 
@@ -208,6 +189,25 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Title | What was built |
 |---|---|---|
+| <a id="f404"></a>F404 | My Forges Lists What The Machine Already Holds | *My forges* also lists the forges the machine already holds credentials for, with where each comes from, and marks the organization's. |
+| <a id="f405"></a>F405 | A Host Is Given The Vault's Token For The Organization | *Give it my token…* offers the vault's token declared for the organization's forge, named, never read by the window. |
+| <a id="f406"></a>F406 | A Machine's Page Lists Its Projects Once | A machine's page lists its projects once, each with its source and state, and *Managing this machine* as its own section. |
+| <a id="f407"></a>F407 | A Host Carries Single Repositories Of A Project | Putting a project on a machine chooses its repositories, one is taken off alone, and only a machine that took the carry is followed. |
+| <a id="f408"></a>F408 | Every List Section Folds | Every list section folds, by the shared section's default; only a dialog's may not. |
+| <a id="f409"></a>F409 | A Project's Page Puts It On A Machine | A project's own page puts it on a machine and takes it off, as its row on the Organization page does. |
+| <a id="f410"></a>F410 | A Machine Says Its Repositories At A Glance | A carried project says first which repositories are on the machine, and gathers those with no central address into one line. |
+| <a id="f411"></a>F411 | Putting A Project On A Machine Says So | A project being put on or taken off a machine says so, naming it. |
+| <a id="f412"></a>F412 | A Machine Page Says Why It Offers No Start Work | A machine page that offers no *Start work* says why, and its two "Connected" are told apart. |
+| <a id="f413"></a>F413 | Start Work Shows It Is Starting | A press of *Start work* on a machine's page shows at once that it is starting, until its answer. |
+| <a id="f414"></a>F414 | A Long Choice Filters As One Types | A choice from a long list opens a small dialog that filters as one types. |
+| <a id="f415"></a>F415 | Start Work Offers What The Machine Has | *Start work* on a machine offers only the repositories it has taken, saying why not the others. |
+| <a id="f416"></a>F416 | A Started Task Opens Its Terminal | A task started by hand from this window lands on Work with its terminal open. |
+| <a id="f417"></a>F417 | A Task's Terminal Selects With The Mouse | A task's terminal selects with Shift+drag as it says, and a plain drag leaves tmux no held button. |
+| <a id="f418"></a>F418 | A Terminal Redraws Without Leftovers | A terminal's redraw leaves no characters of earlier lines. |
+| <a id="f419"></a>F419 | A Terminal Offers Only Printed Links | A terminal offers only printed links, no template and none only the task reaches. |
+| <a id="f420"></a>F420 | The Gate View Says It Reads, And What Waits Stays Reachable | The gate view says it reads, gathers its errors, and keeps what waits reachable. |
+| <a id="f421"></a>F421 | An Action On A Machine Shows It Works, And Answers Where It Was Pressed | Every action asking a machine shows it works and answers beside itself, by one shared button. |
+| <a id="f422"></a>F422 | The Window Reads A Repository's Address From `central:` | The window reads a repository's address from `central:`, and from `upstream:` until the file is renamed. |
 | <a id="f389"></a>F389 | A Refused Forward Says Which Credential | A push refused for its key names the key, lists the person's keys, tries one, keeps the one that works, and opens a terminal on the machine where only one can help. |
 | <a id="f390"></a>F390 | A Change Mostly Of Line Endings | A review says when a change is mostly line endings, with the real count beside the raw one, and offers the diff without them where the daemon serves it. |
 | <a id="f393"></a>F393 | A Project File Is Changed By Its Admin | A change to a project's own file shows the entry Porelo says to write, the file it goes in and a copy button, and the project's admin commits it. |
