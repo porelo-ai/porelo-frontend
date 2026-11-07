@@ -1,6 +1,6 @@
 # F425 — The Repositories Put On A Machine Chosen From A List
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** S - one dialog's choice widget (`CarryChoice` in `lib/src/ui/organization_dialogs.dart`) and its tests.
 
 **What must be true.** Putting some of a project's repositories on a machine lists every repository by its full

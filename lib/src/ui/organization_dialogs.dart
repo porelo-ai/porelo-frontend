@@ -766,8 +766,7 @@ class CarryingChoice {
   String? machine;
 }
 
-/// Offers the whole project, chosen to begin with, or some of its repositories, read from the project's own
-/// repository; one already on a machine is named with it and not offered.
+/// Offers the whole project or searchable repository choices, with carried repositories disabled.
 class CarryChoice extends StatefulWidget {
   /// Shows [carrying] and tells [changed] of each choice.
   const CarryChoice({super.key, required this.organization, required this.carrying, required this.changed});
@@ -786,7 +785,8 @@ class CarryChoice extends StatefulWidget {
 }
 
 class _CarryChoiceState extends State<CarryChoice> {
-  List<String>? _names;
+  List<ProjectRepository>? _repositories;
+  final _search = TextEditingController();
   String? _problem;
 
   @override
@@ -795,12 +795,18 @@ class _CarryChoiceState extends State<CarryChoice> {
     unawaited(_read());
   }
 
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
   Future<void> _read() async {
     try {
       final project = await widget.organization.source.readProject(widget.carrying.project);
       if (!mounted) return;
       setState(() {
-        _names = [for (final repository in project.repositories) repository.name];
+        _repositories = project.repositories;
         _problem = project.repositoriesProblem;
       });
     } on OrganizationRefused catch (refused) {
@@ -813,10 +819,54 @@ class _CarryChoiceState extends State<CarryChoice> {
     widget.changed();
   }
 
+  String? _fullName(ProjectRepository repository) {
+    final central = repository.central?.trim();
+    final address = (central == null || central.isEmpty ? repository.address?.trim() : central) ?? '';
+    if (address.isEmpty) return null;
+    final name = OrganizationView.endOfAddress(address);
+    return name.isEmpty ? null : name;
+  }
+
+  Widget _repositoryRow(ProjectRepository repository) {
+    final carrying = widget.carrying;
+    final key = repository.name;
+    final fullName = _fullName(repository);
+    final machine = carrying.elsewhere[key];
+    return CheckboxListTile(
+      key: Key('organization-carry-repository-$key'),
+      controlAffinity: ListTileControlAffinity.leading,
+      contentPadding: EdgeInsets.zero,
+      title: Wrap(
+        spacing: Space.small,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          Text(fullName ?? key),
+          if (fullName != null && fullName != key) Text(key, style: Theme.of(context).textTheme.bodySmall),
+        ],
+      ),
+      subtitle: machine == null ? null : Text('Already on $machine.'),
+      value: carrying.chosen.contains(key),
+      onChanged: machine == null
+          ? (on) => _choose(() => on == true ? carrying.chosen.add(key) : carrying.chosen.remove(key))
+          : null,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final carrying = widget.carrying;
-    final names = _names;
+    final repositories = _repositories;
+    final search = _search.text.trim().toLowerCase();
+    final shown = [
+      for (final repository in repositories ?? const <ProjectRepository>[])
+        if (repository.name.toLowerCase().contains(search) ||
+            (_fullName(repository)?.toLowerCase().contains(search) ?? false))
+          repository,
+    ];
+    final available = [
+      for (final repository in shown)
+        if (!carrying.elsewhere.containsKey(repository.name)) repository.name,
+    ];
     return Padding(
       padding: const EdgeInsets.only(top: Space.small),
       child: Column(
@@ -841,32 +891,53 @@ class _CarryChoiceState extends State<CarryChoice> {
             ],
           ),
           if (carrying.elsewhere.isNotEmpty)
-            Text(
-              'Already on a machine, so the project cannot go on another whole: '
-              '${[for (final MapEntry(:key, :value) in carrying.elsewhere.entries) '$key on $value'].join(', ')}.',
-            ),
+            const Text('The whole project cannot go on this machine: some of its repositories are on another.'),
           if (!carrying.whole) ...[
             const SizedBox(height: Space.small),
-            if (names == null && _problem == null)
+            if (repositories == null && _problem == null)
               const Text('Reading its repositories…')
             else if (_problem case final problem?)
               Text(problem)
-            else
+            else ...[
+              TextField(
+                key: const Key('organization-carry-search'),
+                controller: _search,
+                decoration: const InputDecoration(
+                  labelText: 'Search repositories',
+                  hintText: 'Full name or project key',
+                ),
+                onChanged: (_) => setState(() {}),
+              ),
+              const SizedBox(height: Space.small),
               Wrap(
                 spacing: Space.small,
-                runSpacing: Space.small,
                 children: [
-                  for (final name in names!)
-                    if (!carrying.elsewhere.containsKey(name))
-                      FilterChip(
-                        key: Key('organization-carry-repository-$name'),
-                        label: Text(name),
-                        selected: carrying.chosen.contains(name),
-                        onSelected: (on) =>
-                            _choose(() => on ? carrying.chosen.add(name) : carrying.chosen.remove(name)),
-                      ),
+                  TextButton(
+                    key: const Key('organization-carry-all'),
+                    onPressed: available.isEmpty ? null : () => _choose(() => carrying.chosen.addAll(available)),
+                    child: const Text('All'),
+                  ),
+                  TextButton(
+                    key: const Key('organization-carry-none'),
+                    onPressed: available.isEmpty ? null : () => _choose(() => carrying.chosen.removeAll(available)),
+                    child: const Text('None'),
+                  ),
                 ],
               ),
+              if (carrying.chosen.isEmpty && repositories!.isNotEmpty) const Text('Choose at least one repository.'),
+              if (shown.isEmpty)
+                Text(repositories!.isEmpty ? 'This project has no repositories.' : 'No repositories match your search.')
+              else
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: Sizes.repositoryPicker),
+                  child: ListView.builder(
+                    primary: false,
+                    shrinkWrap: true,
+                    itemCount: shown.length,
+                    itemBuilder: (_, index) => _repositoryRow(shown[index]),
+                  ),
+                ),
+            ],
           ],
         ],
       ),

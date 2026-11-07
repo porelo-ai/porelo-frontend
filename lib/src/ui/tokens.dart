@@ -346,6 +346,9 @@ abstract final class Sizes {
   /// The scrollable verified-person picker.
   static const personPicker = 320.0;
 
+  /// The repository picker leaves room for search and the dialog's actions.
+  static const repositoryPicker = 240.0;
+
   /// The collapsed line shared by every expandable list entry.
   static const listRowHeight = 64.0;
 
