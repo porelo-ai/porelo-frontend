@@ -144,8 +144,8 @@ says an entry with entries under it shows what it is and what can be done with i
 - **D5.** Icons (all boards): the boards draw their own outline icons on the seven top entries and none below. Proposal:
   today's Material icons (*Work* play circle, *Needs you* bell, *My machines* dns, *My forges* hub, *My projects*
   folder, *Organizations* apartment), a key for *My cards & keys*, filled when chosen as today; none at depth 1 and 2.
-- **D6.** Labels and width beside the page: today's rail shows labels only from 1200 (`railShowsLabels`) at 240 or 280
-  (`Sizes.tree`, `Sizes.treeWithLabels`); the boards draw labels always at 260 to 300. Proposal: labels always, one
+- **D6.** Labels and width beside the page: today's rail shows labels at every width; `railShowsLabels` only picks
+  its width, 240 from 840 (`Sizes.tree`) and 280 from 1200 (`Sizes.treeWithLabels`). The boards draw 260 to 300. Proposal: labels always, one
   width of 280 in `Sizes`.
 - **D7.** The title bar's actions: the Desktop board draws only *Porelo* and the organization's button, none of today's
   finder, *Watch another machine…*, machine switch, *Options*, walk and *About*. Proposal: today's icons in today's
@@ -168,7 +168,8 @@ says an entry with entries under it shows what it is and what can be done with i
 - **D15.** Long names in the tree (all boards): drawn with an ellipsis. Proposal: the ellipsis and the full name in a tooltip;
   the path line and the large title wrap instead.
 - **D16.** The fold on first start and across a restart (all boards): the boards open *My machines*, *workstation*,
-  *Organizations* and *acme*. Proposal: first start opens *My machines* and the current machine; the fold and the
+  *Organizations* and *acme*. Today, first start opens *Work* and `Settings` keeps neither the place nor a fold. Proposal: first start opens *My
+  machines* and the current machine; the fold and the
   chosen place are kept in `Settings` across a restart.
 - **D17.** The chevron and the row (all boards): the boards make the whole row one button. Proposal: a click on the chevron
   alone folds or unfolds without choosing; the row chooses and opens as decided.
@@ -179,12 +180,13 @@ says an entry with entries under it shows what it is and what can be done with i
   and disabled not. Proposal: as drawn, pressed as Flutter's ink; an entry of the tree is never disabled.
 - **D20.** *Organizations* with no organization read (all boards): not drawn. Proposal: no chevron; its page of facts says none
   is read and why, with *Create an organization…* and *Choose another Porelo organization…*.
-- **D21.** The foot (all boards): drawn as *Refresh* in text and *Stop everywhere* outlined in red. Proposal: today's
-  *Refresh* (every machine) and *Stop everything*, with today's tooltips and shortcut, always in sight.
+- **D21.** The foot (all boards): drawn as *Refresh* in text and *Stop everywhere* outlined in red. Today the side bar's *Refresh* and *Stop everything* have no shortcut; F5
+  and Ctrl+Shift+. act on the current machine only. Proposal: today's *Refresh* (every machine) and *Stop everything*,
+  with today's tooltips, always in sight; whether they take a shortcut of their own is settled in the design.
 - **D22.** Words on the boards that are not today's (all boards): *Start a task…*, *Add a machine…*, *Refresh all*, *Run
   doctor*, *Stop everywhere*, *Hosts*, *Unlock…*. Proposal: today's command and its word for each (*New work*, *Watch
-  another machine…*, *Refresh*, *Check whether this machine can run anything*, *Stop everything*, *Machines*, *Unlock
-  the vault…*), per the decision on words.
+  another machine…*, *Refresh*, *Check whether this machine can run anything*, *Stop everything*, *Machines*, and for *Unlock…*
+  today's *Unlock the vault on <machine>*), per the decision on words.
 - **D23.** Actions the boards draw with no command today (all boards): *Lock the vault*, *Store an entry…*, *Trust a host
   key…*, *Declare a provider…*, *Put a project on…*, *Another owner…*, *List an admin…*, *Propose a card…*, *Join an
   organization…*, *Work in riverside*, *Leave acme…*. Proposal: each is mapped to today's command where one does the
