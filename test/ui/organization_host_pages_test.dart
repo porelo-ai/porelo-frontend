@@ -8,6 +8,7 @@ import 'package:porelo_frontend/src/ui/organization_host_pages.dart';
 import 'package:porelo_frontend/src/ui/organization_page.dart';
 
 import '../support/organization_fixtures.dart';
+import '../features/support/world.dart' show World;
 import 'organization_actions.dart';
 
 Finder _action(String id) => organizationAction(id);
@@ -29,6 +30,50 @@ Future<void> _tap(WidgetTester tester, Finder target) async {
 }
 
 void main() {
+  // Harm: a held project's repositories look safe even though their work can be lost with the machine.
+  testWidgets('a held project names every taken repository with its central state', (tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final organization = Organization(FixtureOrganization(organizationFor('hana')));
+    final connections = FixtureConnections(['build'])
+      ..hostProgress = HostProgress.read('''
+{"projects":[{"project":"demo","state":"held","repositories":[
+{"repository":"core","state":"taken","central":{"state":"ahead","commits":2}},
+{"repository":"api","state":"taken","central":{"state":"up-to-date"}},
+{"repository":"web","state":"taken","central":{"state":"moved-on"}},
+{"repository":"old","state":"taken"}
+]}]}
+''');
+    addTearDown(organization.dispose);
+    addTearDown(connections.dispose);
+    await organization.refresh();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: OrganizationHostPage(
+            organization: organization,
+            host: 'build',
+            connections: connections,
+            onBack: () {},
+          ),
+        ),
+      ),
+    );
+    await World.settle(tester);
+    for (final (repository, words) in [
+      ('core', '2 commits ahead of central'),
+      ('api', 'at central'),
+      ('web', 'central moved on'),
+      ('old', 'cannot say'),
+    ]) {
+      final row = find.byKey(ValueKey('organization.central/demo/$repository'));
+      expect(find.descendant(of: row, matching: find.text(repository)), findsOneWidget);
+      expect(find.descendant(of: row, matching: find.textContaining(words)), findsOneWidget);
+    }
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   group('a machine\'s admin puts a project on it from the organization', () {
     Future<(FixtureOrganization, FixtureConnections)> organization(
       WidgetTester tester, {
@@ -713,9 +758,9 @@ void main() {
               state: 'carried',
               why: List.filled(15, why).join('; '),
               repositories: [
-                (repository: 'core', state: 'taken', why: null),
-                (repository: 'sluice', state: 'taken', why: null),
-                for (var i = 0; i < 15; i++) (repository: 'library-$i', state: 'no-central', why: why),
+                (repository: 'core', state: 'taken', why: null, central: null),
+                (repository: 'sluice', state: 'taken', why: null, central: null),
+                for (var i = 0; i < 15; i++) (repository: 'library-$i', state: 'no-central', why: why, central: null),
               ],
             ),
           ],

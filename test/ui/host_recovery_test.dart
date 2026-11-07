@@ -7,6 +7,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/host_runs.dart';
+import 'package:porelo_frontend/src/app/host_progress.dart';
 import 'package:porelo_frontend/src/app/host_session.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/settings.dart';
@@ -125,10 +126,12 @@ void main() {
     );
     await World.settle(tester);
     final words = tester.widget<Text>(find.byKey(const Key('host-projects-left'))).data!;
-    expect(words, allOf(contains('demo'), contains('central forge'), contains('cannot say')));
-    await tester.tap(find.byKey(const Key('host-confirm-down')));
+    expect(words, allOf(contains('demo'), contains('central forge')));
+    expect(tester.widget<FilledButton>(find.byKey(const Key('host-confirm-down'))).onPressed, isNull);
+    await tester.tap(find.byKey(const Key('host-give-back-anyway')));
     await World.settle(tester);
     expect(commands.single, containsAllInOrder(['--given', '203.0.113.7', '--host-key', hostKey]));
+    expect(commands.single, contains('--give-back-anyway'));
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
@@ -154,6 +157,7 @@ void main() {
           machines: machines,
           settings: settings,
           takeDownOnly: true,
+          readHostProgress: (_) async => const HostProgress(),
           start: (_, arguments) async {
             if (arguments.contains('--memberships')) return _emptyMemberships();
             commands.add(arguments);
@@ -203,6 +207,7 @@ void main() {
             settings: state.settings,
             hostRuns: state.runs,
             takeDownOnly: true,
+            readHostProgress: (_) async => const HostProgress(),
             start: (_, arguments) async {
               if (arguments.contains('--memberships')) return _emptyMemberships();
               commands.add(arguments);

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../app/host_runs.dart';
 import '../app/host_session.dart';
+import '../app/host_progress.dart';
 import '../app/tunnel.dart' show TunnelState;
 
 import '../app/fleet_model.dart';
@@ -39,6 +40,7 @@ class MachinesPage extends StatelessWidget {
     this.onHostProtocol,
     this.openTerminal,
     this.prepareServer,
+    this.readHostProgress,
     super.key,
   });
 
@@ -68,6 +70,9 @@ class MachinesPage extends StatelessWidget {
 
   /// The server preparation command and its refusal.
   final Command? prepareServer;
+
+  /// The function that reads a connected host's organization status before giving it back.
+  final Future<HostProgress> Function(String host)? readHostProgress;
 
   @override
   Widget build(BuildContext context) {
@@ -117,6 +122,7 @@ class MachinesPage extends StatelessWidget {
                         machines: machines,
                         settings: machines.settings,
                         hostRuns: hostRuns,
+                        readHostProgress: readHostProgress,
                         openTerminal: openTerminal,
                       ),
                     ),

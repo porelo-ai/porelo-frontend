@@ -3,6 +3,80 @@ import 'package:porelo_frontend/src/app/host_progress.dart';
 import 'package:porelo_frontend/src/app/organization_source.dart';
 
 void main() {
+  // Harm: an incomplete repository list hides the work that would be destroyed by an ordinary give-back.
+  test('only a complete host repository list can establish that give-back is safe', () {
+    for (final answer in [
+      '{}',
+      '{"projects":null}',
+      '{"projects":[{}]}',
+      '{"projects":[{"project":"demo","state":"later-state"}]}',
+      '{"projects":[{"project":"demo","state":"carried"}]}',
+      '{"projects":[{"project":"demo","state":"held","repositories":null}]}',
+      '{"projects":[{"project":"demo","state":"carried","repositories":[{}]}]}',
+    ]) {
+      expect(HostProgress.read(answer).hasRepositoryStatus, isFalse, reason: answer);
+    }
+    expect(HostProgress.read('{"projects":[]}').hasRepositoryStatus, isTrue);
+    for (final state in ['pending', 'waiting-for-token', 'refused']) {
+      expect(HostProgress.read('{"projects":[{"project":"demo","state":"$state"}]}').hasRepositoryStatus, isTrue);
+    }
+  });
+
+  // Harm: work only on the host is lost when an absent or unreadable central state is treated as safe.
+  test('taken repositories retain every central shape and fail closed on missing or malformed fields', () {
+    final read = HostProgress.read('''
+{"projects":[{"project":"demo","state":"carried","repositories":[
+  {"repository":"ahead","state":"taken","central":{"state":"ahead","commits":2}},
+  {"repository":"safe","state":"taken","central":{"state":"up-to-date"}},
+  {"repository":"moved","state":"taken","central":{"state":"moved-on"}},
+  {"repository":"key","state":"taken","central":{"state":"cannot-say","why":"no-read-key"}},
+  {"repository":"offline","state":"taken","central":{"state":"cannot-say","why":"unreachable"}},
+  {"repository":"main","state":"taken","central":{"state":"cannot-say","why":"no-central-main"}},
+  {"repository":"local","state":"taken","central":{"state":"cannot-say","why":"local"}},
+  {"repository":"old","state":"taken"},
+  {"repository":"later","state":"taken","central":{"state":"later-state"}},
+  {"repository":"reason","state":"taken","central":{"state":"cannot-say","why":"later-reason"}},
+  {"repository":"bad-count","state":"taken","central":{"state":"ahead","commits":"2"}},
+  {"repository":"bad-reason","state":"taken","central":{"state":"cannot-say","why":7}},
+  {"repository":"waiting","state":"waiting"}
+]}]}
+''');
+    final rows = read.of('demo')!.repositories;
+    expect(rows.map((row) => row.repository), [
+      'ahead',
+      'safe',
+      'moved',
+      'key',
+      'offline',
+      'main',
+      'local',
+      'old',
+      'later',
+      'reason',
+      'bad-count',
+      'bad-reason',
+      'waiting',
+    ]);
+    expect(rows[0].central!.state, 'ahead');
+    expect(rows[0].central!.commits, 2);
+    expect(rows[1].central!.state, 'up-to-date');
+    expect(rows[2].central!.state, 'moved-on');
+    expect(rows.sublist(3, 7).map((row) => row.central!.why), [
+      'no-read-key',
+      'unreachable',
+      'no-central-main',
+      'local',
+    ]);
+    expect(rows[7].central!.state, 'cannot-say');
+    expect(rows[8].central!.words, 'later-state');
+    expect(rows[9].central!.words, contains('later-reason'));
+    expect(rows[10].central!.state, 'cannot-say');
+    expect(rows[11].central!.state, 'cannot-say');
+    expect(rows.last.central, isNull);
+    expect(rows.where((row) => row.central?.blocksGiveBack == false).map((row) => row.repository), ['safe', 'local']);
+    expect(read.withNoAddress({'demo'}).of('demo')!.repositories.first.central!.commits, 2);
+  });
+
   // Harm: a host admin sees a project as carried that the host holds back, or an account's end goes unsaid.
   test('the contract answer is read: state, why, and the day an account goes', () {
     final read = HostProgress.read('''
@@ -160,5 +234,20 @@ void main() {
         throwsA(isA<OrganizationRefused>().having((refused) => refused.words, 'words', 'porelo-host-person: nope')),
       );
     });
+  });
+
+  // Harm: a row that says nothing, ahead by none or with an empty reason, reads as a state, and its blank words stand
+  // in the give-back where the loss should be named.
+  test('ahead by none, an empty reason and an empty state read as cannot say', () {
+    for (final central in <Map<String, Object?>>[
+      {'state': 'ahead', 'commits': 0},
+      {'state': 'cannot-say', 'why': ''},
+      {'state': ''},
+    ]) {
+      final read = HostRepositoryCentral.read(central);
+      expect(read.state, 'cannot-say', reason: '$central');
+      expect(read.why, isNull, reason: '$central');
+      expect(read.blocksGiveBack, isTrue, reason: '$central');
+    }
   });
 }

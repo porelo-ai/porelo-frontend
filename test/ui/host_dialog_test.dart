@@ -4,6 +4,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/commands.dart';
+import 'package:porelo_frontend/src/app/host_progress.dart';
+import 'package:porelo_frontend/src/app/organization_source.dart' show OrganizationRefused;
 import 'package:porelo_frontend/src/app/host_runs.dart';
 import 'package:porelo_frontend/src/app/host_session.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
@@ -38,6 +40,233 @@ Future<void> _chooseMachine(WidgetTester tester, String name) async {
 }
 
 void main() {
+  // Harm: returning a machine destroys commits that have not reached the central forge without a second decision.
+  // Harm: after a failed return, a host that stalls on the new read of its status leaves no way to force it back.
+  testWidgets('a stalling read after a failed return keeps the way to go on without a backup', (tester) async {
+    var reads = 0;
+    final stalls = Completer<HostProgress>();
+    final state = await openTakeDown(
+      tester,
+      readHostProgress: (_) => ++reads == 1 ? Future.value(_centralProgress({'state': 'up-to-date'})) : stalls.future,
+    );
+    answerHolders(state.processes.single, []);
+    await World.settle(tester);
+    await tester.tap(find.byKey(const Key('host-confirm-down')));
+    await World.settle(tester);
+    state.processes.last.end(65);
+    await World.settle(tester);
+    answerHolders(state.processes.last, []);
+    await World.settle(tester);
+    expect(reads, 2);
+    expect(tester.widget<OutlinedButton>(find.byKey(const Key('host-force-down'))).onPressed, isNotNull);
+    expect(tester.widget<FilledButton>(find.byKey(const Key('host-confirm-down'))).onPressed, isNull);
+    await tester.pump(const Duration(seconds: 31));
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  // Harm: a project the machine holds unpushed commits of has no repository rows, and is given back as if safe.
+  testWidgets('a held project blocks the give-back and is named', (tester) async {
+    final state = await openTakeDown(
+      tester,
+      readHostProgress: (_) async => HostProgress.read(
+        jsonEncode({
+          'projects': [
+            {'project': 'demo', 'state': 'held', 'why': 'core', 'repositories': <Object?>[]},
+          ],
+        }),
+      ),
+    );
+    answerHolders(state.processes.single, []);
+    await World.settle(tester);
+    expect(tester.widget<FilledButton>(find.byKey(const Key('host-confirm-down'))).onPressed, isNull);
+    expect(find.textContaining('demo: holds commits not yet pushed'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('give-back waits for fresh central status and requires explicit acceptance of the named loss', (
+    tester,
+  ) async {
+    final answer = Completer<HostProgress>();
+    final asked = <String>[];
+    final state = await openTakeDown(
+      tester,
+      readHostProgress: (host) {
+        asked.add(host);
+        return answer.future;
+      },
+    );
+    answerHolders(state.processes.single, []);
+    await World.settle(tester);
+    final confirm = find.byKey(const Key('host-confirm-down'));
+    expect(tester.widget<FilledButton>(confirm).onPressed, isNull);
+    expect(find.byKey(const Key('host-give-back-anyway')), findsNothing);
+    expect(asked, ['orchard']);
+    answer.complete(_centralProgress({'state': 'ahead', 'commits': 2}));
+    await World.settle(tester);
+    expect(tester.widget<FilledButton>(confirm).onPressed, isNull);
+    expect(find.textContaining('demo/core'), findsOneWidget);
+    expect(find.textContaining('2 commits ahead of central'), findsOneWidget);
+    expect(find.textContaining('will be lost'), findsOneWidget);
+    expect(find.byKey(const Key('host-force-down')), findsNothing);
+    expect(state.commands, hasLength(1), reason: 'reading status must not give the machine back');
+    await tester.tap(find.byKey(const Key('host-give-back-anyway')));
+    await World.settle(tester);
+    expect(state.commands.last, ['down', ...signedSetup.giveBackArguments('orchard'), '--give-back-anyway']);
+    state.processes.last.line(const host.Step('give-back', host.StepState.done));
+    state.processes.last.end(0);
+    await World.settle(tester);
+    expect(state.settings.hostUp('orchard'), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  // Harm: a missing, unknown or unsafe central state silently permits destructive give-back.
+  for (final (label, central) in <(String, Map<String, Object?>?)>[
+    ('missing', null),
+    ('moved', {'state': 'moved-on'}),
+    ('no read key', {'state': 'cannot-say', 'why': 'no-read-key'}),
+    ('unreachable', {'state': 'cannot-say', 'why': 'unreachable'}),
+    ('no main', {'state': 'cannot-say', 'why': 'no-central-main'}),
+    ('unknown state', {'state': 'later-state'}),
+    ('unknown reason', {'state': 'cannot-say', 'why': 'later-reason'}),
+    ('malformed', {'state': 'ahead', 'commits': '2'}),
+  ]) {
+    testWidgets('$label central status blocks ordinary give-back and names the repository', (tester) async {
+      final state = await openTakeDown(tester, readHostProgress: (_) async => _centralProgress(central));
+      answerHolders(state.processes.single, []);
+      await World.settle(tester);
+      expect(tester.widget<FilledButton>(find.byKey(const Key('host-confirm-down'))).onPressed, isNull);
+      expect(find.textContaining('demo/core'), findsOneWidget);
+      expect(find.byKey(const Key('host-give-back-anyway')), findsOneWidget);
+      expect(state.commands, hasLength(1));
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  }
+
+  // Harm: an unreachable host is taken as an empty host with no work to lose.
+  for (final failure in ['disconnected', 'refused', 'stalled', 'incomplete']) {
+    testWidgets('$failure host status blocks give-back without trapping the rental', (tester) async {
+      final pending = Completer<HostProgress>();
+      final state = await openTakeDown(
+        tester,
+        readHostProgress: switch (failure) {
+          'disconnected' => null,
+          'refused' => (_) async => throw const OrganizationRefused('The machine did not answer.'),
+          'incomplete' => (_) async => HostProgress.read('{}'),
+          _ => (_) => pending.future,
+        },
+      );
+      answerHolders(state.processes.single, []);
+      if (failure == 'stalled') await tester.pump(const Duration(seconds: 31));
+      await World.settle(tester);
+      expect(tester.widget<FilledButton>(find.byKey(const Key('host-confirm-down'))).onPressed, isNull);
+      expect(find.textContaining('cannot say'), findsWidgets);
+      expect(find.byKey(const Key('host-give-back-anyway')), findsOneWidget);
+      expect(state.commands, hasLength(1));
+      await tester.pumpWidget(const SizedBox.shrink());
+      if (failure == 'stalled') pending.complete(const HostProgress());
+      await tester.pump();
+    });
+  }
+
+  // Harm: the local-only exception becomes unusable, or an ordinary return silently forces data loss.
+  testWidgets('at central and local repositories allow ordinary give-back without forcing', (tester) async {
+    final state = await openTakeDown(
+      tester,
+      readHostProgress: (_) async => HostProgress.read('''
+{"projects":[{"project":"demo","state":"carried","repositories":[
+{"repository":"core","state":"taken","central":{"state":"up-to-date"}},
+{"repository":"scratch","state":"taken","central":{"state":"cannot-say","why":"local"}}
+]}]}
+'''),
+    );
+    answerHolders(state.processes.single, []);
+    await World.settle(tester);
+    expect(find.byKey(const Key('host-give-back-anyway')), findsNothing);
+    await tester.tap(find.byKey(const Key('host-confirm-down')));
+    await World.settle(tester);
+    expect(state.commands.last, ['down', ...signedSetup.giveBackArguments('orchard')]);
+    state.processes.last.end(65);
+    await World.settle(tester);
+    answerHolders(state.processes.last, []);
+    await World.settle(tester);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  // Harm: a stale safe answer or the backup override bypasses a new central refusal after a failed return.
+  testWidgets(
+    'a failed return reads central status again and neither an old callback nor the backup override bypasses it',
+    (tester) async {
+      var reads = 0;
+      final state = await openTakeDown(
+        tester,
+        readHostProgress: (_) async {
+          reads++;
+          return _centralProgress(reads == 1 ? {'state': 'up-to-date'} : {'state': 'ahead', 'commits': 2});
+        },
+      );
+      answerHolders(state.processes.single, []);
+      await World.settle(tester);
+      final earlier = tester.widget<FilledButton>(find.byKey(const Key('host-confirm-down'))).onPressed!;
+      earlier();
+      await World.settle(tester);
+      state.processes.last.end(65);
+      await World.settle(tester);
+      answerHolders(state.processes.last, []);
+      await World.settle(tester);
+      expect(reads, 2);
+      expect(
+        find.byKey(const Key('host-force-down')),
+        findsNothing,
+        reason: 'the loss is decided by Give it back anyway',
+      );
+      final before = state.commands.length;
+      earlier();
+      await World.settle(tester);
+      expect(state.commands, hasLength(before));
+      expect(find.byKey(const Key('host-give-back-anyway')), findsOneWidget);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  // Harm: retrying a failed backup override destroys newly unpushed work without confirming that separate loss.
+  testWidgets('a failed backup override refreshes central status before another destructive retry', (tester) async {
+    var reads = 0;
+    final state = await openTakeDown(
+      tester,
+      readHostProgress: (_) async {
+        reads++;
+        return _centralProgress(reads < 3 ? {'state': 'up-to-date'} : {'state': 'ahead', 'commits': 2});
+      },
+    );
+    answerHolders(state.processes.single, []);
+    await World.settle(tester);
+    await tester.tap(find.byKey(const Key('host-confirm-down')));
+    await World.settle(tester);
+    state.processes.last.end(65);
+    await World.settle(tester);
+    answerHolders(state.processes.last, []);
+    await World.settle(tester);
+    final force = find.byKey(const Key('host-force-down'));
+    final earlier = tester.widget<OutlinedButton>(force).onPressed!;
+    earlier();
+    await World.settle(tester);
+    expect(state.commands.last, contains('--give-back-anyway'));
+    state.processes.last.end(65);
+    await World.settle(tester);
+    expect(reads, 3, reason: 'even a forced return that fails must read the host again');
+    expect(state.commands.last, contains('--memberships'));
+    answerHolders(state.processes.last, []);
+    await World.settle(tester);
+    expect(force, findsNothing, reason: 'one forcing button, worded for the loss it accepts');
+    expect(find.textContaining('demo/core'), findsOneWidget);
+    expect(find.byKey(const Key('host-give-back-anyway')), findsOneWidget);
+    final before = state.commands.length;
+    earlier();
+    await World.settle(tester);
+    expect(state.commands, hasLength(before), reason: 'the old backup decision cannot authorize newly unpushed work');
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   // Harm: a fetched key is used without comparison, or a late scan replaces the key the person pasted.
   testWidgets('preparation requires comparison of a fetched key and invalidates it when the address changes', (
     tester,
@@ -1539,6 +1768,7 @@ Future<({Settings settings, List<List<String>> commands, List<HostProcess> proce
   WidgetTester tester, {
   HostUpRecord record = signedSetup,
   SettingsStore? store,
+  Future<HostProgress> Function(String host)? readHostProgress = _emptyHostProgress,
 }) async {
   tester.view.physicalSize = const Size(1280, 800);
   tester.view.devicePixelRatio = 1;
@@ -1561,6 +1791,7 @@ Future<({Settings settings, List<List<String>> commands, List<HostProcess> proce
             project: 'orchard',
             machines: machines,
             settings: settings,
+            readHostProgress: readHostProgress,
             start: (_, arguments) async {
               commands.add(arguments);
               final process = HostProcess();
@@ -1577,3 +1808,19 @@ Future<({Settings settings, List<List<String>> commands, List<HostProcess> proce
   await World.settle(tester);
   return (settings: settings, commands: commands, processes: processes);
 }
+
+Future<HostProgress> _emptyHostProgress(String host) async => const HostProgress();
+
+HostProgress _centralProgress(Map<String, Object?>? central) => HostProgress.read(
+  jsonEncode({
+    'projects': [
+      {
+        'project': 'demo',
+        'state': 'carried',
+        'repositories': [
+          {'repository': 'core', 'state': 'taken', 'central': ?central},
+        ],
+      },
+    ],
+  }),
+);

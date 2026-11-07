@@ -665,7 +665,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
                         ),
                       ),
                       ..._carriedPart(host, name, isAdmin: isAdmin),
-                      if (readsMachine) ..._notTaken(name),
+                      if (readsMachine) ..._repositoryProgress(host, name),
                     ],
                   )
                 : Column(
@@ -680,7 +680,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
                         ),
                       ),
                       ..._carriedPart(host, name, isAdmin: isAdmin),
-                      if (readsMachine) ..._notTaken(name),
+                      if (readsMachine) ..._repositoryProgress(host, name),
                     ],
                   ),
           ),
@@ -702,7 +702,12 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
           contentPadding: const EdgeInsets.only(left: Space.loose, right: Space.normal),
           leading: const Icon(Icons.source_outlined),
           title: Text(repository),
-          subtitle: Text('Of $name, carried here alone'),
+          subtitle: Text(
+            [
+              'Of $name, carried here alone',
+              if (_takenRow(name, repository)?.central case final central?) central.words,
+            ].join(' · '),
+          ),
           trailing: !isAdmin
               ? null
               : TextButton(
@@ -723,17 +728,32 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
         ),
   ];
 
-  /// The repositories of [name] the machine has not taken, one line per reason with how many, opened on demand to
-  /// name them and say the reason once: never one sentence per repository.
-  List<Widget> _notTaken(String name) {
-    final byState = <String, List<({String repository, String state, String? why})>>{};
+  HostRepositoryProgress? _takenRow(String name, String repository) => _progress
+      ?.of(name)
+      ?.repositories
+      .where((row) => row.repository == repository && row.state == 'taken')
+      .firstOrNull;
+
+  /// Each taken repository's central state, and the ones not taken by reason; a repository carried here alone says its
+  /// central state on its own row.
+  List<Widget> _repositoryProgress(OrganizationHost host, String name) {
+    final carriedAlone = host.repositories[name] ?? const <String>[];
+    final byState = <String, List<HostRepositoryProgress>>{};
     final progress = _progress?.of(name);
-    // Only beside "on the machine: …", which names the taken ones; another state says its own why.
-    if (progress == null || progress.state != 'carried') return const [];
+    if (progress == null) return const [];
     for (final each in progress.repositories) {
-      if (each.state != 'taken') (byState[each.state] ??= []).add(each);
+      if (progress.state == 'carried' && each.state != 'taken') (byState[each.state] ??= []).add(each);
     }
     return [
+      for (final row in progress.repositories)
+        if (row.state == 'taken' && !carriedAlone.contains(row.repository))
+          ListTile(
+            key: ValueKey('organization.central/$name/${row.repository}'),
+            dense: true,
+            contentPadding: const EdgeInsets.symmetric(horizontal: Space.normal),
+            title: Text(row.repository),
+            subtitle: Text((row.central ?? const HostRepositoryCentral()).words),
+          ),
       for (final MapEntry(key: state, value: rows) in byState.entries)
         ExpansionTile(
           key: ValueKey('organization.notTaken/$name/$state'),

@@ -69,6 +69,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f424"></a>[F424](F424-Setting-Up-A-Machine-One-Question-Per-Page.md) | L | — | Setting up a server as a machine is one wizard, one question per page, each opening only once its answer holds: name, address answering SSH, the host key fetched by hand and compared, an address known with another key said so, the login handed over in a terminal on the server until root answers, the check passed and any no-answer named; *Add a machine* and *Prepare* become one *Set up…*. |
 | <a id="f425"></a>[F425](F425-The-Repositories-Put-On-A-Machine-Chosen-From-A-List.md) | S | — | Putting some of a project's repositories on a machine lists them by full name with the key beside, checkboxes, a search field, *All* and *None*. |
 | <a id="f426"></a>[F426](F426-A-Forward-Names-Where-It-Goes-And-Its-Branch.md) | S | — | A forward names the forge and repository it goes to and starts with the task's branch, or the one last used for the task, filled in and changeable. |
+| <a id="f428"></a>[F428](F428-A-Machine-Given-Back-Only-With-Its-Work-At-Central.md) | S | — | A machine's page says how each taken repository stands with central, and the give-back is refused while one is ahead, moved on or cannot say, with *Give it back anyway*. |
 
 ### Rework
 
@@ -80,7 +81,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f428"></a>[F428](F428-A-Machine-Given-Back-Only-With-Its-Work-At-Central.md) | S | — | A machine's page says how each taken repository stands with central, and the give-back is refused while one is ahead, moved on or cannot say, with *Give it back anyway*. |
 
 ### Backlog
 

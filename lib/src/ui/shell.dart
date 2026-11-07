@@ -561,6 +561,7 @@ class _ShellState extends State<Shell> {
               machines: widget.machines,
               settings: widget.settings,
               hostRuns: _hostRuns,
+              readHostProgress: _readHostProgress,
             ),
           ),
         ),
@@ -724,9 +725,18 @@ class _ShellState extends State<Shell> {
       machines: widget.machines,
       settings: widget.settings,
       hostRuns: _hostRuns,
+      readHostProgress: _readHostProgress,
       openTerminal: widget.sessions.openTerminal,
     );
     if (mounted && !widget.machines.all.contains(machine)) widget.shell.goTo(Section.machines);
+  }
+
+  Future<HostProgress> _readHostProgress(String host) async {
+    final connections = _hostConnections;
+    if (connections == null || !connections.connected(host)) {
+      throw const OrganizationRefused('The machine is not connected.');
+    }
+    return connections.progress(host);
   }
 
   /// A machine's row under *Organization*: with nothing kept here, the organization's card is what it goes by.
@@ -746,6 +756,7 @@ class _ShellState extends State<Shell> {
           settings: widget.settings,
           hostRuns: _hostRuns,
           fromTheCard: kept == null ? access.takingOffRecord(host) : null,
+          readHostProgress: _readHostProgress,
           openTerminal: widget.sessions.openTerminal,
         ),
       ),
@@ -3401,6 +3412,7 @@ class _ShellState extends State<Shell> {
           : _commands().where((command) => command.id == 'host.prepare').firstOrNull,
       hostRuns: _hostRuns,
       onHostProtocol: (run) => unawaited(_openHostRun(run)),
+      readHostProgress: _readHostProgress,
       openTerminal: widget.sessions.openTerminal,
       onAdd: _addAMachine,
       onDetails: (machine) {

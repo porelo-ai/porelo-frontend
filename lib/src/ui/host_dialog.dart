@@ -9,7 +9,8 @@ import '../app/host_runs.dart';
 import '../app/host_access.dart';
 import '../app/host_session.dart';
 import '../app/machines.dart';
-import '../app/host_progress.dart' show notTheAdminsKey;
+import '../app/host_progress.dart';
+import '../app/organization_source.dart' show OrganizationRefused;
 import '../app/preparation_host_key.dart';
 import '../app/run_here.dart';
 import '../app/session.dart';
@@ -29,6 +30,7 @@ Future<void> openHostTakeDownDialog(
   HostRuns? hostRuns,
   HostAccess? hostAccess,
   HostUpRecord? fromTheCard,
+  Future<HostProgress> Function(String host)? readHostProgress,
   OpenTerminal? openTerminal,
   bool? linux,
 }) => showDialog<void>(
@@ -41,6 +43,7 @@ Future<void> openHostTakeDownDialog(
     hostRuns: hostRuns,
     hostAccess: hostAccess,
     fromTheCard: fromTheCard,
+    readHostProgress: readHostProgress,
     start: start,
     takeDownOnly: true,
   ),
@@ -98,6 +101,7 @@ class HostDialog extends StatefulWidget {
     this.machineName,
     this.fromTheCard,
     this.hostCheck,
+    this.readHostProgress,
     super.key,
   });
 
@@ -137,6 +141,9 @@ class HostDialog extends StatefulWidget {
   /// The carried collection's check, which then stands before preparing; null where the collection holds none.
   final HostCheckRun? hostCheck;
 
+  /// The function that reads the connected host's organization status afresh before give-back.
+  final Future<HostProgress> Function(String host)? readHostProgress;
+
   @override
   State<HostDialog> createState() => _HostDialogState();
 }
@@ -150,6 +157,9 @@ class _HostDialogState extends State<HostDialog> {
   List<HostMembership>? _holders;
   bool _checkingMemberships = false;
   String? _membershipProblem;
+  List<String>? _centralBlockers;
+  bool _checkingCentral = false;
+  bool get _centralReady => _centralBlockers?.isEmpty == true;
   final _scroll = ScrollController();
   late final _name = TextEditingController(text: widget.machineName);
   final _address = TextEditingController();
@@ -205,6 +215,7 @@ class _HostDialogState extends State<HostDialog> {
     _choices = _record?.preparationSettings ?? widget.existingRun?.record.preparationSettings ?? _choices;
     if (widget.takeDownOnly) {
       unawaited(_readHolders());
+      unawaited(_readCentral());
       return;
     }
     // Root's bootstrap line names the card key, so it is shown only once the identity was read again.
@@ -582,8 +593,53 @@ class _HostDialogState extends State<HostDialog> {
     }
   }
 
-  Future<void> _giveBack({bool anyway = false, List<HostMembership>? holders}) async {
+  /// The project states that say nothing of unpushed work; any other, a later host's word too, cannot say.
+  static const _knownProjectStates = {'carried', 'pending', 'waiting-for-token', 'refused', 'held'};
+
+  Future<void> _readCentral() async {
+    if (_checkingCentral) return;
+    final host = _record?.hostName.isNotEmpty == true ? _record!.hostName : widget.project;
+    // The last answer stands while the host is asked again: a stalling host must not hide the way to force it.
+    setState(() => _checkingCentral = true);
+    try {
+      final read = widget.readHostProgress;
+      if (read == null) throw const OrganizationRefused('The machine is not connected.');
+      final progress = await read(host).timeout(const Duration(seconds: 30));
+      if (!mounted) return;
+      setState(() {
+        _centralBlockers = [
+          if (!progress.hasRepositoryStatus) '$host: cannot say: the machine did not report a complete repository list',
+          if (progress.waitsForToken) '$host: cannot say: the machine is waiting for its first token',
+          for (final project in progress.projects)
+            if (project.state == 'held')
+              '${project.project}: holds commits not yet pushed${project.why == null ? '' : ' (${project.why})'}'
+            else if (!_knownProjectStates.contains(project.state))
+              '${project.project}: cannot say: the machine says "${project.state}"',
+          for (final project in progress.projects)
+            for (final row in project.repositories)
+              if (row.state == 'taken' && (row.central ?? const HostRepositoryCentral()).blocksGiveBack)
+                '${project.project}/${row.repository}: ${(row.central ?? const HostRepositoryCentral()).words}',
+        ];
+      });
+    } catch (error) {
+      final why = switch (error) {
+        OrganizationRefused() => error.words,
+        TimeoutException() => 'The machine did not answer within 30 seconds.',
+        _ => 'The machine could not be asked: $error',
+      };
+      if (mounted) setState(() => _centralBlockers = ['$host: cannot say: $why']);
+    } finally {
+      if (mounted) setState(() => _checkingCentral = false);
+    }
+  }
+
+  Future<void> _giveBack({
+    bool anyway = false,
+    bool centralLossConfirmed = false,
+    List<HostMembership>? holders,
+  }) async {
     if (_busy || _givenBack || _record == null) return;
+    if (!_centralReady && !(anyway && centralLossConfirmed && _centralBlockers?.isNotEmpty == true)) return;
     if (!anyway && (holders == null || !identical(holders, _holders) || _checkingMemberships)) return;
     if (widget.hostRuns?.of(widget.project)?.running == true) return;
     final record = _record!;
@@ -633,12 +689,15 @@ class _HostDialogState extends State<HostDialog> {
           : record.isRental
           ? 'The rental return was not confirmed. It stays billed, and its recovery data were kept.'
           : 'Taking Porelo off was not confirmed. The machine and recovery data were kept.';
-      readAgain = !anyway && !confirmed;
+      readAgain = !confirmed;
     } finally {
       if (mounted) setState(() => _busy = false);
     }
-    // Not under busy: a host that stalls here must leave Close and the give-back without a backup open.
-    if (readAgain && mounted) unawaited(_readHolders());
+    // Reads must not hold Close while a host stalls; loss still needs its own decision.
+    if (readAgain && mounted) {
+      unawaited(_readHolders());
+      unawaited(_readCentral());
+    }
   }
 
   /// What a confirmed take-down has done, whatever this window then manages to keep of it.
@@ -720,7 +779,7 @@ class _HostDialogState extends State<HostDialog> {
                     padding: const EdgeInsets.only(bottom: Space.small),
                     child: Text(
                       'Still on this machine: ${projects.join(', ')}. Only what has reached the central forge is safe: work '
-                      'only on the machine’s own forge goes with it. This window cannot say whether any would be lost.',
+                      'only on the machine’s own forge goes with it.',
                       key: const Key('host-projects-left'),
                       style: TextStyle(color: Theme.of(context).colorScheme.error),
                     ),
@@ -854,6 +913,18 @@ class _HostDialogState extends State<HostDialog> {
               if (_problem == null && run != null && (widget.hostRuns?.mayStartOver(run) ?? false))
                 Text(run.problem!, key: const Key('preparation-key-refused')),
               if (widget.takeDownOnly && !_givenBack) ...[
+                if (_checkingCentral) const Text('Checking the repositories against central…'),
+                if (_centralBlockers case final blockers? when blockers.isNotEmpty) ...[
+                  const Text('This machine cannot be given back safely:'),
+                  for (final blocker in blockers) Text(blocker),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: Space.small),
+                    child: Text(
+                      'Giving it back anyway means work that has not reached the central forge will be lost, '
+                      'including work in the repositories named above. This cannot be undone.',
+                    ),
+                  ),
+                ],
                 if (_checkingMemberships) const Text('Reading membership holders…'),
                 if (_membershipProblem != null) Text(_membershipProblem!),
                 if (holders != null && holders.isNotEmpty) ...[
@@ -866,7 +937,7 @@ class _HostDialogState extends State<HostDialog> {
                   ),
                 ],
               ],
-              if (_problem != null && !_givenBack && widget.takeDownOnly)
+              if (_problem != null && !_givenBack && widget.takeDownOnly && _centralBlockers?.isNotEmpty != true)
                 const Text(
                   'Going on without a backup deletes everything still in these accounts. Confirm only when their contents are no longer needed.',
                 ),
@@ -955,6 +1026,8 @@ class _HostDialogState extends State<HostDialog> {
             key: const Key('host-confirm-down'),
             onPressed:
                 _busy ||
+                    !_centralReady ||
+                    _checkingCentral ||
                     _checkingMemberships ||
                     holders == null ||
                     record == null ||
@@ -971,10 +1044,16 @@ class _HostDialogState extends State<HostDialog> {
                   : 'Take Porelo off',
             ),
           ),
-        if (widget.takeDownOnly && !_givenBack && _problem != null)
+        if (widget.takeDownOnly && !_givenBack && _centralBlockers?.isNotEmpty == true)
+          OutlinedButton(
+            key: const Key('host-give-back-anyway'),
+            onPressed: _busy ? null : () => _giveBack(anyway: true, centralLossConfirmed: true),
+            child: const Text('Give it back anyway'),
+          ),
+        if (widget.takeDownOnly && !_givenBack && _problem != null && _centralBlockers?.isNotEmpty != true)
           OutlinedButton(
             key: const Key('host-force-down'),
-            onPressed: _busy ? null : () => _giveBack(anyway: true),
+            onPressed: _busy || !_centralReady ? null : () => _giveBack(anyway: true),
             child: const Text('Go on without a backup'),
           ),
       ],
