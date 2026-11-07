@@ -250,6 +250,16 @@ void main() {
     expect(made.connected('build'), isTrue);
   });
 
+  // Harm: *Open its forge* opens a forwarded address that no longer leads anywhere, or never one at all.
+  test("a host's forge address is the card's while connected, and none once disconnected", () async {
+    final made = await connections(_mia());
+    expect(made.forgeUrl('build'), isNull);
+    await made.connect('build');
+    expect(made.forgeUrl('build'), 'http://build.localhost:8081/');
+    await made.disconnect('build');
+    expect(made.forgeUrl('build'), isNull);
+  });
+
   // Harm: a new host offers its token only once connected, and makes the account only with the token: nobody gets in.
   test("a host waiting for its first token keeps its host admin's connection files, to give it", () async {
     final made = await connections(_mia(host: _hostOfMia));

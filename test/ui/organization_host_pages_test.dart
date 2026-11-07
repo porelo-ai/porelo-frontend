@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:porelo_host/porelo_host.dart' show HostCardSsh;
 import 'package:porelo_frontend/src/app/host_progress.dart';
+import 'package:porelo_frontend/src/app/links.dart';
 import 'package:porelo_frontend/src/app/organization_source.dart';
 import 'package:porelo_frontend/src/ui/organization_host_pages.dart';
 import 'package:porelo_frontend/src/ui/organization_page.dart';
@@ -73,6 +75,128 @@ void main() {
     }
     await tester.pumpWidget(const SizedBox.shrink());
   });
+
+  for (final onPage in [false, true]) {
+    group(onPage ? "opening a machine's forge from its page" : "opening a machine's forge from its row", () {
+      late List<Uri> opened;
+
+      setUp(() {
+        opened = [];
+        final previous = openLink;
+        openLink = (address) async => opened.add(address);
+        addTearDown(() => openLink = previous);
+      });
+
+      Future<void> menu(WidgetTester tester, _ForgeConnections connections, {OrganizationView? view}) async {
+        tester.view.physicalSize = const Size(1280, 800);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        addTearDown(connections.dispose);
+        final organization = Organization(FixtureOrganization(view ?? organizationFor('mia')));
+        addTearDown(organization.dispose);
+        await organization.refresh();
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: onPage
+                  ? OrganizationHostPage(
+                      organization: organization,
+                      host: 'build',
+                      connections: connections,
+                      onBack: () {},
+                    )
+                  : OrganizationPage(organization: organization, connections: connections, onHost: (_) {}),
+            ),
+          ),
+        );
+        await tester.pump();
+        final button = find.byTooltip('What can be done with build');
+        await tester.ensureVisible(button);
+        await tester.pump();
+        await tester.tap(button);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+      }
+
+      // Harm: the browser reaches a rejected address or another machine's forge.
+      testWidgets('a connected host opens the forwarded address from its own card', (tester) async {
+        await menu(tester, _ForgeConnections(connected: true));
+        await tester.tap(find.text('Open its forge'));
+        await tester.pump();
+        expect(opened, [Uri.parse('http://build.localhost:9471/')]);
+      });
+
+      // Harm: a browser opens a local port that no longer belongs to this connection.
+      testWidgets('a disconnected host keeps the command disabled with its connection reason', (tester) async {
+        await menu(tester, _ForgeConnections(connected: false));
+        final command = find.ancestor(of: find.text('Open its forge'), matching: find.byType(PopupMenuItem<String>));
+        expect(tester.widget<PopupMenuItem<String>>(command).enabled, isFalse);
+        expect(find.textContaining('Connect first: the forge is reached through the connection'), findsOneWidget);
+        await tester.tap(find.text('Open its forge'));
+        await tester.pump();
+        expect(opened, isEmpty);
+      });
+
+      // Harm: a person is sent to connect to reach a forge the machine does not run.
+      testWidgets('a host the organization lists without a forge says so before any connection', (tester) async {
+        const plain = OrganizationHost(
+          name: 'build',
+          address: '203.0.113.7',
+          port: 22,
+          hostKey: 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcH',
+          admins: ['mia'],
+        );
+        await menu(tester, _ForgeConnections(connected: false), view: organizationFor('mia', host: plain));
+        expect(find.textContaining('This host has no forge.'), findsOneWidget);
+        expect(find.textContaining('Connect first'), findsNothing);
+      });
+
+      // Harm: a host running no forge opens an unrelated service on a guessed port.
+      testWidgets('a connected host without a forge keeps the command disabled and says why', (tester) async {
+        await menu(tester, _ForgeConnections(connected: true, webPort: null));
+        final command = find.ancestor(of: find.text('Open its forge'), matching: find.byType(PopupMenuItem<String>));
+        expect(tester.widget<PopupMenuItem<String>>(command).enabled, isFalse);
+        expect(find.textContaining('This host has no forge.'), findsOneWidget);
+        await tester.tap(find.text('Open its forge'));
+        await tester.pump();
+        expect(opened, isEmpty);
+      });
+
+      // Harm: an entry left open through a disconnect opens a port after its forward has ended.
+      testWidgets('disconnecting while the menu is open prevents the browser from opening', (tester) async {
+        final connections = _ForgeConnections(connected: true);
+        await menu(tester, connections);
+        await connections.disconnect('build');
+        await tester.pump();
+        await tester.tap(find.text('Open its forge'));
+        await tester.pump();
+        expect(opened, isEmpty);
+      });
+
+      // Harm: a kept card outlives its tunnel and opens a port whose forward has ended.
+      testWidgets('a lost tunnel disables the command even while its card is kept', (tester) async {
+        final connections = _ForgeConnections(connected: true).._loseForward();
+        await menu(tester, connections);
+        final command = find.ancestor(of: find.text('Open its forge'), matching: find.byType(PopupMenuItem<String>));
+        expect(tester.widget<PopupMenuItem<String>>(command).enabled, isFalse);
+        expect(find.textContaining('Connect first: the forge is reached through the connection'), findsOneWidget);
+        await tester.tap(find.text('Open its forge'));
+        await tester.pump();
+        expect(opened, isEmpty);
+      });
+
+      // Harm: an entry left open through a lost tunnel opens a local port without its forward.
+      testWidgets('losing the tunnel while the menu is open prevents the browser from opening', (tester) async {
+        final connections = _ForgeConnections(connected: true);
+        await menu(tester, connections);
+        connections._loseForward();
+        await tester.pump();
+        await tester.tap(find.text('Open its forge'));
+        await tester.pump();
+        expect(opened, isEmpty);
+      });
+    });
+  }
 
   group('a machine\'s admin puts a project on it from the organization', () {
     Future<(FixtureOrganization, FixtureConnections)> organization(
@@ -947,4 +1071,32 @@ class _DownConnections extends FixtureConnections {
 
   @override
   bool up(String host) => false;
+}
+
+class _ForgeConnections extends FixtureConnections {
+  _ForgeConnections({required bool connected, int? webPort = 9471})
+    : _card = HostCardSsh(
+        name: 'build',
+        address: buildHost.address!,
+        sshPort: buildHost.port!,
+        hostKey: buildHost.hostKey!,
+        login: 'mia',
+        publicKey: buildHost.hostKey!,
+        webPort: webPort,
+      ),
+      super(connected ? ['build'] : []);
+
+  final HostCardSsh _card;
+  bool _forwardUp = true;
+
+  void _loseForward() {
+    _forwardUp = false;
+    notifyListeners();
+  }
+
+  @override
+  bool up(String host) => _forwardUp && super.up(host);
+
+  @override
+  String? forgeUrl(String host) => host == _card.name ? _card.forgeUrl : null;
 }

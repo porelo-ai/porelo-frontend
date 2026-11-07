@@ -607,6 +607,7 @@ class _OrganizationPageState extends State<OrganizationPage> {
             onProtocol: widget.onProtocol,
             onGiveToken: widget.onGiveToken == null ? null : () => unawaited(widget.onGiveToken!(host.name)),
             commands: [
+              openHostForgeCommand(host: host.name, connections: widget.connections, hasForge: host.webPort != null),
               if (widget.takeOff != null &&
                   (view.mayRemove(host) || (view.holdsRoles && host.admins.contains(view.me))))
                 widget.takeOff!(host),

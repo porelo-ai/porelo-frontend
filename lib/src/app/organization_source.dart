@@ -785,6 +785,9 @@ abstract class HostConnections extends ChangeNotifier {
   /// Whether this computer is connected to [host].
   bool connected(String host);
 
+  /// The forwarded forge URL from [host]'s card while connected, or `null` where none is held.
+  String? forgeUrl(String host) => null;
+
   /// Whether that connection is up: a host still waiting for its first token has made no account to connect to.
   bool up(String host) => connected(host);
 

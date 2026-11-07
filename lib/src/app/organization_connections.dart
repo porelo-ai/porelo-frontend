@@ -49,6 +49,9 @@ class CardHostConnections extends HostConnections {
     return card != null && !machine!.disconnected && !_movedPast(card);
   }
 
+  @override
+  String? forgeUrl(String host) => connected(host) ? _machine(host)?.hostCard?.forgeUrl : null;
+
   /// The hosts the last *Connect* found waiting for a first token.
   final Set<String> _waiting = <String>{};
 

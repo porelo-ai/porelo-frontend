@@ -976,6 +976,10 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
           onAsk: _acting || why != null ? null : () => _act(() => connections!.connect(name), byAButton: true),
           label: const Text('Connect'),
         ),
+      CommandMenu(
+        commands: [openHostForgeCommand(host: name, connections: connections, hasForge: host.webPort != null)],
+        tooltip: 'What can be done with $name',
+      ),
       if (!ready && !_acting)
         if (connections case final held?) LastConnectAttempt(held, name),
     ];
@@ -1003,10 +1007,8 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
               'brings it back.',
               style: Theme.of(context).textTheme.bodySmall,
             ),
-          if (buttons.isNotEmpty) ...[
-            const SizedBox(height: Space.small),
-            Wrap(spacing: Space.small, runSpacing: Space.small, children: buttons),
-          ],
+          const SizedBox(height: Space.small),
+          Wrap(spacing: Space.small, runSpacing: Space.small, children: buttons),
           // Where *Start work* is not offered, what stands in its way, said once beside where it would be.
           if (!ready && widget.onStartWork != null && view.myHosts.contains(host))
             Padding(

@@ -26,6 +26,8 @@ import 'vault.dart';
 import 'project_transfers.dart';
 import 'central_reviews.dart';
 import 'forge.dart';
+import 'links.dart';
+import 'organization_source.dart';
 import 'widening.dart';
 
 /// Where an action lives on screen, so the finder can go there and show it.
@@ -98,6 +100,29 @@ Command organizationCommand({
   unavailable: unavailable,
   danger: danger,
 );
+
+/// Opens [host]'s forge through its connection using the address its card supplies; [hasForge] is what the
+/// organization says of it, known before any connection.
+Command openHostForgeCommand({required String host, required HostConnections? connections, bool hasForge = true}) {
+  String? whyUnavailable() {
+    if (!hasForge) return 'This host has no forge.';
+    if (!(connections?.up(host) ?? false)) {
+      return 'Connect first: the forge is reached through the connection';
+    }
+    return connections?.forgeUrl(host) == null ? 'This host has no forge.' : null;
+  }
+
+  return Command(
+    id: 'organization.openForge/$host',
+    label: 'Open its forge',
+    group: 'Organization',
+    home: Home.organizationRow,
+    unavailableNow: whyUnavailable,
+    run: () {
+      if (connections?.forgeUrl(host) case final address?) unawaited(openLink(Uri.parse(address)));
+    },
+  );
+}
 
 /// Leaves a view onto work without interrupting the work itself.
 Command leaveWorkCommand(VoidCallback leave, {String? unavailable}) => Command(

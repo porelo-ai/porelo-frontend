@@ -1,6 +1,6 @@
 # F427 — A Host's Forge Opened From Its Machine
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** S - one command on the organization's machine row and the machine's page, from the forward the window
 already raises, and its test.
 
@@ -31,3 +31,10 @@ open it: *My forges* listed only the central forge, and the machine had no *Open
 - A connected host with a forge offers *Open its forge* on its row and its page, and it opens
   `http://<host>.localhost:<port>/`.
 - Not connected, the command is listed grey with its reason; a host without a forge says it has none.
+
+## Reading
+
+- The card's forge address is given only while connected, and has a test of its own on the real connections.
+- A host the organization lists without a forge says so before any connection, not "Connect first".
+- The command's run no longer repeats the check the menu makes before it runs.
+

@@ -70,6 +70,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f425"></a>[F425](F425-The-Repositories-Put-On-A-Machine-Chosen-From-A-List.md) | S | — | Putting some of a project's repositories on a machine lists them by full name with the key beside, checkboxes, a search field, *All* and *None*. |
 | <a id="f426"></a>[F426](F426-A-Forward-Names-Where-It-Goes-And-Its-Branch.md) | S | — | A forward names the forge and repository it goes to and starts with the task's branch, or the one last used for the task, filled in and changeable. |
 | <a id="f428"></a>[F428](F428-A-Machine-Given-Back-Only-With-Its-Work-At-Central.md) | S | — | A machine's page says how each taken repository stands with central, and the give-back is refused while one is ahead, moved on or cannot say, with *Give it back anyway*. |
+| <a id="f427"></a>[F427](F427-A-Hosts-Forge-Opened-From-Its-Machine.md) | S | — | A connected host's row and machine page offer *Open its forge*, at the address its forge answers to. |
 
 ### Rework
 
@@ -81,7 +82,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f427"></a>[F427](F427-A-Hosts-Forge-Opened-From-Its-Machine.md) | S | — | A connected host's row and machine page offer *Open its forge*, at the address its forge answers to. |
 
 ### Backlog
 
