@@ -10,7 +10,7 @@ import '../support/host_organization.dart';
 void main() {
   // Harm: a person the organization names as neither admin is offered preparing a machine and refused only inside it;
   // or the person who holds no organization yet has no way to see why it cannot be done.
-  testWidgets('a person with no role in the organization is not offered Prepare a machine…', (tester) async {
+  testWidgets('a person with no role in the organization is not offered Set up a machine…', (tester) async {
     final fixture = HostFixture()
       ..admin = false
       ..organizationAdmin = false;
@@ -21,7 +21,7 @@ void main() {
     expect(find.byKey(const Key('host.prepare')), findsNothing);
   });
 
-  testWidgets('with nothing read yet Prepare a machine… stays and says why', (tester) async {
+  testWidgets('with nothing read yet Set up a machine… stays and says why', (tester) async {
     await World.startBackend(World.work);
     await World.startApp(tester);
     World.shell.goTo(Section.machines);

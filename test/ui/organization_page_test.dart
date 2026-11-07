@@ -386,7 +386,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.textContaining('spare has no address yet.'), findsOneWidget);
+      expect(find.textContaining('spare is listed, not set up yet.'), findsOneWidget);
       expect(_action('openHost/spare'), findsNothing);
       expect(_action('enterHost/spare'), findsOneWidget);
       await tester.ensureVisible(find.byKey(const ValueKey('organization.prepare/spare')));
@@ -396,7 +396,7 @@ void main() {
 
     testWidgets('anyone else reads who it waits for, with nothing to press', (tester) async {
       await _pump(tester, 'hana');
-      expect(find.textContaining('spare has no address yet. It waits for olive.'), findsOneWidget);
+      expect(find.textContaining('spare is listed, not set up yet. It waits for olive.'), findsOneWidget);
       expect(find.byKey(const ValueKey('organization.prepare/spare')), findsNothing);
       expect(_action('enterHost/spare'), findsNothing);
     });

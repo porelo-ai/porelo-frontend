@@ -144,12 +144,16 @@ void main() {
       WidgetTester tester,
       OrganizationView view, {
       FixtureConnections? connections,
+      Future<String?> Function(String host)? onGiveToken,
     }) async {
       final organization = Organization(FixtureOrganization(view));
       addTearDown(organization.dispose);
       final made = connections ?? FixtureConnections();
       final opened = <String>[];
-      await _settle(tester, OrganizationPage(organization: organization, connections: made, onHost: opened.add));
+      await _settle(
+        tester,
+        OrganizationPage(organization: organization, connections: made, onHost: opened.add, onGiveToken: onGiveToken),
+      );
       return (connections: made, opened: opened);
     }
 
@@ -163,6 +167,26 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('organization.toToken/build')));
       await tester.pumpAndSettle();
       expect(made.opened, ['build']);
+    });
+
+    // Harm: the row's *Give it your token…* opens the machine's page, where no token is offered until a live run waits.
+    testWidgets("the row's token button opens the token's page for that machine", (tester) async {
+      final connections = FixtureConnections()..waiting.add('build');
+      final asked = <String>[];
+      final made = await section(
+        tester,
+        organizationFor('hana'),
+        connections: connections,
+        onGiveToken: (host) async {
+          asked.add(host);
+          return null;
+        },
+      );
+      await pressOrganizationAction(tester, 'connect/build');
+      await tester.tap(find.byKey(const ValueKey('organization.toToken/build')));
+      await tester.pumpAndSettle();
+      expect(asked, ['build']);
+      expect(made.opened, isEmpty);
     });
 
     // Harm: the one who cannot give it is sent after a button they do not have.
@@ -221,7 +245,7 @@ void main() {
     // Harm: Connect fails with no way to tell why, or no address is mistaken for a broken network.
     testWidgets('a host with no address says so and cannot be connected to', (tester) async {
       await section(tester, organizationFor('olive'));
-      expect(find.textContaining('spare has no address yet.'), findsOneWidget);
+      expect(find.textContaining('spare is listed, not set up yet.'), findsOneWidget);
       expect(tester.widget<FilledButton>(_action('connect/spare')).onPressed, isNull);
     });
 

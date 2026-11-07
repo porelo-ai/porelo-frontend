@@ -750,7 +750,7 @@ List<Command> projectCommands({
 Command prepareServerCommand({FutureOr<void> Function()? open, HostAccess? access}) => Command(
   id: 'host.prepare',
   hidden: access?.offersPreparing == false,
-  label: 'Prepare a machine…',
+  label: 'Set up a machine…',
   group: 'Machines',
   home: Home.machineRow,
   run: () {

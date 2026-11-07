@@ -43,6 +43,7 @@ class _Ssh {
 }
 
 void main() {
+  knownWithAnotherTests();
   test('Windows host key checks and replacement use its OpenSSH instead of a program on PATH', () async {
     final home = Directory.systemTemp.createTempSync('host-keys-');
     addTearDown(() => home.deleteSync(recursive: true));
@@ -208,5 +209,50 @@ void main() {
 
     expect(File(own).readAsStringSync(), '|1|abc= ssh-ed25519 AAAAC3Nza\n');
     expect(File('${home.path}/.ssh/known_hosts').existsSync(), isFalse);
+  });
+}
+
+// Harm: an address given again to a new server is known with the old server's key, nothing says so, and the first
+// login from the person's own terminal fails, or the old line is removed before anything was compared.
+void knownWithAnotherTests() {
+  group('an address known with another key', () {
+    // Harm: a provider's reused address runs into the deleted server's key with no word of why, or the old line is
+    // taken out before the new key was compared.
+    test('is found, with the other key\'s fingerprint and the file that holds it', () async {
+      final ssh = _Ssh(config: 'hostname 192.0.2.7\nport 22\nuserknownhostsfile /k/known_hosts /k/known_hosts2\n')
+        ..knows['/k/known_hosts'] = <String>{'192.0.2.7'}
+        ..knownKey = 'ssh-ed25519 AAAAoldserver';
+      final keys = SshHostKeys(run: ssh.run, home: '/home/tester');
+      final known = await keys.knownWithAnother('192.0.2.7', 'ssh-ed25519 AAAAnewserver');
+      expect(known, isNotNull);
+      expect(known!.files, ['/k/known_hosts']);
+      expect(known.fingerprints, ['256 SHA256:fingerprint build.example.test (ED25519)']);
+      expect(ssh.given, contains('AAAAoldserver'));
+      expect(ssh.ran.where((each) => each.contains('-R')), isEmpty, reason: 'finding removes nothing');
+      await keys.forget(known);
+      expect(ssh.ran.last, ['ssh-keygen', '-R', '192.0.2.7', '-f', '/k/known_hosts']);
+    });
+
+    // Harm: the person is told of another server, and their entry is taken out, when the server is the one they know.
+    test('the same key known is no other key', () async {
+      final ssh = _Ssh(config: 'hostname 192.0.2.7\nport 22\nuserknownhostsfile /k/known_hosts\n')
+        ..knows['/k/known_hosts'] = <String>{'192.0.2.7'}
+        ..knownKey = 'ssh-ed25519 AAAAsame';
+      expect(
+        await SshHostKeys(run: ssh.run, home: '/home/tester').knownWithAnother('192.0.2.7', 'ssh-ed25519 AAAAsame'),
+        isNull,
+      );
+    });
+
+    // Harm: the same server's key of another type reads as another server, and every line for it is taken out.
+    test('a key of another type is no other key', () async {
+      final ssh = _Ssh(config: 'hostname 192.0.2.7\nport 22\nuserknownhostsfile /k/known_hosts\n')
+        ..knows['/k/known_hosts'] = <String>{'192.0.2.7'}
+        ..knownKey = 'ssh-rsa AAAArsaofthesameserver';
+      expect(
+        await SshHostKeys(run: ssh.run, home: '/home/tester').knownWithAnother('192.0.2.7', 'ssh-ed25519 AAAAsame'),
+        isNull,
+      );
+    });
   });
 }

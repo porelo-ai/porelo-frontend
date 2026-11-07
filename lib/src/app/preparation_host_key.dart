@@ -39,3 +39,41 @@ Future<PreparationHostKey> fetchPreparationHostKey(String address, {int port = 2
     );
   }
 }
+
+/// Computes the SHA256 fingerprint of a pasted [key] as `ssh-keygen` does, so a pasted key is compared as a fetched
+/// one.
+Future<String> fingerprintOfPastedKey(String key, {RunHere? run}) async {
+  final execute = run ?? runHere;
+  try {
+    final checked = key.trim().split(RegExp(r'\s+')).take(2).join(' ');
+    checkedEd25519(checked);
+    final printed = await execute(openSsh('ssh-keygen'), ['-lf', '-'], input: '$checked\n');
+    final fingerprint = RegExp(r'^256 (SHA256:[A-Za-z0-9+/]{43})\s').firstMatch(printed.out.trim());
+    if (printed.code != 0 || fingerprint == null) throw const FormatException();
+    return fingerprint.group(1)!;
+  } on Exception {
+    throw const WorkspaceRefused(
+      'This is no ssh-ed25519 public key. Paste the line from the server\'s '
+      '/etc/ssh/ssh_host_ed25519_key.pub, or fetch it.',
+    );
+  }
+}
+
+/// Says why the server at [address] does not answer SSH, or null where a key scan gets any answer; nothing it says
+/// is trusted.
+Future<String?> whySshDoesNotAnswer(String address, {RunHere? run}) async {
+  if (!RegExp(r'^[A-Za-z0-9][A-Za-z0-9.:-]*$').hasMatch(address)) {
+    return 'Give the server name or IP address the provider shows.';
+  }
+  final execute = run ?? runHere;
+  try {
+    final scan = await execute(openSsh('ssh-keyscan'), ['-T', '5', '-p', '22', address]);
+    final answered = scan.out.split('\n').any((line) => line.trim().isNotEmpty && !line.trimLeft().startsWith('#'));
+    if (answered) return null;
+    final said = scan.err.trim().split('\n').where((line) => line.trim().isNotEmpty).lastOrNull?.trim() ?? '';
+    return 'The server does not answer SSH at $address yet${said.isEmpty ? '' : ': $said'}. Wait until your provider '
+        'reports it ready, then try again.';
+  } on Exception catch (error) {
+    return 'This computer could not ask $address: $error';
+  }
+}

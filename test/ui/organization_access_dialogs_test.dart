@@ -8,6 +8,7 @@ import 'package:porelo_frontend/src/app/core_credentials.dart';
 import 'package:porelo_frontend/src/app/device_key.dart';
 import 'package:porelo_frontend/src/app/forge.dart';
 import 'package:porelo_frontend/src/app/forge_connection.dart';
+import 'package:porelo_frontend/src/app/host_token_sources.dart';
 import 'package:porelo_frontend/src/app/organization_source.dart';
 import 'package:porelo_frontend/src/ui/organization_access_dialogs.dart';
 
@@ -74,8 +75,18 @@ void main() {
         present: true,
       ),
     ];
-    final held = await thisComputersDeclarations(localBackend: backend, deviceKeys: MemoryDeviceKeyStore());
+    final held = await readThisComputersDeclarations(localBackend: backend);
     expect(held.map((each) => each.id), ['org-token']);
+  });
+
+  // Harm: this computer's Porelo not answering reads as a vault without a token, and the person is told to sign in
+  // somewhere when the cause is a daemon that does not answer.
+  test("this computer's Porelo not answering is said as that, never as no declarations", () async {
+    final backend = _UnansweringBackend();
+    await expectLater(
+      readThisComputersDeclarations(localBackend: backend),
+      throwsA(isA<DeclarationsUnread>().having((unread) => unread.words, 'words', contains('did not answer'))),
+    );
   });
 
   // Harm: a configured forge on another HTTPS port is blocked, or receives a token meant for the default port.
@@ -500,4 +511,11 @@ class _CountingTokens extends MemoryForgeTokens {
     reads++;
     return super.read(forge);
   }
+}
+
+class _UnansweringBackend extends FakeBackend {
+  _UnansweringBackend() : super([]);
+
+  @override
+  Future<VaultState> credentials() async => throw const VarlinkDisconnected('the socket was closed');
 }

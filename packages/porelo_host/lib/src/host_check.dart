@@ -357,10 +357,36 @@ Future<HostCheckAnswer> askHostCheck(
     return const HostCheckAnswer.notAnswered('The machine answered far more than a check says.');
   }
   if (_sshOrShellFault(result) case final why?) return HostCheckAnswer.notAnswered(why);
+  if (_providersLine(lines) case final line?) return HostCheckAnswer.notAnswered(bootstrapNotRun(line));
   final answer = HostCheckAnswer.read(lines.join('\n'), exitCode: result.exitCode);
-  final tail = _lastLine(result.stderr);
-  return answer.answered || tail.isEmpty ? answer : HostCheckAnswer.notAnswered('${answer.said} It said: $tail');
+  if (answer.answered) return answer;
+  // Some refusals say nothing on standard error, and their one word stands on standard output.
+  final tail = _lastLine(result.stderr).isNotEmpty ? _lastLine(result.stderr) : _lastLine(lines.join('\n'));
+  return HostCheckAnswer.notAnswered(
+    tail.isEmpty
+        ? '${answer.said} It ended with exit ${result.exitCode}.'
+        : '${answer.said} It said: $tail (exit ${result.exitCode})',
+  );
 }
+
+/// What a cloud image's root login prints in place of a shell until the bootstrap line replaced its keys.
+final _providersRefusal = RegExp(r'Please login as the user "?([A-Za-z0-9._-]+)"? rather than the user "?root"?');
+
+/// The provider's own refusal of root among [lines], or null where none stands there.
+String? _providersLine(List<String> lines) {
+  for (final line in lines) {
+    if (_providersRefusal.hasMatch(line)) return _lastLine(line);
+  }
+  return null;
+}
+
+/// Says that root's login still answers with the provider's [line], so the bootstrap line has not run yet.
+String bootstrapNotRun(String line) =>
+    'The bootstrap line has not run: root\'s login still answers with the provider\'s line "$line". Run the '
+    'bootstrap line on the server, logged in with the provider\'s first login, then check again.';
+
+/// Whether [output] is a root login answered by the provider's own refusal rather than a shell.
+bool isProvidersRootRefusal(String output) => _providersLine(const LineSplitter().convert(output)) != null;
 
 /// Why the script never ran, told from ssh's own exit and words or the shell's; null when it ran.
 String? _sshOrShellFault(RemoteResult result) {

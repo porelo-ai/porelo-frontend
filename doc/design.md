@@ -235,23 +235,29 @@ never reads as up to date. The answer can be five minutes old and says when it w
 approved main…* stands beside the row while commits wait, for every member not locked, as pushing is no admin's
 privilege, and the push itself decides.
 
-*Prepare a machine…* opens for a person the organization names as a Machine Admin of that very machine, judged on what
-`porelo org --json` answers, read again before anything happens; a `stale` answer prepares nothing. The dialog
-names the person's own key in the line that lets them in as root, in a terminal of their own. Before `up` starts,
+*Set up a machine…* opens for a person the organization names as a Machine Admin of that very machine, judged on what
+`porelo org --json` answers, read again before anything happens; a `stale` answer prepares nothing. The wizard asks
+one question per page, and a page opens only once the one before it holds: an address answering SSH, a key fetched by
+hand and compared on the server, a root login that answers with the card key. It names the person's own key in the
+line that lets them in as root, run in a terminal on the server that trusts only the compared key; an address the
+person's `known_hosts` holds with another key is said so, and that key goes only once the new one is compared. A key
+that changed between comparing and *Prepare* starts nothing and returns to the key's page. Before `up` starts,
 the interface writes the machine file whose `organization` part the host reads: the organization's `settings`, the
 central forge's lines from the person's own `known_hosts` (first use is not trusted, so none stops here) and a
 `login key` pin from every row of `hosts[].admins`, backup keys included; a row with no key refuses the whole pin.
 
-The dialog opens at the click and does that read inside it, *Prepare the host* unavailable until the answer and a refusal
+The wizard opens at the click and does that read inside it, its first *Next* unavailable until the answer and a refusal
 shown there. A run belongs to the window, not to its dialog: the dialog says at once what runs and that it can take
 minutes, closes while the run goes on, and the machine's row opens the protocol again. No role is given at the interface's
-start: what a person is offered follows from the organization's answer alone, and *Prepare a machine…* shows for an
-Organization Admin, a Machine Admin, or a person who reads no organization yet. The server's SSH host key is fetched and
-its fingerprint shown to confirm. Over ssh only the card's key is offered, so that more than six keys in the agent do not
-stop `up` at sshd's limit. Root's first login with another key than the card's stays by hand.
+start: what a person is offered follows from the organization's answer alone, and *Set up a machine…* shows for an
+Organization Admin, a Machine Admin, or a person who reads no organization yet. Over ssh only the card's key is offered, so that more than
+six keys in the agent do not stop `up` at sshd's limit.
 
 When `up` reports the host, its real address, ssh port, host key and service ports go on its card by `porelo org
-host change`, the machine is added and followed, and the token is handed over once. Should `up` stop, or the card be
+host change`, the machine is added and followed. The token is a step of its own, on the wizard's last page or behind *Give it your
+token…* on the machine's row: it names each source it asked, this computer's Porelo-Vault, the token kept under *My
+forges* and the secrets file, with what each answered, and a source that could not be asked is said as that, never as
+holding none. Should `up` stop, or the card be
 refused, nothing is given back, as `up` rents nothing: it takes only a server given to it, and renting returns as
 planned for 0.9, sprint 5. The server stays as it is, and that is said in words. On a given server *Take Porelo off this machine…*
 takes the setup off, and releasing it at the provider is the person's own step; a saved rental from before is

@@ -156,10 +156,12 @@ same name and server takes the setup off. If a step of it fails, it keeps what i
 be lost, and names the ways out: `down` again, or `down --give-back-anyway`. Every step is one JSON line
 on standard output.
 
-**In the interface,** *Prepare a machine…* under *Organization* does this for a Machine Admin of that very machine: it
-asks the machine's name and the server's address, fetches its SSH host key for you to compare and confirm, shows the line to run on the server that
-lets you in as root, writes the machine file, and files the real address and ports on the machine's card
-when `up` reports them. Starting setup marks the machine as *In preparation*, showing the current step, start
+**In the interface,** *Set up this machine…* under *Organization* does this for a Machine Admin of that very machine, as
+a wizard of one question per page: the machine, the server's address once it answers SSH, its SSH host key fetched when
+you ask and compared on the server, what it will run, root's login handed over in a terminal on the server until root
+answers with your card key, and the check. It then writes the machine file, files the real address and ports on the
+machine's card when `up` reports them, and its last page gives the machine your forge token, saying what each source
+answered. Starting setup marks the machine as *In preparation*, showing the current step, start
 times, durations and estimated time remaining; closing the interface keeps it across restarts with *Go on*.
 *Take Porelo off this machine…*, or *Return this rental…* where a saved rental stands, confirms the consequences,
 naming who still holds an account on the machine and deleting only the accounts you confirm, before running `down`

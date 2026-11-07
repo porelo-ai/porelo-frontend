@@ -55,6 +55,22 @@ class HostKeyCheck {
   final bool pinnedByHost;
 }
 
+/// A server's address that the person's own `known_hosts` holds with another key than the one now compared: what a
+/// rented address given again to a new server looks like, and what a man in the middle looks like too.
+class KnownWithAnother {
+  /// Keeps where and what.
+  const KnownWithAnother({required this.host, required this.files, required this.fingerprints});
+
+  /// The host as `known_hosts` names it.
+  final String host;
+
+  /// The files that hold the other key.
+  final List<String> files;
+
+  /// The other key's fingerprints, one line each, as `ssh-keygen -l` prints them.
+  final List<String> fingerprints;
+}
+
 /// Confirming a machine's host key before the first login, **never silently**.
 ///
 /// Every connection here runs with `BatchMode=yes`, so an unknown host key is a failure rather than
@@ -199,6 +215,66 @@ class SshHostKeys implements HostKeys {
           if (line.trim().isNotEmpty) line.trim(),
       ],
     );
+  }
+
+  /// Finds what the person's own `known_hosts` holds for [address] that is not [key]; null where it holds nothing
+  /// else.
+  Future<KnownWithAnother?> knownWithAnother(String address, String key) async {
+    final config = await _run(<String>['ssh', '-G', '--', address]);
+    if (config.exitCode != 0) return null;
+    final settings = <String, String>{};
+    for (final line in '${config.stdout}'.split('\n')) {
+      final space = line.indexOf(' ');
+      if (space > 0) settings.putIfAbsent(line.substring(0, space), () => line.substring(space + 1));
+    }
+    final hostname = settings['hostname'] ?? address;
+    final port = settings['port'] ?? '22';
+    final host = port == '22' ? hostname : '[$hostname]:$port';
+    final files = <String>[
+      for (final named in (settings['userknownhostsfile'] ?? '~/.ssh/known_hosts').split(' ')) _paths.expandHome(named),
+    ];
+    final compared = _keyOf('x ${key.trim()}');
+    // A key of another type, such as the same server's RSA key, is no sign of another server.
+    final type = compared.split(' ').first;
+    final others = <String>[];
+    final knownIn = <String>[];
+    for (final file in files) {
+      final found = await _run(<String>['ssh-keygen', '-F', host, '-f', file]);
+      if (found.exitCode != 0) continue;
+      final lines = [
+        for (final line in '${found.stdout}'.split('\n'))
+          if (line.trim().isNotEmpty &&
+              !line.startsWith('#') &&
+              _keyOf(line).split(' ').first == type &&
+              _keyOf(line) != compared)
+            line.trim(),
+      ];
+      if (lines.isEmpty) continue;
+      knownIn.add(file);
+      others.addAll(lines);
+    }
+    if (others.isEmpty) return null;
+    final printed = await _run(<String>['ssh-keygen', '-l', '-f', '-'], input: '${others.join('\n')}\n');
+    return KnownWithAnother(
+      host: host,
+      files: knownIn,
+      fingerprints: <String>[
+        for (final line in '${printed.stdout}'.split('\n'))
+          if (line.trim().isNotEmpty) line.trim(),
+      ],
+    );
+  }
+
+  /// Takes the other key out of every file that held it, once the person compared the new one.
+  Future<void> forget(KnownWithAnother known) async {
+    for (final file in known.files) {
+      final removed = await _run(<String>['ssh-keygen', '-R', known.host, '-f', file]);
+      if (removed.exitCode != 0) {
+        throw StateError(
+          'The old key for ${known.host} could not be taken out of $file: ${'${removed.stderr}'.trim()}',
+        );
+      }
+    }
   }
 
   /// The type and the key of a `known_hosts` or `ssh-keyscan` line, whatever names the host.

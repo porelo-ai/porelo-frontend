@@ -69,7 +69,9 @@ import 'package:porelo_frontend/client.dart';
 import 'package:porelo_host/porelo_host.dart'
     show
         CentralToken,
+        HostCardSsh,
         HostFilesRefused,
+        OpenSsh,
         ProjectTransfer,
         organizationRefreshArguments,
         organizationRefreshFeedCommand,
@@ -78,6 +80,11 @@ import 'package:porelo_host/porelo_host.dart'
         projectTransferFeedCommand;
 
 import '../app/project_transfers.dart';
+import '../app/host_keys.dart' show SshHostKeys;
+import '../app/host_token_sources.dart';
+import '../app/server_first_login.dart' show tryRootLogin;
+import '../app/server_setup.dart';
+import 'server_setup_wizard.dart';
 
 import 'attention_view.dart';
 import 'command_finder.dart';
@@ -3801,25 +3808,84 @@ class _ShellState extends State<Shell> {
     }
   }
 
-  /// A server just prepared: connects to it from its new card and gives it the host admin's central token, once.
+  /// A server just prepared: connects to it from its new card. Its token is a step of its own, on the wizard's last
+  /// page or its row, never a dialog that opens by itself.
   Future<void> _hostReady(String host) async {
-    await _organization?.refresh();
-    final connections = _hostConnections;
-    if (connections == null) return;
     try {
-      await connections.connect(host);
+      await _connectHost(host);
     } on OrganizationRefused catch (refused) {
-      _fleet.say('$host is ready, but no token could be given to it yet: ${refused.words}');
+      _fleet.say('$host is ready, but this window could not connect to it yet: ${refused.words}');
       return;
     }
-    final words = await _giveHostToken(host);
-    if (words != null && mounted) _fleet.say(words);
+    _fleet.say('$host is ready. It waits for your token: Give it your token… on its row.');
   }
 
-  /// Gives [host]'s `org refresh` the host admin's central token: the one this computer keeps, after
-  /// the person's word, or in a terminal from a secrets file or the variable. Answers the words to show
-  /// beside the button, or null where there is nothing to say.
+  Future<void> _connectHost(String host) async {
+    await _organization?.refresh();
+    final connections = _hostConnections;
+    if (connections == null) {
+      throw const OrganizationRefused("This window reads no organization, so it reaches none of its machines.");
+    }
+    await connections.connect(host);
+  }
+
+  /// Every source of a forge token asked for [host], and the one the person chooses given.
+  HostTokenStep _hostTokenStep(String host) {
+    final view = _organization?.view;
+    return HostTokenStep(
+      host: host,
+      sources: HostTokenSources(
+        forge: organizationForgeName(view),
+        repository: view?.address,
+        address: organizationKeptTokenAddress(view),
+        declarations: readThisComputersDeclarations,
+        hasKept: _forges.hasToken,
+        secrets: () => centralToken(widget.settings.secretsFile, desk.environment),
+      ),
+      connect: () => _connectHost(host),
+      give: (answer) => _giveTokenFrom(host, answer),
+    );
+  }
+
+  /// The row's *Give it your token…*: the token's own page, every source with what it answered.
   Future<String?> _giveHostToken(String host) async {
+    final step = _hostTokenStep(host);
+    unawaited(step.ask());
+    final forge = organizationForgeName(_organization?.view);
+    try {
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          key: const Key('organization.tokenPage'),
+          title: Text('Give $host your $forge token, once'),
+          content: SizedBox(
+            width: Sizes.dialog,
+            child: SingleChildScrollView(
+              child: HostTokenPanel(
+                step: step,
+                onSignIn: () {
+                  Navigator.of(context).pop();
+                  _showTheForges();
+                },
+                onUnlock: () async {
+                  await _unlockMachine(Machine.local());
+                  await step.ask();
+                },
+              ),
+            ),
+          ),
+          actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close'))],
+        ),
+      );
+      return step.given || step.problem == null ? null : step.problem;
+    } finally {
+      step.dispose();
+    }
+  }
+
+  /// Gives [host] the token [answer] found: the declared one handed on by Porelo, the kept one fed over ssh, or the
+  /// secrets file's in a terminal. Answers null once the host took it, or why not.
+  Future<String?> _giveTokenFrom(String host, TokenSourceAnswer answer) async {
     final view = _organization?.view;
     final forge = organizationForgeName(view);
     final address = organizationKeptTokenAddress(view);
@@ -3828,102 +3894,26 @@ class _ShellState extends State<Shell> {
     final card = machine?.hostCard;
     if (machine == null || card == null) return 'Connect to $host first.';
     try {
-      // A token this machine's vault declares for the organization is named and handed on by Porelo, never read here;
-      // another can still be given.
-      // This computer's vault, which Porelo's command reads, not the selected machine's.
-      final declarations = await thisComputersDeclarations();
-      if (!mounted) return null;
-      if (declaredOrganizationToken(view?.address ?? '', declarations) case final declared?) {
-        final word = await showDialog<String>(
-          context: context,
-          builder: (context) => AlertDialog(
-            key: const Key('organization.giveToken.declared'),
-            title: Text('Give $host your $forge token, once'),
-            content: SelectableText(declaredTokenWords(host, forge, where, declared)),
-            actions: [
-              TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
-              TextButton(
-                key: const Key('organization.giveToken.another'),
-                onPressed: () => Navigator.of(context).pop('another'),
-                child: const Text('Give another…'),
-              ),
-              FilledButton(
-                key: const Key('organization.giveToken.yes'),
-                onPressed: () => Navigator.of(context).pop('declared'),
-                child: const Text('Give it'),
-              ),
-            ],
-          ),
-        );
-        if (word == null || !mounted) return null;
-        if (word == 'declared') {
+      switch (answer) {
+        case TokenSourceAnswer(source: TokenSource.declared, :final declared?):
           try {
             return handedOverWords(host, declared, handedOver: await _organization!.source.handTokenTo(host));
           } on OrganizationRefused catch (refused) {
             return '$host was given no token: ${refused.words}';
           }
-        }
+        case TokenSourceAnswer(source: TokenSource.kept) when address != null:
+          final command = organizationRefreshArguments(
+            card: card,
+            config: machine.sshConfig,
+            environment: widget.machines.tunnels.configEnvironment ?? desk.environment,
+            windows: desk.isWindows,
+          );
+          return tokenGivenWords(host, forge, await _forges.feedKeptToken(address, command));
+        case TokenSourceAnswer(source: TokenSource.secretsFile, :final secrets?):
+          return await _feedSecrets(host, forge, where, machine, card, secrets);
+        default:
+          return noTokenWords(host, forge);
       }
-      final kept = address != null && await _forges.hasToken(address);
-      if (!mounted) return null;
-      if (kept) {
-        final word = await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            key: const Key('organization.giveToken.confirm'),
-            title: Text('Give $host your $forge token, once'),
-            content: SelectableText(keptTokenWords(host, forge, where)),
-            actions: [
-              TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
-              FilledButton(
-                key: const Key('organization.giveToken.yes'),
-                onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('Give it'),
-              ),
-            ],
-          ),
-        );
-        if (word != true) return null;
-        final command = organizationRefreshArguments(
-          card: card,
-          config: machine.sshConfig,
-          environment: widget.machines.tunnels.configEnvironment ?? desk.environment,
-          windows: desk.isWindows,
-        );
-        return tokenGivenWords(host, forge, await _forges.feedKeptToken(address, command));
-      }
-      final secrets = centralToken(widget.settings.secretsFile, desk.environment);
-      if (secrets == null) return noTokenWords(host, forge);
-      final command = organizationRefreshFeedCommand(
-        card: card,
-        config: machine.sshConfig,
-        token: secrets,
-        environment: widget.machines.tunnels.configEnvironment ?? desk.environment,
-        windows: desk.isWindows,
-      );
-      if (!mounted) return null;
-      String? lastSaid;
-      final end = await runInATerminal(
-        context,
-        lastLine: (line) => lastSaid = line,
-        title: 'Give $host your $forge token, once',
-        explanation:
-            '$host has no account at $where. For setup it uses your $forge token once to add read-only keys '
-            "to the Porelo organization's repository and any waiting projects' central repositories, and to copy those "
-            'projects to its own forge. From then on it reads with those keys. It does not keep the token. '
-            'The token must be allowed to administer those repositories (Administration: write) and read their contents. '
-            '${_centralTokenWords(secrets, host)}',
-        machine: machine,
-        command: command,
-        open: widget.sessions.openTerminal,
-        showCommand: false,
-        completed: '$host took the token.',
-        answersForTheWindow: true,
-      );
-      if (end.started && end.code == 0) return null;
-      if (!end.started) return '$host was given no token: its terminal could not be opened.';
-      final last = lastSaid?.trim() ?? '';
-      return '$host did not take the token: ${last.isEmpty ? 'its terminal ended with code ${end.code}' : last}';
     } on HostFilesRefused catch (refused) {
       return refused.message;
     } on FormatException catch (refused) {
@@ -3935,6 +3925,46 @@ class _ShellState extends State<Shell> {
     } on ProcessException catch (failed) {
       return 'This computer could not run ssh, so $host was given no token: ${failed.message}';
     }
+  }
+
+  Future<String?> _feedSecrets(
+    String host,
+    String forge,
+    String where,
+    Machine machine,
+    HostCardSsh card,
+    CentralToken secrets,
+  ) async {
+    final command = organizationRefreshFeedCommand(
+      card: card,
+      config: machine.sshConfig,
+      token: secrets,
+      environment: widget.machines.tunnels.configEnvironment ?? desk.environment,
+      windows: desk.isWindows,
+    );
+    if (!mounted) return null;
+    String? lastSaid;
+    final end = await runInATerminal(
+      context,
+      lastLine: (line) => lastSaid = line,
+      title: 'Give $host your $forge token, once',
+      explanation:
+          '$host has no account at $where. For setup it uses your $forge token once to add read-only keys '
+          "to the Porelo organization's repository and any waiting projects' central repositories, and to copy those "
+          'projects to its own forge. From then on it reads with those keys. It does not keep the token. '
+          'The token must be allowed to administer those repositories (Administration: write) and read their contents. '
+          '${_centralTokenWords(secrets, host)}',
+      machine: machine,
+      command: command,
+      open: widget.sessions.openTerminal,
+      showCommand: false,
+      completed: '$host took the token.',
+      answersForTheWindow: true,
+    );
+    if (end.started && end.code == 0) return null;
+    if (!end.started) return '$host was given no token: its terminal could not be opened.';
+    final last = lastSaid?.trim() ?? '';
+    return '$host did not take the token: ${last.isEmpty ? 'its terminal ended with code ${end.code}' : last}';
   }
 
   /// What a terminal feeding the central token to [target] will ask of the person.
@@ -4112,17 +4142,66 @@ class _ShellState extends State<Shell> {
   }
 
   /// One server's one page, reached from either list: where a person stands, what they do there, and its managing.
-  /// Opens *Prepare a machine*, with the check where the collection carried here holds one.
+  /// Opens *Set up a machine*, with the check where the collection carried here holds one.
   Future<void> _openPrepare({String? machineName}) async {
     final hostCheck = await HostCheckRun().ifCarried();
     if (!mounted) return;
-    await openPrepareServerDialog(
-      context,
-      machines: widget.machines,
+    final keys = SshHostKeys();
+    final setup = ServerSetup(
+      access: _hostRuns.hostAccess,
+      runs: _hostRuns,
       settings: widget.settings,
-      hostRuns: _hostRuns,
-      machineName: machineName,
       hostCheck: hostCheck,
+      knownWithAnother: keys.knownWithAnother,
+      forgetOldKey: keys.forget,
+      // The card key is in the agent, never in a file here: ssh is told to offer that key alone.
+      rootLogin: ({required address, required pin, required cardKey}) => tryRootLogin(
+        OpenSsh(
+          knownHosts: File(pin),
+          identity: '',
+          agentOnly: true,
+          agentPublicKey: cardKey,
+          deadline: const Duration(seconds: 30),
+        ),
+        address,
+      ),
+      machineName: machineName,
+    );
+    try {
+      await showDialog<void>(
+        context: context,
+        builder: (context) => Dialog(
+          child: SizedBox(
+            width: Sizes.dialog,
+            child: ServerSetupWizard(
+              setup: setup,
+              openTerminal: _openServerTerminal,
+              token: _hostTokenStep,
+              onSignIn: () {
+                Navigator.of(context).pop();
+                _showTheForges();
+              },
+              onUnlock: () => unawaited(_unlockMachine(Machine.local())),
+            ),
+          ),
+        ),
+      );
+    } finally {
+      setup.dispose();
+    }
+  }
+
+  /// The provider's first login, in a terminal on this computer: the person types there, the window never does.
+  Future<void> _openServerTerminal(BuildContext context, List<String> command) async {
+    await runInATerminal(
+      context,
+      title: 'A terminal on the server',
+      explanation:
+          'This logs in with the account your provider gave you, trusting only the SSH host key you compared. Paste '
+          'the line there, and close the terminal once it is done.',
+      machine: Machine.local(),
+      command: command,
+      open: widget.sessions.openTerminal,
     );
   }
 

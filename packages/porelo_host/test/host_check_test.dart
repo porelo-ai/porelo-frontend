@@ -138,6 +138,41 @@ class _Checked extends ScriptedRemote {
 }
 
 void main() {
+  // Harm: a root login still held by the provider's line reads as a check without an answer, and the person, told
+  // nothing, never runs the bootstrap line.
+  group('a root login that still answers with the provider\'s line', () {
+    const providers = 'Please login as the user "ubuntu" rather than the user "root".';
+    Future<HostCheckAnswer> asked({required String out, required int exit, String err = ''}) => askHostCheck(
+      const HostCheckFiles(script: _script, limits: _limits),
+      choices: const {'forge': false},
+      send: (command, script, onLine) async {
+        for (final line in const LineSplitter().convert(out)) {
+          onLine(line);
+        }
+        return RemoteResult(exit, err);
+      },
+    );
+
+    test('says the bootstrap line has not run, with the provider\'s words', () async {
+      final answer = await asked(out: '$providers\n', exit: 142);
+      expect(answer.answered, isFalse);
+      expect(answer.said, contains('The bootstrap line has not run'));
+      expect(answer.said, contains(providers));
+    });
+
+    test('says so by the words alone, whatever the exit', () async {
+      final answer = await asked(out: '$providers\n', exit: 1);
+      expect(answer.said, contains('The bootstrap line has not run'));
+    });
+
+    test('a check with no answer and nothing on standard error names its last line on standard output', () async {
+      final answer = await asked(out: 'something went wrong here\n', exit: 3);
+      expect(answer.answered, isFalse);
+      expect(answer.said, contains('something went wrong here'));
+      expect(answer.said, contains('exit 3'));
+    });
+  });
+
   // Harm: `up` on the command line, or a run started again, changes the machine first and finds out after.
   group('up, with a collection that holds a check', () {
     Future<(int, _Checked, String)> upWith(String answer, int exit) async {

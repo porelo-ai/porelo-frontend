@@ -17,7 +17,7 @@ class HostCheckRun {
 
   String get _program => executable ?? poreloHost();
 
-  /// This run where the carried collection holds a check; otherwise, or with an older command, null.
+  /// Answers this run where the carried collection holds a check; otherwise, or with an older command, null.
   Future<HostCheckRun?> ifCarried() async {
     try {
       return (await _run(_program, const ['check', '--available'])).code == 0 ? this : null;
@@ -46,7 +46,14 @@ class HostCheckRun {
         publicKey,
         ...settings.arguments,
       ]);
-      return HostCheckAnswer.read(ran.out, exitCode: ran.code);
+      final answer = HostCheckAnswer.read(ran.out, exitCode: ran.code);
+      if (answer.answered) return answer;
+      final said = ran.err.trim().split('\n').where((line) => line.trim().isNotEmpty).lastOrNull?.trim() ?? '';
+      return HostCheckAnswer.notAnswered(
+        said.isEmpty
+            ? '${answer.said} porelo-host ended with exit ${ran.code}.'
+            : '${answer.said} porelo-host said: $said (exit ${ran.code})',
+      );
     } on ProcessException {
       return const HostCheckAnswer.notAnswered('This computer could not start the check.');
     } on WorkspaceRefused catch (refused) {

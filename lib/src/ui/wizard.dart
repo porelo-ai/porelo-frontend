@@ -101,6 +101,7 @@ class Wizard extends StatefulWidget {
     this.reviewWords,
     this.actions,
     this.scrollController,
+    this.goBackTo,
     super.key,
   }) : assert(steps.length > 0),
        assert(actions == null || actionSteps.length > 0);
@@ -135,6 +136,9 @@ class Wizard extends StatefulWidget {
   /// Lets an action owner scroll its stop into view inside the current panel.
   final ScrollController? scrollController;
 
+  /// Set by the caller to a question's index when what that question proved no longer holds; the wizard goes there.
+  final ValueListenable<int?>? goBackTo;
+
   @override
   State<Wizard> createState() => _WizardState();
 }
@@ -154,7 +158,15 @@ class _WizardState extends State<Wizard> {
     super.initState();
     _initial = [for (final step in widget.steps) List.of(step.summary())];
     widget.changes?.addListener(_changed);
+    widget.goBackTo?.addListener(_goBack);
     _focusFirst();
+  }
+
+  void _goBack() {
+    final index = widget.goBackTo?.value;
+    if (index == null || !mounted || index >= widget.steps.length) return;
+    _startedActions.clear();
+    _go(index);
   }
 
   @override
@@ -169,6 +181,7 @@ class _WizardState extends State<Wizard> {
   @override
   void dispose() {
     widget.changes?.removeListener(_changed);
+    widget.goBackTo?.removeListener(_goBack);
     super.dispose();
   }
 

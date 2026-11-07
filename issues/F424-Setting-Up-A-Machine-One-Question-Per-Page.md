@@ -1,6 +1,6 @@
 # F424 — Setting Up A Machine, One Question Per Page
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** L - eight pages, a terminal on the server with a pin of its own, the token page, and `porelo_host` changes
 for the check's answer.
 
@@ -116,6 +116,36 @@ At *Prepare*, the key is fetched again as today; a key changed since page 3 lead
 - The token is offered on page 8 and nowhere else; the row's and the put dialog's buttons lead to page 8 of that host.
 - Page 8 names every source it asked and what it answered; a source whose ask threw says its words, never "none".
 - A widget test walks all eight pages with a stand-in server, and one shows each *Next* grey with its reason.
+
+## As built
+
+- The wizard is `lib/src/ui/server_setup_wizard.dart` on the model `lib/src/app/server_setup.dart`, in the shared
+  `Wizard`, which gained `goBackTo` for the key that changed since page 3. Pages 1 to 6 are its questions, *Check and
+  start* says them back, and *Prepare* and *Give it your token* are its action pages.
+- Page 1 offers only the machines listed and not set up. A new name is not listed from the wizard: the page says that
+  an Organization Admin lists it with *Add a machine*, naming its first Machine Admin, which is the call that exists and
+  the one role that may make it. One flow for both waits on that role question.
+- Page 2's probe is `ssh-keyscan -T 5 -p 22` answering at all, run on *Next*; no key is kept from it. Whether the
+  installation finished stays the person's word.
+- Page 3 reads the person's `known_hosts` as `ssh -G` names them, counting only a key of the compared one's type, and
+  the old line is taken out with `ssh-keygen -R` as *Prepare* starts, so going back leaves it. Page 5's terminal
+  trusts its own pin, so the old line stands in nothing before then. `porelo-host`'s own pin is written per machine
+  name by `up`, so it is not read here.
+- Page 5's terminal is a terminal on this computer running `ssh` as the first login, with a `known_hosts` of its own
+  holding only the compared key, never the person's. The root login is `porelo_host`'s `OpenSsh` offering the card key
+  alone from the agent; exit 142 or the provider's line is "the bootstrap line has not run".
+- *Give it your token…* on a row, and the put dialog's button, open the token's page for that host. The window gives
+  no token by itself once a machine is ready; it says the machine waits for one.
+- The organization page's heading offers *Set up a machine…* only where it is unavailable, to say why; each row sets
+  its machine up.
+- The widget test walks pages 1 to 6, *Check and start* and the start of *Prepare*; pages 7 and 8 are not walked to
+  their end inside the wizard, since `HostRuns`' `up` does file work a widget test's clock never ends. The token's
+  page is tested on its own, with each source's answer and the give.
+- The old dialog's preparing form is no longer opened by the window, only by its tests; it stays for the protocol of a
+  running preparation and the take-down, and its preparing part is to be removed with its tests.
+- Not changed after the reading: the tests that read *listed, not set up yet* and *Set up a machine…* check which
+  state a row says and which command a role is offered, not the wording, so they changed with the words.
+- The walks that name the old dialog are in `porelo-project` (Part B of the rental guide) and are its to change.
 
 ## To be checked
 

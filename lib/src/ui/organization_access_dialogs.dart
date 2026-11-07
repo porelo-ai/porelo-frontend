@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_host/porelo_host.dart' show forgeAddress;
 
+import '../app/host_token_sources.dart' show DeclarationsUnread;
 import '../app/core_credentials.dart';
 import '../app/desk.dart';
 import '../app/device_key.dart';
@@ -296,22 +297,24 @@ Future<void> prepareOrganizationForge(
   }
 }
 
-/// What this computer's vault declares, which Porelo's organization commands read whatever machine is selected in the
-/// window; none where it cannot be asked now. Declarations only: no value is read.
-Future<List<Connection>> thisComputersDeclarations({FleetBackend? localBackend, DeviceKeyStore? deviceKeys}) async {
+/// Reads what this computer's Porelo-Vault declares, asked by `Credentials` alone; throws [DeclarationsUnread] with why
+/// where it cannot be asked, so that a daemon not answering is never read as a vault without a token.
+Future<List<Connection>> readThisComputersDeclarations({FleetBackend? localBackend}) async {
   final machine = desk.isWindows
       ? Machine.local()
       : Machine(name: 'this machine', socketPath: Backend.local().socketPath);
-  final vault = Vault(keys: deviceKeys ?? PlatformDeviceKeyStore());
+  final backend = localBackend ?? PoreloBackend(Machines.backendFor(machine));
   try {
-    final backend = localBackend ?? PoreloBackend(Machines.backendFor(machine));
     await backend.open();
-    await vault.lookAt(backend, machine.name);
-    return vault.state?.connections ?? const <Connection>[];
-  } on Exception {
-    return const <Connection>[];
-  } finally {
-    vault.dispose();
+    return (await backend.credentials()).connections;
+  } on VarlinkDisconnected catch (lost) {
+    throw DeclarationsUnread("This computer's Porelo (porelod) did not answer: ${lost.message}");
+  } on VarlinkException catch (refused) {
+    throw DeclarationsUnread("This computer's Porelo refused to say what its vault declares: ${refused.simpleName}.");
+  } on FeatureNotSupported catch (older) {
+    throw DeclarationsUnread("This computer's Porelo cannot say what its vault declares: $older");
+  } on Exception catch (error) {
+    throw DeclarationsUnread("This computer's Porelo did not answer: $error");
   }
 }
 

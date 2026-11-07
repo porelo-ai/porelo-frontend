@@ -72,10 +72,14 @@ class OrganizationMachineRow extends StatefulWidget {
     this.onPrepare,
     this.preparation,
     this.onProtocol,
+    this.onGiveToken,
     super.key,
   });
 
-  /// *Prepare this machine…*, absent where this computer offers none.
+  /// Opens the token's page for this machine; its page where null.
+  final VoidCallback? onGiveToken;
+
+  /// *Set up this machine…*, absent where this computer offers none.
   final VoidCallback? onPrepare;
 
   /// The preparation running for it on this computer, null where none runs: the row says so, and offers its
@@ -169,7 +173,7 @@ class _OrganizationMachineRowState extends State<OrganizationMachineRow> {
               else if (connected)
                 mine.isEmpty ? 'connected' : 'connected, ready to work on'
               else if (host.address == null)
-                '${host.name} has no address yet.${givesIt ? '' : ' It waits for ${host.admins.join(' or ')}.'}'
+                '${host.name} is listed, not set up yet.${givesIt ? '' : ' It waits for ${host.admins.join(' or ')}.'}'
               else
                 why ?? 'not connected yet',
             ].join(' · '),
@@ -190,12 +194,12 @@ class _OrganizationMachineRowState extends State<OrganizationMachineRow> {
                 FilledButton(
                   key: ValueKey('organization.prepare/${host.name}'),
                   onPressed: widget.onPrepare,
-                  child: const Text('Prepare this machine…'),
+                  child: const Text('Set up this machine…'),
                 ),
               if (waiting && givesIt)
                 FilledButton(
                   key: ValueKey('organization.toToken/${host.name}'),
-                  onPressed: widget.onOpen,
+                  onPressed: widget.onGiveToken ?? widget.onOpen,
                   child: const Text('Give it your token…'),
                 ),
               // Only the Machine Admin has another way on: anyone else connects again once it is given.
@@ -285,7 +289,7 @@ class OrganizationHostPage extends StatefulWidget {
     super.key,
   });
 
-  /// *Prepare this machine…*, absent where this computer offers none.
+  /// *Set up this machine…*, absent where this computer offers none.
   final void Function(String host)? onPrepare;
 
   /// The preparation running for a machine on this computer; null where none runs.
@@ -577,7 +581,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
           FilledButton(
             key: const ValueKey('organization.prepareHost'),
             onPressed: () => widget.onPrepare!(host.name),
-            child: const Text('Prepare this machine…'),
+            child: const Text('Set up this machine…'),
           ),
         OutlinedButton(
           key: const ValueKey('organization.changeHost'),

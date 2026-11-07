@@ -74,7 +74,7 @@ class OrganizationPage extends StatefulWidget {
   /// Gives the host admin's token to a machine; answers the words to show, if any.
   final Future<String?> Function(String host)? onGiveToken;
 
-  /// *Prepare a machine…*, absent where this computer offers none.
+  /// *Set up a machine…*, absent where this computer offers none.
   final Command? prepareMachine;
 
   /// Prepares the machine named, absent where this computer offers none.
@@ -559,7 +559,8 @@ class _OrganizationPageState extends State<OrganizationPage> {
       SectionSort('State', (row) => _hostWords(view.hosts[row])),
     ],
     commands: [
-      ?widget.prepareMachine,
+      // Each machine's row sets it up; the heading only says why none can be, where so.
+      if (widget.prepareMachine case final prepare? when !prepare.available) prepare,
       if (view.isOrganizationAdmin)
         _command(
           'addHost',
@@ -604,6 +605,7 @@ class _OrganizationPageState extends State<OrganizationPage> {
             onPrepare: widget.onPrepare == null ? null : () => widget.onPrepare!(host.name),
             preparation: widget.preparing?.call(host.name),
             onProtocol: widget.onProtocol,
+            onGiveToken: widget.onGiveToken == null ? null : () => unawaited(widget.onGiveToken!(host.name)),
             commands: [
               if (widget.takeOff != null &&
                   (view.mayRemove(host) || (view.holdsRoles && host.admins.contains(view.me))))
