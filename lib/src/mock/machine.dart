@@ -2177,6 +2177,7 @@ deleted file mode 100644
     // The ref carries the *task* name, which is the container name without the project
     // prefix — not the container name itself, which has the run in it.
     'branch': 'refs/porelo/incoming/${name.replaceFirst('porelo-$project-', '')}',
+    'forgeBranch': 'porelo/${name.replaceFirst('porelo-$project-', '')}',
     'since': DateTime.now().toUtc().subtract(Duration(minutes: minutesAgo)).toIso8601String(),
     'activity': running ? activity : 'DEAD',
     'waitingFor': waitingFor,

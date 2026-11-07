@@ -80,7 +80,9 @@ void main() {
 
     await gate.lookAt(backend, listed);
     await gate.look(backend, gate.waiting.singleWhere((each) => each.name == name));
-    final said = await gate.approve(backend, branch);
+    final answer = await gate.approve(backend, branch);
+    final said = answer.said;
+    expect(answer.forwarded, isFalse);
 
     // ignore: avoid_print
     print(said);

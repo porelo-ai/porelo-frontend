@@ -585,6 +585,23 @@ class Settings extends ChangeNotifier {
       }
     }
     final draft = stored['setupDraft'];
+    _forwardedBranches.clear();
+    final forwards = stored['forwardedBranches'];
+    if (forwards is List) {
+      for (final value in forwards) {
+        if (value
+            case {
+              'machine': final String machine,
+              'project': final String project,
+              'repository': final String repository,
+              'task': final String task,
+              'branch': final String branch,
+            }
+            when _validForward(machine, project, repository, task, branch)) {
+          _forwardedBranches[(machine, project, repository, task)] = branch;
+        }
+      }
+    }
     if (draft is Map) _setupDraft = <String, Object?>{for (final e in draft.entries) '${e.key}': e.value};
     final folders = stored['tresorFolders'];
     _tresorFolders = <String, String>{};
@@ -701,6 +718,32 @@ class Settings extends ChangeNotifier {
   }
 
   Map<String, String> _tresorFolders = <String, String>{};
+
+  final _forwardedBranches = <(String, String, String, String), String>{};
+
+  /// The last confirmed branch for this machine, project, repository and task.
+  String? lastForwardedBranch(String machine, String project, String repository, String task) =>
+      _forwardedBranches[(machine, project, repository, task)];
+
+  /// Keeps a branch only after the daemon confirms that this task's push was forwarded.
+  Future<void> rememberForwardedBranch(
+    String machine,
+    String project,
+    String repository,
+    String task,
+    String branch,
+  ) async {
+    if (!_validForward(machine, project, repository, task, branch)) {
+      throw ArgumentError('A machine, project, repository, task and branch must be valid names.');
+    }
+    _forwardedBranches[(machine, project, repository, task)] = branch;
+    await _write();
+  }
+
+  static bool _validForward(String machine, String project, String repository, String task, String branch) =>
+      [machine, project, task, branch].every((value) => value.trim().isNotEmpty && !value.contains('\x00')) &&
+      branch.trim() == branch &&
+      !repository.contains('\x00');
 
   String? _secretsFile;
 
@@ -1083,6 +1126,10 @@ class Settings extends ChangeNotifier {
     'keepResolvedMinutes': _keepResolvedMinutes,
     'workUser': _workUser,
     'messagePeople': {for (final entry in _messagePeople.entries) entry.key: Map<String, String>.of(entry.value)},
+    'forwardedBranches': [
+      for (final MapEntry(key: (machine, project, repository, task), value: branch) in _forwardedBranches.entries)
+        {'machine': machine, 'project': project, 'repository': repository, 'task': task, 'branch': branch},
+    ],
     'setupDraft': _setupDraft,
     'appearance': _appearance.name,
     'machines': _machines,

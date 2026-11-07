@@ -18,6 +18,15 @@ void main() {
     ...fields,
   });
 
+  // Harm: an older or malformed reply crashes review, or supplies a branch nobody named.
+  test('the forge branch is checked and absent fields remain empty', () {
+    expect(taskWith({'forgeBranch': 'porelo/sluice'}).forgeBranch, 'porelo/sluice');
+    for (final value in [null, 7, false, <String>[], <String, dynamic>{}]) {
+      expect(taskWith({'forgeBranch': value}).forgeBranch, isEmpty);
+    }
+    expect(taskWith({}).forgeBranch, isEmpty);
+  });
+
   test('a task whose own ref is waiting says so', () {
     final task = taskWith(<String, dynamic>{'waiting': 1});
 

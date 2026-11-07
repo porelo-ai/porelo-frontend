@@ -1,6 +1,6 @@
 # F426 — A Forward Names Where It Goes And Its Branch
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** S - the forward dialog (`askWhichBranch` in `lib/src/ui/gate_view.dart`), its caller `_approve` in
 `lib/src/ui/shell.dart`, one new optional `Task` field, one stored setting, and their tests.
 
@@ -44,3 +44,15 @@ task, visible and changeable.
 - The filled-in branch can be changed or replaced before *Forward it*; the branch sent is the one shown.
 - A refused or cancelled forward does not change the stored last branch.
 - A `Task` reply without `forgeBranch` parses, with the field empty.
+
+## Reading
+
+- The prefill tests now press *Forward it* and check the branch sent; the test of the hint's wording went, as a
+  wording is fixed, not guarded.
+- A push, project or machine that changed while the forge listed its branches now opens no dialog, by the same check
+  as after it. It has no test of its own: no stand-in reaches a forge's branch list from the review today
+  (`FakeForge.branchesOf` is used by no test), and building one is larger than the check.
+- The destination is not read with `fullNameOf`: that takes `owner/name` alone, so a repository in a subgroup would
+  read as not reported. The destination's own reading now refuses an empty part, such as `acme/.git`.
+- A stored branch with space around it is refused on load, as a hand-edited file could hold one.
+

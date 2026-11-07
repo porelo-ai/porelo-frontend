@@ -399,6 +399,9 @@ class Task {
   /// The ref its work goes to, such as `refs/porelo/incoming/shell`.
   final String branch;
 
+  /// The branch its work goes to at the forge, or empty when none is reported.
+  final String forgeBranch;
+
   /// When the **current** state began, ISO-8601.
   ///
   /// Empty when the runtime cannot say — a container created and never started answers a zero
@@ -506,6 +509,7 @@ class Task {
     this.mode = const Mode(''),
     this.prompt = '',
     this.branch = '',
+    this.forgeBranch = '',
     this.since = '',
     this.activity = const Activity(''),
     this.lastWrote,
@@ -574,6 +578,7 @@ class Task {
     mode: Mode(_string(map, 'mode')),
     prompt: _string(map, 'prompt'),
     branch: _string(map, 'branch'),
+    forgeBranch: _string(map, 'forgeBranch'),
     since: _string(map, 'since'),
     activity: Activity(_string(map, 'activity')),
     lastWrote: map['lastWrote'] is String ? map['lastWrote'] as String : null,
@@ -3953,7 +3958,7 @@ class Log {
 
 /// A push waiting at the gate for a decision.
 class PendingPush {
-  /// Ref name, which reviewing, approving and rejecting all take.
+  /// The task name under `refs/porelo/incoming/`, which gate decisions take.
   final String name;
 
   /// Commit at the tip.

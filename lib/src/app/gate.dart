@@ -152,10 +152,10 @@ class Gate extends ChangeNotifier {
   }
 
   /// Forwards the push being looked at onto [branch].
-  Future<String> approve(FleetBackend backend, String branch) async {
+  Future<({bool forwarded, String said})> approve(FleetBackend backend, String branch) async {
     final file = project?.name;
     final push = looking;
-    if (file == null || push == null) return '';
+    if (file == null || push == null) return (forwarded: false, said: '');
     var said = '';
     // A way through an earlier refusal is for that forward; this one is answered on its own.
     _forgetTheRefusal();
@@ -188,7 +188,7 @@ class Gate extends ChangeNotifier {
     });
     // Once the call itself went through, that is what happened — whatever reading the gate again
     // then found.
-    return said.isNotEmpty ? said : (problem ?? said);
+    return (forwarded: said.isNotEmpty, said: said.isNotEmpty ? said : (problem ?? said));
   }
 
   /// Reads the account's keys again: one the agent took on since, from an unlocked KeePassXC, then shows.
@@ -256,9 +256,9 @@ class Gate extends ChangeNotifier {
   }
 
   /// Keeps [key] for the refused forward's address, and only then forwards again onto the same branch.
-  Future<String> keepKey(FleetBackend backend, SshKey key) async {
+  Future<({bool forwarded, String said})> keepKey(FleetBackend backend, SshKey key) async {
     final refusal = keyRefused;
-    if (refusal == null || looking == null) return '';
+    if (refusal == null || looking == null) return (forwarded: false, said: '');
     var kept = false;
     await _asking(() async {
       await backend.credentialDeclare(
@@ -270,7 +270,7 @@ class Gate extends ChangeNotifier {
       );
       kept = true;
     });
-    if (!kept) return problem ?? '';
+    if (!kept) return (forwarded: false, said: problem ?? '');
     return approve(backend, refusal.branch);
   }
 

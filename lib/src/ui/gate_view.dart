@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:porelo_frontend/client.dart';
 
 import '../app/diff.dart';
+import '../app/forge_connection.dart' show hostOf;
 import '../app/gate.dart';
 import 'panes.dart';
 import 'refused_key.dart';
@@ -791,10 +792,20 @@ Future<String?> askWhichBranch(
   bool toOrigin = false,
   List<String> branches = const <String>[],
   String? defaultBranch,
+  String upstream = '',
+  String initialBranch = '',
+  String branchSource = '',
 }) => showDialog<String>(
   context: context,
-  builder: (context) =>
-      _WhichBranch(subject: subject, toOrigin: toOrigin, branches: branches, defaultBranch: defaultBranch),
+  builder: (context) => _WhichBranch(
+    subject: subject,
+    toOrigin: toOrigin,
+    branches: branches,
+    defaultBranch: defaultBranch,
+    upstream: upstream,
+    initialBranch: initialBranch,
+    branchSource: branchSource,
+  ),
 );
 
 /// Why git would refuse [name] as a branch, in words, or null where it takes it: said before
@@ -823,6 +834,9 @@ class _WhichBranch extends StatefulWidget {
     this.toOrigin = false,
     this.branches = const <String>[],
     this.defaultBranch,
+    this.upstream = '',
+    this.initialBranch = '',
+    this.branchSource = '',
   });
 
   final String subject;
@@ -835,6 +849,15 @@ class _WhichBranch extends StatefulWidget {
 
   /// Whether it goes to the repository's origin: work in the Default project.
   final bool toOrigin;
+
+  /// The repository's upstream address, empty when none was reported.
+  final String upstream;
+
+  /// The task's branch or its last confirmed forward, empty when neither exists.
+  final String initialBranch;
+
+  /// Why the initial branch is offered.
+  final String branchSource;
 
   @override
   State<_WhichBranch> createState() => _WhichBranchState();
@@ -855,10 +878,29 @@ class _WhichBranchState extends State<_WhichBranch> {
   @override
   void initState() {
     super.initState();
-    _chosen = _offered.isEmpty ? null : _offered.first;
+    if (widget.initialBranch.isNotEmpty) {
+      _chosen = _offered.contains(widget.initialBranch) ? widget.initialBranch : null;
+      _branch.text = widget.initialBranch;
+    } else {
+      _chosen = _offered.isEmpty ? null : _offered.first;
+    }
   }
 
   String get _named => _chosen ?? _branch.text.trim();
+
+  String get _destination {
+    if (widget.toOrigin) return "To the repository's origin";
+    final upstream = widget.upstream.trim();
+    final host = hostOf(upstream);
+    final scp = RegExp(r'^[^@/:]+@[^:/]+:(.+)$').firstMatch(upstream);
+    final repository = (scp?.group(1) ?? Uri.tryParse(upstream)?.path ?? '')
+        .replaceAll(RegExp(r'^/+|/+$'), '')
+        .replaceFirst(RegExp(r'\.git$'), '');
+    final segments = repository.split('/');
+    return host != null && segments.length >= 2 && segments.every((segment) => segment.isNotEmpty)
+        ? 'To $host $repository'
+        : 'The upstream destination was not reported.';
+  }
 
   @override
   Widget build(BuildContext context) => AlertDialog(
@@ -870,6 +912,8 @@ class _WhichBranchState extends State<_WhichBranch> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
+            Text(_destination),
+            const SizedBox(height: Space.small),
             Text(widget.subject, style: Theme.of(context).textTheme.bodyMedium),
             const SizedBox(height: Space.normal),
             // Chosen from the repository's own where its forge says them, the default first.
@@ -898,13 +942,17 @@ class _WhichBranchState extends State<_WhichBranch> {
                 autofocus: true,
                 decoration: InputDecoration(
                   labelText: _offered.isEmpty ? 'Branch to push to' : 'The new branch',
-                  hintText: 'fix-rounding',
+                  hintText: 'e.g. fix-rounding',
                   border: const OutlineInputBorder(),
                   errorText: whyNotABranch(_branch.text.trim()),
                 ),
                 onChanged: (_) => setState(() {}),
                 onSubmitted: (_) => _submit(),
               ),
+            if (_named == widget.initialBranch && widget.branchSource.isNotEmpty) ...<Widget>[
+              const SizedBox(height: Space.small),
+              Text(widget.branchSource, style: Theme.of(context).textTheme.bodySmall),
+            ],
             const SizedBox(height: Space.normal),
             Text(
               'This is the only thing the interface does that sends anything anywhere. '

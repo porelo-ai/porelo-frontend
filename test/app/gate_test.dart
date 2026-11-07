@@ -39,9 +39,10 @@ void main() {
     expect(gate.waiting.single.repository, 'checkout');
 
     await gate.look(backend, gate.waiting.single);
-    final said = await gate.approve(backend, 'fix-rounding');
+    final answer = await gate.approve(backend, 'fix-rounding');
 
-    expect(said, contains('was forwarded to fix-rounding'));
+    expect(answer.forwarded, isTrue);
+    expect(answer.said, contains('was forwarded to fix-rounding'));
     expect(backend.approvedIn, <String?>['checkout']);
   });
 

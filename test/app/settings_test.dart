@@ -5,6 +5,58 @@ import 'package:porelo_host/porelo_host.dart' show PreparedHost;
 import '../support/host_organization.dart' show hostKey, sshCompletion;
 
 void main() {
+  // Harm: one task's confirmed branch becomes another task's destination after a restart.
+  test('last forwarded branches survive a restart with every identity component isolated', () async {
+    final store = MemorySettingsStore();
+    final settings = Settings(store);
+    addTearDown(settings.dispose);
+    await settings.rememberForwardedBranch('machine', 'project', 'repository', 'task', 'fix-2');
+    for (final identity in [
+      ('other', 'project', 'repository', 'task'),
+      ('machine', 'other', 'repository', 'task'),
+      ('machine', 'project', 'other', 'task'),
+      ('machine', 'project', 'repository', 'other'),
+      ('machine', 'project', '', 'task'),
+    ]) {
+      final (machine, project, repository, task) = identity;
+      await settings.rememberForwardedBranch(machine, project, repository, task, 'separate');
+    }
+    final again = Settings(store);
+    addTearDown(again.dispose);
+    await again.load();
+    expect(again.lastForwardedBranch('machine', 'project', 'repository', 'task'), 'fix-2');
+    expect(again.lastForwardedBranch('machine', 'project', '', 'task'), 'separate');
+    expect(again.lastForwardedBranch('machine', 'project', 'repository', 'absent'), isNull);
+  });
+
+  // Harm: malformed settings supply a branch or identity that was never confirmed.
+  test('every field of a stored forward is checked before it is used', () async {
+    const good = {'machine': 'machine', 'project': 'project', 'repository': '', 'task': 'task', 'branch': 'fix-2'};
+    for (final field in good.keys) {
+      for (final invalid in [
+        null,
+        7,
+        false,
+        <Object?>[],
+        <String, Object?>{},
+        '\x00',
+        if (field != 'repository') '',
+        if (field == 'branch') ' fix-2 ',
+      ]) {
+        final settings = Settings(
+          MemorySettingsStore({
+            'forwardedBranches': [
+              {...good, field: invalid},
+            ],
+          }),
+        );
+        await settings.load();
+        expect(settings.lastForwardedBranch('machine', 'project', '', 'task'), isNull, reason: '$field: $invalid');
+        settings.dispose();
+      }
+    }
+  });
+
   // Harm: a record of the removed form runs a command with a flag the host's program no longer takes.
   test('a stored rental without the current form is not read', () {
     expect(HostUpRecord.fromStored({'scalewayProject': 'provider', 'account': 'worker'}), isNull);

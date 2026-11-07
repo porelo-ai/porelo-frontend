@@ -2566,18 +2566,59 @@ class _ShellState extends State<Shell> {
   Future<void> _approve() async {
     final push = widget.gate.looking;
     if (push == null) return;
+    final machine = widget.machines.current.name;
+    final project = widget.gate.project?.name;
+    if (project == null) return;
+    final taskBranch =
+        _fleet.tasks
+            .where(
+              (task) =>
+                  task.project == project &&
+                  (task.repository == push.repository || widget.gate.project?.repositoryOf(task) == push.repository) &&
+                  task.task == push.name &&
+                  task.forgeBranch.isNotEmpty,
+            )
+            .firstOrNull
+            ?.forgeBranch ??
+        '';
+    final lastBranch = widget.settings.lastForwardedBranch(machine, project, push.repository, push.name);
+    final initialBranch = taskBranch.isNotEmpty ? taskBranch : lastBranch ?? '';
+    // The forge may answer late; by then another push, project or machine may be shown.
+    bool stillJudging() =>
+        mounted &&
+        widget.machines.current.name == machine &&
+        identical(widget.gate.looking, push) &&
+        widget.gate.project?.name == project;
     final offered = await _branchesFor(push);
-    if (!mounted) return;
+    if (!mounted || !stillJudging()) return;
     final branch = await askWhichBranch(
       context,
       subject: push.subject,
       toOrigin: widget.gate.project?.name == defaultProject,
       branches: offered?.branches ?? const <String>[],
       defaultBranch: offered?.defaultBranch,
+      upstream: _upstreamFor(push) ?? '',
+      initialBranch: initialBranch,
+      branchSource: taskBranch.isNotEmpty
+          ? "this task's branch"
+          : initialBranch.isNotEmpty
+          ? 'last used for this task'
+          : '',
     );
-    if (branch == null) return;
-    final said = await widget.gate.approve(_fleet.backend, branch);
-    _afterAForward(said);
+    if (branch == null || !stillJudging()) return;
+    final answer = await widget.gate.approve(_fleet.backend, branch);
+    if (answer.forwarded) await _rememberForward(machine, project, push, branch);
+    if (!mounted) return;
+    _afterAForward(answer.said);
+  }
+
+  /// Keeps the branch a confirmed forward went to; a settings file that cannot be written loses only the prefill.
+  Future<void> _rememberForward(String machine, String project, PendingPush push, String branch) async {
+    try {
+      await widget.settings.rememberForwardedBranch(machine, project, push.repository, push.name, branch);
+    } on Exception catch (error) {
+      _fleet.say('The branch could not be kept for the next forward: $error');
+    }
   }
 
   /// Says what came of a forward and goes back to the gate, unless it was refused: a refused key's way
@@ -2593,9 +2634,16 @@ class _ShellState extends State<Shell> {
 
   /// Keeps [key] for the refused forward's address, then forwards again onto the same branch.
   Future<void> _keepKey(SshKey key) async {
-    final said = await widget.gate.keepKey(_fleet.backend, key);
+    final push = widget.gate.looking;
+    final project = widget.gate.project?.name;
+    final branch = widget.gate.keyRefused?.branch;
+    final machine = widget.machines.current.name;
+    final answer = await widget.gate.keepKey(_fleet.backend, key);
+    if (answer.forwarded && push != null && project != null && branch != null) {
+      await _rememberForward(machine, project, push, branch);
+    }
     if (!mounted) return;
-    _afterAForward(said);
+    _afterAForward(answer.said);
   }
 
   /// Opens a terminal on the machine with what the refusal names to run, shown first and started only
@@ -2668,14 +2716,13 @@ class _ShellState extends State<Shell> {
     return const <String>[];
   }
 
-  /// The branches of the repository [push] waits in, and its default, from the forge kept here that
-  /// reaches it; null where its upstream is at no forge a token here reaches, and a branch is
-  /// then typed, checked before it is sent.
+  /// The upstream the machine names for the repository holding the push.
+  String? _upstreamFor(PendingPush push) =>
+      widget.gate.project?.repositoryStates.where((each) => each.name == push.repository).firstOrNull?.upstream;
+
+  /// The branches and default reported by a reachable forge, or null when none answers.
   Future<({List<String> branches, String defaultBranch})?> _branchesFor(PendingPush push) async {
-    final upstream = widget.gate.project?.repositoryStates
-        .where((each) => each.name == push.repository)
-        .firstOrNull
-        ?.upstream;
+    final upstream = _upstreamFor(push);
     final there = upstream == null ? null : onGitHub(upstream);
     if (there == null) return null;
     for (final entry in _forges.entries) {
