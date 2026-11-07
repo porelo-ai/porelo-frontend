@@ -1,6 +1,8 @@
 # F424 — Setting Up A Machine, One Question Per Page
 
-**Status:** Accepted.
+**Status:** Implementing.
+**Size:** L - eight pages, a terminal on the server with a pin of its own, the token page, and `porelo_host` changes
+for the check's answer.
 
 **What must be true.** Setting up a server as a machine of the organization is one wizard that asks one thing per page,
 in order, and opens the next page only once what the page asks holds: the server answers, its key is compared, the
@@ -37,6 +39,19 @@ The window test of 2026-11-07 (renting `porelo-move` on Scaleway Elastic Metal, 
   is 142, standard error is empty, so `askHostCheck` in `packages/porelo_host/lib/src/host_check.dart` has nothing to
   name, and `HostCheckRun` in `lib/src/app/host_check_run.dart` drops `porelo-host`'s standard error as well.
 
+- **Finding 8.** The host's token was offered in two places on one page, the machine's row (*Give it your token…*)
+  and the put dialog (*Give it my … token…*), both one action, not said as one.
+- **Finding 9.** *Give it my GitHub token…* showed no reaction when no token was kept: the step needed (sign in under
+  *My forges*) was only the sentence already on screen.
+- **Finding 10.** A token source that failed (this computer's `porelod` not answering, or a reply that could not be
+  read) counted silently as no token: `thisComputersDeclarations` in `lib/src/ui/organization_access_dialogs.dart`
+  turns every exception into "no declarations".
+- **Finding 11.** Giving the host the token belongs in the setup as its own step, with a terminal for anything that
+  must be typed (unlocking the Porelo-Vault), and the window must say which source it asked and why none fitted.
+
+The operator decided: the wizard opens the server's terminal itself (page 5), and the token is a page of its own
+(page 8); the row's button only leads there while a host still waits for its token.
+
 Today all of it is one dialog (`HostDialog` in `lib/src/ui/host_dialog.dart`): name, address, key, fingerprint,
 forge and VM choices, more settings, the bootstrap line, the check and *Prepare the machine* on one long page, with
 the grey button's reason at the foot.
@@ -72,7 +87,14 @@ entered, and a change on an earlier page drops what the later pages proved from 
    finding. No answer says its cause in words: the machine's last line, or `porelo-host`'s own words and exit code.
    Goes on only when it passes.
 7. **Prepare.** What will be done, the choices from page 4, and *Prepare the machine*; then the progress, the
-   machine's words, and the end, after which the organization's row offers *Connect*.
+   machine's words, and the end.
+8. **Give it your token.** Shown when the host waits for a forge token. It lists each source in the order it is
+   asked: the Porelo-Vault's declared entry for the organization's forge (by name), the token the window keeps for
+   that forge, the secrets file. Beside each it says what that source answered: found, not declared, the vault
+   shut, this computer's Porelo not answering (with its words), nothing kept. It offers the way on as actions, not
+   sentences: *Unlock the Porelo-Vault* in a terminal here, *Sign in under My forges*, *Ask again*. *Give it the
+   token* hands the one found over and ends once the host says it holds it; then the organization's row offers
+   *Connect*. A source that fails is never counted as empty.
 
 At *Prepare*, the key is fetched again as today; a key changed since page 3 leads back to page 3, saying so.
 
@@ -91,7 +113,9 @@ At *Prepare*, the key is fetched again as today; a key changed since page 3 lead
   "log in as `ubuntu`" line and exit 142 is said as "the bootstrap line has not run", never as no answer.
 - While the check runs, the page says so beside its button; a check without an answer names its cause, and what
   `porelo-host` wrote on standard error is shown, not dropped.
-- A widget test walks all seven pages with a stand-in server, and one shows each *Next* grey with its reason.
+- The token is offered on page 8 and nowhere else; the row's and the put dialog's buttons lead to page 8 of that host.
+- Page 8 names every source it asked and what it answered; a source whose ask threw says its words, never "none".
+- A widget test walks all eight pages with a stand-in server, and one shows each *Next* grey with its reason.
 
 ## To be checked
 
