@@ -1,0 +1,22 @@
+# F430 — Leftovers Of The Rental Findings
+
+**Status:** Idea.
+
+**What must be true.** What the fixes of the 2026-11-07 trial move's findings ([F424](README.md#f424) to [F428](README.md#f428)) named as not built is kept
+in one place until the operator places each part: in an issue of its own, in a sprint, or dropped. Each point came from
+the one reading of its issue, and gets no reading of its own.
+
+Each point is to be checked against the code before it is fixed.
+
+## How it stands
+
+- **From [F424](README.md#f424), the setup wizard's last pages:** the widget test does not walk pages 7 and 8 to their end, since
+  `HostRun`'s start does file work the test clock never ends; the token page is tested alone.
+- **From [F424](README.md#f424), the old preparing dialog:** the window no longer opens it, only its tests do; it and its tests are to be
+  taken out.
+- **From [F426](README.md#f426), Forward's stale-push check:** the check that the push is still the same after the forge's branches
+  arrived has no test, since no stand-in of the tests reaches that list today.
+
+## Open questions
+
+None.
