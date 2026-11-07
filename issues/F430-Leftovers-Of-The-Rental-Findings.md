@@ -16,6 +16,12 @@ Each point is to be checked against the code before it is fixed.
   taken out.
 - **From [F426](README.md#f426), Forward's stale-push check:** the check that the push is still the same after the forge's branches
   arrived has no test, since no stand-in of the tests reaches that list today.
+- **Found after the push, giving a machine back:** *Take Porelo off this machine…* asks "…and remove this machine from
+  the organization's list?", but after a confirmed down it only forgets the machine on this computer and sends no
+  `org host remove`. So the machine stays listed, and still carries what it carried, as porelo-move did after the
+  2026-11-07 trial move. Either send the removal after a confirmed down, or reword the question until it does. Until
+  then, the organization page's row ⋮ → *Remove the machine…* removes the listing by hand; it needs only the role,
+  not a machine that answers.
 
 ## Open questions
 

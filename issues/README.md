@@ -122,7 +122,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f430"></a>[F430](F430-Leftovers-Of-The-Rental-Findings.md) | — | — | What the fixes of the trial move's findings named as not built, gathered for the operator to place: the wizard's last pages in a test, the old preparing dialog, Forward's stale-push check. |
+| <a id="f430"></a>[F430](F430-Leftovers-Of-The-Rental-Findings.md) | — | — | What the fixes of the trial move's findings named as not built, gathered for the operator to place: the wizard's last pages in a test, the old preparing dialog, Forward's stale-push check, a give-back that leaves the machine listed. |
 | <a id="f402"></a>[F402](F402-Prepare-A-Server-As-The-Standard-Wizard.md) | — | — | *Prepare a server* as steps of the standard wizard, each fitting the window. |
 | <a id="f99"></a>[F99](F99-An-Attached-Agent-Shown-At-Rest-Or-Working.md) | — | — | A work tile says whether an attached agent is at rest or working; implementation waits for the verified screen-derived daemon answer. |
 | <a id="f386"></a>[F386](F386-A-Short-Name-People-Read.md) | — | — | A task and a project have a short name people read; the window's lists show only it. |
