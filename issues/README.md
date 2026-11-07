@@ -181,6 +181,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f200"></a>[F200](F200-KeePassXC-Shipped-On-Windows-And-macOS.md) | — | — | KeePassXC's signed build shipped with the interface on Windows and macOS, with its license and source offer, for the person's secrets file. |
 | <a id="f354"></a>[F354](F354-The-Integration-Leg-On-A-Machine-Of-The-Hosts-Pool.md) | — | — | The Build's integration leg on a host's Forgejo against a machine its pool lends by kind. |
 | <a id="f355"></a>[F355](F355-One-Order-For-A-New-Person.md) | — | — | One order in the window for a person starting from a GitHub organization, with or without a key, each step showing its state, so *Create it* is reached only when it can work. |
+| <a id="f423"></a>[F423](F423-The-Window-Laid-Out-By-What-Each-Part-Acts-On.md) | — | — | The side bar and the pages by what each part acts on: *Organizations* as a list to change the one worked in, *Cards & keys* in place of its dialog, and one machine's page holding everything Porelo offers on it. |
 
 ### Estimated
 
