@@ -81,6 +81,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f427"></a>[F427](F427-A-Hosts-Forge-Opened-From-Its-Machine.md) | S | — | A connected host's row and machine page offer *Open its forge*, at the address its forge answers to. |
 
 ### Backlog
 
