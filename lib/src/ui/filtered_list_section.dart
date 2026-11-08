@@ -280,6 +280,7 @@ class _FilteredListSectionState extends State<FilteredListSection> {
   }
 
   Widget _field(double? width) {
+    final hint = widget.searchHint ?? 'Filter ${widget.title.toLowerCase()}';
     final field = TextField(
       key: ValueKey('${widget.storageId}-filter'),
       controller: _filter,
@@ -288,7 +289,7 @@ class _FilteredListSectionState extends State<FilteredListSection> {
       autofocus: !widget.leaf && (widget.search == null || _searching),
       decoration: InputDecoration(
         isDense: true,
-        hintText: widget.searchHint ?? 'Filter ${widget.title.toLowerCase()}',
+        hintText: hint,
         prefixIcon: const Icon(Icons.search, size: Sizes.rowIcon),
         suffixIcon: IconButton(
           key: ValueKey('${widget.storageId}-filter-close'),
@@ -301,15 +302,18 @@ class _FilteredListSectionState extends State<FilteredListSection> {
     );
     final clearable = !widget.leaf
         ? field
-        : Focus(
-            onKeyEvent: (_, event) {
-              if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.escape && _filter.text.isNotEmpty) {
-                _closeSearch();
-                return KeyEventResult.handled;
-              }
-              return KeyEventResult.ignored;
-            },
-            child: field,
+        : FilterWidth(
+            hint: hint,
+            child: Focus(
+              onKeyEvent: (_, event) {
+                if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.escape && _filter.text.isNotEmpty) {
+                  _closeSearch();
+                  return KeyEventResult.handled;
+                }
+                return KeyEventResult.ignored;
+              },
+              child: field,
+            ),
           );
     return width == null ? clearable : SizedBox(width: width, child: clearable);
   }
@@ -488,7 +492,9 @@ class _FilteredListSectionState extends State<FilteredListSection> {
     final target = WindowSize.fromContext(context).showsTwoPanes ? Sizes.leafSort : Sizes.touchTarget;
     final read = howLongSince(widget.readAt);
     final unread = !widget.read || widget.busy && widget.rows.isEmpty;
-    final total = widget.problem != null || unread ? 'not read' : widget.subtitle ?? '${widget.rows.length} entries';
+    final total = widget.problem != null || unread
+        ? 'not read'
+        : widget.subtitle ?? counted(widget.rows.length, 'entry', 'entries');
     final actions = [
       ...widget.actions,
       for (final command in widget.commands.where((each) => each.visible)) _commandButton(command, target),

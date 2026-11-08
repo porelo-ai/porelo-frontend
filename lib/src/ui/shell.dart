@@ -3642,7 +3642,9 @@ class _ShellState extends State<Shell> {
                 children: <Widget>[
                   if (widget.newerVersion.arrived) NewerVersionBanner(onRestart: () => SystemNavigator.pop()),
                   Expanded(
+                    // Stretched, so a page shorter than the window starts under the title bar, never centred.
                     child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: <Widget>[
                         if (size.showsTreeBeside) ...<Widget>[
                           _rail(Sizes.tree),
@@ -3810,6 +3812,12 @@ class _ShellState extends State<Shell> {
     }
   }
 
+  /// The way back from one of [machine]'s sections: its machines, then the machine.
+  List<LeafPathStep> _machineSectionPath(Machine machine) => [
+    (label: 'My machines', go: () => _chooseTreePlace(const ShellPlace(Section.machines), true)),
+    (label: machine.name, go: () => widget.shell.openMachine(machine)),
+  ];
+
   Widget _machineSection(MachineSection section) {
     final machine = widget.shell.place.machine!;
     if (!widget.machines.all.contains(machine)) return _machineFacts();
@@ -3865,54 +3873,47 @@ class _ShellState extends State<Shell> {
                 ),
               ),
             };
+        // An answering machine's Tasks list draws this head itself, with its count and filter.
+        final ownHead = section != MachineSection.tasks || opened != null || fleet.refusal != null || !answering;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Padding(
-              padding: const EdgeInsets.all(Space.normal),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Wrap(
-                    key: ValueKey('machine-section-path ${machine.name}'),
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      TextButton(
-                        onPressed: () => _chooseTreePlace(const ShellPlace(Section.machines), true),
-                        child: const Text('My machines'),
+            if (ownHead)
+              Padding(
+                padding: const EdgeInsets.all(Space.normal),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    PageHead(
+                      title: section.label,
+                      path: _machineSectionPath(machine),
+                      pathKey: ValueKey('machine-section-path ${machine.name}'),
+                    ),
+                    if (!answering) ...[
+                      Text(
+                        '${machine.name} does not answer.',
+                        style: TextStyle(color: Theme.of(context).colorScheme.error),
                       ),
-                      const Text(' › '),
-                      TextButton(onPressed: () => widget.shell.openMachine(machine), child: Text(machine.name)),
-                      const Text(' › '),
-                      Text(section.label),
+                      Text(
+                        readAgo == null
+                            ? 'The read time of these rows is not known.'
+                            : 'Read $readAgo ago; last known rows.',
+                      ),
+                      TextButton(
+                        key: const Key('machine-section-retry'),
+                        onPressed: () async {
+                          await fleet.refresh();
+                          if (mounted && widget.machines.all.contains(machine)) {
+                            setState(() => _sectionRetries[machine] = (_sectionRetries[machine] ?? 0) + 1);
+                            await _readMachineSection(machine, section);
+                          }
+                        },
+                        child: const Text('Try again'),
+                      ),
                     ],
-                  ),
-                  Text(section.label, style: Theme.of(context).textTheme.headlineSmall),
-                  if (!answering) ...[
-                    Text(
-                      '${machine.name} does not answer.',
-                      style: TextStyle(color: Theme.of(context).colorScheme.error),
-                    ),
-                    Text(
-                      readAgo == null
-                          ? 'The read time of these rows is not known.'
-                          : 'Read $readAgo ago; last known rows.',
-                    ),
-                    TextButton(
-                      key: const Key('machine-section-retry'),
-                      onPressed: () async {
-                        await fleet.refresh();
-                        if (mounted && widget.machines.all.contains(machine)) {
-                          setState(() => _sectionRetries[machine] = (_sectionRetries[machine] ?? 0) + 1);
-                          await _readMachineSection(machine, section);
-                        }
-                      },
-                      child: const Text('Try again'),
-                    ),
                   ],
-                ],
+                ),
               ),
-            ),
             Expanded(
               child: opened != null || answering || section == MachineSection.managing
                   ? body
@@ -4753,7 +4754,13 @@ class _ShellState extends State<Shell> {
     final page =
         opened ??
         WorkPage(
-          head: onlyMachine == null ? PageHead(title: 'Work', id: 'work', settings: widget.settings) : null,
+          head: onlyMachine == null
+              ? PageHead(title: 'Work', id: 'work', settings: widget.settings)
+              : PageHead(
+                  title: MachineSection.tasks.label,
+                  path: _machineSectionPath(onlyMachine),
+                  pathKey: ValueKey('machine-section-path ${onlyMachine.name}'),
+                ),
           explanation: PageExplanation(
             id: 'work',
             settings: widget.settings,

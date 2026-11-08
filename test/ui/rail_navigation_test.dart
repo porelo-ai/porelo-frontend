@@ -3,11 +3,51 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/host_progress.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/organization_source.dart';
+import 'package:porelo_frontend/src/app/shell_model.dart';
 
+import '../features/support/tiles.dart';
 import '../features/support/world.dart';
 import '../support/organization_fixtures.dart';
 
 void main() {
+  // Harm: a child that starts left of its parent reads as a sibling, and a person opens another machine's section.
+  for (final size in const [Size(1280, 800), Size(700, 900)]) {
+    testWidgets('a tree entry starts right of its parent and every row is one height: ${size.width}', (tester) async {
+      await World.startBackend(World.work);
+      await World.startApp(tester, organizationSource: FixtureOrganization(organizationFor('olive')));
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await World.settle(tester);
+      await toTheOrganization(tester);
+      final machine = ShellPlace.machineKey(World.machines.current.name);
+      final organization = ShellPlace.organizationKey('acme');
+      final rows = <String, String>{
+        'machines': 'My machines',
+        machine: World.machines.current.name,
+        '$machine vault': 'Vault',
+        'organizations': 'Organizations',
+        organization: 'acme',
+        '$organization people': 'People',
+      };
+      double labelLeft(String key) =>
+          tester.getRect(find.descendant(of: find.byKey(ValueKey('rail $key')), matching: find.text(rows[key]!))).left;
+      for (final (parent, child) in [
+        ('machines', machine),
+        (machine, '$machine vault'),
+        ('organizations', organization),
+        (organization, '$organization people'),
+      ]) {
+        expect(labelLeft(child), greaterThan(labelLeft(parent)), reason: '$child under $parent');
+      }
+      final height = tester.getSize(find.byKey(const ValueKey('rail work'))).height;
+      for (final key in rows.keys) {
+        expect(tester.getSize(find.byKey(ValueKey('rail $key'))).height, height, reason: key);
+      }
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   // Harm: a stale page hides restored access or changes to the repositories and people a project reaches.
   testWidgets('rail Refresh rereads the shown machine and project details without fetching the machine', (
     tester,

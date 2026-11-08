@@ -506,7 +506,8 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
             pathKeys: const {'My machines': Key('organization-host-back'), 'Machines': Key('organization-host-back')},
             subtitle: host == null
                 ? 'not read'
-                : '${host.projects.length} projects · ${host.admins.length} Machine Admins',
+                : '${counted(host.projects.length, 'project', 'projects')} · '
+                      '${counted(host.admins.length, 'Machine Admin', 'Machine Admins')}',
           ),
           if (widget.organization.problem case final problem?) _Problem(problem),
           if (_refusal case final refusal?) _Problem(refusal),
@@ -658,7 +659,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     final list = FilteredListSection(
       title: 'Projects',
       leaf: true,
-      subtitle: '${{...machines.keys, ...organizations}.length} projects',
+      subtitle: counted({...machines.keys, ...organizations}.length, 'project', 'projects'),
       storageId: 'host-projects ${host.name}',
       emptyWords: 'No projects on this machine yet. A project goes on a machine once the machine is prepared.',
       rows: [
@@ -857,7 +858,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     return FilteredListSection(
       title: 'Machine Admins',
       leaf: true,
-      subtitle: '${host.admins.length} Machine Admins',
+      subtitle: counted(host.admins.length, 'Machine Admin', 'Machine Admins'),
       storageId: 'host-admins ${host.name}',
       greyWords: [
         if (view.mayNameAdminsOf(host) && candidates.isEmpty)

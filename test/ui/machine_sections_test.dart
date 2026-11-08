@@ -16,6 +16,7 @@ import 'package:porelo_frontend/src/ui/host_readiness_view.dart';
 import 'package:porelo_frontend/src/ui/vault_view.dart';
 import 'package:porelo_frontend/src/ui/vault_actions.dart';
 import 'package:porelo_frontend/src/ui/operations.dart';
+import 'package:porelo_frontend/src/ui/page_explanation.dart';
 import 'package:porelo_frontend/src/ui/work_page.dart';
 
 import '../features/support/tiles.dart';
@@ -81,6 +82,40 @@ Future<void> _open(WidgetTester tester, MachineSection section) async {
 }
 
 void main() {
+  // Harm: a machine's tasks read as all work, so a person stops or starts work on the wrong machine.
+  testWidgets("a machine's Tasks leaf names its path, its title and that machine's tasks", (tester) async {
+    final first = await _start(tester);
+    await _open(tester, MachineSection.tasks);
+    World.machines.select(first);
+    await World.settle(tester);
+    final head = find.byType(PageHead);
+    expect(head, findsOneWidget, reason: 'one head, never a second one over the list');
+    expect(tester.widget<Text>(find.descendant(of: head, matching: find.byKey(const Key('leaf-title')))).data, 'Tasks');
+    expect(find.descendant(of: head, matching: find.text('Work')), findsNothing);
+    final path = find.descendant(of: head, matching: find.byKey(ValueKey('machine-section-path ${_second.name}')));
+    expect(path, findsOneWidget);
+    for (final step in ['My machines', _second.name, 'Tasks']) {
+      expect(
+        find.descendant(of: path, matching: find.text(step)),
+        findsOneWidget,
+        reason: step,
+      );
+    }
+    final tiles = find
+        .byWidgetPredicate(
+          (widget) => widget.key is ValueKey<String> && (widget.key! as ValueKey<String>).value.startsWith('tile '),
+        )
+        .evaluate()
+        .map((element) => (element.widget.key! as ValueKey<String>).value)
+        .toSet();
+    expect(tiles, isNotEmpty);
+    expect(tiles.every((key) => key.startsWith('tile ${_second.name} ')), isTrue, reason: '$tiles');
+    expect(
+      tester.widget<Text>(find.byKey(const Key('work-list-subtitle'))).data,
+      startsWith('${tiles.length} ${tiles.length == 1 ? 'task' : 'tasks'} · '),
+    );
+  });
+
   // Harm: a directly restored managing page never reads the vault of the machine it names.
   testWidgets('Managing reads its own vault without selecting its machine', (tester) async {
     final first = await _start(tester);

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
@@ -12,12 +13,138 @@ import 'package:porelo_frontend/src/ui/organization_page.dart';
 import 'package:porelo_frontend/src/ui/organization_project_pages.dart';
 import 'package:porelo_frontend/src/ui/organization_host_pages.dart';
 import 'package:porelo_frontend/src/ui/attention_view.dart';
+import 'package:porelo_frontend/src/ui/tokens.dart';
 
 import '../features/support/tiles.dart';
 import '../features/support/world.dart';
 import '../support/organization_fixtures.dart';
 
 void main() {
+  // Harm: an empty band above the path pushes the page's rows out of sight and reads as a page still loading.
+  for (final size in const [Size(1280, 800), Size(700, 900), Size(390, 844)]) {
+    testWidgets('a leaf path starts right under the title bar: ${size.width}', (tester) async {
+      await World.startBackend(World.work);
+      await World.startApp(tester, organizationSource: FixtureOrganization(organizationFor('olive')));
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await World.settle(tester);
+      Future<void> expectRightUnder(String what) async {
+        final bar = tester.getRect(find.byType(AppBar).first);
+        final path = find.byWidgetPredicate(
+          (widget) =>
+              widget.key == const Key('leaf-path') ||
+              widget.key is ValueKey<String> &&
+                  (widget.key! as ValueKey<String>).value.startsWith('machine-section-path '),
+        );
+        expect(path, findsOneWidget, reason: what);
+        expect(tester.getRect(path).top - bar.bottom, lessThanOrEqualTo(Space.normal + Space.small), reason: what);
+      }
+
+      await toTheOrganization(tester);
+      await closeNavigationTree(tester);
+      await expectRightUnder('People');
+      for (final section in [MachineSection.vault, MachineSection.tasks]) {
+        World.shell.choosePlace(ShellPlace(Section.machine, machine: World.machines.current, machineSection: section));
+        await World.settle(tester);
+        await expectRightUnder(section.label);
+      }
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  // Harm: a path read as "acme ›People" runs two steps together and sends a person to the wrong page.
+  testWidgets('a path line gives every separator the same space on both sides', (tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: PageHead(title: 'People', path: [(label: 'Organizations', go: () {}), (label: 'acme', go: () {})]),
+        ),
+      ),
+    );
+    final path = find.byKey(const Key('leaf-path'));
+    Rect rect(Finder finder) => tester.getRect(find.descendant(of: path, matching: finder));
+    final steps = [rect(find.text('Organizations')), rect(find.text('acme')), rect(find.text('People'))];
+    final separators = find.descendant(of: path, matching: find.text('›'));
+    expect(separators, findsNWidgets(2));
+    final gaps = <double>[];
+    for (var index = 0; index < 2; index++) {
+      final separator = tester.getRect(separators.at(index));
+      gaps
+        ..add(separator.left - steps[index].right)
+        ..add(steps[index + 1].left - separator.right);
+    }
+    for (final gap in gaps) {
+      expect(gap, moreOrLessEquals(gaps.first, epsilon: 0.5), reason: '$gaps');
+    }
+    expect(gaps.first, greaterThan(0));
+  });
+
+  // Harm: a state cut mid-letter reads as another state, and a person acts on what the row does not say.
+  testWidgets('a long state chip ends in an ellipsis, never cut mid-letter', (tester) async {
+    tester.view.physicalSize = const Size(390, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    const words = 'GitHub not reached, asked again on the next read';
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: Align(
+            alignment: Alignment.topLeft,
+            child: SizedBox(width: 160, child: StateChip(words)),
+          ),
+        ),
+      ),
+    );
+    final label = tester.widget<Text>(find.text(words));
+    expect(label.overflow, TextOverflow.ellipsis);
+    expect(label.maxLines, 1);
+    expect(tester.getRect(find.byType(Chip)).right, lessThanOrEqualTo(160));
+    expect(find.byTooltip(words), findsOneWidget, reason: 'the whole state stays readable');
+    expect(tester.takeException(), isNull);
+  });
+
+  // Harm: a cut hint hides what the filter searches, so a person misses the row they look for.
+  testWidgets("a desktop leaf gives its filter the width of its hint", (tester) async {
+    await World.startBackend(World.work);
+    await World.startApp(tester, organizationSource: FixtureOrganization(organizationFor('olive')));
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await World.settle(tester);
+    await toTheOrganization(tester);
+    final people = find.descendant(
+      of: find.byKey(const ValueKey('organization-people-filter')),
+      matching: find.text('Filter people'),
+    );
+    expect(tester.renderObject<RenderParagraph>(people).didExceedMaxLines, isFalse);
+    await toThePlace(tester, 'work');
+    final work = find.descendant(
+      of: find.byKey(const Key('work-list-filter')),
+      matching: find.text('Name, project or machine'),
+    );
+    expect(tester.renderObject<RenderParagraph>(work).didExceedMaxLines, isFalse);
+    expect(tester.takeException(), isNull);
+  });
+
+  // Harm: "1 cards wait" reads as a fault in the count, and a person doubts the number they act on.
+  testWidgets('a leaf subtitle counts one in the singular', (tester) async {
+    await World.startBackend(World.work);
+    await World.startApp(tester, organizationSource: FixtureOrganization(organizationFor('olive')));
+    await toTheOrganization(tester);
+    expect(
+      tester.widget<Text>(find.byKey(const ValueKey('organization-people-subtitle'))).data,
+      startsWith('6 people · 1 card waits'),
+    );
+    await toTheOrganization(tester, section: OrganizationSection.owners);
+    expect(
+      tester.widget<Text>(find.byKey(const ValueKey('organization-owners-subtitle'))).data,
+      startsWith('1 owner · '),
+    );
+  });
   // Harm: phone actions for a machine project lose which inner list they affect.
   testWidgets('a phone keeps the machine project inner section titles', (tester) async {
     await World.startBackend(World.work);

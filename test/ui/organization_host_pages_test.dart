@@ -508,7 +508,11 @@ void main() {
         final section = find.byWidgetPredicate(
           (widget) => widget is FilteredListSection && widget.storageId == 'host-admins build',
         );
-        expect(tester.getSize(section).width, window - 24, reason: 'D62 uses the full card, after page padding');
+        expect(
+          tester.getSize(section).width,
+          window - 24,
+          reason: 'the chip follows the full card, after page padding',
+        );
         final name = tester.getRect(find.text('hana (you)'));
         final chip = tester.getRect(find.descendant(of: row, matching: find.byType(Chip)));
         if (window == 504) {

@@ -188,7 +188,7 @@ class _OrganizationProjectsPageState extends State<OrganizationProjectsPage> {
               title: 'My projects',
               titleInAppBar: true,
               leaf: true,
-              subtitle: '${mine.length} projects',
+              subtitle: counted(mine.length, 'project', 'projects'),
               busy: widget.organization.busy,
               readAt: widget.organization.readAt,
               problem: widget.organization.problem,
@@ -288,7 +288,7 @@ class _OrganizationProjectsPageState extends State<OrganizationProjectsPage> {
   );
 }
 
-String _count(int count, String one, String many) => '$count ${count == 1 ? one : many}';
+String _count(int count, String one, String many) => counted(count, one, many);
 
 class _Problem extends StatelessWidget {
   const _Problem(this.words);
@@ -435,7 +435,7 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
           },
           subtitle: _problem != null || _reading || view == null
               ? 'not read'
-              : '$repositoryWords · ${view.members.length} members',
+              : '$repositoryWords · ${counted(view.members.length, 'member', 'members')}',
           status: view != null && organization != null ? StateChip(_myRole(view, organization)) : null,
           action: commands.isEmpty
               ? null
@@ -592,7 +592,7 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
       FilteredListSection(
         title: 'Repositories',
         leaf: true,
-        subtitle: '${view.repositories.length} repositories',
+        subtitle: counted(view.repositories.length, 'repository', 'repositories'),
         read: view.opened,
         busy: _reading,
         problem: _problem ?? view.repositoriesProblem,
@@ -703,7 +703,7 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
     return FilteredListSection(
       title: 'Members',
       leaf: true,
-      subtitle: '${view.members.length} members',
+      subtitle: counted(view.members.length, 'member', 'members'),
       busy: _reading,
       problem: _problem,
       onRetry: () => unawaited(_read()),

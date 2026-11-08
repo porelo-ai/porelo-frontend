@@ -386,6 +386,9 @@ abstract final class Sizes {
   /// A leaf's filter with its desktop sort and fold targets.
   static const leafTools = 272.0;
 
+  /// The largest share of a leaf head's width its filter may take to show its whole hint; the rest keeps the title.
+  static const leafToolsShare = 0.6;
+
   /// The desktop sort target.
   static const leafSort = 36.0;
 

@@ -105,7 +105,7 @@ class ProjectDetailsPage extends StatelessWidget {
           FilteredListSection(
             title: 'Saved jobs',
             leaf: true,
-            subtitle: '${jobs.length} saved jobs',
+            subtitle: counted(jobs.length, 'saved job', 'saved jobs'),
             storageId: 'project-jobs ${machine.name}/${project.name}',
             collapsible: true,
             reveal: highlight?.startsWith('template.start/${project.name}/') == true ? highlight : null,

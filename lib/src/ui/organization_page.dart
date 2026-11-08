@@ -381,7 +381,8 @@ class _OrganizationPageState extends State<OrganizationPage> {
           style: TextStyle(color: Theme.of(context).colorScheme.error),
         ),
       for (final note in view.notes) Text(note),
-      const SizedBox(height: Space.normal),
+      // A leaf's head starts the page, right under the title bar.
+      if (widget.section == null) const SizedBox(height: Space.normal),
       if (widget.section == null || widget.section == OrganizationSection.people) _people(view, organization, show),
       if (widget.section == null || widget.section == OrganizationSection.projects) _projects(view, organization, show),
       if (widget.section == null || widget.section == OrganizationSection.machines) _hosts(view, organization, show),
@@ -410,7 +411,8 @@ class _OrganizationPageState extends State<OrganizationPage> {
     problem: organization.problem,
     onRetry: () => unawaited(organization.refresh()),
     subtitle:
-        '${view.persons.length} people · ${view.persons.where((person) => person.standing == CardStanding.notYet).length} cards wait',
+        '${counted(view.persons.length, 'person', 'people')} · '
+        '${counted(view.persons.where((person) => person.standing == CardStanding.notYet).length, 'card waits', 'cards wait')}',
     storageId: 'organization-people',
     collapsible: true,
     sorts: [
@@ -496,7 +498,7 @@ class _OrganizationPageState extends State<OrganizationPage> {
         readAt: organization.readAt,
         problem: organization.problem,
         onRetry: () => unawaited(organization.refresh()),
-        subtitle: '${view.projects.length} projects',
+        subtitle: counted(view.projects.length, 'project', 'projects'),
         storageId: 'organization-projects',
         collapsible: true,
         openWhenCompact: false,
@@ -687,7 +689,7 @@ class _OrganizationPageState extends State<OrganizationPage> {
     readAt: organization.readAt,
     problem: organization.problem,
     onRetry: () => unawaited(organization.refresh()),
-    subtitle: '${view.hosts.length} machines',
+    subtitle: counted(view.hosts.length, 'machine', 'machines'),
     storageId: 'organization-hosts',
     collapsible: true,
     openWhenCompact: false,
@@ -791,7 +793,7 @@ class _OrganizationPageState extends State<OrganizationPage> {
     readAt: organization.readAt,
     problem: organization.problem,
     onRetry: () => unawaited(organization.refresh()),
-    subtitle: '${view.owners.length} owners',
+    subtitle: counted(view.owners.length, 'owner', 'owners'),
     storageId: 'organization-owners',
     reveal: _ownersAsked == 0 ? null : 'owners $_ownersAsked',
     collapsible: true,
@@ -880,7 +882,7 @@ Widget? _organizationAdmins(
     explanation: explanation,
     subtitle: listed == null
         ? 'not read · owners do this work until admins are listed'
-        : '${admins.length} organization admins',
+        : counted(admins.length, 'organization admin', 'organization admins'),
     emptyWords: listed == null
         ? 'No separate admin list has been read. Organization owners do this work.'
         : 'No Organization Admins listed.',

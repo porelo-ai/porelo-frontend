@@ -285,11 +285,20 @@ class StateChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final tone = StateColours.forWords(toneWords ?? words, colors);
-    return Chip(
-      label: Text(words, style: Theme.of(context).textTheme.labelSmall?.copyWith(color: tone)),
-      backgroundColor: tone.withValues(alpha: Opacities.stateChip),
-      side: BorderSide.none,
-      visualDensity: VisualDensity.compact,
+    // A state too long for its place ends in an ellipsis, never cut mid-letter; the tooltip keeps it whole.
+    return Tooltip(
+      message: words,
+      child: Chip(
+        label: Text(
+          words,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(color: tone),
+        ),
+        backgroundColor: tone.withValues(alpha: Opacities.stateChip),
+        side: BorderSide.none,
+        visualDensity: VisualDensity.compact,
+      ),
     );
   }
 }

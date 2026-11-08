@@ -67,7 +67,8 @@ class ProjectsPage extends StatelessWidget {
           path: path,
           pathKeys: const {'My projects': Key('projects-of-organization')},
           subtitle: machines.all.any((machine) => machines.of(machine).listRead)
-              ? '${rows.length} projects on ${listedMachines(machines).length} machines'
+              ? '${counted(rows.length, 'project', 'projects')} on '
+                    '${counted(listedMachines(machines).length, 'machine', 'machines')}'
               : 'not read',
           title: title,
           rows: [

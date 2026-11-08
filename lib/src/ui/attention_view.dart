@@ -168,28 +168,31 @@ class _AttentionViewState extends State<AttentionView> {
                   ? '$count need you'
                   : '$count need you · some machines not read',
               subtitleKey: const Key('needs-you-subtitle'),
-              controls: Focus(
-                onKeyEvent: (_, event) {
-                  if (event is KeyDownEvent &&
-                      event.logicalKey == LogicalKeyboardKey.escape &&
-                      _filter.text.isNotEmpty) {
-                    setState(_filter.clear);
-                    return KeyEventResult.handled;
-                  }
-                  return KeyEventResult.ignored;
-                },
-                child: TextField(
-                  key: const Key('needs-you-filter'),
-                  controller: _filter,
-                  onChanged: (_) => setState(() {}),
-                  decoration: InputDecoration(
-                    isDense: true,
-                    hintText: 'Filter what needs you',
-                    prefixIcon: const Icon(Icons.search, size: Sizes.rowIcon),
-                    suffixIcon: IconButton(
-                      tooltip: 'Clear the filter',
-                      onPressed: () => setState(_filter.clear),
-                      icon: const Icon(Icons.close, size: Sizes.rowIcon),
+              controls: FilterWidth(
+                hint: 'Filter what needs you',
+                child: Focus(
+                  onKeyEvent: (_, event) {
+                    if (event is KeyDownEvent &&
+                        event.logicalKey == LogicalKeyboardKey.escape &&
+                        _filter.text.isNotEmpty) {
+                      setState(_filter.clear);
+                      return KeyEventResult.handled;
+                    }
+                    return KeyEventResult.ignored;
+                  },
+                  child: TextField(
+                    key: const Key('needs-you-filter'),
+                    controller: _filter,
+                    onChanged: (_) => setState(() {}),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      hintText: 'Filter what needs you',
+                      prefixIcon: const Icon(Icons.search, size: Sizes.rowIcon),
+                      suffixIcon: IconButton(
+                        tooltip: 'Clear the filter',
+                        onPressed: () => setState(_filter.clear),
+                        icon: const Icon(Icons.close, size: Sizes.rowIcon),
+                      ),
                     ),
                   ),
                 ),

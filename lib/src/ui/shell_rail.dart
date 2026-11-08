@@ -379,13 +379,20 @@ class _ShellRailState extends State<ShellRail> {
             },
             child: Container(
               constraints: BoxConstraints(minHeight: height),
-              decoration: BoxDecoration(
+              // Drawn over the row, so the outline takes none of the row's height from what it holds.
+              foregroundDecoration: BoxDecoration(
                 border: Border.all(
                   color: _focused && _cursor == index ? theme.colorScheme.primary : Colors.transparent,
                   width: Sizes.focusStroke,
                 ),
               ),
-              padding: EdgeInsets.only(left: Space.small + row.depth * Space.normal, right: Space.small),
+              // A child's label starts one step right of its parent's, which stands after the parent's icon.
+              padding: EdgeInsets.only(
+                left: row.depth == 0
+                    ? Space.small
+                    : Space.small + Sizes.rowIcon + Space.small + row.depth * Space.normal,
+                right: Space.small,
+              ),
               child: Row(
                 children: [
                   if (row.icon != null) ...[
@@ -428,7 +435,9 @@ class _ShellRailState extends State<ShellRail> {
                       child: IconButton(
                         key: ValueKey('fold $treeKey'),
                         tooltip: '${open ? 'Fold' : 'Unfold'} ${row.label}',
+                        // Inside the row's height, so a row with entries under it is as high as any other.
                         constraints: BoxConstraints(minWidth: height, minHeight: height),
+                        style: IconButton.styleFrom(tapTargetSize: MaterialTapTargetSize.shrinkWrap),
                         icon: Icon(open ? Icons.expand_more : Icons.chevron_right, size: Sizes.rowIcon),
                         onPressed: () => widget.onFold?.call(treeKey),
                       ),

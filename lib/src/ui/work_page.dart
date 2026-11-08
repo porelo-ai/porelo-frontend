@@ -465,10 +465,13 @@ class _WorkPageState extends State<WorkPage> {
             settings: head?.settings ?? scope?.settings,
             path: head?.path ?? const [],
             pathKeys: head?.pathKeys ?? const {},
+            pathKey: head?.pathKey ?? const Key('leaf-path'),
             titleKey: head?.titleKey,
             status: head?.status,
             subtitle: !countKnown
                 ? 'Not read: a machine is not answering or its list is still being read'
+                : widget.onlyMachine != null
+                ? '${counted(tiles.length, 'task', 'tasks')} · $running running'
                 : '${tiles.length} $work on $machines ${machines == 1 ? 'machine' : 'machines'} · $running running',
             subtitleKey: const Key('work-list-subtitle'),
             controls: _view.running
@@ -476,28 +479,31 @@ class _WorkPageState extends State<WorkPage> {
                 : Row(
                     children: [
                       Expanded(
-                        child: Focus(
-                          onKeyEvent: (_, event) {
-                            if (event is KeyDownEvent &&
-                                event.logicalKey == LogicalKeyboardKey.escape &&
-                                _view.search.text.isNotEmpty) {
-                              _view.search.clear();
-                              return KeyEventResult.handled;
-                            }
-                            return KeyEventResult.ignored;
-                          },
-                          child: TextField(
-                            key: const Key('work-list-filter'),
-                            controller: _view.search,
-                            decoration: InputDecoration(
-                              isDense: true,
-                              hintText: 'Name, project or machine',
-                              prefixIcon: const Icon(Icons.search, size: Sizes.rowIcon),
-                              suffixIcon: IconButton(
-                                key: const Key('work-list-filter-close'),
-                                tooltip: 'Clear the filter',
-                                onPressed: _view.search.clear,
-                                icon: const Icon(Icons.close, size: Sizes.rowIcon),
+                        child: FilterWidth(
+                          hint: 'Name, project or machine',
+                          child: Focus(
+                            onKeyEvent: (_, event) {
+                              if (event is KeyDownEvent &&
+                                  event.logicalKey == LogicalKeyboardKey.escape &&
+                                  _view.search.text.isNotEmpty) {
+                                _view.search.clear();
+                                return KeyEventResult.handled;
+                              }
+                              return KeyEventResult.ignored;
+                            },
+                            child: TextField(
+                              key: const Key('work-list-filter'),
+                              controller: _view.search,
+                              decoration: InputDecoration(
+                                isDense: true,
+                                hintText: 'Name, project or machine',
+                                prefixIcon: const Icon(Icons.search, size: Sizes.rowIcon),
+                                suffixIcon: IconButton(
+                                  key: const Key('work-list-filter-close'),
+                                  tooltip: 'Clear the filter',
+                                  onPressed: _view.search.clear,
+                                  icon: const Icon(Icons.close, size: Sizes.rowIcon),
+                                ),
                               ),
                             ),
                           ),

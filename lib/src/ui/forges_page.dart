@@ -16,6 +16,7 @@ import '../app/machine_binding.dart';
 import '../app/machines.dart';
 import '../app/session.dart';
 import 'forges_view.dart';
+import 'page_explanation.dart';
 import 'project_forge_view.dart';
 import 'filtered_list_section.dart';
 import 'command_menu.dart';
@@ -113,7 +114,9 @@ class _ForgesPageState extends State<ForgesPage> {
               if (widget.keyCheck case final check?) ForgeKeyRow(check: check),
             ],
             leaf: true,
-            subtitle: !forges.loaded ? 'not read' : '${listedForges(forges.allEntries, widget.held).length} forges',
+            subtitle: !forges.loaded
+                ? 'not read'
+                : counted(listedForges(forges.allEntries, widget.held).length, 'forge', 'forges'),
             busy: forges.busy,
             problem: forges.problem,
             onRetry: () => unawaited(forges.readList()),
@@ -452,7 +455,9 @@ class _ForgePageState extends State<ForgePage> {
             ],
             leaf: true,
             path: [(label: 'My forges', go: widget.onBack)],
-            subtitle: forges.repositories == null ? 'not read' : '${forges.repositories!.length} repositories',
+            subtitle: forges.repositories == null
+                ? 'not read'
+                : counted(forges.repositories!.length, 'repository', 'repositories'),
             busy: forges.busy,
             problem: forges.problem,
             actions: [

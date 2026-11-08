@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 
 import '../app/settings.dart';
@@ -141,6 +143,38 @@ class _PageExplanationState extends State<PageExplanation> {
   );
 }
 
+/// A leaf's filter field, asking for the width its [hint] needs beside its search and clear icons, so a head with
+/// room gives it that width; a narrower place still shrinks it.
+class FilterWidth extends StatelessWidget {
+  /// Constructor taking the field's hint and the field.
+  const FilterWidth({required this.hint, required this.child, super.key});
+
+  /// The words shown in the empty field.
+  final String hint;
+
+  /// The field.
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final painter = TextPainter(
+      text: TextSpan(text: hint, style: Theme.of(context).textTheme.bodyLarge),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+      maxLines: 1,
+    )..layout();
+    final width = painter.width + 2 * kMinInteractiveDimension + 2 * Space.normal;
+    painter.dispose();
+    return ConstrainedBox(
+      constraints: BoxConstraints(minWidth: width),
+      child: child,
+    );
+  }
+}
+
+/// A count with its noun, the singular for exactly one: *1 card*, *2 cards*.
+String counted(int count, String one, String many) => '$count ${count == 1 ? one : many}';
+
 /// One ancestor in a leaf's path; the current page is added by the head.
 typedef LeafPathStep = ({String label, VoidCallback? go});
 
@@ -160,8 +194,12 @@ class PageHead extends StatelessWidget {
     this.controls,
     this.action,
     this.pathKeys = const {},
+    this.pathKey = const Key('leaf-path'),
     super.key,
   });
+
+  /// The path line's automation target.
+  final Key pathKey;
 
   /// Whether the phone app bar already names this exact page.
   final bool titleInAppBar;
@@ -237,13 +275,26 @@ class PageHead extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(bottom: Space.small),
               child: Wrap(
-                key: const Key('leaf-path'),
+                key: pathKey,
                 crossAxisAlignment: WrapCrossAlignment.center,
-                spacing: Space.tight,
+                // The links carry no padding of their own, so each separator has the same space on both sides.
+                spacing: Space.small,
                 children: [
                   for (final step in path) ...[
                     if (step.go != null)
-                      TextButton(key: pathKeys[step.label], onPressed: step.go, child: Text(step.label))
+                      TextButton(
+                        key: pathKeys[step.label],
+                        style: TextButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          minimumSize: Size(
+                            0,
+                            WindowSize.fromContext(context).showsTwoPanes ? Sizes.leafSort : Sizes.touchTarget,
+                          ),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        onPressed: step.go,
+                        child: Text(step.label),
+                      )
                     else
                       Text(step.label),
                     const Text('›'),
@@ -280,7 +331,15 @@ class PageHead extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Expanded(child: heading),
-                      if (inline && controls != null) SizedBox(width: Sizes.leafTools, child: controls),
+                      // As wide as the filter's hint needs where there is room, never narrower than before.
+                      if (inline && controls != null)
+                        ConstrainedBox(
+                          constraints: BoxConstraints(
+                            minWidth: Sizes.leafTools,
+                            maxWidth: max(Sizes.leafTools, constraints.maxWidth * Sizes.leafToolsShare),
+                          ),
+                          child: IntrinsicWidth(child: controls),
+                        ),
                       if (action != null) ...[const SizedBox(width: Space.small), Flexible(child: action!)],
                     ],
                   ),
