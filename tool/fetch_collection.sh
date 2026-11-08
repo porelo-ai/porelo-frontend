@@ -32,8 +32,9 @@ if [ -n "${PORELO_COLLECTION_SOURCE:-}" ]; then
     cp -- "$PORELO_COLLECTION_SOURCE/SHA256SUMS" "$stage/SHA256SUMS"
 else
     release="https://github.com/porelo-ai/porelo-host/releases/download/v$version"
-    curl -fsSL -o "$stage/$file" "$release/$file"
-    curl -fsSL -o "$stage/SHA256SUMS" "$release/SHA256SUMS"
+    # GitHub's release downloads answer 5xx for minutes at a time; a retry waits that out, the digest still decides.
+    curl -fsSL --retry 5 --retry-all-errors --retry-delay 20 -o "$stage/$file" "$release/$file"
+    curl -fsSL --retry 5 --retry-all-errors --retry-delay 20 -o "$stage/SHA256SUMS" "$release/SHA256SUMS"
 fi
 
 named=$(awk -v name="$file" '
