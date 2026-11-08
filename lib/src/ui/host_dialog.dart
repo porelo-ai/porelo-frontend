@@ -728,7 +728,7 @@ class _HostDialogState extends State<HostDialog> {
     }
   }
 
-  /// How long a confirmed take-down waits on the organization's removal before Close is free again.
+  /// How long a confirmed take-down waits on the organization's removal before Close is free; the removal goes on.
   static const _removalPatience = Duration(minutes: 2);
 
   /// What a confirmed take-down has done, whatever this window then manages to keep of it.
