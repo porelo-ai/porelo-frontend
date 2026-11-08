@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -29,6 +30,7 @@ class _Server {
   final scans = <List<String>>[];
   final logins = <List<String>>[];
   Ran login = (code: 0, out: '', err: '');
+  Completer<void>? loginHeld;
 
   Future<Ran> run(
     String program,
@@ -44,6 +46,7 @@ class _Server {
     if (program.endsWith('ssh-keygen')) return (code: 0, out: '256 $_fingerprint 192.0.2.7 (ED25519)\n', err: '');
     if (program.endsWith('ssh')) {
       logins.add(arguments);
+      await loginHeld?.future;
       return login;
     }
     return (code: 127, out: '', err: 'not here');
@@ -293,6 +296,45 @@ void main() {
     expect(walk.roots, hasLength(2), reason: 'root is not tried after a line that did not run');
     expect(_nextIsGrey(tester), isTrue);
     expect(tester.widget<OutlinedButton>(find.byKey(const Key('setup-open-terminal'))).onPressed, isNotNull);
+  });
+
+  // Harm: a run answered for a server or login no longer asked about opens the way for the new one.
+  testWidgets('a run still going when the address changes says nothing of the new one', (tester) async {
+    final walk = await _open(tester);
+    walk.roots
+      ..clear()
+      ..add((state: RootLoginState.open, words: 'Root logs in with your Machine Admin card key.'));
+    await toTheLogin(tester);
+    walk.server.loginHeld = Completer<void>();
+    await tester.ensureVisible(find.byKey(const Key('setup-run-bootstrap')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('setup-run-bootstrap')));
+    await tester.pump();
+    expect(walk.setup.runningBootstrap, isTrue);
+    walk.setup.address = '192.0.2.8';
+    walk.server.loginHeld!.complete();
+    await World.settle(tester);
+    expect(walk.setup.bootstrapRun, isNull);
+    expect(walk.setup.root, isNull, reason: 'root is not tried for the old address');
+    expect(walk.setup.runningBootstrap, isFalse);
+  });
+
+  // Harm: words of an earlier try stand beside, or against, what the last one found.
+  testWidgets('each try replaces what the other said', (tester) async {
+    final walk = await _open(tester);
+    walk.roots
+      ..clear()
+      ..add((state: RootLoginState.open, words: 'Root logs in with your Machine Admin card key.'));
+    walk.server.login = (code: 1, out: '', err: 'sudo: a password is required\n');
+    await toTheLogin(tester);
+    await _tap(tester, find.byKey(const Key('setup-run-bootstrap')));
+    expect(find.byKey(const Key('setup-bootstrap-answer')), findsOneWidget);
+    await _tap(tester, find.byKey(const Key('setup-try-root')));
+    expect(find.byKey(const Key('setup-bootstrap-answer')), findsNothing);
+    expect(_nextIsGrey(tester), isFalse);
+    await _tap(tester, find.byKey(const Key('setup-run-bootstrap')));
+    expect(find.byKey(const Key('setup-root-answer')), findsNothing, reason: 'a failed run takes back the root answer');
+    expect(_nextIsGrey(tester), isTrue);
   });
 
   // Harm: a key that changed between comparing and preparing is taken, which is the installer's or a stranger's.

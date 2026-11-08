@@ -393,6 +393,10 @@ class ServerSetup extends ChangeNotifier {
   bool get tryingRoot => _tryingRoot;
 
   void _dropRoot() {
+    // A run or try still going answers for what was asked before; its answer is dropped when it comes.
+    _loginAsked++;
+    _runningBootstrap = false;
+    _tryingRoot = false;
     _root = null;
     _bootstrapRun = null;
     final pin = _pin;
@@ -410,22 +414,33 @@ class ServerSetup extends ChangeNotifier {
       notifyListeners();
       return;
     }
+    if (_tryingRoot || _runningBootstrap) return;
+    final asked = _loginAsked;
     _tryingRoot = true;
+    // What root answers now is the word: an earlier run's refusal no longer stands beside it.
+    _bootstrapRun = null;
     notifyListeners();
+    RootLogin? root;
     try {
       final pinned = await pin();
       if (pinned == null) {
-        _root = (state: RootLoginState.noAnswer, words: 'Compare the SSH host key first.');
+        root = (state: RootLoginState.noAnswer, words: 'Compare the SSH host key first.');
         return;
       }
-      _root = await login(address: _address, pin: pinned.file.path, cardKey: identity.key);
+      root = await login(address: _address, pin: pinned.file.path, cardKey: identity.key);
     } on Exception catch (error) {
-      _root = (state: RootLoginState.noAnswer, words: 'The root login could not be tried: $error');
+      root = (state: RootLoginState.noAnswer, words: 'The root login could not be tried: $error');
     } finally {
-      _tryingRoot = false;
-      notifyListeners();
+      if (asked == _loginAsked) {
+        _root = root;
+        _tryingRoot = false;
+        notifyListeners();
+      }
     }
   }
+
+  // Counts what root's login was asked for: an answer for an earlier address, login or key is not kept.
+  int _loginAsked = 0;
 
   /// What the last *Run it for me* came to, or null before one ran.
   BootstrapRun? get bootstrapRun => _bootstrapRun;
@@ -440,13 +455,16 @@ class ServerSetup extends ChangeNotifier {
   Future<void> runBootstrap() async {
     final line = bootstrapLine;
     if (line == null || _runningBootstrap || _tryingRoot) return;
+    final asked = _loginAsked;
     _runningBootstrap = true;
     _bootstrapRun = null;
+    _root = null;
     notifyListeners();
+    BootstrapRun? run;
     try {
       final pinned = await pin();
       if (pinned == null) {
-        _bootstrapRun = (state: BootstrapRunState.noLogin, words: 'Compare the SSH host key first.');
+        run = (state: BootstrapRunState.noLogin, words: 'Compare the SSH host key first.');
         return;
       }
       final ran = await (runFirstLogin ?? runHere)(
@@ -458,14 +476,17 @@ class ServerSetup extends ChangeNotifier {
           command: unaskedBootstrapLine(line),
         ),
       );
-      _bootstrapRun = readBootstrapRun(ran.code, ran.out, ran.err);
+      run = readBootstrapRun(ran.code, ran.out, ran.err);
     } on Exception catch (error) {
-      _bootstrapRun = (state: BootstrapRunState.noLogin, words: 'ssh could not be started on this computer: $error');
+      run = (state: BootstrapRunState.noLogin, words: 'The bootstrap line could not be run from here: $error');
     } finally {
-      _runningBootstrap = false;
-      notifyListeners();
+      if (asked == _loginAsked) {
+        _bootstrapRun = run;
+        _runningBootstrap = false;
+        notifyListeners();
+      }
     }
-    if (_bootstrapRun?.state == BootstrapRunState.ran) await tryRoot();
+    if (asked == _loginAsked && run.state == BootstrapRunState.ran) await tryRoot();
   }
 
   /// Why the login's page cannot go on, or null.
@@ -473,7 +494,7 @@ class ServerSetup extends ChangeNotifier {
     if (_runningBootstrap) return 'Running the bootstrap line on the server…';
     if (_tryingRoot) return 'Trying the root login…';
     return switch (_root) {
-      null => 'Run the bootstrap line on the server, then try the root login.',
+      null => _bootstrapRun?.words ?? 'Run the bootstrap line on the server, then try the root login.',
       (state: RootLoginState.open, words: _) => null,
       (state: _, :final words) => words,
     };
