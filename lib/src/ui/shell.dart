@@ -1357,7 +1357,10 @@ class _ShellState extends State<Shell> {
   late final Organization? _organization = widget.organizationSource == null
       ? null
       : (Organization(widget.organizationSource!)
-          ..thisComputersVaultShut = isThisComputersVaultShut
+          // Only the real organization asks this computer's vault: a stand-in's refusals are no vault's.
+          ..thisComputersVaultShut = widget.organizationSource is PoreloOrganizationSource
+              ? isThisComputersVaultShut
+              : null
           ..openThisComputersVault = (() => _unlockMachine(Machine.local())));
 
   late final HostConnections? _hostConnections =
@@ -3950,7 +3953,9 @@ class _ShellState extends State<Shell> {
           actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close'))],
         ),
       );
-      return step.given || step.problem == null ? null : step.problem;
+      if (step.given) return null;
+      // The placing dialog follows a token as given on null: a page closed without one says so.
+      return step.problem ?? (atOnce ? 'No token was given. Give it when you are ready.' : null);
     } finally {
       step.dispose();
     }

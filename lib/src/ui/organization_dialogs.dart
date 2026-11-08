@@ -195,7 +195,7 @@ class _OrganizationVaultShutState extends State<OrganizationVaultShut> {
     bool? shut;
     try {
       shut = await widget.organization.thisComputersVaultShut?.call();
-    } on Exception catch (_) {
+    } catch (_) {
       shut = null;
     }
     if (mounted) setState(() => _shut = shut ?? false);
@@ -207,10 +207,12 @@ class _OrganizationVaultShutState extends State<OrganizationVaultShut> {
     setState(() => _opening = true);
     try {
       await open();
+    } catch (_) {
+      // The vault is asked again below: what it says then is the word, not why the opening failed.
     } finally {
       if (mounted) setState(() => _opening = false);
     }
-    await _ask();
+    if (mounted) await _ask();
   }
 
   @override

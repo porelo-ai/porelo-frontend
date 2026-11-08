@@ -865,7 +865,10 @@ class _MemberRowState extends State<_MemberRow> {
                 ),
             ],
           ),
-          if (_refusal case final refusal?) Text(refusal, style: TextStyle(color: colors.error)),
+          if (_refusal case final refusal?) ...[
+            Text(refusal, style: TextStyle(color: colors.error)),
+            OrganizationVaultShut(widget.organization, key: ValueKey(refusal)),
+          ],
         ],
       ),
     );

@@ -326,8 +326,11 @@ Future<bool?> isThisComputersVaultShut({FleetBackend? localBackend}) async {
   final backend = localBackend ?? PoreloBackend(Machines.backendFor(machine));
   try {
     await backend.open();
-    return !(await backend.credentials()).readable;
-  } on Exception catch (_) {
+    final vault = await backend.credentials();
+    // A vault not made yet is not shut: opening it cannot help.
+    return vault.exists && !vault.readable;
+  } catch (_) {
+    // Whatever answered, or did not, says nothing of the vault: a daemon that is not Porelo throws an Error.
     return null;
   }
 }
