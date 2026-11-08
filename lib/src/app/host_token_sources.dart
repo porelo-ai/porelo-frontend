@@ -191,7 +191,7 @@ class HostTokenSources {
 class HostTokenStep extends ChangeNotifier {
   /// Gives [host] its token from [sources]; [connect] reaches the host first, [give] hands one source's token over and
   /// answers null once the host took it, or why not.
-  HostTokenStep({required this.host, required this.sources, required this.connect, required this.give});
+  HostTokenStep({required this.host, required this.sources, required this.connect, required this.give, this.heard});
 
   /// The host.
   final String host;
@@ -204,6 +204,9 @@ class HostTokenStep extends ChangeNotifier {
 
   /// Hands the answer's token over; null once the host took it.
   final Future<String?> Function(TokenSourceAnswer answer) give;
+
+  /// Asks the host what it now says, once it took a token, so that what shows it waiting follows its word.
+  final Future<void> Function()? heard;
 
   List<TokenSourceAnswer>? _answers;
   bool _asking = false;
@@ -261,6 +264,12 @@ class HostTokenStep extends ChangeNotifier {
     } finally {
       _giving = false;
       notifyListeners();
+    }
+    // What it says next is the host's own word; a host not asked now is asked by the next Refresh, as before.
+    if (_given) {
+      try {
+        await heard?.call();
+      } on Exception catch (_) {}
     }
   }
 }

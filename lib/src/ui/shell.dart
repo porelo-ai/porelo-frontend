@@ -3903,6 +3903,10 @@ class _ShellState extends State<Shell> {
       ),
       connect: () => _connectHost(host),
       give: (answer) => _giveTokenFrom(host, answer),
+      heard: () async {
+        final connections = _hostConnections;
+        if (connections != null && connections.connected(host)) await connections.progress(host);
+      },
     );
   }
 
@@ -4227,23 +4231,13 @@ class _ShellState extends State<Shell> {
       machineName: machineName,
     );
     try {
-      await showDialog<void>(
-        context: context,
-        builder: (context) => Dialog(
-          child: SizedBox(
-            width: Sizes.dialog,
-            child: ServerSetupWizard(
-              setup: setup,
-              openTerminal: _openServerTerminal,
-              token: _hostTokenStep,
-              onSignIn: () {
-                Navigator.of(context).pop();
-                _showTheForges();
-              },
-              onUnlock: () => unawaited(_unlockMachine(Machine.local())),
-            ),
-          ),
-        ),
+      await showServerSetupWizard(
+        context,
+        setup: setup,
+        openTerminal: _openServerTerminal,
+        token: _hostTokenStep,
+        onSignIn: _showTheForges,
+        onUnlock: () => unawaited(_unlockMachine(Machine.local())),
       );
     } finally {
       setup.dispose();

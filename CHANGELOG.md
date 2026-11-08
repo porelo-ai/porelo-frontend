@@ -9,6 +9,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- *Set up a machine* offers *Run it for me* for the bootstrap line: on your press it runs the line on the server as the first login, trusting only the SSH host key you compared, and tries root's login right after; where sudo wants your password it says so, and the terminal stays the way.
 - *Open its forge* on an organization's machine row and its machine page opens the host's forge in your browser while connected, and says why it is unavailable otherwise.
 - *Put it on a machine…* offers the whole project, chosen to begin with, or some of its repositories; a repository already on a machine is named with it and not offered. A machine's page lists the repositories it carries of a project carried in part, each with *Take it off this machine…*, whose question says the machine deletes its read key for it and takes that key off the central forge. Needs a porelo whose `org host carry` takes `--repository`.
 - A project's own page offers *Put it on a machine…* and *Take it off the machine…* to whoever administers the machine, with the same dialog, words and follow afterwards as its row on *Organization*.
@@ -134,6 +135,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- *Set up a machine* is one dialog again, not a card floating in a larger empty frame.
+- A machine's row stops saying it waits for a first token once the machine took the token, without *Refresh*.
 - The token a machine declares for the organization's repository is found again when Porelo answers its address as `host:path` without a user, as it now does.
 - *Give it my token…* on a machine's page offers the token this machine's vault declares for the Porelo organization's forge, named by its declaration, and has Porelo hand it to the machine; the window never reads it. *Give another…* keeps the other ways. Needs a porelo with `org host refresh`.
 - A project file naming each repository's forge as `central:` is read so, and one still naming `upstream:` as before.

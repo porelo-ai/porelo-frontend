@@ -24,6 +24,45 @@ HostTokenSources _sources({
 );
 
 void main() {
+  // Harm: the machine's row keeps saying it waits for a first token after the token was given, until a Refresh.
+  test('a token the host took has the machine asked once again; one it did not take does not', () async {
+    var heard = 0;
+    String? why;
+    final step = HostTokenStep(
+      host: 'orchard',
+      sources: _sources(declarations: () async => [_declared]),
+      connect: () async {},
+      give: (_) async => why,
+      heard: () async => heard++,
+    );
+    addTearDown(step.dispose);
+    await step.ask();
+    final found = step.offered!;
+    why = 'orchard was given no token: refused';
+    await step.giveFrom(found);
+    expect(heard, 0);
+    why = null;
+    await step.giveFrom(found);
+    expect(step.given, isTrue);
+    expect(heard, 1);
+  });
+
+  // Harm: a machine that cannot be asked afterwards makes a token it took read as not given.
+  test('a host that cannot be asked after taking the token still counts as given', () async {
+    final step = HostTokenStep(
+      host: 'orchard',
+      sources: _sources(declarations: () async => [_declared]),
+      connect: () async {},
+      give: (_) async => null,
+      heard: () async => throw Exception('not connected'),
+    );
+    addTearDown(step.dispose);
+    await step.ask();
+    await step.giveFrom(step.offered!);
+    expect(step.given, isTrue);
+    expect(step.problem, isNull);
+  });
+
   // Harm: a source that could not be asked counts as holding no token, and the person is sent to sign in when the cause
   // is a daemon or a store that did not answer.
   test('a source that throws is said as failed, with its words, never as none', () async {

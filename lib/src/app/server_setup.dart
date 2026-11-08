@@ -8,6 +8,7 @@ import 'host_check_run.dart';
 import 'host_keys.dart' show KnownWithAnother;
 import 'host_runs.dart';
 import 'host_session.dart';
+import 'machines.dart' show openSsh;
 import 'preparation_host_key.dart';
 import 'run_here.dart';
 import 'server_first_login.dart';
@@ -29,6 +30,7 @@ class ServerSetup extends ChangeNotifier {
     this.knownWithAnother,
     this.forgetOldKey,
     this.rootLogin,
+    this.runFirstLogin,
     this.startHost,
     Future<ComparedKeyPin> Function(String address, String key)? makePin,
     String? machineName,
@@ -60,6 +62,9 @@ class ServerSetup extends ChangeNotifier {
 
   /// Logs in as root through the pin with the card key.
   final Future<RootLogin> Function({required String address, required String pin, required String cardKey})? rootLogin;
+
+  /// Runs ssh for the first login's run of the bootstrap line; this computer's by default.
+  final RunHere? runFirstLogin;
 
   /// Starts `porelo-host`; this computer's by default.
   final StartHostCommand? startHost;
@@ -389,6 +394,7 @@ class ServerSetup extends ChangeNotifier {
 
   void _dropRoot() {
     _root = null;
+    _bootstrapRun = null;
     final pin = _pin;
     _pin = null;
     if (pin != null) unawaited(pin.dispose());
@@ -421,8 +427,50 @@ class ServerSetup extends ChangeNotifier {
     }
   }
 
+  /// What the last *Run it for me* came to, or null before one ran.
+  BootstrapRun? get bootstrapRun => _bootstrapRun;
+  BootstrapRun? _bootstrapRun;
+
+  /// Whether the bootstrap line runs by *Run it for me*.
+  bool get runningBootstrap => _runningBootstrap;
+  bool _runningBootstrap = false;
+
+  /// Runs the bootstrap line on the server as the first login, unasked, through the pin; root's login follows a run
+  /// that ended well. Only on the person's press: it replaces root's authorized keys.
+  Future<void> runBootstrap() async {
+    final line = bootstrapLine;
+    if (line == null || _runningBootstrap || _tryingRoot) return;
+    _runningBootstrap = true;
+    _bootstrapRun = null;
+    notifyListeners();
+    try {
+      final pinned = await pin();
+      if (pinned == null) {
+        _bootstrapRun = (state: BootstrapRunState.noLogin, words: 'Compare the SSH host key first.');
+        return;
+      }
+      final ran = await (runFirstLogin ?? runHere)(
+        openSsh('ssh'),
+        firstLoginRunArguments(
+          pin: pinned.file.path,
+          user: _firstLogin,
+          address: _address,
+          command: unaskedBootstrapLine(line),
+        ),
+      );
+      _bootstrapRun = readBootstrapRun(ran.code, ran.out, ran.err);
+    } on Exception catch (error) {
+      _bootstrapRun = (state: BootstrapRunState.noLogin, words: 'ssh could not be started on this computer: $error');
+    } finally {
+      _runningBootstrap = false;
+      notifyListeners();
+    }
+    if (_bootstrapRun?.state == BootstrapRunState.ran) await tryRoot();
+  }
+
   /// Why the login's page cannot go on, or null.
   String? get whyNotLogin {
+    if (_runningBootstrap) return 'Running the bootstrap line on the server…';
     if (_tryingRoot) return 'Trying the root login…';
     return switch (_root) {
       null => 'Run the bootstrap line on the server, then try the root login.',
