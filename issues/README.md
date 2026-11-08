@@ -92,6 +92,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f321"></a>[F321](F321-Send-The-Terminal-Input-Fix-Upstream.md) | S | the third move | The terminal input fix offered upstream, and this repository's copy of `xterm` dropped once a release holds it. |
 | <a id="f203"></a>[F203](F203-This-Repository-Worked-In-A-Porelo-Task.md) | S | — | This repository's agent working in an attended Porelo task on the host, its build green on the host's Forgejo, reached in the room, with a way back. |
 | <a id="f388"></a>[F388](F388-The-Stubs-Pin-Stays-Fetchable.md) | XS | — | A scenario that needs the stub does not go red because its pinned version left the folder. |
 | <a id="f379"></a>[F379](F379-Add-A-Project-In-One-Step-From-The-Window.md) | S | — | A person naming themselves Project Admin adds a project in one step from the window. |
@@ -130,7 +131,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f430"></a>[F430](F430-Leftovers-Of-The-Rental-Findings.md) | — | — | What the fixes of the trial move's findings named as not built, gathered for the operator to place: the wizard's last pages in a test, the old preparing dialog, Forward's stale-push check, a give-back that leaves the machine listed. |
 | <a id="f402"></a>[F402](F402-Prepare-A-Server-As-The-Standard-Wizard.md) | — | — | *Prepare a server* as steps of the standard wizard, each fitting the window. |
 | <a id="f99"></a>[F99](F99-An-Attached-Agent-Shown-At-Rest-Or-Working.md) | — | — | A work tile says whether an attached agent is at rest or working; implementation waits for the verified screen-derived daemon answer. |
-| <a id="f386"></a>[F386](F386-A-Short-Name-People-Read.md) | — | — | A task and a project have a short name people read; the window's lists show only it. |
 | <a id="f384"></a>[F384](F384-Configure-The-Terminal.md) | — | — | The window's terminal can be configured: font sizes, colours and so on. |
 | <a id="f372"></a>[F372](F372-An-Unattended-Agents-Console-Reads-What-It-Did.md) | — | — | An unattended agent's console reads its text and what it did, in summaries, in place of one line per tool. |
 | <a id="f351"></a>[F351](F351-A-Host-Reached-From-Windows.md) | — | — | A host reached from Windows, measured first, probably by WSL's ssh. |
@@ -138,7 +138,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f349"></a>[F349](F349-A-Way-Without-Administration-Rights.md) | — | — | A person creates the repository and enters each deploy key by hand, so their token needs no Administration. |
 | <a id="f328"></a>[F328](F328-Letters-Doubled-In-A-Slow-Window.md) | — | — | A key pressed once reaching a console once, however slowly the window answers. |
 | <a id="f324"></a>[F324](F324-Removing-A-Project-On-Windows.md) | — | — | A local project removed from the interface on Windows, where it runs in a WSL distribution. |
-| <a id="f321"></a>[F321](F321-Send-The-Terminal-Input-Fix-Upstream.md) | S | — | The terminal input fix offered upstream, and this repository's copy of `xterm` dropped once a release holds it. |
 | <a id="f318"></a>[F318](F318-An-Owner-Makes-An-Admin-A-Developer.md) | — | — | An Organization Admin turns a project's admin into a developer with an entry on the organization page. |
 | <a id="f317"></a>[F317](F317-A-Homeservers-Token-Reaches-The-Host.md) | — | — | A homeserver's registration token comes along with `porelo host unlock` through Core, and lies in the host's vault. |
 | <a id="f308"></a>[F308](F308-The-Needs-You-Header-Counts-What-It-Lists.md) | — | — | The *Needs you* header, the rail's badge and the rows agree on what needs the person. |
@@ -371,6 +370,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Title | Why |
 |---|---|---|
+| <a id="f386"></a>F386 | A Short Name People Read | The operator's word (2026-11-08): a problem with long task names is handled when one is seen. |
 | <a id="f142"></a>F142 | The Drafts Offered Before The First Task In Default | Folded into [F397](#f397): the proposal is the first-start question for a repository in Default, writing its `porelo.yml`, with no project draft to keep. |
 | <a id="f221"></a>F221 | A Host's Vault Unlocked From The Secrets File | Replaced by the host vault opened by the person's key: no value of a secrets file is fed to a host's vault. |
 | <a id="f244"></a>F244 | A Bring Reads A Private Repository With The Follow's Credential | Replaced by a host that carries its projects and follows them by itself: no bundle of a private repository is made here for a bring. |

@@ -1,7 +1,12 @@
 # F321 — Send The Terminal Input Fix Upstream
 
-**Status:** Idea.
+**Status:** Backlog.
 **Size:** S - one pull request elsewhere, then removing the copy here.
+**Blocked by:** the third trial move (2026-11-08).
+
+**The operator's word (2026-11-08).** After the third move: the patch is run against upstream's current tree with
+upstream's own tests; only when they are green is the pull request handed to the coordinator, and the operator sends
+it.
 
 **What must be true.** Porelo uses a released `xterm`, with no copy of it in this repository, and typing fast into a
 terminal still sends each key once, with dead keys composing.
