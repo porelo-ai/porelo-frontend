@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../support/e2e.dart';
@@ -10,7 +9,7 @@ Future<void> theMachineIsAnswering(WidgetTester tester) async {
   if (!walkingAsANewPerson) return;
   await pumpUntil(
     tester,
-    () => find.byKey(ValueKey<String>('rail-machine ${E2e.name}')).evaluate().isNotEmpty,
+    () => machineEntry(E2e.name).evaluate().isNotEmpty,
     timeout: const Duration(seconds: 30),
     what: 'the machine to be among the machines',
   );

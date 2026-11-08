@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/main.dart' as app;
 import 'package:porelo_frontend/src/app/porelo_app.dart';
+import 'package:porelo_frontend/src/app/shell_model.dart';
 import 'package:porelo_frontend/src/ui/choice_field.dart';
 
 import 'remote.dart';
@@ -50,9 +51,16 @@ Future<void> toThePlace(WidgetTester tester, String place) async {
   await pumpFor(tester);
 }
 
-/// Goes to the machines and their projects, where they are not on screen already.
+/// The side bar's entry of the machine [name], under *My machines*.
+Finder machineEntry(String name) => find.byKey(ValueKey<String>('rail ${ShellPlace.machineKey(name)}'));
+
+/// Unfolds *My machines* in the side bar, where its machines are not shown already: a second tap
+/// on it would fold them away again.
 Future<void> toTheMachines(WidgetTester tester) async {
-  if (find.byKey(const Key('machine-tree')).evaluate().isNotEmpty) return;
+  final shown = find.byWidgetPredicate(
+    (widget) => widget.key is ValueKey<String> && (widget.key! as ValueKey<String>).value.startsWith('rail machine '),
+  );
+  if (shown.evaluate().isNotEmpty) return;
   await toThePlace(tester, 'machines');
 }
 
@@ -87,7 +95,10 @@ Future<void> pumpUntil(
 /// Makes [name] the machine acted on, through the switcher a person would use.
 Future<void> switchTo(WidgetTester tester, String name) async {
   await toTheMachines(tester);
-  await tester.tap(find.byKey(ValueKey<String>('rail-machine $name')));
+  final entry = machineEntry(name);
+  await tester.ensureVisible(entry.first);
+  await tester.pump();
+  await tester.tap(entry.first);
   await pumpFor(tester);
 }
 
@@ -159,7 +170,8 @@ Future<void> untilTheDialogCloses(WidgetTester tester) async {
 
 /// Opens the dialog that adds a machine, from the menu bar where it lives.
 Future<void> watchAnotherMachine(WidgetTester tester) async {
-  await tester.tap(find.byTooltip('Watch another machine…'));
+  // The title bar's button; the menu and the machines' page offer the same.
+  await tester.tap(find.byTooltip('Watch another machine…').first);
   await pumpUntilShown(tester, const Key('machine-name'));
 }
 
@@ -273,9 +285,7 @@ Future<void> showOnTheMachines(WidgetTester tester, Finder target) async {
   // Machines are on their page, and projects and the ways to set one up on theirs.
   await toTheMachines(tester);
   if (target.evaluate().isEmpty) await toThePlace(tester, 'projects');
-  final page = find.byKey(const Key('machine-tree')).evaluate().isNotEmpty
-      ? find.byKey(const Key('machine-tree'))
-      : find.byKey(const Key('projects-page'));
+  final page = find.byKey(const Key('projects-page'));
   final tree = find.descendant(of: page, matching: find.byType(Scrollable));
   for (var i = 0; i < 60 && target.evaluate().isEmpty && tree.evaluate().isNotEmpty; i++) {
     await tester.drag(tree.first, const Offset(0, -120));
