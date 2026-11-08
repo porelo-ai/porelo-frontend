@@ -32,9 +32,13 @@ if [ -n "${PORELO_COLLECTION_SOURCE:-}" ]; then
     cp -- "$PORELO_COLLECTION_SOURCE/SHA256SUMS" "$stage/SHA256SUMS"
 else
     release="https://github.com/porelo-ai/porelo-host/releases/download/v$version"
-    # GitHub's release downloads answer 5xx for minutes at a time; a retry waits that out, the digest still decides.
-    curl -fsSL --retry 5 --retry-all-errors --retry-delay 20 -o "$stage/$file" "$release/$file"
-    curl -fsSL --retry 5 --retry-all-errors --retry-delay 20 -o "$stage/SHA256SUMS" "$release/SHA256SUMS"
+    # The one rule by which every pinned download here is tried again (porelo-buildtools doc/pinned-downloads.md).
+    # shellcheck source=../.github/actions/pinned-jdk/pinned.sh
+    . "$(dirname -- "$0")/../.github/actions/pinned-jdk/pinned.sh"
+    pinned_fetch "$release/$file" "$expected" "$stage/$file" || fail "$file could not be fetched"
+    # SHA256SUMS has no pinned digest of its own: it is tried again by the same pauses and then must agree.
+    pinned_retry 'SHA256SUMS' curl -fsSL --proto '=https' --proto-redir '=https' --connect-timeout 30 --max-time 600 \
+        -o "$stage/SHA256SUMS" "$release/SHA256SUMS"
 fi
 
 named=$(awk -v name="$file" '
