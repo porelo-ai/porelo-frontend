@@ -3,8 +3,7 @@
 **Status:** Estimated.
 **Size:** XL - the side bar, every leaf page in a new look, *Work* and *Needs you* among them, and a machine's tools
 moved from overlays into pages are more than one build; it splits into four parts (below), this issue the first.
-estimate=293 (provisional until the table of tones, D40, is settled), the sum of the parts' medians (L 80 + L 80 +
-M 53 + L 80).
+estimate=293, the sum of the parts' medians (L 80 + L 80 + M 53 + L 80).
 
 **What must be true.** The side bar shows every place a person works with as a tree: their work, what needs them, each
 of their machines with its sections, their forges, projects, cards and keys, and each organization with its sections.
@@ -57,7 +56,7 @@ The design *Porelo Window Side Bar* (updated 2026-11-07) draws the window laid o
 | *Needs you* | a badge of what waits | | the list of what waits |
 | heading *Set up* | | | |
 | *My machines* | the machines | each machine by name | facts: machines and their state, work, what needs you; actions: *Watch another machine…*, *Refresh*, *Stop everything* |
-| one machine | | Tasks, Projects, Vault, Credentials, Agents & providers, Health, Managing this machine | facts: Porelo's version and state, the vault's state, tasks, projects, health, the address for a host, when it was last read; actions: *Refresh*, *Shut the vault* or *Unlock the vault…*, *Check whether this machine can run anything*, *Stop Porelo*, *Take down…* |
+| one machine | | Tasks, Projects, Vault, Credentials, Agents & providers, Health, Managing this machine | facts: Porelo's version and state, the vault's state, tasks, projects, health, the address for a host, when it was last read; actions: *Refresh*, *Shut the vault* or *Unlock the vault…*, *Check whether this machine can run anything*, *Stop everything on this machine*, *Stop Porelo*, *Take down…* |
 | *My forges* | the forges | | the list of forges |
 | *My projects* | the projects | | the list of projects |
 | *My cards & keys* | none | | today's dialog *My key and card…*, until [F423](README.md#f423) makes it a page |
@@ -97,7 +96,8 @@ button that waits for one (D23); a fact the window cannot read says so.
 ### Per layout
 
 - **The title bar, every layout:** today's actions in today's order, the organization's button to their left, and
-  the red stop icon of this machine always in sight. What does not fit goes into one ⋮ (D7, D60, D63); *Options* is an action of its own and overflows like the others; the stop never goes into the ⋮.
+  the red stop icon, *Stop everything on every machine*, always in sight. What does not fit goes into one ⋮ (D7, D60,
+  D63); *Options* is an action of its own and overflows like the others; the stop never goes into the ⋮.
 - **Desktop:** the side bar stands beside the page, 280 wide.
 - **Tablet (600 to 839 wide):** the same, the side bar still beside the page.
 - **Phone (below 600):** the title bar holds the menu button, the page's title, the red stop icon, the ⋮ and a small
@@ -128,8 +128,7 @@ button that waits for one (D23); a fact the window cannot read says so.
 The design is not a detail design. The points below were settled with the operator in the design *Porelo Window Side
 Bar*. Its boards carry no notes of their own; the one remark in it, on the Desktop board, says an entry with entries
 under it shows what it is and what can be done with it, never a list of those entries, as *The shape* says. Each
-point, numbered D1 to D74, names what the boards leave open or draw only roughly, and what was decided; D40's table
-of tones is drawn on a board of its own and still to be settled.
+point, numbered D1 to D74, names what the boards leave open or draw only roughly, and what was decided.
 
 ### Main (desktop)
 
@@ -153,7 +152,9 @@ of tones is drawn on a board of its own and still to be settled.
 - **D7.** The title bar's actions: the Desktop board draws only *Porelo* and the organization's button, none of today's
   finder, *Watch another machine…*, machine switch, *Options*, walk and *About*, and no stop; today from 840 up the
   red stop icon sits in the status line. Decided: today's icons in today's order, the organization's button to their
-  left, and the red stop icon (`EmergencyStopButton`, this machine) in the title bar at every width. What does not fit
+  left, and the red stop icon in the title bar at every width: *Stop everything on every machine* (`everywhere.panic`),
+  so an emergency stop reaches everything with one click, whatever page is open. *Stop everything on this machine*
+  (`machine.panic`, Ctrl+Shift+.) moves to the machine's own page, among its actions. What does not fit
   goes into one ⋮ overflow menu, on the desktop, the tablet and the phone alike; *Options* stays an action of its own
   and overflows like the others; the stop never goes into the ⋮.
 - **D8.** The organization's button with no organization, or while it is read (all boards): not drawn. Decided: it reads
@@ -235,10 +236,23 @@ of tones is drawn on a board of its own and still to be settled.
   and *Try again*; the subtitle says *not read*, never 0.
 - **D39.** The subtitle's words: the boards fall back to *N entries* for every section. Decided: words per leaf naming what is
   counted and what waits (*4 people · 1 card waits*), settled leaf by leaf.
-- **D40.** The chip's tones (all boards): five tones drawn, for a handful of states. Decided: a table of each of today's state
-  words to its tone, drawn as a board of its own and settled there: green for running or fine, the wait tone for waiting
-  or being prepared, red for failed or not answering, grey for stopped or *not read*, the accent for what needs a
-  person, as its starting point.
+- **D40.** The chip's tones (all boards): five tones drawn, for a handful of states. Decided: one table of each of today's
+  state words to its tone, so each tone means one thing: green running or fine, the wait tone waiting or being prepared,
+  red failed or not answering, grey stopped or *not read*, the accent (the petrol container) for what needs a person.
+  Dark takes today's dark tokens in the same roles (D1). The table:
+
+  | Where | Green | Wait tone | Red | Grey | Accent |
+  |---|---|---|---|---|---|
+  | A piece of work | Working, Running | Waiting | | Stopped | Needs you |
+  | Its build | passed | running | failed | no build | |
+  | A machine | Connected | Connecting | Not connected, Not connected; state unknown, Incompatible backend | not connected yet | |
+  | A machine being prepared | | In preparation, Still running, Setting up again | Interrupted | Stopped | Needs you |
+  | A row of *Needs you* | | | Not answering | Not connected yet | Waits for you |
+  | A person's card | trusted | not yet vouched for | refused, revoked | | |
+  | A project on a machine | on the machine | being put on, held | refused by the machine | | waits for your token |
+  | A machine's health | OK | DEGRADED | MISSING | UNKNOWN | |
+  | A machine's vault | open | shut (as D52) | | no vault yet | |
+  | Anything not read | | | | not read | |
 - **D41.** A row's click and its fold (decision to keep the fold): the boards give a row no click, only ⋮. Decided: a click on
   the row opens today's fold under it inside the white card, ⋮ opens today's menu; a row folded open keeps the hover
   colour.
@@ -288,8 +302,8 @@ of tones is drawn on a board of its own and still to be settled.
 - **D59.** Touch targets: the Tablet board takes the desktop's 40 high rows and 36 high buttons. Decided: 44 from 839 wide
   down, as on the phone.
 - **D60.** The title bar from 600 to 839: today's actions plus the organization's button may not fit, and today's stop icon
-  shows below 840. Decided: the stop icon (this machine) never leaves the title bar, at any width; the foot's *Stop
-  everything* (every machine) does not replace it. What else does not fit goes into the one ⋮, as D7.
+  shows below 840. Decided: the stop icon (every machine, as D7) never leaves the title bar, at any width; the foot
+  keeps its *Stop everything* as D21. What else does not fit goes into the one ⋮, as D7.
 
 #### Part 2: the leaf look
 
@@ -303,8 +317,8 @@ of tones is drawn on a board of its own and still to be settled.
 #### Part 1: the side bar
 
 - **D63.** The title bar: the Phone board draws the menu, the title and the organization's button, none of today's actions and
-  no stop. Decided: today's red stop icon stays in sight as today, the other actions in one ⋮ before the
-  organization's button, as D7.
+  no stop. Decided: today's red stop icon, *Stop everything on every machine*, stays in sight as today, the other
+  actions in one ⋮ before the organization's button, as D7.
 - **D64.** The page of facts on the phone: drawn with facts and actions, and no large title, its title only in the title bar.
   Decided: as drawn, the path line keeping its links.
 
@@ -379,7 +393,8 @@ Each part is built, tested and handed over on its own, in this order:
     hides the page, or that shuts before the leaf is reached.
   - *each count in the side bar is the rows of the page it opens* - guards two numbers for one word.
   - *a machine that does not answer says so in the side bar* - guards silence read as health.
-  - *the red stop icon is in the title bar at 390, 700 and 1280 wide, never in the ⋮* - guards a stop out of sight.
+  - *the red stop icon is in the title bar at 390, 700 and 1280 wide, never in the ⋮, and stops every machine* -
+    guards a stop out of sight, or one that leaves the other machines running.
   - *a count not read shows a question mark, never 0* - guards nothing read taken for nothing there.
   - *an action waiting for a command cannot be pressed* - guards a button that seems to act and does nothing.
   - *Organizations lists the organization read, and a second given to the tree is listed beside it* - guards a tree
