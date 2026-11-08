@@ -249,6 +249,21 @@ class HostTokenStep extends ChangeNotifier {
     }
   }
 
+  /// Asks every source, and gives the entry this computer's Porelo-Vault declares straight away where it is found:
+  /// answers true then, the step given or its problem said; false where it is not found, for the token's page.
+  ///
+  /// Only the declared entry: Porelo hands it on and nothing here reads it; the other sources are chosen on the page,
+  /// where each is named.
+  Future<bool> giveAtOnce() async {
+    await ask();
+    final declared = _answers
+        ?.where((each) => each.source == TokenSource.declared && each.state == TokenSourceState.found)
+        .firstOrNull;
+    if (declared == null) return false;
+    await giveFrom(declared);
+    return true;
+  }
+
   /// Hands [answer]'s token to the host.
   Future<void> giveFrom(TokenSourceAnswer answer) async {
     if (_giving || answer.state != TokenSourceState.found) return;

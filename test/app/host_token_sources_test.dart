@@ -47,6 +47,30 @@ void main() {
     expect(heard, 1);
   });
 
+  // Harm: the second ask for a token takes three steps where this computer's vault declares it and one press would do,
+  // or gives a token at once from a source the person did not see.
+  test('the declared vault entry is given at once; with none found here, the page is the way', () async {
+    final gave = <TokenSource>[];
+    HostTokenStep step(Future<List<Connection>> Function() declarations, {bool kept = false}) => HostTokenStep(
+      host: 'orchard',
+      sources: _sources(declarations: declarations, hasKept: (_) async => kept),
+      connect: () async {},
+      give: (answer) async {
+        gave.add(answer.source);
+        return null;
+      },
+    );
+    final declared = step(() async => [_declared]);
+    addTearDown(declared.dispose);
+    expect(await declared.giveAtOnce(), isTrue);
+    expect(declared.given, isTrue);
+    expect(gave, [TokenSource.declared]);
+    final keptOnly = step(() async => const [], kept: true);
+    addTearDown(keptOnly.dispose);
+    expect(await keptOnly.giveAtOnce(), isFalse, reason: 'a kept token is given from its page, where it is named');
+    expect(gave, [TokenSource.declared]);
+  });
+
   // Harm: a machine that cannot be asked afterwards makes a token it took read as not given.
   test('a host that cannot be asked after taking the token still counts as given', () async {
     final step = HostTokenStep(

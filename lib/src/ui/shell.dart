@@ -1352,7 +1352,9 @@ class _ShellState extends State<Shell> {
 
   late final Organization? _organization = widget.organizationSource == null
       ? null
-      : Organization(widget.organizationSource!);
+      : (Organization(widget.organizationSource!)
+          ..thisComputersVaultShut = isThisComputersVaultShut
+          ..openThisComputersVault = (() => _unlockMachine(Machine.local())));
 
   late final HostConnections? _hostConnections =
       widget.hostConnections ?? (_organization == null ? null : widget.connectionsFor?.call(_organization));
@@ -3910,12 +3912,16 @@ class _ShellState extends State<Shell> {
     );
   }
 
-  /// The row's *Give it your token…*: the token's own page, every source with what it answered.
-  Future<String?> _giveHostToken(String host) async {
+  /// The row's *Give it your token…*: the token's own page, every source with what it answered. [atOnce] gives the
+  /// entry this computer's Porelo-Vault declares without the page, where it declares one.
+  Future<String?> _giveHostToken(String host, {bool atOnce = false}) async {
     final step = _hostTokenStep(host);
-    unawaited(step.ask());
     final forge = organizationForgeName(_organization?.view);
     try {
+      // Where it is not declared, the page opens on the answers already read.
+      if (atOnce && await step.giveAtOnce()) return step.given ? null : step.problem;
+      if (!atOnce) unawaited(step.ask());
+      if (!mounted) return null;
       await showDialog<void>(
         context: context,
         builder: (context) => AlertDialog(

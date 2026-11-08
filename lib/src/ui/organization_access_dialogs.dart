@@ -318,6 +318,20 @@ Future<List<Connection>> readThisComputersDeclarations({FleetBackend? localBacke
   }
 }
 
+/// Whether this computer's Porelo-Vault is shut, as its Porelo answers; null where it did not answer.
+Future<bool?> isThisComputersVaultShut({FleetBackend? localBackend}) async {
+  final machine = desk.isWindows
+      ? Machine.local()
+      : Machine(name: 'this machine', socketPath: Backend.local().socketPath);
+  final backend = localBackend ?? PoreloBackend(Machines.backendFor(machine));
+  try {
+    await backend.open();
+    return !(await backend.credentials()).readable;
+  } on Exception catch (_) {
+    return null;
+  }
+}
+
 /// Says which entry names a token that is not there, where it should come from, and what can be done.
 String _noTokenThereWords(Connection entry) {
   final (from, missing, fix) = switch (entry.source) {

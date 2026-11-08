@@ -13,6 +13,7 @@ import 'filtered_list_section.dart';
 import 'page_explanation.dart';
 import 'organization_dialogs.dart';
 import 'organization_host_pages.dart';
+import 'placing_project_dialog.dart' show GiveHostToken;
 import 'tokens.dart';
 
 /// What is true of a repository's name, as for any folder it becomes.
@@ -304,7 +305,7 @@ class OrganizationProjectPage extends StatefulWidget {
   final HostConnections? connections;
 
   /// Gives a machine waiting for one this person's token; null where it cannot be given from here.
-  final Future<String?> Function(String host)? onGiveToken;
+  final GiveHostToken? onGiveToken;
 
   /// The project's name.
   final String project;

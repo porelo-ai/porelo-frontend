@@ -7,6 +7,7 @@ import 'package:porelo_frontend/src/app/host_progress.dart';
 import 'package:porelo_frontend/src/app/links.dart';
 import 'package:porelo_frontend/src/app/organization_source.dart';
 import 'package:porelo_frontend/src/ui/organization_host_pages.dart';
+import 'package:porelo_frontend/src/ui/placing_project_dialog.dart' show GiveHostToken;
 import 'package:porelo_frontend/src/ui/organization_page.dart';
 
 import '../support/organization_fixtures.dart';
@@ -313,7 +314,7 @@ void main() {
       WidgetTester tester,
       OrganizationView view, {
       FixtureConnections? connections,
-      Future<String?> Function(String host)? onGiveToken,
+      GiveHostToken? onGiveToken,
     }) async {
       final organization = Organization(FixtureOrganization(view));
       addTearDown(organization.dispose);
@@ -346,7 +347,7 @@ void main() {
         tester,
         organizationFor('hana'),
         connections: connections,
-        onGiveToken: (host) async {
+        onGiveToken: (host, {atOnce = false}) async {
           asked.add(host);
           return null;
         },
@@ -443,7 +444,7 @@ void main() {
       FixtureConnections? connections,
       String host = 'build',
       List<OrganizationProject> moreProjects = const [],
-      Future<String?> Function(String host)? onGiveToken,
+      GiveHostToken? onGiveToken,
       Future<String?> Function(String host, String? project)? onStartWork,
       OrganizationHost shown = buildHost,
       void Function(String host)? onPrepare,
@@ -812,7 +813,7 @@ void main() {
         tester,
         'hana',
         connections: connections,
-        onGiveToken: (host) async {
+        onGiveToken: (host, {atOnce = false}) async {
           gave.add(host);
           connections.hostProgress = const HostProgress();
           return null;
@@ -827,7 +828,7 @@ void main() {
     testWidgets('a press that gives no token says why beside the button, and a new press clears it', (tester) async {
       final connections = FixtureConnections(['build'])..hostProgress = const HostProgress(waitsForToken: true);
       String? answer = 'No GitHub token is kept on this computer.';
-      await page(tester, 'hana', connections: connections, onGiveToken: (_) async => answer);
+      await page(tester, 'hana', connections: connections, onGiveToken: (_, {atOnce = false}) async => answer);
       await pressOrganizationAction(tester, 'giveToken');
       expect(find.byKey(const ValueKey('organization.tokenWhy')), findsOneWidget);
       expect(find.text('No GitHub token is kept on this computer.'), findsOneWidget);
@@ -860,7 +861,7 @@ void main() {
         tester,
         'hana',
         connections: connections,
-        onGiveToken: (_) async {
+        onGiveToken: (_, {atOnce = false}) async {
           connections.hostProgress = const HostProgress();
           return null;
         },

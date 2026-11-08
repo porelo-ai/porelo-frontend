@@ -16,6 +16,7 @@ import 'key_recovery_dialog.dart';
 import 'machines_page.dart' show HostPreparationMark, hostPreparationWords;
 import 'organization_dialogs.dart';
 import 'organization_token_words.dart';
+import 'placing_project_dialog.dart' show GiveHostToken;
 import 'tokens.dart';
 
 /// What a preparation running for a machine says on the organization's row: its state, since when, and where.
@@ -308,7 +309,7 @@ class OrganizationHostPage extends StatefulWidget {
   final KeyCommands? keys;
 
   /// Gives the host admin's central token to the host; answers the words to show beside the button, if any.
-  final Future<String?> Function(String host)? onGiveToken;
+  final GiveHostToken? onGiveToken;
 
   /// What this computer does there: its work, daemon and vault, where the person's list holds the machine.
   final Widget? work;
