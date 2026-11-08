@@ -12,6 +12,10 @@ Each point is to be checked against the code before it is fixed.
 
 Points 1 to 3 are taken as described; point 4 as decided under it.
 
+**The operator's word (2026-11-08).** Points 1 to 3 and the three from [F432](README.md#f432)'s reading are built after
+[F429](README.md#f429), each checked against the code first, with a test seen red first where one is possible, and
+one reading for this issue as a whole. Point 4 is done.
+
 - **From [F424](README.md#f424), the setup wizard's last pages:** the widget test does not walk pages 7 and 8 to their end, since
   `HostRun`'s start does file work the test clock never ends; the token page is tested alone.
 - **From [F424](README.md#f424), the old preparing dialog:** the window no longer opens it, only its tests do; it and its tests are to be
@@ -25,6 +29,7 @@ Points 1 to 3 are taken as described; point 4 as decided under it.
   protocol with its words, and the row keeps *Remove the machine…*. Until that is built, the question is reworded to
   promise no removal. It is built before the third trial move; meanwhile the organization page's row ⋮ → *Remove the
   machine…* removes the listing by hand; it needs only the role, not a machine that answers.
+  **Done** in [F435](README.md#f435) (b56fbec3, 27b260b8, 6b8e3679), on main since 2026-11-08.
 - **From [F432](README.md#f432)'s reading, found there and older than it:**
   - `_hostTokenStep` in `shell.dart` reads the organization's view once, before its own `connect` refreshes it: a
     view not read yet gives the declared source no repository, so the one-click token falls back to the page.
