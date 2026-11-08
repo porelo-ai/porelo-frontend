@@ -48,6 +48,12 @@ one reading for this issue as a whole. Point 4 is done.
     (`onDrawerChanged` asks for the menu's focus whatever page is shown), so the next Space or Enter opens the drawer
     again.
 
+- **Found on 2026-11-08, a person's stop read as a restart:** a task stopped with `porelo task stop` (exit 143, porelod
+  not restarted) reads on its row "the machine's restart interrupted its run; it stays stopped with its session kept,
+  and its next start continues it", and its *Started* "not said". The words are not the window's own (no such text in
+  lib): find whether the daemon's list answers them or the window reads exit 143 as a restart, red first, and make a
+  person's stop read as a stop. Not before the third move (the operator's word).
+
 ## Open questions
 
 None.
