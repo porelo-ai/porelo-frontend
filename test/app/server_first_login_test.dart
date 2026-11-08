@@ -27,6 +27,35 @@ void main() {
     expect(Directory(pin.file.parent.path).existsSync(), isFalse, reason: 'the pin goes with its folder');
   });
 
+  // Harm: a pin folder another ordinary Windows account can write, so a key other than the one compared is trusted.
+  group('a Windows pin folder\'s ACL', () {
+    const me = 'S-1-5-21-111-222-333-1001';
+    String acl(List<String> rules, {bool protected = true}) =>
+        ['protected|${protected ? 'True' : 'False'}', 'me|$me', for (final rule in rules) 'rule|$rule'].join('\r\n');
+
+    test('of the account, SYSTEM and Administrators, none inherited, lets nobody else at it', () {
+      expect(
+        foreignToWindowsPin(acl(['$me|False|Allow', 'S-1-5-18|False|Allow', 'S-1-5-32-544|False|Allow'])),
+        isEmpty,
+      );
+    });
+
+    test('naming Users, Everyone or another person is refused', () {
+      for (final other in ['S-1-5-32-545', 'S-1-1-0', 'S-1-5-21-111-222-333-1002']) {
+        expect(foreignToWindowsPin(acl(['$me|False|Allow', '$other|False|Allow'])), ['another account: $other']);
+      }
+    });
+
+    test('with a rule inherited, or inheritance not cut, is refused', () {
+      expect(foreignToWindowsPin(acl(['$me|False|Allow', 'S-1-5-18|True|Allow'])), ['inherited: S-1-5-18']);
+      expect(foreignToWindowsPin(acl(['$me|False|Allow'], protected: false)), ['inheritance not cut']);
+    });
+
+    test('without a rule for the account is refused', () {
+      expect(foreignToWindowsPin(acl(['S-1-5-18|False|Allow'])), ['no rule for the current account']);
+    });
+  });
+
   // Harm: root still held by the provider's line reads as open or as no answer, and the person skips the bootstrap.
   group('a root login', () {
     test('answered by the provider\'s line and exit 142 says the bootstrap line has not run', () {
@@ -52,18 +81,59 @@ void main() {
   });
 }
 
-/// Linux keeps the folder at `0700`; Windows reports no POSIX mode, and keeps it by an ACL that holds the current
-/// user's full control alone, with inheritance cut.
+/// Linux keeps the folder at `0700`; Windows reports no POSIX mode, and keeps it by an ACL cut from inheritance.
 Future<void> _expectTheOwnersAlone(Directory folder) async {
   if (!Platform.isWindows) {
     expect((await folder.stat()).mode & 0x1ff, 0x1c0, reason: 'the pin folder is the owner\'s alone');
     return;
   }
-  final user = '${(await Process.run('whoami', const <String>[])).stdout}'.trim().toLowerCase();
-  final acl = await Process.run('icacls', [folder.path]);
-  expect(acl.exitCode, 0, reason: 'icacls reads the pin folder: ${acl.stderr}');
-  final entries = '${acl.stdout}'.split(RegExp(r'\r?\n')).where((line) => line.contains(':(')).toList();
-  expect(entries, hasLength(1), reason: 'the pin folder grants one account alone: ${acl.stdout}');
-  expect(entries.single.toLowerCase(), contains('$user:(oi)(ci)(f)'), reason: 'that account is the current user');
-  expect(entries.single, isNot(contains('(I)')), reason: 'nothing is inherited from the temporary folder');
+  final read = await Process.run(
+    'powershell',
+    [
+      '-NoProfile',
+      '-NonInteractive',
+      '-Command',
+      r'$acl = Get-Acl -LiteralPath $env:PORELO_PIN_FOLDER; '
+          r'"protected|$($acl.AreAccessRulesProtected)"; '
+          r'"me|$([System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value)"; '
+          r'foreach ($rule in $acl.Access) { '
+          r'"rule|$($rule.IdentityReference.Translate([System.Security.Principal.SecurityIdentifier]).Value)|'
+          r'$($rule.IsInherited)|$($rule.AccessControlType)" }',
+    ],
+    environment: {'PORELO_PIN_FOLDER': folder.path},
+  );
+  expect(read.exitCode, 0, reason: 'PowerShell reads the pin folder\'s ACL: ${read.stderr}');
+  expect(foreignToWindowsPin('${read.stdout}'), isEmpty, reason: 'the pin folder\'s ACL: ${read.stdout}');
+}
+
+/// SYSTEM and the Administrators group, who can take any file of the account anyway.
+const _windowsAboveTheAccount = {'S-1-5-18', 'S-1-5-32-544'};
+
+/// What in a Windows ACL, as the test's PowerShell lines print it, lets anyone but the account at the pin: inherited
+/// or unprotected rules, and rules for any other account, such as Users or Everyone.
+List<String> foreignToWindowsPin(String lines) {
+  String? me;
+  bool? protected;
+  final rules = <List<String>>[];
+  for (final line in lines.split(RegExp(r'\r?\n')).map((each) => each.trim()).where((each) => each.isNotEmpty)) {
+    final parts = line.split('|');
+    switch (parts.first) {
+      case 'me':
+        me = parts[1];
+      case 'protected':
+        protected = parts[1] == 'True';
+      case 'rule':
+        rules.add(parts.skip(1).toList());
+    }
+  }
+  return [
+    if (me == null) 'no current account read',
+    if (protected != true) 'inheritance not cut',
+    if (!rules.any((rule) => rule[0] == me && rule[2] == 'Allow')) 'no rule for the current account',
+    for (final rule in rules)
+      if (rule[1] != 'False')
+        'inherited: ${rule[0]}'
+      else if (rule[0] != me && !_windowsAboveTheAccount.contains(rule[0]))
+        'another account: ${rule[0]}',
+  ];
 }
