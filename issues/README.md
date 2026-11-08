@@ -18,6 +18,10 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f431"></a>[F431](F431-The-Setup-Wizard-After-The-Second-Move.md) | M | — | *Set up a machine* as one dialog, a *Run it for me* button for the bootstrap line, the row asked again after the token. |
+| <a id="f432"></a>[F432](F432-The-Token-Asks-That-Show-The-Way-On.md) | S | — | A refusal with this computer's vault shut says so and opens it; the second token ask is one click. |
+| <a id="f433"></a>[F433](F433-The-Start-Dialog-Says-How-Long-It-Runs.md) | S | — | The start dialog's modes say how long they run; an unattended run's minutes are asked and sent. |
+| <a id="f434"></a>[F434](F434-The-Gate-Fetch-And-Where-It-Went.md) | S | — | The gate's fetch line works from the person's shell; a forwarded push says where its commit stands. |
 | <a id="f403"></a>[F403](F403-A-Machine-In-Preparation-Says-So-Everywhere.md) | S | — | A machine this computer prepares says so on the organization's row and page, offers its protocol and no second start, with a mark of its state. |
 | <a id="f401"></a>[F401](F401-The-Bootstrap-Line-Says-Where-It-Runs.md) | XS | — | The bootstrap line of *Prepare a server* in its own box with a copy button, saying it runs on the server. |
 | <a id="f399"></a>[F399](F399-Porelos-Command-Line-Reached-In-WSL-From-Windows.md) | M | — | On Windows every use of Porelo's command line runs in the WSL distribution through `wsl.exe`. |
@@ -82,16 +86,12 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f431"></a>[F431](F431-The-Setup-Wizard-After-The-Second-Move.md) | M | — | *Set up a machine* as one dialog, a *Run it for me* button for the bootstrap line, the row asked again after the token. |
-| <a id="f432"></a>[F432](F432-The-Token-Asks-That-Show-The-Way-On.md) | S | — | A refusal with this computer's vault shut says so and opens it; the second token ask is one click. |
-| <a id="f433"></a>[F433](F433-The-Start-Dialog-Says-How-Long-It-Runs.md) | S | — | The start dialog's modes say how long they run; an unattended run's minutes are asked and sent. |
 
 ### Backlog
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="f435"></a>[F435](F435-A-Machine-Taken-Down-Leaves-The-List.md) | S | — | After a confirmed take-down with its removal asked, the window removes the machine from the organization's list. |
-| <a id="f434"></a>[F434](F434-The-Gate-Fetch-And-Where-It-Went.md) | S | — | The gate's fetch line works from the person's shell; a forwarded push says where its commit stands. |
 | <a id="f203"></a>[F203](F203-This-Repository-Worked-In-A-Porelo-Task.md) | S | — | This repository's agent working in an attended Porelo task on the host, its build green on the host's Forgejo, reached in the room, with a way back. |
 | <a id="f388"></a>[F388](F388-The-Stubs-Pin-Stays-Fetchable.md) | XS | — | A scenario that needs the stub does not go red because its pinned version left the folder. |
 | <a id="f379"></a>[F379](F379-Add-A-Project-In-One-Step-From-The-Window.md) | S | — | A person naming themselves Project Admin adds a project in one step from the window. |

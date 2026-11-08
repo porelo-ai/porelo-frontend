@@ -1,6 +1,6 @@
 # F434 — The Gate's Fetch And Where It Went
 
-**Status:** Backlog.
+**Status:** Review.
 **Size:** S - the review page's fetch line works from this computer's own shell, and a forwarded push says where its
 commit stands.
 
@@ -20,6 +20,13 @@ resolved; after the forward the incoming ref was gone and nothing said where the
   for such a host.
 - Approve's answer read in the IDL; what it names said after the forward.
 - Red first: the fetch for a host behind the window's config carries it; the forwarded words.
+
+## As built
+
+Approve answers `forwarded` (the incoming name), `branch` and `pullRequest`, and neither the commit nor the ref
+under `refs/porelo/forwarded/`: the window says the branch and the pull request, and the missing ref is a line of
+[doc/Contract-Gaps.md](../doc/Contract-Gaps.md). The config is carried only for a machine reached through its card's
+own config whose `Host` is the name the line logs in to.
 
 ## Acceptance
 

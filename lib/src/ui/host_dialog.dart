@@ -687,15 +687,21 @@ class _HostDialogState extends State<HostDialog> {
       if (widget.removeFromOrganization case final remove?) {
         String? refused;
         try {
-          refused = await remove(record.hostName);
+          // Close waits on this: a removal that does not answer in time is said, and goes on by itself.
+          refused = await remove(record.hostName).timeout(_removalPatience);
+        } on TimeoutException {
+          refused = 'it did not answer within two minutes, and may still go through: look at the list';
         } on Exception catch (error) {
           refused = '$error';
         }
-        if (refused != null) {
-          final listed =
+        if (refused == null) {
+          // What was said of the organization still naming the machine no longer holds.
+          _problem = null;
+          widget.hostRuns?.forgetLeftBehind(widget.project);
+        } else {
+          _problem =
               '${record.hostName} stays on the organization\'s list: $refused. Remove it there with *Remove the '
               'machine…* on its row.';
-          _problem = _problem == null ? listed : '$_problem $listed';
         }
       }
       for (final machine
@@ -721,6 +727,9 @@ class _HostDialogState extends State<HostDialog> {
       unawaited(_readCentral());
     }
   }
+
+  /// How long a confirmed take-down waits on the organization's removal before Close is free again.
+  static const _removalPatience = Duration(minutes: 2);
 
   /// What a confirmed take-down has done, whatever this window then manages to keep of it.
   static String _doneWords({required bool rental}) => rental

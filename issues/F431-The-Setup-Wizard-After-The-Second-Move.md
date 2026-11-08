@@ -1,6 +1,6 @@
 # F431 — The Setup Wizard After The Second Move
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** M - the wizard shown as the one dialog it is, a *Run it for me* button for the bootstrap line, and the
 machine's row asked again once its token was given.
 

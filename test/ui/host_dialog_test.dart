@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/commands.dart';
+import 'package:porelo_frontend/src/app/host_access.dart' show HostAccess;
 import 'package:porelo_frontend/src/app/host_progress.dart';
 import 'package:porelo_frontend/src/app/organization_source.dart' show OrganizationRefused;
 import 'package:porelo_frontend/src/app/host_runs.dart';
@@ -834,6 +835,40 @@ void main() {
     expect(find.textContaining('Billing has ended.'), findsOneWidget);
     expect(find.textContaining("stays on the organization's list: the forge did not answer"), findsOneWidget);
     expect(find.textContaining('Remove the machine…'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  // Harm: a machine just taken off the list is still said to be named by the organization.
+  testWidgets('a removal that went through takes back the words that the organization still names it', (tester) async {
+    final settings = Settings(MemorySettingsStore());
+    addTearDown(settings.dispose);
+    final fixture = HostFixture()..cardAddress = '192.0.2.7';
+    final access = await fixture.access(settings);
+    final state = await openTakeDown(tester, hostAccess: access, removeFromOrganization: (_) async => null);
+    answerHolders(state.processes.single, []);
+    await World.settle(tester);
+    await tester.tap(find.byKey(const Key('host-confirm-down')));
+    await World.settle(tester);
+    state.processes.last.line(const host.Step('give-back', host.StepState.done));
+    state.processes.last.end(0);
+    await World.settle(tester);
+    expect(find.textContaining('The organization still names'), findsNothing);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  // Harm: a removal that never answers holds Close for as long as the organization's commands may take.
+  testWidgets('a removal that does not answer in time is said, and Close is free', (tester) async {
+    final never = Completer<String?>();
+    final state = await openTakeDown(tester, removeFromOrganization: (_) => never.future);
+    answerHolders(state.processes.single, []);
+    await World.settle(tester);
+    await tester.tap(find.byKey(const Key('host-confirm-down')));
+    await World.settle(tester);
+    state.processes.last.line(const host.Step('give-back', host.StepState.done));
+    state.processes.last.end(0);
+    await tester.pump(const Duration(minutes: 3));
+    await World.settle(tester);
+    expect(find.textContaining("stays on the organization's list"), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
@@ -1832,6 +1867,7 @@ Future<({Settings settings, List<List<String>> commands, List<HostProcess> proce
   SettingsStore? store,
   Future<HostProgress> Function(String host)? readHostProgress = _emptyHostProgress,
   Future<String?> Function(String host)? removeFromOrganization,
+  HostAccess? hostAccess,
 }) async {
   tester.view.physicalSize = const Size(1280, 800);
   tester.view.devicePixelRatio = 1;
@@ -1856,6 +1892,7 @@ Future<({Settings settings, List<List<String>> commands, List<HostProcess> proce
             settings: settings,
             readHostProgress: readHostProgress,
             removeFromOrganization: removeFromOrganization,
+            hostAccess: hostAccess,
             start: (_, arguments) async {
               commands.add(arguments);
               final process = HostProcess();

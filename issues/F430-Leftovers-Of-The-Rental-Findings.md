@@ -25,6 +25,14 @@ Points 1 to 3 are taken as described; point 4 as decided under it.
   protocol with its words, and the row keeps *Remove the machine…*. Until that is built, the question is reworded to
   promise no removal. It is built before the third trial move; meanwhile the organization page's row ⋮ → *Remove the
   machine…* removes the listing by hand; it needs only the role, not a machine that answers.
+- **From [F432](README.md#f432)'s reading, found there and older than it:**
+  - `_hostTokenStep` in `shell.dart` reads the organization's view once, before its own `connect` refreshes it: a
+    view not read yet gives the declared source no repository, so the one-click token falls back to the page.
+  - `_giveHostToken` disposes its `HostTokenStep` when the page closes while an `ask`, a `giveFrom` or the vault's
+    opening still runs; its later `notifyListeners` throws on a disposed notifier.
+  - `readThisComputersDeclarations` and `isThisComputersVaultShut` read `Backend.local()`'s socket, while *Open this
+    computer's Porelo-Vault* opens `Machine.local()`, which follows `PORELO_SOCKET`: with that variable set, the
+    button does nothing.
 
 ## Open questions
 

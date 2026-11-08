@@ -562,6 +562,7 @@ class _ShellState extends State<Shell> {
               settings: widget.settings,
               hostRuns: _hostRuns,
               readHostProgress: _readHostProgress,
+              removeFromOrganization: _removeFromOrganization,
             ),
           ),
         ),
@@ -727,13 +728,16 @@ class _ShellState extends State<Shell> {
       hostRuns: _hostRuns,
       readHostProgress: _readHostProgress,
       openTerminal: widget.sessions.openTerminal,
-      removeFromOrganization: switch (_organization) {
-        final organization? => (host) => organization.write(OrganizationChange.removeHost, {'host': host}),
-        null => null,
-      },
+      removeFromOrganization: _removeFromOrganization,
     );
     if (mounted && !widget.machines.all.contains(machine)) widget.shell.goTo(Section.machines);
   }
+
+  /// What a confirmed take-down asks of the organization, wherever it was opened: its machine off the list.
+  Future<String?> Function(String host)? get _removeFromOrganization => switch (_organization) {
+    final organization? => (host) => organization.write(OrganizationChange.removeHost, {'host': host}),
+    null => null,
+  };
 
   Future<HostProgress> _readHostProgress(String host) async {
     final connections = _hostConnections;
@@ -762,6 +766,7 @@ class _ShellState extends State<Shell> {
           fromTheCard: kept == null ? access.takingOffRecord(host) : null,
           readHostProgress: _readHostProgress,
           openTerminal: widget.sessions.openTerminal,
+          removeFromOrganization: _removeFromOrganization,
         ),
       ),
     );
@@ -3422,6 +3427,7 @@ class _ShellState extends State<Shell> {
       hostRuns: _hostRuns,
       onHostProtocol: (run) => unawaited(_openHostRun(run)),
       readHostProgress: _readHostProgress,
+      removeFromOrganization: _removeFromOrganization,
       openTerminal: widget.sessions.openTerminal,
       onAdd: _addAMachine,
       onDetails: (machine) {
