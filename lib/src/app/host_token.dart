@@ -50,14 +50,15 @@ Connection? declaredOrganizationToken(String address, List<Connection> held) {
   return best;
 }
 
-/// [address] as the https address a declaration matches against: `git@host:path` and `ssh://user@host/path` are read
-/// as `https://host/path`, as Porelo normalizes them; null for anything else.
+/// [address] as the https address a declaration matches against: `git@host:path`, `host:path` and
+/// `ssh://user@host/path` are read as `https://host/path`, as Porelo normalizes them; null for anything else.
 String? _https(String address) {
   final trimmed = address.trim();
   if (trimmed.startsWith('https://') || trimmed.startsWith('http://')) return trimmed;
   final ssh = Uri.tryParse(trimmed);
   if (ssh != null && ssh.scheme == 'ssh' && ssh.host.isNotEmpty) return 'https://${ssh.host}${ssh.path}';
-  final scp = RegExp(r'^[^@/\s]+@([^:/\s]+):(.+)$').firstMatch(trimmed);
+  // The user is optional, as Porelo may answer the scp form without it; one letter before the colon is a drive.
+  final scp = RegExp(r'^(?:[^@/\\\s]+@)?([^:/\\\s@]{2,}):(.+)$').firstMatch(trimmed);
   return scp == null ? null : 'https://${scp.group(1)}/${scp.group(2)}';
 }
 

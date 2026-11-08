@@ -152,5 +152,8 @@ void main() {
     expect(declaredOrganizationToken('git@github.com:porelo-ai/porelo.git', held)?.id, 'org');
     expect(declaredOrganizationToken('https://github.com/porelo-ai/porelo.git', held)?.id, 'org');
     expect(declaredOrganizationToken('git@gitlab.com:porelo-ai/porelo.git', held), isNull);
+    // Porelo may answer the scp form without its user; the token declared for it must still be found.
+    expect(declaredOrganizationToken('github.com:porelo-ai/porelo.git', held)?.id, 'org');
+    expect(declaredOrganizationToken(r'C:\porelo\org', held), isNull, reason: 'a Windows path is no address');
   });
 }
