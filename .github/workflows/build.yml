@@ -206,6 +206,9 @@ jobs:
                   exit $built
 
             - name: Fetch the pinned host collection
+              env:
+                  # The job's token, for a download from https://github.com alone; none on a host's forge.
+                  PORELO_PINNED_GITHUB_TOKEN: ${{ github.server_url == 'https://github.com' && github.token || '' }}
               run: |
                   collection=$(dart packages/porelo_host/bin/porelo_host.dart --collection-info)
                   read -r version digest file <<< "$collection"
@@ -326,6 +329,9 @@ jobs:
 
             - name: Fetch the pinned host collection
               shell: bash
+              env:
+                  # The job's token, for a download from https://github.com alone; none on a host's forge.
+                  PORELO_PINNED_GITHUB_TOKEN: ${{ github.server_url == 'https://github.com' && github.token || '' }}
               run: |
                   collection=$(dart packages/porelo_host/bin/porelo_host.dart --collection-info)
                   read -r version digest file <<< "$collection"

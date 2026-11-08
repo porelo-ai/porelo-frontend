@@ -38,8 +38,10 @@ runs:
               # otherwise keep an older check-actions than the one published.
               ./mvnw -B -q -U -s settings.xml -Pci-tools dependency:build-classpath \
                 -Dmdep.outputFile=build/jdk-cp.txt
+              # A failure says so: set -e alone would end the step at this assignment without a word.
               sha256=$("$JAVA_HOME/bin/java" -cp "$(cat build/jdk-cp.txt)" \
-                  org.fuin.porelo.machines.Main jdk --print-sha256)
+                  org.fuin.porelo.machines.Main jdk --print-sha256) \
+                  || { echo "::error::porelo-machines could not name the pinned digest (exit $?)"; exit 1; }
               [[ $sha256 =~ ^[0-9a-f]{64}$ ]] || { echo "::error::porelo-machines named no pinned digest"; exit 1; }
               echo "sha256=$sha256" >> "$GITHUB_OUTPUT"
 
@@ -51,6 +53,9 @@ runs:
 
         - name: Install the pinned GraalVM
           shell: bash
+          env:
+              # The job's token, for a download from https://github.com alone; none on a host's forge.
+              PORELO_PINNED_GITHUB_TOKEN: ${{ github.server_url == 'https://github.com' && github.token || '' }}
           run: |
               set -eu
               "$JAVA_HOME_25_X64/bin/java" -cp "$(cat build/jdk-cp.txt)" \
@@ -74,6 +79,9 @@ runs:
         - name: The pinned shfmt
           if: runner.os == 'Linux'
           shell: bash
+          env:
+              # The job's token, for a download from https://github.com alone; none on a host's forge.
+              PORELO_PINNED_GITHUB_TOKEN: ${{ github.server_url == 'https://github.com' && github.token || '' }}
           run: |
               set -eu
               . "$GITHUB_ACTION_PATH/pinned.sh"
