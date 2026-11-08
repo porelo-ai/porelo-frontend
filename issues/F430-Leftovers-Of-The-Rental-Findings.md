@@ -57,3 +57,7 @@ one reading for this issue as a whole. Point 4 is done.
 ## Open questions
 
 None.
+
+**Noted 2026-11-08 (the third move's guide):** the start choice *A shell, driven by hand* starts the agent's own
+session (mode `agent`), and its task row then reads "an agent session, worked through"; the bare shell is *A bare shell,
+without the agent*. The same mode has two names: the choice should say what the row says, or both the same new words.
