@@ -7,9 +7,11 @@ final class TrailerCheck {
   const TrailerCheck._(this.state, this.words);
 
   /// Judges [trailers], the commit's trailer lines as git reads them; null where the machine does not
-  /// report them.
-  static TrailerCheck of(List<String>? trailers) {
-    if (trailers == null) {
+  /// report them. [message], the commit's whole message, is read for a `Co-Authored-By` line outside
+  /// git's trailer block, which is in no trailer line; null where the machine does not report it.
+  static TrailerCheck of(List<String>? trailers, {required String? message}) {
+    // Without the whole message a co-author outside the trailer block cannot be ruled out.
+    if (trailers == null || message == null) {
       return const TrailerCheck._(TrailerState.unknown, 'Assisted-by and Co-Authored-By cannot be checked here');
     }
     // git reads a trailer's key without regard to case, so this does too.
@@ -20,7 +22,9 @@ final class TrailerCheck {
 
     final keys = trailers.map(keyOf).toList();
     final assisted = keys.where((key) => key == 'assisted-by').length;
-    final coAuthors = keys.where((key) => key == 'co-authored-by').length;
+    final inTrailers = keys.where((key) => key == 'co-authored-by').length;
+    final inMessage = message.split('\n').where((line) => line.contains(':') && keyOf(line) == 'co-authored-by').length;
+    final coAuthors = inMessage > inTrailers ? inMessage : inTrailers;
     if (assisted == 1 && coAuthors == 0) {
       return const TrailerCheck._(TrailerState.passed, 'One Assisted-by, no Co-Authored-By');
     }

@@ -42,8 +42,9 @@ M: M the agents' page, S the review card (with the push's fields as the machine 
   regard to case, as git does), and otherwise what is wrong: no Assisted-by, more than one, or a Co-Authored-By.
   What the machine does not report (an older daemon, or a list holding anything but text) says "not reported by
   the machine", and the chip then says that Assisted-by and Co-Authored-By cannot be checked here, never that the
-  check passed. The fetch into one's own clone follows the files, as drawn. The commit's whole message is not shown:
-  `message` is planned on the wire.
+  check passed. The fetch into one's own clone follows the files, as drawn. The commit's whole `message` is read for a
+  `Co-Authored-By` outside git's trailer block; where the machine does not report it, the check cannot be made. The
+  message body itself is not shown.
 - **Builds on a tile:** where the machine lists `Build.runs`, one line per run with its name and verdict (passed,
   failed, also `timed_out` and `startup_failure`, running, not started for `queued`, skipped, or as the forge says
   it); two runs of one workflow are two lines. The headline names every failed run, whatever the verdict; says a

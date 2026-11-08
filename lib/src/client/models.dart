@@ -4205,6 +4205,9 @@ class PendingPush {
   /// say, which is not *none*.
   final List<String>? trailers;
 
+  /// The head commit's whole message; null where the machine does not say.
+  final String? message;
+
   /// Constructor taking every field.
   const PendingPush({
     required this.name,
@@ -4217,6 +4220,7 @@ class PendingPush {
     this.author,
     this.committer,
     this.trailers,
+    this.message,
   });
 
   /// [fetch], with the host the machine named for itself replaced by [login] (`user@host`), the
@@ -4244,6 +4248,7 @@ class PendingPush {
     author: author,
     committer: committer,
     trailers: trailers,
+    message: message,
   );
 
   /// What tells it apart: the same ref name can wait in two repositories. A colon is not allowed
@@ -4261,8 +4266,13 @@ class PendingPush {
     author: map['author'] is String ? map['author'] as String : null,
     committer: map['committer'] is String ? map['committer'] as String : null,
     trailers: _lines(map['trailers']),
+    message: _message(map['message']),
   );
 }
+
+/// A commit's whole message, or null where the machine gives none this can read: an empty one is
+/// git's answer the machine could not match to the commit, never a message without a co-author.
+String? _message(Object? value) => value is String && value.isNotEmpty ? value : null;
 
 /// One commit of a pending push, with who made it, as `Review` lists them, newest first.
 class ReviewCommit {
@@ -4282,8 +4292,18 @@ class ReviewCommit {
   /// holds none this can read.
   final List<String>? trailers;
 
+  /// Its whole message; null where the answer holds none this can read.
+  final String? message;
+
   /// Constructor taking every field.
-  const ReviewCommit({required this.commit, required this.subject, this.author, this.committer, this.trailers});
+  const ReviewCommit({
+    required this.commit,
+    required this.subject,
+    this.author,
+    this.committer,
+    this.trailers,
+    this.message,
+  });
 
   /// Reads one from a reply.
   factory ReviewCommit.from(Map<String, dynamic> map) => ReviewCommit(
@@ -4292,6 +4312,7 @@ class ReviewCommit {
     author: map['author'] is String ? map['author'] as String : null,
     committer: map['committer'] is String ? map['committer'] as String : null,
     trailers: _lines(map['trailers']),
+    message: _message(map['message']),
   );
 
   /// The commits `Review` lists, or null where it lists none this can read: from a machine older

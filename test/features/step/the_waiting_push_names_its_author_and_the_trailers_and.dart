@@ -26,6 +26,8 @@ Future<void> theWaitingPushNamesItsAuthorAndTheTrailersAnd(
         'fetch': head.fetch,
         'author': '$author <agent@example.org>',
         'trailers': <String>[first, second],
+        // As git keeps it: the trailer lines are the message's last block.
+        'message': '${head.subject}\n\n$first\n$second\n',
       },
     ],
   });

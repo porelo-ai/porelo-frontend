@@ -19,6 +19,8 @@ Future<void> theMachineNamesTheCommitAsWrittenByWithTheTrailersAnd(
       author: '$author <agent@example.org>',
       committer: 'A Person <person@example.org>',
       trailers: <String>[first, second],
+      // As git keeps it: the trailer lines are the message's last block.
+      message: '${head.subject}\n\n$first\n$second\n',
     ),
   ];
 }

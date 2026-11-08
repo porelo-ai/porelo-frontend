@@ -340,6 +340,7 @@ class _WhoMadeIt extends StatelessWidget {
         author: push.author,
         committer: push.committer,
         trailers: push.trailers,
+        message: push.message,
       ),
     ];
   }
@@ -369,7 +370,7 @@ class _WhoMadeIt extends StatelessWidget {
     final suffix = place == 0 ? '' : ' ${place + 1}';
     Widget said(String? value) => value == null ? const Text(_notReported) : SelectableText(value);
     final trailers = commit.trailers;
-    final check = TrailerCheck.of(trailers);
+    final check = TrailerCheck.of(trailers, message: commit.message);
     return <Fact>[
       Fact(
         'Commit',

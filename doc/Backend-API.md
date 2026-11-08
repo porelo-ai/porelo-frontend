@@ -139,10 +139,13 @@ Worth knowing before designing around them:
   names it, since an older one refuses a parameter it does not know.
 - **Who made a waiting push is shown as the machine reports it, and its trailer is checked here.**
   `Review`'s `commits` lists each commit newest first with `author`, `committer` (`name <email>`) and
-  `trailers`; where it is absent, `PendingPush`'s own `author`, `committer` and `trailers` name the
-  head commit. Exactly one `Assisted-by` and no `Co-Authored-By` (keys read without regard to case,
-  as git does) passes; anything else says what is wrong. An absent field, or a list holding anything
-  but text, is not reported, and the check is then one that cannot be made, never one that passed.
+  `trailers` and its whole `message`; where it is absent, `PendingPush`'s own `author`, `committer`,
+  `trailers` and `message` name the head commit. Exactly one `Assisted-by` and no `Co-Authored-By`
+  (keys read without regard to case, as git does) passes; a `Co-Authored-By` line anywhere in the
+  message counts too, since one outside git's trailer block is in no trailer line. Anything else says
+  what is wrong. An absent field, an empty message (one the machine could not match to its commit),
+  or a list holding anything but text, is not reported, and the check is then one that cannot be
+  made, never one that passed.
 - **`Stop` refuses.** A task holding commits that never reached the gate comes back as
   `HOLDS_WORK` and is left exactly as it was. That refusal is a feature and needs a real place in
   the interface, not an error toast.

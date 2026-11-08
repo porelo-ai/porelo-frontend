@@ -97,4 +97,15 @@ void main() {
     expect(push.committer, 'A Person <person@example.org>');
     expect(push.trailers, <String>['Assisted-by: Claude Code, claude-opus-5-5']);
   });
+
+  // The harm: a message the machine could not match to its commit reads as one with no co-author,
+  // and the check passes on it.
+  test('an empty message is no message, for a waiting push and for each commit', () {
+    final push = PendingPush.from(const <String, dynamic>{'name': 'migrate', 'commit': 'abc', 'message': ''});
+    final commit = ReviewCommit.from(const <String, dynamic>{'commit': 'abc', 'subject': 's', 'message': ''});
+    final whole = ReviewCommit.from(const <String, dynamic>{'commit': 'abc', 'subject': 's', 'message': 's\n'});
+
+    expect((push.message, commit.message), (null, null));
+    expect(whole.message, 's\n');
+  });
 }

@@ -18,8 +18,9 @@ gap here is a backend method that has to be added, not a workaround waiting to b
 
 ## Not on the wire yet
 
-- **A pushed commit's whole message** (a `message` on `PendingPush` and `ReviewCommit` is planned). The review
-  shows each commit's first line and its trailer lines as the machine reports them, never the body between.
+- **A pushed commit's whole message** (a `message` on `PendingPush` and `ReviewCommit`, agreed for `Tasks1`, not
+  served yet). The window reads it already: until it is served the trailer check cannot be made, since a
+  `Co-Authored-By` outside git's trailer block is in no trailer line; the review shows no message body.
 
 - **A task's names and model, and the default model per provider** (agreed for `Tasks1`, not served yet). `Task`
   gains `model` (what it was started with, `""` for the agent's own default), `modelLabel` (the provider's name for
