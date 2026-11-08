@@ -1,6 +1,6 @@
 # F429 — The Side Bar As A Folding Tree
 
-**Status:** Estimated.
+**Status:** Review.
 **Size:** XL - the side bar, every leaf page in a new look, *Work* and *Needs you* among them, and a machine's tools
 moved from overlays into pages are more than one build; it splits into four parts (below), this issue the first.
 estimate=293, the sum of the parts' medians (L 80 + L 80 + M 53 + L 80).
@@ -437,6 +437,20 @@ Each part is built, tested and handed over on its own, in this order:
 - **Red first**, in a new `test/ui/machine_sections_test.dart`:
   - *each section of a machine reads that machine* - guards a section reading `Machines.current`.
   - *the vault's leaf shows names and kinds and no value* - guards a value on screen.
+
+## How it stands
+
+Built in its four parts, each read once by another model and its findings fixed with a test seen red first; then
+joined, and pictures of the four layouts, light and dark, taken from the app: seven faults they showed (a machine's
+Tasks titled *Work*, a band above the path, the path's spacing, a chip cut mid-letter, a filter's hint cut, counts of
+one in the plural, the tree's indentation) are fixed the same way.
+
+Left, for the operator to place:
+- On the tablet (600 to 839) the organization's button sits after the ⋮, as on the phone; whether D60 means it left of
+  the actions, as D7 on the desktop.
+- "1 need you" on *Needs you* and its badge's tooltip, and "1 entries" in a machine's vault facts, still count one in
+  the plural; the feature texts name these words.
+- Two findings of part 3's reading, older than this issue, are kept in [F430](README.md#f430).
 
 ## Acceptance
 

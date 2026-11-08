@@ -18,6 +18,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f429"></a>[F429](F429-The-Side-Bar-As-A-Folding-Tree.md) | XL | — | The side bar as a folding tree, as the design *Porelo Window Side Bar* draws it: each machine and organization with its sections, a page with entries under it showing facts and actions, every leaf in one look, the side bar beside the page from 600 wide; in four parts. |
 | <a id="f431"></a>[F431](F431-The-Setup-Wizard-After-The-Second-Move.md) | M | — | *Set up a machine* as one dialog, a *Run it for me* button for the bootstrap line, the row asked again after the token. |
 | <a id="f432"></a>[F432](F432-The-Token-Asks-That-Show-The-Way-On.md) | S | — | A refusal with this computer's vault shut says so and opens it; the second token ask is one click. |
 | <a id="f433"></a>[F433](F433-The-Start-Dialog-Says-How-Long-It-Runs.md) | S | — | The start dialog's modes say how long they run; an unattended run's minutes are asked and sent. |
@@ -179,7 +180,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f429"></a>[F429](F429-The-Side-Bar-As-A-Folding-Tree.md) | XL | — | The side bar as a folding tree, as the design *Porelo Window Side Bar* draws it: each machine and organization with its sections, a page with entries under it showing facts and actions, every leaf in one look, the side bar beside the page from 600 wide; in four parts. |
 | <a id="f400"></a>[F400](F400-A-Join-Into-A-Second-Room-Says-To-Accept-The-Invitation.md) | XS | Core's `invited` in JoinMessages | *Join* that invites an existing Matrix account says to accept the invitation, with no password step. |
 | <a id="f145"></a>[F145](F145-The-Hosts-Forge-Switched-Off-In-The-Server-Setup.md) | S | — | *Set up a forge on the server* in the server setup dialog, on by default; switched off, the host's inventory says `porelo_host_forge: false`. |
 | <a id="f93"></a>[F93](F93-Connections-Rare-Actions-Out-Of-The-Way.md) | S | — | Connections' rare actions in its ⋮. |
