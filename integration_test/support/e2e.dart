@@ -47,6 +47,9 @@ Future<void> toThePlace(WidgetTester tester, String place) async {
       await pumpFor(tester);
     }
   }
+  // The tree scrolls: after a machine far down was chosen, the places at its top are above the view.
+  await tester.ensureVisible(entry.first);
+  await pumpFor(tester);
   await tester.tap(entry.first);
   await pumpFor(tester);
 }
