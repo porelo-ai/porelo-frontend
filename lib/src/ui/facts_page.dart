@@ -123,16 +123,7 @@ class FactsPage extends StatelessWidget {
 
     final buttons = <Widget>[
       for (final command in actions) action(command),
-      for (final label in waiting)
-        CustomPaint(
-          painter: _DashedOutline(theme.colorScheme.outline),
-          child: OutlinedButton(
-            key: Key('waiting $label'),
-            onPressed: null,
-            style: OutlinedButton.styleFrom(side: BorderSide.none),
-            child: Text('$label — waits for a command'),
-          ),
-        ),
+      for (final label in waiting) WaitingAction(label: label),
     ];
     return ListView(
       key: const Key('facts-page'),
@@ -231,6 +222,26 @@ class FactsPage extends StatelessWidget {
       ],
     );
   }
+}
+
+/// An action whose daemon command is not yet available, visibly unable to run.
+class WaitingAction extends StatelessWidget {
+  /// Uses the same disabled, dashed action on facts and machine section pages.
+  const WaitingAction({required this.label, super.key});
+
+  /// The action waiting for a command.
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => CustomPaint(
+    painter: _DashedOutline(Theme.of(context).colorScheme.outline),
+    child: OutlinedButton(
+      key: Key('waiting $label'),
+      onPressed: null,
+      style: OutlinedButton.styleFrom(side: BorderSide.none),
+      child: Text('$label — waits for a command'),
+    ),
+  );
 }
 
 class _DashedOutline extends CustomPainter {

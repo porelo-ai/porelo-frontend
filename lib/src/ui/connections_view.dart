@@ -26,6 +26,7 @@ class ConnectionsView extends StatelessWidget {
     this.onSendAKey,
     this.keysAt = '',
     this.pick = pickWithTheDesktop,
+    this.embedded = false,
     super.key,
   });
 
@@ -55,6 +56,9 @@ class ConnectionsView extends StatelessWidget {
   /// Asks for a file of this computer.
   final PickAFile pick;
 
+  /// Shares the containing machine page's scroll instead of creating a pane viewport.
+  final bool embedded;
+
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: connections,
@@ -67,8 +71,12 @@ class ConnectionsView extends StatelessWidget {
             title: 'Connections — how ${connections.machine} connects out',
             trailing: IconButton(icon: const Icon(Icons.close), tooltip: 'Close (Esc)', onPressed: onClose),
           ),
-          Expanded(
+          PaneBody(
+            embedded: embedded,
             child: ListView(
+              shrinkWrap: embedded,
+              primary: embedded ? false : null,
+              physics: embedded ? const NeverScrollableScrollPhysics() : null,
               padding: const EdgeInsets.all(Space.normal),
               children: <Widget>[
                 if (connections.problem != null)

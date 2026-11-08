@@ -1344,7 +1344,7 @@ List<Command> commandsFor({
       group: 'Work',
       shortcut: const SingleActivator(LogicalKeyboardKey.escape),
       run: shell.close,
-      unavailable: shell.anythingOpen ? null : 'nothing is open over the frame',
+      unavailable: shell.canClose ? null : 'nothing is open over the frame',
     ),
     ...workCommands(
       task: selectedTask,

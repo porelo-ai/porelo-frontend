@@ -11,6 +11,7 @@ import 'package:porelo_frontend/src/app/settings.dart';
 import 'package:porelo_frontend/src/app/where_you_were.dart';
 import 'package:porelo_frontend/src/app/connections.dart';
 import 'package:porelo_frontend/src/ui/shell_rail.dart';
+import 'package:porelo_frontend/src/ui/vault_view.dart';
 
 import '../features/support/world.dart';
 import '../support/organization_fixtures.dart';
@@ -103,7 +104,7 @@ void main() {
     await World.settle(tester);
     await _tap(tester, _machineKey('elsewhere'));
     await _tap(tester, _leafKey('vault', 'elsewhere'));
-    expect(World.vault.about, 'elsewhere');
+    expect(tester.widget<VaultView>(find.byType(VaultView)).vault.about, 'elsewhere');
     expect(find.byKey(const Key('vault-view')), findsOneWidget);
     expect(find.text('second-machine-entry'), findsOneWidget);
     expect(find.text('a-provider'), findsNothing);

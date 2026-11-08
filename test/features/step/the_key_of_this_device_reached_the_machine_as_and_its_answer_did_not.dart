@@ -3,6 +3,7 @@ import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/device_key.dart';
 
 import '../support/world.dart';
+import '../support/machine_tools.dart';
 
 /// Usage: the key of this device reached the machine as {'desk'} and its answer did not
 Future<void> theKeyOfThisDeviceReachedTheMachineAsAndItsAnswerDidNot(WidgetTester tester, String name) async {
@@ -21,6 +22,7 @@ Future<void> theKeyOfThisDeviceReachedTheMachineAsAndItsAnswerDidNot(WidgetTeste
     ),
     share: share,
   ));
-  await World.vault.devices.look(World.backend);
+  final vault = await vaultOfCurrentMachine(tester);
+  await vault.devices.look(World.backend);
   await World.settle(tester);
 }

@@ -189,40 +189,10 @@ class EgressOpened extends Opened {
   const EgressOpened();
 }
 
-/// What the vault holds.
-class VaultOpened extends Opened {
-  /// Constructor.
-  const VaultOpened();
-}
-
-/// How a machine connects out.
-class ConnectionsOpened extends Opened {
-  /// Constructor.
-  const ConnectionsOpened();
-}
-
 /// What has been backed up of a project's mirror.
 class BackupsOpened extends Opened {
   /// Constructor.
   const BackupsOpened();
-}
-
-/// Which providers this machine has.
-class ProvidersOpened extends Opened {
-  /// Constructor.
-  const ProvidersOpened();
-}
-
-/// Whether this machine can run anything.
-class ReadinessOpened extends Opened {
-  /// Constructor.
-  const ReadinessOpened();
-}
-
-/// What agents are installed on this machine.
-class AgentsOpened extends Opened {
-  /// Constructor.
-  const AgentsOpened();
 }
 
 /// What this session ran on the machine.
@@ -496,36 +466,28 @@ class ShellModel extends ChangeNotifier {
   /// Opens what the selected project's work may reach.
   void openEgress() => _open(const EgressOpened());
 
-  /// Opens what agents are installed here.
-  void openAgents() => _open(const AgentsOpened());
-
-  /// Opens whether this machine can run anything.
-  void openReadiness() => _open(const ReadinessOpened());
-
-  /// Opens which providers this machine has.
-  void openProviders() => _open(const ProvidersOpened());
-
   /// Opens what has been backed up of the selected project.
   void openBackups() => _open(const BackupsOpened());
 
-  /// Opens what the vault holds.
-  void openVault() => _open(const VaultOpened());
+  /// Whether Escape can dismiss an overlay or return from a machine tool to its facts.
+  bool get canClose => anythingOpen || _onMachineTool;
 
-  /// Opens how the machine connects out.
-  void openConnections() => _open(const ConnectionsOpened());
+  bool get _onMachineTool =>
+      _place.section == Section.machine &&
+      _place.machine != null &&
+      {
+        MachineSection.vault,
+        MachineSection.credentials,
+        MachineSection.agents,
+        MachineSection.health,
+      }.contains(_place.machineSection);
 
-  /// Closes whatever is open. The selection is untouched, so nobody loses their place.
+  /// Closes an overlay, or returns from a machine tool to its named machine's facts.
   void close() {
-    if (!anythingOpen) return;
+    if (!canClose) return;
+    final returnToMachine = !anythingOpen && _onMachineTool;
     _opened = const NothingOpened();
-    if (_place.section == Section.machine &&
-        _place.machine != null &&
-        {
-          MachineSection.vault,
-          MachineSection.credentials,
-          MachineSection.agents,
-          MachineSection.health,
-        }.contains(_place.machineSection)) {
+    if (returnToMachine) {
       openMachine(_place.machine!);
       return;
     }

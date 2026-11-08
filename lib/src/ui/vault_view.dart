@@ -19,6 +19,7 @@ class VaultView extends StatelessWidget {
     this.onUnlockHere,
     this.onMakeHere,
     this.onGrant,
+    this.embedded = false,
     super.key,
   });
 
@@ -41,6 +42,9 @@ class VaultView extends StatelessWidget {
   /// Grants the authorization an entry names, once, in a browser; null where it cannot be offered.
   final ValueChanged<Credential>? onGrant;
 
+  /// Shares the containing machine page's scroll instead of creating a pane viewport.
+  final bool embedded;
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -62,13 +66,22 @@ class VaultView extends StatelessWidget {
             padding: const EdgeInsets.all(Space.normal),
             child: Text(vault.problem!, key: const Key('vault-problem')),
           ),
-        Expanded(
+        PaneBody(
+          embedded: embedded,
           child: ListView(
+            shrinkWrap: embedded,
+            primary: embedded ? false : null,
+            physics: embedded ? const NeverScrollableScrollPhysics() : null,
             padding: const EdgeInsets.symmetric(vertical: Space.small),
             children: <Widget>[
               if (vault.busy && state == null)
                 const Padding(padding: EdgeInsets.all(Space.normal), child: Text('Asking the machine…'))
               else if (state != null) ...<Widget>[
+                if (state.exists && !state.readable)
+                  Padding(
+                    padding: const EdgeInsets.all(Space.normal),
+                    child: Text('The vault is locked', style: TextStyle(color: StateColours.of(scheme).waiting)),
+                  ),
                 _Field(name: 'Where it is', value: state.vault),
                 _Field(
                   name: 'State',

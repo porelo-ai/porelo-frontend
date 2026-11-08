@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
 
 import '../support/world.dart';
+import '../support/machine_tools.dart';
 
 /// Usage: the store is shut
 Future<void> theStoreIsShut(WidgetTester tester) async {
@@ -13,6 +14,7 @@ Future<void> theStoreIsShut(WidgetTester tester) async {
     'readable': false,
   });
   // Shut after the title already asked, the way a person shuts it at the machine.
-  await World.vault.look(World.backend);
+  final vault = await vaultOfCurrentMachine(tester);
+  await vault.look(World.backend);
   await World.settle(tester);
 }

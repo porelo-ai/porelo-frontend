@@ -5,6 +5,9 @@ import '../support/world.dart';
 
 /// Usage: I import what the agent already has
 Future<void> iImportWhatTheAgentAlreadyHas(WidgetTester tester) async {
-  await tester.tap(find.byKey(const Key('import-credential')).first);
+  final action = find.byKey(const Key('import-credential')).first;
+  await tester.ensureVisible(action);
+  await tester.pump();
+  await tester.tap(action);
   await World.settle(tester);
 }

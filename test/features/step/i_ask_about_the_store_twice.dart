@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
 
 import '../support/world.dart';
+import '../support/machine_tools.dart';
 import 'i_show_the_vault.dart';
 
 /// Usage: I ask about the store twice
@@ -18,7 +19,8 @@ Future<void> iAskAboutTheStoreTwice(WidgetTester tester) async {
     ],
     'readable': true,
   });
-  await World.vault.look(World.backend);
+  final vault = await vaultOfCurrentMachine(tester);
+  await vault.look(World.backend);
   await World.settle(tester);
   // Long enough for the first, slower answer to arrive if anything still wanted it.
   await tester.pump(const Duration(milliseconds: 400));

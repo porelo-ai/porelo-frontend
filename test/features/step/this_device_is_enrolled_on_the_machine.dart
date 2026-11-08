@@ -3,6 +3,7 @@ import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/device_key.dart';
 
 import '../support/world.dart';
+import '../support/machine_tools.dart';
 
 /// Usage: this device is enrolled on the machine
 Future<void> thisDeviceIsEnrolledOnTheMachine(WidgetTester tester) async {
@@ -21,6 +22,7 @@ Future<void> thisDeviceIsEnrolledOnTheMachine(WidgetTester tester) async {
     share: share,
   ));
   await World.keys.write(World.backend.nodeId, DeviceKey(slot: id, share: share));
-  await World.vault.devices.look(World.backend);
+  final vault = await vaultOfCurrentMachine(tester);
+  await vault.devices.look(World.backend);
   await World.settle(tester);
 }

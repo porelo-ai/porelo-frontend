@@ -20,10 +20,25 @@ Future<void> showDestinations(BuildContext context, FleetBackend backend) => sho
 /// A packaged one cannot be changed or removed; one of the user's own can take its place.
 class DestinationsDialog extends StatefulWidget {
   /// Constructor taking the machine to ask.
-  const DestinationsDialog({required this.backend, super.key});
+  const DestinationsDialog({
+    required this.backend,
+    this.embedded = false,
+    this.answering = true,
+    this.readAgain = 0,
+    super.key,
+  });
 
   /// The machine whose destinations these are.
   final FleetBackend backend;
+
+  /// Shows the existing destination editor as a card in Credentials.
+  final bool embedded;
+
+  /// Whether its daemon connection is ready for calls.
+  final bool answering;
+
+  /// Changes when the containing page explicitly asks to read both credential cards again.
+  final int readAgain;
 
   @override
   State<DestinationsDialog> createState() => _DestinationsDialogState();
@@ -54,7 +69,15 @@ class _DestinationsDialogState extends State<DestinationsDialog> {
   @override
   void initState() {
     super.initState();
-    unawaited(_read());
+    if (widget.answering) unawaited(_read());
+  }
+
+  @override
+  void didUpdateWidget(DestinationsDialog oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.answering && (!oldWidget.answering || oldWidget.readAgain != widget.readAgain)) {
+      unawaited(_read());
+    }
   }
 
   Future<void> _read() => _asking(() async {
@@ -101,57 +124,71 @@ class _DestinationsDialogState extends State<DestinationsDialog> {
     final destinations = _destinations;
     final text = Theme.of(context).textTheme;
     final draft = _draft;
+    final content = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text(
+          'The services a credential can be for, beside the model providers: where requests go, '
+          'and where the key goes in them. Each is a file on the machine.',
+          style: text.bodySmall,
+        ),
+        const SizedBox(height: Space.small),
+        if (_problem != null)
+          Text(
+            _problem!,
+            key: const Key('destinations-problem'),
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          ),
+        if (_said != null) Text(_said!, key: const Key('destinations-said')),
+        if (_problem != null) TextButton(onPressed: () => unawaited(_read()), child: const Text('Try again')),
+        if (destinations == null && _problem == null)
+          Text(widget.answering ? 'Asking the machine…' : 'The machine has not answered.'),
+        if (destinations != null && destinations.isEmpty)
+          const Text('No destination is declared on this machine.', key: Key('no-destinations')),
+        for (final each in destinations ?? const <Destination>[]) _row(context, each),
+        const SizedBox(height: Space.small),
+        if (draft == null)
+          OutlinedButton.icon(
+            key: const Key('add-destination'),
+            onPressed: () => setState(() => _setDraft(_Draft())),
+            icon: const Icon(Icons.add, size: Sizes.rowIcon),
+            label: const Text('Add a destination'),
+          )
+        else
+          _DraftForm(
+            draft: draft,
+            backend: widget.backend,
+            onWritten: (written) async {
+              setState(() {
+                _setDraft(null);
+                _said = 'Written: ${written.name}, in ${written.file}.';
+              });
+              await _read();
+            },
+            onLeave: () => setState(() => _setDraft(null)),
+          ),
+      ],
+    );
+    if (widget.embedded) {
+      return Padding(
+        key: const Key('destinations-dialog'),
+        padding: const EdgeInsets.all(Space.normal),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('Destinations', style: text.titleSmall),
+            content,
+          ],
+        ),
+      );
+    }
     return AlertDialog(
       key: const Key('destinations-dialog'),
       title: const Text('Destinations'),
       content: SizedBox(
         width: Sizes.dialog,
-        child: DialogScroll(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text(
-                'The services a credential can be for, beside the model providers: where requests go, '
-                'and where the key goes in them. Each is a file on the machine.',
-                style: text.bodySmall,
-              ),
-              const SizedBox(height: Space.small),
-              if (_problem != null)
-                Text(
-                  _problem!,
-                  key: const Key('destinations-problem'),
-                  style: TextStyle(color: Theme.of(context).colorScheme.error),
-                ),
-              if (_said != null) Text(_said!, key: const Key('destinations-said')),
-              if (destinations == null && _problem == null) const Text('Asking the machine…'),
-              if (destinations != null && destinations.isEmpty)
-                const Text('No destination is declared on this machine.', key: Key('no-destinations')),
-              for (final each in destinations ?? const <Destination>[]) _row(context, each),
-              const SizedBox(height: Space.small),
-              if (draft == null)
-                OutlinedButton.icon(
-                  key: const Key('add-destination'),
-                  onPressed: () => setState(() => _setDraft(_Draft())),
-                  icon: const Icon(Icons.add, size: Sizes.rowIcon),
-                  label: const Text('Add a destination'),
-                )
-              else
-                _DraftForm(
-                  draft: draft,
-                  backend: widget.backend,
-                  onWritten: (written) async {
-                    setState(() {
-                      _setDraft(null);
-                      _said = 'Written: ${written.name}, in ${written.file}.';
-                    });
-                    await _read();
-                  },
-                  onLeave: () => setState(() => _setDraft(null)),
-                ),
-            ],
-          ),
-        ),
+        child: DialogScroll(child: content),
       ),
       actions: <Widget>[
         TextButton(

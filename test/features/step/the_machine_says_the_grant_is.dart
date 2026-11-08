@@ -5,6 +5,7 @@ import '../support/world.dart';
 
 /// Usage: the machine says the grant is {'granted'}
 Future<void> theMachineSaysTheGrantIs(WidgetTester tester, String state) async {
+  expect(World.backend.granting.hasListener, isTrue, reason: 'a grant reply needs the listener opened by Grant it');
   World.backend.granting.add(
     AuthorizeProgress(state: state, detail: state == 'failed' ? 'the service answered invalid_client' : ''),
   );

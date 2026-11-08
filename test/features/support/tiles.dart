@@ -116,7 +116,7 @@ Future<void> toTheOrganization(WidgetTester tester, {OrganizationSection section
 /// Closes what is opened over the page - a view, the vault's, what a machine can run - as a person
 /// does to reach what stands on the page itself, such as a machine's lock.
 Future<void> closeWhatCoversThePage(WidgetTester tester) async {
-  for (var press = 0; press < 3 && World.shell.opened is! NothingOpened; press++) {
+  for (var press = 0; press < 3 && World.shell.canClose; press++) {
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await World.settle(tester);
   }

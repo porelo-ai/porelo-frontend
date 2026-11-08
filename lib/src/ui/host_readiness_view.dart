@@ -17,6 +17,7 @@ class HostReadinessView extends StatelessWidget {
     required this.machine,
     required this.onCheckAgain,
     required this.onClose,
+    this.embedded = false,
     super.key,
   });
 
@@ -31,6 +32,9 @@ class HostReadinessView extends StatelessWidget {
 
   /// Closes the view.
   final VoidCallback onClose;
+
+  /// Shares the containing machine page's scroll instead of creating a pane viewport.
+  final bool embedded;
 
   @override
   Widget build(BuildContext context) {
@@ -77,13 +81,17 @@ class HostReadinessView extends StatelessWidget {
               style: Theme.of(context).textTheme.titleSmall,
             ),
           ),
-        Expanded(
+        PaneBody(
+          embedded: embedded,
           child: ListView(
+            shrinkWrap: embedded,
+            primary: embedded ? false : null,
+            physics: embedded ? const NeverScrollableScrollPhysics() : null,
             padding: const EdgeInsets.symmetric(vertical: Space.small),
             children: <Widget>[
               if (readiness.busy && ready == null)
                 const Padding(padding: EdgeInsets.all(Space.normal), child: Text('Asking the machine…')),
-              if (readiness.worthReading.isNotEmpty) ...<Widget>[
+              if (!embedded && readiness.worthReading.isNotEmpty) ...<Widget>[
                 const _Heading(words: 'What is wrong'),
                 for (final probe in readiness.worthReading) _ProbeRow(probe: probe),
               ],

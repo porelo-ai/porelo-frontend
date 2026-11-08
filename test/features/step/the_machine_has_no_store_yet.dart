@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
 
 import '../support/world.dart';
+import '../support/machine_tools.dart';
 
 /// Usage: the machine has no store yet
 Future<void> theMachineHasNoStoreYet(WidgetTester tester) async {
@@ -12,6 +13,7 @@ Future<void> theMachineHasNoStoreYet(WidgetTester tester) async {
     'credentials': <Map<String, dynamic>>[],
     'readable': true,
   });
-  await World.vault.look(World.backend);
+  final vault = await vaultOfCurrentMachine(tester);
+  await vault.look(World.backend);
   await World.settle(tester);
 }

@@ -581,7 +581,7 @@ class _WorkPageState extends State<WorkPage> {
       key: const Key('work-page'),
       padding: const EdgeInsets.symmetric(horizontal: Space.normal),
       children: <Widget>[
-        if (tiles.isEmpty)
+        if (tiles.isEmpty && widget.onlyMachine == null)
           _firstSteps(context)
         else
           TileFolding(

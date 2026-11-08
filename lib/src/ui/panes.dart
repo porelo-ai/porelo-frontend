@@ -37,6 +37,21 @@ class PaneHeader extends StatelessWidget {
   );
 }
 
+/// Gives a standalone pane its viewport, or lets a card use its page's scroll.
+class PaneBody extends StatelessWidget {
+  /// Chooses the containing page's scroll when embedded.
+  const PaneBody({required this.embedded, required this.child, super.key});
+
+  /// Whether the containing page supplies scrolling.
+  final bool embedded;
+
+  /// The pane's shrink-wrapped list when embedded, or its viewport otherwise.
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => embedded ? child : Expanded(child: child);
+}
+
 /// One piece of work, opened over the frame.
 class WorkDetail extends StatelessWidget {
   /// Constructor taking the work and how to close it.

@@ -14,7 +14,7 @@ import 'tokens.dart';
 /// unusable, and what is installed and permanently hidden by another copy.
 class AgentsView extends StatelessWidget {
   /// Constructor taking the inventory and how to close it.
-  const AgentsView({required this.inventory, required this.onClose, this.providers, super.key});
+  const AgentsView({required this.inventory, required this.onClose, this.providers, this.embedded = false, super.key});
 
   /// What the machine answered.
   final AgentInventory inventory;
@@ -24,6 +24,9 @@ class AgentsView extends StatelessWidget {
 
   /// The existing provider command on this same machine.
   final Command? providers;
+
+  /// Shares the containing machine page's scroll instead of creating a pane viewport.
+  final bool embedded;
 
   @override
   Widget build(BuildContext context) {
@@ -52,8 +55,12 @@ class AgentsView extends StatelessWidget {
             padding: const EdgeInsets.all(Space.normal),
             child: Text(inventory.problem!, key: const Key('agents-problem')),
           ),
-        Expanded(
+        PaneBody(
+          embedded: embedded,
           child: ListView(
+            shrinkWrap: embedded,
+            primary: embedded ? false : null,
+            physics: embedded ? const NeverScrollableScrollPhysics() : null,
             padding: const EdgeInsets.symmetric(vertical: Space.small),
             children: <Widget>[
               if (inventory.busy)

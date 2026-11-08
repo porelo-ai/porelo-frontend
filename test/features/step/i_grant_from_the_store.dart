@@ -7,6 +7,10 @@ import 'i_show_the_vault.dart';
 /// Usage: I grant {'jira'} from the store
 Future<void> iGrantFromTheStore(WidgetTester tester, String name) async {
   await iShowTheVault(tester);
-  await tester.tap(find.byKey(ValueKey<String>('grant $name')));
-  await World.settle(tester);
+  await World.tapInView(tester, 'grant $name');
+  expect(
+    find.byKey(const Key('grant-dialog')),
+    findsOneWidget,
+    reason: 'the grant must start before its reply is sent',
+  );
 }

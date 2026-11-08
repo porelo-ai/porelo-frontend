@@ -13,7 +13,13 @@ import 'tokens.dart';
 /// can see the socket at all — so what is shown is the command, ready to copy.
 class AuthenticationView extends StatelessWidget {
   /// Constructor taking what the machine said and what can be done.
-  const AuthenticationView({required this.authentication, required this.onImport, required this.onClose, super.key});
+  const AuthenticationView({
+    required this.authentication,
+    required this.onImport,
+    required this.onClose,
+    this.embedded = false,
+    super.key,
+  });
 
   /// What the machine has.
   final Authentication authentication;
@@ -23,6 +29,9 @@ class AuthenticationView extends StatelessWidget {
 
   /// Closes the view.
   final VoidCallback onClose;
+
+  /// Shares the containing machine page's scroll instead of creating a pane viewport.
+  final bool embedded;
 
   @override
   Widget build(BuildContext context) {
@@ -53,8 +62,12 @@ class AuthenticationView extends StatelessWidget {
             // confirmation becoming the place the secret appears.
             child: Text(authentication.importWords, key: const Key('import-says')),
           ),
-        Expanded(
+        PaneBody(
+          embedded: embedded,
           child: ListView(
+            shrinkWrap: embedded,
+            primary: embedded ? false : null,
+            physics: embedded ? const NeverScrollableScrollPhysics() : null,
             padding: const EdgeInsets.symmetric(vertical: Space.small),
             children: <Widget>[
               if (authentication.busy && authentication.answer == null)
