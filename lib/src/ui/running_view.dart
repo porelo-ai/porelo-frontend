@@ -409,7 +409,8 @@ class _RunningViewState extends State<RunningView> {
       crossAxisAlignment: WrapCrossAlignment.center,
       children: children,
     );
-    if (WindowSize.fromContext(context) == WindowSize.compact) {
+    // The tree stays beside a tablet's page, so the bar needs its wrapping layout there too.
+    if (!WindowSize.fromContext(context).showsTwoPanes) {
       return KeyedSubtree(key: const Key('running-bar'), child: wrap(<Widget>[...names, ...doing]));
     }
     return Row(

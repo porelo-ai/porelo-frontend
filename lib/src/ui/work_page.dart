@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'package:porelo_frontend/client.dart';
 
@@ -9,14 +10,34 @@ import '../app/fleet_model.dart';
 import '../app/machines.dart';
 import 'attention_view.dart';
 import 'filtered_list_section.dart';
+import 'page_explanation.dart';
 import 'tokens.dart';
+import 'window_size.dart';
 
 /// How the work page was left: its search, its opened rows, which view and which tab. Kept by the
 /// window rather than the page, so they stay when something takes the page's place for a while - a
 /// refusal, a detail, another page - and the page comes back (walk 9).
 class WorkView extends ChangeNotifier {
+  /// Keeps the head and rows in step when another page sets the search.
+  WorkView() {
+    search.addListener(notifyListeners);
+  }
+
   /// What the list is searched for: a name, a project or a machine.
   final TextEditingController search = TextEditingController();
+
+  /// The list's chosen order, kept while a terminal or another page is open.
+  String sort = 'Sorted by state';
+
+  /// Whether the chosen order runs backwards.
+  bool descending = false;
+
+  /// Chooses an order, reversing it when chosen again.
+  void sortBy(String value) {
+    descending = value == sort ? !descending : false;
+    sort = value;
+    notifyListeners();
+  }
 
   /// Whether *Running* is shown rather than the list.
   bool get running => _running;
@@ -98,7 +119,11 @@ class WorkView extends ChangeNotifier {
   void showRevealed(String row) {
     _running = false;
     if (!open.contains(row)) open = <String>{...open, row};
-    if (search.text.isNotEmpty) search.value = TextEditingValue.empty;
+    if (search.text.isNotEmpty) {
+      search.removeListener(notifyListeners);
+      search.value = TextEditingValue.empty;
+      search.addListener(notifyListeners);
+    }
   }
 
   /// Selects the work listed by the page and counted in navigation.
@@ -397,12 +422,11 @@ class _WorkPageState extends State<WorkPage> {
 
   Widget _head(BuildContext context) => Padding(
     padding: const EdgeInsets.all(Space.normal),
-    child: Wrap(
-      spacing: Space.normal,
-      runSpacing: Space.small,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: <Widget>[
-        SegmentedButton<bool>(
+    child: Align(
+      alignment: Alignment.centerLeft,
+      child: SizedBox(
+        width: WindowSize.fromContext(context) == WindowSize.compact ? double.infinity : null,
+        child: SegmentedButton<bool>(
           key: const Key('work-view'),
           showSelectedIcon: false,
           style: SegmentedButton.styleFrom(
@@ -416,9 +440,113 @@ class _WorkPageState extends State<WorkPage> {
           selected: <bool>{_view.running},
           onSelectionChanged: (chosen) => _view.running = chosen.single,
         ),
-      ],
+      ),
     ),
   );
+
+  Widget _leafHead(BuildContext context, List<Tile> tiles) {
+    final supplied = widget.head;
+    final head = supplied is PageHead ? supplied : null;
+    final scope = PageExplanationScope.of(context);
+    final work = tiles.length == 1 ? 'piece of work' : 'pieces of work';
+    final running = tiles.where((tile) => tile.task?.running ?? false).length;
+    final machines = tiles.map((tile) => tile.machine).toSet().length;
+    final countKnown = widget.machines.all.any(
+      (machine) =>
+          (widget.onlyMachine == null || machine == widget.onlyMachine) && widget.machines.of(machine).listRead,
+    );
+    final target = WindowSize.fromContext(context).showsTwoPanes ? Sizes.leafSort : Sizes.touchTarget;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: Space.normal),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (supplied != null && head == null) supplied,
+          PageHead(
+            title: head?.title ?? 'Work',
+            id: _view.running ? null : head?.id ?? scope?.id,
+            settings: head?.settings ?? scope?.settings,
+            path: head?.path ?? const [],
+            pathKeys: head?.pathKeys ?? const {},
+            titleKey: head?.titleKey,
+            status: head?.status,
+            subtitle: !countKnown
+                ? 'Not read: no machine has answered'
+                : '${tiles.length} $work on $machines ${machines == 1 ? 'machine' : 'machines'} · $running running',
+            subtitleKey: const Key('work-list-subtitle'),
+            controls: _view.running
+                ? null
+                : Row(
+                    children: [
+                      Expanded(
+                        child: Focus(
+                          onKeyEvent: (_, event) {
+                            if (event is KeyDownEvent &&
+                                event.logicalKey == LogicalKeyboardKey.escape &&
+                                _view.search.text.isNotEmpty) {
+                              _view.search.clear();
+                              return KeyEventResult.handled;
+                            }
+                            return KeyEventResult.ignored;
+                          },
+                          child: TextField(
+                            key: const Key('work-list-filter'),
+                            controller: _view.search,
+                            decoration: InputDecoration(
+                              isDense: true,
+                              hintText: 'Name, project or machine',
+                              prefixIcon: const Icon(Icons.search, size: Sizes.rowIcon),
+                              suffixIcon: IconButton(
+                                key: const Key('work-list-filter-close'),
+                                tooltip: 'Clear the filter',
+                                onPressed: _view.search.clear,
+                                icon: const Icon(Icons.close, size: Sizes.rowIcon),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      PopupMenuButton<String>(
+                        key: const Key('work-list-sort'),
+                        tooltip: _view.sort,
+                        onSelected: _view.sortBy,
+                        itemBuilder: (_) => [
+                          for (final sort in _sorts(tiles))
+                            CheckedPopupMenuItem<String>(
+                              key: ValueKey<String>('work-list-sort ${sort.label}'),
+                              value: sort.label,
+                              checked: sort.label == _view.sort,
+                              child: Text(sort.label),
+                            ),
+                        ],
+                        child: SizedBox(
+                          width: target,
+                          height: target,
+                          child: const Icon(Icons.sort, size: Sizes.rowIcon),
+                        ),
+                      ),
+                    ],
+                  ),
+            action: FilledButton.icon(
+              key: const Key('new-work'),
+              onPressed: widget.onNewWork,
+              icon: const Icon(Icons.add, size: Sizes.rowIcon),
+              label: const Text('New work'),
+            ),
+          ),
+          if (widget.onNewWork == null)
+            Text('New work: ${widget.newWorkUnavailable}', style: Theme.of(context).textTheme.bodySmall),
+        ],
+      ),
+    );
+  }
+
+  List<SectionSort> _sorts(List<Tile> tiles) => [
+    SectionSort('Sorted by state', (row) => _stateKey(tiles[row])),
+    SectionSort('Sorted by name', (row) => tiles[row].task?.name ?? ''),
+    SectionSort('Sorted by project', (row) => WorkRow.projectOf(tiles[row].task)),
+    SectionSort('Sorted by machine', (row) => tiles[row].machine.name),
+  ];
 
   Widget _build(BuildContext context) {
     final reveal = widget.reveal;
@@ -443,6 +571,15 @@ class _WorkPageState extends State<WorkPage> {
     } else if (reveal == null) {
       _scrolledTo = null;
     }
+    final sorts = _sorts(tiles);
+    final sorting = sorts.firstWhere((sort) => sort.label == _view.sort, orElse: () => sorts.first);
+    final places = [for (var place = 0; place < tiles.length; place++) place];
+    places.sort((a, b) {
+      final order = sorting.keyOf(a).toLowerCase().compareTo(sorting.keyOf(b).toLowerCase());
+      return order == 0 ? a.compareTo(b) : (_view.descending ? -order : order);
+    });
+    final shown = _view.shownTiles([for (final place in places) tiles[place]]);
+    final theme = Theme.of(context);
     final list = ListView(
       key: const Key('work-page'),
       padding: const EdgeInsets.symmetric(horizontal: Space.normal),
@@ -456,54 +593,65 @@ class _WorkPageState extends State<WorkPage> {
               _open = <String>{..._open};
               if (!_open.remove(tile)) _open.add(tile);
             }),
-            child: FilteredListSection(
-              title: 'All work',
-              storageId: 'work-list',
-              search: _view.search,
-              searchHint: 'Name, project or machine',
-              greyWords: <String>[if (widget.onNewWork == null) 'New work: ${widget.newWorkUnavailable}'],
-              actions: <Widget>[
-                FilledButton.icon(
-                  key: const Key('new-work'),
-                  onPressed: widget.onNewWork,
-                  icon: const Icon(Icons.add, size: Sizes.rowIcon),
-                  label: const Text('New work'),
+            child: Material(
+              color: listCardColour(theme.colorScheme),
+              clipBehavior: Clip.antiAlias,
+              shape: RoundedRectangleBorder(
+                side: BorderSide(color: theme.colorScheme.outlineVariant, width: Space.hairline),
+                borderRadius: BorderRadius.circular(Radii.medium),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: Space.normal),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (final (place, tile) in shown.indexed) ...[
+                      if (place > 0) const Divider(height: Space.hairline),
+                      KeyedSubtree(key: _where.putIfAbsent(_placeOf(tile), GlobalKey.new), child: widget.tile(tile)),
+                    ],
+                    if (shown.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: Space.normal),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Nothing matches the filter.'),
+                            TextButton(onPressed: _view.search.clear, child: const Text('Clear the filter')),
+                          ],
+                        ),
+                      ),
+                  ],
                 ),
-              ],
-              reveal: reveal,
-              sorts: <SectionSort>[
-                SectionSort('Sorted by state', (row) => _stateKey(tiles[row])),
-                SectionSort('Sorted by name', (row) => tiles[row].task?.name ?? ''),
-                SectionSort('Sorted by project', (row) => WorkRow.projectOf(tiles[row].task)),
-                SectionSort('Sorted by machine', (row) => tiles[row].machine.name),
-              ],
-              rows: <FilteredRow>[
-                for (final tile in tiles)
-                  (
-                    words: WorkView.wordsOf(tile),
-                    child: KeyedSubtree(
-                      key: _where.putIfAbsent(_placeOf(tile), GlobalKey.new),
-                      child: widget.tile(tile),
-                    ),
-                  ),
-              ],
+              ),
             ),
           ),
       ],
     );
     final focus = widget.listFocus;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: <Widget>[
-        ?widget.head,
-        ?widget.explanation,
-        _head(context),
-        Expanded(
-          child: _view.running
-              ? widget.running(context)
-              : (focus == null ? list : Focus(focusNode: focus, child: list)),
-        ),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: constraints.maxHeight * Sizes.leafHeadHeightFraction),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _leafHead(context, tiles),
+                  if (widget.explanation case final explanation?) Offstage(offstage: _view.running, child: explanation),
+                  _head(context),
+                ],
+              ),
+            ),
+          ),
+          Expanded(
+            child: _view.running
+                ? widget.running(context)
+                : (focus == null ? list : Focus(focusNode: focus, child: list)),
+          ),
+        ],
+      ),
     );
   }
 }

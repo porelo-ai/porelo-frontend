@@ -8,6 +8,24 @@ Feature: Daily work in front, setting up machines and projects apart
         Given a backend with work on it
         And the app is running
 
+    # Harm: the new head hides a running terminal or loses its chosen tab.
+    Scenario: Running keeps its tabs under the Work head
+        When I go to the running work
+        And I choose the tab of {'porelo-billing-shell'}
+        Then Running keeps its tabs under the Work head
+        And the session on screen is {'porelo-billing-shell'}
+        When the window is {390} pixels wide
+        Then Running keeps its tabs under the Work head
+        And the session on screen is {'porelo-billing-shell'}
+        When the window is {700} pixels wide
+        Then Running keeps its tabs under the Work head
+        And the session on screen is {'porelo-billing-shell'}
+        When I go to the list of work
+        And I go to the running work
+        Then Running keeps its tabs under the Work head
+        And the tab of {'porelo-billing-shell'} is chosen
+        And the session on screen is {'porelo-billing-shell'}
+
     # Harm: what waits on a person below what merely runs.
     Scenario: the window opens on one list of the work of every machine, what waits for a person first
         Then the section shown is {'Work'}

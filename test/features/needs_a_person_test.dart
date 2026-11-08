@@ -7,16 +7,18 @@ import 'package:flutter_test/flutter_test.dart';
 import './step/a_backend_with_work_on_it.dart';
 import './step/the_app_is_running.dart';
 import './step/i_go_to_what_needs_a_person.dart';
+import './step/the_needs_you_subtitle_and_badge_count.dart';
+import './step/work_is_blocked_reaching.dart';
+import './step/the_agent_of_ended_with_the_providers.dart';
+import './step/i_let_it_through_from_its_tile.dart';
+import './step/the_answer_comes_back.dart';
 import './step/the_view_shown_is_what_needs_a_person.dart';
 import './step/the_first_tile_is.dart';
 import './step/no_tile_is_shown_for.dart';
 import './step/other_work_is_blocked_reaching.dart';
-import './step/work_is_blocked_reaching.dart';
 import './step/the_tile_says.dart';
-import './step/i_let_it_through_from_its_tile.dart';
 import './step/the_answer_sent_was.dart';
 import './step/the_rail_says_is_waiting.dart';
-import './step/the_answer_comes_back.dart';
 import './step/the_row_of_under_recently_resolved_says.dart';
 import './step/the_count_of_what_needs_a_person_is.dart';
 import './step/i_go_to_the_list_of_work.dart';
@@ -59,7 +61,6 @@ import './step/the_machine_dropped_questions_unseen.dart';
 import './step/it_says.dart';
 import './step/i_mark_the_dropped_questions_seen.dart';
 import './step/the_notice_is_resolved.dart';
-import './step/the_agent_of_ended_with_the_providers.dart';
 import './step/the_row_of_is_in_the_group.dart';
 import './step/it_does_not_say.dart';
 import './step/the_agent_of_finished.dart';
@@ -79,6 +80,16 @@ void main() {
       await iGoToWhatNeedsAPerson(tester);
     }
 
+    testWidgets('''the Needs you subtitle counts what the badge counts''', (tester) async {
+      await bddSetUp(tester);
+      await theNeedsYouSubtitleAndBadgeCount(tester, 1);
+      await workIsBlockedReaching(tester, 'api.example.test:443');
+      await theAgentOfEndedWithTheProviders(tester, 'porelo-billing-shell', 402, 'This request requires more credits');
+      await theNeedsYouSubtitleAndBadgeCount(tester, 3);
+      await iLetItThroughFromItsTile(tester);
+      await theAnswerComesBack(tester);
+      await theNeedsYouSubtitleAndBadgeCount(tester, 2);
+    });
     testWidgets('''what needs a person is one step from the work the window opens on''', (tester) async {
       await bddSetUp(tester);
       await theViewShownIsWhatNeedsAPerson(tester);

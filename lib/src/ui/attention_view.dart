@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:porelo_frontend/client.dart';
 
 import '../app/builds.dart';
@@ -23,7 +24,9 @@ import 'operations.dart';
 import 'needs_machine.dart';
 import 'organization_token_words.dart';
 import 'filtered_list_section.dart';
+import 'page_explanation.dart';
 import 'tokens.dart';
+import 'window_size.dart';
 
 /// What needs a person, from every machine at once. The window opens here.
 ///
@@ -100,6 +103,11 @@ class AttentionView extends StatefulWidget {
 }
 
 class _AttentionViewState extends State<AttentionView> {
+  final _filter = TextEditingController();
+
+  bool _matches(ExpandableListRow row) =>
+      '${row.title} ${row.subtitle ?? ''} ${row.state}'.toLowerCase().contains(_filter.text.trim().toLowerCase());
+
   @override
   void initState() {
     super.initState();
@@ -123,6 +131,7 @@ class _AttentionViewState extends State<AttentionView> {
   @override
   void dispose() {
     _ticker?.cancel();
+    _filter.dispose();
     super.dispose();
   }
 
@@ -132,57 +141,97 @@ class _AttentionViewState extends State<AttentionView> {
     builder: (context, _) {
       final rows = widget.attention.openRows;
       final resolved = widget.attention.recentlyResolved;
+      final drawn = {for (final row in rows) row: _row(context, row)};
+      final drawnResolved = {for (final each in resolved) each: _row(context, each.row, resolved: true)};
+      final shown = rows.where((row) => _matches(drawn[row]!)).toList();
+      final shownResolved = resolved.where((each) => _matches(drawnResolved[each]!)).toList();
+      final scope = PageExplanationScope.of(context);
+      final count = widget.attention.needingSomebody;
+      final countKnown = widget.attention.machinesOnce.any((machine) => widget.attention.fleetOf(machine).listRead);
       _keepTicking(
         widget.attention.needing.any((tile) => tile.questions.any((question) => question.expiresAt != null)),
       );
-      return Column(
-        children: <Widget>[
-          Expanded(
-            child: rows.isEmpty && resolved.isEmpty
-                ? const Center(child: Text('Nothing needs you on any machine.', key: Key('nothing-needs-you')))
-                : SingleChildScrollView(
-                    padding: const EdgeInsets.all(Space.normal),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Column(
-                          key: const Key('open-attention'),
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            for (final group in _NeedsGroup.values)
-                              if (rows.where((row) => _NeedsGroup.of(row) == group).toList() case final inIt
-                                  when inIt.isNotEmpty)
-                                _GroupCard(
-                                  group: group,
-                                  count: inIt.length,
-                                  children: [for (final row in inIt) _row(context, row)],
-                                ),
-                          ],
-                        ),
-                        if (resolved.isNotEmpty)
-                          Column(
-                            key: const Key('recently-resolved'),
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              const Padding(padding: EdgeInsets.all(Space.normal), child: Text('Recently resolved')),
-                              for (final each in resolved)
-                                _ResolvedRow(
-                                  child: Builder(builder: (context) => _row(context, each.row, resolved: true)),
-                                ),
-                            ],
-                          ),
-                      ],
+      return SingleChildScrollView(
+        padding: const EdgeInsets.all(Space.normal),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            PageHead(
+              title: 'Needs you',
+              id: scope?.id,
+              settings: scope?.settings,
+              subtitle: !countKnown
+                  ? 'Not read: no machine has answered'
+                  : count == 0
+                  ? 'Nothing waits on you'
+                  : '$count need you',
+              subtitleKey: const Key('needs-you-subtitle'),
+              controls: Focus(
+                onKeyEvent: (_, event) {
+                  if (event is KeyDownEvent &&
+                      event.logicalKey == LogicalKeyboardKey.escape &&
+                      _filter.text.isNotEmpty) {
+                    setState(_filter.clear);
+                    return KeyEventResult.handled;
+                  }
+                  return KeyEventResult.ignored;
+                },
+                child: TextField(
+                  key: const Key('needs-you-filter'),
+                  controller: _filter,
+                  onChanged: (_) => setState(() {}),
+                  decoration: InputDecoration(
+                    isDense: true,
+                    hintText: 'Filter what needs you',
+                    prefixIcon: const Icon(Icons.search, size: Sizes.rowIcon),
+                    suffixIcon: IconButton(
+                      tooltip: 'Clear the filter',
+                      onPressed: () => setState(_filter.clear),
+                      icon: const Icon(Icons.close, size: Sizes.rowIcon),
                     ),
                   ),
-          ),
-        ],
+                ),
+              ),
+            ),
+            if (scope != null && scope.parts.isNotEmpty)
+              PageExplanation(id: scope.id, settings: scope.settings, parts: scope.parts),
+            if (rows.isEmpty && countKnown) const Text('Nothing waits on you', key: Key('nothing-needs-you')),
+            if (shown.isEmpty && shownResolved.isEmpty && _filter.text.trim().isNotEmpty) ...[
+              const Text('Nothing matches the filter.'),
+              TextButton(onPressed: () => setState(_filter.clear), child: const Text('Clear the filter')),
+            ],
+            Column(
+              key: const Key('open-attention'),
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final group in _NeedsGroup.values)
+                  if (shown.where((row) => _NeedsGroup.of(row) == group).toList() case final inIt when inIt.isNotEmpty)
+                    _GroupCard(group: group, count: inIt.length, children: [for (final row in inIt) drawn[row]!]),
+              ],
+            ),
+            if (shownResolved.isNotEmpty)
+              Column(
+                key: const Key('recently-resolved'),
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Padding(padding: EdgeInsets.all(Space.normal), child: Text('Recently resolved')),
+                  _RowsCard(
+                    children: [
+                      for (final each in shownResolved)
+                        _ResolvedRow(child: Builder(builder: (context) => _row(context, each.row, resolved: true))),
+                    ],
+                  ),
+                ],
+              ),
+          ],
+        ),
       );
     },
   );
 }
 
 extension on _AttentionViewState {
-  Widget _row(BuildContext context, AttentionRow row, {bool resolved = false}) {
+  ExpandableListRow _row(BuildContext context, AttentionRow row, {bool resolved = false}) {
     final attention = widget.attention;
     final reason = resolved ? 'this row is resolved' : null;
     void details() => unawaited(
@@ -819,7 +868,7 @@ enum _NeedsGroup {
   };
 }
 
-/// One group of *Needs you*, a card headed by its title and how many rows it holds.
+/// One group of *Needs you*, with its title above its card.
 class _GroupCard extends StatelessWidget {
   const _GroupCard({required this.group, required this.count, required this.children});
 
@@ -830,68 +879,66 @@ class _GroupCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colors = theme.colorScheme;
     return Padding(
       key: ValueKey<String>('needs-group ${group.name}'),
       padding: const EdgeInsets.only(bottom: Space.wide),
-      child: Material(
-        color: listCardColour(colors),
-        clipBehavior: Clip.antiAlias,
-        shape: RoundedRectangleBorder(
-          side: BorderSide(color: colors.outlineVariant, width: Space.hairline),
-          borderRadius: BorderRadius.circular(Radii.medium),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Padding(
+            padding: const EdgeInsets.only(bottom: Space.small),
+            child: Row(
+              children: <Widget>[
+                Flexible(
+                  child: Text(group.title, style: theme.textTheme.titleMedium, overflow: TextOverflow.ellipsis),
+                ),
+                const SizedBox(width: Space.small),
+                Text(
+                  '$count',
+                  key: ValueKey<String>('needs-group-count ${group.name}'),
+                  style: theme.textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+          _RowsCard(children: children),
+        ],
+      ),
+    );
+  }
+}
+
+class _RowsCard extends StatelessWidget {
+  const _RowsCard({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: listCardColour(theme.colorScheme),
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        side: BorderSide(color: theme.colorScheme.outlineVariant, width: Space.hairline),
+        borderRadius: BorderRadius.circular(Radii.medium),
+      ),
+      child: Theme(
+        data: theme.copyWith(
+          cardTheme: theme.cardTheme.copyWith(
+            color: Colors.transparent,
+            elevation: 0,
+            margin: EdgeInsets.zero,
+            shape: const RoundedRectangleBorder(),
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            ColoredBox(
-              color: listHeadColour(colors),
-              child: Padding(
-                padding: const EdgeInsets.all(Space.normal),
-                child: Row(
-                  children: <Widget>[
-                    Flexible(
-                      child: Text(group.title, style: theme.textTheme.titleMedium, overflow: TextOverflow.ellipsis),
-                    ),
-                    const SizedBox(width: Space.small),
-                    DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: colors.surface,
-                        borderRadius: BorderRadius.circular(Radii.small),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: Space.small),
-                        child: Text(
-                          '$count',
-                          key: ValueKey<String>('needs-group-count ${group.name}'),
-                          style: theme.textTheme.bodySmall,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            // A row that draws itself as a card is a row here: the group is the card.
-            Theme(
-              data: theme.copyWith(
-                cardTheme: theme.cardTheme.copyWith(
-                  color: Colors.transparent,
-                  elevation: 0,
-                  margin: EdgeInsets.zero,
-                  shape: const RoundedRectangleBorder(),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: <Widget>[
-                  for (final (place, child) in children.indexed) ...<Widget>[
-                    if (place > 0) const Divider(height: Space.hairline),
-                    child,
-                  ],
-                ],
-              ),
-            ),
+          children: [
+            for (final (place, child) in children.indexed) ...[
+              if (place > 0) const Divider(height: Space.hairline),
+              child,
+            ],
           ],
         ),
       ),
@@ -1443,66 +1490,77 @@ class WorkRow extends StatelessWidget {
                       onSelect?.call();
                       folding?.toggle(id);
                     },
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: Space.small),
-                      child: Row(
-                        children: <Widget>[
-                          Padding(
-                            padding: const EdgeInsets.only(right: Space.normal),
-                            child: _StateMark(tile.demand, scheme),
-                          ),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: <Widget>[
-                                // Selectable, because the name is what somebody types into `porelo` on the machine.
-                                SelectableText(
-                                  task == null || task.label.isEmpty ? name : task.label,
-                                  key: const Key('tile-what'),
-                                  maxLines: 1,
-                                  onTap: () {
-                                    onSelect?.call();
-                                    folding?.toggle(id);
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final beside = WindowSize.chipBeside(constraints.maxWidth);
+                        final state = KeyedSubtree(
+                          key: const Key('tile-headline'),
+                          child: StateChip(
+                            stateOf(tile, terminalEnded: terminalEnded),
+                            key: ValueKey<String>('tile-state ${tile.demand.name}'),
+                            toneWords: _needsSomebody
+                                ? 'Needs you'
+                                : switch (tile.demand) {
+                                    Demand.working || Demand.unseen when !terminalEnded => 'Running',
+                                    Demand.quiet => 'Waiting',
+                                    _ => 'Stopped',
                                   },
-                                  style: text.titleSmall?.copyWith(fontWeight: FontWeight.w600),
-                                ),
-                                Row(
+                          ),
+                        );
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: Space.small),
+                          child: Row(
+                            children: <Widget>[
+                              const Padding(
+                                padding: EdgeInsets.only(right: Space.normal),
+                                child: Icon(Icons.play_circle_outline, size: Sizes.rowIcon),
+                              ),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: <Widget>[
-                                    Flexible(
-                                      child: Text(
-                                        '${projectOf(task)} · ${agentOf(task)} · ',
-                                        key: const Key('tile-sub'),
+                                    // Selectable, because the name is what somebody types into `porelo` on the machine.
+                                    Tooltip(
+                                      message: task == null || task.label.isEmpty ? name : task.label,
+                                      child: SelectableText(
+                                        task == null || task.label.isEmpty ? name : task.label,
+                                        key: const Key('tile-what'),
                                         maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: text.bodySmall,
+                                        onTap: () {
+                                          onSelect?.call();
+                                          folding?.toggle(id);
+                                        },
+                                        style: text.titleSmall?.copyWith(fontWeight: FontWeight.w600),
                                       ),
                                     ),
-                                    Flexible(
-                                      child: KeyedSubtree(
-                                        key: const Key('tile-machine'),
-                                        child: NeedsMachine(tile.machine.name),
-                                      ),
+                                    Row(
+                                      children: <Widget>[
+                                        Flexible(
+                                          child: Text(
+                                            '${projectOf(task)} · ${agentOf(task)} · ',
+                                            key: const Key('tile-sub'),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: text.bodySmall,
+                                          ),
+                                        ),
+                                        Flexible(
+                                          child: KeyedSubtree(
+                                            key: const Key('tile-machine'),
+                                            child: NeedsMachine(tile.machine.name),
+                                          ),
+                                        ),
+                                      ],
                                     ),
+                                    if (!beside) state,
                                   ],
                                 ),
-                              ],
-                            ),
+                              ),
+                              if (beside) ...[const SizedBox(width: Space.small), Flexible(child: state)],
+                            ],
                           ),
-                          const SizedBox(width: Space.small),
-                          // Its whole share, so the state stands beside the fold whatever its length.
-                          Flexible(
-                            fit: FlexFit.tight,
-                            child: Text(
-                              stateOf(tile, terminalEnded: terminalEnded),
-                              key: const Key('tile-headline'),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              textAlign: TextAlign.end,
-                              style: text.bodySmall?.copyWith(color: _stateColour(scheme)),
-                            ),
-                          ),
-                        ],
-                      ),
+                        );
+                      },
                     ),
                   ),
                 ),
@@ -1558,7 +1616,10 @@ class WorkRow extends StatelessWidget {
                         style: text.bodySmall,
                       ),
                     const SizedBox(height: Space.small),
-                    Wrap(spacing: Space.small, runSpacing: Space.tight, children: _steps()),
+                    if (WindowSize.fromContext(context) == WindowSize.compact)
+                      Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: _steps())
+                    else
+                      Wrap(spacing: Space.small, runSpacing: Space.tight, children: _steps()),
                   ],
                 ),
               ),
@@ -1567,17 +1628,6 @@ class WorkRow extends StatelessWidget {
       ),
     );
     return selected ? KeyedSubtree(key: const Key('selected-row'), child: row) : row;
-  }
-
-  Color? _stateColour(ColorScheme scheme) {
-    final states = StateColours.of(scheme);
-    if (terminalEnded && !_asksAPerson(tile)) return states.waiting;
-    return switch (tile.demand) {
-      Demand.question || Demand.ended || Demand.gate => scheme.error,
-      Demand.working || Demand.unseen => states.working,
-      Demand.quiet => states.waiting,
-      Demand.stopped => states.stopped,
-    };
   }
 
   Command? _command(String id) => actions.where((command) => command.id == id).firstOrNull;

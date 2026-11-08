@@ -93,8 +93,8 @@ void main() {
     expect(head, contains(const Color(0xFFEAEDF7)));
   });
 
-  // Harm: the boxes of Needs you grey on grey beside lists on white.
-  testWidgets('a box of Needs you has its rows on white, under the pale head', (tester) async {
+  // Harm: the groups of Needs you lose their identity or differ from the other leaf cards.
+  testWidgets('a group of Needs you has its title above its white card', (tester) async {
     await World.startBackend(World.work);
     await World.startApp(tester);
     World.shell.goTo(Section.attention);
@@ -105,10 +105,10 @@ void main() {
       tester.widget<Material>(find.descendant(of: box, matching: find.byType(Material)).first).color,
       listCardColour(colors),
     );
-    expect(
-      tester.widget<ColoredBox>(find.descendant(of: box, matching: find.byType(ColoredBox)).first).color,
-      listHeadColour(colors),
-    );
+    final card = find.descendant(of: box, matching: find.byType(Material)).first;
+    final title = find.descendant(of: box, matching: find.text('Reviews'));
+    expect(title, findsOneWidget);
+    expect(tester.getBottomLeft(title).dy, lessThanOrEqualTo(tester.getTopLeft(card).dy));
   });
 
   // Harm: the list repeats, in a block on each opened row, what the terminal under Running shows.

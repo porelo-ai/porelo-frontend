@@ -52,6 +52,7 @@ void main() {
       World.shell.goTo(section);
       await World.settle(tester);
       expect(tester.takeException(), isNull, reason: '$id open');
+      await tester.ensureVisible(find.byKey(ValueKey<String>('explanation-fold $id')));
       await tester.tap(find.byKey(ValueKey<String>('explanation-fold $id')));
       await World.settle(tester);
       expect(tester.takeException(), isNull, reason: '$id folded');

@@ -347,6 +347,9 @@ abstract final class Space {
 
 /// Fixed sizes that carry a decision rather than a measurement.
 abstract final class Sizes {
+  /// A leaf head may scroll in a short window, leaving room for its content.
+  static const double leafHeadHeightFraction = 0.65;
+
   /// The small switch of a bar: its width, height and knob.
   static const double smallSwitchWidth = 38;
 

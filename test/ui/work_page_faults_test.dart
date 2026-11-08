@@ -17,6 +17,7 @@ import '../features/step/i_go_to_the_running_work.dart';
 import '../features/step/i_open_the_command_finder.dart';
 import '../features/step/i_pick_in_the_finder.dart';
 import '../features/step/i_put_away_what_the_tile_says.dart';
+import '../features/step/i_search_the_work_for.dart';
 import '../features/step/i_watch_another_machine_called.dart';
 import '../features/step/the_machine_is_the_same_node.dart';
 import '../features/step/the_row_of_is_in_the_group.dart';
@@ -419,8 +420,7 @@ void main() {
     testWidgets('the window keeps the keyboard on the list after what opened over it closes', (tester) async {
       await theApp(tester);
       await toSection(tester, Section.work);
-      await tester.tap(find.byKey(const ValueKey<String>('work-list-search')));
-      await World.settle(tester);
+      await iSearchTheWorkFor(tester, '');
       await tester.tap(find.byKey(const Key('work-list-filter')));
       await World.settle(tester);
       World.shell.openOperations();

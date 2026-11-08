@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/session.dart';
+import 'package:porelo_frontend/src/ui/running_view.dart';
 import 'package:porelo_frontend/src/ui/session_view.dart';
 import 'package:porelo_frontend/src/ui/terminal_look.dart';
 import 'package:xterm/xterm.dart';
@@ -49,6 +50,44 @@ void main() {
     await tester.tap(find.byKey(const Key('work-view-list')));
     await World.settle(tester);
     expect(tester.takeException(), isNull);
+  });
+
+  // Harm: a tablet's bar squeezes the work into a tall column and leaves no usable terminal after changing views.
+  testWidgets('Running keeps its terminal room across widths and List round trips', (tester) async {
+    await World.startBackend(World.work);
+    await World.startApp(tester);
+    await tester.tap(find.byKey(const Key('work-view-running')));
+    await World.settle(tester);
+    final tab = find.byKey(ValueKey<String>('running-tab ${World.machines.current.name}/porelo-billing-shell'));
+    await tester.ensureVisible(tab);
+    await tester.tap(tab);
+    await World.settle(tester);
+    addTearDown(tester.view.resetPhysicalSize);
+
+    for (final width in [1280.0, 390.0, 700.0]) {
+      tester.view.physicalSize = Size(width, 800);
+      await World.settle(tester);
+      expect(tester.takeException(), isNull, reason: 'Running must fit at $width wide');
+      final running = find.byType(RunningView);
+      final terminal = find.byKey(const Key('terminal'));
+      expect(terminal.hitTestable(), findsOneWidget);
+      final runningRect = tester.getRect(running);
+      final terminalSize = tester.getSize(terminal);
+
+      for (var visit = 0; visit < 2; visit++) {
+        await tester.tap(find.byKey(const Key('work-view-list')));
+        await World.settle(tester);
+        await tester.ensureVisible(find.byKey(const Key('work-view-running')));
+        await tester.pump();
+        await tester.tap(find.byKey(const Key('work-view-running')));
+        await World.settle(tester);
+        expect(tester.takeException(), isNull, reason: 'return $visit at $width wide');
+        expect(tester.getRect(running), runningRect, reason: 'List must not keep room from Running');
+        expect(terminal.hitTestable(), findsOneWidget);
+        expect(tester.getSize(terminal), terminalSize, reason: 'the terminal keeps its room after List');
+        expect(World.sessions.current?.task, 'porelo-billing-shell');
+      }
+    }
   });
 
   group('a console follows the window', () {

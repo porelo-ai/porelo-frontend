@@ -6,6 +6,13 @@ import 'package:flutter_test/flutter_test.dart';
 
 import './step/a_backend_with_work_on_it.dart';
 import './step/the_app_is_running.dart';
+import './step/i_go_to_the_running_work.dart';
+import './step/i_choose_the_tab_of.dart';
+import './step/running_keeps_its_tabs_under_the_work_head.dart';
+import './step/the_session_on_screen_is.dart';
+import './step/the_window_is_pixels_wide.dart';
+import './step/i_go_to_the_list_of_work.dart';
+import './step/the_tab_of_is_chosen.dart';
 import './step/the_section_shown_is.dart';
 import './step/the_list_of_work_counts.dart';
 import './step/the_work_comes_before.dart';
@@ -68,6 +75,24 @@ void main() {
       await theAppIsRunning(tester);
     }
 
+    testWidgets('''Running keeps its tabs under the Work head''', (tester) async {
+      await bddSetUp(tester);
+      await iGoToTheRunningWork(tester);
+      await iChooseTheTabOf(tester, 'porelo-billing-shell');
+      await runningKeepsItsTabsUnderTheWorkHead(tester);
+      await theSessionOnScreenIs(tester, 'porelo-billing-shell');
+      await theWindowIsPixelsWide(tester, 390);
+      await runningKeepsItsTabsUnderTheWorkHead(tester);
+      await theSessionOnScreenIs(tester, 'porelo-billing-shell');
+      await theWindowIsPixelsWide(tester, 700);
+      await runningKeepsItsTabsUnderTheWorkHead(tester);
+      await theSessionOnScreenIs(tester, 'porelo-billing-shell');
+      await iGoToTheListOfWork(tester);
+      await iGoToTheRunningWork(tester);
+      await runningKeepsItsTabsUnderTheWorkHead(tester);
+      await theTabOfIsChosen(tester, 'porelo-billing-shell');
+      await theSessionOnScreenIs(tester, 'porelo-billing-shell');
+    });
     testWidgets('''the window opens on one list of the work of every machine, what waits for a person first''', (
       tester,
     ) async {

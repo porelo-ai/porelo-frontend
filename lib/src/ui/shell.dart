@@ -4124,12 +4124,12 @@ class _ShellState extends State<Shell> {
     title: title,
     id: id,
     settings: widget.settings,
-    parts: id == 'forges' || id == 'projects' ? parts : const [],
+    parts: id == 'forges' || id == 'projects' || id == 'needs-you' ? parts : const [],
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
         if (ownHead) PageHead(title: title, id: id, settings: widget.settings),
-        if (id != 'forges' && id != 'projects')
+        if (id != 'forges' && id != 'projects' && id != 'needs-you')
           PageExplanation(key: ValueKey<String>('explanation $id'), id: id, settings: widget.settings, parts: parts),
         Expanded(child: page),
       ],
@@ -4422,7 +4422,6 @@ class _ShellState extends State<Shell> {
           },
         ),
       ),
-      ownHead: true,
     );
   }
 

@@ -7,6 +7,16 @@ Feature: What needs a person on every machine, without going anywhere
         And the app is running
         And I go to what needs a person
 
+    # Harm: a question, a review or an ended agent waits uncounted, or a resolved row keeps counting.
+    Scenario: the Needs you subtitle counts what the badge counts
+        Then the Needs you subtitle and badge count {1}
+        When work is blocked reaching {'api.example.test:443'}
+        And the agent of {'porelo-billing-shell'} ended with the provider's {402} {'This request requires more credits'}
+        Then the Needs you subtitle and badge count {3}
+        When I let it through from its tile
+        And the answer comes back
+        Then the Needs you subtitle and badge count {2}
+
     Scenario: what needs a person is one step from the work the window opens on
         Then the view shown is what needs a person
 
