@@ -39,6 +39,15 @@ one reading for this issue as a whole. Point 4 is done.
     computer's Porelo-Vault* opens `Machine.local()`, which follows `PORELO_SOCKET`: with that variable set, the
     button does nothing.
 
+- **From [F429](README.md#f429)'s part 3 reading, found there and older than it** (checked against the code before
+  part 3; not the operator's word yet, which places them):
+  - *Work*'s *List* keeps its selection in the machine's `selectedTask`, *Running* its tab in `WorkView.tab`, and
+    neither tells the other: a running task chosen in *List* opens as the first tab in *Running*, and a tab chosen in
+    *Running* is not the task *List*, the shortcuts and the finder see.
+  - On a phone, closing the drawer while *Running* is shown gives the keyboard to the menu button, not to the terminal
+    (`onDrawerChanged` asks for the menu's focus whatever page is shown), so the next Space or Enter opens the drawer
+    again.
+
 ## Open questions
 
 None.
