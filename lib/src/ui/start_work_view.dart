@@ -114,6 +114,17 @@ class _StartWorkDialogState extends State<StartWorkDialog> {
     return _name;
   }
 
+  /// The minutes field, showing what the model holds: set again under the open dialog, the field says it too.
+  TextEditingController _minutesShown(String minutes) {
+    if (_minutes.text != minutes) {
+      _minutes.value = TextEditingValue(
+        text: minutes,
+        selection: TextSelection.collapsed(offset: minutes.length),
+      );
+    }
+    return _minutes;
+  }
+
   @override
   void dispose() {
     _prompt.dispose();
@@ -297,12 +308,12 @@ class _StartWorkDialogState extends State<StartWorkDialog> {
                   const SizedBox(height: Space.normal),
                   TextField(
                     key: const Key('start-minutes'),
-                    controller: _minutes,
+                    controller: _minutesShown(starting.minutesText),
                     keyboardType: TextInputType.number,
                     decoration: InputDecoration(
                       labelText: 'Minutes it may run',
                       border: const OutlineInputBorder(),
-                      helperText: 'Choose how long it may run: a whole number, 1 or more.',
+                      helperText: 'The longest it may run: a whole number, 1 or more.',
                       errorText: starting.minutesProblem,
                     ),
                     onChanged: starting.allowMinutes,
@@ -631,7 +642,9 @@ class _WhichMode extends StatelessWidget {
         Mode.unattended,
         'Unattended, against a prompt',
         id: 'start-mode-unattended',
-        means: 'It runs on its own for the minutes below, then is stopped and what it made is kept.',
+        means:
+            'It runs on its own, at most for the minutes below. A run still going then is ended, and what it made '
+            'is kept.',
       ),
       if (starting.mode == Mode.shell)
         const Choice(

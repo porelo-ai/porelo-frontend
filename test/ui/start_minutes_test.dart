@@ -76,6 +76,35 @@ void main() {
     expect(form.machine.startedMinutes, <int?>[null, null]);
   });
 
+  // Harm: the field shows one number while another is sent, after the model was set again under the open dialog.
+  testWidgets('the field follows the model when it is set again', (tester) async {
+    final form = await _open(tester);
+    form.starting.chooseMode(Mode.unattended);
+    await World.settle(tester);
+    await tester.ensureVisible(_minutes);
+    await tester.enterText(_minutes, '7');
+    await World.settle(tester);
+    form.starting.allowMinutes('12');
+    await World.settle(tester);
+    expect(tester.widget<TextField>(_minutes).controller!.text, '12');
+    form.starting.begin(form.machine);
+    expect(form.machine.startedMinutes, <int?>[12]);
+  });
+
+  // Harm: a number the contract cannot hold is sent and cut down to another one.
+  testWidgets('more minutes than the contract holds keep Start grey', (tester) async {
+    final form = await _open(tester);
+    form.starting.chooseMode(Mode.unattended);
+    await World.settle(tester);
+    await tester.ensureVisible(_minutes);
+    await tester.enterText(_minutes, '2147483648');
+    await World.settle(tester);
+    expect(tester.widget<FilledButton>(_go).onPressed, isNull);
+    await tester.enterText(_minutes, '2147483647');
+    await World.settle(tester);
+    expect(tester.widget<FilledButton>(_go).onPressed, isNotNull);
+  });
+
   // Harm: invalid input starts a run with a fallback limit or submits a refused start.
   for (final value in <String>['', '0', '-1', 'text', '1.5']) {
     testWidgets('invalid minutes "$value" disable Start with a reason', (tester) async {

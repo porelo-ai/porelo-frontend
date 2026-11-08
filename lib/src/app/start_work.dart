@@ -112,9 +112,10 @@ class StartWork extends ChangeNotifier {
   String? get minutesProblem {
     if (!takesAPrompt) return null;
     final number = int.tryParse(minutesText);
-    return RegExp(r'^[0-9]+$').hasMatch(minutesText) && number != null && number >= 1
+    // The contract's int is 32 bits: a larger number would reach the machine as another one.
+    return RegExp(r'^[0-9]+$').hasMatch(minutesText) && number != null && number >= 1 && number <= 2147483647
         ? null
-        : 'Enter a whole number of minutes, 1 or more.';
+        : 'Enter a whole number of minutes, from 1 to 2147483647.';
   }
 
   /// Takes the time limit typed for unattended work.
