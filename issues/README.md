@@ -90,6 +90,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f435"></a>[F435](F435-A-Machine-Taken-Down-Leaves-The-List.md) | S | — | After a confirmed take-down with its removal asked, the window removes the machine from the organization's list. |
 | <a id="f434"></a>[F434](F434-The-Gate-Fetch-And-Where-It-Went.md) | S | — | The gate's fetch line works from the person's shell; a forwarded push says where its commit stands. |
 | <a id="f203"></a>[F203](F203-This-Repository-Worked-In-A-Porelo-Task.md) | S | — | This repository's agent working in an attended Porelo task on the host, its build green on the host's Forgejo, reached in the room, with a way back. |
 | <a id="f388"></a>[F388](F388-The-Stubs-Pin-Stays-Fetchable.md) | XS | — | A scenario that needs the stub does not go red because its pinned version left the folder. |
