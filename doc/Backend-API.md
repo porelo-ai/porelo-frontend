@@ -8,7 +8,7 @@ separated by NUL bytes, and Dart speaks it out of the box.
 
 The interface is `org.fuin.porelo.Tasks1`, defined in
 [varlink](https://varlink.org/Interface-Definition) IDL. The definition lives in the backend
-repository under `daemon/src/main/resources/varlink/org.fuin.porelo.Tasks1/`, written in parts that
+repository under `wire/src/main/resources/varlink/org.fuin.porelo.Tasks1/`, written in parts that
 the daemon serves as one interface, and a build
 there fails if a method is registered without appearing in it, or appears in it without being
 registered, or reads a parameter it does not describe.
