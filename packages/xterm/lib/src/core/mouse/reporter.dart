@@ -10,13 +10,15 @@ abstract class MouseReporter {
     CellOffset position,
     MouseReportMode reportMode, {
     bool motion = false,
+    int modifiers = 0,
   }) {
     // x and y offsets have to be incremented by 1 as the offset if 0-based,
     // The position has to be reported using 1-based coordinates.
     final x = position.x + 1;
     final y = position.y + 1;
-    // A motion with a button held is reported as that button with bit 32 set.
-    final moved = motion ? 32 : 0;
+    // A motion with a button held is reported as that button with bit 32 set,
+    // and the modifiers held add their own bits.
+    final moved = (motion ? 32 : 0) + modifiers;
     switch (reportMode) {
       case MouseReportMode.normal:
       case MouseReportMode.utf:
@@ -36,7 +38,7 @@ abstract class MouseReporter {
         final row = (reportMode == MouseReportMode.normal && y > 223) ||
                 (reportMode == MouseReportMode.utf && y > 2015)
             ? '\x00'
-            : String.fromCharCode(32 + y + 1);
+            : String.fromCharCode(32 + y);
         return "\x1b[M$btn$col$row";
       case MouseReportMode.sgr:
         final buttonID = button.id + moved;

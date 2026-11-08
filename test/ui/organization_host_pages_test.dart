@@ -558,6 +558,16 @@ void main() {
       await _tap(tester, find.byKey(const ValueKey('my-host build')));
       expect(made.opened, ['build']);
     });
+
+    // Harm: a machine just prepared that waits for its first token makes no account however long one waits, and its
+    // Machine Admin was shown a wait instead of the token to give.
+    testWidgets('a machine just prepared that waits for its token offers the token, not a wait', (tester) async {
+      final connections = FixtureConnections(['build'])
+        ..waiting.add('build')
+        ..admitting.add('build');
+      await section(tester, organizationFor('hana'), connections: connections);
+      expect(find.byKey(const ValueKey('organization.toToken/build')), findsOneWidget);
+    });
   });
 
   group('a host\'s page', () {

@@ -1,10 +1,13 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:xterm/src/core/buffer/cell_offset.dart';
 
 import 'package:xterm/src/core/input/keys.dart';
+import 'package:xterm/src/core/mouse/button.dart';
+import 'package:xterm/src/core/mouse/button_state.dart';
 import 'package:xterm/src/terminal.dart';
 import 'package:xterm/src/ui/controller.dart';
 import 'package:xterm/src/ui/cursor_type.dart';
@@ -222,21 +225,27 @@ class TerminalViewState extends State<TerminalView> {
       key: _scrollableKey,
       controller: _scrollController,
       viewportBuilder: (context, offset) {
-        return _TerminalView(
-          key: _viewportKey,
-          terminal: widget.terminal,
-          controller: _controller,
-          offset: offset,
-          padding: MediaQuery.of(context).padding,
-          autoResize: widget.autoResize,
-          textStyle: widget.textStyle,
-          textScaler: widget.textScaler ?? MediaQuery.textScalerOf(context),
-          theme: widget.theme,
-          focusNode: _focusNode,
-          cursorType: widget.cursorType,
-          alwaysShowCursor: widget.alwaysShowCursor,
-          onEditableRect: _onEditableRect,
-          composingText: _composingText,
+        // Inside the scrollable, so a program that asked for mouse reports
+        // gets the wheel before this view or the alternate screen's scroll
+        // handler can scroll anything or send arrow keys.
+        return Listener(
+          onPointerSignal: _onPointerSignal,
+          child: _TerminalView(
+            key: _viewportKey,
+            terminal: widget.terminal,
+            controller: _controller,
+            offset: offset,
+            padding: MediaQuery.of(context).padding,
+            autoResize: widget.autoResize,
+            textStyle: widget.textStyle,
+            textScaler: widget.textScaler ?? MediaQuery.textScalerOf(context),
+            theme: widget.theme,
+            focusNode: _focusNode,
+            cursorType: widget.cursorType,
+            alwaysShowCursor: widget.alwaysShowCursor,
+            onEditableRect: _onEditableRect,
+            composingText: _composingText,
+          ),
         );
       },
     );
@@ -244,7 +253,7 @@ class TerminalViewState extends State<TerminalView> {
     child = TerminalScrollGestureHandler(
       terminal: widget.terminal,
       simulateScroll: widget.simulateScroll,
-      getCellOffset: (offset) => renderTerminal.getCellOffset(offset),
+      getCellOffset: (offset) => renderTerminal.getScreenCellOffset(offset),
       getLineHeight: () => renderTerminal.lineHeight,
       child: child,
     );
@@ -440,6 +449,44 @@ class TerminalViewState extends State<TerminalView> {
 
   void _onEditableRect(Rect rect, Rect caretRect) {
     _customTextEditKey.currentState?.setEditableRect(rect, caretRect);
+  }
+
+  /// What the wheel turned since its last report, less than a line.
+  double _wheelRest = 0;
+
+  /// Reports the wheel to the program as wheel button presses, one for each
+  /// line's height it turned, while the program asked for mouse reports that
+  /// include the wheel; the small turns of a fine wheel add up first. The
+  /// view then neither scrolls nor simulates arrow keys. A read-only view, a
+  /// session that has ended, scrolls its own lines instead.
+  void _onPointerSignal(PointerSignalEvent event) {
+    if (event is! PointerScrollEvent || event.scrollDelta.dy == 0) return;
+    if (widget.readOnly || !widget.terminal.mouseMode.reportScroll) return;
+    final resolver = GestureBinding.instance.pointerSignalResolver;
+    resolver.register(event, (PointerSignalEvent event) {
+      final scroll = event as PointerScrollEvent;
+      final lineHeight = renderTerminal.lineHeight;
+      _wheelRest += scroll.scrollDelta.dy;
+      final lines = (_wheelRest / lineHeight).truncate();
+      _wheelRest -= lines * lineHeight;
+      if (lines == 0) return;
+      final keys = HardwareKeyboard.instance;
+      final modifiers = (keys.isShiftPressed ? 4 : 0) +
+          (keys.isAltPressed || keys.isMetaPressed ? 8 : 0) +
+          (keys.isControlPressed ? 16 : 0);
+      final position = renderTerminal.getScreenCellOffset(scroll.localPosition);
+      final button = lines < 0
+          ? TerminalMouseButton.wheelUp
+          : TerminalMouseButton.wheelDown;
+      for (var turn = 0; turn < lines.abs(); turn++) {
+        widget.terminal.mouseInput(
+          button,
+          TerminalMouseButtonState.down,
+          position,
+          modifiers: modifiers,
+        );
+      }
+    });
   }
 
   void _scrollToBottom() {

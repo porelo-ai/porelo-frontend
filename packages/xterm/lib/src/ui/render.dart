@@ -254,6 +254,18 @@ class RenderTerminal extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
     );
   }
 
+  /// The cell at [offset] on the program's screen, as a mouse report names
+  /// it: its row counted from the screen's top line, whatever history stands
+  /// above it in the buffer or is scrolled into view.
+  CellOffset getScreenCellOffset(Offset offset) {
+    final cell = getCellOffset(offset);
+    final buffer = _terminal.buffer;
+    return CellOffset(
+      cell.x,
+      (cell.y - buffer.scrollBack).clamp(0, buffer.viewHeight - 1),
+    );
+  }
+
   /// Selects entire words in the terminal that contains [from] and [to].
   void selectWord(Offset from, [Offset? to]) {
     final fromOffset = getCellOffset(from);
@@ -307,7 +319,7 @@ class RenderTerminal extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
     Offset offset, {
     bool motion = false,
   }) {
-    final position = getCellOffset(offset);
+    final position = getScreenCellOffset(offset);
     return _terminal.mouseInput(
       button,
       buttonState,

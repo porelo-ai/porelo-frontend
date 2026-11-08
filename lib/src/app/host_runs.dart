@@ -9,6 +9,7 @@ import 'host_session.dart';
 import 'host_access.dart';
 import 'machines.dart';
 import 'settings.dart';
+import 'tunnel.dart' show Tunnel;
 
 /// The confirmed stages of signed-state server setup.
 enum HostPreparationPhase {
@@ -415,6 +416,8 @@ class HostRuns extends ChangeNotifier {
       ),
     );
     run.phase = HostPreparationPhase.reachable;
+    // Its first follow makes the person's account, within five minutes: until then a turn-away is waited for.
+    machines.tunnels.awaitAdmission(run.record.hostName, by: DateTime.now().add(Tunnel.admissionWait));
     await onReady?.call(run.record.hostName);
   }
 

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../app/host_progress.dart';
 import '../app/organization_source.dart';
 import 'organization_token_words.dart';
+import 'tokens.dart';
 
 /// Gives [host] the person's forge token, answering the words to show, or null once given. [atOnce] gives the entry this
 /// computer's Porelo-Vault declares straight away, where it declares one, and opens the token's page otherwise.
@@ -57,6 +58,9 @@ class _PlacingProjectDialogState extends State<PlacingProjectDialog> {
   String? _lastRefusal;
   HostProgress? _progress;
   bool _giving = false;
+
+  /// Whether the token was given from here: the machine has it, even while it has not yet read it.
+  bool _handed = false;
   bool _asking = false;
   int _quietAsks = 0;
   int _nextQuiet = 1;
@@ -143,6 +147,8 @@ class _PlacingProjectDialogState extends State<PlacingProjectDialog> {
 
   bool get _wantsToken => (_mine?.waitsForToken ?? false) || (_progress?.waitsForToken ?? false);
 
+  /// From the press until the machine has been asked whether it took the token, one running state: the button turns
+  /// and cannot be pressed, and once the token is given it does not come back, whatever the machine answers then.
   Future<void> _give() async {
     final first = _progress?.waitsForToken ?? false;
     setState(() {
@@ -155,21 +161,35 @@ class _PlacingProjectDialogState extends State<PlacingProjectDialog> {
     } on Exception {
       // Its own words are not said here: they are no one's to read for what a token may have been.
       words = 'The token was not given. Close this and give it from the machine\'s page.';
-    } finally {
-      if (mounted) {
-        setState(() {
-          _giving = false;
-          _tokenWhy = words;
-        });
-      }
     }
-    if (!mounted || words != null) return;
+    if (!mounted) return;
+    if (words != null) {
+      // Not given: the refusal is said, and the button is there to try again.
+      setState(() {
+        _giving = false;
+        _tokenWhy = words;
+      });
+      return;
+    }
+    setState(() => _handed = true);
     try {
       await _take(widget.connections.refresh(widget.host));
+      // Asked to fetch at once and still waiting: the token given did not let it read, so it can be given again.
+      if (mounted && _wantsToken) {
+        setState(() {
+          _handed = false;
+          _tokenWhy =
+              '${widget.host} still waits for a token after this one. Check that it may read '
+              '${widget.project}\'s repositories, then give it again.';
+        });
+        return;
+      }
       // The machine has made the account it could not make before: the connection can come up now.
-      if (first && !(_progress?.waitsForToken ?? true)) await widget.connections.connect(widget.host);
+      if (mounted && first && !(_progress?.waitsForToken ?? true)) await widget.connections.connect(widget.host);
     } on OrganizationRefused catch (refused) {
       if (mounted) setState(() => _lastRefusal = refused.words);
+    } finally {
+      if (mounted) setState(() => _giving = false);
     }
   }
 
@@ -183,6 +203,10 @@ class _PlacingProjectDialogState extends State<PlacingProjectDialog> {
         '${widget.host} did not take ${widget.project}${why == null ? '' : ': $why'}. Its page says what to do.',
       _ when mine?.hasNoAddress == true =>
         '${widget.project} has no address yet: its Project Admin creates its Git repository first, and ${widget.host} takes it then.',
+      _ when _handed && _lastRefusal != null => '${widget.host} did not answer: $_lastRefusal It goes on by itself.',
+      _ when _wantsToken && _handed =>
+        '${widget.host} has your token and takes ${widget.project} when it next reads the organization, within five '
+            'minutes.',
       _ when _wantsToken => switch (widget.view) {
         final view? => organizationTokenWords(view, widget.host, project: widget.project),
         null => '${widget.host} waits for a token.',
@@ -196,25 +220,58 @@ class _PlacingProjectDialogState extends State<PlacingProjectDialog> {
   }
 
   @override
-  Widget build(BuildContext context) => AlertDialog(
-    key: const Key('placing-project'),
-    title: Text('Putting ${widget.project} on ${widget.host}'),
-    content: Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(_words, key: const Key('placing-project.words')),
-        if (_tokenWhy case final why?) Text(why, key: const Key('placing-project.tokenWhy')),
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final carried = _stopped == null && _mine?.state == 'carried';
+    return AlertDialog(
+      key: const Key('placing-project'),
+      title: Text('Putting ${widget.project} on ${widget.host}'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (carried)
+            Row(
+              key: const Key('placing-project.done'),
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.check, size: Sizes.mark, color: StateColours.of(scheme).working),
+                const SizedBox(width: Space.small),
+                const Text('Done · '),
+                Flexible(child: Text(_words, key: const Key('placing-project.words'))),
+              ],
+            )
+          else
+            Text(_words, key: const Key('placing-project.words')),
+          if (_tokenWhy case final why?) Text(why, key: const Key('placing-project.tokenWhy')),
+        ],
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close')),
+        if (_stopped == null && !_ended && (_giving || _wantsToken && !_handed) && widget.onGiveToken != null)
+          FilledButton(
+            key: const Key('placing-project.giveToken'),
+            onPressed: _giving ? null : () => unawaited(_give()),
+            // While it runs it keeps its colour: greyed, it read as a button that had simply stopped working.
+            style: FilledButton.styleFrom(
+              disabledBackgroundColor: scheme.primary,
+              disabledForegroundColor: scheme.onPrimary,
+            ),
+            child: _giving
+                ? Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox.square(
+                        dimension: Sizes.mark,
+                        child: CircularProgressIndicator(strokeWidth: Sizes.spinnerStroke, color: scheme.onPrimary),
+                      ),
+                      const SizedBox(width: Space.small),
+                      const Text('Handing the token over…'),
+                    ],
+                  )
+                : Text('Give it my ${organizationForgeName(widget.view)} token…'),
+          ),
       ],
-    ),
-    actions: [
-      TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close')),
-      if (_stopped == null && !_ended && _wantsToken && widget.onGiveToken != null)
-        FilledButton(
-          key: const Key('placing-project.giveToken'),
-          onPressed: _giving ? null : () => unawaited(_give()),
-          child: Text('Give it my ${organizationForgeName(widget.view)} token…'),
-        ),
-    ],
-  );
+    );
+  }
 }

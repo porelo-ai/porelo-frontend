@@ -108,9 +108,9 @@ void main() {
   late List<String> refreshed;
   late _Saves store;
   late bool turnedAway;
+  late List<_Master> masters;
   late String hostSays;
   late List<List<String>> ran;
-  late List<_Master> masters;
 
   setUp(() {
     ran = [];
@@ -316,6 +316,87 @@ void main() {
     expect(made.waitsForToken('build'), isTrue);
     await made.disconnect('build');
     expect(made.waitsForToken('build'), isFalse);
+  });
+
+  // Harm: right after Prepare the machine has not yet made the person's account, as its first follow runs within five
+  // minutes; its turn-away then read as a refusal in red, and the connection was taken down instead of waited for.
+  test('a machine just prepared that turns one away is waited for, kept, and not refused', () async {
+    final made = await connections(_mia(host: _hostOfMia));
+    machines.tunnels.awaitAdmission('build', by: DateTime.now().add(const Duration(minutes: 5)));
+    turnedAway = true;
+    await made.connect('build');
+    expect(made.waitsForAdmission('build'), isTrue);
+    expect(made.connected('build'), isTrue, reason: 'kept, so it connects by itself once admitted');
+    expect(made.up('build'), isFalse);
+    final tunnel = machines.tunnels.of(machines.all.singleWhere((each) => each.name == 'build'))!;
+    expect(tunnel.admitting, isTrue);
+
+    turnedAway = false;
+    await made.connect('build');
+    expect(made.up('build'), isTrue);
+    expect(made.waitsForAdmission('build'), isFalse);
+  });
+
+  // Harm: a machine just prepared that waits for its first token makes no account however long one waits; shown as a
+  // wait for its follow, the person was never offered the token, and after five minutes read a refusal.
+  test('a machine just prepared that waits for its token offers the token, during and after the wait', () async {
+    final made = await connections(_mia(host: _hostOfMia));
+    machines.tunnels.awaitAdmission('build', by: DateTime.now().add(const Duration(minutes: 5)));
+    turnedAway = true;
+    hostSays = '{"organization": "waiting-for-token"}';
+    await made.connect('build');
+    expect(made.waitsForToken('build'), isTrue, reason: 'during the wait');
+    machines.tunnels.awaitAdmission('build', by: DateTime.now().subtract(const Duration(seconds: 1)));
+    await made.connect('build');
+    expect(made.waitsForToken('build'), isTrue, reason: 'after the wait');
+  });
+
+  // Harm: a connection this computer raises again by itself, turned away by a machine waiting for its first token,
+  // never says that the token is what it waits for.
+  test('a connection raised again by itself says when the machine waits for its token', () async {
+    final made = await connections(_mia(host: _hostOfMia));
+    await made.connect('build');
+    expect(made.up('build'), isTrue);
+    final machine = machines.all.singleWhere((each) => each.name == 'build');
+    masters.last.kill();
+    await pumpEventQueue();
+    turnedAway = true;
+    hostSays = '{"organization": "waiting-for-token"}';
+    await machines.tunnels.raiseAgainIfItDropped(machine);
+    await pumpEventQueue();
+    expect(made.waitsForToken('build'), isTrue);
+  });
+
+  // Harm: at five minutes a machine that truly refuses the key still reads as one to wait for, while no raise runs to
+  // say otherwise.
+  test('once the wait has passed, a kept turn-away says the refusal, and says it changed', () async {
+    final made = await connections(_mia(host: _hostOfMia));
+    machines.tunnels.awaitAdmission('build', by: DateTime.now().add(const Duration(milliseconds: 300)));
+    turnedAway = true;
+    await made.connect('build');
+    final tunnel = machines.tunnels.of(machines.all.singleWhere((each) => each.name == 'build'))!;
+    expect(tunnel.admitting, isTrue);
+    var told = 0;
+    void heard() => told++;
+    machines.tunnels.addListener(heard);
+    addTearDown(() => machines.tunnels.removeListener(heard));
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+    expect(tunnel.admitting, isFalse);
+    expect(made.waitsForAdmission('build'), isFalse);
+    expect(tunnel.problem, contains('refused this account'));
+    expect(told, greaterThan(0), reason: 'whoever shows it hears that it changed');
+  });
+
+  // Harm: a key the machine truly refuses is waited for forever, as though the machine had not yet read it.
+  test('once the wait for the first follow has passed, a turn-away is a refusal again', () async {
+    final made = await connections(_mia(host: _hostOfMia));
+    machines.tunnels.awaitAdmission('build', by: DateTime.now().subtract(const Duration(seconds: 1)));
+    turnedAway = true;
+    await expectLater(
+      made.connect('build'),
+      throwsA(isA<OrganizationRefused>().having((refused) => refused.words, 'words', contains('refused this account'))),
+    );
+    expect(made.waitsForAdmission('build'), isFalse);
   });
 
   // Harm: a host admin of a host that follows, or a member, is told they are connected when the host turned them away.

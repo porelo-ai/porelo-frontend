@@ -193,6 +193,91 @@ void main() {
       expect(selection(tester).selection, isNull, reason: 'tmux selects, not the window');
     });
 
+    // The terminal's own measures, so a turn and a cell are exactly what it counts.
+    ({double line, double column}) measures(WidgetTester tester) {
+      final render = tester.state<TerminalViewState>(find.byKey(const Key('terminal'))).renderTerminal;
+      return (line: render.lineHeight, column: render.cellSize.width);
+    }
+
+    Offset screenCell(WidgetTester tester, int column, int row) {
+      final size = measures(tester);
+      return tester.getTopLeft(find.byKey(const Key('terminal'))) +
+          Offset(Sizes.terminalSide + (column + 0.5) * size.column, Space.normal + (row + 0.5) * size.line);
+    }
+
+    Future<List<String>> turns(WidgetTester tester, _Channel channel, Offset at, List<double> deltas) async {
+      final before = channel.sent.length;
+      for (final delta in deltas) {
+        await tester.sendEventToBinding(PointerScrollEvent(position: at, scrollDelta: Offset(0, delta)));
+        await tester.pump();
+      }
+      return channel.sent.sublist(before);
+    }
+
+    String history(int count) => [for (var line = 0; line < count; line++) 'line $line\r\n'].join();
+
+    // Harm: the task's tmux asks for the mouse and keeps the history itself, so a wheel the window answers on its own
+    // scrolls nothing, reaches the agent as arrow keys, or names a row of the window's history the program never had.
+    for (final (screen, enter) in [('its own screen', '\x1b[?1049h'), ('the main screen', '')]) {
+      testWidgets('the wheel reaches the program as wheel reports at the screen row on $screen', (tester) async {
+        final (_, channel) = await open(tester);
+        await prints(tester, channel, '$enter${history(200)}$mouseReports');
+        await tester.pump();
+        final line = measures(tester).line;
+        final sent = await turns(tester, channel, screenCell(tester, 0, 4), [-line, line]);
+        expect(sent, ['\x1b[<64;1;5M', '\x1b[<65;1;5M'], reason: 'up is 64, down 65, on the fifth row of the screen');
+      });
+    }
+
+    testWidgets('a program that asked for plain reports hears the wheel at its cell, rows counted from one', (
+      tester,
+    ) async {
+      final (_, channel) = await open(tester);
+      await prints(tester, channel, '\x1b[?1049h\x1b[?1000h');
+      final line = measures(tester).line;
+      final sent = await turns(tester, channel, screenCell(tester, 1, 2), [-line]);
+      expect(sent, [
+        '\x1b[M${String.fromCharCode(32 + 64)}${String.fromCharCode(32 + 2)}${String.fromCharCode(32 + 3)}',
+      ]);
+    });
+
+    // Harm: a fine wheel's many small turns each became a report, and one notch scrolled tmux many times.
+    testWidgets('small turns add up to one report a line', (tester) async {
+      final (_, channel) = await open(tester);
+      await prints(tester, channel, '\x1b[?1049h$mouseReports');
+      final line = measures(tester).line;
+      final sent = await turns(tester, channel, screenCell(tester, 0, 0), [-line / 4, -line / 4, -line / 4, -line / 4]);
+      expect(sent, ['\x1b[<64;1;1M']);
+    });
+
+    testWidgets('the wheel with Shift held says so in the report', (tester) async {
+      final (_, channel) = await open(tester);
+      await prints(tester, channel, '\x1b[?1049h$mouseReports');
+      final line = measures(tester).line;
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      final sent = await turns(tester, channel, screenCell(tester, 0, 0), [-line]);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      expect(sent, ['\x1b[<68;1;1M'], reason: 'shift adds 4 to the button');
+    });
+
+    // Harm: a session that has ended still claims the wheel for a program that is gone, and its lines cannot be read.
+    testWidgets('a session that has ended scrolls its own lines with the wheel', (tester) async {
+      final (session, channel) = await open(tester);
+      await prints(tester, channel, '${history(200)}$mouseReports');
+      channel.ends();
+      await tester.pump();
+      await tester.pump();
+      expect(session.live, isFalse);
+      final position = tester
+          .state<ScrollableState>(
+            find.descendant(of: find.byKey(const Key('terminal')), matching: find.byType(Scrollable)).first,
+          )
+          .position;
+      final sent = await turns(tester, channel, screenCell(tester, 0, 4), [-400]);
+      expect(sent, isEmpty);
+      expect(position.pixels, lessThan(position.maxScrollExtent));
+    });
+
     testWidgets('a plain click still reaches the program, its press and its release', (tester) async {
       final (_, channel) = await open(tester);
       await prints(tester, channel, '${mouseReports}hello world');
@@ -202,6 +287,74 @@ void main() {
 
       final reports = channel.sent.where((each) => each.startsWith('\x1b[<0;')).toList();
       expect(reports.map((each) => each[each.length - 1]), <String>['M', 'm'], reason: 'press, then release');
+    });
+  });
+
+  group('reading back while the agent writes', () {
+    ScrollPosition screen(WidgetTester tester) => tester
+        .state<ScrollableState>(
+          find.descendant(of: find.byKey(const Key('terminal')), matching: find.byType(Scrollable)).first,
+        )
+        .position;
+
+    Future<void> lines(WidgetTester tester, _Channel channel, int from, int to) async {
+      await prints(tester, channel, [for (var line = from; line < to; line++) 'line $line\r\n'].join());
+      await tester.pump();
+    }
+
+    Future<void> wheelUp(WidgetTester tester) async {
+      final at = tester.getCenter(find.byKey(const Key('terminal')));
+      await tester.sendEventToBinding(PointerScrollEvent(position: at, scrollDelta: const Offset(0, -400)));
+      await tester.pump();
+    }
+
+    Finder jump() => find.byKey(const Key('terminal-jump-to-latest'));
+
+    // Harm: the person cannot read back what the agent wrote while it keeps writing, nor find the way back to now.
+    testWidgets('the wheel goes into the history, new output leaves the view, and Jump to latest returns', (
+      tester,
+    ) async {
+      final (_, channel) = await open(tester);
+      await lines(tester, channel, 0, 200);
+      expect(screen(tester).pixels, screen(tester).maxScrollExtent, reason: 'it starts at the latest');
+      expect(jump(), findsNothing, reason: 'nothing to jump to while at the latest');
+
+      await wheelUp(tester);
+      final read = screen(tester).pixels;
+      expect(read, lessThan(screen(tester).maxScrollExtent), reason: 'the wheel goes into the history');
+      expect(jump(), findsOneWidget, reason: 'the way back shows while scrolled back');
+
+      await lines(tester, channel, 200, 260);
+      expect(screen(tester).pixels, read, reason: 'new output does not pull the view down');
+      expect(jump(), findsOneWidget);
+
+      await tester.tap(jump());
+      await tester.pump();
+      expect(screen(tester).pixels, screen(tester).maxScrollExtent, reason: 'Jump to latest goes to the end');
+      expect(jump(), findsNothing);
+      await lines(tester, channel, 260, 300);
+      expect(screen(tester).pixels, screen(tester).maxScrollExtent, reason: 'at the end it follows again');
+    });
+
+    testWidgets('scrolling back to the end follows again and puts the button away', (tester) async {
+      final (_, channel) = await open(tester);
+      await lines(tester, channel, 0, 200);
+      await wheelUp(tester);
+      expect(jump(), findsOneWidget);
+      screen(tester).jumpTo(screen(tester).maxScrollExtent);
+      await tester.pump();
+      expect(jump(), findsNothing);
+      await lines(tester, channel, 200, 260);
+      expect(screen(tester).pixels, screen(tester).maxScrollExtent);
+    });
+
+    // Harm: a person a few pixels short of the end neither followed nor saw the way back.
+    testWidgets('a few pixels short of the end shows the way back', (tester) async {
+      final (_, channel) = await open(tester);
+      await lines(tester, channel, 0, 200);
+      screen(tester).jumpTo(screen(tester).maxScrollExtent - 3);
+      await tester.pump();
+      expect(jump(), findsOneWidget);
     });
   });
 
@@ -222,6 +375,11 @@ class _Channel implements SessionChannel {
   final Completer<int> _ended = Completer<int>();
 
   void prints(String words) => _output.add(utf8.encode(words));
+
+  /// The far end ends, as a session does when its work stops.
+  void ends() {
+    if (!_ended.isCompleted) _ended.complete(0);
+  }
 
   @override
   Stream<List<int>> get output => _output.stream;

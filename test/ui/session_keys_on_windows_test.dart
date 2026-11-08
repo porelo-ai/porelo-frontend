@@ -88,6 +88,15 @@ void main() {
     expect(await wheel(tester, operatingSystem: 'windows'), <String>['\x1b[<64;1;1M', '\x1b[<65;1;1M']);
   });
 
+  // Harm: where the program's request for the mouse does reach the terminal on Windows, each turn went to tmux twice,
+  // once from the terminal and once from the session.
+  testWidgets('on Windows a terminal that heard the request for the mouse reports each turn once', (tester) async {
+    final sent = await wheel(tester, operatingSystem: 'windows', before: '\x1b[?1049h\x1b[?1000h\x1b[?1006h');
+    expect(sent, isNotEmpty);
+    expect(sent.where((each) => each.endsWith(';1;1M')), isEmpty, reason: 'nothing from the session besides, as $sent');
+    expect(sent.where((each) => !each.startsWith('\x1b[<64;') && !each.startsWith('\x1b[<65;')), isEmpty);
+  });
+
   testWidgets('on Linux the terminal itself answers the wheel, as before', (tester) async {
     expect(await wheel(tester, operatingSystem: 'linux'), isEmpty);
   });

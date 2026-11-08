@@ -326,12 +326,15 @@ class Terminal with Observable implements TerminalState, EscapeHandler {
     }
   }
 
-  // Handle a mouse event and return true if it was handled.
+  // Handle a mouse event and return true if it was handled. [position] is
+  // the cell on the screen, its row counted from the screen's top line.
+  // [modifiers] are the report's modifier bits: shift 4, meta 8, control 16.
   bool mouseInput(
     TerminalMouseButton button,
     TerminalMouseButtonState buttonState,
     CellOffset position, {
     bool motion = false,
+    int modifiers = 0,
   }) {
     final output = mouseHandler?.call(TerminalMouseEvent(
       button: button,
@@ -340,6 +343,7 @@ class Terminal with Observable implements TerminalState, EscapeHandler {
       state: this,
       platform: platform,
       motion: motion,
+      modifiers: modifiers,
     ));
     if (output != null) {
       onOutput?.call(output);

@@ -28,6 +28,37 @@ class CardHostConnections extends HostConnections {
        _endpoint = endpoint ?? Machine.endpointFor,
        _forgeProbe = forgeProbe ?? ((port, host) => forgeAnswersAt(port, hostName: '$host.localhost')) {
     machines.addListener(notifyListeners);
+    machines.addListener(_turnedAway);
+    machines.tunnels.addListener(_turnedAway);
+  }
+
+  /// The hosts turned away while this computer raised their connection by itself, asked once each whether they wait
+  /// for a first token, until the connection comes up or is let go.
+  final Set<String> _askedWhenTurnedAway = <String>{};
+
+  /// A connection raised again by itself, not by *Connect*, and turned away: the machine may wait for its first token,
+  /// which only its host admin can give, and the row says so rather than a refusal or a wait that never ends.
+  void _turnedAway() {
+    if (_disposed) return;
+    final me = organization.view?.me;
+    for (final machine in machines.all) {
+      final card = machine.hostCard;
+      if (card == null || card.login != me) continue;
+      final turned = machines.tunnels.of(machine)?.turnedAway ?? false;
+      if (!turned) {
+        _askedWhenTurnedAway.remove(card.name);
+        continue;
+      }
+      if (_waiting.contains(card.name) || _running.containsKey(card.name)) continue;
+      if (!_askedWhenTurnedAway.add(card.name)) continue;
+      unawaited(
+        _waitsForToken(machine, card.name).then((waits) {
+          if (!waits || _disposed || _waiting.contains(card.name)) return;
+          _waiting.add(card.name);
+          notifyListeners();
+        }),
+      );
+    }
   }
 
   /// Where hosts are read.
@@ -108,6 +139,12 @@ class CardHostConnections extends HostConnections {
   HostProgress _heard(String host, HostProgress progress) {
     if (!progress.waitsForToken && _waiting.remove(host)) notifyListeners();
     return progress;
+  }
+
+  @override
+  bool waitsForAdmission(String host) {
+    final machine = _machine(host);
+    return connected(host) && !up(host) && (machines.tunnels.of(machine!)?.admitting ?? false);
   }
 
   @override
@@ -193,9 +230,16 @@ class CardHostConnections extends HostConnections {
       lines.add('The connection is up.');
     } else {
       if (machines.tunnels.of(machine)?.problem case final problem?) lines.add('ssh said: $problem');
+      // The token first: a machine waiting for it makes no account however long one waits for its follow.
       if (await _waitsForToken(machine, card.name)) {
         _waiting.add(card.name);
         lines.add('${card.name} says it waits for its first token, and makes no account before it has one.');
+      } else if (machines.tunnels.of(machine)?.admitting ?? false) {
+        // Kept, as for the token: the machine makes the account on its first follow, and this computer tries again.
+        lines.add(
+          '${card.name} was prepared moments ago and has not yet made your account; it does on its first '
+          'follow, within five minutes.',
+        );
       } else {
         final why =
             machine.whyNotReachableHere ??
@@ -310,6 +354,8 @@ class CardHostConnections extends HostConnections {
   void dispose() {
     _disposed = true;
     machines.removeListener(notifyListeners);
+    machines.removeListener(_turnedAway);
+    machines.tunnels.removeListener(_turnedAway);
     super.dispose();
   }
 }

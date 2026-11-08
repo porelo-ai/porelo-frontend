@@ -4746,19 +4746,12 @@ class _ShellState extends State<Shell> {
 
   String? _treeMachineState(Machine machine) {
     if (!widget.machines.all.contains(machine)) return 'Not connected yet';
-    final state = widget.machines.of(machine).reachability;
-    final problem = widget.machines.tunnels.of(machine)?.problem;
-    if (problem != null && problem.isNotEmpty) {
-      final words = state == Reachability.connected
-          ? 'Connected'
-          : state == Reachability.connecting
-          ? 'Connecting'
-          : 'Not answering';
-      return '$words\n$problem';
-    }
-    if (state == Reachability.connected) return null;
-    if (state == Reachability.connecting) return 'Connecting';
-    return 'Not answering';
+    final tunnel = widget.machines.tunnels.of(machine);
+    return railMachineState(
+      reach: widget.machines.of(machine).reachability,
+      problem: tunnel?.problem,
+      admitting: tunnel?.admitting ?? false,
+    );
   }
 
   /// The daily work, what needs a person, and setting up apart under them.

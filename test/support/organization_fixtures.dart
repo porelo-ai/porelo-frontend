@@ -144,10 +144,16 @@ class FixtureConnections extends HostConnections {
   final waiting = <String>{};
 
   @override
-  bool up(String host) => connected(host) && !waiting.contains(host);
+  bool up(String host) => connected(host) && !waiting.contains(host) && !admitting.contains(host);
 
   @override
   bool waitsForToken(String host) => hosts.contains(host) && waiting.contains(host);
+
+  /// Hosts prepared moments ago that turn the person away until their first follow; their connection is not up.
+  final admitting = <String>{};
+
+  @override
+  bool waitsForAdmission(String host) => hosts.contains(host) && admitting.contains(host);
 
   @override
   Future<void> connect(String host) async {

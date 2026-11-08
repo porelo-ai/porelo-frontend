@@ -6,6 +6,7 @@ import '../app/host_token_sources.dart';
 import '../app/server_first_login.dart';
 import '../app/server_setup.dart';
 import 'command_to_copy.dart';
+import 'following_output.dart';
 import 'host_check_list.dart';
 import 'host_preparation_settings.dart';
 import 'tokens.dart';
@@ -407,7 +408,7 @@ class _ServerSetupWizardState extends State<ServerSetupWizard> {
             'opens the protocol again.',
           ),
         if (_setup.prepareProblem case final problem?) Text(problem, key: const Key('setup-prepare-problem')),
-        if (run != null) SelectableText(run.session.protocolText),
+        if (run != null) FollowingOutput(text: run.session.protocolText),
         if (_setup.prepared)
           const Text('The machine is ready, and its address, SSH host key and ports stand on its card.'),
       ],

@@ -1,6 +1,6 @@
 # F438 — Rows And Running Steps After The Third Move
 
-**Status:** Implementing.
+**Status:** Review.
 
 **What must be true.** A row keeps its chip and buttons inside itself, a running step says that it runs and how it
 ended, a machine not yet admitting the person says that it waits instead of showing a refusal, and every output that
@@ -34,3 +34,19 @@ with the design *Third move findings, before and after* (pairs 1 and 2-4).
 ## Size
 
 M: S the row, S the follow mode shared by the protocol and the terminal, XS the waiting words, XS the token's state.
+
+## How it stands
+
+Built test-first, unit tests of the changed files green. The row takes its chip before the name and its buttons in one
+right-aligned group (`LeafListRow.chipFirst`); the Prepare protocol in the wizard and the dialog is a `FollowingOutput`;
+a machine just prepared is waited for five minutes (`Tunnels.awaitAdmission`), its turn-away kept as a connection
+that retries; the token button stays in its running state until the machine was asked. The terminal: the task's tmux
+has `mouse on`, so the window now sends the wheel as SGR wheel reports whenever the program asked for mouse reports,
+on either screen, a change in `packages/xterm` (`TerminalView`); *Jump to latest* serves the window's own scrollback.
+Not yet tried against a real host.
+In a tmux task the window has no scrollback of its own (tmux's copy-mode holds the history), so *Jump to latest*
+shows only for a terminal that scrolls itself. A reading's findings are fixed: the token is asked before the wait for
+admission, also when the connection is raised again by itself; the wait ends at five minutes without another raise;
+wheel and click reports name the screen's row, one report a line's height of turning, with the modifiers held; a
+session that has ended scrolls its own lines; a refusal after the hand-over is said and a token that did not work can
+be given again; a selection in the protocol is not moved by new lines, which come once it is let go.

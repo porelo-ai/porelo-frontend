@@ -362,6 +362,9 @@ abstract final class Sizes {
   /// How far a terminal's or an agent's log text stands from the sides of the pane.
   static const double terminalSide = 26;
 
+  /// How tall an output that grows, such as a machine's Prepare protocol, stands in its dialog.
+  static const followingOutput = 260.0;
+
   /// Words beside a dialog's button, saying what it waits for.
   static const dialogWords = 360.0;
 
@@ -400,6 +403,9 @@ abstract final class Sizes {
 
   /// Below this card width a state stands under the name.
   static const rowChipBeside = 480.0;
+
+  /// The largest share of a row's width its buttons take beside its words before they wrap; the rest keeps the name.
+  static const rowActionsShare = 0.6;
 
   /// What an icon button in a list's header measures on a desktop window.
   static const iconTarget = 32.0;

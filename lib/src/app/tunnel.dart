@@ -72,6 +72,8 @@ class Tunnel {
     this.messengerSocket,
     this.writer,
     this.configEnvironment,
+    this.awaitsAdmission,
+    this.onTurnedAway,
   }) : _launch = start ?? _runIt,
        _tighten = run ?? _runAndWait,
        _untilItBinds = appears,
@@ -122,8 +124,36 @@ class Tunnel {
   /// What the transport said, when it could not be raised. Null when nothing is wrong.
   ///
   /// Explained where [whySshRefused] can tell, else **`ssh`'s own words**: *"Host key verification
-  /// failed"* and *"Connection refused"* send somebody to different places.
-  String? problem;
+  /// failed"* and *"Connection refused"* send somebody to different places. While [admitting], the words of waiting
+  /// for the machine instead, and its refusal again once that wait has passed, whether or not it was asked since.
+  String? get problem => admitting ? admissionWords : _problem;
+
+  set problem(String? value) {
+    _problem = value;
+    _turnedAway = false;
+  }
+
+  String? _problem;
+
+  /// Whether the machine's sshd turned this account or its key away at the last raise.
+  bool get turnedAway => _turnedAway && state != TunnelState.up;
+  bool _turnedAway = false;
+
+  /// How long after Prepare the machine may take to make the person's account: its follow runs every five minutes.
+  static const admissionWait = Duration(minutes: 5);
+
+  /// The words while a machine just prepared has not yet made the person's account. It is not a refusal: the
+  /// machine makes it on its first follow, which runs within five minutes of Prepare.
+  static const admissionWords = 'Waiting for the machine to admit you (its first follow, up to 5 min)';
+
+  /// Whether it was turned away while the machine may still not have made the person's account.
+  bool get admitting => turnedAway && (awaitsAdmission?.call() ?? false);
+
+  /// Whether the machine was prepared so lately that it may not yet have made the person's account.
+  final bool Function()? awaitsAdmission;
+
+  /// Told when the machine turned this account or its key away.
+  final VoidCallback? onTurnedAway;
 
   /// How many times it has been raised, so a re-raise is observable.
   int raised = 0;
@@ -539,6 +569,8 @@ class Tunnel {
               final reason? => 'The SSH connection stopped: $reason',
               null => 'The SSH connection stopped (exit $code).',
             };
+      _turnedAway = words.contains('Permission denied');
+      if (_turnedAway) onTurnedAway?.call();
       await _unlocker.cancel(machine.hostCard!.name);
       if (!_wanted || generation != _generation) return;
       onChanged?.call();
@@ -830,6 +862,43 @@ class Tunnels extends ChangeNotifier {
     return tunnel.state == TunnelState.up;
   }
 
+  /// Until when each machine just prepared may still turn the person away: it makes their account only on its first
+  /// follow.
+  final Map<String, DateTime> _admitting = {};
+
+  /// Waits for [host] to admit the person until [by]: until then, its turning them away is waiting, not a refusal.
+  void awaitAdmission(String host, {required DateTime by}) {
+    _admitting[host] = by;
+    _admissionEnds.remove(host)?.cancel();
+    notifyListeners();
+  }
+
+  /// [host] turned the person away during its wait: when the wait ends, what it says turns into the refusal by
+  /// itself, without another raise to say it, so whoever shows it hears then.
+  void _turnedAwayWhileAdmitting(String host) {
+    final by = _admitting[host];
+    if (by == null || _admissionEnds.containsKey(host)) return;
+    final left = by.difference(DateTime.now());
+    if (left.isNegative) return;
+    _admissionEnds[host] = Timer(left, () {
+      _admissionEnds.remove(host);
+      notifyListeners();
+    });
+  }
+
+  final Map<String, Timer> _admissionEnds = {};
+
+  @override
+  void dispose() {
+    for (final ends in _admissionEnds.values) {
+      ends.cancel();
+    }
+    super.dispose();
+  }
+
+  /// Whether [host] was prepared so lately that it may not yet have made the person's account.
+  bool awaitsAdmission(String host) => _admitting[host]?.isAfter(DateTime.now()) ?? false;
+
   Tunnel _newTunnel(Machine machine) => Tunnel(
     machine,
     start: _launch,
@@ -842,6 +911,10 @@ class Tunnels extends ChangeNotifier {
     messengerSocket: messengerSocket,
     writer: writer,
     configEnvironment: configEnvironment,
+    awaitsAdmission: () => machine.hostCard != null && awaitsAdmission(machine.hostCard!.name),
+    onTurnedAway: () {
+      if (machine.hostCard case final card?) _turnedAwayWhileAdmitting(card.name);
+    },
   );
 
   /// Raises a forward for a trial, owned by the caller and never listed here.

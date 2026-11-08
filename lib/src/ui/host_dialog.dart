@@ -16,6 +16,7 @@ import '../app/run_here.dart';
 import '../app/session.dart';
 import '../app/settings.dart';
 import 'command_to_copy.dart';
+import 'following_output.dart';
 import 'tokens.dart';
 import 'host_check_list.dart';
 import 'host_preparation_settings.dart';
@@ -736,17 +737,6 @@ class _HostDialogState extends State<HostDialog> {
       ? 'The provider confirmed the rental return. Billing has ended.'
       : 'Porelo was taken off. The machine itself stays yours.';
 
-  /// A run's steps, kept at their newest unless the person has scrolled up to read.
-  Widget _following(String steps) {
-    final at = _scroll.hasClients ? _scroll.position : null;
-    if (at == null || !at.hasContentDimensions || at.pixels >= at.maxScrollExtent - 48) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _scroll.hasClients) _scroll.jumpTo(_scroll.position.maxScrollExtent);
-      });
-    }
-    return SelectableText(steps);
-  }
-
   @override
   void dispose() {
     _keyDebounce?.cancel();
@@ -989,7 +979,7 @@ class _HostDialogState extends State<HostDialog> {
                             'this dialog; its machine row opens the protocol again.',
                           ),
                         ),
-                      _following(run.session.protocolText),
+                      FollowingOutput(text: run.session.protocolText),
                     ],
                   ),
                 ),
@@ -1008,7 +998,10 @@ class _HostDialogState extends State<HostDialog> {
                   ),
                 ),
               if (_down case final session?)
-                ListenableBuilder(listenable: session, builder: (_, _) => _following(session.protocolText)),
+                ListenableBuilder(
+                  listenable: session,
+                  builder: (_, _) => FollowingOutput(text: session.protocolText),
+                ),
             ],
           ),
         ),

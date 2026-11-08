@@ -26,6 +26,9 @@ class TerminalMouseEvent {
   /// released it.
   final bool motion;
 
+  /// The modifier bits held: shift 4, meta 8, control 16.
+  final int modifiers;
+
   TerminalMouseEvent({
     required this.button,
     required this.buttonState,
@@ -33,6 +36,7 @@ class TerminalMouseEvent {
     required this.state,
     required this.platform,
     this.motion = false,
+    this.modifiers = 0,
   });
 }
 
@@ -80,6 +84,7 @@ class ClickMouseHandler implements TerminalMouseHandler {
             event.buttonState,
             event.position,
             event.state.mouseReportMode,
+            modifiers: event.modifiers,
           );
         }
         return null;
@@ -119,6 +124,7 @@ class UpDownMouseHandler implements TerminalMouseHandler {
           event.position,
           event.state.mouseReportMode,
           motion: event.motion,
+          modifiers: event.modifiers,
         );
     }
   }

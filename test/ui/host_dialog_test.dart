@@ -1726,7 +1726,7 @@ void main() {
     await World.settle(tester);
     ScrollPosition list() => tester
         .state<ScrollableState>(
-          find.descendant(of: find.byType(SingleChildScrollView), matching: find.byType(Scrollable)).first,
+          find.descendant(of: find.byKey(const Key('following-output')), matching: find.byType(Scrollable)).first,
         )
         .position;
     for (var step = 0; step < 60; step++) {

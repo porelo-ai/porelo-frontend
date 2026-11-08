@@ -802,6 +802,9 @@ abstract class HostConnections extends ChangeNotifier {
   /// Whether the last *Connect* found [host] waiting for its first token, so its connection cannot be up.
   bool waitsForToken(String host) => false;
 
+  /// Whether [host], prepared moments ago, turned the person away before its first follow made their account.
+  bool waitsForAdmission(String host) => false;
+
   /// What the last *Connect* to [host] in this run did, or null where there was none.
   ConnectAttempt? lastAttempt(String host) => null;
 

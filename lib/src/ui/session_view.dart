@@ -54,7 +54,34 @@ class _SessionViewState extends State<SessionView> {
   /// where it asked for a drag's motion, so tmux selects past the screen's edge.
   final _selection = TerminalController(pointerInputs: const PointerInputs({PointerInput.tap, PointerInput.drag}));
 
+  /// Where the screen stands in what the session wrote: the wheel goes back into it, and new output leaves the view
+  /// where the person reads until they come back to the end.
+  final _scroll = ScrollController();
+
+  /// Whether the person has scrolled back from the latest line, and *Jump to latest* shows.
+  bool _back = false;
+
   Session get session => widget.session;
+
+  @override
+  void initState() {
+    super.initState();
+    _scroll.addListener(_moved);
+  }
+
+  /// Only a move changes it: lines written below move nothing, so they neither pull the view down nor turn it back.
+  /// The end is the terminal's own: it follows only exactly there, so anywhere short of it the button shows.
+  void _moved() {
+    final at = _scroll.position;
+    final back = at.pixels < at.maxScrollExtent;
+    if (back != _back) setState(() => _back = back);
+  }
+
+  /// Goes to the latest line, and gives the keyboard back to the terminal the button took it from.
+  void _toTheLatest() {
+    if (_scroll.hasClients) _scroll.jumpTo(_scroll.position.maxScrollExtent);
+    widget.focusNode.requestFocus();
+  }
 
   /// Another session shown in this one's place starts with nothing selected.
   @override
@@ -66,6 +93,9 @@ class _SessionViewState extends State<SessionView> {
   @override
   void dispose() {
     _selection.dispose();
+    _scroll
+      ..removeListener(_moved)
+      ..dispose();
     super.dispose();
   }
 
@@ -112,42 +142,63 @@ class _SessionViewState extends State<SessionView> {
               color: TerminalLook.screen.background,
               // On Windows the wheel is reported to tmux by the session itself; see
               // [Session.wheel]. Elsewhere the terminal answers it, as tmux asked it to.
-              child: Listener(
-                // Shift+drag selects here whatever the program asked for, as in other terminals: the
-                // whole gesture, press and release included, then never reaches the program.
-                onPointerDown: (_) => _selection.setSuspendPointerInput(HardwareKeyboard.instance.isShiftPressed),
-                onPointerSignal: desk.isWindows
-                    ? (event) {
-                        if (event is PointerScrollEvent && event.scrollDelta.dy != 0) {
-                          session.wheel(up: event.scrollDelta.dy < 0);
-                        }
-                      }
-                    : null,
-                child: WalkSecret(
-                  child: CopiesAsShown(
-                    terminal: session.terminal,
-                    controller: _selection,
-                    child: TerminalView(
-                      session.terminal,
-                      key: const Key('terminal'),
-                      theme: TerminalLook.themeOf(context),
-                      controller: _selection,
-                      shortcuts: terminalShortcuts,
-                      focusNode: widget.focusNode,
-                      onKeyEvent: widget.onKey,
-                      autofocus: true,
-                      padding: const EdgeInsets.symmetric(horizontal: Sizes.terminalSide, vertical: Space.normal),
-                      // Read-only once it is over, so keys typed at a dead session do not look
-                      // like they went somewhere.
-                      readOnly: !session.live,
-                      // On Windows every key, letters included, is read from the keyboard's own
-                      // events: there the text-input path this widget uses elsewhere delivered
-                      // Enter, Backspace and the page keys and no letter at all.
-                      hardwareKeyboardOnly: desk.isWindows,
-                      textStyle: const TerminalStyle(fontSize: 13),
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: Listener(
+                      // Shift+drag selects here whatever the program asked for, as in other terminals: the
+                      // whole gesture, press and release included, then never reaches the program.
+                      onPointerDown: (_) => _selection.setSuspendPointerInput(HardwareKeyboard.instance.isShiftPressed),
+                      onPointerSignal: desk.isWindows
+                          ? (event) {
+                              // Where the program did ask for the mouse, the terminal reports the wheel itself.
+                              if (event is PointerScrollEvent &&
+                                  event.scrollDelta.dy != 0 &&
+                                  !session.terminal.mouseMode.reportScroll) {
+                                session.wheel(up: event.scrollDelta.dy < 0);
+                              }
+                            }
+                          : null,
+                      child: WalkSecret(
+                        child: CopiesAsShown(
+                          terminal: session.terminal,
+                          controller: _selection,
+                          child: TerminalView(
+                            session.terminal,
+                            key: const Key('terminal'),
+                            scrollController: _scroll,
+                            theme: TerminalLook.themeOf(context),
+                            controller: _selection,
+                            shortcuts: terminalShortcuts,
+                            focusNode: widget.focusNode,
+                            onKeyEvent: widget.onKey,
+                            autofocus: true,
+                            padding: const EdgeInsets.symmetric(horizontal: Sizes.terminalSide, vertical: Space.normal),
+                            // Read-only once it is over, so keys typed at a dead session do not look
+                            // like they went somewhere.
+                            readOnly: !session.live,
+                            // On Windows every key, letters included, is read from the keyboard's own
+                            // events: there the text-input path this widget uses elsewhere delivered
+                            // Enter, Backspace and the page keys and no letter at all.
+                            hardwareKeyboardOnly: desk.isWindows,
+                            textStyle: const TerminalStyle(fontSize: 13),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                ),
+                  if (_back)
+                    Positioned(
+                      right: Space.wide,
+                      bottom: Space.wide,
+                      child: FilledButton.tonalIcon(
+                        key: const Key('terminal-jump-to-latest'),
+                        onPressed: _toTheLatest,
+                        icon: const Icon(Icons.arrow_downward),
+                        label: const Text('Jump to latest'),
+                      ),
+                    ),
+                ],
               ),
             ),
           ),

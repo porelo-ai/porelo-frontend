@@ -18,6 +18,10 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f438"></a>[F438](F438-Rows-And-Running-Steps-After-The-Third-Move.md) | M | — | A row keeps its chip and buttons inside, running steps say they run, a machine not yet admitting says it waits, growing output follows its last line. |
+| <a id="f439"></a>[F439](F439-A-Machines-Own-Pages-After-The-Third-Move.md) | M | — | One header with *Open its forge* in sight, *Machine Admins* alone, a project's repositories on a machine, *New work* without a needless question, a dead forge forward noticed. |
+| <a id="f440"></a>[F440](F440-Agents-Gate-And-Builds-As-Designed.md) | M | — | *Agents & providers* as designed, the gate's review with author, committer and trailer, one line per workflow on a task's tile. |
+| <a id="f442"></a>[F442](F442-Joining-A-Hosts-Room-Through-Element.md) | S | — | On a host, joining the room opens Element signed in through SSO; elsewhere the join offers the admitted logins only. |
 | <a id="f429"></a>[F429](F429-The-Side-Bar-As-A-Folding-Tree.md) | XL | — | The side bar as a folding tree, as the design *Porelo Window Side Bar* draws it: each machine and organization with its sections, a page with entries under it showing facts and actions, every leaf in one look, the side bar beside the page from 600 wide; in four parts. |
 | <a id="f431"></a>[F431](F431-The-Setup-Wizard-After-The-Second-Move.md) | M | — | *Set up a machine* as one dialog, a *Run it for me* button for the bootstrap line, the row asked again after the token. |
 | <a id="f432"></a>[F432](F432-The-Token-Asks-That-Show-The-Way-On.md) | S | — | A refusal with this computer's vault shut says so and opens it; the second token ask is one click. |
@@ -88,11 +92,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f438"></a>[F438](F438-Rows-And-Running-Steps-After-The-Third-Move.md) | M | — | A row keeps its chip and buttons inside, running steps say they run, a machine not yet admitting says it waits, growing output follows its last line. |
-| <a id="f439"></a>[F439](F439-A-Machines-Own-Pages-After-The-Third-Move.md) | M | — | One header with *Open its forge* in sight, *Machine Admins* alone, a project's repositories on a machine, *New work* without a needless question, a dead forge forward noticed. |
-| <a id="f440"></a>[F440](F440-Agents-Gate-And-Builds-As-Designed.md) | M | — | *Agents & providers* as designed, the gate's review with author, committer and trailer, one line per workflow on a task's tile. |
 | <a id="f441"></a>[F441](F441-Starting-Work-Signs-In-Names-And-Model.md) | L | the backend's sign-in state and default model | Work starts without a host shell: the agent's sign-in asked in the window, tasks named as named, the model shown and changeable. |
-| <a id="f442"></a>[F442](F442-Joining-A-Hosts-Room-Through-Element.md) | S | — | On a host, joining the room opens Element signed in through SSO; elsewhere the join offers the admitted logins only. |
 
 ### Backlog
 

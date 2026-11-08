@@ -9,6 +9,7 @@ import '../app/host_progress.dart';
 import '../app/host_runs.dart' show HostPreparation;
 import '../app/key_recovery.dart' show BackupScope;
 import '../app/organization_source.dart';
+import '../app/tunnel.dart' show Tunnel;
 import 'asking_button.dart';
 import 'command_menu.dart';
 import 'filtered_list_section.dart';
@@ -143,6 +144,8 @@ class _OrganizationMachineRowState extends State<OrganizationMachineRow> {
     final connected = widget.connections?.up(host.name) ?? false;
     final why = _whyNotConnect(host, widget.connections);
     final waiting = !connected && (widget.connections?.waitsForToken(host.name) ?? false);
+    // Prepared moments ago, it makes the person's account on its first follow: a turn-away until then is no refusal.
+    final admitting = !connected && !waiting && (widget.connections?.waitsForAdmission(host.name) ?? false);
     final givesIt = host.admins.contains(view.me);
     // The right to connect is an account there, and that is what the person's own list of machines says.
     final hasAccount = view.myHosts.any((each) => each.name == host.name);
@@ -159,6 +162,7 @@ class _OrganizationMachineRowState extends State<OrganizationMachineRow> {
       children: [
         LeafListRow(
           key: ValueKey('my-host ${host.name}'),
+          chipFirst: true,
           state: widget.preparation != null
               ? hostPreparationWords(widget.preparation!)
               : connected
@@ -167,6 +171,8 @@ class _OrganizationMachineRowState extends State<OrganizationMachineRow> {
               ? 'Connecting'
               : waiting
               ? 'Needs you'
+              : admitting
+              ? 'Waiting'
               : host.address == null
               ? 'not set up'
               : 'not connected yet',
@@ -184,6 +190,8 @@ class _OrganizationMachineRowState extends State<OrganizationMachineRow> {
                 ...const <String>[]
               else if (waiting)
                 'waits for a first token'
+              else if (admitting)
+                Tunnel.admissionWords
               else if (connected)
                 mine.isEmpty ? 'connected' : 'connected, ready to work on'
               else if (host.address == null)

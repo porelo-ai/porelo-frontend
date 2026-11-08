@@ -374,8 +374,14 @@ class LeafListRow extends StatelessWidget {
     this.titleKey,
     this.toneWords,
     this.subtitleMaxLines = 2,
+    this.chipFirst = false,
     super.key,
   });
+
+  /// Whether the state stands in the name's line before it, and the operations right-aligned inside the row, wrapping
+  /// together under the words where the card is narrow: for a row whose operations are several buttons, which a chip
+  /// stacked over them pushed past the row's edges.
+  final bool chipFirst;
 
   /// The title's automation target.
   final Key? titleKey;
@@ -404,10 +410,81 @@ class LeafListRow extends StatelessWidget {
   /// Opens the item's page.
   final VoidCallback? onTap;
 
+  /// The operations as one group standing at the row's right, wrapping together.
+  Widget? _actionsAtTheRight() => switch (trailing) {
+    final Wrap actions => Wrap(
+      alignment: WrapAlignment.end,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: actions.spacing,
+      runSpacing: Space.tight,
+      children: actions.children,
+    ),
+    final actions => actions,
+  };
+
+  Widget _chipFirst(BuildContext context, {required bool beside}) {
+    final actions = _actionsAtTheRight();
+    final words = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Tooltip(
+          message: title,
+          child: Text(
+            title,
+            key: titleKey,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
+        ),
+        if (subtitleMaxLines case final lines?)
+          DefaultTextStyle.merge(maxLines: lines, overflow: TextOverflow.ellipsis, child: subtitle)
+        else
+          subtitle,
+      ],
+    );
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.all(Space.small),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            LayoutBuilder(
+              builder: (context, line) => Row(
+                children: [
+                  leading,
+                  const SizedBox(width: Space.small),
+                  Flexible(child: StateChip(state, toneWords: toneWords)),
+                  const SizedBox(width: Space.small),
+                  Expanded(child: words),
+                  if (beside && actions != null) ...[
+                    const SizedBox(width: Space.small),
+                    // As wide as the buttons need, up to a share of the line: past it they wrap, as one group.
+                    ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: line.maxWidth * Sizes.rowActionsShare),
+                      child: actions,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            if (!beside && actions != null)
+              Padding(
+                padding: const EdgeInsets.only(top: Space.small),
+                child: Align(alignment: Alignment.centerRight, child: actions),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
       final beside = WindowSize.chipBeside(ListCardWidth.of(context) ?? constraints.maxWidth);
+      if (chipFirst) return _chipFirst(context, beside: beside);
       final actions = trailing;
       return InkWell(
         onTap: onTap,

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/host_progress.dart';
@@ -160,6 +162,69 @@ void main() {
     await close(tester);
   });
 
+  // Harm: the button turns active again for a moment before the machine is said to carry the project, so the person
+  // hands the token over a second time, or closes the dialog before it is done.
+  testWidgets('giving the token cannot be pressed again until the machine is said to carry the project', (
+    tester,
+  ) async {
+    final connections = _HeldRefresh(['build'])..hostProgress = waiting;
+    final given = Completer<String?>();
+    await open(tester, connections, onGiveToken: (_, {atOnce = false}) => given.future);
+    connections.holding = true;
+    final button = find.byKey(const Key('placing-project.giveToken'));
+    await tester.tap(button);
+    await tester.pump();
+    void runs(String when) {
+      expect(button, findsOneWidget);
+      expect(tester.widget<FilledButton>(button).onPressed, isNull, reason: 'it cannot be pressed again $when');
+    }
+
+    runs('while the token is given');
+    connections.hostProgress = carried;
+    given.complete(null);
+    await tester.pump();
+    await tester.pump();
+    runs('while the machine is asked whether it took it');
+    connections.held.complete();
+    await tester.pump();
+    await tester.pump();
+    expect(button, findsNothing, reason: 'the button does not come back');
+    expect(find.byKey(const Key('placing-project.done')), findsOneWidget, reason: 'it says it is done');
+    await close(tester);
+  });
+
+  // Harm: the machine does not answer after the token was handed over, and the dialog says only that it has the token.
+  testWidgets('a machine that does not answer after the hand-over is said', (tester) async {
+    final connections = FixtureConnections(['build'])..hostProgress = waiting;
+    await open(
+      tester,
+      connections,
+      onGiveToken: (_, {atOnce = false}) async {
+        connections.refuseNext = const OrganizationRefused('Connection closed by 203.0.113.9 port 22');
+        return null;
+      },
+    );
+    await tester.tap(find.byKey(const Key('placing-project.giveToken')));
+    await tester.pump();
+    await tester.pump();
+    expect(words(tester), contains('Connection closed by 203.0.113.9 port 22'));
+    await close(tester);
+  });
+
+  // Harm: the token given does not let the machine read, and the button never comes back to give a working one.
+  testWidgets('a machine still waiting for a token after the hand-over offers giving it again', (tester) async {
+    final connections = FixtureConnections(['build'])..hostProgress = waiting;
+    await open(tester, connections, onGiveToken: (_, {atOnce = false}) async => null);
+    await tester.tap(find.byKey(const Key('placing-project.giveToken')));
+    await tester.pump();
+    await tester.pump();
+    final button = find.byKey(const Key('placing-project.giveToken'));
+    expect(button, findsOneWidget);
+    expect(tester.widget<FilledButton>(button).onPressed, isNotNull);
+    expect(find.byKey(const Key('placing-project.tokenWhy')), findsOneWidget);
+    await close(tester);
+  });
+
   // Harm: each refused login counts against this address, and a dialog left open keeps the machine shut.
   testWidgets('a machine that refuses is asked less and less often', (tester) async {
     final connections = _RefusingProgress(['build']);
@@ -184,6 +249,20 @@ void main() {
     expect(button.onPressed, isNotNull);
     await close(tester);
   });
+}
+
+/// Once [holding], answers a refresh only when [held] completes, as a machine does that takes its time.
+class _HeldRefresh extends FixtureConnections {
+  _HeldRefresh(super.hosts);
+
+  bool holding = false;
+  final held = Completer<void>();
+
+  @override
+  Future<HostProgress> refresh(String host) async {
+    if (holding) await held.future;
+    return super.refresh(host);
+  }
 }
 
 class _RefusingProgress extends FixtureConnections {

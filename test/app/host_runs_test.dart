@@ -84,6 +84,9 @@ void main() {
       'gitPort': '2222',
     });
     expect(readied, ['orchard'], reason: 'the token goes right after up, once');
+    // Harm: the machine makes the person's account only on its first follow, within five minutes, and until then a
+    // turned-away login read as a refusal in red.
+    expect(machines.tunnels.awaitsAdmission('orchard'), isTrue, reason: 'a machine just prepared is waited for');
   });
 
   /// A run whose `up` ends as [up] says and whose give-back ends as [givenBack] says.

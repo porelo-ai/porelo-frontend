@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../app/fleet_model.dart' show Reachability;
 import '../app/machines.dart';
 import '../app/organization_source.dart';
 import '../app/shell_model.dart';
@@ -14,6 +15,28 @@ int projectsInRail(OrganizationView? view, {required int onMachines, bool fromOr
 
 /// A machine entry with its last observed connection or preparation state.
 typedef RailMachine = ({Machine machine, String? state});
+
+/// The first line of a machine's state while it waits for something that comes by itself.
+const _waiting = 'Waiting';
+
+/// What a listed machine's entry in the side bar says: its reach, and on a second line what its connection said.
+///
+/// A machine prepared moments ago that has not yet made the person's account [admitting] waits, and says so in no
+/// colour of a fault: it makes the account on its first follow.
+String? railMachineState({required Reachability reach, String? problem, bool admitting = false}) {
+  if (admitting && problem != null) return '$_waiting\n$problem';
+  if (problem != null && problem.isNotEmpty) {
+    final words = reach == Reachability.connected
+        ? 'Connected'
+        : reach == Reachability.connecting
+        ? 'Connecting'
+        : 'Not answering';
+    return '$words\n$problem';
+  }
+  if (reach == Reachability.connected) return null;
+  if (reach == Reachability.connecting) return 'Connecting';
+  return 'Not answering';
+}
 
 /// The folding navigation tree, with refresh and the global stop kept at its foot.
 class ShellRail extends StatefulWidget {
@@ -422,7 +445,11 @@ class _ShellRailState extends State<ShellRail> {
                               row.state!.substring(row.state!.indexOf('\n') + 1),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.error),
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: row.state!.startsWith('$_waiting\n')
+                                    ? theme.colorScheme.onSurfaceVariant
+                                    : theme.colorScheme.error,
+                              ),
                             ),
                         ],
                       ),
@@ -466,6 +493,8 @@ class _ShellRailState extends State<ShellRail> {
           ? Icons.cloud_off_outlined
           : stopped
           ? Icons.pause_circle_outline
+          : state.startsWith('$_waiting\n')
+          ? Icons.schedule
           : Icons.pending_outlined,
       size: Sizes.mark,
       color: failed
