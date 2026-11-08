@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as path;
 import 'package:porelo_frontend/src/app/element_desktop.dart';
 
 void main() {
@@ -100,10 +101,11 @@ void main() {
   test('the config is written whole or not at all', () async {
     final folder = Directory.systemTemp.createTempSync('element-config');
     addTearDown(() => folder.deleteSync(recursive: true));
-    final path = '${folder.path}/alpha.json';
-    File(path).writeAsStringSync('old');
-    await writeWhole(path, 'new');
-    expect(File(path).readAsStringSync(), 'new');
-    expect(folder.listSync().map((each) => each.path), [path], reason: 'no temporary file is left beside it');
+    // Joined by the platform's separator, as the folder's listing spells it on Windows too.
+    final config = path.join(folder.path, 'alpha.json');
+    File(config).writeAsStringSync('old');
+    await writeWhole(config, 'new');
+    expect(File(config).readAsStringSync(), 'new');
+    expect(folder.listSync().map((each) => each.path), [config], reason: 'no temporary file is left beside it');
   });
 }
