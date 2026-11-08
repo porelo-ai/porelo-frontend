@@ -60,7 +60,7 @@ jobs:
         # A run that hangs or crawls is stopped, never left to hold a runner for hours: one ran 1 h 29 min,
         # and never again. Limits are about three times what the last four
         # green runs took: this job 9-15 minutes, its build step 7-12.
-        timeout-minutes: 45
+        timeout-minutes: 60
         outputs:
             channel: ${{ steps.channel.outputs.channel }}
         steps:
@@ -206,6 +206,9 @@ jobs:
                   exit $built
 
             - name: Fetch the pinned host collection
+              env:
+                  # The job's token, for a download from https://github.com alone; none on a host's forge.
+                  PORELO_PINNED_GITHUB_TOKEN: ${{ github.server_url == 'https://github.com' && github.token || '' }}
               run: |
                   collection=$(dart packages/porelo_host/bin/porelo_host.dart --collection-info)
                   read -r version digest file <<< "$collection"
@@ -326,6 +329,9 @@ jobs:
 
             - name: Fetch the pinned host collection
               shell: bash
+              env:
+                  # The job's token, for a download from https://github.com alone; none on a host's forge.
+                  PORELO_PINNED_GITHUB_TOKEN: ${{ github.server_url == 'https://github.com' && github.token || '' }}
               run: |
                   collection=$(dart packages/porelo_host/bin/porelo_host.dart --collection-info)
                   read -r version digest file <<< "$collection"
@@ -399,7 +405,7 @@ jobs:
     legs:
         name: Whether the leased leg is proven
         runs-on: ubuntu-26.04
-        timeout-minutes: 10
+        timeout-minutes: 25
         if: vars.PORELO_PUBLISH == 'true' && github.event_name == 'push' && github.ref_type == 'branch'
         permissions:
             contents: read
@@ -432,7 +438,7 @@ jobs:
         runs-on: ubuntu-26.04
         # 12-15 minutes with the lease (its step 10-13); stopped well before a rented machine is paid for
         # by the hour, with ten minutes left under the job for the sweep.
-        timeout-minutes: 50
+        timeout-minutes: 65
         # A fork's pull request gets no secrets, and would rent nothing. A question that was not asked,
         # failed or could not be answered counts as not proven. A host lends no machine by kind to a job yet.
         if: >-

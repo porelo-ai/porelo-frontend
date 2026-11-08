@@ -144,6 +144,7 @@ class _OrganizationChangeDialogState extends State<OrganizationChangeDialog> {
               if (_refusal case final refusal?) ...[
                 const SizedBox(height: Space.small),
                 Text(refusal, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                OrganizationVaultShut(widget.organization, key: ValueKey(refusal)),
               ],
               if (_byHand case final byHand?) ...[const SizedBox(height: Space.small), ProjectFileEntry(byHand)],
             ],
@@ -164,6 +165,79 @@ class _OrganizationChangeDialogState extends State<OrganizationChangeDialog> {
       ],
     ),
   );
+}
+
+/// Under a refusal: where this computer's Porelo-Vault is shut, says so, with the button that opens it. Porelo reads the
+/// person's forge token from it, and a refusal cannot tell a shut vault from a token not set. Nothing where it is open
+/// or its state cannot be read.
+class OrganizationVaultShut extends StatefulWidget {
+  /// Asks [organization]'s hooks whether this computer's vault is shut.
+  const OrganizationVaultShut(this.organization, {super.key});
+
+  /// The organization whose hooks tell and open the vault.
+  final Organization organization;
+
+  @override
+  State<OrganizationVaultShut> createState() => _OrganizationVaultShutState();
+}
+
+class _OrganizationVaultShutState extends State<OrganizationVaultShut> {
+  bool _shut = false;
+  bool _opening = false;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_ask());
+  }
+
+  Future<void> _ask() async {
+    bool? shut;
+    try {
+      shut = await widget.organization.thisComputersVaultShut?.call();
+    } catch (_) {
+      shut = null;
+    }
+    if (mounted) setState(() => _shut = shut ?? false);
+  }
+
+  Future<void> _open() async {
+    final open = widget.organization.openThisComputersVault;
+    if (open == null) return;
+    setState(() => _opening = true);
+    try {
+      await open();
+    } catch (_) {
+      // The vault is asked again below: what it says then is the word, not why the opening failed.
+    } finally {
+      if (mounted) setState(() => _opening = false);
+    }
+    if (mounted) await _ask();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_shut) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: Space.small),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        spacing: Space.small,
+        children: [
+          const Text(
+            "This computer's Porelo-Vault is shut, and Porelo reads your forge token from it. Open it, then try again.",
+            key: Key('organization-vault-shut'),
+          ),
+          if (widget.organization.openThisComputersVault != null)
+            OutlinedButton(
+              key: const Key('organization-open-vault'),
+              onPressed: _opening ? null : () => unawaited(_open()),
+              child: const Text("Open this computer's Porelo-Vault"),
+            ),
+        ],
+      ),
+    );
+  }
 }
 
 /// Says that a change was asked for and has not been answered: a write takes seconds, and nothing else shows it.
@@ -334,7 +408,12 @@ class OrganizationPendingRow extends StatelessWidget {
       key: ValueKey('organization-pending ${target.scope} ${target.name}'),
       leading: Icon(change.running ? Icons.hourglass_top : Icons.error_outline),
       title: Text(name ?? target.name),
-      subtitle: Text(change.running ? '${target.doing} Any failure will appear in this row.' : change.refusal!),
+      subtitle: change.running
+          ? Text('${target.doing} Any failure will appear in this row.')
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [Text(change.refusal!), OrganizationVaultShut(organization)],
+            ),
       trailing: change.running
           ? null
           : CommandMenu(
@@ -670,7 +749,7 @@ Future<void> putProjectOnAMachine(
   required Organization organization,
   required String project,
   HostConnections? connections,
-  Future<String?> Function(String host)? onGiveToken,
+  GiveHostToken? onGiveToken,
 }) async {
   final view = organization.view;
   if (view == null) return;

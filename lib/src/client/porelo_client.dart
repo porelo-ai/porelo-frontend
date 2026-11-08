@@ -874,21 +874,23 @@ class PoreloClient {
   /// Forwards a pending push upstream.
   ///
   /// The only call that sends anything anywhere, and it makes the caller name the branch.
-  Future<void> approve(
+  Future<ForwardedPush> approve(
     String project,
     String name,
     String branch, {
     String? upstream,
     String? repository,
     String? commit,
-  }) async => _call('Approve', {
-    'project': project,
-    'name': name,
-    'branch': branch,
-    'upstream': ?upstream,
-    'repository': ?repository,
-    'commit': ?commit,
-  });
+  }) async => ForwardedPush.from(
+    await _call('Approve', {
+      'project': project,
+      'name': name,
+      'branch': branch,
+      'upstream': ?upstream,
+      'repository': ?repository,
+      'commit': ?commit,
+    }),
+  );
 
   /// Tries [refspec] with one ssh key alone, as a dry run: nothing is pushed and nothing is kept.
   /// [source] is `AGENT` (with [id] a fingerprint) or `FILE` (with [id] a path on the machine).

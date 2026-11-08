@@ -961,6 +961,13 @@ class Organization extends ChangeNotifier {
   final _listed = _Kept<List<ListedProject>>();
   Future<void> _answersInTurn = Future<void>.value();
 
+  /// Whether this computer's Porelo-Vault is shut, where the window can tell; null where it cannot. A refusal is
+  /// followed by the way to open it while it is shut: Porelo reads the person's forge token from it.
+  Future<bool?> Function()? thisComputersVaultShut;
+
+  /// Opens this computer's Porelo-Vault.
+  Future<void> Function()? openThisComputersVault;
+
   /// Told of each change the store took, for what the window keeps of it itself.
   void Function(OrganizationChange change, Map<String, String> input)? afterWrite;
 

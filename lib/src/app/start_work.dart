@@ -102,6 +102,28 @@ class StartWork extends ChangeNotifier {
   /// What an unattended run is asked to do.
   String prompt = '';
 
+  /// The unattended run's time limit as typed, including input that still needs correction.
+  String minutesText = '30';
+
+  /// The unattended run's time limit, absent for a session or invalid input.
+  int? get minutes => takesAPrompt && minutesProblem == null ? int.tryParse(minutesText) : null;
+
+  /// Why the time limit cannot be used, absent for sessions that have no limit.
+  String? get minutesProblem {
+    if (!takesAPrompt) return null;
+    final number = int.tryParse(minutesText);
+    // The contract's int is 32 bits: a larger number would reach the machine as another one.
+    return RegExp(r'^[0-9]+$').hasMatch(minutesText) && number != null && number >= 1 && number <= 2147483647
+        ? null
+        : 'Enter a whole number of minutes, from 1 to 2147483647.';
+  }
+
+  /// Takes the time limit typed for unattended work.
+  void allowMinutes(String typed) {
+    minutesText = typed;
+    notifyListeners();
+  }
+
   /// What to call the work, or empty to let the machine name it.
   ///
   /// Optional on purpose: `Start` names a task when nothing else does, and a name somebody had to
@@ -295,6 +317,7 @@ class StartWork extends ChangeNotifier {
       mode != null &&
       (!needsARepository || repository != null) &&
       (!takesAPrompt || prompt.trim().isNotEmpty) &&
+      minutesProblem == null &&
       nameProblem == null &&
       (continuing != null || name.isNotEmpty) &&
       !refusedOutright &&
@@ -616,6 +639,7 @@ class StartWork extends ChangeNotifier {
       mode: mode,
       // Only with `UNATTENDED`, and trimmed: a prompt of spaces is not a prompt.
       prompt: takesAPrompt ? prompt.trim() : null,
+      minutes: minutes,
       repository: repository,
       credentials: credentials,
       from: checkoutBranch,
@@ -794,6 +818,7 @@ class StartWork extends ChangeNotifier {
     // is never carried into the next.
     credentials = const <String, String>{};
     busy = true;
+    minutesText = '30';
     notifyListeners();
     try {
       final answered = await backend.agentsOn();

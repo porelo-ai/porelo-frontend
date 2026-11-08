@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -27,6 +28,9 @@ class _Server {
   bool ready = true;
   String key = _serverKey;
   final scans = <List<String>>[];
+  final logins = <List<String>>[];
+  Ran login = (code: 0, out: '', err: '');
+  Completer<void>? loginHeld;
 
   Future<Ran> run(
     String program,
@@ -40,6 +44,11 @@ class _Server {
       return ready ? (code: 0, out: '192.0.2.7 $key\n', err: '') : (code: 1, out: '', err: 'Connection refused\n');
     }
     if (program.endsWith('ssh-keygen')) return (code: 0, out: '256 $_fingerprint 192.0.2.7 (ED25519)\n', err: '');
+    if (program.endsWith('ssh')) {
+      logins.add(arguments);
+      await loginHeld?.future;
+      return login;
+    }
     return (code: 127, out: '', err: 'not here');
   }
 }
@@ -69,7 +78,7 @@ class _Walk {
   late ServerSetup setup;
 }
 
-Future<_Walk> _open(WidgetTester tester) async {
+Future<_Walk> _open(WidgetTester tester, {bool shown = false}) async {
   tester.view.physicalSize = const Size(1280, 800);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
@@ -83,6 +92,7 @@ Future<_Walk> _open(WidgetTester tester) async {
     runs: runs,
     settings: settings,
     runKeyCommand: walk.server.run,
+    runFirstLogin: walk.server.run,
     hostCheck: HostCheckRun(
       executable: 'porelo-host',
       run: (_, _, {inDirectory, environment = const {}, input}) async => _passing,
@@ -108,16 +118,22 @@ Future<_Walk> _open(WidgetTester tester) async {
     machines.dispose();
     settings.dispose();
   });
+  Future<void> openTerminal(BuildContext context, List<String> command) async => walk.terminals.add(command);
   await tester.pumpWidget(
     MaterialApp(
       home: Scaffold(
-        body: ServerSetupWizard(
-          setup: walk.setup,
-          openTerminal: (context, command) async => walk.terminals.add(command),
-        ),
+        body: shown
+            ? Builder(
+                builder: (context) => TextButton(
+                  onPressed: () => showServerSetupWizard(context, setup: walk.setup, openTerminal: openTerminal),
+                  child: const Text('Set up a machine'),
+                ),
+              )
+            : ServerSetupWizard(setup: walk.setup, openTerminal: openTerminal),
       ),
     ),
   );
+  if (shown) await tester.tap(find.text('Set up a machine'));
   await World.settle(tester);
   return walk;
 }
@@ -154,6 +170,14 @@ Future<void> _toTheKey(WidgetTester tester) async {
 }
 
 void main() {
+  // Harm: the wizard's card floats in a second, empty dialog around it.
+  testWidgets('the wizard is shown as the one dialog it is', (tester) async {
+    await _open(tester, shown: true);
+    expect(find.byKey(const Key('setup-machine')), findsOneWidget);
+    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(find.byType(Dialog), findsOneWidget, reason: 'the AlertDialog is the only dialog');
+  });
+
   // Harm: a page opens before what it builds on holds, and a key the window could not yet know to be the server's is
   // trusted, root's login is never handed over, or a machine is prepared that the check did not pass.
   testWidgets('every page opens only once its answer holds, and each grey Next says why', (tester) async {
@@ -230,6 +254,87 @@ void main() {
     await _tap(tester, find.byKey(const Key('wizard-start')));
     expect(walk.forgotten.single.files, ['/home/tester/.ssh/known_hosts'], reason: 'taken out as preparing starts');
     expect(walk.started, 1);
+  });
+
+  Future<void> toTheLogin(WidgetTester tester) async {
+    await _toTheKey(tester);
+    await _tap(tester, find.byKey(const Key('setup-fetch-key')));
+    await _tap(tester, find.byKey(const Key('setup-compared')));
+    await _tap(tester, _next);
+    await _tap(tester, _next);
+    expect(find.textContaining('Step 5 of'), findsOneWidget);
+  }
+
+  // Harm: root's keys are replaced on a machine without the person's press, or the line runs where the pin does not
+  // hold, or waits for a password nobody can type.
+  testWidgets('Run it for me runs the line unasked on a press, then tries root', (tester) async {
+    final walk = await _open(tester);
+    walk.roots
+      ..clear()
+      ..add((state: RootLoginState.open, words: 'Root logs in with your Machine Admin card key.'));
+    await toTheLogin(tester);
+    expect(walk.server.logins, isEmpty, reason: 'nothing runs on entering the page');
+    await _tap(tester, find.byKey(const Key('setup-run-bootstrap')));
+    final login = walk.server.logins.single;
+    expect(login, containsAll(['BatchMode=yes', 'UserKnownHostsFile="/nonexistent-pin/known_hosts"']));
+    expect(login[login.length - 2], 'ubuntu@192.0.2.7');
+    expect(login.last, startsWith('sudo -n install -d -m 700 /root/.ssh && '));
+    expect(login.last, contains('| sudo -n tee /root/.ssh/authorized_keys'));
+    expect(login.last, contains('&& sudo -n chmod 600'));
+    expect(walk.terminals, isEmpty);
+    expect(find.text('Root logs in with your Machine Admin card key.'), findsWidgets);
+    expect(_nextIsGrey(tester), isFalse);
+  });
+
+  // Harm: a sudo that wants a password reads as a run, or leaves the person without the terminal.
+  testWidgets('a sudo that wants a password is said, and the terminal stays the way', (tester) async {
+    final walk = await _open(tester);
+    walk.server.login = (code: 1, out: '', err: 'sudo: a password is required\n');
+    await toTheLogin(tester);
+    await _tap(tester, find.byKey(const Key('setup-run-bootstrap')));
+    expect(find.textContaining('sudo on the server wants your password'), findsWidgets);
+    expect(walk.roots, hasLength(2), reason: 'root is not tried after a line that did not run');
+    expect(_nextIsGrey(tester), isTrue);
+    expect(tester.widget<OutlinedButton>(find.byKey(const Key('setup-open-terminal'))).onPressed, isNotNull);
+  });
+
+  // Harm: a run answered for a server or login no longer asked about opens the way for the new one.
+  testWidgets('a run still going when the address changes says nothing of the new one', (tester) async {
+    final walk = await _open(tester);
+    walk.roots
+      ..clear()
+      ..add((state: RootLoginState.open, words: 'Root logs in with your Machine Admin card key.'));
+    await toTheLogin(tester);
+    walk.server.loginHeld = Completer<void>();
+    await tester.ensureVisible(find.byKey(const Key('setup-run-bootstrap')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('setup-run-bootstrap')));
+    await tester.pump();
+    expect(walk.setup.runningBootstrap, isTrue);
+    walk.setup.address = '192.0.2.8';
+    walk.server.loginHeld!.complete();
+    await World.settle(tester);
+    expect(walk.setup.bootstrapRun, isNull);
+    expect(walk.setup.root, isNull, reason: 'root is not tried for the old address');
+    expect(walk.setup.runningBootstrap, isFalse);
+  });
+
+  // Harm: words of an earlier try stand beside, or against, what the last one found.
+  testWidgets('each try replaces what the other said', (tester) async {
+    final walk = await _open(tester);
+    walk.roots
+      ..clear()
+      ..add((state: RootLoginState.open, words: 'Root logs in with your Machine Admin card key.'));
+    walk.server.login = (code: 1, out: '', err: 'sudo: a password is required\n');
+    await toTheLogin(tester);
+    await _tap(tester, find.byKey(const Key('setup-run-bootstrap')));
+    expect(find.byKey(const Key('setup-bootstrap-answer')), findsOneWidget);
+    await _tap(tester, find.byKey(const Key('setup-try-root')));
+    expect(find.byKey(const Key('setup-bootstrap-answer')), findsNothing);
+    expect(_nextIsGrey(tester), isFalse);
+    await _tap(tester, find.byKey(const Key('setup-run-bootstrap')));
+    expect(find.byKey(const Key('setup-root-answer')), findsNothing, reason: 'a failed run takes back the root answer');
+    expect(_nextIsGrey(tester), isTrue);
   });
 
   // Harm: a key that changed between comparing and preparing is taken, which is the installer's or a stranger's.

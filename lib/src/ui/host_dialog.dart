@@ -33,11 +33,13 @@ Future<void> openHostTakeDownDialog(
   Future<HostProgress> Function(String host)? readHostProgress,
   OpenTerminal? openTerminal,
   bool? linux,
+  Future<String?> Function(String host)? removeFromOrganization,
 }) => showDialog<void>(
   context: context,
   barrierDismissible: false,
   builder: (_) => HostDialog(
     project: project,
+    removeFromOrganization: removeFromOrganization,
     machines: machines,
     settings: settings,
     hostRuns: hostRuns,
@@ -98,6 +100,7 @@ class HostDialog extends StatefulWidget {
     this.start,
     this.runKeyCommand,
     this.takeDownOnly = false,
+    this.removeFromOrganization,
     this.machineName,
     this.fromTheCard,
     this.hostCheck,
@@ -134,6 +137,9 @@ class HostDialog extends StatefulWidget {
 
   /// Whether the dialog confirms give-back.
   final bool takeDownOnly;
+
+  /// Removes the machine from the organization's list once it is confirmed down; answers a refusal's words, or null.
+  final Future<String?> Function(String host)? removeFromOrganization;
 
   /// What to take down with on a computer that kept nothing from setting it up.
   final HostUpRecord? fromTheCard;
@@ -676,6 +682,28 @@ class _HostDialogState extends State<HostDialog> {
         _problem = widget.hostAccess?.cardLeftBehind(widget.project);
         await _settings.forgetHostUp(widget.project);
       }
+      // The question promised it: a machine confirmed down leaves the organization's list too. A refusal is said, and
+      // the row keeps its own *Remove the machine…*.
+      if (widget.removeFromOrganization case final remove?) {
+        String? refused;
+        try {
+          // Close waits on this: a removal that does not answer in time is said, and goes on by itself.
+          refused = await remove(record.hostName).timeout(_removalPatience);
+        } on TimeoutException {
+          refused = 'it did not answer within two minutes, and may still go through: look at the list';
+        } on Exception catch (error) {
+          refused = '$error';
+        }
+        if (refused == null) {
+          // What was said of the organization still naming the machine no longer holds.
+          _problem = null;
+          widget.hostRuns?.forgetLeftBehind(widget.project);
+        } else {
+          _problem =
+              '${record.hostName} stays on the organization\'s list: $refused. Remove it there with *Remove the '
+              'machine…* on its row.';
+        }
+      }
       for (final machine
           in widget.machines.all.where((m) => m.kind == 'host' && m.hostProject == widget.project).toList()) {
         await widget.machines.forget(machine);
@@ -699,6 +727,9 @@ class _HostDialogState extends State<HostDialog> {
       unawaited(_readCentral());
     }
   }
+
+  /// How long a confirmed take-down waits on the organization's removal before Close is free; the removal goes on.
+  static const _removalPatience = Duration(minutes: 2);
 
   /// What a confirmed take-down has done, whatever this window then manages to keep of it.
   static String _doneWords({required bool rental}) => rental

@@ -191,7 +191,7 @@ class HostTokenSources {
 class HostTokenStep extends ChangeNotifier {
   /// Gives [host] its token from [sources]; [connect] reaches the host first, [give] hands one source's token over and
   /// answers null once the host took it, or why not.
-  HostTokenStep({required this.host, required this.sources, required this.connect, required this.give});
+  HostTokenStep({required this.host, required this.sources, required this.connect, required this.give, this.heard});
 
   /// The host.
   final String host;
@@ -204,6 +204,9 @@ class HostTokenStep extends ChangeNotifier {
 
   /// Hands the answer's token over; null once the host took it.
   final Future<String?> Function(TokenSourceAnswer answer) give;
+
+  /// Asks the host what it now says, once it took a token, so that what shows it waiting follows its word.
+  final Future<void> Function()? heard;
 
   List<TokenSourceAnswer>? _answers;
   bool _asking = false;
@@ -246,6 +249,21 @@ class HostTokenStep extends ChangeNotifier {
     }
   }
 
+  /// Asks every source, and gives the entry this computer's Porelo-Vault declares straight away where it is found:
+  /// answers true then, the step given or its problem said; false where it is not found, for the token's page.
+  ///
+  /// Only the declared entry: Porelo hands it on and nothing here reads it; the other sources are chosen on the page,
+  /// where each is named.
+  Future<bool> giveAtOnce() async {
+    await ask();
+    final declared = _answers
+        ?.where((each) => each.source == TokenSource.declared && each.state == TokenSourceState.found)
+        .firstOrNull;
+    if (declared == null) return false;
+    await giveFrom(declared);
+    return true;
+  }
+
   /// Hands [answer]'s token to the host.
   Future<void> giveFrom(TokenSourceAnswer answer) async {
     if (_giving || answer.state != TokenSourceState.found) return;
@@ -261,6 +279,12 @@ class HostTokenStep extends ChangeNotifier {
     } finally {
       _giving = false;
       notifyListeners();
+    }
+    // What it says next is the host's own word; a host not asked now is asked by the next Refresh, as before.
+    if (_given) {
+      try {
+        await heard?.call();
+      } on Exception catch (_) {}
     }
   }
 }

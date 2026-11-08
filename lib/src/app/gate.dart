@@ -163,8 +163,9 @@ class Gate extends ChangeNotifier {
       // The commit that was reviewed, where the machine takes it: a push that moved since is then
       // refused, not forwarded unseen. An older Porelo is not sent it.
       final commit = push.commit.isNotEmpty && await _takesTheCommit(backend) ? push.commit : null;
+      final ForwardedPush answer;
       try {
-        await backend.approve(file, push.name, branch, repository: _where(push), commit: commit);
+        answer = await backend.approve(file, push.name, branch, repository: _where(push), commit: commit);
       } on VarlinkException catch (refusal) {
         if (refusal.simpleName == 'PushRefused') {
           // Nothing went upstream; what to do about the key is shown beside the review, not as a line.
@@ -181,7 +182,11 @@ class Gate extends ChangeNotifier {
         }
         rethrow;
       }
-      said = '${push.subject} was forwarded to $branch.';
+      said = answer.branch.isEmpty
+          ? '${push.subject} was forwarded.'
+          : '${push.subject} was forwarded to ${answer.branch}.';
+      final pullRequest = answer.pullRequest;
+      if (pullRequest != null && pullRequest.isNotEmpty) said = '$said Pull request: $pullRequest.';
       looking = null;
       _forgetTheRefusal();
       await _readAgain(backend, file);

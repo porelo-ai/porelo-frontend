@@ -15,11 +15,7 @@ void main() {
     projects: [HostProjectProgress(project: 'demo', state: 'carried')],
   );
 
-  Future<void> open(
-    WidgetTester tester,
-    FixtureConnections connections, {
-    Future<String?> Function(String host)? onGiveToken,
-  }) async {
+  Future<void> open(WidgetTester tester, FixtureConnections connections, {GiveHostToken? onGiveToken}) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -50,8 +46,8 @@ void main() {
     await open(
       tester,
       connections,
-      onGiveToken: (host) async {
-        gave.add(host);
+      onGiveToken: (host, {atOnce = false}) async {
+        gave.add(atOnce ? '$host at once' : host);
         connections.hostProgress = carried;
         return null;
       },
@@ -59,7 +55,7 @@ void main() {
     await tester.tap(find.byKey(const Key('placing-project.giveToken')));
     await tester.pump();
     await tester.pump();
-    expect(gave, <String>['build']);
+    expect(gave, <String>['build at once'], reason: 'the second ask is one press where the vault declares it');
     expect(words(tester), 'build carries demo.');
     expect(find.byKey(const Key('placing-project.giveToken')), findsNothing);
     await close(tester);
@@ -68,7 +64,7 @@ void main() {
   // Harm: a token not given leaves a person with nothing, as the foo test's button did.
   testWidgets('a token not given says why, in the same dialog', (tester) async {
     final connections = FixtureConnections(['build'])..hostProgress = waiting;
-    await open(tester, connections, onGiveToken: (_) async => 'No GitHub token is kept.');
+    await open(tester, connections, onGiveToken: (_, {atOnce = false}) async => 'No GitHub token is kept.');
     await tester.tap(find.byKey(const Key('placing-project.giveToken')));
     await tester.pump();
     await tester.pump();
@@ -121,7 +117,7 @@ void main() {
         waitsForToken: true,
         projects: [HostProjectProgress(project: 'demo', state: 'pending')],
       );
-    await open(tester, connections, onGiveToken: (_) async => null);
+    await open(tester, connections, onGiveToken: (_, {atOnce = false}) async => null);
     expect(find.byKey(const Key('placing-project.giveToken')), findsOneWidget);
     await close(tester);
   });
@@ -132,7 +128,7 @@ void main() {
       ..hostProgress = const HostProgress(
         projects: [HostProjectProgress(project: 'demo', state: 'waiting-for-token', hasNoAddress: true)],
       );
-    await open(tester, connections, onGiveToken: (_) async => null);
+    await open(tester, connections, onGiveToken: (_, {atOnce = false}) async => null);
     expect(words(tester), contains('no address yet'));
     expect(find.byKey(const Key('placing-project.giveToken')), findsNothing);
     await close(tester);
@@ -151,7 +147,7 @@ void main() {
     await open(
       tester,
       connections,
-      onGiveToken: (_) async {
+      onGiveToken: (_, {atOnce = false}) async {
         connections.hostProgress = carried;
         return null;
       },
@@ -179,7 +175,7 @@ void main() {
   // Harm: a press whose giving throws leaves the button dead and the dialog following nothing.
   testWidgets('a giving that throws does not leave the button dead', (tester) async {
     final connections = FixtureConnections(['build'])..hostProgress = waiting;
-    await open(tester, connections, onGiveToken: (_) async => throw const OrganizationRefused('no'));
+    await open(tester, connections, onGiveToken: (_, {atOnce = false}) async => throw const OrganizationRefused('no'));
     await tester.tap(find.byKey(const Key('placing-project.giveToken')));
     await tester.pump();
     await tester.pump();

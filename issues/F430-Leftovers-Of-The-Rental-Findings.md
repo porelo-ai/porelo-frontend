@@ -12,6 +12,10 @@ Each point is to be checked against the code before it is fixed.
 
 Points 1 to 3 are taken as described; point 4 as decided under it.
 
+**The operator's word (2026-11-08).** Points 1 to 3 and the three from [F432](README.md#f432)'s reading are built after
+[F429](README.md#f429), each checked against the code first, with a test seen red first where one is possible, and
+one reading for this issue as a whole. Point 4 is done.
+
 - **From [F424](README.md#f424), the setup wizard's last pages:** the widget test does not walk pages 7 and 8 to their end, since
   `HostRun`'s start does file work the test clock never ends; the token page is tested alone.
 - **From [F424](README.md#f424), the old preparing dialog:** the window no longer opens it, only its tests do; it and its tests are to be
@@ -25,6 +29,24 @@ Points 1 to 3 are taken as described; point 4 as decided under it.
   protocol with its words, and the row keeps *Remove the machine…*. Until that is built, the question is reworded to
   promise no removal. It is built before the third trial move; meanwhile the organization page's row ⋮ → *Remove the
   machine…* removes the listing by hand; it needs only the role, not a machine that answers.
+  **Done** in [F435](README.md#f435) (b56fbec3, 27b260b8, 6b8e3679), on main since 2026-11-08.
+- **From [F432](README.md#f432)'s reading, found there and older than it:**
+  - `_hostTokenStep` in `shell.dart` reads the organization's view once, before its own `connect` refreshes it: a
+    view not read yet gives the declared source no repository, so the one-click token falls back to the page.
+  - `_giveHostToken` disposes its `HostTokenStep` when the page closes while an `ask`, a `giveFrom` or the vault's
+    opening still runs; its later `notifyListeners` throws on a disposed notifier.
+  - `readThisComputersDeclarations` and `isThisComputersVaultShut` read `Backend.local()`'s socket, while *Open this
+    computer's Porelo-Vault* opens `Machine.local()`, which follows `PORELO_SOCKET`: with that variable set, the
+    button does nothing.
+
+- **From [F429](README.md#f429)'s part 3 reading, found there and older than it** (checked against the code before
+  part 3; not the operator's word yet, which places them):
+  - *Work*'s *List* keeps its selection in the machine's `selectedTask`, *Running* its tab in `WorkView.tab`, and
+    neither tells the other: a running task chosen in *List* opens as the first tab in *Running*, and a tab chosen in
+    *Running* is not the task *List*, the shortcuts and the finder see.
+  - On a phone, closing the drawer while *Running* is shown gives the keyboard to the menu button, not to the terminal
+    (`onDrawerChanged` asks for the menu's focus whatever page is shown), so the next Space or Enter opens the drawer
+    again.
 
 ## Open questions
 

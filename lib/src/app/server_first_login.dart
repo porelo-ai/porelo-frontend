@@ -123,3 +123,73 @@ String _lastLine(String words) {
   final last = lines.last.replaceAll(RegExp(r'[\x00-\x1f\x7f]'), ' ');
   return last.length <= 200 ? last : '${last.substring(0, 200)}…';
 }
+
+/// The bootstrap [line] as *Run it for me* runs it: every `sudo` told never to ask, so a password wanted ends it.
+String unaskedBootstrapLine(String line) =>
+    line.replaceAllMapped(RegExp(r'(^|&& |\| )sudo '), (match) => '${match[1]}sudo -n ');
+
+/// The first login as [user] at [address] running [command] unasked, trusting only [pin]'s key.
+///
+/// `BatchMode`: nothing may wait for a passphrase or a password nobody can type here. The person's own keys and agent
+/// log in, as in the terminal; only the host key is the pin's.
+List<String> firstLoginRunArguments({
+  required String pin,
+  required String user,
+  required String address,
+  required String command,
+}) => [
+  for (final MapEntry(:key, :value) in pinnedHostSshPolicy(pin).entries)
+    if (key != 'IdentitiesOnly') ...['-o', '$key=$value'],
+  '-o',
+  'ControlMaster=no',
+  '-o',
+  'ControlPath=none',
+  '-T',
+  '--',
+  '$user@$address',
+  command,
+];
+
+/// What running the bootstrap line by the first login came to.
+enum BootstrapRunState {
+  /// The line ran to its end.
+  ran,
+
+  /// `sudo` wants a password: the terminal is the way.
+  wantsPassword,
+
+  /// The first login could not be made without asking, or the server was not reached.
+  noLogin,
+
+  /// The line ran and failed.
+  failed,
+}
+
+/// A bootstrap run's state and the words that say it.
+typedef BootstrapRun = ({BootstrapRunState state, String words});
+
+/// Reads what the first login's run of the bootstrap line ended with.
+BootstrapRun readBootstrapRun(int exit, String out, String err) {
+  final last = _lastLine(err).isNotEmpty ? _lastLine(err) : _lastLine(out);
+  if (exit == 0) return (state: BootstrapRunState.ran, words: 'The bootstrap line ran on the server.');
+  if (err.contains('a password is required') || err.contains('a terminal is required')) {
+    return (
+      state: BootstrapRunState.wantsPassword,
+      words: 'sudo on the server wants your password. Open a terminal on the server and paste the line there.',
+    );
+  }
+  if (exit == 255) {
+    return (
+      state: BootstrapRunState.noLogin,
+      words:
+          'The first login could not be made without asking${last.isEmpty ? '' : ': $last'}. Open a terminal on the '
+          'server and paste the line there.',
+    );
+  }
+  return (
+    state: BootstrapRunState.failed,
+    words: last.isEmpty
+        ? 'The bootstrap line ended with exit $exit and said nothing.'
+        : 'The bootstrap line said: $last (exit $exit)',
+  );
+}

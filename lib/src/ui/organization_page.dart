@@ -25,6 +25,7 @@ import 'how_long.dart';
 import 'key_recovery_dialog.dart';
 import 'organization_host_pages.dart';
 import 'pick_a_file.dart';
+import 'placing_project_dialog.dart' show GiveHostToken;
 import 'project_init_dialog.dart';
 import 'tokens.dart';
 import 'window_size.dart';
@@ -124,7 +125,7 @@ class OrganizationPage extends StatefulWidget {
   final HostConnections? connections;
 
   /// Gives the host admin's token to a machine; answers the words to show, if any.
-  final Future<String?> Function(String host)? onGiveToken;
+  final GiveHostToken? onGiveToken;
 
   /// *Set up a machine…*, absent where this computer offers none.
   final Command? prepareMachine;

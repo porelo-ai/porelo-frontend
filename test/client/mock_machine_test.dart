@@ -559,7 +559,9 @@ void main() {
     expect(diff, contains('diff --git'));
     expect(log, contains('commit'));
 
-    await client.approve(project, gate.pending.first.name, 'fix-rounding');
+    final answer = await client.approve(project, gate.pending.first.name, 'fix-rounding');
+    expect(answer.branch, 'fix-rounding');
+    expect(answer.forwarded, gate.pending.first.name);
 
     // Forwarding takes it out of the gate: it has been decided about and is not waiting any more.
     expect((await client.gate(project)).pending, hasLength(1));

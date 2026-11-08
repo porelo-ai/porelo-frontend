@@ -1,6 +1,6 @@
 # F433 — The Start Dialog Says How Long It Runs
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** S - the start dialog's modes say how long the work runs, and an unattended run's minutes are a field.
 
 **What must be true.** *A shell, driven by hand* says it has no time limit and runs until it is stopped. *Unattended,

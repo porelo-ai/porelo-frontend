@@ -1012,6 +1012,7 @@ class _ShellState extends State<Shell> {
           hostRuns: _hostRuns,
           readHostProgress: _readHostProgress,
           openTerminal: widget.sessions.openTerminal,
+          removeFromOrganization: _removeFromOrganization,
         ),
       ),
     ),
@@ -1026,9 +1027,16 @@ class _ShellState extends State<Shell> {
       hostRuns: _hostRuns,
       readHostProgress: _readHostProgress,
       openTerminal: widget.sessions.openTerminal,
+      removeFromOrganization: _removeFromOrganization,
     );
     if (mounted && !widget.machines.all.contains(machine)) widget.shell.goTo(Section.machines);
   }
+
+  /// What a confirmed take-down asks of the organization, wherever it was opened: its machine off the list.
+  Future<String?> Function(String host)? get _removeFromOrganization => switch (_organization) {
+    final organization? => (host) => organization.write(OrganizationChange.removeHost, {'host': host}),
+    null => null,
+  };
 
   Future<HostProgress> _readHostProgress(String host) async {
     final connections = _hostConnections;
@@ -1057,6 +1065,7 @@ class _ShellState extends State<Shell> {
           fromTheCard: kept == null ? access.takingOffRecord(host) : null,
           readHostProgress: _readHostProgress,
           openTerminal: widget.sessions.openTerminal,
+          removeFromOrganization: _removeFromOrganization,
         ),
       ),
     );
@@ -1694,7 +1703,12 @@ class _ShellState extends State<Shell> {
 
   late final Organization? _organization = widget.organizationSource == null
       ? null
-      : Organization(widget.organizationSource!);
+      : (Organization(widget.organizationSource!)
+          // Only the real organization asks this computer's vault: a stand-in's refusals are no vault's.
+          ..thisComputersVaultShut = widget.organizationSource is PoreloOrganizationSource
+              ? isThisComputersVaultShut
+              : null
+          ..openThisComputersVault = (() => _unlockMachine(Machine.local())));
 
   late final HostConnections? _hostConnections =
       widget.hostConnections ?? (_organization == null ? null : widget.connectionsFor?.call(_organization));
@@ -5167,15 +5181,23 @@ class _ShellState extends State<Shell> {
       ),
       connect: () => _connectHost(host),
       give: (answer) => _giveTokenFrom(host, answer),
+      heard: () async {
+        final connections = _hostConnections;
+        if (connections != null && connections.connected(host)) await connections.progress(host);
+      },
     );
   }
 
-  /// The row's *Give it your token…*: the token's own page, every source with what it answered.
-  Future<String?> _giveHostToken(String host) async {
+  /// The row's *Give it your token…*: the token's own page, every source with what it answered. [atOnce] gives the
+  /// entry this computer's Porelo-Vault declares without the page, where it declares one.
+  Future<String?> _giveHostToken(String host, {bool atOnce = false}) async {
     final step = _hostTokenStep(host);
-    unawaited(step.ask());
     final forge = organizationForgeName(_organization?.view);
     try {
+      // Where it is not declared, the page opens on the answers already read.
+      if (atOnce && await step.giveAtOnce()) return step.given ? null : step.problem;
+      if (!atOnce) unawaited(step.ask());
+      if (!mounted) return null;
       await showDialog<void>(
         context: context,
         builder: (context) => AlertDialog(
@@ -5200,7 +5222,9 @@ class _ShellState extends State<Shell> {
           actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close'))],
         ),
       );
-      return step.given || step.problem == null ? null : step.problem;
+      if (step.given) return null;
+      // The placing dialog follows a token as given on null: a page closed without one says so.
+      return step.problem ?? (atOnce ? 'No token was given. Give it when you are ready.' : null);
     } finally {
       step.dispose();
     }
@@ -5486,23 +5510,13 @@ class _ShellState extends State<Shell> {
       machineName: machineName,
     );
     try {
-      await showDialog<void>(
-        context: context,
-        builder: (context) => Dialog(
-          child: SizedBox(
-            width: Sizes.dialog,
-            child: ServerSetupWizard(
-              setup: setup,
-              openTerminal: _openServerTerminal,
-              token: _hostTokenStep,
-              onSignIn: () {
-                Navigator.of(context).pop();
-                _showTheForges();
-              },
-              onUnlock: () => unawaited(_unlockMachine(Machine.local())),
-            ),
-          ),
-        ),
+      await showServerSetupWizard(
+        context,
+        setup: setup,
+        openTerminal: _openServerTerminal,
+        token: _hostTokenStep,
+        onSignIn: _showTheForges,
+        onUnlock: () => unawaited(_unlockMachine(Machine.local())),
       );
     } finally {
       setup.dispose();
@@ -5673,6 +5687,7 @@ class _ShellState extends State<Shell> {
           onClose: widget.shell.close,
         );
       case ReviewOpened():
+        final machine = widget.machines.current;
         return ReviewView(
           gate: widget.gate,
           onBack: widget.shell.openGate,
@@ -5680,6 +5695,7 @@ class _ShellState extends State<Shell> {
           onApprove: () => unawaited(_approve(on: machine)),
           onReject: () => unawaited(_reject(on: machine)),
           login: machine.needsATunnel ? machine.host : null,
+          sshConfig: reviewFetchConfig(machine, windows: desk.isWindows),
           machine: machine.name,
           onRefreshKeys: () => unawaited(widget.gate.readKeys(fleet.backend)),
           onTryKey: (key) => unawaited(widget.gate.tryKey(fleet.backend, key)),

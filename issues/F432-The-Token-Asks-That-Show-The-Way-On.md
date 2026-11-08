@@ -1,6 +1,6 @@
 # F432 — The Token Asks That Show The Way On
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** S - a refused organization change says when this computer's Porelo-Vault is shut, with the button that opens
 it, and the second token ask of *Put it on a machine…* is one click.
 

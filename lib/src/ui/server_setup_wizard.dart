@@ -17,6 +17,30 @@ typedef OpenServerTerminal = Future<void> Function(BuildContext context, List<St
 /// The line that prints the server's own host key fingerprint, run on the server to compare.
 const compareCommand = 'ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub';
 
+/// Shows [ServerSetupWizard] as the one dialog it is; [onSignIn] closes it first.
+Future<void> showServerSetupWizard(
+  BuildContext context, {
+  required ServerSetup setup,
+  required OpenServerTerminal openTerminal,
+  HostTokenStep Function(String host)? token,
+  VoidCallback? onSignIn,
+  VoidCallback? onUnlock,
+}) => showDialog<void>(
+  context: context,
+  builder: (context) => ServerSetupWizard(
+    setup: setup,
+    openTerminal: openTerminal,
+    token: token,
+    onSignIn: onSignIn == null
+        ? null
+        : () {
+            Navigator.of(context).pop();
+            onSignIn();
+          },
+    onUnlock: onUnlock,
+  ),
+);
+
 /// Sets a server up as a machine of the organization, one question per page.
 ///
 /// [token] is the last step's giving of the host's forge token, made once the machine is prepared; null leaves the
@@ -288,6 +312,7 @@ class _ServerSetupWizardState extends State<ServerSetupWizard> {
   Widget _handOver(BuildContext context) {
     final line = _setup.bootstrapLine;
     final root = _setup.root;
+    final busy = _inTerminal || _setup.tryingRoot || _setup.runningBootstrap;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       spacing: Space.small,
@@ -302,9 +327,9 @@ class _ServerSetupWizardState extends State<ServerSetupWizard> {
         else
           CommandToCopy(command: line, textKey: const Key('host-bootstrap-command')),
         Text(
-          'Open a terminal on the server: it logs in as ${_setup.firstLogin} at ${_setup.address}, trusting only the '
-          'key you compared. Paste the line there, and type your sudo password if it asks. Close the terminal when it '
-          'is done; root\'s login is tried then.',
+          '*Run it for me* runs it as ${_setup.firstLogin} at ${_setup.address}, trusting only the key you compared, '
+          'and tries root\'s login right after. Where sudo wants your password, open a terminal on the server instead: '
+          'paste the line there, type the password, and close the terminal when it is done; root\'s login is tried then.',
         ),
         Wrap(
           spacing: Space.small,
@@ -312,18 +337,27 @@ class _ServerSetupWizardState extends State<ServerSetupWizard> {
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             FilledButton(
+              key: const Key('setup-run-bootstrap'),
+              onPressed: line == null || busy ? null : () => unawaited(_setup.runBootstrap()),
+              child: const Text('Run it for me'),
+            ),
+            OutlinedButton(
               key: const Key('setup-open-terminal'),
-              onPressed: _inTerminal || _setup.tryingRoot ? null : () => unawaited(_openTerminal()),
+              onPressed: busy ? null : () => unawaited(_openTerminal()),
               child: const Text('Open a terminal on the server'),
             ),
             OutlinedButton(
               key: const Key('setup-try-root'),
-              onPressed: _inTerminal || _setup.tryingRoot ? null : () => unawaited(_setup.tryRoot()),
+              onPressed: busy ? null : () => unawaited(_setup.tryRoot()),
               child: const Text('Try the root login'),
             ),
+            if (_setup.runningBootstrap)
+              const Text('Running the bootstrap line on the server…', key: Key('setup-running-bootstrap')),
             if (_setup.tryingRoot) const Text('Trying the root login…', key: Key('setup-trying-root')),
           ],
         ),
+        if (_setup.bootstrapRun case final run? when run.state != BootstrapRunState.ran)
+          Text(run.words, key: const Key('setup-bootstrap-answer')),
         if (root != null) Text(root.words, key: const Key('setup-root-answer')),
       ],
     );

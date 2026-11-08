@@ -9,6 +9,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- *Set up a machine* offers *Run it for me* for the bootstrap line: on your press it runs the line on the server as the first login, trusting only the SSH host key you compared, and tries root's login right after; where sudo wants your password it says so, and the terminal stays the way.
 - *Open its forge* on an organization's machine row and its machine page opens the host's forge in your browser while connected, and says why it is unavailable otherwise.
 - *Put it on a machine…* offers the whole project, chosen to begin with, or some of its repositories; a repository already on a machine is named with it and not offered. A machine's page lists the repositories it carries of a project carried in part, each with *Take it off this machine…*, whose question says the machine deletes its read key for it and takes that key off the central forge. Needs a porelo whose `org host carry` takes `--repository`.
 - A project's own page offers *Put it on a machine…* and *Take it off the machine…* to whoever administers the machine, with the same dialog, words and follow afterwards as its row on *Organization*.
@@ -33,7 +34,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Each machine’s Tasks, Projects, Vault, Credentials, Agents & providers, Health, and management open as pages from its side bar, keeping their data and actions on that machine, with the vault's contents in view and action results on the same page.
 - A machine's Tasks page names its path and title; leaf paths start right under the title bar with even spacing, long state chips end in an ellipsis, filters show their whole hint where there is room, counts of one read in the singular, and the side bar's entries start right of their parents' names, one row height each.
 - The side bar folds into machines and organizations with facts and actions on their parent pages, stays beside the page on tablets, keeps a stop for every machine in the title bar, retains machine actions and page explanations, and keeps machine setup and organization return paths on the right page.
-
+- A refused organization change says when this computer's Porelo-Vault is shut, which Porelo reads your forge token from, and offers *Open this computer's Porelo-Vault* beside the refusal.
+- *Give it my … token* while a project is put on a machine gives the token this computer's Porelo-Vault declares in one press; only where it declares none does the token's page open.
+- *Start work* says how long each mode runs: a shell driven by hand has no time limit; an unattended run asks *Minutes it may run*, 30 unless you change it, and a run still going then is ended, keeping what it made.
 - Setting up a server as a machine is a wizard of one question per page, each page opening only once its answer holds: the machine, the server's address answering SSH, its SSH host key fetched when you ask and compared on the server, an address your `known_hosts` holds with another key said so, root's login handed over in a terminal on the server until root answers with your card key, and the check. Its last page, also behind *Give it your token…*, names each source of a forge token with what it answered.
 - Putting some of a project's repositories on a machine lists full names and project keys with searchable checkboxes. *All* and *None* affect the visible choices; repositories carried elsewhere stay listed with their machine and cannot be selected.
 - Forwarding a waiting push names its destination and prefills the task's forge branch or its last confirmed forward, kept separately for each machine, project, repository and task.
@@ -143,9 +146,11 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Fixed
 
 - Machine sections keep actions, vault reads, and overlays on their named machine when the current selection changes, release forgotten-machine observations, and safely cancel reads after a page closes.
-
 - Machine navigation keeps connection and setup recovery actions, organization host management and card creation reachable, restores only valid saved places, and keeps tools and unread counts tied to the machine shown.
-
+- *Take Porelo off this machine…* removes the machine from the organization's list once it is confirmed down, as its question says; where the organization refuses, the dialog says so and the row keeps *Remove the machine…*.
+- *Set up a machine* is one dialog again, not a card floating in a larger empty frame.
+- A machine's row stops saying it waits for a first token once the machine took the token, without *Refresh*.
+- The fetch line on a gate review, for a machine reached through this window's own ssh config, carries that config (`GIT_SSH_COMMAND='ssh -F …'`), so it runs as shown in your own shell; a forward says the branch the machine confirmed, and its pull request where one was opened.
 - The token a machine declares for the organization's repository is found again when Porelo answers its address as `host:path` without a user, as it now does.
 - *Give it my token…* on a machine's page offers the token this machine's vault declares for the Porelo organization's forge, named by its declaration, and has Porelo hand it to the machine; the window never reads it. *Give another…* keeps the other ways. Needs a porelo with `org host refresh`.
 - A project file naming each repository's forge as `central:` is read so, and one still naming `upstream:` as before.

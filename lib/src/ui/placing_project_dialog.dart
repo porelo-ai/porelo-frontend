@@ -6,6 +6,10 @@ import '../app/host_progress.dart';
 import '../app/organization_source.dart';
 import 'organization_token_words.dart';
 
+/// Gives [host] the person's forge token, answering the words to show, or null once given. [atOnce] gives the entry this
+/// computer's Porelo-Vault declares straight away, where it declares one, and opens the token's page otherwise.
+typedef GiveHostToken = Future<String?> Function(String host, {bool atOnce});
+
 /// Follows a project just put on [host] until it is carried, or says why not: the connection, the
 /// token where it waits for one, and the machine's own fetch, in one place.
 class PlacingProjectDialog extends StatefulWidget {
@@ -34,7 +38,7 @@ class PlacingProjectDialog extends StatefulWidget {
   final HostConnections connections;
 
   /// Gives the machine the person's token; answers the words to show, if any. None: not offered.
-  final Future<String?> Function(String host)? onGiveToken;
+  final GiveHostToken? onGiveToken;
 
   /// How often the machine is asked: a login each time, so not often, or sshd counts a refused one.
   final Duration every;
@@ -147,7 +151,7 @@ class _PlacingProjectDialogState extends State<PlacingProjectDialog> {
     });
     String? words;
     try {
-      words = await widget.onGiveToken?.call(widget.host);
+      words = await widget.onGiveToken?.call(widget.host, atOnce: true);
     } on Exception {
       // Its own words are not said here: they are no one's to read for what a token may have been.
       words = 'The token was not given. Close this and give it from the machine\'s page.';

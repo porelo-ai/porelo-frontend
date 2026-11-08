@@ -472,6 +472,14 @@ class HostRuns extends ChangeNotifier {
     return left;
   }
 
+  /// Drops what was said of [project]'s card still naming it, once the organization removed it.
+  void forgetLeftBehind(String project) {
+    final run = _runs[project];
+    if (run == null || run.problem == null) return;
+    run.problem = null;
+    _changed();
+  }
+
   void _listen(HostPreparation run) {
     run._lastProtocol = jsonEncode([for (final entry in run.session.keptProtocol) entry.stored]);
     void changed() {

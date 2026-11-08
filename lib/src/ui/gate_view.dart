@@ -5,6 +5,7 @@ import 'package:porelo_frontend/client.dart';
 import '../app/diff.dart';
 import '../app/forge_connection.dart' show hostOf;
 import '../app/gate.dart';
+import '../app/machines.dart' show Machine;
 import 'panes.dart';
 import 'refused_key.dart';
 import 'selection_list.dart';
@@ -120,6 +121,15 @@ class _WaitingRow extends StatelessWidget {
   );
 }
 
+/// The ssh config a waiting push's fetch line carries for [machine], or null where it carries none: only a machine
+/// this window reaches through its card's own config, whose `Host` is the very name the line logs in to, and never on
+/// Windows, whose fetch line stays as the machine named it.
+String? reviewFetchConfig(Machine machine, {required bool windows}) {
+  final card = machine.hostCard;
+  if (windows || !machine.needsATunnel || card == null || machine.host != card.name) return null;
+  return machine.sshConfig.isEmpty ? null : machine.sshConfig;
+}
+
 /// The `git fetch` that brings a waiting push into the person's own clone, to read in their IDE:
 /// copied, never run here, and said to be the agent's, not reviewed.
 class _OwnClone extends StatefulWidget {
@@ -188,6 +198,7 @@ class ReviewView extends StatelessWidget {
     required this.onApprove,
     required this.onReject,
     this.login,
+    this.sshConfig,
     this.machine = '',
     this.onRefreshKeys,
     this.onTryKey,
@@ -218,6 +229,9 @@ class ReviewView extends StatelessWidget {
   /// How this computer reaches the machine over ssh (`user@host`, or a `Host` of its own), put in
   /// the fetch in place of the name the machine gives itself; null where it is reached otherwise.
   final String? login;
+
+  /// The SSH config used by this window on a POSIX desktop, when one applies.
+  final String? sshConfig;
 
   /// What is being looked at.
   final Gate gate;
@@ -256,7 +270,7 @@ class ReviewView extends StatelessWidget {
                   children: gate.ranked.isEmpty
                       ? <Widget>[
                           ..._refusedKey(),
-                          if (push.fetch.isNotEmpty) _OwnClone(fetch: push.fetchFrom(login)),
+                          if (push.fetch.isNotEmpty) _OwnClone(fetch: push.fetchFrom(login, sshConfig: sshConfig)),
                           for (final file in files) _File(file: file),
                           if (files.isEmpty)
                             const Padding(
@@ -266,7 +280,7 @@ class ReviewView extends StatelessWidget {
                         ]
                       : <Widget>[
                           ..._refusedKey(),
-                          if (push.fetch.isNotEmpty) _OwnClone(fetch: push.fetchFrom(login)),
+                          if (push.fetch.isNotEmpty) _OwnClone(fetch: push.fetchFrom(login, sshConfig: sshConfig)),
                           ..._ranked(context, gate, files, onWithoutLineEndings),
                         ],
                 ),

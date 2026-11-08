@@ -83,7 +83,13 @@ class _Wedged implements FleetBackend {
   }) async => (diff: '', log: '', files: const <ReviewFile>[], asked: null);
 
   @override
-  Future<void> approve(String projectFile, String name, String branch, {String? repository, String? commit}) async {}
+  Future<ForwardedPush> approve(
+    String projectFile,
+    String name,
+    String branch, {
+    String? repository,
+    String? commit,
+  }) async => ForwardedPush(forwarded: name, branch: branch);
 
   @override
   Future<TriedPush> credentialTryPush(
@@ -484,7 +490,13 @@ class _Machine implements FleetBackend {
   }) async => (diff: '', log: '', files: const <ReviewFile>[], asked: null);
 
   @override
-  Future<void> approve(String projectFile, String name, String branch, {String? repository, String? commit}) async {}
+  Future<ForwardedPush> approve(
+    String projectFile,
+    String name,
+    String branch, {
+    String? repository,
+    String? commit,
+  }) async => ForwardedPush(forwarded: name, branch: branch);
 
   @override
   Future<TriedPush> credentialTryPush(

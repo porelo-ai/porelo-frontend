@@ -41,6 +41,7 @@ class MachinesPage extends StatelessWidget {
     this.openTerminal,
     this.prepareServer,
     this.readHostProgress,
+    this.removeFromOrganization,
     super.key,
   });
 
@@ -73,6 +74,9 @@ class MachinesPage extends StatelessWidget {
 
   /// The function that reads a connected host's organization status before giving it back.
   final Future<HostProgress> Function(String host)? readHostProgress;
+
+  /// Takes a machine confirmed down off the organization's list; answers a refusal's words, or null.
+  final Future<String?> Function(String host)? removeFromOrganization;
 
   @override
   Widget build(BuildContext context) {
@@ -124,6 +128,7 @@ class MachinesPage extends StatelessWidget {
                         hostRuns: hostRuns,
                         readHostProgress: readHostProgress,
                         openTerminal: openTerminal,
+                        removeFromOrganization: removeFromOrganization,
                       ),
                     ),
                   ),
