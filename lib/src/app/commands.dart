@@ -831,13 +831,23 @@ Command removeMessageMemberCommand(
 );
 
 /// Lets a named person join the room after an explicit request.
-Command joinMessagesCommand({required String person, required bool busy, required VoidCallback run}) => Command(
+Command joinMessagesCommand({
+  required String person,
+  required bool busy,
+  required VoidCallback run,
+  bool nobodyAdmitted = false,
+  bool choosing = false,
+}) => Command(
   id: 'join-it',
   label: 'Join',
   group: 'Messages',
   home: Home.messagesDialog,
   unavailable: busy
       ? 'the machine is still answering'
+      : nobodyAdmitted
+      ? 'the room admits nobody yet'
+      : person.trim().isEmpty && choosing
+      ? 'choose whom to join as'
       : person.trim().isEmpty
       ? 'enter your name in the chat'
       : null,

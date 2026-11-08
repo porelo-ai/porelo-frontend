@@ -53,6 +53,7 @@ import '../app/narrowing.dart';
 import '../app/newer_version.dart';
 import '../app/operations.dart';
 import '../app/connections.dart';
+import '../app/conversation.dart';
 import '../app/vault_unlock.dart';
 import '../app/project_deletion.dart';
 import '../app/hand_in.dart';
@@ -1378,6 +1379,15 @@ class _ShellState extends State<Shell> {
       project: project.project,
       forwards: _homeservers,
       settings: widget.settings,
+      // The organization's project admits only its own logins to its room, as the machine refuses any other.
+      admission: () => roomAdmission(
+        project.name,
+        machine: widget.machines.current,
+        organizationRead: _organization == null || _organization.noOrganization || _organization.view != null,
+        view: _organization?.view,
+        problem: _organization?.problem,
+      ),
+      admissionChanges: _organization,
     );
   }
 

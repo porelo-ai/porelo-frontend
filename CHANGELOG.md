@@ -27,6 +27,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Joining a project's room on a host running its own homeserver sends you to Element instead of a join the host would refuse: where Element is installed here, *Open Element signed in to this host* starts it with the host's homeserver set and its SSO sign-in first, by default as a separate instance with its own profile for that host; otherwise *Install Element* and the way by hand, with the homeserver to copy. Elsewhere, the room of an organization's project on a host carrying it offers only the logins it admits to join as, and says where the organization is not read yet or could not be read; Element that cannot be started says why.
 - Leaf pages distinguish unread lists from empty ones, keep their names on phones, retain a back link to the list they came from, and show the state actually read beside each item without adding controls to read-only rows.
 - *Work* and *Needs you* keep their totals consistent with the side bar through filtering, unread machines, refused connections and lost contact, and count waiting notices even before a work list arrives.
 - *Work* and *Needs you* use the leaf page head and state chips, with *New work* above the List/Running switch and a Needs you total matching its badge above separate group cards; Running keeps room for its terminal on phones and tablets and across view changes, with filtering and sorting in List only.

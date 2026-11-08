@@ -7,6 +7,7 @@ import 'fleet_backend.dart';
 import 'homeserver_forwards.dart';
 import 'login_forward.dart';
 import 'machines.dart';
+import 'organization_source.dart';
 import 'settings.dart';
 
 /// A project's conversation as a person sees it: where it is, who has joined, and joining it.
@@ -15,11 +16,32 @@ import 'settings.dart';
 /// goes with it. The machine keeps no copy either, so a second look is a new password (reset).
 class ProjectConversation extends ChangeNotifier {
   /// Constructor taking the machine, where it is reached, and the project.
-  ProjectConversation(this._backend, this.machine, this.project, {required Settings settings, this._forwards})
-    : _settings = settings,
-      _person = settings.messagePerson(machine.name, project.name) {
+  ProjectConversation(
+    this._backend,
+    this.machine,
+    this.project, {
+    required Settings settings,
+    this._forwards,
+    this._admission,
+    this._admissionChanges,
+  }) : _settings = settings,
+       _person = settings.messagePerson(machine.name, project.name) {
     _forwards?.addListener(_forwardsChanged);
+    _admissionChanges?.addListener(_notify);
   }
+
+  final RoomAdmission Function()? _admission;
+  final Listenable? _admissionChanges;
+
+  /// Whom the room takes, as the organization says now: any name where the project is the machine's own.
+  RoomAdmission get admission => _admission?.call() ?? const AnyName();
+
+  /// The homeserver a person's Element signs in to where [machine] is a host running its own: there it manages
+  /// its people itself, so a person signs in with SSO and is never let in by a join here. Null elsewhere.
+  String? get hostHomeserver => machine.hostCard?.matrixUrl;
+
+  /// The login a person signs in as at the host's homeserver: the one the host admitted here.
+  String? get hostLogin => machine.hostCard?.login;
 
   /// Where a joined homeserver is held forwarded while the window runs; without it, only while this
   /// is open.
@@ -246,6 +268,7 @@ class ProjectConversation extends ChangeNotifier {
     _gone = true;
     // The login goes with the dialog: nothing of it is kept.
     _forwards?.removeListener(_forwardsChanged);
+    _admissionChanges?.removeListener(_notify);
     _joined = null;
     _pendingJoin = null;
     _pendingPerson = null;
@@ -254,4 +277,84 @@ class ProjectConversation extends ChangeNotifier {
     unawaited(held?.close());
     super.dispose();
   }
+}
+
+/// Whom a project's room takes, as the window knows it.
+sealed class RoomAdmission {
+  const RoomAdmission();
+}
+
+/// Any name: the project is the machine's own, not one of the organization's.
+class AnyName extends RoomAdmission {
+  /// The one answer.
+  const AnyName();
+}
+
+/// Only these logins: those holding a current card in the organization's project.
+class AdmittedLogins extends RoomAdmission {
+  /// Constructor taking the logins, the asking person's own first where they are one.
+  const AdmittedLogins(this.logins, {this.yours});
+
+  /// The logins the room admits; empty where it admits nobody yet.
+  final List<String> logins;
+
+  /// The asking person's own login, where it is one of [logins].
+  final String? yours;
+}
+
+/// The organization is not read, so whom the room admits cannot be said: not yet, or with [problem] where its read
+/// failed.
+class AdmissionUnread extends RoomAdmission {
+  /// Constructor taking why the read failed, or nothing while it is still to come.
+  const AdmissionUnread({this.problem});
+
+  /// Why the organization could not be read, in its own words; null while it is not read yet.
+  final String? problem;
+}
+
+/// Whom [project]'s room on [machine] admits: where [machine] is a host the organization has carry its project of
+/// that name, the logins of its admins and members whose card holds its roles and has not run out by [today]; any
+/// name for a project of the machine's own, a same-named one included, or where there is no organization.
+/// [organizationRead] false says the organization is there but not read, [problem] why where its read failed.
+///
+/// The machine admits only the logins with a key current today that the last start placed there. The window reads
+/// neither those keys nor whether a member is locked, as the organization's view names no lock: a login offered here
+/// can still be refused by the machine, which then says so.
+RoomAdmission roomAdmission(
+  String project, {
+  required Machine machine,
+  required bool organizationRead,
+  OrganizationView? view,
+  String? problem,
+  DateTime? today,
+}) {
+  if (!organizationRead) return AdmissionUnread(problem: problem);
+  final listed = view?.projects.where((each) => each.name == project).firstOrNull;
+  final card = machine.hostCard;
+  if (view == null || listed == null || card == null) return const AnyName();
+  final host = view.hosts.where((each) => each.name == card.name).firstOrNull;
+  final carried =
+      listed.host == card.name ||
+      (host != null && (host.projects.contains(project) || host.repositories.containsKey(project)));
+  if (!carried) return const AnyName();
+  final now = (today ?? DateTime.now()).toUtc();
+  final day = DateTime.utc(now.year, now.month, now.day);
+  bool current(OrganizationPerson person) {
+    final until = DateTime.tryParse(person.expires ?? '');
+    return until == null || !DateTime.utc(until.year, until.month, until.day).isBefore(day);
+  }
+
+  bool holds(String login) => view.persons.any(
+    (person) =>
+        person.login == login &&
+        (person.standing == CardStanding.trusted || person.standing == CardStanding.notYet) &&
+        current(person),
+  );
+  final logins = <String>{
+    for (final login in <String>[...listed.admins, ...listed.members])
+      if (holds(login)) login,
+  }.toList();
+  final yours = logins.remove(view.me);
+  if (yours) logins.insert(0, view.me);
+  return AdmittedLogins(List<String>.unmodifiable(logins), yours: yours ? view.me : null);
 }

@@ -1,6 +1,6 @@
 # F442 — Joining A Host's Room Through Element
 
-**Status:** Implementing.
+**Status:** Review.
 
 **What must be true.** On a host whose homeserver manages its people itself, joining the project's room sends the
 person to Element signed in to that host, never into a join that can only be refused; elsewhere the join offers only
@@ -27,3 +27,22 @@ findings, before and after* (pair 17/18).
 ## Size
 
 S: S the host's blocks and the Element start, XS the admitted logins.
+
+## How it stands
+
+- Built on its branch: on a host with its own homeserver the dialog shows the Element block (installed: open it
+  signed in, separate instance checked by default; not installed: *Install Element* and the way by hand) and who is
+  already in the room, with no name field and no join; elsewhere an organization's project offers a choice of its
+  admitted logins, the asking person's own first, says when the organization is not read yet, and offers no join where
+  it admits nobody.
+- Element is started with `--config` naming a file of the window's own that sets the homeserver and SSO on the welcome
+  page, `--profile <host>` for the separate instance, and an `element://` address with `hs_url` for an Element already
+  open. Whether `hs_url` and the SSO redirect take effect in Element is not confirmed against its source; to be seen
+  on the next move. A Flatpak or Snap Element may not see the config file outside its sandbox.
+- The admitted logins apply only where a host of the organization carries its project of that name; a same-named
+  project elsewhere keeps the free field. A card run out is not offered; the organization's view names no lock, so a
+  locked member can still be offered and is then refused by the machine. A failed read of the organization says so
+  with its reason.
+- Matrix (room, 19:55Z) confirms the card's `http://<host>.localhost:<port>/` works for the gate's SSO (it checks the
+  Host header; host names are lower case by the card's own rule). Element is given one address per profile, never
+  also `127.0.0.1`.

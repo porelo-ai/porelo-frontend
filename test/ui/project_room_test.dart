@@ -8,9 +8,12 @@ import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/organization_source.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
 import 'package:porelo_frontend/src/ui/project_details_page.dart';
+import 'package:porelo_host/porelo_host.dart';
 
 import '../features/support/world.dart';
 import '../support/organization_fixtures.dart';
+
+const _key = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
 
 Project _project(String room) => Project.from({
   'name': 'checkout',
@@ -150,6 +153,58 @@ void main() {
       expect(backend.membersOf['checkout']!.single.person, 'robin');
       await World.tapInView(tester, 'messages-close');
     }
+  });
+
+  // Harm: a room of the organization's project refuses any name but its admitted logins.
+  testWidgets('the project menu offers the logins the organization admits to its room', (tester) async {
+    await World.startBackend(World.work);
+    World.backend.theProjectsItHas = [
+      Project.from({
+        'name': 'demo',
+        'file': '/srv/demo/project.yml',
+        'messages': {
+          'transport': 'matrix',
+          'conversation': '!demo:localhost',
+          'reaches': ['127.0.0.1:8008'],
+          'ready': true,
+        },
+      }),
+    ];
+    await World.startApp(tester, organizationSource: FixtureOrganization(organizationFor('mia')));
+    await World.settle(tester);
+    // The organization's list applies where its host carries the project, not to a same-named one elsewhere.
+    final build = Machine.fromHostCard(
+      HostCardSsh(
+        name: 'build',
+        address: '203.0.113.7',
+        sshPort: 22,
+        hostKey: _key,
+        login: 'mia',
+        publicKey: _key,
+        webPort: 8081,
+        gitPort: 8082,
+      ),
+      socketPath: '/unused',
+    );
+    await World.machines.add(build);
+    await World.settle(tester);
+    World.machines.select(World.machines.all.firstWhere((each) => each.name == 'build'));
+    await World.settle(tester);
+    World.fleet.selectProject('demo');
+    World.shell.goTo(Section.project);
+    await World.settle(tester);
+    await World.tapInView(tester, 'project-menu');
+    await World.tapInView(tester, 'project.messages');
+    expect(find.byKey(const Key('join-person')), findsNothing);
+    expect(find.byKey(const Key('join-login')), findsOneWidget);
+    // The join itself is the dialog's own test: here, that the shell hands it the organization's list.
+    expect(
+      tester.widget<DropdownButtonFormField<String>>(find.byKey(const Key('join-login'))).initialValue,
+      'mia',
+      reason: 'the person’s own login first',
+    );
+    expect(tester.widget<FilledButton>(find.byKey(const Key('join-it'))).onPressed, isNotNull);
+    await World.tapInView(tester, 'messages-close');
   });
 
   // Harm: an account password in an opened URL leaks into browser history and the web service.
