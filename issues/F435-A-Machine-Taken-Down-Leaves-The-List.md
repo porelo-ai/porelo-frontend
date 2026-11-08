@@ -1,6 +1,6 @@
 # F435 — A Machine Taken Down Leaves The List
 
-**Status:** Backlog.
+**Status:** Review.
 **Size:** S - after a confirmed take-down the window asks the organization to remove the machine, as its question
 promised, and a refusal stands in the take-down's protocol.
 
