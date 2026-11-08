@@ -126,6 +126,9 @@ class FakeBackend implements FleetBackend {
   /// Whether each launch asked to be answered once its task exists, rather than after its build.
   final List<bool?> startedNow = <bool?>[];
 
+  /// The time limit each start was given, absent for a session.
+  final List<int?> startedMinutes = <int?>[];
+
   /// The branch each start named as a checkout's, null where it named none.
   final List<String?> startedFrom = <String?>[];
 
@@ -378,6 +381,7 @@ class FakeBackend implements FleetBackend {
     if (project != null) mustBeAProject(project);
     launched.add(dryRun);
     startedNow.add(now);
+    startedMinutes.add(minutes);
     startedFrom.add(from);
     starts.add((task: task, project: project, agent: agent, mode: mode, prompt: prompt, repository: repository));
     startedWith.add(credentials ?? const <String, String>{});

@@ -97,6 +97,8 @@ class StartWorkDialog extends StatefulWidget {
 class _StartWorkDialogState extends State<StartWorkDialog> {
   late final TextEditingController _prompt = TextEditingController(text: widget.starting.prompt);
 
+  late final TextEditingController _minutes = TextEditingController(text: widget.starting.minutesText);
+
   late final TextEditingController _name = TextEditingController(text: widget.starting.name);
 
   bool _changingRepository = false;
@@ -115,6 +117,7 @@ class _StartWorkDialogState extends State<StartWorkDialog> {
   @override
   void dispose() {
     _prompt.dispose();
+    _minutes.dispose();
     _name.dispose();
     super.dispose();
   }
@@ -290,6 +293,19 @@ class _StartWorkDialogState extends State<StartWorkDialog> {
                       helperText: 'It runs on its own until this is done or its time is up.',
                     ),
                     onChanged: starting.ask,
+                  ),
+                  const SizedBox(height: Space.normal),
+                  TextField(
+                    key: const Key('start-minutes'),
+                    controller: _minutes,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: 'Minutes it may run',
+                      border: const OutlineInputBorder(),
+                      helperText: 'Choose how long it may run: a whole number, 1 or more.',
+                      errorText: starting.minutesProblem,
+                    ),
+                    onChanged: starting.allowMinutes,
                   ),
                 ],
 
@@ -609,20 +625,22 @@ class _WhichMode extends StatelessWidget {
         id: 'start-mode-agent',
         means:
             'A terminal in the container with the agent already started in it. Leaving the '
-            'agent (/exit) leaves you in the shell.',
+            'agent (/exit) leaves you in the shell. No time limit: it runs until it is stopped.',
       ),
       const Choice(
         Mode.unattended,
         'Unattended, against a prompt',
         id: 'start-mode-unattended',
-        means: 'It runs on its own. Nobody is expected to be watching.',
+        means: 'It runs on its own for the minutes below, then is stopped and what it made is kept.',
       ),
       if (starting.mode == Mode.shell)
         const Choice(
           Mode.shell,
           'A bare shell, without the agent',
           id: 'start-mode-shell',
-          means: 'A terminal in the container. The agent does not start: nothing runs until you run it.',
+          means:
+              'A terminal in the container. The agent does not start: nothing runs until you run it. '
+              'No time limit: it runs until it is stopped.',
         ),
     ],
   );
