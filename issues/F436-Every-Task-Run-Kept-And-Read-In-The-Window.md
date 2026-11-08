@@ -23,11 +23,29 @@ Porelo saying by whom, and its logs went with it.
 - **A row opens the task's timeline:** its lifecycle entries in order, each with when and who; the run's numbers
   readable (exit, duration, CPU, memory peak, network, provider requests and their cost, blocked connections,
   hand-ins).
-- **Each log by a click:** a live tail while the task runs, the archive afterwards; a removed task's logs open the same
-  way.
+- **One log, read as views of one stream (the operator's word, 2026-11-08):** the backend makes every process it starts
+  write records with the same fields (time, level, component, project, task, run, event, message, data) into one
+  stream; the window reads that stream, never file names. A task's log is the stream filtered to its run, with filters
+  by component (gate, vault proxy, resolver, clearance, hooks, reader, the agent's output, porelod) and by level; live
+  while the task runs, from the run's archive afterwards, a removed task's the same way. A machine's own page offers the
+  same view without a task, for porelod and porelo-mcp.
+- **Over the machine's connection:** a host's stream is read through the tunnel the window already holds, like the
+  rest of that machine; the window needs no collector of its own.
 - **A mark for the chain:** the record's hash-chain check is shown, and a gap (a file deleted by hand) is named.
 
+## Size
+
+L, in parts: the history view and the timeline (M), the stream's view with its filters, live and archived (M). Built
+only on the backend's reading; the size holds if that reading gives:
+- the lifecycle entries and the stream's records by filter (project, task, run, component, level, since), in pages,
+  with a cursor, so a long run is read in parts and a reconnect resumes without gaps or doubles;
+- a follow that sends new records as they come, ended when the run ends;
+- records already free of secrets at their source: the window shows `data` as it comes and cannot redact.
+
 ## Open
+
+- Whether the choice to export to an organization's collector (off by default, what is sent being the person's) is set
+  in the window, on the machine's page, or only by the CLI; if in the window, a part of its own.
 
 - Where the view sits in the side bar's tree ([F429](README.md#f429)): under Work, or beside it.
 - How the window says a removed task's archive was itself removed, which is its own lifecycle entry.
