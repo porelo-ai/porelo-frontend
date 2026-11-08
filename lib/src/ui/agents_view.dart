@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:porelo_frontend/client.dart';
 
 import '../app/agent_inventory.dart';
+import '../app/commands.dart';
 import 'panes.dart';
 import 'tokens.dart';
 
@@ -13,13 +14,16 @@ import 'tokens.dart';
 /// unusable, and what is installed and permanently hidden by another copy.
 class AgentsView extends StatelessWidget {
   /// Constructor taking the inventory and how to close it.
-  const AgentsView({required this.inventory, required this.onClose, super.key});
+  const AgentsView({required this.inventory, required this.onClose, this.providers, super.key});
 
   /// What the machine answered.
   final AgentInventory inventory;
 
   /// Closes the view.
   final VoidCallback onClose;
+
+  /// The existing provider command on this same machine.
+  final Command? providers;
 
   @override
   Widget build(BuildContext context) {
@@ -29,6 +33,15 @@ class AgentsView extends StatelessWidget {
           title: 'Agents installed here',
           trailing: IconButton(icon: const Icon(Icons.close), tooltip: 'Close (Esc)', onPressed: onClose),
         ),
+        if (providers case final command?)
+          Padding(
+            padding: const EdgeInsets.all(Space.small),
+            child: OutlinedButton(
+              key: Key(command.id),
+              onPressed: command.available ? command.run : null,
+              child: Text(command.unavailable == null ? command.label : '${command.label} — ${command.unavailable}'),
+            ),
+          ),
         if (inventory.problem != null)
           Container(
             width: double.infinity,

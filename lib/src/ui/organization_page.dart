@@ -55,6 +55,23 @@ List<Command> organizationAddressCommands(BuildContext context, Organization? or
     ),
 ];
 
+/// Opens the existing card dialog before an organization has been chosen.
+Command makeMyCardCommand(BuildContext context, Organization? organization) => Command(
+  id: 'makeCard',
+  label: 'Make my card…',
+  group: 'Organization',
+  home: Home.organizationRow,
+  unavailable: organization == null
+      ? 'No organization source is available on this computer.'
+      : organization.busy
+      ? 'Another change is still being asked for.'
+      : null,
+  run: () {
+    if (organization == null || organization.busy) return;
+    unawaited(showDialog<void>(context: context, builder: (_) => _KeyDialog(organization, adding: true)));
+  },
+);
+
 /// The organization: who manages it, its people, its projects and its machines. Everyone reads all of it; a row's actions stand
 /// behind its ⋮, for the person whose role they belong to.
 class OrganizationPage extends StatefulWidget {

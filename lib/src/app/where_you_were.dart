@@ -13,7 +13,7 @@ class WhereYouWere {
   /// Constructor taking where it is kept and what it is about.
   WhereYouWere(this._settings, this._machines, this._shell) {
     _savedNavigation = Map.of(_settings.shellNavigation);
-    _restored = _savedNavigation.isEmpty;
+    _restored = false;
     _shell.initializeNavigation(_machines.current);
     _machines.addListener(_remember);
     _shell.addListener(_remember);
@@ -34,7 +34,6 @@ class WhereYouWere {
   /// decided honestly.
   Future<void> restore() async {
     final place = await _settings.whereYouWere();
-    _shell.restoreNavigation(_savedNavigation, _machines.all, _machines.current);
 
     final machine = place['machine'];
     if (machine != null) {
@@ -42,6 +41,8 @@ class WhereYouWere {
         if (each.name == machine) _machines.select(each);
       }
     }
+
+    _shell.restoreNavigation(_savedNavigation, _machines.all, _machines.current);
 
     final destination = _shell.place.machine;
     if (destination != null) _machines.select(destination);

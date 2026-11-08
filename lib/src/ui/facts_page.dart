@@ -23,6 +23,7 @@ class FactsPage extends StatelessWidget {
     this.warnings = const [],
     this.menuCommands = const [],
     this.busy = false,
+    this.embedded = false,
     this.primary,
     this.highlight,
     this.tools,
@@ -56,6 +57,9 @@ class FactsPage extends StatelessWidget {
 
   /// Whether fresh observations are being read.
   final bool busy;
+
+  /// Shares the existing host page's scroll when its management is shown alongside these facts.
+  final bool embedded;
 
   /// The action called for by the state.
   final String? primary;
@@ -132,6 +136,9 @@ class FactsPage extends StatelessWidget {
     ];
     return ListView(
       key: const Key('facts-page'),
+      shrinkWrap: embedded,
+      primary: embedded ? false : null,
+      physics: embedded ? const NeverScrollableScrollPhysics() : null,
       padding: const EdgeInsets.all(Space.normal),
       children: [
         if (path.isNotEmpty)

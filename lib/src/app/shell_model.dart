@@ -276,28 +276,75 @@ class ShellModel extends ChangeNotifier {
 
   /// Restores checked navigation data, opening the first machine on a first start.
   void restoreNavigation(Map<String, Object?> saved, List<Machine> machines, Machine current) {
-    if (_navigationInitialized) return;
-    _navigationInitialized = true;
-    final folds = saved['folded'];
-    _foldedOpen.clear();
-    _foldedOpen.addAll(folds is List ? folds.whereType<String>() : ['machines', ShellPlace.machineKey(current.name)]);
-    final section = Section.values.where((value) => value.name == saved['section']).firstOrNull;
-    final machine = machines.where((value) => value.name == saved['machine']).firstOrNull;
-    final machineSection = MachineSection.values.where((value) => value.name == saved['machineSection']).firstOrNull;
-    final organizationSection = OrganizationSection.values
-        .where((value) => value.name == saved['organizationSection'])
-        .firstOrNull;
-    if (section == null || section == Section.machine && machine == null) return;
-    _section = section;
-    _place = ShellPlace(
-      section,
-      machine: machine,
-      machineSection: machine == null ? null : machineSection,
-      organization: saved['organization'] is String ? saved['organization'] as String : null,
-      organizationSection: organizationSection,
-    );
-    itemMachine = machine;
-    notifyListeners();
+    try {
+      if (_navigationInitialized) return;
+      _navigationInitialized = true;
+      _foldedOpen
+        ..clear()
+        ..addAll(['machines', ShellPlace.machineKey(current.name)]);
+      final section = Section.values.where((value) => value.name == saved['section']).firstOrNull;
+      final machine = machines.where((value) => value.name == saved['machine']).firstOrNull;
+      final machineSection = MachineSection.values.where((value) => value.name == saved['machineSection']).firstOrNull;
+      final organizationSection = OrganizationSection.values
+          .where((value) => value.name == saved['organizationSection'])
+          .firstOrNull;
+      final organization = saved['organization'] is String ? saved['organization'] as String : null;
+      if (section == null ||
+          {Section.machine, Section.project}.contains(section) && machine == null ||
+          section == Section.organization && (organization == null || organization.isEmpty) ||
+          saved['organizationSection'] != null && (section != Section.organization || organizationSection == null) ||
+          saved['machineSection'] != null && (section != Section.machine || machineSection == null)) {
+        return;
+      }
+      _section = section;
+      _place = ShellPlace(
+        section,
+        machine: {Section.machine, Section.project}.contains(section) ? machine : null,
+        machineSection: section == Section.machine ? machineSection : null,
+        organization: section == Section.organization ? organization : null,
+        organizationSection: section == Section.organization ? organizationSection : null,
+      );
+      itemMachine = _place.machine;
+      final validFolds = {
+        'machines',
+        'organizations',
+        for (final each in machines) ShellPlace.machineKey(each.name),
+        if (_place.organization != null) ShellPlace.organizationKey(_place.organization!),
+      };
+      if (saved['folded'] case final List<Object?> folds) {
+        _foldedOpen
+          ..clear()
+          ..addAll(folds.whereType<String>().where((key) => validFolds.contains(key) || _isOrganizationFold(key)));
+      }
+    } finally {
+      notifyListeners();
+    }
+  }
+
+  bool _isOrganizationFold(String key) {
+    if (!key.startsWith('organization ')) return false;
+    try {
+      final name = Uri.decodeComponent(key.substring('organization '.length));
+      return name.isNotEmpty && ShellPlace.organizationKey(name) == key;
+    } on FormatException {
+      return false;
+    }
+  }
+
+  /// Drops a destination whose organization has been confirmed absent or replaced.
+  void checkOrganization(String? loadedName) {
+    final staleFolds = _foldedOpen
+        .where(
+          (key) =>
+              key.startsWith('organization ') && (loadedName == null || key != ShellPlace.organizationKey(loadedName)),
+        )
+        .toList();
+    _foldedOpen.removeAll(staleFolds);
+    if (_place.section == Section.organization && (_place.organization == null || _place.organization != loadedName)) {
+      goTo(Section.organizations);
+    } else if (staleFolds.isNotEmpty) {
+      notifyListeners();
+    }
   }
 
   /// The public navigation state kept across a restart.
@@ -471,6 +518,17 @@ class ShellModel extends ChangeNotifier {
   void close() {
     if (!anythingOpen) return;
     _opened = const NothingOpened();
+    if (_place.section == Section.machine &&
+        _place.machine != null &&
+        {
+          MachineSection.vault,
+          MachineSection.credentials,
+          MachineSection.agents,
+          MachineSection.health,
+        }.contains(_place.machineSection)) {
+      openMachine(_place.machine!);
+      return;
+    }
     notifyListeners();
   }
 

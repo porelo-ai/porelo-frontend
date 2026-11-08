@@ -9,6 +9,9 @@ Future<void> iRemoveFromTheListOfMachines(WidgetTester tester, String machine) a
   await toTheMachinesPage(tester, machine);
   await tester.tap(find.byKey(const Key('machine-menu')));
   await World.settle(tester);
+  // The machine menu outgrows a short window; the item is scrolled to, as a person would.
+  await tester.ensureVisible(find.text('Forget this machine').last);
+  await World.settle(tester);
   await tester.tap(find.text('Forget this machine').last);
   await World.settle(tester);
   await tester.tap(find.byKey(const Key('forget-it')));

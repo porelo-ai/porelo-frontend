@@ -3163,6 +3163,7 @@ class World {
     addTearDown(() => machines.dispose());
     // After the machines exist: it is about where somebody is, and nobody is anywhere yet.
     whereYouWere = WhereYouWere(settings, machines, shell);
+    await whereYouWere.restore();
     addTearDown(whereYouWere.dispose);
     addTearDown(operations.dispose);
     addTearDown(logs.dispose);

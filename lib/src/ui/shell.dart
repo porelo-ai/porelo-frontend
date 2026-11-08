@@ -341,6 +341,8 @@ class _ShellState extends State<Shell> {
     widget.machines.resumeAutomaticRetries();
     widget.shell.initializeNavigation(widget.machines.current);
     widget.shell.addListener(_followTreeTool);
+    widget.shell.addListener(_checkOrganizationPlace);
+    _organization?.addListener(_checkOrganizationPlace);
     _observedMachine = widget.machines.current;
     widget.machines.addListener(_machineChanged);
     final source = widget.organizationSource;
@@ -416,6 +418,13 @@ class _ShellState extends State<Shell> {
     _observedMachine = machine;
     widget.readiness.forget();
     widget.connections.prepareFor(machine.name);
+  }
+
+  void _checkOrganizationPlace() {
+    final organization = _organization;
+    if (organization == null || organization.view != null || organization.noOrganization) {
+      widget.shell.checkOrganization(organization?.view?.name);
+    }
   }
 
   void _followTreeTool() {
@@ -553,11 +562,17 @@ class _ShellState extends State<Shell> {
           Home.startTile,
           Home.templateTile,
         }.contains(command.home) ||
-        command.id == 'project.default';
+        command.id == 'project.default' ||
+        command.id == 'detail.open' ||
+        command.id.startsWith('work.') ||
+        command.id.startsWith('vault.') ||
+        command.id.startsWith('machine.') ||
+        command.id.startsWith('agents.');
     if (scoped &&
         {Section.machine, Section.project}.contains(widget.shell.section) &&
         widget.shell.itemMachine != null &&
-        widget.shell.itemMachine != widget.machines.current) {
+        (_pageMachine(widget.shell.itemMachine!) != widget.machines.current ||
+            _hostRuns.preparing.any((run) => run.name == widget.shell.itemMachine!.name))) {
       return 'Open this machine again before running its commands.';
     }
     if (scoped &&
@@ -573,6 +588,7 @@ class _ShellState extends State<Shell> {
   List<Command> _unscopedCommands() => commandsFor(
     viewActions: [
       ..._viewActions(),
+      ..._organizationFactsCommands(),
       myKeyCommand(open: () => unawaited(showIdentity(context, model: widget.identity))),
     ],
     fleet: _fleet,
@@ -580,22 +596,7 @@ class _ShellState extends State<Shell> {
     hostRuns: _hostRuns,
     hostActions: [
       ..._hostCommands(widget.machines.current),
-      for (final run in _hostRuns.preparing)
-        ...hostRecoveryCommands(
-          run: run,
-          access: _hostRuns.hostAccess,
-          goOn: () => unawaited(_hostRuns.resume(run)),
-          takeDown: () => unawaited(
-            openHostTakeDownDialog(
-              context,
-              project: run.project,
-              machines: widget.machines,
-              settings: widget.settings,
-              hostRuns: _hostRuns,
-              readHostProgress: _readHostProgress,
-            ),
-          ),
-        ),
+      for (final run in _hostRuns.preparing) ..._preparationCommands(run),
     ],
     canForget: widget.machines.all.length > 1 && !widget.machines.current.isAlwaysListed,
     shell: widget.shell,
@@ -738,6 +739,17 @@ class _ShellState extends State<Shell> {
   List<Command> _hostCommands(Machine machine) {
     final run = _hostRuns.of(machine.hostProject);
     return [
+      if (widget.machines.all.contains(machine) && !machine.isAlwaysListed)
+        connectionCommand(
+          machine: machine,
+          run: () => unawaited(
+            machine.disconnected ? widget.machines.reconnect(machine) : widget.machines.disconnect(machine),
+          ),
+        ),
+      if (widget.machines.all.contains(machine) &&
+          machine.kind == 'host' &&
+          widget.settings.hostUp(machine.hostProject) != null)
+        runHostSetupAgainCommand(project: machine.hostProject, hostRuns: _hostRuns),
       if (run != null)
         hostProtocolCommand(project: run.project, open: () => unawaited(_openHostRun(run)), home: Home.machineMenu),
       ...hostMachineCommands(
@@ -748,6 +760,28 @@ class _ShellState extends State<Shell> {
       ),
     ];
   }
+
+  List<Command> _preparationCommands(HostPreparation run) => [
+    run.needsYou && !run.ready
+        ? hostPreparationCommand(project: run.project, open: () => unawaited(_openHostRun(run)), home: Home.machineRow)
+        : hostProtocolCommand(project: run.project, open: () => unawaited(_openHostRun(run))),
+    ...hostRecoveryCommands(
+      run: run,
+      access: _hostRuns.hostAccess,
+      goOn: () => unawaited(_hostRuns.resume(run)),
+      takeDown: () => unawaited(
+        openHostTakeDownDialog(
+          context,
+          project: run.project,
+          machines: widget.machines,
+          settings: widget.settings,
+          hostRuns: _hostRuns,
+          readHostProgress: _readHostProgress,
+          openTerminal: widget.sessions.openTerminal,
+        ),
+      ),
+    ),
+  ];
 
   Future<void> _takeDown(Machine machine) async {
     await openHostTakeDownDialog(
@@ -3161,10 +3195,28 @@ class _ShellState extends State<Shell> {
         return;
       }
       if (chosen.home == Home.organizationRow && _organization?.view != null) {
-        widget.shell.choosePlace(
-          ShellPlace(Section.organization, organization: _organization!.view!.name),
-          branch: true,
-        );
+        widget.shell.choosePlace(ShellPlace(Section.organization, organization: _organization!.view!.name));
+        if (!widget.shell.foldedOpen.contains(widget.shell.place.key)) {
+          widget.shell.toggleFold(widget.shell.place.key);
+        }
+        widget.shell.showOnItem(chosen.id);
+        return;
+      }
+      if (chosen.home == Home.machineRow) {
+        final run = _hostRuns.preparing
+            .where((run) => chosen.group == run.name || chosen.group == '${run.project} server')
+            .firstOrNull;
+        if (run != null) {
+          widget.shell.openMachine(Machine(name: run.name, socketPath: ''));
+          widget.shell.showOnItem(chosen.id);
+          return;
+        }
+        widget.shell.openMachine(widget.machines.current);
+        widget.shell.showOnItem(chosen.id);
+        return;
+      }
+      if (chosen.home == Home.organizationRow) {
+        widget.shell.choosePlace(const ShellPlace(Section.organizations));
         widget.shell.showOnItem(chosen.id);
         return;
       }
@@ -3292,7 +3344,8 @@ class _ShellState extends State<Shell> {
                                   : switch (widget.shell.place.machineSection) {
                                       null || MachineSection.managing => _machineFacts(),
                                       MachineSection.tasks => _workArea(onlyMachine: widget.shell.place.machine),
-                                      _ => _machineArea(),
+                                      MachineSection.projects => _machineArea(),
+                                      _ => _machineFacts(),
                                     },
                             ),
                           },
@@ -3399,6 +3452,12 @@ class _ShellState extends State<Shell> {
   );
 
   void _chooseTreePlace(ShellPlace place, bool branch) {
+    if (place.machineSection != null &&
+        place.machine != null &&
+        (!widget.machines.all.contains(place.machine) ||
+            _hostRuns.preparing.any((run) => run.name == place.machine!.name))) {
+      place = ShellPlace(Section.machine, machine: place.machine);
+    }
     final chosenAgain = widget.shell.place.key == place.key;
     if (!branch) _leaveDrawer();
     setState(() {
@@ -3487,7 +3546,25 @@ class _ShellState extends State<Shell> {
   }
 
   Widget _machineFacts() {
-    final machine = widget.shell.itemMachine ?? widget.machines.current;
+    final machine = _pageMachine(widget.shell.itemMachine ?? widget.machines.current);
+    final preparation = _hostRuns.preparing.where((run) => run.name == machine.name).firstOrNull;
+    if (preparation != null) {
+      final opened = _opened();
+      if (opened != null) return opened;
+      return FactsPage(
+        title: preparation.name,
+        highlight: widget.shell.highlight,
+        facts: [
+          (label: 'State', value: hostPreparationWords(preparation), known: true),
+          (
+            label: 'Setup',
+            value: preparation.problem ?? preparation.session.fix ?? preparation.session.stepText,
+            known: true,
+          ),
+        ],
+        commands: _preparationCommands(preparation),
+      );
+    }
     final watched = widget.machines.all.contains(machine);
     final fleet = watched ? widget.machines.of(machine) : null;
     final current = machine == widget.machines.current;
@@ -3516,6 +3593,7 @@ class _ShellState extends State<Shell> {
     final vault = widget.vault.about == machine.name ? widget.vault.state : null;
     final read = fleet?.listRead ?? false;
     final page = FactsPage(
+      embedded: machine.hostCard != null && _organization != null,
       title: machine.name,
       identity: Text('${machine.where}${machineKind(widget.machines, machine)}', key: const Key('machine-kind')),
       highlight: widget.shell.highlight,
@@ -3629,8 +3707,23 @@ class _ShellState extends State<Shell> {
             )
           : null,
     );
-    return withStatus(page);
+    return withStatus(
+      machine.hostCard != null && _organization != null ? _machineOnePage(machine.hostCard!.name, work: page) : page,
+    );
   }
+
+  List<Command> _organizationFactsCommands() => [
+    ...organizationAddressCommands(context, _organization),
+    if (_organization?.view == null) makeMyCardCommand(context, _organization),
+    if (_organization case final organization?)
+      Command(
+        id: 'organization.refresh',
+        label: 'Refresh',
+        group: 'Organization',
+        home: Home.organizationRow,
+        run: () => unawaited(organization.refresh()),
+      ),
+  ];
 
   Widget _organizationsFacts({bool one = false}) => ListenableBuilder(
     listenable: Listenable.merge([?_organization, ?widget.identity]),
@@ -3644,6 +3737,7 @@ class _ShellState extends State<Shell> {
       return FactsPage(
         title: title,
         settings: widget.settings,
+        highlight: widget.shell.highlight,
         explanationId: 'organization',
         explanation: const [
           (
@@ -3726,15 +3820,7 @@ class _ShellState extends State<Shell> {
           ],
         ],
         commands: [
-          ...organizationAddressCommands(context, organization),
-          if (one && organization != null)
-            Command(
-              id: 'organization.refresh',
-              label: 'Refresh',
-              group: 'Organization',
-              home: Home.organizationRow,
-              run: () => unawaited(organization.refresh()),
-            ),
+          ..._organizationFactsCommands().where((command) => one || command.id != 'organization.refresh'),
           if (one &&
               view != null &&
               view.isOwner &&
@@ -3899,6 +3985,7 @@ class _ShellState extends State<Shell> {
     ]),
     builder: (context, _) {
       final rows = machinesPageRows(widget.machines, _hostRuns);
+      final answered = widget.machines.all.any((machine) => widget.machines.of(machine).listRead);
       final read =
           widget.machines.all.any((machine) => widget.machines.of(machine).reachability == Reachability.connected) &&
           _attention.machinesOnce.every((machine) => widget.machines.of(machine).listRead);
@@ -3910,6 +3997,10 @@ class _ShellState extends State<Shell> {
         onPlace: _chooseTreePlace,
         organizations: [?_organization?.view],
         organizationsKnown: _organization == null || _organization.view != null || _organization.noOrganization,
+        machinesWithSections: {
+          for (final machine in widget.machines.all)
+            if (!rows.preparations.any((run) => run.name == machine.name)) machine.name,
+        },
         machineEntries: [
           for (final run in rows.preparations)
             (
@@ -3922,16 +4013,18 @@ class _ShellState extends State<Shell> {
             if (!rows.preparations.any((run) => run.name == machine.name))
               (machine: machine, state: _treeMachineState(machine)),
         ],
-        running: <int>[
-          for (final machine in _attention.machinesOnce)
-            widget.machines.of(machine).tasks.where((task) => task.running).length,
-        ].fold<int>(0, (sum, each) => sum + each),
+        running: !read
+            ? null
+            : <int>[
+                for (final machine in _attention.machinesOnce)
+                  widget.machines.of(machine).tasks.where((task) => task.running).length,
+              ].fold<int>(0, (sum, each) => sum + each),
         work: !read
             ? null
             : _workView.shownTiles([
                 for (final machine in _attention.machinesOnce) ..._attention.tilesOn(machine),
               ]).length,
-        needing: _attention.needingSomebody,
+        needing: answered ? _attention.needingSomebody : null,
         machines:
             rows.preparations.length +
             listedMachines(widget.machines)
@@ -3947,7 +4040,7 @@ class _ShellState extends State<Shell> {
                 onMachines: listedMachines(widget.machines)
                     .fold<int>(0, (count, machine) => count + projectsOnMachine(widget.machines, machine).length),
               ),
-        forges: _forges.busy ? null : listedForges(_forges.allEntries, _heldConnections).length,
+        forges: !_forges.loaded || _forges.busy ? null : listedForges(_forges.allEntries, _heldConnections).length,
         width: width,
         onGo: (section) {
           _leaveDrawer();
@@ -4962,7 +5055,11 @@ class _ShellState extends State<Shell> {
           onClose: widget.shell.close,
         );
       case AgentsOpened():
-        return AgentsView(inventory: widget.inventory, onClose: widget.shell.close);
+        return AgentsView(
+          inventory: widget.inventory,
+          onClose: widget.shell.close,
+          providers: _machineMenu().firstWhere((command) => command.id == 'machine.providers'),
+        );
       case EgressOpened():
         return EgressView(egress: widget.egress, onClose: widget.shell.close);
       case GateOpened():
@@ -5028,6 +5125,8 @@ class _ShellState extends State<Shell> {
   void dispose() {
     widget.machines.pauseAutomaticRetries();
     widget.shell.removeListener(_followTreeTool);
+    widget.shell.removeListener(_checkOrganizationPlace);
+    _organization?.removeListener(_checkOrganizationPlace);
     widget.machines.removeListener(_machineChanged);
     _menuFocus.dispose();
     final source = widget.organizationSource;

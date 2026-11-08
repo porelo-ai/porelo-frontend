@@ -25,8 +25,9 @@ class ShellRail extends StatefulWidget {
     required this.needing,
     required this.machines,
     required this.projects,
-    this.forges = 0,
+    this.forges,
     this.machineEntries = const [],
+    this.machinesWithSections,
     this.organizations = const [],
     this.organizationsKnown = true,
     this.place,
@@ -51,6 +52,9 @@ class ShellRail extends StatefulWidget {
 
   /// Machines in the same order as the frame lists them.
   final List<RailMachine> machineEntries;
+
+  /// Names with a watched daemon whose tools can be safely selected.
+  final Set<String>? machinesWithSections;
 
   /// Organizations read; the shape also accepts several.
   final List<OrganizationView> organizations;
@@ -145,10 +149,11 @@ class _ShellRailState extends State<ShellRail> {
           ShellPlace(Section.machine, machine: entry.machine),
           entry.machine.name,
           depth: 1,
-          branch: true,
+          branch: widget.machinesWithSections?.contains(entry.machine.name) ?? true,
           state: entry.state,
         ),
-        if (widget.foldedOpen.contains(ShellPlace.machineKey(entry.machine.name)))
+        if ((widget.machinesWithSections?.contains(entry.machine.name) ?? true) &&
+            widget.foldedOpen.contains(ShellPlace.machineKey(entry.machine.name)))
           for (final section in MachineSection.values)
             _TreeRow(
               ShellPlace(Section.machine, machine: entry.machine, machineSection: section),

@@ -136,6 +136,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Machine navigation keeps connection and setup recovery actions, organization host management and card creation reachable, restores only valid saved places, and keeps tools and unread counts tied to the machine shown.
+
 - The token a machine declares for the organization's repository is found again when Porelo answers its address as `host:path` without a user, as it now does.
 - *Give it my token…* on a machine's page offers the token this machine's vault declares for the Porelo organization's forge, named by its declaration, and has Porelo hand it to the machine; the window never reads it. *Give another…* keeps the other ways. Needs a porelo with `org host refresh`.
 - A project file naming each repository's forge as `central:` is read so, and one still naming `upstream:` as before.
