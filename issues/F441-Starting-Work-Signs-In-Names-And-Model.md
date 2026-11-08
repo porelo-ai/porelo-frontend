@@ -31,158 +31,198 @@ not need them are built first.
 
 ## Size
 
-L: M the sign-in and batch, S the names, S the model.
+L: M the sign-in and batch, S the names, S the model. Built in that order reversed: names and model first
+(not blocked), then the sign-in.
 
 ## Plan
 
-To be read before it is built. Built against the daemon wire Porelo named for these parts (Tasks1, new methods in
-its agent interface); it may still change after Porelo's own plan reading, and what is guessed of it is listed last.
+Read once before building; this is the plan after that reading. Built against the daemon wire Porelo named for
+these parts (Tasks1, new methods in its agent interface), as it stood at its second entry that evening; it may still
+change after Porelo's own plan reading. Order: names and model first (not blocked), then the sign-in. The forge
+token handed over when the machine asks is **not part of this issue**: it moves to an issue of its own in the
+Backlog, blocked on its wire.
 
 ### 1. Client and the older daemon
 
 Files: `lib/src/client/porelo_client.dart`, `lib/src/client/models.dart`, `lib/src/app/fleet_backend.dart` (the
 `FleetBackend` interface and its machine implementation), `lib/src/mock/mock_daemon.dart` only where a test needs a
-handler, `doc/Contract-Gaps.md` ("Not on the wire yet": the five methods and four fields, until served).
+handler, `test/features/support/world.dart` (`FakeBackend`), `doc/Contract-Gaps.md` ("Not on the wire yet": the
+five methods and the new fields, until served).
 
 - `agentSignIns(agents)` calls `AgentSignIns` with `agents` only when named; reads `signIns` field by field into
   `AgentSignIn(agent, provider, state, since?, signingInSince?)`. `state` stays a string: an unknown one is shown as
   it comes and **never counts as signed in**.
 - `agentSignInStart(agent)` streams `AgentSignInStart` through `_callMore` into `SignInStep(session, step, url?,
-  code?, detail?)`; the stream ends only on the final reply (`SIGNED_IN`), anything else is an error.
-- `agentSignInCode(session, code)`, `agentSignInCancel(session)` single calls; `agentSignInWait(agent)` streams
-  `AgentSignInWait` into its `state`, last reply `SIGNED_IN` or `NOT_SIGNED_IN`.
+  code?, detail?)` plus the login task it names (pending Porelo's answer on how). The stream ends only on the final
+  reply (`SIGNED_IN`); anything else is an error.
+- `agentSignInCancel(session)` is a single call; `AgentSignInCode` is not used: a code is pasted in the login
+  task's terminal. `agentSignInWait(agent)`
+  streams `AgentSignInWait` into its `state` (and `detail` if one comes); with nothing running it answers once with
+  the current state and ends.
 - Errors become typed exceptions beside `FeatureNotSupported`: `SignInRunning(agent, session, since)`,
   `CannotSignIn(agent, reason)`, `VaultShut`, `NoSuchAgent(agent)`, `SignInFailed(agent, detail)`,
   `NoSuchSession(session)`; any other error stays a `VarlinkException`.
-- `Task.model`, `Task.display`, `Task.short` are **nullable**: absent (an older daemon) is null, so "not reported"
-  never reads as "the agent's own default" (`model: ""`). `Project.defaultModels` and `Repository.defaultModels` are
-  `List<ProviderModel(provider, model, from)>`, empty when absent; `from` kept as a string.
-- `Start`'s `model` is already a parameter of `startTask`; it stays sent only when named, so an older daemon never
-  meets it unasked.
+- `Task.model`, `Task.modelLabel`, `Task.display`, `Task.short` are **nullable**: absent (an older daemon) is null,
+  so "not reported" never reads as "the agent's own default" (`model: ""`). `Project.defaultModels` and
+  `Repository.defaultModels` are `List<ProviderModel(provider, model, label, from)>`, empty when absent; `from` kept
+  as a string. **No model label is made here**: `label` and `modelLabel` are shown as they come, else the id.
+- `Start`'s `model` is already a parameter of `startTask`; it stays sent only when named.
 - **An older daemon**: `MethodNotFound` on any of the five becomes `FeatureNotSupported` for that call alone, as
-  today. The start then goes the way it goes today: `CanStart`'s `CREDENTIAL_MISSING`/`CREDENTIAL_UNUSABLE` and the
-  agent's own login in a terminal on the machine. No field absent from a reply breaks a reader.
+  today, and the start goes the way it goes today (`CanStart`'s `CREDENTIAL_MISSING`/`CREDENTIAL_UNUSABLE` and the
+  agent's own login in a terminal on the machine). A reply without the new fields reads without a crash.
 
 ### 2. The sign-in before a start
 
-Files: `lib/src/app/start_work.dart` (a `SignIn` state held by `StartWork`, on the machine the form was opened on),
-a new `lib/src/app/agent_sign_in.dart` (one sign-in of one agent on one machine, shared by the form and the batch),
-`lib/src/ui/start_work_view.dart` (the sign-in panel), `lib/src/ui/shell.dart` (wiring: link opener, copy, the
-vault's opening; the start's `_run` given the start's own backend, never `_fleet.backend` read at the click).
+The sign-in is Porelo's own login task, the special task that puts the provider's token into the vault. The window
+starts it, or finds the one already running, and shows it like any task, in its own terminal: the person follows the
+link and pastes a code **there**. The window has no paste field, sends no code, and opens no sign-in link of its own,
+so this repository's rule that the interface takes no secret into a form of its own, and `doc/design.md`'s line that
+provider sign-ins keep their own terminal paths, stay as they are. How `AgentSignInStart` names that login task is
+**pending Porelo's answer**; the plan takes it that its replies name the task, so the window can open its terminal.
 
-- When the agent to run is known (picked, or chosen by the machine), the form asks `AgentSignIns([agent])` of the
-  machine it was opened on. Start stays disabled while that question is out, as it is while `CanStart` is out.
-- The person sees, by state:
-  - `SIGNED_IN`: nothing more; Start as today.
-  - `NOT_SIGNED_IN`: "Sign in to <agent label>" with a button. It runs `AgentSignInStart(agent)`: "Starting the
-    sign-in on <machine>…" for `STARTING`; for `LINK` the link (opened in the browser by the existing link opener
-    once, offered again as a button, and Copy), and the code where one is given, "Enter this code on the page";
-    for `WAITING_FOR_CODE` a field "Paste the code the page showed you" and Send (`AgentSignInCode`); on the final
-    `SIGNED_IN` "Signed in to <agent> on <machine>" and the start goes on by itself if the person had pressed
-    Start, else Start is enabled.
-  - `SIGNING_IN`, or `SignInRunning` from `AgentSignInStart`: "Another sign-in to <agent> on <machine> is running;
-    waiting for it", with `AgentSignInWait(agent)`; **no second `AgentSignInStart` is sent**. Its `SIGNED_IN` goes
-    on as above; its `NOT_SIGNED_IN` comes back to "Sign in to <agent>".
-  - `VAULT_SHUT` or `VaultShut`: "The vault on <machine> is shut, so nothing can be signed in or started" and the
-    existing *Open the vault* (this device), then the question is asked again.
-  - `CANNOT_SIGN_IN` or `CannotSignIn`: its reason verbatim; where the agent's own login in a terminal on the
-    machine is reachable (today's path), it is offered beside it.
-  - `NoSuchAgent`: "<agent> is not installed on <machine>"; `SignInFailed`: "The sign-in failed: <detail>" and the
-    button again; `NoSuchSession` on a code or a cancel: "That sign-in ended on <machine>; start it again".
-  - A lost connection or any other refusal: said with its words; **the start stays held** (not read is not fine).
-  - An unknown state: "<agent> on <machine>: <state>", held.
-- **Cancel** (in the panel, and closing the form while a session is running) sends `AgentSignInCancel(session)`
-  and drops the stream; nothing starts. Back in the form keeps the session running and its panel.
-- A waiting `AgentSignInWait` is only dropped on cancel, never cancels the other window's session.
-- `Start` refused for a missing sign-in after all (a race with another window) shows the sign-in panel again
-  rather than a bare failure.
-- Every await is followed by a check that the same form on the same machine is still open; an answer for an
-  earlier opening lands nowhere.
-- **The code is a secret of the person's sign-in**: the pasted code goes only into `AgentSignInCode`, is cleared
-  from the field once sent, and is never put into an operation's output, a `say`, a log line or an exception's
-  words. The link and a device code from the daemon are shown, never logged. A link is opened only when it is
-  `https`.
+Files: `lib/src/app/agent_sign_in.dart` (new: one sign-in of one agent on one machine, a `ChangeNotifier`, shared by
+the form and the batch), `lib/src/app/start_work.dart` (owns it), `lib/src/app/commands.dart` (*Sign in* and *End the
+sign-in* as Commands, each with the reason it cannot run now), `lib/src/ui/start_work_view.dart` (the panel),
+`lib/src/ui/shell.dart` (wiring: the login task's terminal opened through `Sessions`, as any task's).
+
+**One dialog.** The start dialog stays open while the person signs in. What it waits on is owned by `StartWork`, not
+by the dialog's state, so a rebuild or a back step never drops it. Nothing starts by itself: Start is enabled only
+once the agent reads `SIGNED_IN` **and** `CanStart`, asked again after every `SIGNED_IN`, holds nothing back.
+
+**`AgentSignIns` and `CanStart` together.** On a daemon with the methods, this panel replaces today's "Sign in first"
+for a missing credential of the agent; both answers must clear before Start. On an older one, today's path alone.
+
+**The machine.** The form remembers the machine it was opened on, and every step around the start takes that one,
+never the current one read at the click: the sign-in calls, the login task's terminal, `CanStart`,
+`askBeforeTheFirstTask`, the `Start` in `_run`, the operation's machine, `UnattendedRun`, `_workInItOnceUp` and the
+terminal it opens, and every sentence said about it.
+
+When the agent to run is known (picked, or chosen by the machine), the form asks `AgentSignIns([agent])`. Start
+stays disabled while it is out. What the person sees, by state:
+
+- `SIGNED_IN`: nothing more.
+- `NOT_SIGNED_IN`: "Sign in to <agent label>" and *Sign in*. It runs `AgentSignInStart(agent)`, which starts or
+  finds the login task, and opens that task's terminal on the form's machine. The panel says "Follow the link in the
+  terminal of <login task> on <machine> and sign in there; this waits for it", and waits (`AgentSignInWait`).
+- `SIGNING_IN`, or `SignInRunning`: the same, for the login task already running: its terminal is opened, "Another
+  sign-in to <agent> on <machine> is running; waiting for it", and `AgentSignInWait`; **no second login task is
+  started**.
+- Wait's `SIGNED_IN`: "Signed in to <agent> on <machine>"; `CanStart` is asked again; Start is enabled once both
+  clear. `NOT_SIGNED_IN` (with its detail where one comes): *Sign in* again.
+- `VAULT_SHUT` (from the list or from Wait) or `VaultShut`: "The vault on <machine> is shut, so nothing can be signed
+  in or started", and the existing *Open the vault* (this device); then asked again.
+- `CANNOT_SIGN_IN` or `CannotSignIn`: its reason verbatim.
+- `NoSuchAgent`: "<agent> is not installed on <machine>". `SignInFailed`: "The sign-in failed: <detail>" and *Sign
+  in* again. `NoSuchSession`: "That sign-in ended on <machine>; sign in again".
+- An unknown state, a refusal, a lost connection, or a wait that ends before `SIGNED_IN`: said with its words, **the
+  start stays held**, and *Sign in* is offered again. Not read is never fine.
+
+**Leaving it.** The login task is a task of its own: closing the dialog (Escape, the barrier, *Not now*) drops only
+the wait and **does not end it**; it stays in the list, and the window says "The sign-in to <agent> goes on in its
+own task on <machine>". *End the sign-in* in the panel ends it on purpose (`AgentSignInCancel`, or stopping the login
+task, as Porelo's answer settles) and keeps the dialog. If Porelo's reshaped `AgentSignInStart` still ends the login
+when its stream is dropped, the window holds that stream in `StartWork` only until the task is named and waits with
+`AgentSignInWait` instead (asked of Porelo). *Sign in* is disabled while a start is out.
+
+**A link shown in the window.** None is planned: the link is in the login task's terminal. Should the window still
+show one, it opens only on a press, its host named beside it, and only when it parses as `https` with a host, built on
+`Granting`'s address check narrowed to `https`.
+
+**A race.** A `Start` refused because the sign-in went missing after all (another window, an expired login) is shown
+as that operation's failure with *Sign in* offered there; it is **never retried as a bare Start**.
+
+Every await is followed by a check that the same form on the same machine is still open; an answer for an earlier
+opening lands nowhere.
 
 ### 3. The batch
 
 Files: `lib/src/app/start_agents.dart`, `lib/src/ui/start_agents_view.dart`, `lib/src/ui/shell.dart`.
 
-The batch exists: *Start an agent for each repository* (`StartAgents`), on one machine, already holding every start
-until the machine says each can. Its sign-in step changes:
+The batch exists: *Start an agent for each repository* (`StartAgents`), on one machine, holding every start until
+the machine says each can. On a daemon with the methods its sign-in step becomes:
 
-- After the repositories are chosen it gathers the distinct agents of the rows to start (the batch runs on one
-  machine; the pairs are keyed by machine and agent all the same, so a batch over several machines takes the same
-  helper) and asks `AgentSignIns(agents)` **once per machine**.
-- The missing ones are signed in one after another with the same `AgentSignIn` panel, one agent at a time; a
-  running one is waited on (`AgentSignInWait`), never opened twice.
-- **No `Start` is sent until every chosen row's agent reads `SIGNED_IN`**; a row whose agent cannot be signed in is
-  held with its reason, and the person can leave those rows out to start the rest.
-- Each row's `Start` carries that repository's default model for its provider (`Repository.defaultModels`), without
-  asking; none named, `model` is not sent.
-- Older daemon: the step is today's (`CanStart` per row, the terminal login).
+- After the repositories are chosen it gathers the distinct agents of the rows to start, keyed by agent on its one
+  machine, and asks `AgentSignIns(agents)` once.
+- The missing ones are signed in one after another with the same sign-in, each in its login task's terminal; a
+  running one is waited on, never opened twice.
+- **No `Start` is sent until every chosen row's agent reads `SIGNED_IN`** and `CanStart` holds none back. If a
+  sign-in fails or is ended, the batch stops there and says which agent; nothing is started.
+- Closing the wizard stops the waiting and says the login task goes on; *End the sign-in* ends it.
+- The batch sends **no `model`**: each start takes its repository's default on the machine.
+- Older daemon: today's step (`CanStart` per row, the terminal login).
 
 ### 4. Names
 
-Files: `lib/src/ui/machine_tree.dart` and the other places a task is named for a person (found by reading every use
-of `Task.task` and `Task.label` in `lib/src/ui`), a helper `Task.shown` in `models.dart`.
+Files: a `Task.shown` in `lib/src/client/models.dart`, and every place a task is named to a person, in `lib/src/ui`
+and `lib/src/app` alike: among them `lib/src/ui/panes.dart`, `lib/src/ui/running_view.dart`, `lib/src/ui/shell.dart`,
+`lib/src/ui/attention_view.dart` (two places), `lib/src/ui/machine_tree.dart`, and `start_work.dart`'s "Continue
+<name>"; found by reading every use of `Task.name`, `Task.task` and `Task.label` in both.
 
-- A task is shown by its caption (`label`) where somebody set one, else by `short`, else as today (`task`).
+- A task is shown by its caption (`label`) where somebody set one, else by the name given at its start, else by
+  `short`. Whether `short` is the given name where one was given is asked of Porelo; until answered, the given name
+  comes first.
 - `display` where the room's name of the task is meant (the mailbox and room card).
-- The container `name` only in its details; every call keeps taking `name` (the identity).
-- Older daemon: as today.
+- The container `name` only in its details; every call keeps taking `name`, the identity.
 
 ### 5. The model
 
 Files: `lib/src/app/start_work.dart`, `lib/src/ui/start_work_view.dart`, the task row and the terminal's header
-(`lib/src/ui/running_view.dart`, `lib/src/ui/machine_tree.dart`), a small `lib/src/app/model_names.dart`.
+(`lib/src/ui/running_view.dart`, `lib/src/ui/machine_tree.dart`).
 
-- *New work* shows "Model", a text field prefilled with the default for the chosen provider from
-  `Repository.defaultModels` (else the project's), with "from the repository" or "from the project" beside it;
-  none named: empty, "The agent's own default".
-- What the field holds is sent as `Start`'s `model` when non-empty (the default too, so the start runs the model the
-  person saw even if the file changes meanwhile); empty is not sent.
-- The row and the header read "<agent label> · <model label> via <provider>" when `Task.model` is non-empty;
-  `""` reads "<agent label> · its own default model"; null (older daemon) shows as today. A model label is mapped
-  only where certain (`claude-opus-5-5` → "Opus 5.5" and the same pattern for Claude's ids); any other id is shown
-  as it comes.
+- *New work* shows "Model", a text field prefilled with the default whose provider equals the provider the machine
+  names for the start (`CanStart`'s `provider`), from `Repository.defaultModels`, else the project's; its label
+  beside it, with "from the repository" or "from the project". No provider known, or none named for it: empty,
+  "The agent's own default".
+- When the agent changes and with it the provider, a default is replaced by the new provider's; a typed model is
+  cleared and "<model> was for <provider>; the model is <new default or the agent's own default> now" is said.
+- What the field holds is sent as `Start`'s `model` when non-empty; empty is not sent.
+- *Continue* and *Restart* prefill the task's own `Task.model`.
+- The row and the terminal's header read "<agent label> · <modelLabel> via <provider>" when `Task.model` is
+  non-empty, `modelLabel` as it comes (else the id); `""` reads "<agent label> · its own default model"; null
+  (older daemon) shows as today.
 
 ### Tests (each guards a harm)
 
-- Client against `MockDaemon`: each method's parameters and replies; each error to its type; `MethodNotFound` on
-  each to `FeatureNotSupported`; a `Task` and a `Project` without the new fields read as null/empty.
+Client tests against `MockDaemon`; frame tests as Gherkin features under `test/features` against `FakeBackend`.
+
+- **An older daemon**: without the methods the start goes on as today (`CanStart`, the terminal login); a `Task`
+  and a `Project` without the new fields read without a crash, as null and empty; `Start` carries no `model` unless
+  one was typed.
+- Client: each method's parameters and replies; each error to its type; `MethodNotFound` on each to
+  `FeatureNotSupported`; the window never calls a code method.
 - **A start without a sign-in**: with `NOT_SIGNED_IN`, `SIGNING_IN`, `VAULT_SHUT`, `CANNOT_SIGN_IN`, an unknown
-  state, a refusal and a lost connection, `begin` yields nothing and the stand-in sees no `Start`.
-- **A second sign-in**: with `SIGNING_IN`, and with `SignInRunning` from `AgentSignInStart`, the stand-in sees
-  `AgentSignInWait` and no (further) `AgentSignInStart`; in the batch two rows of one agent make one sign-in.
-- **The batch order**: one `AgentSignIns` per machine; the second agent's sign-in starts only after the first's
-  `SIGNED_IN`; no `Start` before all are signed in.
-- **A secret shown or logged**: the pasted code reaches only `AgentSignInCode`; it is in no operation output,
-  message or exception text, and the field is empty after Send.
+  state, a refusal, a lost connection, a stream ended before `SIGNED_IN`, and Wait's `VAULT_SHUT` or unknown state,
+  Start stays disabled and the stand-in sees no `Start`. After `SIGNED_IN` with `CanStart` still holding, no `Start`.
+  No start happens by itself after `SIGNED_IN`.
+- **A second sign-in**: with `SIGNING_IN`, and with `SignInRunning`, the stand-in sees `AgentSignInWait` and no
+  further `AgentSignInStart`; two batch rows of one agent make one sign-in.
+- **A race not retried**: a `Start` refused for a missing sign-in is one `Start`, never a second.
+- **Leaving**: Escape, the barrier and *Not now* during a sign-in send no `Start` and do not end the login task;
+  *End the sign-in* ends it, and no `Start` follows.
+- **The terminal on the right task**: *Sign in* with a login task already running opens that task's terminal and
+  starts none.
 - **The wrong machine**: the form opened on machine A, the current machine switched to B; every sign-in call and the
-  `Start` reach A's stand-in, none B's.
-- **Cancel**: closing the form during a session sends `AgentSignInCancel(session)` and no `Start`.
-- **An older daemon**: without the methods the start goes on as today (`CanStart`, the terminal login), without
-  the fields the names are today's and no model line shows, and `Start` carries no `model` unless one was typed.
+  `Start` reach A's stand-in, none B's, the operation names A, and the session opened afterwards is on A.
+- **The batch**: one `AgentSignIns` per opening; the second agent's sign-in starts only after the first's
+  `SIGNED_IN`; no `Start` before all are signed in; a failed or ended sign-in starts nothing; closing the wizard
+  starts nothing and leaves the login task; no `Start` of the batch carries `model`.
+- **The model kept**: *Restart* and *Continue* send the task's own model; a typed model is not sent for another
+  provider after the agent changed.
 
-### What of the wire is guessed
+### What of the wire is still guessed
 
-- Whether every `AgentSignInStart` reply carries `session`, or only the first; and whether `url` may change between
-  replies (taken: every reply may carry them, the latest wins).
-- Whether a dropped `AgentSignInStart` stream cancels the session on the daemon (taken: no; the window calls
-  `AgentSignInCancel` itself).
-- What `AgentSignInWait` answers when nothing is running (taken: one final reply with the current state).
-- What `detail` on a step is for (taken: words for the person, shown verbatim).
-- Whether `AgentSignIns` keys by the `Agents` name (taken: yes) and whether it can answer for an agent not
-  installed (taken: `NoSuchAgent`).
-- A model's label: the wire gives only the id. Mapping it here is deriving what the daemon could say; a `label` on
-  `ProviderModel` and on `Task` would be better, asked of Porelo.
-- Which refusal `Start` gives when the sign-in went missing in a race (taken: a `CanStart`-like credential outcome).
+- Whether "the same socket peer" that may cancel a sign-in is the connection or the account (uid); the window
+  sends a cancel on a new connection of the same account.
+- Whether a key stored in the vault by hand counts as `SIGNED_IN`.
+- Where "the sign-in was left" comes on Wait: Wait's reply names only `state`; the window shows a `detail` if one
+  comes and otherwise says only that the other sign-in ended without signing in.
+- Whether every `AgentSignInStart` reply carries `session` and the login task, or only some (taken: the latest
+  given wins).
+- Whether `AgentSignIns` keys by the `Agents` name (taken: yes).
+- Which refusal `Start` gives when the sign-in went missing in a race (taken: a credential outcome as `CanStart`
+  gives).
 
-### Open questions before building
+### Pending Porelo's answer
 
-- **A pasted code in a form here.** This repository's rule says the interface takes no secret into a form of its
-  own and a sign-in code is typed into a terminal on its machine or the provider's own login. `WAITING_FOR_CODE`
-  with `AgentSignInCode` is such a form. Either the operator's decision allows it for this flow (and the rule
-  gets that exception), or the paste-code flow goes to a terminal on the machine and only the link flow is in the
-  window.
-- The forge token handed over "when the machine asks" is in no wire named yet; not built here.
+- Whether `AgentSignInStart` is the existing login task, and how its replies name that task, so the window opens its
+  terminal; and whether dropping its stream still ends the login.
