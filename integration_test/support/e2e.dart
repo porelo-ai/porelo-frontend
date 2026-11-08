@@ -282,16 +282,25 @@ Future<({String private, String public})> aThrowawayKeyPair() async {
   }
 }
 
-/// Brings [target] on the page of machines into view: every machine shows its projects there, and
-/// the page builds only what is near the screen.
+/// Brings [target] into view on the test machine's *Projects*: the side bar's tree no longer lists a
+/// machine's projects, and *My projects* lists the organization's where there is one.
 Future<void> showOnTheMachines(WidgetTester tester, Finder target) async {
-  // Machines are on their page, and projects and the ways to set one up on theirs.
   await toTheMachines(tester);
-  if (target.evaluate().isEmpty) await toThePlace(tester, 'projects');
-  final page = find.byKey(const Key('projects-page'));
-  final tree = find.descendant(of: page, matching: find.byType(Scrollable));
-  for (var i = 0; i < 60 && target.evaluate().isEmpty && tree.evaluate().isNotEmpty; i++) {
-    await tester.drag(tree.first, const Offset(0, -120));
+  if (target.evaluate().isEmpty) {
+    final section = find.byKey(ValueKey<String>('rail ${ShellPlace.machineKey(E2e.name)} projects'));
+    // The machine's sections are in the tree once it is chosen.
+    if (section.evaluate().isEmpty) await switchTo(tester, E2e.name);
+    await tester.ensureVisible(section.first);
+    await pumpFor(tester);
+    await tester.tap(section.first);
+    await pumpFor(tester);
+  }
+  final page = find.ancestor(
+    of: find.byKey(ValueKey<String>('machine-projects ${E2e.name}')),
+    matching: find.byType(Scrollable),
+  );
+  for (var i = 0; i < 60 && target.evaluate().isEmpty && page.evaluate().isNotEmpty; i++) {
+    await tester.drag(page.first, const Offset(0, -120));
     await pumpFor(tester, const Duration(milliseconds: 100));
   }
   if (target.evaluate().isNotEmpty) await tester.ensureVisible(target.first);
