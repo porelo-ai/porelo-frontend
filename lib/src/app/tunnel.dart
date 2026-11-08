@@ -1083,6 +1083,22 @@ class Tunnels extends ChangeNotifier {
     }
   }
 
+  /// Re-adds the forge's web forward of [machine]'s card on its live ssh master, leaving the master and every session
+  /// over it - terminals, the daemon's link, the other forwards - as they are. Answers why it could not, or null.
+  Future<String?> forwardTheForgeAnew(Machine machine) async {
+    final card = machine.hostCard;
+    final forward = card?.forwards.where((each) => each.$1 == card.webPort).firstOrNull;
+    if (card == null || forward == null) return 'This machine has no forge to forward.';
+    if (of(machine)?.state != TunnelState.up) return 'The connection to ${card.name} is not up.';
+    final spec = ['-L', '127.0.0.1:${forward.$1}:${forward.$2}', card.name];
+    // A forward that is gone already cannot be cancelled, which is no reason not to add it again.
+    await _run([openSsh('ssh'), '-F', machine.sshConfig, '-O', 'cancel', ...spec]);
+    final added = await _run([openSsh('ssh'), '-F', machine.sshConfig, '-O', 'forward', ...spec]);
+    if (added.exitCode == 0) return null;
+    final said = '${added.stderr}'.trim();
+    return said.isEmpty ? 'ssh did not add the forward again.' : said;
+  }
+
   /// Explains ssh's own failure using the configuration of the same login.
   Future<String?> explainRefusal(String said, String host, {List<String> options = const <String>[]}) =>
       _explainSshRefusal(said, host, _run, options: options);

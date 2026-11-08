@@ -137,7 +137,8 @@ class FactsPage extends StatelessWidget {
       padding: const EdgeInsets.all(Space.normal),
       children: [
         ?head,
-        if (head == null && path.isNotEmpty)
+        // Embedded in a page that names the place in its own head, it names it no second time.
+        if (head == null && !embedded && path.isNotEmpty)
           Wrap(
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
@@ -145,7 +146,7 @@ class FactsPage extends StatelessWidget {
               Text(title),
             ],
           ),
-        if (head == null && (!phone || settings != null && explanationId != null))
+        if (head == null && !embedded && (!phone || settings != null && explanationId != null))
           Row(
             children: [
               if (!phone) Expanded(child: Text(title, style: theme.textTheme.headlineSmall)),

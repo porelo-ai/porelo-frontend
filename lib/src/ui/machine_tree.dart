@@ -3,6 +3,7 @@ import 'package:porelo_frontend/client.dart';
 
 import '../app/commands.dart';
 import '../app/fleet_model.dart';
+import '../app/host_progress.dart';
 import 'command_menu.dart';
 import 'tokens.dart';
 import 'window_size.dart';
@@ -35,6 +36,59 @@ class StopEverywhere extends StatelessWidget {
   }
 }
 
+/// What a machine an organization's card names holds of [repository] of [project], for its row on the project's page
+/// opened from that machine: carried, not carried or held; its state at central; the work running in it. [progress] is
+/// what the machine said of the project, null where it said nothing of it; [progressRead] is false where the machine
+/// was not asked, and [tasks] null where its work was not read: each then says not read, never none.
+String repositoryOnTheMachine({
+  required String project,
+  required String repository,
+  required HostProjectProgress? progress,
+  required bool progressRead,
+  required List<Task>? tasks,
+  List<String>? carriedAlone,
+}) {
+  final row = progress?.repositories.where((each) => each.repository == repository).firstOrNull;
+  final alone = carriedAlone != null && carriedAlone.contains(repository);
+  final notHere = carriedAlone != null && !alone;
+  final held = !progressRead
+      ? (alone
+            ? 'carried here alone'
+            : notHere
+            ? 'not carried here'
+            : 'carried: not read')
+      : progress?.state == 'held'
+      ? 'held: ${progress?.why ?? 'it has unpushed work'}'
+      : switch (row?.state) {
+          'taken' => alone ? 'carried here alone' : 'carried',
+          'waiting' => 'not carried yet',
+          'no-central' => 'not carried: it names no central address',
+          null => notHere ? 'not carried here' : 'not carried',
+          final state => 'not carried: $state',
+        };
+  final central = !progressRead
+      ? 'central: not read'
+      : row?.state == 'taken'
+      ? (row?.central ?? const HostRepositoryCentral()).words
+      : null;
+  return [held, ?central, runningIn(project: project, repository: repository, tasks: tasks)].join(' · ');
+}
+
+/// The work running in [repository] of [project], by the names given at its start; not read where [tasks] is null.
+String runningIn({required String project, required String repository, required List<Task>? tasks}) {
+  if (tasks == null) return 'tasks: not read';
+  final running = [
+    for (final task in tasks)
+      if (task.running && task.project == project && task.repository == repository)
+        task.label.isNotEmpty ? task.label : task.task,
+  ];
+  return switch (running.length) {
+    0 => 'no task running',
+    1 => '1 task running: ${running.single}',
+    final count => '$count tasks running: ${running.join(', ')}',
+  };
+}
+
 /// The selected project above its work: what it is, what state it is in, and its menu.
 class ProjectHeader extends StatelessWidget {
   /// Constructor taking the project and what it can be told to do.
@@ -52,8 +106,13 @@ class ProjectHeader extends StatelessWidget {
     this.startUnavailable,
     this.homeserver,
     this.showTitle = true,
+    this.onTheMachine,
     super.key,
   });
+
+  /// What the machine holds of each repository, in words beside its row, where the page was opened from that machine;
+  /// a repository only the machine names gets a row of its own.
+  final Map<String, String>? onTheMachine;
 
   /// Where a Matrix client here reaches the project's homeserver, or why it cannot; null where nobody
   /// joined its conversation from here.
@@ -105,12 +164,17 @@ class ProjectHeader extends StatelessWidget {
     final isDefault = project.name == defaultProject;
     // The repositories work is done in, one row each (walk 10): the project's own, which
     // holds its file and planning and is never worked in, is not one of them.
-    final workRepositories = isDefault
+    final listed = isDefault
         ? const <Repository>[]
         : <Repository>[
             for (final each in p.repositoryStates)
               if (!each.own || p.repositoryStates.length == 1) each,
           ];
+    final workRepositories = <Repository>[
+      ...listed,
+      for (final name in onTheMachine?.keys ?? const <String>[])
+        if (!listed.any((each) => each.name == name)) Repository(name: name),
+    ];
     final facts = <String>[
       if (!p.prepared && !isDefault && !p.carried) 'environment not prepared',
       if (p.environmentIsStale) 'environment older than its project file',
@@ -169,6 +233,7 @@ class ProjectHeader extends StatelessWidget {
           const SizedBox(height: Space.normal),
           _Repositories(
             repositories: workRepositories,
+            onTheMachine: onTheMachine ?? const {},
             onStart: project.canBeActedOn ? onStart : null,
             startUnavailable: startUnavailable,
             onSync: project.canBeActedOn ? onSync : null,
@@ -186,6 +251,7 @@ class ProjectHeader extends StatelessWidget {
 class _Repositories extends StatelessWidget {
   const _Repositories({
     required this.repositories,
+    required this.onTheMachine,
     this.onStart,
     this.startUnavailable,
     this.onSync,
@@ -195,6 +261,7 @@ class _Repositories extends StatelessWidget {
   });
 
   final List<Repository> repositories;
+  final Map<String, String> onTheMachine;
   final void Function(String repository)? onStart;
   final String? startUnavailable;
   final void Function(String repository)? onSync;
@@ -214,6 +281,7 @@ class _Repositories extends StatelessWidget {
           words: repository.name,
           child: _RepositoryLine(
             repository: repository,
+            onTheMachine: onTheMachine[repository.name],
             onStart: onStart,
             startUnavailable: startUnavailable,
             onSync: onSync,
@@ -232,6 +300,7 @@ class _Repositories extends StatelessWidget {
 class _RepositoryLine extends StatelessWidget {
   const _RepositoryLine({
     required this.repository,
+    this.onTheMachine,
     this.onStart,
     this.startUnavailable,
     this.onSync,
@@ -241,6 +310,7 @@ class _RepositoryLine extends StatelessWidget {
   });
 
   final Repository repository;
+  final String? onTheMachine;
   final void Function(String repository)? onStart;
   final String? startUnavailable;
   final void Function(String repository)? onSync;
@@ -253,6 +323,7 @@ class _RepositoryLine extends StatelessWidget {
     final name = repository.name;
     final start = repositoryStartCommand(repository: name, onStart: onStart, unavailable: startUnavailable);
     final state = <String>[
+      ?onTheMachine,
       if (repository.pending > 0) '${repository.pending} waiting at the gate',
       if (repository.behindReason.isNotEmpty) repository.behindWords,
     ].join(' · ');

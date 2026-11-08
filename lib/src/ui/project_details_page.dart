@@ -24,8 +24,21 @@ class ProjectDetailsPage extends StatelessWidget {
     this.onShown,
     this.details,
     this.jobs = const [],
+    this.machinePath,
+    this.onGeneralPage,
+    this.machineNote,
     super.key,
   });
+
+  /// The way back to the machine it was opened from, where it was opened from one: the page is then what of the
+  /// project is on that machine, and lists that machine no second time.
+  final List<LeafPathStep>? machinePath;
+
+  /// Opens the project's own page, for all of it, where the page was opened from a machine.
+  final VoidCallback? onGeneralPage;
+
+  /// Why some of what the machine holds of it is not read, said once above its repositories.
+  final String? machineNote;
 
   /// The latest observed connection state, or not read before an answer.
   final String machineState;
@@ -60,6 +73,7 @@ class ProjectDetailsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDefault = project.name == defaultProject;
+    final fromMachine = machinePath != null;
     return ListView(
       key: ValueKey('project-details ${machine.name}/${project.name}'),
       padding: const EdgeInsets.all(Space.normal),
@@ -67,7 +81,9 @@ class ProjectDetailsPage extends StatelessWidget {
         PageHead(
           title: isDefault ? 'Default' : project.label,
           titleInAppBar: true,
-          path: [(label: 'My projects', go: onBack)],
+          path: machinePath ?? [(label: 'My projects', go: onBack)],
+          // Opened from the machine, what the page says of it is only as good as the machine's answer.
+          titleChip: fromMachine ? StateChip(machineState) : null,
           subtitle: 'on ${machine.name}',
           action: CommandMenu(
             key: const Key('project-menu'),
@@ -77,30 +93,42 @@ class ProjectDetailsPage extends StatelessWidget {
             onShown: onShown,
           ),
         ),
+        if (onGeneralPage case final open?)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              key: const Key('project-general-page'),
+              onPressed: open,
+              child: Text("${isDefault ? 'Default' : project.label}'s own page, for all of it"),
+            ),
+          ),
+        if (machineNote case final note?)
+          Text(note, key: const Key('project-machine-note'), style: Theme.of(context).textTheme.bodySmall),
         ?details,
-        FilteredListSection(
-          title: 'Machines',
-          leaf: true,
-          subtitle: '1 machine',
-          storageId: 'project-machines ${machine.name}/${project.name}',
-          collapsible: true,
-          rows: [
-            (
-              words: machine.name,
-              child: ItemListRow(
-                title: machine.name,
-                state: machineState,
-                subtitle: machine.where,
-                leading: const Icon(Icons.dns_outlined),
-                onOpen: onMachine,
-                menu: CommandMenu(
-                  tooltip: 'Machine for ${project.label}',
-                  commands: [listOpenCommand(label: 'Open the machine', home: Home.machineRow, open: onMachine)],
+        if (!fromMachine)
+          FilteredListSection(
+            title: 'Machines',
+            leaf: true,
+            subtitle: '1 machine',
+            storageId: 'project-machines ${machine.name}/${project.name}',
+            collapsible: true,
+            rows: [
+              (
+                words: machine.name,
+                child: ItemListRow(
+                  title: machine.name,
+                  state: machineState,
+                  subtitle: machine.where,
+                  leading: const Icon(Icons.dns_outlined),
+                  onOpen: onMachine,
+                  menu: CommandMenu(
+                    tooltip: 'Machine for ${project.label}',
+                    commands: [listOpenCommand(label: 'Open the machine', home: Home.machineRow, open: onMachine)],
+                  ),
                 ),
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
         if (jobs.isNotEmpty)
           FilteredListSection(
             title: 'Saved jobs',

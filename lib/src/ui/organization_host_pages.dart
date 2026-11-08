@@ -301,8 +301,21 @@ class OrganizationHostPage extends StatefulWidget {
     this.onPrepare,
     this.preparing,
     this.onProtocol,
+    this.onlyAdmins = false,
+    this.version,
+    this.lastAnswered,
     super.key,
   });
+
+  /// Whether the page is the machine's *Machine Admins* leaf: their list and its two actions, nothing of the machine's
+  /// own page again.
+  final bool onlyAdmins;
+
+  /// The Porelo version the machine's daemon last said, null where it has not answered.
+  final String? version;
+
+  /// When the machine's daemon last answered this window, null where it has not.
+  final DateTime? lastAnswered;
 
   /// *Set up this machine…*, absent where this computer offers none.
   final void Function(String host)? onPrepare;
@@ -364,14 +377,26 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
   int _progressReads = 0;
   DateTime? _answeredAt;
 
+  /// Whether the machine's forge last answered through this computer's forward; null where it was not asked.
+  bool? _forgeAnswers;
+
+  /// Whether the forward was raised anew and the forge still gave no answer: its cause is then on the host.
+  bool _raisedInVain = false;
+  bool _askedForge = false;
+  int _forgeReads = 0;
+
   @override
   void initState() {
     super.initState();
     if (widget.organization.view == null) unawaited(widget.organization.refresh());
     widget.connections?.addListener(_askProgress);
     widget.organization.addListener(_askProgress);
+    widget.connections?.addListener(_askForge);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _askProgress();
+      if (mounted) {
+        _askProgress();
+        _askForge();
+      }
     });
   }
 
@@ -379,7 +404,42 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
   void dispose() {
     widget.connections?.removeListener(_askProgress);
     widget.organization.removeListener(_askProgress);
+    widget.connections?.removeListener(_askForge);
     super.dispose();
+  }
+
+  /// Asks once per connection that is up whether the machine's forge answers through the forward; a connection that
+  /// goes down forgets the answer, as it no longer says anything of the forward.
+  void _askForge() {
+    final connections = widget.connections;
+    if (widget.onlyAdmins || connections == null || !connections.up(widget.host)) {
+      _askedForge = false;
+      if (_forgeAnswers != null && mounted) setState(() => _forgeAnswers = null);
+      return;
+    }
+    if (_askedForge) return;
+    _askedForge = true;
+    unawaited(_readForge());
+  }
+
+  Future<void> _readForge() async {
+    final read = ++_forgeReads;
+    final answers = await widget.connections?.forgeAnswers(widget.host);
+    if (!mounted || read != _forgeReads) return;
+    setState(() {
+      _forgeAnswers = answers;
+      if (answers != false) _raisedInVain = false;
+    });
+  }
+
+  /// Opens the forge, its forward raised anew first where it gave no answer, then asks the forge again.
+  Future<String?> _openForge() async {
+    final wasDead = _forgeAnswers == false;
+    final refused = await openHostForge(host: widget.host, connections: widget.connections);
+    if (!mounted) return refused;
+    await _readForge();
+    if (mounted && wasDead && refused == null) setState(() => _raisedInVain = _forgeAnswers == false);
+    return refused;
   }
 
   @override
@@ -388,6 +448,8 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     if (oldWidget.refresh != widget.refresh) {
       _askedProgress = false;
       _askProgress();
+      _askedForge = false;
+      _askForge();
     }
   }
 
@@ -495,6 +557,26 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
       final view = widget.organization.view;
       final host = view?.hosts.where((host) => host.name == widget.host).firstOrNull;
       final isAdmin = view != null && host != null && view.holdsRoles && host.admins.contains(view.me);
+      final path = widget.path.isEmpty ? <LeafPathStep>[(label: 'My machines', go: widget.onBack)] : widget.path;
+      final problems = [
+        if (widget.organization.problem case final problem?) _Problem(problem),
+        if (_refusal case final refusal?) _Problem(refusal),
+        if (view != null && host == null) Text('${view.name} has no machine ${widget.host}.'),
+      ];
+      if (widget.onlyAdmins) {
+        return ListView(
+          key: ValueKey('organization-host-admins ${widget.host}'),
+          padding: const EdgeInsets.all(Space.normal),
+          children: [
+            OrganizationChangeMark(widget.organization),
+            if (view == null || host == null) ...[
+              PageHead(title: 'Machine Admins', titleInAppBar: false, path: path, subtitle: 'not read'),
+              ...problems,
+            ] else
+              _admins(view, host, isAdmin, path: path, beforeRows: problems),
+          ],
+        );
+      }
       return ListView(
         key: ValueKey('organization-host ${widget.host}'),
         padding: const EdgeInsets.all(Space.normal),
@@ -503,16 +585,12 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
           PageHead(
             title: widget.host,
             titleInAppBar: false,
-            path: widget.path.isEmpty ? [(label: 'My machines', go: widget.onBack)] : widget.path,
+            path: path,
             pathKeys: const {'My machines': Key('organization-host-back'), 'Machines': Key('organization-host-back')},
-            subtitle: host == null
-                ? 'not read'
-                : '${counted(host.projects.length, 'project', 'projects')} · '
-                      '${counted(host.admins.length, 'Machine Admin', 'Machine Admins')}',
+            titleChip: _stateChip(host),
+            subtitle: _headWords(),
           ),
-          if (widget.organization.problem case final problem?) _Problem(problem),
-          if (_refusal case final refusal?) _Problem(refusal),
-          if (view != null && host == null) Text('${view.name} has no machine ${widget.host}.'),
+          ...problems,
           if (view != null && host != null) ...[
             _connection(view, host),
             if (isAdmin) ..._howItStands(view, host),
@@ -538,6 +616,26 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     },
   );
 
+  /// The machine's state beside its name, said of this computer's connection to it.
+  Widget _stateChip(OrganizationHost? host) {
+    final connections = widget.connections;
+    if (host == null || connections == null) return const StateChip('not read');
+    if (!connections.connected(host.name)) return const StateChip('Not connected');
+    if (connections.waitsForToken(host.name) || (_progress?.waitsForToken ?? false)) {
+      return const StateChip('Waiting for its token', toneWords: 'waiting');
+    }
+    if (!connections.up(host.name)) return const StateChip('Connection down', toneWords: 'not connected');
+    return const StateChip('Connected');
+  }
+
+  /// Its Porelo and when it last answered, either of them said as not read where it is not known.
+  String _headWords() {
+    final answers = [?widget.lastAnswered, ?_answeredAt]..sort();
+    final last = answers.lastOrNull;
+    return 'Porelo ${widget.version ?? 'not read'} · last answered '
+        '${last == null ? 'not read' : TimeOfDay.fromDateTime(last.toLocal()).format(context)}';
+  }
+
   /// What only a host admin can read: whether the host waits for their token, and who is locked out and until when.
   List<Widget> _howItStands(OrganizationView view, OrganizationHost host) {
     final connected = widget.connections?.connected(host.name) ?? false;
@@ -549,8 +647,6 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     }
     return [
       if (_acting) const Text('Waiting for the machine…'),
-      if (_answeredAt case final answered?)
-        Text('Machine last answered at ${TimeOfDay.fromDateTime(answered.toLocal()).format(context)}'),
       if (progress != null && progress.wantsToken) ...[
         if (progress.waitsForToken) Text(organizationTokenWords(view, host.name)),
         for (final project in progress.projects)
@@ -851,7 +947,13 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     return peopleOf(project);
   }
 
-  Widget _admins(OrganizationView view, OrganizationHost host, bool isAdmin) {
+  Widget _admins(
+    OrganizationView view,
+    OrganizationHost host,
+    bool isAdmin, {
+    List<LeafPathStep> path = const [],
+    List<Widget> beforeRows = const [],
+  }) {
     final candidates = [
       for (final person in view.holdingRoles)
         if (!host.admins.contains(person.login)) person.login,
@@ -859,6 +961,8 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     return FilteredListSection(
       title: 'Machine Admins',
       leaf: true,
+      path: path,
+      beforeRows: beforeRows,
       subtitle: counted(host.admins.length, 'Machine Admin', 'Machine Admins'),
       storageId: 'host-admins ${host.name}',
       greyWords: [
@@ -966,6 +1070,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
           project.name,
     ];
     final name = host.name;
+    final forge = openHostForgeCommand(host: name, connections: connections, hasForge: host.webPort != null);
     final buttons = [
       if (ready && widget.onStartWork != null)
         AskingButton(
@@ -1001,9 +1106,18 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
           onAsk: _acting || why != null ? null : () => _act(() => connections!.connect(name), byAButton: true),
           label: const Text('Connect'),
         ),
-      CommandMenu(
-        commands: [openHostForgeCommand(host: name, connections: connections, hasForge: host.webPort != null)],
-        tooltip: 'What can be done with $name',
+      Tooltip(
+        message: forge.unavailable ?? 'Open the forge of $name in the browser',
+        child: AskingButton(
+          key: const ValueKey('asking openForge'),
+          buttonKey: ValueKey('organization.openForge/$name'),
+          answerKey: const ValueKey('organization.forgeWhy'),
+          waiting: _forgeAnswers == false
+              ? "Raising this computer's forward to $name anew, then opening its forge…"
+              : 'Opening the forge of $name…',
+          onAsk: _acting || !forge.available ? null : _openForge,
+          label: Text(forge.label),
+        ),
       ),
       if (!ready && !_acting)
         if (connections case final held?) LastConnectAttempt(held, name),
@@ -1032,8 +1146,27 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
               'brings it back.',
               style: Theme.of(context).textTheme.bodySmall,
             ),
+          if (_forgeAnswers == false)
+            Text(
+              key: const ValueKey('organization.forgeDead'),
+              _raisedInVain
+                  ? "The host's forge still gives no answer through this computer's forward, raised anew: its cause is "
+                        'on the host.'
+                  : "The host's forge gives no answer through this computer's forward. Open its forge raises the "
+                        'forward anew before it opens.',
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
           const SizedBox(height: Space.small),
           Wrap(spacing: Space.small, runSpacing: Space.small, children: buttons),
+          if (forge.unavailable case final why?)
+            Padding(
+              padding: const EdgeInsets.only(top: Space.small),
+              child: Text(
+                key: const ValueKey('organization.noForgeWhy'),
+                'Open its forge: $why',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
           // Where *Start work* is not offered, what stands in its way, said once beside where it would be.
           if (!ready && widget.onStartWork != null && view.myHosts.contains(host))
             Padding(
@@ -1217,4 +1350,108 @@ class _HostAddressDialogState extends State<HostAddressDialog> {
             },
           ),
   );
+}
+
+/// What a machine an organization's card names says of itself, read for a page that shows part of it: asked only of
+/// its connected Machine Admin, again as the connection comes up, and said as not read, with why, otherwise.
+class HostProgressReading extends StatefulWidget {
+  /// Reads [host] through [connections] for [builder].
+  const HostProgressReading({
+    required this.organization,
+    required this.connections,
+    required this.host,
+    required this.builder,
+    super.key,
+  });
+
+  /// The organization, which says who the machine's Machine Admins are.
+  final Organization organization;
+
+  /// This person's connections, absent where this computer has none.
+  final HostConnections? connections;
+
+  /// The machine's name on its card.
+  final String host;
+
+  /// Builds from what the machine said, null where it was not read, and why it was not, where it was not.
+  final Widget Function(BuildContext context, HostProgress? progress, String? why) builder;
+
+  @override
+  State<HostProgressReading> createState() => _HostProgressReadingState();
+}
+
+class _HostProgressReadingState extends State<HostProgressReading> {
+  HostProgress? _progress;
+  String? _refused;
+  bool _asked = false;
+  int _reads = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.connections?.addListener(_ask);
+    widget.organization.addListener(_ask);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _ask();
+    });
+  }
+
+  @override
+  void dispose() {
+    widget.connections?.removeListener(_ask);
+    widget.organization.removeListener(_ask);
+    super.dispose();
+  }
+
+  /// Why the machine is not asked, or null where it is.
+  String? get _notAsked {
+    final view = widget.organization.view;
+    final host = view?.hosts.where((each) => each.name == widget.host).firstOrNull;
+    if (view == null || host == null) return 'The organization has not been read, so ${widget.host} was not asked.';
+    if (!view.holdsRoles || !host.admins.contains(view.me)) {
+      return 'Only a connected Machine Admin of ${widget.host} reads what it carries and how it stands with central.';
+    }
+    if (!(widget.connections?.connected(widget.host) ?? false)) {
+      return 'Connect to ${widget.host} to read what it carries and how it stands with central.';
+    }
+    return null;
+  }
+
+  void _ask() {
+    if (_notAsked != null) {
+      _asked = false;
+      if (mounted) setState(() {});
+      return;
+    }
+    if (_asked) return;
+    _asked = true;
+    unawaited(_read());
+  }
+
+  Future<void> _read() async {
+    final read = ++_reads;
+    HostProgress? progress;
+    String? refused;
+    try {
+      progress = await widget.connections!.progress(widget.host);
+    } on OrganizationRefused catch (refusal) {
+      refused = refusal.words;
+    }
+    if (!mounted || read != _reads) return;
+    setState(() {
+      _progress = progress;
+      _refused = refused;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final why = _notAsked ?? (_refused == null ? null : '${widget.host} did not say how it stands: $_refused');
+    final progress = why == null ? _progress : null;
+    return widget.builder(
+      context,
+      progress,
+      why ?? (progress == null ? 'Waiting for ${widget.host} to say what it carries.' : null),
+    );
+  }
 }

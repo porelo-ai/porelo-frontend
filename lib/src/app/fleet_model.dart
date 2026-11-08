@@ -190,6 +190,10 @@ class FleetModel extends ChangeNotifier {
   /// Whether this machine has answered since this window opened.
   bool get answered => _answered;
   bool _answered = false;
+
+  /// When the machine last gave this window its list of work, null where it has not yet.
+  DateTime? get lastAnswered => _lastAnswered;
+  DateTime? _lastAnswered;
   String _status = 'Starting up.';
   bool _busy = false;
   bool _live = false;
@@ -577,6 +581,7 @@ class FleetModel extends ChangeNotifier {
   void _adopt(List<Task> tasks) {
     _tasks = tasks;
     _listRead = true;
+    _lastAnswered = DateTime.now();
     // A selection that no longer exists is dropped rather than left pointing at nothing.
     final projectNames = projects.map((project) => project.name).toSet();
     if (_selectedProject != null && !projectNames.contains(_selectedProject)) {

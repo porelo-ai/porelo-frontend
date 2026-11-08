@@ -12,7 +12,7 @@ import '../app/environment_tokens.dart';
 import '../app/homeserver_forwards.dart';
 import '../app/host_check_run.dart';
 import '../app/host_access.dart';
-import '../app/host_progress.dart' show HostProgress;
+import '../app/host_progress.dart' show HostProgress, HostRepositoryProgress;
 import '../app/host_runs.dart';
 import '../app/product.dart';
 import '../app/forge.dart';
@@ -2319,7 +2319,7 @@ class _ShellState extends State<Shell> {
   }
 
   /// Starts work in the selected project.
-  Future<void> _startWork({String? repository}) async {
+  Future<void> _startWork({String? repository, VoidCallback? onChangeProject}) async {
     final selected = _fleet.selectedProject?.project;
     if (selected == null) return;
     // In default, work starts on a repository named first: the one way, wherever it is asked for.
@@ -2333,7 +2333,7 @@ class _ShellState extends State<Shell> {
     widget.starting.runningElsewhere = _runningElsewhere(project.name);
     unawaited(widget.starting.open(_fleet.backend, project, repository: repository));
     unawaited(_offerWhatTheHostHas(project.name));
-    await _offerToStart();
+    await _offerToStart(onChangeProject: onChangeProject);
   }
 
   /// The other machines where work of the project called [name] runs, as each last said.
@@ -2496,12 +2496,13 @@ class _ShellState extends State<Shell> {
     await _offerToStart();
   }
 
-  Future<void> _offerToStart() async {
+  Future<void> _offerToStart({VoidCallback? onChangeProject}) async {
     final machine = widget.machines.current;
     final vault = _toolsFor(machine).vault;
     await openStartWork(
       context,
       starting: widget.starting,
+      onChangeProject: onChangeProject,
       onStart: _beginTheRun,
       onKeep: _keepAsTemplate,
       onStoreTheCredential: onTheMachineAsWritten(widget.machines.current, 'porelo') == null
@@ -3819,6 +3820,7 @@ class _ShellState extends State<Shell> {
       _organizationHostFrom = null;
       _organizationProjectFrom = null;
       _machineProjects = false;
+      _projectFrom = null;
     });
     final machine = place.machine;
     if (selectMachine && machine != null && widget.machines.all.contains(machine)) widget.machines.select(machine);
@@ -3837,6 +3839,14 @@ class _ShellState extends State<Shell> {
       _chooseTreePlace(place, false, selectMachine: on == null);
     }
   }
+
+  /// Whether [machine] is one an organization's card names, so its managing is its Machine Admins' list.
+  bool _hasMachineAdmins(Machine machine) =>
+      _onTheOrganizationsPage(machine) &&
+      (_organization?.view?.hosts.any((host) => host.name == machine.hostCard!.name) ?? false);
+
+  /// Whether [machine]'s page is its organization's page of it, as a machine an organization's card names is.
+  bool _onTheOrganizationsPage(Machine machine) => machine.hostCard != null && _organization != null;
 
   /// The way back from one of [machine]'s sections: its machines, then the machine.
   List<LeafPathStep> _machineSectionPath(Machine machine) => [
@@ -3913,7 +3923,11 @@ class _ShellState extends State<Shell> {
                       for (final row in machineProjectRows(
                         machine: machine,
                         machines: widget.machines,
-                        onProject: (project) => _openPageProject(machine, project),
+                        onProject: (project) => _openPageProject(
+                          machine,
+                          project,
+                          from: ShellPlace(Section.machine, machine: machine, machineSection: MachineSection.projects),
+                        ),
                         projectCommands: (project) => _pageProjectCommands(machine, project),
                       ))
                         (words: row.name, child: row.row),
@@ -3921,7 +3935,10 @@ class _ShellState extends State<Shell> {
                   ),
                 ],
               ),
-              MachineSection.managing => _machineFacts(managing: true, head: head),
+              MachineSection.managing =>
+                _hasMachineAdmins(machine)
+                    ? _machineOnePage(machine.hostCard!.name, onlyAdmins: true, path: _machineSectionPath(machine))
+                    : _machineFacts(managing: true, head: head),
               _ => _machineToolPage(machine, section, tools, head),
             };
         // An answering machine's Tasks list draws this head itself, with its count and filter.
@@ -4208,8 +4225,9 @@ class _ShellState extends State<Shell> {
     if (managing && head != null && watched && !(machine.hostCard != null && _organization != null)) {
       return withStatus(_managingPage(machine, fleet!, tools!, vault, head));
     }
+    final onePage = _onTheOrganizationsPage(machine);
     final page = FactsPage(
-      embedded: machine.hostCard != null && _organization != null,
+      embedded: onePage,
       title: machine.name,
       head: head == null
           ? null
@@ -4227,22 +4245,27 @@ class _ShellState extends State<Shell> {
                 ...head.notices,
               ],
             ),
-      identity: Text('${machine.where}${machineKind(widget.machines, machine)}', key: const Key('machine-kind')),
+      // A machine with an organization's card is named, with its state and version, in its page's one head.
+      identity: onePage
+          ? null
+          : Text('${machine.where}${machineKind(widget.machines, machine)}', key: const Key('machine-kind')),
       highlight: widget.shell.highlight,
       path: [(label: 'My machines', go: () => _chooseTreePlace(const ShellPlace(Section.machines), true))],
       busy: (fleet?.busy ?? false) || (ownVault?.busy ?? false),
       facts: [
-        (label: 'Last read', value: 'not read — the connection does not report a read time', known: false),
-        (
-          label: 'Porelo',
-          value: fleet?.info?.version ?? 'not read — Porelo has not answered',
-          known: fleet?.info != null,
-        ),
-        (
-          label: 'State',
-          value: fleet?.reachability == Reachability.connected ? 'Connected' : 'Not answering',
-          known: true,
-        ),
+        if (!onePage) ...[
+          (label: 'Last read', value: 'not read — the connection does not report a read time', known: false),
+          (
+            label: 'Porelo',
+            value: fleet?.info?.version ?? 'not read — Porelo has not answered',
+            known: fleet?.info != null,
+          ),
+          (
+            label: 'State',
+            value: fleet?.reachability == Reachability.connected ? 'Connected' : 'Not answering',
+            known: true,
+          ),
+        ],
         (
           label: 'Vault',
           value: vault == null
@@ -4323,9 +4346,7 @@ class _ShellState extends State<Shell> {
           : [],
       tools: watched && ownVault != null && vault != null ? _vaultButtonsFor(machine, fleet!, ownVault) : null,
     );
-    return withStatus(
-      machine.hostCard != null && _organization != null ? _machineOnePage(machine.hostCard!.name, work: page) : page,
-    );
+    return withStatus(onePage ? _machineOnePage(machine.hostCard!.name, work: page) : page);
   }
 
   /// A machine's managing page: its head once, its facts as four tiles, its actions with the
@@ -4615,7 +4636,11 @@ class _ShellState extends State<Shell> {
     final machine = widget.machines.current;
     final project = _fleet.selectedProject;
     final title = switch (widget.shell.section) {
-      Section.machine => widget.shell.place.machineSection?.label ?? (widget.shell.itemMachine ?? machine).name,
+      Section.machine =>
+        widget.shell.place.machineSection?.labelOn(
+              organizationCard: _hasMachineAdmins(widget.shell.place.machine ?? machine),
+            ) ??
+            (widget.shell.itemMachine ?? machine).name,
       Section.organization =>
         widget.shell.place.organizationSection?.label ??
             widget.shell.place.organization ??
@@ -4764,6 +4789,10 @@ class _ShellState extends State<Shell> {
         machinesWithSections: {
           for (final machine in widget.machines.all)
             if (!rows.preparations.any((run) => run.name == machine.name)) machine.name,
+        },
+        machinesWithAdmins: {
+          for (final machine in widget.machines.all)
+            if (_hasMachineAdmins(machine)) machine.name,
         },
         machineEntries: [
           for (final run in rows.preparations)
@@ -5016,7 +5045,7 @@ class _ShellState extends State<Shell> {
   }
 
   /// Starts new work: where first, when there is more than one machine that answers.
-  Future<void> _newWork({Machine? on}) async {
+  Future<void> _newWork({Machine? on, bool askTheProject = false}) async {
     final answering = <Machine>[
       for (final machine in widget.machines.all)
         if (widget.machines.of(machine).reachability == Reachability.connected) machine,
@@ -5048,9 +5077,13 @@ class _ShellState extends State<Shell> {
       for (final project in fleet.projects)
         if (project.name != defaultProject && (project.canBeActedOn || project.project.carried)) project,
     ];
-    // Then in which project, or in none: work in the Default project is default, every machine's.
+    // Then in which project, or in none: work in the Default project is default, every machine's. Asked on a machine
+    // that carries one project besides Default, the window knows it: the form opens in it, with a way to another.
+    final known = on != null && !askTheProject && projects.length == 1;
     final chosen = projects.isEmpty
         ? defaultProject
+        : known
+        ? projects.single.name
         : await showDialog<String>(
             context: context,
             builder: (context) => SimpleDialog(
@@ -5081,7 +5114,9 @@ class _ShellState extends State<Shell> {
     // Default is default, which a machine need not list among its projects.
     if (chosen == defaultProject) return _startInDefault();
     fleet.selectProject(chosen);
-    await _startWork();
+    var another = false;
+    await _startWork(onChangeProject: known ? () => another = true : null);
+    if (another && mounted && widget.machines.all.contains(where)) await _newWork(on: where, askTheProject: true);
   }
 
   /// What needs a person. A tile leads to where its work lives.
@@ -5198,13 +5233,28 @@ class _ShellState extends State<Shell> {
     widget.shell.openMachine(machine);
   }
 
-  void _openPageProject(Machine machine, String project) {
+  /// The machine place a project's page was opened from, where it was: the page is then what of the project is on that
+  /// machine, and goes back there.
+  ShellPlace? _projectFrom;
+
+  /// The place the project's page was opened at from [_projectFrom]: any other way to the page, as the finder's, makes a
+  /// new place and forgets the machine.
+  ShellPlace? _projectOpenedAt;
+
+  void _openPageProject(Machine machine, String project, {ShellPlace? from}) {
     machine = _pageMachine(machine);
+    // An action on the open page opens it again: it keeps where it came from.
+    final same =
+        widget.shell.section == Section.project &&
+        widget.shell.itemMachine == machine &&
+        widget.shell.itemProject == project;
+    if (!same) _projectFrom = from;
     if (widget.machines.all.contains(machine)) {
       widget.machines.select(machine);
       widget.machines.of(machine).selectProject(project);
     }
     widget.shell.openProject(machine, project);
+    _projectOpenedAt = widget.shell.place;
   }
 
   Machine _pageMachine(Machine machine) =>
@@ -5496,6 +5546,157 @@ class _ShellState extends State<Shell> {
     );
   }
 
+  /// One project's page on [machine]: under My projects, or, opened [from] the machine, what of it is on that machine,
+  /// with the host's [progress] where it was read and why not where [notRead] says.
+  Widget _projectPage(
+    Machine machine,
+    ProjectOnScreen project,
+    List<Command> commands,
+    String? highlight, {
+    ShellPlace? from,
+    HostProgress? progress,
+    String? notRead,
+  }) {
+    final watched = widget.machines.all.contains(machine);
+    return ProjectDetailsPage(
+      key: ValueKey('project ${machine.name}/${project.name}'),
+      machine: machine,
+      machineState: !watched
+          ? 'not read'
+          : widget.machines.of(machine).reachability == Reachability.connected
+          ? 'Connected'
+          : widget.machines.of(machine).answered
+          ? 'Not connected'
+          : 'not read',
+      project: project,
+      commands: commands,
+      onBack: () => widget.shell.goTo(Section.projects),
+      onMachine: () => _openPageMachine(machine),
+      machinePath: from == null
+          ? null
+          : [
+              ..._machineSectionPath(machine),
+              if (from.machineSection case final section?)
+                (label: section.label, go: () => _chooseTreePlace(from, false)),
+            ],
+      onGeneralPage: from == null ? null : () => _openGeneralProject(project.name),
+      machineNote: from == null || !_onTheOrganizationsPage(machine) ? null : notRead,
+      highlight: highlight,
+      onShown: widget.shell.shown,
+      details: ProjectHeader(
+        project: project,
+        muted: widget.notifications.muted.contains(project.name),
+        menu: commands,
+        showTitle: false,
+        onSync: (repository) {
+          _openPageProject(machine, project.name);
+          unawaited(_syncTheUpstream(repository: repository));
+        },
+        onBackups: (repository) {
+          _openPageProject(machine, project.name);
+          unawaited(_showTheBackups(repository: repository));
+        },
+        onOpens: (repository) {
+          _openPageProject(machine, project.name);
+          _checkWorkCanStart(repository: repository);
+        },
+        onReach: (repository) {
+          _openPageProject(machine, project.name);
+          unawaited(_openEgress(repository: repository));
+        },
+        onStart: (repository) {
+          _openPageProject(machine, project.name);
+          unawaited(_startWork(repository: repository));
+        },
+        homeserver: _homeserverWords(machine, project.name),
+        onTheMachine: from == null ? null : _onTheMachine(machine, project, progress: progress, read: notRead == null),
+        startUnavailable: watched
+            ? StartWork.whyNot(project.project) ?? notAnswering(widget.machines.of(machine))
+            : 'This machine is not connected.',
+      ),
+      jobs: [
+        for (final job in widget.templates.forProject(project.name))
+          (
+            words: '${job.name} ${job.agent} ${job.mode.name}',
+            child: TemplateRow(
+              job: job,
+              highlighted: highlight == 'template.start/${job.project}/${job.name}',
+              onShown: widget.shell.shown,
+              unavailable: watched && job.startable
+                  ? notAnswering(widget.machines.of(machine))
+                  : 'This job cannot start here.',
+              onPressed: () {
+                _openPageProject(machine, project.name);
+                unawaited(_startFromTemplate(job));
+              },
+            ),
+          ),
+      ],
+    );
+  }
+
+  /// The project's own page, for all of it: the organization's where it lists the project, else its page under My
+  /// projects.
+  void _openGeneralProject(String project) {
+    final organization = _organization?.view;
+    if (organization != null && organization.projects.any((each) => each.name == project)) {
+      _chooseTreePlace(const ShellPlace(Section.projects), false);
+      setState(() {
+        _organizationProjectFrom = const ShellPlace(Section.projects);
+        _organizationProject = project;
+      });
+      return;
+    }
+    _projectFrom = null;
+    setState(() {});
+  }
+
+  /// What [machine] holds of each repository of [project], by name: from what the host said where its card names it,
+  /// and from the machine's own list of work.
+  Map<String, String> _onTheMachine(
+    Machine machine,
+    ProjectOnScreen project, {
+    required HostProgress? progress,
+    required bool read,
+  }) {
+    final fleet = widget.machines.all.contains(machine) ? widget.machines.of(machine) : null;
+    // A machine that does not answer now has its last list, which is no word on what runs there now.
+    final tasks = fleet != null && fleet.listRead && fleet.reachability == Reachability.connected ? fleet.tasks : null;
+    final p = project.project;
+    final names = <String>{
+      for (final each in p.repositoryStates)
+        if (!each.own || p.repositoryStates.length == 1) each.name,
+    };
+    if (!_onTheOrganizationsPage(machine)) {
+      return {
+        for (final name in names)
+          name: [
+            p.carried ? 'carried, not taken yet' : 'on the machine',
+            runningIn(project: project.name, repository: name, tasks: tasks),
+          ].join(' · '),
+      };
+    }
+    final card = machine.hostCard!.name;
+    final host = _organization?.view?.hosts.where((each) => each.name == card).firstOrNull;
+    final carriedAlone = host?.repositories[project.name];
+    final said = progress?.of(project.name);
+    return {
+      for (final name in {
+        ...names,
+        for (final row in said?.repositories ?? const <HostRepositoryProgress>[]) row.repository,
+        ...?carriedAlone,
+      })
+        name: repositoryOnTheMachine(
+          project: project.name,
+          repository: name,
+          progress: said,
+          progressRead: read && progress != null,
+          tasks: tasks,
+          carriedAlone: carriedAlone,
+        ),
+    };
+  }
+
   Widget _machineBody(Machine selected, FleetModel fleet, String? highlight) {
     final machine = widget.shell.itemMachine ?? selected;
     final watched = widget.machines.all.contains(machine);
@@ -5517,71 +5718,20 @@ class _ShellState extends State<Shell> {
     }
     if (widget.shell.section == Section.project && project != null) {
       final commands = _pageProjectCommands(machine, project);
-      return ProjectDetailsPage(
-        key: ValueKey('project ${machine.name}/${project.name}'),
-        machine: machine,
-        machineState: !watched
-            ? 'not read'
-            : widget.machines.of(machine).reachability == Reachability.connected
-            ? 'Connected'
-            : widget.machines.of(machine).answered
-            ? 'Not connected'
-            : 'not read',
-        project: project,
-        commands: commands,
-        onBack: () => widget.shell.goTo(Section.projects),
-        onMachine: () => _openPageMachine(machine),
-        highlight: highlight,
-        onShown: widget.shell.shown,
-        details: ProjectHeader(
-          project: project,
-          muted: widget.notifications.muted.contains(project.name),
-          menu: commands,
-          showTitle: false,
-          onSync: (repository) {
-            _openPageProject(machine, project.name);
-            unawaited(_syncTheUpstream(repository: repository));
-          },
-          onBackups: (repository) {
-            _openPageProject(machine, project.name);
-            unawaited(_showTheBackups(repository: repository));
-          },
-          onOpens: (repository) {
-            _openPageProject(machine, project.name);
-            _checkWorkCanStart(repository: repository);
-          },
-          onReach: (repository) {
-            _openPageProject(machine, project.name);
-            unawaited(_openEgress(repository: repository));
-          },
-          onStart: (repository) {
-            _openPageProject(machine, project.name);
-            unawaited(_startWork(repository: repository));
-          },
-          homeserver: _homeserverWords(machine, project.name),
-          startUnavailable: watched
-              ? StartWork.whyNot(project.project) ?? notAnswering(widget.machines.of(machine))
-              : 'This machine is not connected.',
-        ),
-        jobs: [
-          for (final job in widget.templates.forProject(project.name))
-            (
-              words: '${job.name} ${job.agent} ${job.mode.name}',
-              child: TemplateRow(
-                job: job,
-                highlighted: highlight == 'template.start/${job.project}/${job.name}',
-                onShown: widget.shell.shown,
-                unavailable: watched && job.startable
-                    ? notAnswering(widget.machines.of(machine))
-                    : 'This job cannot start here.',
-                onPressed: () {
-                  _openPageProject(machine, project.name);
-                  unawaited(_startFromTemplate(job));
-                },
-              ),
-            ),
-        ],
-      );
+      final from = identical(_projectOpenedAt, widget.shell.place) && _projectFrom?.machine?.name == machine.name
+          ? _projectFrom
+          : null;
+      if (from != null && _onTheOrganizationsPage(machine)) {
+        return HostProgressReading(
+          key: ValueKey('project-on-machine ${machine.name}/${project.name}'),
+          organization: _organization!,
+          connections: _hostConnections,
+          host: machine.hostCard!.name,
+          builder: (context, progress, why) =>
+              _projectPage(machine, project, commands, highlight, from: from, progress: progress, notRead: why),
+        );
+      }
+      return _projectPage(machine, project, commands, highlight, from: from);
     }
     if (watched) _keepTheVaultButtonTrue(machine, widget.machines.of(machine));
     final onePage = machine.hostCard != null && _organization != null;
@@ -5602,7 +5752,7 @@ class _ShellState extends State<Shell> {
       highlight: highlight,
       onShown: widget.shell.shown,
       onBack: () => widget.shell.goTo(Section.machines),
-      onProject: (project) => _openPageProject(machine, project),
+      onProject: (project) => _openPageProject(machine, project, from: ShellPlace(Section.machine, machine: machine)),
       projectCommands: (project) => _pageProjectCommands(machine, project),
       tools: watched ? _vaultButtonsFor(machine, widget.machines.of(machine), _toolsFor(machine).vault) : null,
     );
@@ -5613,7 +5763,8 @@ class _ShellState extends State<Shell> {
             machineProjects: machineProjectRows(
               machine: machine,
               machines: widget.machines,
-              onProject: (project) => _openPageProject(machine, project),
+              onProject: (project) =>
+                  _openPageProject(machine, project, from: ShellPlace(Section.machine, machine: machine)),
               projectCommands: (project) => _pageProjectCommands(machine, project),
             ),
           )
@@ -5714,53 +5865,67 @@ class _ShellState extends State<Shell> {
     _chooseTreePlace(origin, false);
   }
 
-  Widget _machineOnePage(String host, {Widget? work, List<({String name, Widget row})>? machineProjects}) =>
-      ListenableBuilder(
-        // Read again as a preparation starts and ends, so the page offers its protocol, not a second start.
-        listenable: _hostRuns,
-        builder: (context, _) => OrganizationHostPage(
-          path: _organizationDetailPath(
-            _organizationHostFrom,
-            const ShellPlace(Section.machines),
-            _backFromOrganizationHost,
-          ),
-          onPrepare: _prepareThisMachine,
-          preparing: _preparingFor,
-          onProtocol: (run) => unawaited(_openHostRun(run)),
-          key: ValueKey(host),
-          organization: _organization!,
-          connections: _hostConnections,
-          onGiveToken: _giveHostToken,
-          onStartWork: (host, project) async {
-            final machine = widget.machines.all.where((machine) => machine.hostCard?.name == host).firstOrNull;
-            if (machine == null) return 'This window does not have $host among its machines, so it cannot start there.';
-            widget.machines.select(machine);
-            if (project == null) {
-              // The organization's view may be older than what the machine lists: Default is not taken unasked.
-              await _fleet.refresh(quietly: true);
-              if (!mounted) return null;
-              final others = _fleet.projects.where(
-                (each) => each.name != defaultProject && (each.canBeActedOn || each.project.carried),
-              );
-              if (others.isNotEmpty) {
-                unawaited(_newWork(on: machine));
-                return null;
-              }
-              // Its output and its session are shown under Work, and not on this page.
-              widget.shell.goTo(Section.work);
-              unawaited(_startInDefault());
+  Widget _machineOnePage(
+    String host, {
+    Widget? work,
+    List<({String name, Widget row})>? machineProjects,
+    bool onlyAdmins = false,
+    List<LeafPathStep>? path,
+  }) {
+    final machine = widget.machines.all.where((machine) => machine.hostCard?.name == host).firstOrNull;
+    return ListenableBuilder(
+      // Read again as a preparation starts and ends, so the page offers its protocol, not a second start; and as the
+      // machine answers, for its head.
+      listenable: Listenable.merge([_hostRuns, if (machine != null) widget.machines.of(machine)]),
+      builder: (context, _) => OrganizationHostPage(
+        onlyAdmins: onlyAdmins,
+        version: machine == null ? null : widget.machines.of(machine).info?.version,
+        lastAnswered: machine == null ? null : widget.machines.of(machine).lastAnswered,
+        path:
+            path ??
+            _organizationDetailPath(
+              _organizationHostFrom,
+              const ShellPlace(Section.machines),
+              _backFromOrganizationHost,
+            ),
+        onPrepare: _prepareThisMachine,
+        preparing: _preparingFor,
+        onProtocol: (run) => unawaited(_openHostRun(run)),
+        key: ValueKey(host),
+        organization: _organization!,
+        connections: _hostConnections,
+        onGiveToken: _giveHostToken,
+        onStartWork: (host, project) async {
+          final machine = widget.machines.all.where((machine) => machine.hostCard?.name == host).firstOrNull;
+          if (machine == null) return 'This window does not have $host among its machines, so it cannot start there.';
+          widget.machines.select(machine);
+          if (project == null) {
+            // The organization's view may be older than what the machine lists: Default is not taken unasked.
+            await _fleet.refresh(quietly: true);
+            if (!mounted) return null;
+            final others = _fleet.projects.where(
+              (each) => each.name != defaultProject && (each.canBeActedOn || each.project.carried),
+            );
+            if (others.isNotEmpty) {
+              unawaited(_newWork(on: machine));
               return null;
             }
-            return _startFromTheMachinePage(host, project);
-          },
-          keys: _keys,
-          refresh: _organizationPageRefresh,
-          host: host,
-          work: work,
-          machineProjects: machineProjects,
-          onBack: _backFromOrganizationHost,
-        ),
-      );
+            // Its output and its session are shown under Work, and not on this page.
+            widget.shell.goTo(Section.work);
+            unawaited(_startInDefault());
+            return null;
+          }
+          return _startFromTheMachinePage(host, project);
+        },
+        keys: _keys,
+        refresh: _organizationPageRefresh,
+        host: host,
+        work: work,
+        machineProjects: machineProjects,
+        onBack: _backFromOrganizationHost,
+      ),
+    );
+  }
 
   void _homeserversChanged() {
     if (mounted) setState(() {});

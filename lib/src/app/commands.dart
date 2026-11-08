@@ -103,7 +103,13 @@ Command organizationCommand({
 
 /// Opens [host]'s forge through its connection using the address its card supplies; [hasForge] is what the
 /// organization says of it, known before any connection.
-Command openHostForgeCommand({required String host, required HostConnections? connections, bool hasForge = true}) {
+/// [onRefused] is told why the forward could not be raised anew, where it could not.
+Command openHostForgeCommand({
+  required String host,
+  required HostConnections? connections,
+  bool hasForge = true,
+  void Function(String words)? onRefused,
+}) {
   String? whyUnavailable() {
     if (!hasForge) return 'This host has no forge.';
     if (!(connections?.up(host) ?? false)) {
@@ -118,10 +124,30 @@ Command openHostForgeCommand({required String host, required HostConnections? co
     group: 'Organization',
     home: Home.organizationRow,
     unavailableNow: whyUnavailable,
-    run: () {
-      if (connections?.forgeUrl(host) case final address?) unawaited(openLink(Uri.parse(address)));
-    },
+    run: () => unawaited(
+      openHostForge(host: host, connections: connections).then((refused) {
+        if (refused != null) onRefused?.call(refused);
+      }),
+    ),
   );
+}
+
+/// Opens [host]'s forge, raising this computer's forward to it anew first where the forge gave no answer through it.
+/// Answers why the forward could not be raised anew, or null; the forge is opened whatever the forward now says, as the
+/// browser then shows what it gets.
+Future<String?> openHostForge({required String host, required HostConnections? connections}) async {
+  if (connections == null) return null;
+  String? refused;
+  try {
+    if (await connections.forgeAnswers(host) == false) await connections.raiseForwardAnew(host);
+  } on OrganizationRefused catch (refusal) {
+    refused = refusal.words;
+  } on Object catch (error) {
+    // Whatever else went wrong is said beside the button, never left to an unawaited future.
+    refused = "The forward to $host's forge could not be raised anew: $error";
+  }
+  if (connections.forgeUrl(host) case final address?) await openLink(Uri.parse(address));
+  return refused;
 }
 
 /// Leaves a view onto work without interrupting the work itself.

@@ -77,6 +77,11 @@ enum MachineSection {
 
   /// The words shown in the tree.
   final String label;
+
+  /// What the tree calls this section on one machine: a machine with an organization's card is managed by its Machine
+  /// Admins, so its managing leaf is their list, while this computer and a machine of its own keep [label].
+  String labelOn({required bool organizationCard}) =>
+      this == MachineSection.managing && organizationCard ? 'Machine Admins' : label;
 }
 
 /// The lists belonging to one organization.

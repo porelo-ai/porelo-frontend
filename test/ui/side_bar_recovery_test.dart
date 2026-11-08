@@ -125,13 +125,15 @@ void main() {
         await _tap(tester, _parent(machine.name));
         if (route == 'managing') await _tap(tester, _leaf(machine.name, 'managing'));
       }
+      if (route == 'managing') {
+        // A machine with a card is managed by its Machine Admins: the leaf is their list, not the machine's page again.
+        expect(find.byKey(const Key('organization-host-admins build')), findsOneWidget);
+        expect(find.text('hana'), findsOneWidget);
+        expect(find.byKey(const Key('organization-host build')), findsNothing);
+        return;
+      }
       expect(find.byKey(const Key('organization-host build')), findsOneWidget);
-      final menu = find.byTooltip('What can be done with build');
-      await tester.ensureVisible(menu);
-      await tester.pump();
-      await tester.tap(menu);
-      await World.settle(tester);
-      expect(find.text('Open its forge'), findsOneWidget);
+      expect(find.byKey(const ValueKey('organization.openForge/build')), findsOneWidget, reason: 'a button in sight');
     });
   }
 

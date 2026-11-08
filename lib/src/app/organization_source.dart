@@ -791,6 +791,14 @@ abstract class HostConnections extends ChangeNotifier {
   /// Whether that connection is up: a host still waiting for its first token has made no account to connect to.
   bool up(String host) => connected(host);
 
+  /// Whether [host]'s forge answers through this computer's forward; null where that cannot be asked, as for a host
+  /// without a forge or a connection that is not up.
+  Future<bool?> forgeAnswers(String host) async => null;
+
+  /// Takes this computer's forward to [host] down and raises it anew, for a forge that stopped answering through it.
+  Future<void> raiseForwardAnew(String host) async =>
+      throw OrganizationRefused('This computer cannot raise its forward to $host anew.');
+
   /// Whether the last *Connect* found [host] waiting for its first token, so its connection cannot be up.
   bool waitsForToken(String host) => false;
 

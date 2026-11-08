@@ -112,6 +112,8 @@ void main() {
           ),
         );
         await tester.pump();
+        // On the page it is a button in sight; on the row it stays in the row's menu.
+        if (onPage) return;
         final button = find.byTooltip('What can be done with build');
         await tester.ensureVisible(button);
         await tester.pump();
@@ -119,6 +121,15 @@ void main() {
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 300));
       }
+
+      bool offered(WidgetTester tester) => onPage
+          ? tester.widget<ButtonStyleButton>(find.byKey(const ValueKey('organization.openForge/build'))).onPressed !=
+                null
+          : tester
+                .widget<PopupMenuItem<String>>(
+                  find.ancestor(of: find.text('Open its forge'), matching: find.byType(PopupMenuItem<String>)),
+                )
+                .enabled;
 
       // Harm: the browser reaches a rejected address or another machine's forge.
       testWidgets('a connected host opens the forwarded address from its own card', (tester) async {
@@ -131,8 +142,7 @@ void main() {
       // Harm: a browser opens a local port that no longer belongs to this connection.
       testWidgets('a disconnected host keeps the command disabled with its connection reason', (tester) async {
         await menu(tester, _ForgeConnections(connected: false));
-        final command = find.ancestor(of: find.text('Open its forge'), matching: find.byType(PopupMenuItem<String>));
-        expect(tester.widget<PopupMenuItem<String>>(command).enabled, isFalse);
+        expect(offered(tester), isFalse);
         expect(find.textContaining('Connect first: the forge is reached through the connection'), findsOneWidget);
         await tester.tap(find.text('Open its forge'));
         await tester.pump();
@@ -156,8 +166,7 @@ void main() {
       // Harm: a host running no forge opens an unrelated service on a guessed port.
       testWidgets('a connected host without a forge keeps the command disabled and says why', (tester) async {
         await menu(tester, _ForgeConnections(connected: true, webPort: null));
-        final command = find.ancestor(of: find.text('Open its forge'), matching: find.byType(PopupMenuItem<String>));
-        expect(tester.widget<PopupMenuItem<String>>(command).enabled, isFalse);
+        expect(offered(tester), isFalse);
         expect(find.textContaining('This host has no forge.'), findsOneWidget);
         await tester.tap(find.text('Open its forge'));
         await tester.pump();
@@ -179,8 +188,7 @@ void main() {
       testWidgets('a lost tunnel disables the command even while its card is kept', (tester) async {
         final connections = _ForgeConnections(connected: true).._loseForward();
         await menu(tester, connections);
-        final command = find.ancestor(of: find.text('Open its forge'), matching: find.byType(PopupMenuItem<String>));
-        expect(tester.widget<PopupMenuItem<String>>(command).enabled, isFalse);
+        expect(offered(tester), isFalse);
         expect(find.textContaining('Connect first: the forge is reached through the connection'), findsOneWidget);
         await tester.tap(find.text('Open its forge'));
         await tester.pump();
@@ -199,6 +207,120 @@ void main() {
       });
     });
   }
+
+  group("a forge that stopped answering through this computer's forward", () {
+    late List<Uri> opened;
+
+    setUp(() {
+      opened = [];
+      final previous = openLink;
+      openLink = (address) async => opened.add(address);
+      addTearDown(() => openLink = previous);
+    });
+
+    Future<_DeadForge> page(WidgetTester tester, {required bool answers, bool onRow = false, bool heals = true}) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final connections = _DeadForge(answers: answers)..heals = heals;
+      addTearDown(connections.dispose);
+      openLink = (address) async {
+        opened.add(address);
+        connections.order.add('open');
+      };
+      final organization = Organization(FixtureOrganization(organizationFor('mia')));
+      addTearDown(organization.dispose);
+      await organization.refresh();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: onRow
+                ? OrganizationPage(organization: organization, connections: connections, onHost: (_) {})
+                : OrganizationHostPage(
+                    organization: organization,
+                    host: 'build',
+                    connections: connections,
+                    onBack: () {},
+                  ),
+          ),
+        ),
+      );
+      await World.settle(tester);
+      return connections;
+    }
+
+    const dead = "The host's forge gives no answer through this computer's forward";
+
+    // Harm: the page says Connected while its forge answers nothing, and the person is left with an empty browser tab.
+    testWidgets('the page says so, and Open its forge raises the forward anew before opening', (tester) async {
+      final connections = await page(tester, answers: false);
+      expect(find.textContaining(dead), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('organization.openForge/build')));
+      await World.settle(tester);
+      expect(connections.raised, ['build'], reason: 'raised anew first');
+      expect(opened, [Uri.parse('http://build.localhost:9471/')], reason: 'then opened');
+      expect(connections.order, ['raise', 'open'], reason: 'the forward before the browser');
+      expect(find.textContaining(dead), findsNothing, reason: 'it answers again');
+    });
+
+    // Harm: a forge that answers has its working forward taken down for nothing.
+    testWidgets('a forge that answers is opened without raising anything', (tester) async {
+      final connections = await page(tester, answers: true);
+      expect(find.textContaining(dead), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('organization.openForge/build')));
+      await World.settle(tester);
+      expect(connections.raised, isEmpty);
+      expect(opened, [Uri.parse('http://build.localhost:9471/')]);
+    });
+
+    // Harm: a forward that cannot be raised again opens nothing and says nothing.
+    testWidgets('a forward that cannot be raised anew says why beside the button', (tester) async {
+      final connections = await page(tester, answers: false)
+        ..refuseRaise = true;
+      await tester.tap(find.byKey(const ValueKey('organization.openForge/build')));
+      await World.settle(tester);
+      expect(find.text('ssh said no'), findsOneWidget);
+      expect(connections.raised, ['build']);
+      expect(find.textContaining(dead), findsOneWidget);
+    });
+
+    // Harm: a forward raised anew in vain leaves the person clicking again for a cause that is on the host.
+    testWidgets('a forge still dead after the raise says its cause is on the host', (tester) async {
+      await page(tester, answers: false, heals: false);
+      await tester.tap(find.byKey(const ValueKey('organization.openForge/build')));
+      await World.settle(tester);
+      expect(find.textContaining('still gives no answer'), findsOneWidget);
+      expect(find.textContaining('its cause is on the host'), findsOneWidget);
+    });
+
+    // Harm: a raise that fails in some other way escapes as an unhandled error.
+    testWidgets('a raise that fails otherwise is said, never thrown', (tester) async {
+      (await page(tester, answers: false)).failOtherwise = true;
+      await tester.tap(find.byKey(const ValueKey('organization.openForge/build')));
+      await World.settle(tester);
+      expect(tester.takeException(), isNull);
+      expect(find.textContaining('could not be raised anew'), findsOneWidget);
+    });
+
+    // Harm: the row's menu raises in vain and says nothing of the refusal.
+    for (final otherwise in [false, true]) {
+      testWidgets("the row's Open its forge says a ${otherwise ? 'failed' : 'refused'} raise", (tester) async {
+        final connections = await page(tester, answers: false, onRow: true)
+          ..refuseRaise = !otherwise
+          ..failOtherwise = otherwise;
+        final menu = find.byTooltip('What can be done with build');
+        await tester.ensureVisible(menu);
+        await tester.pump();
+        await tester.tap(menu);
+        await World.settle(tester);
+        await tester.tap(find.text('Open its forge'));
+        await World.settle(tester);
+        expect(tester.takeException(), isNull);
+        expect(connections.raised, ['build']);
+        expect(find.textContaining(otherwise ? 'could not be raised anew' : 'ssh said no'), findsOneWidget);
+      });
+    }
+  });
 
   group('a machine\'s admin puts a project on it from the organization', () {
     Future<(FixtureOrganization, FixtureConnections)> organization(
@@ -1169,4 +1291,29 @@ class _ForgeConnections extends FixtureConnections {
 
   @override
   String? forgeUrl(String host) => host == _card.name ? _card.forgeUrl : null;
+}
+
+/// A connected forge whose forward answers as told, and is raised anew on request.
+class _DeadForge extends _ForgeConnections {
+  _DeadForge({required this.answers}) : super(connected: true);
+
+  bool answers;
+  bool heals = true;
+  bool refuseRaise = false;
+  bool failOtherwise = false;
+  final raised = <String>[];
+  final order = <String>[];
+
+  @override
+  Future<bool?> forgeAnswers(String host) async => answers;
+
+  @override
+  Future<void> raiseForwardAnew(String host) async {
+    raised.add(host);
+    order.add('raise');
+    if (refuseRaise) throw const OrganizationRefused('ssh said no');
+    if (failOtherwise) throw StateError('the stand-in broke');
+    answers = heals;
+    notifyListeners();
+  }
 }

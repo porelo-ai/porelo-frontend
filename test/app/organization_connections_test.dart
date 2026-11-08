@@ -26,6 +26,9 @@ const _otherHostKey = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDDDDDDDDDDDDDDDDDDDD
 class _Master extends Fake implements Process {
   final _exit = Completer<int>();
 
+  /// Whether it was ended, taking every session over it along.
+  bool get ended => _exit.isCompleted;
+
   @override
   Stream<List<int>> get stdout => const Stream.empty();
   @override
@@ -106,8 +109,12 @@ void main() {
   late _Saves store;
   late bool turnedAway;
   late String hostSays;
+  late List<List<String>> ran;
+  late List<_Master> masters;
 
   setUp(() {
+    ran = [];
+    masters = [];
     turnedAway = false;
     hostSays = '{}';
     folder = Directory.systemTemp.createTempSync('c-');
@@ -118,9 +125,15 @@ void main() {
       configEnvironment: {'XDG_CONFIG_HOME': folder.path},
       start: (command) async {
         launches.add(command);
-        return turnedAway ? _Turned() : _Master();
+        if (turnedAway) return _Turned();
+        final master = _Master();
+        masters.add(master);
+        return master;
       },
-      run: (_) async => ProcessResult(0, 0, '', ''),
+      run: (command) async {
+        ran.add(command);
+        return ProcessResult(0, 0, '', '');
+      },
       keyAvailable: (_) async => true,
       portsAvailable: (card) async {
         if (portsBusy) throw HostFilesRefused('Host ${card.name} cannot start: a port is busy.');
@@ -139,7 +152,12 @@ void main() {
     });
   });
 
-  Future<CardHostConnections> connections(OrganizationView view, {Future<String> Function()? publicKey}) async {
+  Future<CardHostConnections> connections(
+    OrganizationView view, {
+    Future<String> Function()? publicKey,
+    Future<bool> Function(int port, String host)? forgeProbe,
+    DateTime Function()? now,
+  }) async {
     final organization = Organization(FixtureOrganization(view));
     addTearDown(organization.dispose);
     await organization.refresh();
@@ -154,6 +172,8 @@ void main() {
         },
       ),
       endpoint: (host) => path.join(folder.path, '$host.socket'),
+      forgeProbe: forgeProbe,
+      now: now,
     );
     addTearDown(made.dispose);
     return made;
@@ -516,5 +536,134 @@ void main() {
     await made.connect('build');
     await made.refresh('build');
     expect(refreshed, ['root@build']);
+  });
+
+  // Harm: a forward to a forge that stopped answering is never noticed, or another port than the card's is asked.
+  test("the forge is asked through the card's own port, and only while the connection is up", () async {
+    final asked = <(int, String)>[];
+    final made = await connections(
+      _mia(),
+      forgeProbe: (port, host) async {
+        asked.add((port, host));
+        return false;
+      },
+    );
+    expect(await made.forgeAnswers('build'), isNull, reason: 'nothing to ask without a connection');
+    await made.connect('build');
+    expect(await made.forgeAnswers('build'), isFalse);
+    expect(asked, [(8081, 'build')]);
+  });
+
+  // Harm: a forward that stopped answering stays as it is, and Open its forge opens the same empty reply.
+  // Harm: raising the forge's forward anew cuts the person's terminals, daemon link and vault over the same master.
+  test("raising the forward anew re-adds only the forge's forward on the live master", () async {
+    final made = await connections(_mia());
+    await made.connect('build');
+    final tunnel = machines.tunnels.of(machines.all.singleWhere((machine) => machine.name == 'build'));
+    ran.clear();
+    await made.raiseForwardAnew('build');
+    expect(launches, hasLength(1), reason: 'no new master');
+    expect(masters.single.ended, isFalse, reason: 'the master and every session over it stay');
+    expect(
+      identical(machines.tunnels.of(machines.all.singleWhere((machine) => machine.name == 'build')), tunnel),
+      isTrue,
+      reason: 'the tunnel was not dropped',
+    );
+    expect(made.up('build'), isTrue);
+    const forward = ['-L', '127.0.0.1:8081:/run/porelo-forge/web.sock', 'build'];
+    expect(
+      [for (final command in ran) command.sublist(1)],
+      [
+        ['-F', config('build'), '-O', 'cancel', ...forward],
+        ['-F', config('build'), '-O', 'forward', ...forward],
+      ],
+    );
+  });
+
+  // Harm: every click raises the forward again while the cause is on the host.
+  test('a second raise within half a minute raises nothing and says the cause is on the host', () async {
+    var now = DateTime.utc(2026, 11, 8, 20);
+    final made = await connections(_mia(), now: () => now);
+    await made.connect('build');
+    ran.clear();
+    await made.raiseForwardAnew('build');
+    expect(ran, hasLength(2));
+    now = now.add(const Duration(seconds: 10));
+    await expectLater(
+      made.raiseForwardAnew('build'),
+      throwsA(isA<OrganizationRefused>().having((refused) => refused.words, 'words', contains('on the host'))),
+    );
+    expect(ran, hasLength(2), reason: 'raised once');
+    now = now.add(const Duration(seconds: 30));
+    await made.raiseForwardAnew('build');
+    expect(ran, hasLength(4));
+  });
+
+  // Harm: a raise asked of a machine this person is not connected to makes a connection nobody asked for.
+  test('a forward is raised anew only for a connected machine', () async {
+    final made = await connections(_mia());
+    await expectLater(made.raiseForwardAnew('build'), throwsA(isA<OrganizationRefused>()));
+    expect(launches, isEmpty);
+  });
+
+  group("a forge's answer through a forward", () {
+    Future<int> serving(void Function(Socket socket) answer) async {
+      final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(server.close);
+      server.listen(answer);
+      return server.port;
+    }
+
+    // Harm: a forge that answers is taken for dead and its forward torn down.
+    test('a status line is an answer', () async {
+      final port = await serving((socket) {
+        socket.listen((_) {
+          socket.write('HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n');
+          unawaited(socket.close());
+        });
+      });
+      expect(await forgeAnswersAt(port), isTrue);
+    });
+
+    // Harm: the browser's empty reply is taken for a working forge.
+    test('an empty reply is none', () async {
+      final port = await serving((socket) => socket.destroy());
+      expect(await forgeAnswersAt(port), isFalse);
+    });
+
+    // Harm: a forge that never answers holds the page forever.
+    test('silence until the deadline is none', () async {
+      final port = await serving((socket) => socket.listen((_) {}));
+      expect(await forgeAnswersAt(port, deadline: const Duration(milliseconds: 200)), isFalse);
+    });
+
+    // Harm: a forge slow at every step holds the page for a deadline per step.
+    test('one deadline holds for connecting, asking and the first byte together', () async {
+      final port = await serving((socket) {
+        socket.listen((_) {
+          Timer(const Duration(milliseconds: 200), () {
+            socket.write('HTTP/1.1 200 OK\r\n\r\n');
+            unawaited(socket.close());
+          });
+        });
+      });
+      final answered = await forgeAnswersAt(
+        port,
+        deadline: const Duration(milliseconds: 300),
+        connect: (port) async {
+          await Future<void>.delayed(const Duration(milliseconds: 200));
+          return Socket.connect(InternetAddress.loopbackIPv4, port);
+        },
+      );
+      expect(answered, isFalse, reason: '400 ms in all is past one deadline of 300');
+    });
+
+    // Harm: a forward that is gone is taken for a forge that answers.
+    test('nothing listening is none', () async {
+      final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      final port = server.port;
+      await server.close();
+      expect(await forgeAnswersAt(port), isFalse);
+    });
   });
 }

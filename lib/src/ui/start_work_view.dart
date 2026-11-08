@@ -27,11 +27,13 @@ Future<bool> openStartWork(
   Future<void> Function()? onOpenWithThisDevice,
   Future<void> Function(String entry)? onGrant,
   Future<void> Function()? onFixInATerminal,
+  VoidCallback? onChangeProject,
 }) async =>
     await showDialog<bool>(
       context: context,
       builder: (context) => StartWorkDialog(
         starting: starting,
+        onChangeProject: onChangeProject,
         onStart: onStart,
         onKeep: onKeep,
         onStoreTheCredential: onStoreTheCredential,
@@ -57,8 +59,12 @@ class StartWorkDialog extends StatefulWidget {
     this.onOpenWithThisDevice,
     this.onGrant,
     this.onFixInATerminal,
+    this.onChangeProject,
     super.key,
   });
+
+  /// Closes the form to choose another project, where the window chose the project itself; null where the person did.
+  final VoidCallback? onChangeProject;
 
   /// What is being started.
   final StartWork starting;
@@ -189,6 +195,26 @@ class _StartWorkDialogState extends State<StartWorkDialog> {
                         borderRadius: BorderRadius.circular(Radii.small),
                       ),
                       child: Text(starting.problem!, key: const Key('start-problem')),
+                    ),
+                  ),
+                if (widget.onChangeProject case final change? when continuing == null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: Space.normal),
+                    child: Wrap(
+                      spacing: Space.small,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: <Widget>[
+                        Text('Project', style: Theme.of(context).textTheme.labelLarge),
+                        Text(starting.project?.name ?? 'not read', key: const Key('start-project-chosen')),
+                        TextButton(
+                          key: const Key('start-project-change'),
+                          onPressed: () {
+                            Navigator.of(context).pop(false);
+                            change();
+                          },
+                          child: const Text('change'),
+                        ),
+                      ],
                     ),
                   ),
                 // What a start needs comes first, above the fold: a sign-in nobody saw was why a

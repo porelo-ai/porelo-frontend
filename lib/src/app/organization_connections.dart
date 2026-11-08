@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:porelo_host/porelo_host.dart' show HostCardSsh, HostFiles, HostFilesRefused;
 
 import 'ssh_words.dart';
@@ -18,8 +21,12 @@ class CardHostConnections extends HostConnections {
     required this.publicKey,
     SshHostProgress? hostProgress,
     String Function(String host)? endpoint,
-  }) : _progress = hostProgress ?? SshHostProgress(),
-       _endpoint = endpoint ?? Machine.endpointFor {
+    Future<bool> Function(int port, String host)? forgeProbe,
+    DateTime Function()? now,
+  }) : _now = now ?? DateTime.now,
+       _progress = hostProgress ?? SshHostProgress(),
+       _endpoint = endpoint ?? Machine.endpointFor,
+       _forgeProbe = forgeProbe ?? ((port, host) => forgeAnswersAt(port, hostName: '$host.localhost')) {
     machines.addListener(notifyListeners);
   }
 
@@ -36,6 +43,15 @@ class CardHostConnections extends HostConnections {
 
   final String Function(String host) _endpoint;
 
+  final Future<bool> Function(int port, String host) _forgeProbe;
+
+  final DateTime Function() _now;
+
+  /// When each host's forge forward was last raised anew: not again within [_raiseAgainAfter].
+  final _raisedAt = <String, DateTime>{};
+
+  static const _raiseAgainAfter = Duration(seconds: 30);
+
   /// This person's machine of [host], or null. A machine of the same name that is no card of theirs is not one.
   Machine? _machine(String host) {
     final me = organization.view?.me;
@@ -51,6 +67,36 @@ class CardHostConnections extends HostConnections {
 
   @override
   String? forgeUrl(String host) => connected(host) ? _machine(host)?.hostCard?.forgeUrl : null;
+
+  @override
+  Future<bool?> forgeAnswers(String host) async {
+    final port = up(host) ? _machine(host)?.hostCard?.webPort : null;
+    if (port == null) return null;
+    return _forgeProbe(port, host);
+  }
+
+  @override
+  Future<void> raiseForwardAnew(String host) async {
+    final machine = _machine(host);
+    if (machine == null || !connected(host)) {
+      throw OrganizationRefused('This computer is not connected to $host, so it has no forward to raise anew.');
+    }
+    if (!up(host)) {
+      throw OrganizationRefused('The connection to $host is down; Connect brings it back, with its forge.');
+    }
+    final last = _raisedAt[host];
+    if (last != null && _now().difference(last) < _raiseAgainAfter) {
+      throw OrganizationRefused(
+        "The forward to $host's forge was raised anew moments ago and it still gives no answer: its cause is on the "
+        'host.',
+      );
+    }
+    _raisedAt[host] = _now();
+    // Only the forge's forward, on the master as it is: the person's terminals and the daemon's link stay.
+    final why = await machines.tunnels.forwardTheForgeAnew(machine);
+    if (!_disposed) notifyListeners();
+    if (why != null) throw OrganizationRefused("The forward to $host's forge could not be raised anew: $why");
+  }
 
   /// The hosts the last *Connect* found waiting for a first token.
   final Set<String> _waiting = <String>{};
@@ -265,5 +311,39 @@ class CardHostConnections extends HostConnections {
     _disposed = true;
     machines.removeListener(notifyListeners);
     super.dispose();
+  }
+}
+
+/// Whether a forge answers at [port] on this computer's loopback, where a forward ends: any byte back is an answer, while
+/// an empty reply, a refused connection or silence until [deadline] is none.
+Future<bool> forgeAnswersAt(
+  int port, {
+  String? hostName,
+  Duration deadline = const Duration(seconds: 5),
+  Future<Socket> Function(int port)? connect,
+}) async {
+  Socket? socket;
+  final connecting = (connect ?? (port) => Socket.connect(InternetAddress.loopbackIPv4, port))(port);
+  // One deadline for connecting, asking and the first byte together.
+  Future<bool> ask() async {
+    final open = socket = await connecting;
+    open.write('HEAD / HTTP/1.1\r\nHost: ${hostName ?? '127.0.0.1'}:$port\r\nConnection: close\r\n\r\n');
+    await open.flush();
+    return (await open.first).isNotEmpty;
+  }
+
+  try {
+    return await ask().timeout(deadline);
+  } on TimeoutException {
+    // A connection that comes after the deadline is ended as it comes.
+    connecting.then((late) => late.destroy(), onError: (_) {}).ignore();
+    return false;
+  } on SocketException {
+    return false;
+  } on StateError {
+    // The forward took the connection and closed it with nothing said: the browser's empty reply.
+    return false;
+  } finally {
+    socket?.destroy();
   }
 }

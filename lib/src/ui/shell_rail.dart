@@ -28,6 +28,7 @@ class ShellRail extends StatefulWidget {
     this.forges,
     this.machineEntries = const [],
     this.machinesWithSections,
+    this.machinesWithAdmins = const {},
     this.organizations = const [],
     this.organizationsKnown = true,
     this.place,
@@ -55,6 +56,9 @@ class ShellRail extends StatefulWidget {
 
   /// Names with a watched daemon whose tools can be safely selected.
   final Set<String>? machinesWithSections;
+
+  /// Names of the machines an organization's card names, whose managing leaf is their Machine Admins.
+  final Set<String> machinesWithAdmins;
 
   /// Organizations read; the shape also accepts several.
   final List<OrganizationView> organizations;
@@ -157,7 +161,7 @@ class _ShellRailState extends State<ShellRail> {
           for (final section in MachineSection.values)
             _TreeRow(
               ShellPlace(Section.machine, machine: entry.machine, machineSection: section),
-              section.label,
+              section.labelOn(organizationCard: widget.machinesWithAdmins.contains(entry.machine.name)),
               depth: 2,
             ),
       ],
