@@ -11,7 +11,7 @@ void main() {
     final pin = await ComparedKeyPin.make('192.0.2.7', _key);
     addTearDown(pin.dispose);
     expect(await pin.file.readAsString(), '192.0.2.7 $_key\n');
-    expect((await pin.file.parent.stat()).mode & 0x1ff, 0x1c0, reason: 'the pin folder is the owner\'s alone');
+    await _expectTheOwnersAlone(pin.file.parent);
     final command = firstLoginCommand(pin: pin.file.path, user: 'ubuntu', address: '192.0.2.7');
     final options = <String>[
       for (var at = 0; at < command.length - 1; at++)
@@ -50,4 +50,20 @@ void main() {
       expect(login.words, contains('another SSH host key'));
     });
   });
+}
+
+/// Linux keeps the folder at `0700`; Windows reports no POSIX mode, and keeps it by an ACL that holds the current
+/// user's full control alone, with inheritance cut.
+Future<void> _expectTheOwnersAlone(Directory folder) async {
+  if (!Platform.isWindows) {
+    expect((await folder.stat()).mode & 0x1ff, 0x1c0, reason: 'the pin folder is the owner\'s alone');
+    return;
+  }
+  final user = '${(await Process.run('whoami', const <String>[])).stdout}'.trim().toLowerCase();
+  final acl = await Process.run('icacls', [folder.path]);
+  expect(acl.exitCode, 0, reason: 'icacls reads the pin folder: ${acl.stderr}');
+  final entries = '${acl.stdout}'.split(RegExp(r'\r?\n')).where((line) => line.contains(':(')).toList();
+  expect(entries, hasLength(1), reason: 'the pin folder grants one account alone: ${acl.stdout}');
+  expect(entries.single.toLowerCase(), contains('$user:(oi)(ci)(f)'), reason: 'that account is the current user');
+  expect(entries.single, isNot(contains('(I)')), reason: 'nothing is inherited from the temporary folder');
 }
