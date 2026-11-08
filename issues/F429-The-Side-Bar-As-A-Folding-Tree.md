@@ -448,6 +448,14 @@ one in the plural, the tree's indentation) are fixed the same way.
 **The operator's word (2026-11-08).** From 600 wide the organization's button stands left of the actions, as D7 on the
 desktop (D60 says "as D7"); only the phone keeps it after the ⋮ (D63). Built test-first, at 700, 1000 and 1280 wide.
 
+**Found by the operator trying it (2026-11-08), fixed before the third move:** a machine's Vault and Health still showed
+the old panels, with a close button, inside the page. Now every section of a machine is a page in the leaf look with
+rows and chips, and no leaf draws a panel with a close button (a test walks them all). *Managing this machine* is built
+to the design the operator approved that day: the machine named once with its state, four tiles, each waiting action's
+reason beside it, a danger zone. *Declare a provider…* is dropped (the operator's word): a sign-in is imported, a key
+is added as a connection. The end-to-end suite's helpers now reach a machine through the tree.
+Left: *Managing* on an organization host's card still uses the older facts page; the vault's head says "1 entries".
+
 Left, for the operator to place:
 - "1 need you" on *Needs you* and its badge's tooltip, and "1 entries" in a machine's vault facts, still count one in
   the plural; the feature texts name these words.

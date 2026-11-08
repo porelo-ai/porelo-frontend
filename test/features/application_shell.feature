@@ -95,7 +95,7 @@ Feature: Moving around the frame by keyboard and by pointer
         And it says {'This starts the daemon here, as you.'}
         When I agree to start it
         Then the machine was asked to start {'systemctl --user'}
-        And it says {'What this machine can run'}
+        And the page {'Health'} of {'this machine'} is open
 
     Scenario: the stop for every machine waits for a machine that answers
         When the tunnel drops

@@ -68,8 +68,20 @@ class FilteredListSection extends StatefulWidget {
     this.beforeRows = const [],
     this.pathKeys = const {},
     this.titleKey,
+    this.pathKey,
+    this.afterRows = const [],
+    this.staleRows = false,
     super.key,
   });
+
+  /// The path line's automation target, where the page names it apart from other leaves.
+  final Key? pathKey;
+
+  /// What follows the rows' card on a leaf: a further group of rows under the same head, or a closing line.
+  final List<Widget> afterRows;
+
+  /// Whether the rows are the last ones read from a source that no longer answers: drawn greyed and out of reach.
+  final bool staleRows;
 
   /// Whether the source has answered successfully at least once.
   final bool read;
@@ -509,6 +521,7 @@ class _FilteredListSectionState extends State<FilteredListSection> {
             titleInAppBar: widget.titleInAppBar,
             path: widget.path,
             pathKeys: widget.pathKeys,
+            pathKey: widget.pathKey ?? const Key('leaf-path'),
             titleKey: widget.titleKey,
             id: scope?.id,
             settings: scope?.settings,
@@ -542,78 +555,89 @@ class _FilteredListSectionState extends State<FilteredListSection> {
           ...widget.beforeRows,
           if (widget.busy) const LinearProgressIndicator(),
           if (!widget.collapsible || _open || widget.problem != null)
-            LayoutBuilder(
-              builder: (context, constraints) => ListCardWidth(
-                width: constraints.maxWidth,
-                child: Material(
-                  color: listCardColour(theme.colorScheme),
-                  clipBehavior: Clip.antiAlias,
-                  shape: RoundedRectangleBorder(
-                    side: BorderSide(color: theme.colorScheme.outlineVariant, width: Space.hairline),
-                    borderRadius: BorderRadius.circular(Radii.medium),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: Space.normal),
-                    child: Theme(
-                      data: theme.copyWith(
-                        cardTheme: theme.cardTheme.copyWith(
-                          color: Colors.transparent,
-                          elevation: 0,
-                          margin: EdgeInsets.zero,
-                          shape: const RoundedRectangleBorder(),
+            _staleOrNot(
+              LayoutBuilder(
+                builder: (context, constraints) => ListCardWidth(
+                  width: constraints.maxWidth,
+                  child: Material(
+                    color: listCardColour(theme.colorScheme),
+                    clipBehavior: Clip.antiAlias,
+                    shape: RoundedRectangleBorder(
+                      side: BorderSide(color: theme.colorScheme.outlineVariant, width: Space.hairline),
+                      borderRadius: BorderRadius.circular(Radii.medium),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: Space.normal),
+                      child: Theme(
+                        data: theme.copyWith(
+                          cardTheme: theme.cardTheme.copyWith(
+                            color: Colors.transparent,
+                            elevation: 0,
+                            margin: EdgeInsets.zero,
+                            shape: const RoundedRectangleBorder(),
+                          ),
                         ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          if (widget.problem case final problem?)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(vertical: Space.normal),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(problem, style: TextStyle(color: theme.colorScheme.error)),
-                                  if (widget.onRetry != null)
-                                    TextButton(onPressed: widget.onRetry, child: const Text('Try again')),
-                                ],
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            if (widget.problem case final problem?)
+                              Padding(
+                                padding: const EdgeInsets.symmetric(vertical: Space.normal),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(problem, style: TextStyle(color: theme.colorScheme.error)),
+                                    if (widget.onRetry != null)
+                                      TextButton(onPressed: widget.onRetry, child: const Text('Try again')),
+                                  ],
+                                ),
                               ),
-                            ),
-                          if (!widget.collapsible || _open)
-                            for (final (place, row) in shown.indexed) ...[
-                              if (place > 0) const Divider(height: Space.hairline),
-                              row.child,
-                            ],
-                          if ((!widget.collapsible || _open) && shown.isEmpty && widget.problem == null)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(vertical: Space.normal),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    unread
-                                        ? 'not read'
-                                        : widget.rows.isEmpty
-                                        ? widget.emptyWords ??
-                                              'No ${widget.title.toLowerCase().replaceFirst('my ', '')} yet.'
-                                        : 'Nothing matches.',
-                                    style: theme.textTheme.bodySmall,
-                                  ),
-                                  if (widget.rows.isNotEmpty)
-                                    TextButton(onPressed: _closeSearch, child: const Text('Clear the filter')),
-                                ],
+                            if (!widget.collapsible || _open)
+                              for (final (place, row) in shown.indexed) ...[
+                                if (place > 0) const Divider(height: Space.hairline),
+                                row.child,
+                              ],
+                            if ((!widget.collapsible || _open) && shown.isEmpty && widget.problem == null)
+                              Padding(
+                                padding: const EdgeInsets.symmetric(vertical: Space.normal),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      unread
+                                          ? 'not read'
+                                          : widget.rows.isEmpty
+                                          ? widget.emptyWords ??
+                                                'No ${widget.title.toLowerCase().replaceFirst('my ', '')} yet.'
+                                          : 'Nothing matches.',
+                                      style: theme.textTheme.bodySmall,
+                                    ),
+                                    if (widget.rows.isNotEmpty)
+                                      TextButton(onPressed: _closeSearch, child: const Text('Clear the filter')),
+                                  ],
+                                ),
                               ),
-                            ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
             ),
+          for (final after in widget.afterRows) _staleOrNot(after),
         ],
       ),
     );
   }
+
+  Widget _staleOrNot(Widget card) => widget.staleRows
+      ? ExcludeFocus(
+          child: IgnorePointer(
+            child: Opacity(opacity: Opacities.stale, child: card),
+          ),
+        )
+      : card;
 
   @override
   Widget build(BuildContext context) {
@@ -698,6 +722,94 @@ class _FilteredListSectionState extends State<FilteredListSection> {
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// What a machine's section page is given for its head: where it sits, the lines said above its rows,
+/// whether those rows are the last read from a machine that no longer answers, and the one filter
+/// that narrows every group of rows on it.
+typedef LeafHead = ({
+  String id,
+  List<LeafPathStep> path,
+  Key pathKey,
+  List<Widget> notices,
+  bool stale,
+  TextEditingController filter,
+});
+
+/// Whether [words] pass the page's filter.
+bool passesFilter(TextEditingController filter, String words) =>
+    words.toLowerCase().contains(filter.text.trim().toLowerCase());
+
+/// A further group of a leaf's rows under the same head: its title and count above the same white card.
+class LeafRowsCard extends StatelessWidget {
+  /// Draws [children] as rows with a line between them.
+  const LeafRowsCard({required this.title, required this.count, required this.children, this.empty, super.key});
+
+  /// The group's name.
+  final String title;
+
+  /// What the group counts, in words; never a number for something not read.
+  final String count;
+
+  /// The rows shown.
+  final List<Widget> children;
+
+  /// What stands in the card when it shows no row.
+  final Widget? empty;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(top: Space.wide),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: Space.small),
+            child: Wrap(
+              spacing: Space.small,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(title, style: theme.textTheme.titleMedium),
+                Text(count, style: theme.textTheme.bodySmall),
+              ],
+            ),
+          ),
+          LayoutBuilder(
+            builder: (context, constraints) => ListCardWidth(
+              width: constraints.maxWidth,
+              child: Material(
+                color: listCardColour(theme.colorScheme),
+                clipBehavior: Clip.antiAlias,
+                shape: RoundedRectangleBorder(
+                  side: BorderSide(color: theme.colorScheme.outlineVariant, width: Space.hairline),
+                  borderRadius: BorderRadius.circular(Radii.medium),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: Space.normal),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (final (place, child) in children.indexed) ...[
+                        if (place > 0) const Divider(height: Space.hairline),
+                        child,
+                      ],
+                      if (children.isEmpty && empty != null)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: Space.normal),
+                          child: empty,
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

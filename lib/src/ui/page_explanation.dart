@@ -195,8 +195,17 @@ class PageHead extends StatelessWidget {
     this.action,
     this.pathKeys = const {},
     this.pathKey = const Key('leaf-path'),
+    this.pathTitle,
+    this.titleChip,
     super.key,
   });
+
+  /// The path line's last step where it names the page apart from its title, as a machine's
+  /// managing page titled by the machine's name.
+  final String? pathTitle;
+
+  /// A state beside the title, in words.
+  final Widget? titleChip;
 
   /// The path line's automation target.
   final Key pathKey;
@@ -251,6 +260,7 @@ class PageHead extends StatelessWidget {
               Flexible(
                 child: Text(title, key: titleKey ?? const Key('leaf-title'), style: text.headlineSmall),
               ),
+              if (titleChip != null) ...[const SizedBox(width: Space.small), Flexible(child: titleChip!)],
               if (!phone) ?info,
             ],
           ),
@@ -299,7 +309,7 @@ class PageHead extends StatelessWidget {
                       Text(step.label),
                     const Text('›'),
                   ],
-                  Text(title),
+                  Text(pathTitle ?? title),
                 ],
               ),
             ),

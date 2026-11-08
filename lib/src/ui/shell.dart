@@ -123,6 +123,8 @@ import 'log_view.dart';
 import 'machine_switcher.dart';
 import 'machine_tree.dart';
 import 'machine_view.dart';
+import 'managing_page.dart';
+import 'expandable_list_row.dart' show StateChip;
 import 'machines_page.dart';
 import 'narrowing_view.dart';
 import 'operations.dart';
@@ -3853,11 +3855,42 @@ class _ShellState extends State<Shell> {
           _sectionReadAt[ShellPlace(Section.machine, machine: machine, machineSection: section).key],
         );
         final opened = _opened(on: machine);
+        final notices = <Widget>[
+          if (!answering) ...[
+            Text('${machine.name} does not answer.', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+            Text(readAgo == null ? 'The read time of these rows is not known.' : 'Read $readAgo ago; last known rows.'),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                key: const Key('machine-section-retry'),
+                onPressed: () async {
+                  await fleet.refresh();
+                  if (mounted && widget.machines.all.contains(machine)) {
+                    setState(() => _sectionRetries[machine] = (_sectionRetries[machine] ?? 0) + 1);
+                    await _readMachineSection(machine, section);
+                  }
+                },
+                child: const Text('Try again'),
+              ),
+            ),
+          ],
+        ];
+        final placeKey = ShellPlace(Section.machine, machine: machine, machineSection: section).key;
+        final LeafHead head = (
+          id: 'machine-section $placeKey',
+          path: _machineSectionPath(machine),
+          pathKey: ValueKey('machine-section-path ${machine.name}'),
+          notices: notices,
+          stale: !answering,
+          filter: _sectionFilters.putIfAbsent(placeKey, TextEditingController.new),
+        );
+        // A section drawn as a leaf names itself; Tasks and Projects keep the head drawn here.
+        final leaf = opened == null && section != MachineSection.tasks && section != MachineSection.projects;
         final body =
             opened ??
             switch (section) {
               MachineSection.tasks => _workArea(onlyMachine: machine),
-              MachineSection.vault => _machineVault(machine, tools),
+              MachineSection.vault => _machineVault(machine, tools, head),
               MachineSection.projects => ListView(
                 padding: const EdgeInsets.all(Space.normal),
                 children: [
@@ -3878,17 +3911,12 @@ class _ShellState extends State<Shell> {
                   ),
                 ],
               ),
-              MachineSection.managing => _machineFacts(managing: true),
-              _ => SingleChildScrollView(
-                padding: const EdgeInsets.all(Space.normal),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: _machineToolCards(machine, section, tools),
-                ),
-              ),
+              MachineSection.managing => _machineFacts(managing: true, head: head),
+              _ => _machineToolPage(machine, section, tools, head),
             };
         // An answering machine's Tasks list draws this head itself, with its count and filter.
-        final ownHead = section != MachineSection.tasks || opened != null || fleet.refusal != null || !answering;
+        final ownHead =
+            !leaf && (section != MachineSection.tasks || opened != null || fleet.refusal != null || !answering);
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -3903,36 +3931,17 @@ class _ShellState extends State<Shell> {
                       path: _machineSectionPath(machine),
                       pathKey: ValueKey('machine-section-path ${machine.name}'),
                     ),
-                    if (!answering) ...[
-                      Text(
-                        '${machine.name} does not answer.',
-                        style: TextStyle(color: Theme.of(context).colorScheme.error),
-                      ),
-                      Text(
-                        readAgo == null
-                            ? 'The read time of these rows is not known.'
-                            : 'Read $readAgo ago; last known rows.',
-                      ),
-                      TextButton(
-                        key: const Key('machine-section-retry'),
-                        onPressed: () async {
-                          await fleet.refresh();
-                          if (mounted && widget.machines.all.contains(machine)) {
-                            setState(() => _sectionRetries[machine] = (_sectionRetries[machine] ?? 0) + 1);
-                            await _readMachineSection(machine, section);
-                          }
-                        },
-                        child: const Text('Try again'),
-                      ),
-                    ],
+                    ...notices,
                   ],
                 ),
               ),
             Expanded(
-              child: opened != null || answering || section == MachineSection.managing
+              child: opened != null || answering || leaf
                   ? body
                   : ExcludeFocus(
-                      child: IgnorePointer(child: Opacity(opacity: 0.5, child: body)),
+                      child: IgnorePointer(
+                        child: Opacity(opacity: Opacities.stale, child: body),
+                      ),
                     ),
             ),
             if (opened != null || section != MachineSection.tasks && section != MachineSection.managing)
@@ -3950,7 +3959,7 @@ class _ShellState extends State<Shell> {
     );
   }
 
-  Widget _machineVault(Machine machine, MachineTools tools) {
+  Widget _machineVault(Machine machine, MachineTools tools, LeafHead head) {
     final backend = widget.machines.of(machine).backend;
     final state = tools.vault.state;
     final commands = [
@@ -3963,66 +3972,37 @@ class _ShellState extends State<Shell> {
         ? 'vault.passphrase'
         : null;
     final primary = commands.where((command) => command.id == primaryId).firstOrNull;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: Space.normal),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                state == null
-                    ? 'Vault not read'
-                    : !state.exists
-                    ? 'No vault yet'
-                    : state.readable
-                    ? 'Made · open · ${tools.vault.credentials.length} entries'
-                    : 'Made · locked',
-              ),
-              Wrap(
-                spacing: Space.small,
-                runSpacing: Space.small,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  if (primary != null)
-                    Tooltip(
-                      message: primary.unavailable ?? primary.label,
-                      child: FilledButton(
-                        key: Key(primary.id),
-                        onPressed: primary.available ? primary.run : null,
-                        child: Text(primary.label),
-                      ),
-                    ),
-                  CommandMenu(
-                    key: const Key('vault-actions'),
-                    commands: commands,
-                    tooltip: 'What can be done with this vault',
-                    highlight: widget.shell.highlight,
-                    onShown: widget.shell.shown,
-                  ),
-                  const WaitingAction(label: 'Store an entry…'),
-                ],
-              ),
-              if (primary?.unavailable case final reason?) Text(reason),
-              const Text('No value is shown, copied or logged.'),
-            ],
-          ),
-        ),
-        Expanded(
-          child: Card(
-            child: VaultView(
-              key: const Key('vault-view'),
-              vault: tools.vault,
-              onRevoke: (slot) => unawaited(tools.run(() => tools.vault.devices.revoke(backend, slot))),
-              onClose: () => widget.shell.openMachine(machine),
-              onUnlockHere: unlockCommandFor(machine) != null ? () => unawaited(_unlockMachine(machine)) : null,
-              onMakeHere: makeCommandFor(machine) != null ? () => unawaited(_makeTheVault(on: machine)) : null,
-              onGrant: (credential) => unawaited(_grant(credential, on: machine)),
+    return VaultView(
+      key: const Key('vault-view'),
+      vault: tools.vault,
+      head: head,
+      actions: [
+        if (primary != null)
+          Tooltip(
+            message: primary.unavailable ?? primary.label,
+            child: FilledButton(
+              key: Key(primary.id),
+              onPressed: primary.available ? primary.run : null,
+              child: Text(primary.label),
             ),
           ),
+        const WaitingAction(label: 'Store an entry…'),
+        CommandMenu(
+          key: const Key('vault-actions'),
+          commands: commands,
+          tooltip: 'What can be done with this vault',
+          highlight: widget.shell.highlight,
+          onShown: widget.shell.shown,
         ),
       ],
+      notes: [
+        if (primary?.unavailable case final reason?) Text(reason),
+        const Text('No value is shown, copied or logged.'),
+      ],
+      onRevoke: (slot) => unawaited(tools.run(() => tools.vault.devices.revoke(backend, slot))),
+      onUnlockHere: unlockCommandFor(machine) != null ? () => unawaited(_unlockMachine(machine)) : null,
+      onMakeHere: makeCommandFor(machine) != null ? () => unawaited(_makeTheVault(on: machine)) : null,
+      onGrant: (credential) => unawaited(_grant(credential, on: machine)),
     );
   }
 
@@ -4030,6 +4010,7 @@ class _ShellState extends State<Shell> {
   final _destinationCards = <Machine, GlobalKey>{};
   final _sectionRetries = <Machine, int>{};
   final _sectionReadAt = <String, DateTime>{};
+  final _sectionFilters = <String, TextEditingController>{};
 
   void _revealProviders(Machine machine) {
     final there = _providerCards[machine]?.currentContext;
@@ -4050,89 +4031,67 @@ class _ShellState extends State<Shell> {
     });
   }
 
-  List<Widget> _machineToolCards(Machine machine, MachineSection section, MachineTools tools) {
+  Widget _machineToolPage(Machine machine, MachineSection section, MachineTools tools, LeafHead head) {
     final backend = widget.machines.of(machine).backend;
-    void close() => widget.shell.openMachine(machine);
     switch (section) {
       case MachineSection.credentials:
         final storesHere = onTheMachine(machine, const ['porelo'], terminal: false) != null;
-        return [
-          Card(
-            child: ConnectionsView(
-              embedded: true,
-              connections: tools.connections,
-              onAdd: () => unawaited(_addAConnection(on: machine)),
-              onForget: (match) => unawaited(tools.run(() => tools.connections.forget(backend, match))),
-              onClose: close,
-              onStoreInATerminal: storesHere ? () => unawaited(_storeInATerminal(on: machine)) : null,
-              onSendAKey: storesHere
-                  ? ({String? file, String? pasted}) => _sendAKey(file: file, pasted: pasted, on: machine)
-                  : null,
-              keysAt: widget.machines.setup.sshDirectory,
-              pick: widget.pickAFile,
-            ),
-          ),
-          Card(
+        return ConnectionsView(
+          head: head,
+          connections: tools.connections,
+          onAdd: () => unawaited(_addAConnection(on: machine)),
+          onForget: (match) => unawaited(tools.run(() => tools.connections.forget(backend, match))),
+          onStoreInATerminal: storesHere ? () => unawaited(_storeInATerminal(on: machine)) : null,
+          onSendAKey: storesHere
+              ? ({String? file, String? pasted}) => _sendAKey(file: file, pasted: pasted, on: machine)
+              : null,
+          keysAt: widget.machines.setup.sshDirectory,
+          pick: widget.pickAFile,
+          destinations: KeyedSubtree(
             key: _destinationCards.putIfAbsent(machine, GlobalKey.new),
             child: DestinationsDialog(
               key: ObjectKey(backend),
               backend: backend,
               embedded: true,
+              filter: head.filter,
               answering: widget.machines.of(machine).reachability == Reachability.connected,
               readAgain: _sectionRetries[machine] ?? 0,
             ),
           ),
-        ];
+        );
       case MachineSection.agents:
-        return [
-          Card(
-            child: AgentsView(
-              embedded: true,
-              inventory: tools.inventory,
-              onClose: close,
-              providers: Command(
-                id: 'machine.providers',
-                label: 'Providers on this machine',
-                group: 'Machine',
-                run: () => _revealProviders(machine),
-              ),
-            ),
+        return AgentsView(
+          head: head,
+          inventory: tools.inventory,
+          subtitle:
+              '${AgentsView.countWords(tools.inventory)} · ${AuthenticationView.countWords(tools.authentication)}',
+          providers: Command(
+            id: 'machine.providers',
+            label: 'Providers on this machine',
+            group: 'Machine',
+            run: () => _revealProviders(machine),
           ),
-          Card(
+          providerRows: KeyedSubtree(
             key: _providerCards.putIfAbsent(machine, GlobalKey.new),
             child: AuthenticationView(
-              embedded: true,
               authentication: tools.authentication,
+              filter: head.filter,
               onImport: (agent) => unawaited(_importProvider(machine, tools, agent)),
-              onClose: close,
             ),
           ),
-          const WaitingAction(label: 'Declare a provider…'),
-        ];
+        );
       case MachineSection.health:
-        return [
-          FilledButton(
-            key: const Key('machine.doctor'),
-            onPressed: tools.readiness.busy
-                ? null
-                : () => unawaited(_readMachineSection(machine, MachineSection.health)),
-            child: const Text('Check whether this machine can run anything'),
-          ),
-          Card(
-            child: HostReadinessView(
-              embedded: true,
-              readiness: tools.readiness,
-              machine: machine.name,
-              onCheckAgain: () => unawaited(_readMachineSection(machine, MachineSection.health)),
-              onClose: close,
-            ),
-          ),
-        ];
+        return HostReadinessView(
+          head: head,
+          readiness: tools.readiness,
+          machine: machine.name,
+          onCheckAgain: () => unawaited(_readMachineSection(machine, MachineSection.health)),
+        );
       case MachineSection.vault:
       case MachineSection.tasks:
       case MachineSection.projects:
       case MachineSection.managing:
-        return const [];
+        return const SizedBox.shrink();
     }
   }
 
@@ -4188,7 +4147,7 @@ class _ShellState extends State<Shell> {
     );
   }
 
-  Widget _machineFacts({bool managing = false}) {
+  Widget _machineFacts({bool managing = false, LeafHead? head}) {
     final machine = _pageMachine(widget.shell.itemMachine ?? widget.machines.current);
     final preparation = _hostRuns.preparing.where((run) => run.name == machine.name).firstOrNull;
     if (preparation != null) {
@@ -4236,9 +4195,28 @@ class _ShellState extends State<Shell> {
     }
     final vault = ownVault?.about == machine.name ? ownVault?.state : null;
     final read = fleet?.listRead ?? false;
+    if (managing && head != null && watched && !(machine.hostCard != null && _organization != null)) {
+      return withStatus(_managingPage(machine, fleet!, tools!, vault, head));
+    }
     final page = FactsPage(
       embedded: machine.hostCard != null && _organization != null,
       title: machine.name,
+      head: head == null
+          ? null
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                PageHead(
+                  title: MachineSection.managing.label,
+                  path: head.path,
+                  pathKey: head.pathKey,
+                  subtitle:
+                      '${fleet?.reachability == Reachability.connected ? 'Connected' : 'Not answering'}'
+                      ' · Porelo ${fleet?.info?.version ?? 'not read'}',
+                ),
+                ...head.notices,
+              ],
+            ),
       identity: Text('${machine.where}${machineKind(widget.machines, machine)}', key: const Key('machine-kind')),
       highlight: widget.shell.highlight,
       path: [(label: 'My machines', go: () => _chooseTreePlace(const ShellPlace(Section.machines), true))],
@@ -4337,6 +4315,151 @@ class _ShellState extends State<Shell> {
     );
     return withStatus(
       machine.hostCard != null && _organization != null ? _machineOnePage(machine.hostCard!.name, work: page) : page,
+    );
+  }
+
+  /// A machine's managing page: its head once, its facts as four tiles, its actions with the
+  /// reason a waiting one waits beside it, and what cannot be undone apart.
+  Widget _managingPage(Machine machine, FleetModel fleet, MachineTools tools, VaultState? vault, LeafHead head) {
+    final answering = fleet.reachability == Reachability.connected;
+    final all = [..._machineMenu(on: machine), _machinePanic(machine)];
+    Command noVault(Command command) => command.unless(
+      command.id.startsWith('vault.') && command.id != 'vault.show' && vault == null
+          ? 'This machine has not answered about its vault.'
+          : null,
+    );
+    Command? byId(String id) => all.where((command) => command.id == id).map(noVault).firstOrNull;
+    final actionIds = [
+      'machine.doctor',
+      'fleet.refresh',
+      if (vault?.readable == true) 'vault.shut',
+      if (vault != null && vault.exists && !vault.readable) 'vault.open',
+      if (vault?.readable != true) 'vault.passphrase',
+      // Made already is done: only a machine without one, or not read, is offered it.
+      if (vault == null || !vault.exists) 'vault.make',
+      'machine.stop',
+    ];
+    const dangerIds = {'machine.panic', 'machine.clear'};
+    final placed = {...actionIds, ...dangerIds, 'vault.make', 'vault.shut', 'vault.passphrase', 'vault.open'};
+    final readiness = tools.readiness;
+    final health = readiness.health;
+    final missing = readiness.probes.where((probe) => probe.stopsIt).map((probe) => probe.name).toList();
+    final notFine = readiness.worthReading.map((probe) => probe.name).toList();
+    final read = fleet.listRead;
+    final readAt = howLongSince(
+      _sectionReadAt[ShellPlace(Section.machine, machine: machine, machineSection: MachineSection.managing).key],
+    );
+    final kind = machine.kind == 'wsl'
+        ? machine.where
+        : machine.needsATunnel
+        ? 'Over ssh'
+        : 'This computer';
+    return ManagingPage(
+      busy: fleet.busy || tools.vault.busy,
+      highlight: widget.shell.highlight,
+      head: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          PageHead(
+            title: machine.name,
+            titleInAppBar: false,
+            pathTitle: MachineSection.managing.label,
+            path: head.path,
+            pathKey: head.pathKey,
+            titleChip: StateChip(answering ? 'Connected' : 'Not answering'),
+            subtitle: '$kind · Porelo ${fleet.info?.version ?? 'not read'}',
+          ),
+          ...head.notices,
+        ],
+      ),
+      facts: [
+        (
+          id: 'connection',
+          label: 'Connection',
+          icon: Icons.lan_outlined,
+          value: answering ? 'Connected' : 'Not answering',
+          detail: machine.where,
+          known: true,
+          code: true,
+        ),
+        (
+          id: 'vault',
+          label: 'Vault',
+          icon: Icons.key_outlined,
+          value: vault == null
+              ? 'not read'
+              : !vault.exists
+              ? 'None'
+              : vault.readable
+              ? 'Open'
+              : 'Shut',
+          detail: vault == null
+              ? 'this machine has not answered about its vault'
+              : !vault.exists
+              ? 'No vault yet'
+              : vault.readable
+              ? counted(vault.credentials.length, 'entry', 'entries')
+              : 'entry count not read',
+          known: vault != null,
+          code: false,
+        ),
+        (
+          id: 'work',
+          label: 'Work',
+          icon: Icons.work_outline,
+          value: read
+              ? counted(fleet.tasks.where((task) => task.running).length, 'task running', 'tasks running')
+              : 'not read',
+          detail: read
+              ? counted(projectsOnMachine(widget.machines, machine).length, 'project', 'projects')
+              : 'Porelo has not answered',
+          known: read,
+          code: false,
+        ),
+        (
+          id: 'health',
+          label: 'Health',
+          icon: Icons.health_and_safety_outlined,
+          value: health == null
+              ? 'not read'
+              : health.ready
+              ? 'Can run work'
+              : 'Cannot run work',
+          detail: health == null
+              ? 'run Check whether this machine can run anything'
+              : missing.isNotEmpty
+              ? 'Missing: ${missing.join(', ')}'
+              : notFine.isNotEmpty
+              ? 'Not fine: ${notFine.join(', ')}'
+              : 'Nothing is missing',
+          known: health != null,
+          code: false,
+        ),
+      ],
+      primary: 'machine.doctor',
+      actions: [for (final id in actionIds) ?byId(id)],
+      danger: [
+        if (byId('machine.panic') case final panic?)
+          (
+            command: panic,
+            title: 'Stop everything on this machine',
+            words: 'Stops every task at once. Their work stays.',
+            button: 'Stop everything',
+          ),
+        if (byId('machine.clear') case final clear?)
+          (
+            command: clear,
+            title: 'Clear this machine of everything Porelo put there',
+            words: 'Removes tasks, images and settings. Asks again before it starts.',
+            button: 'Clear this machine…',
+          ),
+      ],
+      menuTooltip: 'What ${machine.name} can be told to do',
+      menuCommands: [
+        for (final command in _machineMenu(on: machine))
+          if (!placed.contains(command.id)) noVault(command),
+      ],
+      lastRead: readAt == null ? 'Last read: the connection does not report a read time.' : 'Last read: $readAt ago.',
     );
   }
 
@@ -5763,6 +5886,10 @@ class _ShellState extends State<Shell> {
     _providerCards.clear();
     _destinationCards.clear();
     _sectionRetries.clear();
+    for (final filter in _sectionFilters.values) {
+      filter.dispose();
+    }
+    _sectionFilters.clear();
     _sectionReadAt.clear();
     _vaultAskedFor.clear();
     _menuFocus.dispose();

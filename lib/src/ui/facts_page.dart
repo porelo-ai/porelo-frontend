@@ -18,6 +18,7 @@ class FactsPage extends StatelessWidget {
     required this.title,
     required this.facts,
     required this.commands,
+    this.head,
     this.path = const [],
     this.waiting = const [],
     this.warnings = const [],
@@ -36,6 +37,9 @@ class FactsPage extends StatelessWidget {
 
   /// The place's full title, wrapping on a desktop or tablet.
   final String title;
+
+  /// The page's own head in place of its path and title, where the page is a leaf of the tree.
+  final Widget? head;
 
   /// The ancestors linking back to their facts pages.
   final List<({String label, VoidCallback go})> path;
@@ -132,7 +136,8 @@ class FactsPage extends StatelessWidget {
       physics: embedded ? const NeverScrollableScrollPhysics() : null,
       padding: const EdgeInsets.all(Space.normal),
       children: [
-        if (path.isNotEmpty)
+        ?head,
+        if (head == null && path.isNotEmpty)
           Wrap(
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
@@ -140,7 +145,7 @@ class FactsPage extends StatelessWidget {
               Text(title),
             ],
           ),
-        if (!phone || settings != null && explanationId != null)
+        if (head == null && (!phone || settings != null && explanationId != null))
           Row(
             children: [
               if (!phone) Expanded(child: Text(title, style: theme.textTheme.headlineSmall)),

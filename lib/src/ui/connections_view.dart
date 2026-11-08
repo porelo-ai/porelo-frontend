@@ -6,7 +6,9 @@ import 'package:porelo_frontend/client.dart';
 
 import '../app/connections.dart';
 import 'connection_wizard.dart';
-import 'panes.dart';
+import 'expandable_list_row.dart';
+import 'filtered_list_section.dart';
+import 'page_explanation.dart' show counted;
 import 'pick_a_file.dart';
 import 'tokens.dart';
 
@@ -21,12 +23,12 @@ class ConnectionsView extends StatelessWidget {
     required this.connections,
     required this.onAdd,
     required this.onForget,
-    required this.onClose,
+    required this.head,
+    this.destinations,
     this.onStoreInATerminal,
     this.onSendAKey,
     this.keysAt = '',
     this.pick = pickWithTheDesktop,
-    this.embedded = false,
     super.key,
   });
 
@@ -39,8 +41,11 @@ class ConnectionsView extends StatelessWidget {
   /// Forgets the record for one address.
   final ValueChanged<String> onForget;
 
-  /// Closes the view.
-  final VoidCallback onClose;
+  /// Where the page sits and what its head says beside the connections' own words.
+  final LeafHead head;
+
+  /// The machine's destinations, the second group of rows under the same head.
+  final Widget? destinations;
 
   /// Stores the last declared value by typing it into a terminal on the machine; null where
   /// nothing here reaches that machine's `porelo`.
@@ -56,83 +61,90 @@ class ConnectionsView extends StatelessWidget {
   /// Asks for a file of this computer.
   final PickAFile pick;
 
-  /// Shares the containing machine page's scroll instead of creating a pane viewport.
-  final bool embedded;
-
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: connections,
     builder: (context, _) {
       final text = Theme.of(context).textTheme;
       final scheme = Theme.of(context).colorScheme;
-      return Column(
-        children: <Widget>[
-          PaneHeader(
-            title: 'Connections — how ${connections.machine} connects out',
-            trailing: IconButton(icon: const Icon(Icons.close), tooltip: 'Close (Esc)', onPressed: onClose),
-          ),
-          PaneBody(
-            embedded: embedded,
-            child: ListView(
-              shrinkWrap: embedded,
-              primary: embedded ? false : null,
-              physics: embedded ? const NeverScrollableScrollPhysics() : null,
-              padding: const EdgeInsets.all(Space.normal),
-              children: <Widget>[
-                if (connections.problem != null)
-                  _Box(
-                    color: scheme.surfaceContainerLow,
-                    child: Text(connections.problem!, key: const Key('connections-problem')),
-                  ),
-                if (connections.forgotten != null)
-                  _Box(
-                    color: scheme.surfaceContainerHighest,
-                    child: Text(connections.forgottenWords, key: const Key('connections-forgotten')),
-                  ),
-                if (connections.declared case final declared?)
-                  _Storing(
-                    // A new declaration is a new storing, and opens its own file dialog.
-                    key: ObjectKey(declared),
-                    declared: declared,
-                    onStoreInATerminal: onStoreInATerminal,
-                    onSendAKey: onSendAKey,
-                    keysAt: keysAt,
-                    pick: pick,
-                  ),
-                Text(
-                  'Only the description is kept here; a value is stored on the machine and '
-                  'never passes through this program. A key or a token reaches everything its '
-                  'owner can — a restricted, read-only token is enough to fetch a repository.',
-                  key: const Key('connections-explained'),
-                  style: text.bodySmall,
-                ),
-                const SizedBox(height: Space.normal),
-                if (connections.all.isEmpty)
-                  const Text(
-                    'Nothing is declared. A git address still uses a vault entry named after its '
-                    'server when there is one.',
-                    key: Key('no-connections'),
-                  ),
-                for (final each in connections.all)
-                  _ConnectionRow(
-                    connection: each,
-                    vaultOpen: connections.vaultOpen,
-                    onForget: () => onForget(each.match),
-                  ),
-                const SizedBox(height: Space.normal),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: FilledButton.icon(
-                    key: const Key('add-connection'),
-                    onPressed: connections.busy ? null : onAdd,
-                    icon: const Icon(Icons.add, size: Sizes.rowIcon),
-                    label: const Text('Add a connection'),
-                  ),
-                ),
-              ],
+      final read = connections.read && connections.problem == null;
+      return SingleChildScrollView(
+        padding: const EdgeInsets.all(Space.normal),
+        child: FilteredListSection(
+          key: ValueKey<String>(head.id),
+          storageId: head.id,
+          title: 'Credentials',
+          leaf: true,
+          collapsible: false,
+          path: head.path,
+          pathKey: head.pathKey,
+          search: head.filter,
+          searchHint: 'Filter the connections and destinations',
+          read: connections.read,
+          busy: connections.busy,
+          problem: connections.problem,
+          staleRows: head.stale,
+          subtitle: counted(connections.all.length, 'connection', 'connections'),
+          actions: <Widget>[
+            FilledButton.icon(
+              key: const Key('add-connection'),
+              onPressed: connections.busy ? null : onAdd,
+              icon: const Icon(Icons.add, size: Sizes.rowIcon),
+              label: const Text('Add a connection'),
             ),
-          ),
-        ],
+          ],
+          beforeRows: <Widget>[
+            ...head.notices,
+            if (connections.forgotten != null)
+              _Box(
+                color: scheme.surfaceContainerHighest,
+                child: Text(connections.forgottenWords, key: const Key('connections-forgotten')),
+              ),
+            if (connections.declared case final declared?)
+              _Storing(
+                // A new declaration is a new storing, and opens its own file dialog.
+                key: ObjectKey(declared),
+                declared: declared,
+                onStoreInATerminal: onStoreInATerminal,
+                onSendAKey: onSendAKey,
+                keysAt: keysAt,
+                pick: pick,
+              ),
+            Text(
+              'Only the description is kept here; a value is stored on the machine and '
+              'never passes through this program. A key or a token reaches everything its '
+              'owner can — a restricted, read-only token is enough to fetch a repository.',
+              key: const Key('connections-explained'),
+              style: text.bodySmall,
+            ),
+            Padding(
+              padding: const EdgeInsets.only(top: Space.normal, bottom: Space.small),
+              child: Wrap(
+                spacing: Space.small,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: <Widget>[
+                  Text('Connections', style: text.titleMedium),
+                  Text(read ? '${connections.all.length}' : 'not read', style: text.bodySmall),
+                ],
+              ),
+            ),
+          ],
+          emptyWords:
+              'Nothing is declared. A git address still uses a vault entry named after its '
+              'server when there is one.',
+          rows: <FilteredRow>[
+            for (final each in connections.all)
+              (
+                words: '${each.match} ${each.kindWords} ${each.purpose}',
+                child: _ConnectionRow(
+                  connection: each,
+                  vaultOpen: connections.vaultOpen,
+                  onForget: () => onForget(each.match),
+                ),
+              ),
+          ],
+          afterRows: <Widget>[?destinations],
+        ),
       );
     },
   );
@@ -156,11 +168,16 @@ class _ConnectionRow extends StatelessWidget {
         : c.source == 'VAULT' && !vaultOpen
         ? 'the vault is shut, so nothing can say whether its value is there'
         : 'its value is missing';
-    return ListTile(
+    return LeafListRow(
       key: ValueKey<String>('connection ${c.match}'),
-      contentPadding: EdgeInsets.zero,
       leading: Icon(c.kind == 'SSH_KEY' ? Icons.key_outlined : Icons.password_outlined, size: Sizes.rowIcon),
-      title: Text(c.match, style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
+      title: c.match,
+      state: c.present
+          ? 'stored'
+          : c.source == 'VAULT' && !vaultOpen
+          ? 'shut'
+          : 'missing',
+      subtitleMaxLines: null,
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[

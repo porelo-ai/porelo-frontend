@@ -5,6 +5,8 @@ import 'package:porelo_frontend/client.dart';
 
 import '../app/fleet_backend.dart';
 import 'dialog_scroll.dart';
+import 'expandable_list_row.dart';
+import 'filtered_list_section.dart';
 import 'tokens.dart';
 
 /// Shows the machine's destinations, and lets a person add, change and remove their own.
@@ -25,8 +27,12 @@ class DestinationsDialog extends StatefulWidget {
     this.embedded = false,
     this.answering = true,
     this.readAgain = 0,
+    this.filter,
     super.key,
   });
+
+  /// The page's filter, which narrows these rows as it narrows the page's others; embedded only.
+  final TextEditingController? filter;
 
   /// The machine whose destinations these are.
   final FleetBackend backend;
@@ -156,29 +162,67 @@ class _DestinationsDialogState extends State<DestinationsDialog> {
             label: const Text('Add a destination'),
           )
         else
-          _DraftForm(
-            draft: draft,
-            backend: widget.backend,
-            onWritten: (written) async {
-              setState(() {
-                _setDraft(null);
-                _said = 'Written: ${written.name}, in ${written.file}.';
-              });
-              await _read();
-            },
-            onLeave: () => setState(() => _setDraft(null)),
-          ),
+          _form(draft),
       ],
     );
     if (widget.embedded) {
-      return Padding(
+      final filter = widget.filter;
+      return ListenableBuilder(
         key: const Key('destinations-dialog'),
-        padding: const EdgeInsets.all(Space.normal),
-        child: Column(
+        listenable: filter ?? const AlwaysStoppedAnimation<double>(0),
+        builder: (context, _) => Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text('Destinations', style: text.titleSmall),
-            content,
+          children: <Widget>[
+            LeafRowsCard(
+              title: 'Destinations',
+              count: destinations == null ? 'not read' : '${destinations.length}',
+              empty: Text(
+                _problem != null || destinations == null
+                    ? 'not read'
+                    : destinations.isEmpty
+                    ? 'No destination is declared on this machine.'
+                    : 'Nothing matches.',
+                key: destinations != null && destinations.isEmpty ? const Key('no-destinations') : null,
+                style: text.bodySmall,
+              ),
+              children: <Widget>[
+                for (final each in destinations ?? const <Destination>[])
+                  if (filter == null || passesFilter(filter, '${each.name} ${each.label} ${each.upstream}'))
+                    _leafRow(context, each),
+              ],
+            ),
+            const SizedBox(height: Space.small),
+            Text(
+              'The services a credential can be for, beside the model providers: where requests go, '
+              'and where the key goes in them. Each is a file on the machine.',
+              style: text.bodySmall,
+            ),
+            if (_problem != null)
+              Text(
+                _problem!,
+                key: const Key('destinations-problem'),
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            if (_said != null) Text(_said!, key: const Key('destinations-said')),
+            if (_problem != null)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton(onPressed: () => unawaited(_read()), child: const Text('Try again')),
+              ),
+            if (destinations == null && _problem == null && widget.answering) const Text('Asking the machine…'),
+            const SizedBox(height: Space.small),
+            if (draft == null)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: OutlinedButton.icon(
+                  key: const Key('add-destination'),
+                  onPressed: () => setState(() => _setDraft(_Draft())),
+                  icon: const Icon(Icons.add, size: Sizes.rowIcon),
+                  label: const Text('Add a destination'),
+                ),
+              )
+            else
+              _form(draft),
           ],
         ),
       );
@@ -197,6 +241,66 @@ class _DestinationsDialogState extends State<DestinationsDialog> {
           child: const Text('Done'),
         ),
       ],
+    );
+  }
+
+  Widget _form(_Draft draft) => _DraftForm(
+    draft: draft,
+    backend: widget.backend,
+    onWritten: (written) async {
+      setState(() {
+        _setDraft(null);
+        _said = 'Written: ${written.name}, in ${written.file}.';
+      });
+      await _read();
+    },
+    onLeave: () => setState(() => _setDraft(null)),
+  );
+
+  /// One destination as a row of the page's list, its state as a chip.
+  Widget _leafRow(BuildContext context, Destination each) {
+    final text = Theme.of(context).textTheme;
+    return LeafListRow(
+      key: ValueKey<String>('destination ${each.name} ${each.packaged ? 'packaged' : 'own'}'),
+      leading: const Icon(Icons.dns_outlined, size: Sizes.mark),
+      title: each.label.isEmpty || each.label == each.name ? each.name : '${each.label} (${each.name})',
+      state: each.inForce ? 'in force' : 'not in force',
+      subtitleMaxLines: null,
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          SelectableText(each.upstream, style: text.bodySmall),
+          Text('The key goes ${each.keyGoes}.', style: text.bodySmall),
+          SelectableText(each.file, style: text.bodySmall),
+          if (each.packaged)
+            Text(
+              each.inForce
+                  ? 'Installed by a package: it cannot be changed or removed here, only have one of '
+                        'your own put in its place.'
+                  : 'Installed by a package, and not in force: one of your own of the same name takes '
+                        'its place.',
+              key: ValueKey<String>('destination-packaged ${each.name}'),
+              style: text.bodySmall,
+            ),
+        ],
+      ),
+      trailing: Wrap(
+        spacing: Space.small,
+        children: <Widget>[
+          if (each.inForce)
+            TextButton(
+              key: ValueKey<String>('change-destination ${each.name}'),
+              onPressed: () => setState(() => _setDraft(_Draft.of(each))),
+              child: Text(each.packaged ? 'Put your own in its place' : 'Change it'),
+            ),
+          if (!each.packaged)
+            TextButton(
+              key: ValueKey<String>('remove-destination ${each.name}'),
+              onPressed: () => unawaited(_remove(each)),
+              child: const Text('Remove it'),
+            ),
+        ],
+      ),
     );
   }
 

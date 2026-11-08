@@ -3,23 +3,25 @@ import 'package:porelo_frontend/client.dart';
 
 import '../app/vault.dart';
 import '../app/vault_devices.dart';
-import 'panes.dart';
+import 'expandable_list_row.dart';
+import 'filtered_list_section.dart';
 import 'tokens.dart';
 
-/// The vault: what it holds, by name, and the devices that open it.
+/// The vault: what it holds, by name, and the devices that open it, as a page of its machine.
 ///
-/// Opening, shutting and enrolling are the button in the machine's title, where somebody looks for
-/// them; this is what there is to read and the one thing to undo, revoking a device.
+/// Opening, shutting and enrolling are the page's actions; this is what there is to read and the
+/// one thing to undo, revoking a device.
 class VaultView extends StatelessWidget {
-  /// Constructor taking the store and what can be done to it.
+  /// Constructor taking the store, the page's head and what can be done to it.
   const VaultView({
     required this.vault,
     required this.onRevoke,
-    required this.onClose,
+    required this.head,
+    this.actions = const [],
+    this.notes = const [],
     this.onUnlockHere,
     this.onMakeHere,
     this.onGrant,
-    this.embedded = false,
     super.key,
   });
 
@@ -29,8 +31,14 @@ class VaultView extends StatelessWidget {
   /// Revokes one way in.
   final ValueChanged<Keyslot> onRevoke;
 
-  /// Closes the view.
-  final VoidCallback onClose;
+  /// Where the page sits and what its head says beside the vault's own words.
+  final LeafHead head;
+
+  /// The page's main action and the menu of the vault's other commands.
+  final List<Widget> actions;
+
+  /// Lines said under the head, before the entries.
+  final List<Widget> notes;
 
   /// Opens the vault by its passphrase in a terminal on the machine, or null where nothing here
   /// can reach that machine's own `porelo`.
@@ -42,142 +50,196 @@ class VaultView extends StatelessWidget {
   /// Grants the authorization an entry names, once, in a browser; null where it cannot be offered.
   final ValueChanged<Credential>? onGrant;
 
-  /// Shares the containing machine page's scroll instead of creating a pane viewport.
-  final bool embedded;
-
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final state = vault.state;
-
-    return Column(
-      children: <Widget>[
-        PaneHeader(
-          title: 'The vault',
-          trailing: IconButton(icon: const Icon(Icons.close), tooltip: 'Close (Esc)', onPressed: onClose),
-        ),
-        if (vault.problem != null)
-          Container(
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: scheme.surfaceContainerLow,
-              border: Border.all(color: scheme.outlineVariant, width: Sizes.divider),
-            ),
-            padding: const EdgeInsets.all(Space.normal),
-            child: Text(vault.problem!, key: const Key('vault-problem')),
-          ),
-        PaneBody(
-          embedded: embedded,
-          child: ListView(
-            shrinkWrap: embedded,
-            primary: embedded ? false : null,
-            physics: embedded ? const NeverScrollableScrollPhysics() : null,
-            padding: const EdgeInsets.symmetric(vertical: Space.small),
-            children: <Widget>[
-              if (vault.busy && state == null)
-                const Padding(padding: EdgeInsets.all(Space.normal), child: Text('Asking the machine…'))
-              else if (state != null) ...<Widget>[
-                if (state.exists && !state.readable)
-                  Padding(
-                    padding: const EdgeInsets.all(Space.normal),
-                    child: Text('The vault is locked', style: TextStyle(color: StateColours.of(scheme).waiting)),
-                  ),
-                _Field(name: 'Where it is', value: state.vault),
-                _Field(
-                  name: 'State',
-                  value: switch ((state.exists, state.readable)) {
-                    (false, _) => 'no vault on this machine yet',
-                    (true, true) => 'open — its contents can be read',
-                    (true, false) => 'shut, so nothing here can say what it holds',
-                  },
+    final small = Theme.of(context).textTheme.bodySmall;
+    final devices = vault.devices;
+    return ListenableBuilder(
+      listenable: head.filter,
+      builder: (context, _) => ListView(
+        padding: const EdgeInsets.all(Space.normal),
+        children: [
+          FilteredListSection(
+            key: ValueKey<String>(head.id),
+            storageId: head.id,
+            title: 'Vault',
+            leaf: true,
+            collapsible: false,
+            path: head.path,
+            pathKey: head.pathKey,
+            search: head.filter,
+            searchHint: 'Filter the entries',
+            read: state != null,
+            busy: vault.busy,
+            problem: vault.problem,
+            staleRows: head.stale,
+            subtitle: state == null
+                ? null
+                : !state.exists
+                ? 'No vault yet'
+                : state.readable
+                ? 'Made · open · ${vault.credentials.length} entries'
+                : 'Made · locked',
+            actions: actions,
+            beforeRows: [
+              ...head.notices,
+              ...notes,
+              if (state != null && state.exists && !state.readable)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: Space.small),
+                  child: Text('The vault is locked', style: TextStyle(color: StateColours.of(scheme).waiting)),
                 ),
-                const _Heading(words: 'What it holds'),
-                // Readable, because there is nothing to open — which is not an open store.
-                if (!state.exists)
-                  const _Line(
-                    'There is no vault yet, so there is nothing in it. It is made at the machine, '
-                    'with a passphrase chosen there.',
-                    id: 'no-store-yet',
-                  )
-                else if (!state.readable)
-                  const _Line(
-                    'Nothing can be listed while it is shut. That is not the same as it holding '
-                    'nothing.',
-                    id: 'shut-not-empty',
-                  )
-                else if (vault.credentials.isEmpty)
-                  const _Line('It is open and holds nothing. That is a state, not a failure.', id: 'open-and-empty'),
-                // Names, kinds and lengths. **Never a value** — that is the whole promise of the
-                // method, and this interface reaches a socket that can be forwarded over ssh.
-                for (final credential in vault.credentials)
-                  ListTile(
-                    dense: true,
+              if (state != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: Space.small),
+                  child: Text(
+                    'Where it is: ${state.vault.isEmpty ? '—' : state.vault}',
+                    key: const Key('vault-where-it-is'),
+                    style: small,
+                  ),
+                ),
+              if (state != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: Space.small),
+                  child: Text(
+                    'State: ${switch ((state.exists, state.readable)) {
+                      (false, _) => 'no vault on this machine yet',
+                      (true, true) => 'open — its contents can be read',
+                      (true, false) => 'shut, so nothing here can say what it holds',
+                    }}',
+                    key: const Key('vault-state'),
+                    style: small,
+                  ),
+                ),
+            ],
+            // Readable, because there is nothing to open — which is not an open store.
+            emptyWords: state == null
+                ? null
+                : !state.exists
+                ? 'There is no vault yet, so there is nothing in it. It is made at the machine, '
+                      'with a passphrase chosen there.'
+                : !state.readable
+                ? 'Nothing can be listed while it is shut. That is not the same as it holding nothing.'
+                : 'It is open and holds nothing. That is a state, not a failure.',
+            // Names, kinds and lengths. **Never a value** — that is the whole promise of the
+            // method, and this interface reaches a socket that can be forwarded over ssh.
+            rows: [
+              for (final credential in vault.credentials)
+                (
+                  words: '${credential.name} ${credential.type}',
+                  child: ItemListRow(
+                    key: ValueKey<String>('credential ${credential.name}'),
                     leading: const Icon(Icons.key_outlined, size: Sizes.mark),
-                    title: Text(
-                      credential.name,
-                      key: const Key('credential-name'),
-                      style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-                    ),
+                    title: credential.name,
+                    titleKey: const Key('credential-name'),
+                    subtitle: describeEntry(credential),
+                    subtitleMaxLines: null,
+                    state: !credential.isGranted
+                        ? 'stored'
+                        : credential.grant == null
+                        ? 'not granted'
+                        : 'granted',
+                    onOpen: null,
                     // A service a person decides about in a browser, once, for later tasks.
-                    trailing: credential.isGranted && onGrant != null
+                    menu: credential.isGranted && onGrant != null
                         ? TextButton(
                             key: ValueKey<String>('grant ${credential.name}'),
                             onPressed: () => onGrant!(credential),
                             child: Text(credential.grant == null ? 'Grant it' : 'Grant it again'),
                           )
                         : null,
-                    subtitle: credential.settings.isEmpty
-                        ? Text(_describe(credential))
-                        : Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: <Widget>[
-                              Text(_describe(credential)),
-                              // What goes with the secret and is not secret, shown whole.
-                              for (final setting in credential.settings.entries)
-                                SelectableText(
-                                  '${setting.key}: ${setting.value}',
-                                  key: ValueKey<String>('credential-setting ${credential.name} ${setting.key}'),
-                                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-                                ),
-                            ],
-                          ),
                   ),
-              ],
-              _Devices(devices: vault.devices, onRevoke: (slot) => _revoke(context, slot)),
+                ),
+            ],
+            afterRows: [
+              if (devices.problem != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: Space.wide),
+                  child: Text(
+                    devices.problem!,
+                    key: const Key('devices-problem'),
+                    style: small?.copyWith(color: scheme.error),
+                  ),
+                ),
+              if (devices.said != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: Space.small),
+                  child: Text(devices.said!, key: const Key('devices-said')),
+                ),
+              LeafRowsCard(
+                title: 'Devices that open it',
+                count: devices.problem != null ? 'not read' : '${devices.slots.length}',
+                empty: Text(devices.problem != null ? 'not read' : 'None is listed.', style: small),
+                children: [
+                  for (final slot in devices.slots)
+                    if (passesFilter(head.filter, slot.name))
+                      ItemListRow(
+                        key: Key('keyslot-${slot.id}'),
+                        leading: Icon(slot.recovery ? Icons.password : Icons.devices_outlined, size: Sizes.mark),
+                        title: devices.mine?.slot == slot.id ? '${slot.name} — this device' : slot.name,
+                        subtitle: _about(slot),
+                        state: slot.recovery
+                            ? 'passphrase'
+                            : devices.mine?.slot == slot.id
+                            ? 'this device'
+                            : 'enrolled',
+                        onOpen: null,
+                        // The way in when every device is gone, changed at the machine; revoking it from a
+                        // window that may have lost its devices is not offered.
+                        menu: slot.recovery
+                            ? null
+                            : IconButton(
+                                key: Key('revoke-${slot.id}'),
+                                tooltip: 'Revoke',
+                                icon: const Icon(Icons.remove_circle_outline, size: Sizes.rowIcon),
+                                onPressed: devices.busy ? null : () => _revoke(context, slot),
+                              ),
+                      ),
+                ],
+              ),
               const SizedBox(height: Space.wide),
               // One line for everything that happens at the machine instead: a daemon has no
               // terminal to take a passphrase at.
-              const _Line(
+              Text(
                 'At the machine: `porelo vault unlock` opens it without a device, `porelo vault '
                 'passphrase` changes its passphrase.',
-                id: 'at-the-machine',
+                key: const Key('at-the-machine'),
+                style: small,
               ),
               // The way out of a vault nothing has opened yet: a device can only be enrolled into
               // an open one, so the first opening is always by the passphrase.
               if (onMakeHere case final make? when vault.missing)
                 Padding(
                   padding: const EdgeInsets.only(top: Space.small),
-                  child: FilledButton.icon(
-                    key: const Key('make-in-terminal'),
-                    onPressed: make,
-                    icon: const Icon(Icons.terminal, size: Sizes.rowIcon),
-                    label: const Text('Make it here, with a passphrase, in a terminal'),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: OutlinedButton.icon(
+                      key: const Key('make-in-terminal'),
+                      onPressed: make,
+                      icon: const Icon(Icons.terminal, size: Sizes.rowIcon),
+                      label: const Text('Make it here, with a passphrase, in a terminal'),
+                    ),
                   ),
                 ),
               if (onUnlockHere case final unlock? when !vault.readable && !vault.missing)
                 Padding(
                   padding: const EdgeInsets.only(top: Space.small),
-                  child: OutlinedButton.icon(
-                    key: const Key('unlock-in-terminal'),
-                    onPressed: unlock,
-                    icon: const Icon(Icons.terminal, size: Sizes.rowIcon),
-                    label: const Text('Open it here, with its passphrase, in a terminal'),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: OutlinedButton.icon(
+                      key: const Key('unlock-in-terminal'),
+                      onPressed: unlock,
+                      icon: const Icon(Icons.terminal, size: Sizes.rowIcon),
+                      label: const Text('Open it here, with its passphrase, in a terminal'),
+                    ),
                   ),
                 ),
             ],
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -207,7 +269,7 @@ class VaultView extends StatelessWidget {
   }
 
   /// What is known about one entry, without any of it.
-  static String _describe(Credential credential) {
+  static String _kindAndGrant(Credential credential) {
     final kind = credential.type.isEmpty ? 'kind not recorded' : credential.type;
     final described = credential.characters == 0 ? kind : '$kind · ${credential.characters} characters';
     if (!credential.isGranted) return described;
@@ -220,114 +282,18 @@ class VaultView extends StatelessWidget {
   }
 }
 
-/// The devices that open the store, this one marked.
-class _Devices extends StatelessWidget {
-  const _Devices({required this.devices, required this.onRevoke});
-
-  final VaultDevices devices;
-  final ValueChanged<Keyslot> onRevoke;
-
-  @override
-  Widget build(BuildContext context) {
-    final small = Theme.of(context).textTheme.bodySmall;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        const _Heading(words: 'Devices that open it'),
-        if (devices.problem != null)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(Space.normal, 0, Space.normal, Space.small),
-            child: Text(
-              devices.problem!,
-              key: const Key('devices-problem'),
-              style: small?.copyWith(color: Theme.of(context).colorScheme.error),
-            ),
-          ),
-        if (devices.said != null)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(Space.normal, 0, Space.normal, Space.small),
-            child: Text(devices.said!, key: const Key('devices-said')),
-          ),
-        for (final slot in devices.slots)
-          ListTile(
-            key: Key('keyslot-${slot.id}'),
-            dense: true,
-            leading: Icon(slot.recovery ? Icons.password : Icons.devices_outlined, size: Sizes.mark),
-            title: Text(devices.mine?.slot == slot.id ? '${slot.name} — this device' : slot.name),
-            subtitle: Text(_about(slot)),
-            // The way in when every device is gone, changed at the machine; revoking it from a
-            // window that may have lost its devices is not offered.
-            trailing: slot.recovery
-                ? null
-                : IconButton(
-                    key: Key('revoke-${slot.id}'),
-                    tooltip: 'Revoke',
-                    icon: const Icon(Icons.remove_circle_outline, size: Sizes.rowIcon),
-                    onPressed: devices.busy ? null : () => onRevoke(slot),
-                  ),
-          ),
-      ],
-    );
-  }
-
-  static String _about(Keyslot slot) {
-    if (slot.recovery) return 'The passphrase, used at the machine.';
-    final used = slot.lastUsed.isEmpty ? 'not used yet' : 'last used ${_day(slot.lastUsed)}';
-    return '${storageWords(slot.storage)} Enrolled ${_day(slot.enrolled)}, $used.';
-  }
-
-  static String _day(String instant) => instant.length >= 10 ? instant.substring(0, 10) : instant;
+/// What is known about one entry, and what goes with it that is not secret: its kind, its length,
+/// how it was granted, and its settings shown whole. Never its value.
+String describeEntry(Credential credential) {
+  final described = VaultView._kindAndGrant(credential);
+  if (credential.settings.isEmpty) return described;
+  return '$described · ${[for (final setting in credential.settings.entries) '${setting.key}: ${setting.value}'].join(', ')}';
 }
 
-class _Line extends StatelessWidget {
-  const _Line(this.words, {required this.id});
-
-  final String words;
-  final String id;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(Space.normal, 0, Space.normal, Space.small),
-    child: Text(words, key: Key(id), style: Theme.of(context).textTheme.bodySmall),
-  );
+String _about(Keyslot slot) {
+  if (slot.recovery) return 'The passphrase, used at the machine.';
+  final used = slot.lastUsed.isEmpty ? 'not used yet' : 'last used ${_day(slot.lastUsed)}';
+  return '${storageWords(slot.storage)} Enrolled ${_day(slot.enrolled)}, $used.';
 }
 
-class _Heading extends StatelessWidget {
-  const _Heading({required this.words});
-
-  final String words;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(Space.normal, Space.wide, Space.normal, Space.small),
-    child: Text(words, style: Theme.of(context).textTheme.labelLarge),
-  );
-}
-
-class _Field extends StatelessWidget {
-  const _Field({required this.name, required this.value});
-
-  final String name;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: Space.normal, vertical: Space.tight),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        SizedBox(
-          width: Sizes.label,
-          child: Text(name, style: Theme.of(context).textTheme.bodySmall),
-        ),
-        Expanded(
-          child: Text(
-            value.isEmpty ? '—' : value,
-            key: Key('vault-${name.toLowerCase().replaceAll(' ', '-')}'),
-            style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-          ),
-        ),
-      ],
-    ),
-  );
-}
+String _day(String instant) => instant.length >= 10 ? instant.substring(0, 10) : instant;

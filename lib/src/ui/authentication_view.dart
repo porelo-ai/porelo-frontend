@@ -3,7 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:porelo_frontend/client.dart';
 
 import '../app/authentication.dart';
-import 'panes.dart';
+import 'expandable_list_row.dart';
+import 'filtered_list_section.dart';
+import 'page_explanation.dart' show counted;
 import 'tokens.dart';
 
 /// Which providers this machine has, and where a credential for each belongs.
@@ -13,13 +15,7 @@ import 'tokens.dart';
 /// can see the socket at all — so what is shown is the command, ready to copy.
 class AuthenticationView extends StatelessWidget {
   /// Constructor taking what the machine said and what can be done.
-  const AuthenticationView({
-    required this.authentication,
-    required this.onImport,
-    required this.onClose,
-    this.embedded = false,
-    super.key,
-  });
+  const AuthenticationView({required this.authentication, required this.onImport, this.filter, super.key});
 
   /// What the machine has.
   final Authentication authentication;
@@ -27,82 +23,89 @@ class AuthenticationView extends StatelessWidget {
   /// Imports what an agent already holds there. No secret crosses doing it.
   final void Function(String? agent) onImport;
 
-  /// Closes the view.
-  final VoidCallback onClose;
+  /// The page's filter, which narrows these rows as it narrows the page's others.
+  final TextEditingController? filter;
 
-  /// Shares the containing machine page's scroll instead of creating a pane viewport.
-  final bool embedded;
+  /// Its words for the page's subtitle: how many providers, or that they are not read.
+  static String countWords(Authentication authentication) =>
+      authentication.answer == null || authentication.problem != null
+      ? 'providers not read'
+      : counted(authentication.providers.length, 'provider', 'providers');
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-
-    return Column(
-      children: <Widget>[
-        PaneHeader(
-          title: 'Providers on this machine',
-          trailing: IconButton(icon: const Icon(Icons.close), tooltip: 'Close (Esc)', onPressed: onClose),
-        ),
-        if (authentication.problem != null)
-          Container(
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: scheme.surfaceContainerLow,
-              border: Border.all(color: scheme.outlineVariant, width: Sizes.divider),
+    final small = Theme.of(context).textTheme.bodySmall;
+    final filter = this.filter;
+    final read = authentication.answer != null && authentication.problem == null;
+    return ListenableBuilder(
+      listenable: filter ?? const AlwaysStoppedAnimation<double>(0),
+      builder: (context, _) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          LeafRowsCard(
+            title: 'Providers',
+            count: read ? '${authentication.providers.length}' : 'not read',
+            empty: Text(
+              !read
+                  ? 'not read'
+                  : authentication.providers.isEmpty
+                  ? 'No provider is declared on this machine.'
+                  : 'Nothing matches.',
+              style: small,
             ),
-            padding: const EdgeInsets.all(Space.normal),
-            child: Text(authentication.problem!, key: const Key('providers-problem')),
-          ),
-        if (authentication.imported != null)
-          Container(
-            width: double.infinity,
-            color: scheme.surfaceContainerHighest,
-            padding: const EdgeInsets.all(Space.normal),
-            // Never the value — the length is how somebody sees it worked without the
-            // confirmation becoming the place the secret appears.
-            child: Text(authentication.importWords, key: const Key('import-says')),
-          ),
-        PaneBody(
-          embedded: embedded,
-          child: ListView(
-            shrinkWrap: embedded,
-            primary: embedded ? false : null,
-            physics: embedded ? const NeverScrollableScrollPhysics() : null,
-            padding: const EdgeInsets.symmetric(vertical: Space.small),
             children: <Widget>[
-              if (authentication.busy && authentication.answer == null)
-                const Padding(padding: EdgeInsets.all(Space.normal), child: Text('Asking the machine…')),
-              if (!authentication.readable && authentication.answer != null)
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(Space.normal, 0, Space.normal, Space.small),
-                  child: Text(
-                    'The vault is shut, so nothing here can say which of these are '
-                    'authenticated. That is not the same as none of them being.',
-                    key: Key('shut-so-cannot-say'),
-                  ),
-                ),
               for (final provider in authentication.providers)
-                _ProviderRow(
-                  provider: provider,
-                  readable: authentication.readable,
-                  onImport: () => onImport(provider.name),
-                ),
-              if (authentication.answer != null) ...<Widget>[
-                const SizedBox(height: Space.wide),
-                Padding(
-                  padding: const EdgeInsets.all(Space.normal),
-                  child: Text(
-                    'Nothing here asks for a secret. A credential is typed at the machine, in '
-                    'the terminal half of the connection this window already uses to reach it.',
-                    key: const Key('typed-at-the-machine'),
-                    style: Theme.of(context).textTheme.bodySmall,
+                if (filter == null || passesFilter(filter, '${provider.name} ${provider.label} ${provider.upstream}'))
+                  _ProviderRow(
+                    provider: provider,
+                    readable: authentication.readable,
+                    onImport: () => onImport(provider.name),
                   ),
-                ),
-              ],
             ],
           ),
-        ),
-      ],
+          if (authentication.problem != null)
+            Padding(
+              padding: const EdgeInsets.only(top: Space.small),
+              child: Text(
+                authentication.problem!,
+                key: const Key('providers-problem'),
+                style: TextStyle(color: scheme.error),
+              ),
+            ),
+          if (authentication.imported != null)
+            Padding(
+              padding: const EdgeInsets.only(top: Space.small),
+              // Never the value — the length is how somebody sees it worked without the
+              // confirmation becoming the place the secret appears.
+              child: Text(authentication.importWords, key: const Key('import-says')),
+            ),
+          if (authentication.busy && authentication.answer == null)
+            const Padding(
+              padding: EdgeInsets.only(top: Space.small),
+              child: Text('Asking the machine…'),
+            ),
+          if (!authentication.readable && authentication.answer != null)
+            const Padding(
+              padding: EdgeInsets.only(top: Space.small),
+              child: Text(
+                'The vault is shut, so nothing here can say which of these are '
+                'authenticated. That is not the same as none of them being.',
+                key: Key('shut-so-cannot-say'),
+              ),
+            ),
+          if (authentication.answer != null)
+            Padding(
+              padding: const EdgeInsets.only(top: Space.small),
+              child: Text(
+                'Nothing here asks for a secret. A credential is typed at the machine, in '
+                'the terminal half of the connection this window already uses to reach it.',
+                key: const Key('typed-at-the-machine'),
+                style: small,
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -120,6 +123,9 @@ class _ProviderRow extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
 
     return ExpansionTile(
+      shape: const Border(),
+      collapsedShape: const Border(),
+      tilePadding: EdgeInsets.zero,
       leading: Icon(
         // **Only beside a readable store.** A shut one says nothing about whether a credential is
         // there, and a cross would be a claim nobody made.
@@ -135,7 +141,25 @@ class _ProviderRow extends StatelessWidget {
             ? scheme.primary
             : scheme.outline,
       ),
-      title: Text(provider.label.isEmpty ? provider.name : provider.label, key: const Key('provider')),
+      title: Wrap(
+        spacing: Space.small,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: <Widget>[
+          Text(provider.label.isEmpty ? provider.name : provider.label, key: const Key('provider')),
+          StateChip(
+            !readable
+                ? 'cannot say'
+                : provider.authenticated
+                ? 'authenticated'
+                : 'not authenticated',
+            toneWords: !readable
+                ? 'shut'
+                : provider.authenticated
+                ? 'ok'
+                : 'waiting',
+          ),
+        ],
+      ),
       subtitle: Text(
         !readable
             ? '${provider.name} · cannot say while the vault is shut'

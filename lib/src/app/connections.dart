@@ -24,6 +24,7 @@ class Connections extends ChangeNotifier {
     _asked++;
     this.machine = machine;
     all = const [];
+    read = false;
     vaultOpen = false;
     declared = null;
     forgotten = null;
@@ -37,6 +38,9 @@ class Connections extends ChangeNotifier {
 
   /// What it is configured with. Read with the vault shut too.
   List<Connection> all = const <Connection>[];
+
+  /// Whether [all] is an answer of this machine, and not merely nothing asked yet.
+  bool read = false;
 
   /// Whether the vault could be read, which is what `present` means anything beside.
   bool vaultOpen = false;
@@ -125,6 +129,7 @@ class Connections extends ChangeNotifier {
     final store = await backend.credentials();
     if (asked != _asked) return;
     all = store.connections;
+    read = true;
     vaultOpen = store.readable;
   }
 

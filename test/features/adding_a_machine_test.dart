@@ -110,6 +110,7 @@ import './step/the_machine_has_no_homeserver_package.dart';
 import './step/the_terminal_can_be_opened_again.dart';
 import './step/the_terminal_it_replaced_was_closed.dart';
 import './step/i_watch_the_new_machine_then_set_up_how_it_connects_out.dart';
+import './step/the_page_of_is_open.dart';
 import './step/adding_a_connection_is_offered.dart';
 import './step/the_new_machine_answers_only_after_a_moment.dart';
 import './step/the_new_machine_answers.dart';
@@ -667,7 +668,7 @@ void main() {
       await iGoToTheNextStep(tester);
       await iSetItUpAndConnect(tester);
       await iWatchTheNewMachineThenSetUpHowItConnectsOut(tester);
-      await itSays(tester, 'Connections — how the build machine connects out');
+      await thePageOfIsOpen(tester, 'Credentials', 'the build machine');
       await addingAConnectionIsOffered(tester);
     });
     testWidgets('''the connections of a new machine are asked once it answers, not before''', (tester) async {
@@ -681,7 +682,7 @@ void main() {
       await theNewMachineAnswersOnlyAfterAMoment(tester);
       await iWatchTheNewMachineThenSetUpHowItConnectsOut(tester);
       await theNewMachineAnswers(tester);
-      await itSays(tester, 'Connections — how the build machine connects out');
+      await thePageOfIsOpen(tester, 'Credentials', 'the build machine');
       await itDoesNotSay(tester, 'has not answered yet');
       await addingAConnectionIsOffered(tester);
     });

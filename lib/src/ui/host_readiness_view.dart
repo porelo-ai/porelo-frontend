@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:porelo_frontend/client.dart';
 
 import '../app/host_readiness.dart';
-import 'panes.dart';
+import 'expandable_list_row.dart';
+import 'filtered_list_section.dart';
+import 'page_explanation.dart' show counted;
 import 'tokens.dart';
 
 /// Whether this machine can run anything, and what it is short of.
@@ -11,13 +13,12 @@ import 'tokens.dart';
 /// question — *can this machine do the thing I am about to ask of it* — and a list of twelve
 /// green lines with one red one in the middle answers it slowly.
 class HostReadinessView extends StatelessWidget {
-  /// Constructor taking what the machine said and how to ask again.
+  /// Constructor taking what the machine said, how to ask again, and the page's head.
   const HostReadinessView({
     required this.readiness,
     required this.machine,
     required this.onCheckAgain,
-    required this.onClose,
-    this.embedded = false,
+    required this.head,
     super.key,
   });
 
@@ -30,100 +31,80 @@ class HostReadinessView extends StatelessWidget {
   /// Asks again. **Not polled** — it runs external programs and takes a moment.
   final VoidCallback onCheckAgain;
 
-  /// Closes the view.
-  final VoidCallback onClose;
-
-  /// Shares the containing machine page's scroll instead of creating a pane viewport.
-  final bool embedded;
+  /// Where the page sits and what its head says beside the checks' own words.
+  final LeafHead head;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final ready = readiness.ready;
-
-    return Column(
-      children: <Widget>[
-        PaneHeader(
-          title: 'What $machine can run',
-          trailing: Row(
-            children: <Widget>[
-              TextButton.icon(
-                key: const Key('check-again'),
-                onPressed: readiness.busy ? null : onCheckAgain,
-                icon: const Icon(Icons.refresh, size: Sizes.rowIcon),
-                label: const Text('Check again'),
+    final health = readiness.health;
+    final probes = readiness.probes;
+    final notFine = probes.where((probe) => !probe.fine).length;
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(Space.normal),
+      child: FilteredListSection(
+        key: ValueKey<String>(head.id),
+        storageId: head.id,
+        title: 'Health',
+        leaf: true,
+        collapsible: false,
+        path: head.path,
+        pathKey: head.pathKey,
+        search: head.filter,
+        searchHint: 'Filter the checks',
+        read: health != null,
+        busy: readiness.busy,
+        problem: readiness.problem,
+        staleRows: head.stale,
+        subtitle: health == null
+            ? null
+            : '${counted(probes.length, 'check', 'checks')} · ${notFine == 0 ? 'all fine' : '$notFine not fine'}',
+        actions: <Widget>[
+          FilledButton(
+            key: const Key('check-again'),
+            onPressed: readiness.busy ? null : onCheckAgain,
+            child: const Text('Check whether this machine can run anything'),
+          ),
+        ],
+        beforeRows: <Widget>[
+          ...head.notices,
+          if (readiness.ready != null && readiness.problem == null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: Space.small),
+              child: Text(
+                readiness.verdict,
+                key: const Key('readiness-verdict'),
+                style: Theme.of(context).textTheme.titleSmall,
               ),
-              IconButton(icon: const Icon(Icons.close), tooltip: 'Close (Esc)', onPressed: onClose),
-            ],
-          ),
-        ),
-        if (readiness.problem != null)
-          Container(
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: scheme.surfaceContainerLow,
-              border: Border.all(color: scheme.outlineVariant, width: Sizes.divider),
             ),
-            padding: const EdgeInsets.all(Space.normal),
-            child: Text(readiness.problem!, key: const Key('readiness-problem')),
-          )
-        else if (ready != null)
-          Container(
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: ready ? scheme.surfaceContainerHighest : scheme.surfaceContainerLow,
-              border: Border.all(color: scheme.outlineVariant, width: Sizes.divider),
+        ],
+        emptyWords: 'The machine reported no check.',
+        // What is not fine comes first.
+        rows: <FilteredRow>[
+          for (final probe in <Probe>[...probes.where((each) => !each.fine), ...probes.where((each) => each.fine)])
+            (words: '${probe.name} ${probe.label} ${probe.detail}', child: _ProbeRow(probe: probe)),
+        ],
+        afterRows: <Widget>[
+          if (readiness.ready != null)
+            // **Said rather than left as a missing button.** Preparing a machine means
+            // installing packages and writing under `/etc`, which is root on the node — and a
+            // machine that is not ready usually has no daemon to ask in the first place, so a
+            // check delivered over this socket could never have reached the case worth fixing.
+            Padding(
+              padding: const EdgeInsets.only(top: Space.wide),
+              child: Text(
+                'Nothing here installs or configures anything. Each line above names the one '
+                'thing to do, and it is done on the machine itself.',
+                key: const Key('nothing-is-fixed-here'),
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
             ),
-            padding: const EdgeInsets.all(Space.normal),
-            child: Text(
-              readiness.verdict,
-              key: const Key('readiness-verdict'),
-              style: Theme.of(context).textTheme.titleSmall,
-            ),
-          ),
-        PaneBody(
-          embedded: embedded,
-          child: ListView(
-            shrinkWrap: embedded,
-            primary: embedded ? false : null,
-            physics: embedded ? const NeverScrollableScrollPhysics() : null,
-            padding: const EdgeInsets.symmetric(vertical: Space.small),
-            children: <Widget>[
-              if (readiness.busy && ready == null)
-                const Padding(padding: EdgeInsets.all(Space.normal), child: Text('Asking the machine…')),
-              if (!embedded && readiness.worthReading.isNotEmpty) ...<Widget>[
-                const _Heading(words: 'What is wrong'),
-                for (final probe in readiness.worthReading) _ProbeRow(probe: probe),
-              ],
-              if (readiness.probes.isNotEmpty) ...<Widget>[
-                const _Heading(words: 'Everything that was checked'),
-                for (final probe in readiness.probes) _ProbeRow(probe: probe),
-              ],
-              if (ready != null) ...<Widget>[
-                const SizedBox(height: Space.wide),
-                // **Said rather than left as a missing button.** Preparing a machine means
-                // installing packages and writing under `/etc`, which is root on the node — and a
-                // machine that is not ready usually has no daemon to ask in the first place, so a
-                // check delivered over this socket could never have reached the case worth fixing.
-                Padding(
-                  padding: const EdgeInsets.all(Space.normal),
-                  child: Text(
-                    'Nothing here installs or configures anything. Each line above names the one '
-                    'thing to do, and it is done on the machine itself.',
-                    key: const Key('nothing-is-fixed-here'),
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
 
-/// One thing that was checked.
+/// One thing that was checked, its state as a chip.
 class _ProbeRow extends StatelessWidget {
   const _ProbeRow({required this.probe});
 
@@ -132,11 +113,18 @@ class _ProbeRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (icon, colour) = probeLook(probe.state, Theme.of(context).colorScheme);
-
-    return ListTile(
-      dense: true,
+    return LeafListRow(
+      key: ValueKey<String>('probe ${probe.name}'),
       leading: Icon(icon, size: Sizes.mark, color: colour),
-      title: Text('${probe.name} · ${probe.label}', key: const Key('probe')),
+      title: probe.name,
+      titleKey: const Key('probe'),
+      state: probe.label,
+      toneWords: switch (probe.state) {
+        'OK' => 'ok',
+        'MISSING' => 'missing',
+        _ => 'degraded',
+      },
+      subtitleMaxLines: null,
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
@@ -149,25 +137,13 @@ class _ProbeRow extends StatelessWidget {
               child: Text(
                 probe.action,
                 key: const Key('what-to-do'),
-                style: TextStyle(color: colour, fontFamily: 'monospace', fontSize: 12),
+                style: TextStyle(color: colour, fontFamily: 'monospace'),
               ),
             ),
         ],
       ),
     );
   }
-}
-
-class _Heading extends StatelessWidget {
-  const _Heading({required this.words});
-
-  final String words;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(Space.normal, Space.wide, Space.normal, Space.small),
-    child: Text(words, style: Theme.of(context).textTheme.labelLarge),
-  );
 }
 
 /// How a probe's state is drawn, as `porelo doctor` colours it on a terminal: `OK` green, `DEGRADED`

@@ -3,7 +3,9 @@ import 'package:porelo_frontend/client.dart';
 
 import '../app/agent_inventory.dart';
 import '../app/commands.dart';
-import 'panes.dart';
+import 'expandable_list_row.dart';
+import 'filtered_list_section.dart';
+import 'page_explanation.dart' show counted;
 import 'tokens.dart';
 
 /// What agents are installed on this machine, and what each may reach.
@@ -13,127 +15,146 @@ import 'tokens.dart';
 /// Three lists, and the last two are the ones nobody would go looking for: what is installed and
 /// unusable, and what is installed and permanently hidden by another copy.
 class AgentsView extends StatelessWidget {
-  /// Constructor taking the inventory and how to close it.
-  const AgentsView({required this.inventory, required this.onClose, this.providers, this.embedded = false, super.key});
+  /// Constructor taking the inventory, the page's head and the providers' rows under it.
+  const AgentsView({
+    required this.inventory,
+    required this.head,
+    this.providers,
+    this.providerRows,
+    this.subtitle,
+    super.key,
+  });
 
   /// What the machine answered.
   final AgentInventory inventory;
 
-  /// Closes the view.
-  final VoidCallback onClose;
+  /// Where the page sits and what its head says beside the agents' own words.
+  final LeafHead head;
 
   /// The existing provider command on this same machine.
   final Command? providers;
 
-  /// Shares the containing machine page's scroll instead of creating a pane viewport.
-  final bool embedded;
+  /// The providers of this machine, the second group of rows under the same head.
+  final Widget? providerRows;
+
+  /// Its words for the page's subtitle: how many agents, or that they are not read.
+  static String countWords(AgentInventory inventory) => !inventory.asked || inventory.problem != null
+      ? 'agents not read'
+      : inventory.busy && inventory.agents.isEmpty
+      ? 'agents not read yet'
+      : counted(inventory.agents.length, 'agent', 'agents');
+
+  /// What the page's subtitle says: the agents and the providers counted, or said not read.
+  final String? subtitle;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: <Widget>[
-        PaneHeader(
-          title: 'Agents installed here',
-          trailing: IconButton(icon: const Icon(Icons.close), tooltip: 'Close (Esc)', onPressed: onClose),
-        ),
-        if (providers case final command?)
-          Padding(
-            padding: const EdgeInsets.all(Space.small),
-            child: OutlinedButton(
-              key: Key(command.id),
-              onPressed: command.available ? command.run : null,
-              child: Text(command.unavailable == null ? command.label : '${command.label} — ${command.unavailable}'),
+    final small = Theme.of(context).textTheme.bodySmall;
+    final read = inventory.asked && !(inventory.busy && inventory.agents.isEmpty);
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(Space.normal),
+      child: FilteredListSection(
+        key: ValueKey<String>(head.id),
+        storageId: head.id,
+        title: 'Agents & providers',
+        leaf: true,
+        collapsible: false,
+        path: head.path,
+        pathKey: head.pathKey,
+        search: head.filter,
+        searchHint: 'Filter the agents and providers',
+        read: read,
+        busy: inventory.busy,
+        problem: inventory.problem,
+        staleRows: head.stale,
+        subtitle: subtitle,
+        actions: <Widget>[
+          if (providers case final command?)
+            Tooltip(
+              message: command.unavailable ?? command.label,
+              child: OutlinedButton(
+                key: Key(command.id),
+                onPressed: command.available ? command.run : null,
+                child: Text(command.label),
+              ),
             ),
-          ),
-        if (inventory.problem != null)
-          Container(
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainerLow,
-              border: Border.all(color: Theme.of(context).colorScheme.outlineVariant, width: Sizes.divider),
+        ],
+        beforeRows: <Widget>[
+          ...head.notices,
+          _group(context, 'Agents', read ? '${inventory.agents.length}' : 'not read'),
+        ],
+        emptyWords:
+            'None is installed. That is a state, not a failure — an agent is installed '
+            'separately from the thing that runs it.',
+        rows: <FilteredRow>[
+          for (final agent in inventory.agents) (words: '${agent.name} ${agent.label}', child: _AgentRow(agent: agent)),
+          for (final hidden in inventory.shadowed)
+            (
+              words: '${hidden.path} ${hidden.usedInstead}',
+              child: LeafListRow(
+                leading: Icon(
+                  Icons.layers_clear_outlined,
+                  size: Sizes.mark,
+                  color: Theme.of(context).colorScheme.tertiary,
+                ),
+                title: hidden.path,
+                titleKey: const Key('agent-shadowed'),
+                state: 'never used',
+                // The winner is named, never implied: "not in use" on its own leaves somebody
+                // asking where to look.
+                subtitle: Text('${hidden.usedInstead} runs instead'),
+              ),
             ),
-            padding: const EdgeInsets.all(Space.normal),
-            child: Text(inventory.problem!, key: const Key('agents-problem')),
-          ),
-        PaneBody(
-          embedded: embedded,
-          child: ListView(
-            shrinkWrap: embedded,
-            primary: embedded ? false : null,
-            physics: embedded ? const NeverScrollableScrollPhysics() : null,
-            padding: const EdgeInsets.symmetric(vertical: Space.small),
-            children: <Widget>[
-              if (inventory.busy)
-                const Padding(padding: EdgeInsets.all(Space.normal), child: Text('Asking the machine what it has…'))
-              else if (inventory.agents.isEmpty && inventory.failures.isEmpty && inventory.shadowed.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.all(Space.normal),
-                  child: Text(
-                    'None is installed. That is a state, not a failure — an agent is installed '
-                    'separately from the thing that runs it.',
-                    key: Key('no-agents'),
-                  ),
-                ),
-              for (final agent in inventory.agents) _AgentRow(agent: agent),
-              if (inventory.shadowed.isNotEmpty) ...<Widget>[
-                const _Heading(words: 'Installed and never used'),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(Space.normal, 0, Space.normal, Space.small),
-                  child: Text(
-                    'Another copy of the same file wins: the most specific directory is searched '
-                    'first. These are never started, so their version is not the one running.',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ),
-                for (final hidden in inventory.shadowed)
-                  ListTile(
-                    dense: true,
-                    leading: Icon(
-                      Icons.layers_clear_outlined,
-                      size: Sizes.mark,
-                      color: Theme.of(context).colorScheme.tertiary,
-                    ),
-                    title: Text(
-                      hidden.path,
-                      key: const Key('agent-shadowed'),
-                      style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-                    ),
-                    // The winner is named, never implied: "not in use" on its own leaves somebody
-                    // asking where to look.
-                    subtitle: Text(
-                      '${hidden.usedInstead} runs instead',
-                      style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
-                    ),
-                  ),
-              ],
-              if (inventory.failures.isNotEmpty) ...<Widget>[
-                const _Heading(words: 'Installed and unusable'),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(Space.normal, 0, Space.normal, Space.small),
-                  child: Text(
-                    'These are here and could not be asked what they are. Listed rather than '
-                    'left out: absent is the state nobody goes looking for.',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ),
-                for (final failure in inventory.failures.entries)
-                  ListTile(
-                    dense: true,
-                    leading: Icon(Icons.error_outline, size: Sizes.mark, color: Theme.of(context).colorScheme.error),
-                    title: Text(
-                      failure.key,
-                      key: const Key('agent-failure'),
-                      style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-                    ),
-                    subtitle: Text(failure.value),
-                  ),
-              ],
-            ],
-          ),
-        ),
-      ],
+          for (final failure in inventory.failures.entries)
+            (
+              words: '${failure.key} ${failure.value}',
+              child: LeafListRow(
+                leading: Icon(Icons.error_outline, size: Sizes.mark, color: Theme.of(context).colorScheme.error),
+                title: failure.key,
+                titleKey: const Key('agent-failure'),
+                state: 'unusable',
+                toneWords: 'failed',
+                subtitleMaxLines: null,
+                subtitle: Text(failure.value),
+              ),
+            ),
+        ],
+        afterRows: <Widget>[
+          if (inventory.shadowed.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: Space.small),
+              child: Text(
+                'Never used: another copy of the same file wins, as the most specific directory is '
+                'searched first. These are never started, so their version is not the one running.',
+                style: small,
+              ),
+            ),
+          if (inventory.failures.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: Space.small),
+              child: Text(
+                'Unusable: these are here and could not be asked what they are. Listed rather than '
+                'left out: absent is the state nobody goes looking for.',
+                style: small,
+              ),
+            ),
+          ?providerRows,
+        ],
+      ),
     );
   }
+
+  static Widget _group(BuildContext context, String title, String count) => Padding(
+    padding: const EdgeInsets.only(bottom: Space.small),
+    child: Wrap(
+      spacing: Space.small,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: <Widget>[
+        Text(title, style: Theme.of(context).textTheme.titleMedium),
+        Text(count, style: Theme.of(context).textTheme.bodySmall),
+      ],
+    ),
+  );
 }
 
 /// One installed agent, with what it may reach.
@@ -144,8 +165,15 @@ class _AgentRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ExpansionTile(
+    shape: const Border(),
+    collapsedShape: const Border(),
+    tilePadding: EdgeInsets.zero,
     leading: const Icon(Icons.smart_toy_outlined, size: Sizes.mark),
-    title: Text(agent.label.isEmpty ? agent.name : agent.label),
+    title: Wrap(
+      spacing: Space.small,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: <Widget>[Text(agent.label.isEmpty ? agent.name : agent.label), const StateChip('installed')],
+    ),
     subtitle: Text(agent.version.isEmpty ? '${agent.name} · version not reported' : '${agent.name} · ${agent.version}'),
     children: <Widget>[
       _Field(name: 'Found at', value: agent.from),

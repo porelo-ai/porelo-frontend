@@ -536,7 +536,7 @@ Feature: Adding a machine through a wizard that starts from what you have
         And I go to the next step
         And I set it up and connect
         And I watch the new machine, then set up how it connects out
-        Then it says {'Connections — how the build machine connects out'}
+        Then the page {'Credentials'} of {'the build machine'} is open
         And adding a connection is offered
 
     # Found in use: asked before the new machine's socket answered, an unhandled error.
@@ -550,7 +550,7 @@ Feature: Adding a machine through a wizard that starts from what you have
         And the new machine answers only after a moment
         And I watch the new machine, then set up how it connects out
         And the new machine answers
-        Then it says {'Connections — how the build machine connects out'}
+        Then the page {'Credentials'} of {'the build machine'} is open
         And it does not say {'has not answered yet'}
         And adding a connection is offered
 

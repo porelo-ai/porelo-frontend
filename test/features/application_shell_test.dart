@@ -42,6 +42,7 @@ import './step/nothing_answers_on_that_machine.dart';
 import './step/it_says.dart';
 import './step/i_agree_to_start_it.dart';
 import './step/the_machine_was_asked_to_start.dart';
+import './step/the_page_of_is_open.dart';
 import './step/stopping_everything_everywhere_is_not_offered.dart';
 import './step/stopping_everything_everywhere_is_offered.dart';
 import './step/i_choose_the_tree_entry.dart';
@@ -149,7 +150,7 @@ void main() {
       await itSays(tester, 'This starts the daemon here, as you.');
       await iAgreeToStartIt(tester);
       await theMachineWasAskedToStart(tester, 'systemctl --user');
-      await itSays(tester, 'What this machine can run');
+      await thePageOfIsOpen(tester, 'Health', 'this machine');
     }, tags: ['linux']);
     testWidgets('''the stop for every machine waits for a machine that answers''', (tester) async {
       await bddSetUp(tester);

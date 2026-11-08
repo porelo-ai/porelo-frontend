@@ -386,6 +386,9 @@ abstract final class Sizes {
   /// A leaf's filter with its desktop sort and fold targets.
   static const leafTools = 272.0;
 
+  /// The narrowest a fact's tile on a page of facts may be before the tiles wrap.
+  static const factTile = 200.0;
+
   /// The largest share of a leaf head's width its filter may take to show its whole hint; the rest keeps the title.
   static const leafToolsShare = 0.6;
 
@@ -610,4 +613,7 @@ abstract final class ActionTiles {
 abstract final class Opacities {
   /// Tint behind a state chip.
   static const stateChip = 0.12;
+
+  /// Rows last read from a machine that no longer answers.
+  static const stale = 0.5;
 }

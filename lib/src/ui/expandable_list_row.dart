@@ -371,8 +371,20 @@ class LeafListRow extends StatelessWidget {
     required this.state,
     this.trailing,
     this.onTap,
+    this.titleKey,
+    this.toneWords,
+    this.subtitleMaxLines = 2,
     super.key,
   });
+
+  /// The title's automation target.
+  final Key? titleKey;
+
+  /// The known state category where [state] says more than it.
+  final String? toneWords;
+
+  /// The detail's limit per line of words; null keeps a refusal or what to do in full.
+  final int? subtitleMaxLines;
 
   /// The full public name, available in a tooltip.
   final String title;
@@ -420,13 +432,21 @@ class LeafListRow extends StatelessWidget {
                                 message: title,
                                 child: Text(
                                   title,
+                                  key: titleKey,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: Theme.of(context).textTheme.titleSmall,
                                 ),
                               ),
-                              DefaultTextStyle.merge(maxLines: 2, overflow: TextOverflow.ellipsis, child: subtitle),
-                              if (!beside) StateChip(state),
+                              if (subtitleMaxLines case final lines?)
+                                DefaultTextStyle.merge(
+                                  maxLines: lines,
+                                  overflow: TextOverflow.ellipsis,
+                                  child: subtitle,
+                                )
+                              else
+                                subtitle,
+                              if (!beside) StateChip(state, toneWords: toneWords),
                             ],
                           ),
                         ),
@@ -436,7 +456,13 @@ class LeafListRow extends StatelessWidget {
                 ),
                 if (beside)
                   Flexible(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [StateChip(state), ?actions]),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        StateChip(state, toneWords: toneWords),
+                        ?actions,
+                      ],
+                    ),
                   ),
               ],
             ),
