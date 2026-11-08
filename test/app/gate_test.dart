@@ -88,7 +88,7 @@ class _ContractReadOnce extends _OneOfTwoGatesReadable {
   }
 
   @override
-  Future<({String diff, String log, List<ReviewFile> files, String? asked})> reviewOf(
+  Future<({String diff, String log, List<ReviewFile> files, String? asked, List<ReviewCommit>? commits})> reviewOf(
     String projectFile,
     String name, {
     String? against,
@@ -96,7 +96,7 @@ class _ContractReadOnce extends _OneOfTwoGatesReadable {
     bool? ignoreLineEndings,
   }) async {
     asked.add(ignoreLineEndings);
-    return (diff: '', log: '', files: const <ReviewFile>[], asked: null);
+    return (diff: '', log: '', files: const <ReviewFile>[], asked: null, commits: null);
   }
 }
 
@@ -121,13 +121,13 @@ class _OneOfTwoGatesReadable implements FleetBackend {
   }
 
   @override
-  Future<({String diff, String log, List<ReviewFile> files, String? asked})> reviewOf(
+  Future<({String diff, String log, List<ReviewFile> files, String? asked, List<ReviewCommit>? commits})> reviewOf(
     String projectFile,
     String name, {
     String? against,
     String? repository,
     bool? ignoreLineEndings,
-  }) async => (diff: '', log: '', files: const <ReviewFile>[], asked: null);
+  }) async => (diff: '', log: '', files: const <ReviewFile>[], asked: null, commits: null);
 
   @override
   Future<ForwardedPush> approve(

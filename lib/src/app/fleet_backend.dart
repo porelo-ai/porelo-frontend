@@ -534,7 +534,7 @@ abstract class FleetBackend {
   /// What one waiting push contains, so it can be judged before it is forwarded.
   ///
   /// [against] diffs against something other than the upstream's default branch.
-  Future<({String diff, String log, List<ReviewFile> files, String? asked})> reviewOf(
+  Future<({String diff, String log, List<ReviewFile> files, String? asked, List<ReviewCommit>? commits})> reviewOf(
     String projectFile,
     String name, {
     String? against,
@@ -1056,7 +1056,7 @@ class PoreloBackend implements FleetBackend {
       _opened().gate(projectFile, repository: repository);
 
   @override
-  Future<({String diff, String log, List<ReviewFile> files, String? asked})> reviewOf(
+  Future<({String diff, String log, List<ReviewFile> files, String? asked, List<ReviewCommit>? commits})> reviewOf(
     String projectFile,
     String name, {
     String? against,

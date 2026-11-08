@@ -6,11 +6,14 @@ import '../app/diff.dart';
 import '../app/forge_connection.dart' show hostOf;
 import '../app/gate.dart';
 import '../app/machines.dart' show Machine;
+import '../app/makers.dart';
 import 'panes.dart';
 import 'refused_key.dart';
 import 'selection_list.dart';
 import 'tokens.dart';
 import 'dialog_scroll.dart';
+import 'expandable_list_row.dart' show StateChip;
+import 'fact_rows.dart';
 
 /// What is waiting at a project's gate.
 ///
@@ -270,18 +273,21 @@ class ReviewView extends StatelessWidget {
                   children: gate.ranked.isEmpty
                       ? <Widget>[
                           ..._refusedKey(),
-                          if (push.fetch.isNotEmpty) _OwnClone(fetch: push.fetchFrom(login, sshConfig: sshConfig)),
+                          _WhoMadeIt(push: push, commits: gate.commits),
                           for (final file in files) _File(file: file),
                           if (files.isEmpty)
                             const Padding(
                               padding: EdgeInsets.all(Space.loose),
                               child: Text('This push changes no files.'),
                             ),
+                          // After what it touched: reading it elsewhere is the second way, not the first.
+                          if (push.fetch.isNotEmpty) _OwnClone(fetch: push.fetchFrom(login, sshConfig: sshConfig)),
                         ]
                       : <Widget>[
                           ..._refusedKey(),
-                          if (push.fetch.isNotEmpty) _OwnClone(fetch: push.fetchFrom(login, sshConfig: sshConfig)),
+                          _WhoMadeIt(push: push, commits: gate.commits),
                           ..._ranked(context, gate, files, onWithoutLineEndings),
+                          if (push.fetch.isNotEmpty) _OwnClone(fetch: push.fetchFrom(login, sshConfig: sshConfig)),
                         ],
                 ),
         ),
@@ -304,6 +310,113 @@ extension on ReviewView {
         onTerminal: gate.keyRefused!.refused.command.isEmpty ? null : onKeyTerminal,
       ),
   ];
+}
+
+/// Each commit, who wrote and committed it, and its trailer: what says whether an agent made it,
+/// read before what it touched.
+///
+/// **Shown as the machine reports them**: the review's commits, newest first, where it lists them,
+/// else the head commit as the waiting push names it. What it does not report is said to be not
+/// reported, never left out, and the trailer check is then one that cannot be made here, never drawn
+/// as passed.
+class _WhoMadeIt extends StatelessWidget {
+  const _WhoMadeIt({required this.push, required this.commits});
+
+  final PendingPush push;
+
+  /// The review's commits; null where the machine does not list them.
+  final List<ReviewCommit>? commits;
+
+  static const _notReported = 'not reported by the machine';
+
+  /// What the card shows: the review's commits, or the head commit as the waiting push names it.
+  List<ReviewCommit> get _made {
+    final listed = commits;
+    if (listed != null && listed.isNotEmpty) return listed;
+    return <ReviewCommit>[
+      ReviewCommit(
+        commit: push.commit,
+        subject: push.subject,
+        author: push.author,
+        committer: push.committer,
+        trailers: push.trailers,
+      ),
+    ];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final made = _made;
+    return Card(
+      key: const Key('review-who'),
+      margin: const EdgeInsets.fromLTRB(Space.normal, Space.small, Space.normal, Space.small),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: Space.normal, vertical: Space.small),
+        child: FactRows(
+          labelWidth: Sizes.label,
+          facts: <Fact>[
+            for (final (place, commit) in made.indexed) ..._facts(context, commit, place, several: made.length > 1),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// One commit's facts; those of the head commit keyed by their label alone, the others by their place too.
+  List<Fact> _facts(BuildContext context, ReviewCommit commit, int place, {required bool several}) {
+    final text = Theme.of(context).textTheme;
+    final code = codeText.copyWith(color: text.bodyMedium?.color);
+    final suffix = place == 0 ? '' : ' ${place + 1}';
+    Widget said(String? value) => value == null ? const Text(_notReported) : SelectableText(value);
+    final trailers = commit.trailers;
+    final check = TrailerCheck.of(trailers);
+    return <Fact>[
+      Fact(
+        'Commit',
+        commit.commit.isEmpty
+            ? const Text(_notReported)
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  SelectableText(commit.commit, style: code),
+                  // One commit is the push's own, named in the header; of several, each says which it is.
+                  if (several && commit.subject.isNotEmpty) Text(commit.subject),
+                ],
+              ),
+        key: Key('review-fact Commit$suffix'),
+        dividedAbove: place > 0,
+      ),
+      Fact('Author', said(commit.author), key: Key('review-fact Author$suffix')),
+      Fact('Committer', said(commit.committer), key: Key('review-fact Committer$suffix')),
+      Fact(
+        'Trailer',
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            if (trailers == null)
+              const Text(_notReported)
+            else if (trailers.isEmpty)
+              const Text('none')
+            else
+              for (final line in trailers) SelectableText(line),
+            const SizedBox(height: Space.tight),
+            KeyedSubtree(
+              key: ValueKey<String>('review-trailer-check ${check.state.name}$suffix'),
+              child: StateChip(
+                check.words,
+                toneWords: switch (check.state) {
+                  TrailerState.passed => 'ok',
+                  TrailerState.wrong => 'failed',
+                  TrailerState.unknown => null,
+                },
+              ),
+            ),
+          ],
+        ),
+        key: Key('review-fact Trailer$suffix'),
+      ),
+    ];
+  }
 }
 
 /// The review as the machine ranked it: what the task was asked, apart from what it touched, then

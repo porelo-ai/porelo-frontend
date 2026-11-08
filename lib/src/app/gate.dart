@@ -65,6 +65,10 @@ class Gate extends ChangeNotifier {
   /// it was started without an instruction. Shown beside what it touched, and never compared with it.
   String? asked;
 
+  /// The push's commits, newest first, with who made each: null until reviewed, and where the machine
+  /// does not say, which the review card then says.
+  List<ReviewCommit>? commits;
+
   /// The forward the machine just refused for its ssh key, with the branch it was for; null otherwise.
   ({PushRefused refused, String branch})? keyRefused;
 
@@ -107,6 +111,7 @@ class Gate extends ChangeNotifier {
     log = '';
     ranked = const <ReviewFile>[];
     asked = null;
+    commits = null;
     unread = const <({String name, String words})>[];
     if (!project.canBeActedOn) {
       waiting = const <PendingPush>[];
@@ -128,6 +133,7 @@ class Gate extends ChangeNotifier {
     log = '';
     ranked = const <ReviewFile>[];
     asked = null;
+    commits = null;
     notifyListeners();
     final file = project?.name;
     if (file == null || file.isEmpty) return;
@@ -148,6 +154,7 @@ class Gate extends ChangeNotifier {
       log = review.log;
       ranked = review.files;
       asked = review.asked;
+      commits = review.commits;
     });
   }
 

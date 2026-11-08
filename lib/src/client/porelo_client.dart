@@ -837,10 +837,11 @@ class PoreloClient {
   /// files in the order to show them and what the task that pushed was asked.
   ///
   /// `asked` is null where the machine does not say, an empty string where the task was started
-  /// without an instruction; `files` is empty from a Porelo older than the ranked review. With
+  /// without an instruction; `files` is empty from a Porelo older than the ranked review; `commits`,
+  /// newest first with who made each, is null from a Porelo older than that field. With
   /// [ignoreLineEndings] `true` the diff leaves out what changed at line ends; only a machine whose
   /// `Review` declares it may be sent it.
-  Future<({String diff, String log, List<ReviewFile> files, String? asked})> review(
+  Future<({String diff, String log, List<ReviewFile> files, String? asked, List<ReviewCommit>? commits})> review(
     String project,
     String name, {
     String? upstream,
@@ -868,6 +869,7 @@ class PoreloClient {
           ? files.whereType<Map<String, dynamic>>().map(ReviewFile.from).toList()
           : const <ReviewFile>[],
       asked: asked is String ? asked : null,
+      commits: ReviewCommit.allIn(reply['commits']),
     );
   }
 

@@ -629,6 +629,11 @@ class Build {
   /// Why it is `unknown`, or what more the forge said; empty otherwise.
   final String detail;
 
+  /// Each run of a workflow for the commit, with its own state, also while queued or running; null
+  /// from a machine older than the field, or where its answer could not be read as runs, which is
+  /// not *no run*.
+  final List<BuildRun>? runs;
+
   /// Constructor taking every field.
   const Build({
     required this.commit,
@@ -636,6 +641,7 @@ class Build {
     this.jobs = const <BuildJob>[],
     this.since = '',
     this.detail = '',
+    this.runs,
   });
 
   /// Reads one from a reply.
@@ -645,13 +651,38 @@ class Build {
     jobs: _list(map, 'jobs').map(BuildJob.from).toList(),
     since: _string(map, 'since'),
     detail: _string(map, 'detail'),
+    runs: _runs(map['runs']),
   );
+
+  /// The runs as the machine listed them, or null where it listed none this can read: one entry that
+  /// is no run makes the whole list unread, never a shorter list that could read as all passed.
+  static List<BuildRun>? _runs(Object? value) {
+    if (value is! List || value.any((each) => each is! Map<String, dynamic>)) return null;
+    return value.cast<Map<String, dynamic>>().map(BuildRun.from).toList();
+  }
 
   /// The commit as people read it: its first twelve characters.
   String get short => commit.length > 12 ? commit.substring(0, 12) : commit;
 
   /// Whether the forge is still working on it, so no job is listed yet.
   bool get underway => verdict == 'queued' || verdict == 'running';
+}
+
+/// One run of a workflow for a commit, as the forge names it.
+class BuildRun {
+  /// The workflow, as the forge spells it.
+  final String name;
+
+  /// What became of it, or its state while it is not finished, lower case as the forge says it:
+  /// `success`, `failure`, ..., `queued`, `in_progress`; a string, so one added later renders.
+  final String result;
+
+  /// Constructor taking every field.
+  const BuildRun({required this.name, required this.result});
+
+  /// Reads one from a reply.
+  factory BuildRun.from(Map<String, dynamic> map) =>
+      BuildRun(name: _string(map, 'name'), result: _string(map, 'result'));
 }
 
 /// One job of a build, as the forge names it.
@@ -4006,6 +4037,16 @@ class PendingPush {
   /// names it, or empty from a machine that does not. Reading only: the work is not reviewed.
   final String fetch;
 
+  /// Who wrote the head commit, `name <email>` as git has it; null where the machine does not say.
+  final String? author;
+
+  /// Who committed the head commit, as [author].
+  final String? committer;
+
+  /// The head commit's trailer lines, unfolded, as git reads them; null where the machine does not
+  /// say, which is not *none*.
+  final List<String>? trailers;
+
   /// Constructor taking every field.
   const PendingPush({
     required this.name,
@@ -4015,6 +4056,9 @@ class PendingPush {
     required this.at,
     this.repository = '',
     this.fetch = '',
+    this.author,
+    this.committer,
+    this.trailers,
   });
 
   /// [fetch], with the host the machine named for itself replaced by [login] (`user@host`), the
@@ -4039,6 +4083,9 @@ class PendingPush {
     at: at,
     repository: repository,
     fetch: fetch,
+    author: author,
+    committer: committer,
+    trailers: trailers,
   );
 
   /// What tells it apart: the same ref name can wait in two repositories. A colon is not allowed
@@ -4053,7 +4100,55 @@ class PendingPush {
     waiting: _string(map, 'waiting'),
     at: _string(map, 'at'),
     fetch: map['fetch'] is String ? map['fetch'] as String : '',
+    author: map['author'] is String ? map['author'] as String : null,
+    committer: map['committer'] is String ? map['committer'] as String : null,
+    trailers: _lines(map['trailers']),
   );
+}
+
+/// One commit of a pending push, with who made it, as `Review` lists them, newest first.
+class ReviewCommit {
+  /// In full.
+  final String commit;
+
+  /// First line of its message.
+  final String subject;
+
+  /// Who wrote it, `name <email>` as git has it; null where the answer holds none this can read.
+  final String? author;
+
+  /// Who committed it, as [author].
+  final String? committer;
+
+  /// Its trailer lines, unfolded, as git reads them; empty where it has none, null where the answer
+  /// holds none this can read.
+  final List<String>? trailers;
+
+  /// Constructor taking every field.
+  const ReviewCommit({required this.commit, required this.subject, this.author, this.committer, this.trailers});
+
+  /// Reads one from a reply.
+  factory ReviewCommit.from(Map<String, dynamic> map) => ReviewCommit(
+    commit: _string(map, 'commit'),
+    subject: _string(map, 'subject'),
+    author: map['author'] is String ? map['author'] as String : null,
+    committer: map['committer'] is String ? map['committer'] as String : null,
+    trailers: _lines(map['trailers']),
+  );
+
+  /// The commits `Review` lists, or null where it lists none this can read: from a machine older
+  /// than the field, or one entry that is no commit, which never leaves a shorter list behind.
+  static List<ReviewCommit>? allIn(Object? value) {
+    if (value is! List || value.any((each) => each is! Map<String, dynamic>)) return null;
+    return value.cast<Map<String, dynamic>>().map(ReviewCommit.from).toList();
+  }
+}
+
+/// Lines of text, or null where [value] is not a list of strings alone: one line that is not text
+/// makes the whole list unread, so a trailer is never silently dropped from a check.
+List<String>? _lines(Object? value) {
+  if (value is! List || value.any((each) => each is! String)) return null;
+  return value.cast<String>().toList();
 }
 
 /// A connection a task tried to make and was stopped for.

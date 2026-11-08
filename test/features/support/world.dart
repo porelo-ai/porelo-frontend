@@ -2291,6 +2291,10 @@ diff --git a/lib/money.dart b/lib/money.dart
   /// say, empty where the task was started without an instruction.
   String? theInstruction;
 
+  /// The push's commits with who made each, as `Review` answers them; null where the machine does
+  /// not say.
+  List<ReviewCommit>? theCommits;
+
   /// What was approved, onto which branch, and from which repository — null where none was named.
   /// The commit each forward named as reviewed, in order; null where it named none.
   final List<String?> approvedCommits = <String?>[];
@@ -2477,7 +2481,7 @@ diff --git a/lib/money.dart b/lib/money.dart
   }
 
   @override
-  Future<({String diff, String log, List<ReviewFile> files, String? asked})> reviewOf(
+  Future<({String diff, String log, List<ReviewFile> files, String? asked, List<ReviewCommit>? commits})> reviewOf(
     String projectFile,
     String name, {
     String? against,
@@ -2497,6 +2501,7 @@ diff --git a/lib/money.dart b/lib/money.dart
       log: 'commit 9a3c1f2\n\n    Round to the nearest penny',
       files: theRanking,
       asked: theInstruction,
+      commits: theCommits,
     );
   }
 

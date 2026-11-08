@@ -85,13 +85,13 @@ class _SixteenRefuse implements FleetBackend {
   Future<String> contract() async => '';
 
   @override
-  Future<({String diff, String log, List<ReviewFile> files, String? asked})> reviewOf(
+  Future<({String diff, String log, List<ReviewFile> files, String? asked, List<ReviewCommit>? commits})> reviewOf(
     String projectFile,
     String name, {
     String? against,
     String? repository,
     bool? ignoreLineEndings,
-  }) async => (diff: '', log: '', files: const <ReviewFile>[], asked: null);
+  }) async => (diff: '', log: '', files: const <ReviewFile>[], asked: null, commits: null);
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);

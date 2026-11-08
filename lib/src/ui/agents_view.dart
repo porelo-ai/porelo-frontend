@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:porelo_frontend/client.dart';
 
 import '../app/agent_inventory.dart';
 import '../app/commands.dart';
 import 'expandable_list_row.dart';
+import 'fact_rows.dart';
 import 'filtered_list_section.dart';
 import 'page_explanation.dart' show counted;
 import 'tokens.dart';
@@ -157,91 +161,165 @@ class AgentsView extends StatelessWidget {
   );
 }
 
-/// One installed agent, with what it may reach.
-class _AgentRow extends StatelessWidget {
+/// One installed agent, with what it may reach: its name, command and version on the row, and,
+/// unfolded, its facts as label and value in two aligned columns.
+class _AgentRow extends StatefulWidget {
   const _AgentRow({required this.agent});
 
   final Agent agent;
 
   @override
-  Widget build(BuildContext context) => ExpansionTile(
-    shape: const Border(),
-    collapsedShape: const Border(),
-    tilePadding: EdgeInsets.zero,
-    leading: const Icon(Icons.smart_toy_outlined, size: Sizes.mark),
-    title: Wrap(
-      spacing: Space.small,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: <Widget>[Text(agent.label.isEmpty ? agent.name : agent.label), const StateChip('installed')],
-    ),
-    subtitle: Text(agent.version.isEmpty ? '${agent.name} · version not reported' : '${agent.name} · ${agent.version}'),
-    children: <Widget>[
-      _Field(name: 'Found at', value: agent.from),
-      _Field(name: 'Runs', value: agent.binary),
-      // **The answer to "did a person or an agent write this commit?"**, which had nowhere to
-      // be looked up before the field existed. It is also what a pre-push guard on somebody's
-      // own checkout matches on, so the two have to agree — and reading it here means nobody
-      // has to open a manifest to find out what they agree on.
-      _Field(
-        name: 'Commits as',
-        value: agent.commitsAs.recorded ? agent.commitsAs.words : 'not recorded — installed before this was reported',
+  State<_AgentRow> createState() => _AgentRowState();
+}
+
+class _AgentRowState extends State<_AgentRow> {
+  bool _open = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final agent = widget.agent;
+    final theme = Theme.of(context);
+    final small = theme.textTheme.bodySmall;
+    // The list's own fold, so the row reads as every other list's; its body stands at the left.
+    return ExpansionTile(
+      shape: const Border(),
+      collapsedShape: const Border(),
+      tilePadding: EdgeInsets.zero,
+      childrenPadding: const EdgeInsets.only(bottom: Space.wide),
+      expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
+      expandedAlignment: AlignmentDirectional.topStart,
+      onExpansionChanged: (open) => setState(() => _open = open),
+      title: Text(
+        agent.label.isEmpty ? agent.name : agent.label,
+        style: theme.textTheme.titleMedium?.copyWith(fontWeight: _open ? FontWeight.w600 : FontWeight.w500),
       ),
-      const _Heading(words: 'Machines it needs'),
-      if (agent.allowedDomains.isEmpty)
-        const Padding(
-          padding: EdgeInsets.fromLTRB(Space.normal, 0, Space.normal, Space.small),
-          child: Text('None of its own. It reaches whatever the project allows.'),
-        ),
-      for (final host in agent.allowedDomains)
-        ListTile(
-          dense: true,
-          title: Text(
-            host,
-            key: const Key('agent-host'),
-            style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-          ),
-        ),
-      Padding(
-        padding: const EdgeInsets.fromLTRB(Space.normal, 0, Space.normal, Space.normal),
-        child: Text(
-          "Added to a task's egress on top of the project's own.",
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
+      subtitle: Text(
+        agent.version.isEmpty ? '${agent.name} · version not reported' : '${agent.name} · ${agent.version}',
+        style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
       ),
-      if (agent.refusedDomains.isNotEmpty) ...<Widget>[
-        const _Heading(words: 'Asked for and refused'),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(Space.normal, 0, Space.normal, Space.small),
-          child: Text(
-            'This agent declares these and is deliberately not given them. A dropped packet '
-            'cannot tell that apart from nobody having added it.',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-        ),
-        for (final host in agent.refusedDomains)
-          ListTile(
-            dense: true,
-            leading: Icon(Icons.block, size: Sizes.mark, color: Theme.of(context).colorScheme.error),
-            title: Text(
-              host,
-              key: const Key('agent-refused'),
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          const StateChip('installed'),
+          const SizedBox(width: Space.small),
+          Icon(_open ? Icons.expand_less : Icons.expand_more, size: Sizes.rowIcon),
+        ],
+      ),
+      children: <Widget>[
+        FactRows(
+          facts: <Fact>[
+            Fact('Found at', _code(agent.from)),
+            Fact('Runs', _code(agent.binary)),
+            // **The answer to "did a person or an agent write this commit?"**, which had nowhere to
+            // be looked up before the field existed. It is also what a pre-push guard on somebody's
+            // own checkout matches on, so the two have to agree — and reading it here means nobody
+            // has to open a manifest to find out what they agree on.
+            Fact(
+              'Commits as',
+              agent.commitsAs.recorded
+                  ? _code(agent.commitsAs.words)
+                  : const Text('not recorded — installed before this was reported'),
             ),
-          ),
-      ],
-      const _Heading(words: 'What it fetches'),
-      if (agent.artifacts.isEmpty)
-        const Padding(
-          padding: EdgeInsets.fromLTRB(Space.normal, 0, Space.normal, Space.small),
-          child: Text(
-            'Nothing. It writes its tool into the image, so it pins a version and has no '
-            'digest to check.',
-            key: Key('agent-fetches-nothing'),
-          ),
+            Fact(
+              'Machines it needs',
+              _Hosts(
+                chips: <Widget>[for (final host in agent.allowedDomains) _HostChip(host: host, refused: false)],
+                none: 'None of its own. It reaches whatever the project allows.',
+                note: "Added to a task's egress on top of the project's own.",
+                noteStyle: small,
+              ),
+              dividedAbove: true,
+            ),
+            if (agent.refusedDomains.isNotEmpty)
+              Fact(
+                'Asked for and refused',
+                _Hosts(
+                  chips: <Widget>[for (final host in agent.refusedDomains) _HostChip(host: host, refused: true)],
+                  none: '',
+                  note:
+                      'This agent declares these and is deliberately not given them. A dropped packet '
+                      'cannot tell that apart from nobody having added it.',
+                  noteStyle: small,
+                ),
+              ),
+            Fact(
+              'What it fetches',
+              agent.artifacts.isEmpty
+                  ? const Text(
+                      'Nothing. It writes its tool into the image, so it pins a version and has no '
+                      'digest to check.',
+                      key: Key('agent-fetches-nothing'),
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[for (final artifact in agent.artifacts) _Artifact(artifact: artifact)],
+                    ),
+            ),
+          ],
         ),
-      for (final artifact in agent.artifacts) _Artifact(artifact: artifact),
+      ],
+    );
+  }
+
+  /// A path or a name as the machine spells it, said to be missing rather than drawn blank.
+  static Widget _code(String value) =>
+      value.isEmpty ? const Text('not reported by the machine') : SelectableText(value, style: codeText);
+}
+
+/// Hosts as chips, with the note that says what they are for under them.
+class _Hosts extends StatelessWidget {
+  const _Hosts({required this.chips, required this.none, required this.note, required this.noteStyle});
+
+  final List<Widget> chips;
+  final String none;
+  final String note;
+  final TextStyle? noteStyle;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: <Widget>[
+      if (chips.isEmpty) Text(none) else Wrap(spacing: Space.small, runSpacing: Space.small, children: chips),
+      const SizedBox(height: Space.small),
+      Text(note, style: noteStyle),
     ],
   );
+}
+
+/// One host an agent needs, or one it asked for and is refused, marked so without colour too.
+class _HostChip extends StatelessWidget {
+  const _HostChip({required this.host, required this.refused});
+
+  final String host;
+  final bool refused;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final tone = refused ? scheme.error : scheme.primary;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: Space.small, vertical: Space.tight),
+      decoration: BoxDecoration(
+        color: tone.withValues(alpha: Opacities.stateChip),
+        borderRadius: BorderRadius.circular(Radii.small),
+        border: refused ? Border.all(color: tone.withValues(alpha: Opacities.stateChip * 3)) : null,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(refused ? Icons.block : Icons.check, size: Sizes.rowIcon, color: tone),
+          const SizedBox(width: Space.tight),
+          Flexible(
+            child: Text(
+              host,
+              key: Key(refused ? 'agent-refused' : 'agent-host'),
+              style: codeText.copyWith(color: scheme.onSurface),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 /// One file an agent fetches, and whether anybody can check it.
@@ -249,64 +327,66 @@ class _AgentRow extends StatelessWidget {
 /// **Two states, never a blank.** The daemon refuses to build an artifact with neither a digest
 /// nor a reason, so an unverified one always says why — and a stated reason is a decision
 /// somebody made, not a fault. It is shown as the reason rather than as a warning.
+///
+/// The digest is shortened to read and copied whole: it is compared, never retyped.
 class _Artifact extends StatelessWidget {
   const _Artifact({required this.artifact});
 
   final InstallArtifact artifact;
 
-  @override
-  Widget build(BuildContext context) => ListTile(
-    dense: true,
-    leading: Icon(
-      artifact.unverified ? Icons.gpp_maybe_outlined : Icons.verified_outlined,
-      size: Sizes.mark,
-      color: artifact.unverified ? Theme.of(context).colorScheme.tertiary : Theme.of(context).colorScheme.primary,
-    ),
-    title: Text(
-      artifact.url,
-      key: const Key('agent-artifact'),
-      style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-    ),
-    subtitle: Text(
-      artifact.unverified ? 'Not checked, on purpose: ${artifact.reason}' : artifact.sha256,
-      key: const Key('agent-artifact-digest'),
-      style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
-    ),
-  );
-}
-
-class _Heading extends StatelessWidget {
-  const _Heading({required this.words});
-
-  final String words;
+  static String _short(String digest) =>
+      digest.length > 20 ? '${digest.substring(0, 8)}…${digest.substring(digest.length - 8)}' : digest;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(Space.normal, Space.wide, Space.normal, Space.small),
-    child: Text(words, style: Theme.of(context).textTheme.labelLarge),
-  );
-}
-
-class _Field extends StatelessWidget {
-  const _Field({required this.name, required this.value});
-
-  final String name;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: Space.normal, vertical: Space.tight),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        SizedBox(
-          width: Sizes.label,
-          child: Text(name, style: Theme.of(context).textTheme.bodySmall),
-        ),
-        Expanded(
-          child: Text(value.isEmpty ? '—' : value, style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
-        ),
-      ],
-    ),
-  );
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: Space.tight),
+      child: Wrap(
+        spacing: Space.normal,
+        runSpacing: Space.tight,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: <Widget>[
+          SelectableText(artifact.url, key: const Key('agent-artifact'), style: codeText),
+          if (artifact.unverified)
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Icon(Icons.gpp_maybe_outlined, size: Sizes.rowIcon, color: scheme.tertiary),
+                const SizedBox(width: Space.tight),
+                Flexible(
+                  child: Text('Not checked, on purpose: ${artifact.reason}', key: const Key('agent-artifact-digest')),
+                ),
+              ],
+            )
+          else
+            Container(
+              padding: const EdgeInsets.only(left: Space.small),
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(Radii.small),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Flexible(
+                    child: Text(
+                      'sha256 ${_short(artifact.sha256)}',
+                      key: const Key('agent-artifact-digest'),
+                      style: codeText.copyWith(color: scheme.onSurfaceVariant),
+                    ),
+                  ),
+                  IconButton(
+                    key: const Key('agent-artifact-copy'),
+                    tooltip: 'Copy the full sha256',
+                    icon: const Icon(Icons.copy_outlined, size: Sizes.rowIcon),
+                    onPressed: () => unawaited(Clipboard.setData(ClipboardData(text: artifact.sha256))),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 }

@@ -497,6 +497,9 @@ abstract final class Sizes {
   /// The name column of a detail's fields.
   static const fieldName = 140.0;
 
+  /// The label column of facts read as label and value, wide enough for a label of three words.
+  static const factLabel = 180.0;
+
   /// A tile in a wall of them: a task, a failed operation, the tile that starts work.
   static const tile = 320.0;
 

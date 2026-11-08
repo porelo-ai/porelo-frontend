@@ -18,6 +18,9 @@ gap here is a backend method that has to be added, not a workaround waiting to b
 
 ## Not on the wire yet
 
+- **A pushed commit's whole message** (a `message` on `PendingPush` and `ReviewCommit` is planned). The review
+  shows each commit's first line and its trailer lines as the machine reports them, never the body between.
+
 - **Where a forwarded gate commit is retained.** `Approve` returns the incoming push name in `forwarded`, the
   destination `branch` and an optional `pullRequest`; it returns neither the forwarded commit nor its retained ref
   under `refs/porelo/forwarded/`. The interface reports the confirmed branch and cannot name that ref.

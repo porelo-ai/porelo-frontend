@@ -357,6 +357,59 @@ Feature: Reviewing what work pushed, and what it holds back
         And I open the waiting push
         Then it says {'what it was asked is not known here'}
 
+    # Who wrote a push and its trailer are what says whether an agent made it; what the machine does not
+    # report is said, never left out, and a check that cannot be made is never shown as passed.
+    Scenario: the review names the commit, and says who wrote it and its trailer are not reported
+        When I review what is waiting at the gate
+        And I open the waiting push
+        Then the review says {'Commit'} is {'9a3c1f2e4b5d6a7c8e9f0a1b2c3d4e5f6a7b8c9d'}
+        And the review says {'Author'} is {'not reported by the machine'}
+        And the review says {'Committer'} is {'not reported by the machine'}
+        And the review says {'Trailer'} is {'not reported by the machine'}
+        And the review says {'Trailer'} is {'cannot be checked here'}
+        And the trailer check reads {'unknown'}
+
+    # The check is made on the lines the machine reports: exactly one Assisted-by, and no Co-Authored-By.
+    Scenario: a commit that names a co-author is shown as wrong, never as checked
+        Given the machine names the commit as written by {'An Agent'} with the trailers {'Assisted-by: Claude Code claude-opus-5-5'} and {'Co-Authored-By: Claude'}
+        When I review what is waiting at the gate
+        And I open the waiting push
+        Then the review says {'Author'} is {'An Agent'}
+        And the review says {'Trailer'} is {'Co-Authored-By: Claude'}
+        And the trailer check reads {'wrong'}
+
+    Scenario: a commit that names two agents is shown as wrong
+        Given the machine names the commit as written by {'An Agent'} with the trailers {'Assisted-by: Claude Code claude-opus-5-5'} and {'Assisted-by: Codex'}
+        When I review what is waiting at the gate
+        And I open the waiting push
+        Then the trailer check reads {'wrong'}
+
+    Scenario: a commit with one Assisted-by and no co-author is shown as checked
+        Given the machine names the commit as written by {'An Agent'} with the trailers {'Assisted-by: Claude Code claude-opus-5-5'} and {'Signed-off-by: A Person'}
+        When I review what is waiting at the gate
+        And I open the waiting push
+        Then the review says {'Committer'} is {'A Person'}
+        And the trailer check reads {'passed'}
+
+    # A long name or trailer wraps on a phone, never cut off or spilled past the card.
+    Scenario: on a narrow window who made the commit and its trailer stay whole
+        Given the machine names the commit as written by {'An Agent With A Rather Long Name From The Build Farm'} with the trailers {'Assisted-by: Claude Code claude-opus-5-5 running in the container porelo-checkout-migrate-1'} and {'Co-Authored-By: Claude'}
+        When the window is {390} pixels wide
+        And I review what is waiting at the gate
+        And I open the waiting push
+        Then the review says {'Author'} is {'An Agent With A Rather Long Name From The Build Farm <agent@example.org>'}
+        And the review says {'Trailer'} is {'Assisted-by: Claude Code claude-opus-5-5 running in the container porelo-checkout-migrate-1'}
+        And the trailer check reads {'wrong'}
+
+    # A machine that reports the head commit on the waiting push, and no commits in the review.
+    Scenario: the makers named on the waiting push are checked where the review lists none
+        Given the waiting push names its author {'An Agent'} and the trailers {'Assisted-by: Claude Code claude-opus-5-5'} and {'Co-Authored-By: Claude'}
+        When I review what is waiting at the gate
+        And I open the waiting push
+        Then the review says {'Author'} is {'An Agent'}
+        And the review says {'Committer'} is {'not reported by the machine'}
+        And the trailer check reads {'wrong'}
+
     # A Porelo older than the ranked review answers no files: the review is what it was before.
     Scenario: a machine that does not rank the review shows it as before
         When I review what is waiting at the gate

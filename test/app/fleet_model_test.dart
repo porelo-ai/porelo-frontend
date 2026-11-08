@@ -74,13 +74,13 @@ class _Wedged implements FleetBackend {
   Future<GateState> gateOf(String projectFile, {String? repository}) async => GateState.from(const <String, dynamic>{});
 
   @override
-  Future<({String diff, String log, List<ReviewFile> files, String? asked})> reviewOf(
+  Future<({String diff, String log, List<ReviewFile> files, String? asked, List<ReviewCommit>? commits})> reviewOf(
     String projectFile,
     String name, {
     String? against,
     String? repository,
     bool? ignoreLineEndings,
-  }) async => (diff: '', log: '', files: const <ReviewFile>[], asked: null);
+  }) async => (diff: '', log: '', files: const <ReviewFile>[], asked: null, commits: null);
 
   @override
   Future<ForwardedPush> approve(
@@ -481,13 +481,13 @@ class _Machine implements FleetBackend {
   Future<GateState> gateOf(String projectFile, {String? repository}) async => GateState.from(const <String, dynamic>{});
 
   @override
-  Future<({String diff, String log, List<ReviewFile> files, String? asked})> reviewOf(
+  Future<({String diff, String log, List<ReviewFile> files, String? asked, List<ReviewCommit>? commits})> reviewOf(
     String projectFile,
     String name, {
     String? against,
     String? repository,
     bool? ignoreLineEndings,
-  }) async => (diff: '', log: '', files: const <ReviewFile>[], asked: null);
+  }) async => (diff: '', log: '', files: const <ReviewFile>[], asked: null, commits: null);
 
   @override
   Future<ForwardedPush> approve(

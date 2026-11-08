@@ -1816,9 +1816,26 @@ class _StateMark extends StatelessWidget {
 class _BuildLine extends StatelessWidget {
   const _BuildLine(this.said, this.scheme, {required this.folded});
 
+  /// The state words whose tone a workflow's verdict takes: a run is waited for, not working.
+  static String _tone(BuildLook look) => switch (look) {
+    BuildLook.passed => 'passed',
+    BuildLook.failed => 'failed',
+    BuildLook.running => 'waiting',
+    BuildLook.none => '',
+  };
+
   final BuildLine said;
   final ColorScheme scheme;
   final bool folded;
+
+  /// A workflow line's key: its name, and its place among those of the same name after the first, as
+  /// two runs of one workflow are two lines.
+  static String _workflowKey(List<WorkflowLine> workflows, int place) {
+    final workflow = workflows[place];
+    if (!workflow.named) return 'tile-workflow-unnamed';
+    final before = workflows.take(place).where((each) => each.named && each.name == workflow.name).length;
+    return before == 0 ? 'tile-workflow ${workflow.name}' : 'tile-workflow ${workflow.name} #${before + 1}';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1854,6 +1871,21 @@ class _BuildLine extends StatelessWidget {
               ),
             ],
           ),
+          // One line per workflow, each with its own verdict: the commit's one verdict covers only
+          // the workflows the forge has run so far.
+          if (!folded)
+            for (final (place, workflow) in said.workflows.indexed)
+              Padding(
+                key: ValueKey<String>(_workflowKey(said.workflows, place)),
+                padding: const EdgeInsets.only(top: Space.tight),
+                child: Row(
+                  children: <Widget>[
+                    StateChip(workflow.words, toneWords: _tone(workflow.look)),
+                    const SizedBox(width: Space.small),
+                    Expanded(child: Text(workflow.name, style: text.bodyMedium)),
+                  ],
+                ),
+              ),
           if (!folded) Text(said.detail, key: const Key('tile-build-detail'), style: text.bodySmall),
         ],
       ),

@@ -72,6 +72,11 @@ import './step/no_review_was_asked_without_line_endings.dart';
 import './step/the_task_that_pushed_was_asked.dart';
 import './step/the_review_says_it_was_asked.dart';
 import './step/the_task_that_pushed_was_asked_nothing.dart';
+import './step/the_review_says_is.dart';
+import './step/the_trailer_check_reads.dart';
+import './step/the_machine_names_the_commit_as_written_by_with_the_trailers_and.dart';
+import './step/the_window_is_pixels_wide.dart';
+import './step/the_waiting_push_names_its_author_and_the_trailers_and.dart';
 
 void main() {
   group('''Reviewing what work pushed, and what it holds back''', () {
@@ -458,6 +463,95 @@ void main() {
       await iReviewWhatIsWaitingAtTheGate(tester);
       await iOpenTheWaitingPush(tester);
       await itSays(tester, 'what it was asked is not known here');
+    });
+    testWidgets('''the review names the commit, and says who wrote it and its trailer are not reported''', (
+      tester,
+    ) async {
+      await bddSetUp(tester);
+      await iReviewWhatIsWaitingAtTheGate(tester);
+      await iOpenTheWaitingPush(tester);
+      await theReviewSaysIs(tester, 'Commit', '9a3c1f2e4b5d6a7c8e9f0a1b2c3d4e5f6a7b8c9d');
+      await theReviewSaysIs(tester, 'Author', 'not reported by the machine');
+      await theReviewSaysIs(tester, 'Committer', 'not reported by the machine');
+      await theReviewSaysIs(tester, 'Trailer', 'not reported by the machine');
+      await theReviewSaysIs(tester, 'Trailer', 'cannot be checked here');
+      await theTrailerCheckReads(tester, 'unknown');
+    });
+    testWidgets('''a commit that names a co-author is shown as wrong, never as checked''', (tester) async {
+      await bddSetUp(tester);
+      await theMachineNamesTheCommitAsWrittenByWithTheTrailersAnd(
+        tester,
+        'An Agent',
+        'Assisted-by: Claude Code claude-opus-5-5',
+        'Co-Authored-By: Claude',
+      );
+      await iReviewWhatIsWaitingAtTheGate(tester);
+      await iOpenTheWaitingPush(tester);
+      await theReviewSaysIs(tester, 'Author', 'An Agent');
+      await theReviewSaysIs(tester, 'Trailer', 'Co-Authored-By: Claude');
+      await theTrailerCheckReads(tester, 'wrong');
+    });
+    testWidgets('''a commit that names two agents is shown as wrong''', (tester) async {
+      await bddSetUp(tester);
+      await theMachineNamesTheCommitAsWrittenByWithTheTrailersAnd(
+        tester,
+        'An Agent',
+        'Assisted-by: Claude Code claude-opus-5-5',
+        'Assisted-by: Codex',
+      );
+      await iReviewWhatIsWaitingAtTheGate(tester);
+      await iOpenTheWaitingPush(tester);
+      await theTrailerCheckReads(tester, 'wrong');
+    });
+    testWidgets('''a commit with one Assisted-by and no co-author is shown as checked''', (tester) async {
+      await bddSetUp(tester);
+      await theMachineNamesTheCommitAsWrittenByWithTheTrailersAnd(
+        tester,
+        'An Agent',
+        'Assisted-by: Claude Code claude-opus-5-5',
+        'Signed-off-by: A Person',
+      );
+      await iReviewWhatIsWaitingAtTheGate(tester);
+      await iOpenTheWaitingPush(tester);
+      await theReviewSaysIs(tester, 'Committer', 'A Person');
+      await theTrailerCheckReads(tester, 'passed');
+    });
+    testWidgets('''on a narrow window who made the commit and its trailer stay whole''', (tester) async {
+      await bddSetUp(tester);
+      await theMachineNamesTheCommitAsWrittenByWithTheTrailersAnd(
+        tester,
+        'An Agent With A Rather Long Name From The Build Farm',
+        'Assisted-by: Claude Code claude-opus-5-5 running in the container porelo-checkout-migrate-1',
+        'Co-Authored-By: Claude',
+      );
+      await theWindowIsPixelsWide(tester, 390);
+      await iReviewWhatIsWaitingAtTheGate(tester);
+      await iOpenTheWaitingPush(tester);
+      await theReviewSaysIs(
+        tester,
+        'Author',
+        'An Agent With A Rather Long Name From The Build Farm <agent@example.org>',
+      );
+      await theReviewSaysIs(
+        tester,
+        'Trailer',
+        'Assisted-by: Claude Code claude-opus-5-5 running in the container porelo-checkout-migrate-1',
+      );
+      await theTrailerCheckReads(tester, 'wrong');
+    });
+    testWidgets('''the makers named on the waiting push are checked where the review lists none''', (tester) async {
+      await bddSetUp(tester);
+      await theWaitingPushNamesItsAuthorAndTheTrailersAnd(
+        tester,
+        'An Agent',
+        'Assisted-by: Claude Code claude-opus-5-5',
+        'Co-Authored-By: Claude',
+      );
+      await iReviewWhatIsWaitingAtTheGate(tester);
+      await iOpenTheWaitingPush(tester);
+      await theReviewSaysIs(tester, 'Author', 'An Agent');
+      await theReviewSaysIs(tester, 'Committer', 'not reported by the machine');
+      await theTrailerCheckReads(tester, 'wrong');
     });
     testWidgets('''a machine that does not rank the review shows it as before''', (tester) async {
       await bddSetUp(tester);

@@ -137,6 +137,12 @@ Worth knowing before designing around them:
   ends (git's `--ignore-space-at-eol`, which also leaves out spaces there). Absent is not zero. Its
   `ignoreLineEndings` answers the diff without them, and is sent only to a machine whose `Review`
   names it, since an older one refuses a parameter it does not know.
+- **Who made a waiting push is shown as the machine reports it, and its trailer is checked here.**
+  `Review`'s `commits` lists each commit newest first with `author`, `committer` (`name <email>`) and
+  `trailers`; where it is absent, `PendingPush`'s own `author`, `committer` and `trailers` name the
+  head commit. Exactly one `Assisted-by` and no `Co-Authored-By` (keys read without regard to case,
+  as git does) passes; anything else says what is wrong. An absent field, or a list holding anything
+  but text, is not reported, and the check is then one that cannot be made, never one that passed.
 - **`Stop` refuses.** A task holding commits that never reached the gate comes back as
   `HOLDS_WORK` and is left exactly as it was. That refusal is a feature and needs a real place in
   the interface, not an error toast.
@@ -162,6 +168,13 @@ Worth knowing before designing around them:
   `buildProblem` says why a named reader does not work. A `Build` lists its jobs only once the verdict
   is `failure` or final, and a job's `log` is the name of a file in the task, never its text. All
   three are absent from a machine older than builds, which is drawn as saying nothing.
+- **A build's `runs` give the tile one line per workflow run**, each `name` with its `result` as the
+  forge spells it (`queued` and `in_progress` while it is not finished; one not known here is shown as
+  it comes and is no pass). The tile says passed only where the verdict is `success` and every run
+  succeeded; a failed run is named whatever the verdict says; a verdict other than `success` is said
+  as it is beside the runs listed so far; and `runs` empty beside `success` says no workflow ran.
+  Where `runs` is absent (an older machine), the jobs are grouped by their `"<workflow> / <job>"` name
+  instead.
 - **`Prompts` has a deadline.** A task is *blocked* while a clearance prompt is unanswered and
   the watcher gives up after its own timeout. This is the one place where interface latency costs
   something real, which is why it is a stream and not a poll.

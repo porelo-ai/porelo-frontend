@@ -555,7 +555,7 @@ void main() {
     expect(gate.mode, 'gatekeeping');
     expect(gate.pending, hasLength(2));
 
-    final (:diff, :log, files: _, asked: _) = await client.review(project, gate.pending.first.name);
+    final (:diff, :log, files: _, asked: _, commits: _) = await client.review(project, gate.pending.first.name);
     expect(diff, contains('diff --git'));
     expect(log, contains('commit'));
 
@@ -573,7 +573,7 @@ void main() {
     await machineIn('work');
     final client = await connect();
 
-    final (:diff, :log, files: _, asked: _) = await client.review('checkout', 'drop-dead-code');
+    final (:diff, :log, files: _, asked: _, commits: _) = await client.review('checkout', 'drop-dead-code');
 
     expect(diff, contains('deleted file mode'));
     expect(log, contains('commit 7f21b0e'));
