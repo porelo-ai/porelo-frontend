@@ -2,16 +2,210 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
+import 'package:porelo_frontend/src/app/templates.dart';
 import 'package:porelo_frontend/src/app/forge_connection.dart';
 import 'package:porelo_frontend/src/ui/expandable_list_row.dart';
 import 'package:porelo_frontend/src/ui/page_explanation.dart';
 import 'package:porelo_frontend/src/ui/filtered_list_section.dart';
+
+import 'package:porelo_frontend/src/ui/organization_page.dart';
+import 'package:porelo_frontend/src/ui/organization_project_pages.dart';
+import 'package:porelo_frontend/src/ui/organization_host_pages.dart';
+import 'package:porelo_frontend/src/ui/attention_view.dart';
 
 import '../features/support/tiles.dart';
 import '../features/support/world.dart';
 import '../support/organization_fixtures.dart';
 
 void main() {
+  // Harm: phone actions for a machine project lose which inner list they affect.
+  testWidgets('a phone keeps the machine project inner section titles', (tester) async {
+    await World.startBackend(World.work);
+    await World.startApp(tester);
+    await World.templates.keep(
+      const Template(name: 'Check API', project: 'checkout', agent: 'claude', mode: Mode.agent, prompt: ''),
+    );
+    World.shell.openProject(World.machines.current, 'checkout');
+    await World.settle(tester);
+    tester.view.physicalSize = const Size(390, 1600);
+    addTearDown(tester.view.reset);
+    await World.settle(tester);
+    final scrollable = find
+        .descendant(
+          of: find.byKey(ValueKey('project-details ${World.machines.current.name}/checkout')),
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    for (final title in ['Machines', 'Saved jobs']) {
+      final text = find.byWidgetPredicate(
+        (widget) => widget is Text && widget.key == const Key('leaf-title') && widget.data == title,
+      );
+      await tester.scrollUntilVisible(text, 200, scrollable: scrollable);
+      expect(text.hitTestable(), findsOneWidget);
+    }
+    expect(tester.takeException(), isNull);
+  });
+
+  // Harm: a state leaves its named row at the card-width boundary, inviting a decision on the wrong item.
+  for (final width in [479.0, 480.0]) {
+    testWidgets('a card places its state beside the name from 480 wide: $width', (tester) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Align(
+              alignment: Alignment.topLeft,
+              child: SizedBox(
+                width: width,
+                child: const SingleChildScrollView(
+                  child: FilteredListSection(
+                    title: 'Projects',
+                    storageId: 'boundary',
+                    leaf: true,
+                    rows: [
+                      (
+                        words: 'demo',
+                        child: ItemListRow(
+                          title: 'demo',
+                          subtitle: 'from the organization',
+                          leading: Icon(Icons.folder_outlined),
+                          state: 'held',
+                          onOpen: null,
+                          menu: SizedBox.shrink(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      final name = tester.getRect(find.text('demo'));
+      final chip = tester.getRect(find.widgetWithText(Chip, 'held'));
+      if (width >= 480) {
+        expect(chip.left, greaterThanOrEqualTo(name.right));
+        expect(chip.top, lessThan(name.bottom));
+      } else {
+        expect(chip.top, greaterThanOrEqualTo(name.bottom));
+      }
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  // Harm: a review returns to a different list, losing the organization and work being reviewed.
+  testWidgets('an organization project returns to the Projects leaf it came from', (tester) async {
+    await World.startBackend(World.work);
+    await World.startApp(tester, organizationSource: FixtureOrganization(organizationFor('olive')));
+    await toTheOrganization(tester, section: OrganizationSection.projects);
+    final origin = World.shell.place.key;
+    tester.widget<OrganizationPage>(find.byType(OrganizationPage)).onProject!('demo');
+    await World.settle(tester);
+    final path = find.byKey(const Key('leaf-path')).first;
+    for (final ancestor in ['Organizations', 'acme', 'Projects']) {
+      expect(find.descendant(of: path, matching: find.text(ancestor)), findsOneWidget);
+    }
+    final back = find.byKey(const Key('organization-project-back'));
+    expect(back, findsOneWidget);
+    expect(find.descendant(of: back, matching: find.text('Projects')), findsOneWidget);
+    await tester.tap(back);
+    await World.settle(tester);
+    expect(World.shell.place.key, origin);
+    expect(tester.widget<OrganizationPage>(find.byType(OrganizationPage)).section, OrganizationSection.projects);
+    await toThePlace(tester, 'projects');
+    tester.widget<OrganizationProjectsPage>(find.byType(OrganizationProjectsPage)).onProject('demo');
+    await World.settle(tester);
+    expect(find.widgetWithText(TextButton, 'My projects'), findsOneWidget);
+    expect(find.widgetWithText(TextButton, 'Projects'), findsNothing, reason: 'the old origin is cleared');
+    expect(find.byKey(const Key('organization-project-back')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('organization-project-back')));
+    await World.settle(tester);
+    expect(find.byType(OrganizationProjectsPage), findsOneWidget);
+  });
+
+  // Harm: stale navigation sends a person back to an unrelated machine list after giving a token.
+  testWidgets('a host returns to its current origin and forgets a previous organization leaf', (tester) async {
+    await World.startBackend(World.work);
+    await World.startApp(tester, organizationSource: FixtureOrganization(organizationFor('olive')));
+    await toTheOrganization(tester, section: OrganizationSection.machines);
+    final origin = World.shell.place.key;
+    tester.widget<OrganizationPage>(find.byType(OrganizationPage)).onHost!('build');
+    await World.settle(tester);
+    expect(find.widgetWithText(TextButton, 'Machines'), findsOneWidget);
+    await tester.tap(find.widgetWithText(TextButton, 'Machines'));
+    await World.settle(tester);
+    expect(World.shell.place.key, origin);
+    // Open it once more, then leave by the tree rather than its back link.
+    tester.widget<OrganizationPage>(find.byType(OrganizationPage)).onHost!('build');
+    await World.settle(tester);
+    await toThePlace(tester, 'projects');
+    tester.widget<OrganizationProjectsPage>(find.byType(OrganizationProjectsPage)).onHost!('demo', 'build');
+    await World.settle(tester);
+    expect(find.byType(OrganizationHostPage), findsOneWidget);
+    expect(find.widgetWithText(TextButton, 'My projects'), findsOneWidget);
+    expect(find.widgetWithText(TextButton, 'Machines'), findsNothing);
+    await tester.tap(find.widgetWithText(TextButton, 'My projects'));
+    await World.settle(tester);
+    expect(find.byType(OrganizationProjectsPage), findsOneWidget);
+    await toThePlace(tester, 'attention');
+    tester.widget<AttentionView>(find.byType(AttentionView)).onGiveToken!('build');
+    await World.settle(tester);
+    expect(find.widgetWithText(TextButton, 'Needs you'), findsOneWidget);
+    await tester.tap(find.widgetWithText(TextButton, 'Needs you'));
+    await World.settle(tester);
+    expect(find.byType(AttentionView), findsOneWidget);
+  });
+
+  // Harm: an unread or busy list falsely promises that there is nothing to act on.
+  testWidgets('a busy open leaf never claims an empty list', (tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: FilteredListSection(
+              title: 'Forges',
+              storageId: 'unread',
+              leaf: true,
+              subtitle: '0 entries',
+              busy: true,
+              rows: [],
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(find.text('No forges yet.'), findsNothing);
+    expect(find.text('not read'), findsNWidgets(2), reason: 'both the head and the open card explain missing rows');
+    expect(find.text('0 entries'), findsNothing);
+  });
+
+  // Harm: the project machine has answered, but its chip tells the person that nothing was read.
+  testWidgets('a project machine chip keeps its observed connection state', (tester) async {
+    await World.startBackend(World.work);
+    await World.startApp(tester);
+    World.shell.openProject(World.machines.current, 'checkout');
+    await World.settle(tester);
+    final list = find.byWidgetPredicate((widget) => widget is FilteredListSection && widget.title == 'Machines');
+    await tester.scrollUntilVisible(
+      list,
+      200,
+      scrollable: find
+          .descendant(
+            of: find.byKey(ValueKey('project-details ${World.machines.current.name}/checkout')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    expect(find.descendant(of: list, matching: find.widgetWithText(Chip, 'Connected')), findsOneWidget);
+    expect(find.descendant(of: list, matching: find.widgetWithText(Chip, 'not read')), findsNothing);
+  });
+
   // Harm: a list is mistaken for another organization's and a person acts there.
   testWidgets('every leaf names its path above its title', (tester) async {
     await World.startBackend(World.work);

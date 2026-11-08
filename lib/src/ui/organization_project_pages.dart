@@ -171,8 +171,10 @@ class _OrganizationProjectsPageState extends State<OrganizationProjectsPage> {
           if (view == null)
             FilteredListSection(
               title: 'My projects',
+              titleInAppBar: true,
               storageId: 'my-projects',
               leaf: true,
+              read: false,
               rows: const [],
               subtitle: 'not read',
               busy: widget.organization.problem == null,
@@ -184,6 +186,7 @@ class _OrganizationProjectsPageState extends State<OrganizationProjectsPage> {
           if (view != null)
             FilteredListSection(
               title: 'My projects',
+              titleInAppBar: true,
               leaf: true,
               subtitle: '${mine.length} projects',
               busy: widget.organization.busy,
@@ -307,10 +310,14 @@ class OrganizationProjectPage extends StatefulWidget {
     required this.organization,
     required this.project,
     required this.onBack,
+    this.path = const [],
     this.connections,
     this.onGiveToken,
     super.key,
   });
+
+  /// The ancestors of the place this project was opened from.
+  final List<LeafPathStep> path;
 
   /// The organization.
   final Organization organization;
@@ -411,17 +418,24 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
           if (view.review != policy) _reviewCommand(view, policy),
       ..._machineCommands(organization),
     ];
+    final repositoryWords = view == null || !view.opened
+        ? 'not read'
+        : view.repositoriesProblem ?? '${view.repositories.length} repositories';
     return ListView(
       key: ValueKey('organization-project ${widget.project}'),
       padding: const EdgeInsets.all(Space.normal),
       children: [
         PageHead(
           title: widget.project,
-          path: [(label: 'My projects', go: widget.onBack)],
-          pathKeys: const {'My projects': Key('organization-project-back')},
-          subtitle: view == null
+          titleInAppBar: false,
+          path: widget.path.isEmpty ? [(label: 'My projects', go: widget.onBack)] : widget.path,
+          pathKeys: const {
+            'My projects': Key('organization-project-back'),
+            'Projects': Key('organization-project-back'),
+          },
+          subtitle: _problem != null || _reading || view == null
               ? 'not read'
-              : '${view.repositories.length} repositories · ${view.members.length} members',
+              : '$repositoryWords · ${view.members.length} members',
           status: view != null && organization != null ? StateChip(_myRole(view, organization)) : null,
           action: commands.isEmpty
               ? null
@@ -444,7 +458,6 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
           if (!isAdmin) Text('${_adminsWords(view)} Only they change this project.'),
           const SizedBox(height: Space.normal),
           _address(view, changes),
-          if (view.repositoriesProblem case final problem?) _Problem(problem),
           _repositories(view, changes),
           _members(view, organization, changes),
           if (isAdmin) const Text('A change is signed with your key.'),
@@ -580,6 +593,10 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
         title: 'Repositories',
         leaf: true,
         subtitle: '${view.repositories.length} repositories',
+        read: view.opened,
+        busy: _reading,
+        problem: _problem ?? view.repositoriesProblem,
+        onRetry: () => unawaited(_read()),
         storageId: 'project-repositories ${view.name}',
         emptyWords: isAdmin ? 'No repositories yet. Add one with Add.' : 'No repositories yet.',
         actions: [
@@ -687,6 +704,9 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
       title: 'Members',
       leaf: true,
       subtitle: '${view.members.length} members',
+      busy: _reading,
+      problem: _problem,
+      onRetry: () => unawaited(_read()),
       storageId: 'project-members ${view.name}',
       greyWords: [
         if (isAdmin && view.roles.isEmpty)

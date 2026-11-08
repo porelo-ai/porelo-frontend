@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../app/commands.dart';
 import 'command_menu.dart';
+import 'expandable_list_row.dart' show ListCardWidth;
 import 'tokens.dart';
 import 'window_size.dart';
 import 'page_explanation.dart';
@@ -55,6 +56,8 @@ class FilteredListSection extends StatefulWidget {
     this.search,
     this.searchHint,
     this.leaf = false,
+    this.read = true,
+    this.titleInAppBar = false,
     this.path = const [],
     this.subtitle,
     this.explanation,
@@ -67,6 +70,12 @@ class FilteredListSection extends StatefulWidget {
     this.titleKey,
     super.key,
   });
+
+  /// Whether the source has answered successfully at least once.
+  final bool read;
+
+  /// Whether the app bar already shows this exact title on a phone.
+  final bool titleInAppBar;
 
   /// Uses a page head and a card without a band, for a leaf destination.
   final bool leaf;
@@ -478,7 +487,8 @@ class _FilteredListSectionState extends State<FilteredListSection> {
     final phone = WindowSize.fromContext(context) == WindowSize.compact;
     final target = WindowSize.fromContext(context).showsTwoPanes ? Sizes.leafSort : Sizes.touchTarget;
     final read = howLongSince(widget.readAt);
-    final total = widget.problem != null ? 'not read' : widget.subtitle ?? '${widget.rows.length} entries';
+    final unread = !widget.read || widget.busy && widget.rows.isEmpty;
+    final total = widget.problem != null || unread ? 'not read' : widget.subtitle ?? '${widget.rows.length} entries';
     final actions = [
       ...widget.actions,
       for (final command in widget.commands.where((each) => each.visible)) _commandButton(command, target),
@@ -490,6 +500,7 @@ class _FilteredListSectionState extends State<FilteredListSection> {
         children: [
           PageHead(
             title: widget.title,
+            titleInAppBar: widget.titleInAppBar,
             path: widget.path,
             pathKeys: widget.pathKeys,
             titleKey: widget.titleKey,
@@ -525,63 +536,70 @@ class _FilteredListSectionState extends State<FilteredListSection> {
           ...widget.beforeRows,
           if (widget.busy) const LinearProgressIndicator(),
           if (!widget.collapsible || _open || widget.problem != null)
-            Material(
-              color: listCardColour(theme.colorScheme),
-              clipBehavior: Clip.antiAlias,
-              shape: RoundedRectangleBorder(
-                side: BorderSide(color: theme.colorScheme.outlineVariant, width: Space.hairline),
-                borderRadius: BorderRadius.circular(Radii.medium),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: Space.normal),
-                child: Theme(
-                  data: theme.copyWith(
-                    cardTheme: theme.cardTheme.copyWith(
-                      color: Colors.transparent,
-                      elevation: 0,
-                      margin: EdgeInsets.zero,
-                      shape: const RoundedRectangleBorder(),
-                    ),
+            LayoutBuilder(
+              builder: (context, constraints) => ListCardWidth(
+                width: constraints.maxWidth,
+                child: Material(
+                  color: listCardColour(theme.colorScheme),
+                  clipBehavior: Clip.antiAlias,
+                  shape: RoundedRectangleBorder(
+                    side: BorderSide(color: theme.colorScheme.outlineVariant, width: Space.hairline),
+                    borderRadius: BorderRadius.circular(Radii.medium),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (widget.problem case final problem?)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: Space.normal),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(problem, style: TextStyle(color: theme.colorScheme.error)),
-                              if (widget.onRetry != null)
-                                TextButton(onPressed: widget.onRetry, child: const Text('Try again')),
-                            ],
-                          ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: Space.normal),
+                    child: Theme(
+                      data: theme.copyWith(
+                        cardTheme: theme.cardTheme.copyWith(
+                          color: Colors.transparent,
+                          elevation: 0,
+                          margin: EdgeInsets.zero,
+                          shape: const RoundedRectangleBorder(),
                         ),
-                      if (!widget.collapsible || _open)
-                        for (final (place, row) in shown.indexed) ...[
-                          if (place > 0) const Divider(height: Space.hairline),
-                          row.child,
-                        ],
-                      if ((!widget.collapsible || _open) && shown.isEmpty && widget.problem == null)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: Space.normal),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                widget.rows.isEmpty
-                                    ? widget.emptyWords ??
-                                          'No ${widget.title.toLowerCase().replaceFirst('my ', '')} yet.'
-                                    : 'Nothing matches.',
-                                style: theme.textTheme.bodySmall,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (widget.problem case final problem?)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: Space.normal),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(problem, style: TextStyle(color: theme.colorScheme.error)),
+                                  if (widget.onRetry != null)
+                                    TextButton(onPressed: widget.onRetry, child: const Text('Try again')),
+                                ],
                               ),
-                              if (widget.rows.isNotEmpty)
-                                TextButton(onPressed: _closeSearch, child: const Text('Clear the filter')),
+                            ),
+                          if (!widget.collapsible || _open)
+                            for (final (place, row) in shown.indexed) ...[
+                              if (place > 0) const Divider(height: Space.hairline),
+                              row.child,
                             ],
-                          ),
-                        ),
-                    ],
+                          if ((!widget.collapsible || _open) && shown.isEmpty && widget.problem == null)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: Space.normal),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    unread
+                                        ? 'not read'
+                                        : widget.rows.isEmpty
+                                        ? widget.emptyWords ??
+                                              'No ${widget.title.toLowerCase().replaceFirst('my ', '')} yet.'
+                                        : 'Nothing matches.',
+                                    style: theme.textTheme.bodySmall,
+                                  ),
+                                  if (widget.rows.isNotEmpty)
+                                    TextButton(onPressed: _closeSearch, child: const Text('Clear the filter')),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ),

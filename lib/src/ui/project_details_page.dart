@@ -19,12 +19,16 @@ class ProjectDetailsPage extends StatelessWidget {
     required this.commands,
     required this.onBack,
     required this.onMachine,
+    this.machineState = 'not read',
     this.highlight,
     this.onShown,
     this.details,
     this.jobs = const [],
     super.key,
   });
+
+  /// The latest observed connection state, or not read before an answer.
+  final String machineState;
 
   /// The machine this item belongs to.
   final Machine machine;
@@ -62,6 +66,7 @@ class ProjectDetailsPage extends StatelessWidget {
       children: [
         PageHead(
           title: isDefault ? 'Default' : project.label,
+          titleInAppBar: true,
           path: [(label: 'My projects', go: onBack)],
           subtitle: 'on ${machine.name}',
           action: CommandMenu(
@@ -84,7 +89,7 @@ class ProjectDetailsPage extends StatelessWidget {
               words: machine.name,
               child: ItemListRow(
                 title: machine.name,
-                state: 'not read',
+                state: machineState,
                 subtitle: machine.where,
                 leading: const Icon(Icons.dns_outlined),
                 onOpen: onMachine,

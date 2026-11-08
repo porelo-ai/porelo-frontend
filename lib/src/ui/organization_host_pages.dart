@@ -501,6 +501,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
           OrganizationChangeMark(widget.organization),
           PageHead(
             title: widget.host,
+            titleInAppBar: false,
             path: widget.path.isEmpty ? [(label: 'My machines', go: widget.onBack)] : widget.path,
             pathKeys: const {'My machines': Key('organization-host-back'), 'Machines': Key('organization-host-back')},
             subtitle: host == null
@@ -688,16 +689,15 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      ListTile(
+                      ItemListRow(
                         leading: const Icon(Icons.folder_outlined),
-                        title: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [Text(name), const StateChip('not read')],
-                        ),
-                        subtitle: Text(
-                          key: ValueKey('organization.projectSource/$name'),
-                          'From the organization: ${organizationWords(name)}',
-                        ),
+                        title: name,
+                        subtitleMaxLines: null,
+                        state: _progress?.of(name)?.state ?? 'not read',
+                        onOpen: null,
+                        menu: null,
+                        subtitleKey: ValueKey('organization.projectSource/$name'),
+                        subtitle: 'From the organization: ${organizationWords(name)}',
                       ),
                       ..._carriedPart(host, name, isAdmin: isAdmin),
                       if (readsMachine) ..._repositoryProgress(host, name),
@@ -895,20 +895,18 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
         for (final admin in host.admins)
           (
             words: admin,
-            child: ListTile(
+            child: ItemListRow(
               leading: const Icon(Icons.shield_outlined),
-              title: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [Text(admin == view.me ? '$admin (you)' : admin), StateChip(_standing(view, admin))],
-              ),
-              subtitle: Text(
-                [
-                  _standing(view, admin),
-                  if (host.adminKeys.any((key) => key.login == admin && key.backup)) 'has a backup key',
-                ].join(' · '),
-              ),
+              title: admin == view.me ? '$admin (you)' : admin,
+              subtitleMaxLines: null,
+              state: _standing(view, admin),
+              onOpen: null,
+              subtitle: [
+                _standing(view, admin),
+                if (host.adminKeys.any((key) => key.login == admin && key.backup)) 'has a backup key',
+              ].join(' · '),
               // The last host admin cannot be removed, so nothing offers it.
-              trailing: view.mayNameAdminsOf(host) && host.admins.length > 1
+              menu: view.mayNameAdminsOf(host) && host.admins.length > 1
                   ? CommandMenu(
                       commands: [
                         organizationCommand(

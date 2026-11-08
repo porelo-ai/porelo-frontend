@@ -156,11 +156,15 @@ class PageHead extends StatelessWidget {
     this.subtitleKey,
     this.status,
     this.titleKey,
+    this.titleInAppBar = true,
     this.controls,
     this.action,
     this.pathKeys = const {},
     super.key,
   });
+
+  /// Whether the phone app bar already names this exact page.
+  final bool titleInAppBar;
 
   /// The full page name.
   final String title;
@@ -203,13 +207,13 @@ class PageHead extends StatelessWidget {
     final heading = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (!phone)
+        if (!phone || !titleInAppBar)
           Row(
             children: [
               Flexible(
                 child: Text(title, key: titleKey ?? const Key('leaf-title'), style: text.headlineSmall),
               ),
-              ?info,
+              if (!phone) ?info,
             ],
           ),
         if (subtitle != null || phone && info != null)

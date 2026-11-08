@@ -5,6 +5,21 @@ import '../app/task_certifying.dart';
 import 'tokens.dart';
 import 'window_size.dart';
 
+/// The card's full width, before row padding and command space are taken out.
+class ListCardWidth extends InheritedWidget {
+  /// Carries the available card width to its rows.
+  const ListCardWidth({required this.width, required super.child, super.key});
+
+  /// The full card width used for state-chip placement.
+  final double width;
+
+  /// The containing card's width, if it supplies one.
+  static double? of(BuildContext context) => context.dependOnInheritedWidgetOfExactType<ListCardWidth>()?.width;
+
+  @override
+  bool updateShouldNotify(ListCardWidth oldWidget) => width != oldWidget.width;
+}
+
 /// A list entry whose navigation, main action and disclosure have separate targets.
 class ExpandableListRow extends StatefulWidget {
   /// Keeps details local while the body opens the item's own page.
@@ -95,54 +110,59 @@ class _ExpandableListRowState extends State<ExpandableListRow> {
     return Semantics(
       selected: widget.selected,
       child: Card(
-        child: KeyedSubtree(
-          key: widget.bodyKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
+        child: LayoutBuilder(
+          builder: (context, constraints) => ListCardWidth(
+            width: constraints.maxWidth,
+            child: KeyedSubtree(
+              key: widget.bodyKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Expanded(
-                    child: InkWell(
-                      onTap: widget.onOpen,
-                      child: _RowWords(
-                        leading: widget.leading,
-                        title: widget.title,
-                        titleKey: widget.titleKey,
-                        subtitle: (_expanded ? null : why) ?? widget.subtitle ?? '',
-                        state: widget.state,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: InkWell(
+                          onTap: widget.onOpen,
+                          child: _RowWords(
+                            leading: widget.leading,
+                            title: widget.title,
+                            titleKey: widget.titleKey,
+                            subtitle: (_expanded ? null : why) ?? widget.subtitle ?? '',
+                            state: widget.state,
+                          ),
+                        ),
+                      ),
+                      if (!compact) ...widget.steps,
+                      if (!compact && primary != null) Flexible(child: action(primary)),
+                      IconButton(
+                        tooltip: disclosure.label,
+                        icon: Icon(_expanded ? Icons.expand_more : Icons.chevron_right),
+                        onPressed: disclosure.run,
+                      ),
+                    ],
+                  ),
+                  if (compact && (widget.steps.isNotEmpty || primary != null))
+                    Padding(
+                      padding: const EdgeInsets.all(Space.small),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [...widget.steps, if (primary != null) action(primary)],
                       ),
                     ),
-                  ),
-                  if (!compact) ...widget.steps,
-                  if (!compact && primary != null) Flexible(child: action(primary)),
-                  IconButton(
-                    tooltip: disclosure.label,
-                    icon: Icon(_expanded ? Icons.expand_more : Icons.chevron_right),
-                    onPressed: disclosure.run,
-                  ),
+                  if (_expanded)
+                    ColoredBox(
+                      color: Theme.of(context).colorScheme.surfaceContainer,
+                      child: Padding(
+                        padding: const EdgeInsets.all(Space.normal),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [if (why != null) Text(why), widget.details],
+                        ),
+                      ),
+                    ),
                 ],
               ),
-              if (compact && (widget.steps.isNotEmpty || primary != null))
-                Padding(
-                  padding: const EdgeInsets.all(Space.small),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [...widget.steps, if (primary != null) action(primary)],
-                  ),
-                ),
-              if (_expanded)
-                ColoredBox(
-                  color: Theme.of(context).colorScheme.surfaceContainer,
-                  child: Padding(
-                    padding: const EdgeInsets.all(Space.normal),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [if (why != null) Text(why), widget.details],
-                    ),
-                  ),
-                ),
-            ],
+            ),
           ),
         ),
       ),
@@ -160,6 +180,8 @@ class ItemListRow extends StatelessWidget {
     required this.onOpen,
     required this.menu,
     this.bodyKey,
+    this.subtitleKey,
+    this.subtitleMaxLines = 2,
     this.state,
     this.titleKey,
     this.selected = false,
@@ -182,7 +204,13 @@ class ItemListRow extends StatelessWidget {
   final VoidCallback? onOpen;
 
   /// The operations always reachable beside the row.
-  final Widget menu;
+  final Widget? menu;
+
+  /// The detail line's limit; null keeps a refusal or explanation fully visible.
+  final int? subtitleMaxLines;
+
+  /// The detail line's automation target.
+  final Key? subtitleKey;
 
   /// The navigation target used by pointer automation.
   final Key? bodyKey;
@@ -196,7 +224,12 @@ class ItemListRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
-      final beside = WindowSize.chipBeside(constraints.maxWidth);
+      final beside = WindowSize.chipBeside(ListCardWidth.of(context) ?? constraints.maxWidth);
+      final name = Tooltip(
+        message: title,
+        child: Text(title, key: titleKey, maxLines: 1, overflow: TextOverflow.ellipsis),
+      );
+      final chip = StateChip(state ?? 'not read');
       return ListTile(
         key: bodyKey,
         selected: selected,
@@ -205,25 +238,33 @@ class ItemListRow extends StatelessWidget {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Tooltip(
-              message: title,
-              child: Text(title, key: titleKey, maxLines: 1, overflow: TextOverflow.ellipsis),
-            ),
-            if (!beside) StateChip(state ?? 'not read'),
+            if (beside && menu == null)
+              Row(
+                children: [
+                  Flexible(child: name),
+                  const SizedBox(width: Space.small),
+                  Flexible(child: chip),
+                ],
+              )
+            else
+              name,
+            if (!beside) chip,
           ],
         ),
-        subtitle: Text(subtitle, maxLines: 2, overflow: TextOverflow.ellipsis),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (beside)
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: Sizes.listAction),
-                child: StateChip(state ?? 'not read'),
+        subtitle: Text(subtitle, key: subtitleKey, maxLines: subtitleMaxLines, overflow: TextOverflow.ellipsis),
+        trailing: menu == null
+            ? null
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (beside)
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: Sizes.listAction),
+                      child: chip,
+                    ),
+                  ?menu,
+                ],
               ),
-            menu,
-          ],
-        ),
       );
     },
   );
@@ -271,7 +312,7 @@ class _RowWords extends StatelessWidget {
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
       // The trailing menu has already taken its space; keeping the chip below is safe at the boundary.
-      final beside = WindowSize.chipBeside(constraints.maxWidth);
+      final beside = WindowSize.chipBeside(ListCardWidth.of(context) ?? constraints.maxWidth);
       final words = Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -345,7 +386,7 @@ class LeafListRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
-      final beside = WindowSize.chipBeside(constraints.maxWidth);
+      final beside = WindowSize.chipBeside(ListCardWidth.of(context) ?? constraints.maxWidth);
       final actions = trailing;
       return InkWell(
         onTap: onTap,

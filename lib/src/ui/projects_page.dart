@@ -62,6 +62,8 @@ class ProjectsPage extends StatelessWidget {
         FilteredListSection(
           storageId: 'projects',
           leaf: true,
+          titleInAppBar: title == 'My projects',
+          read: machines.all.any((machine) => machines.of(machine).listRead),
           path: path,
           pathKeys: const {'My projects': Key('projects-of-organization')},
           subtitle: machines.all.any((machine) => machines.of(machine).listRead)

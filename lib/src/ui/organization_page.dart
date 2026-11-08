@@ -225,6 +225,8 @@ class _OrganizationPageState extends State<OrganizationPage> {
                   title: widget.section!.label,
                   storageId: 'organization-${widget.section!.name}',
                   leaf: true,
+                  read: false,
+                  titleInAppBar: true,
                   path: widget.path,
                   subtitle: 'not read',
                   rows: const [],
@@ -400,6 +402,7 @@ class _OrganizationPageState extends State<OrganizationPage> {
   Widget _people(OrganizationView view, Organization organization, void Function(Widget) show) => FilteredListSection(
     title: 'People',
     leaf: widget.section != null,
+    titleInAppBar: widget.section != null,
     path: widget.path,
     explanation: _leafExplanation(),
     busy: organization.busy,
@@ -486,6 +489,7 @@ class _OrganizationPageState extends State<OrganizationPage> {
       FilteredListSection(
         title: 'Projects',
         leaf: widget.section != null,
+        titleInAppBar: widget.section != null,
         path: widget.path,
         explanation: _leafExplanation(),
         busy: organization.busy,
@@ -676,6 +680,7 @@ class _OrganizationPageState extends State<OrganizationPage> {
   Widget _hosts(OrganizationView view, Organization organization, void Function(Widget) show) => FilteredListSection(
     title: 'Machines',
     leaf: widget.section != null,
+    titleInAppBar: widget.section != null,
     path: widget.path,
     explanation: _leafExplanation(),
     busy: organization.busy,
@@ -779,6 +784,7 @@ class _OrganizationPageState extends State<OrganizationPage> {
   Widget _owners(OrganizationView view, Organization organization, void Function(Widget) show) => FilteredListSection(
     title: 'Organization owners',
     leaf: widget.section != null,
+    titleInAppBar: widget.section != null,
     path: widget.path,
     explanation: _leafExplanation(),
     busy: organization.busy,
@@ -867,6 +873,9 @@ Widget? _organizationAdmins(
   return FilteredListSection(
     title: 'Organization Admins',
     leaf: leaf,
+    titleInAppBar: leaf,
+    read: listed != null,
+    beforeRows: [if (listed == null) const Text('Organization owners do this work until admins are listed.')],
     path: path,
     explanation: explanation,
     subtitle: listed == null

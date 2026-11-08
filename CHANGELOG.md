@@ -26,6 +26,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Leaf pages distinguish unread lists from empty ones, keep their names on phones, retain a back link to the list they came from, and show the state actually read beside each item without adding controls to read-only rows.
+
 - Forge and project pages have clear page heads, visible filters and state chips; each organization section keeps its own head and controls for retrying failed reads while displaying provisional changes, with distinct role and status words and setup actions kept in reach.
 - The side bar folds into machines and organizations with facts and actions on their parent pages, stays beside the page on tablets, keeps a stop for every machine in the title bar, retains machine actions and page explanations, and keeps machine setup and organization return paths on the right page.
 

@@ -9,6 +9,21 @@ import '../features/support/tiles.dart' show leafPageTitle;
 import '../support/organization_fixtures.dart';
 
 void main() {
+  // Harm: the phone loses which set of projects an action belongs to.
+  testWidgets('Projects on my machines keeps its title on a phone', (tester) async {
+    await World.startBackend(World.work);
+    await World.startApp(tester, organizationSource: FixtureOrganization(organizationFor('pat')));
+    World.shell.goTo(Section.projects);
+    await World.settle(tester);
+    await tester.tap(find.byKey(const Key('projects-of-machines')));
+    await World.settle(tester);
+    tester.view.physicalSize = const Size(390, 800);
+    addTearDown(tester.view.reset);
+    await World.settle(tester);
+    expect(leafPageTitle('Projects on my machines').hitTestable(), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   // Harm: My projects lists what a start in a checkout copied and the project every machine has as if they were the
   // organization's, as the operator found with two local copies, and the rail counts them too.
   testWidgets('My projects lists the organization\'s projects alone, and the rest stands with every machine\'s', (

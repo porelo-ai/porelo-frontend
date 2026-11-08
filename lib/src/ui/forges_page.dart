@@ -106,6 +106,8 @@ class _ForgesPageState extends State<ForgesPage> {
         children: [
           FilteredListSection(
             title: 'My forges',
+            titleInAppBar: true,
+            read: forges.loaded,
             beforeRows: [
               if (_said case final said?) Text(said),
               if (widget.keyCheck case final check?) ForgeKeyRow(check: check),
@@ -428,6 +430,8 @@ class _ForgePageState extends State<ForgePage> {
           FilteredListSection(
             key: ValueKey('forge-repositories ${entry?.id}'),
             title: entry?.name ?? 'Forge',
+            read: forges.repositories != null,
+            emptyWords: 'No repositories yet.',
             searchHint: 'Filter repositories',
             onRetry: () => unawaited(forges.refresh()),
             titleKey: const Key('forge-title'),

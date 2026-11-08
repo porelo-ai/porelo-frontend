@@ -533,7 +533,10 @@ void main() {
     expect(find.text('Project Admin pat. Only they change this project.'), findsOneWidget);
     await tester.tap(find.byKey(const Key('organization-project-back')));
     await World.settle(tester);
-    expect(find.byKey(const ValueKey('my-project demo')), findsOneWidget);
+    expect(World.shell.place.section, Section.organization);
+    expect(World.shell.place.organization, 'acme');
+    expect(World.shell.place.organizationSection, OrganizationSection.projects);
+    expect(organizationProjectInList('demo'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
   });
 

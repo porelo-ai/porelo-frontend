@@ -423,12 +423,27 @@ class _ShellState extends State<Shell> {
   void _checkOrganizationPlace() {
     final organization = _organization;
     if (organization == null || organization.view != null || organization.noOrganization) {
-      widget.shell.checkOrganization(organization?.view?.name);
+      final name = organization?.view?.name;
+      if (_organizationProjectFrom?.section == Section.organization && _organizationProjectFrom?.organization != name) {
+        _organizationProjectFrom = null;
+      }
+      if (_organizationHostFrom?.section == Section.organization && _organizationHostFrom?.organization != name) {
+        _organizationHostFrom = null;
+      }
+      widget.shell.checkOrganization(name);
     }
   }
 
   void _followTreeTool() {
     final place = widget.shell.place;
+    if (place.section != Section.projects) {
+      _organizationProject = null;
+      _organizationProjectFrom = null;
+    }
+    if (place.section != Section.machines && place.section != Section.machine) {
+      _organizationHost = null;
+      _organizationHostFrom = null;
+    }
     if (_treeTool == place.key) return;
     _treeTool = place.key;
     final section = place.machineSection;
@@ -1419,8 +1434,11 @@ class _ShellState extends State<Shell> {
   /// The host whose page is open under *Machines*, where this computer reads an organization.
   String? _organizationHost;
 
-  /// The exact organization leaf to return to after opening one of its machines.
+  /// The exact list to return to after opening an organization machine.
   ShellPlace? _organizationHostFrom;
+
+  /// The exact list to return to after opening an organization project.
+  ShellPlace? _organizationProjectFrom;
 
   late final Organization? _organization = widget.organizationSource == null
       ? null
@@ -1437,7 +1455,10 @@ class _ShellState extends State<Shell> {
       ? OrganizationProjectsPage(
           organization: organization,
           connections: _hostConnections,
-          onProject: (name) => setState(() => _organizationProject = name),
+          onProject: (name) => setState(() {
+            _organizationProjectFrom = const ShellPlace(Section.projects);
+            _organizationProject = name;
+          }),
           onHost: (project, host) {
             final machine = widget.machines.all
                 .where((machine) => machine.hostCard?.name == host || machine.name == host)
@@ -1446,7 +1467,10 @@ class _ShellState extends State<Shell> {
             if (machine != null && widget.machines.of(machine).projects.any((each) => each.name == project)) {
               _openPageProject(machine, project);
             } else {
-              setState(() => _organizationHost = host);
+              setState(() {
+                _organizationHostFrom = const ShellPlace(Section.projects);
+                _organizationHost = host;
+              });
               widget.shell.goTo(Section.machines);
             }
           },
@@ -1469,9 +1493,14 @@ class _ShellState extends State<Shell> {
           key: ValueKey((_organizationProject, _organizationPageRefresh)),
           organization: organization,
           project: _organizationProject!,
+          path: _organizationDetailPath(
+            _organizationProjectFrom,
+            const ShellPlace(Section.projects),
+            _backFromOrganizationProject,
+          ),
           connections: _hostConnections,
           onGiveToken: _giveHostToken,
-          onBack: () => setState(() => _organizationProject = null),
+          onBack: _backFromOrganizationProject,
         );
 
   /// The organization's people, projects, hosts and owners.
@@ -1513,12 +1542,15 @@ class _ShellState extends State<Shell> {
                   takeOff: _hostRuns.hostAccess == null ? null : _takeOffCommand,
                   keys: _keys,
                   onProject: (name) {
-                    setState(() => _organizationProject = name);
+                    setState(() {
+                      _organizationProjectFrom = widget.shell.place;
+                      _organizationProject = name;
+                    });
                     widget.shell.goTo(Section.projects);
                   },
                   onHost: (host) {
                     final machine = widget.machines.all.where((machine) => machine.hostCard?.name == host).firstOrNull;
-                    if (machine != null) return _openPageMachine(machine);
+                    if (machine != null) return _openPageMachine(machine, from: widget.shell.place);
                     setState(() {
                       _organizationHostFrom = widget.shell.place;
                       _organizationHost = host;
@@ -3476,6 +3508,7 @@ class _ShellState extends State<Shell> {
       _organizationProject = null;
       _organizationHost = null;
       _organizationHostFrom = null;
+      _organizationProjectFrom = null;
       _machineProjects = false;
     });
     final machine = place.machine;
@@ -4060,6 +4093,8 @@ class _ShellState extends State<Shell> {
             _organizationProject = null;
             _machineProjects = false;
             _organizationHost = null;
+            _organizationHostFrom = null;
+            _organizationProjectFrom = null;
           });
           if (section == Section.work) {
             _workView.search.clear();
@@ -4357,7 +4392,10 @@ class _ShellState extends State<Shell> {
             }
           },
           onGiveToken: (host) {
-            setState(() => _organizationHost = host);
+            setState(() {
+              _organizationHostFrom = const ShellPlace(Section.attention);
+              _organizationHost = host;
+            });
             widget.shell.goTo(Section.machines);
           },
           onOpenHost: (project) {
@@ -4428,7 +4466,8 @@ class _ShellState extends State<Shell> {
   }
 
   /// Running work on every project, or the selected project with its work under its header.
-  void _openPageMachine(Machine machine) {
+  void _openPageMachine(Machine machine, {ShellPlace? from}) {
+    _organizationHostFrom = from;
     machine = _pageMachine(machine);
     if (widget.machines.all.contains(machine)) widget.machines.select(machine);
     widget.shell.openMachine(machine);
@@ -4746,6 +4785,13 @@ class _ShellState extends State<Shell> {
       return ProjectDetailsPage(
         key: ValueKey('project ${machine.name}/${project.name}'),
         machine: machine,
+        machineState: !watched
+            ? 'not read'
+            : widget.machines.of(machine).reachability == Reachability.connected
+            ? 'Connected'
+            : widget.machines.of(machine).answered
+            ? 'Not connected'
+            : 'not read',
         project: project,
         commands: commands,
         onBack: () => widget.shell.goTo(Section.projects),
@@ -4925,34 +4971,46 @@ class _ShellState extends State<Shell> {
   HostPreparation? _preparingFor(String host) =>
       _hostRuns.preparing.where((run) => run.record.hostName == host).firstOrNull;
 
+  ShellPlace _organizationDetailOrigin(ShellPlace? from, ShellPlace fallback) {
+    if (from == null) return fallback;
+    // An organization removed or replaced since opening cannot remain an ancestor.
+    if (from.section == Section.organization && from.organization != _organization?.view?.name) return fallback;
+    return from;
+  }
+
+  List<LeafPathStep> _organizationDetailPath(ShellPlace? from, ShellPlace fallback, VoidCallback back) {
+    final origin = _organizationDetailOrigin(from, fallback);
+    if (origin.section != Section.organization) return [(label: origin.section.label, go: back)];
+    return [
+      (label: 'Organizations', go: () => _chooseTreePlace(const ShellPlace(Section.organizations), true)),
+      (
+        label: origin.organization ?? 'Organization',
+        go: () => _chooseTreePlace(ShellPlace(Section.organization, organization: origin.organization), true),
+      ),
+      if (origin.organizationSection case final section?) (label: section.label, go: back),
+    ];
+  }
+
+  void _backFromOrganizationProject() {
+    final origin = _organizationDetailOrigin(_organizationProjectFrom, const ShellPlace(Section.projects));
+    _chooseTreePlace(origin, false);
+  }
+
+  void _backFromOrganizationHost() {
+    final origin = _organizationDetailOrigin(_organizationHostFrom, const ShellPlace(Section.machines));
+    _chooseTreePlace(origin, false);
+  }
+
   Widget _machineOnePage(String host, {Widget? work, List<({String name, Widget row})>? machineProjects}) =>
       ListenableBuilder(
         // Read again as a preparation starts and ends, so the page offers its protocol, not a second start.
         listenable: _hostRuns,
         builder: (context, _) => OrganizationHostPage(
-          path: _organizationHostFrom?.section != Section.organization
-              ? const []
-              : [
-                  (label: 'Organizations', go: () => _chooseTreePlace(const ShellPlace(Section.organizations), true)),
-                  (
-                    label: _organization!.view?.name ?? 'Organization',
-                    go: () => _chooseTreePlace(
-                      ShellPlace(Section.organization, organization: _organization.view?.name ?? 'Organization'),
-                      true,
-                    ),
-                  ),
-                  (
-                    label: 'Machines',
-                    go: () {
-                      final from = _organizationHostFrom!;
-                      setState(() {
-                        _organizationHost = null;
-                        _organizationHostFrom = null;
-                      });
-                      widget.shell.choosePlace(from);
-                    },
-                  ),
-                ],
+          path: _organizationDetailPath(
+            _organizationHostFrom,
+            const ShellPlace(Section.machines),
+            _backFromOrganizationHost,
+          ),
           onPrepare: _prepareThisMachine,
           preparing: _preparingFor,
           onProtocol: (run) => unawaited(_openHostRun(run)),
@@ -4987,18 +5045,7 @@ class _ShellState extends State<Shell> {
           host: host,
           work: work,
           machineProjects: machineProjects,
-          onBack: () {
-            final from = _organizationHostFrom;
-            setState(() {
-              _organizationHost = null;
-              _organizationHostFrom = null;
-            });
-            if (work == null && from != null) {
-              widget.shell.choosePlace(from);
-            } else {
-              widget.shell.goTo(work == null ? Section.organization : Section.machines);
-            }
-          },
+          onBack: _backFromOrganizationHost,
         ),
       );
 

@@ -16,6 +16,13 @@ import 'package:porelo_frontend/src/ui/forges_view.dart';
 
 import '../features/support/world.dart';
 
+class _WaitingTokens extends MemoryForgeTokens {
+  final answer = Completer<String?>();
+
+  @override
+  Future<String?> read(String forge) => answer.future;
+}
+
 class _IdentityForge extends FakeForge {
   bool failRead = false;
   @override
@@ -48,6 +55,57 @@ const _declared = Connection(
 );
 
 void main() {
+  // Harm: a forge list still waiting for its source falsely reports a successful empty read.
+  testWidgets('an unread forge list does not report a successful empty read', (tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final tokens = _WaitingTokens();
+    final forges = ForgeConnection(tokens);
+    addTearDown(forges.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ForgesPage(forges: forges, usedBy: (_) => [], onOpen: (_) {}),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.text('No forges yet.'), findsNothing);
+    expect(find.text('0 forges'), findsNothing);
+    expect(find.text('not read'), findsNWidgets(2));
+    await tester.pumpWidget(const SizedBox.shrink());
+    tokens.answer.complete(null);
+    await World.settle(tester);
+  });
+
+  // Harm: a forge that has not answered looks empty, and a phone loses which forge it is acting on.
+  testWidgets('an unread forge is not empty and keeps its phone identity', (tester) async {
+    tester.view.physicalSize = const Size(390, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final forges = ForgeConnection(MemoryForgeTokens())
+      ..current = const ForgeEntry(id: 'central', kind: 'github', name: 'Central', address: 'forge.example.org');
+    addTearDown(forges.dispose);
+    Future<void> show() => tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ForgePage(forges: forges, usedBy: (_) => [], usedOn: (_) => []),
+        ),
+      ),
+    );
+    await show();
+    expect(find.byKey(const Key('forge-title')), findsOneWidget);
+    expect(find.text('No central yet.'), findsNothing);
+    expect(find.text('No repositories yet.'), findsNothing);
+    expect(find.text('not read'), findsNWidgets(2));
+    forges.repositories = [];
+    await tester.pumpWidget(const SizedBox.shrink());
+    await show();
+    expect(find.text('No repositories yet.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   // Harm: a person who set up by the command line is told the machine holds nothing, and to paste a token again.
   group('what the machine already holds', () {
     test('a forge declared on the machine is listed once, beside one set up here for the same host', () {

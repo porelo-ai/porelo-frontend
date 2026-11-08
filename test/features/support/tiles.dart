@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
 import 'package:porelo_frontend/src/ui/shell_rail.dart';
+import 'package:porelo_frontend/src/ui/filtered_list_section.dart';
 
 import 'world.dart';
 import '../../support/expand_list_rows.dart';
@@ -35,6 +36,16 @@ Finder tileFor(String work) {
 Finder leafPageTitle(String title) => find.byWidgetPredicate(
   (widget) => widget is Text && widget.key == const Key('leaf-title') && widget.data == title,
   description: 'the leaf title $title',
+);
+
+/// One named organization project in either its own list or the organization's Projects leaf.
+Finder organizationProjectInList(String project) => find.descendant(
+  of: find.byWidgetPredicate(
+    (widget) =>
+        widget is FilteredListSection &&
+        (widget.storageId == 'my-projects' || widget.storageId == 'organization-projects'),
+  ),
+  matching: find.text(project),
 );
 
 /// The entry of one project under the machine being looked at.

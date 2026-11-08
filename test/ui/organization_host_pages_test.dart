@@ -8,6 +8,7 @@ import 'package:porelo_frontend/src/app/links.dart';
 import 'package:porelo_frontend/src/app/organization_source.dart';
 import 'package:porelo_frontend/src/ui/organization_host_pages.dart';
 import 'package:porelo_frontend/src/ui/organization_page.dart';
+import 'package:porelo_frontend/src/ui/filtered_list_section.dart';
 
 import '../support/organization_fixtures.dart';
 import '../features/support/world.dart' show World;
@@ -469,6 +470,70 @@ void main() {
       );
       return (source: source, connections: made);
     }
+
+    // Harm: a machine's explicit refusal reads as unknown, obscuring what prevents work there.
+    for (final state in ['carried', 'pending', 'waiting-for-token', 'held', 'refused', 'future-state']) {
+      testWidgets('the project chip keeps the host state $state and stands beside its name', (tester) async {
+        final made = await page(
+          tester,
+          'hana',
+          connections: FixtureConnections(['build'])
+            ..hostProgress = HostProgress(
+              projects: [HostProjectProgress(project: 'demo', state: state)],
+            ),
+        );
+        final source = find.byKey(const ValueKey('organization.projectSource/demo'));
+        final row = find.ancestor(of: source, matching: find.byType(ListTile)).first;
+        final chip = find.descendant(of: row, matching: find.widgetWithText(Chip, state));
+        expect(chip, findsOneWidget);
+        final name = find.descendant(of: row, matching: find.text('demo'));
+        expect(tester.getRect(chip).left, greaterThan(tester.getRect(name).right));
+        expect(find.descendant(of: row, matching: find.widgetWithText(Chip, 'not read')), findsNothing);
+        await made.connections.disconnect('build');
+        await tester.pumpAndSettle();
+        expect(chip, findsOneWidget, reason: 'losing contact keeps the state already read');
+      });
+    }
+
+    // Harm: a machine admin's standing is detached from the person at the tablet boundary.
+    // The card is the window less the page's padding (24): 503 gives a 479 card, 504 a 480 one.
+    for (final window in [503.0, 504.0]) {
+      testWidgets('a Machine Admin chip follows the full card width: $window', (tester) async {
+        await page(tester, 'hana');
+        tester.view.physicalSize = Size(window, 1600);
+        await tester.pumpAndSettle();
+        final row = find.ancestor(of: find.text('hana (you)'), matching: find.byType(ListTile));
+        await tester.ensureVisible(row);
+        await World.settle(tester);
+        final section = find.byWidgetPredicate(
+          (widget) => widget is FilteredListSection && widget.storageId == 'host-admins build',
+        );
+        expect(tester.getSize(section).width, window - 24, reason: 'D62 uses the full card, after page padding');
+        final name = tester.getRect(find.text('hana (you)'));
+        final chip = tester.getRect(find.descendant(of: row, matching: find.byType(Chip)));
+        if (window == 504) {
+          expect(chip.left, greaterThanOrEqualTo(name.right));
+        } else {
+          expect(chip.top, greaterThanOrEqualTo(name.bottom));
+        }
+        expect(tester.takeException(), isNull);
+      });
+    }
+
+    // Harm: phone setup and membership actions have no visible target identity.
+    testWidgets('a phone keeps the host and inner section names', (tester) async {
+      await page(tester, 'hana');
+      tester.view.physicalSize = const Size(390, 1600);
+      await tester.pumpAndSettle();
+      for (final title in ['build', 'Projects', 'Machine Admins']) {
+        final text = find.byWidgetPredicate(
+          (widget) => widget is Text && widget.key == const Key('leaf-title') && widget.data == title,
+        );
+        await tester.ensureVisible(text);
+        expect(text.hitTestable(), findsOneWidget);
+      }
+      expect(tester.takeException(), isNull);
+    });
 
     // Harm: a whole project taken off a machine when one repository of it was meant, its other repositories with it.
     testWidgets('a project carried in part lists its repositories, and one is taken off alone', (tester) async {

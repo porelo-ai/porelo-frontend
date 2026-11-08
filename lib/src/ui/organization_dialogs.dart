@@ -245,6 +245,8 @@ class OrganizationListSection extends StatelessWidget {
       title: section.title,
       storageId: section.storageId,
       leaf: section.leaf,
+      read: section.read,
+      titleInAppBar: section.titleInAppBar,
       path: section.path,
       pathKeys: section.pathKeys,
       titleKey: section.titleKey,

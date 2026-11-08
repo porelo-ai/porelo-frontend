@@ -14,6 +14,8 @@ import 'package:porelo_frontend/src/ui/command_menu.dart';
 
 import 'organization_actions.dart';
 
+import 'package:porelo_frontend/src/ui/page_explanation.dart';
+
 Finder _action(String id) => organizationAction(id);
 
 Future<void> _settle(WidgetTester tester, Widget page) async {
@@ -61,6 +63,37 @@ class _Connecting extends FixtureConnections {
 }
 
 void main() {
+  // Harm: a refusal or an unopened repository is mistaken for a successfully empty project.
+  for (final project in [
+    const ProjectView(name: 'demo', revision: 'p1', repositoriesProblem: 'Repository read refused.'),
+    const ProjectView(name: 'demo', revision: 'p1', opened: false),
+  ]) {
+    testWidgets('unread project repositories never count as empty: ${project.opened}', (tester) async {
+      await _page(tester, 'pat', project: project);
+      final head = tester.widget<PageHead>(find.byType(PageHead).first);
+      expect(head.subtitle, isNot(contains('0 repositories')));
+      expect(find.textContaining('No repositories yet.'), findsNothing);
+      if (project.repositoriesProblem != null) {
+        expect(find.text(project.repositoriesProblem!), findsOneWidget);
+      }
+    });
+  }
+
+  // Harm: phone actions for different lists lose the names identifying their targets.
+  testWidgets('a phone keeps the project and its inner list titles', (tester) async {
+    await _page(tester, 'pat');
+    tester.view.physicalSize = const Size(390, 1600);
+    await tester.pumpAndSettle();
+    for (final title in ['demo', 'Repositories', 'Members']) {
+      final text = find.byWidgetPredicate(
+        (widget) => widget is Text && widget.key == const Key('leaf-title') && widget.data == title,
+      );
+      await tester.ensureVisible(text);
+      expect(text.hitTestable(), findsOneWidget);
+    }
+    expect(tester.takeException(), isNull);
+  });
+
   // Harm: a person cannot see that approved work waits to go to the central forge, or takes cannot say for up to date.
   group('how a project stands with the central forge', () {
     for (final (answer, words, offers) in [
