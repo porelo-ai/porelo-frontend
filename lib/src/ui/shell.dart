@@ -727,6 +727,10 @@ class _ShellState extends State<Shell> {
       hostRuns: _hostRuns,
       readHostProgress: _readHostProgress,
       openTerminal: widget.sessions.openTerminal,
+      removeFromOrganization: switch (_organization) {
+        final organization? => (host) => organization.write(OrganizationChange.removeHost, {'host': host}),
+        null => null,
+      },
     );
     if (mounted && !widget.machines.all.contains(machine)) widget.shell.goTo(Section.machines);
   }

@@ -138,6 +138,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- *Take Porelo off this machine…* removes the machine from the organization's list once it is confirmed down, as its question says; where the organization refuses, the dialog says so and the row keeps *Remove the machine…*.
 - *Set up a machine* is one dialog again, not a card floating in a larger empty frame.
 - A machine's row stops saying it waits for a first token once the machine took the token, without *Refresh*.
 - The fetch line on a gate review, for a machine reached through this window's own ssh config, carries that config (`GIT_SSH_COMMAND='ssh -F …'`), so it runs as shown in your own shell; a forward says the branch the machine confirmed, and its pull request where one was opened.

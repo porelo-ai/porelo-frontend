@@ -33,11 +33,13 @@ Future<void> openHostTakeDownDialog(
   Future<HostProgress> Function(String host)? readHostProgress,
   OpenTerminal? openTerminal,
   bool? linux,
+  Future<String?> Function(String host)? removeFromOrganization,
 }) => showDialog<void>(
   context: context,
   barrierDismissible: false,
   builder: (_) => HostDialog(
     project: project,
+    removeFromOrganization: removeFromOrganization,
     machines: machines,
     settings: settings,
     hostRuns: hostRuns,
@@ -98,6 +100,7 @@ class HostDialog extends StatefulWidget {
     this.start,
     this.runKeyCommand,
     this.takeDownOnly = false,
+    this.removeFromOrganization,
     this.machineName,
     this.fromTheCard,
     this.hostCheck,
@@ -134,6 +137,9 @@ class HostDialog extends StatefulWidget {
 
   /// Whether the dialog confirms give-back.
   final bool takeDownOnly;
+
+  /// Removes the machine from the organization's list once it is confirmed down; answers a refusal's words, or null.
+  final Future<String?> Function(String host)? removeFromOrganization;
 
   /// What to take down with on a computer that kept nothing from setting it up.
   final HostUpRecord? fromTheCard;
@@ -675,6 +681,22 @@ class _HostDialogState extends State<HostDialog> {
       } else {
         _problem = widget.hostAccess?.cardLeftBehind(widget.project);
         await _settings.forgetHostUp(widget.project);
+      }
+      // The question promised it: a machine confirmed down leaves the organization's list too. A refusal is said, and
+      // the row keeps its own *Remove the machine…*.
+      if (widget.removeFromOrganization case final remove?) {
+        String? refused;
+        try {
+          refused = await remove(record.hostName);
+        } on Exception catch (error) {
+          refused = '$error';
+        }
+        if (refused != null) {
+          final listed =
+              '${record.hostName} stays on the organization\'s list: $refused. Remove it there with *Remove the '
+              'machine…* on its row.';
+          _problem = _problem == null ? listed : '$_problem $listed';
+        }
       }
       for (final machine
           in widget.machines.all.where((m) => m.kind == 'host' && m.hostProject == widget.project).toList()) {

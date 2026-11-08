@@ -775,6 +775,68 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
+  // Harm: a machine taken down stays on the organization's list and goes on carrying what it carried, as the question
+  // promised otherwise; or one not confirmed down is taken off the list.
+  testWidgets('a confirmed down removes the machine from the organization, a refused one does not', (tester) async {
+    final removed = <String>[];
+    final state = await openTakeDown(
+      tester,
+      removeFromOrganization: (host) async {
+        removed.add(host);
+        return null;
+      },
+    );
+    answerHolders(state.processes.single, []);
+    await World.settle(tester);
+    await tester.tap(find.byKey(const Key('host-confirm-down')));
+    await World.settle(tester);
+    state.processes.last.line(const host.Step('give-back', host.StepState.refused));
+    state.processes.last.end(65);
+    await World.settle(tester);
+    answerHolders(state.processes.last, []);
+    await World.settle(tester);
+    expect(removed, isEmpty, reason: 'not confirmed down');
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  // Harm: as above, the confirmed case.
+  testWidgets('a confirmed down sends the removal once', (tester) async {
+    final removed = <String>[];
+    final state = await openTakeDown(
+      tester,
+      removeFromOrganization: (host) async {
+        removed.add(host);
+        return null;
+      },
+    );
+    answerHolders(state.processes.single, []);
+    await World.settle(tester);
+    await tester.tap(find.byKey(const Key('host-confirm-down')));
+    await World.settle(tester);
+    state.processes.last.line(const host.Step('give-back', host.StepState.done));
+    state.processes.last.end(0);
+    await World.settle(tester);
+    expect(removed, [signedSetup.hostName]);
+    expect(find.textContaining('organization'), findsNothing, reason: 'no refusal to say');
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  // Harm: a removal the organization refused is silent, and the person believes the machine left the list.
+  testWidgets('a removal refused is said, with the way to remove it by hand', (tester) async {
+    final state = await openTakeDown(tester, removeFromOrganization: (_) async => 'the forge did not answer');
+    answerHolders(state.processes.single, []);
+    await World.settle(tester);
+    await tester.tap(find.byKey(const Key('host-confirm-down')));
+    await World.settle(tester);
+    state.processes.last.line(const host.Step('give-back', host.StepState.done));
+    state.processes.last.end(0);
+    await World.settle(tester);
+    expect(find.textContaining('Billing has ended.'), findsOneWidget);
+    expect(find.textContaining("stays on the organization's list: the forge did not answer"), findsOneWidget);
+    expect(find.textContaining('Remove the machine…'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   // Harm: someone admitted after confirmation must never be purged without a new explicit choice.
   testWidgets('a refused down reads new holders and waits for their confirmation', (tester) async {
     final state = await openTakeDown(tester);
@@ -1769,6 +1831,7 @@ Future<({Settings settings, List<List<String>> commands, List<HostProcess> proce
   HostUpRecord record = signedSetup,
   SettingsStore? store,
   Future<HostProgress> Function(String host)? readHostProgress = _emptyHostProgress,
+  Future<String?> Function(String host)? removeFromOrganization,
 }) async {
   tester.view.physicalSize = const Size(1280, 800);
   tester.view.devicePixelRatio = 1;
@@ -1792,6 +1855,7 @@ Future<({Settings settings, List<List<String>> commands, List<HostProcess> proce
             machines: machines,
             settings: settings,
             readHostProgress: readHostProgress,
+            removeFromOrganization: removeFromOrganization,
             start: (_, arguments) async {
               commands.add(arguments);
               final process = HostProcess();
