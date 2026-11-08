@@ -274,7 +274,8 @@ jobs:
         # No host has a Windows runner, and a pull request gets no token for the attestation.
         if: vars.PORELO_PUBLISH == 'true' && github.event_name != 'pull_request'
         runs-on: windows-2025
-        timeout-minutes: 45
+        # Its steps' own limits add up to more than 45 minutes once Test may take 30.
+        timeout-minutes: 60
         # The attestation's two, for this job only, as `check-actions`' list names them.
         permissions:
             contents: read
@@ -312,8 +313,9 @@ jobs:
 
             # A test marked `linux` needs what only Linux has, and says why; the documents are the Linux
             # job's. Each test has a minute, so one that would wait for ever ends the run and names itself.
+            # The suite takes 17 to 19 minutes on the runner, and its speed varies.
             - name: Test
-              timeout-minutes: 20
+              timeout-minutes: 30
               run: flutter test --exclude-tags "linux || documents" --timeout 60s --reporter expanded --concurrency 1
 
             # The host package's own tests: the command `porelo-host` is built from it for Windows too; those
