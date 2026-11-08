@@ -4407,8 +4407,6 @@ class _ShellState extends State<Shell> {
         return GateView(gate: widget.gate, focusNode: _openedFocus, onOpen: _look, onClose: widget.shell.close);
       case ReviewOpened():
         final machine = widget.machines.current;
-        final sshOptions = machine.loginSshOptions;
-        final configOption = sshOptions.indexOf('-F');
         return ReviewView(
           gate: widget.gate,
           onBack: widget.shell.openGate,
@@ -4416,10 +4414,7 @@ class _ShellState extends State<Shell> {
           onApprove: _approve,
           onReject: _reject,
           login: machine.needsATunnel ? machine.host : null,
-          sshConfig:
-              machine.needsATunnel && !desk.isWindows && configOption >= 0 && configOption + 1 < sshOptions.length
-              ? sshOptions[configOption + 1]
-              : null,
+          sshConfig: reviewFetchConfig(machine, windows: desk.isWindows),
           machine: machine.name,
           onRefreshKeys: () => unawaited(widget.gate.readKeys(_fleet.backend)),
           onTryKey: (key) => unawaited(widget.gate.tryKey(_fleet.backend, key)),

@@ -5,6 +5,7 @@ import 'package:porelo_frontend/client.dart';
 import '../app/diff.dart';
 import '../app/forge_connection.dart' show hostOf;
 import '../app/gate.dart';
+import '../app/machines.dart' show Machine;
 import 'panes.dart';
 import 'refused_key.dart';
 import 'selection_list.dart';
@@ -118,6 +119,15 @@ class _WaitingRow extends StatelessWidget {
       const Icon(Icons.chevron_right, size: Sizes.rowIcon),
     ],
   );
+}
+
+/// The ssh config a waiting push's fetch line carries for [machine], or null where it carries none: only a machine
+/// this window reaches through its card's own config, whose `Host` is the very name the line logs in to, and never on
+/// Windows, whose fetch line stays as the machine named it.
+String? reviewFetchConfig(Machine machine, {required bool windows}) {
+  final card = machine.hostCard;
+  if (windows || !machine.needsATunnel || card == null || machine.host != card.name) return null;
+  return machine.sshConfig.isEmpty ? null : machine.sshConfig;
 }
 
 /// The `git fetch` that brings a waiting push into the person's own clone, to read in their IDE:
