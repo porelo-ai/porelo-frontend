@@ -309,7 +309,6 @@ class _ShellState extends State<Shell> {
   FleetModel get _fleet => widget.machines.fleet;
 
   final _machineTools = <Machine, MachineTools>{};
-  late final MachineTools _initialTools;
 
   MachineTools _toolsFor(Machine machine) => _machineTools.putIfAbsent(machine, () {
     final tools = MachineTools(widget.vault.devices.store);
@@ -325,6 +324,40 @@ class _ShellState extends State<Shell> {
     }
     return tools;
   });
+  bool _stillWatching(Machine machine, MachineTools tools) =>
+      mounted && widget.machines.all.contains(machine) && identical(_machineTools[machine], tools);
+
+  void _releaseTools(MachineTools tools) {
+    for (final model in [
+      tools.vault,
+      tools.vault.devices,
+      tools.connections,
+      tools.inventory,
+      tools.authentication,
+      tools.readiness,
+    ]) {
+      model.removeListener(_homeserversChanged);
+    }
+    tools.dispose();
+  }
+
+  void _dropForgottenTools() {
+    final watched = widget.machines.all.toSet();
+    for (final machine in _machineTools.keys.toList()) {
+      if (watched.contains(machine)) continue;
+      _releaseTools(_machineTools.remove(machine)!);
+      _providerCards.remove(machine);
+      _destinationCards.remove(machine);
+      _sectionRetries.remove(machine);
+      _vaultAskedFor.remove(machine);
+      for (final section in MachineSection.values) {
+        final key = ShellPlace(Section.machine, machine: machine, machineSection: section).key;
+        _sectionReadAt.remove(key);
+        if (_treeTool == key) _treeTool = null;
+      }
+    }
+  }
+
   Machine get _toolMachine {
     final place = widget.shell.place;
     return place.section == Section.machine && place.machine != null && widget.machines.all.contains(place.machine)
@@ -368,7 +401,7 @@ class _ShellState extends State<Shell> {
   @override
   void initState() {
     super.initState();
-    _initialTools = MachineTools.existing(
+    final initialTools = MachineTools.existing(
       vault: widget.vault,
       connections: widget.connections,
       inventory: widget.inventory,
@@ -399,7 +432,7 @@ class _ShellState extends State<Shell> {
         ? (unread ? widget.machines.current : null)
         : widget.machines.all.where((machine) => machine.name == suppliedOwner).firstOrNull;
     if (owner != null && (vaultOwner.isEmpty || connectionOwner.isEmpty || vaultOwner == connectionOwner)) {
-      _machineTools[owner] = _initialTools;
+      _machineTools[owner] = initialTools;
     }
     widget.machines.resumeAutomaticRetries();
     widget.shell.initializeNavigation(widget.machines.current);
@@ -476,6 +509,7 @@ class _ShellState extends State<Shell> {
   String? _treeTool;
   Machine? _observedMachine;
   void _machineChanged() {
+    _dropForgottenTools();
     final machine = widget.machines.current;
     if (_observedMachine == machine) return;
     _observedMachine = machine;
@@ -523,26 +557,27 @@ class _ShellState extends State<Shell> {
     final fleet = widget.machines.of(machine);
     final tools = _toolsFor(machine);
     await fleet.untilAsked();
-    if (!mounted || !widget.machines.all.contains(machine) || fleet.reachability != Reachability.connected) return;
+    if (!_stillWatching(machine, tools) || fleet.reachability != Reachability.connected) return;
     await tools.run(() async {
       switch (section) {
         case MachineSection.vault:
+        case MachineSection.managing:
           await tools.vault.lookAt(fleet.backend, machine.name);
         case MachineSection.credentials:
           await tools.connections.lookAt(fleet.backend, machine.name);
         case MachineSection.agents:
           await tools.inventory.load(fleet.backend);
-          if (mounted) await tools.authentication.look(fleet.backend);
+          if (_stillWatching(machine, tools)) await tools.authentication.look(fleet.backend);
         case MachineSection.health:
           await tools.readiness.look(fleet.backend);
         case MachineSection.tasks:
         case MachineSection.projects:
-        case MachineSection.managing:
           break;
       }
     });
+    if (!_stillWatching(machine, tools)) return;
     final read = switch (section) {
-      MachineSection.vault => tools.vault.state != null && tools.vault.problem == null,
+      MachineSection.vault || MachineSection.managing => tools.vault.state != null && tools.vault.problem == null,
       MachineSection.credentials => tools.connections.problem == null,
       MachineSection.agents =>
         tools.inventory.asked && tools.inventory.problem == null && tools.authentication.problem == null,
@@ -586,7 +621,9 @@ class _ShellState extends State<Shell> {
   Future<void> _readAll({bool quietly = false}) async {
     final identity = widget.identity;
     if (widget.shell.section == Section.organization && identity != null && !identity.busy) await identity.load();
+    if (!mounted) return;
     await _standings.read();
+    if (!mounted) return;
     // refresh() first forgets the answers it kept; the quiet timer leaves the store alone.
     if (!quietly) {
       await _organization?.refresh();
@@ -595,15 +632,20 @@ class _ShellState extends State<Shell> {
     }
     // A key loaded into the agent, or revoked, since the last read changes what a host admin is offered.
     await widget.hostAccess?.readAgain();
-    for (final machine in widget.machines.all) {
+    if (!mounted) return;
+    for (final machine in widget.machines.all.toList()) {
+      if (!widget.machines.all.contains(machine)) continue;
       final fleet = widget.machines.of(machine);
       if (fleet.reachability != Reachability.connected) continue;
       await fleet.refresh(quietly: quietly || fleet != _fleet);
+      if (!mounted) return;
     }
+    if (!mounted) return;
     final machine = _toolMachine;
     final fleet = widget.machines.of(machine);
     if (fleet.reachability == Reachability.connected) {
-      await _toolsFor(machine).run(() => _toolsFor(machine).vault.lookAt(fleet.backend, machine.name));
+      final tools = _toolsFor(machine);
+      await tools.run(() => tools.vault.lookAt(fleet.backend, machine.name));
     }
   }
 
@@ -650,9 +692,31 @@ class _ShellState extends State<Shell> {
     });
   }
 
-  List<Command> _commands() => [
-    for (final command in _unscopedCommands()) _commandForItem(command).unless(_itemScopeProblem(command)),
-  ];
+  Machine? get _machinePlaceOwner {
+    final place = widget.shell.place;
+    final machine = place.machine;
+    return place.section == Section.machine &&
+            machine != null &&
+            widget.machines.all.contains(machine) &&
+            !_hostRuns.preparing.any((run) => run.name == machine.name)
+        ? machine
+        : null;
+  }
+
+  List<Command> _commands() {
+    final machine = _machinePlaceOwner;
+    final scoped = <String, Command>{
+      if (machine != null)
+        for (final command in [..._machineMenu(on: machine), _machinePanic(machine)]) command.id: command,
+    };
+    final all = _unscopedCommands();
+    final ids = all.map((command) => command.id).toSet();
+    return [
+      for (final command in all) scoped[command.id] ?? _commandForItem(command).unless(_itemScopeProblem(command)),
+      for (final command in scoped.values)
+        if (!ids.contains(command.id)) command,
+    ];
+  }
 
   Command _commandForItem(Command command) {
     if (command.id != 'project.default' ||
@@ -833,11 +897,7 @@ class _ShellState extends State<Shell> {
     final machine = on ?? widget.machines.current;
     final fleet = widget.machines.of(machine);
     final vault = _toolsFor(machine).vault;
-    VoidCallback onMachine(VoidCallback action) => () {
-      widget.machines.select(machine);
-      action();
-    };
-    return machineCommands(
+    final commands = machineCommands(
       fleet: fleet,
       machine: machine,
       hostRuns: _hostRuns,
@@ -845,24 +905,70 @@ class _ShellState extends State<Shell> {
       canForget: widget.machines.all.length > 1 && !machine.isAlwaysListed,
       reachedOverSsh: machine.needsATunnel,
       canStart: machine.canBeStartedHere,
-      checkTheMachine: onMachine(_checkTheMachine),
-      startThenCheck: onMachine(() => unawaited(_startThenCheck())),
-      showTheProviders: onMachine(_showTheProviders),
-      showTheVault: onMachine(_showTheVault),
-      showConnections: onMachine(() => unawaited(_showConnections())),
-      showDestinations: onMachine(_showDestinations),
-      showAgents: onMachine(_showAgents),
-      startTheDaemon: onMachine(() => unawaited(_startTheDaemon())),
-      stopTheDaemon: onMachine(() => unawaited(_stopTheDaemon())),
-      forget: onMachine(_forget),
-      clearTheMachine: onMachine(_clearTheMachine),
+      checkTheMachine: () => unawaited(_checkTheMachine(on: machine)),
+      startThenCheck: () => unawaited(_startThenCheck(on: machine)),
+      showTheProviders: () => unawaited(_showTheProviders(on: machine)),
+      showTheVault: () => unawaited(_showTheVault(on: machine)),
+      showConnections: () => unawaited(_showConnections(on: machine)),
+      showDestinations: () => _showDestinations(on: machine),
+      showAgents: () => unawaited(_showAgents(on: machine)),
+      startTheDaemon: () => unawaited(_startTheDaemon(on: machine)),
+      stopTheDaemon: () => unawaited(_stopTheDaemon(on: machine)),
+      forget: () => unawaited(_forget(on: machine)),
+      clearTheMachine: () => unawaited(_clearTheMachine(on: machine)),
       vault: vault,
       actOnTheVault: (act) => unawaited(_actOnTheVault(act, on: machine)),
-      addAUser: onMachine(() => unawaited(_addAUser())),
+      addAUser: () => unawaited(_addAUser()),
       unlockWithThePassphrase: unlockCommandFor(machine) != null ? () => unawaited(_unlockMachine(machine)) : null,
       makeTheVault: makeCommandFor(machine) != null ? () => unawaited(_makeTheVault(on: machine)) : null,
     );
+    return [
+      for (final command in commands)
+        if (command.id == 'fleet.refresh')
+          Command(
+            id: command.id,
+            label: command.label,
+            group: command.group,
+            home: command.home,
+            shortcut: command.shortcut,
+            run: () => unawaited(_refreshMachine(machine)),
+          )
+        else
+          command,
+    ];
   }
+
+  Future<void> _refreshMachine(Machine machine) async {
+    if (!mounted || !widget.machines.all.contains(machine)) return;
+    final fleet = widget.machines.of(machine);
+    final tools = _toolsFor(machine);
+    await fleet.refresh();
+    if (!_stillWatching(machine, tools) || fleet.reachability != Reachability.connected) return;
+    await tools.run(() => tools.vault.lookAt(fleet.backend, machine.name));
+  }
+
+  Command _machinePanic(Machine machine) => Command(
+    id: 'machine.panic',
+    label: 'Stop everything on this machine',
+    group: 'Machine',
+    home: Home.machineTitle,
+    shortcut: const SingleActivator(LogicalKeyboardKey.period, control: true, shift: true),
+    unavailable: notAnswering(widget.machines.of(machine)),
+    run: () => unawaited(_stopEverything(on: machine)),
+  );
+
+  Widget _vaultButtonsFor(Machine machine, FleetModel fleet, Vault vault) => VaultButtons(
+    vault: vault,
+    onLock: fleet.reachability == Reachability.connected
+        ? () => unawaited(_actOnTheVault(vault.lockDoes, on: machine))
+        : null,
+    onOpenWithThePassphrase: fleet.reachability == Reachability.connected && unlockCommandFor(machine) != null
+        ? () => unawaited(_unlockMachine(machine))
+        : null,
+    onMakeIt: fleet.reachability == Reachability.connected && makeCommandFor(machine) != null
+        ? () => unawaited(_makeTheVault(on: machine))
+        : null,
+  );
 
   List<Command> _hostCommands(Machine machine) {
     final run = _hostRuns.of(machine.hostProject);
@@ -1076,11 +1182,12 @@ class _ShellState extends State<Shell> {
   );
 
   /// Clears the machine and removes its trusted message signer from its projects.
-  Future<void> _clearTheMachine() async {
-    final fleet = _fleet;
-    final machine = widget.machines.current;
+  Future<void> _clearTheMachine({Machine? on}) async {
+    final machine = on ?? widget.machines.current;
+    if (!mounted || !widget.machines.all.contains(machine)) return;
+    final fleet = widget.machines.of(machine);
     await openClearing(context, MachineClearing(fleet.backend, _forges, machineName: machine.name));
-    unawaited(fleet.refresh(quietly: true));
+    if (mounted && widget.machines.all.contains(machine)) unawaited(fleet.refresh(quietly: true));
   }
 
   /// Why [project] cannot be removed here, or null where Porelo lists it as registered here alone.
@@ -1123,8 +1230,8 @@ class _ShellState extends State<Shell> {
   }
 
   /// Asks whether this machine can run anything, and shows what it said. Asked, never polled.
-  Future<void> _checkTheMachine() async {
-    _goToMachineSection(MachineSection.health);
+  Future<void> _checkTheMachine({Machine? on}) async {
+    _goToMachineSection(MachineSection.health, on: on);
   }
 
   /// The person's forge login: the one the app was given, or the token this instance was started with, otherwise the
@@ -1274,10 +1381,11 @@ class _ShellState extends State<Shell> {
   }
 
   /// Restores the mirror from the backup being considered, and says what that did.
-  Future<void> _restoreTheMirror({required bool force}) async {
-    await widget.backups.restore(_fleet.backend, force: force);
+  Future<void> _restoreTheMirror({required bool force, Machine? on}) async {
+    final fleet = widget.machines.of(on ?? widget.machines.current);
+    await widget.backups.restore(fleet.backend, force: force);
     final said = widget.backups.restoreWords;
-    if (said.isNotEmpty) _fleet.say(said);
+    if (said.isNotEmpty) fleet.say(said);
   }
 
   /// Asks the upstream how far behind this project is, now.
@@ -1298,20 +1406,21 @@ class _ShellState extends State<Shell> {
   }
 
   /// Removes the backup being considered, and says what that did.
-  Future<void> _removeTheBackup() async {
-    await widget.backups.remove(_fleet.backend);
+  Future<void> _removeTheBackup({Machine? on}) async {
+    final fleet = widget.machines.of(on ?? widget.machines.current);
+    await widget.backups.remove(fleet.backend);
     final said = widget.backups.words;
-    if (said.isNotEmpty) _fleet.say(said);
+    if (said.isNotEmpty) fleet.say(said);
   }
 
   /// Shows how the current machine connects out.
-  Future<void> _showConnections() async {
-    _goToMachineSection(MachineSection.credentials);
+  Future<void> _showConnections({Machine? on}) async {
+    _goToMachineSection(MachineSection.credentials, on: on);
   }
 
-  void _showDestinations() {
-    final machine = widget.machines.current;
-    _goToMachineSection(MachineSection.credentials);
+  void _showDestinations({Machine? on}) {
+    final machine = on ?? widget.machines.current;
+    _goToMachineSection(MachineSection.credentials, on: machine);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final there = _destinationCards[machine]?.currentContext;
       if (there != null && there.mounted) unawaited(Scrollable.ensureVisible(there));
@@ -1322,8 +1431,10 @@ class _ShellState extends State<Shell> {
   /// the wizard settled on. What stays on the view afterwards is the way to try the value again.
   Future<void> _addAConnection({String match = '', Machine? on}) async {
     final machine = on ?? widget.machines.current;
+    if (!mounted || !widget.machines.all.contains(machine)) return;
     final fleet = widget.machines.of(machine);
-    final connections = _toolsFor(machine).connections;
+    final tools = _toolsFor(machine);
+    final connections = tools.connections;
     final backend = fleet.backend;
     final asked = await askForAConnection(
       context,
@@ -1344,8 +1455,8 @@ class _ShellState extends State<Shell> {
       makeTheVault: makeCommandFor(machine) != null ? () => _makeTheVault(on: machine) : null,
       openTheVault: unlockCommandFor(machine) != null ? () => _unlockMachine(machine) : null,
     );
-    if (asked == null || !mounted) return;
-    await _toolsFor(machine).run(
+    if (asked == null || !_stillWatching(machine, tools)) return;
+    await tools.run(
       () => connections.declare(
         backend,
         kind: asked.kind,
@@ -1357,7 +1468,7 @@ class _ShellState extends State<Shell> {
         fromFile: asked.fromFile,
       ),
     );
-    if (!mounted || connections.declared == null) return;
+    if (!_stillWatching(machine, tools) || connections.declared == null) return;
     switch (asked.storing) {
       case Storing.nothing:
         break;
@@ -1374,26 +1485,30 @@ class _ShellState extends State<Shell> {
   /// Runs the declared store command on the machine, which reads the value from its own disk.
   Future<void> _storeOnTheMachine({Machine? on}) async {
     final machine = on ?? widget.machines.current;
+    if (!mounted || !widget.machines.all.contains(machine)) return;
     final fleet = widget.machines.of(machine);
-    final connections = _toolsFor(machine).connections;
+    final tools = _toolsFor(machine);
+    final connections = tools.connections;
     final declared = connections.declared;
     final command = declared == null ? null : onTheMachine(machine, declared.storeCommand, terminal: false);
     if (command == null) return;
     final failed = await widget.machines.setup.storeOnTheMachine(command, '');
-    if (!mounted) return;
+    if (!_stillWatching(machine, tools)) return;
     fleet.say(
       failed == null
           ? 'The key for ${declared!.connection.match} is in the vault on ${machine.name}.'
           : 'Copying the key into the vault did not work: $failed',
     );
-    if (failed == null) await _toolsFor(machine).run(() => connections.lookAt(fleet.backend, machine.name));
+    if (failed == null) await tools.run(() => connections.lookAt(fleet.backend, machine.name));
   }
 
   /// Stores the declared value by typing it into a terminal on the machine, then reads again.
   Future<void> _storeInATerminal({Machine? on}) async {
     final machine = on ?? widget.machines.current;
+    if (!mounted || !widget.machines.all.contains(machine)) return;
     final fleet = widget.machines.of(machine);
-    final connections = _toolsFor(machine).connections;
+    final tools = _toolsFor(machine);
+    final connections = tools.connections;
     final declared = connections.declared;
     final command = declared == null ? null : onTheMachine(machine, declared.storeCommand, terminal: true);
     if (command == null) return;
@@ -1407,8 +1522,8 @@ class _ShellState extends State<Shell> {
       command: command,
       open: widget.sessions.openTerminal,
     );
-    if (!mounted) return;
-    await _toolsFor(machine).run(() => connections.lookAt(fleet.backend, machine.name));
+    if (!_stillWatching(machine, tools)) return;
+    await tools.run(() => connections.lookAt(fleet.backend, machine.name));
   }
 
   /// Sends a key to the declared store command on its standard input: a file of this computer's,
@@ -1416,8 +1531,10 @@ class _ShellState extends State<Shell> {
   /// Answers why nothing was stored, or null once it was.
   Future<String?> _sendAKey({String? file, String? pasted, Machine? on}) async {
     final machine = on ?? widget.machines.current;
+    if (!mounted || !widget.machines.all.contains(machine)) return 'This machine is no longer watched.';
     final fleet = widget.machines.of(machine);
-    final connections = _toolsFor(machine).connections;
+    final tools = _toolsFor(machine);
+    final connections = tools.connections;
     final declared = connections.declared;
     final command = declared == null ? null : onTheMachine(machine, declared.storeCommand, terminal: false);
     if (command == null) return 'This machine is not one keys are sent to from here.';
@@ -1435,13 +1552,13 @@ class _ShellState extends State<Shell> {
       return 'There is nothing in it to send.';
     }
     final failed = await widget.machines.setup.storeOnTheMachine(command, value.endsWith('\n') ? value : '$value\n');
-    if (!mounted) return null;
+    if (!_stillWatching(machine, tools)) return null;
     if (failed != null) {
       fleet.say('Storing the key did not work: $failed');
       return 'Storing the key did not work: $failed';
     }
     fleet.say('The key for ${declared.connection.match} is stored on ${machine.name}.');
-    await _toolsFor(machine).run(() => connections.lookAt(fleet.backend, machine.name));
+    await tools.run(() => connections.lookAt(fleet.backend, machine.name));
     return null;
   }
 
@@ -1449,8 +1566,10 @@ class _ShellState extends State<Shell> {
   /// machine whether it is there — the terminal's exit code is not the verdict.
   Future<void> _makeTheVault({Machine? on}) async {
     final machine = on ?? widget.machines.current;
+    if (!mounted || !widget.machines.all.contains(machine)) return;
     final fleet = widget.machines.of(machine);
-    final vault = _toolsFor(machine).vault;
+    final tools = _toolsFor(machine);
+    final vault = tools.vault;
     final command = makeCommandFor(machine);
     if (command == null) return;
     await runInATerminal(
@@ -1464,8 +1583,8 @@ class _ShellState extends State<Shell> {
       command: command,
       open: widget.sessions.openTerminal,
     );
-    if (!mounted) return;
-    await _toolsFor(machine).run(() => vault.lookAt(fleet.backend, machine.name));
+    if (!_stillWatching(machine, tools)) return;
+    await tools.run(() => vault.lookAt(fleet.backend, machine.name));
   }
 
   /// Whether the current machine's own `porelo` can be reached for a terminal.
@@ -1477,11 +1596,13 @@ class _ShellState extends State<Shell> {
   /// Grants what [credential] names, then asks the vault again: the grant is kept there.
   Future<void> _grant(Credential credential, {Machine? on}) async {
     final machine = on ?? widget.machines.current;
+    if (!mounted || !widget.machines.all.contains(machine)) return;
     final fleet = widget.machines.of(machine);
-    final vault = _toolsFor(machine).vault;
+    final tools = _toolsFor(machine);
+    final vault = tools.vault;
     await showGranting(context, Granting(fleet.backend, machine, credential.name));
-    if (!mounted) return;
-    await _toolsFor(machine).run(() => vault.lookAt(fleet.backend, machine.name));
+    if (!_stillWatching(machine, tools)) return;
+    await tools.run(() => vault.lookAt(fleet.backend, machine.name));
   }
 
   /// Opens the current machine's vault by its passphrase, in a terminal on that machine, then asks
@@ -1494,21 +1615,24 @@ class _ShellState extends State<Shell> {
       unlockCommandFor(machine) == null ? null : () => unawaited(_unlockMachine(machine));
 
   Future<void> _unlockMachine(Machine machine) async {
+    if (!mounted || !widget.machines.all.contains(machine)) return;
     final fleet = widget.machines.of(machine);
+    final tools = _toolsFor(machine);
     final List<String>? command;
     try {
       command = unlockCommandFor(machine);
     } on FormatException catch (error) {
-      _fleet.say(error.message);
+      fleet.say(error.message);
       return;
     } on HostFilesRefused catch (error) {
-      _fleet.say(error.message);
+      fleet.say(error.message);
       return;
     }
     if (command == null) return;
     await unlockInATerminal(context, machine: machine, command: command, open: widget.sessions.openTerminal);
-    if (!mounted) return;
-    await _toolsFor(machine).run(() => _toolsFor(machine).vault.lookAt(fleet.backend, machine.name));
+    if (!_stillWatching(machine, tools)) return;
+    await tools.run(() => tools.vault.lookAt(fleet.backend, machine.name));
+    if (!_stillWatching(machine, tools)) return;
     await fleet.refresh(quietly: true);
   }
 
@@ -1866,9 +1990,9 @@ class _ShellState extends State<Shell> {
   }
 
   /// Shows what this machine can authenticate against, and where each credential belongs.
-  Future<void> _showTheProviders() async {
-    final machine = widget.machines.current;
-    _goToMachineSection(MachineSection.agents);
+  Future<void> _showTheProviders({Machine? on}) async {
+    final machine = on ?? widget.machines.current;
+    _goToMachineSection(MachineSection.agents, on: machine);
     WidgetsBinding.instance.addPostFrameCallback((_) => _revealProviders(machine));
   }
 
@@ -1895,8 +2019,10 @@ class _ShellState extends State<Shell> {
 
   /// Opens the emergency stop for the machine being acted on, having first asked what it would
   /// stop. Agreeing is a second, separate act.
-  Future<void> _stopEverything() async {
-    final backend = _fleet.backend;
+  Future<void> _stopEverything({Machine? on}) async {
+    final machine = on ?? widget.machines.current;
+    if (!mounted || !widget.machines.all.contains(machine)) return;
+    final backend = widget.machines.of(machine).backend;
     widget.stopping.letItBe();
     unawaited(widget.stopping.consider(backend));
     await openEmergencyStop(
@@ -1916,23 +2042,23 @@ class _ShellState extends State<Shell> {
   );
 
   /// Shows what the vault holds, asked every time it is opened.
-  Future<void> _showTheVault() async {
-    _goToMachineSection(MachineSection.vault);
+  Future<void> _showTheVault({Machine? on}) async {
+    _goToMachineSection(MachineSection.vault, on: on);
   }
 
   /// Which machine, and in which state, the vault's button was last asked about.
-  String _vaultAskedFor = '';
+  final _vaultAskedFor = <Machine, Reachability>{};
 
   /// Asks the machine in the title about its store whenever it becomes the one shown or answers
   /// again, so the button beside the stop is never a guess.
   void _keepTheVaultButtonTrue(Machine machine, FleetModel fleet) {
-    final asking = '${machine.name}/${fleet.reachability.name}';
-    if (asking == _vaultAskedFor) return;
-    _vaultAskedFor = asking;
+    if (_vaultAskedFor[machine] == fleet.reachability) return;
+    _vaultAskedFor[machine] = fleet.reachability;
     if (fleet.reachability != Reachability.connected) return;
+    final tools = _toolsFor(machine);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && widget.machines.all.contains(machine)) {
-        unawaited(_toolsFor(machine).run(() => _toolsFor(machine).vault.lookAt(fleet.backend, machine.name)));
+      if (_stillWatching(machine, tools) && identical(widget.machines.of(machine), fleet)) {
+        unawaited(tools.run(() => tools.vault.lookAt(fleet.backend, machine.name)));
       }
     });
   }
@@ -1940,28 +2066,40 @@ class _ShellState extends State<Shell> {
   /// Enrolls this device, opens the store with it, or shuts it: the button's act, or a menu's.
   Future<void> _actOnTheVault(VaultAct act, {Machine? on}) async {
     final machine = on ?? widget.machines.current;
-    final vault = _toolsFor(machine).vault;
+    if (!mounted || !widget.machines.all.contains(machine)) return;
+    final tools = _toolsFor(machine);
+    final vault = tools.vault;
     final backend = widget.machines.of(machine).backend;
-    String devicesSaid() => vault.devices.problem ?? vault.devices.said ?? '';
+    final storage = vault.devices.store.storage;
+    String devicesSaid() => !_stillWatching(machine, tools)
+        ? '${machine.name} is no longer watched.'
+        : vault.devices.problem ?? vault.devices.said ?? '';
+    Future<void> runIfWatching(Future<void> Function() action) async {
+      if (!_stillWatching(machine, tools)) return;
+      await tools.run(action);
+    }
+
     await showDialog<void>(
       context: context,
       builder: (context) => switch (act) {
         VaultAct.enroll => EnrollDialog(
-          storage: vault.devices.store.storage,
+          storage: storage,
           suggested: _hostName(),
-          onEnroll: (name) => _toolsFor(machine).run(() => vault.devices.enroll(backend, name)),
+          onEnroll: (name) => runIfWatching(() => vault.devices.enroll(backend, name)),
           answer: devicesSaid,
         ),
         VaultAct.open => OpenDialog(
-          onOpen: (minutes) => _toolsFor(machine).run(() async {
+          onOpen: (minutes) => runIfWatching(() async {
             await vault.devices.unlock(backend, minutes: minutes);
-            await vault.look(backend);
+            if (_stillWatching(machine, tools)) await vault.look(backend);
           }),
           answer: devicesSaid,
         ),
         VaultAct.shut => ShutDialog(
-          onShut: () => _toolsFor(machine).run(() => vault.lock(backend)),
-          answer: () => vault.problem ?? vault.shut?.words ?? '',
+          onShut: () => runIfWatching(() => vault.lock(backend)),
+          answer: () => !_stillWatching(machine, tools)
+              ? '${machine.name} is no longer watched.'
+              : vault.problem ?? vault.shut?.words ?? '',
         ),
       },
     );
@@ -1976,8 +2114,8 @@ class _ShellState extends State<Shell> {
   }
 
   /// Shows what agents this machine has, asked every time it is opened.
-  Future<void> _showAgents() async {
-    _goToMachineSection(MachineSection.agents);
+  Future<void> _showAgents({Machine? on}) async {
+    _goToMachineSection(MachineSection.agents, on: on);
   }
 
   /// Stops watching the machine being acted on, and goes back to what needs a person.
@@ -1995,8 +2133,9 @@ class _ShellState extends State<Shell> {
     return card == null || card.admins.contains(view!.me) || widget.settings.hostUp(machine.hostProject) != null;
   }
 
-  Future<void> _forget() async {
-    final machine = widget.machines.current;
+  Future<void> _forget({Machine? on}) async {
+    final machine = on ?? widget.machines.current;
+    if (!mounted || !widget.machines.all.contains(machine)) return;
     if (widget.machines.all.length < 2 || machine.isAlwaysListed) return;
     if (_warnsOnForgetting(machine)) {
       final takeDown = _hostCommands(machine).singleWhere((command) => command.id == 'machine.takeDown');
@@ -2332,6 +2471,8 @@ class _ShellState extends State<Shell> {
   }
 
   Future<void> _offerToStart() async {
+    final machine = widget.machines.current;
+    final vault = _toolsFor(machine).vault;
     await openStartWork(
       context,
       starting: widget.starting,
@@ -2344,7 +2485,7 @@ class _ShellState extends State<Shell> {
           ? null
           : _importTheSignInToStart,
       onLogIn: onTheMachineAsWritten(widget.machines.current, 'porelo') == null ? null : _logInWithTheAgent,
-      onOpenWithThisDevice: _vault.devices.enrolledHere ? _openWithThisDeviceToStart : null,
+      onOpenWithThisDevice: vault.devices.enrolledHere ? () => _openWithThisDeviceToStart(machine) : null,
       onGrant: _grantToStart,
       onFixInATerminal: onTheMachine(widget.machines.current, _aShell, terminal: true) == null
           ? null
@@ -2385,8 +2526,10 @@ class _ShellState extends State<Shell> {
 
   /// Opens the locked vault starting was refused on, with this device and for as long as the person
   /// chooses — then asks the machine again whether work can start.
-  Future<void> _openWithThisDeviceToStart() async {
-    await _actOnTheVault(VaultAct.open);
+  Future<void> _openWithThisDeviceToStart(Machine machine) async {
+    if (!widget.machines.all.contains(machine)) return;
+    await _actOnTheVault(VaultAct.open, on: machine);
+    if (!mounted || !widget.machines.all.contains(machine)) return;
     await widget.starting.askAgain();
   }
 
@@ -2812,20 +2955,23 @@ class _ShellState extends State<Shell> {
   }
 
   /// Opens one waiting push, and reads what it contains.
-  Future<void> _look(PendingPush push) async {
+  Future<void> _look(PendingPush push, {Machine? on}) async {
+    final fleet = widget.machines.of(on ?? widget.machines.current);
     widget.shell.openReview();
-    await widget.gate.look(_fleet.backend, push);
+    await widget.gate.look(fleet.backend, push);
   }
 
   /// Forwards the push being judged, onto a branch somebody names.
-  Future<void> _approve() async {
+  Future<void> _approve({Machine? on}) async {
+    final owner = on ?? widget.machines.current;
+    final fleet = widget.machines.of(owner);
     final push = widget.gate.looking;
     if (push == null) return;
-    final machine = widget.machines.current.name;
+    final machine = owner.name;
     final project = widget.gate.project?.name;
     if (project == null) return;
     final taskBranch =
-        _fleet.tasks
+        fleet.tasks
             .where(
               (task) =>
                   task.project == project &&
@@ -2841,7 +2987,8 @@ class _ShellState extends State<Shell> {
     // The forge may answer late; by then another push, project or machine may be shown.
     bool stillJudging() =>
         mounted &&
-        widget.machines.current.name == machine &&
+        (_machinePlaceOwner ?? widget.machines.current) == owner &&
+        widget.machines.all.contains(owner) &&
         identical(widget.gate.looking, push) &&
         widget.gate.project?.name == project;
     final offered = await _branchesFor(push);
@@ -2861,10 +3008,10 @@ class _ShellState extends State<Shell> {
           : '',
     );
     if (branch == null || !stillJudging()) return;
-    final answer = await widget.gate.approve(_fleet.backend, branch);
+    final answer = await widget.gate.approve(fleet.backend, branch);
     if (answer.forwarded) await _rememberForward(machine, project, push, branch);
     if (!mounted) return;
-    _afterAForward(answer.said);
+    _afterAForward(answer.said, on: owner);
   }
 
   /// Keeps the branch a confirmed forward went to; a settings file that cannot be written loses only the prefill.
@@ -2878,38 +3025,44 @@ class _ShellState extends State<Shell> {
 
   /// Says what came of a forward and goes back to the gate, unless it was refused: a refused key's way
   /// through stays in the review.
-  void _afterAForward(String said) {
-    if (said.isNotEmpty) _fleet.say(said);
+  void _afterAForward(String said, {Machine? on}) {
+    final machine = on ?? widget.machines.current;
+    if (!mounted || !widget.machines.all.contains(machine)) return;
+    final fleet = widget.machines.of(machine);
+    if (said.isNotEmpty) fleet.say(said);
     // Repositories that could not be read are said in the gate's list, not a reason to stay on a review gone.
     if (widget.gate.otherProblem == null && widget.gate.keyRefused == null) widget.shell.openGate();
     // What waits is read again at once: the project's badge said "1" after the push was through
     // (walk 8).
-    unawaited(_fleet.refresh(quietly: true));
+    unawaited(fleet.refresh(quietly: true));
   }
 
   /// Keeps [key] for the refused forward's address, then forwards again onto the same branch.
-  Future<void> _keepKey(SshKey key) async {
+  Future<void> _keepKey(SshKey key, {Machine? on}) async {
+    final owner = on ?? widget.machines.current;
+    final fleet = widget.machines.of(owner);
     final push = widget.gate.looking;
     final project = widget.gate.project?.name;
     final branch = widget.gate.keyRefused?.branch;
-    final machine = widget.machines.current.name;
-    final answer = await widget.gate.keepKey(_fleet.backend, key);
+    final machine = owner.name;
+    final answer = await widget.gate.keepKey(fleet.backend, key);
     if (answer.forwarded && push != null && project != null && branch != null) {
       await _rememberForward(machine, project, push, branch);
     }
     if (!mounted) return;
-    _afterAForward(answer.said);
+    _afterAForward(answer.said, on: owner);
   }
 
   /// Opens a terminal on the machine with what the refusal names to run, shown first and started only
   /// when the person says so; then reads the keys again.
-  Future<void> _refusedKeyInATerminal() async {
+  Future<void> _refusedKeyInATerminal({Machine? on}) async {
     final refused = widget.gate.keyRefused?.refused;
-    final machine = widget.machines.current;
+    final machine = on ?? widget.machines.current;
+    final fleet = widget.machines.of(machine);
     if (refused == null || refused.command.isEmpty) return;
     final command = onTheMachine(machine, refused.command, terminal: true);
     if (command == null) {
-      _fleet.say('${machine.name} is not a machine a terminal is opened on from here.');
+      fleet.say('${machine.name} is not a machine a terminal is opened on from here.');
       return;
     }
     final start = await showDialog<bool>(
@@ -2953,8 +3106,8 @@ class _ShellState extends State<Shell> {
       command: command,
       open: widget.sessions.openTerminal,
     );
-    if (!mounted) return;
-    await widget.gate.readKeys(_fleet.backend);
+    if (!mounted || !widget.machines.all.contains(machine)) return;
+    await widget.gate.readKeys(fleet.backend);
   }
 
   /// The host key fingerprints the first forge kept here publishes for itself; none where none
@@ -2994,7 +3147,9 @@ class _ShellState extends State<Shell> {
   }
 
   /// Drops the request being judged, with why in the person's words for the task it came from.
-  Future<void> _reject() async {
+  Future<void> _reject({Machine? on}) async {
+    final machine = on ?? widget.machines.current;
+    final fleet = widget.machines.of(machine);
     final reason = await askForWords(
       context,
       title: 'Drop the request',
@@ -3004,13 +3159,13 @@ class _ShellState extends State<Shell> {
       label: 'Why, for its agent (optional)',
       confirm: 'Drop it',
     );
-    if (reason == null || !mounted) return;
-    final said = await widget.gate.reject(_fleet.backend, reason: reason);
-    if (said.isNotEmpty) _fleet.say(said);
+    if (reason == null || !mounted || !widget.machines.all.contains(machine)) return;
+    final said = await widget.gate.reject(fleet.backend, reason: reason);
+    if (said.isNotEmpty) fleet.say(said);
     if (widget.gate.otherProblem == null) widget.shell.openGate();
     // What waits is read again at once: the project's badge said "1" after the push was through
     // (walk 8).
-    unawaited(_fleet.refresh(quietly: true));
+    unawaited(fleet.refresh(quietly: true));
   }
 
   /// A start asked for in the dialog, recorded as one from the menu is. The dialog shows what came
@@ -3088,9 +3243,9 @@ class _ShellState extends State<Shell> {
   }
 
   /// Starts Porelo where it is not answering, then checks the machine once it answers.
-  Future<void> _startThenCheck() async {
-    final machine = widget.machines.current;
-    if (!await _startTheDaemon()) return;
+  Future<void> _startThenCheck({Machine? on}) async {
+    final machine = on ?? widget.machines.current;
+    if (!await _startTheDaemon(on: machine)) return;
     await _checkOnceItAnswers(machine);
   }
 
@@ -3118,9 +3273,12 @@ class _ShellState extends State<Shell> {
   /// Asks [machine] what it can run, and takes the page only where it has something to say: a person
   /// who came to it for a row of work goes on to that row. It stays one action away otherwise.
   Future<void> _checkFirstTime(Machine machine) async {
-    final readiness = _toolsFor(machine).readiness;
-    await _toolsFor(machine).run(() => readiness.look(widget.machines.of(machine).backend));
-    if (mounted && widget.machines.current == machine && readiness.ready != true) {
+    if (!mounted || !widget.machines.all.contains(machine)) return;
+    final tools = _toolsFor(machine);
+    final readiness = tools.readiness;
+    final fleet = widget.machines.of(machine);
+    await tools.run(() => readiness.look(fleet.backend));
+    if (_stillWatching(machine, tools) && widget.machines.current == machine && readiness.ready != true) {
       _goToMachineSection(MachineSection.health);
     }
   }
@@ -3144,7 +3302,7 @@ class _ShellState extends State<Shell> {
     } finally {
       fleet.removeListener(check);
     }
-    if (mounted && widget.machines.current == machine) await _checkTheMachine();
+    if (mounted && widget.machines.all.contains(machine)) await _checkTheMachine(on: machine);
   }
 
   /// Offers to start a daemon on a machine that is not answering, and starts it on a yes; answers
@@ -3153,8 +3311,9 @@ class _ShellState extends State<Shell> {
   /// The one thing a silent machine can still be asked. What runs is named before it runs: this
   /// is the interface reaching further into somebody else's machine than forwarding a socket goes,
   /// and it goes no further than a line somebody read and agreed to.
-  Future<bool> _startTheDaemon() async {
-    final machine = widget.machines.current;
+  Future<bool> _startTheDaemon({Machine? on}) async {
+    final machine = on ?? widget.machines.current;
+    if (!mounted || !widget.machines.all.contains(machine)) return false;
     if (!machine.canBeStartedHere) return false;
     final where = machine.isThisComputer ? 'this computer' : machine.host;
     final yes = await showDialog<bool>(
@@ -3219,8 +3378,9 @@ class _ShellState extends State<Shell> {
   /// **The cost as this machine gives it**: its tasks run on without their daemon, and what goes is
   /// the watching — every open view of it — and any clearance question raised while nothing is
   /// there to ask it, which runs out unanswered. What runs is named before it runs, as a start's is.
-  Future<void> _stopTheDaemon() async {
-    final machine = widget.machines.current;
+  Future<void> _stopTheDaemon({Machine? on}) async {
+    final machine = on ?? widget.machines.current;
+    if (!mounted || !widget.machines.all.contains(machine)) return;
     if (!machine.needsATunnel) return;
     final fleet = widget.machines.of(machine);
     final running = fleet.tasks.where((task) => task.running).length;
@@ -3349,6 +3509,7 @@ class _ShellState extends State<Shell> {
 
   /// Finds a command and opens its home.
   Future<void> _openFinder() async {
+    final machine = _machinePlaceOwner ?? widget.machines.current;
     final chosen = await showCommandFinder(context, _commands());
     if (chosen == null || !mounted) return;
     // Something with no single place on screen runs at once; everything else is shown where it
@@ -3357,7 +3518,7 @@ class _ShellState extends State<Shell> {
       chosen.run();
     } else {
       if ({Home.machineTitle, Home.machineMenu, Home.statusLine}.contains(chosen.home)) {
-        widget.shell.openMachine(widget.machines.current);
+        widget.shell.openMachine(machine);
         widget.shell.showOnItem(chosen.id);
         return;
       }
@@ -3378,7 +3539,7 @@ class _ShellState extends State<Shell> {
           widget.shell.showOnItem(chosen.id);
           return;
         }
-        widget.shell.openMachine(widget.machines.current);
+        widget.shell.openMachine(machine);
         widget.shell.showOnItem(chosen.id);
         return;
       }
@@ -3616,7 +3777,7 @@ class _ShellState extends State<Shell> {
     ),
   );
 
-  void _chooseTreePlace(ShellPlace place, bool branch) {
+  void _chooseTreePlace(ShellPlace place, bool branch, {bool selectMachine = true}) {
     if (place.machineSection != null &&
         place.machine != null &&
         (!widget.machines.all.contains(place.machine) ||
@@ -3632,19 +3793,20 @@ class _ShellState extends State<Shell> {
       _machineProjects = false;
     });
     final machine = place.machine;
-    if (machine != null && widget.machines.all.contains(machine)) widget.machines.select(machine);
+    if (selectMachine && machine != null && widget.machines.all.contains(machine)) widget.machines.select(machine);
     widget.shell.choosePlace(place, branch: branch);
     if (place.section == Section.work) _workView.search.clear();
     if (place.section == Section.cards) unawaited(showIdentity(context, model: widget.identity));
   }
 
-  void _goToMachineSection(MachineSection section) {
-    final machine = widget.machines.current;
+  void _goToMachineSection(MachineSection section, {Machine? on}) {
+    final machine = on ?? widget.machines.current;
+    if (!mounted || !widget.machines.all.contains(machine)) return;
     final place = ShellPlace(Section.machine, machine: machine, machineSection: section);
     if (widget.shell.place.key == place.key) {
       unawaited(_readMachineSection(machine, section));
     } else {
-      _chooseTreePlace(place, false);
+      _chooseTreePlace(place, false, selectMachine: on == null);
     }
   }
 
@@ -3668,7 +3830,7 @@ class _ShellState extends State<Shell> {
         final readAgo = howLongSince(
           _sectionReadAt[ShellPlace(Section.machine, machine: machine, machineSection: section).key],
         );
-        final opened = machine == widget.machines.current ? _opened() : null;
+        final opened = _opened(on: machine);
         final body =
             opened ??
             switch (section) {
@@ -3752,7 +3914,7 @@ class _ShellState extends State<Shell> {
               ),
             ),
             Expanded(
-              child: answering || section == MachineSection.managing
+              child: opened != null || answering || section == MachineSection.managing
                   ? body
                   : ExcludeFocus(
                       child: IgnorePointer(child: Opacity(opacity: 0.5, child: body)),
@@ -3778,7 +3940,7 @@ class _ShellState extends State<Shell> {
     final state = tools.vault.state;
     final commands = [
       for (final command in _machineMenu(on: machine))
-        if (command.id.startsWith('vault.') && command.id != 'vault.show') command.unless(_itemScopeProblem(command)),
+        if (command.id.startsWith('vault.') && command.id != 'vault.show') command,
     ];
     final primaryId = state?.exists == false
         ? 'vault.make'
@@ -3860,6 +4022,7 @@ class _ShellState extends State<Shell> {
   }
 
   Future<void> _importProvider(Machine machine, MachineTools tools, String? agent) async {
+    if (!_stillWatching(machine, tools)) return;
     final backend = widget.machines.of(machine).backend;
     await tools.run(() => tools.authentication.importFor(backend, agent: agent));
     if (!mounted) return;
@@ -4014,7 +4177,7 @@ class _ShellState extends State<Shell> {
     final machine = _pageMachine(widget.shell.itemMachine ?? widget.machines.current);
     final preparation = _hostRuns.preparing.where((run) => run.name == machine.name).firstOrNull;
     if (preparation != null) {
-      final opened = _opened();
+      final opened = _opened(on: machine);
       if (opened != null) return opened;
       return FactsPage(
         title: preparation.name,
@@ -4032,8 +4195,9 @@ class _ShellState extends State<Shell> {
     }
     final watched = widget.machines.all.contains(machine);
     final fleet = watched ? widget.machines.of(machine) : null;
-    final current = machine == widget.machines.current;
-    Widget withStatus(Widget page) => !watched || !current
+    final tools = watched ? _toolsFor(machine) : null;
+    final ownVault = tools?.vault;
+    Widget withStatus(Widget page) => !watched
         ? page
         : Column(
             children: [
@@ -4048,14 +4212,14 @@ class _ShellState extends State<Shell> {
               ),
             ],
           );
-    if (watched && current) {
+    if (watched) {
       final ownFleet = fleet!;
       _keepTheVaultButtonTrue(machine, ownFleet);
       if (ownFleet.refusal case final refusal?) return withStatus(RefusalView(refusal: refusal, fleet: ownFleet));
-      final opened = _opened();
+      final opened = _opened(on: machine);
       if (opened != null) return withStatus(opened);
     }
-    final vault = _vault.about == machine.name ? _vault.state : null;
+    final vault = ownVault?.about == machine.name ? ownVault?.state : null;
     final read = fleet?.listRead ?? false;
     final page = FactsPage(
       embedded: machine.hostCard != null && _organization != null,
@@ -4063,7 +4227,7 @@ class _ShellState extends State<Shell> {
       identity: Text('${machine.where}${machineKind(widget.machines, machine)}', key: const Key('machine-kind')),
       highlight: widget.shell.highlight,
       path: [(label: 'My machines', go: () => _chooseTreePlace(const ShellPlace(Section.machines), true))],
-      busy: (fleet?.busy ?? false) || current && _vault.busy,
+      busy: (fleet?.busy ?? false) || (ownVault?.busy ?? false),
       facts: [
         (label: 'Last read', value: 'not read — the connection does not report a read time', known: false),
         (
@@ -4095,19 +4259,16 @@ class _ShellState extends State<Shell> {
         ),
         (
           label: 'Health',
-          value: _toolsFor(machine).readiness.health != null
-              ? _toolsFor(machine).readiness.verdict
+          value: tools?.readiness.health != null
+              ? tools!.readiness.verdict
               : 'not read — run Check whether this machine can run anything',
-          known: _toolsFor(machine).readiness.health != null,
+          known: tools?.readiness.health != null,
         ),
         (label: 'Address', value: machine.where, known: true),
       ],
       commands: watched
           ? [
-              for (final command in [
-                ..._machineMenu(on: machine),
-                ..._commands().where((command) => command.id == 'machine.panic'),
-              ])
+              for (final command in [..._machineMenu(on: machine), _machinePanic(machine)])
                 if ({
                       'fleet.refresh',
                       'vault.shut',
@@ -4121,13 +4282,11 @@ class _ShellState extends State<Shell> {
                     command.id.contains('takeDown'))
                   if (command.id != 'vault.shut' || vault?.readable == true)
                     if (command.id != 'vault.passphrase' || vault?.readable != true)
-                      command
-                          .unless(!current ? 'Open this machine again before running its commands.' : null)
-                          .unless(
-                            command.id.startsWith('vault.') && vault == null
-                                ? 'This machine has not answered about its vault.'
-                                : null,
-                          ),
+                      command.unless(
+                        command.id.startsWith('vault.') && vault == null
+                            ? 'This machine has not answered about its vault.'
+                            : null,
+                      ),
             ]
           : [],
       primary: managing
@@ -4151,30 +4310,15 @@ class _ShellState extends State<Shell> {
                       !command.id.contains('takeDown'),
                 )
                 .map(
-                  (command) => command
-                      .unless(!current ? 'Open this machine again before running its commands.' : null)
-                      .unless(
-                        command.id.startsWith('vault.') && command.id != 'vault.show' && vault == null
-                            ? 'This machine has not answered about its vault.'
-                            : null,
-                      ),
+                  (command) => command.unless(
+                    command.id.startsWith('vault.') && command.id != 'vault.show' && vault == null
+                        ? 'This machine has not answered about its vault.'
+                        : null,
+                  ),
                 )
                 .toList()
           : [],
-      tools: watched && current && vault != null
-          ? VaultButtons(
-              vault: _vault,
-              onLock: fleet?.reachability == Reachability.connected
-                  ? () => unawaited(_actOnTheVault(_vault.lockDoes))
-                  : null,
-              onOpenWithThePassphrase: fleet?.reachability == Reachability.connected && _canUnlockHere
-                  ? () => unawaited(_unlockHere())
-                  : null,
-              onMakeIt: fleet?.reachability == Reachability.connected && _canMakeHere
-                  ? () => unawaited(_makeTheVault())
-                  : null,
-            )
-          : null,
+      tools: watched && ownVault != null && vault != null ? _vaultButtonsFor(machine, fleet!, ownVault) : null,
     );
     return withStatus(
       machine.hostCard != null && _organization != null ? _machineOnePage(machine.hostCard!.name, work: page) : page,
@@ -4603,11 +4747,7 @@ class _ShellState extends State<Shell> {
     // said only in the status line, looked like nothing happening (walk 9).
     final ownFleet = onlyMachine == null ? _fleet : widget.machines.of(onlyMachine);
     final refusal = ownFleet.refusal;
-    final opened = refusal != null
-        ? RefusalView(refusal: refusal, fleet: ownFleet)
-        : onlyMachine != null && onlyMachine != widget.machines.current
-        ? null
-        : _opened();
+    final opened = refusal != null ? RefusalView(refusal: refusal, fleet: ownFleet) : _opened(on: onlyMachine);
     // Nothing tells of a refusal but the drawing of it, and what took the page's place took the session's.
     if (opened != null) WidgetsBinding.instance.addPostFrameCallback((_) => _leaveTheSessionWithItsPage());
     final page =
@@ -4856,7 +4996,11 @@ class _ShellState extends State<Shell> {
           widget.shell.section == Section.machine && widget.shell.place.machineSection == MachineSection.tasks) &&
       _workView.running &&
       !widget.shell.anythingOpen &&
-      _fleet.refusal == null;
+      (widget.shell.section != Section.machine || widget.machines.all.contains(widget.shell.place.machine)) &&
+      (widget.shell.section == Section.machine && widget.shell.place.machine != null
+              ? widget.machines.of(widget.shell.place.machine!).refusal
+              : _fleet.refusal) ==
+          null;
 
   /// Leaving the tab's page leaves its session: the agent runs on, and coming back opens it again.
   void _leaveTheSessionWithItsPage() {
@@ -5271,6 +5415,7 @@ class _ShellState extends State<Shell> {
         ],
       );
     }
+    if (watched) _keepTheVaultButtonTrue(machine, widget.machines.of(machine));
     final onePage = machine.hostCard != null && _organization != null;
     final details = MachineDetailsPage(
       key: ValueKey('machine ${machine.name}'),
@@ -5291,20 +5436,7 @@ class _ShellState extends State<Shell> {
       onBack: () => widget.shell.goTo(Section.machines),
       onProject: (project) => _openPageProject(machine, project),
       projectCommands: (project) => _pageProjectCommands(machine, project),
-      tools: watched && machine == widget.machines.current
-          ? VaultButtons(
-              vault: _vault,
-              onLock: fleet.reachability == Reachability.connected
-                  ? () => unawaited(_actOnTheVault(_vault.lockDoes))
-                  : null,
-              onOpenWithThePassphrase: fleet.reachability == Reachability.connected && _canUnlockHere
-                  ? () => unawaited(_unlockHere())
-                  : null,
-              onMakeIt: fleet.reachability == Reachability.connected && _canMakeHere
-                  ? () => unawaited(_makeTheVault())
-                  : null,
-            )
-          : null,
+      tools: watched ? _vaultButtonsFor(machine, widget.machines.of(machine), _toolsFor(machine).vault) : null,
     );
     return onePage
         ? _machineOnePage(
@@ -5489,16 +5621,26 @@ class _ShellState extends State<Shell> {
   ///
   /// Resolved rather than read straight off the model, because what a view points at can go away
   /// underneath it: work that stopped existing, an operation this session never had.
-  Widget? _opened() {
-    switch (widget.shell.opened) {
+  Widget? _opened({Machine? on}) {
+    final opened = widget.shell.opened;
+    if (opened is NothingOpened) return null;
+    final machine = on ?? widget.machines.current;
+    if (!widget.machines.all.contains(machine) &&
+        opened is! OperationsOpened &&
+        opened is! OperationOpened &&
+        opened is! LogOpened) {
+      return null;
+    }
+    late final fleet = widget.machines.of(machine);
+    switch (opened) {
       case NothingOpened():
         return null;
       case WorkOpened():
-        final task = _fleet.selectedTask;
+        final task = fleet.selectedTask;
         if (task == null) return null;
         return WorkDetail(
           task: task,
-          repository: _fleet.projectOf(task)?.repositoryOf(task),
+          repository: fleet.projectOf(task)?.repositoryOf(task),
           held: widget.held,
           handing: _handing,
           handIns: _handIns,
@@ -5507,34 +5649,39 @@ class _ShellState extends State<Shell> {
       case BackupsOpened():
         return BackupsView(
           backups: widget.backups,
-          onConsider: (backup) => widget.backups.consider(_fleet.backend, backup),
-          onConsiderRestoring: (backup) => widget.backups.considerRestoring(_fleet.backend, backup),
-          onRestore: ({required force}) => _restoreTheMirror(force: force),
-          onRemove: _removeTheBackup,
+          onConsider: (backup) => widget.backups.consider(fleet.backend, backup),
+          onConsiderRestoring: (backup) => widget.backups.considerRestoring(fleet.backend, backup),
+          onRestore: ({required force}) => _restoreTheMirror(force: force, on: machine),
+          onRemove: () => _removeTheBackup(on: machine),
           onLetItBe: widget.backups.letItBe,
           onClose: widget.shell.close,
         );
       case EgressOpened():
         return EgressView(egress: widget.egress, onClose: widget.shell.close);
       case GateOpened():
-        return GateView(gate: widget.gate, focusNode: _openedFocus, onOpen: _look, onClose: widget.shell.close);
+        return GateView(
+          gate: widget.gate,
+          focusNode: _openedFocus,
+          onOpen: (push) => unawaited(_look(push, on: machine)),
+          onClose: widget.shell.close,
+        );
       case ReviewOpened():
         return ReviewView(
           gate: widget.gate,
           onBack: widget.shell.openGate,
           onClose: widget.shell.close,
-          onApprove: _approve,
-          onReject: _reject,
-          login: widget.machines.current.needsATunnel ? widget.machines.current.host : null,
-          machine: widget.machines.current.name,
-          onRefreshKeys: () => unawaited(widget.gate.readKeys(_fleet.backend)),
-          onTryKey: (key) => unawaited(widget.gate.tryKey(_fleet.backend, key)),
-          onKeepKey: (key) => unawaited(_keepKey(key)),
-          onWithoutLineEndings: (without) => unawaited(widget.gate.showWithoutLineEndings(_fleet.backend, without)),
+          onApprove: () => unawaited(_approve(on: machine)),
+          onReject: () => unawaited(_reject(on: machine)),
+          login: machine.needsATunnel ? machine.host : null,
+          machine: machine.name,
+          onRefreshKeys: () => unawaited(widget.gate.readKeys(fleet.backend)),
+          onTryKey: (key) => unawaited(widget.gate.tryKey(fleet.backend, key)),
+          onKeepKey: (key) => unawaited(_keepKey(key, on: machine)),
+          onWithoutLineEndings: (without) => unawaited(widget.gate.showWithoutLineEndings(fleet.backend, without)),
           // Offered only where a terminal opens on the machine from here.
-          onKeyTerminal: onTheMachine(widget.machines.current, const <String>['porelo'], terminal: true) == null
+          onKeyTerminal: onTheMachine(machine, const <String>['porelo'], terminal: true) == null
               ? null
-              : () => unawaited(_refusedKeyInATerminal()),
+              : () => unawaited(_refusedKeyInATerminal(on: machine)),
         );
       case LogOpened(:final task, :final log, :final formatted):
         final tail = widget.logs.find(task, log, formatted: formatted);
@@ -5543,7 +5690,7 @@ class _ShellState extends State<Shell> {
       case OperationsOpened():
         return OperationsList(
           operations: widget.operations,
-          machine: widget.machines.current.name,
+          machine: machine.name,
           focusNode: _openedFocus,
           onOpen: widget.shell.openOperation,
           onClose: widget.shell.close,
@@ -5583,19 +5730,14 @@ class _ShellState extends State<Shell> {
     _organization?.removeListener(_checkOrganizationPlace);
     widget.machines.removeListener(_machineChanged);
     for (final tools in _machineTools.values) {
-      if (identical(tools, _initialTools)) continue;
-      for (final model in [
-        tools.vault,
-        tools.vault.devices,
-        tools.connections,
-        tools.inventory,
-        tools.authentication,
-        tools.readiness,
-      ]) {
-        model.removeListener(_homeserversChanged);
-      }
-      tools.dispose();
+      _releaseTools(tools);
     }
+    _machineTools.clear();
+    _providerCards.clear();
+    _destinationCards.clear();
+    _sectionRetries.clear();
+    _sectionReadAt.clear();
+    _vaultAskedFor.clear();
     _menuFocus.dispose();
     final source = widget.organizationSource;
     if (source is PoreloOrganizationSource) {

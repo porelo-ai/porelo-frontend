@@ -3893,7 +3893,8 @@ class FakeTunnels extends Tunnels {
     final failing = World.stopFailsWith;
     if (failing != null) return Started(went: false, words: failing);
     // Nothing serves on the forward any more, so the try that follows finds nobody there.
-    World.backend.absent = const VarlinkDisconnected('Connection refused');
+    final backend = World.machines.of(machine).backend;
+    if (backend is FakeBackend) backend.absent = const VarlinkDisconnected('Connection refused');
     return const Started(went: true, words: 'stopped by systemd');
   }
 

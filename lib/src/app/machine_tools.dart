@@ -9,7 +9,8 @@ import 'vault.dart';
 class MachineTools {
   /// Creates independent observations sharing only this device's key store.
   MachineTools(DeviceKeyStore keys)
-    : vault = Vault(keys: keys),
+    : _ownsModels = true,
+      vault = Vault(keys: keys),
       connections = Connections(),
       inventory = AgentInventory(),
       authentication = Authentication(),
@@ -22,7 +23,7 @@ class MachineTools {
     required this.inventory,
     required this.authentication,
     required this.readiness,
-  });
+  }) : _ownsModels = false;
 
   /// The machine's vault, never another machine's pending answer.
   final Vault vault;
@@ -39,6 +40,7 @@ class MachineTools {
   /// The machine's readiness checks.
   final HostReadiness readiness;
 
+  final bool _ownsModels;
   int _pending = 0;
   bool _released = false;
 
@@ -62,6 +64,8 @@ class MachineTools {
   }
 
   void _dispose() {
+    // Supplied observations are still listened to and eventually disposed by the application.
+    if (!_ownsModels) return;
     vault.devices.dispose();
     vault.dispose();
     connections.dispose();

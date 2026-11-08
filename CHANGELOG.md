@@ -31,7 +31,6 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - *Work* and *Needs you* use the leaf page head and state chips, with *New work* above the List/Running switch and a Needs you total matching its badge above separate group cards; Running keeps room for its terminal on phones and tablets and across view changes, with filtering and sorting in List only.
 - Forge and project pages have clear page heads, visible filters and state chips; each organization section keeps its own head and controls for retrying failed reads while displaying provisional changes, with distinct role and status words and setup actions kept in reach.
 - Each machine’s Tasks, Projects, Vault, Credentials, Agents & providers, Health, and management open as pages from its side bar, keeping their data and actions on that machine, with the vault's contents in view and action results on the same page.
-
 - The side bar folds into machines and organizations with facts and actions on their parent pages, stays beside the page on tablets, keeps a stop for every machine in the title bar, retains machine actions and page explanations, and keeps machine setup and organization return paths on the right page.
 
 - Setting up a server as a machine is a wizard of one question per page, each page opening only once its answer holds: the machine, the server's address answering SSH, its SSH host key fetched when you ask and compared on the server, an address your `known_hosts` holds with another key said so, root's login handed over in a terminal on the server until root answers with your card key, and the check. Its last page, also behind *Give it your token…*, names each source of a forge token with what it answered.
@@ -141,6 +140,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `--roles project-admin` role is gone: a project admin is whoever the organization says.
 
 ### Fixed
+
+- Machine sections keep actions, vault reads, and overlays on their named machine when the current selection changes, release forgotten-machine observations, and safely cancel reads after a page closes.
 
 - Machine navigation keeps connection and setup recovery actions, organization host management and card creation reachable, restores only valid saved places, and keeps tools and unread counts tied to the machine shown.
 

@@ -79,7 +79,7 @@ void main() {
   });
 
   // Harm: a machine page must never stop a different machine after current selection changes.
-  testWidgets('a machine page refuses commands while a different machine is current', (tester) async {
+  testWidgets('a machine page stops only its own machine while a different machine is current', (tester) async {
     await World.startBackend(World.work);
     await World.startApp(tester);
     final first = World.machines.current;
@@ -90,10 +90,13 @@ void main() {
     World.machines.select(second);
     await World.settle(tester);
     final panic = tester.widget<OutlinedButton>(find.byKey(const Key('machine.panic')));
-    expect(panic.onPressed, isNull);
+    expect(panic.onPressed, isNotNull);
     await World.tapInView(tester, 'machine.panic');
-    expect(World.backend.panics, isEmpty);
+    await World.tapInView(tester, 'stop-it-all');
+    expect(World.backend.panics, [true, false]);
     expect(World.elsewhere.panics, isEmpty);
+    expect(World.shell.place.machine, first);
+    expect(World.machines.current, second);
   });
 
   // Harm: a default row on another machine can start work on the current machine instead.

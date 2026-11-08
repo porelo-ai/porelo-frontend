@@ -1,18 +1,33 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
+import 'package:porelo_frontend/src/app/device_key.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
+import 'package:porelo_frontend/src/app/tunnel.dart';
 import 'package:porelo_frontend/src/ui/authentication_view.dart';
+import 'package:porelo_frontend/src/ui/agents_view.dart';
 import 'package:porelo_frontend/src/ui/connections_view.dart';
 import 'package:porelo_frontend/src/ui/destinations_view.dart';
 import 'package:porelo_frontend/src/ui/host_readiness_view.dart';
 import 'package:porelo_frontend/src/ui/vault_view.dart';
+import 'package:porelo_frontend/src/ui/vault_actions.dart';
+import 'package:porelo_frontend/src/ui/operations.dart';
+import 'package:porelo_frontend/src/ui/work_page.dart';
 
 import '../features/support/tiles.dart';
 import '../features/support/world.dart';
+import '../features/step/i_choose_the_command.dart';
 
-const _second = Machine(name: 'elsewhere', socketPath: '/unused');
+const _second = Machine(
+  name: 'elsewhere',
+  socketPath: '/unused',
+  host: 'runner@second.example.org',
+  remoteSocket: '/run/user/1000/porelo/porelod.sock',
+);
 
 Future<Machine> _start(WidgetTester tester, {FakeBackend? secondBackend}) async {
   await World.startBackend(World.work);
@@ -66,6 +81,267 @@ Future<void> _open(WidgetTester tester, MachineSection section) async {
 }
 
 void main() {
+  // Harm: a directly restored managing page never reads the vault of the machine it names.
+  testWidgets('Managing reads its own vault without selecting its machine', (tester) async {
+    final first = await _start(tester);
+    final before = World.backend.storeAsked.length;
+    World.shell.choosePlace(
+      const ShellPlace(Section.machine, machine: _second, machineSection: MachineSection.managing),
+    );
+    await World.settle(tester);
+    expect(World.elsewhere.storeAsked, contains('credentials'));
+    expect(World.backend.storeAsked.length, before);
+    expect(find.textContaining('Vault: Open · 1 entries'), findsOneWidget);
+    expect(find.byType(VaultButtons), findsOneWidget);
+    expect(World.machines.current, first);
+  });
+
+  // Harm: an emergency action becomes disabled or stops the title-bar machine instead of its leaf.
+  testWidgets('Managing can panic its own machine while another is current', (tester) async {
+    final first = await _start(tester);
+    await _open(tester, MachineSection.managing);
+    World.machines.select(first);
+    await World.settle(tester);
+    await World.tapInView(tester, 'machine.panic');
+    await World.tapInView(tester, 'stop-it-all');
+    expect(World.elsewhere.panics, [true, false]);
+    expect(World.backend.panics, isEmpty);
+    expect(World.machines.current, first);
+  });
+
+  // Harm: a scoped keyboard command is disabled or refreshes the title-bar machine instead.
+  testWidgets('Managing refresh shortcut reaches its own machine', (tester) async {
+    final first = await _start(tester);
+    await _open(tester, MachineSection.managing);
+    World.machines.select(first);
+    await World.settle(tester);
+    final ownBefore = World.elsewhere.projectsListed;
+    final firstBefore = World.backend.projectsListed;
+    await tester.sendKeyEvent(LogicalKeyboardKey.f5);
+    await World.settle(tester);
+    expect(World.elsewhere.projectsListed, greaterThan(ownBefore));
+    expect(World.backend.projectsListed, firstBefore);
+    expect(World.machines.current, first);
+  });
+
+  // Harm: the finder reveals a leaf command on a different machine's facts and executes it there.
+  testWidgets('the finder keeps a managing command on the leaf machine', (tester) async {
+    final first = await _start(tester);
+    await _open(tester, MachineSection.managing);
+    World.machines.select(first);
+    await World.settle(tester);
+    final ownBefore = World.elsewhere.healthAsked;
+    final firstBefore = World.backend.healthAsked;
+    await iChooseTheCommand(tester, 'Check whether this machine can run anything');
+    expect(World.elsewhere.healthAsked, ownBefore + 1);
+    expect(World.backend.healthAsked, firstBefore);
+    expect(World.shell.place.machine, _second);
+    expect(World.machines.current, first);
+  });
+
+  // Harm: scoped daemon checks or destructive previews are refused or sent to a different machine.
+  for (final id in ['machine.doctor', 'machine.clear', 'fleet.refresh']) {
+    testWidgets('Managing runs $id on its own machine while another is current', (tester) async {
+      final first = await _start(tester);
+      await _open(tester, MachineSection.managing);
+      World.machines.select(first);
+      await World.settle(tester);
+      final firstHealth = World.backend.healthAsked;
+      final ownHealth = World.elsewhere.healthAsked;
+      final firstProjects = World.backend.projectsListed;
+      final ownProjects = World.elsewhere.projectsListed;
+      await World.tapInView(tester, id);
+      switch (id) {
+        case 'machine.doctor':
+          expect(World.elsewhere.healthAsked, ownHealth + 1);
+          expect(World.backend.healthAsked, firstHealth);
+        case 'machine.clear':
+          expect(World.elsewhere.clears, [(project: null, dryRun: true, force: false)]);
+          expect(World.backend.clears, isEmpty);
+        case 'fleet.refresh':
+          expect(World.elsewhere.projectsListed, greaterThan(ownProjects));
+          expect(World.backend.projectsListed, firstProjects);
+      }
+      expect(World.machines.current, first);
+    });
+  }
+
+  // Harm: the vault's header/menu or the managing page changes or opens another machine's vault.
+  for (final section in [MachineSection.managing, MachineSection.vault]) {
+    for (final state in ['open', 'locked', 'missing']) {
+      testWidgets('${section.name} acts on its own $state vault while another machine is current', (tester) async {
+        final first = await _start(tester);
+        World.elsewhere.theStoreIs = VaultState(
+          vault: '/unused',
+          exists: state != 'missing',
+          readable: state != 'locked',
+          credentials: const [],
+        );
+        await _open(tester, section);
+        World.machines.select(first);
+        await World.settle(tester);
+        if (state == 'open') {
+          if (section == MachineSection.vault) await World.tapInView(tester, 'vault-actions');
+          await World.tapInView(tester, 'vault.shut');
+          await World.tapInView(tester, 'vault-confirm');
+          expect(World.elsewhere.storeAsked, contains('lock'));
+          expect(World.backend.storeAsked, isNot(contains('lock')));
+        } else {
+          await World.tapInView(tester, state == 'missing' ? 'vault.make' : 'vault.passphrase');
+          expect(World.terminals, isNotEmpty);
+          expect(World.terminals.last.command, contains(_second.host));
+        }
+        expect(World.machines.current, first);
+      });
+    }
+  }
+
+  // Harm: forgetting a leaf removes the selected machine rather than the machine being managed.
+  testWidgets('Managing forgets its own machine while another is current', (tester) async {
+    final first = await _start(tester);
+    await _open(tester, MachineSection.managing);
+    World.machines.select(first);
+    await World.settle(tester);
+    await World.tapInView(tester, 'machine-menu');
+    await World.tapInView(tester, 'machine.forget');
+    await World.tapInView(tester, 'forget-it');
+    expect(World.machines.all, [first]);
+  });
+
+  // Harm: forgotten machines retain listeners and credentials, then reuse stale data when re-added.
+  testWidgets('forgetting a machine releases its models and readding starts without its old rows', (tester) async {
+    await _start(tester);
+    await _open(tester, MachineSection.vault);
+    final vault = tester.widget<VaultView>(find.byType(VaultView)).vault;
+    await _open(tester, MachineSection.credentials);
+    final connections = tester.widget<ConnectionsView>(find.byType(ConnectionsView)).connections;
+    await _open(tester, MachineSection.agents);
+    final providers = tester.widget<AuthenticationView>(find.byType(AuthenticationView)).authentication;
+    final inventory = tester.widget<AgentsView>(find.byType(AgentsView)).inventory;
+    await _open(tester, MachineSection.health);
+    final readiness = tester.widget<HostReadinessView>(find.byType(HostReadinessView)).readiness;
+    await toTheMachines(tester);
+    await World.machines.forget(_second);
+    await World.settle(tester);
+    for (final model in [vault, vault.devices, connections, providers, inventory, readiness]) {
+      expect(() => model.addListener(() {}), throwsFlutterError, reason: 'a forgotten machine releases its notifiers');
+    }
+    World.elsewhere.credentialsTake = const Duration(seconds: 10);
+    await World.machines.add(_second);
+    await _open(tester, MachineSection.vault);
+    expect(find.text('second-entry'), findsNothing);
+    await tester.pump(const Duration(seconds: 11));
+    await World.settle(tester);
+    expect(find.text('second-entry'), findsOneWidget);
+  });
+
+  // Harm: a refresh resumes after the frame closes and starts a read on disposed tool models.
+  testWidgets('a refresh that outlives the frame does not reuse disposed tools', (tester) async {
+    final backend = _WaitingRefreshBackend();
+    await _start(tester, secondBackend: backend);
+    await _open(tester, MachineSection.vault);
+    final projects = await backend.projects();
+    backend.waitForProjects = Completer<List<Project>>();
+    await World.tapInView(tester, 'refresh-all');
+    expect(backend.refreshWaiting, isTrue);
+    await tester.pumpWidget(const SizedBox.shrink());
+    backend.waitForProjects!.complete(projects);
+    await World.settle(tester);
+    expect(tester.takeException(), isNull);
+  });
+
+  // Harm: an offline or differently selected leaf strands overlays behind disabled page contents.
+  for (final offline in [false, true]) {
+    for (final differentCurrent in [false, true]) {
+      testWidgets('section operations work with offline=$offline and different current=$differentCurrent', (
+        tester,
+      ) async {
+        final first = await _start(tester);
+        await _open(tester, MachineSection.vault);
+        World.operations.run(
+          title: 'Only the leaf action',
+          machine: _second.name,
+          output: Stream<String>.fromIterable(['Leaf output']),
+        );
+        World.operations.run(
+          title: 'Only the current action',
+          machine: first.name,
+          output: Stream<String>.fromIterable(['Current output']),
+        );
+        if (offline) {
+          World.elsewhere.absent = const VarlinkDisconnected('gone');
+          World.elsewhere.lose();
+        }
+        if (differentCurrent) World.machines.select(first);
+        await World.settle(tester);
+        await World.tapInView(tester, 'operations-indicator');
+        expect(find.byType(OperationsList), findsOneWidget);
+        expect(find.text('Only the leaf action'), findsOneWidget);
+        expect(find.text('Only the current action'), findsNothing);
+        await tester.tap(find.byTooltip('Close (Esc)').hitTestable());
+        await World.settle(tester);
+        expect(find.byType(OperationsList), findsNothing);
+        expect(World.shell.opened, isA<NothingOpened>());
+      });
+    }
+  }
+
+  // Harm: a refusal on another machine tears down the terminal still visible on this Tasks leaf.
+  testWidgets('Running keeps its terminal when only the current machine has a refusal', (tester) async {
+    final first = await _start(tester);
+    await World.machines.of(first).removeWork('porelo-checkout-shell');
+    expect(World.machines.of(first).refusal, isNotNull);
+    await _open(tester, MachineSection.tasks);
+    await World.tapInView(tester, 'work-view-running');
+    expect(World.sessions.current?.machine, _second);
+    final terminal = World.terminals.last;
+    World.machines.select(first);
+    await World.settle(tester);
+    final view = tester.widget<WorkPage>(find.byType(WorkPage)).view;
+    view.moveToTab('${_second.name}/porelo-shared-shell');
+    await World.settle(tester);
+    expect(terminal.closed, isFalse);
+    expect(World.sessions.current?.machine, _second);
+  });
+
+  // Harm: a start dialog offers one machine's device enrollment but unlocks a different machine.
+  testWidgets('a start dialog unlocks the machine whose device enrollment it offered', (tester) async {
+    final first = await _start(tester);
+    const slot = Keyslot(
+      id: 'leaf-device',
+      name: 'test device',
+      storage: KeyslotStorage.userScoped,
+      enrolled: '',
+      lastUsed: '',
+      self: false,
+      recovery: false,
+    );
+    World.elsewhere.keyslotsHeld.add((slot: slot, share: 'test-share'));
+    await World.keys.write(World.elsewhere.nodeId, const DeviceKey(slot: 'leaf-device', share: 'test-share'));
+    World.elsewhere.nextReadiness = const Readiness(
+      ready: false,
+      outcome: StartOutcome.vaultLocked,
+      agent: 'second-agent',
+      provider: 'second-provider',
+      credential: 'second-entry',
+      detail: 'Locked',
+    );
+    await _open(tester, MachineSection.vault);
+    await _open(tester, MachineSection.tasks);
+    await World.tapInView(tester, 'new-work');
+    await World.tapInView(tester, 'new-work-in checkout');
+    World.starting.chooseAgent('second-agent');
+    await World.settle(tester);
+    World.machines.select(first);
+    await World.settle(tester);
+    await World.tapInView(tester, 'open-with-this-device');
+    await World.chooseWords(tester, 'for an hour');
+    await World.tapInView(tester, 'vault-confirm');
+    expect(World.elsewhere.unlocksFor, [60]);
+    expect(World.backend.unlocksFor, isEmpty);
+    expect(World.machines.current, first);
+  });
+
   // Harm: an unopened socket is used by a leaf and escapes as an unhandled StateError.
   for (final section in MachineSection.values) {
     testWidgets('a never-connected machine can open ${section.name} without asking an unopened socket', (tester) async {
@@ -215,7 +491,13 @@ void main() {
         case MachineSection.managing:
           expect(find.textContaining('elsewhere'), findsWidgets);
           final stop = tester.widget<FilledButton>(find.byKey(const Key('machine.stop')));
-          expect(stop.onPressed, isNull, reason: 'a current-selection command cannot stop a different machine');
+          expect(stop.onPressed, isNotNull, reason: 'the leaf must be able to stop its own host');
+          await World.tapInView(tester, 'machine.stop');
+          await World.tapInView(tester, 'stop-it');
+          expect(World.stopsAsked, [Tunnels.stopCommandFor(_second)]);
+          expect(World.backend.absent, isNull);
+          expect(World.elsewhere.absent, isA<VarlinkDisconnected>());
+          expect(World.machines.current, first);
       }
       expect(tester.takeException(), isNull);
     });
@@ -234,6 +516,21 @@ void main() {
     expect(find.textContaining('never-render-this-value'), findsNothing);
     expect(find.text('a-provider'), findsNothing);
   });
+}
+
+class _WaitingRefreshBackend extends FakeBackend {
+  _WaitingRefreshBackend() : super([World.aTask('porelo-shared-shell', 'shared')]);
+
+  Completer<List<Project>>? waitForProjects;
+  bool refreshWaiting = false;
+
+  @override
+  Future<List<Project>> projects() {
+    final waiting = waitForProjects;
+    if (waiting == null) return super.projects();
+    refreshWaiting = true;
+    return waiting.future;
+  }
 }
 
 class _GuardedBackend extends FakeBackend {
