@@ -8,6 +8,7 @@ import '../app/templates.dart';
 import 'choice_field.dart';
 import 'tokens.dart';
 import 'dialog_scroll.dart';
+import 'sign_in_panel.dart';
 import '../app/links.dart';
 
 /// Starts work: a project, an agent, a way of being involved, and what to ask for.
@@ -107,6 +108,8 @@ class _StartWorkDialogState extends State<StartWorkDialog> {
 
   late final TextEditingController _name = TextEditingController(text: widget.starting.name);
 
+  late final TextEditingController _model = TextEditingController(text: widget.starting.model);
+
   bool _changingRepository = false;
 
   /// The name field, showing a suggestion that came in since, but never replacing what is being typed.
@@ -118,6 +121,17 @@ class _StartWorkDialogState extends State<StartWorkDialog> {
       );
     }
     return _name;
+  }
+
+  /// The model field, showing a default that came in since, but never replacing what is being typed.
+  TextEditingController _modelShown(String model) {
+    if (_model.text.trim() != model) {
+      _model.value = TextEditingValue(
+        text: model,
+        selection: TextSelection.collapsed(offset: model.length),
+      );
+    }
+    return _model;
   }
 
   /// The minutes field, showing what the model holds: set again under the open dialog, the field says it too.
@@ -136,8 +150,21 @@ class _StartWorkDialogState extends State<StartWorkDialog> {
     _prompt.dispose();
     _minutes.dispose();
     _name.dispose();
+    _model.dispose();
     super.dispose();
   }
+
+  /// Whether the agent is signed in by the machine's own login task, shown here: only on a machine that has them.
+  bool _signsInHere(StartWork starting) {
+    final signIn = starting.signIn;
+    return signIn.served == true &&
+        signIn.agent != null &&
+        (signIn.holdsTheStart || signIn.words != null || signIn.asking);
+  }
+
+  /// Whether the agent's own login in a terminal comes first, as on a machine older than sign-ins of its own.
+  bool _signsInFirst(StartWork starting) =>
+      starting.needsASignIn && widget.onLogIn != null && starting.signIn.served != true;
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
@@ -148,7 +175,7 @@ class _StartWorkDialogState extends State<StartWorkDialog> {
 
       return AlertDialog(
         title: Text(switch ((continuing, starting.from)) {
-          (final Task task, _) => 'Continue ${task.name}',
+          (final Task task, _) => 'Continue ${task.shown}',
           (_, final Template job) => 'Run ${job.name} in ${starting.project?.name ?? ''}',
           _ => 'Start work in ${starting.project?.name ?? ''}',
         }),
@@ -219,7 +246,10 @@ class _StartWorkDialogState extends State<StartWorkDialog> {
                   ),
                 // What a start needs comes first, above the fold: a sign-in nobody saw was why a
                 // new person started a shell where the agent said "Not logged in".
-                if (starting.needsASignIn && widget.onLogIn != null)
+                // On a machine with sign-ins of its own: its login task, waited on here.
+                if (_signsInHere(starting))
+                  SignInPanel(signingIn: starting.signIn, onOpenTheVault: widget.onOpenWithThisDevice),
+                if (_signsInFirst(starting))
                   _SignInFirst(
                     starting: starting,
                     onLogIn: widget.onLogIn!,
@@ -312,6 +342,26 @@ class _StartWorkDialogState extends State<StartWorkDialog> {
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ),
+                // The provider's default is filled in once the machine says which provider runs; sent only
+                // when it holds one.
+                const SizedBox(height: Space.normal),
+                TextField(
+                  key: const Key('start-model'),
+                  controller: _modelShown(starting.model),
+                  decoration: InputDecoration(
+                    labelText: 'Model',
+                    hintText: 'The default',
+                    border: const OutlineInputBorder(),
+                    helperText: starting.modelHelp,
+                    helperMaxLines: 4,
+                  ),
+                  onChanged: starting.chooseModel,
+                ),
+                if (starting.modelWords case final words?)
+                  Padding(
+                    padding: const EdgeInsets.only(top: Space.tight),
+                    child: Text(words, key: const Key('start-model-words')),
+                  ),
                 const SizedBox(height: Space.wide),
                 Text('How you are involved', style: Theme.of(context).textTheme.labelLarge),
                 _WhichMode(starting: starting),
@@ -352,7 +402,8 @@ class _StartWorkDialogState extends State<StartWorkDialog> {
                 // saying nothing would.
                 if (starting.readiness != null &&
                     !starting.readiness!.ready &&
-                    !(starting.needsASignIn && widget.onLogIn != null) &&
+                    !_signsInFirst(starting) &&
+                    !(starting.signIn.served == true && starting.signIn.heldByCanStart) &&
                     !starting.readinessIsAboutTheName &&
                     !starting.readinessIsAboutTheRepository) ...<Widget>[
                   const SizedBox(height: Space.wide),
@@ -395,7 +446,7 @@ class _StartWorkDialogState extends State<StartWorkDialog> {
             onPressed: () => Navigator.of(context).pop(false),
             child: const Text('Not now'),
           ),
-          if (starting.needsASignIn && widget.onLogIn != null)
+          if (_signsInFirst(starting))
             FilledButton(
               key: const Key('start-sign-in-first'),
               onPressed: () => widget.onLogIn!(starting.chosenAgent!),

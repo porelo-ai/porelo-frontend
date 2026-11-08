@@ -1051,7 +1051,8 @@ abstract final class TileSaid {
           ),
       ],
       const SizedBox(height: Space.small),
-      if (task != null && task.label.isNotEmpty)
+      // The container's name, where the heading is another: it is what every call takes.
+      if (task != null && task.shown != task.name)
         SelectableText(task.name, key: const Key('tile-name'), style: text.bodySmall),
       if (where.isNotEmpty) Text(where, key: const Key('tile-where'), style: text.bodySmall),
       // Said here as well: the status line is easy to miss from a tile.
@@ -1177,7 +1178,7 @@ class TaskTile extends StatelessWidget {
                             // Selectable, because the name is what somebody types into `porelo` on the machine.
                             if (task != null || first != null)
                               SelectableText(
-                                task == null ? first!.task : (task.label.isEmpty ? task.name : task.label),
+                                task == null ? first!.task : task.shown,
                                 key: const Key('tile-what'),
                                 style: text.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                               ),
@@ -1457,10 +1458,10 @@ class WorkRow extends StatelessWidget {
   static String projectOf(Task? task) =>
       task == null || task.project.isEmpty || task.project == defaultProject ? 'Default' : task.project;
 
-  /// The agent, and whom it was brokered to where that is known.
+  /// The agent, the model it runs where the machine says, and whom it was brokered to where that is known.
   static String agentOf(Task? task) => task == null || task.agent.isEmpty
       ? 'no agent named'
-      : (task.provider.isEmpty ? task.agent : '${task.agent} via ${task.provider}');
+      : task.modelLine(task.agent) ?? (task.provider.isEmpty ? task.agent : '${task.agent} via ${task.provider}');
 
   /// How it works, in the words of the page.
   static String wayOf(Task? task) => task?.mode == Mode.unattended ? 'Unattended' : 'In a terminal';
@@ -1526,9 +1527,9 @@ class WorkRow extends StatelessWidget {
                                   children: <Widget>[
                                     // Selectable, because the name is what somebody types into `porelo` on the machine.
                                     Tooltip(
-                                      message: task == null || task.label.isEmpty ? name : task.label,
+                                      message: task?.shown ?? name,
                                       child: SelectableText(
-                                        task == null || task.label.isEmpty ? name : task.label,
+                                        task?.shown ?? name,
                                         key: const Key('tile-what'),
                                         maxLines: 1,
                                         onTap: () {

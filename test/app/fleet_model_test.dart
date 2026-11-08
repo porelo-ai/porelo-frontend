@@ -380,6 +380,17 @@ class _Wedged implements FleetBackend {
       const Readiness(ready: true, outcome: StartOutcome.ready, agent: '', provider: '', credential: '', detail: '');
 
   @override
+  Future<List<AgentSignIn>> agentSignIns({List<String>? agents}) async =>
+      throw const FeatureNotSupported('AgentSignIns');
+
+  @override
+  Future<SignInStarted> agentSignInStart(String agent) async => throw const FeatureNotSupported('AgentSignInStart');
+
+  @override
+  Stream<SignInWaited> agentSignInWait(String agent) =>
+      Stream<SignInWaited>.error(const FeatureNotSupported('AgentSignInWait'));
+
+  @override
   Future<VaultState> credentials() async => VaultState.from(const <String, dynamic>{});
 
   @override
@@ -784,6 +795,17 @@ class _Machine implements FleetBackend {
     Map<String, String>? credentials,
   }) async =>
       const Readiness(ready: true, outcome: StartOutcome.ready, agent: '', provider: '', credential: '', detail: '');
+
+  @override
+  Future<List<AgentSignIn>> agentSignIns({List<String>? agents}) async =>
+      throw const FeatureNotSupported('AgentSignIns');
+
+  @override
+  Future<SignInStarted> agentSignInStart(String agent) async => throw const FeatureNotSupported('AgentSignInStart');
+
+  @override
+  Stream<SignInWaited> agentSignInWait(String agent) =>
+      Stream<SignInWaited>.error(const FeatureNotSupported('AgentSignInWait'));
 
   @override
   Future<VaultState> credentials() async => VaultState.from(const <String, dynamic>{});

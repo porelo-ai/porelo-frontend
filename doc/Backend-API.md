@@ -163,6 +163,20 @@ Worth knowing before designing around them:
   including running, ended and stopped work. Both fields are optional: absent means not reported,
   so no age or inbox count is guessed. The last output line comes from `Tail(last: 1)`. An
   unattended run is never woken by a message; quiet is described as silence.
+- **A task's names and model come with the task.** A task is shown by its `label` where somebody set one, else by
+  `short`, else by `name`; `display` is its name in the project's room, and `name`, the container, is what every
+  call takes and is shown only in its details. `model` is what it was started with, `""` for the agent's own
+  default; `modelLabel` is shown as it comes, else the id. All are optional: absent means not reported. The start
+  form fills its model from `Repository.defaultModels`, else `Project.defaultModels`, for the provider `CanStart`
+  names, and sends `Start`'s `model` only when the field holds one; *Continue*, *Restart* and *Recreate* send the
+  task's own, and a start of an agent for each repository sends none.
+- **An agent's sign-in is the machine's own login task.** Before a start, and once for every agent of a start of
+  several, the window asks `AgentSignIns`; every state but `SIGNED_IN` holds the start, an unknown one too, and
+  `CanStart` still has to clear. *Sign in* sends `AgentSignInStart(agent)`, which starts the login task or names the
+  one that runs (`started` false, so a second is never opened), opens that task's terminal as any task's, where the
+  person follows the link and pastes the code, and waits with `AgentSignInWait` until its final reply. *End the
+  sign-in* stops the login task with `Stop`; leaving the form drops only the wait. A login task is listed with
+  `kind: LOGIN`. Against a machine without these methods a start goes as before.
 - **A task's builds come with the task.** `buildReader` `""` means no forge follows its pushes and
   nothing is said; set, with `builds` empty and `buildProblem` `""`, it means nothing was pushed yet;
   `buildProblem` says why a named reader does not work. A `Build` lists its jobs only once the verdict

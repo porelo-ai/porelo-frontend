@@ -114,6 +114,9 @@ import 'vault_view.dart';
 import 'start_agents_view.dart';
 import 'first_start_view.dart' show askFirstStart;
 import 'start_work_view.dart';
+import 'login_task_terminal.dart';
+import 'sign_in_panel.dart';
+import '../app/agent_sign_in.dart';
 import 'widening_view.dart';
 import 'gate_view.dart';
 import 'words_dialog.dart';
@@ -398,6 +401,13 @@ class _ShellState extends State<Shell> {
   late final AppLifecycleListener _leaving;
   final _runs = <String, UnattendedRun>{};
 
+  /// The sign-in offered on a start that failed while its agent read not signed in, by operation: **never a second
+  /// start**, only the sign-in.
+  final _signInsAfterAFailedStart = <String, SigningIn>{};
+
+  /// What waits on the end of a start to offer its sign-in, by operation: taken off when the window goes.
+  final _waitsForAFailedStart = <String, VoidCallback>{};
+
   /// This build's version, stamped by the package build; a build from source says so.
   static const _version = String.fromEnvironment('PORELO_VERSION', defaultValue: 'built from source');
 
@@ -501,6 +511,7 @@ class _ShellState extends State<Shell> {
     widget.shell.addListener(_moveKeyboard);
     widget.sessions.addListener(_moveKeyboard);
     widget.shell.addListener(_leaveTheSessionWithItsPage);
+    widget.shell.addListener(_leaveTheSignInsWithTheirView);
     _workView.addListener(_leaveTheSessionWithItsPage);
     _workView.addListener(_moveKeyboard);
     widget.settings.addListener(_keepRefreshing);
@@ -861,14 +872,22 @@ class _ShellState extends State<Shell> {
   };
 
   List<Command> _viewActions() {
+    final signIn = switch (widget.shell.opened) {
+      OperationOpened(:final id) => _signInsAfterAFailedStart[id],
+      _ => null,
+    };
+    final signingIn = <Command>[
+      if (signIn != null) ...[signInCommand(signIn), endTheSignInCommand(signIn)],
+    ];
     final run = _openedRun;
     if (run != null) {
       return [
         leaveWorkCommand(widget.shell.close, unavailable: run.operation.running ? 'the start is still running' : null),
         _restartCommand(run),
+        ...signingIn,
       ];
     }
-    return [];
+    return signingIn;
   }
 
   Command _restartCommand(UnattendedRun run) => restartRunCommand(
@@ -2344,17 +2363,21 @@ class _ShellState extends State<Shell> {
         machine.name,
   ];
 
-  Project? _listed(String name) => _fleet.projects.where((each) => each.project.name == name).firstOrNull?.project;
+  Project? _listed(String name, {FleetModel? on}) =>
+      (on ?? _fleet).projects.where((each) => each.project.name == name).firstOrNull?.project;
 
   /// Takes [name] if this machine carries it and this person has not taken it yet, at a person's act: a list never
   /// does, as a take fetches and may ask a token. Answers why it could not be, in words, or null.
-  Future<String?> _takeIfCarried(String name) async {
-    if (_listed(name)?.carried != true) return null;
+  ///
+  /// On [on], the machine acted on unless another is named.
+  Future<String?> _takeIfCarried(String name, {FleetModel? on}) async {
+    final fleet = on ?? _fleet;
+    if (_listed(name, on: fleet)?.carried != true) return null;
     final String words;
     try {
-      final taken = await _fleet.backend.takeProject(name);
+      final taken = await fleet.backend.takeProject(name);
       if (taken.taken) {
-        await _fleet.refresh(quietly: true);
+        await fleet.refresh(quietly: true);
         return null;
       }
       words = taken.words.isEmpty ? 'The machine did not say why.' : taken.words;
@@ -2440,6 +2463,8 @@ class _ShellState extends State<Shell> {
     final connections = _hostConnections;
     if (host == null || connections == null || project == defaultProject) return;
     final starting = widget.starting;
+    // The form's own machine, which the question is about, whichever is chosen meanwhile.
+    final on = starting.openedOn;
     if (!connections.connected(host)) {
       starting.notOfferedWords = '$host was not asked which repositories it has taken, so every one is offered.';
       return starting.offerOnly(
@@ -2449,7 +2474,7 @@ class _ShellState extends State<Shell> {
     }
     final HostProgress progress;
     // Still the same start on the same machine, after the wait: another opened meanwhile is not this one.
-    bool same() => mounted && starting.project?.name == project && widget.machines.current.hostCard?.name == host;
+    bool same() => mounted && starting.project?.name == project && on != null && identical(starting.openedOn, on);
     try {
       progress = await connections.progress(host);
     } on OrganizationRefused catch (refused) {
@@ -2496,38 +2521,76 @@ class _ShellState extends State<Shell> {
     await _offerToStart();
   }
 
+  /// The machine the start form was opened on, found by the backend it asks: never the one chosen since. Null where
+  /// it is no longer watched.
+  Machine? get _startMachine {
+    final on = widget.starting.openedOn;
+    if (on == null) return null;
+    // The one acted on first: it is the one a form opened just now was opened on.
+    final current = widget.machines.current;
+    if (identical(widget.machines.of(current).backend, on)) return current;
+    return widget.machines.all.where((each) => identical(widget.machines.of(each).backend, on)).firstOrNull;
+  }
+
   Future<void> _offerToStart({VoidCallback? onChangeProject}) async {
-    final machine = widget.machines.current;
+    // Every step around the start takes the machine the form was opened on, whichever is chosen meanwhile.
+    // A form whose machine is gone starts nothing, rather than on the machine chosen meanwhile.
+    final machine = widget.starting.openedOn == null ? widget.machines.current : _startMachine;
+    if (machine == null) {
+      widget.starting.close();
+      return;
+    }
     final vault = _toolsFor(machine).vault;
+    final signIn = widget.starting.signIn
+      ..machine = machine.name
+      ..openTheLoginTask = (task) => _openTheLoginTask(task, machine, stillOpen: () => widget.starting.signIn.running);
     await openStartWork(
       context,
       starting: widget.starting,
       onChangeProject: onChangeProject,
-      onStart: _beginTheRun,
+      onStart: () => _beginTheRun(machine),
       onKeep: _keepAsTemplate,
-      onStoreTheCredential: onTheMachineAsWritten(widget.machines.current, 'porelo') == null
+      onStoreTheCredential: onTheMachineAsWritten(machine, 'porelo') == null
           ? null
-          : _storeTheCredentialToStart,
-      onImportTheSignIn: onTheMachineAsWritten(widget.machines.current, 'porelo') == null
+          : () => _storeTheCredentialToStart(machine),
+      onImportTheSignIn: onTheMachineAsWritten(machine, 'porelo') == null
           ? null
-          : _importTheSignInToStart,
-      onLogIn: onTheMachineAsWritten(widget.machines.current, 'porelo') == null ? null : _logInWithTheAgent,
+          : () => _importTheSignInToStart(machine),
+      onLogIn: onTheMachineAsWritten(machine, 'porelo') == null ? null : (agent) => _logInWithTheAgent(agent, machine),
       onOpenWithThisDevice: vault.devices.enrolledHere ? () => _openWithThisDeviceToStart(machine) : null,
-      onGrant: _grantToStart,
-      onFixInATerminal: onTheMachine(widget.machines.current, _aShell, terminal: true) == null
+      onGrant: (entry) => _grantToStart(entry, machine),
+      onFixInATerminal: onTheMachine(machine, _aShell, terminal: true) == null
           ? null
-          : _fixTheUpstreamToStart,
+          : () => _fixTheUpstreamToStart(machine),
     );
+    // Left however it was left: only the wait is dropped, and the login task goes on, which is said.
+    final left = signIn.leave();
+    signIn.openTheLoginTask = null;
+    if (left != null && widget.machines.all.contains(machine)) widget.machines.of(machine).say(left);
     widget.starting.close();
+  }
+
+  /// Opens the terminal of the login task [task] on [machine], the one the sign-in was started on, while
+  /// [stillOpen] says its sign-in runs.
+  Future<void> _openTheLoginTask(String task, Machine machine, {required bool Function() stillOpen}) async {
+    if (!mounted || !widget.machines.all.contains(machine) || !stillOpen()) return;
+    await openTheLoginTask(context, sessions: widget.sessions, machine: machine, task: task);
   }
 
   /// A login shell on the machine, for a person to run what the machine named.
   static const List<String> _aShell = <String>['bash', '-l'];
 
+  /// Whether the start form is still open on [machine] after a wait: the window there, the machine still watched,
+  /// and the form neither closed nor opened on another machine since.
+  bool _formStillOn(Machine machine) =>
+      mounted &&
+      widget.machines.all.contains(machine) &&
+      widget.starting.project != null &&
+      identical(widget.starting.openedOn, widget.machines.of(machine).backend);
+
   /// Opens a shell on the machine whose upstream refused its key, where the person runs the command
   /// the machine named, then asks the machine again whether work can start: the fix is its to see.
-  Future<void> _fixTheUpstreamToStart() async {
-    final machine = widget.machines.current;
+  Future<void> _fixTheUpstreamToStart(Machine machine) async {
     final command = onTheMachine(machine, _aShell, terminal: true);
     if (command == null) return;
     await runInATerminal(
@@ -2540,14 +2603,16 @@ class _ShellState extends State<Shell> {
       command: command,
       open: widget.sessions.openTerminal,
     );
-    if (!mounted) return;
+    if (!_formStillOn(machine)) return;
     await widget.starting.askAgain();
   }
 
   /// Grants what starting said needs a grant, in a browser, then asks the machine again whether work
   /// can start: the grant is the machine's to confirm.
-  Future<void> _grantToStart(String entry) async {
-    await showGranting(context, Granting(_fleet.backend, widget.machines.current, entry));
+  Future<void> _grantToStart(String entry, Machine machine) async {
+    if (!widget.machines.all.contains(machine)) return;
+    await showGranting(context, Granting(widget.machines.of(machine).backend, machine, entry));
+    if (!_formStillOn(machine)) return;
     await widget.starting.askAgain();
   }
 
@@ -2556,15 +2621,14 @@ class _ShellState extends State<Shell> {
   Future<void> _openWithThisDeviceToStart(Machine machine) async {
     if (!widget.machines.all.contains(machine)) return;
     await _actOnTheVault(VaultAct.open, on: machine);
-    if (!mounted || !widget.machines.all.contains(machine)) return;
+    if (!_formStillOn(machine)) return;
     await widget.starting.askAgain();
   }
 
   /// Copies the sign-in the machine found into its vault, by the machine's own command, in a terminal there
   /// (the same sign-in terminal, since a shut vault asks there), then asks again whether work can start.
-  Future<void> _importTheSignInToStart() async {
+  Future<void> _importTheSignInToStart(Machine machine) async {
     final readiness = widget.starting.readiness;
-    final machine = widget.machines.current;
     final command = readiness == null ? null : onTheMachine(machine, readiness.importCommand, terminal: true);
     if (command == null) return;
     await runInATerminal(
@@ -2577,16 +2641,15 @@ class _ShellState extends State<Shell> {
       command: command,
       open: widget.sessions.openTerminal,
     );
-    if (!mounted) return;
+    if (!_formStillOn(machine)) return;
     await widget.starting.askAgain();
   }
 
   /// Stores the credential starting said is missing, by the line the machine names for its
   /// provider, in a terminal there — then asks the machine again whether work can start.
-  Future<void> _storeTheCredentialToStart() async {
+  Future<void> _storeTheCredentialToStart(Machine machine) async {
     final readiness = widget.starting.readiness;
-    final machine = widget.machines.current;
-    if (readiness == null) return;
+    if (readiness == null || !widget.machines.all.contains(machine)) return;
     // The machine's own command, as arguments, where it gives one.
     final named = onTheMachine(machine, readiness.storeCommand, terminal: true);
     if (named != null) {
@@ -2600,24 +2663,28 @@ class _ShellState extends State<Shell> {
         command: named,
         open: widget.sessions.openTerminal,
       );
-      if (!mounted) return;
+      if (!_formStillOn(machine)) return;
       await widget.starting.askAgain();
       return;
     }
     // A Porelo older than the field: the provider's line, run as the machine wrote it.
     final Providers providers;
     try {
-      providers = await _fleet.backend.providers();
+      providers = await widget.machines.of(machine).backend.providers();
     } on Exception catch (ex) {
       // Pressed from a dialog nobody awaits: said here, or it reaches nobody.
-      _fleet.say('The machine could not say how to store a credential for ${readiness.provider}: $ex');
+      if (!mounted || !widget.machines.all.contains(machine)) return;
+      widget.machines
+          .of(machine)
+          .say('The machine could not say how to store a credential for ${readiness.provider}: $ex');
       return;
     }
     final provider = providers.providers.where((each) => each.name == readiness.provider).firstOrNull;
     final command = provider == null ? null : onTheMachineAsWritten(machine, provider.storeCommand);
-    if (!mounted) return;
+    // No terminal for a form closed, or opened on another machine, while the machine answered.
+    if (!mounted || !_formStillOn(machine)) return;
     if (command == null) {
-      _fleet.say('The machine names no way to store a credential for ${readiness.provider}.');
+      widget.machines.of(machine).say('${machine.name} names no way to store a credential for ${readiness.provider}.');
       return;
     }
     await runInATerminal(
@@ -2630,54 +2697,75 @@ class _ShellState extends State<Shell> {
       command: command,
       open: widget.sessions.openTerminal,
     );
-    if (!mounted) return;
+    if (!_formStillOn(machine)) return;
     await widget.starting.askAgain();
   }
 
   /// Runs [agent]'s own login on the machine, through Porelo, in a terminal there: its page is offered
   /// as a link to open here, and its reply to `localhost` is forwarded while the terminal is open.
   /// Then asks the machine again whether work can start.
-  Future<void> _logInWithTheAgent(Agent agent) => _logIn(
+  Future<void> _logInWithTheAgent(Agent agent, Machine machine) => _logIn(
     agent,
+    on: machine,
     askAgain: widget.starting.askAgain,
     stillMissing: () => widget.starting.needsASignIn,
+    stillOpen: () => _formStillOn(machine),
     from: 'the start form',
   );
 
   /// Opens the wizard that starts the agent each repository of [name] names, on the machine acted on.
+  ///
+  /// **On the machine it was chosen on**, taken at the press: another chosen while that one is read changes nothing.
   Future<void> _startTheAgents(String name) async {
-    await _fleet.refresh(quietly: true);
-    final why = await _takeIfCarried(name);
-    if (why != null) return _fleet.say(why);
-    final project = _listed(name);
+    final machine = widget.machines.current;
+    final fleet = _fleet;
+    bool stillThere() => mounted && widget.machines.all.contains(machine);
+    await fleet.refresh(quietly: true);
+    if (!stillThere()) return;
+    final why = await _takeIfCarried(name, on: fleet);
+    if (!stillThere()) return;
+    if (why != null) return fleet.say(why);
+    final project = _listed(name, on: fleet);
     if (project == null || !mounted) return;
     // A row's agent comes with its file, so this is the first it can be said for a project just taken.
-    if (StartAgents.whyNot(project) case final lacking?) return _fleet.say(lacking);
+    if (StartAgents.whyNot(project) case final lacking?) return fleet.say(lacking);
     final starting = _startingAgents;
-    unawaited(starting.open(_fleet.backend, project));
+    starting.signing
+      ..machine = machine.name
+      ..openTheLoginTask = (task) => _openTheLoginTask(task, machine, stillOpen: () => starting.signing.running);
+    unawaited(starting.open(fleet.backend, project));
     await openStartAgents(
       context,
       starting: starting,
-      onLogIn: onTheMachineAsWritten(widget.machines.current, 'porelo') == null
+      onLogIn: onTheMachineAsWritten(machine, 'porelo') == null
           ? null
           : (agent) => _logIn(
               agent,
+              on: machine,
+              stillOpen: () => mounted && widget.machines.all.contains(machine) && starting.project != null,
               askAgain: starting.askAgain,
               stillMissing: () => starting.signInsNeeded.any((each) => each.name == agent.name),
               from: 'the wizard',
             ),
     );
+    // Closed however it was left: nothing more starts, and a login task that runs goes on, which is said.
+    starting.signing.openTheLoginTask = null;
+    final left = starting.left;
+    starting.left = null;
+    if (left != null && widget.machines.all.contains(machine)) widget.machines.of(machine).say(left);
   }
 
   /// Runs [agent]'s own login on the machine, then asks again through [askAgain] whether work can
   /// start; [stillMissing] says whether it still has nothing to sign in with, and [from] where to try again.
   Future<void> _logIn(
     Agent agent, {
+    Machine? on,
     required Future<void> Function() askAgain,
     required bool Function() stillMissing,
+    required bool Function() stillOpen,
     required String from,
   }) async {
-    final machine = widget.machines.current;
+    final machine = on ?? widget.machines.current;
     // The machine's own command; spelled here only for a Porelo that declared a login before it named one.
     final command = onTheMachine(
       machine,
@@ -2699,7 +2787,8 @@ class _ShellState extends State<Shell> {
           'print nothing for a while. Then its own sign-in starts here.',
       cancel: 'Cancel the sign-in',
       whatCameOfIt: () async {
-        await askAgain();
+        // Asked only of the form or wizard still open on this machine.
+        if (stillOpen()) await askAgain();
         final label = agent.label.isEmpty ? agent.name : agent.label;
         return stillMissing()
             ? 'Nothing was stored for $label on ${machine.name}. What the terminal printed says why; '
@@ -2707,7 +2796,7 @@ class _ShellState extends State<Shell> {
             : 'Signed in to $label: the credential is stored on ${machine.name}. You can close this.';
       },
     );
-    if (!mounted) return;
+    if (!stillOpen()) return;
     await askAgain();
   }
 
@@ -2718,52 +2807,61 @@ class _ShellState extends State<Shell> {
     unawaited(widget.templates.keep(job));
   }
 
-  /// Runs it, and hands the stream to the session record rather than to this view.
-  void _beginTheRun() => unawaited(_beginAfterTheProposal());
+  /// Runs it, on the machine its form was opened on, and hands the stream to the session record rather than to
+  /// this view.
+  void _beginTheRun(Machine machine) {
+    // Taken at the press: the form closes with it, and a question before the start is answered after.
+    final pressed = widget.starting.press();
+    if (pressed == null) return;
+    unawaited(_beginAfterTheProposal(machine, pressed));
+  }
 
   /// Before the first task on a repository in default with no checkout here, the machine's proposal is put first.
-  Future<void> _beginAfterTheProposal() async {
-    final starting = widget.starting;
-    final repository = starting.repository;
-    if (starting.project?.name == defaultProject && repository != null && starting.checkout == null) {
+  Future<void> _beginAfterTheProposal(Machine machine, StartPress pressed) async {
+    final repository = pressed.repository;
+    if (pressed.project == defaultProject && repository != null && !pressed.fromACheckout) {
       final AfterTheProposal after;
       try {
         after = await askBeforeTheFirstTask(
-          _fleet.backend,
+          pressed.on,
           repository,
-          (first) => mounted ? askFirstStart(context, first: first, repository: repository) : Future<bool?>.value(),
+          (first) => mounted && widget.machines.all.contains(machine)
+              ? askFirstStart(context, first: first, repository: repository)
+              : Future<bool?>.value(),
+          stillWanted: () => mounted && widget.machines.all.contains(machine),
         );
       } on VarlinkException catch (refusal) {
-        _fleet.say(
-          '${widget.machines.current.name} could not say what a first task on $repository is to do, so nothing '
-          'started: ${refusal.parameters['message'] ?? refusal.parameters['detail'] ?? refusal.simpleName}',
-        );
+        if (!mounted || !widget.machines.all.contains(machine)) return;
+        widget.machines
+            .of(machine)
+            .say(
+              '${machine.name} could not say what a first task on $repository is to do, so nothing '
+              'started: ${refusal.parameters['message'] ?? refusal.parameters['detail'] ?? refusal.simpleName}',
+            );
         return;
       }
       if (after == AfterTheProposal.startNothing || !mounted) return;
     }
-    _run();
+    _run(machine, pressed);
   }
 
-  void _run() {
-    final starting = widget.starting;
-    final project = starting.project?.name ?? '';
-    final named = starting.name.trim();
+  void _run(Machine machine, StartPress pressed) {
+    // The machine may have been forgotten while the question before the start was out: nothing is sent then.
+    if (!widget.machines.all.contains(machine)) return;
+    final fleet = widget.machines.of(machine);
+    final project = pressed.project;
+    final named = pressed.named;
     // Somebody who chose to work by hand is taken into the work once it is up, not left at a log.
-    final byHand = starting.mode == Mode.shell || starting.mode == Mode.agent;
+    final byHand = pressed.mode == Mode.shell || pressed.mode == Mode.agent;
     final runningBefore = <String>{
-      for (final task in _fleet.tasks)
+      for (final task in fleet.tasks)
         if (task.project == project && task.running) task.name,
     };
-    final operation = widget.operations.run(
-      title: starting.title,
-      machine: widget.machines.current.name,
-      output: starting.begin(_fleet.backend),
-    );
-    if (starting.mode == Mode.unattended) {
+    final operation = widget.operations.run(title: pressed.title, machine: machine.name, output: pressed.send());
+    if (pressed.mode == Mode.unattended) {
       _runs[operation.id] = UnattendedRun(
-        machine: widget.machines.current,
-        fleet: _fleet,
+        machine: machine,
+        fleet: fleet,
         project: project,
         named: named,
         operation: operation,
@@ -2771,12 +2869,47 @@ class _ShellState extends State<Shell> {
       );
     }
     widget.shell.openOperation(operation.id);
-    if (byHand) unawaited(_workInItOnceUp(operation, project, named, runningBefore));
+    if (byHand) unawaited(_workInItOnceUp(machine, operation, project, named, runningBefore));
+    final agent = pressed.agent;
+    if (pressed.signsIn && agent != null) unawaited(_offerASignInIfItFails(machine, pressed.on, operation, agent));
   }
 
-  /// Opens the session on the work a start brought up, once the start has finished well: the one
-  /// of the name it was given, or else the one of that project that was not running before.
-  Future<void> _workInItOnceUp(Operation operation, String project, String named, Set<String> runningBefore) async {
+  /// Once a start on [machine] has failed, asks that machine whether [agent] is signed in there, and where it is not
+  /// offers the sign-in on the operation: a start refused for a sign-in gone missing meanwhile is **that start's
+  /// failure, never retried**.
+  Future<void> _offerASignInIfItFails(Machine machine, FleetBackend on, Operation operation, String agent) async {
+    final ended = Completer<void>();
+    void check() {
+      if (!operation.running && !ended.isCompleted) ended.complete();
+    }
+
+    _waitsForAFailedStart[operation.id] = check;
+    widget.operations.addListener(check);
+    check();
+    await ended.future;
+    if (!mounted) return;
+    widget.operations.removeListener(check);
+    _waitsForAFailedStart.remove(operation.id);
+    if (!operation.failed || !widget.machines.all.contains(machine)) return;
+    final signIn = SigningIn()..machine = machine.name;
+    signIn.openTheLoginTask = (task) => _openTheLoginTask(task, machine, stillOpen: () => signIn.running);
+    await signIn.ask(on, agent: agent);
+    if (!mounted || !widget.machines.all.contains(machine) || signIn.signedIn || signIn.served != true) {
+      signIn.dispose();
+      return;
+    }
+    setState(() => _signInsAfterAFailedStart[operation.id] = signIn);
+  }
+
+  /// Opens the session on the work a start brought up on [machine], once the start has finished well: the one of
+  /// the name it was given, or else the one of that project that was not running before.
+  Future<void> _workInItOnceUp(
+    Machine machine,
+    Operation operation,
+    String project,
+    String named,
+    Set<String> runningBefore,
+  ) async {
     final ended = Completer<void>();
     void check() {
       if (!operation.running && !ended.isCompleted) ended.complete();
@@ -2786,24 +2919,24 @@ class _ShellState extends State<Shell> {
     check();
     await ended.future;
     widget.operations.removeListener(check);
-    if (!mounted || operation.failed) return;
-    await _fleet.refresh(quietly: true);
-    if (!mounted) return;
-    final up = _fleet.tasks.where((task) => task.project == project && task.running).toList();
+    if (!mounted || operation.failed || !widget.machines.all.contains(machine)) return;
+    final fleet = widget.machines.of(machine);
+    await fleet.refresh(quietly: true);
+    if (!mounted || !widget.machines.all.contains(machine)) return;
+    final up = fleet.tasks.where((task) => task.project == project && task.running).toList();
     final task =
         (named.isEmpty ? null : up.where((each) => each.task == named).firstOrNull) ??
         up.where((each) => !runningBefore.contains(each.name)).firstOrNull;
     if (task == null) return;
     // The start's own terminal may have ended with it, and a look would then say none is open: the
     // person came to meet the agent, so a new one opens, as *Open a new terminal* does.
-    final machine = widget.machines.current;
     if (Sessions.whyNot(task, machine) == null) {
       // On the new task's tab before the session open now is left, so leaving it opens nothing again where it was.
       _workView.showNewTerminal(machine.name, task);
       await widget.sessions.leave();
-      if (!mounted) return;
+      if (!mounted || !widget.machines.all.contains(machine)) return;
     }
-    _openSession(task);
+    _openSession(task, on: machine);
   }
 
   /// Changes what running work does with a blocked connection. **It opens nothing.**
@@ -2835,7 +2968,7 @@ class _ShellState extends State<Shell> {
 
   /// Hands a file chosen on this computer to running work, in parts, and says what came of it.
   Future<void> _handInTo(Task task) async {
-    final path = await widget.pickAFile(title: 'A file to hand to ${task.name}');
+    final path = await widget.pickAFile(title: 'A file to hand to ${task.shown}');
     if (path == null || !mounted) return;
     final backend = _fleet.backend;
     await _handing.give(backend, task, path);
@@ -2851,7 +2984,7 @@ class _ShellState extends State<Shell> {
     try {
       said = (await _fleet.backend.refreshTask(task.name)).wordsFor(task.name);
     } on VarlinkException catch (refusal) {
-      said = '${task.name} was not brought up to its source: ${refusal.simpleName}.';
+      said = '${task.shown} was not brought up to its source: ${refusal.simpleName}.';
     } on VarlinkDisconnected catch (lost) {
       said = 'Lost contact with the machine: ${lost.message}';
     } on FeatureNotSupported catch (older) {
@@ -2879,10 +3012,10 @@ class _ShellState extends State<Shell> {
       final ran = await certifyAgainRunner('porelo', arguments);
       final why = '${ran.err}\n${ran.out}'.trim();
       said = ran.code == 0
-          ? '${task.name} is certified for another week.'
-          : '${task.name} was not certified: ${why.isEmpty ? 'porelo ended with ${ran.code}' : why}';
+          ? '${task.shown} is certified for another week.'
+          : '${task.shown} was not certified: ${why.isEmpty ? 'porelo ended with ${ran.code}' : why}';
     } on ProcessException {
-      said = "Porelo's command line could not be started here, so ${task.name} was not certified.";
+      said = "Porelo's command line could not be started here, so ${task.shown} was not certified.";
     } on WorkspaceRefused catch (refused) {
       said = refused.words;
     }
@@ -2905,7 +3038,7 @@ class _ShellState extends State<Shell> {
     final name = await showDialog<String>(
       context: context,
       builder: (asked) => SimpleDialog(
-        title: Text('Take a file back from ${task.name}'),
+        title: Text('Take a file back from ${task.shown}'),
         children: <Widget>[
           for (final file in files)
             SimpleDialogOption(
@@ -2928,7 +3061,7 @@ class _ShellState extends State<Shell> {
   Future<void> _tellTheWork(Task task) async {
     final words = await askForWords(
       context,
-      title: 'Write to the agent of ${task.name}',
+      title: 'Write to the agent of ${task.shown}',
       explain:
           'It goes straight into its inbox, where its agent reads it, marked as written by a person. '
           'It never leaves this machine, so it is neither signed nor filtered.',
@@ -2939,11 +3072,11 @@ class _ShellState extends State<Shell> {
     if (words == null || words.isEmpty || !mounted) return;
     try {
       await _fleet.backend.tell(task.name, words);
-      _fleet.say('Written into the inbox of ${task.name}. Its agent reads it there.');
+      _fleet.say('Written into the inbox of ${task.shown}. Its agent reads it there.');
     } on VarlinkException catch (refusal) {
       _fleet.say(
         refusal.simpleName == 'NoSuchTask'
-            ? '${task.name} is not on this machine any more, so nothing was written.'
+            ? '${task.shown} is not on this machine any more, so nothing was written.'
             : 'The machine refused to write it: ${refusal.simpleName}.',
       );
     } on VarlinkDisconnected catch (ex) {
@@ -3497,7 +3630,7 @@ class _ShellState extends State<Shell> {
 
   /// Asks before removing, then removes. The refusal, if there is one, arrives on its own.
   Future<void> _askToRemove(Task task) async {
-    final agreed = await confirmRemove(context, task: task.name, running: task.running);
+    final agreed = await confirmRemove(context, task: task.shown, running: task.running);
     if (!agreed) return;
     await _fleet.removeEvenIfRunning(task.name);
   }
@@ -3505,30 +3638,30 @@ class _ShellState extends State<Shell> {
   /// Takes a piece of work down and starts it again from scratch. **Nothing is started after a
   /// refused removal** — that would lose the reason.
   Future<void> _recreate(Task task) async {
-    final agreed = await confirmRecreate(
-      context,
-      task: task.label.isEmpty ? task.name : task.label,
-      helpers: task.helpers,
-    );
-    if (!agreed) return;
-    final clear = await _fleet.clearTheWayToRecreate(task.name);
-    if (!clear || !mounted) return;
+    // The machine the task is on, whichever is chosen while it is confirmed or cleared.
+    final machine = widget.machines.current;
+    final fleet = _fleet;
+    final agreed = await confirmRecreate(context, task: task.shown, helpers: task.helpers);
+    if (!agreed || !mounted || !widget.machines.all.contains(machine)) return;
+    final clear = await fleet.clearTheWayToRecreate(task.name);
+    if (!clear || !mounted || !widget.machines.all.contains(machine)) return;
 
-    final project = _fleet.projects
+    final project = fleet.projects
         .where((each) => each.name == task.project)
         .map((each) => each.project.name)
         .firstOrNull;
     final operation = widget.operations.run(
-      title: 'Recreate ${task.name}',
-      machine: widget.machines.current.name,
-      // The same name and the same agent, mode and prompt: recreating changes the environment.
-      output: _fleet.backend.startTask(
+      title: 'Recreate ${task.shown}',
+      machine: machine.name,
+      // The same name and the same agent, mode, prompt and model: recreating changes the environment.
+      output: fleet.backend.startTask(
         task: task.task,
         project: project,
         agent: task.agent.isEmpty ? null : task.agent,
         mode: task.mode.recognized ? task.mode : null,
         prompt: task.prompt.isEmpty ? null : task.prompt,
-        repository: _fleet.projectOf(task)?.repositoryOf(task),
+        model: task.model?.isEmpty ?? true ? null : task.model,
+        repository: fleet.projectOf(task)?.repositoryOf(task),
       ),
     );
     widget.shell.openOperation(operation.id);
@@ -5193,6 +5326,21 @@ class _ShellState extends State<Shell> {
     if (widget.sessions.any && !_runningIsShown) unawaited(widget.sessions.leave());
   }
 
+  /// Leaves the wait on the sign-in a failed start offered once its view is no longer open: **its login task goes
+  /// on**, which is said; opened again, the view offers it again.
+  void _leaveTheSignInsWithTheirView() {
+    final open = switch (widget.shell.opened) {
+      OperationOpened(:final id) => id,
+      _ => null,
+    };
+    for (final MapEntry(key: id, value: signIn) in _signInsAfterAFailedStart.entries) {
+      if (id == open || !signIn.waiting) continue;
+      final left = signIn.leave();
+      final machine = widget.machines.all.where((each) => each.name == signIn.machine).firstOrNull;
+      if (left != null && machine != null) widget.machines.of(machine).say(left);
+    }
+  }
+
   /// One machine: its title and menu, then its projects and work, then what it ran.
   Widget _machineArea() {
     final machine = widget.machines.current;
@@ -6026,6 +6174,9 @@ class _ShellState extends State<Shell> {
           operation: operation,
           run: _runs[id],
           restart: _runs[id] == null ? null : _restartCommand(_runs[id]!),
+          signIn: _signInsAfterAFailedStart[id] == null
+              ? null
+              : SignInPanel(signingIn: _signInsAfterAFailedStart[id]!, keyed: 'operation'),
           onBack: widget.shell.openOperations,
           onClose: widget.shell.close,
         );
@@ -6034,8 +6185,11 @@ class _ShellState extends State<Shell> {
 
   /// Opens a session on [task] in its tab under *Running*, the one place a terminal is, leaving the one
   /// that was open: **one at a time**.
-  void _openSession(Task task) {
-    _workView.showTab(WorkView.placeOf(widget.machines.current.name, task.name), byHand: task.mode == Mode.unattended);
+  void _openSession(Task task, {Machine? on}) {
+    _workView.showTab(
+      WorkView.placeOf((on ?? widget.machines.current).name, task.name),
+      byHand: task.mode == Mode.unattended,
+    );
     widget.shell.goTo(Section.work);
     widget.shell.close();
   }
@@ -6073,6 +6227,14 @@ class _ShellState extends State<Shell> {
     for (final run in _runs.values) {
       run.dispose();
     }
+    for (final signIn in _signInsAfterAFailedStart.values) {
+      signIn.dispose();
+    }
+    for (final check in _waitsForAFailedStart.values) {
+      widget.operations.removeListener(check);
+    }
+    _waitsForAFailedStart.clear();
+    widget.shell.removeListener(_leaveTheSignInsWithTheirView);
     widget.shell.removeListener(_moveKeyboard);
     widget.sessions.removeListener(_moveKeyboard);
     widget.shell.removeListener(_leaveTheSessionWithItsPage);

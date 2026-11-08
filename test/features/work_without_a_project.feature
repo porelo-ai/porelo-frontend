@@ -98,3 +98,18 @@ Feature: Work on a repository without writing a project first
         When I go to the place {'projects'}
         Then it says {'Default'}
         And the projects page lists {'checkout'} on {'this machine'}
+
+    # A machine forgotten while its question is open is asked nothing more, and nothing starts on it.
+    Scenario: a first task's question answered after its machine was forgotten writes nothing and starts nothing
+        Given the first task on {'tools'} in default asks before it starts
+        When I watch another machine called {'elsewhere'}
+        And I go to the work
+        And I select the project {'default'}
+        And I press the start tile
+        And I start work in default on {'git@example.org:acme/tools.git'}
+        And I call it {'tools-work'}
+        And I start it
+        And the machine the start was pressed on is forgotten
+        And I agree to the first task
+        Then no first task was agreed to on any machine
+        And nothing was started

@@ -119,6 +119,46 @@ class FeatureNotSupported implements Exception {
   String toString() => 'this backend has no $method';
 }
 
+/// The machine cannot sign [agent] in, and says why: [reason], verbatim.
+class CannotSignIn extends VarlinkException {
+  /// Constructor taking the refusal as it came.
+  CannotSignIn(VarlinkException refusal)
+    : agent = '${refusal.parameters['agent'] ?? ''}',
+      reason = '${refusal.parameters['reason'] ?? ''}',
+      super(refusal.name, refusal.parameters);
+
+  /// The agent it was asked to sign in.
+  final String agent;
+
+  /// Why not, in the machine's words; empty where it gave none.
+  final String reason;
+}
+
+/// The machine has no agent called [agent].
+class NoSuchAgent extends VarlinkException {
+  /// Constructor taking the refusal as it came.
+  NoSuchAgent(VarlinkException refusal)
+    : agent = '${refusal.parameters['agent'] ?? ''}',
+      super(refusal.name, refusal.parameters);
+
+  /// The agent it was asked about.
+  final String agent;
+}
+
+/// The machine's vault is shut, so nothing can be signed in there.
+class VaultShut extends VarlinkException {
+  /// Constructor taking the refusal as it came.
+  VaultShut(VarlinkException refusal) : super(refusal.name, refusal.parameters);
+}
+
+/// A sign-in method's named refusals as their own errors; any other passes as it came.
+Object _signInRefusal(Object error) => switch (error) {
+  VarlinkException(simpleName: 'CannotSignIn') => CannotSignIn(error),
+  VarlinkException(simpleName: 'NoSuchAgent') => NoSuchAgent(error),
+  VarlinkException(simpleName: 'VaultShut') => VaultShut(error),
+  _ => error,
+};
+
 /// What one machine has to run agents with: the ones it can use, the ones it cannot, and the ones
 /// it will never reach.
 ///
@@ -253,6 +293,30 @@ class PoreloClient {
 
   /// What the vault holds, without any of it.
   Future<VaultState> credentials() async => VaultState.from(await _call('Credentials'));
+
+  /// Whether each of [agents] is signed in here, or every installed agent where none is named.
+  Future<List<AgentSignIn>> agentSignIns({List<String>? agents}) async {
+    try {
+      return AgentSignIn.allIn(await _call('AgentSignIns', <String, dynamic>{'agents': ?agents}));
+    } on VarlinkException catch (refusal) {
+      throw _signInRefusal(refusal);
+    }
+  }
+
+  /// Starts [agent]'s sign-in as the machine's login task, or answers the one that runs already.
+  Future<SignInStarted> agentSignInStart(String agent) async {
+    try {
+      return SignInStarted.from(await _call('AgentSignInStart', <String, dynamic>{'agent': agent}));
+    } on VarlinkException catch (refusal) {
+      throw _signInRefusal(refusal);
+    }
+  }
+
+  /// Waits on [agent]'s sign-in that runs; its last reply says how it ended. With none running it answers once,
+  /// with the state now.
+  Stream<SignInWaited> agentSignInWait(String agent) => _callMore('AgentSignInWait', <String, dynamic>{'agent': agent})
+      .handleError((Object error) => throw _signInRefusal(error), test: (error) => error is VarlinkException)
+      .map(SignInWaited.from);
 
   /// Records a credential this machine may use. **No secret crosses this socket**: the answer says
   /// what to run on the machine to store the value.

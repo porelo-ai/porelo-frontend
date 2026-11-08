@@ -81,6 +81,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f426"></a>[F426](F426-A-Forward-Names-Where-It-Goes-And-Its-Branch.md) | S | — | A forward names the forge and repository it goes to and starts with the task's branch, or the one last used for the task, filled in and changeable. |
 | <a id="f428"></a>[F428](F428-A-Machine-Given-Back-Only-With-Its-Work-At-Central.md) | S | — | A machine's page says how each taken repository stands with central, and the give-back is refused while one is ahead, moved on or cannot say, with *Give it back anyway*. |
 | <a id="f427"></a>[F427](F427-A-Hosts-Forge-Opened-From-Its-Machine.md) | S | — | A connected host's row and machine page offer *Open its forge*, at the address its forge answers to. |
+| <a id="f441"></a>[F441](F441-Starting-Work-Signs-In-Names-And-Model.md) | L | — | Work starts without a host shell: the agent's sign-in asked in the window, tasks named as named, the model shown and changeable. |
 
 ### Rework
 
@@ -92,7 +93,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f441"></a>[F441](F441-Starting-Work-Signs-In-Names-And-Model.md) | L | the backend's sign-in state and default model | Work starts without a host shell: the agent's sign-in asked in the window, tasks named as named, the model shown and changeable. |
 
 ### Backlog
 
@@ -134,6 +134,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f443"></a>[F443](F443-Forge-Token-Handed-Over-When-The-Machine-Asks.md) | — | the daemon's wire for the hand-over | A forge token handed over to a machine when it asks for one, by the machine's own way of taking it. |
 | <a id="f437"></a>[F437](F437-Join-Leave-And-Accept-A-Card-In-The-Window.md) | M | the backend's card proposal and leave | Join an organization by a card proposal, an owner accepting it on the person's row, and leaving an organization, from the window. |
 | <a id="f436"></a>[F436](F436-Every-Task-Run-Kept-And-Read-In-The-Window.md) | L | the backend's task timeline | Every task that runs or ran, removed ones too, in a history view: who started and stopped it, its timeline and numbers, its logs as views of the one log stream, after it is gone too. |
 | <a id="f430"></a>[F430](F430-Leftovers-Of-The-Rental-Findings.md) | — | — | What the fixes of the trial move's findings named as not built, gathered for the operator to place: the wizard's last pages in a test, the old preparing dialog, Forward's stale-push check, a give-back that leaves the machine listed. |

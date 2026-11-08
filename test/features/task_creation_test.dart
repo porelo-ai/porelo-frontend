@@ -133,6 +133,14 @@ import './step/i_grant_it_from_the_start.dart';
 import './step/the_machine_asks_for_a_decision_on_with_the_code.dart';
 import './step/the_machine_says_the_grant_is.dart';
 import './step/i_am_done_granting.dart';
+import './step/the_launch_named_no_model.dart';
+import './step/i_give_it_the_model.dart';
+import './step/the_launch_named_the_model.dart';
+import './step/the_agent_runs_through_the_provider.dart';
+import './step/i_watch_another_machine_called.dart';
+import './step/the_machine_is_chosen_behind_the_form.dart';
+import './step/the_start_reached_only_the_machine_its_form_was_opened_on.dart';
+import './step/the_session_opened_is_on_the_machine_its_form_was_opened_on.dart';
 
 void main() {
   group('''Starting work with an agent, a mode and a credential''', () {
@@ -862,6 +870,48 @@ void main() {
       await iAskItTo(tester, 'Sync the tickets');
       await itSays(tester, 'Nobody has granted jira yet.');
       await startingIsNotOfferedYet(tester);
+    });
+    testWidgets('''a start names no model unless one is in the field''', (tester) async {
+      await bddSetUp(tester);
+      await iStartWorkInThisProject(tester);
+      await iCallIt(tester, 'schema-work');
+      await iChooseTheAgent(tester, 'An Agent');
+      await iStartIt(tester);
+      await theLaunchNamedNoModel(tester);
+    });
+    testWidgets('''a model typed is the model the start names''', (tester) async {
+      await bddSetUp(tester);
+      await iStartWorkInThisProject(tester);
+      await iCallIt(tester, 'schema-work');
+      await iChooseTheAgent(tester, 'An Agent');
+      await iGiveItTheModel(tester, 'big-model');
+      await iStartIt(tester);
+      await theLaunchNamedTheModel(tester, 'big-model');
+    });
+    testWidgets('''a model typed for one provider is not sent after the agent changed to another''', (tester) async {
+      await bddSetUp(tester);
+      await theAgentRunsThroughTheProvider(tester, 'other-agent', 'b-provider');
+      await iStartWorkInThisProject(tester);
+      await iCallIt(tester, 'schema-work');
+      await iChooseTheAgent(tester, 'An Agent');
+      await iGiveItTheModel(tester, 'big-model');
+      await iChooseTheAgent(tester, 'Another Agent');
+      await iStartIt(tester);
+      await theLaunchNamedNoModel(tester);
+    });
+    testWidgets('''a start goes to the machine its form was opened on, not to one chosen meanwhile''', (tester) async {
+      await bddSetUp(tester);
+      await iWatchAnotherMachineCalled(tester, 'elsewhere');
+      await iGoToTheWork(tester);
+      await iSelectTheProject(tester, 'checkout');
+      await iStartWorkInThisProject(tester);
+      await theMachineIsChosenBehindTheForm(tester, 'elsewhere');
+      await iCallIt(tester, 'schema-work');
+      await iChooseTheAgent(tester, 'An Agent');
+      await iStartIt(tester);
+      await theStartReachedOnlyTheMachineItsFormWasOpenedOn(tester);
+      await theStartBringsUpInRunning(tester, 'porelo-checkout-schema-work', 'checkout', 'SHELL');
+      await theSessionOpenedIsOnTheMachineItsFormWasOpenedOn(tester);
     });
   });
 }

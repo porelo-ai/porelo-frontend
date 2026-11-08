@@ -139,3 +139,16 @@ Feature: Stopping, removing, renaming and recreating work, and what it costs
         When I ask to recreate the selected work
         And I agree to recreate it
         Then the launch was in the repository {'payments-api'}
+
+    # Recreated on the machine it is on: another chosen while it is confirmed changes nothing.
+    Scenario: recreating goes to the machine the work is on, not to one chosen while it is confirmed
+        When I watch another machine called {'elsewhere'}
+        And I go to the work
+        And I select the project {'checkout'}
+        And I select the work {'porelo-checkout-shell'}
+        And I ask to recreate the selected work
+        And the machine {'elsewhere'} is chosen behind the form
+        And I agree to recreate it
+        Then the removal asked for {'porelo-checkout-shell'}
+        And the launch was called {'shell'}
+        And nothing reached the machine {'elsewhere'}

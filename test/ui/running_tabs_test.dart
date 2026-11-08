@@ -40,6 +40,27 @@ void main() {
     expect(tester.getTopRight(tab).dx, lessThanOrEqualTo(tester.view.physicalSize.width));
   });
 
+  // Harm: two pieces of work of one short name in different projects have tabs nobody can tell apart.
+  testWidgets('two tabs of one short name say which project each is of', (tester) async {
+    Task named(String name, String project) =>
+        Task.from(<String, dynamic>{...wire(World.aTask(name, project)), 'short': 'pi'});
+    await World.startBackend(<Task>[named('porelo-checkout-pi', 'checkout'), named('porelo-billing-pi', 'billing')]);
+    await World.startApp(tester);
+    await tester.tap(find.byKey(const Key('work-view-running')));
+    await World.settle(tester);
+
+    String tabOf(String task) => tester
+        .widgetList<Text>(
+          find.descendant(
+            of: find.byKey(ValueKey<String>('running-tab ${World.machines.current.name}/$task')),
+            matching: find.byType(Text),
+          ),
+        )
+        .map((each) => each.data ?? '')
+        .join(' ');
+    expect(tabOf('porelo-checkout-pi'), isNot(tabOf('porelo-billing-pi')));
+  });
+
   // Harm: a list and tabs that overflow on a window as narrow as a phone's.
   testWidgets('the list and the tabs fit a narrow window', (tester) async {
     await toRunning(tester);

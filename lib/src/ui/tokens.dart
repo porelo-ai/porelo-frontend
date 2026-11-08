@@ -542,6 +542,9 @@ abstract final class Sizes {
   /// A terminal inside a dialog: enough rows for a prompt, an answer and what came of it.
   static const terminal = 240.0;
 
+  /// A login task's terminal over the start form: room for the provider's link and the code pasted under it.
+  static const loginTerminal = terminal * 2;
+
   /// What an agent writes, in the terminal's look: on a tile, and enlarged.
   static const terminalText = 12.0;
 

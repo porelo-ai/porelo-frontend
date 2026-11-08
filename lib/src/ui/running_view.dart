@@ -313,6 +313,18 @@ class _RunningViewState extends State<RunningView> {
   }
 
   Widget _tabStrip(BuildContext context, List<Tile> tabs, Tile chosen) {
+    // Two tabs of one short name say what tells them apart: the project, else the machine.
+    final byName = <String, List<Tile>>{};
+    for (final tile in tabs) {
+      (byName[_Tab.shortName(tile.task!)] ??= <Tile>[]).add(tile);
+    }
+    String? apart(Tile tile) {
+      final alike = byName[_Tab.shortName(tile.task!)]!;
+      if (alike.length < 2) return null;
+      final projects = alike.map((each) => WorkRow.projectOf(each.task!)).toSet();
+      return projects.length > 1 ? WorkRow.projectOf(tile.task!) : 'on ${tile.machine.name}';
+    }
+
     final colors = Theme.of(context).colorScheme;
     final console = TerminalLook.consoleOf(context);
     return DecoratedBox(
@@ -334,6 +346,7 @@ class _RunningViewState extends State<RunningView> {
                   key: _tabKeys.putIfAbsent(_idOf(tile), GlobalKey.new),
                   id: _idOf(tile),
                   tile: tile,
+                  apart: apart(tile),
                   chosen: identical(tile, chosen) || _idOf(tile) == _idOf(chosen),
                   background: console.background,
                   chosenText: console.strong,
@@ -350,7 +363,7 @@ class _RunningViewState extends State<RunningView> {
     final console = TerminalLook.consoleOf(context);
     final task = tile.task!;
     final small = Theme.of(context).textTheme.bodySmall?.copyWith(color: console.muted);
-    final name = task.label.isEmpty ? task.name : task.label;
+    final name = task.shown;
     final terminal = _inATerminal(tile);
     return ColoredBox(
       color: console.background,
@@ -541,6 +554,7 @@ class _Tab extends StatelessWidget {
     required this.tile,
     required this.chosen,
     required this.background,
+    this.apart,
     required this.chosenText,
     required this.onTap,
     super.key,
@@ -550,12 +564,16 @@ class _Tab extends StatelessWidget {
   final Tile tile;
   final bool chosen;
   final Color background;
+
+  /// What tells it from another tab of the same short name, or null where none has it.
+  final String? apart;
   final Color chosenText;
   final VoidCallback onTap;
 
-  /// The name without what every piece of work's name starts with.
-  static String shortName(Task task) => task.label.isNotEmpty
-      ? task.label
+  /// What a person calls it, short: its caption, else its short name, else, from a machine that does not say one,
+  /// the container's name without what every piece of work's name starts with.
+  static String shortName(Task task) => task.label.isNotEmpty || (task.short?.isNotEmpty ?? false)
+      ? task.shown
       : (task.name.startsWith('porelo-') ? task.name.substring('porelo-'.length) : task.name);
 
   @override
@@ -600,7 +618,7 @@ class _Tab extends StatelessWidget {
                 ),
                 const SizedBox(width: Space.small),
                 Text(
-                  shortName(tile.task!),
+                  apart == null ? shortName(tile.task!) : '${shortName(tile.task!)} · $apart',
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
                     color: chosen ? chosenText : colors.onSurfaceVariant,
                     fontWeight: chosen ? FontWeight.w600 : null,

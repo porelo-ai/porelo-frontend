@@ -128,8 +128,12 @@ class OperationOutputView extends StatefulWidget {
     required this.onClose,
     this.run,
     this.restart,
+    this.signIn,
     super.key,
   });
+
+  /// The sign-in offered where a start failed while its agent read not signed in, or null.
+  final Widget? signIn;
 
   /// The unattended task this operation started, when it is a task start.
   final UnattendedRun? run;
@@ -191,6 +195,11 @@ class _OperationOutputViewState extends State<OperationOutputView> {
               : IconButton(icon: const Icon(Icons.close), tooltip: 'Close (Esc)', onPressed: widget.onClose),
         ),
         _Summary(operation: operation),
+        if (widget.signIn case final signIn?)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: Space.normal),
+            child: signIn,
+          ),
         if (operation.linesNotKept > 0)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: Space.normal, vertical: Space.small),

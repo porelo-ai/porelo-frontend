@@ -132,6 +132,9 @@ class FakeBackend implements FleetBackend {
   /// The branch each start named as a checkout's, null where it named none.
   final List<String?> startedFrom = <String?>[];
 
+  /// The model each start named, null where it named none.
+  final List<String?> startedModels = <String?>[];
+
   /// What `Agents` answers, and what could not be read.
   List<Agent> theAgentsItHas = <Agent>[
     Agent.from(const <String, dynamic>{
@@ -287,6 +290,7 @@ class FakeBackend implements FleetBackend {
           credentialsAnswered: project.credentialsAnswered,
           messages: project.messages,
           lastUsed: project.lastUsed,
+          defaultModels: project.defaultModels,
         ),
     ];
   }
@@ -301,6 +305,7 @@ class FakeBackend implements FleetBackend {
   @override
   Future<List<Project>> projects() async {
     projectsListed++;
+    if (projectsHeld case final held?) await held.future;
     if (listingProjectsFails case final failure?) throw failure;
     return _projects();
   }
@@ -383,6 +388,7 @@ class FakeBackend implements FleetBackend {
     startedNow.add(now);
     startedMinutes.add(minutes);
     startedFrom.add(from);
+    startedModels.add(model);
     starts.add((task: task, project: project, agent: agent, mode: mode, prompt: prompt, repository: repository));
     startedWith.add(credentials ?? const <String, String>{});
     launch = StreamController<Object>();
@@ -407,6 +413,67 @@ class FakeBackend implements FleetBackend {
     ];
     _changes.add(_tasks);
     return Stopped.from(const <String, dynamic>{'outcome': 'STOPPED', 'helpers': 2, 'surviving': <String>[]});
+  }
+
+  /// Whether the machine has sign-ins of its own; false by default, as a machine older than them, where a start goes
+  /// as it did before.
+  bool signsIn = false;
+
+  /// What `AgentSignIns` says of each agent, set by the scenario; an agent not named here reads signed in.
+  final Map<String, AgentSignIn> signInOf = <String, AgentSignIn>{};
+
+  /// What asking whether agents are signed in fails with, in place of an answer; null while it answers.
+  Object? signInsFail;
+
+  /// Holds every `Projects` asked until the scenario completes it; null while it answers at once.
+  Completer<void>? projectsHeld;
+
+  /// Every `AgentSignIns` asked, by the agents it named.
+  final List<List<String>?> signInsAsked = <List<String>?>[];
+
+  /// Every `AgentSignInStart` asked, by agent.
+  final List<String> signInStarts = <String>[];
+
+  /// What the next `AgentSignInStart` answers; null starts `porelo-login-<agent>`.
+  SignInStarted? signInStartAnswer;
+
+  /// What `AgentSignInStart` fails with, in place of an answer; null while it answers.
+  Object? signInStartFails;
+
+  /// Every `AgentSignInWait` asked, by agent.
+  final List<String> signInWaits = <String>[];
+
+  /// The wait asked last, which the scenario ends: nothing here is on a clock.
+  StreamController<SignInWaited>? signInWait;
+
+  @override
+  Future<List<AgentSignIn>> agentSignIns({List<String>? agents}) async {
+    if (!signsIn) throw const FeatureNotSupported('AgentSignIns');
+    signInsAsked.add(agents);
+    if (signInsFail case final failure?) throw failure;
+    return <AgentSignIn>[
+      for (final agent in agents ?? <String>[for (final each in theAgentsItHas) each.name])
+        signInOf[agent] ?? AgentSignIn(agent: agent, provider: 'a-provider', state: 'SIGNED_IN'),
+    ];
+  }
+
+  @override
+  Future<SignInStarted> agentSignInStart(String agent) async {
+    if (!signsIn) throw const FeatureNotSupported('AgentSignInStart');
+    signInStarts.add(agent);
+    if (signInStartFails case final failure?) throw failure;
+    final answer = signInStartAnswer ?? SignInStarted(task: 'porelo-login-$agent', started: true);
+    signInOf[agent] = AgentSignIn(agent: agent, provider: 'a-provider', state: 'SIGNING_IN', loginTask: answer.task);
+    return answer;
+  }
+
+  @override
+  Stream<SignInWaited> agentSignInWait(String agent) {
+    if (!signsIn) return Stream<SignInWaited>.error(const FeatureNotSupported('AgentSignInWait'));
+    signInWaits.add(agent);
+    final waiting = StreamController<SignInWaited>();
+    signInWait = waiting;
+    return waiting.stream;
   }
 
   /// What the next [removeTask] answers. Set by the scenario, so a refusal can be produced without

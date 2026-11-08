@@ -250,6 +250,17 @@ abstract class FleetBackend {
   /// Stops a task, keeping it and its workspace.
   Future<Stopped> stopTask(String task);
 
+  /// Whether each of [agents] is signed in on the machine, or every installed agent where none is named.
+  ///
+  /// Errors with [FeatureNotSupported] against a machine older than its sign-in, where a start goes as before.
+  Future<List<AgentSignIn>> agentSignIns({List<String>? agents});
+
+  /// Starts [agent]'s sign-in as the machine's own login task, or answers the one that runs already: never a second.
+  Future<SignInStarted> agentSignInStart(String agent);
+
+  /// Waits on [agent]'s sign-in that runs, ending on its final reply; with none running it answers once, at once.
+  Stream<SignInWaited> agentSignInWait(String agent);
+
   /// Removes a task, or refuses and says why.
   ///
   /// Refusing is the interesting answer: a task holding commits that never reached the gate comes
@@ -739,6 +750,15 @@ class PoreloBackend implements FleetBackend {
 
   @override
   Future<Stopped> stopTask(String task) => _opened().stop(task);
+
+  @override
+  Future<List<AgentSignIn>> agentSignIns({List<String>? agents}) => _opened().agentSignIns(agents: agents);
+
+  @override
+  Future<SignInStarted> agentSignInStart(String agent) => _opened().agentSignInStart(agent);
+
+  @override
+  Stream<SignInWaited> agentSignInWait(String agent) => _opened().agentSignInWait(agent);
 
   @override
   Future<Removed> removeTask(String task, {bool? rescue, bool? force}) =>

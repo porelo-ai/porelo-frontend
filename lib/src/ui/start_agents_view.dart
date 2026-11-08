@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:porelo_frontend/client.dart';
 
 import '../app/start_agents.dart';
+import 'sign_in_panel.dart';
 import 'tokens.dart';
 import 'wizard.dart';
 
@@ -70,6 +71,12 @@ class StartAgentsWizard extends StatelessWidget {
         check: () {
           if (!starting.asked) return 'Wait until the machine has said whether each agent can start.';
           if (starting.askProblem case final problem?) return problem;
+          if (starting.signsIn == true) {
+            if (starting.signInsProblem case final problem?) return problem;
+            final toSignIn = starting.agentsToSignIn;
+            if (toSignIn.isNotEmpty) return 'Sign in to ${toSignIn.join(', ')} first; nothing starts before.';
+            if (starting.signing.starting || starting.signing.waiting) return 'Wait until the sign-in has ended.';
+          }
           final missing = starting.signInsNeeded;
           if (missing.isNotEmpty) return 'Sign in to ${missing.map(_labelOf).join(', ')} first.';
           if (starting.held.isNotEmpty) return 'The machine says not every agent can start yet.';
@@ -145,16 +152,27 @@ class _SignIns extends StatelessWidget {
     final missing = starting.signInsNeeded;
     final held = starting.held.toList();
     final problem = starting.askProblem;
+    // On a machine with sign-ins of its own, each agent in its login task, one after another.
+    final ownSignIns = starting.signsIn == true;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       spacing: Space.small,
       children: <Widget>[
-        if (missing.isEmpty && held.isEmpty && problem == null)
+        if (ownSignIns && starting.signInsProblem != null) Text(starting.signInsProblem!),
+        if (ownSignIns && starting.agentsToSignIn.isNotEmpty)
+          Text('Still to sign in on ${starting.signing.machine}: ${starting.agentsToSignIn.join(', ')}.'),
+        if (ownSignIns && starting.signing.agent != null)
+          SignInPanel(
+            signingIn: starting.signing,
+            keyed: 'start-agents',
+            busy: starting.starting ? 'a start is out' : null,
+          ),
+        if (missing.isEmpty && held.isEmpty && problem == null && !starting.signInsHold)
           const Text('The machine says every agent to start can start.'),
         if (problem != null) Text(problem),
         for (final row in held) Text('${row.who} in ${row.repository}: ${row.held}'),
-        for (final agent in missing)
+        for (final agent in ownSignIns ? const <Agent>[] : missing)
           Wrap(
             spacing: Space.small,
             crossAxisAlignment: WrapCrossAlignment.center,

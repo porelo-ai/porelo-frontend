@@ -495,10 +495,63 @@ class Task {
   /// When the current state began, or null when the runtime could not say.
   DateTime? get startedAt => since.isEmpty ? null : DateTime.tryParse(since);
 
+  /// The name a person calls it by in the project's room (`Agent Pi`); null from a machine that does not say.
+  final String? display;
+
+  /// The short name a person types for it: the name given at its start where one was, else the one the machine
+  /// made (`pi`); null from a machine that does not say.
+  final String? short;
+
+  /// Whether [short] is the name a person gave it at its start, rather than one the machine made; null from a
+  /// machine that does not say.
+  final bool? named;
+
+  /// The model it was started with, `""` where it runs its agent's own default, and **null from a machine that
+  /// does not say**, which is not the agent's default.
+  final String? model;
+
+  /// The provider's own name for [model] (`Opus 5.5`), shown as it comes; null or empty where none is given.
+  final String? modelLabel;
+
+  /// What kind of task it is, as the machine names it (`LOGIN` for an agent's sign-in); null from a machine that
+  /// does not say, and shown as it comes where this build does not know it.
+  final String? kind;
+
+  /// Whether it is the machine's own login task of its [agent]: a sign-in, which puts what the agent signs in with
+  /// into the vault, and is no work.
+  bool get isASignIn => kind == 'LOGIN';
+
+  /// What to call it for a person: the caption somebody set, else its short name (the one given at its start, or the
+  /// machine's), else, from a machine that does not say one, [name] as before. **Never what a call takes**: that is
+  /// [name].
+  String get shown {
+    if (label.isNotEmpty) return label;
+    if (short case final short? when short.isNotEmpty) return short;
+    return name;
+  }
+
+  /// Its agent, model and provider in one line (`Claude Code · Opus 5.5 via anthropic`), with [agentLabel] the
+  /// agent's own name; null where the machine does not say which model it runs.
+  String? modelLine(String agentLabel) {
+    final model = this.model;
+    if (model == null) return null;
+    final who = agentLabel.isNotEmpty ? agentLabel : agent;
+    final via = provider.isEmpty ? '' : ' via $provider';
+    if (model.isEmpty) return '$who · its own default model$via';
+    final label = modelLabel;
+    return '$who · ${label != null && label.isNotEmpty ? label : model}$via';
+  }
+
   /// Constructor taking every field.
   const Task({
     required this.name,
     this.label = '',
+    this.display,
+    this.short,
+    this.named,
+    this.model,
+    this.modelLabel,
+    this.kind,
     this.certified = false,
     this.certifiedUntil,
     required this.project,
@@ -566,6 +619,12 @@ class Task {
   factory Task.from(Map<String, dynamic> map) => Task(
     name: _string(map, 'name'),
     label: _string(map, 'label'),
+    display: map['display'] is String ? map['display'] as String : null,
+    short: map['short'] is String ? map['short'] as String : null,
+    named: map['named'] is bool ? map['named'] as bool : null,
+    model: map['model'] is String ? map['model'] as String : null,
+    modelLabel: map['modelLabel'] is String ? map['modelLabel'] as String : null,
+    kind: map['kind'] is String ? map['kind'] as String : null,
     certified: map['certified'] == true,
     certifiedUntil: DateTime.tryParse(_string(map, 'certifiedUntil'))?.toUtc(),
     project: _string(map, 'project'),
@@ -608,6 +667,99 @@ class Task {
         : null,
     buildReader: map['buildReader'] is String ? map['buildReader'] as String : null,
     buildProblem: map['buildProblem'] is String ? map['buildProblem'] as String : null,
+  );
+}
+
+/// Whether an agent is signed in on a machine, as `AgentSignIns` answers it.
+///
+/// [state] stays the machine's word: `SIGNED_IN`, `NOT_SIGNED_IN`, `SIGNING_IN`, `VAULT_SHUT`, `CANNOT_SIGN_IN`, or
+/// one this build does not know, which is shown as it comes and **never counts as signed in**.
+class AgentSignIn {
+  /// Constructor taking every field.
+  const AgentSignIn({
+    required this.agent,
+    this.provider = '',
+    this.state = '',
+    this.since,
+    this.signingInSince,
+    this.loginTask,
+  });
+
+  /// The agent, by the name `Agents` reports.
+  final String agent;
+
+  /// The provider it signs in to; empty where the machine does not say.
+  final String provider;
+
+  /// Its state, verbatim; empty where the machine said none.
+  final String state;
+
+  /// Since when it is signed in, as the machine wrote it; null where it does not say.
+  final String? since;
+
+  /// Since when a sign-in of it runs, as the machine wrote it; null where none runs.
+  final String? signingInSince;
+
+  /// The login task of the sign-in that runs, by the name every task call takes; null where none runs.
+  final String? loginTask;
+
+  /// Whether the machine says it is signed in, and nothing else does.
+  bool get signedIn => state == 'SIGNED_IN';
+
+  /// Reads one from a reply, field by field.
+  factory AgentSignIn.from(Map<String, dynamic> map) => AgentSignIn(
+    agent: _string(map, 'agent'),
+    provider: _string(map, 'provider'),
+    state: _string(map, 'state'),
+    since: map['since'] is String ? map['since'] as String : null,
+    signingInSince: map['signingInSince'] is String ? map['signingInSince'] as String : null,
+    loginTask: map['loginTask'] is String && (map['loginTask'] as String).isNotEmpty
+        ? map['loginTask'] as String
+        : null,
+  );
+
+  /// Every one a reply lists.
+  static List<AgentSignIn> allIn(Map<String, dynamic> reply) {
+    final listed = reply['signIns'];
+    return listed is List ? listed.whereType<Map<String, dynamic>>().map(AgentSignIn.from).toList() : const [];
+  }
+}
+
+/// What `AgentSignInStart` answered: the login task of the sign-in, and whether it was started now rather than
+/// found running.
+class SignInStarted {
+  /// Constructor taking both.
+  const SignInStarted({required this.task, required this.started});
+
+  /// The login task, by the name every task call takes; empty where the machine named none.
+  final String task;
+
+  /// Whether this call started it; false where one was running already.
+  final bool started;
+
+  /// Reads one from a reply.
+  factory SignInStarted.from(Map<String, dynamic> map) =>
+      SignInStarted(task: _string(map, 'task'), started: map['started'] == true);
+}
+
+/// One reply of `AgentSignInWait`: the state, and what the machine said of how it ended, if anything.
+class SignInWaited {
+  /// Constructor taking both.
+  const SignInWaited({required this.state, this.detail});
+
+  /// The state, verbatim.
+  final String state;
+
+  /// What the machine said with it (`the sign-in was left`), or null.
+  final String? detail;
+
+  /// Whether it says signed in.
+  bool get signedIn => state == 'SIGNED_IN';
+
+  /// Reads one from a reply.
+  factory SignInWaited.from(Map<String, dynamic> map) => SignInWaited(
+    state: _string(map, 'state'),
+    detail: map['detail'] is String && (map['detail'] as String).isNotEmpty ? map['detail'] as String : null,
   );
 }
 
@@ -2181,7 +2333,12 @@ class Project {
     this.messages,
     this.lastUsed,
     this.carried = false,
+    this.defaultModels = const <ProviderModel>[],
   });
+
+  /// The model each provider runs by default in it, from its `project.yml`; empty where none is named or the
+  /// machine does not say.
+  final List<ProviderModel> defaultModels;
 
   /// Reads one from a reply.
   factory Project.from(Map<String, dynamic> map) => Project(
@@ -2208,6 +2365,7 @@ class Project {
       String value => value,
       _ => null,
     },
+    defaultModels: ProviderModel.allIn(map),
   );
 
   /// Whether this project is behind its upstream by an amount somebody can act on.
@@ -4470,6 +4628,43 @@ List<Map<String, dynamic>> _list(Map<String, dynamic> map, String key) {
   return value is List ? value.whereType<Map<String, dynamic>>().toList() : const [];
 }
 
+/// The model a provider runs by default in a project or a repository.
+class ProviderModel {
+  /// The provider, by the name `Providers` reports.
+  final String provider;
+
+  /// The model's id, as `Start` takes it (`claude-opus-5-5`).
+  final String model;
+
+  /// The provider's own name for it (`Opus 5.5`), shown as it comes; the id where the machine gives none.
+  final String label;
+
+  /// Where it is named: `repository` or `project`, kept as said.
+  final String from;
+
+  /// Constructor taking every field.
+  const ProviderModel({required this.provider, required this.model, this.label = '', this.from = ''});
+
+  /// What to call it for a person.
+  String get shown => label.isNotEmpty ? label : model;
+
+  /// Every one named under `defaultModels` in [map], leaving out one without a provider or a model.
+  static List<ProviderModel> allIn(Map<String, dynamic> map) => <ProviderModel>[
+    for (final each in _list(map, 'defaultModels'))
+      if (_string(each, 'provider').isNotEmpty && _string(each, 'model').isNotEmpty)
+        ProviderModel(
+          provider: _string(each, 'provider'),
+          model: _string(each, 'model'),
+          label: _string(each, 'label'),
+          from: _string(each, 'from'),
+        ),
+  ];
+
+  /// The one for [provider] in [models], or null.
+  static ProviderModel? forProvider(List<ProviderModel> models, String provider) =>
+      provider.isEmpty ? null : models.where((each) => each.provider == provider).firstOrNull;
+}
+
 /// One repository a project names, and how far it has got.
 class Repository {
   /// Its name, which `Start`, the gate methods, `Backups`, `RestoreBackup` and `SyncUpstream` take.
@@ -4535,7 +4730,12 @@ class Repository {
     this.agent,
     this.nickname = '',
     this.goesBy = '',
+    this.defaultModels = const <ProviderModel>[],
   });
+
+  /// The model each provider runs by default in it, its own merged over the project's by the machine; empty where
+  /// none is named or the machine does not say.
+  final List<ProviderModel> defaultModels;
 
   /// Reads one from a reply.
   factory Repository.from(Map<String, dynamic> map) => Repository(
@@ -4552,6 +4752,7 @@ class Repository {
     agent: map['agent'] is String ? map['agent']! as String : null,
     nickname: _string(map, 'nickname'),
     goesBy: _string(map, 'goesBy'),
+    defaultModels: ProviderModel.allIn(map),
   );
 
   /// A project's repositories, **the project's own first**, from either shape Porelo has answered:

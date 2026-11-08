@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
+import 'package:porelo_frontend/src/app/agent_sign_in.dart';
 import 'package:porelo_frontend/src/app/commands.dart';
 import 'package:porelo_frontend/src/app/device_key.dart';
 import 'package:porelo_frontend/src/app/fleet_model.dart';
@@ -122,6 +123,8 @@ void main() {
       projectWorkCommand(open: () {}),
       leaveWorkCommand(() {}),
       restartRunCommand(task: null, open: () {}),
+      signInCommand(SigningIn()),
+      endTheSignInCommand(SigningIn()),
       unlockWaitingMessages(machine, fleet, () {}),
       removeWaitingProject(machine, fleet, Project.from(const {'name': 'demo'}), () {}, whyNoRemoval: null),
       askForHeldMessages(machine, fleet),
@@ -263,6 +266,7 @@ void main() {
       'work.certifyAgain',
       'work.check',
       'work.continue',
+      'work.endTheSignIn',
       'work.enforcement',
       'work.handIn',
       'work.label',
@@ -277,6 +281,7 @@ void main() {
       'work.resume',
       'work.review',
       'work.session',
+      'work.signIn',
       'work.start',
       'work.stop',
       'work.takeBack',

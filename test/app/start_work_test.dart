@@ -249,6 +249,34 @@ void main() {
     expect(starting.publishedOffer, isNull);
   });
 
+  // Harm: a form closed while its machine still answered takes that answer into the form opened next on another
+  // machine, or asks the first machine about the second form.
+  test(
+    'an answer for a form closed since lands nowhere, and the machine it was opened on is asked nothing more',
+    () async {
+      final first = _Slow();
+      final second = FakeBackend(const <Task>[])
+        ..theAgentsItHas = <Agent>[
+          Agent.from(const <String, dynamic>{'name': 'only-here', 'label': 'Only Here'}),
+        ];
+      final starting = StartWork();
+      addTearDown(starting.dispose);
+      final reading = starting.open(first, first.theProjectsItHas.first);
+      starting.close();
+      expect(starting.openedOn, isNull, reason: 'a closed form is on no machine');
+      await starting.open(second, second.theProjectsItHas.first);
+      final askedBefore = first.canStartAsked;
+      first.answer.complete();
+      await reading;
+      await pumpEventQueue();
+      expect(starting.agents.map((each) => each.name), <String>[
+        'only-here',
+      ], reason: 'the agents of the form open now');
+      expect(first.canStartAsked, askedBefore, reason: 'nothing more is asked of the machine of a closed form');
+      expect(starting.openedOn, same(second));
+    },
+  );
+
   test("opening on another project never keeps the last project's answer", () async {
     // An older machine answers nothing; the answer left from before disabled Start for the wrong project.
     final first = FakeBackend(const <Task>[])
@@ -666,6 +694,212 @@ void main() {
     });
   });
 
+  group('the model', () {
+    /// A task that ran `big-model` through `a-provider`, the provider the machine names for `an-agent`.
+    final ran = Task.from(const <String, dynamic>{
+      'name': 'porelo-checkout-nightly',
+      'task': 'nightly',
+      'project': 'checkout',
+      'securityClass': 'guarded',
+      'state': 'Exited (0) 2 minutes ago',
+      'running': false,
+      'helpers': 0,
+      'agent': 'an-agent',
+      'provider': 'a-provider',
+      'mode': 'UNATTENDED',
+      'prompt': 'Run the tests',
+      'model': 'big-model',
+    });
+
+    Future<String?> modelSent(FakeBackend machine, StartWork starting) async {
+      starting.callIt(starting.name.isEmpty ? 'more-work' : starting.name);
+      await starting.askAgain();
+      expect(starting.ready, isTrue, reason: '${starting.problem ?? starting.readiness?.detail}');
+      unawaited(starting.begin(machine).listen((_) {}).asFuture<void>());
+      await pumpEventQueue();
+      return machine.startedModels.single;
+    }
+
+    // Harm: going on with work quietly changes the model it ran to another one.
+    test('continuing a task sends the model it ran', () async {
+      final machine = FakeBackend(const <Task>[]);
+      final starting = StartWork();
+      addTearDown(starting.dispose);
+      await starting.continueFrom(machine, machine.theProjectsItHas.first, ran);
+
+      expect(await modelSent(machine, starting), 'big-model');
+    });
+
+    test('restarting a task sends the model it ran', () async {
+      final machine = FakeBackend(const <Task>[]);
+      final starting = StartWork();
+      addTearDown(starting.dispose);
+      await starting.restartFrom(machine, machine.theProjectsItHas.first, ran);
+
+      expect(await modelSent(machine, starting), 'big-model');
+    });
+
+    // Harm: a model meant for one provider is sent where another one runs, and means nothing there.
+    test('a model typed for one provider is not sent after the agent changed to another', () async {
+      final machine = FakeBackend(const <Task>[])
+        ..readinessOf['other-agent'] = const Readiness(
+          ready: true,
+          outcome: StartOutcome.ready,
+          agent: 'other-agent',
+          provider: 'b-provider',
+          credential: 'b-provider',
+          detail: '',
+        );
+      final starting = StartWork();
+      addTearDown(starting.dispose);
+      await starting.open(machine, machine.theProjectsItHas.first);
+      starting
+        ..callIt('work')
+        ..chooseAgent('an-agent');
+      await starting.askAgain();
+      starting
+        ..chooseModel('big-model')
+        ..chooseAgent('other-agent');
+      await starting.askAgain();
+
+      expect(await modelSent(machine, starting), isNull);
+    });
+
+    Project withDefaults(Project project, {List<ProviderModel> own = const [], List<ProviderModel> its = const []}) =>
+        Project(
+          name: project.name,
+          securityClass: project.securityClass,
+          file: project.file,
+          mirror: project.mirror,
+          pending: project.pending,
+          tasks: project.tasks,
+          running: project.running,
+          repositories: const <String>['checkout'],
+          repositoryStates: <Repository>[Repository(name: 'checkout', defaultModels: its)],
+          defaultModels: own,
+        );
+
+    // Harm: the default the repository names for the provider that runs is not filled in, and the machine's own
+    // default is taken in its place.
+    test("the repository's default for the provider that runs is filled in and sent", () async {
+      final machine = FakeBackend(const <Task>[]);
+      final starting = StartWork();
+      addTearDown(starting.dispose);
+      await starting.open(
+        machine,
+        withDefaults(
+          machine.theProjectsItHas.first,
+          own: const <ProviderModel>[ProviderModel(provider: 'a-provider', model: 'project-model', from: 'project')],
+          its: const <ProviderModel>[ProviderModel(provider: 'a-provider', model: 'repo-model', from: 'repository')],
+        ),
+        repository: 'checkout',
+      );
+      starting.chooseAgent('an-agent');
+      await starting.askAgain();
+
+      expect(starting.model, 'repo-model');
+      expect(await modelSent(machine, starting), 'repo-model');
+    });
+
+    test(
+      "the project's default for the provider that runs is filled in and sent where the repository names none",
+      () async {
+        final machine = FakeBackend(const <Task>[]);
+        final starting = StartWork();
+        addTearDown(starting.dispose);
+        await starting.open(
+          machine,
+          withDefaults(
+            machine.theProjectsItHas.first,
+            own: const <ProviderModel>[ProviderModel(provider: 'a-provider', model: 'project-model', from: 'project')],
+          ),
+          repository: 'checkout',
+        );
+        starting.chooseAgent('an-agent');
+        await starting.askAgain();
+
+        expect(starting.model, 'project-model');
+        expect(await modelSent(machine, starting), 'project-model');
+      },
+    );
+
+    // Harm: a model typed while the new agent's answer is out is tagged with the old agent's provider and cleared,
+    // or adopted by a provider it was not typed for.
+    test('a model typed after the agent changed, before the machine answered, is kept for that agent', () async {
+      final machine = FakeBackend(const <Task>[])
+        ..readinessOf['other-agent'] = const Readiness(
+          ready: true,
+          outcome: StartOutcome.ready,
+          agent: 'other-agent',
+          provider: 'b-provider',
+          credential: 'b-provider',
+          detail: '',
+        );
+      final starting = StartWork();
+      addTearDown(starting.dispose);
+      await starting.open(machine, machine.theProjectsItHas.first);
+      starting
+        ..callIt('work')
+        ..chooseAgent('an-agent');
+      await starting.askAgain();
+      starting.chooseAgent('other-agent');
+      starting.chooseModel('b-model');
+      await pumpEventQueue();
+
+      expect(starting.model, 'b-model', reason: 'typed for the agent chosen, it is kept for its provider');
+      expect(await modelSent(machine, starting), 'b-model');
+    });
+
+    // Harm: the default of the agent before stays in the field, and is sent for an agent whose provider was not said.
+    test('an unchosen default goes with its agent when another is chosen and the machine cannot say more', () async {
+      final machine = FakeBackend(const <Task>[]);
+      final starting = StartWork();
+      addTearDown(starting.dispose);
+      await starting.open(
+        machine,
+        withDefaults(
+          machine.theProjectsItHas.first,
+          own: const <ProviderModel>[ProviderModel(provider: 'a-provider', model: 'a-model', from: 'project')],
+        ),
+        repository: 'checkout',
+      );
+      starting.chooseAgent('an-agent');
+      await starting.askAgain();
+      expect(starting.model, 'a-model');
+      machine.canStartFails = 'the vault could not be read';
+      starting.chooseAgent('other-agent');
+      await starting.askAgain();
+
+      expect(starting.model, isEmpty, reason: 'the default was for the agent before');
+    });
+
+    // Harm: the default a project names for one provider is sent to another.
+    test("a project's default for another provider is not taken", () async {
+      final machine = FakeBackend(const <Task>[]);
+      final project = machine.theProjectsItHas.first;
+      final starting = StartWork();
+      addTearDown(starting.dispose);
+      await starting.open(
+        machine,
+        Project(
+          name: project.name,
+          securityClass: project.securityClass,
+          file: project.file,
+          mirror: project.mirror,
+          pending: project.pending,
+          tasks: project.tasks,
+          running: project.running,
+          defaultModels: const <ProviderModel>[
+            ProviderModel(provider: 'b-provider', model: 'b-model', from: 'project'),
+          ],
+        ),
+      );
+      starting.chooseAgent('an-agent');
+
+      expect(await modelSent(machine, starting), isNull);
+    });
+  });
+
   // Harm: a branch sent to another repository, or none to the right one, where the machine's own match differs.
   group('two addresses of one repository', () {
     for (final same in <(String, String)>[
@@ -686,6 +920,19 @@ void main() {
       test('are two: ${other.$1} and ${other.$2}', () => expect(sameAddress(other.$1, other.$2), isFalse));
     }
   });
+}
+
+/// A machine whose list of agents waits until the test lets it answer, and that counts what it was asked.
+class _Slow extends FakeBackend {
+  _Slow() : super(const <Task>[]);
+
+  final answer = Completer<void>();
+
+  @override
+  Future<AgentsOnTheMachine> agentsOn() async {
+    await answer.future;
+    return super.agentsOn();
+  }
 }
 
 /// A machine that lists the agents given and remembers which agent each question named.

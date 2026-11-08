@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:porelo_frontend/client.dart';
 
+import 'agent_sign_in.dart';
 import 'commands.dart' show whyNotStart;
 import 'fleet_backend.dart';
+import 'quiet_after_dispose.dart';
 import 'task_names.dart';
 
 /// How far one repository's start has got.
@@ -113,7 +115,137 @@ class AgentRow {
 /// The long-running agents of their repositories, each with its session: every task is `AGENT`, with
 /// no prompt. One that runs is left alone, a stopped one is brought back, and a refusal is that row's
 /// answer alone.
-class StartAgents extends ChangeNotifier {
+class StartAgents extends ChangeNotifier with QuietAfterDispose {
+  /// Constructor: the sign-in it walks through asks again once the machine says signed in.
+  StartAgents() {
+    signing
+      ..onSignedIn = _signedInOne
+      ..addListener(notifyListeners);
+  }
+
+  @override
+  void dispose() {
+    signing
+      ..removeListener(notifyListeners)
+      ..dispose();
+    super.dispose();
+  }
+
+  /// The sign-in of the agent signed in now, one after another, on the machine it was opened on.
+  final SigningIn signing = SigningIn();
+
+  /// Whether the machine has sign-ins of its own: null until it answered, false from one older than them, where the
+  /// sign-in is the agent's own login in a terminal, as before.
+  bool? signsIn;
+
+  /// What the machine said of each agent to start, asked once for all of them; empty until it answered.
+  Map<String, AgentSignIn> signIns = const <String, AgentSignIn>{};
+
+  /// Why the machine could not say which agents are signed in, in words, or null.
+  String? signInsProblem;
+
+  /// The agents of the rows to start, once each, that the machine does not say are signed in, in row order: **and
+  /// those it lists signed in while its answer for a start says what they sign in with is missing**, which wins.
+  List<String> get agentsToSignIn => signsIn != true
+      ? const <String>[]
+      : <String>{
+          for (final row in toStart)
+            if (!(signIns[row.agent]?.signedIn ?? false) || row.needsASignIn) row.agent,
+        }.toList();
+
+  /// Whether the machine's answer for a start of [agent] says what it signs in with is missing.
+  bool _heldByCanStart(String agent) => toStart.any((each) => each.agent == agent && each.needsASignIn);
+
+  /// Whether the sign-ins hold every start: one not answered, not signed in, or still out. **Every answer but signed
+  /// in holds it**; a machine older than sign-ins of its own holds nothing here.
+  bool get signInsHold =>
+      signsIn == null ||
+      (signsIn! && (signInsProblem != null || agentsToSignIn.isNotEmpty || signing.starting || signing.waiting));
+
+  /// Asks the machine once, for every agent of the rows to start, whether it is signed in there.
+  Future<void> _askSignIns(FleetBackend backend, int opening) async {
+    final agents = <String>{for (final row in rows.where((each) => each.startable)) row.agent}.toList();
+    signsIn = null;
+    signInsProblem = null;
+    signIns = const <String, AgentSignIn>{};
+    try {
+      final listed = await backend.agentSignIns(agents: agents);
+      if (opening != _opened) return;
+      signsIn = true;
+      signIns = <String, AgentSignIn>{for (final each in listed) each.agent: each};
+    } on FeatureNotSupported {
+      if (opening == _opened) signsIn = false;
+    } on VarlinkDisconnected catch (lost) {
+      if (opening != _opened) return;
+      signsIn = true;
+      signInsProblem = 'Lost contact with the machine: ${lost.message}';
+    } on Exception catch (failed) {
+      if (opening != _opened) return;
+      signsIn = true;
+      signInsProblem = switch (failed) {
+        VaultShut() => 'The vault on ${signing.machine} is shut, so nothing can be signed in or started.',
+        VarlinkException(:final parameters, :final simpleName) =>
+          'The machine could not say which agents are signed in: '
+              '${parameters['message'] ?? parameters['detail'] ?? simpleName}',
+        _ => 'The machine could not say which agents are signed in: $failed',
+      };
+    }
+    _nextSignIn();
+  }
+
+  /// Puts the first agent still to sign in up for its sign-in; **none is started without a press**, and the next
+  /// only once the one before is signed in.
+  void _nextSignIn() {
+    final machine = _machine;
+    final toSignIn = agentsToSignIn;
+    final current = signing.agent;
+    if (current != null && (signing.running || signing.starting)) {
+      if (toSignIn.contains(current)) {
+        // One out is kept until it ended, whichever agent comes first now.
+        signing.heldByCanStart = _heldByCanStart(current);
+        return notifyListeners();
+      }
+      // Its repository was left out: the wait is dropped, and its login task goes on, which is said.
+      left = signing.leave() ?? left;
+      signing.forget();
+    }
+    final next = toSignIn.firstOrNull;
+    if (machine == null || next == null) {
+      if (signing.agent != null && !signing.running) signing.forget();
+      notifyListeners();
+      return;
+    }
+    if (signing.agent != next) {
+      final label = agents.where((each) => each.name == next).firstOrNull?.label ?? '';
+      final said = signIns[next];
+      if (said == null) {
+        signing.unsaid(machine, next, label: label);
+      } else {
+        signing.take(machine, said, label: label);
+      }
+    }
+    signing.heldByCanStart = _heldByCanStart(next);
+    notifyListeners();
+  }
+
+  /// One agent signed in: kept as signed in, whether each row can start asked again, and the next put up.
+  Future<void> _signedInOne() async {
+    final agent = signing.agent;
+    final opening = _opened;
+    if (agent != null) {
+      signIns = <String, AgentSignIn>{
+        ...signIns,
+        agent: AgentSignIn(agent: agent, provider: signIns[agent]?.provider ?? '', state: 'SIGNED_IN'),
+      };
+    }
+    final machine = _machine;
+    if (machine != null) await _askAll(machine, opening);
+    if (opening == _opened) _nextSignIn();
+  }
+
+  /// What to say of a sign-in left when the wizard closed, or null where none runs.
+  String? left;
+
   /// The project its agents are started in, or null while nothing is open.
   Project? project;
 
@@ -200,6 +332,12 @@ class StartAgents extends ChangeNotifier {
   /// Opens it on [project]: reads the agents and tasks of the machine, and asks for each row whether it can start.
   Future<void> open(FleetBackend backend, Project project) async {
     final opening = ++_opened;
+    // Nothing of an opening before: its sign-in goes on in its own task, and only its wait is dropped.
+    left = signing.leave() ?? left;
+    signing.forget();
+    signsIn = null;
+    signIns = const <String, AgentSignIn>{};
+    signInsProblem = null;
     _machine = backend;
     this.project = project;
     problem = null;
@@ -222,6 +360,7 @@ class StartAgents extends ChangeNotifier {
       ];
       _match(project, tasks);
       await _askAll(backend, opening);
+      if (opening == _opened) await _askSignIns(backend, opening);
     } on VarlinkDisconnected catch (lost) {
       if (opening == _opened) problem = 'Lost contact with the machine: ${lost.message}';
     } on VarlinkException catch (refusal) {
@@ -288,6 +427,7 @@ class StartAgents extends ChangeNotifier {
     final row = rows.where((each) => each.repository == repository).firstOrNull;
     if (row == null || _running) return;
     row.chosen = chosen;
+    if (signsIn == true) _nextSignIn();
     notifyListeners();
     final machine = _machine;
     if (chosen && machine != null && !row.asked && _asking == 0) unawaited(_ask(machine, row, _opened, _round));
@@ -297,10 +437,17 @@ class StartAgents extends ChangeNotifier {
   ///
   /// **Every row that could start, chosen or not**, and none counts as asked until it is answered again: an
   /// answer from before is never taken for one now.
+  ///
+  /// **Which agents are signed in is asked again too**, unless a sign-in is out: one that could not be said, as with
+  /// a shut vault or a lost connection, is not kept for an answer once it is dealt with.
   Future<void> askAgain() async {
     final machine = _machine;
     if (machine == null) return;
-    await _askAll(machine, _opened);
+    final opening = _opened;
+    await _askAll(machine, opening);
+    if (opening == _opened && signsIn != false && !signing.running && !signing.starting) {
+      await _askSignIns(machine, opening);
+    }
   }
 
   /// One round of asking about every row that could start, the earlier answers dropped first.
@@ -365,7 +512,7 @@ class StartAgents extends ChangeNotifier {
     final where = project;
     if (machine == null || where == null || _running) return;
     // Never past a hold: the wizard does not offer this then, and nothing else may start around it.
-    if (!asked || askProblem != null || signInsNeeded.isNotEmpty || held.isNotEmpty) return;
+    if (!asked || askProblem != null || signInsNeeded.isNotEmpty || held.isNotEmpty || signInsHold) return;
     final opening = _opened;
     _running = true;
     notifyListeners();
@@ -422,6 +569,11 @@ class StartAgents extends ChangeNotifier {
 
   /// Closes it.
   void close() {
+    left = signing.leave() ?? left;
+    signing.forget();
+    signsIn = null;
+    signIns = const <String, AgentSignIn>{};
+    signInsProblem = null;
     _opened++;
     _running = false;
     busy = false;

@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:porelo_frontend/client.dart';
 
+import 'agent_sign_in.dart';
 import 'fleet_backend.dart';
+import 'quiet_after_dispose.dart';
 import 'task_names.dart';
 import 'templates.dart';
 
@@ -14,7 +16,26 @@ import 'templates.dart';
 /// prompt is given, `SHELL` otherwise), and the default is deliberately not relied on here,
 /// because work is started *with* a mode, and a screen that quietly picked one
 /// would be answering that for somebody.
-class StartWork extends ChangeNotifier {
+class StartWork extends ChangeNotifier with QuietAfterDispose {
+  /// Constructor: the sign-in it owns asks again whether work can start once the machine says signed in.
+  StartWork() {
+    signIn
+      ..onSignedIn = askAgain
+      ..addListener(notifyListeners);
+  }
+
+  /// The sign-in of the agent to run, on the machine the form was opened on: owned here, not by the dialog, so a
+  /// rebuild or a step back never drops what it waits on.
+  final SigningIn signIn = SigningIn();
+
+  @override
+  void dispose() {
+    signIn
+      ..removeListener(notifyListeners)
+      ..dispose();
+    super.dispose();
+  }
+
   /// Which project the work starts in, or null when nothing is being started.
   Project? project;
 
@@ -122,6 +143,114 @@ class StartWork extends ChangeNotifier {
   void allowMinutes(String typed) {
     minutesText = typed;
     notifyListeners();
+  }
+
+  /// The model the work runs, as the field holds it: the default for the provider the machine names, one typed, one
+  /// carried over from the task it goes on with, or empty. Sent only when not empty: absent, the machine takes the
+  /// provider's default, else the agent's own.
+  String model = '';
+
+  /// Whether [model] was typed or carried over from a task, rather than taken from a default.
+  bool _modelChosen = false;
+
+  /// Whether [model] is the one the task it goes on with ran.
+  bool _modelCarried = false;
+
+  /// The provider [model] is for, or empty while none is known.
+  String _modelFor = '';
+
+  /// The agent [model] was typed or carried over under, the person's pick (null where the machine chooses): a model
+  /// typed before the machine named a provider is taken for the provider of that agent alone.
+  String? _modelAgent;
+
+  /// What became of a model chosen for one provider when the machine named another, or null.
+  String? modelWords;
+
+  /// The default model for the provider the machine names for this start: the repository's, else the project's;
+  /// null where none is named or no provider is known.
+  ProviderModel? get defaultModel {
+    final provider = readiness?.provider ?? '';
+    final where = project;
+    if (where == null || provider.isEmpty) return null;
+    final repository = where.repositoryStates.where((each) => each.name == this.repository).firstOrNull;
+    return ProviderModel.forProvider(repository?.defaultModels ?? const <ProviderModel>[], provider) ??
+        ProviderModel.forProvider(where.defaultModels, provider);
+  }
+
+  /// What the model field says of what it holds, for a person.
+  String get modelHelp {
+    final provider = readiness?.provider ?? '';
+    final fallback = defaultModel;
+    if (model.isEmpty) {
+      if (provider.isEmpty) {
+        return 'Left empty, the machine takes the default model of the provider it uses, else the agent’s own. '
+            'It has not said which provider that is yet.';
+      }
+      return fallback == null
+          ? 'The agent’s own default: neither the repository nor the project names one for $provider.'
+          : 'Left empty, the machine takes ${fallback.shown}, the default for $provider ${_whence(fallback)}.';
+    }
+    if (_modelCarried) return 'The model it ran last time${_modelFor.isEmpty ? '' : ', through $_modelFor'}.';
+    if (!_modelChosen && fallback != null && fallback.model == model) {
+      return '${fallback.shown}, the default for $provider ${_whence(fallback)}. Change it if you like.';
+    }
+    return _modelFor.isEmpty ? 'As typed.' : 'As typed, for $_modelFor.';
+  }
+
+  static String _whence(ProviderModel named) => switch (named.from) {
+    'repository' => 'from the repository',
+    'project' => 'from the project',
+    '' => 'on the machine',
+    final other => 'from $other',
+  };
+
+  /// Takes what was typed as the model. Emptied, it follows the provider's default again.
+  void chooseModel(String typed) {
+    model = typed.trim();
+    _modelChosen = model.isNotEmpty;
+    _modelCarried = false;
+    // The answer on screen is about the agent chosen now, or there is none yet: never the agent before's provider.
+    _modelFor = readiness?.provider ?? '';
+    _modelAgent = agent;
+    modelWords = null;
+    notifyListeners();
+  }
+
+  /// Fits the model to the provider the machine now names: a default follows it, and a model chosen for another
+  /// provider is cleared, with a word, rather than sent where it means nothing.
+  void _fitTheModel() {
+    final provider = readiness?.provider ?? '';
+    final fallback = defaultModel;
+    if (!_modelChosen) {
+      // No provider known: none, rather than a default of a provider that may not run.
+      model = fallback?.model ?? '';
+      _modelFor = provider;
+      return;
+    }
+    // An answer that names no provider says nothing about the model: kept as it is.
+    if (provider.isEmpty || _modelFor == provider) return;
+    // Typed before any provider was named: it is that agent's, and taken only for an answer about it.
+    if (_modelFor.isEmpty && _modelAgent == agent) {
+      _modelFor = provider;
+      return;
+    }
+    modelWords =
+        '$model was for ${_modelFor.isEmpty ? 'another agent' : _modelFor}; the model is '
+        '${fallback == null ? 'the agent’s own default' : fallback.shown} now.';
+    model = fallback?.model ?? '';
+    _modelChosen = false;
+    _modelCarried = false;
+    _modelFor = provider;
+  }
+
+  /// Starts the model afresh: [carried] from a task, or none until the machine names a provider.
+  void _forgetTheModel({String carried = '', String provider = ''}) {
+    model = carried;
+    _modelChosen = carried.isNotEmpty;
+    _modelCarried = carried.isNotEmpty;
+    _modelFor = carried.isEmpty ? '' : provider;
+    _modelAgent = agent;
+    modelWords = null;
   }
 
   /// What to call the work, or empty to let the machine name it.
@@ -245,10 +374,13 @@ class StartWork extends ChangeNotifier {
     final host = readiness?.host ?? '';
     final machine = _machine;
     if (offer == null || host.isEmpty || machine == null) return;
+    final opening = _opening;
     try {
       final trusted = await machine.trustHostKey(host, offer.fingerprint);
+      if (opening != _opening) return;
       if (!trusted.recorded) problem = trusted.detail.isEmpty ? 'Nothing was recorded.' : trusted.detail;
     } on VarlinkException catch (refusal) {
+      if (opening != _opening) return;
       problem = _refused(refusal, 'trusting $host’s key');
     }
     readiness = null;
@@ -269,18 +401,22 @@ class StartWork extends ChangeNotifier {
     allowing = true;
     problem = null;
     notifyListeners();
+    final opening = _opening;
     try {
       final allowed = await machine.allowSettings(repository, shown.settingsHash);
+      if (opening != _opening) return;
       if (!allowed.allowed) {
         problem = allowed.outcome == 'CHANGED'
             ? 'porelo.yml changed after it was shown, so nothing was allowed. Read what it sets now.'
             : (allowed.detail.isEmpty ? 'Nothing was allowed (${allowed.outcome}).' : allowed.detail);
       }
     } on VarlinkException catch (refusal) {
+      if (opening != _opening) return;
       problem = _refused(refusal, "allowing $repository's settings");
     } finally {
       allowing = false;
     }
+    if (opening != _opening) return;
     readiness = null;
     notifyListeners();
     await _askWhetherItCanStart(machine);
@@ -321,7 +457,34 @@ class StartWork extends ChangeNotifier {
       nameProblem == null &&
       (continuing != null || name.isNotEmpty) &&
       !refusedOutright &&
-      !needsASignIn;
+      !needsASignIn &&
+      !signIn.holdsTheStart &&
+      !(_canStartFailed && signIn.served != false);
+
+  /// Whether the machine's answer to whether work can start says what the agent signs in with is missing, for an
+  /// agent of the machine's own sign-in or not: that answer wins for a start.
+  bool get _canStartWantsASignIn =>
+      readiness != null &&
+      const <String>{'CREDENTIAL_MISSING', 'CREDENTIAL_UNUSABLE'}.contains(readiness!.outcome.name) &&
+      !readinessIsAboutTheName &&
+      !readinessIsAboutTheRepository;
+
+  /// Keeps the sign-in on the agent that would run, on the machine the form was opened on: asked again whenever
+  /// that agent changes, and dropped while none is known.
+  Future<void> _followTheAgent() async {
+    final who = agentToRun;
+    final on = _machine;
+    if (who == null || on == null) {
+      if (signIn.agent != null) signIn.forget();
+      return;
+    }
+    if (signIn.agent != who || !identical(signIn.on, on)) {
+      final listed = agents.where((each) => each.name == who).firstOrNull;
+      await signIn.ask(on, agent: who, label: listed?.label ?? '');
+    }
+    // After the asking, which drops what was held before: the machine's answer for a start wins.
+    if (signIn.agent == who && identical(signIn.on, on)) signIn.heldByCanStart = _canStartWantsASignIn;
+  }
 
   /// Whether the agent chosen has nothing to sign in with yet, and can sign in from here.
   ///
@@ -462,6 +625,7 @@ class StartWork extends ChangeNotifier {
     prompt = template.prompt;
     name = '';
     problem = null;
+    _forgetTheModel();
     _forgetReadiness();
     notifyListeners();
     await _reading(backend);
@@ -487,6 +651,7 @@ class StartWork extends ChangeNotifier {
     _named = false;
     _taken = const <String>{};
     problem = null;
+    _forgetTheModel();
     _forgetReadiness();
     _suggestAName();
     notifyListeners();
@@ -533,6 +698,8 @@ class StartWork extends ChangeNotifier {
     this.name = name;
     _named = name.isNotEmpty;
     problem = null;
+    // The model it ran, so going on with it never quietly changes it to a default.
+    _forgetTheModel(carried: task.model ?? '', provider: task.provider);
     _forgetReadiness();
     notifyListeners();
     await _reading(backend);
@@ -540,6 +707,9 @@ class StartWork extends ChangeNotifier {
 
   /// Closes it.
   void close() {
+    // Whatever is still out for this form lands nowhere, and nothing more is asked of its machine.
+    _forgetReadiness();
+    _machine = null;
     project = null;
     repository = null;
     openedForRepository = null;
@@ -558,6 +728,12 @@ class StartWork extends ChangeNotifier {
     agent = name;
     _agentIsGone = false;
     readiness = null;
+    // A default went with the agent before; one typed stays, tied to the agent it was typed for.
+    if (!_modelChosen) {
+      model = '';
+      _modelFor = '';
+    }
+    unawaited(_followTheAgent());
     notifyListeners();
     final machine = _machine;
     if (machine != null) unawaited(_askWhetherItCanStart(machine));
@@ -624,27 +800,68 @@ class StartWork extends ChangeNotifier {
 
   /// What to call the operation this starts, for somebody reading the list an hour later.
   String get title => switch (mode) {
-    Mode.unattended when continuing != null => 'Continue ${continuing!.name}',
+    Mode.unattended when continuing != null => 'Continue ${continuing!.shown}',
     Mode.unattended => 'Run ${agentToRun ?? 'an agent'} in ${project?.name ?? ''}',
     _ => 'Start work in ${project?.name ?? ''}',
   };
 
   /// The stream the operation is built on. Empty when there is not enough to start with.
-  Stream<StartEvent> begin(FleetBackend backend) {
-    if (!ready) return const Stream<StartEvent>.empty();
-    return backend.startTask(
-      task: name.isEmpty ? null : name,
-      project: project!.name,
+  Stream<StartEvent> begin(FleetBackend backend) => ready ? _startOn(backend)() : const Stream<StartEvent>.empty();
+
+  /// The start as the form holds it at the press, on the machine it was opened on; null when there is not enough to
+  /// start with.
+  ///
+  /// **Taken at the press**: the form closes as Start is pressed, and a question put before the start (the
+  /// machine's proposal for a first task) is answered after that, so what is sent then is what was pressed, and
+  /// never to the machine chosen meanwhile.
+  StartPress? press() {
+    final on = _machine;
+    final where = project;
+    if (!ready || on == null || where == null) return null;
+    return StartPress(
+      on: on,
+      title: title,
+      project: where.name,
+      named: name.trim(),
+      mode: mode!,
+      repository: repository,
+      fromACheckout: checkout != null,
+      agent: agentToRun,
+      signsIn: signIn.served == true,
+      send: _startOn(on),
+    );
+  }
+
+  /// The `Start` of what the form holds now, sent to [backend] when called.
+  Stream<StartEvent> Function() _startOn(FleetBackend backend) {
+    final task = name.isEmpty ? null : name;
+    final project = this.project!.name;
+    final agent = this.agent;
+    final mode = this.mode;
+    // Only with `UNATTENDED`, and trimmed: a prompt of spaces is not a prompt.
+    final prompt = takesAPrompt ? this.prompt.trim() : null;
+    final minutes = this.minutes;
+    final repository = this.repository;
+    final credentials = this.credentials;
+    final from = checkoutBranch;
+    // Only when there is one: absent, the machine takes the provider's default or the agent's own.
+    final model = this.model.isEmpty ? null : this.model;
+    return () => backend.startTask(
+      task: task,
+      project: project,
       agent: agent,
       mode: mode,
-      // Only with `UNATTENDED`, and trimmed: a prompt of spaces is not a prompt.
-      prompt: takesAPrompt ? prompt.trim() : null,
+      prompt: prompt,
       minutes: minutes,
       repository: repository,
       credentials: credentials,
-      from: checkoutBranch,
+      from: from,
+      model: model,
     );
   }
+
+  /// The machine the form was opened on, by the backend it asks, or null before it was opened.
+  FleetBackend? get openedOn => _machine;
 
   /// The machine this was opened against, so choosing an agent can ask it again.
   FleetBackend? _machine;
@@ -655,20 +872,32 @@ class StartWork extends ChangeNotifier {
   /// Drops the answer about what was open before, and any question about it still out: an answer
   /// about another project, or one this machine is too old to give, is worse than none.
   void _forgetReadiness() {
+    _opening++;
     _agentIsGone = false;
     readiness = null;
     _readinessName = null;
+    _canStartFailed = false;
     _asked++;
+    // A sign-in of the start before goes on in its own task; only its wait is dropped.
+    signIn.forget();
   }
 
   /// Counts the questions, so an answer to an earlier one never overwrites a later one.
   int _asked = 0;
+
+  /// Counts the openings and closings, so an answer for a form opened earlier lands nowhere.
+  int _opening = 0;
 
   /// The questions still out. **Nothing starts on them**: a start in that moment skips what the answer
   /// was about to say, a missing sign-in among it, and with no agent picked it would have no choice to show.
   int _questionsOut = 0;
 
   bool get _asking => _questionsOut > 0;
+
+  /// Whether the machine failed to say whether work can start, the last it was asked. On a machine with sign-ins of
+  /// its own that answer wins for a start, so **a failed one holds it**, whatever an earlier answer or the sign-in
+  /// says.
+  bool _canStartFailed = false;
 
   /// The agent chosen, the person's or the machine's, as the machine listed it, or null.
   Agent? get chosenAgent => agents.where((each) => each.name == agentToRun).firstOrNull;
@@ -717,6 +946,9 @@ class StartWork extends ChangeNotifier {
   /// Asks the machine again whether work can start — after something was done about why not.
   Future<void> askAgain() async {
     final machine = _machine;
+    // A sign-in that holds the start for what was dealt with (a shut vault, a refusal) is asked again with it; one
+    // signed in, or one that runs, is kept.
+    if (!signIn.signedIn && !signIn.running && !signIn.starting) signIn.forget();
     if (machine != null) await _askWhetherItCanStart(machine);
   }
 
@@ -761,16 +993,32 @@ class StartWork extends ChangeNotifier {
       }
       readiness = answer.naming(agent);
       _readinessName = about;
+      _canStartFailed = false;
+      _fitTheModel();
+      // Asked before the question counts as answered: nothing starts while the sign-in is not read.
+      await _followTheAgent();
     } on VarlinkDisconnected {
       // Nothing to say: the dialog already shows what it could not read, and a second sentence
       // about the same lost connection is noise at the moment somebody is trying to work.
+      if (asking == _asked) {
+        _canStartFailed = true;
+        await _followTheAgent();
+      }
     } on FeatureNotSupported {
       // A backend older than `CanStart`. Nothing is claimed either way, which is what leaving it
-      // null means — better than asserting readiness nobody measured.
+      // null means — better than asserting readiness nobody measured. The sign-in is still read.
+      if (asking == _asked) {
+        _canStartFailed = false;
+        await _followTheAgent();
+      }
     } on VarlinkException catch (refusal) {
       // The machine could not answer the question: said, never left to escape. This is asked from
       // an open dialog nobody awaits, so an error let through here reaches nobody at all.
-      if (asking == _asked) problem = _refused(refusal, 'whether work can start');
+      if (asking == _asked) {
+        problem = _refused(refusal, 'whether work can start');
+        _canStartFailed = true;
+        await _followTheAgent();
+      }
     } finally {
       _questionsOut--;
       notifyListeners();
@@ -787,33 +1035,41 @@ class StartWork extends ChangeNotifier {
   /// Reads the vault's entries and the machine's destinations, for giving the work more than its
   /// project names. **Either may be missing without anything else failing**: a locked vault or an
   /// older machine only means no more can be given here, which the dialog says.
-  Future<void> _readingWhatCanBeGiven(FleetBackend backend) async {
+  Future<void> _readingWhatCanBeGiven(FleetBackend backend, int opening) async {
+    var vault = const <Credential>[];
     try {
-      final vault = await backend.credentials();
-      vaultEntries = vault.readable ? vault.credentials : const <Credential>[];
+      final read = await backend.credentials();
+      vault = read.readable ? read.credentials : const <Credential>[];
     } on FeatureNotSupported {
-      vaultEntries = const <Credential>[];
+      // Nothing more can be given here.
     } on VarlinkException {
-      vaultEntries = const <Credential>[];
+      // Nothing more can be given here.
     }
+    if (opening != _opening) return;
+    vaultEntries = vault;
     try {
-      providers = (await backend.providers()).providers;
+      final declared = (await backend.providers()).providers;
+      if (opening != _opening) return;
+      providers = declared;
     } on FeatureNotSupported {
-      providers = const <Provider>[];
+      if (opening == _opening) providers = const <Provider>[];
     } on VarlinkException {
-      providers = const <Provider>[];
+      if (opening == _opening) providers = const <Provider>[];
     }
+    if (opening != _opening) return;
     try {
-      destinations = await backend.destinations();
+      final declared = await backend.destinations();
+      if (opening == _opening) destinations = declared;
     } on FeatureNotSupported {
-      destinations = null;
+      if (opening == _opening) destinations = null;
     } on VarlinkException {
-      destinations = null;
+      if (opening == _opening) destinations = null;
     }
   }
 
   Future<void> _reading(FleetBackend backend) async {
     _machine = backend;
+    final opening = _opening;
     // Every opening comes through here: what was given belongs to the work it was given to, and
     // is never carried into the next.
     credentials = const <String, String>{};
@@ -822,6 +1078,7 @@ class StartWork extends ChangeNotifier {
     notifyListeners();
     try {
       final answered = await backend.agentsOn();
+      if (opening != _opening) return;
       final installed = answered.agents;
       final couldNotBeRead = answered.failures;
       // `Agents` answers one entry per name — they are keyed by name on the daemon side — so
@@ -845,27 +1102,80 @@ class StartWork extends ChangeNotifier {
       // container's name): a suggestion never reuses one, and a typed one is refused at once.
       try {
         final where = project?.name;
+        final listed = await backend.tasks();
+        if (opening != _opening) return;
         _taken = <String>{
-          for (final task in await backend.tasks())
+          for (final task in listed)
             if (task.project == where && task.task.isNotEmpty) task.task,
         };
       } on Object {
+        if (opening != _opening) return;
         _taken = const <String>{};
       }
       _suggestAName();
-      await _readingWhatCanBeGiven(backend);
+      await _readingWhatCanBeGiven(backend, opening);
+      if (opening != _opening) return;
       await _askWhetherItCanStart(backend);
     } on VarlinkDisconnected catch (ex) {
-      problem = 'Lost contact with the machine: ${ex.message}';
+      if (opening == _opening) problem = 'Lost contact with the machine: ${ex.message}';
     } on FeatureNotSupported catch (ex) {
-      problem = '$ex';
+      if (opening == _opening) problem = '$ex';
     } on VarlinkException catch (refusal) {
-      problem = _refused(refusal, 'which agents it has');
+      if (opening == _opening) problem = _refused(refusal, 'which agents it has');
     } finally {
-      busy = false;
-      notifyListeners();
+      if (opening == _opening) {
+        busy = false;
+        notifyListeners();
+      }
     }
   }
+}
+
+/// A start as pressed: what was on the form, and the machine it was opened on.
+class StartPress {
+  /// Constructor taking what was pressed.
+  const StartPress({
+    required this.on,
+    required this.title,
+    required this.project,
+    required this.named,
+    required this.mode,
+    required this.repository,
+    required this.fromACheckout,
+    required this.send,
+    this.agent,
+    this.signsIn = false,
+  });
+
+  /// The agent that runs, the person's or the machine's choice, or null where none was known.
+  final String? agent;
+
+  /// Whether the machine has sign-ins of its own, so a start refused for a missing one can offer it.
+  final bool signsIn;
+
+  /// The machine the form was opened on, by the backend it asks.
+  final FleetBackend on;
+
+  /// What to call the operation.
+  final String title;
+
+  /// The project it starts in.
+  final String project;
+
+  /// The name typed or taken, trimmed; empty where the machine names it.
+  final String named;
+
+  /// How somebody is involved.
+  final Mode mode;
+
+  /// The repository it starts in, or null.
+  final String? repository;
+
+  /// Whether it starts from a checkout on this computer.
+  final bool fromACheckout;
+
+  /// Sends the `Start`, to [on].
+  final Stream<StartEvent> Function() send;
 }
 
 /// A checkout on this computer that work was asked to start from: the branch it is on, null where it is detached,
@@ -942,11 +1252,14 @@ enum AfterTheProposal {
 
 /// Before the first task on [repository] in `default`, with no checkout here: the machine's proposal, put to the
 /// person by [ask] (true for a yes, false for a no, null for closing it), and a yes sent for exactly the text shown.
+///
+/// [stillWanted] is asked after each wait: once it says no (the machine forgotten meanwhile), nothing more is sent.
 Future<AfterTheProposal> askBeforeTheFirstTask(
   FleetBackend machine,
   String repository,
-  Future<bool?> Function(FirstStart first) ask,
-) async {
+  Future<bool?> Function(FirstStart first) ask, {
+  bool Function()? stillWanted,
+}) async {
   final FirstStart first;
   try {
     first = await machine.firstStartOf(repository);
@@ -959,8 +1272,9 @@ Future<AfterTheProposal> askBeforeTheFirstTask(
   }
   // Only a question with a text a yes could name is put; anything else starts as the machine would without one.
   if (!first.asks || first.hash.isEmpty || first.refusal.isNotEmpty) return AfterTheProposal.start;
+  if (!(stillWanted?.call() ?? true)) return AfterTheProposal.startNothing;
   final said = await ask(first);
-  if (said == null) return AfterTheProposal.startNothing;
+  if (said == null || !(stillWanted?.call() ?? true)) return AfterTheProposal.startNothing;
   if (said) await machine.confirmFirstStartOf(repository, first.hash);
   return AfterTheProposal.start;
 }

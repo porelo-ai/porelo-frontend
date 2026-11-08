@@ -47,6 +47,9 @@ import './step/nothing_was_started.dart';
 import './step/the_project_has_the_repositories.dart';
 import './step/the_work_works_in_the_repository.dart';
 import './step/the_launch_was_in_the_repository.dart';
+import './step/i_watch_another_machine_called.dart';
+import './step/the_machine_is_chosen_behind_the_form.dart';
+import './step/nothing_reached_the_machine.dart';
 
 void main() {
   group('''Stopping, removing, renaming and recreating work, and what it costs''', () {
@@ -204,6 +207,21 @@ void main() {
       await iAskToRecreateTheSelectedWork(tester);
       await iAgreeToRecreateIt(tester);
       await theLaunchWasInTheRepository(tester, 'payments-api');
+    });
+    testWidgets('''recreating goes to the machine the work is on, not to one chosen while it is confirmed''', (
+      tester,
+    ) async {
+      await bddSetUp(tester);
+      await iWatchAnotherMachineCalled(tester, 'elsewhere');
+      await iGoToTheWork(tester);
+      await iSelectTheProject(tester, 'checkout');
+      await iSelectTheWork(tester, 'porelo-checkout-shell');
+      await iAskToRecreateTheSelectedWork(tester);
+      await theMachineIsChosenBehindTheForm(tester, 'elsewhere');
+      await iAgreeToRecreateIt(tester);
+      await theRemovalAskedFor(tester, 'porelo-checkout-shell');
+      await theLaunchWasCalled(tester, 'shell');
+      await nothingReachedTheMachine(tester, 'elsewhere');
     });
   });
 }

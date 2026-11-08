@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:porelo_frontend/client.dart';
 
+import 'agent_sign_in.dart';
 import 'fleet_model.dart';
 import 'host_runs.dart';
 import 'host_access.dart';
@@ -158,6 +159,28 @@ Command leaveWorkCommand(VoidCallback leave, {String? unavailable}) => Command(
   home: Home.openedView,
   run: leave,
   unavailable: unavailable,
+);
+
+/// Signs the agent of [signingIn] in on its machine: starts the machine's login task, or opens the one that runs, and
+/// waits on it. [busy] is why not while something else is out, as a start.
+Command signInCommand(SigningIn signingIn, {String? busy}) => Command(
+  id: 'work.signIn',
+  label: 'Sign in',
+  group: 'Work',
+  home: Home.openedView,
+  run: () => unawaited(signingIn.signIn()),
+  unavailableNow: () => busy ?? signingIn.whySignInCannot,
+);
+
+/// Ends the sign-in of [signingIn] that runs, by stopping its login task as any task is stopped. Nothing starts.
+Command endTheSignInCommand(SigningIn signingIn) => Command(
+  id: 'work.endTheSignIn',
+  label: 'End the sign-in',
+  group: 'Work',
+  home: Home.openedView,
+  run: () => unawaited(signingIn.end()),
+  unavailableNow: () => signingIn.whyEndCannot,
+  danger: true,
 );
 
 /// Opens the watched task's start form for review before another run.

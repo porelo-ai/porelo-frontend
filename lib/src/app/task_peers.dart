@@ -33,7 +33,7 @@ class TaskPeers extends ChangeNotifier with QuietAfterDispose {
   Future<void> load() => _asking(() async {
     if (task.project.isEmpty) {
       problem =
-          'Nothing recorded which project ${task.name} belongs to, and its project is '
+          'Nothing recorded which project ${task.shown} belongs to, and its project is '
           'what says whom it may talk to.';
       peers = const <TalkPeer>[];
       return;
@@ -79,8 +79,8 @@ class TaskPeers extends ChangeNotifier with QuietAfterDispose {
         'Failed' => '${refusal.parameters['message'] ?? 'The machine refused it.'}',
         'NoSuchProject' =>
           '${task.project} is not on this machine, so it cannot say whom '
-              '${task.name} may talk to.',
-        'NoSuchTask' => '${task.name} is not a task on this machine any more.',
+              '${task.shown} may talk to.',
+        'NoSuchTask' => '${task.shown} is not a task on this machine any more.',
         _ => 'The machine refused it: ${refusal.simpleName}.',
       };
     } on VarlinkDisconnected catch (ex) {

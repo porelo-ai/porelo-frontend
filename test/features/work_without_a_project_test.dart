@@ -43,6 +43,14 @@ import './step/i_start_forwarding_it_to_its_origin.dart';
 import './step/the_forwarding_asks.dart';
 import './step/i_go_to_the_place.dart';
 import './step/the_projects_page_lists_on.dart';
+import './step/the_first_task_on_in_default_asks_before_it_starts.dart';
+import './step/i_watch_another_machine_called.dart';
+import './step/i_call_it.dart';
+import './step/i_start_it.dart';
+import './step/the_machine_the_start_was_pressed_on_is_forgotten.dart';
+import './step/i_agree_to_the_first_task.dart';
+import './step/no_first_task_was_agreed_to_on_any_machine.dart';
+import './step/nothing_was_started.dart';
 
 void main() {
   group('''Work on a repository without writing a project first''', () {
@@ -152,5 +160,23 @@ void main() {
       await itSays(tester, 'Default');
       await theProjectsPageListsOn(tester, 'checkout', 'this machine');
     });
+    testWidgets(
+      '''a first task's question answered after its machine was forgotten writes nothing and starts nothing''',
+      (tester) async {
+        await bddSetUp(tester);
+        await theFirstTaskOnInDefaultAsksBeforeItStarts(tester, 'tools');
+        await iWatchAnotherMachineCalled(tester, 'elsewhere');
+        await iGoToTheWork(tester);
+        await iSelectTheProject(tester, 'default');
+        await iPressTheStartTile(tester);
+        await iStartWorkInDefaultOn(tester, 'git@example.org:acme/tools.git');
+        await iCallIt(tester, 'tools-work');
+        await iStartIt(tester);
+        await theMachineTheStartWasPressedOnIsForgotten(tester);
+        await iAgreeToTheFirstTask(tester);
+        await noFirstTaskWasAgreedToOnAnyMachine(tester);
+        await nothingWasStarted(tester);
+      },
+    );
   });
 }

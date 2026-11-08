@@ -97,17 +97,18 @@ class WorkDetail extends StatelessWidget {
     return Column(
       children: <Widget>[
         PaneHeader(
-          title: task.label.isEmpty ? task.name : task.label,
+          title: task.shown,
           trailing: IconButton(icon: const Icon(Icons.close), tooltip: 'Close (Esc)', onPressed: onClose),
         ),
         Expanded(
           child: ListView(
             padding: const EdgeInsets.all(Space.wide),
             children: <Widget>[
-              // Only when a caption is standing in front of it: the heading is the name when
-              // there is no caption, and repeating it would be noise. When there is one, the
-              // identity has to be somewhere — it is what every other call takes.
-              if (task.label.isNotEmpty) _Field(name: 'Its name', value: task.name),
+              // The container's name, here and only here: the heading is what a person calls it, and
+              // the identity has to be somewhere — it is what every other call takes.
+              if (task.shown != task.name) _Field(name: 'Its name', value: task.name),
+              // What its project's room calls it, where the machine says.
+              if (task.display case final display? when display.isNotEmpty) _Field(name: 'In its room', value: display),
               _Field(name: 'Project', value: task.project.isEmpty ? '—' : task.project),
               if (repository != null) _Field(name: 'Repository', value: repository!),
               _Field(name: 'Security class', value: task.securityClass.isEmpty ? '—' : task.securityClass),
@@ -115,6 +116,16 @@ class WorkDetail extends StatelessWidget {
               // Where its model traffic went, from the task's own record: what a person asks
               // afterwards, and the machine answers once rather than this end guessing.
               _Field(name: 'Provider', value: task.provider.isEmpty ? '—' : task.provider),
+              // Absent from a machine that does not say, which is not the agent's own default.
+              if (task.model case final model?)
+                _Field(
+                  name: 'Model',
+                  value: model.isEmpty
+                      ? 'its agent’s own default'
+                      : (task.modelLabel?.isNotEmpty ?? false)
+                      ? '${task.modelLabel} ($model)'
+                      : model,
+                ),
               _Field(name: 'Mode', value: task.mode.label),
               _Field(name: 'Branch', value: task.branch.isEmpty ? '—' : task.branch),
               // **Answered by the task, never joined.** `Task.name` is a container name and a

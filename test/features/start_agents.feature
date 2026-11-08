@@ -13,6 +13,7 @@ Feature: Starting the agent each repository names, at one click
     # The long-running agents of their repositories: attended, no prompt, and one that runs is left alone.
     Scenario: one click starts the agent that is not running, and the running one is not started again
         Given the agent {'an-agent'} works in {'payments-api'} of {'checkout'} as {'payments-api'} and it runs
+        And the repository {'ledger'} of {'checkout'} runs {'big-model'} by default for {'a-provider'}
         When I choose {'Start an agent for each repository…'} from the menu of the project {'checkout'}
         Then it says {'docs names no agent'}
         And it says {'Agent Payments runs already'}
@@ -21,6 +22,7 @@ Feature: Starting the agent each repository names, at one click
         And I agree to start it
         And the operation finishes
         Then the agents started were {'ledger/other-agent/ledger'}
+        And no start named a model
         And it says {'Agent ledger started'}
 
     # In the first seconds after a start the machine lists the task before it says its agent: it is that row's.
@@ -153,3 +155,117 @@ Feature: Starting the agent each repository names, at one click
         Given the machine does not say which agent its repositories name
         When I open the menu of the project {'checkout'}
         Then the menu offers {'Start an agent for each repository…'} as unavailable because {'does not say which agent'}
+
+    # One question for every agent to start, and one sign-in per agent, however many repositories name it.
+    Scenario: two repositories of one agent make one sign-in, and nothing starts before it
+        Given the repository {'docs'} of {'checkout'} names the agent {'an-agent'} going by {'Agent Docs'}
+        And the machine says {'an-agent'} is {'NOT_SIGNED_IN'}
+        When I choose {'Start an agent for each repository…'} from the menu of the project {'checkout'}
+        And I go on
+        Then the machine was asked once which agents are signed in
+        And the wizard cannot go on yet
+        When I press {'Sign in'}
+        And I close the terminal of the sign-in
+        Then the machine was asked to start {1} sign-ins
+        When the sign-in ends as {'SIGNED_IN'}
+        Then going on is offered
+        And nothing was started
+
+    Scenario: the next agent is signed in only once the one before is, and nothing starts before all are
+        Given the machine says {'an-agent'} is {'NOT_SIGNED_IN'}
+        And the machine says {'other-agent'} is {'NOT_SIGNED_IN'}
+        When I choose {'Start an agent for each repository…'} from the menu of the project {'checkout'}
+        And I go on
+        And I press {'Sign in'}
+        And I close the terminal of the sign-in
+        And I press {'Sign in'}
+        And I close the terminal of the sign-in
+        Then the sign-ins started were {'an-agent'}
+        When the sign-in ends as {'SIGNED_IN'}
+        Then the wizard cannot go on yet
+        And nothing was started
+        When I press {'Sign in'}
+        And I close the terminal of the sign-in
+        Then the sign-ins started were {'an-agent, other-agent'}
+        When the sign-in ends as {'SIGNED_IN'}
+        Then going on is offered
+
+    Scenario Outline: a sign-in that fails or is ended holds every start
+        Given the machine says {'an-agent'} is {'NOT_SIGNED_IN'}
+        When I choose {'Start an agent for each repository…'} from the menu of the project {'checkout'}
+        And I go on
+        And I press {'Sign in'}
+        And I close the terminal of the sign-in
+        And the sign-in ends as {<end>}
+        Then the wizard cannot go on yet
+        And nothing was started
+        Examples:
+            | end             |
+            | 'NOT_SIGNED_IN' |
+            | 'cut'           |
+
+    Scenario: closing the wizard during a sign-in starts nothing and leaves the login task
+        Given the machine says {'an-agent'} is {'NOT_SIGNED_IN'}
+        When I choose {'Start an agent for each repository…'} from the menu of the project {'checkout'}
+        And I go on
+        And I press {'Sign in'}
+        And I close the terminal of the sign-in
+        Then the sign-in is waited on
+        When I close the wizard
+        Then the sign-in is no longer waited on
+        When I go to the work
+        Then it says {'The sign-in to An Agent goes on in its own task'}
+        When the sign-in ends as {'SIGNED_IN'}
+        Then nothing was started
+        And the login task was not stopped
+
+    # The machine's answer to whether work can start wins: an agent it lists signed in is still signed in here.
+    Scenario: an agent listed signed in while the machine says its credential is missing is offered its sign-in
+        Given the machine says {'an-agent'} is {'SIGNED_IN'}
+        And the agent {'an-agent'} has nothing to sign in with
+        When I choose {'Start an agent for each repository…'} from the menu of the project {'checkout'}
+        And I go on
+        Then the wizard cannot go on yet
+        When I press {'Sign in'}
+        And I close the terminal of the sign-in
+        Then the sign-ins started were {'an-agent'}
+        And nothing was started
+
+    Scenario: a machine that could not say which agents are signed in is asked again by a press
+        Given the machine says {'an-agent'} is {'SIGNED_IN'}
+        And asking whether agents are signed in fails with {'a refusal'}
+        When I choose {'Start an agent for each repository…'} from the menu of the project {'checkout'}
+        And I go on
+        Then the wizard cannot go on yet
+        When the machine answers which agents are signed in again
+        And I press {'Ask again'}
+        Then going on is offered
+
+    # A repository left out takes its agent's sign-in out of the way; its login task goes on.
+    Scenario: leaving out the repository whose agent signs in moves on to the next agent
+        Given the machine says {'an-agent'} is {'SIGNING_IN'}
+        And the machine says {'other-agent'} is {'NOT_SIGNED_IN'}
+        When I choose {'Start an agent for each repository…'} from the menu of the project {'checkout'}
+        And I leave out {'payments-api'}
+        And I go on
+        And I press {'Sign in'}
+        And I close the terminal of the sign-in
+        Then the sign-ins started were {'other-agent'}
+        And the login task was not stopped
+        And nothing was started
+
+    # The wizard keeps the machine it was chosen on: its sign-ins and their terminals all go there.
+    Scenario: the wizard opens on the machine it was chosen on, not on one chosen while the machine was read
+        Given the machine says {'an-agent'} is {'NOT_SIGNED_IN'}
+        And the machine {'elsewhere'} has sign-ins of its own
+        When I watch another machine called {'elsewhere'}
+        And I go to the work
+        And the machine holds its list of projects back
+        And I choose {'Start an agent for each repository…'} from the menu of the project {'checkout'}
+        And the machine {'elsewhere'} is chosen behind the form
+        And the machine gives its list of projects
+        Then the machine was asked once which agents are signed in
+        When I go on
+        And I press {'Sign in'}
+        Then the terminal of the sign-in is on the machine its form was opened on
+        And no sign-in reached the machine {'elsewhere'}

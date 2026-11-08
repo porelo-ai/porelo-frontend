@@ -679,3 +679,44 @@ Feature: Starting work with an agent, a mode and a credential
         And I ask it to {'Sync the tickets'}
         Then it says {'Nobody has granted jira yet.'}
         And starting is not offered yet
+
+    # Absent, the machine takes the provider's default: an empty field is never sent as a model.
+    Scenario: a start names no model unless one is in the field
+        When I start work in this project
+        And I call it {'schema-work'}
+        And I choose the agent {'An Agent'}
+        And I start it
+        Then the launch named no model
+
+    Scenario: a model typed is the model the start names
+        When I start work in this project
+        And I call it {'schema-work'}
+        And I choose the agent {'An Agent'}
+        And I give it the model {'big-model'}
+        And I start it
+        Then the launch named the model {'big-model'}
+
+    # A model is one provider's: sent where another provider runs, it means nothing there.
+    Scenario: a model typed for one provider is not sent after the agent changed to another
+        Given the agent {'other-agent'} runs through the provider {'b-provider'}
+        When I start work in this project
+        And I call it {'schema-work'}
+        And I choose the agent {'An Agent'}
+        And I give it the model {'big-model'}
+        And I choose the agent {'Another Agent'}
+        And I start it
+        Then the launch named no model
+
+    # The form keeps the machine it was opened on: one chosen meanwhile is asked nothing and starts nothing.
+    Scenario: a start goes to the machine its form was opened on, not to one chosen meanwhile
+        When I watch another machine called {'elsewhere'}
+        And I go to the work
+        And I select the project {'checkout'}
+        And I start work in this project
+        And the machine {'elsewhere'} is chosen behind the form
+        And I call it {'schema-work'}
+        And I choose the agent {'An Agent'}
+        And I start it
+        Then the start reached only the machine its form was opened on
+        When the start brings up {'porelo-checkout-schema-work'} in {'checkout'}, running {'SHELL'}
+        Then the session opened is on the machine its form was opened on
