@@ -7,7 +7,6 @@ import '../../support/expand_list_rows.dart';
 /// Usage: I grant {'jira'} from what needs a person
 Future<void> iGrantFromWhatNeedsAPerson(WidgetTester tester, String entry) async {
   await expandListRows(tester);
-  await tester.tap(find.byKey(ValueKey<String>('grant-needed $entry')));
-  await World.settle(tester);
+  await World.tapInView(tester, 'grant-needed $entry');
   expect(find.byKey(const Key('grant-dialog')), findsOneWidget);
 }

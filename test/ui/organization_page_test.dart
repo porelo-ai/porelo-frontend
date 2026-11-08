@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/settings.dart';
+import 'package:porelo_frontend/src/app/shell_model.dart';
 import 'package:porelo_frontend/src/app/commands.dart';
 import 'package:porelo_frontend/src/app/host_progress.dart';
 import 'package:porelo_frontend/src/app/host_runs.dart';
@@ -181,7 +182,7 @@ void main() {
         record: const HostUpRecord(
           scalewayProject: '',
           hostName: 'spare',
-          givenAddress: '192.168.122.241',
+          givenAddress: '192.0.2.41',
           publicKey: '/keys/person.pub',
         ),
       );
@@ -202,7 +203,7 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 100));
       expect(find.byKey(const ValueKey('organization.prepare/spare')), findsNothing);
-      expect(find.textContaining('192.168.122.241'), findsOneWidget);
+      expect(find.textContaining('192.0.2.41'), findsOneWidget);
       // Its session has not run, so nothing turns as if it worked.
       expect(find.byType(CircularProgressIndicator), findsNothing);
       await tester.ensureVisible(find.byKey(const ValueKey('organization.protocol/spare')));
@@ -481,7 +482,7 @@ void main() {
       organizationSource: FixtureOrganization(organizationFor('mia')),
       hostConnections: FixtureConnections(),
     );
-    await toTheOrganization(tester);
+    await toTheOrganization(tester, section: OrganizationSection.machines);
     await World.settle(tester);
     await tester.scrollUntilVisible(
       find.byKey(const ValueKey('my-host build')),
@@ -502,7 +503,7 @@ void main() {
     expect(find.byKey(const Key('organization-page')), findsOneWidget);
     expect(
       find.byWidgetPredicate(
-        (widget) => widget is Semantics && widget.properties.label == 'People' && widget.properties.selected == true,
+        (widget) => widget is Semantics && widget.properties.label == 'Machines' && widget.properties.selected == true,
       ),
       findsOneWidget,
       reason: 'Back keeps the organization leaf that opened the machine',
@@ -517,7 +518,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('rail projects')));
     await World.settle(tester);
     expect(find.byKey(const ValueKey('my-project demo')), findsOneWidget);
-    await toTheOrganization(tester);
+    await toTheOrganization(tester, section: OrganizationSection.projects);
     await World.settle(tester);
     await tester.scrollUntilVisible(
       _action('goToProject/demo'),

@@ -33,6 +33,12 @@ enum WindowSize {
   /// Classifies the window [context] is being laid out in.
   static WindowSize fromContext(BuildContext context) => WindowSize.of(MediaQuery.sizeOf(context).width);
 
+  /// Whether a leaf has room for its filter beside its title and action.
+  static bool leafHeadFits(double width) => width >= Sizes.leafHead;
+
+  /// Whether a card can hold a state beside the name.
+  static bool chipBeside(double width) => width >= Sizes.rowChipBeside;
+
   /// Whether the projects and the work under them fit side by side.
   ///
   /// Below this the frame shows one at a time: a dense arrangement that merely shrinks becomes

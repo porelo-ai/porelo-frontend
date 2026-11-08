@@ -17,6 +17,8 @@ import 'machines_page.dart' show HostPreparationMark, hostPreparationWords;
 import 'organization_dialogs.dart';
 import 'organization_token_words.dart';
 import 'tokens.dart';
+import 'page_explanation.dart';
+import 'expandable_list_row.dart';
 
 /// What a preparation running for a machine says on the organization's row: its state, since when, and where.
 String _preparingWords(HostPreparation run) {
@@ -154,13 +156,24 @@ class _OrganizationMachineRowState extends State<OrganizationMachineRow> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        ListTile(
+        LeafListRow(
           key: ValueKey('my-host ${host.name}'),
+          state: widget.preparation != null
+              ? hostPreparationWords(widget.preparation!)
+              : connected
+              ? 'Connected'
+              : _connecting
+              ? 'Connecting'
+              : waiting
+              ? 'Needs you'
+              : host.address == null
+              ? 'not set up'
+              : 'not connected yet',
           leading: switch (widget.preparation) {
             final run? => HostPreparationMark(run),
             null => const Icon(Icons.dns_outlined),
           },
-          title: Text(host.name),
+          title: host.name,
           subtitle: Text(
             [
               if (widget.preparation case final run?) _preparingWords(run) else ?widget.words,
@@ -175,7 +188,7 @@ class _OrganizationMachineRowState extends State<OrganizationMachineRow> {
               else if (host.address == null)
                 '${host.name} is listed, not set up yet.${givesIt ? '' : ' It waits for ${host.admins.join(' or ')}.'}'
               else
-                why ?? 'not connected yet',
+                ?why,
             ].join(' · '),
           ),
           trailing: Wrap(
@@ -277,6 +290,7 @@ class OrganizationHostPage extends StatefulWidget {
     required this.host,
     this.refresh = 0,
     required this.onBack,
+    this.path = const [],
     this.connections,
     this.onGiveToken,
     this.onStartWork,
@@ -325,6 +339,9 @@ class OrganizationHostPage extends StatefulWidget {
 
   /// Changes when the rail asks the page to read the machine again.
   final int refresh;
+
+  /// The full ancestry when opened from the organization tree.
+  final List<LeafPathStep> path;
 
   /// Returns to the list.
   final VoidCallback onBack;
@@ -482,21 +499,20 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
         padding: const EdgeInsets.all(Space.normal),
         children: [
           OrganizationChangeMark(widget.organization),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              key: const Key('organization-host-back'),
-              onPressed: widget.onBack,
-              icon: const Icon(Icons.arrow_back),
-              label: const Text('My machines'),
-            ),
+          PageHead(
+            title: widget.host,
+            path: widget.path.isEmpty ? [(label: 'My machines', go: widget.onBack)] : widget.path,
+            pathKeys: const {'My machines': Key('organization-host-back'), 'Machines': Key('organization-host-back')},
+            subtitle: host == null
+                ? 'not read'
+                : '${host.projects.length} projects · ${host.admins.length} Machine Admins',
           ),
-          Text(widget.host, style: Theme.of(context).textTheme.headlineSmall),
           if (widget.organization.problem case final problem?) _Problem(problem),
           if (_refusal case final refusal?) _Problem(refusal),
           if (view != null && host == null) Text('${view.name} has no machine ${widget.host}.'),
           if (view != null && host != null) ...[
             _connection(view, host),
+            if (isAdmin) ..._howItStands(view, host),
             // Said to whoever reads the page here, Machine Admin or not: it is this computer's own run.
             if (widget.preparing?.call(host.name) case final run?)
               Text('This computer prepares it: ${_preparingWords(run)}', key: const ValueKey('organization.preparing')),
@@ -512,7 +528,6 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
             const SizedBox(height: Space.normal),
             if (isAdmin) Text('Managing this machine', style: Theme.of(context).textTheme.titleMedium),
             _reachRow(view, host, isAdmin),
-            if (isAdmin) ..._howItStands(view, host),
             _admins(view, host, isAdmin),
           ],
         ],
@@ -641,6 +656,8 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     ];
     final list = FilteredListSection(
       title: 'Projects',
+      leaf: true,
+      subtitle: '${{...machines.keys, ...organizations}.length} projects',
       storageId: 'host-projects ${host.name}',
       emptyWords: 'No projects on this machine yet. A project goes on a machine once the machine is prepared.',
       rows: [
@@ -673,7 +690,10 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
                     children: [
                       ListTile(
                         leading: const Icon(Icons.folder_outlined),
-                        title: Text(name),
+                        title: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [Text(name), const StateChip('not read')],
+                        ),
                         subtitle: Text(
                           key: ValueKey('organization.projectSource/$name'),
                           'From the organization: ${organizationWords(name)}',
@@ -836,6 +856,8 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     ];
     return FilteredListSection(
       title: 'Machine Admins',
+      leaf: true,
+      subtitle: '${host.admins.length} Machine Admins',
       storageId: 'host-admins ${host.name}',
       greyWords: [
         if (view.mayNameAdminsOf(host) && candidates.isEmpty)
@@ -875,7 +897,10 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
             words: admin,
             child: ListTile(
               leading: const Icon(Icons.shield_outlined),
-              title: Text(admin == view.me ? '$admin (you)' : admin),
+              title: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [Text(admin == view.me ? '$admin (you)' : admin), StateChip(_standing(view, admin))],
+              ),
               subtitle: Text(
                 [
                   _standing(view, admin),

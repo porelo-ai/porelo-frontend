@@ -5,15 +5,7 @@ import '../support/world.dart';
 
 /// Usage: I search the repositories for {'web'}
 Future<void> iSearchTheRepositoriesFor(WidgetTester tester, String typed) async {
-  // The magnifier in the header of the forge page's Repositories list opens its filter.
-  final magnifier = find.byWidgetPredicate(
-    (widget) =>
-        widget is IconButton &&
-        '${widget.key}'.startsWith("[<'forge-repositories ") &&
-        '${widget.key}'.endsWith("-search'>]"),
-  );
-  await tester.tap(magnifier);
-  await World.settle(tester);
+  // The leaf head keeps its repository filter in sight.
   final filter = find.byWidgetPredicate(
     (widget) =>
         widget is TextField &&

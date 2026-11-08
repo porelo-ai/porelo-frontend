@@ -26,8 +26,6 @@ void main() {
     World.shell.openProject(machine, 'checkout');
     await World.settle(tester);
     final identity = 'project-jobs ${machine.name}/checkout';
-    await tester.tap(find.byKey(ValueKey('$identity-search')));
-    await World.settle(tester);
     await tester.enterText(find.byKey(ValueKey('$identity-filter')), 'no match');
     await World.settle(tester);
     await World.tapInView(tester, '$identity-fold');
@@ -130,8 +128,6 @@ void main() {
           ),
         ),
       );
-      await World.settle(tester);
-      await tester.tap(find.byKey(const Key('projects-search')));
       await World.settle(tester);
       await tester.enterText(find.byKey(const Key('projects-filter')), 'Default');
       await World.settle(tester);

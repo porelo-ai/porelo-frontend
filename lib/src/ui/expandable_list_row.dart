@@ -74,11 +74,24 @@ class _ExpandableListRowState extends State<ExpandableListRow> {
 
   @override
   Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
     final compact = WindowSize.fromContext(context) == WindowSize.compact;
     final disclosure = listDisclosureCommand(expanded: _expanded, toggle: () => setState(() => _expanded = !_expanded));
     final primary = widget.primary?.visible == true ? widget.primary : null;
     final why = primary?.unavailable == null ? null : '${primary!.label}: ${printableForAPerson(primary.unavailable!)}';
+    Widget action(Command command) => Tooltip(
+      message: command.unavailable ?? command.label,
+      child: widget.primaryFilled
+          ? FilledButton(
+              key: widget.primaryKey,
+              onPressed: command.available ? command.run : null,
+              child: Text(command.label),
+            )
+          : TextButton(
+              key: widget.primaryKey,
+              onPressed: command.available ? command.run : null,
+              child: Text(command.label),
+            ),
+    );
     return Semantics(
       selected: widget.selected,
       child: Card(
@@ -87,120 +100,46 @@ class _ExpandableListRowState extends State<ExpandableListRow> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              SizedBox(
-                height: Sizes.listRowHeight,
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: InkWell(
-                        onTap: widget.onOpen,
-                        child: SizedBox(
-                          height: Sizes.listRowHeight,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: Space.small),
-                            child: Row(
-                              children: [
-                                widget.leading,
-                                const SizedBox(width: Space.small),
-                                Expanded(
-                                  flex: 2,
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Tooltip(
-                                        message: widget.title,
-                                        child: Text(
-                                          widget.title,
-                                          key: widget.titleKey,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: text.titleSmall,
-                                        ),
-                                      ),
-                                      // The row's one line under its title: its height holds as a command
-                                      // goes grey. Opened, the line is its own again and the reason is below, whole.
-                                      if ((_expanded ? null : why) ?? widget.subtitle case final line?)
-                                        Tooltip(
-                                          message: line,
-                                          child: Text(
-                                            line,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: text.bodySmall,
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                ),
-                                if (widget.subtitle == null) ...[
-                                  const SizedBox(width: Space.small),
-                                  Flexible(
-                                    child: Tooltip(
-                                      message: widget.state,
-                                      child: Text(
-                                        widget.state,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: text.labelSmall,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                        ),
+              Row(
+                children: [
+                  Expanded(
+                    child: InkWell(
+                      onTap: widget.onOpen,
+                      child: _RowWords(
+                        leading: widget.leading,
+                        title: widget.title,
+                        titleKey: widget.titleKey,
+                        subtitle: (_expanded ? null : why) ?? widget.subtitle ?? '',
+                        state: widget.state,
                       ),
                     ),
-                    if (!compact)
-                      for (final step in widget.steps)
-                        Padding(
-                          padding: const EdgeInsets.only(left: Space.small),
-                          child: step,
-                        ),
-                    if (primary != null)
-                      ConstrainedBox(
-                        constraints: BoxConstraints(maxWidth: compact ? Sizes.listActionCompact : Sizes.listAction),
-                        child: Tooltip(
-                          message: primary.unavailable ?? primary.label,
-                          child: widget.primaryFilled
-                              ? FilledButton(
-                                  key: widget.primaryKey,
-                                  onPressed: primary.available ? primary.run : null,
-                                  child: Text(primary.label, maxLines: 1, overflow: TextOverflow.ellipsis),
-                                )
-                              : TextButton(
-                                  key: widget.primaryKey,
-                                  onPressed: primary.available ? primary.run : null,
-                                  child: Text(primary.label, maxLines: 1, overflow: TextOverflow.ellipsis),
-                                ),
-                        ),
-                      ),
-                    IconButton(
-                      tooltip: disclosure.label,
-                      icon: Icon(_expanded ? Icons.expand_more : Icons.chevron_right),
-                      onPressed: disclosure.run,
-                    ),
-                  ],
-                ),
+                  ),
+                  if (!compact) ...widget.steps,
+                  if (!compact && primary != null) Flexible(child: action(primary)),
+                  IconButton(
+                    tooltip: disclosure.label,
+                    icon: Icon(_expanded ? Icons.expand_more : Icons.chevron_right),
+                    onPressed: disclosure.run,
+                  ),
+                ],
               ),
-              if (compact && widget.steps.isNotEmpty)
+              if (compact && (widget.steps.isNotEmpty || primary != null))
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(Space.small, 0, Space.small, Space.small),
-                  child: Wrap(
-                    alignment: WrapAlignment.end,
-                    spacing: Space.small,
-                    runSpacing: Space.tight,
-                    children: widget.steps,
+                  padding: const EdgeInsets.all(Space.small),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [...widget.steps, if (primary != null) action(primary)],
                   ),
                 ),
               if (_expanded)
-                Padding(
-                  padding: const EdgeInsets.all(Space.normal),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [if (why != null) Text(why), widget.details],
+                ColoredBox(
+                  color: Theme.of(context).colorScheme.surfaceContainer,
+                  child: Padding(
+                    padding: const EdgeInsets.all(Space.normal),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [if (why != null) Text(why), widget.details],
+                    ),
                   ),
                 ),
             ],
@@ -221,10 +160,14 @@ class ItemListRow extends StatelessWidget {
     required this.onOpen,
     required this.menu,
     this.bodyKey,
+    this.state,
     this.titleKey,
     this.selected = false,
     super.key,
   });
+
+  /// The observed state, kept separate from the detail line.
+  final String? state;
 
   /// The title shown in the header.
   final String title;
@@ -251,18 +194,212 @@ class ItemListRow extends StatelessWidget {
   final bool selected;
 
   @override
-  Widget build(BuildContext context) => Column(
-    children: [
-      ListTile(
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final beside = WindowSize.chipBeside(constraints.maxWidth);
+      return ListTile(
         key: bodyKey,
         selected: selected,
         leading: leading,
-        title: Text(title, key: titleKey, overflow: TextOverflow.ellipsis),
-        subtitle: Text(subtitle),
-        trailing: menu,
         onTap: onOpen,
-      ),
-      const Divider(height: Sizes.divider),
-    ],
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Tooltip(
+              message: title,
+              child: Text(title, key: titleKey, maxLines: 1, overflow: TextOverflow.ellipsis),
+            ),
+            if (!beside) StateChip(state ?? 'not read'),
+          ],
+        ),
+        subtitle: Text(subtitle, maxLines: 2, overflow: TextOverflow.ellipsis),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (beside)
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: Sizes.listAction),
+                child: StateChip(state ?? 'not read'),
+              ),
+            menu,
+          ],
+        ),
+      );
+    },
+  );
+}
+
+/// A state in words, with the same tone wherever it appears.
+class StateChip extends StatelessWidget {
+  /// Shows only a public state, never a credential or a value.
+  const StateChip(this.words, {this.toneWords, super.key});
+
+  /// The observed state.
+  final String words;
+
+  /// The known state category when the source supplies a longer explanation.
+  final String? toneWords;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final tone = StateColours.forWords(toneWords ?? words, colors);
+    return Chip(
+      label: Text(words, style: Theme.of(context).textTheme.labelSmall?.copyWith(color: tone)),
+      backgroundColor: tone.withValues(alpha: Opacities.stateChip),
+      side: BorderSide.none,
+      visualDensity: VisualDensity.compact,
+    );
+  }
+}
+
+class _RowWords extends StatelessWidget {
+  const _RowWords({
+    required this.leading,
+    required this.title,
+    required this.subtitle,
+    required this.state,
+    this.titleKey,
+  });
+  final Widget leading;
+  final String title;
+  final String subtitle;
+  final String state;
+  final Key? titleKey;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      // The trailing menu has already taken its space; keeping the chip below is safe at the boundary.
+      final beside = WindowSize.chipBeside(constraints.maxWidth);
+      final words = Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Tooltip(
+            message: title,
+            child: Text(
+              title,
+              key: titleKey,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
+          ),
+          if (subtitle.isNotEmpty)
+            Text(subtitle, maxLines: 2, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.bodySmall),
+          if (!beside && state.isNotEmpty) StateChip(state),
+        ],
+      );
+      return ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: Sizes.listRowHeight),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: Space.small, vertical: Space.small),
+          child: Row(
+            children: [
+              leading,
+              const SizedBox(width: Space.small),
+              Expanded(child: words),
+              if (beside && state.isNotEmpty) ...[
+                const SizedBox(width: Space.small),
+                Flexible(child: StateChip(state)),
+              ],
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
+
+/// A leaf row with rich details and commands that stack when the card narrows.
+class LeafListRow extends StatelessWidget {
+  /// Keeps navigation separate from the row's commands.
+  const LeafListRow({
+    required this.title,
+    required this.subtitle,
+    required this.leading,
+    required this.state,
+    this.trailing,
+    this.onTap,
+    super.key,
+  });
+
+  /// The full public name, available in a tooltip.
+  final String title;
+
+  /// The public details, including any refusal or unavailable reason.
+  final Widget subtitle;
+
+  /// The item's outlined icon.
+  final Widget leading;
+
+  /// The observed state in words.
+  final String state;
+
+  /// The row's existing operations.
+  final Widget? trailing;
+
+  /// Opens the item's page.
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final beside = WindowSize.chipBeside(constraints.maxWidth);
+      final actions = trailing;
+      return InkWell(
+        onTap: onTap,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: Padding(
+                    padding: const EdgeInsets.all(Space.small),
+                    child: Row(
+                      children: [
+                        leading,
+                        const SizedBox(width: Space.small),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Tooltip(
+                                message: title,
+                                child: Text(
+                                  title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.titleSmall,
+                                ),
+                              ),
+                              DefaultTextStyle.merge(maxLines: 2, overflow: TextOverflow.ellipsis, child: subtitle),
+                              if (!beside) StateChip(state),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                if (beside)
+                  Flexible(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [StateChip(state), ?actions]),
+                  ),
+              ],
+            ),
+            if (!beside && actions != null)
+              Padding(
+                padding: const EdgeInsets.all(Space.small),
+                child: actions is Wrap
+                    ? Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: actions.children)
+                    : actions,
+              ),
+          ],
+        ),
+      );
+    },
   );
 }

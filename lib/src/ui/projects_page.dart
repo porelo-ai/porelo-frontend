@@ -8,12 +8,14 @@ import 'command_menu.dart';
 import 'expandable_list_row.dart';
 import 'filtered_list_section.dart';
 import 'tokens.dart';
+import 'page_explanation.dart';
 
 /// Every project on its own machine, including each permanent default.
 class ProjectsPage extends StatelessWidget {
   /// Creates the list without merging equal project names across machines.
   const ProjectsPage({
     this.title = 'My projects',
+    this.path = const [],
     required this.machines,
     required this.muted,
     required this.onProject,
@@ -22,6 +24,9 @@ class ProjectsPage extends StatelessWidget {
     this.onShown,
     super.key,
   });
+
+  /// The ancestors of this list.
+  final List<LeafPathStep> path;
 
   /// The list's title: another where this page stands beside the organization's *My projects*.
   final String title;
@@ -56,6 +61,12 @@ class ProjectsPage extends StatelessWidget {
       children: [
         FilteredListSection(
           storageId: 'projects',
+          leaf: true,
+          path: path,
+          pathKeys: const {'My projects': Key('projects-of-organization')},
+          subtitle: machines.all.any((machine) => machines.of(machine).listRead)
+              ? '${rows.length} projects on ${listedMachines(machines).length} machines'
+              : 'not read',
           title: title,
           rows: [
             for (final row in rows)
@@ -99,6 +110,11 @@ Widget projectListRow({
     bodyKey: ValueKey('project $identity'),
     selected: selected,
     title: isDefault ? 'Default' : project.label,
+    state: !connected
+        ? 'not read'
+        : isDefault || project.project.carried || project.canBeActedOn
+        ? 'on the machine'
+        : 'Not on this machine',
     subtitle: [
       'on ${machine.name}',
       if (isDefault) 'always there',

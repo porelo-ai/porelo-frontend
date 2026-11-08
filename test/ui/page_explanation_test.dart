@@ -95,6 +95,44 @@ void main() {
     });
   }
 
+  // Harm: a person cannot find the explanation or has to close it after each restart.
+  testWidgets('the i belongs to the large title and a folded explanation survives restart', (tester) async {
+    final store = MemorySettingsStore();
+    final settings = Settings(store);
+    await settings.load();
+    Widget page(Settings kept) => MaterialApp(
+      home: Scaffold(
+        body: Column(
+          children: [
+            PageHead(title: 'My forges', id: 'forges', settings: kept),
+            PageExplanation(
+              id: 'forges',
+              settings: kept,
+              parts: const [(title: 'Where repositories live', words: 'Repositories on your forges.')],
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpWidget(page(settings));
+    await tester.pump();
+    final head = find.byType(PageHead);
+    expect(find.descendant(of: head, matching: find.byIcon(Icons.info_outline)), findsOneWidget);
+    final title = tester.widget<Text>(find.text('My forges'));
+    expect(title.style, Theme.of(tester.element(head)).textTheme.headlineSmall);
+    await tester.tap(find.byKey(const Key('explanation-fold forges')));
+    await tester.pump();
+    await tester.pumpWidget(const SizedBox.shrink());
+    final restarted = Settings(store);
+    await restarted.load();
+    await tester.pumpWidget(page(restarted));
+    await tester.pump();
+    expect(find.text('Repositories on your forges.'), findsNothing);
+    await tester.tap(find.byKey(const Key('explanation-open forges')));
+    await tester.pump();
+    expect(find.text('Repositories on your forges.'), findsOneWidget);
+  });
+
   // Harm: an explanation closed before anything was read, and no way to open it again.
   testWidgets('My projects keeps its i with nothing read yet', (tester) async {
     final organization = Organization(

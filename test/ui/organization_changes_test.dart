@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/organization_source.dart';
 import 'package:porelo_frontend/src/ui/organization_project_pages.dart';
+import 'package:porelo_frontend/src/ui/organization_dialogs.dart';
+import 'package:porelo_frontend/src/ui/filtered_list_section.dart';
 
 import '../support/organization_fixtures.dart';
 import 'organization_actions.dart';
@@ -28,6 +30,39 @@ class _HeldReads extends FixtureOrganization {
 }
 
 void main() {
+  // Harm: decorating a list with provisional changes hides a read refusal and strands its retry or return path.
+  testWidgets('a decorated leaf keeps its read refusal, retry and ancestor link', (tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final organization = Organization(FixtureOrganization(organizationFor('pat')));
+    addTearDown(organization.dispose);
+    var retries = 0;
+    var returns = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: FilteredListSection(
+              title: 'People',
+              storageId: 'organization-people',
+              leaf: true,
+              path: [(label: 'Organization', go: () => returns++)],
+              problem: 'The organization cannot be read.',
+              onRetry: () => retries++,
+              rows: const [(words: 'pat', child: Text('pat'))],
+            ).withOrganizationChanges(organization, names: const ['pat']),
+          ),
+        ),
+      ),
+    );
+    expect(find.text('The organization cannot be read.'), findsOneWidget);
+    await tester.tap(find.text('Try again'));
+    expect(retries, 1, reason: 'the decorated list must retain the actual retry');
+    await tester.tap(find.widgetWithText(TextButton, 'Organization'));
+    expect(returns, 1, reason: 'the decorated list must retain its ancestor navigation');
+  });
+
   // Harm: closing a slow change loses its refusal, permits a competing write, or retries an unanswered write twice.
   testWidgets('a provisional member survives navigation and retries safely through both rereads', (tester) async {
     tester.view.physicalSize = const Size(1400, 1600);

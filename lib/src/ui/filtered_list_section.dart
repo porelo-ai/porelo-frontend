@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../app/commands.dart';
 import 'command_menu.dart';
 import 'tokens.dart';
 import 'window_size.dart';
 import 'page_explanation.dart';
+import 'how_long.dart';
 
 /// One searchable row, with its independent item identity retained by its widget key.
 typedef FilteredRow = ({String words, Widget child});
@@ -52,8 +54,52 @@ class FilteredListSection extends StatefulWidget {
     this.reveal,
     this.search,
     this.searchHint,
+    this.leaf = false,
+    this.path = const [],
+    this.subtitle,
+    this.explanation,
+    this.busy = false,
+    this.problem,
+    this.onRetry,
+    this.readAt,
+    this.beforeRows = const [],
+    this.pathKeys = const {},
+    this.titleKey,
     super.key,
   });
+
+  /// Uses a page head and a card without a band, for a leaf destination.
+  final bool leaf;
+
+  /// Stable targets for the links back to ancestors.
+  final Map<String, Key> pathKeys;
+
+  /// An existing automation target for the page title.
+  final Key? titleKey;
+
+  /// The ancestors of this page.
+  final List<LeafPathStep> path;
+
+  /// Counts the whole list in the page's own words.
+  final String? subtitle;
+
+  /// The explanation, shown between the head and the card.
+  final Widget? explanation;
+
+  /// Keeps the last rows visible while reading.
+  final bool busy;
+
+  /// Public facts that stand after the head and before the list.
+  final List<Widget> beforeRows;
+
+  /// The last successful observation, when the source provides it.
+  final DateTime? readAt;
+
+  /// A read refusal, never represented as an empty successful list.
+  final String? problem;
+
+  /// Reads the list again after a refusal.
+  final VoidCallback? onRetry;
 
   /// A search that is always there, held by whoever else may set it, in place of the magnifier.
   final TextEditingController? search;
@@ -128,7 +174,7 @@ class _FilteredListSectionState extends State<FilteredListSection> {
       _filter = held ?? TextEditingController(text: kept.filter);
       _open = kept.open;
       _foldChosen = kept.chosen;
-      if (!_foldChosen && kept.empty != widget.rows.isEmpty) _open = _opensByItself;
+      if (!widget.leaf && !_foldChosen && kept.empty != widget.rows.isEmpty) _open = _opensByItself;
       _searching = kept.searching;
       _sort = kept.sort;
       _descending = kept.descending;
@@ -152,6 +198,7 @@ class _FilteredListSectionState extends State<FilteredListSection> {
 
   /// What it does unasked: open, where it holds something and neither the page nor a narrow window says not.
   bool get _opensByItself {
+    if (widget.leaf) return widget.initiallyOpen;
     final compact = WindowSize.fromContext(context) == WindowSize.compact;
     return widget.initiallyOpen && (widget.openWhenCompact || !compact) && widget.rows.isNotEmpty;
   }
@@ -229,21 +276,33 @@ class _FilteredListSectionState extends State<FilteredListSection> {
       controller: _filter,
       focusNode: _filterFocus,
       // A search held by the page and shown for what it holds does not take the keyboard from it.
-      autofocus: widget.search == null || _searching,
+      autofocus: !widget.leaf && (widget.search == null || _searching),
       decoration: InputDecoration(
         isDense: true,
         hintText: widget.searchHint ?? 'Filter ${widget.title.toLowerCase()}',
         prefixIcon: const Icon(Icons.search, size: Sizes.rowIcon),
         suffixIcon: IconButton(
           key: ValueKey('${widget.storageId}-filter-close'),
-          tooltip: 'Close the filter',
+          tooltip: widget.leaf ? 'Clear the filter' : 'Close the filter',
           icon: const Icon(Icons.close, size: Sizes.rowIcon),
           onPressed: _closeSearch,
         ),
       ),
       onChanged: (_) => setState(_keep),
     );
-    return width == null ? field : SizedBox(width: width, child: field);
+    final clearable = !widget.leaf
+        ? field
+        : Focus(
+            onKeyEvent: (_, event) {
+              if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.escape && _filter.text.isNotEmpty) {
+                _closeSearch();
+                return KeyEventResult.handled;
+              }
+              return KeyEventResult.ignored;
+            },
+            child: field,
+          );
+    return width == null ? clearable : SizedBox(width: width, child: clearable);
   }
 
   Widget _magnifier(double target) => IconButton(
@@ -272,24 +331,30 @@ class _FilteredListSectionState extends State<FilteredListSection> {
             child: Text(sort.label),
           ),
       ],
-      child: ConstrainedBox(
-        constraints: BoxConstraints(minHeight: target),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: Space.small),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                _descending ? Icons.arrow_downward : Icons.arrow_upward,
-                size: Sizes.rowIcon,
-                color: colors.onSurfaceVariant,
+      child: widget.leaf
+          ? SizedBox(
+              width: target,
+              height: target,
+              child: const Icon(Icons.sort, size: Sizes.rowIcon),
+            )
+          : ConstrainedBox(
+              constraints: BoxConstraints(minHeight: target),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: Space.small),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      _descending ? Icons.arrow_downward : Icons.arrow_upward,
+                      size: Sizes.rowIcon,
+                      color: colors.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: Space.tight),
+                    Text(current, style: Theme.of(context).textTheme.bodySmall),
+                  ],
+                ),
               ),
-              const SizedBox(width: Space.tight),
-              Text(current, style: Theme.of(context).textTheme.bodySmall),
-            ],
-          ),
-        ),
-      ),
+            ),
     );
   }
 
@@ -306,12 +371,23 @@ class _FilteredListSectionState extends State<FilteredListSection> {
   );
 
   Widget _commandButton(Command command, double target) {
-    final button = OutlinedButton(
-      key: ValueKey(command.id),
-      style: OutlinedButton.styleFrom(minimumSize: Size(target, target)),
-      onPressed: command.available ? command.run : null,
-      child: Text(command.label),
-    );
+    final button =
+        widget.leaf &&
+            command ==
+                (widget.commands.where((each) => each.visible && each.available).firstOrNull ??
+                    widget.commands.where((each) => each.visible).firstOrNull)
+        ? FilledButton(
+            key: ValueKey(command.id),
+            style: FilledButton.styleFrom(minimumSize: Size(target, target)),
+            onPressed: command.available ? command.run : null,
+            child: Text(command.label),
+          )
+        : OutlinedButton(
+            key: ValueKey(command.id),
+            style: OutlinedButton.styleFrom(minimumSize: Size(target, target)),
+            onPressed: command.available ? command.run : null,
+            child: Text(command.label),
+          );
     final why = command.unavailable;
     return why == null ? button : Tooltip(message: why, child: button);
   }
@@ -396,12 +472,132 @@ class _FilteredListSectionState extends State<FilteredListSection> {
     );
   }
 
+  Widget _leaf(List<FilteredRow> shown) {
+    final theme = Theme.of(context);
+    final scope = PageExplanationScope.of(context);
+    final phone = WindowSize.fromContext(context) == WindowSize.compact;
+    final target = WindowSize.fromContext(context).showsTwoPanes ? Sizes.leafSort : Sizes.touchTarget;
+    final read = howLongSince(widget.readAt);
+    final total = widget.problem != null ? 'not read' : widget.subtitle ?? '${widget.rows.length} entries';
+    final actions = [
+      ...widget.actions,
+      for (final command in widget.commands.where((each) => each.visible)) _commandButton(command, target),
+    ];
+    return Padding(
+      padding: const EdgeInsets.only(bottom: Space.wide),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          PageHead(
+            title: widget.title,
+            path: widget.path,
+            pathKeys: widget.pathKeys,
+            titleKey: widget.titleKey,
+            id: scope?.id,
+            settings: scope?.settings,
+            subtitle: read == null ? total : '$total · read $read ago',
+            subtitleKey: ValueKey('${widget.storageId}-subtitle'),
+            controls: Row(
+              children: [
+                Expanded(child: _field(null)),
+                _sortMenu(target),
+                if (widget.collapsible) _foldButton(target),
+              ],
+            ),
+            action: actions.isEmpty
+                ? null
+                : phone
+                ? Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: actions)
+                : Wrap(spacing: Space.small, runSpacing: Space.small, children: actions),
+          ),
+          for (final words in widget.greyWords) Text(words, style: theme.textTheme.bodySmall),
+          for (final command in [...widget.commands, ...widget.drawnCommands])
+            if (command.visible && !command.available && command.unavailable != null)
+              Text(
+                '${command.label.replaceAll('…', '')}: ${command.unavailable}',
+                key: ValueKey('${widget.storageId}-why ${command.id}'),
+                style: theme.textTheme.bodySmall,
+              ),
+          if (widget.explanation != null)
+            widget.explanation!
+          else if (scope != null && scope.parts.isNotEmpty)
+            PageExplanation(id: scope.id, settings: scope.settings, parts: scope.parts),
+          ...widget.beforeRows,
+          if (widget.busy) const LinearProgressIndicator(),
+          if (!widget.collapsible || _open || widget.problem != null)
+            Material(
+              color: listCardColour(theme.colorScheme),
+              clipBehavior: Clip.antiAlias,
+              shape: RoundedRectangleBorder(
+                side: BorderSide(color: theme.colorScheme.outlineVariant, width: Space.hairline),
+                borderRadius: BorderRadius.circular(Radii.medium),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: Space.normal),
+                child: Theme(
+                  data: theme.copyWith(
+                    cardTheme: theme.cardTheme.copyWith(
+                      color: Colors.transparent,
+                      elevation: 0,
+                      margin: EdgeInsets.zero,
+                      shape: const RoundedRectangleBorder(),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (widget.problem case final problem?)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: Space.normal),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(problem, style: TextStyle(color: theme.colorScheme.error)),
+                              if (widget.onRetry != null)
+                                TextButton(onPressed: widget.onRetry, child: const Text('Try again')),
+                            ],
+                          ),
+                        ),
+                      if (!widget.collapsible || _open)
+                        for (final (place, row) in shown.indexed) ...[
+                          if (place > 0) const Divider(height: Space.hairline),
+                          row.child,
+                        ],
+                      if ((!widget.collapsible || _open) && shown.isEmpty && widget.problem == null)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: Space.normal),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                widget.rows.isEmpty
+                                    ? widget.emptyWords ??
+                                          'No ${widget.title.toLowerCase().replaceFirst('my ', '')} yet.'
+                                    : 'Nothing matches.',
+                                style: theme.textTheme.bodySmall,
+                              ),
+                              if (widget.rows.isNotEmpty)
+                                TextButton(onPressed: _closeSearch, child: const Text('Clear the filter')),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final query = _filter.text.trim().toLowerCase();
     final shown = _ordered().where((row) => row.words.toLowerCase().contains(query)).toList();
     final colors = theme.colorScheme;
+    if (widget.leaf) return _leaf(shown);
     return Padding(
       padding: const EdgeInsets.only(bottom: Space.wide),
       // A Material and not a box: the rows are list tiles, which paint on the nearest Material.

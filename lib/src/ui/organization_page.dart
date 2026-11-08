@@ -11,6 +11,8 @@ import '../app/commands.dart';
 import '../app/identity.dart';
 import '../app/key_recovery.dart' show BackupScope;
 import '../app/organization_source.dart';
+import '../app/shell_model.dart' show OrganizationSection;
+import 'expandable_list_row.dart';
 import '../client/models.dart' show defaultProject;
 import 'command_menu.dart';
 import 'identity_view.dart';
@@ -78,6 +80,8 @@ class OrganizationPage extends StatefulWidget {
   /// Reads [organization].
   const OrganizationPage({
     this.settings,
+    this.section,
+    this.path = const [],
     required this.organization,
     this.onProject,
     this.onHost,
@@ -94,6 +98,12 @@ class OrganizationPage extends StatefulWidget {
     this.pickFolder = pickFolderWithTheDesktop,
     super.key,
   });
+
+  /// The section reached from the tree; absent for existing embedded callers.
+  final OrganizationSection? section;
+
+  /// Ancestors of the section, linking to the organization's facts.
+  final List<LeafPathStep> path;
 
   /// Where the fold of the page's explanation is kept; none draws no explanation.
   final Settings? settings;
@@ -161,7 +171,7 @@ class _OrganizationPageState extends State<OrganizationPage> {
       builder: (context, _) {
         final view = organization.view;
         // Not lazy: an explanation being read stays open, and the warning can reach the owners.
-        return SingleChildScrollView(
+        final page = SingleChildScrollView(
           key: const Key('organization-page'),
           padding: const EdgeInsets.all(Space.normal),
           child: Column(
@@ -169,34 +179,36 @@ class _OrganizationPageState extends State<OrganizationPage> {
             children: [
               if (widget.identity case final identity?) IdentityRenewal(model: identity, showProblems: true),
               OrganizationChangeMark(organization),
-              if (widget.settings case final settings?) ...[
-                if (view == null) PageHead(title: 'Porelo organization', id: 'organization', settings: settings),
-              ],
-              if (view != null) _head(context, organization, view),
-              if (widget.settings case final settings?)
-                PageExplanation(
-                  id: 'organization',
-                  settings: settings,
-                  parts: <({String title, String words})>[
-                    (
-                      title: 'What is the Porelo organization?',
-                      words:
-                          'Who manages it, its people with their cards, its projects with their members, and its machines. '
-                          'Porelo asks it whom to trust before anyone gets onto a machine.',
-                    ),
-                    (
-                      title: 'Where it is kept',
-                      words:
-                          '${view == null ? '' : 'Kept in ${view.keptIn} · keys vouched for by ${view.vouchedBy}. '}'
-                          'In a repository inside ${forgeOrganizationWords(view)}: one is not the other. The repository holds '
-                          'the Porelo organization, and its name is yours to choose.',
-                    ),
-                    (
-                      title: 'What you can do here',
-                      words: 'Everyone reads all of it. Each action shows only for the role it belongs to.',
-                    ),
-                  ],
-                ),
+              if (widget.section == null)
+                if (widget.settings case final settings?) ...[
+                  if (view == null) PageHead(title: 'Porelo organization', id: 'organization', settings: settings),
+                ],
+              if (view != null && widget.section == null) _head(context, organization, view),
+              if (widget.section == null)
+                if (widget.settings case final settings?)
+                  PageExplanation(
+                    id: 'organization',
+                    settings: settings,
+                    parts: <({String title, String words})>[
+                      (
+                        title: 'What is the Porelo organization?',
+                        words:
+                            'Who manages it, its people with their cards, its projects with their members, and its machines. '
+                            'Porelo asks it whom to trust before anyone gets onto a machine.',
+                      ),
+                      (
+                        title: 'Where it is kept',
+                        words:
+                            '${view == null ? '' : 'Kept in ${view.keptIn} · keys vouched for by ${view.vouchedBy}. '}'
+                            'In a repository inside ${forgeOrganizationWords(view)}: one is not the other. The repository holds '
+                            'the Porelo organization, and its name is yours to choose.',
+                      ),
+                      (
+                        title: 'What you can do here',
+                        words: 'Everyone reads all of it. Each action shows only for the role it belongs to.',
+                      ),
+                    ],
+                  ),
               if (organization.noOrganization && view == null)
                 _NoOrganization(
                   onChoose: () => _show(context, _AddressDialog(organization)),
@@ -208,11 +220,55 @@ class _OrganizationPageState extends State<OrganizationPage> {
                   padding: const EdgeInsets.symmetric(vertical: Space.small),
                   child: Text(problem, style: TextStyle(color: Theme.of(context).colorScheme.error)),
                 ),
+              if (view == null && widget.section != null)
+                FilteredListSection(
+                  title: widget.section!.label,
+                  storageId: 'organization-${widget.section!.name}',
+                  leaf: true,
+                  path: widget.path,
+                  subtitle: 'not read',
+                  rows: const [],
+                  busy: !organization.noOrganization && organization.problem == null,
+                  problem: organization.problem,
+                  explanation: _leafExplanation(),
+                  onRetry: () => unawaited(organization.refresh()),
+                  emptyWords: 'No organization has been read.',
+                ),
               if (view != null) ..._organization(context, organization, view),
             ],
           ),
         );
+        if (widget.section == null || widget.settings == null) return page;
+        return PageExplanationScope(
+          title: widget.section!.label,
+          id: 'organization-${widget.section!.name}',
+          settings: widget.settings!,
+          child: page,
+        );
       },
+    );
+  }
+
+  Widget? _leafExplanation() {
+    final section = widget.section;
+    final settings = widget.settings;
+    if (section == null || settings == null) return null;
+    return PageExplanation(
+      id: 'organization-${section.name}',
+      settings: settings,
+      parts: [
+        (
+          title: 'What is in ${section.label}?',
+          words: switch (section) {
+            OrganizationSection.people =>
+              'People and their public cards. Each action shows only for the role it belongs to.',
+            OrganizationSection.projects => 'Every project in this Porelo organization, its members and its machines.',
+            OrganizationSection.machines => 'The organization’s machines, who manages them and what they carry.',
+            OrganizationSection.owners => 'The people who can recover this Porelo organization and name its owners.',
+            OrganizationSection.admins => 'The people who manage the organization’s people, projects and machines.',
+          },
+        ),
+      ],
     );
   }
 
@@ -324,16 +380,34 @@ class _OrganizationPageState extends State<OrganizationPage> {
         ),
       for (final note in view.notes) Text(note),
       const SizedBox(height: Space.normal),
-      _people(view, organization, show),
-      _projects(view, organization, show),
-      _hosts(view, organization, show),
-      KeyedSubtree(key: _ownersPlace, child: _owners(view, organization, show)),
-      ?_organizationAdmins(view, organization, show),
+      if (widget.section == null || widget.section == OrganizationSection.people) _people(view, organization, show),
+      if (widget.section == null || widget.section == OrganizationSection.projects) _projects(view, organization, show),
+      if (widget.section == null || widget.section == OrganizationSection.machines) _hosts(view, organization, show),
+      if (widget.section == null || widget.section == OrganizationSection.owners)
+        KeyedSubtree(key: _ownersPlace, child: _owners(view, organization, show)),
+      if (widget.section == null || widget.section == OrganizationSection.admins)
+        ?_organizationAdmins(
+          view,
+          organization,
+          show,
+          leaf: widget.section != null,
+          path: widget.path,
+          explanation: _leafExplanation(),
+        ),
     ];
   }
 
   Widget _people(OrganizationView view, Organization organization, void Function(Widget) show) => FilteredListSection(
     title: 'People',
+    leaf: widget.section != null,
+    path: widget.path,
+    explanation: _leafExplanation(),
+    busy: organization.busy,
+    readAt: organization.readAt,
+    problem: organization.problem,
+    onRetry: () => unawaited(organization.refresh()),
+    subtitle:
+        '${view.persons.length} people · ${view.persons.where((person) => person.standing == CardStanding.notYet).length} cards wait',
     storageId: 'organization-people',
     collapsible: true,
     sorts: [
@@ -343,7 +417,7 @@ class _OrganizationPageState extends State<OrganizationPage> {
     rows: [
       for (final person in view.persons)
         (
-          words: person.login,
+          words: '${person.login} ${_standingWords(person)}',
           child: _Row(
             icon: person.standing == CardStanding.revoked ? Icons.person_off_outlined : Icons.person_outline,
             title: person.login == view.me ? '${person.login} (you)' : person.login,
@@ -411,6 +485,14 @@ class _OrganizationPageState extends State<OrganizationPage> {
   Widget _projects(OrganizationView view, Organization organization, void Function(Widget) show) =>
       FilteredListSection(
         title: 'Projects',
+        leaf: widget.section != null,
+        path: widget.path,
+        explanation: _leafExplanation(),
+        busy: organization.busy,
+        readAt: organization.readAt,
+        problem: organization.problem,
+        onRetry: () => unawaited(organization.refresh()),
+        subtitle: '${view.projects.length} projects',
         storageId: 'organization-projects',
         collapsible: true,
         openWhenCompact: false,
@@ -430,7 +512,7 @@ class _OrganizationPageState extends State<OrganizationPage> {
         rows: [
           for (final project in view.projects)
             (
-              words: '${project.name} ${project.admins.join(' ')}',
+              words: '${project.name} ${project.admins.join(' ')} ${_standingIn(view, project)}',
               child: _Row(
                 icon: Icons.folder_outlined,
                 title: project.name,
@@ -593,6 +675,14 @@ class _OrganizationPageState extends State<OrganizationPage> {
 
   Widget _hosts(OrganizationView view, Organization organization, void Function(Widget) show) => FilteredListSection(
     title: 'Machines',
+    leaf: widget.section != null,
+    path: widget.path,
+    explanation: _leafExplanation(),
+    busy: organization.busy,
+    readAt: organization.readAt,
+    problem: organization.problem,
+    onRetry: () => unawaited(organization.refresh()),
+    subtitle: '${view.hosts.length} machines',
     storageId: 'organization-hosts',
     collapsible: true,
     openWhenCompact: false,
@@ -636,7 +726,7 @@ class _OrganizationPageState extends State<OrganizationPage> {
     rows: [
       for (final host in view.hosts)
         (
-          words: '${host.name} ${host.admins.join(' ')} ${host.projects.join(' ')}',
+          words: '${host.name} ${host.admins.join(' ')} ${host.projects.join(' ')} ${_hostWords(host)}',
           child: OrganizationMachineRow(
             key: ValueKey('organization-machine ${host.name}'),
             view: view,
@@ -688,6 +778,14 @@ class _OrganizationPageState extends State<OrganizationPage> {
 
   Widget _owners(OrganizationView view, Organization organization, void Function(Widget) show) => FilteredListSection(
     title: 'Organization owners',
+    leaf: widget.section != null,
+    path: widget.path,
+    explanation: _leafExplanation(),
+    busy: organization.busy,
+    readAt: organization.readAt,
+    problem: organization.problem,
+    onRetry: () => unawaited(organization.refresh()),
+    subtitle: '${view.owners.length} owners',
     storageId: 'organization-owners',
     reveal: _ownersAsked == 0 ? null : 'owners $_ownersAsked',
     collapsible: true,
@@ -721,6 +819,7 @@ class _OrganizationPageState extends State<OrganizationPage> {
           child: _Row(
             icon: Icons.shield_outlined,
             title: owner == view.me ? '$owner (you)' : owner,
+            state: _cardState(view, owner),
             subtitle: view.ownersWithBackup.contains(owner)
                 ? 'organization owner · has a backup key'
                 : 'organization owner',
@@ -754,12 +853,32 @@ class _OrganizationPageState extends State<OrganizationPage> {
 }
 
 /// One action in a row of the organization's page.
-Widget? _organizationAdmins(OrganizationView view, Organization organization, void Function(Widget) show) {
+Widget? _organizationAdmins(
+  OrganizationView view,
+  Organization organization,
+  void Function(Widget) show, {
+  bool leaf = false,
+  List<LeafPathStep> path = const [],
+  Widget? explanation,
+}) {
   final listed = view.organizationAdmins;
-  if (listed == null && !view.isOwner) return null;
+  if (listed == null && !view.isOwner && !leaf) return null;
   final admins = listed ?? const <String>[];
   return FilteredListSection(
     title: 'Organization Admins',
+    leaf: leaf,
+    path: path,
+    explanation: explanation,
+    subtitle: listed == null
+        ? 'not read · owners do this work until admins are listed'
+        : '${admins.length} organization admins',
+    emptyWords: listed == null
+        ? 'No separate admin list has been read. Organization owners do this work.'
+        : 'No Organization Admins listed.',
+    busy: organization.busy,
+    readAt: organization.readAt,
+    problem: organization.problem,
+    onRetry: () => unawaited(organization.refresh()),
     storageId: 'organization-admins',
     collapsible: true,
     openWhenCompact: false,
@@ -795,6 +914,7 @@ Widget? _organizationAdmins(OrganizationView view, Organization organization, vo
           child: _Row(
             icon: Icons.admin_panel_settings_outlined,
             title: admin == view.me ? '$admin (you)' : admin,
+            state: _cardState(view, admin),
             subtitle: 'Organization Admin',
             actions: [
               if (view.isOwner)
@@ -912,6 +1032,11 @@ String _personWords(OrganizationView view, OrganizationPerson person) => [
       'developer of ${project.name}',
 ].join(' · ');
 
+String _cardState(OrganizationView view, String login) {
+  final person = view.persons.where((person) => person.login == login).firstOrNull;
+  return person == null ? 'not read' : _standingWords(person);
+}
+
 String _standingWords(OrganizationPerson person) => switch (person.standing) {
   CardStanding.trusted => (person.words?.isEmpty ?? true) ? 'trusted' : person.words!,
   CardStanding.notYet => (person.words?.isEmpty ?? true) ? 'not yet vouched for' : person.words!,
@@ -1027,57 +1152,61 @@ class _Row extends StatelessWidget {
   final List<_Action> actions;
 
   @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final color = switch (tone) {
-      _Tone.plain => null,
-      _Tone.good => colors.primary,
-      _Tone.waiting => colors.tertiary,
-      _Tone.bad => colors.error,
-    };
-    final compact = WindowSize.fromContext(context) == WindowSize.compact;
-    final small = Theme.of(context).textTheme.bodySmall;
-    final said = state != null && state!.isNotEmpty ? state : null;
-    return ConstrainedBox(
-      constraints: const BoxConstraints(minHeight: Sizes.listRowHeight),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: Space.small),
-        child: Row(
-          children: [
-            Icon(icon),
-            const SizedBox(width: Space.small),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(title),
-                  Text(subtitle, style: small),
-                  if (compact && said != null) Text(said, style: small?.copyWith(color: color)),
-                  if (below case final next?)
-                    Padding(
-                      padding: const EdgeInsets.only(top: Space.small),
-                      child: next,
-                    ),
-                ],
-              ),
-            ),
-            if (!compact && said != null) ...[
-              const SizedBox(width: Space.normal),
-              Text(said, style: small?.copyWith(color: color)),
-            ],
-            if (actions.isNotEmpty) ...[
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final beside = WindowSize.chipBeside(constraints.maxWidth);
+      final small = Theme.of(context).textTheme.bodySmall;
+      final said = state != null && state!.isNotEmpty ? state : null;
+      final toneWords = switch (tone) {
+        _Tone.plain => said,
+        _Tone.good => 'trusted',
+        _Tone.waiting => 'not yet vouched for',
+        _Tone.bad => 'refused',
+      };
+      return ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: Sizes.listRowHeight),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: Space.small),
+          child: Row(
+            children: [
+              Icon(icon),
               const SizedBox(width: Space.small),
-              CommandMenu(
-                commands: [for (final action in actions) action.command],
-                tooltip: 'What can be done with $title',
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Tooltip(
+                      message: title,
+                      child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
+                    ),
+                    Text(subtitle, style: small, maxLines: 2, overflow: TextOverflow.ellipsis),
+                    if (!beside && said != null) StateChip(said, toneWords: toneWords),
+                    if (below case final next?)
+                      Padding(
+                        padding: const EdgeInsets.only(top: Space.small),
+                        child: next,
+                      ),
+                  ],
+                ),
               ),
+              if (beside && said != null) ...[
+                const SizedBox(width: Space.normal),
+                Flexible(child: StateChip(said, toneWords: toneWords)),
+              ],
+              if (actions.isNotEmpty) ...[
+                const SizedBox(width: Space.small),
+                CommandMenu(
+                  commands: [for (final action in actions) action.command],
+                  tooltip: 'What can be done with $title',
+                ),
+              ],
             ],
-          ],
+          ),
         ),
-      ),
-    );
-  }
+      );
+    },
+  );
 }
 
 /// What a computer naming no organization offers: to name one, to make one, and the card making one needs.

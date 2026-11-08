@@ -246,9 +246,7 @@ void main() {
           members: [ProjectMember(login: 'pat', role: 'admin', standing: CardStanding.trusted)],
         ),
       );
-      // An empty list starts folded, as every list folds; opened, it says how.
-      await tester.tap(find.byKey(const ValueKey('project-repositories demo-fold')));
-      await tester.pumpAndSettle();
+      // A leaf's list stands open on its own page, so the empty one says how at once.
       expect(find.text('No repositories yet. Add one with Add.'), findsOneWidget);
     });
 

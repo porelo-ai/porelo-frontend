@@ -5,6 +5,7 @@ import 'package:porelo_frontend/src/app/organization_source.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
 
 import '../features/support/world.dart';
+import '../features/support/tiles.dart' show leafPageTitle;
 import '../support/organization_fixtures.dart';
 
 void main() {
@@ -31,7 +32,7 @@ void main() {
     );
     await tester.tap(find.byKey(const Key('projects-of-machines')));
     await World.settle(tester);
-    expect(find.text('Projects on my machines'), findsOneWidget);
+    expect(leafPageTitle('Projects on my machines'), findsOneWidget);
     expect(find.byKey(row), findsOneWidget, reason: 'Default stands with every machine\'s projects');
     expect(find.widgetWithText(TextButton, 'My projects'), findsOneWidget);
   });

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
+import 'package:porelo_frontend/src/ui/shell_rail.dart';
 
 import 'world.dart';
 import '../../support/expand_list_rows.dart';
@@ -29,6 +30,12 @@ Finder tileFor(String work) {
         '${element.widget.key}'.contains("'tile ") && '${element.widget.key}'.endsWith(" $work'>]") && open(element),
   );
 }
+
+/// The large title of a leaf, distinct from the same words in its breadcrumb.
+Finder leafPageTitle(String title) => find.byWidgetPredicate(
+  (widget) => widget is Text && widget.key == const Key('leaf-title') && widget.data == title,
+  description: 'the leaf title $title',
+);
 
 /// The entry of one project under the machine being looked at.
 Finder cardFor(String project) => find.byKey(ValueKey<String>('project ${World.machines.current.name}/$project'));
@@ -79,25 +86,20 @@ Future<void> closeNavigationTree(WidgetTester tester) async {
 /// Reaches today's organization page through one of its tree leaves.
 Future<void> toTheOrganization(WidgetTester tester, {OrganizationSection section = OrganizationSection.people}) async {
   await toThePlace(tester, 'organizations');
-  final branch = find.byWidgetPredicate(
-    (widget) =>
-        widget.key is ValueKey<String> &&
-        (widget.key! as ValueKey<String>).value.startsWith('rail organization ') &&
-        widget is InkWell,
-  );
-  if (branch.evaluate().isEmpty) {
+  final rail = tester.widget<ShellRail>(find.byType(ShellRail));
+  if (rail.organizations.isEmpty) {
+    expect(rail.organizationsKnown, isTrue, reason: 'an absent organization must have been read');
     await closeNavigationTree(tester);
     return;
   }
-  final parentKey = (tester.widget<Widget>(branch.first).key! as ValueKey<String>).value;
-  await tapOnScreen(tester, find.byKey(ValueKey(parentKey)));
-  await World.settle(tester);
+  final parentKey = 'rail ${ShellPlace.organizationKey(rail.organizations.first.name)}';
+  await World.tapInView(tester, parentKey);
   final leaf = find.byKey(ValueKey('$parentKey ${section.name}'));
   if (leaf.evaluate().isEmpty) {
     await World.tapInView(tester, parentKey.replaceFirst('rail ', 'fold '));
   }
-  await tapOnScreen(tester, leaf);
-  await World.settle(tester);
+  await World.tapInView(tester, '$parentKey ${section.name}');
+  expect(World.shell.place.organizationSection, section, reason: 'navigation must reach the requested leaf');
 }
 
 /// Closes what is opened over the page - a view, the vault's, what a machine can run - as a person

@@ -8,6 +8,7 @@ import 'command_menu.dart';
 import 'expandable_list_row.dart';
 import 'filtered_list_section.dart';
 import 'tokens.dart';
+import 'page_explanation.dart';
 
 /// One project on one machine, without transferring selection on matching names.
 class ProjectDetailsPage extends StatelessWidget {
@@ -59,32 +60,23 @@ class ProjectDetailsPage extends StatelessWidget {
       key: ValueKey('project-details ${machine.name}/${project.name}'),
       padding: const EdgeInsets.all(Space.normal),
       children: [
-        Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton.icon(
-            onPressed: onBack,
-            icon: const Icon(Icons.arrow_back),
-            label: const Text('My projects'),
+        PageHead(
+          title: isDefault ? 'Default' : project.label,
+          path: [(label: 'My projects', go: onBack)],
+          subtitle: 'on ${machine.name}',
+          action: CommandMenu(
+            key: const Key('project-menu'),
+            commands: commands,
+            tooltip: 'What can be done with ${project.label} on ${machine.name}',
+            highlight: highlight,
+            onShown: onShown,
           ),
         ),
-        Row(
-          children: [
-            Expanded(
-              child: Text(isDefault ? 'Default' : project.label, style: Theme.of(context).textTheme.headlineSmall),
-            ),
-            CommandMenu(
-              key: const Key('project-menu'),
-              commands: [...commands],
-              tooltip: 'What can be done with ${project.label} on ${machine.name}',
-              highlight: highlight,
-              onShown: onShown,
-            ),
-          ],
-        ),
-        Text('on ${machine.name}'),
         ?details,
         FilteredListSection(
           title: 'Machines',
+          leaf: true,
+          subtitle: '1 machine',
           storageId: 'project-machines ${machine.name}/${project.name}',
           collapsible: true,
           rows: [
@@ -92,6 +84,7 @@ class ProjectDetailsPage extends StatelessWidget {
               words: machine.name,
               child: ItemListRow(
                 title: machine.name,
+                state: 'not read',
                 subtitle: machine.where,
                 leading: const Icon(Icons.dns_outlined),
                 onOpen: onMachine,
@@ -106,6 +99,8 @@ class ProjectDetailsPage extends StatelessWidget {
         if (jobs.isNotEmpty)
           FilteredListSection(
             title: 'Saved jobs',
+            leaf: true,
+            subtitle: '${jobs.length} saved jobs',
             storageId: 'project-jobs ${machine.name}/${project.name}',
             collapsible: true,
             reveal: highlight?.startsWith('template.start/${project.name}/') == true ? highlight : null,

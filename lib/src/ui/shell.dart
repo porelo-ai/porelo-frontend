@@ -1487,6 +1487,18 @@ class _ShellState extends State<Shell> {
             : ListenableBuilder(
                 listenable: _hostRuns,
                 builder: (context, _) => OrganizationPage(
+                  key: ValueKey(widget.shell.place.key),
+                  section: widget.shell.place.organizationSection,
+                  path: [
+                    (label: 'Organizations', go: () => _chooseTreePlace(const ShellPlace(Section.organizations), true)),
+                    (
+                      label: organization.view?.name ?? 'Organization',
+                      go: () => _chooseTreePlace(
+                        ShellPlace(Section.organization, organization: organization.view?.name ?? 'Organization'),
+                        true,
+                      ),
+                    ),
+                  ],
                   settings: widget.settings,
                   organization: organization,
                   identity: widget.identity,
@@ -4077,30 +4089,17 @@ class _ShellState extends State<Shell> {
     title: title,
     id: id,
     settings: widget.settings,
+    parts: id == 'forges' || id == 'projects' ? parts : const [],
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
         if (ownHead) PageHead(title: title, id: id, settings: widget.settings),
-        PageExplanation(key: ValueKey<String>('explanation $id'), id: id, settings: widget.settings, parts: parts),
+        if (id != 'forges' && id != 'projects')
+          PageExplanation(key: ValueKey<String>('explanation $id'), id: id, settings: widget.settings, parts: parts),
         Expanded(child: page),
       ],
     ),
   );
-
-  Widget _withWayBack(Widget page) => !_machineProjects
-      ? page
-      : Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TextButton.icon(
-              key: const Key('projects-of-organization'),
-              onPressed: () => setState(() => _machineProjects = false),
-              icon: const Icon(Icons.arrow_back),
-              label: const Text('My projects'),
-            ),
-            Expanded(child: page),
-          ],
-        );
 
   Widget _explainedProjects(Widget page) =>
       _explained('projects', 'My projects', const <({String title, String words})>[
@@ -4117,7 +4116,7 @@ class _ShellState extends State<Shell> {
           : _organizationProject != null
           ? _organizationProjects(_organization)
           : _explainedProjects(_organizationProjects(_organization))) ??
-      (_machineProjects ? _withWayBack : _explainedProjects)(
+      _explainedProjects(
         ListenableBuilder(
           listenable: Listenable.merge(<Listenable>[
             _attention,
@@ -4126,6 +4125,9 @@ class _ShellState extends State<Shell> {
           ]),
           builder: (context, _) => ProjectsPage(
             title: _organization == null ? 'My projects' : 'Projects on my machines',
+            path: _machineProjects
+                ? [(label: 'My projects', go: () => setState(() => _machineProjects = false))]
+                : const [],
             machines: widget.machines,
             muted: widget.notifications.muted,
             highlight: widget.shell.highlight,
@@ -4928,6 +4930,29 @@ class _ShellState extends State<Shell> {
         // Read again as a preparation starts and ends, so the page offers its protocol, not a second start.
         listenable: _hostRuns,
         builder: (context, _) => OrganizationHostPage(
+          path: _organizationHostFrom?.section != Section.organization
+              ? const []
+              : [
+                  (label: 'Organizations', go: () => _chooseTreePlace(const ShellPlace(Section.organizations), true)),
+                  (
+                    label: _organization!.view?.name ?? 'Organization',
+                    go: () => _chooseTreePlace(
+                      ShellPlace(Section.organization, organization: _organization.view?.name ?? 'Organization'),
+                      true,
+                    ),
+                  ),
+                  (
+                    label: 'Machines',
+                    go: () {
+                      final from = _organizationHostFrom!;
+                      setState(() {
+                        _organizationHost = null;
+                        _organizationHostFrom = null;
+                      });
+                      widget.shell.choosePlace(from);
+                    },
+                  ),
+                ],
           onPrepare: _prepareThisMachine,
           preparing: _preparingFor,
           onProtocol: (run) => unawaited(_openHostRun(run)),

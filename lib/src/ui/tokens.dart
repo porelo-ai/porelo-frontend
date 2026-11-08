@@ -205,6 +205,46 @@ abstract final class Primitives {
 ///
 /// Each comes in a dark and a light tone, since the lime and amber that glow on black vanish on white.
 abstract final class StateColours {
+  /// A single vocabulary for chips in light and dark themes.
+  static Color forWords(String words, ColorScheme scheme) {
+    final word = words.toLowerCase();
+    final tones = of(scheme);
+    return switch (word) {
+      'working' ||
+      'running' ||
+      'passed' ||
+      'connected' ||
+      'trusted' ||
+      'on the machine' ||
+      'ok' ||
+      'open' => tones.working,
+      'waiting' ||
+      'connecting' ||
+      'in preparation' ||
+      'still running' ||
+      'setting up again' ||
+      'not yet vouched for' ||
+      'not yet' ||
+      'being put on' ||
+      'held' ||
+      'degraded' ||
+      'shut' ||
+      'locked' => tones.waiting,
+      'failed' ||
+      'not connected' ||
+      'not connected; state unknown' ||
+      'incompatible backend' ||
+      'interrupted' ||
+      'not answering' ||
+      'refused' ||
+      'revoked' ||
+      'refused by the machine' ||
+      'missing' => scheme.error,
+      'needs you' || 'waits for you' || 'waits for your token' => scheme.primary,
+      _ => tones.stopped,
+    };
+  }
+
   /// Working, waiting or quiet, and stopped, for the brightness of [scheme].
   static ({Color working, Color waiting, Color stopped}) of(ColorScheme scheme) => scheme.brightness == Brightness.dark
       ? (working: Primitives.lime, waiting: Primitives.amber, stopped: Primitives.muted)
@@ -335,7 +375,22 @@ abstract final class Sizes {
   static const workFact = 150.0;
 
   /// The filter in each independent list header.
-  static const listFilter = 190.0;
+  static const listFilter = 200.0;
+
+  /// The information icon beside a page title.
+  static const pageInfo = 20.0;
+
+  /// A leaf's filter with its desktop sort and fold targets.
+  static const leafTools = 272.0;
+
+  /// The desktop sort target.
+  static const leafSort = 36.0;
+
+  /// The minimum pane width for a single row of leaf tools.
+  static const leafHead = 760.0;
+
+  /// Below this card width a state stands under the name.
+  static const rowChipBeside = 480.0;
 
   /// What an icon button in a list's header measures on a desktop window.
   static const iconTarget = 32.0;
@@ -543,4 +598,10 @@ abstract final class ActionTiles {
 
   /// No state layer at rest.
   static const noInk = 0.0;
+}
+
+/// Shared translucent fills.
+abstract final class Opacities {
+  /// Tint behind a state chip.
+  static const stateChip = 0.12;
 }

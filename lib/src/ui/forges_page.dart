@@ -104,11 +104,17 @@ class _ForgesPageState extends State<ForgesPage> {
         key: const Key('forges-page'),
         padding: const EdgeInsets.all(Space.normal),
         children: [
-          if (forges.problem case final problem?) Text(problem, key: const Key('forges-problem')),
-          if (_said case final said?) Text(said),
-          if (widget.keyCheck case final check?) ForgeKeyRow(check: check),
           FilteredListSection(
             title: 'My forges',
+            beforeRows: [
+              if (_said case final said?) Text(said),
+              if (widget.keyCheck case final check?) ForgeKeyRow(check: check),
+            ],
+            leaf: true,
+            subtitle: !forges.loaded ? 'not read' : '${listedForges(forges.allEntries, widget.held).length} forges',
+            busy: forges.busy,
+            problem: forges.problem,
+            onRetry: () => unawaited(forges.readList()),
             storageId: 'forges',
             actions: [
               FilledButton.icon(
@@ -128,6 +134,7 @@ class _ForgesPageState extends State<ForgesPage> {
                       key: ValueKey('forges-row held $address'),
                       bodyKey: ValueKey('forge $address'),
                       title: address,
+                      state: 'not read',
                       subtitle: [_heldWords(held), ?_organizationWords(address)].join(' · '),
                       leading: const Icon(Icons.hub_outlined),
                       onOpen: null,
@@ -141,6 +148,7 @@ class _ForgesPageState extends State<ForgesPage> {
                       key: ValueKey('forges-row ${entry.id}'),
                       bodyKey: ValueKey('forge ${entry.name}'),
                       title: entry.name,
+                      state: forges.current?.id == entry.id && forges.connected ? 'Connected' : 'not read',
                       subtitle: entry.isHost
                           ? 'Through ${entry.hostMachine} · ${entry.browserAddress ?? 'tunnel not reached'}'
                           : [
@@ -417,23 +425,33 @@ class _ForgePageState extends State<ForgePage> {
         key: ValueKey('forge-page ${entry?.id}'),
         padding: const EdgeInsets.all(Space.normal),
         children: [
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              onPressed: widget.onBack,
-              icon: const Icon(Icons.arrow_back),
-              label: const Text('My forges'),
-            ),
-          ),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  entry?.name ?? 'Forge',
-                  key: const Key('forge-title'),
-                  style: Theme.of(context).textTheme.headlineSmall,
+          FilteredListSection(
+            key: ValueKey('forge-repositories ${entry?.id}'),
+            title: entry?.name ?? 'Forge',
+            searchHint: 'Filter repositories',
+            onRetry: () => unawaited(forges.refresh()),
+            titleKey: const Key('forge-title'),
+            beforeRows: [
+              if (entry != null)
+                Text(
+                  '${entry.address} · ${entry.isHost
+                      ? 'through the machine connection'
+                      : entry.authentication == 'ssh'
+                      ? 'by SSH key'
+                      : 'token chosen explicitly'}'
+                  '${forges.account == null ? '' : ' · login ${forges.account!.login}'}',
+                  key: const Key('forge-account'),
                 ),
-              ),
+              if (_said case final said?) Text(said, key: const Key('forge-said')),
+              if (!forges.connected && !forges.busy)
+                const Text('Access has not been confirmed. Check my access from the menu.'),
+            ],
+            leaf: true,
+            path: [(label: 'My forges', go: widget.onBack)],
+            subtitle: forges.repositories == null ? 'not read' : '${forges.repositories!.length} repositories',
+            busy: forges.busy,
+            problem: forges.problem,
+            actions: [
               if (entry != null)
                 forgeMenu(
                   context,
@@ -445,25 +463,6 @@ class _ForgePageState extends State<ForgePage> {
                   said: (words) => setState(() => _said = words),
                 ),
             ],
-          ),
-          if (entry != null)
-            Text(
-              '${entry.address} · ${entry.isHost
-                  ? 'through the machine connection'
-                  : entry.authentication == 'ssh'
-                  ? 'by SSH key'
-                  : 'token chosen explicitly'}'
-              '${forges.account == null ? '' : ' · login ${forges.account!.login}'}',
-              key: const Key('forge-account'),
-            ),
-          if (forges.problem case final problem?) Text(problem, key: const Key('forge-problem')),
-          if (_said case final said?) Text(said, key: const Key('forge-said')),
-          if (forges.busy) const LinearProgressIndicator(key: Key('forge-loading')),
-          if (!forges.connected && !forges.busy)
-            const Text('Access has not been confirmed. Check my access from the menu.'),
-          FilteredListSection(
-            key: ValueKey('forge-repositories ${entry?.id}'),
-            title: 'Repositories',
             storageId: 'forge-repositories ${entry?.id}',
             collapsible: true,
             rows: [
@@ -485,9 +484,17 @@ class _ForgePageState extends State<ForgePage> {
       key: ValueKey('forge-repository $name'),
       bodyKey: ValueKey('repository $name'),
       title: name,
+      state: on.isNotEmpty
+          ? 'on the machine'
+          : isProject == null
+          ? 'not read'
+          : repository.push
+          ? 'can push'
+          : 'read access',
       subtitle: [
         if (on.isNotEmpty) 'a project on ${on.join(', ')}',
-        if (repository.push) 'can push' else 'read access',
+        if (on.isNotEmpty || isProject == null)
+          if (repository.push) 'can push' else 'read access',
         if (isProject == true)
           'has a project.yml'
         else if (isProject == false)
@@ -666,6 +673,11 @@ class _ForgeKeyRowState extends State<ForgeKeyRow> {
     return ItemListRow(
       key: const Key('forge-key-check'),
       title: 'My key on the forge',
+      state: _busy || reading is! ForgeKeyAnswered
+          ? 'not read'
+          : good
+          ? 'OK'
+          : 'Needs you',
       subtitle: words,
       leading: good
           ? const Icon(Icons.check_circle_outline, key: Key('forge-key-listed'))

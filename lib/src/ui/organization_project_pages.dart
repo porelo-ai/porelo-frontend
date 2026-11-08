@@ -14,6 +14,7 @@ import 'page_explanation.dart';
 import 'organization_dialogs.dart';
 import 'organization_host_pages.dart';
 import 'tokens.dart';
+import 'expandable_list_row.dart';
 
 /// What is true of a repository's name, as for any folder it becomes.
 final _repositoryName = RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$');
@@ -167,23 +168,38 @@ class _OrganizationProjectsPageState extends State<OrganizationProjectsPage> {
         padding: const EdgeInsets.all(Space.normal),
         children: [
           OrganizationChangeMark(widget.organization),
-          if (widget.organization.problem case final problem?) _Problem(problem),
           if (view == null)
-            if (PageExplanationScope.of(context) case final scope?)
-              PageHead(title: scope.title, id: scope.id, settings: scope.settings),
+            FilteredListSection(
+              title: 'My projects',
+              storageId: 'my-projects',
+              leaf: true,
+              rows: const [],
+              subtitle: 'not read',
+              busy: widget.organization.problem == null,
+              problem: widget.organization.problem,
+              onRetry: () => unawaited(widget.organization.refresh()),
+              emptyWords: 'No organization has been read.',
+            ),
           // The organization's projects alone: Default and a checkout's local copy are no project of it.
           if (view != null)
             FilteredListSection(
               title: 'My projects',
+              leaf: true,
+              subtitle: '${mine.length} projects',
+              busy: widget.organization.busy,
+              readAt: widget.organization.readAt,
+              problem: widget.organization.problem,
+              onRetry: () => unawaited(widget.organization.refresh()),
               storageId: 'my-projects',
               rows: [
                 for (final project in mine)
                   (
                     words: project.name,
-                    child: ListTile(
+                    child: LeafListRow(
                       key: ValueKey('my-project ${project.name}'),
+                      state: _isLocked(project) ? 'locked' : _roleIn(view, project)!,
                       leading: const Icon(Icons.folder_outlined),
-                      title: Text(project.name),
+                      title: project.name,
                       subtitle: Text(
                         '${project.repositories == null ? '' : '${_count(project.repositories!, 'repository', 'repositories')} · '}'
                         '${peopleOf(project)} · '
@@ -196,7 +212,6 @@ class _OrganizationProjectsPageState extends State<OrganizationProjectsPage> {
                         crossAxisAlignment: WrapCrossAlignment.center,
                         spacing: Space.normal,
                         children: [
-                          Chip(label: Text(_isLocked(project) ? 'locked' : _roleIn(view, project)!)),
                           if (_central[project.name]?.offersPush ?? false)
                             if (project.host case final host? when !_isLocked(project))
                               for (final command in widget.menuFor?.call(project.name, host) ?? const <Command>[])
@@ -400,24 +415,17 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
       key: ValueKey('organization-project ${widget.project}'),
       padding: const EdgeInsets.all(Space.normal),
       children: [
-        Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton.icon(
-            key: const Key('organization-project-back'),
-            onPressed: widget.onBack,
-            icon: const Icon(Icons.arrow_back),
-            label: const Text('My projects'),
-          ),
-        ),
-        Wrap(
-          crossAxisAlignment: WrapCrossAlignment.center,
-          spacing: Space.small,
-          children: [
-            Text(widget.project, style: Theme.of(context).textTheme.headlineSmall),
-            if (view != null && organization != null) Chip(label: Text(_myRole(view, organization))),
-            if (commands.isNotEmpty)
-              CommandMenu(tooltip: 'What can be done with ${widget.project}', commands: commands),
-          ],
+        PageHead(
+          title: widget.project,
+          path: [(label: 'My projects', go: widget.onBack)],
+          pathKeys: const {'My projects': Key('organization-project-back')},
+          subtitle: view == null
+              ? 'not read'
+              : '${view.repositories.length} repositories · ${view.members.length} members',
+          status: view != null && organization != null ? StateChip(_myRole(view, organization)) : null,
+          action: commands.isEmpty
+              ? null
+              : CommandMenu(tooltip: 'What can be done with ${widget.project}', commands: commands),
         ),
         if (_problem case final problem?) _Problem(problem),
         if (_reading) Text('Reading ${widget.project}: its address, repositories, and members…'),
@@ -570,6 +578,8 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
   Widget _repositories(ProjectView view, bool isAdmin) =>
       FilteredListSection(
         title: 'Repositories',
+        leaf: true,
+        subtitle: '${view.repositories.length} repositories',
         storageId: 'project-repositories ${view.name}',
         emptyWords: isAdmin ? 'No repositories yet. Add one with Add.' : 'No repositories yet.',
         actions: [
@@ -585,9 +595,16 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
           for (final repository in view.repositories)
             (
               words: '${repository.name} ${repository.address ?? ''}',
-              child: ListTile(
+              child: LeafListRow(
                 leading: const Icon(Icons.book_outlined),
-                title: Text(repository.name),
+                title: repository.name,
+                state: repository.namesNoCentral
+                    ? 'central not named'
+                    : switch (repository.review) {
+                        'required' => 'review required',
+                        'optional' => 'review optional',
+                        _ => 'review not read',
+                      },
                 subtitle: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -668,6 +685,8 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
     ];
     return FilteredListSection(
       title: 'Members',
+      leaf: true,
+      subtitle: '${view.members.length} members',
       storageId: 'project-members ${view.name}',
       greyWords: [
         if (isAdmin && view.roles.isEmpty)
@@ -835,7 +854,7 @@ class _MemberRowState extends State<_MemberRow> {
               const Icon(Icons.person_outline),
               Text(member.login == widget.me ? '${member.login} (you)' : member.login),
               Text(member.role),
-              Text(standing.$1, style: TextStyle(color: standing.$2)),
+              StateChip(standing.$1),
               if (member.locked) Text('locked', style: TextStyle(color: colors.error)),
               if (widget.changes)
                 CommandMenu(
