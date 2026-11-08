@@ -244,6 +244,27 @@ void main() {
     });
   }
 
+  // Harm: on a tablet the organization's button moves behind the actions, away from where the desktop keeps it.
+  for (final width in [390.0, 700.0, 1000.0, 1280.0]) {
+    testWidgets('the title bar at $width puts the organization where its design does', (tester) async {
+      await _start(tester);
+      tester.view.physicalSize = Size(width, 800);
+      await World.settle(tester);
+      final organization = tester.getRect(find.byKey(const Key('organization-choice')));
+      final stop = tester.getRect(find.byKey(const Key('stop-everywhere-bar')));
+      if (width == 390) {
+        // On the phone the ⋮ comes before the organization's button.
+        expect(tester.getRect(find.byKey(const Key('bar-overflow'))).right, lessThanOrEqualTo(organization.left));
+      } else {
+        // Beside a wider window the organization's button stands left of the actions.
+        final more = find.byKey(width == 1280 ? const Key('options-menu') : const Key('bar-overflow'));
+        expect(organization.right, lessThanOrEqualTo(stop.left));
+        expect(organization.right, lessThanOrEqualTo(tester.getRect(more).left));
+      }
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   // Harm: unread data is reported as an empty system.
   testWidgets('a count not read shows a question mark never zero', (tester) async {
     await _start(tester);

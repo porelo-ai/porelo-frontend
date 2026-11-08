@@ -4505,7 +4505,8 @@ class _ShellState extends State<Shell> {
             ),
       title: Text(title, key: const Key('app-title'), overflow: TextOverflow.ellipsis),
       actions: <Widget>[
-        if (size.showsBarActions) _organizationButton(size),
+        // Left of the actions from tablet width up, as on the desktop; on the phone after the ⋮.
+        if (size != WindowSize.compact) _organizationButton(size),
         IconButton(
           key: const Key('stop-everywhere-bar'),
           tooltip: 'Stop everything on every machine',
@@ -4515,7 +4516,10 @@ class _ShellState extends State<Shell> {
               .firstOrNull
               ?.run,
         ),
-        if (!size.showsBarActions) ...[_barOverflow(commands), _organizationButton(size)],
+        if (!size.showsBarActions) ...[
+          _barOverflow(commands),
+          if (size == WindowSize.compact) _organizationButton(size),
+        ],
         if (size.showsBarActions) ...[
           IconButton(tooltip: 'Find a command (Ctrl+K)', icon: const Icon(Icons.search), onPressed: _openFinder),
           IconButton(

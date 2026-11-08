@@ -445,9 +445,10 @@ joined, and pictures of the four layouts, light and dark, taken from the app: se
 Tasks titled *Work*, a band above the path, the path's spacing, a chip cut mid-letter, a filter's hint cut, counts of
 one in the plural, the tree's indentation) are fixed the same way.
 
+**The operator's word (2026-11-08).** From 600 wide the organization's button stands left of the actions, as D7 on the
+desktop (D60 says "as D7"); only the phone keeps it after the ⋮ (D63). Built test-first, at 700, 1000 and 1280 wide.
+
 Left, for the operator to place:
-- On the tablet (600 to 839) the organization's button sits after the ⋮, as on the phone; whether D60 means it left of
-  the actions, as D7 on the desktop.
 - "1 need you" on *Needs you* and its badge's tooltip, and "1 entries" in a machine's vault facts, still count one in
   the plural; the feature texts name these words.
 - Two findings of part 3's reading, older than this issue, are kept in [F430](README.md#f430).
