@@ -6,8 +6,9 @@
 it, and opens its timeline and its logs after it is gone. Nothing of a task's life vanishes from the window with the
 task.
 
-**Blocked by** the backend's lifecycle record and its reading (the backend's own issue, filed first): the window reads
-what the backend keeps and keeps nothing of its own.
+**Blocked by** the backend keeping every task run in one timeline: each run's lifecycle entries (who and when, the
+run's numbers), its logs archived when it stops and when it is removed, and one log stream for every process it
+starts, each readable over varlink. The window reads what the backend keeps and keeps nothing of its own.
 
 ## Why
 
@@ -42,10 +43,7 @@ only on the backend's reading; the size holds if that reading gives:
 - a follow that sends new records as they come, ended when the run ends;
 - records already free of secrets at their source: the window shows `data` as it comes and cannot redact.
 
-## Open
+## Decided
 
-- Whether the choice to export to an organization's collector (off by default, what is sent being the person's) is set
-  in the window, on the machine's page, or only by the CLI; if in the window, a part of its own.
-
-- Where the view sits in the side bar's tree ([F429](README.md#f429)): under Work, or beside it.
-- How the window says a removed task's archive was itself removed, which is its own lifecycle entry.
+- **The export to an organization's collector** (OTLP, off by default) is chosen by the backend's CLI only; the window does not
+  offer it (the operator's word, 2026-11-08).
