@@ -30,6 +30,31 @@ import 'window_size.dart';
 /// What is true of a project's name, as for any folder it becomes.
 final _projectName = RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$');
 
+/// The existing address dialogs, shared by parent pages and the title bar.
+List<Command> organizationAddressCommands(BuildContext context, Organization? organization) => [
+  for (final creating in [false, true])
+    Command(
+      id: creating ? 'createOrganization' : 'chooseOrganization',
+      label: creating ? 'Create an organization…' : 'Choose another Porelo organization…',
+      group: 'Organization',
+      home: Home.organizationRow,
+      unavailable: organization == null
+          ? 'No organization source is available on this computer.'
+          : organization.busy
+          ? 'Another change is still being asked for.'
+          : null,
+      run: () {
+        if (organization == null || organization.busy) return;
+        unawaited(
+          showDialog<void>(
+            context: context,
+            builder: (_) => _AddressDialog(organization, creating: creating, replacing: organization.view != null),
+          ),
+        );
+      },
+    ),
+];
+
 /// The organization: who manages it, its people, its projects and its machines. Everyone reads all of it; a row's actions stand
 /// behind its ⋮, for the person whose role they belong to.
 class OrganizationPage extends StatefulWidget {

@@ -12,6 +12,9 @@ import 'shell_model.dart';
 class WhereYouWere {
   /// Constructor taking where it is kept and what it is about.
   WhereYouWere(this._settings, this._machines, this._shell) {
+    _savedNavigation = Map.of(_settings.shellNavigation);
+    _restored = _savedNavigation.isEmpty;
+    _shell.initializeNavigation(_machines.current);
     _machines.addListener(_remember);
     _shell.addListener(_remember);
   }
@@ -19,6 +22,8 @@ class WhereYouWere {
   final Settings _settings;
   final Machines _machines;
   final ShellModel _shell;
+  late final Map<String, Object?> _savedNavigation;
+  late bool _restored;
 
   /// Puts somebody back where they were.
   ///
@@ -29,6 +34,7 @@ class WhereYouWere {
   /// decided honestly.
   Future<void> restore() async {
     final place = await _settings.whereYouWere();
+    _shell.restoreNavigation(_savedNavigation, _machines.all, _machines.current);
 
     final machine = place['machine'];
     if (machine != null) {
@@ -37,13 +43,16 @@ class WhereYouWere {
       }
     }
 
-    // Not the section: the window always opens on what needs a person.
+    final destination = _shell.place.machine;
+    if (destination != null) _machines.select(destination);
 
     final fleet = _machines.fleet;
     final project = place['project'];
     if (project != null) fleet.selectProject(project);
     final task = place['task'];
     if (task != null) fleet.selectTask(task);
+    _restored = true;
+    _remember();
   }
 
   /// Stops remembering.
@@ -53,6 +62,8 @@ class WhereYouWere {
   }
 
   void _remember() {
+    if (!_restored) return;
+    unawaited(_settings.rememberShellNavigation(_shell.navigation));
     final fleet = _machines.fleet;
     unawaited(
       _settings.rememberWhereYouWere(<String, String>{

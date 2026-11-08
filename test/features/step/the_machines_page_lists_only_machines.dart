@@ -10,8 +10,9 @@ import '../support/world.dart';
 Future<void> theMachinesPageListsOnlyMachines(WidgetTester tester) async {
   await toTheMachines(tester);
   for (final machine in World.machines.all) {
-    expect(find.byKey(ValueKey<String>('machines-row ${machine.name}')), findsOneWidget);
+    expect(railEntryFor(machine.name), findsOneWidget);
   }
+  expect(find.byKey(const Key('facts-page')), findsOneWidget);
   final projects = find.byWidgetPredicate(
     (widget) => widget.key is ValueKey<String> && (widget.key! as ValueKey<String>).value.startsWith('project '),
   );

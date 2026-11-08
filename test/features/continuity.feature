@@ -30,10 +30,11 @@ Feature: Leaving and reopening the window without losing where you were
         Then the project {'checkout'} is selected
         And the work {'porelo-checkout-shell'} is still selected
 
-    Scenario: reopening opens on the work, whichever section was left
-        When I show what this session has run
+    Scenario: reopening keeps the chosen place
+        When I go to the place {'machines'}
+        And I show what this session has run
         And the app is restarted
-        Then the section shown is {'Work'}
+        Then the section shown is {'My machines'}
 
     Scenario: a newer build installed underneath says so, and changes nothing on its own
         When a newer build is installed underneath

@@ -6,21 +6,41 @@ import '../support/world.dart';
 
 /// Usage: I move the keyboard to the project {'billing'}
 ///
-/// Tab, and nothing else: a card that the keyboard cannot reach is one only a pointer can use.
+/// Tab reaches the tree, arrows choose its destination, and Tab then reaches the project row.
 Future<void> iMoveTheKeyboardToTheProject(WidgetTester tester, String project) async {
   // Projects are on their own page, reached from the rail by the keyboard too.
   if (find.byKey(const Key('projects-page')).evaluate().isEmpty) {
+    var inTree = false;
     for (var press = 0; press < 40; press++) {
       final focused = FocusManager.instance.primaryFocus?.context;
-      var there = focused?.widget.key == const ValueKey<String>('rail projects');
+      inTree = focused?.widget.key == const Key('navigation-tree-focus');
       focused?.visitAncestorElements((element) {
-        there = there || element.widget.key == const ValueKey<String>('rail projects');
-        return !there;
+        inTree = inTree || element.widget.key == const Key('navigation-tree-focus');
+        return !inTree;
       });
-      if (there) break;
+      if (inTree) break;
       await tester.sendKeyEvent(LogicalKeyboardKey.tab);
       await tester.pump();
     }
+    if (!inTree) fail('the keyboard never reached the navigation tree');
+    for (var press = 0; press < 40; press++) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pump();
+    }
+    var onProjects = false;
+    for (var press = 0; press < 40; press++) {
+      onProjects = find
+          .byWidgetPredicate(
+            (widget) =>
+                widget is Semantics && widget.properties.focused == true && widget.properties.label == 'My projects',
+          )
+          .evaluate()
+          .isNotEmpty;
+      if (onProjects) break;
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+    }
+    if (!onProjects) fail('the keyboard never reached My projects in the tree');
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await World.settle(tester);
   }

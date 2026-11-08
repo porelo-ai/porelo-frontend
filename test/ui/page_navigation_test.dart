@@ -91,9 +91,8 @@ void main() {
     await World.settle(tester);
     World.machines.select(second);
     await World.settle(tester);
-    await World.tapInView(tester, 'machine-menu');
-    final panic = tester.widget<PopupMenuItem<String>>(find.byKey(const Key('machine.panic')));
-    expect(panic.enabled, isFalse);
+    final panic = tester.widget<OutlinedButton>(find.byKey(const Key('machine.panic')));
+    expect(panic.onPressed, isNull);
     await World.tapInView(tester, 'machine.panic');
     expect(World.backend.panics, isEmpty);
     expect(World.elsewhere.panics, isEmpty);

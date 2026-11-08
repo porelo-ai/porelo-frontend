@@ -1,22 +1,23 @@
-import '../app/organization_source.dart';
-
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
+import '../app/machines.dart';
+import '../app/organization_source.dart';
 import '../app/shell_model.dart';
 import 'machine_tree.dart';
 import 'tokens.dart';
+import 'window_size.dart';
 
-/// What the rail counts under *My projects*: what that page lists. Where it shows [fromOrganization], the
-/// organization's projects this person holds a role in, or none while it has read nothing; otherwise those
-/// [onMachines].
+/// Counts exactly the projects the corresponding page lists.
 int projectsInRail(OrganizationView? view, {required int onMachines, bool fromOrganization = false}) =>
     !fromOrganization ? onMachines : (view == null ? 0 : view.projects.where(view.isMine).length);
 
-/// The left of the window: the daily work first - what runs, and what needs a person - and setting
-/// up apart under it, machines and projects, which are rarely needed once they are set up.
-/// The refresh and the stop for every machine stay at its foot.
-class ShellRail extends StatelessWidget {
-  /// Constructor taking where the window is, the counts it shows, and what choosing does.
+/// A machine entry with its last observed connection or preparation state.
+typedef RailMachine = ({Machine machine, String? state});
+
+/// The folding navigation tree, with refresh and the global stop kept at its foot.
+class ShellRail extends StatefulWidget {
+  /// Takes the places, observations and navigation actions of the frame.
   const ShellRail({
     required this.section,
     required this.running,
@@ -25,6 +26,13 @@ class ShellRail extends StatelessWidget {
     required this.machines,
     required this.projects,
     this.forges = 0,
+    this.machineEntries = const [],
+    this.organizations = const [],
+    this.organizationsKnown = true,
+    this.place,
+    this.foldedOpen = const {},
+    this.onPlace,
+    this.onFold,
     required this.width,
     required this.onGo,
     required this.onRefresh,
@@ -32,117 +40,427 @@ class ShellRail extends StatelessWidget {
     super.key,
   });
 
-  /// Where the window is. One machine's page belongs to setting up machines.
+  /// The current page kind, also used by callers without an exact place.
   final Section section;
 
-  /// How much work runs on every machine.
-  final int running;
+  /// The exact selected place.
+  final ShellPlace? place;
 
-  /// How much work there is on every machine, running or not; null counts only what runs.
-  final int? work;
+  /// Open branches, keyed by place identity.
+  final Set<String> foldedOpen;
 
-  /// How many things need a person.
-  final int needing;
+  /// Machines in the same order as the frame lists them.
+  final List<RailMachine> machineEntries;
 
-  /// How many machines are watched.
-  final int machines;
+  /// Organizations read; the shape also accepts several.
+  final List<OrganizationView> organizations;
 
-  /// How many projects there are on them.
-  final int projects;
+  /// Whether an empty organization list is a read absence rather than a pending read.
+  final bool organizationsKnown;
 
-  /// How many forges are set up on this computer.
-  final int forges;
+  /// Observed totals; null means they cannot currently be read.
+  final int? running, work, needing, machines, projects, forges;
 
-  /// How wide it is.
+  /// The width reserved for the tree.
   final double width;
 
-  /// Goes to a place.
-  final void Function(Section section) onGo;
+  /// Navigates to a top-level page for callers without an exact place.
+  final ValueChanged<Section> onGo;
+
+  /// Chooses a place, keeping parents open in a phone drawer.
+  final void Function(ShellPlace place, bool branch)? onPlace;
+
+  /// Folds a branch without choosing it.
+  final ValueChanged<String>? onFold;
 
   /// Asks every machine again.
   final VoidCallback onRefresh;
 
-  /// Stops everything on every machine; null where nothing answers.
+  /// Opens the global stop confirmation, absent when no machine answers.
   final VoidCallback? onStopEverywhere;
 
   @override
-  Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
-    final here = switch (section) {
-      Section.machine => Section.machines,
-      Section.project => Section.projects,
-      Section.forge => Section.forges,
-      _ => section,
-    };
-    Widget entry(Section place, IconData icon, IconData selectedIcon, Widget trailing) {
-      final selected = here == place;
-      return ListTile(
-        key: ValueKey<String>('rail ${place.name}'),
-        selected: selected,
-        leading: Icon(selected ? selectedIcon : icon),
-        title: Text(place.label),
-        trailing: trailing,
-        onTap: () => onGo(place),
-      );
-    }
+  State<ShellRail> createState() => _ShellRailState();
+}
 
+class _TreeRow {
+  const _TreeRow(
+    this.place,
+    this.label, {
+    this.depth = 0,
+    this.branch = false,
+    this.icon,
+    this.selectedIcon,
+    this.count,
+    this.countKey,
+    this.badge = false,
+    this.state,
+  });
+  final ShellPlace place;
+  final String label;
+  final int depth;
+  final bool branch, badge;
+  final IconData? icon, selectedIcon;
+  final int? count;
+  final String? countKey, state;
+}
+
+class _ShellRailState extends State<ShellRail> {
+  final _focus = FocusNode(debugLabel: 'Navigation tree');
+  final _rows = <String, GlobalKey>{};
+  int _cursor = 0;
+  bool _focused = false;
+  String? _revealed;
+  Set<String> _lastFolds = {};
+
+  List<_TreeRow> get rows => [
+    _TreeRow(
+      const ShellPlace(Section.work),
+      'Work',
+      icon: Icons.play_circle_outline,
+      selectedIcon: Icons.play_circle,
+      count: widget.work,
+      countKey: 'rail-work-count',
+    ),
+    _TreeRow(
+      const ShellPlace(Section.attention),
+      'Needs you',
+      icon: Icons.notifications_active_outlined,
+      selectedIcon: Icons.notifications_active,
+      count: widget.needing,
+      badge: true,
+    ),
+    _TreeRow(
+      const ShellPlace(Section.machines),
+      'My machines',
+      branch: true,
+      icon: Icons.dns_outlined,
+      selectedIcon: Icons.dns,
+      count: widget.machines,
+      countKey: 'rail-machines-count',
+    ),
+    if (widget.foldedOpen.contains('machines'))
+      for (final entry in widget.machineEntries) ...[
+        _TreeRow(
+          ShellPlace(Section.machine, machine: entry.machine),
+          entry.machine.name,
+          depth: 1,
+          branch: true,
+          state: entry.state,
+        ),
+        if (widget.foldedOpen.contains(ShellPlace.machineKey(entry.machine.name)))
+          for (final section in MachineSection.values)
+            _TreeRow(
+              ShellPlace(Section.machine, machine: entry.machine, machineSection: section),
+              section.label,
+              depth: 2,
+            ),
+      ],
+    _TreeRow(
+      const ShellPlace(Section.forges),
+      'My forges',
+      icon: Icons.hub_outlined,
+      selectedIcon: Icons.hub,
+      count: widget.forges,
+      countKey: 'rail-forges-count',
+    ),
+    _TreeRow(
+      const ShellPlace(Section.projects),
+      'My projects',
+      icon: Icons.folder_outlined,
+      selectedIcon: Icons.folder,
+      count: widget.projects,
+      countKey: 'rail-projects-count',
+    ),
+    const _TreeRow(ShellPlace(Section.cards), 'My cards & keys', icon: Icons.key_outlined, selectedIcon: Icons.key),
+    _TreeRow(
+      const ShellPlace(Section.organizations),
+      'Organizations',
+      branch: widget.organizations.isNotEmpty,
+      icon: Icons.apartment_outlined,
+      selectedIcon: Icons.apartment,
+      count: widget.organizationsKnown ? widget.organizations.length : null,
+      countKey: 'rail-organizations-count',
+    ),
+    if (widget.foldedOpen.contains('organizations'))
+      for (final organization in widget.organizations) ...[
+        _TreeRow(
+          ShellPlace(Section.organization, organization: organization.name),
+          organization.name,
+          depth: 1,
+          branch: true,
+        ),
+        if (widget.foldedOpen.contains(ShellPlace.organizationKey(organization.name)))
+          for (final section in OrganizationSection.values)
+            _TreeRow(
+              ShellPlace(Section.organization, organization: organization.name, organizationSection: section),
+              section.label,
+              depth: 2,
+            ),
+      ],
+  ];
+
+  String get selected => widget.place?.key ?? widget.section.name;
+
+  void _scrollTo(String key) => WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (!mounted) return;
+    final context = _rows[key]?.currentContext;
+    if (context != null) Scrollable.ensureVisible(context, alignment: Sizes.treeScrollAlignment);
+  });
+
+  void _choose(_TreeRow row) {
+    if (widget.onPlace case final choose?) {
+      choose(row.place, row.branch);
+    } else {
+      widget.onGo(row.place.section);
+    }
+  }
+
+  KeyEventResult _key(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) return KeyEventResult.ignored;
+    final keyboard = HardwareKeyboard.instance;
+    if (keyboard.isControlPressed || keyboard.isAltPressed || keyboard.isMetaPressed) return KeyEventResult.ignored;
+    final entries = rows;
+    _cursor = _cursor.clamp(0, entries.length - 1).toInt();
+    final row = entries[_cursor];
+    final key = event.logicalKey;
+    if (key == LogicalKeyboardKey.arrowDown || key == LogicalKeyboardKey.arrowUp) {
+      setState(
+        () => _cursor = (_cursor + (key == LogicalKeyboardKey.arrowDown ? 1 : -1)).clamp(0, entries.length - 1).toInt(),
+      );
+      _scrollTo(entries[_cursor].place.key);
+    } else if (key == LogicalKeyboardKey.arrowRight) {
+      if (row.branch && !widget.foldedOpen.contains(row.place.key)) widget.onFold?.call(row.place.key);
+    } else if (key == LogicalKeyboardKey.arrowLeft) {
+      if (row.branch && widget.foldedOpen.contains(row.place.key)) {
+        widget.onFold?.call(row.place.key);
+      } else if (row.place.ancestors.isNotEmpty) {
+        final parent = entries.indexWhere((entry) => entry.place.key == row.place.ancestors.last);
+        if (parent >= 0) setState(() => _cursor = parent);
+      }
+    } else if (key == LogicalKeyboardKey.enter || key == LogicalKeyboardKey.space) {
+      _choose(row);
+    } else {
+      return KeyEventResult.ignored;
+    }
+    return KeyEventResult.handled;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final entries = rows;
+    if (_revealed != selected || !_sameFolds(widget.foldedOpen)) {
+      final chosen = entries.indexWhere((row) => row.place.key == selected);
+      if (_revealed != selected && chosen >= 0) _cursor = chosen;
+      _revealed = selected;
+      _lastFolds = Set.of(widget.foldedOpen);
+      _scrollTo(selected);
+    }
+    final phone = WindowSize.fromContext(context) == WindowSize.compact;
     return SizedBox(
-      width: width,
+      width: widget.width,
       child: Column(
-        children: <Widget>[
+        children: [
+          if (phone)
+            Padding(
+              padding: const EdgeInsets.all(Space.normal),
+              child: Text('Porelo', style: Theme.of(context).textTheme.titleLarge),
+            ),
           Expanded(
-            child: ListView(
-              key: const Key('shell-rail'),
-              children: <Widget>[
-                // All the work there is, as Machines and Projects count theirs; what runs is in the tip
-                // (walk 10: two stopped tasks read as "0").
-                entry(
-                  Section.work,
-                  Icons.play_circle_outline,
-                  Icons.play_circle,
-                  Tooltip(
-                    message: '$running running',
-                    child: Text('${work ?? running}', key: const Key('rail-work-count')),
-                  ),
+            child: Focus(
+              key: const Key('navigation-tree-focus'),
+              focusNode: _focus,
+              onKeyEvent: _key,
+              autofocus: phone,
+              onFocusChange: (value) => setState(() => _focused = value),
+              child: SingleChildScrollView(
+                key: const Key('shell-rail'),
+                child: Column(
+                  children: [
+                    for (var index = 0; index < entries.length; index++) ...[
+                      if (entries[index].place.section == Section.machines && entries[index].depth == 0) ...[
+                        const Divider(height: Sizes.divider),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(Space.normal, Space.small, Space.normal, Space.tight),
+                          child: Text('Set up', style: Theme.of(context).textTheme.labelMedium),
+                        ),
+                      ],
+                      _row(context, entries[index], index),
+                    ],
+                  ],
                 ),
-                entry(
-                  Section.attention,
-                  Icons.notifications_active_outlined,
-                  Icons.notifications_active,
-                  Badge(key: const Key('needing-count-badge'), isLabelVisible: needing > 0, label: Text('$needing')),
-                ),
-                const Divider(height: Sizes.divider),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(Space.normal, Space.small, Space.normal, Space.tight),
-                  child: Text('Set up', style: text.labelMedium),
-                ),
-                entry(Section.machines, Icons.dns_outlined, Icons.dns, Text('$machines')),
-                entry(Section.forges, Icons.hub_outlined, Icons.hub, Text('$forges')),
-                entry(Section.projects, Icons.folder_outlined, Icons.folder, Text('$projects')),
-                entry(Section.organization, Icons.apartment_outlined, Icons.apartment, const SizedBox.shrink()),
-              ],
+              ),
             ),
           ),
           Padding(
             padding: const EdgeInsets.all(Space.small),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
                 Tooltip(
-                  message: 'Ask every machine again, now',
+                  message: 'Ask every machine again, now (Shift+F5)',
                   child: TextButton.icon(
                     key: const Key('refresh-all'),
-                    onPressed: onRefresh,
+                    onPressed: widget.onRefresh,
+                    style: TextButton.styleFrom(
+                      minimumSize: Size(Sizes.touchTarget, WindowSize.fromContext(context).treeRowHeight),
+                    ),
                     icon: const Icon(Icons.refresh, size: Sizes.rowIcon),
                     label: const Text('Refresh'),
                   ),
                 ),
-                StopEverywhere(onPressed: onStopEverywhere),
+                ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: WindowSize.fromContext(context).treeRowHeight),
+                  child: StopEverywhere(onPressed: widget.onStopEverywhere),
+                ),
               ],
             ),
           ),
         ],
       ),
     );
+  }
+
+  Widget _row(BuildContext context, _TreeRow row, int index) {
+    final theme = Theme.of(context);
+    final chosen = selected == row.place.key;
+    final ancestor = widget.place?.ancestors.contains(row.place.key) ?? false;
+    final open = widget.foldedOpen.contains(row.place.key);
+    final treeKey = row.place.key;
+    final globalKey = _rows.putIfAbsent(treeKey, GlobalKey.new);
+    final height = WindowSize.fromContext(context).treeRowHeight;
+    Widget? count;
+    if (row.countKey != null || row.badge) {
+      final value = row.count;
+      count = Tooltip(
+        message: value == null
+            ? 'Not read: no machine is answering or the list has not been read'
+            : row.badge
+            ? '$value need you'
+            : row.place.section == Section.work
+            ? '${widget.running ?? '?'} running'
+            : '$value',
+        child: row.badge && value != null
+            ? Badge(
+                key: const Key('needing-count-badge'),
+                isLabelVisible: value > 0,
+                label: Text(value > 99 ? '99+' : '$value'),
+              )
+            : Text(value == null ? '?' : '$value', key: row.countKey == null ? null : Key(row.countKey!)),
+      );
+    }
+    return KeyedSubtree(
+      key: globalKey,
+      child: Semantics(
+        button: true,
+        focusable: true,
+        selected: chosen,
+        focused: _focused && _cursor == index,
+        expanded: row.branch ? open : null,
+        label: row.state == null
+            ? row.depth == 1 && row.place.machine != null
+                  ? '${row.label}, Connected'
+                  : row.label
+            : '${row.label}, ${row.state}',
+        child: Material(
+          color: chosen ? theme.colorScheme.secondaryContainer : Colors.transparent,
+          child: InkWell(
+            key: ValueKey('rail $treeKey'),
+            canRequestFocus: false,
+            onTap: () {
+              _cursor = index;
+              _focus.requestFocus();
+              _choose(row);
+            },
+            child: Container(
+              constraints: BoxConstraints(minHeight: height),
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: _focused && _cursor == index ? theme.colorScheme.primary : Colors.transparent,
+                  width: Sizes.focusStroke,
+                ),
+              ),
+              padding: EdgeInsets.only(left: Space.small + row.depth * Space.normal, right: Space.small),
+              child: Row(
+                children: [
+                  if (row.icon != null) ...[
+                    Icon(chosen ? row.selectedIcon : row.icon, size: Sizes.rowIcon),
+                    const SizedBox(width: Space.small),
+                  ],
+                  Expanded(
+                    child: Tooltip(
+                      message: row.label,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            row.label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: chosen || ancestor ? FontWeight.bold : null,
+                            ),
+                          ),
+                          if (row.state?.contains('\n') ?? false)
+                            Text(
+                              row.state!.substring(row.state!.indexOf('\n') + 1),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.error),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (row.state case final state?) Tooltip(message: state, child: _stateMark(theme, state)),
+                  if (count != null)
+                    Padding(
+                      padding: const EdgeInsets.only(left: Space.tight),
+                      child: count,
+                    ),
+                  if (row.branch)
+                    ExcludeFocus(
+                      child: IconButton(
+                        key: ValueKey('fold $treeKey'),
+                        tooltip: '${open ? 'Fold' : 'Unfold'} ${row.label}',
+                        constraints: BoxConstraints(minWidth: height, minHeight: height),
+                        icon: Icon(open ? Icons.expand_more : Icons.chevron_right, size: Sizes.rowIcon),
+                        onPressed: () => widget.onFold?.call(treeKey),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  bool _sameFolds(Set<String> other) => other.length == _lastFolds.length && other.containsAll(_lastFolds);
+
+  Widget _stateMark(ThemeData theme, String state) {
+    final colours = StateColours.of(theme.colorScheme);
+    final failed = state.startsWith('Not answering') || state == 'Interrupted';
+    final stopped = state == 'Stopped' || state == 'Not connected yet';
+    return Icon(
+      failed
+          ? Icons.cloud_off_outlined
+          : stopped
+          ? Icons.pause_circle_outline
+          : Icons.pending_outlined,
+      size: Sizes.mark,
+      color: failed
+          ? theme.colorScheme.error
+          : stopped
+          ? colours.stopped
+          : colours.waiting,
+    );
+  }
+
+  @override
+  void dispose() {
+    _focus.dispose();
+    super.dispose();
   }
 }

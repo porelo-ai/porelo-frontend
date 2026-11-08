@@ -20,7 +20,9 @@ void main() {
     await World.startBackend(World.work);
     await World.startApp(tester, organizationSource: source, hostConnections: connections);
     await World.settings.setRefreshSeconds(1);
-    await World.tapInView(tester, 'rail organization');
+    await World.tapInView(tester, 'rail organizations');
+    await World.tapInView(tester, 'rail organization ${Uri.encodeComponent(source.view.name)}');
+    await World.tapInView(tester, 'rail organization ${Uri.encodeComponent(source.view.name)} machines');
     await tester.scrollUntilVisible(
       find.byKey(const ValueKey('my-host build')),
       200,
@@ -72,11 +74,8 @@ void main() {
   // Harm: navigation strands a person in details or hides work behind a previous page's scope.
   testWidgets('rail entries return to their lists and Work shows every machine and project', (tester) async {
     await World.startBackend(World.work);
-    await World.startApp(
-      tester,
-      organizationSource: FixtureOrganization(organizationFor('mia')),
-      hostConnections: FixtureConnections(),
-    );
+    final source = FixtureOrganization(organizationFor('mia'));
+    await World.startApp(tester, organizationSource: source, hostConnections: FixtureConnections());
 
     Future<void> tap(String key) async {
       await World.tapInView(tester, key);
@@ -98,7 +97,9 @@ void main() {
       expect(find.byKey(const ValueKey('my-project demo')), findsOneWidget);
       expect(find.byKey(const Key('projects-of-organization')), findsNothing);
 
-      await tap('rail organization');
+      await tap('rail organizations');
+      await tap('rail organization ${Uri.encodeComponent(source.view.name)}');
+      await tap('rail organization ${Uri.encodeComponent(source.view.name)} machines');
       await tester.scrollUntilVisible(
         find.byKey(const ValueKey('my-host build')),
         200,
@@ -124,7 +125,8 @@ void main() {
     for (final fromMachine in [false, true]) {
       if (fromMachine) {
         await tap('rail machines');
-        await tap('tree-machine ${machine.name}');
+        await tap('rail machine ${Uri.encodeComponent(machine.name)}');
+        await tap('rail machine ${Uri.encodeComponent(machine.name)} projects');
         await tap('projects-menu ${machine.name}/checkout');
       } else {
         await tap('rail projects');

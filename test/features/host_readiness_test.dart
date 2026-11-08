@@ -14,7 +14,7 @@ import './step/the_machine_is_degraded_at_because.dart';
 import './step/the_machine_cannot_establish.dart';
 import './step/i_watch_another_machine_called.dart';
 import './step/i_switch_to_the_machine.dart';
-import './step/it_does_not_say.dart';
+import './step/the_machine_facts_stay_open_without_a_readiness_page.dart';
 import './step/i_check_the_machine_again.dart';
 import './step/the_machine_was_asked_twice_whether_it_can_run_anything.dart';
 import './step/the_machine_cannot_answer_whether_it_can_run_anything.dart';
@@ -60,7 +60,7 @@ void main() {
       await bddSetUp(tester);
       await iWatchAnotherMachineCalled(tester, 'the build machine');
       await iSwitchToTheMachine(tester, 'the build machine');
-      await itDoesNotSay(tester, 'This machine can run work. Nothing is missing.');
+      await theMachineFactsStayOpenWithoutAReadinessPage(tester);
     });
     testWidgets('''a machine with something missing says so the first time it is gone to''', (tester) async {
       await bddSetUp(tester);

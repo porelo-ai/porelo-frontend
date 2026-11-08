@@ -1,5 +1,7 @@
 import 'package:flutter/widgets.dart';
 
+import 'tokens.dart';
+
 /// The window size classes, and the only thing layout is allowed to branch on.
 ///
 /// Material 3's own scale rather than numbers picked to make one screen fit: a breakpoint chosen
@@ -41,7 +43,7 @@ enum WindowSize {
   bool get showsOpenedBeside => this == WindowSize.large;
 
   /// Whether the rail says what its destinations are, rather than only drawing them.
-  bool get railShowsLabels => this == WindowSize.large;
+  bool get railShowsLabels => true;
 
   /// Whether the status line has room for words beside its icons.
   ///
@@ -50,5 +52,19 @@ enum WindowSize {
   bool get statusLineShowsLabels => this != WindowSize.compact;
 
   /// Whether the machines stay beside what they show, or wait behind the menu button.
-  bool get showsTreeBeside => this == WindowSize.expanded || this == WindowSize.large;
+  bool get showsTreeBeside => this != WindowSize.compact;
+
+  /// Touch-sized rows on a tablet or phone.
+  double get treeRowHeight =>
+      this == WindowSize.compact || this == WindowSize.medium ? Sizes.touchTarget : Sizes.treeRow;
+
+  /// The organization name has a smaller cap on a phone.
+  double get organizationButtonWidth => this == WindowSize.compact ? Sizes.organizationPhone : Sizes.organization;
+
+  /// The drawer leaves some of the dimmed page reachable even on a small phone.
+  static double drawerWidth(BuildContext context) =>
+      (MediaQuery.sizeOf(context).width * Sizes.drawerFraction).clamp(0.0, Sizes.drawer).toDouble();
+
+  /// Ordinary desktop actions fit inline; narrower windows use one overflow.
+  bool get showsBarActions => this == WindowSize.large;
 }

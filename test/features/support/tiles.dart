@@ -47,7 +47,7 @@ String whatTheRowOfSays(WidgetTester tester, String project) {
 Finder workRows() => find.byWidgetPredicate((widget) => '${widget.key}'.startsWith("[<'tile "));
 
 /// The navigation row of one machine.
-Finder railEntryFor(String machine) => find.byKey(ValueKey<String>('tree-machine $machine'));
+Finder railEntryFor(String machine) => find.byKey(ValueKey<String>('rail ${ShellPlace.machineKey(machine)}'));
 
 /// Opens [machine]'s own page from its row on Machines, and closes what is opened over it - what it
 /// can run, which watching it opens - as a person does to read the page.
@@ -55,7 +55,49 @@ Future<void> toTheMachinesPage(WidgetTester tester, String machine) async {
   await toTheMachines(tester);
   await tapOnScreen(tester, railEntryFor(machine));
   await World.settle(tester);
+  await closeNavigationTree(tester);
   await closeWhatCoversThePage(tester);
+}
+
+/// Opens navigation by its menu button when the tree is in a drawer.
+Future<void> openNavigationTree(WidgetTester tester) async {
+  if (find.byKey(const Key('shell-rail')).hitTestable().evaluate().isNotEmpty) return;
+  final menu = find.byKey(const Key('open-rail'));
+  if (menu.evaluate().isEmpty) return;
+  await tester.tap(menu);
+  await World.settle(tester);
+}
+
+/// Dismisses the phone menu after choosing a parent whose facts are to be read.
+Future<void> closeNavigationTree(WidgetTester tester) async {
+  final scaffold = find.byType(Scaffold).first;
+  if (!tester.state<ScaffoldState>(scaffold).isDrawerOpen) return;
+  await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+  await World.settle(tester);
+}
+
+/// Reaches today's organization page through one of its tree leaves.
+Future<void> toTheOrganization(WidgetTester tester, {OrganizationSection section = OrganizationSection.people}) async {
+  await toThePlace(tester, 'organizations');
+  final branch = find.byWidgetPredicate(
+    (widget) =>
+        widget.key is ValueKey<String> &&
+        (widget.key! as ValueKey<String>).value.startsWith('rail organization ') &&
+        widget is InkWell,
+  );
+  if (branch.evaluate().isEmpty) {
+    await closeNavigationTree(tester);
+    return;
+  }
+  final parentKey = (tester.widget<Widget>(branch.first).key! as ValueKey<String>).value;
+  await tapOnScreen(tester, find.byKey(ValueKey(parentKey)));
+  await World.settle(tester);
+  final leaf = find.byKey(ValueKey('$parentKey ${section.name}'));
+  if (leaf.evaluate().isEmpty) {
+    await World.tapInView(tester, parentKey.replaceFirst('rail ', 'fold '));
+  }
+  await tapOnScreen(tester, leaf);
+  await World.settle(tester);
 }
 
 /// Closes what is opened over the page - a view, the vault's, what a machine can run - as a person
@@ -69,8 +111,7 @@ Future<void> closeWhatCoversThePage(WidgetTester tester) async {
 
 /// Brings [target] on screen and taps it.
 ///
-/// The machine tree builds only what is near the screen, so an entry of it that is not built yet is
-/// scrolled to, as a person would.
+/// A list builds only what is near the screen, so an entry outside the view is scrolled to first.
 Future<void> tapOnScreen(WidgetTester tester, Finder target) async {
   // Machines are listed on their page, and projects on theirs: whichever holds it, as a person goes.
   if (target.evaluate().isEmpty) await toTheMachines(tester);
@@ -82,7 +123,9 @@ Future<void> tapOnScreen(WidgetTester tester, Finder target) async {
   await tester.ensureVisible(target.first);
   await tester.pump();
   final body = find.descendant(of: target.first, matching: find.byType(InkWell));
-  await tester.tap(body.evaluate().isEmpty ? target.first : body.first);
+  await tester.tap(
+    tester.widget<Widget>(target.first) is InkWell || body.evaluate().isEmpty ? target.first : body.first,
+  );
 }
 
 /// Everything a piece of work's tile says, as one line.
@@ -104,19 +147,18 @@ Future<void> followTheFinder(WidgetTester tester) async {
   await tester.pump(const Duration(milliseconds: 350));
 }
 
-/// Goes to the page of machines and their projects, where it is not on screen: setting up is a page
-/// of its own now, out of the daily way, gone to as a person would.
+/// Opens My machines and unfolds its tree so each machine can be chosen.
 Future<void> toTheMachines(WidgetTester tester, {bool timePasses = true}) async {
-  if (find.byKey(const Key('machine-tree')).evaluate().isNotEmpty) return;
   await toThePlace(tester, 'machines', timePasses: timePasses);
 }
 
 /// Goes to one place of the rail - `work`, `attention`, `machines` or `projects` - opening the
 /// rail first where a narrow window keeps it behind the menu button.
 ///
-/// [timePasses] false only redraws: a check lets no time pass, or a machine's next try to answer
-/// would happen inside it.
+/// [timePasses] false only redraws after selection; opening a phone drawer still completes its
+/// animation, because its entries cannot be pressed before it is on screen.
 Future<void> toThePlace(WidgetTester tester, String place, {bool timePasses = true}) async {
+  if (place == 'organization') return toTheOrganization(tester);
   Future<void> settle() async {
     if (timePasses) return World.settle(tester);
     for (var i = 0; i < 4; i++) {
@@ -124,29 +166,32 @@ Future<void> toThePlace(WidgetTester tester, String place, {bool timePasses = tr
     }
   }
 
+  await openNavigationTree(tester);
   final entry = find.byKey(ValueKey<String>('rail $place'));
-  if (entry.evaluate().isEmpty) {
-    final menu = find.byTooltip('Open navigation menu');
-    if (menu.evaluate().isNotEmpty) {
-      await tester.tap(menu.first);
+  await tester.ensureVisible(entry);
+  await tester.pump();
+  await tester.tap(entry.first);
+  await settle();
+  if ((place == 'machines' || place == 'organizations') && !World.shell.foldedOpen.contains(place)) {
+    final fold = find.byKey(ValueKey('fold $place'));
+    if (fold.evaluate().isNotEmpty) {
+      await tester.tap(fold);
       await settle();
     }
   }
-  if (entry.evaluate().isEmpty) return;
-  await tester.tap(entry.first);
-  await settle();
 }
 
 /// Looks at the page of machines and their projects, then goes back to where the window was: a
 /// check is no step a person takes, and the next step expects the window where it was.
 Future<T> lookingAtTheMachines<T>(WidgetTester tester, Future<T> Function() look) async {
-  final before = World.shell.section;
+  final before = World.shell.place;
+  final project = World.shell.itemProject;
   await toTheMachines(tester, timePasses: false);
   final seen = await look();
-  if (World.shell.section != before) {
+  if (World.shell.place.key != before.key || World.shell.itemProject != project) {
     // Straight back, not through the machine's entry: opening a machine asks it again, and a check
     // must leave the world as it found it.
-    World.shell.goTo(before);
+    _restorePlace(before, project);
     await tester.pump();
   }
   return seen;
@@ -155,7 +200,7 @@ Future<T> lookingAtTheMachines<T>(WidgetTester tester, Future<T> Function() look
 /// Opens the current machine's page with the project chosen on it, where the window is elsewhere:
 /// a project chosen already is not chosen again, since a second tap on it widens back to all.
 Future<void> toTheChosenProject(WidgetTester tester) async {
-  if (World.shell.section == Section.machine) return;
+  if (World.shell.section == Section.project) return;
   // Opened again from its row on Projects, which keeps it chosen.
   final project = World.fleet.selectedProject?.name;
   if (project == null) return;
@@ -213,15 +258,24 @@ Future<void> toTheProjects(WidgetTester tester, {bool timePasses = true}) async 
 /// Looks at the page of projects, then goes back to where the window was, as
 /// [lookingAtTheMachines] does for machines.
 Future<T> lookingAtTheProjects<T>(WidgetTester tester, Future<T> Function() look) async {
-  final before = World.shell.section;
+  final before = World.shell.place;
+  final project = World.shell.itemProject;
   await toTheProjects(tester, timePasses: false);
   await expandListRows(tester);
   final seen = await look();
-  if (World.shell.section != before) {
-    World.shell.goTo(before);
+  if (World.shell.place.key != before.key || World.shell.itemProject != project) {
+    _restorePlace(before, project);
     await tester.pump();
   }
   return seen;
+}
+
+void _restorePlace(ShellPlace place, String? project) {
+  if (place.section == Section.project && place.machine != null && project != null) {
+    World.shell.openProject(place.machine!, project);
+  } else {
+    World.shell.choosePlace(place);
+  }
 }
 
 /// An entry of the command finder by its words: only in the finder, since the same words can stand

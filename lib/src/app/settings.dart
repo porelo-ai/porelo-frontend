@@ -498,6 +498,18 @@ class Settings extends ChangeNotifier {
 
   final SettingsStore _store;
 
+  Map<String, Object?> _shellNavigation = {};
+
+  /// The checked page and folds of the navigation tree.
+  Map<String, Object?> get shellNavigation => Map.unmodifiable(_shellNavigation);
+
+  /// Keeps navigation separately from the selected task and project.
+  Future<void> rememberShellNavigation(Map<String, Object?> value) async {
+    if (_sameStored(_shellNavigation, value)) return;
+    _shellNavigation = Map.of(value);
+    await _write();
+  }
+
   ThemeMode _appearance = ThemeMode.system;
 
   /// Light, dark, or whatever the desktop says.
@@ -561,6 +573,13 @@ class Settings extends ChangeNotifier {
   /// Reads what an earlier run stored. Safe to call before the first frame.
   Future<void> load() async {
     final stored = await _store.read();
+    if (stored['shellNavigation'] case final Map<dynamic, dynamic> navigation) {
+      _shellNavigation = {
+        for (final entry in navigation.entries)
+          if (entry.key is String && entry.value is String) entry.key as String: entry.value,
+        if (navigation['folded'] case final List<dynamic> folded) 'folded': folded.whereType<String>().toList(),
+      };
+    }
     _appearance = _appearanceNamed(stored['appearance']);
     final every = stored['refreshSeconds'];
     if (every is int && every >= 0) _refreshSeconds = every;
@@ -1121,6 +1140,7 @@ class Settings extends ChangeNotifier {
   }
 
   Map<String, Object?> get _known => <String, Object?>{
+    'shellNavigation': _shellNavigation,
     'form': settingsForm,
     'refreshSeconds': _refreshSeconds,
     'keepResolvedMinutes': _keepResolvedMinutes,

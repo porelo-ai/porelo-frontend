@@ -9,6 +9,10 @@ Future<void> theMachineIsShownAsAnswering(WidgetTester tester) async {
   // On the list of machines, where each row says how it stands.
   await lookingAtTheMachines(tester, () async {
     final said = whatTheMachinesRowSays(tester, World.machines.current.name);
-    expect(said, allOf(contains('Connected'), isNot(contains('Not connected'))), reason: 'its row says: $said');
+    expect(
+      said,
+      allOf(contains('Connected'), isNot(contains('Not connected')), isNot(contains('Not answering'))),
+      reason: 'its row says: $said',
+    );
   });
 }

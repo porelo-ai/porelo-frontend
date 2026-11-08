@@ -26,6 +26,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- The side bar folds into machines and organizations with facts and actions on their parent pages, stays beside the page on tablets, keeps a stop for every machine in the title bar, retains machine actions and page explanations, and keeps machine setup and organization return paths on the right page.
+
 - Setting up a server as a machine is a wizard of one question per page, each page opening only once its answer holds: the machine, the server's address answering SSH, its SSH host key fetched when you ask and compared on the server, an address your `known_hosts` holds with another key said so, root's login handed over in a terminal on the server until root answers with your card key, and the check. Its last page, also behind *Give it your token…*, names each source of a forge token with what it answered.
 - Putting some of a project's repositories on a machine lists full names and project keys with searchable checkboxes. *All* and *None* affect the visible choices; repositories carried elsewhere stay listed with their machine and cannot be selected.
 - Forwarding a waiting push names its destination and prefills the task's forge branch or its last confirmed forward, kept separately for each machine, project, repository and task.

@@ -174,6 +174,8 @@ class WorkPage extends StatefulWidget {
     this.listFocus,
     this.reveal,
     this.onAddAMachine,
+    this.onlyMachine,
+    this.newWorkUnavailable = 'no machine answers.',
     super.key,
   });
 
@@ -201,6 +203,12 @@ class WorkPage extends StatefulWidget {
 
   /// Every machine watched.
   final Machines machines;
+
+  /// The machine of a Tasks leaf; absent on the global Work page.
+  final Machine? onlyMachine;
+
+  /// Why the main action cannot start work in this scope.
+  final String newWorkUnavailable;
 
   /// Where the tiles come from.
   final Attention attention;
@@ -260,6 +268,7 @@ class _WorkPageState extends State<WorkPage> {
     _looking = true;
     try {
       for (final machine in widget.attention.machinesOnce) {
+        if (widget.onlyMachine != null && machine != widget.onlyMachine) continue;
         // A machine not answering has nothing to say, and each call would wait for that.
         if (widget.machines.of(machine).reachability != Reachability.connected) continue;
         for (final tile in widget.attention.tilesOn(machine)) {
@@ -413,7 +422,10 @@ class _WorkPageState extends State<WorkPage> {
 
   Widget _build(BuildContext context) {
     final reveal = widget.reveal;
-    final tiles = <Tile>[for (final machine in widget.attention.machinesOnce) ...widget.attention.tilesOn(machine)];
+    final tiles = <Tile>[
+      for (final machine in widget.attention.machinesOnce)
+        if (widget.onlyMachine == null || machine == widget.onlyMachine) ...widget.attention.tilesOn(machine),
+    ];
     if (reveal != null && tiles.any((tile) => _placeOf(tile) == reveal)) {
       // Where the finder went to one of a row's commands: the list, with that row open. Said on the way
       // through this frame, so nobody is told of it twice.
@@ -449,7 +461,7 @@ class _WorkPageState extends State<WorkPage> {
               storageId: 'work-list',
               search: _view.search,
               searchHint: 'Name, project or machine',
-              greyWords: <String>[if (widget.onNewWork == null) 'New work: no machine answers.'],
+              greyWords: <String>[if (widget.onNewWork == null) 'New work: ${widget.newWorkUnavailable}'],
               actions: <Widget>[
                 FilledButton.icon(
                   key: const Key('new-work'),

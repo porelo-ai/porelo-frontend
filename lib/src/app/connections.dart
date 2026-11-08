@@ -16,6 +16,22 @@ export 'package:porelo_host/porelo_host.dart' show inTheLoginShell, quoteForAShe
 /// **The description travels, the value never does.** Declaring writes what a credential is for and
 /// where its value lives; the value is stored on the machine by the command the machine names.
 class Connections extends ChangeNotifier {
+  int _asked = 0;
+
+  /// Drops another machine's rows before a connection or a read can wait.
+  void prepareFor(String machine) {
+    if (this.machine == machine) return;
+    _asked++;
+    this.machine = machine;
+    all = const [];
+    vaultOpen = false;
+    declared = null;
+    forgotten = null;
+    problem = null;
+    busy = false;
+    notifyListeners();
+  }
+
   /// Which machine, by name, once looked at.
   String machine = '';
 
@@ -39,10 +55,11 @@ class Connections extends ChangeNotifier {
 
   /// Reads what [backend]'s machine connects out with.
   Future<void> lookAt(FleetBackend backend, String machine) async {
-    this.machine = machine;
+    prepareFor(machine);
+    final asked = ++_asked;
     declared = null;
     forgotten = null;
-    await _asking(() => _read(backend));
+    await _asking(() => _read(backend, asked), asked: asked);
   }
 
   /// Declares a connection; its value, if it has one to store, is stored next.
@@ -56,9 +73,10 @@ class Connections extends ChangeNotifier {
     String? source,
     String? fromFile,
   }) async {
+    final asked = _asked;
     forgotten = null;
     await _asking(() async {
-      declared = await backend.credentialDeclare(
+      final answer = await backend.credentialDeclare(
         kind: kind,
         match: match,
         id: id,
@@ -67,17 +85,22 @@ class Connections extends ChangeNotifier {
         source: source,
         fromFile: fromFile,
       );
-      await _read(backend);
-    });
+      if (asked != _asked) return;
+      declared = answer;
+      await _read(backend, asked);
+    }, asked: asked);
   }
 
   /// Forgets the record for [match]. The secret stays where it is, and the answer says where.
   Future<void> forget(FleetBackend backend, String match) async {
+    final asked = _asked;
     declared = null;
     await _asking(() async {
-      forgotten = await backend.credentialForget(match);
-      await _read(backend);
-    });
+      final answer = await backend.credentialForget(match);
+      if (asked != _asked) return;
+      forgotten = answer;
+      await _read(backend, asked);
+    }, asked: asked);
   }
 
   /// Puts what the last act answered away.
@@ -98,31 +121,38 @@ class Connections extends ChangeNotifier {
               'it should go too.';
   }
 
-  Future<void> _read(FleetBackend backend) async {
+  Future<void> _read(FleetBackend backend, int asked) async {
     final store = await backend.credentials();
+    if (asked != _asked) return;
     all = store.connections;
     vaultOpen = store.readable;
   }
 
-  Future<void> _asking(Future<void> Function() ask) async {
+  Future<void> _asking(Future<void> Function() ask, {required int asked}) async {
     busy = true;
     problem = null;
     notifyListeners();
     try {
       await ask();
     } on VarlinkException catch (refusal) {
+      if (asked != _asked) return;
       final said = refusal.parameters['message'];
       problem = said is String && said.isNotEmpty ? said : 'Refused: ${refusal.simpleName}.';
     } on VarlinkDisconnected catch (ex) {
+      if (asked != _asked) return;
       problem = 'Lost contact with the machine: ${ex.message}';
     } on FeatureNotSupported catch (ex) {
+      if (asked != _asked) return;
       problem = '$ex';
     } on StateError {
+      if (asked != _asked) return;
       // Asked before the machine's socket was open: said, never an unhandled error.
       problem = 'The machine has not answered yet. Ask again once it does.';
     } finally {
-      busy = false;
-      notifyListeners();
+      if (asked == _asked) {
+        busy = false;
+        notifyListeners();
+      }
     }
   }
 }

@@ -630,6 +630,24 @@ class Machines extends ChangeNotifier {
   /// The fleet of one machine, whether or not it is the one being acted on.
   FleetModel of(Machine machine) => _watching[machine.name]!;
 
+  bool _automaticRetriesPaused = false;
+
+  /// Cancels reconnect timers without disposing the machine models.
+  void pauseAutomaticRetries() {
+    _automaticRetriesPaused = true;
+    for (final fleet in _watching.values) {
+      fleet.pauseAutomaticRetry();
+    }
+  }
+
+  /// Restarts retry scheduling when a window is attached again.
+  void resumeAutomaticRetries() {
+    _automaticRetriesPaused = false;
+    for (final fleet in _watching.values) {
+      fleet.resumeAutomaticRetry();
+    }
+  }
+
   /// Which node [machine] turned out to be, or empty when it has not said.
   String nodeOf(Machine machine) => _nodes[machine.name] ?? '';
 
@@ -934,6 +952,7 @@ class Machines extends ChangeNotifier {
       }
     });
     _watching[machine.name] = fleet;
+    if (_automaticRetriesPaused) fleet.pauseAutomaticRetry();
     unawaited(_openAndConnect(machine, fleet));
   }
 

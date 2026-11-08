@@ -104,6 +104,7 @@ import 'machine_details_page.dart';
 import 'project_details_page.dart';
 import '../app/project_standing.dart';
 import 'shell_rail.dart';
+import 'facts_page.dart';
 import 'vault_actions.dart';
 import 'vault_view.dart';
 import 'start_agents_view.dart';
@@ -337,6 +338,11 @@ class _ShellState extends State<Shell> {
   @override
   void initState() {
     super.initState();
+    widget.machines.resumeAutomaticRetries();
+    widget.shell.initializeNavigation(widget.machines.current);
+    widget.shell.addListener(_followTreeTool);
+    _observedMachine = widget.machines.current;
+    widget.machines.addListener(_machineChanged);
     final source = widget.organizationSource;
     if (source is PoreloOrganizationSource) {
       source.prepareForgeWrite = (repository) =>
@@ -398,6 +404,31 @@ class _ShellState extends State<Shell> {
     _workView.addListener(_moveKeyboard);
     widget.settings.addListener(_keepRefreshing);
     _keepRefreshing();
+    _followTreeTool();
+  }
+
+  /// How this person stands in each project, which decides whether they may move its work.
+  String? _treeTool;
+  Machine? _observedMachine;
+  void _machineChanged() {
+    final machine = widget.machines.current;
+    if (_observedMachine == machine) return;
+    _observedMachine = machine;
+    widget.readiness.forget();
+    widget.connections.prepareFor(machine.name);
+  }
+
+  void _followTreeTool() {
+    final place = widget.shell.place;
+    if (_treeTool == place.key) return;
+    _treeTool = place.key;
+    final section = place.machineSection;
+    if (section == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && widget.shell.place.key == place.key && place.machine == widget.machines.current) {
+        _openTreeTool(section);
+      }
+    });
   }
 
   /// How this person stands in each project, which decides whether they may move its work.
@@ -1112,10 +1143,14 @@ class _ShellState extends State<Shell> {
 
   /// Shows how the current machine connects out.
   Future<void> _showConnections() async {
+    final machine = widget.machines.current;
+    final fleet = _fleet;
+    widget.connections.prepareFor(machine.name);
     widget.shell.openConnections();
     // A machine just added is still being connected to: its daemon is asked once it answers.
-    await _fleet.untilAsked();
-    await widget.connections.lookAt(_fleet.backend, widget.machines.current.name);
+    await fleet.untilAsked();
+    if (!mounted || widget.machines.current != machine) return;
+    await widget.connections.lookAt(fleet.backend, machine.name);
   }
 
   /// Asks step by step what to declare, declares it, and brings its value to the machine the way
@@ -1350,6 +1385,9 @@ class _ShellState extends State<Shell> {
   /// The host whose page is open under *Machines*, where this computer reads an organization.
   String? _organizationHost;
 
+  /// The exact organization leaf to return to after opening one of its machines.
+  ShellPlace? _organizationHostFrom;
+
   late final Organization? _organization = widget.organizationSource == null
       ? null
       : Organization(widget.organizationSource!);
@@ -1435,7 +1473,10 @@ class _ShellState extends State<Shell> {
                   onHost: (host) {
                     final machine = widget.machines.all.where((machine) => machine.hostCard?.name == host).firstOrNull;
                     if (machine != null) return _openPageMachine(machine);
-                    setState(() => _organizationHost = host);
+                    setState(() {
+                      _organizationHostFrom = widget.shell.place;
+                      _organizationHost = host;
+                    });
                     widget.shell.goTo(Section.machines);
                   },
                 ),
@@ -1689,7 +1730,7 @@ class _ShellState extends State<Shell> {
     _vaultAskedFor = asking;
     if (fleet.reachability != Reachability.connected) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) unawaited(widget.vault.lookAt(fleet.backend, machine.name));
+      if (mounted && widget.machines.current == machine) unawaited(widget.vault.lookAt(fleet.backend, machine.name));
     });
   }
 
@@ -2839,6 +2880,7 @@ class _ShellState extends State<Shell> {
     if (!thenConnections || !mounted) return;
     // The wizard's last step: how it connects out, now that its daemon can be asked.
     widget.machines.select(machine);
+    widget.shell.openMachine(machine);
     await _showConnections();
   }
 
@@ -3113,6 +3155,19 @@ class _ShellState extends State<Shell> {
     if (chosen.home == Home.none || chosen.home == Home.appBar || chosen.home == Home.openedView) {
       chosen.run();
     } else {
+      if ({Home.machineTitle, Home.machineMenu, Home.statusLine}.contains(chosen.home)) {
+        widget.shell.openMachine(widget.machines.current);
+        widget.shell.showOnItem(chosen.id);
+        return;
+      }
+      if (chosen.home == Home.organizationRow && _organization?.view != null) {
+        widget.shell.choosePlace(
+          ShellPlace(Section.organization, organization: _organization!.view!.name),
+          branch: true,
+        );
+        widget.shell.showOnItem(chosen.id);
+        return;
+      }
       // Where it lives: a piece of work's tile is under Work, a project's menu on its page, setting
       // one up on Projects, and the rest on the machine's page.
       widget.shell.show(
@@ -3172,6 +3227,10 @@ class _ShellState extends State<Shell> {
         actions: <Type, Action<Intent>>{
           _RunCommand: CallbackAction<_RunCommand>(
             onInvoke: (intent) {
+              if (intent.id == 'detail.close' && (_scaffold.currentState?.isDrawerOpen ?? false)) {
+                _leaveDrawer();
+                return null;
+              }
               for (final command in commands) {
                 if (command.id != intent.id) continue;
                 if (command.available) command.run();
@@ -3187,12 +3246,16 @@ class _ShellState extends State<Shell> {
           child: Scaffold(
             key: _scaffold,
             appBar: _appBar(size, commands),
+            onDrawerChanged: (open) {
+              if (open) widget.shell.revealPlace();
+              if (!open) _menuFocus.requestFocus();
+            },
             // Behind the menu button when the window is narrow: the work gets the width.
             drawer: size.showsTreeBeside
                 ? null
                 : Drawer(
-                    width: Sizes.drawer,
-                    child: SafeArea(child: _rail(Sizes.drawer)),
+                    width: WindowSize.drawerWidth(context),
+                    child: SafeArea(child: _rail(WindowSize.drawerWidth(context))),
                   ),
             body: SafeArea(
               child: Column(
@@ -3202,29 +3265,35 @@ class _ShellState extends State<Shell> {
                     child: Row(
                       children: <Widget>[
                         if (size.showsTreeBeside) ...<Widget>[
-                          _rail(size.railShowsLabels ? Sizes.treeWithLabels : Sizes.tree),
+                          _rail(Sizes.tree),
                           const VerticalDivider(width: Sizes.divider),
                         ],
                         Expanded(
                           child: switch (widget.shell.section) {
                             Section.work => _workArea(),
                             Section.attention => _needsYou(),
+                            Section.cards => _cardsPage(),
+                            Section.organizations => _organizationsFacts(),
                             Section.machines =>
                               _organizationHost == null || _organization == null
-                                  ? _explained('machines', 'My machines', const <({String title, String words})>[
-                                      (
-                                        title: 'What is in My machines?',
-                                        words: 'Where work runs. Its projects are under My projects, and its work under Work.',
-                                      ),
-                                    ], _machinesPage())
+                                  ? _machinesFacts()
                                   : _machineOnePage(_organizationHost!),
                             Section.projects => _projectsPage(),
                             Section.forges => _forgesPage(),
-                            Section.organization => _organizationPage(),
+                            Section.organization =>
+                              widget.shell.place.organizationSection == null
+                                  ? _organizationsFacts(one: true)
+                                  : _organizationPage(),
                             Section.forge => _forgePage(),
                             Section.machine || Section.project => ListenableBuilder(
                               listenable: _hostRuns,
-                              builder: (context, _) => _machineArea(),
+                              builder: (context, _) => widget.shell.section == Section.project
+                                  ? _machineArea()
+                                  : switch (widget.shell.place.machineSection) {
+                                      null || MachineSection.managing => _machineFacts(),
+                                      MachineSection.tasks => _workArea(onlyMachine: widget.shell.place.machine),
+                                      _ => _machineArea(),
+                                    },
                             ),
                           },
                         ),
@@ -3240,12 +3309,471 @@ class _ShellState extends State<Shell> {
     );
   }
 
+  final _menuFocus = FocusNode(debugLabel: 'Open navigation menu');
+
+  Widget _organizationButton(WindowSize size) {
+    final name = _organization?.view?.name ?? 'No organization';
+    final command = organizationAddressCommands(context, _organization).first;
+    return Tooltip(
+      message: command.unavailable == null ? name : '$name — ${command.unavailable}',
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: size.organizationButtonWidth),
+        child: TextButton(
+          key: const Key('organization-choice'),
+          onPressed: command.available ? command.run : null,
+          child: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
+        ),
+      ),
+    );
+  }
+
+  Widget _barOverflow(List<Command> commands) => PopupMenuButton<String>(
+    key: const Key('bar-overflow'),
+    tooltip: 'More actions',
+    onSelected: (id) {
+      if (id == 'finder') {
+        unawaited(_openFinder());
+        return;
+      }
+      if (id == 'machines.add') {
+        _addAMachine();
+        return;
+      }
+      if (id == 'about') {
+        _showAbout();
+        return;
+      }
+      if (id == 'walk') {
+        widget.walk?.show();
+        return;
+      }
+      if (id == 'options') {
+        unawaited(
+          showDialog<void>(
+            context: context,
+            builder: (context) => SimpleDialog(
+              title: const Text('Options'),
+              children: [
+                for (final command in commands)
+                  if (command.home == Home.appBar && command.group == 'Options')
+                    SimpleDialogOption(
+                      key: Key(command.id),
+                      onPressed: command.available
+                          ? () {
+                              Navigator.pop(context);
+                              command.run();
+                            }
+                          : null,
+                      child: Text(command.label),
+                    ),
+              ],
+            ),
+          ),
+        );
+        return;
+      }
+      final command = commands.where((command) => command.id == id && command.available).firstOrNull;
+      command?.run();
+    },
+    itemBuilder: (_) => [
+      const PopupMenuItem(value: 'finder', child: Text('Find a command (Ctrl+K)')),
+      const PopupMenuItem(value: 'machines.add', child: Text('Watch another machine…')),
+      for (final command in commands)
+        if (command.home == Home.appBar && command.group == 'Machines' && command.id != 'machines.add')
+          PopupMenuItem(
+            value: command.id,
+            enabled: command.available,
+            child: Text(command.unavailable == null ? command.label : '${command.label} — ${command.unavailable}'),
+          ),
+      const PopupMenuItem(value: 'options', child: Text('Options')),
+      if (widget.walk?.hidden ?? false) const PopupMenuItem(value: 'walk', child: Text('Show the guided walk')),
+      const PopupMenuItem(value: 'about', child: Text('About Porelo')),
+    ],
+  );
+
+  Widget _cardsPage() => Center(
+    child: FilledButton(
+      onPressed: () => unawaited(showIdentity(context, model: widget.identity)),
+      child: const Text('My key and card…'),
+    ),
+  );
+
+  void _chooseTreePlace(ShellPlace place, bool branch) {
+    final chosenAgain = widget.shell.place.key == place.key;
+    if (!branch) _leaveDrawer();
+    setState(() {
+      _organizationProject = null;
+      _organizationHost = null;
+      _organizationHostFrom = null;
+      _machineProjects = false;
+    });
+    final machine = place.machine;
+    if (machine != null && widget.machines.all.contains(machine)) widget.machines.select(machine);
+    widget.shell.choosePlace(place, branch: branch);
+    if (place.section == Section.work) _workView.search.clear();
+    if (place.section == Section.cards) unawaited(showIdentity(context, model: widget.identity));
+    if (chosenAgain && place.machineSection != null && machine == widget.machines.current) {
+      _openTreeTool(place.machineSection!);
+    }
+  }
+
+  void _openTreeTool(MachineSection section) {
+    switch (section) {
+      case MachineSection.vault:
+        unawaited(_showTheVault());
+      case MachineSection.credentials:
+        unawaited(_showConnections());
+      case MachineSection.agents:
+        unawaited(_showAgents());
+      case MachineSection.health:
+        unawaited(_checkTheMachine());
+      case MachineSection.tasks:
+      case MachineSection.projects:
+      case MachineSection.managing:
+        break;
+    }
+  }
+
+  Widget _machinesFacts() {
+    final opened = _opened();
+    if (opened != null) return opened;
+    final machines = widget.machines;
+    final answering = machines.all
+        .where((machine) => machines.of(machine).reachability == Reachability.connected)
+        .length;
+    final read = answering > 0 && machines.all.every((machine) => machines.of(machine).listRead);
+    final rows = machinesPageRows(machines, _hostRuns);
+    return FactsPage(
+      title: 'My machines',
+      highlight: widget.shell.highlight,
+      settings: widget.settings,
+      explanationId: 'machines',
+      explanation: const [
+        (
+          title: 'What is in My machines?',
+          words: 'Where work runs. Its projects are under My projects, and its work under Work.',
+        ),
+      ],
+      facts: [
+        (
+          label: 'Machines',
+          value:
+              '${rows.preparations.length + listedMachines(machines).where((machine) => !rows.preparations.any((run) => run.name == machine.name)).length}',
+          known: true,
+        ),
+        (label: 'State', value: '$answering answering · ${rows.preparations.length} in preparation', known: true),
+        (
+          label: 'Work',
+          value: read
+              ? '${_attention.machinesOnce.fold<int>(0, (sum, machine) => sum + machines.of(machine).tasks.length)}'
+              : 'not read — no complete answer from the machines',
+          known: read,
+        ),
+        (
+          label: 'Needs you',
+          value: read ? '${_attention.needingSomebody}' : 'not read — no complete answer from the machines',
+          known: read,
+        ),
+      ],
+      commands: [
+        ..._commands().where(
+          (command) =>
+              {'machines.add', 'refresh.all', 'everywhere.panic'}.contains(command.id) ||
+              command.id == 'host.prepare' && _organization == null,
+        ),
+      ],
+      primary: 'machines.add',
+    );
+  }
+
+  Widget _machineFacts() {
+    final machine = widget.shell.itemMachine ?? widget.machines.current;
+    final watched = widget.machines.all.contains(machine);
+    final fleet = watched ? widget.machines.of(machine) : null;
+    final current = machine == widget.machines.current;
+    Widget withStatus(Widget page) => !watched || !current
+        ? page
+        : Column(
+            children: [
+              Expanded(child: page),
+              StatusLine(
+                fleet: fleet!,
+                operations: widget.operations,
+                machine: machine.name,
+                cannotNotify: widget.notifications.problem,
+                highlighted: widget.shell.highlight == 'operations.show',
+                onShowOperations: widget.shell.openOperations,
+              ),
+            ],
+          );
+    if (watched && current) {
+      final ownFleet = fleet!;
+      _keepTheVaultButtonTrue(machine, ownFleet);
+      if (ownFleet.refusal case final refusal?) return withStatus(RefusalView(refusal: refusal, fleet: ownFleet));
+      final opened = _opened();
+      if (opened != null) return withStatus(opened);
+    }
+    final vault = widget.vault.about == machine.name ? widget.vault.state : null;
+    final read = fleet?.listRead ?? false;
+    final page = FactsPage(
+      title: machine.name,
+      identity: Text('${machine.where}${machineKind(widget.machines, machine)}', key: const Key('machine-kind')),
+      highlight: widget.shell.highlight,
+      path: [(label: 'My machines', go: () => _chooseTreePlace(const ShellPlace(Section.machines), true))],
+      busy: (fleet?.busy ?? false) || current && widget.vault.busy,
+      facts: [
+        (label: 'Last read', value: 'not read — the connection does not report a read time', known: false),
+        (
+          label: 'Porelo',
+          value: fleet?.info?.version ?? 'not read — Porelo has not answered',
+          known: fleet?.info != null,
+        ),
+        (
+          label: 'State',
+          value: fleet?.reachability == Reachability.connected ? 'Connected' : 'Not answering',
+          known: true,
+        ),
+        (
+          label: 'Vault',
+          value: vault == null
+              ? 'not read — this machine has not answered about its vault'
+              : !vault.exists
+              ? 'No vault yet'
+              : vault.readable
+              ? 'Open · ${vault.credentials.length} entries'
+              : 'Shut · entry count not read',
+          known: vault != null,
+        ),
+        (label: 'Tasks', value: read ? '${fleet!.tasks.length}' : 'not read — Porelo has not answered', known: read),
+        (
+          label: 'Projects',
+          value: read ? '${projectsOnMachine(widget.machines, machine).length}' : 'not read — Porelo has not answered',
+          known: read,
+        ),
+        (
+          label: 'Health',
+          value: current && widget.readiness.health != null
+              ? widget.readiness.verdict
+              : 'not read — run Check whether this machine can run anything',
+          known: current && widget.readiness.health != null,
+        ),
+        (label: 'Address', value: machine.where, known: true),
+      ],
+      commands: watched
+          ? [
+              for (final command in [
+                ..._machineMenu(),
+                ..._commands().where((command) => command.id == 'machine.panic'),
+              ])
+                if ({
+                      'fleet.refresh',
+                      'vault.shut',
+                      'vault.passphrase',
+                      'vault.make',
+                      'machine.doctor',
+                      'machine.panic',
+                      'machine.stop',
+                      'machine.clear',
+                    }.contains(command.id) ||
+                    command.id.contains('takeDown'))
+                  if (command.id != 'vault.shut' || vault?.readable == true)
+                    if (command.id != 'vault.passphrase' || vault?.readable != true)
+                      command
+                          .unless(!current ? 'Open this machine again before running its commands.' : null)
+                          .unless(
+                            command.id.startsWith('vault.') && vault == null
+                                ? 'This machine has not answered about its vault.'
+                                : null,
+                          ),
+            ]
+          : [],
+      primary: vault?.readable == false ? 'vault.passphrase' : 'fleet.refresh',
+      menuCommands: watched
+          ? _machineMenu()
+                .where(
+                  (command) =>
+                      !{
+                        'fleet.refresh',
+                        'vault.shut',
+                        'vault.passphrase',
+                        'vault.make',
+                        'machine.doctor',
+                        'machine.stop',
+                        'machine.clear',
+                      }.contains(command.id) &&
+                      !command.id.contains('takeDown'),
+                )
+                .map(
+                  (command) => command
+                      .unless(!current ? 'Open this machine again before running its commands.' : null)
+                      .unless(
+                        command.id.startsWith('vault.') && command.id != 'vault.show' && vault == null
+                            ? 'This machine has not answered about its vault.'
+                            : null,
+                      ),
+                )
+                .toList()
+          : [],
+      tools: watched && current && vault != null
+          ? VaultButtons(
+              vault: widget.vault,
+              onLock: fleet?.reachability == Reachability.connected
+                  ? () => unawaited(_actOnTheVault(widget.vault.lockDoes))
+                  : null,
+              onOpenWithThePassphrase: fleet?.reachability == Reachability.connected && _canUnlockHere
+                  ? () => unawaited(_unlockHere())
+                  : null,
+              onMakeIt: fleet?.reachability == Reachability.connected && _canMakeHere
+                  ? () => unawaited(_makeTheVault())
+                  : null,
+            )
+          : null,
+    );
+    return withStatus(page);
+  }
+
+  Widget _organizationsFacts({bool one = false}) => ListenableBuilder(
+    listenable: Listenable.merge([?_organization, ?widget.identity]),
+    builder: (context, _) {
+      final organization = _organization;
+      final opened = _opened();
+      if (opened != null) return opened;
+      final view = organization?.view;
+      final card = view?.myCard;
+      final title = one ? view?.name ?? 'Organization' : 'Organizations';
+      return FactsPage(
+        title: title,
+        settings: widget.settings,
+        explanationId: 'organization',
+        explanation: const [
+          (
+            title: 'What is the Porelo organization?',
+            words:
+                'Who manages it, its people with their cards, its projects with their members, and its machines. '
+                'Porelo asks it whom to trust before anyone gets onto a machine.',
+          ),
+        ],
+        warnings: [
+          ?organization?.problem,
+          if (view?.stale ?? false) 'The store could not be reached; these are the last facts read.',
+          ...?view?.notes,
+          if (one &&
+              view != null &&
+              view.isOwner &&
+              view.owners.length == 1 &&
+              !view.ownersWithBackup.contains(view.me))
+            'Only owner, no backup key',
+        ],
+        path: one
+            ? [(label: 'Organizations', go: () => _chooseTreePlace(const ShellPlace(Section.organizations), true))]
+            : [],
+        busy: organization?.busy ?? false,
+        facts: [
+          if (one)
+            (
+              label: 'Last read',
+              value: organization?.readAt?.toLocal().toString() ?? 'not read — no organization answered',
+              known: organization?.readAt != null,
+            ),
+          (
+            label: 'Working in',
+            value: view?.name ?? 'None read — ${organization?.problem ?? 'no organization is configured'}',
+            known: view != null,
+          ),
+          (
+            label: 'Your card',
+            value: card == null ? 'not read — no card was read for this person' : '${view!.me} · ${card.standing.name}',
+            known: card != null,
+          ),
+          if (one) ...[
+            (
+              label: 'Your role',
+              value: view == null
+                  ? 'not read — no organization answered'
+                  : view.isOwner
+                  ? 'Organization owner'
+                  : view.isOrganizationAdmin
+                  ? 'Organization Admin'
+                  : 'Project and machine roles are listed on their pages',
+              known: view != null,
+            ),
+            (
+              label: 'People',
+              value: view == null ? 'not read — no organization answered' : '${view.persons.length}',
+              known: view != null,
+            ),
+            (
+              label: 'Projects',
+              value: view == null ? 'not read — no organization answered' : '${view.projects.length}',
+              known: view != null,
+            ),
+            (
+              label: 'Machines',
+              value: view == null ? 'not read — no organization answered' : '${view.hosts.length}',
+              known: view != null,
+            ),
+            (
+              label: 'Organization owners',
+              value: view == null ? 'not read — no organization answered' : '${view.owners.length}',
+              known: view != null,
+            ),
+            (label: 'Kept in', value: view?.keptIn ?? 'not read — no organization answered', known: view != null),
+            (
+              label: 'Proposed cards',
+              value: 'not read — the organization source does not list proposed cards',
+              known: false,
+            ),
+          ],
+        ],
+        commands: [
+          ...organizationAddressCommands(context, organization),
+          if (one && organization != null)
+            Command(
+              id: 'organization.refresh',
+              label: 'Refresh',
+              group: 'Organization',
+              home: Home.organizationRow,
+              run: () => unawaited(organization.refresh()),
+            ),
+          if (one &&
+              view != null &&
+              view.isOwner &&
+              view.owners.length == 1 &&
+              !view.ownersWithBackup.contains(view.me))
+            Command(
+              id: 'organization.owners',
+              label: 'Look at the organization owners',
+              group: 'Organization',
+              home: Home.organizationRow,
+              run: () => _chooseTreePlace(
+                ShellPlace(
+                  Section.organization,
+                  organization: view.name,
+                  organizationSection: OrganizationSection.owners,
+                ),
+                false,
+              ),
+            ),
+        ],
+        waiting: one
+            ? ['Propose a card…', 'Accept a proposed card…', 'Leave ${view?.name ?? 'this organization'}…']
+            : ['Join an organization…'],
+        primary: view == null ? 'createOrganization' : 'chooseOrganization',
+      );
+    },
+  );
+
   /// Where you are, and what belongs to no machine: the finder, another machine, options, about.
   PreferredSizeWidget _appBar(WindowSize size, List<Command> commands) {
     final machine = widget.machines.current;
     final project = _fleet.selectedProject;
     final title = switch (widget.shell.section) {
-      Section.machine => (widget.shell.itemMachine ?? machine).name,
+      Section.machine => widget.shell.place.machineSection?.label ?? (widget.shell.itemMachine ?? machine).name,
+      Section.organization =>
+        widget.shell.place.organizationSection?.label ??
+            widget.shell.place.organization ??
+            _organization?.view?.name ??
+            'Organization',
       Section.project =>
         '${(widget.shell.itemMachine ?? machine).name} › ${widget.shell.itemProject ?? project?.label ?? ''}',
       final section => section.label,
@@ -3256,77 +3784,80 @@ class _ShellState extends State<Shell> {
           ? null
           : IconButton(
               key: const Key('open-rail'),
+              focusNode: _menuFocus,
               tooltip: 'Open navigation menu',
               icon: const Icon(Icons.menu),
               onPressed: () => _scaffold.currentState?.openDrawer(),
             ),
       title: Text(title, key: const Key('app-title'), overflow: TextOverflow.ellipsis),
       actions: <Widget>[
-        // With the machines behind the menu button, the stop for all of them stays in reach.
-        if (!size.showsTreeBeside)
+        if (size.showsBarActions) _organizationButton(size),
+        IconButton(
+          key: const Key('stop-everywhere-bar'),
+          tooltip: 'Stop everything on every machine',
+          icon: Icon(Icons.pan_tool_outlined, color: Theme.of(context).colorScheme.error),
+          onPressed: commands
+              .where((command) => command.id == 'everywhere.panic' && command.available)
+              .firstOrNull
+              ?.run,
+        ),
+        if (!size.showsBarActions) ...[_barOverflow(commands), _organizationButton(size)],
+        if (size.showsBarActions) ...[
+          IconButton(tooltip: 'Find a command (Ctrl+K)', icon: const Icon(Icons.search), onPressed: _openFinder),
           IconButton(
-            key: const Key('stop-everywhere-bar'),
-            tooltip: 'Stop everything on every machine',
-            icon: Icon(Icons.pan_tool_outlined, color: Theme.of(context).colorScheme.error),
-            onPressed:
-                widget.machines.all.any((each) => widget.machines.of(each).reachability == Reachability.connected)
-                ? _stopEverywhere
-                : null,
+            key: const Key('watch-another-machine'),
+            tooltip: 'Watch another machine…',
+            icon: const Icon(Icons.add_to_queue),
+            onPressed: _addAMachine,
           ),
-        IconButton(tooltip: 'Find a command (Ctrl+K)', icon: const Icon(Icons.search), onPressed: _openFinder),
-        IconButton(
-          key: const Key('watch-another-machine'),
-          tooltip: 'Watch another machine…',
-          icon: const Icon(Icons.add_to_queue),
-          onPressed: _addAMachine,
-        ),
-        // The rest of the title bar's Machines group beside watching one, which has its own button above; held back
-        // unless the host admin's role is held.
-        for (final command in commands)
-          if (command.home == Home.appBar && command.group == 'Machines' && command.id != 'machines.add')
-            IconButton(
-              key: Key(command.id),
-              tooltip: command.available ? command.label : '${command.label} - ${command.unavailable}',
-              icon: const Icon(Icons.dns_outlined),
-              onPressed: command.available ? command.run : null,
+          // The rest of the title bar's Machines group beside watching one, which has its own button above; held back
+          // unless the host admin's role is held.
+          for (final command in commands)
+            if (command.home == Home.appBar && command.group == 'Machines' && command.id != 'machines.add')
+              IconButton(
+                key: Key(command.id),
+                tooltip: command.available ? command.label : '${command.label} - ${command.unavailable}',
+                icon: const Icon(Icons.dns_outlined),
+                onPressed: command.available ? command.run : null,
+              ),
+          PopupMenuButton<String>(
+            key: const Key('options-menu'),
+            tooltip: 'Options',
+            icon: const Icon(Icons.tune),
+            onSelected: (id) {
+              for (final command in commands) {
+                if (command.id == id && command.available) command.run();
+              }
+            },
+            itemBuilder: (context) => <PopupMenuEntry<String>>[
+              for (final command in commands)
+                if (command.home == Home.appBar && command.group == 'Options')
+                  CheckedPopupMenuItem<String>(
+                    value: command.id,
+                    checked: command.checked ?? false,
+                    child: Text(command.label),
+                  ),
+            ],
+          ),
+          if (widget.walk case final walk?)
+            ListenableBuilder(
+              listenable: walk,
+              builder: (context, _) => walk.hidden
+                  ? IconButton(
+                      key: const Key('walk-show'),
+                      tooltip: 'Show the guided walk${walk.title.isEmpty ? '' : ': ${walk.title}'}',
+                      icon: const Icon(Icons.assistant_direction_outlined),
+                      onPressed: walk.show,
+                    )
+                  : const SizedBox.shrink(),
             ),
-        PopupMenuButton<String>(
-          key: const Key('options-menu'),
-          tooltip: 'Options',
-          icon: const Icon(Icons.tune),
-          onSelected: (id) {
-            for (final command in commands) {
-              if (command.id == id && command.available) command.run();
-            }
-          },
-          itemBuilder: (context) => <PopupMenuEntry<String>>[
-            for (final command in commands)
-              if (command.home == Home.appBar && command.group == 'Options')
-                CheckedPopupMenuItem<String>(
-                  value: command.id,
-                  checked: command.checked ?? false,
-                  child: Text(command.label),
-                ),
-          ],
-        ),
-        if (widget.walk case final walk?)
-          ListenableBuilder(
-            listenable: walk,
-            builder: (context, _) => walk.hidden
-                ? IconButton(
-                    key: const Key('walk-show'),
-                    tooltip: 'Show the guided walk${walk.title.isEmpty ? '' : ': ${walk.title}'}',
-                    icon: const Icon(Icons.assistant_direction_outlined),
-                    onPressed: walk.show,
-                  )
-                : const SizedBox.shrink(),
+          IconButton(
+            key: const Key('about'),
+            tooltip: 'About Porelo',
+            icon: const Icon(Icons.info_outline),
+            onPressed: _showAbout,
           ),
-        IconButton(
-          key: const Key('about'),
-          tooltip: 'About Porelo',
-          icon: const Icon(Icons.info_outline),
-          onPressed: _showAbout,
-        ),
+        ],
       ],
     );
   }
@@ -3335,6 +3866,23 @@ class _ShellState extends State<Shell> {
   void _leaveDrawer() {
     final scaffold = _scaffold.currentState;
     if (scaffold != null && scaffold.isDrawerOpen) scaffold.closeDrawer();
+  }
+
+  String? _treeMachineState(Machine machine) {
+    if (!widget.machines.all.contains(machine)) return 'Not connected yet';
+    final state = widget.machines.of(machine).reachability;
+    final problem = widget.machines.tunnels.of(machine)?.problem;
+    if (problem != null && problem.isNotEmpty) {
+      final words = state == Reachability.connected
+          ? 'Connected'
+          : state == Reachability.connecting
+          ? 'Connecting'
+          : 'Not answering';
+      return '$words\n$problem';
+    }
+    if (state == Reachability.connected) return null;
+    if (state == Reachability.connecting) return 'Connecting';
+    return 'Not answering';
   }
 
   /// The daily work, what needs a person, and setting up apart under them.
@@ -3351,28 +3899,55 @@ class _ShellState extends State<Shell> {
     ]),
     builder: (context, _) {
       final rows = machinesPageRows(widget.machines, _hostRuns);
+      final read =
+          widget.machines.all.any((machine) => widget.machines.of(machine).reachability == Reachability.connected) &&
+          _attention.machinesOnce.every((machine) => widget.machines.of(machine).listRead);
       return ShellRail(
         section: widget.shell.section,
+        place: widget.shell.place,
+        foldedOpen: widget.shell.foldedOpen,
+        onFold: widget.shell.toggleFold,
+        onPlace: _chooseTreePlace,
+        organizations: [?_organization?.view],
+        organizationsKnown: _organization == null || _organization.view != null || _organization.noOrganization,
+        machineEntries: [
+          for (final run in rows.preparations)
+            (
+              machine:
+                  widget.machines.all.where((machine) => machine.name == run.name).firstOrNull ??
+                  Machine(name: run.name, socketPath: ''),
+              state: hostPreparationWords(run),
+            ),
+          for (final machine in listedMachines(widget.machines))
+            if (!rows.preparations.any((run) => run.name == machine.name))
+              (machine: machine, state: _treeMachineState(machine)),
+        ],
         running: <int>[
           for (final machine in _attention.machinesOnce)
             widget.machines.of(machine).tasks.where((task) => task.running).length,
-        ].fold(0, (sum, each) => sum + each),
-        work: _workView.shownTiles([
-          for (final machine in _attention.machinesOnce) ..._attention.tilesOn(machine),
-        ]).length,
+        ].fold<int>(0, (sum, each) => sum + each),
+        work: !read
+            ? null
+            : _workView.shownTiles([
+                for (final machine in _attention.machinesOnce) ..._attention.tilesOn(machine),
+              ]).length,
         needing: _attention.needingSomebody,
         machines:
             rows.preparations.length +
             listedMachines(widget.machines)
                 .where((row) => !rows.preparations.any((run) => run.name == row.name))
                 .length,
-        projects: projectsInRail(
-          _organization?.view,
-          fromOrganization: _organization != null && !_machineProjects,
-          onMachines: listedMachines(widget.machines)
-              .fold<int>(0, (count, machine) => count + projectsOnMachine(widget.machines, machine).length),
-        ),
-        forges: listedForges(_forges.allEntries, _heldConnections).length,
+        projects:
+            _organization != null && !_machineProjects && _organization.view == null ||
+                (_organization == null || _machineProjects) && !read
+            ? null
+            : projectsInRail(
+                _organization?.view,
+                fromOrganization: _organization != null && !_machineProjects,
+                onMachines: listedMachines(widget.machines)
+                    .fold<int>(0, (count, machine) => count + projectsOnMachine(widget.machines, machine).length),
+              ),
+        forges: _forges.busy ? null : listedForges(_forges.allEntries, _heldConnections).length,
         width: width,
         onGo: (section) {
           _leaveDrawer();
@@ -3393,36 +3968,6 @@ class _ShellState extends State<Shell> {
             : null,
       );
     },
-  );
-
-  /// Every machine watched, as a list: setting up, out of the daily way. A machine's details are its
-  /// page; its projects are under My projects and its work under Work.
-  Widget _machinesPage() => ListenableBuilder(
-    listenable: Listenable.merge(<Listenable>[
-      widget.machines,
-      _hostRuns,
-      for (final machine in widget.machines.all) widget.machines.of(machine),
-    ]),
-    builder: (context, _) => MachinesPage(
-      machines: widget.machines,
-      hostCommands: _hostCommands,
-      // Under *Organization* where one is read, as a machine's preparation enters it there.
-      prepareServer: _organization != null
-          ? null
-          : _commands().where((command) => command.id == 'host.prepare').firstOrNull,
-      hostRuns: _hostRuns,
-      onHostProtocol: (run) => unawaited(_openHostRun(run)),
-      readHostProgress: _readHostProgress,
-      openTerminal: widget.sessions.openTerminal,
-      onAdd: _addAMachine,
-      onDetails: (machine) {
-        _openPageMachine(machine);
-      },
-      onForget: (machine) {
-        widget.machines.select(machine);
-        unawaited(_forget());
-      },
-    ),
   );
 
   /// Every project on every machine, and the ways to set one up: setting up, out of the daily way.
@@ -3504,7 +4049,7 @@ class _ShellState extends State<Shell> {
   final WorkView _workView = WorkView();
 
   /// Every piece of work on every machine, or what is open over it.
-  Widget _workArea() {
+  Widget _workArea({Machine? onlyMachine}) {
     // A refusal takes the place of the page, as on the machine's: a removal the machine refused,
     // said only in the status line, looked like nothing happening (walk 9).
     final refusal = _fleet.refusal;
@@ -3531,13 +4076,20 @@ class _ShellState extends State<Shell> {
               ? '${widget.machines.current.name}/${_fleet.selectedTask!.name}'
               : null,
           machines: widget.machines,
+          onlyMachine: onlyMachine,
           attention: _attention,
-          onNewWork: widget.machines.all.any((each) => widget.machines.of(each).reachability == Reachability.connected)
-              ? () => unawaited(_newWork())
+          onNewWork:
+              (onlyMachine == null
+                  ? widget.machines.all.any((each) => widget.machines.of(each).reachability == Reachability.connected)
+                  : widget.machines.all.contains(onlyMachine) &&
+                        widget.machines.of(onlyMachine).reachability == Reachability.connected)
+              ? () => unawaited(_newWork(on: onlyMachine))
               : null,
+          newWorkUnavailable: onlyMachine == null ? 'no machine answers.' : '${onlyMachine.name} is not answering.',
           onAddAMachine: _addAMachine,
           running: (context) => RunningView(
             machines: widget.machines,
+            onlyMachine: onlyMachine,
             attention: _attention,
             view: _workView,
             sessions: widget.sessions,
@@ -3744,7 +4296,11 @@ class _ShellState extends State<Shell> {
   /// Whether *Running* is what is on screen, the one place a terminal is: nothing opened or refused in
   /// its place.
   bool get _runningIsShown =>
-      widget.shell.section == Section.work && _workView.running && !widget.shell.anythingOpen && _fleet.refusal == null;
+      (widget.shell.section == Section.work ||
+          widget.shell.section == Section.machine && widget.shell.place.machineSection == MachineSection.tasks) &&
+      _workView.running &&
+      !widget.shell.anythingOpen &&
+      _fleet.refusal == null;
 
   /// Leaving the tab's page leaves its session: the agent runs on, and coming back opens it again.
   void _leaveTheSessionWithItsPage() {
@@ -4314,8 +4870,16 @@ class _ShellState extends State<Shell> {
           work: work,
           machineProjects: machineProjects,
           onBack: () {
-            setState(() => _organizationHost = null);
-            widget.shell.goTo(work == null ? Section.organization : Section.machines);
+            final from = _organizationHostFrom;
+            setState(() {
+              _organizationHost = null;
+              _organizationHostFrom = null;
+            });
+            if (work == null && from != null) {
+              widget.shell.choosePlace(from);
+            } else {
+              widget.shell.goTo(work == null ? Section.organization : Section.machines);
+            }
           },
         ),
       );
@@ -4353,10 +4917,11 @@ class _ShellState extends State<Shell> {
           onClose: widget.shell.close,
         );
       case ConnectionsOpened():
+        final connectionsBackend = _fleet.backend;
         return ConnectionsView(
           connections: widget.connections,
           onAdd: () => unawaited(_addAConnection()),
-          onForget: (match) => unawaited(widget.connections.forget(_fleet.backend, match)),
+          onForget: (match) => unawaited(widget.connections.forget(connectionsBackend, match)),
           onClose: widget.shell.close,
           onStoreInATerminal: _storesHere ? () => unawaited(_storeInATerminal()) : null,
           onSendAKey: _storesHere ? _sendAKey : null,
@@ -4365,6 +4930,7 @@ class _ShellState extends State<Shell> {
         );
       case VaultOpened():
         return VaultView(
+          key: const Key('vault-view'),
           vault: widget.vault,
           onRevoke: (slot) => widget.vault.devices.revoke(_fleet.backend, slot),
           onClose: widget.shell.close,
@@ -4460,6 +5026,10 @@ class _ShellState extends State<Shell> {
 
   @override
   void dispose() {
+    widget.machines.pauseAutomaticRetries();
+    widget.shell.removeListener(_followTreeTool);
+    widget.machines.removeListener(_machineChanged);
+    _menuFocus.dispose();
     final source = widget.organizationSource;
     if (source is PoreloOrganizationSource) {
       source.prepareForgeWrite = null;

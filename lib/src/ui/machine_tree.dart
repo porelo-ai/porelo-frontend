@@ -5,6 +5,7 @@ import '../app/commands.dart';
 import '../app/fleet_model.dart';
 import 'command_menu.dart';
 import 'tokens.dart';
+import 'window_size.dart';
 import 'filtered_list_section.dart';
 
 /// The stop for every machine at once, at the foot of the tree where it is always on screen: work is
@@ -20,9 +21,12 @@ class StopEverywhere extends StatelessWidget {
   Widget build(BuildContext context) {
     final red = Theme.of(context).colorScheme.error;
     return Tooltip(
-      message: 'Stop everything on every machine\nWork is stopped, never removed.',
+      message: 'Stop everything on every machine (Ctrl+Shift+Alt+.)\nWork is stopped, never removed.',
       child: TextButton.icon(
         key: const Key('stop-everywhere'),
+        style: TextButton.styleFrom(
+          minimumSize: Size(Sizes.touchTarget, WindowSize.fromContext(context).treeRowHeight),
+        ),
         onPressed: onPressed,
         icon: Icon(Icons.pan_tool_outlined, size: Sizes.rowIcon, color: red),
         label: Text('Stop everything', style: TextStyle(color: red)),

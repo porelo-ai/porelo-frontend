@@ -406,11 +406,26 @@ abstract final class Sizes {
   /// The tree of machines when it slides in over a narrow window.
   static const drawer = 300.0;
 
-  /// The tree of machines beside the work, while the rail shows its labels.
-  static const treeWithLabels = 280.0;
+  /// The labeled navigation tree beside the page on desktop and tablet.
+  static const tree = 280.0;
 
-  /// The tree of machines beside the work, while the rail shows icons only.
-  static const tree = 240.0;
+  /// The minimum desktop navigation row height.
+  static const treeRow = 40.0;
+
+  /// The focus outline used by the navigation tree.
+  static const focusStroke = 2.0;
+
+  /// Leaves the selected tree row near the top when it is revealed.
+  static const treeScrollAlignment = 0.25;
+
+  /// The drawer never covers the entire phone.
+  static const drawerFraction = 0.85;
+
+  /// Maximum organization name width in the title bar.
+  static const organization = 200.0;
+
+  /// Maximum organization name width on a phone.
+  static const organizationPhone = 120.0;
 
   /// The name column of a list of names and values in small print.
   static const label = 110.0;

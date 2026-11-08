@@ -102,3 +102,36 @@ Feature: Moving around the frame by keyboard and by pointer
         Then stopping everything everywhere is not offered
         When enough time passes for another try
         Then stopping everything everywhere is offered
+
+    Scenario: a vault is reached from the tree without a machine menu
+        When I choose the tree entry {'current vault'}
+        Then the tree destination {'vault-view'} is shown {true}
+
+    Scenario: a parent shows facts and folds on its second click
+        When I choose the tree entry {'machines'}
+        Then the tree destination {'facts-page'} is shown {true}
+        And the tree destination {'machine-tree'} is shown {false}
+        When I choose the tree entry {'machines'}
+        Then the tree destination {'current machine'} is shown {false}
+
+    Scenario: a tablet keeps its tree beside the page
+        When the window is {700} pixels wide
+        Then the rail is shown {true}
+        And the tree destination {'open-rail'} is shown {false}
+
+    Scenario: the phone menu stays open until a leaf is chosen
+        When the window is {390} pixels wide
+        And I open the machines
+        And I choose the tree entry {'machines'}
+        Then the rail is shown {true}
+        When I choose the tree entry {'current vault'}
+        Then the rail is shown {false}
+        And the tree destination {'vault-view'} is shown {true}
+
+    Scenario: every layout keeps the emergency stop in the title bar
+        When the window is {390} pixels wide
+        Then the tree destination {'stop-everywhere-bar'} is shown {true}
+        When the window is {700} pixels wide
+        Then the tree destination {'stop-everywhere-bar'} is shown {true}
+        When the window is {1280} pixels wide
+        Then the tree destination {'stop-everywhere-bar'} is shown {true}

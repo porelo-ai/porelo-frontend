@@ -36,11 +36,15 @@ class RunningView extends StatefulWidget {
     required this.onAnswer,
     required this.onReadLog,
     this.onImageSettings,
+    this.onlyMachine,
     super.key,
   });
 
   /// Every machine watched.
   final Machines machines;
+
+  /// The machine of a Tasks leaf; absent on the global Running page.
+  final Machine? onlyMachine;
 
   /// Where the work comes from.
   final Attention attention;
@@ -116,7 +120,8 @@ class _RunningViewState extends State<RunningView> {
   List<Tile> _tabs() =>
       <Tile>[
         for (final machine in widget.attention.machinesOnce)
-          ...widget.attention.tilesOn(machine).where((tile) => tile.task?.running ?? false),
+          if (widget.onlyMachine == null || machine == widget.onlyMachine)
+            ...widget.attention.tilesOn(machine).where((tile) => tile.task?.running ?? false),
       ]..sort((a, b) {
         final byMachine = a.machine.name.compareTo(b.machine.name);
         return byMachine != 0 ? byMachine : a.task!.name.compareTo(b.task!.name);

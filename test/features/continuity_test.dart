@@ -18,6 +18,7 @@ import './step/i_select_the_work.dart';
 import './step/the_app_is_restarted.dart';
 import './step/the_project_is_selected.dart';
 import './step/the_work_is_still_selected.dart';
+import './step/i_go_to_the_place.dart';
 import './step/i_show_what_this_session_has_run.dart';
 import './step/the_section_shown_is.dart';
 import './step/a_newer_build_is_installed_underneath.dart';
@@ -58,11 +59,12 @@ void main() {
       await theProjectIsSelected(tester, 'checkout');
       await theWorkIsStillSelected(tester, 'porelo-checkout-shell');
     });
-    testWidgets('''reopening opens on the work, whichever section was left''', (tester) async {
+    testWidgets('''reopening keeps the chosen place''', (tester) async {
       await bddSetUp(tester);
+      await iGoToThePlace(tester, 'machines');
       await iShowWhatThisSessionHasRun(tester);
       await theAppIsRestarted(tester);
-      await theSectionShownIs(tester, 'Work');
+      await theSectionShownIs(tester, 'My machines');
     });
     testWidgets('''a newer build installed underneath says so, and changes nothing on its own''', (tester) async {
       await bddSetUp(tester);

@@ -16,6 +16,7 @@ import 'package:porelo_frontend/src/ui/tokens.dart';
 import 'package:porelo_frontend/src/ui/shell_rail.dart';
 
 import '../features/support/world.dart';
+import '../features/support/tiles.dart';
 import '../support/organization_fixtures.dart';
 import 'organization_actions.dart';
 
@@ -104,7 +105,7 @@ void main() {
     await World.startBackend(World.work);
     final fixture = FixtureOrganization(organizationFor('mia'));
     await World.startApp(tester, organizationSource: fixture);
-    await tester.tap(find.byKey(const ValueKey('rail organization')));
+    await toTheOrganization(tester);
     await World.settle(tester);
     expect(find.text('aaron'), findsNothing);
     final read = organizationFor('mia');
@@ -289,7 +290,7 @@ void main() {
       await World.startBackend(World.work);
       await World.startApp(tester, organizationSource: source);
       // Straight there: this may be the first page anyone looks at.
-      await tester.tap(find.byKey(const ValueKey('rail attention')));
+      await toThePlace(tester, 'attention');
       await World.settle(tester);
       return source;
     }
@@ -309,9 +310,9 @@ void main() {
           OrganizationProject(name: 'fresh', admins: ['pat'], opened: true),
         ],
       );
-      await tester.tap(find.byKey(const ValueKey('rail organization')));
+      await toTheOrganization(tester);
       await World.settle(tester);
-      await tester.tap(find.byKey(const ValueKey('rail attention')));
+      await toThePlace(tester, 'attention');
       await World.settle(tester);
       expect(find.text('fresh has no Git repository yet'), findsNothing);
     });
@@ -423,9 +424,9 @@ void main() {
         hostConnections: connections,
       );
       // The organization is read when its page opens, which a *Connect* comes from.
-      await tester.tap(find.byKey(const ValueKey('rail organization')));
+      await toTheOrganization(tester);
       await World.settle(tester);
-      await tester.tap(find.byKey(const ValueKey('rail attention')));
+      await toThePlace(tester, 'attention');
       await World.settle(tester);
     }
 
@@ -440,7 +441,7 @@ void main() {
       connections.waiting.clear();
       connections.hostProgress = const HostProgress(waitsForToken: false);
       connections.notifyListeners();
-      await tester.tap(find.byKey(const ValueKey('rail attention')));
+      await toThePlace(tester, 'attention');
       await World.settle(tester);
       expect(find.textContaining('build waits for your token'), findsNothing);
     });
@@ -459,9 +460,9 @@ void main() {
         ),
         hostConnections: waiting(),
       );
-      await tester.tap(find.byKey(const ValueKey('rail organization')));
+      await toTheOrganization(tester);
       await World.settle(tester);
-      await tester.tap(find.byKey(const ValueKey('rail attention')));
+      await toThePlace(tester, 'attention');
       await World.settle(tester);
       expect(find.textContaining('build waits for your token'), findsNothing);
     });
@@ -480,7 +481,7 @@ void main() {
       organizationSource: FixtureOrganization(organizationFor('mia')),
       hostConnections: FixtureConnections(),
     );
-    await tester.tap(find.byKey(const ValueKey('rail organization')));
+    await toTheOrganization(tester);
     await World.settle(tester);
     await tester.scrollUntilVisible(
       find.byKey(const ValueKey('my-host build')),
@@ -499,6 +500,13 @@ void main() {
     await tester.tap(find.byKey(const Key('organization-host-back')));
     await World.settle(tester);
     expect(find.byKey(const Key('organization-page')), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (widget) => widget is Semantics && widget.properties.label == 'People' && widget.properties.selected == true,
+      ),
+      findsOneWidget,
+      reason: 'Back keeps the organization leaf that opened the machine',
+    );
   });
 
   testWidgets('with an organization, Projects lists one\'s own, and the organization opens one of them', (
@@ -509,7 +517,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('rail projects')));
     await World.settle(tester);
     expect(find.byKey(const ValueKey('my-project demo')), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('rail organization')));
+    await toTheOrganization(tester);
     await World.settle(tester);
     await tester.scrollUntilVisible(
       _action('goToProject/demo'),
@@ -532,10 +540,12 @@ void main() {
     await World.startBackend(World.work);
     await World.startApp(tester, organizationSource: FixtureOrganization(organizationFor('mia')));
     final projects = tester.getTopLeft(find.byKey(const ValueKey('rail projects')));
-    final organization = find.byKey(const ValueKey('rail organization'));
+    final organization = find.byKey(const ValueKey('rail organizations'));
     expect(tester.getTopLeft(organization).dy, greaterThan(projects.dy));
+    await tester.ensureVisible(organization);
     await tester.tap(organization);
     await World.settle(tester);
+    await toTheOrganization(tester);
     expect(find.byType(OrganizationPage), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
   });
@@ -1302,7 +1312,7 @@ void main() {
       )..refuseReads = const OrganizationRefused('no organization here', reason: 'no-organization');
       await World.startBackend(World.work);
       await World.startApp(tester, organizationSource: fixture);
-      await tester.tap(find.byKey(const ValueKey('rail organization')));
+      await toTheOrganization(tester);
       await World.settle(tester);
       await tester.tap(find.byKey(const ValueKey('createOrganization')));
       await World.settle(tester);

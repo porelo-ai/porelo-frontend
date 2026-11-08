@@ -6,10 +6,8 @@ import '../support/world.dart';
 
 /// Usage: I ask to stop everything
 Future<void> iAskToStopEverything(WidgetTester tester) async {
-  // One machine's stop is in the menu on top of its own page, at its foot.
+  // One machine's stop is an action on its own facts page.
   await toTheMachinesPage(tester, World.machines.current.name);
-  await tester.tap(find.byKey(const Key('machine-menu')));
-  await World.settle(tester);
   final stop = find.byKey(const ValueKey<String>('machine.panic')).last;
   await tester.ensureVisible(stop);
   await tester.pump();

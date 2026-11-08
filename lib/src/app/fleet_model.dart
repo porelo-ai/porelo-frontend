@@ -603,12 +603,28 @@ class FleetModel extends ChangeNotifier {
   /// A cut stream is resumed rather than left dead: reconnecting reads the list again and starts
   /// watching again, which is the whole of what was lost.
   void _tryAgainLater() {
-    if (_disposed || retryAfter == Duration.zero) return;
+    if (_disposed || _retryPaused || retryAfter == Duration.zero) return;
     _retry?.cancel();
     _retry = Timer(retryAfter, () {
       if (_disposed) return;
       unawaited(connect(onItsOwn: true));
     });
+  }
+
+  bool _retryPaused = false;
+
+  /// Stops reconnect timers while the window observing this connection is detached.
+  void pauseAutomaticRetry() {
+    _retryPaused = true;
+    _retry?.cancel();
+    _retry = null;
+  }
+
+  /// Resumes a disconnected machine when a window starts observing it again.
+  void resumeAutomaticRetry() {
+    if (!_retryPaused) return;
+    _retryPaused = false;
+    if (_reachability == Reachability.unreachable) _tryAgainLater();
   }
 
   /// Says something in the status line, for an action that happened elsewhere.

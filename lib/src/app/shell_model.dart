@@ -24,6 +24,12 @@ enum Section {
   /// Every project on every machine, to set one up or look after it.
   projects('My projects'),
 
+  /// This person's card and key, kept in today's dialog.
+  cards('My cards & keys'),
+
+  /// The organizations read on this computer.
+  organizations('Organizations'),
+
   /// The organization: its people, its projects, its hosts and its owners.
   organization('Organization'),
 
@@ -42,6 +48,103 @@ enum Section {
 
   /// What the rail calls it.
   final String label;
+}
+
+/// The tools and lists belonging to one machine.
+enum MachineSection {
+  /// Work on this machine.
+  tasks('Tasks'),
+
+  /// Projects known to this machine.
+  projects('Projects'),
+
+  /// Names and kinds held by its vault.
+  vault('Vault'),
+
+  /// Its outbound connections and destinations.
+  credentials('Credentials'),
+
+  /// Its installed agents and authentication providers.
+  agents('Agents & providers'),
+
+  /// Its readiness checks.
+  health('Health'),
+
+  /// Its lifecycle and preparation actions.
+  managing('Managing this machine');
+
+  const MachineSection(this.label);
+
+  /// The words shown in the tree.
+  final String label;
+}
+
+/// The lists belonging to one organization.
+enum OrganizationSection {
+  /// Its people's cards.
+  people('People'),
+
+  /// Its registered projects.
+  projects('Projects'),
+
+  /// Its registered machines.
+  machines('Machines'),
+
+  /// The people who own the organization.
+  owners('Organization owners'),
+
+  /// The people who administer the organization.
+  admins('Organization Admins');
+
+  const OrganizationSection(this.label);
+
+  /// The words shown in the tree.
+  final String label;
+}
+
+/// An exact destination, including the owner of a machine or organization section.
+@immutable
+class ShellPlace {
+  /// Keeps a destination without depending on the current machine selection.
+  const ShellPlace(this.section, {this.machine, this.machineSection, this.organization, this.organizationSection});
+
+  /// The top-level page or item kind.
+  final Section section;
+
+  /// The machine this place belongs to.
+  final Machine? machine;
+
+  /// Its tool or list, absent on its facts page.
+  final MachineSection? machineSection;
+
+  /// The organization's name, absent on the organizations facts page.
+  final String? organization;
+
+  /// Its list, absent on its facts page.
+  final OrganizationSection? organizationSection;
+
+  /// A machine name cannot be mistaken for a section of another machine.
+  static String machineKey(String name) => 'machine ${Uri.encodeComponent(name)}';
+
+  /// Organization names use the same unambiguous component encoding.
+  static String organizationKey(String name) => 'organization ${Uri.encodeComponent(name)}';
+
+  /// A stable tree row identity.
+  String get key => switch (section) {
+    Section.machine when machine != null =>
+      '${machineKey(machine!.name)}${machineSection == null ? '' : ' ${machineSection!.name}'}',
+    Section.organization when organization != null =>
+      '${organizationKey(organization!)}${organizationSection == null ? '' : ' ${organizationSection!.name}'}',
+    _ => section.name,
+  };
+
+  /// Ancestors opened to reveal this place.
+  List<String> get ancestors => [
+    if (machine != null) 'machines',
+    if (machineSection != null) machineKey(machine!.name),
+    if (organization != null) 'organizations',
+    if (organizationSection != null) organizationKey(organization!),
+  ];
 }
 
 /// What is open over the frame.
@@ -154,6 +257,87 @@ class LogOpened extends Opened {
 /// Separate from the backend's state on purpose. Losing contact with a daemon must not move
 /// anybody, and opening something must not ask the daemon anything.
 class ShellModel extends ChangeNotifier {
+  ShellPlace _place = const ShellPlace(Section.work);
+  final Set<String> _foldedOpen = {};
+  bool _navigationInitialized = false;
+
+  /// The chosen destination and its owner.
+  ShellPlace get place => _place;
+
+  /// The branches unfolded in the tree.
+  Set<String> get foldedOpen => Set.unmodifiable(_foldedOpen);
+
+  /// Opens the initial machine path before saved machines have finished loading.
+  void initializeNavigation(Machine current) {
+    if (!_navigationInitialized && _foldedOpen.isEmpty) {
+      _foldedOpen.addAll(['machines', ShellPlace.machineKey(current.name)]);
+    }
+  }
+
+  /// Restores checked navigation data, opening the first machine on a first start.
+  void restoreNavigation(Map<String, Object?> saved, List<Machine> machines, Machine current) {
+    if (_navigationInitialized) return;
+    _navigationInitialized = true;
+    final folds = saved['folded'];
+    _foldedOpen.clear();
+    _foldedOpen.addAll(folds is List ? folds.whereType<String>() : ['machines', ShellPlace.machineKey(current.name)]);
+    final section = Section.values.where((value) => value.name == saved['section']).firstOrNull;
+    final machine = machines.where((value) => value.name == saved['machine']).firstOrNull;
+    final machineSection = MachineSection.values.where((value) => value.name == saved['machineSection']).firstOrNull;
+    final organizationSection = OrganizationSection.values
+        .where((value) => value.name == saved['organizationSection'])
+        .firstOrNull;
+    if (section == null || section == Section.machine && machine == null) return;
+    _section = section;
+    _place = ShellPlace(
+      section,
+      machine: machine,
+      machineSection: machine == null ? null : machineSection,
+      organization: saved['organization'] is String ? saved['organization'] as String : null,
+      organizationSection: organizationSection,
+    );
+    itemMachine = machine;
+    notifyListeners();
+  }
+
+  /// The public navigation state kept across a restart.
+  Map<String, Object?> get navigation => {
+    'section': _section.name,
+    if (_place.machine != null) 'machine': _place.machine!.name,
+    if (_place.machineSection != null) 'machineSection': _place.machineSection!.name,
+    if (_place.organization != null) 'organization': _place.organization,
+    if (_place.organizationSection != null) 'organizationSection': _place.organizationSection!.name,
+    'folded': _foldedOpen.toList(),
+  };
+
+  /// Folds a branch without changing the chosen page.
+  void toggleFold(String key) {
+    if (!_foldedOpen.remove(key)) _foldedOpen.add(key);
+    notifyListeners();
+  }
+
+  /// Selects an exact place; selecting a chosen parent again folds it.
+  void choosePlace(ShellPlace next, {bool branch = false}) {
+    final same = _place.key == next.key;
+    _foldedOpen.addAll(next.ancestors);
+    if (branch && same) {
+      toggleFold(next.key);
+      return;
+    }
+    if (branch) _foldedOpen.add(next.key);
+    _place = next;
+    itemMachine = next.machine;
+    itemProject = null;
+    _goTo(next.section);
+    notifyListeners();
+  }
+
+  /// Reveals the chosen row when a phone drawer opens.
+  void revealPlace() {
+    _foldedOpen.addAll(_place.ancestors);
+    notifyListeners();
+  }
+
   /// The explicitly opened item, including machines not followed locally.
   Machine? itemMachine;
 
@@ -164,6 +348,8 @@ class ShellModel extends ChangeNotifier {
   void openMachine(Machine machine) {
     itemMachine = machine;
     itemProject = null;
+    _place = ShellPlace(Section.machine, machine: machine);
+    _foldedOpen.addAll(['machines', ShellPlace.machineKey(machine.name)]);
     _goTo(Section.machine);
     notifyListeners();
   }
@@ -172,6 +358,8 @@ class ShellModel extends ChangeNotifier {
   void openProject(Machine machine, String project) {
     itemMachine = machine;
     itemProject = project;
+    _place = ShellPlace(Section.project, machine: machine);
+    _foldedOpen.addAll(['machines', ShellPlace.machineKey(machine.name)]);
     _goTo(Section.project);
     notifyListeners();
   }
@@ -200,6 +388,8 @@ class ShellModel extends ChangeNotifier {
     final hadItem = itemMachine != null || itemProject != null;
     itemMachine = null;
     itemProject = null;
+    _place = ShellPlace(section);
+    if (section == Section.machines || section == Section.organizations) _foldedOpen.add(section.name);
     _goTo(section);
     if (hadItem) notifyListeners();
   }
@@ -217,6 +407,7 @@ class ShellModel extends ChangeNotifier {
   void show(String command, {Section section = Section.machine}) {
     itemMachine = null;
     itemProject = null;
+    _place = ShellPlace(section);
     _section = section;
     _opened = const NothingOpened();
     _highlight = command;

@@ -44,6 +44,8 @@ import './step/i_agree_to_start_it.dart';
 import './step/the_machine_was_asked_to_start.dart';
 import './step/stopping_everything_everywhere_is_not_offered.dart';
 import './step/stopping_everything_everywhere_is_offered.dart';
+import './step/i_choose_the_tree_entry.dart';
+import './step/the_tree_destination_is_shown.dart';
 
 void main() {
   group('''Moving around the frame by keyboard and by pointer''', () {
@@ -155,6 +157,44 @@ void main() {
       await stoppingEverythingEverywhereIsNotOffered(tester);
       await enoughTimePassesForAnotherTry(tester);
       await stoppingEverythingEverywhereIsOffered(tester);
+    });
+    testWidgets('''a vault is reached from the tree without a machine menu''', (tester) async {
+      await bddSetUp(tester);
+      await iChooseTheTreeEntry(tester, 'current vault');
+      await theTreeDestinationIsShown(tester, 'vault-view', true);
+    });
+    testWidgets('''a parent shows facts and folds on its second click''', (tester) async {
+      await bddSetUp(tester);
+      await iChooseTheTreeEntry(tester, 'machines');
+      await theTreeDestinationIsShown(tester, 'facts-page', true);
+      await theTreeDestinationIsShown(tester, 'machine-tree', false);
+      await iChooseTheTreeEntry(tester, 'machines');
+      await theTreeDestinationIsShown(tester, 'current machine', false);
+    });
+    testWidgets('''a tablet keeps its tree beside the page''', (tester) async {
+      await bddSetUp(tester);
+      await theWindowIsPixelsWide(tester, 700);
+      await theRailIsShown(tester, true);
+      await theTreeDestinationIsShown(tester, 'open-rail', false);
+    });
+    testWidgets('''the phone menu stays open until a leaf is chosen''', (tester) async {
+      await bddSetUp(tester);
+      await theWindowIsPixelsWide(tester, 390);
+      await iOpenTheMachines(tester);
+      await iChooseTheTreeEntry(tester, 'machines');
+      await theRailIsShown(tester, true);
+      await iChooseTheTreeEntry(tester, 'current vault');
+      await theRailIsShown(tester, false);
+      await theTreeDestinationIsShown(tester, 'vault-view', true);
+    });
+    testWidgets('''every layout keeps the emergency stop in the title bar''', (tester) async {
+      await bddSetUp(tester);
+      await theWindowIsPixelsWide(tester, 390);
+      await theTreeDestinationIsShown(tester, 'stop-everywhere-bar', true);
+      await theWindowIsPixelsWide(tester, 700);
+      await theTreeDestinationIsShown(tester, 'stop-everywhere-bar', true);
+      await theWindowIsPixelsWide(tester, 1280);
+      await theTreeDestinationIsShown(tester, 'stop-everywhere-bar', true);
     });
   });
 }
