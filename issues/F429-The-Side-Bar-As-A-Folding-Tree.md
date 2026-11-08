@@ -3,8 +3,8 @@
 **Status:** Estimated.
 **Size:** XL - the side bar, every leaf page in a new look, *Work* and *Needs you* among them, and a machine's tools
 moved from overlays into pages are more than one build; it splits into four parts (below), this issue the first.
-estimate=293 (provisional until the details below are settled in the design), the sum of the parts' medians (L 80 +
-L 80 + M 53 + L 80).
+estimate=293 (provisional until the table of tones, D40, is settled), the sum of the parts' medians (L 80 + L 80 +
+M 53 + L 80).
 
 **What must be true.** The side bar shows every place a person works with as a tree: their work, what needs them, each
 of their machines with its sections, their forges, projects, cards and keys, and each organization with its sections.
@@ -57,14 +57,15 @@ The design *Porelo Window Side Bar* (updated 2026-11-07) draws the window laid o
 | *Needs you* | a badge of what waits | | the list of what waits |
 | heading *Set up* | | | |
 | *My machines* | the machines | each machine by name | facts: machines and their state, work, what needs you; actions: *Watch another machine…*, *Refresh*, *Stop everything* |
-| one machine | | Tasks, Projects, Vault, Credentials, Agents & providers, Health, Managing this machine | facts: Porelo's version and state, the vault's state, tasks, projects, health, the address for a host, when it was last read; actions: *Refresh*, *Lock the vault* or *Unlock the vault…*, *Check whether this machine can run anything*, *Stop Porelo*, *Take down…* |
+| one machine | | Tasks, Projects, Vault, Credentials, Agents & providers, Health, Managing this machine | facts: Porelo's version and state, the vault's state, tasks, projects, health, the address for a host, when it was last read; actions: *Refresh*, *Shut the vault* or *Unlock the vault…*, *Check whether this machine can run anything*, *Stop Porelo*, *Take down…* |
 | *My forges* | the forges | | the list of forges |
 | *My projects* | the projects | | the list of projects |
 | *My cards & keys* | none | | today's dialog *My key and card…*, until [F423](README.md#f423) makes it a page |
 | *Organizations* | the organizations | each organization by name, today one | facts: the one worked in, the person's card; actions: *Change the organization…*, *Create an organization…* |
 | one organization | | People, Projects, Machines, Organization owners, Organization Admins | facts: the person's role and card, people, projects, machines, owners, where it is kept; actions from today's organization menu and the row that waits, such as accepting a proposed card |
 
-Every action keeps today's command and its reason when it cannot run; a fact the window cannot read says so.
+Every action keeps today's command and its reason when it cannot run; one with no command today is a greyed, dashed
+button that waits for one (D23); a fact the window cannot read says so.
 
 ### States and clicks
 
@@ -81,8 +82,8 @@ Every action keeps today's command and its reason when it cannot run; a fact the
 
 - **Its head:** the path line (*My machines › workstation › Vault*), the large title, a subtitle saying what it holds
   (*3 tasks on 2 machines · 1 running*, *Made · open · 4 entries*), a filter field, and its one main action as a filled
-  button (*New work*, *Store an entry…*, *Trust a host key…*). The subtitle counts every row, the filter only narrows
-  what is shown.
+  button (*New work*, *Store an entry…*, *Trust a host key…*; the last two wait for a command, as D23). The
+  subtitle counts every row, the filter only narrows what is shown.
 - **Its rows:** in one white card with a line between rows and no header band; each row its name, a detail line, its
   state as a chip in words with the tone of that state, and its ⋮.
 - **The vault** lists names and kinds only, and says that no value is shown, copied or logged.
@@ -95,12 +96,13 @@ Every action keeps today's command and its reason when it cannot run; a fact the
 
 ### Per layout
 
-- **Desktop:** the title bar keeps today's actions and gains the organization's button on the right. The side bar
-  stands beside the page, 260 to 300 wide.
+- **The title bar, every layout:** today's actions in today's order, the organization's button to their left, and
+  the red stop icon of this machine always in sight. What does not fit goes into one ⋮ (D7, D60, D63); *Options* is an action of its own and overflows like the others; the stop never goes into the ⋮.
+- **Desktop:** the side bar stands beside the page, 280 wide.
 - **Tablet (600 to 839 wide):** the same, the side bar still beside the page.
-- **Phone (below 600):** the title bar holds the menu button, the page's title and a small organization button. The
-  page has the path line and subtitle, the main action as a full-width button, rows with the chip under the name, and on
-  a page of facts the actions stacked under them.
+- **Phone (below 600):** the title bar holds the menu button, the page's title, the red stop icon, the ⋮ and a small
+  organization button. The page has the path line and subtitle, the main action as a full-width button, rows with the
+  chip under the name, and on a page of facts the actions stacked under them.
 - **Phone, menu open:** the side bar slides in from the left over a dimmed page, with *Porelo* on top and the foot's
   two buttons at the bottom. Choosing a leaf closes it; choosing an entry with entries under it folds it open and keeps
   the side bar open. A click on the dimmed page closes it.
@@ -121,170 +123,179 @@ Every action keeps today's command and its reason when it cannot run; a fact the
   row, the search from a magnifier, the rows under a head of their own colour, and a compact *Needs you* without a
   total. Both pages get the path line, large title and subtitle back; *New work* is the head's main action.
 
-## Details to settle in the design
+## Details settled in the design
 
-The design is not a detail design. Before any part is built, the points below are settled with the operator in the
-design *Porelo Window Side Bar*. Its boards carry no notes of their own; the one remark in it, on the Desktop board,
-says an entry with entries under it shows what it is and what can be done with it, never a list of those entries, as
-*The shape* says. Each point, numbered D1 to D74, names what the boards leave open or draw only roughly, and what is proposed.
+The design is not a detail design. The points below were settled with the operator in the design *Porelo Window Side
+Bar*. Its boards carry no notes of their own; the one remark in it, on the Desktop board, says an entry with entries
+under it shows what it is and what can be done with it, never a list of those entries, as *The shape* says. Each
+point, numbered D1 to D74, names what the boards leave open or draw only roughly, and what was decided; D40's table
+of tones is drawn on a board of its own and still to be settled.
 
 ### Main (desktop)
 
 #### Part 1: the side bar
 
-- **D1.** Dark theme (all boards): the boards draw light only, and today's window has a dark theme. Proposal: each colour of
+- **D1.** Dark theme (all boards): the boards draw light only, and today's window has a dark theme. Decided: each colour of
   the boards takes its role from `Primitives` and `StateColours`, dark uses today's dark tokens in the same roles,
   and each board is drawn once in dark.
-- **D2.** Colours off today's tokens (all boards): the boards' border is a shade other than `Primitives.paleBorder`. Proposal:
+- **D2.** Colours off today's tokens (all boards): the boards' border is a shade other than `Primitives.paleBorder`. Decided:
   today's tokens wherever a board's colour is within a shade of one.
-- **D3.** Typeface and text sizes (all boards): the boards set Inter at 14, 26 and 12. Proposal: today's theme's typeface,
+- **D3.** Typeface and text sizes (all boards): the boards set Inter at 14, 26 and 12. Decided: today's theme's typeface,
   each size mapped to the nearest text style of `PoreloTheme`.
-- **D4.** Text scale (all boards): rows of the side bar are drawn at a fixed 40 (44 on the phone). Proposal: rows grow with
+- **D4.** Text scale (all boards): rows of the side bar are drawn at a fixed 40 (44 on the phone). Decided: rows grow with
   the text scale from that minimum, labels shorten with an ellipsis, checked at 200 %.
-- **D5.** Icons (all boards): the boards draw their own outline icons on the seven top entries and none below. Proposal:
+- **D5.** Icons (all boards): the boards draw their own outline icons on the seven top entries and none below. Decided:
   today's Material icons (*Work* play circle, *Needs you* bell, *My machines* dns, *My forges* hub, *My projects*
   folder, *Organizations* apartment), a key for *My cards & keys*, filled when chosen as today; none at depth 1 and 2.
 - **D6.** Labels and width beside the page: today's rail shows labels at every width; `railShowsLabels` only picks
-  its width, 240 from 840 (`Sizes.tree`) and 280 from 1200 (`Sizes.treeWithLabels`). The boards draw 260 to 300. Proposal: labels always, one
+  its width, 240 from 840 (`Sizes.tree`) and 280 from 1200 (`Sizes.treeWithLabels`). The boards draw 260 to 300. Decided: labels always, one
   width of 280 in `Sizes`.
 - **D7.** The title bar's actions: the Desktop board draws only *Porelo* and the organization's button, none of today's
-  finder, *Watch another machine…*, machine switch, *Options*, walk and *About*. Proposal: today's icons in today's
-  order, the organization's button to their left.
-- **D8.** The organization's button with no organization, or while it is read (all boards): not drawn. Proposal: it reads
+  finder, *Watch another machine…*, machine switch, *Options*, walk and *About*, and no stop; today from 840 up the
+  red stop icon sits in the status line. Decided: today's icons in today's order, the organization's button to their
+  left, and the red stop icon (`EmergencyStopButton`, this machine) in the title bar at every width. What does not fit
+  goes into one ⋮ overflow menu, on the desktop, the tablet and the phone alike; *Options* stays an action of its own
+  and overflows like the others; the stop never goes into the ⋮.
+- **D8.** The organization's button with no organization, or while it is read (all boards): not drawn. Decided: it reads
   *No organization* and opens the same choice; while read it keeps the last name, never an empty pill.
-- **D9.** The organization's button with a long name (all boards): not drawn. Proposal: shortened with an ellipsis at 200
+- **D9.** The organization's button with a long name (all boards): not drawn. Decided: shortened with an ellipsis at 200
   (120 on the phone), the full name in its tooltip.
-- **D10.** Counts of zero and over 99 (all boards): drawn only as 1 to 3. Proposal: a plain count shows 0; the *Needs you*
+- **D10.** Counts of zero and over 99 (all boards): drawn only as 1 to 3. Decided: a plain count shows 0; the *Needs you*
   badge is hidden at zero as today; above 99 it shows *99+*, the number in its tooltip.
-- **D11.** A count not read yet, or with no machine answering (all boards): not drawn. Proposal: no number but a dash, its
-  reason in the tooltip, never a 0 that reads as nothing.
-- **D12.** The mark of a machine that does not answer or is being prepared (all boards): decided, not drawn. Proposal: a small
+- **D11.** A count not read yet, or with no machine answering (all boards): not drawn. Decided: no number but a question
+  mark `?`, its reason in the tooltip, never a 0 that reads as nothing.
+- **D12.** The mark of a machine that does not answer or is being prepared (all boards): decided earlier, not drawn. Decided: a small
   icon at the right of the name in the tone of the state (fail for not answering, wait for being prepared), its words
   in the tooltip and the accessible label.
-- **D13.** A machine whose vault is locked (all boards): no mark drawn. Proposal: no mark in the side bar; the machine's page
+- **D13.** A machine whose vault is locked (all boards): no mark drawn. Decided: no mark in the side bar; the machine's page
   and its Vault say it.
-- **D14.** Many machines or organizations: the Desktop board's side bar does not scroll. Proposal: the tree scrolls under a
+- **D14.** Many machines or organizations: the Desktop board's side bar does not scroll. Decided: the tree scrolls under a
   foot that stays, and the chosen entry is scrolled into sight.
-- **D15.** Long names in the tree (all boards): drawn with an ellipsis. Proposal: the ellipsis and the full name in a tooltip;
+- **D15.** Long names in the tree (all boards): drawn with an ellipsis. Decided: the ellipsis and the full name in a tooltip;
   the path line and the large title wrap instead.
 - **D16.** The fold on first start and across a restart (all boards): the boards open *My machines*, *workstation*,
-  *Organizations* and *acme*. Today, first start opens *Work* and `Settings` keeps neither the place nor a fold. Proposal: first start opens *My
+  *Organizations* and *acme*. Today, first start opens *Work* and `Settings` keeps neither the place nor a fold. Decided: first start opens *My
   machines* and the current machine; the fold and the
   chosen place are kept in `Settings` across a restart.
-- **D17.** The chevron and the row (all boards): the boards make the whole row one button. Proposal: a click on the chevron
+- **D17.** The chevron and the row (all boards): the boards make the whole row one button. Decided: a click on the chevron
   alone folds or unfolds without choosing; the row chooses and opens as decided.
-- **D18.** Keyboard and focus order (all boards): rows are buttons with their fold state, no keys drawn. Proposal: the tree is
+- **D18.** Keyboard and focus order (all boards): rows are buttons with their fold state, no keys drawn. Decided: the tree is
   one Tab stop, up and down move, right unfolds, left folds or goes to the parent, Enter chooses; the order is title
   bar, side bar, foot, page head, rows.
 - **D19.** Hover, pressed and focus (all boards): hover drawn in `Primitives.pale3`, focus as a 2-wide petrol outline, pressed
-  and disabled not. Proposal: as drawn, pressed as Flutter's ink; an entry of the tree is never disabled.
-- **D20.** *Organizations* with no organization read (all boards): not drawn. Proposal: no chevron; its page of facts says none
+  and disabled not. Decided: as drawn, pressed as Flutter's ink; an entry of the tree is never disabled.
+- **D20.** *Organizations* with no organization read (all boards): not drawn. Decided: no chevron; its page of facts says none
   is read and why, with *Create an organization…* and *Choose another Porelo organization…*.
 - **D21.** The foot (all boards): drawn as *Refresh* in text and *Stop everywhere* outlined in red. Today the side bar's *Refresh* and *Stop everything* have no shortcut; F5
-  and Ctrl+Shift+. act on the current machine only. Proposal: today's *Refresh* (every machine) and *Stop everything*,
-  with today's tooltips, always in sight; whether they take a shortcut of their own is settled in the design.
+  and Ctrl+Shift+. act on the current machine only. Decided: today's *Refresh* (every machine) and *Stop everything*,
+  with today's tooltips, always in sight. F5 and Ctrl+Shift+. keep acting on the current machine; the foot's *Refresh*
+  takes Shift+F5 and its *Stop everything* Ctrl+Shift+Alt+., each named in its tooltip.
 - **D22.** Words on the boards that are not today's (all boards): *Start a task…*, *Add a machine…*, *Refresh all*, *Run
-  doctor*, *Stop everywhere*, *Hosts*, *Unlock…*. Proposal: today's command and its word for each (*New work*, *Watch
+  doctor*, *Stop everywhere*, *Hosts*, *Unlock…*. Decided: today's command and its word for each (*New work*, *Watch
   another machine…*, *Refresh*, *Check whether this machine can run anything*, *Stop everything*, *Machines*, and for *Unlock…*
   today's *Unlock the vault on <machine>*), per the decision on words.
 - **D23.** Actions the boards draw with no command today (all boards): *Lock the vault*, *Store an entry…*, *Trust a host
   key…*, *Declare a provider…*, *Put a project on…*, *Another owner…*, *List an admin…*, *Propose a card…*, *Join an
-  organization…*, *Work in riverside*, *Leave acme…*. Proposal: each is mapped to today's command where one does the
-  same, else left out until one exists; the list is settled per page.
-- **D24.** Which action of a page of facts is filled (all boards): the boards fill the first unless it is a danger. Proposal:
+  organization…*, *Work in riverside*, *Leave acme…*. Decided: each is mapped to today's command where one does the
+  same (*Lock the vault* becomes *Shut the vault*); any other is shown where the board draws it as a greyed, dashed
+  button that cannot be pressed, saying that it waits for a command, and goes away once its command exists.
+- **D24.** Which action of a page of facts is filled (all boards): the boards fill the first unless it is a danger. Decided:
   the one the state calls for is filled (*Unlock the vault…* when locked), others outlined, a danger (*Stop
   everything*, *Take down…*, *Leave…*) outlined in red and last.
-- **D25.** An action that cannot run (all boards): not drawn. Proposal: shown greyed, its `Command.unavailable` reason in its
+- **D25.** An action that cannot run (all boards): not drawn. Decided: shown greyed, its `Command.unavailable` reason in its
   tooltip and in a muted line under the actions.
-- **D26.** A fact the window cannot read (all boards): not drawn. Proposal: the value says *not read* and why, muted, with a
+- **D26.** A fact the window cannot read (all boards): not drawn. Decided: the value says *not read* and why, muted, with a
   wait dot, never left empty.
 - **D27.** A page of facts while read for the first time, or of a machine that does not answer (all boards): not drawn.
-  Proposal: the last facts read with *Last read … ago* first, a thin progress line under the head while reading.
-- **D28.** A page of facts with nothing to say (all boards): not drawn. Proposal: one fact *None yet* and the actions that add
+  Decided: the last facts read with *Last read … ago* first, a thin progress line under the head while reading.
+- **D28.** A page of facts with nothing to say (all boards): not drawn. Decided: one fact *None yet* and the actions that add
   one (*Watch another machine…*, *Create an organization…*).
-- **D29.** One organization's actions on what waits (all boards): the boards draw one, *Accept dave's card…*. Proposal: one
+- **D29.** One organization's actions on what waits (all boards): the boards draw one, *Accept dave's card…*. Decided: one
   action per waiting row, at most three, then a fact counting the rest that opens People.
-- **D30.** The path line (all boards): drawn as plain text, on top entries repeating the title (*Work* over *Work*). Proposal:
+- **D30.** The path line (all boards): drawn as plain text, on top entries repeating the title (*Work* over *Work*). Decided:
   each step but the last a link to its page, reachable by keyboard; on a top entry the path line is left out.
 
 #### Part 2: the leaf look
 
-- **D31.** The head's row: drawn as title block, a 200 filter and the main action in one row that wraps. Proposal: on desktop
+- **D31.** The head's row: drawn as title block, a 200 filter and the main action in one row that wraps. Decided: on desktop
   one row; when it does not fit, the main action stays beside the title and the filter goes to the next row.
-- **D32.** The sort menu (decision to keep it): not drawn. Proposal: an icon button of 36 opening today's sort menu, at the
+- **D32.** The sort menu (decision to keep it): not drawn. Decided: an icon button of 36 opening today's sort menu, at the
   right of the filter field.
-- **D33.** The `i` beside the large title (decision to keep it): not drawn. Proposal: an outlined `i` of 20 right after the
+- **D33.** The `i` beside the large title (decision to keep it): not drawn. Decided: an outlined `i` of 20 right after the
   title; the explanation opens under the head above the card, its fold kept as today.
-- **D34.** The filter's words (all boards): drawn with the label *Filter* above and *Name or state* inside. Proposal: today's
+- **D34.** The filter's words (all boards): drawn with the label *Filter* above and *Name or state* inside. Decided: today's
   hint (*Filter* and the list's name) inside, no label above; Escape clears it; shown on every leaf.
-- **D35.** A filter that matches nothing (all boards): not drawn. Proposal: one muted line in the card saying nothing matches,
+- **D35.** A filter that matches nothing (all boards): not drawn. Decided: one muted line in the card saying nothing matches,
   with a button that clears the filter; the subtitle unchanged.
-- **D36.** An empty leaf (all boards): drawn as a row with a muted chip (*No host yet*, *None listed*). Proposal: one muted line
+- **D36.** An empty leaf (all boards): drawn as a row with a muted chip (*No host yet*, *None listed*). Decided: one muted line
   in the card saying why it is empty and naming the main action, without chip or ⋮, since it is not an entry.
-- **D37.** A leaf while it is read (all boards): not drawn. Proposal: the head at once, the last rows read under a thin
+- **D37.** A leaf while it is read (all boards): not drawn. Decided: the head at once, the last rows read under a thin
   progress line, *read … ago* in the subtitle.
-- **D38.** A leaf that fails to read (all boards): not drawn. Proposal: one line in the fail tone in the card with the reason
+- **D38.** A leaf that fails to read (all boards): not drawn. Decided: one line in the fail tone in the card with the reason
   and *Try again*; the subtitle says *not read*, never 0.
-- **D39.** The subtitle's words: the boards fall back to *N entries* for every section. Proposal: words per leaf naming what is
+- **D39.** The subtitle's words: the boards fall back to *N entries* for every section. Decided: words per leaf naming what is
   counted and what waits (*4 people · 1 card waits*), settled leaf by leaf.
-- **D40.** The chip's tones (all boards): five tones drawn, for a handful of states. Proposal: a table of each of today's state
-  words to its tone, settled in the design; a state not read is a muted *not read*.
-- **D41.** A row's click and its fold (decision to keep the fold): the boards give a row no click, only ⋮. Proposal: a click on
+- **D40.** The chip's tones (all boards): five tones drawn, for a handful of states. Decided: a table of each of today's state
+  words to its tone, drawn as a board of its own and settled there: green for running or fine, the wait tone for waiting
+  or being prepared, red for failed or not answering, grey for stopped or *not read*, the accent for what needs a
+  person, as its starting point.
+- **D41.** A row's click and its fold (decision to keep the fold): the boards give a row no click, only ⋮. Decided: a click on
   the row opens today's fold under it inside the white card, ⋮ opens today's menu; a row folded open keeps the hover
   colour.
-- **D42.** Long names and details in a row (all boards): the name drawn with an ellipsis, the detail free. Proposal: the name
+- **D42.** Long names and details in a row (all boards): the name drawn with an ellipsis, the detail free. Decided: the name
   with an ellipsis and its tooltip, the detail at most two lines.
-- **D43.** Many rows (all boards): not drawn. Proposal: the card grows with the page and the page scrolls, no paging, as today.
-- **D44.** The pages under a leaf (one project, one forge, *All projects on your machines*) (all boards): not drawn. Proposal:
+- **D43.** Many rows (all boards): not drawn. Decided: the card grows with the page and the page scrolls, no paging, as today.
+- **D44.** The pages under a leaf (one project, one forge, *All projects on your machines*) (all boards): not drawn. Decided:
   the same head, the path line the way back, no back arrow.
 
 #### Part 3: *Work* and *Needs you*
 
-- **D45.** *Work*'s *List* and *Running* switch (decision to keep it): not drawn. Proposal: a segmented switch under the head on
+- **D45.** *Work*'s *List* and *Running* switch (decision to keep it): not drawn. Decided: a segmented switch under the head on
   the left, above the card; in *Running* the tabs take the card's place and the head stays.
-- **D46.** *Work*'s chips: drawn for *running*, *waits for review* and *stopped*. Proposal: every state of today's work row in
+- **D46.** *Work*'s chips: drawn for *running*, *waits for review* and *stopped*. Decided: every state of today's work row in
   the table of tones, in today's words.
-- **D47.** *New work* with no machine answering: not drawn. Proposal: greyed, today's reason (*no machine answers*) under it.
-- **D48.** The groups of *Needs you* (decision to keep them): the board draws one card. Proposal: each group its own white card
+- **D47.** *New work* with no machine answering: not drawn. Decided: greyed, today's reason (*no machine answers*) under it.
+- **D48.** The groups of *Needs you* (decision to keep them): the board draws one card. Decided: each group its own white card
   under a small heading of today's group title, in today's order; the subtitle counts all of them.
-- **D49.** *Needs you* has no main action on the board. Proposal: none; the head's place for it stays empty.
-- **D50.** *Needs you* with nothing waiting (all boards): not drawn. Proposal: one muted line *Nothing waits on you*, the
+- **D49.** *Needs you* has no main action on the board. Decided: none; the head's place for it stays empty.
+- **D50.** *Needs you* with nothing waiting (all boards): not drawn. Decided: one muted line *Nothing waits on you*, the
   subtitle saying the same, the badge hidden.
 
 #### Part 4: a machine's sections
 
-- **D51.** A section of a machine that does not answer (all boards): not drawn. Proposal: the head, then a line in the fail
+- **D51.** A section of a machine that does not answer (all boards): not drawn. Decided: the head, then a line in the fail
   tone saying the machine does not answer with *Try again*, and the last rows read greyed under *read … ago*.
-- **D52.** The locked vault: drawn as a row *The vault is locked* with a wait chip and *Unlock…* as the main action. Proposal: a
+- **D52.** The locked vault: drawn as a row *The vault is locked* with a wait chip and *Unlock…* as the main action. Decided: a
   line in the wait tone in the card instead of a row, *Unlock the vault…* as the main action, subtitle *Made · locked*.
-- **D53.** A vault not yet made: not drawn. Proposal: a line *No vault yet*, today's *Make the vault, in a terminal* as the main
+- **D53.** A vault not yet made: not drawn. Decided: a line *No vault yet*, today's *Make the vault, in a terminal* as the main
   action.
 - **D54.** Credentials as one list: drawn as one list of keys and host keys, while today it is `ConnectionsView` and
-  `DestinationsDialog`. Proposal: two cards under one head, *Connections* and *Destinations*, as *Needs you*'s groups.
-- **D55.** Health's rows: drawn as *doctor*, *prune* and *tighten*, the last two left out by the scope. Proposal: one row per
+  `DestinationsDialog`. Decided: two cards under one head, *Connections* and *Destinations*, as *Needs you*'s groups.
+- **D55.** Health's rows: drawn as *doctor*, *prune* and *tighten*, the last two left out by the scope. Decided: one row per
   check of today's readiness, *Check whether this machine can run anything* as the main action.
-- **D56.** Managing this machine: drawn as rows whose chip is *action* (*Set up again*, *Take down*). Proposal: a page of
+- **D56.** Managing this machine: drawn as rows whose chip is *action* (*Set up again*, *Take down*). Decided: a page of
   facts and actions rather than rows that are buttons, *Stop Porelo* filled and *Take down…* in red.
-- **D57.** Tasks and Projects of one machine: drawn with *Start a task…* and *Put a project on…*. Proposal: *New work* for that
-  machine, and today's command for a project on that machine where there is one.
+- **D57.** Tasks and Projects of one machine: drawn with *Start a task…* and *Put a project on…*. Decided: *New work* for that
+  machine, and today's command for a project on that machine where there is one; with none, a greyed, dashed button that
+  waits for a command, as D23.
 
 ### Tablet
 
 #### Part 1: the side bar
 
 - **D58.** Widths between 600 and about 820: the Tablet board is 834, and the boards' layout wraps the page under the side bar
-  below 260 and 560. Proposal: no wrap down to 600; the side bar keeps its width and the page narrows.
-- **D59.** Touch targets: the Tablet board takes the desktop's 40 high rows and 36 high buttons. Proposal: 44 from 839 wide
+  below 260 and 560. Decided: no wrap down to 600; the side bar keeps its width and the page narrows.
+- **D59.** Touch targets: the Tablet board takes the desktop's 40 high rows and 36 high buttons. Decided: 44 from 839 wide
   down, as on the phone.
 - **D60.** The title bar from 600 to 839: today's actions plus the organization's button may not fit, and today's stop icon
-  shows below 840. Proposal: the stop icon leaves the title bar while the foot is beside the page; the rest go under
-  *Options* when they do not fit.
+  shows below 840. Decided: the stop icon (this machine) never leaves the title bar, at any width; the foot's *Stop
+  everything* (every machine) does not replace it. What else does not fit goes into the one ⋮, as D7.
 
 #### Part 2: the leaf look
 
-- **D61.** The head at the page's width of about 570: the title block, filter and action do not fit one row. Proposal: title
+- **D61.** The head at the page's width of about 570: the title block, filter and action do not fit one row. Decided: title
   and main action on one row, filter and sort full width under them.
-- **D62.** The chip beside or under the name: the Tablet board keeps it beside. Proposal: the chip goes under the name when the
+- **D62.** The chip beside or under the name: the Tablet board keeps it beside. Decided: the chip goes under the name when the
   card is narrower than 480, by width rather than by board.
 
 ### Phone
@@ -292,36 +303,36 @@ says an entry with entries under it shows what it is and what can be done with i
 #### Part 1: the side bar
 
 - **D63.** The title bar: the Phone board draws the menu, the title and the organization's button, none of today's actions and
-  no stop. Proposal: today's red stop icon stays in sight as today, the other actions in one ⋮ before the
-  organization's button.
+  no stop. Decided: today's red stop icon stays in sight as today, the other actions in one ⋮ before the
+  organization's button, as D7.
 - **D64.** The page of facts on the phone: drawn with facts and actions, and no large title, its title only in the title bar.
-  Proposal: as drawn, the path line keeping its links.
+  Decided: as drawn, the path line keeping its links.
 
 #### Part 2: the leaf look
 
-- **D65.** Filter and sort on the phone: neither drawn. Proposal: the filter full width under the main action, the sort as an
+- **D65.** Filter and sort on the phone: neither drawn. Decided: the filter full width under the main action, the sort as an
   icon at its right.
-- **D66.** The `i` on the phone, with no large title: not drawn. Proposal: at the right of the subtitle line.
-- **D67.** A long path line (*My machines › build-01.example.org › Agents & providers*): drawn on one line. Proposal: it wraps,
+- **D66.** The `i` on the phone, with no large title: not drawn. Decided: at the right of the subtitle line.
+- **D67.** A long path line (*My machines › build-01.example.org › Agents & providers*): drawn on one line. Decided: it wraps,
   never cut.
-- **D68.** A row's fold on the phone: not drawn. Proposal: opens under the row in the card, its offers stacked full width.
+- **D68.** A row's fold on the phone: not drawn. Decided: opens under the row in the card, its offers stacked full width.
 
 #### Part 3: *Work* and *Needs you*
 
-- **D69.** *Work*'s switch and *Running*'s tabs on the phone: not drawn. Proposal: the switch full width under *New work*, the
+- **D69.** *Work*'s switch and *Running*'s tabs on the phone: not drawn. Decided: the switch full width under *New work*, the
   tabs scrolling sideways as today.
 
 ### PhoneMenu
 
 #### Part 1: the side bar
 
-- **D70.** Ways to close: drawn are a choice of a leaf and a click on the dimmed page. Proposal: also a swipe to the left,
+- **D70.** Ways to close: drawn are a choice of a leaf and a click on the dimmed page. Decided: also a swipe to the left,
   Escape and the back button; no close button.
-- **D71.** Focus with the menu open: not drawn. Proposal: focus moves into the side bar on the chosen entry and back to the menu
+- **D71.** Focus with the menu open: not drawn. Decided: focus moves into the side bar on the chosen entry and back to the menu
   button when it closes.
-- **D72.** Its width: drawn at 308, today `Sizes.drawer` is 300. Proposal: 300, or 85 % of a narrower window.
-- **D73.** Where it opens: not drawn. Proposal: with the chosen entry's path folded open and scrolled into sight.
-- **D74.** The foot's buttons: drawn without icons, unlike the Desktop board's. Proposal: today's icons and words as on the
+- **D72.** Its width: drawn at 308, today `Sizes.drawer` is 300. Decided: 300, or 85 % of a narrower window.
+- **D73.** Where it opens: not drawn. Decided: with the chosen entry's path folded open and scrolled into sight.
+- **D74.** The foot's buttons: drawn without icons, unlike the Desktop board's. Decided: today's icons and words as on the
   desktop, 44 high.
 
 ## Plan
@@ -368,6 +379,9 @@ Each part is built, tested and handed over on its own, in this order:
     hides the page, or that shuts before the leaf is reached.
   - *each count in the side bar is the rows of the page it opens* - guards two numbers for one word.
   - *a machine that does not answer says so in the side bar* - guards silence read as health.
+  - *the red stop icon is in the title bar at 390, 700 and 1280 wide, never in the ⋮* - guards a stop out of sight.
+  - *a count not read shows a question mark, never 0* - guards nothing read taken for nothing there.
+  - *an action waiting for a command cannot be pressed* - guards a button that seems to act and does nothing.
   - *Organizations lists the organization read, and a second given to the tree is listed beside it* - guards a tree
     that holds only one by its shape.
 - The step `the rail lists {…} in this order` and the scenario *a narrow window keeps the rail behind the menu button*
