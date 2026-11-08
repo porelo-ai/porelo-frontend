@@ -280,8 +280,10 @@ class Attention extends ChangeNotifier {
     for (final host in tokens) {
       yield AttentionRow(AttentionKind.token, 'token $host', host, host);
     }
-    // Its connection cannot come up before the token, which its own row says.
-    for (final machine in silent.where((each) => !tokens.contains(each.hostCard?.name))) {
+    // Connecting is still being read; a settled refusal or a token wait is what asks for a person.
+    for (final machine in silent.where(
+      (each) => fleetOf(each).reachability != Reachability.connecting && !tokens.contains(each.hostCard?.name),
+    )) {
       final fleet = fleetOf(machine);
       final what = switch (fleet.reachability) {
         _ when notConnectedYet(machine) => 'You have not connected to this machine yet',
@@ -531,6 +533,32 @@ class Attention extends ChangeNotifier {
   /// Every machine once: one node reached two ways would deliver every question twice, and draw all
   /// its work twice.
   List<Machine> get machinesOnce => _counted;
+
+  /// Whether every machine in the Work scope has a current list, including an empty scope.
+  bool workRead({Machine? onlyMachine}) {
+    final scope = onlyMachine == null ? machinesOnce : [onlyMachine];
+    return scope.every(
+      (machine) =>
+          _machines.all.contains(machine) &&
+          fleetOf(machine).reachability == Reachability.connected &&
+          fleetOf(machine).listRead,
+    );
+  }
+
+  /// The whole Work total; a filter never changes it and an incomplete read has no total.
+  int? get workCount => workRead() ? tiles.length : null;
+
+  /// Whether every machine has either supplied a list or reported why it cannot answer.
+  bool get needsRead => machinesOnce.every(
+    (machine) => switch (fleetOf(machine).reachability) {
+      Reachability.connecting => false,
+      Reachability.connected => fleetOf(machine).listRead,
+      Reachability.unreachable || Reachability.incompatible => true,
+    },
+  );
+
+  /// Visible waiting rows always count; an incomplete empty read is not a known zero.
+  int? get needingCount => needingSomebody > 0 || needsRead ? needingSomebody : null;
 
   List<Machine> get _counted {
     final machines = _machines.all;

@@ -146,8 +146,8 @@ class _AttentionViewState extends State<AttentionView> {
       final shown = rows.where((row) => _matches(drawn[row]!)).toList();
       final shownResolved = resolved.where((each) => _matches(drawnResolved[each]!)).toList();
       final scope = PageExplanationScope.of(context);
-      final count = widget.attention.needingSomebody;
-      final countKnown = widget.attention.machinesOnce.any((machine) => widget.attention.fleetOf(machine).listRead);
+      final count = widget.attention.needingCount;
+      final countKnown = count != null;
       _keepTicking(
         widget.attention.needing.any((tile) => tile.questions.any((question) => question.expiresAt != null)),
       );
@@ -161,10 +161,12 @@ class _AttentionViewState extends State<AttentionView> {
               id: scope?.id,
               settings: scope?.settings,
               subtitle: !countKnown
-                  ? 'Not read: no machine has answered'
+                  ? 'Not read: waiting for a machine'
                   : count == 0
                   ? 'Nothing waits on you'
-                  : '$count need you',
+                  : widget.attention.needsRead
+                  ? '$count need you'
+                  : '$count need you · some machines not read',
               subtitleKey: const Key('needs-you-subtitle'),
               controls: Focus(
                 onKeyEvent: (_, event) {

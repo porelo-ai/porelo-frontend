@@ -339,7 +339,7 @@ class _ShellRailState extends State<ShellRail> {
       final value = row.count;
       count = Tooltip(
         message: value == null
-            ? 'Not read: no machine is answering or the list has not been read'
+            ? 'Not read: a machine is not answering or its list has not been read'
             : row.badge
             ? '$value need you'
             : row.place.section == Section.work

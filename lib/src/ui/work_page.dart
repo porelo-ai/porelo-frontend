@@ -126,7 +126,7 @@ class WorkView extends ChangeNotifier {
     }
   }
 
-  /// Selects the work listed by the page and counted in navigation.
+  /// Selects the matching rows; the page and navigation totals always count the whole scope.
   List<Tile> shownTiles(Iterable<Tile> tiles) {
     final query = search.text.trim().toLowerCase();
     return tiles.where((tile) => wordsOf(tile).toLowerCase().contains(query)).toList();
@@ -451,10 +451,7 @@ class _WorkPageState extends State<WorkPage> {
     final work = tiles.length == 1 ? 'piece of work' : 'pieces of work';
     final running = tiles.where((tile) => tile.task?.running ?? false).length;
     final machines = tiles.map((tile) => tile.machine).toSet().length;
-    final countKnown = widget.machines.all.any(
-      (machine) =>
-          (widget.onlyMachine == null || machine == widget.onlyMachine) && widget.machines.of(machine).listRead,
-    );
+    final countKnown = widget.attention.workRead(onlyMachine: widget.onlyMachine);
     final target = WindowSize.fromContext(context).showsTwoPanes ? Sizes.leafSort : Sizes.touchTarget;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: Space.normal),
@@ -471,7 +468,7 @@ class _WorkPageState extends State<WorkPage> {
             titleKey: head?.titleKey,
             status: head?.status,
             subtitle: !countKnown
-                ? 'Not read: no machine has answered'
+                ? 'Not read: a machine is not answering or its list is still being read'
                 : '${tiles.length} $work on $machines ${machines == 1 ? 'machine' : 'machines'} · $running running',
             subtitleKey: const Key('work-list-subtitle'),
             controls: _view.running

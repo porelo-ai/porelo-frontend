@@ -4030,8 +4030,7 @@ class _ShellState extends State<Shell> {
     ]),
     builder: (context, _) {
       final rows = machinesPageRows(widget.machines, _hostRuns);
-      final answered = widget.machines.all.any((machine) => widget.machines.of(machine).listRead);
-      final read =
+      final projectsRead =
           widget.machines.all.any((machine) => widget.machines.of(machine).reachability == Reachability.connected) &&
           _attention.machinesOnce.every((machine) => widget.machines.of(machine).listRead);
       return ShellRail(
@@ -4058,18 +4057,14 @@ class _ShellState extends State<Shell> {
             if (!rows.preparations.any((run) => run.name == machine.name))
               (machine: machine, state: _treeMachineState(machine)),
         ],
-        running: !read
+        running: !_attention.workRead()
             ? null
             : <int>[
                 for (final machine in _attention.machinesOnce)
                   widget.machines.of(machine).tasks.where((task) => task.running).length,
               ].fold<int>(0, (sum, each) => sum + each),
-        work: !read
-            ? null
-            : _workView.shownTiles([
-                for (final machine in _attention.machinesOnce) ..._attention.tilesOn(machine),
-              ]).length,
-        needing: answered ? _attention.needingSomebody : null,
+        work: _attention.workCount,
+        needing: _attention.needingCount,
         machines:
             rows.preparations.length +
             listedMachines(widget.machines)
@@ -4077,7 +4072,7 @@ class _ShellState extends State<Shell> {
                 .length,
         projects:
             _organization != null && !_machineProjects && _organization.view == null ||
-                (_organization == null || _machineProjects) && !read
+                (_organization == null || _machineProjects) && !projectsRead
             ? null
             : projectsInRail(
                 _organization?.view,
