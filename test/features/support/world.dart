@@ -2535,7 +2535,13 @@ diff --git a/lib/money.dart b/lib/money.dart
   }
 
   @override
-  Future<void> approve(String projectFile, String name, String branch, {String? repository, String? commit}) async {
+  Future<ForwardedPush> approve(
+    String projectFile,
+    String name,
+    String branch, {
+    String? repository,
+    String? commit,
+  }) async {
     mustBeAProject(projectFile);
     final refusal = refuseTheGate;
     if (refusal != null) throw refusal;
@@ -2554,6 +2560,7 @@ diff --git a/lib/money.dart b/lib/money.dart
       'seededFrom': '',
       'pending': <Map<String, dynamic>>[],
     });
+    return ForwardedPush(forwarded: name, branch: branch);
   }
 
   @override

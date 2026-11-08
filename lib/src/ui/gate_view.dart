@@ -188,6 +188,7 @@ class ReviewView extends StatelessWidget {
     required this.onApprove,
     required this.onReject,
     this.login,
+    this.sshConfig,
     this.machine = '',
     this.onRefreshKeys,
     this.onTryKey,
@@ -218,6 +219,9 @@ class ReviewView extends StatelessWidget {
   /// How this computer reaches the machine over ssh (`user@host`, or a `Host` of its own), put in
   /// the fetch in place of the name the machine gives itself; null where it is reached otherwise.
   final String? login;
+
+  /// The SSH config used by this window on a POSIX desktop, when one applies.
+  final String? sshConfig;
 
   /// What is being looked at.
   final Gate gate;
@@ -256,7 +260,7 @@ class ReviewView extends StatelessWidget {
                   children: gate.ranked.isEmpty
                       ? <Widget>[
                           ..._refusedKey(),
-                          if (push.fetch.isNotEmpty) _OwnClone(fetch: push.fetchFrom(login)),
+                          if (push.fetch.isNotEmpty) _OwnClone(fetch: push.fetchFrom(login, sshConfig: sshConfig)),
                           for (final file in files) _File(file: file),
                           if (files.isEmpty)
                             const Padding(
@@ -266,7 +270,7 @@ class ReviewView extends StatelessWidget {
                         ]
                       : <Widget>[
                           ..._refusedKey(),
-                          if (push.fetch.isNotEmpty) _OwnClone(fetch: push.fetchFrom(login)),
+                          if (push.fetch.isNotEmpty) _OwnClone(fetch: push.fetchFrom(login, sshConfig: sshConfig)),
                           ..._ranked(context, gate, files, onWithoutLineEndings),
                         ],
                 ),

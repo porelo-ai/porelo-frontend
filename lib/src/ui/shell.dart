@@ -4402,14 +4402,21 @@ class _ShellState extends State<Shell> {
       case GateOpened():
         return GateView(gate: widget.gate, focusNode: _openedFocus, onOpen: _look, onClose: widget.shell.close);
       case ReviewOpened():
+        final machine = widget.machines.current;
+        final sshOptions = machine.loginSshOptions;
+        final configOption = sshOptions.indexOf('-F');
         return ReviewView(
           gate: widget.gate,
           onBack: widget.shell.openGate,
           onClose: widget.shell.close,
           onApprove: _approve,
           onReject: _reject,
-          login: widget.machines.current.needsATunnel ? widget.machines.current.host : null,
-          machine: widget.machines.current.name,
+          login: machine.needsATunnel ? machine.host : null,
+          sshConfig:
+              machine.needsATunnel && !desk.isWindows && configOption >= 0 && configOption + 1 < sshOptions.length
+              ? sshOptions[configOption + 1]
+              : null,
+          machine: machine.name,
           onRefreshKeys: () => unawaited(widget.gate.readKeys(_fleet.backend)),
           onTryKey: (key) => unawaited(widget.gate.tryKey(_fleet.backend, key)),
           onKeepKey: (key) => unawaited(_keepKey(key)),

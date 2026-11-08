@@ -546,7 +546,7 @@ abstract class FleetBackend {
   ///
   /// **The only thing in this interface that sends anything anywhere**, and the branch is never
   /// inferred: a push forwarded onto a guess is one nobody decided about.
-  Future<void> approve(String projectFile, String name, String branch, {String? repository, String? commit});
+  Future<ForwardedPush> approve(String projectFile, String name, String branch, {String? repository, String? commit});
 
   /// Tries a forward with one ssh key alone and writes nothing; see [PoreloClient.credentialTryPush].
   Future<TriedPush> credentialTryPush(
@@ -1073,7 +1073,7 @@ class PoreloBackend implements FleetBackend {
   }
 
   @override
-  Future<void> approve(String projectFile, String name, String branch, {String? repository, String? commit}) =>
+  Future<ForwardedPush> approve(String projectFile, String name, String branch, {String? repository, String? commit}) =>
       _opened().approve(projectFile, name, branch, repository: repository, commit: commit);
 
   @override

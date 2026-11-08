@@ -140,6 +140,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - *Set up a machine* is one dialog again, not a card floating in a larger empty frame.
 - A machine's row stops saying it waits for a first token once the machine took the token, without *Refresh*.
+- The fetch line on a gate review, for a machine reached through this window's own ssh config, carries that config (`GIT_SSH_COMMAND='ssh -F …'`), so it runs as shown in your own shell; a forward says the branch the machine confirmed, and its pull request where one was opened.
 - The token a machine declares for the organization's repository is found again when Porelo answers its address as `host:path` without a user, as it now does.
 - *Give it my token…* on a machine's page offers the token this machine's vault declares for the Porelo organization's forge, named by its declaration, and has Porelo hand it to the machine; the window never reads it. *Give another…* keeps the other ways. Needs a porelo with `org host refresh`.
 - A project file naming each repository's forge as `central:` is read so, and one still naming `upstream:` as before.

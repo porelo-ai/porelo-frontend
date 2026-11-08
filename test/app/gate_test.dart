@@ -46,6 +46,22 @@ void main() {
     expect(backend.approvedIn, <String?>['checkout']);
   });
 
+  // The harm: the caller's proposed branch is reported as the actual destination.
+  test('a forward names only the destination confirmed by the answer', () async {
+    final backend = _OneOfTwoGatesReadable()..forwardedBranch = 'porelo/migrate';
+    final gate = Gate();
+    await gate.lookAt(backend, Project.from(const <String, dynamic>{'name': 'checkout', 'file': '/srv/p.yml'}));
+    await gate.look(backend, gate.waiting.single);
+    final answer = await gate.approve(backend, '');
+    expect(answer.forwarded, isTrue);
+    expect(answer.said, contains('was forwarded to porelo/migrate'));
+    expect(
+      answer.said,
+      isNot(contains('refs/porelo/forwarded/')),
+      reason: 'Approve returns the incoming name, with no retained ref or commit',
+    );
+  });
+
   // The harm: the window said the diff left line ends out while the machine had sent it whole.
   test('the diff is said to leave line ends out only when it was asked without them', () async {
     final backend = _ContractReadOnce();
@@ -87,6 +103,7 @@ class _ContractReadOnce extends _OneOfTwoGatesReadable {
 /// The project's own repository answers; the other's mirror is gone.
 class _OneOfTwoGatesReadable implements FleetBackend {
   final approvedIn = <String?>[];
+  String? forwardedBranch;
 
   @override
   Future<GateState> gateOf(String projectFile, {String? repository}) async {
@@ -113,8 +130,16 @@ class _OneOfTwoGatesReadable implements FleetBackend {
   }) async => (diff: '', log: '', files: const <ReviewFile>[], asked: null);
 
   @override
-  Future<void> approve(String projectFile, String name, String branch, {String? repository, String? commit}) async =>
-      approvedIn.add(repository);
+  Future<ForwardedPush> approve(
+    String projectFile,
+    String name,
+    String branch, {
+    String? repository,
+    String? commit,
+  }) async {
+    approvedIn.add(repository);
+    return ForwardedPush.from(<String, dynamic>{'forwarded': name, 'branch': forwardedBranch ?? branch});
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);

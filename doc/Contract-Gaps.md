@@ -18,6 +18,10 @@ gap here is a backend method that has to be added, not a workaround waiting to b
 
 ## Not on the wire yet
 
+- **Where a forwarded gate commit is retained.** `Approve` returns the incoming push name in `forwarded`, the
+  destination `branch` and an optional `pullRequest`; it returns neither the forwarded commit nor its retained ref
+  under `refs/porelo/forwarded/`. The interface reports the confirmed branch and cannot name that ref.
+
 - **A repository's own settings in Default** (decided in Porelo, being built). `CanStart` answers
   `SETTINGS_NOT_ALLOWED` with `settingsToAllow` and `settingsHash`, or `SETTINGS_UNSIGNED` with `file` and
   `commit`; `AllowSettings(repository, hash)` answers `ALLOWED` or `CHANGED`; `FirstStart` names the file it

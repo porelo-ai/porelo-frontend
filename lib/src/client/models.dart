@@ -1,3 +1,5 @@
+import 'package:porelo_host/porelo_host.dart' show quoteForAShell;
+
 /// What became of a stop or a removal.
 ///
 /// **Not an enum, deliberately.** The contract says adding a value is not a breaking change and
@@ -3956,6 +3958,28 @@ class Log {
   );
 }
 
+/// Where the daemon confirms a waiting push went.
+class ForwardedPush {
+  /// The incoming push name returned by Approve, not a retained ref or a commit.
+  final String forwarded;
+
+  /// The destination branch confirmed by the daemon.
+  final String branch;
+
+  /// The pull request the forge opened or reused, when returned.
+  final String? pullRequest;
+
+  /// Constructor taking only what the answer carries.
+  const ForwardedPush({required this.forwarded, required this.branch, this.pullRequest});
+
+  /// Reads Approve's answer without deriving a ref from its incoming name.
+  factory ForwardedPush.from(Map<String, dynamic> map) => ForwardedPush(
+    forwarded: _string(map, 'forwarded'),
+    branch: _string(map, 'branch'),
+    pullRequest: map['pullRequest'] is String ? map['pullRequest'] as String : null,
+  );
+}
+
 /// A push waiting at the gate for a decision.
 class PendingPush {
   /// The task name under `refs/porelo/incoming/`, which gate decisions take.
@@ -3995,11 +4019,15 @@ class PendingPush {
 
   /// [fetch], with the host the machine named for itself replaced by [login] (`user@host`), the
   /// one this computer reaches it by; as the machine named it where [login] is null or the fetch
-  /// is not an `ssh://` address.
-  String fetchFrom(String? login) {
+  /// is not an `ssh://` address. A POSIX shell uses [sshConfig] for that Host alias, when supplied.
+  String fetchFrom(String? login, {String? sshConfig}) {
     if (login == null || login.isEmpty) return fetch;
     final at = RegExp(r'ssh://[^/\s]+');
-    return fetch.contains(at) ? fetch.replaceFirst(at, 'ssh://$login') : fetch;
+    if (!fetch.contains(at)) return fetch;
+    final reached = fetch.replaceFirst(at, 'ssh://$login');
+    if (sshConfig == null || sshConfig.isEmpty) return reached;
+    final ssh = 'ssh -F ${quoteForAShell(sshConfig)}';
+    return 'GIT_SSH_COMMAND=${quoteForAShell(ssh)} $reached';
   }
 
   /// The same push, waiting in [repository].
