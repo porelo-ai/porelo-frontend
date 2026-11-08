@@ -30,29 +30,35 @@ void main() {
   // Harm: a pin folder another ordinary Windows account can write, so a key other than the one compared is trusted.
   group('a Windows pin folder\'s ACL', () {
     const me = 'S-1-5-21-111-222-333-1001';
-    String acl(List<String> rules, {bool protected = true}) =>
-        ['protected|${protected ? 'True' : 'False'}', 'me|$me', for (final rule in rules) 'rule|$rule'].join('\r\n');
+    String acl(String rules, {String flags = 'PAI'}) => 'porelo-first-login-x\r\nD:$flags$rules\r\n';
 
     test('of the account, SYSTEM and Administrators, none inherited, lets nobody else at it', () {
+      expect(foreignToWindowsPin(acl('(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)(A;OICI;FA;;;$me)'), me), isEmpty);
       expect(
-        foreignToWindowsPin(acl(['$me|False|Allow', 'S-1-5-18|False|Allow', 'S-1-5-32-544|False|Allow'])),
+        foreignToWindowsPin(acl('(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)(A;OICI;FA;;;LA)'), 'S-1-5-21-111-222-333-500'),
         isEmpty,
+        reason: 'the machine\'s own Administrator is written LA',
       );
     });
 
     test('naming Users, Everyone or another person is refused', () {
-      for (final other in ['S-1-5-32-545', 'S-1-1-0', 'S-1-5-21-111-222-333-1002']) {
-        expect(foreignToWindowsPin(acl(['$me|False|Allow', '$other|False|Allow'])), ['another account: $other']);
+      for (final other in ['BU', 'WD', 'S-1-5-21-111-222-333-1002']) {
+        expect(foreignToWindowsPin(acl('(A;OICI;FA;;;$me)(A;OICI;FR;;;$other)'), me), ['another account: $other']);
       }
+      expect(foreignToWindowsPin(acl('(A;OICI;FA;;;LA)'), me), [
+        'no rule for the current account',
+        'another account: LA',
+      ], reason: 'LA is another account unless it is the current one');
     });
 
     test('with a rule inherited, or inheritance not cut, is refused', () {
-      expect(foreignToWindowsPin(acl(['$me|False|Allow', 'S-1-5-18|True|Allow'])), ['inherited: S-1-5-18']);
-      expect(foreignToWindowsPin(acl(['$me|False|Allow'], protected: false)), ['inheritance not cut']);
+      expect(foreignToWindowsPin(acl('(A;OICI;FA;;;$me)(A;OICIID;FA;;;SY)'), me), ['inherited: SY']);
+      expect(foreignToWindowsPin(acl('(A;OICI;FA;;;$me)', flags: 'AI'), me), ['inheritance not cut']);
     });
 
-    test('without a rule for the account is refused', () {
-      expect(foreignToWindowsPin(acl(['S-1-5-18|False|Allow'])), ['no rule for the current account']);
+    test('without a rule for the account, or with none read, is refused', () {
+      expect(foreignToWindowsPin(acl('(A;OICI;FA;;;SY)'), me), ['no rule for the current account']);
+      expect(foreignToWindowsPin('', me), ['no DACL read']);
     });
   });
 
@@ -87,53 +93,43 @@ Future<void> _expectTheOwnersAlone(Directory folder) async {
     expect((await folder.stat()).mode & 0x1ff, 0x1c0, reason: 'the pin folder is the owner\'s alone');
     return;
   }
-  final read = await Process.run(
-    'powershell',
-    [
-      '-NoProfile',
-      '-NonInteractive',
-      '-Command',
-      r'$acl = Get-Acl -LiteralPath $env:PORELO_PIN_FOLDER; '
-          r'"protected|$($acl.AreAccessRulesProtected)"; '
-          r'"me|$([System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value)"; '
-          r'foreach ($rule in $acl.Access) { '
-          r'"rule|$($rule.IdentityReference.Translate([System.Security.Principal.SecurityIdentifier]).Value)|'
-          r'$($rule.IsInherited)|$($rule.AccessControlType)" }',
-    ],
-    environment: {'PORELO_PIN_FOLDER': folder.path},
+  final who = await Process.run('whoami', ['/user', '/fo', 'csv', '/nh']);
+  final me = RegExp(r'"(S-1-[0-9-]+)"').firstMatch('${who.stdout}')?.group(1);
+  expect(me, isNotNull, reason: 'whoami names the current account: ${who.stdout} ${who.stderr}');
+  final saved = File(
+    '${folder.parent.path}${Platform.pathSeparator}${folder.uri.pathSegments.lastWhere((each) => each.isNotEmpty)}.acl',
   );
-  expect(read.exitCode, 0, reason: 'PowerShell reads the pin folder\'s ACL: ${read.stderr}');
-  expect(foreignToWindowsPin('${read.stdout}'), isEmpty, reason: 'the pin folder\'s ACL: ${read.stdout}');
+  addTearDown(() async {
+    if (await saved.exists()) await saved.delete();
+  });
+  final save = await Process.run('icacls', [folder.path, '/save', saved.path]);
+  expect(save.exitCode, 0, reason: 'icacls saves the pin folder\'s ACL: ${save.stdout} ${save.stderr}');
+  // icacls saves its name and its SDDL in UTF-16LE.
+  final bytes = await saved.readAsBytes();
+  final sddl = String.fromCharCodes([for (var at = 0; at + 1 < bytes.length; at += 2) bytes[at] | bytes[at + 1] << 8]);
+  expect(foreignToWindowsPin(sddl, me!), isEmpty, reason: 'the pin folder\'s ACL, for $me: $sddl');
 }
 
 /// SYSTEM and the Administrators group, who can take any file of the account anyway.
-const _windowsAboveTheAccount = {'S-1-5-18', 'S-1-5-32-544'};
+const _windowsAboveTheAccount = {'SY', 'S-1-5-18', 'BA', 'S-1-5-32-544'};
 
-/// What in a Windows ACL, as the test's PowerShell lines print it, lets anyone but the account at the pin: inherited
-/// or unprotected rules, and rules for any other account, such as Users or Everyone.
-List<String> foreignToWindowsPin(String lines) {
-  String? me;
-  bool? protected;
-  final rules = <List<String>>[];
-  for (final line in lines.split(RegExp(r'\r?\n')).map((each) => each.trim()).where((each) => each.isNotEmpty)) {
-    final parts = line.split('|');
-    switch (parts.first) {
-      case 'me':
-        me = parts[1];
-      case 'protected':
-        protected = parts[1] == 'True';
-      case 'rule':
-        rules.add(parts.skip(1).toList());
-    }
-  }
+/// What in a Windows ACL, as `icacls /save` writes its SDDL, lets anyone but the account [me] at the pin: inheritance not
+/// cut, inherited rules, and rules for any other account, such as Users or Everyone. `LA` is the machine's own
+/// Administrator account, so it is [me] where [me] is that account.
+List<String> foreignToWindowsPin(String sddl, String me) {
+  final dacl = RegExp(r'D:([A-Z]*)((?:\([^)]*\))*)').firstMatch(sddl);
+  if (dacl == null) return ['no DACL read'];
+  final rules = [for (final each in RegExp(r'\(([^)]*)\)').allMatches(dacl.group(2)!)) each.group(1)!.split(';')];
+  bool isMe(String sid) => sid == me || (sid == 'LA' && me.endsWith('-500'));
   return [
-    if (me == null) 'no current account read',
-    if (protected != true) 'inheritance not cut',
-    if (!rules.any((rule) => rule[0] == me && rule[2] == 'Allow')) 'no rule for the current account',
+    if (!dacl.group(1)!.contains('P')) 'inheritance not cut',
+    if (!rules.any((rule) => rule.length > 5 && rule[0] == 'A' && isMe(rule[5]))) 'no rule for the current account',
     for (final rule in rules)
-      if (rule[1] != 'False')
-        'inherited: ${rule[0]}'
-      else if (rule[0] != me && !_windowsAboveTheAccount.contains(rule[0]))
-        'another account: ${rule[0]}',
+      if (rule.length < 6)
+        'unreadable rule: ${rule.join(';')}'
+      else if (rule[1].contains('ID'))
+        'inherited: ${rule[5]}'
+      else if (!isMe(rule[5]) && !_windowsAboveTheAccount.contains(rule[5]))
+        'another account: ${rule[5]}',
   ];
 }
