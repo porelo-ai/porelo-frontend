@@ -16,13 +16,9 @@ Each point is to be checked against the code before it is fixed.
   move of one of them lands elsewhere than a person expects from the mock.
 - **Which issues a story's move takes** is chosen, in the mock and in the client, as those in the story's state, not
   as the least advanced ones; the two agree only while the board follows the rule above.
-- **A daemon that answers the board once, without streaming,** keeps its board shown without saying it is not live;
-  whether the board should say so is the operator's choice.
+- **A board read from a daemon that does not stream says it is not live**, and that a reload shows the current state;
+  today it keeps its board shown without saying so.
 - **The planning commands in the finder** (open a story or an issue, move an issue, open its web page, save, undo) are
   registered with no test that fails when they are not.
 - **The start dialog's machine choice** has a test that fails only as a type error when the old field returns, not on
   the behavior it guards: a rejected machine change leaving the old working state selected.
-
-## Open questions
-
-- Should a board read from a daemon that does not stream say that it is not live?
