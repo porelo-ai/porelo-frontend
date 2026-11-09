@@ -2,3 +2,15 @@ packages/xterm/lib/src/core/input/keys.dart
 packages/xterm/lib/src/core/input/keytab/keytab.dart
 packages/xterm/lib/src/core/input/keytab/keytab_default.dart
 packages/xterm/lib/src/core/input/keytab/qt_keyname.dart
+lib/src/mock/planning_data.dart
+test/features/planning_board.feature
+test/features/planning_board_test.dart
+test/features/step/another_machine_offers_the_same_project_planning.dart
+test/features/step/closed_planning_states_are_shown.dart
+test/features/step/low_priority_planning_stories_are_hidden.dart
+test/features/step/only_the_searched_planning_story_remains.dart
+test/features/step/the_machine_moves_a_planning_story.dart
+test/features/step/the_machine_reports_a_stopped_reading.dart
+test/features/step/the_machine_reports_issues_in_reading_and_reworking.dart
+test/features/step/the_moved_planning_story_is_absent_from_backlog.dart
+test/features/step/the_planning_build_stories_are_sorted.dart

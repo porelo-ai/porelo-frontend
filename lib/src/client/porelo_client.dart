@@ -7,6 +7,8 @@ import '../wire/varlink_exception.dart';
 import 'models.dart';
 import 'environment.dart';
 
+part 'planning.dart';
+
 /// A relay ended before the daemon answered, retaining the transport's own verdict.
 class RelayDisconnected extends VarlinkDisconnected {
   /// Constructor taking the bounded diagnostic and exit status, if it arrived in time.

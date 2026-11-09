@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'planning_data.dart';
+
 /// Thrown from a handler to refuse the call, the way the daemon refuses one.
 ///
 /// A method that refuses depending on *what it was asked* is a real thing — `NoSuchLog` is
@@ -30,6 +32,32 @@ class MockRefusal implements Exception {
 class MockDaemon {
   /// Registers stateful room membership methods; tests may replace or remove them.
   MockDaemon() {
+    method('GetPlanningWorkflow', (parameters) {
+      final board = planningFor(parameters);
+      return {'states': board['states'], 'phases': board['phases']};
+    });
+    method('ListStories', (parameters) {
+      final board = planningFor(parameters);
+      return {'stories': board['stories'], 'revision': board['revision']};
+    });
+    pushes('WatchStories', (parameters) {
+      final project = parameters['project'];
+      final first = planningFor(parameters);
+      final replies = StreamController<Map<String, dynamic>>();
+      StreamSubscription<(String, Map<String, dynamic>)>? watching;
+      replies.onListen = () {
+        watching = _planningChanges.stream.listen(
+          (change) {
+            if (change.$1 == project) replies.add(change.$2);
+          },
+          onError: replies.addError,
+          onDone: replies.close,
+        );
+        replies.add(first);
+      };
+      replies.onCancel = () => watching?.cancel();
+      return replies.stream;
+    });
     method(
       'MessageMembers',
       (parameters) => <String, dynamic>{
@@ -49,6 +77,25 @@ class MockDaemon {
       members!.removeAt(index);
       return <String, dynamic>{'user': '', 'kept': false, 'why': ''};
     });
+  }
+
+  /// Whole planning boards by project, initialized independently when first read.
+  final Map<String, Map<String, dynamic>> planning = {};
+  final _planningChanges = StreamController<(String, Map<String, dynamic>)>.broadcast();
+
+  /// Validates project names before reading or starting a watch.
+  Map<String, dynamic> planningFor(Map<String, dynamic> parameters) {
+    final project = parameters['project'];
+    if (project is! String || project.isEmpty || project.contains('/') || project.contains('\\')) {
+      throw MockRefusal('$interfaceName.NoSuchProject', {'project': project});
+    }
+    return planning.putIfAbsent(project, mockPlanningBoard);
+  }
+
+  /// Replaces exactly one project's board and pushes that complete answer.
+  void pushPlanning(String project, Map<String, dynamic> board) {
+    planning[project] = board;
+    _planningChanges.add((project, board));
   }
 
   /// The room members returned by project, changed only by confirmed mock calls.
@@ -157,6 +204,7 @@ class MockDaemon {
       client.destroy();
     }
     _clients.clear();
+    await _planningChanges.close();
     await _server?.close();
     await _directory?.delete(recursive: true);
   }

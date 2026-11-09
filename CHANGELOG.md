@@ -9,6 +9,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- *Planning* shows a project’s stories by workflow phase, with live updates, priority and search filters, folding, issue progress and reading rounds; a stopped reading leads to *Needs you*.
+
 - *Set up a machine* offers *Run it for me* for the bootstrap line: on your press it runs the line on the server as the first login, trusting only the SSH host key you compared, and tries root's login right after; where sudo wants your password it says so, and the terminal stays the way.
 - *Open its forge* on an organization's machine row and its machine page opens the host's forge in your browser while connected, and says why it is unavailable otherwise.
 - *Put it on a machine…* offers the whole project, chosen to begin with, or some of its repositories; a repository already on a machine is named with it and not offered. A machine's page lists the repositories it carries of a project carried in part, each with *Take it off this machine…*, whose question says the machine deletes its read key for it and takes that key off the central forge. Needs a porelo whose `org host carry` takes `--repository`.

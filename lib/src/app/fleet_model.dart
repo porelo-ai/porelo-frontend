@@ -241,6 +241,9 @@ class FleetModel extends ChangeNotifier {
   /// Every task on the machine, as last answered.
   List<Task> get tasks => _tasks;
 
+  /// The authoritative project list, without groups synthesized for orphaned tasks.
+  List<Project> get listedProjects => List<Project>.unmodifiable(_known);
+
   /// Every project the daemon lists, each with the work under it.
   ///
   /// Asked for rather than derived from the task list. A project that has never run anything is

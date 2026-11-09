@@ -40,10 +40,10 @@ void main() {
 
 /// How a test reaches the repository's documents: a file or directory under `doc/` or `issues/`, a
 /// Markdown file at the root, or a listing kept to its Markdown. A path built in a scratch directory
-/// starts with `$` and is no document.
+/// starts with `$` and is no document; a map's key `'issues':` is none either.
 final _readsADocument = <RegExp>[
   RegExp(r"\b(File|Directory)\(\s*'(doc|issues)(/[^']*)?'"),
-  RegExp(r"'(doc|issues)'"),
+  RegExp(r"'(doc|issues)'(?!\s*:)"),
   RegExp(r"\bFile\(\s*'[^'$/]*\.md'"),
   RegExp(r"(?<!!)\b\w+\.path\.endsWith\('\.md'\)"),
 ];

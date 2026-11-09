@@ -66,6 +66,8 @@ import 'organization_access_dialogs.dart';
 import 'clearing_view.dart';
 import '../app/settings.dart';
 import '../app/shell_model.dart';
+import '../app/planning_board.dart';
+import 'planning_view.dart';
 
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_host/porelo_host.dart'
@@ -521,6 +523,8 @@ class _ShellState extends State<Shell> {
   /// How this person stands in each project, which decides whether they may move its work.
   String? _treeTool;
   Machine? _observedMachine;
+  late final _planning = PlanningBoards(widget.machines);
+
   void _machineChanged() {
     _dropForgottenTools();
     _leaveTheSignInsOfForgottenMachines();
@@ -3875,6 +3879,10 @@ class _ShellState extends State<Shell> {
                           child: switch (widget.shell.section) {
                             Section.work => _workArea(),
                             Section.attention => _needsYou(),
+                            Section.planning => PlanningView(
+                              boards: _planning,
+                              onNeedsYou: () => widget.shell.goTo(Section.attention),
+                            ),
                             Section.cards => _cardsPage(),
                             Section.organizations => _organizationsFacts(),
                             Section.machines =>
@@ -4957,6 +4965,7 @@ class _ShellState extends State<Shell> {
       widget.machines,
       _hostRuns,
       _workView,
+      _planning,
       ?_organization,
       for (final machine in widget.machines.all) widget.machines.of(machine),
     ]),
@@ -5000,6 +5009,7 @@ class _ShellState extends State<Shell> {
                   widget.machines.of(machine).tasks.where((task) => task.running).length,
               ].fold<int>(0, (sum, each) => sum + each),
         work: _attention.workCount,
+        planning: _planning.workingCount,
         needing: _attention.needingCount,
         machines:
             rows.preparations.length +
@@ -6257,6 +6267,7 @@ class _ShellState extends State<Shell> {
 
   @override
   void dispose() {
+    _planning.dispose();
     widget.machines.pauseAutomaticRetries();
     widget.shell.removeListener(_followTreeTool);
     widget.shell.removeListener(_checkOrganizationPlace);

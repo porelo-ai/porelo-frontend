@@ -45,6 +45,7 @@ class ShellRail extends StatefulWidget {
     required this.section,
     required this.running,
     this.work,
+    this.planning,
     required this.needing,
     required this.machines,
     required this.projects,
@@ -90,7 +91,7 @@ class ShellRail extends StatefulWidget {
   final bool organizationsKnown;
 
   /// Observed totals; null means they cannot currently be read.
-  final int? running, work, needing, machines, projects, forges;
+  final int? running, work, planning, needing, machines, projects, forges;
 
   /// The width reserved for the tree.
   final double width;
@@ -160,6 +161,14 @@ class _ShellRailState extends State<ShellRail> {
       selectedIcon: Icons.notifications_active,
       count: widget.needing,
       badge: true,
+    ),
+    _TreeRow(
+      const ShellPlace(Section.planning),
+      'Planning',
+      icon: Icons.view_kanban_outlined,
+      selectedIcon: Icons.view_kanban,
+      count: widget.planning,
+      countKey: 'rail-planning-count',
     ),
     _TreeRow(
       const ShellPlace(Section.machines),

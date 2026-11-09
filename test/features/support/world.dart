@@ -4,6 +4,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:porelo_frontend/src/mock/planning_data.dart';
+
 import 'legacy_forge_key.dart';
 export 'legacy_forge_key.dart';
 
@@ -91,6 +93,77 @@ class EveryProjectLocal implements OrganizationSource {
 class FakeBackend implements FleetBackend {
   /// Constructor taking what the machine has on it.
   FakeBackend(this._tasks);
+
+  /// Whether this machine predates planning.
+  bool withoutPlanning = false;
+
+  /// Whole boards that scenarios can replace independently per project.
+  final Map<String, Map<String, dynamic>> planning = {};
+  final _planningChanges = StreamController<(String, Map<String, dynamic>)>.broadcast();
+
+  /// A daemon failure supplied by a scenario.
+  Object? planningFailure;
+
+  /// The number of active planning subscriptions.
+  int planningWatchers = 0;
+
+  Map<String, dynamic> _planningFor(String project) {
+    if (withoutPlanning) throw const FeatureNotSupported('planning');
+    if (planningFailure case final failure?) throw failure;
+    return planning.putIfAbsent(project, mockPlanningBoard);
+  }
+
+  @override
+  Future<PlanningSnapshot> planningWorkflow(String project) async {
+    final board = _planningFor(project);
+    return PlanningSnapshot.from({'states': board['states'], 'phases': board['phases']});
+  }
+
+  @override
+  Future<PlanningSnapshot> stories(String project) async {
+    final board = _planningFor(project);
+    return PlanningSnapshot.from({'stories': board['stories'], 'revision': board['revision']});
+  }
+
+  @override
+  Stream<PlanningSnapshot> watchStories(String project) {
+    final replies = StreamController<PlanningSnapshot>();
+    StreamSubscription<(String, Map<String, dynamic>)>? subscription;
+    replies.onListen = () {
+      planningWatchers++;
+      try {
+        final first = _planningFor(project);
+        subscription = _planningChanges.stream.listen(
+          (change) {
+            if (change.$1 == project) replies.add(PlanningSnapshot.from(change.$2));
+          },
+          onError: replies.addError,
+          onDone: replies.close,
+        );
+        replies.add(PlanningSnapshot.from(first));
+      } catch (error, stack) {
+        replies.addError(error, stack);
+      }
+    };
+    replies.onCancel = () {
+      planningWatchers--;
+      // A broadcast listener detaches synchronously; its cached future may belong to another clock.
+      unawaited(subscription?.cancel());
+    };
+    return replies.stream;
+  }
+
+  /// Pushes a whole changed board on exactly this project's watch.
+  void pushPlanning(String project, Map<String, dynamic> board) {
+    planning[project] = board;
+    _planningChanges.add((project, board));
+  }
+
+  /// Fails the planning watches with the machine's own answer.
+  void failPlanning(Object error) => _planningChanges.addError(error);
+
+  /// Ends the planning watches without another snapshot.
+  Future<void> endPlanning() => _planningChanges.close();
 
   List<Task> _tasks;
   final _changes = StreamController<List<Task>>.broadcast();
@@ -2798,6 +2871,8 @@ diff --git a/lib/money.dart b/lib/money.dart
 
   /// Closes the change stream.
   Future<void> stop() async {
+    // An ended watch was closed in its consumer's clock, which may already have stopped.
+    if (!_planningChanges.isClosed) await _planningChanges.close();
     await _changes.close();
     await asking.close();
     await talking.close();

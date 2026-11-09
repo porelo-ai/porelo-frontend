@@ -1,6 +1,6 @@
 # F446 — The Stories Of A Project On A Planning Board
 
-**Status:** Implementing, against a stand-in for the daemon; blocked by the daemon's planning part on the wire.
+**Status:** Review, built against a stand-in for the daemon; the names are checked once its planning part is served.
 **Size:** M - a new place with its page, one part of the contract read and watched, its models, the mock daemon and the
 fake backend taught it, and a feature file; no logic of the window's own.
 
@@ -14,7 +14,8 @@ own.
 - The machine that carries a project's planning answers, on its owner-only socket, the project's workflow (its states,
   each waiting, working or closed, in their order, and its phases, each naming its states), its stories (id, title,
   state, priority, what it gains, the operator's test, its issues each with id, repository, title, state, size, blocked
-  by and a web link, the work running on it, and the story's own web link), and a revision. A watch on the stories
+  by, a web link, the current reading round `rounds`, the reading limit `roundsMost` and whether it has
+  `readingStopped` (all three optional), the work running on it, and the story's own web link), and a revision. A watch on the stories
   answers the whole board first and again on every change, whoever made it.
 - A story's state is the machine's, computed from its issues; the window never derives it.
 - *Reading* is a working state of its own, entered by the machine on its own when the build before it is done; an
@@ -31,13 +32,19 @@ own.
   answer); `lib/src/client/porelo_client.dart`: the workflow, the stories and the watch on them (`_callMore`, as `Watch`).
 - `lib/src/app/planning_board.dart` (new), a `ChangeNotifier`: one project's board from the watch, the columns and their
   folding, the priority filter, the search, and whether closed states show; kept per project so a second project does
-  not reset the first.
+  not reset the first. Planning discovery uses only projects the daemon lists, never groups made for orphaned
+  tasks. The rail counts one live provider per listed project. A failed or ended watch detaches its terminal
+  subscription so retry can subscribe again without awaiting the old cancellation future; refusal text uses the
+  daemon's detail or message.
 - `lib/src/ui/planning_view.dart` (new), after the design: phases as columns, a phase's states inside it with its
   working states on top and tinted, each with its count; a phase or one state folds to its number and the priority
   marks of its cards; cards show id, priority chip, title, the round where an issue of it is in Reading or Reworking (*reading 2 of 3*), *stopped in Reading - needs you*
   where its rounds are used up (opening *Needs you* at that entry), the work running on it (agent, mode, since) or *nobody at work* where its
   work was stopped and it still stands in a working state, the number of
-  issues, the share in Review or Finished as a bar, and unfold to their issues; the closed states (Finished,
+  issues, the share in Review or Finished as a bar, and unfold to their issues. An issue in Reading or Reworking
+  adds *reading <rounds> of <roundsMost>* from the machine's fields; an issue with `readingStopped` true adds
+  *stopped in Reading - needs you*, which opens Needs you when pressed. Missing round fields stay unsaid, never
+  computed from progress. The closed states (Finished,
   Rejected) hidden behind *Show Finished and Rejected (n)*; a project chooser where more than one project has
   planning, read from the machine shown, or from another watched machine that offers that project's planning; a
   priority filter and a search over id and title. Priority order then number, as the design.
@@ -54,6 +61,9 @@ own.
 - The board shows each story in the state the machine says, in the workflow's order, sorted by priority; a state
   renamed in the workflow shows by its new name without a new window.
 - A change made elsewhere shows within one answer of the watch, without a reload.
+- Reading and Reworking issues show only the machine's round values; stopped reading opens Needs you.
+- Errors and watch completion remain visible while cancellation runs; closing an ended watch cannot hang the page
+  or its test, and waiting for the first reply has no endless animation.
 - With a machine that does not offer planning, the page says so and offers nothing that would call it.
 
 ## Open questions

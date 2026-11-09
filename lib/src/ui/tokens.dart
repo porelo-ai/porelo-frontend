@@ -626,3 +626,44 @@ abstract final class Opacities {
   /// Rows last read from a machine that no longer answers.
   static const stale = 0.5;
 }
+
+/// Planning board dimensions and the design's priority colors.
+abstract final class PlanningStyle {
+  /// The width of a phase column.
+  static const double column = 280;
+
+  /// The width of a phase folded to its summary.
+  static const double foldedColumn = 136;
+
+  /// The miniature progress indicator's width.
+  static const double progress = 56;
+
+  /// Light surfaces follow the board design; dark surfaces follow the window.
+  static Color phase(ColorScheme scheme) =>
+      scheme.brightness == Brightness.light ? const Color(0xFFECEEF1) : scheme.surfaceContainer;
+
+  /// A working state's quiet tint.
+  static Color working(ColorScheme scheme) =>
+      scheme.brightness == Brightness.light ? const Color(0xFFFBF6EA) : scheme.tertiaryContainer;
+
+  /// Background and foreground for priority chips, including an unknown priority.
+  static ({Color background, Color foreground}) priority(String priority, ColorScheme scheme) {
+    if (scheme.brightness == Brightness.dark) {
+      return (
+        background: scheme.surfaceContainerHigh,
+        foreground: switch (priority) {
+          'Highest' => Primitives.brightRed,
+          'High' => Primitives.brightAmber,
+          'Medium' => Primitives.brightBlue,
+          _ => scheme.onSurface,
+        },
+      );
+    }
+    return switch (priority) {
+      'Highest' => (background: const Color(0xFFFDE8E8), foreground: const Color(0xFF9B1C1C)),
+      'High' => (background: const Color(0xFFFDEEDC), foreground: const Color(0xFF8A4B0F)),
+      'Medium' => (background: const Color(0xFFE6EEFB), foreground: const Color(0xFF1E4E8C)),
+      _ => (background: const Color(0xFFECEFF2), foreground: const Color(0xFF4A535D)),
+    };
+  }
+}

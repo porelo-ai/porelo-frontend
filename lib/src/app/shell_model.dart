@@ -15,6 +15,9 @@ enum Section {
   /// What needs a person, from every machine at once.
   attention('Needs you'),
 
+  /// A project's stories in its configured workflow.
+  planning('Planning'),
+
   /// Every machine watched, to set one up or look after it.
   machines('My machines'),
 

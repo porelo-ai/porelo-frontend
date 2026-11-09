@@ -210,6 +210,15 @@ abstract class FleetBackend {
   /// invisible, and that is the one most likely to need attention.
   Future<List<Project>> projects();
 
+  /// Reads the project's planning workflow.
+  Future<PlanningSnapshot> planningWorkflow(String project);
+
+  /// Reads its stories and revision.
+  Future<PlanningSnapshot> stories(String project);
+
+  /// Watches whole-board replacements for this project.
+  Stream<PlanningSnapshot> watchStories(String project);
+
   /// Takes a project the machine carries for this person, as a person's act; see [Project.carried].
   Future<TakenProject> takeProject(String project);
 
@@ -653,6 +662,15 @@ class PoreloBackend implements FleetBackend {
 
   @override
   Future<TakenProject> takeProject(String project) => _opened().takeProject(project);
+
+  @override
+  Future<PlanningSnapshot> planningWorkflow(String project) => _opened().planningWorkflow(project);
+
+  @override
+  Future<PlanningSnapshot> stories(String project) => _opened().stories(project);
+
+  @override
+  Stream<PlanningSnapshot> watchStories(String project) => _opened().watchStories(project);
 
   @override
   Stream<List<Task>> watch() => _opened().watchTasks();
