@@ -281,6 +281,7 @@ void main() {
       'work.restartRun',
       'work.resume',
       'work.review',
+      'work.room',
       'work.session',
       'work.signIn',
       'work.signInAnyway',

@@ -39,6 +39,16 @@ void main() {
     expect(find.byKey(const Key('tile-certificate')), findsNothing);
   });
 
+  // Scrolled to first, as a person would: the tile's menu is taller than the window, and a tap below
+  // the fold misses without failing.
+  Future<void> chooseRenewal(WidgetTester tester) async {
+    await tester.tap(find.byType(CommandMenu).first);
+    await World.settle(tester);
+    await tester.ensureVisible(find.text('Certify it for another week').last);
+    await tester.pump();
+    await tester.tap(find.text('Certify it for another week').last);
+  }
+
   // Harm: the one line that says it worked, or why it did not, is gone before it can be read.
   testWidgets('what certifying says stays, and is not replaced by a refresh', (tester) async {
     final runner = certifyAgainRunner;
@@ -47,18 +57,14 @@ void main() {
         (code: 0, out: '', err: '');
     final task = certified(DateTime.now().toUtc().add(const Duration(hours: 5)));
     await onWork(tester, task);
-    await tester.tap(find.byType(CommandMenu).first);
-    await World.settle(tester);
-    await tester.tap(find.text('Certify it for another week').last);
+    await chooseRenewal(tester);
     await World.settle(tester);
     expect(find.textContaining('is certified for another week.'), findsWidgets);
     expect(find.textContaining('Refreshed:'), findsNothing);
   });
 
   Future<void> pressRenewal(WidgetTester tester) async {
-    await tester.tap(find.byType(CommandMenu).first);
-    await World.settle(tester);
-    await tester.tap(find.text('Certify it for another week').last);
+    await chooseRenewal(tester);
     await tester.pump();
   }
 

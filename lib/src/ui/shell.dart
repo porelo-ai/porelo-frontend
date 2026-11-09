@@ -862,6 +862,7 @@ class _ShellState extends State<Shell> {
     enforceOnTheWork: (_) => _enforceOnTheWork(),
     narrowTheWork: (_) => _narrowTheWork(),
     talkForTheWork: _talkForTheWork,
+    roomOfTheWork: _roomOfTheWork,
     tellTheWork: (task) => unawaited(_tellTheWork(task)),
     handInTo: (task) => unawaited(_handInTo(task)),
     takeBackFrom: (task) => unawaited(_takeBackFrom(task)),
@@ -1189,6 +1190,7 @@ class _ShellState extends State<Shell> {
       enforceOnTheWork: (_) => _enforceOnTheWork(),
       narrowTheWork: (_) => _narrowTheWork(),
       talkForTheWork: _talkForTheWork,
+      roomOfTheWork: _roomOfTheWork,
       tellTheWork: (task) => unawaited(_tellTheWork(task)),
       handInTo: (task) => unawaited(_handInTo(task)),
       takeBackFrom: (task) => unawaited(_takeBackFrom(task)),
@@ -1435,9 +1437,9 @@ class _ShellState extends State<Shell> {
     );
   }
 
-  /// The selected project's conversation: where it is, whether it can carry messages, and joining it.
-  Future<void> _showTheMessages() async {
-    final project = _fleet.selectedProject;
+  /// [of]'s conversation, or the selected project's: where it is, whether it can carry messages, and joining it.
+  Future<void> _showTheMessages({ProjectOnScreen? of}) async {
+    final project = of ?? _fleet.selectedProject;
     if (project == null) return;
     await showProjectMessages(
       context,
@@ -3058,6 +3060,12 @@ class _ShellState extends State<Shell> {
     // Refreshed first, then said: a refresh announces itself.
     await _fleet.refresh();
     _fleet.say(whatEnforcementDid(said, task.name));
+  }
+
+  /// The room of [task]'s own project on this machine.
+  void _roomOfTheWork(Task task) {
+    final project = _fleet.projects.where((each) => each.name == task.project).firstOrNull;
+    if (project != null) unawaited(_showTheMessages(of: project));
   }
 
   /// Shows whom the work may talk to, on its own machine, where each peer is moderated and a

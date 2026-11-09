@@ -337,6 +337,7 @@ List<Command> workCommands({
   required void Function(Task task) enforceOnTheWork,
   required void Function(Task task) narrowTheWork,
   void Function(Task task)? talkForTheWork,
+  void Function(Task task)? roomOfTheWork,
   void Function(Task task)? tellTheWork,
   void Function(Task task)? handInTo,
   void Function(Task task)? takeBackFrom,
@@ -454,6 +455,26 @@ List<Command> workCommands({
           ? 'nothing recorded which project it belongs to, and its project says whom it may talk to'
           : talkForTheWork == null
           ? 'not offered here'
+          : null,
+    ),
+    // Where a person looks for it: the room of the work's own project, from the work's own tile.
+    Command(
+      id: 'work.room',
+      label: 'Open its project’s room',
+      group: 'Work',
+      home: Home.tileMenu,
+      run: () => roomOfTheWork?.call(task!),
+      unavailable: task == null
+          ? nothingSelected
+          : task.project.isEmpty
+          ? 'nothing recorded which project it belongs to'
+          : roomOfTheWork == null
+          ? 'not offered here'
+          // The daemon's own list: a group made for leftover work has no room to open.
+          : fleet.listedProjects.where((each) => each.name == task.project).firstOrNull == null
+          ? 'its project is not listed on this machine'
+          : fleet.projectOf(task)!.messages == null
+          ? '${task.project} has no conversation: none of its peers is reached through a transport of its own'
           : null,
     ),
     // Straight into its inbox, where its agent reads: a person's own words, which never leave the
@@ -1188,6 +1209,7 @@ List<Command> commandsFor({
   required void Function(Task task) enforceOnTheWork,
   required void Function(Task task) narrowTheWork,
   void Function(Task task)? talkForTheWork,
+  void Function(Task task)? roomOfTheWork,
   void Function(Task task)? tellTheWork,
   void Function(Task task)? handInTo,
   void Function(Task task)? takeBackFrom,
@@ -1436,6 +1458,7 @@ List<Command> commandsFor({
       enforceOnTheWork: enforceOnTheWork,
       narrowTheWork: narrowTheWork,
       talkForTheWork: talkForTheWork,
+      roomOfTheWork: roomOfTheWork,
       tellTheWork: tellTheWork,
       handInTo: handInTo,
       takeBackFrom: takeBackFrom,

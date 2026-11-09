@@ -93,6 +93,20 @@ class ProjectDetailsPage extends StatelessWidget {
             onShown: onShown,
           ),
         ),
+        // The room in one press, by a name that says it is the room: the menu's entry names messages first.
+        if (commands.where((each) => each.id == 'project.messages' && each.visible).firstOrNull case final room?)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Tooltip(
+              message: room.unavailable ?? '${room.label} of ${project.label}',
+              child: TextButton.icon(
+                key: const Key('project-room'),
+                onPressed: room.available ? room.run : null,
+                icon: const Icon(Icons.forum_outlined),
+                label: const Text('Open the project’s room'),
+              ),
+            ),
+          ),
         if (onGeneralPage case final open?)
           Align(
             alignment: Alignment.centerLeft,

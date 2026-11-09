@@ -41,6 +41,18 @@ Future<void> _join(WidgetTester tester, String name) async {
 }
 
 void main() {
+  // Harm: the room is found only inside the project's menu, under a name that does not say it is the room.
+  testWidgets('the project page opens its room in one press', (tester) async {
+    await World.startBackend(World.work);
+    World.backend.theProjectsItHas = [_project('!first:localhost')];
+    await World.startApp(tester);
+    World.fleet.selectProject('checkout');
+    World.shell.goTo(Section.project);
+    await World.settle(tester);
+    await World.tapInView(tester, 'project-room');
+    expect(find.byKey(const Key('messages-dialog')), findsOneWidget);
+  });
+
   // Harm: a shortcut on a project opened on another machine must not review the current machine's project.
   testWidgets('a project on another machine blocks shortcuts and finder commands for the current selection', (
     tester,
