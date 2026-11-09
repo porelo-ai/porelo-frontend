@@ -181,6 +181,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- *This machine*, saved at a socket that has since moved, is listed once at its socket now; it was listed twice and the side bar did not draw.
 - Saving planning moves waits for the latest issue details when a save reply and watch update arrive together.
 
 - Planning falls back to a live board after leaving a detail, keeps the last details after a failed refresh, and shows task-link refusal reasons and a watch retry in place.

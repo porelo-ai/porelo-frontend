@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/client.dart';
@@ -26,6 +28,64 @@ void main() {
     expect(machine.name, 'this machine');
     expect(machine.socketPath, endsWith('/porelo/porelod.sock'));
   }, tags: 'linux');
+
+  // Harm: a saved "this machine" whose socket is no longer this computer's - a runtime folder that changed - was listed
+  // beside the local one under the same name, and the side bar, keyed by name, failed to draw (seen live).
+  group('this machine saved with another socket', () {
+    final skip = (Platform.environment['PORELO_SOCKET'] ?? '').isNotEmpty ? 'PORELO_SOCKET names another daemon' : null;
+
+    Future<(Machines, MemorySettingsStore)> loaded(Map<String, Object?> entry) async {
+      final store = MemorySettingsStore(<String, Object?>{
+        'form': settingsForm,
+        'machines': <Object?>[entry],
+      });
+      final machines = Machines(
+        Settings(store),
+        reach: (machine) => FakeBackend(const <Task>[]),
+        tunnels: FakeTunnels(),
+      );
+      await machines.load();
+      return (machines, store);
+    }
+
+    test(
+      'is listed once, at the local socket, and saved so',
+      () async {
+        final (machines, store) = await loaded(<String, Object?>{
+          'name': 'this machine',
+          'socket': '/gone/run/porelo/porelod.sock',
+        });
+        final names = listedMachines(machines).map((each) => each.name).toList();
+        expect(names.toSet(), hasLength(names.length), reason: 'listed: $names');
+        expect(machines.all.single.socketPath, Machine.local().socketPath);
+        final saved = (await store.read())['machines']! as List<Object?>;
+        expect((saved.single! as Map<String, Object?>)['socket'], Machine.local().socketPath);
+        machines.dispose();
+      },
+      skip: skip,
+      tags: 'linux',
+    );
+
+    test(
+      'one reached through a tunnel keeps its way and is still listed once',
+      () async {
+        final (machines, store) = await loaded(<String, Object?>{
+          'name': 'this machine',
+          'socket': '/gone/run/porelo-tunnel.sock',
+          'host': 'elsewhere',
+          'remoteSocket': '/run/user/1000/porelo/porelod.sock',
+        });
+        final names = listedMachines(machines).map((each) => each.name).toList();
+        expect(names, <String>['this machine'], reason: 'listed: $names');
+        expect(machines.all.single.host, 'elsewhere');
+        final saved = (await store.read())['machines']! as List<Object?>;
+        expect((saved.single! as Map<String, Object?>)['host'], 'elsewhere');
+        machines.dispose();
+      },
+      skip: skip,
+      tags: 'linux',
+    );
+  });
 
   test('a machine exists before anything has been read back from disk', () {
     // The frame is drawn before load() can finish. A Machines with nothing in it yet crashed the

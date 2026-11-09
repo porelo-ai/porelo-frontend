@@ -3511,7 +3511,8 @@ class _ShellState extends State<Shell> {
     final machine = await askForAMachine(
       only: only,
       context,
-      taken: widget.machines.all.map((each) => each.name),
+      // As the side bar lists them: this machine is listed though nothing was saved for it.
+      taken: listedMachines(widget.machines).map((each) => each.name),
       trying: widget.machines.tryMachine,
       starting: _startAskedInTheDialog,
       hostKeys: widget.machines.hostKeys,

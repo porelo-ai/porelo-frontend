@@ -683,8 +683,11 @@ class Machines extends ChangeNotifier {
   Future<void> _load() async {
     final found = desk.isWindows ? await _theDistribution() : null;
     final stored = await _settings.machines();
+    final moved = desk.isWindows ? null : _thisMachineMoved(stored);
+    if (moved != null) stored[moved] = Machine.local();
     if (stored.isNotEmpty) await _adopt(stored);
     if (desk.isWindows && !_disposed) _listThisComputer(found);
+    if (moved != null && !_disposed) await _remember();
     // An older card is saved again without what it no longer holds, so the plugin reads today's endpoint too.
     if (_settings.olderMachines) await _remember();
     final extra = _lookFor;
@@ -697,6 +700,25 @@ class Machines extends ChangeNotifier {
       _open(extra);
     }
     _notify();
+  }
+
+  /// Where in [stored] this machine was saved at a socket that is no longer its own, as under a runtime folder that
+  /// changed; null where none was. Only the entry the window itself names *this machine*: a plain socket, no kind, no
+  /// host, no tunnel, and only while `PORELO_SOCKET` names no other daemon. Left as saved, the local daemon was listed
+  /// again beside it under the same name, which names alone tell apart.
+  int? _thisMachineMoved(List<Machine> stored) {
+    if ((Platform.environment['PORELO_SOCKET'] ?? '').isNotEmpty) return null;
+    final local = Machine.local();
+    final at = stored.indexWhere(
+      (each) =>
+          each.name == local.name &&
+          each.kind.isEmpty &&
+          each.host.isEmpty &&
+          !each.needsATunnel &&
+          each.socketPath.isNotEmpty &&
+          each.socketPath != local.socketPath,
+    );
+    return at < 0 ? null : at;
   }
 
   /// The WSL distribution `wsl.exe` names as this computer, or null where it names none or cannot be asked.
@@ -1077,7 +1099,10 @@ List<Machine> listedMachines(Machines machines) {
   final local = Machine.local();
   if (desk.isWindows) {
     if (!all.any((machine) => machine.isAlwaysListed)) all.add(local);
-  } else if (!all.any((machine) => machine.socketPath == local.socketPath && !machine.needsATunnel)) {
+  } else if (!all.any(
+    // Names tell machines apart, in the side bar too: one already named so is not joined by a second.
+    (machine) => machine.socketPath == local.socketPath && !machine.needsATunnel || machine.name == local.name,
+  )) {
     all.add(local);
   }
   return all;
