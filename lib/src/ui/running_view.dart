@@ -570,9 +570,9 @@ class _Tab extends StatelessWidget {
   final Color chosenText;
   final VoidCallback onTap;
 
-  /// What a person calls it, short: its caption, else its short name, else, from a machine that does not say one,
-  /// the container's name without what every piece of work's name starts with.
-  static String shortName(Task task) => task.label.isNotEmpty || (task.short?.isNotEmpty ?? false)
+  /// What a person calls it, short: its caption, else what the machine says a client shows, else, from a machine
+  /// that does not say, the container's name without what every piece of work's name starts with.
+  static String shortName(Task task) => task.label.isNotEmpty || (task.display?.isNotEmpty ?? false)
       ? task.shown
       : (task.name.startsWith('porelo-') ? task.name.substring('porelo-'.length) : task.name);
 

@@ -80,6 +80,9 @@ class MockDaemon {
   ServerSocket? _server;
   Directory? _directory;
 
+  /// How many connections are open now: what a test reads to see that a call it left closed its own.
+  int get openConnections => _clients.length;
+
   /// Where this is listening. Valid once [start] has completed.
   String get socketPath => _path;
   late String _path;

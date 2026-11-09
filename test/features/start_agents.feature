@@ -204,7 +204,7 @@ Feature: Starting the agent each repository names, at one click
             | 'NOT_SIGNED_IN' |
             | 'cut'           |
 
-    Scenario: closing the wizard during a sign-in starts nothing and leaves the login task
+    Scenario: closing the wizard during a sign-in starts nothing and leaves the sign-in running
         Given the machine says {'an-agent'} is {'NOT_SIGNED_IN'}
         When I choose {'Start an agent for each repository…'} from the menu of the project {'checkout'}
         And I go on
@@ -214,10 +214,11 @@ Feature: Starting the agent each repository names, at one click
         When I close the wizard
         Then the sign-in is no longer waited on
         When I go to the work
-        Then it says {'The sign-in to An Agent goes on in its own task'}
+        Then it says {'The sign-in to An Agent goes on by itself'}
+        And it says {'until it is finished or 30 minutes pass'}
         When the sign-in ends as {'SIGNED_IN'}
         Then nothing was started
-        And the login task was not stopped
+        And the sign-in still runs on the machine
 
     # The machine's answer to whether work can start wins: an agent it lists signed in is still signed in here.
     Scenario: an agent listed signed in while the machine says its credential is missing is offered its sign-in
@@ -241,9 +242,9 @@ Feature: Starting the agent each repository names, at one click
         And I press {'Ask again'}
         Then going on is offered
 
-    # A repository left out takes its agent's sign-in out of the way; its login task goes on.
+    # A repository left out takes its agent's sign-in out of the way; that sign-in goes on on the machine.
     Scenario: leaving out the repository whose agent signs in moves on to the next agent
-        Given the machine says {'an-agent'} is {'SIGNING_IN'}
+        Given a sign-in of {'an-agent'} already runs on the machine
         And the machine says {'other-agent'} is {'NOT_SIGNED_IN'}
         When I choose {'Start an agent for each repository…'} from the menu of the project {'checkout'}
         And I leave out {'payments-api'}
@@ -251,7 +252,7 @@ Feature: Starting the agent each repository names, at one click
         And I press {'Sign in'}
         And I close the terminal of the sign-in
         Then the sign-ins started were {'other-agent'}
-        And the login task was not stopped
+        And the sign-in still runs on the machine
         And nothing was started
 
     # The wizard keeps the machine it was chosen on: its sign-ins and their terminals all go there.

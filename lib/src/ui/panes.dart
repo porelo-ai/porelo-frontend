@@ -107,8 +107,6 @@ class WorkDetail extends StatelessWidget {
               // The container's name, here and only here: the heading is what a person calls it, and
               // the identity has to be somewhere — it is what every other call takes.
               if (task.shown != task.name) _Field(name: 'Its name', value: task.name),
-              // What its project's room calls it, where the machine says.
-              if (task.display case final display? when display.isNotEmpty) _Field(name: 'In its room', value: display),
               _Field(name: 'Project', value: task.project.isEmpty ? '—' : task.project),
               if (repository != null) _Field(name: 'Repository', value: repository!),
               _Field(name: 'Security class', value: task.securityClass.isEmpty ? '—' : task.securityClass),

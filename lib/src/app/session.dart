@@ -444,27 +444,6 @@ class Sessions extends ChangeNotifier {
     return session;
   }
 
-  final List<Session> _beside = <Session>[];
-
-  /// The ways in opened beside the one of *Running*, over whatever is open, newest last.
-  List<Session> get beside => List<Session>.unmodifiable(_beside);
-
-  /// Opens a way into [task] on [machine] over whatever is open, as a login task's terminal over the start form:
-  /// **beside the one session of *Running***, which it neither leaves nor takes, as a tab chosen there would.
-  Session openBeside(String task, Machine machine) {
-    final session = Session(task: task, machine: machine, open: openTerminal);
-    _beside.add(session);
-    notifyListeners();
-    return session;
-  }
-
-  /// Closes a way in opened beside. The work it reached carries on.
-  Future<void> leaveBeside(Session session) async {
-    if (!_beside.remove(session)) return;
-    notifyListeners();
-    await _end(session);
-  }
-
   /// Closes the way in. The work it reached carries on.
   Future<void> leave() async {
     final open = _current;
@@ -474,13 +453,8 @@ class Sessions extends ChangeNotifier {
     await _end(open);
   }
 
-  /// Closes every way in, for a window that is being shut: the one of *Running* and those opened beside it.
-  Future<void> leaveAll() async {
-    final beside = List<Session>.of(_beside);
-    _beside.clear();
-    if (beside.isNotEmpty) notifyListeners();
-    await Future.wait(<Future<void>>[leave(), for (final session in beside) _end(session)]);
-  }
+  /// Closes the way in, for a window that is being shut.
+  Future<void> leaveAll() => leave();
 
   Future<void> _end(Session session) async {
     try {
@@ -497,10 +471,6 @@ class Sessions extends ChangeNotifier {
     final open = _current;
     _current = null;
     if (open != null) unawaited(_end(open));
-    for (final session in _beside) {
-      unawaited(_end(session));
-    }
-    _beside.clear();
     super.dispose();
   }
 }

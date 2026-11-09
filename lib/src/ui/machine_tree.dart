@@ -39,7 +39,8 @@ class StopEverywhere extends StatelessWidget {
 /// What a machine an organization's card names holds of [repository] of [project], for its row on the project's page
 /// opened from that machine: carried, not carried or held; its state at central; the work running in it. [progress] is
 /// what the machine said of the project, null where it said nothing of it; [progressRead] is false where the machine
-/// was not asked, and [tasks] null where its work was not read: each then says not read, never none.
+/// was not asked, and [tasks] null where its work was not read: each then says not read, never none. What the
+/// machine's own daemon says of it in [listed] is taken before any of these, where it says it.
 String repositoryOnTheMachine({
   required String project,
   required String repository,
@@ -47,18 +48,22 @@ String repositoryOnTheMachine({
   required bool progressRead,
   required List<Task>? tasks,
   List<String>? carriedAlone,
+  Repository? listed,
 }) {
   final row = progress?.repositories.where((each) => each.repository == repository).firstOrNull;
   final alone = carriedAlone != null && carriedAlone.contains(repository);
   final notHere = carriedAlone != null && !alone;
-  final held = !progressRead
-      ? (alone
-            ? 'carried here alone'
-            : notHere
-            ? 'not carried here'
-            : 'carried: not read')
-      : progress?.state == 'held'
+  final daemonCarried = listed == null ? null : carriedWords(listed);
+  final held = listed?.carriedHere == false
+      // Not carried here, so nothing of it is held here, whatever the project is.
+      ? daemonCarried!
+      : progressRead && progress?.state == 'held'
       ? 'held: ${progress?.why ?? 'it has unpushed work'}'
+      : daemonCarried != null
+      ? (alone ? 'carried here alone' : daemonCarried)
+      : !progressRead
+      // What the organization planned for the machine is no word that it carries it.
+      ? (notHere ? 'not carried here' : 'carried: not read')
       : switch (row?.state) {
           'taken' => alone ? 'carried here alone' : 'carried',
           'waiting' => 'not carried yet',
@@ -66,12 +71,113 @@ String repositoryOnTheMachine({
           null => notHere ? 'not carried here' : 'not carried',
           final state => 'not carried: $state',
         };
-  final central = !progressRead
+  final host = progressRead && row?.state == 'taken' ? (row?.central ?? const HostRepositoryCentral()) : null;
+  final daemon = listed?.central;
+  // The two may disagree, one older than the other: up to date never hides what is not.
+  final central = daemon != null && (daemon != 'up-to-date' || host == null || host.state == 'up-to-date')
+      ? centralWords(listed!)
+      // One the machine does not carry has no copy of its own to stand against central, whatever the host said.
+      : listed?.carriedHere == false
+      ? null
+      : host != null
+      ? host.words
+      : !progressRead
       ? 'central: not read'
-      : row?.state == 'taken'
-      ? (row?.central ?? const HostRepositoryCentral()).words
+      : listed?.carriedHere == true
+      ? 'central: not reported'
       : null;
-  return [held, ?central, runningIn(project: project, repository: repository, tasks: tasks)].join(' · ');
+  return [held, ?central, workIn(project: project, repository: repository, listed: listed, tasks: tasks)].join(' · ');
+}
+
+/// The work of [repository] of [project] for its row: as the machine whose daemon listed it as [listed] counts it,
+/// else from the machine's list of work, [tasks], where that daemon lists it with no count at all and does not say it
+/// does not carry it, as an older Porelo does; otherwise not reported, never none.
+String workIn({
+  required String project,
+  required String repository,
+  required Repository? listed,
+  required List<Task>? tasks,
+}) {
+  if (listed == null) return 'tasks: not reported';
+  if (countedIn(project: project, repository: listed, tasks: tasks) case final counted?) return counted;
+  final uncounted = listed.tasks == null && listed.running == null;
+  return uncounted && listed.carriedHere != false
+      ? runningIn(project: project, repository: repository, tasks: tasks)
+      : 'tasks: not reported';
+}
+
+/// What the machine whose daemon listed [listed] of [project] holds of it, for its row on the project's page opened
+/// from that machine, where no organization's card names the machine: carried or not, its state at central, its work.
+/// What that daemon does not say is said as before: [carried] is whether the machine carries the project for this
+/// person, who has not taken it yet.
+String repositoryOnAMachine({
+  required String project,
+  required Repository listed,
+  required bool carried,
+  required List<Task>? tasks,
+}) {
+  final central = centralWords(listed) ?? (listed.carriedHere == true ? 'central: not reported' : null);
+  return [
+    switch (listed.carriedHere) {
+      true when carried => 'carried, not taken yet',
+      null => carried ? 'carried, not taken yet' : 'on the machine',
+      _ => carriedWords(listed)!,
+    },
+    ?central,
+    workIn(project: project, repository: listed.name, listed: listed, tasks: tasks),
+  ].join(' · ');
+}
+
+/// Whether [repository] is carried on the machine whose daemon listed it, as that daemon says; null where it says
+/// nothing of it, as on a machine that is no host of the project, which leaves the window's earlier way.
+String? carriedWords(Repository repository) => switch (repository.carriedHere) {
+  true => 'carried',
+  false => 'not carried here',
+  null => null,
+};
+
+/// How [repository] stands against central, as the machine whose daemon listed it says; null where it says nothing,
+/// which is never up to date. A word of a later Porelo is shown as it comes, and a count ahead only with when it was
+/// answered.
+String? centralWords(Repository repository) {
+  final ahead = repository.ahead;
+  final when = DateTime.tryParse(repository.aheadMeasured ?? '');
+  String commits(int n) => n == 1 ? '1 commit' : '$n commits';
+  return switch (repository.central) {
+    null => null,
+    // Ahead by none says nothing of how far, as the host's own answer does not.
+    'ahead' when ahead != null && ahead > 0 && when != null => '${commits(ahead)} ahead of central${_asOf(when)}',
+    'ahead' => 'ahead of central, by how much not reported',
+    'up-to-date' => 'at central',
+    'moved-on' => 'central moved on',
+    'cannot-say' => 'cannot say: ${repository.centralWhy ?? 'no reason reported'}',
+    'no-central' => 'no central forge',
+    final state => 'central: $state',
+  };
+}
+
+String _asOf(DateTime when) {
+  final ago = DateTime.now().difference(when);
+  if (ago.isNegative || ago.inMinutes < 1) return ', answered just now';
+  if (ago.inMinutes < 60) return ', as of ${ago.inMinutes} minutes ago';
+  if (ago.inHours < 48) return ', as of ${ago.inHours} hours ago';
+  return ', as of ${ago.inDays} days ago';
+}
+
+/// The work of [repository] of [project], as the machine whose daemon listed it counts it, with the names of the
+/// running work from [tasks] where they agree; null where the daemon does not count, which leaves [runningIn]. Not
+/// read where [tasks] is null, as the machine does not answer now and its count is its last.
+String? countedIn({required String project, required Repository repository, required List<Task>? tasks}) {
+  final (counted, up) = (repository.tasks, repository.running);
+  if (counted == null || up == null) return null;
+  if (tasks == null) return 'tasks: not read';
+  final names = [
+    for (final task in tasks)
+      if (task.running && task.project == project && task.repository == repository.name)
+        task.shown == task.name ? task.task : task.shown,
+  ];
+  final of = '$up of ${counted == 1 ? '1 task' : '$counted tasks'} running';
+  return names.isNotEmpty && names.length == up ? '$of: ${names.join(', ')}' : of;
 }
 
 /// The work running in [repository] of [project], by the names given at its start; not read where [tasks] is null.
@@ -322,7 +428,16 @@ class _RepositoryLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final name = repository.name;
-    final start = repositoryStartCommand(repository: name, onStart: onStart, unavailable: startUnavailable);
+    final start = repositoryStartCommand(
+      repository: name,
+      onStart: onStart,
+      unavailable: startUnavailable,
+      // Not carried where its daemon says so, or where what is said of it on the machine reads not carried, as of
+      // one the host has not taken there yet: a start there is refused.
+      carriedHere: repository.carriedHere == false || (onTheMachine?.startsWith('not carried') ?? false)
+          ? false
+          : repository.carriedHere,
+    );
     final state = <String>[
       ?onTheMachine,
       if (repository.pending > 0) '${repository.pending} waiting at the gate',

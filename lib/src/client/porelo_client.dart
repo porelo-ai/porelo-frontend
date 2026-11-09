@@ -119,45 +119,26 @@ class FeatureNotSupported implements Exception {
   String toString() => 'this backend has no $method';
 }
 
-/// The machine cannot sign [agent] in, and says why: [reason], verbatim.
-class CannotSignIn extends VarlinkException {
+/// The machine could not start a sign-in of [agent], and says why: [reason] (`NO_SUCH_AGENT`, `UNSUPPORTED`,
+/// `LOOPBACK_OVER_SSH`, `NO_CONFIG_DIRECTORY`, `ALREADY_SIGNED_IN`, `VAULT_LOCKED`, `FAILED`, or one this build does
+/// not know), and [detail] in words, shown as it comes.
+class SignInRefused extends VarlinkException {
   /// Constructor taking the refusal as it came.
-  CannotSignIn(VarlinkException refusal)
+  SignInRefused(VarlinkException refusal)
     : agent = '${refusal.parameters['agent'] ?? ''}',
       reason = '${refusal.parameters['reason'] ?? ''}',
+      detail = '${refusal.parameters['detail'] ?? ''}',
       super(refusal.name, refusal.parameters);
 
   /// The agent it was asked to sign in.
   final String agent;
 
-  /// Why not, in the machine's words; empty where it gave none.
+  /// Why not, as the machine names it; empty where it gave none.
   final String reason;
+
+  /// Why not, in the machine's words; empty where it gave none.
+  final String detail;
 }
-
-/// The machine has no agent called [agent].
-class NoSuchAgent extends VarlinkException {
-  /// Constructor taking the refusal as it came.
-  NoSuchAgent(VarlinkException refusal)
-    : agent = '${refusal.parameters['agent'] ?? ''}',
-      super(refusal.name, refusal.parameters);
-
-  /// The agent it was asked about.
-  final String agent;
-}
-
-/// The machine's vault is shut, so nothing can be signed in there.
-class VaultShut extends VarlinkException {
-  /// Constructor taking the refusal as it came.
-  VaultShut(VarlinkException refusal) : super(refusal.name, refusal.parameters);
-}
-
-/// A sign-in method's named refusals as their own errors; any other passes as it came.
-Object _signInRefusal(Object error) => switch (error) {
-  VarlinkException(simpleName: 'CannotSignIn') => CannotSignIn(error),
-  VarlinkException(simpleName: 'NoSuchAgent') => NoSuchAgent(error),
-  VarlinkException(simpleName: 'VaultShut') => VaultShut(error),
-  _ => error,
-};
 
 /// What one machine has to run agents with: the ones it can use, the ones it cannot, and the ones
 /// it will never reach.
@@ -294,29 +275,69 @@ class PoreloClient {
   /// What the vault holds, without any of it.
   Future<VaultState> credentials() async => VaultState.from(await _call('Credentials'));
 
-  /// Whether each of [agents] is signed in here, or every installed agent where none is named.
-  Future<List<AgentSignIn>> agentSignIns({List<String>? agents}) async {
+  /// Each installed agent's sign-in state here, read from the vault once.
+  Future<List<AgentSignIn>> agentSignIns() async =>
+      AgentSignIn.allIn(await _call('AgentSignIns', const <String, dynamic>{}));
+
+  /// Starts [agent]'s own login here, or answers the one that runs already: never a second. [force] signs in
+  /// although the machine's own agent directory holds a sign-in; [remote] says the person reaches this machine from
+  /// another one.
+  Future<SignInStarted> agentSignInStart(String agent, {bool? force, bool? remote}) async {
     try {
-      return AgentSignIn.allIn(await _call('AgentSignIns', <String, dynamic>{'agents': ?agents}));
+      return SignInStarted.from(
+        await _call('AgentSignInStart', <String, dynamic>{'agent': agent, 'force': ?force, 'remote': ?remote}),
+      );
     } on VarlinkException catch (refusal) {
-      throw _signInRefusal(refusal);
+      if (refusal.simpleName == 'SignInRefused') throw SignInRefused(refusal);
+      rethrow;
     }
   }
 
-  /// Starts [agent]'s sign-in as the machine's login task, or answers the one that runs already.
-  Future<SignInStarted> agentSignInStart(String agent) async {
-    try {
-      return SignInStarted.from(await _call('AgentSignInStart', <String, dynamic>{'agent': agent}));
-    } on VarlinkException catch (refusal) {
-      throw _signInRefusal(refusal);
-    }
+  /// How long [agentSignInWait] may go unanswered: the machine answers within 30 minutes, so a little past that.
+  static const Duration signInWaitWithin = Duration(minutes: 31);
+
+  /// Waits until [agent]'s sign-in here ends, and answers whether the vault holds its credential then: one reply,
+  /// at once where none runs.
+  ///
+  /// **On a connection of its own, under [signInWaitWithin] rather than the single call's deadline**, and that
+  /// connection is closed when the wait is left (the subscription canceled), which does not end the sign-in.
+  Stream<SignInWaited> agentSignInWait(String agent) {
+    final waited = StreamController<SignInWaited>();
+    VarlinkConnection? connection;
+    var left = false;
+    waited.onListen = () => unawaited(() async {
+      try {
+        final opened = await backend.open();
+        if (left) return unawaited(opened.close());
+        connection = opened;
+        final reply = await opened.call('$interfaceName.AgentSignInWait', <String, dynamic>{
+          'agent': agent,
+        }, signInWaitWithin);
+        if (!left) waited.add(SignInWaited.from(reply));
+      } on VarlinkException catch (ex) {
+        if (!left) waited.addError(ex.isMethodNotFound ? const FeatureNotSupported('AgentSignInWait') : ex);
+      } on Object catch (ex) {
+        if (!left) waited.addError(ex);
+      } finally {
+        await connection?.close();
+        connection = null;
+        if (!left) await waited.close();
+      }
+    }());
+    waited.onCancel = () async {
+      left = true;
+      final open = connection;
+      connection = null;
+      await open?.close();
+    };
+    return waited.stream;
   }
 
-  /// Waits on [agent]'s sign-in that runs; its last reply says how it ended. With none running it answers once,
-  /// with the state now.
-  Stream<SignInWaited> agentSignInWait(String agent) => _callMore('AgentSignInWait', <String, dynamic>{'agent': agent})
-      .handleError((Object error) => throw _signInRefusal(error), test: (error) => error is VarlinkException)
-      .map(SignInWaited.from);
+  /// The model a start on [project] (and [repository], where named) would run on for each provider this machine
+  /// knows, when the start names none.
+  Future<List<ProviderModel>> providerModels(String project, {String? repository}) async => ProviderModel.allIn(
+    await _call('ProviderModels', <String, dynamic>{'project': project, 'repository': ?repository}),
+  );
 
   /// Records a credential this machine may use. **No secret crosses this socket**: the answer says
   /// what to run on the machine to store the value.

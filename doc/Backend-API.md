@@ -117,6 +117,7 @@ The IDL carries the detail, a comment per method and per field. The shape of it:
 | **What exists** | `List`, `Watch` (streams), `Projects`, `WatchProjects` (streams), `Agents`, `Credentials` |
 | **A start a host certifies** | `Start` with `certify: true`, where declared, gives one `certify: {start, key, principal, key_id, valid_before, certifiers}` in its stream; the window checks it, has the local agent sign and answers `Certify(start, certificate?, refused?)`. A wait ends at five minutes or when the stream closes |
 | **A carried project** | A row of `Projects` with `carried: true` and an empty `file`: the host carries it and this person has not taken it here. `TakeProject` takes it, once, at a person's act, and answers `{file}` or `{reason, words}`; a list never takes |
+| **A repository on its machine** | A `Repository` of `Projects` says `carriedHere` (whether this machine, a host of the project, carries it; absent on a machine that is no host of it), `tasks` and `running` (its work, and how much is up), `central` with `centralWhy` (how the host forge's copy stands against central, as the host last said; new values may appear), and `ahead` with `aheadMeasured` (the commits for central, as last answered). The window takes each where it is said, on the project's page opened from a machine, its rows' start and the repositories *New work* offers; where one is absent it says what it said before or *not reported*, never 0 and never up to date |
 | **Running tasks** | `Start` (creates or brings back; streams the build), `Stop` (keeps it), `Remove`, `Tail` (follows a log) |
 | **Builds of a push** | `Task.builds`, `buildReader`, `buildProblem` (no method: `Watch` carries them) |
 | **Files handed in** | `HandIn` (in parts), `TakeBack`, `HandIns` (the record, also after the task is gone) |
@@ -167,19 +168,30 @@ Worth knowing before designing around them:
   so no age or inbox count is guessed. The last output line comes from `Tail(last: 1)`. An
   unattended run is never woken by a message; quiet is described as silence.
 - **A task's names and model come with the task.** A task is shown by its `label` where somebody set one, else by
-  `short`, else by `name`; `display` is its name in the project's room, and `name`, the container, is what every
-  call takes and is shown only in its details. `model` is what it was started with, `""` for the agent's own
-  default; `modelLabel` is shown as it comes, else the id. All are optional: absent means not reported. The start
-  form fills its model from `Repository.defaultModels`, else `Project.defaultModels`, for the provider `CanStart`
-  names, and sends `Start`'s `model` only when the field holds one; *Continue*, *Restart* and *Recreate* send the
-  task's own, and a start of an agent for each repository sends none.
-- **An agent's sign-in is the machine's own login task.** Before a start, and once for every agent of a start of
-  several, the window asks `AgentSignIns`; every state but `SIGNED_IN` holds the start, an unknown one too, and
-  `CanStart` still has to clear. *Sign in* sends `AgentSignInStart(agent)`, which starts the login task or names the
-  one that runs (`started` false, so a second is never opened), opens that task's terminal as any task's, where the
-  person follows the link and pastes the code, and waits with `AgentSignInWait` until its final reply. *End the
-  sign-in* stops the login task with `Stop`; leaving the form drops only the wait. A login task is listed with
-  `kind: LOGIN`. Against a machine without these methods a start goes as before.
+  `display` (what the machine says a client shows), else by `name`; `name`, the container, is what every call takes
+  and is shown only in its details. `model` is what its start settled, `""` for the agent's own default;
+  `modelLabel` is shown as it comes, else the id, with `modelFrom` beside it. All are optional: absent means not
+  reported. The start form asks `ProviderModels(project, repository?)` of its own machine and fills its model with
+  the entry whose provider is the one `CanStart` names (`""` from `agent` reads as the agent's own default); not
+  served or failed, the field stays empty. `Start`'s `model` is sent only when the field holds one; *Continue*,
+  *Restart* and *Recreate* send the task's own, and a start of an agent for each repository sends none.
+- **An agent's sign-in is the machine's own login, which is no task.** Before a start, and once for every agent of a
+  start of several, the window asks `AgentSignIns()`; every state but `SIGNED_IN` holds the start (`VAULT_LOCKED`
+  and an unknown one too), and `CanStart` still has to clear. `CANNOT_SAY`, and a wait ended as `CANNOT_SAY` or
+  `NO_PROVIDER`, leaves it to `CanStart`: answered ready, the start goes and no sign-in is offered; not answered, or
+  holding, it holds. *Sign in* sends `AgentSignInStart(agent,
+  remote?)`, `remote: true` for a machine this window reaches from another one, which starts the login or answers
+  the one that runs (`started` false: never a second). Its `attach` is run on that machine in a terminal, as any
+  command the machine names (over ssh in the login shell); the person follows the link and pastes the code there.
+  `SignInRefused` is said with its `detail`; after `ALREADY_SIGNED_IN` the window offers `ImportCredential` first
+  and `force: true` only on a second press. `AgentSignInWait(agent)` answers once, when the sign-in ended: **its own
+  deadline is 31 minutes, past the machine's 30, not the 30 seconds of a single call, and it runs on a connection of
+  its own**, closed when the wait is left (the form closed or opened again, the machine forgotten), which does not
+  end the sign-in; a start or question still out when it is left opens no wait and no terminal on its late answer.
+  The terminal only watches the login (`podman attach --sig-proxy=false`), so closing it ends nothing either, and
+  while it is open *Sign in* opens no second one. Every `AgentSignInStart` answered is waited on by the container it
+  names. Only `stored: true` reads as signed in. Against a machine without these methods a start goes as
+  before.
 - **A task's builds come with the task.** `buildReader` `""` means no forge follows its pushes and
   nothing is said; set, with `builds` empty and `buildProblem` `""`, it means nothing was pushed yet;
   `buildProblem` says why a named reader does not work. A `Build` lists its jobs only once the verdict

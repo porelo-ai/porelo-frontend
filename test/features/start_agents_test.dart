@@ -52,9 +52,10 @@ import './step/the_signins_started_were.dart';
 import './step/the_signin_is_waited_on.dart';
 import './step/i_close_the_wizard.dart';
 import './step/the_signin_is_no_longer_waited_on.dart';
-import './step/the_login_task_was_not_stopped.dart';
+import './step/the_signin_still_runs_on_the_machine.dart';
 import './step/asking_whether_agents_are_signed_in_fails_with.dart';
 import './step/the_machine_answers_which_agents_are_signed_in_again.dart';
+import './step/a_signin_of_already_runs_on_the_machine.dart';
 import './step/the_machine_has_signins_of_its_own.dart';
 import './step/i_watch_another_machine_called.dart';
 import './step/the_machine_holds_its_list_of_projects_back.dart';
@@ -297,7 +298,9 @@ void main() {
       await theWizardCannotGoOnYet(tester);
       await nothingWasStarted(tester);
     });
-    testWidgets('''closing the wizard during a sign-in starts nothing and leaves the login task''', (tester) async {
+    testWidgets('''closing the wizard during a sign-in starts nothing and leaves the sign-in running''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
       await theMachineSaysIs(tester, 'an-agent', 'NOT_SIGNED_IN');
       await iChooseFromTheMenuOfTheProject(tester, 'Start an agent for each repository…', 'checkout');
@@ -308,10 +311,11 @@ void main() {
       await iCloseTheWizard(tester);
       await theSigninIsNoLongerWaitedOn(tester);
       await iGoToTheWork(tester);
-      await itSays(tester, 'The sign-in to An Agent goes on in its own task');
+      await itSays(tester, 'The sign-in to An Agent goes on by itself');
+      await itSays(tester, 'until it is finished or 30 minutes pass');
       await theSigninEndsAs(tester, 'SIGNED_IN');
       await nothingWasStarted(tester);
-      await theLoginTaskWasNotStopped(tester);
+      await theSigninStillRunsOnTheMachine(tester);
     });
     testWidgets(
       '''an agent listed signed in while the machine says its credential is missing is offered its sign-in''',
@@ -343,7 +347,7 @@ void main() {
     });
     testWidgets('''leaving out the repository whose agent signs in moves on to the next agent''', (tester) async {
       await bddSetUp(tester);
-      await theMachineSaysIs(tester, 'an-agent', 'SIGNING_IN');
+      await aSigninOfAlreadyRunsOnTheMachine(tester, 'an-agent');
       await theMachineSaysIs(tester, 'other-agent', 'NOT_SIGNED_IN');
       await iChooseFromTheMenuOfTheProject(tester, 'Start an agent for each repository…', 'checkout');
       await iLeaveOut(tester, 'payments-api');
@@ -351,7 +355,7 @@ void main() {
       await iPress(tester, 'Sign in');
       await iCloseTheTerminalOfTheSignin(tester);
       await theSigninsStartedWere(tester, 'other-agent');
-      await theLoginTaskWasNotStopped(tester);
+      await theSigninStillRunsOnTheMachine(tester);
       await nothingWasStarted(tester);
     });
     testWidgets('''the wizard opens on the machine it was chosen on, not on one chosen while the machine was read''', (

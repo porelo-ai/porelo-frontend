@@ -290,7 +290,6 @@ class FakeBackend implements FleetBackend {
           credentialsAnswered: project.credentialsAnswered,
           messages: project.messages,
           lastUsed: project.lastUsed,
-          defaultModels: project.defaultModels,
         ),
     ];
   }
@@ -419,7 +418,8 @@ class FakeBackend implements FleetBackend {
   /// as it did before.
   bool signsIn = false;
 
-  /// What `AgentSignIns` says of each agent, set by the scenario; an agent not named here reads signed in.
+  /// What `AgentSignIns` says of each agent, set by the scenario and changed by what it is asked; an agent not named
+  /// here reads signed in.
   final Map<String, AgentSignIn> signInOf = <String, AgentSignIn>{};
 
   /// What asking whether agents are signed in fails with, in place of an answer; null while it answers.
@@ -428,17 +428,28 @@ class FakeBackend implements FleetBackend {
   /// Holds every `Projects` asked until the scenario completes it; null while it answers at once.
   Completer<void>? projectsHeld;
 
-  /// Every `AgentSignIns` asked, by the agents it named.
-  final List<List<String>?> signInsAsked = <List<String>?>[];
+  /// How often `AgentSignIns` was asked.
+  int signInsAsked = 0;
 
-  /// Every `AgentSignInStart` asked, by agent.
-  final List<String> signInStarts = <String>[];
-
-  /// What the next `AgentSignInStart` answers; null starts `porelo-login-<agent>`.
-  SignInStarted? signInStartAnswer;
+  /// Every `AgentSignInStart` asked, as it was asked.
+  final List<({String agent, bool? force, bool? remote})> signInStarts =
+      <({String agent, bool? force, bool? remote})>[];
 
   /// What `AgentSignInStart` fails with, in place of an answer; null while it answers.
   Object? signInStartFails;
+
+  /// The reason every sign-in start **not forced** is refused with, as `SignInRefused`; null while none is.
+  String? signInRefusedAs;
+
+  /// Holds every `AgentSignInStart` until the scenario completes it; null while it answers at once.
+  Completer<void>? signInStartHeld;
+
+  /// A sign-in started at the machine since the list was read, which the next `AgentSignInStart` answers with
+  /// `started` false; null while none is.
+  String? runningSinceTheList;
+
+  /// Holds every `ProviderModels` until the scenario completes it; null while it answers at once.
+  Completer<void>? modelsHeld;
 
   /// Every `AgentSignInWait` asked, by agent.
   final List<String> signInWaits = <String>[];
@@ -447,24 +458,41 @@ class FakeBackend implements FleetBackend {
   StreamController<SignInWaited>? signInWait;
 
   @override
-  Future<List<AgentSignIn>> agentSignIns({List<String>? agents}) async {
+  Future<List<AgentSignIn>> agentSignIns() async {
     if (!signsIn) throw const FeatureNotSupported('AgentSignIns');
-    signInsAsked.add(agents);
+    signInsAsked++;
     if (signInsFail case final failure?) throw failure;
     return <AgentSignIn>[
-      for (final agent in agents ?? <String>[for (final each in theAgentsItHas) each.name])
-        signInOf[agent] ?? AgentSignIn(agent: agent, provider: 'a-provider', state: 'SIGNED_IN'),
+      for (final each in theAgentsItHas) signInOf[each.name] ?? AgentSignIn(agent: each.name, state: 'SIGNED_IN'),
     ];
   }
 
+  /// Starts the agent's login, or answers the one that runs with `started` false: **never a second**, as the
+  /// machine does.
   @override
-  Future<SignInStarted> agentSignInStart(String agent) async {
+  Future<SignInStarted> agentSignInStart(String agent, {bool? force, bool? remote}) async {
     if (!signsIn) throw const FeatureNotSupported('AgentSignInStart');
-    signInStarts.add(agent);
+    signInStarts.add((agent: agent, force: force, remote: remote));
+    if (signInStartHeld case final held?) await held.future;
     if (signInStartFails case final failure?) throw failure;
-    final answer = signInStartAnswer ?? SignInStarted(task: 'porelo-login-$agent', started: true);
-    signInOf[agent] = AgentSignIn(agent: agent, provider: 'a-provider', state: 'SIGNING_IN', loginTask: answer.task);
-    return answer;
+    if (signInRefusedAs case final reason? when force != true) {
+      throw SignInRefused(
+        VarlinkException('org.fuin.porelo.Tasks1.SignInRefused', <String, dynamic>{
+          'agent': agent,
+          'reason': reason,
+          'detail': 'The agent directory on the machine holds a sign-in of $agent.',
+        }),
+      );
+    }
+    final said = signInOf[agent];
+    final running = said?.running ?? runningSinceTheList;
+    final container = running == null || running.isEmpty ? 'porelo-login-$agent' : running;
+    signInOf[agent] = AgentSignIn(agent: agent, state: said?.state ?? 'NOT_SIGNED_IN', running: container);
+    return SignInStarted(
+      container: container,
+      started: running == null,
+      attach: <String>['podman', 'attach', container],
+    );
   }
 
   @override
@@ -474,6 +502,22 @@ class FakeBackend implements FleetBackend {
     final waiting = StreamController<SignInWaited>();
     signInWait = waiting;
     return waiting.stream;
+  }
+
+  /// What `ProviderModels` answers, by `project` or `project/repository`, set by the scenario; null as a machine
+  /// older than it.
+  Map<String, List<ProviderModel>>? modelsOf;
+
+  /// Every `ProviderModels` asked.
+  final List<({String project, String? repository})> modelsAsked = <({String project, String? repository})>[];
+
+  @override
+  Future<List<ProviderModel>> providerModels(String project, {String? repository}) async {
+    final models = modelsOf;
+    if (models == null) throw const FeatureNotSupported('ProviderModels');
+    modelsAsked.add((project: project, repository: repository));
+    if (modelsHeld case final held?) await held.future;
+    return models['$project/$repository'] ?? models[project] ?? const <ProviderModel>[];
   }
 
   /// What the next [removeTask] answers. Set by the scenario, so a refusal can be produced without
@@ -1685,6 +1729,10 @@ class FakeBackend implements FleetBackend {
   @override
   Future<Imported> importCredential({String? agent, String? configDirectory}) async {
     imports.add(agent);
+    // Stored, the machine reads the agent signed in from then on.
+    if (theImportAnswers.stored && agent != null && signInOf.containsKey(agent)) {
+      signInOf[agent] = AgentSignIn(agent: agent, state: 'SIGNED_IN');
+    }
     return theImportAnswers;
   }
 

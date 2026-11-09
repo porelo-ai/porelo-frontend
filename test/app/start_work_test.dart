@@ -765,63 +765,69 @@ void main() {
       expect(await modelSent(machine, starting), isNull);
     });
 
-    Project withDefaults(Project project, {List<ProviderModel> own = const [], List<ProviderModel> its = const []}) =>
-        Project(
-          name: project.name,
-          securityClass: project.securityClass,
-          file: project.file,
-          mirror: project.mirror,
-          pending: project.pending,
-          tasks: project.tasks,
-          running: project.running,
-          repositories: const <String>['checkout'],
-          repositoryStates: <Repository>[Repository(name: 'checkout', defaultModels: its)],
-          defaultModels: own,
-        );
-
-    // Harm: the default the repository names for the provider that runs is not filled in, and the machine's own
-    // default is taken in its place.
-    test("the repository's default for the provider that runs is filled in and sent", () async {
-      final machine = FakeBackend(const <Task>[]);
+    // Harm: the model the machine says a start runs on for the provider that runs is not filled in, and the
+    // machine's own default is taken in its place, unseen.
+    test('the model the machine names for the provider that runs is filled in and sent', () async {
+      final machine = FakeBackend(const <Task>[])
+        ..modelsOf = <String, List<ProviderModel>>{
+          'checkout/checkout': const <ProviderModel>[
+            ProviderModel(provider: 'a-provider', model: 'repo-model', from: 'repository'),
+          ],
+        };
       final starting = StartWork();
       addTearDown(starting.dispose);
-      await starting.open(
-        machine,
-        withDefaults(
-          machine.theProjectsItHas.first,
-          own: const <ProviderModel>[ProviderModel(provider: 'a-provider', model: 'project-model', from: 'project')],
-          its: const <ProviderModel>[ProviderModel(provider: 'a-provider', model: 'repo-model', from: 'repository')],
-        ),
-        repository: 'checkout',
-      );
+      await starting.open(machine, machine.theProjectsItHas.first, repository: 'checkout');
       starting.chooseAgent('an-agent');
       await starting.askAgain();
 
+      expect(machine.modelsAsked.last, (project: 'checkout', repository: 'checkout'));
       expect(starting.model, 'repo-model');
       expect(await modelSent(machine, starting), 'repo-model');
     });
 
-    test(
-      "the project's default for the provider that runs is filled in and sent where the repository names none",
-      () async {
-        final machine = FakeBackend(const <Task>[]);
-        final starting = StartWork();
-        addTearDown(starting.dispose);
-        await starting.open(
-          machine,
-          withDefaults(
-            machine.theProjectsItHas.first,
-            own: const <ProviderModel>[ProviderModel(provider: 'a-provider', model: 'project-model', from: 'project')],
-          ),
-          repository: 'checkout',
-        );
-        starting.chooseAgent('an-agent');
-        await starting.askAgain();
+    // Harm: the model the machine names for one provider is filled in and sent where another provider runs.
+    test("the model of another provider is not taken, and the agent's own default is sent as none", () async {
+      final machine = FakeBackend(const <Task>[])
+        ..readinessOf['other-agent'] = const Readiness(
+          ready: true,
+          outcome: StartOutcome.ready,
+          agent: 'other-agent',
+          provider: 'b-provider',
+          credential: 'b-provider',
+          detail: '',
+        )
+        ..modelsOf = <String, List<ProviderModel>>{
+          'checkout': const <ProviderModel>[
+            ProviderModel(provider: 'a-provider', model: 'a-model', from: 'project'),
+            ProviderModel(provider: 'b-provider', model: '', from: 'agent'),
+          ],
+        };
+      final starting = StartWork();
+      addTearDown(starting.dispose);
+      await starting.open(machine, machine.theProjectsItHas.first);
+      starting.chooseAgent('an-agent');
+      await starting.askAgain();
+      expect(starting.model, 'a-model');
 
-        expect(starting.model, 'project-model');
-        expect(await modelSent(machine, starting), 'project-model');
-      },
-    );
+      starting.chooseAgent('other-agent');
+      await starting.askAgain();
+
+      expect(starting.model, isEmpty, reason: 'b-provider runs on the agent default');
+      expect(await modelSent(machine, starting), isNull);
+    });
+
+    // Harm: a machine older than the models a start runs on leaves the form unable to start, or fills in a model.
+    test('a machine that does not say which model a start runs on leaves the field empty and starts', () async {
+      final machine = FakeBackend(const <Task>[]);
+      final starting = StartWork();
+      addTearDown(starting.dispose);
+      await starting.open(machine, machine.theProjectsItHas.first, repository: 'checkout');
+      starting.chooseAgent('an-agent');
+      await starting.askAgain();
+
+      expect(starting.model, isEmpty);
+      expect(await modelSent(machine, starting), isNull);
+    });
 
     // Harm: a model typed while the new agent's answer is out is tagged with the old agent's provider and cleared,
     // or adopted by a provider it was not typed for.
@@ -850,19 +856,101 @@ void main() {
       expect(await modelSent(machine, starting), 'b-model');
     });
 
-    // Harm: the default of the agent before stays in the field, and is sent for an agent whose provider was not said.
-    test('an unchosen default goes with its agent when another is chosen and the machine cannot say more', () async {
+    // Harm: the model of the repository before is sent for another, while the machine has not said that one's.
+    test("another repository's model waits for the machine's answer for it, and is never the one before", () async {
+      final project = Project.from(const <String, dynamic>{
+        'name': 'checkout',
+        'securityClass': 'guarded',
+        'file': '/srv/checkout/project.yml',
+        'repositories': <Map<String, dynamic>>[
+          <String, dynamic>{'name': 'checkout', 'own': true},
+          <String, dynamic>{'name': 'api'},
+          <String, dynamic>{'name': 'docs'},
+        ],
+      });
+      final machine = FakeBackend(const <Task>[])
+        ..theProjectsItHas = <Project>[project]
+        ..modelsOf = <String, List<ProviderModel>>{
+          'checkout/api': const <ProviderModel>[
+            ProviderModel(provider: 'a-provider', model: 'api-model', from: 'repository'),
+          ],
+          'checkout/docs': const <ProviderModel>[
+            ProviderModel(provider: 'a-provider', model: 'docs-model', from: 'repository'),
+          ],
+        };
+      final starting = StartWork();
+      addTearDown(starting.dispose);
+      await starting.open(machine, project, repository: 'api');
+      starting
+        ..callIt('work')
+        ..chooseAgent('an-agent');
+      await starting.askAgain();
+      expect(starting.model, 'api-model');
+
+      final held = machine.modelsHeld = Completer<void>();
+      starting.chooseRepository('docs');
+      await pumpEventQueue();
+
+      expect(starting.model, isEmpty, reason: 'the model of api is not docs');
+      expect(starting.ready, isFalse, reason: 'the model of docs is not said yet');
+      held.complete();
+      await pumpEventQueue();
+      expect(starting.model, 'docs-model');
+      expect(await modelSent(machine, starting), 'docs-model');
+    });
+
+    // Harm: a model typed for one agent is sent for another whose provider the machine does not name.
+    test('a model typed for one agent is not sent for another whose provider is not named', () async {
+      final machine = FakeBackend(const <Task>[])
+        ..readinessOf['other-agent'] = const Readiness(
+          ready: true,
+          outcome: StartOutcome.ready,
+          agent: 'other-agent',
+          provider: '',
+          credential: '',
+          detail: '',
+        );
+      final starting = StartWork();
+      addTearDown(starting.dispose);
+      await starting.open(machine, machine.theProjectsItHas.first);
+      starting
+        ..callIt('work')
+        ..chooseAgent('an-agent');
+      await starting.askAgain();
+      starting.chooseModel('big-model');
+      starting.chooseAgent('other-agent');
+      await starting.askAgain();
+
+      expect(starting.model, isEmpty);
+      expect(await modelSent(machine, starting), isNull);
+    });
+
+    test('a model typed for one agent is not kept for another when the machine could not say', () async {
       final machine = FakeBackend(const <Task>[]);
       final starting = StartWork();
       addTearDown(starting.dispose);
-      await starting.open(
-        machine,
-        withDefaults(
-          machine.theProjectsItHas.first,
-          own: const <ProviderModel>[ProviderModel(provider: 'a-provider', model: 'a-model', from: 'project')],
-        ),
-        repository: 'checkout',
-      );
+      await starting.open(machine, machine.theProjectsItHas.first);
+      starting
+        ..callIt('work')
+        ..chooseAgent('an-agent');
+      await starting.askAgain();
+      starting.chooseModel('big-model');
+      machine.canStartFails = 'the vault could not be read';
+      starting.chooseAgent('other-agent');
+      await starting.askAgain();
+
+      expect(starting.model, isEmpty);
+    });
+
+    // Harm: the default of the agent before stays in the field, and is sent for an agent whose provider was not said.
+    test('an unchosen default goes with its agent when another is chosen and the machine cannot say more', () async {
+      final machine = FakeBackend(const <Task>[])
+        ..modelsOf = <String, List<ProviderModel>>{
+          'checkout': const <ProviderModel>[ProviderModel(provider: 'a-provider', model: 'a-model', from: 'project')],
+        };
+      final starting = StartWork();
+      addTearDown(starting.dispose);
+      await starting.open(machine, machine.theProjectsItHas.first, repository: 'checkout');
       starting.chooseAgent('an-agent');
       await starting.askAgain();
       expect(starting.model, 'a-model');
@@ -871,32 +959,6 @@ void main() {
       await starting.askAgain();
 
       expect(starting.model, isEmpty, reason: 'the default was for the agent before');
-    });
-
-    // Harm: the default a project names for one provider is sent to another.
-    test("a project's default for another provider is not taken", () async {
-      final machine = FakeBackend(const <Task>[]);
-      final project = machine.theProjectsItHas.first;
-      final starting = StartWork();
-      addTearDown(starting.dispose);
-      await starting.open(
-        machine,
-        Project(
-          name: project.name,
-          securityClass: project.securityClass,
-          file: project.file,
-          mirror: project.mirror,
-          pending: project.pending,
-          tasks: project.tasks,
-          running: project.running,
-          defaultModels: const <ProviderModel>[
-            ProviderModel(provider: 'b-provider', model: 'b-model', from: 'project'),
-          ],
-        ),
-      );
-      starting.chooseAgent('an-agent');
-
-      expect(await modelSent(machine, starting), isNull);
     });
   });
 

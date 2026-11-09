@@ -20,6 +20,7 @@ import 'following_output.dart';
 import 'tokens.dart';
 import 'host_check_list.dart';
 import 'host_preparation_settings.dart';
+import 'machine_tree.dart' show centralWords;
 
 /// Opens confirmed give-back of the existing rental.
 Future<void> openHostTakeDownDialog(
@@ -603,6 +604,25 @@ class _HostDialogState extends State<HostDialog> {
   /// The project states that say nothing of unpushed work; any other, a later host's word too, cannot say.
   static const _knownProjectStates = {'carried', 'pending', 'waiting-for-token', 'refused', 'held'};
 
+  /// The repositories the daemon of the machine called [host] says stand otherwise than at central, as it last listed
+  /// them: ahead, moved on, cannot say (but for a repository with no central forge), a later word, or commits ahead.
+  /// A repository it says it does not carry, or of whose central it says nothing, adds nothing here.
+  List<({String project, String repository, String words})> _daemonCentralBlockers(String host) => [
+    for (final machine in widget.machines.all)
+      if (machine.hostCard?.name == host)
+        for (final project in widget.machines.of(machine).projects)
+          for (final repository in project.project.repositoryStates)
+            if (repository.carriedHere != false &&
+                repository.central != null &&
+                ((repository.ahead ?? 0) > 0 ||
+                    HostRepositoryCentral(state: repository.central!, why: repository.centralWhy).blocksGiveBack))
+              (
+                project: project.name,
+                repository: repository.name,
+                words: centralWords(repository) ?? 'cannot say: the machine did not report its central state',
+              ),
+  ];
+
   Future<void> _readCentral() async {
     if (_checkingCentral) return;
     final host = _record?.hostName.isNotEmpty == true ? _record!.hostName : widget.project;
@@ -626,6 +646,20 @@ class _HostDialogState extends State<HostDialog> {
             for (final row in project.repositories)
               if (row.state == 'taken' && (row.central ?? const HostRepositoryCentral()).blocksGiveBack)
                 '${project.project}/${row.repository}: ${(row.central ?? const HostRepositoryCentral()).words}',
+          // What the machine's own Porelo last said blocks too: one of the two may be older, and up to date from one
+          // never lets the other's loss through.
+          for (final (:project, :repository, :words) in _daemonCentralBlockers(host))
+            if (!progress.projects.any(
+              (each) =>
+                  each.project == project &&
+                  each.repositories.any(
+                    (row) =>
+                        row.repository == repository &&
+                        row.state == 'taken' &&
+                        (row.central ?? const HostRepositoryCentral()).blocksGiveBack,
+                  ),
+            ))
+              '$project/$repository: $words',
         ];
       });
     } catch (error) {

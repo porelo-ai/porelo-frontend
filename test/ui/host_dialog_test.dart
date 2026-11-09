@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/commands.dart';
 import 'package:porelo_frontend/src/app/host_access.dart' show HostAccess;
 import 'package:porelo_frontend/src/app/host_progress.dart';
@@ -168,6 +169,39 @@ void main() {
       await tester.pump();
     });
   }
+
+  // Harm: the machine's own Porelo says commits wait to reach central while the host says up to date, and they are lost
+  // without the second decision.
+  testWidgets('the machine saying a repository is ahead of central blocks the give-back the host would allow', (
+    tester,
+  ) async {
+    final state = await openTakeDown(
+      tester,
+      readHostProgress: (_) async => _centralProgress({'state': 'up-to-date'}),
+      itsDaemonLists: [
+        Project.from(const {
+          'name': 'demo',
+          'repositories': [
+            {'name': 'demo', 'own': true, 'carriedHere': true, 'central': 'up-to-date'},
+            {
+              'name': 'core',
+              'carriedHere': true,
+              'central': 'ahead',
+              'ahead': 2,
+              'aheadMeasured': '2026-11-09T08:00:00Z',
+            },
+          ],
+        }),
+      ],
+    );
+    answerHolders(state.processes.single, []);
+    await World.settle(tester);
+    expect(tester.widget<FilledButton>(find.byKey(const Key('host-confirm-down'))).onPressed, isNull);
+    expect(find.textContaining('demo/core'), findsOneWidget);
+    expect(find.textContaining('demo/demo'), findsNothing, reason: 'up to date at central blocks nothing');
+    expect(find.byKey(const Key('host-give-back-anyway')), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 
   // Harm: the local-only exception becomes unusable, or an ordinary return silently forces data loss.
   testWidgets('at central and local repositories allow ordinary give-back without forcing', (tester) async {
@@ -1868,17 +1902,33 @@ Future<({Settings settings, List<List<String>> commands, List<HostProcess> proce
   Future<HostProgress> Function(String host)? readHostProgress = _emptyHostProgress,
   Future<String?> Function(String host)? removeFromOrganization,
   HostAccess? hostAccess,
+  List<Project>? itsDaemonLists,
 }) async {
   tester.view.physicalSize = const Size(1280, 800);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   final settings = Settings(store ?? MemorySettingsStore());
   await settings.rememberHostUp('orchard', record);
-  final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: RecordingTunnels());
+  final backend = FakeBackend(const []);
+  final machines = Machines(settings, reach: (_) => backend, tunnels: RecordingTunnels());
   addTearDown(() {
     machines.dispose();
     settings.dispose();
   });
+  if (itsDaemonLists != null) {
+    // The machine given back, watched here through its card, its daemon listing these.
+    backend.theProjectsItHas = itsDaemonLists;
+    final card = host.HostCardSsh(
+      name: 'orchard',
+      address: '203.0.113.9',
+      sshPort: 22,
+      hostKey: 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB',
+      login: 'hana',
+      publicKey: 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB',
+    );
+    await machines.add(Machine.fromHostCard(card, socketPath: '/unused'));
+    await World.settle(tester);
+  }
   final commands = <List<String>>[];
   final processes = <HostProcess>[];
   await tester.pumpWidget(

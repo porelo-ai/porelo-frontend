@@ -152,7 +152,7 @@ class _SignIns extends StatelessWidget {
     final missing = starting.signInsNeeded;
     final held = starting.held.toList();
     final problem = starting.askProblem;
-    // On a machine with sign-ins of its own, each agent in its login task, one after another.
+    // On a machine with sign-ins of its own, each agent in its own login there, one after another.
     final ownSignIns = starting.signsIn == true;
     return Column(
       mainAxisSize: MainAxisSize.min,

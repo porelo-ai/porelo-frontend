@@ -20,8 +20,14 @@ class StartWork extends ChangeNotifier with QuietAfterDispose {
   /// Constructor: the sign-in it owns asks again whether work can start once the machine says signed in.
   StartWork() {
     signIn
-      ..onSignedIn = askAgain
+      ..onSignedIn = _askAfterTheSignIn
       ..addListener(notifyListeners);
+  }
+
+  /// Asks again whether work can start once the sign-in ended, keeping what it ended as: the machine just said it.
+  Future<void> _askAfterTheSignIn() async {
+    final machine = _machine;
+    if (machine != null) await _askWhetherItCanStart(machine);
   }
 
   /// The sign-in of the agent to run, on the machine the form was opened on: owned here, not by the dialog, so a
@@ -89,11 +95,26 @@ class StartWork extends ChangeNotifier with QuietAfterDispose {
     notOfferedWords = null;
   }
 
-  /// The repositories to choose among: the work repositories, of them only those the machine has where it said.
+  /// The repositories to choose among: the work repositories, of them only those the machine has where it said, and
+  /// **never one its own Porelo says it does not carry**, which it would refuse a start in.
   List<String> get offeredRepositories => [
     for (final name in project?.workRepositories ?? const <String>[])
-      if (takenHere == null || takenHere!.contains(name)) name,
+      if ((takenHere == null || takenHere!.contains(name)) && !_notCarried.contains(name)) name,
   ];
+
+  /// The project's repositories the machine's own Porelo says it does not carry.
+  Set<String> get _notCarried => <String>{
+    for (final each in project?.repositoryStates ?? const <Repository>[])
+      if (each.carriedHere == false) each.name,
+  };
+
+  /// [name] where work can start in it on the machine, or null where its Porelo says it does not carry it, which is
+  /// then said: chosen again, never sent to be refused.
+  String? _carried(String? name) {
+    if (name == null || !_notCarried.contains(name)) return name;
+    notOfferedWords = 'The machine does not carry $name, and would refuse a start there.';
+    return null;
+  }
 
   /// The checkout on this computer this start was asked from, or null where none was.
   CheckoutHere? checkout;
@@ -166,15 +187,42 @@ class StartWork extends ChangeNotifier with QuietAfterDispose {
   /// What became of a model chosen for one provider when the machine named another, or null.
   String? modelWords;
 
-  /// The default model for the provider the machine names for this start: the repository's, else the project's;
-  /// null where none is named or no provider is known.
-  ProviderModel? get defaultModel {
-    final provider = readiness?.provider ?? '';
+  /// The model a start that names none would run on, per provider, as the form's machine answered for its project
+  /// and repository; null while not answered, from a machine older than it, or where it failed.
+  List<ProviderModel>? _models;
+
+  /// Counts the questions about [_models], so an answer about another project or repository lands nowhere.
+  int _modelsAsked = 0;
+
+  /// The model the machine says a start runs on for the provider it names for this start (`CanStart`'s), **never
+  /// another provider's**; null where it said none, or no provider is known.
+  ProviderModel? get defaultModel =>
+      ProviderModel.forProvider(_models ?? const <ProviderModel>[], readiness?.provider ?? '');
+
+  /// Asks the form's machine which model a start would run on per provider, for the project and repository known
+  /// now; not served or failed, the field stays empty and the machine takes the provider's default.
+  Future<void> _askTheModels(FleetBackend backend) async {
+    final asked = ++_modelsAsked;
+    _models = null;
     final where = project;
-    if (where == null || provider.isEmpty) return null;
-    final repository = where.repositoryStates.where((each) => each.name == this.repository).firstOrNull;
-    return ProviderModel.forProvider(repository?.defaultModels ?? const <ProviderModel>[], provider) ??
-        ProviderModel.forProvider(where.defaultModels, provider);
+    if (where == null || !where.canBeActedOn || (needsARepository && repository == null)) return;
+    // Counted as a question out: nothing starts on a model said for another repository before this one's is said.
+    _questionsOut++;
+    try {
+      final models = await backend.providerModels(where.name, repository: repository);
+      if (asked != _modelsAsked || !identical(backend, _machine)) return;
+      _models = models;
+      _fitTheModel();
+    } on FeatureNotSupported {
+      return;
+    } on VarlinkException {
+      return;
+    } on VarlinkDisconnected {
+      return;
+    } finally {
+      _questionsOut--;
+      notifyListeners();
+    }
   }
 
   /// What the model field says of what it holds, for a person.
@@ -186,8 +234,12 @@ class StartWork extends ChangeNotifier with QuietAfterDispose {
         return 'Left empty, the machine takes the default model of the provider it uses, else the agent’s own. '
             'It has not said which provider that is yet.';
       }
-      return fallback == null
-          ? 'The agent’s own default: neither the repository nor the project names one for $provider.'
+      if (fallback == null) {
+        return 'Left empty, the machine takes the default model of $provider, else the agent’s own; it did not say '
+            'which that is.';
+      }
+      return fallback.model.isEmpty
+          ? 'The agent’s own default: nothing names a model for $provider.'
           : 'Left empty, the machine takes ${fallback.shown}, the default for $provider ${_whence(fallback)}.';
     }
     if (_modelCarried) return 'The model it ran last time${_modelFor.isEmpty ? '' : ', through $_modelFor'}.';
@@ -200,6 +252,7 @@ class StartWork extends ChangeNotifier with QuietAfterDispose {
   static String _whence(ProviderModel named) => switch (named.from) {
     'repository' => 'from the repository',
     'project' => 'from the project',
+    'agent' => 'as the agent’s own',
     '' => 'on the machine',
     final other => 'from $other',
   };
@@ -227,8 +280,18 @@ class StartWork extends ChangeNotifier with QuietAfterDispose {
       _modelFor = provider;
       return;
     }
-    // An answer that names no provider says nothing about the model: kept as it is.
-    if (provider.isEmpty || _modelFor == provider) return;
+    // An answer that names no provider, or none at all, says nothing about the model: kept for the agent it was typed
+    // or carried for, and never sent for another.
+    if (provider.isEmpty || _canStartFailed) {
+      if (_modelAgent == agent) return;
+      modelWords = '$model was for ${_modelFor.isEmpty ? 'another agent' : _modelFor}; the model is left empty now.';
+      model = '';
+      _modelChosen = false;
+      _modelCarried = false;
+      _modelFor = '';
+      return;
+    }
+    if (_modelFor == provider) return;
     // Typed before any provider was named: it is that agent's, and taken only for an answer about it.
     if (_modelFor.isEmpty && _modelAgent == agent) {
       _modelFor = provider;
@@ -483,7 +546,11 @@ class StartWork extends ChangeNotifier with QuietAfterDispose {
       await signIn.ask(on, agent: who, label: listed?.label ?? '');
     }
     // After the asking, which drops what was held before: the machine's answer for a start wins.
-    if (signIn.agent == who && identical(signIn.on, on)) signIn.heldByCanStart = _canStartWantsASignIn;
+    if (signIn.agent == who && identical(signIn.on, on)) {
+      signIn
+        ..heldByCanStart = _canStartWantsASignIn
+        ..startSaysReady = readiness?.ready == true && !_canStartFailed;
+    }
   }
 
   /// Whether the agent chosen has nothing to sign in with yet, and can sign in from here.
@@ -615,7 +682,7 @@ class StartWork extends ChangeNotifier with QuietAfterDispose {
     _offerEvery();
     // Where the job was named to start — unless the project no longer has that repository, when
     // it is chosen again rather than sent to be refused.
-    repository = project.workRepositories.contains(template.repository) ? template.repository : null;
+    repository = project.workRepositories.contains(template.repository) ? _carried(template.repository) : null;
     continuing = null;
     restarting = null;
     from = template;
@@ -634,10 +701,10 @@ class StartWork extends ChangeNotifier with QuietAfterDispose {
   /// Opens it on a project, and reads what agents the machine has.
   Future<void> open(FleetBackend backend, Project project, {String? repository, CheckoutHere? checkout}) async {
     this.project = project;
-    openedForRepository = repository;
-    this.checkout = checkout;
-    this.repository = repository;
     _offerEvery();
+    openedForRepository = _carried(repository);
+    this.checkout = checkout;
+    this.repository = openedForRepository;
     continuing = null;
     restarting = null;
     from = null;
@@ -687,7 +754,7 @@ class StartWork extends ChangeNotifier with QuietAfterDispose {
     checkout = null;
     _offerEvery();
     // Continued where it worked: the same repository, not a new choice.
-    repository = project.repositoryOf(task);
+    repository = _carried(project.repositoryOf(task));
     continuing = restarting ? null : task;
     this.restarting = restarting ? task : null;
     from = null;
@@ -741,13 +808,22 @@ class StartWork extends ChangeNotifier with QuietAfterDispose {
 
   /// Chooses the repository the work starts in.
   void chooseRepository(String name) {
+    if (_notCarried.contains(name)) return;
     repository = name;
     _suggestAName();
     readiness = null;
+    // A default was the repository before's: none until the machine says this one's.
+    if (!_modelChosen) {
+      model = '';
+      _modelFor = '';
+    }
     notifyListeners();
     // Asked again: what the machine answers turns on which repository was chosen.
     final machine = _machine;
-    if (machine != null) unawaited(_askWhetherItCanStart(machine));
+    if (machine != null) {
+      unawaited(_askTheModels(machine));
+      unawaited(_askWhetherItCanStart(machine));
+    }
   }
 
   /// Chooses how somebody is involved.
@@ -878,7 +954,9 @@ class StartWork extends ChangeNotifier with QuietAfterDispose {
     _readinessName = null;
     _canStartFailed = false;
     _asked++;
-    // A sign-in of the start before goes on in its own task; only its wait is dropped.
+    _modelsAsked++;
+    _models = null;
+    // A sign-in of the start before goes on on its machine; only its wait is dropped.
     signIn.forget();
   }
 
@@ -946,9 +1024,9 @@ class StartWork extends ChangeNotifier with QuietAfterDispose {
   /// Asks the machine again whether work can start — after something was done about why not.
   Future<void> askAgain() async {
     final machine = _machine;
-    // A sign-in that holds the start for what was dealt with (a shut vault, a refusal) is asked again with it; one
-    // signed in, or one that runs, is kept.
-    if (!signIn.signedIn && !signIn.running && !signIn.starting) signIn.forget();
+    // The sign-in is asked again with it, signed in or not: a vault shut since reads shut. One that runs or starts
+    // is kept.
+    if (!signIn.running && !signIn.starting) signIn.forget();
     if (machine != null) await _askWhetherItCanStart(machine);
   }
 
@@ -1002,6 +1080,7 @@ class StartWork extends ChangeNotifier with QuietAfterDispose {
       // about the same lost connection is noise at the moment somebody is trying to work.
       if (asking == _asked) {
         _canStartFailed = true;
+        _fitTheModel();
         await _followTheAgent();
       }
     } on FeatureNotSupported {
@@ -1009,6 +1088,7 @@ class StartWork extends ChangeNotifier with QuietAfterDispose {
       // null means — better than asserting readiness nobody measured. The sign-in is still read.
       if (asking == _asked) {
         _canStartFailed = false;
+        _fitTheModel();
         await _followTheAgent();
       }
     } on VarlinkException catch (refusal) {
@@ -1017,6 +1097,7 @@ class StartWork extends ChangeNotifier with QuietAfterDispose {
       if (asking == _asked) {
         problem = _refused(refusal, 'whether work can start');
         _canStartFailed = true;
+        _fitTheModel();
         await _followTheAgent();
       }
     } finally {
@@ -1115,6 +1196,7 @@ class StartWork extends ChangeNotifier with QuietAfterDispose {
       _suggestAName();
       await _readingWhatCanBeGiven(backend, opening);
       if (opening != _opening) return;
+      unawaited(_askTheModels(backend));
       await _askWhetherItCanStart(backend);
     } on VarlinkDisconnected catch (ex) {
       if (opening == _opening) problem = 'Lost contact with the machine: ${ex.message}';

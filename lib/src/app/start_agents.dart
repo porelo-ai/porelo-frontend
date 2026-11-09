@@ -145,13 +145,25 @@ class StartAgents extends ChangeNotifier with QuietAfterDispose {
   String? signInsProblem;
 
   /// The agents of the rows to start, once each, that the machine does not say are signed in, in row order: **and
-  /// those it lists signed in while its answer for a start says what they sign in with is missing**, which wins.
+  /// those it lists signed in while its answer for a start says what they sign in with is missing**, which wins. One
+  /// the machine cannot say of is not among them where its answer for each of its starts says work can start.
   List<String> get agentsToSignIn => signsIn != true
       ? const <String>[]
       : <String>{
           for (final row in toStart)
-            if (!(signIns[row.agent]?.signedIn ?? false) || row.needsASignIn) row.agent,
+            if ((!(signIns[row.agent]?.signedIn ?? false) && !_startDecides(row.agent)) || row.needsASignIn) row.agent,
         }.toList();
+
+  /// Whether the machine cannot say whether [agent] is signed in, and says each of its starts can start: that answer
+  /// decides.
+  bool _startDecides(String agent) =>
+      const <String>{'CANNOT_SAY', 'NO_PROVIDER'}.contains(signIns[agent]?.state) && _startSaysReady(agent);
+
+  /// Whether the machine's answer says work can start for every row of [agent] to start.
+  bool _startSaysReady(String agent) {
+    final its = toStart.where((each) => each.agent == agent);
+    return its.isNotEmpty && its.every((each) => each.readiness?.ready ?? false);
+  }
 
   /// Whether the machine's answer for a start of [agent] says what it signs in with is missing.
   bool _heldByCanStart(String agent) => toStart.any((each) => each.agent == agent && each.needsASignIn);
@@ -162,14 +174,13 @@ class StartAgents extends ChangeNotifier with QuietAfterDispose {
       signsIn == null ||
       (signsIn! && (signInsProblem != null || agentsToSignIn.isNotEmpty || signing.starting || signing.waiting));
 
-  /// Asks the machine once, for every agent of the rows to start, whether it is signed in there.
+  /// Asks the machine once, for all its agents, whether each is signed in there.
   Future<void> _askSignIns(FleetBackend backend, int opening) async {
-    final agents = <String>{for (final row in rows.where((each) => each.startable)) row.agent}.toList();
     signsIn = null;
     signInsProblem = null;
     signIns = const <String, AgentSignIn>{};
     try {
-      final listed = await backend.agentSignIns(agents: agents);
+      final listed = await backend.agentSignIns();
       if (opening != _opened) return;
       signsIn = true;
       signIns = <String, AgentSignIn>{for (final each in listed) each.agent: each};
@@ -183,7 +194,6 @@ class StartAgents extends ChangeNotifier with QuietAfterDispose {
       if (opening != _opened) return;
       signsIn = true;
       signInsProblem = switch (failed) {
-        VaultShut() => 'The vault on ${signing.machine} is shut, so nothing can be signed in or started.',
         VarlinkException(:final parameters, :final simpleName) =>
           'The machine could not say which agents are signed in: '
               '${parameters['message'] ?? parameters['detail'] ?? simpleName}',
@@ -202,10 +212,12 @@ class StartAgents extends ChangeNotifier with QuietAfterDispose {
     if (current != null && (signing.running || signing.starting)) {
       if (toSignIn.contains(current)) {
         // One out is kept until it ended, whichever agent comes first now.
-        signing.heldByCanStart = _heldByCanStart(current);
+        signing
+          ..heldByCanStart = _heldByCanStart(current)
+          ..startSaysReady = _startSaysReady(current);
         return notifyListeners();
       }
-      // Its repository was left out: the wait is dropped, and its login task goes on, which is said.
+      // Its repository was left out: the wait is dropped, and its sign-in goes on on the machine, which is said.
       left = signing.leave() ?? left;
       signing.forget();
     }
@@ -224,19 +236,19 @@ class StartAgents extends ChangeNotifier with QuietAfterDispose {
         signing.take(machine, said, label: label);
       }
     }
-    signing.heldByCanStart = _heldByCanStart(next);
+    signing
+      ..heldByCanStart = _heldByCanStart(next)
+      ..startSaysReady = _startSaysReady(next);
     notifyListeners();
   }
 
-  /// One agent signed in: kept as signed in, whether each row can start asked again, and the next put up.
+  /// One agent signed in, or one the machine cannot say of: kept as the sign-in ended, whether each row can start
+  /// asked again, and the next put up.
   Future<void> _signedInOne() async {
     final agent = signing.agent;
     final opening = _opened;
     if (agent != null) {
-      signIns = <String, AgentSignIn>{
-        ...signIns,
-        agent: AgentSignIn(agent: agent, provider: signIns[agent]?.provider ?? '', state: 'SIGNED_IN'),
-      };
+      signIns = <String, AgentSignIn>{...signIns, agent: AgentSignIn(agent: agent, state: signing.state ?? '')};
     }
     final machine = _machine;
     if (machine != null) await _askAll(machine, opening);
@@ -285,6 +297,9 @@ class StartAgents extends ChangeNotifier with QuietAfterDispose {
     if (repositories.every((each) => each.agent!.isEmpty)) {
       return 'no repository of ${project.name} names an agent in its project.yml';
     }
+    if (repositories.every((each) => each.agent!.isEmpty || each.carriedHere == false)) {
+      return 'this machine does not carry any repository of ${project.name} that names an agent';
+    }
     return null;
   }
 
@@ -332,7 +347,7 @@ class StartAgents extends ChangeNotifier with QuietAfterDispose {
   /// Opens it on [project]: reads the agents and tasks of the machine, and asks for each row whether it can start.
   Future<void> open(FleetBackend backend, Project project) async {
     final opening = ++_opened;
-    // Nothing of an opening before: its sign-in goes on in its own task, and only its wait is dropped.
+    // Nothing of an opening before: its sign-in goes on on the machine, and only its wait is dropped.
     left = signing.leave() ?? left;
     signing.forget();
     signsIn = null;
@@ -385,8 +400,19 @@ class StartAgents extends ChangeNotifier with QuietAfterDispose {
       for (final task in ofTheProject)
         if (task.task.isNotEmpty) task.task,
     };
+    final notCarried = <String>{
+      for (final each in project.repositoryStates)
+        if (each.carriedHere == false) each.name,
+    };
     for (final row in rows) {
       if (!row.namesAnAgent) continue;
+      // The machine's own Porelo says it does not carry it, and would refuse a start there: never chosen, never asked.
+      if (notCarried.contains(row.repository)) {
+        row
+          ..cannot = 'this machine does not carry it'
+          ..chosen = false;
+        continue;
+      }
       final its = ofTheProject
           .where(
             (each) =>

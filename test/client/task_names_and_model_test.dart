@@ -7,7 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/mock/mock_daemon.dart';
 
-/// A task's names and model, and the default models of a project and its repositories, as a machine answers them
+/// A task's names and model, and the model a start on a project would run per provider, as a machine answers them
 /// and as one older than them answers.
 void main() {
   late MockDaemon daemon;
@@ -47,6 +47,7 @@ void main() {
     expect(task.name, 'porelo-checkout-pi');
     expect(task.model, isNull, reason: 'not said is not the agent default');
     expect(task.modelLabel, isNull);
+    expect(task.modelFrom, isNull);
     expect(task.display, isNull);
     expect(task.short, isNull);
     expect(task.named, isNull);
@@ -62,9 +63,10 @@ void main() {
             ...older,
             'model': '',
             'modelLabel': '',
-            'display': 'Agent Pi',
+            'modelFrom': 'agent',
+            'display': 'pi',
             'short': 'pi',
-            'named': false,
+            'named': '',
           },
         ],
       },
@@ -73,82 +75,38 @@ void main() {
     final task = (await (await connect()).tasks()).single;
 
     expect(task.model, '');
-    expect(task.display, 'Agent Pi');
+    expect(task.modelFrom, 'agent');
+    expect(task.display, 'pi');
     expect(task.short, 'pi');
-    expect(task.named, isFalse);
+    expect(task.named, '');
   });
 
-  // Harm: a project or a repository from an older machine crashes the project list, or names a default model
-  // nobody set.
-  test('a project and its repositories from an older machine read, with no default model', () async {
-    daemon.method(
-      'Projects',
-      (_) => <String, dynamic>{
-        'projects': <Map<String, dynamic>>[
-          <String, dynamic>{
-            'name': 'checkout',
-            'securityClass': 'guarded',
-            'file': '/srv/checkout/project.yml',
-            'repositories': <Map<String, dynamic>>[
-              <String, dynamic>{'name': 'payments-api', 'own': false},
-            ],
-          },
+  // Harm: one provider's model is taken for another's, or an entry that names no model reads as no answer.
+  test('the models a start would run are read per provider, and the agent default is one of them', () async {
+    final asked = <Map<String, dynamic>>[];
+    daemon.method('ProviderModels', (parameters) {
+      asked.add(parameters);
+      return <String, dynamic>{
+        'models': <Map<String, dynamic>>[
+          <String, dynamic>{'provider': 'anthropic', 'model': 'claude-opus', 'label': 'Opus', 'from': 'repository'},
+          <String, dynamic>{'provider': 'openai', 'model': '', 'label': '', 'from': 'agent'},
         ],
-      },
-    );
+      };
+    });
+    final client = await connect();
 
-    final project = (await (await connect()).projects()).single;
+    final models = await client.providerModels('checkout', repository: 'payments-api');
+    await client.providerModels('checkout');
 
-    expect(project.defaultModels, isEmpty);
-    expect(project.repositoryStates.single.defaultModels, isEmpty);
-  });
+    expect(asked.first, <String, dynamic>{'project': 'checkout', 'repository': 'payments-api'});
+    expect(asked.last.containsKey('repository'), isFalse, reason: 'omitted, the project file alone answers');
+    expect(ProviderModel.forProvider(models, 'anthropic')?.model, 'claude-opus');
+    expect(ProviderModel.forProvider(models, 'openai')?.model, '');
+    expect(ProviderModel.forProvider(models, 'openai')?.from, 'agent');
+    expect(ProviderModel.forProvider(models, 'mistral'), isNull);
 
-  // Harm: the default a repository names for its provider is lost, or one for another provider is taken for it.
-  test('a repository names its default model per provider, as the machine merged it', () async {
-    daemon.method(
-      'Projects',
-      (_) => <String, dynamic>{
-        'projects': <Map<String, dynamic>>[
-          <String, dynamic>{
-            'name': 'checkout',
-            'securityClass': 'guarded',
-            'file': '/srv/checkout/project.yml',
-            'defaultModels': <Map<String, dynamic>>[
-              <String, dynamic>{
-                'provider': 'anthropic',
-                'model': 'claude-sonnet',
-                'label': 'Sonnet',
-                'from': 'project',
-              },
-            ],
-            'repositories': <Map<String, dynamic>>[
-              <String, dynamic>{
-                'name': 'payments-api',
-                'own': false,
-                'defaultModels': <Map<String, dynamic>>[
-                  <String, dynamic>{
-                    'provider': 'anthropic',
-                    'model': 'claude-opus',
-                    'label': 'Opus',
-                    'from': 'repository',
-                  },
-                  <String, dynamic>{'provider': 'openai', 'model': 'gpt', 'label': '', 'from': 'project'},
-                ],
-              },
-            ],
-          },
-        ],
-      },
-    );
-
-    final project = (await (await connect()).projects()).single;
-    final repository = project.repositoryStates.single;
-
-    expect(ProviderModel.forProvider(repository.defaultModels, 'anthropic')?.model, 'claude-opus');
-    expect(ProviderModel.forProvider(repository.defaultModels, 'anthropic')?.from, 'repository');
-    expect(ProviderModel.forProvider(repository.defaultModels, 'openai')?.model, 'gpt');
-    expect(ProviderModel.forProvider(repository.defaultModels, 'mistral'), isNull);
-    expect(ProviderModel.forProvider(project.defaultModels, 'anthropic')?.model, 'claude-sonnet');
+    daemon.remove('ProviderModels');
+    await expectLater(client.providerModels('checkout'), throwsA(isA<FeatureNotSupported>()));
   });
 
   // Harm: a start sends a model nobody chose, and the machine runs it in place of the provider's default.

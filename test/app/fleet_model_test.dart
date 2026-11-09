@@ -380,15 +380,19 @@ class _Wedged implements FleetBackend {
       const Readiness(ready: true, outcome: StartOutcome.ready, agent: '', provider: '', credential: '', detail: '');
 
   @override
-  Future<List<AgentSignIn>> agentSignIns({List<String>? agents}) async =>
-      throw const FeatureNotSupported('AgentSignIns');
+  Future<List<AgentSignIn>> agentSignIns() async => throw const FeatureNotSupported('AgentSignIns');
 
   @override
-  Future<SignInStarted> agentSignInStart(String agent) async => throw const FeatureNotSupported('AgentSignInStart');
+  Future<SignInStarted> agentSignInStart(String agent, {bool? force, bool? remote}) async =>
+      throw const FeatureNotSupported('AgentSignInStart');
 
   @override
   Stream<SignInWaited> agentSignInWait(String agent) =>
       Stream<SignInWaited>.error(const FeatureNotSupported('AgentSignInWait'));
+
+  @override
+  Future<List<ProviderModel>> providerModels(String project, {String? repository}) async =>
+      throw const FeatureNotSupported('ProviderModels');
 
   @override
   Future<VaultState> credentials() async => VaultState.from(const <String, dynamic>{});
@@ -797,15 +801,19 @@ class _Machine implements FleetBackend {
       const Readiness(ready: true, outcome: StartOutcome.ready, agent: '', provider: '', credential: '', detail: '');
 
   @override
-  Future<List<AgentSignIn>> agentSignIns({List<String>? agents}) async =>
-      throw const FeatureNotSupported('AgentSignIns');
+  Future<List<AgentSignIn>> agentSignIns() async => throw const FeatureNotSupported('AgentSignIns');
 
   @override
-  Future<SignInStarted> agentSignInStart(String agent) async => throw const FeatureNotSupported('AgentSignInStart');
+  Future<SignInStarted> agentSignInStart(String agent, {bool? force, bool? remote}) async =>
+      throw const FeatureNotSupported('AgentSignInStart');
 
   @override
   Stream<SignInWaited> agentSignInWait(String agent) =>
       Stream<SignInWaited>.error(const FeatureNotSupported('AgentSignInWait'));
+
+  @override
+  Future<List<ProviderModel>> providerModels(String project, {String? repository}) async =>
+      throw const FeatureNotSupported('ProviderModels');
 
   @override
   Future<VaultState> credentials() async => VaultState.from(const <String, dynamic>{});

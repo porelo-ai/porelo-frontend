@@ -3,8 +3,6 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/agent_sign_in.dart';
-import 'package:porelo_frontend/src/app/machines.dart';
-import 'package:porelo_frontend/src/app/session.dart';
 import 'package:porelo_frontend/src/app/start_agents.dart';
 import 'package:porelo_frontend/src/app/start_work.dart';
 import 'package:porelo_frontend/src/app/templates.dart';
@@ -43,6 +41,23 @@ const _credentialMissing = Readiness(
   agentSource: 'ONLY_ONE',
 );
 
+/// `checkout`, whose `payments-api` the machine says it does not carry, and whose `ledger` it does.
+Project _withOneNotCarried() => Project.from(const <String, dynamic>{
+  'name': 'checkout',
+  'securityClass': 'guarded',
+  'file': '/srv/checkout/project.yml',
+  'repositories': <Map<String, dynamic>>[
+    <String, dynamic>{'name': 'checkout', 'own': true},
+    <String, dynamic>{'name': 'payments-api', 'agent': 'an-agent', 'carriedHere': false},
+    <String, dynamic>{'name': 'ledger', 'agent': 'other-agent', 'carriedHere': true},
+  ],
+});
+
+/// A machine whose sign-in start, once held, answers when the test says.
+FakeBackend _holdingTheStart() => FakeBackend(const <Task>[])
+  ..signsIn = true
+  ..signInStartHeld = Completer<void>();
+
 Future<StartWork> _opened(FakeBackend machine) async {
   final starting = StartWork();
   addTearDown(starting.dispose);
@@ -59,7 +74,7 @@ void main() {
       // Harm: Start is offered and sent where the machine's own answer for a start says the sign-in is missing.
       final machine = FakeBackend(const <Task>[])
         ..signsIn = true
-        ..signInOf['an-agent'] = const AgentSignIn(agent: 'an-agent', provider: 'a-provider', state: 'VAULT_SHUT')
+        ..signInOf['an-agent'] = const AgentSignIn(agent: 'an-agent', state: 'VAULT_LOCKED')
         ..nextReadiness = _credentialMissing;
       final starting = await _opened(machine);
       await pumpEventQueue();
@@ -130,7 +145,7 @@ void main() {
       // Harm: for a moment Start is offered on the sign-in alone, before the machine said work can start.
       final machine = FakeBackend(const <Task>[])
         ..signsIn = true
-        ..signInOf['an-agent'] = const AgentSignIn(agent: 'an-agent', provider: 'a-provider', state: 'NOT_SIGNED_IN');
+        ..signInOf['an-agent'] = const AgentSignIn(agent: 'an-agent', state: 'NOT_SIGNED_IN');
       final starting = await _opened(machine);
       starting.chooseAgent('an-agent');
       await pumpEventQueue();
@@ -141,7 +156,7 @@ void main() {
         if (starting.ready) offeredWhenAsked.add(machine.canStartAsked);
       });
 
-      machine.signInWait!.add(const SignInWaited(state: 'SIGNED_IN'));
+      machine.signInWait!.add(const SignInWaited(stored: true));
       unawaited(machine.signInWait!.close());
       await pumpEventQueue();
 
@@ -151,27 +166,54 @@ void main() {
   });
 
   group('a sign-in on its own', () {
-    test('a wait that ends with no final reply is not taken for a sign-in that runs', () async {
-      // Harm: Sign in only reopens a login task that is gone, and no sign-in is ever started again.
+    test('a wait that ends with no answer is not taken for a sign-in that runs, nor for signed in', () async {
+      // Harm: Sign in only reopens a sign-in that is gone, and no sign-in is ever started again.
       final machine = FakeBackend(const <Task>[])..signsIn = true;
       final signingIn = SigningIn();
       addTearDown(signingIn.dispose);
       signingIn.take(
         machine,
-        const AgentSignIn(
-          agent: 'an-agent',
-          provider: 'a-provider',
-          state: 'SIGNING_IN',
-          loginTask: 'porelo-login-an-agent',
-        ),
+        const AgentSignIn(agent: 'an-agent', state: 'NOT_SIGNED_IN', running: 'porelo-login-an-agent'),
       );
-      machine.signInWait!.add(const SignInWaited(state: 'SIGNING_IN'));
       unawaited(machine.signInWait!.close());
       await pumpEventQueue();
 
       expect(signingIn.running, isFalse);
+      expect(signingIn.holdsTheStart, isTrue);
       await signingIn.signIn();
-      expect(machine.signInStarts, <String>['an-agent']);
+      expect(machine.signInStarts.map((each) => each.agent), <String>['an-agent']);
+    });
+
+    test('a refusal that the machine holds a sign-in forces nothing until the second press', () async {
+      // Harm: a sign-in is forced past the sign-in the machine holds, without the person deciding it.
+      final machine = FakeBackend(const <Task>[])
+        ..signsIn = true
+        ..signInRefusedAs = 'ALREADY_SIGNED_IN';
+      final signingIn = SigningIn();
+      addTearDown(signingIn.dispose);
+      signingIn.take(machine, const AgentSignIn(agent: 'an-agent', state: 'NOT_SIGNED_IN'));
+
+      await signingIn.signIn();
+      // Sign in pressed again is not the second decision: it is not offered while the machine holds one.
+      await signingIn.signIn();
+
+      expect(signingIn.alreadySignedIn, isTrue);
+      expect(signingIn.whySignInCannot, isNotNull);
+      expect(machine.signInStarts.map((each) => each.force), <bool?>[null]);
+      await signingIn.signIn(force: true);
+      expect(machine.signInStarts.last.force, isTrue);
+    });
+
+    test('a machine reached from elsewhere is told so at every sign-in start', () async {
+      // Harm: the machine starts a sign-in whose reply comes back to itself, which no browser elsewhere reaches.
+      final machine = FakeBackend(const <Task>[])..signsIn = true;
+      final signingIn = SigningIn()..remote = true;
+      addTearDown(signingIn.dispose);
+      signingIn.take(machine, const AgentSignIn(agent: 'an-agent', state: 'NOT_SIGNED_IN'));
+
+      await signingIn.signIn();
+
+      expect(machine.signInStarts.single.remote, isTrue);
     });
   });
 
@@ -182,12 +224,7 @@ void main() {
       final starting = StartAgents();
       starting.signing.take(
         machine,
-        const AgentSignIn(
-          agent: 'an-agent',
-          provider: 'a-provider',
-          state: 'SIGNING_IN',
-          loginTask: 'porelo-login-an-agent',
-        ),
+        const AgentSignIn(agent: 'an-agent', state: 'NOT_SIGNED_IN', running: 'porelo-login-an-agent'),
       );
       expect(machine.signInWait!.hasListener, isTrue);
 
@@ -206,12 +243,7 @@ void main() {
         ..signsIn = true
         ..signing.take(
           before,
-          const AgentSignIn(
-            agent: 'an-agent',
-            provider: 'a-provider',
-            state: 'SIGNING_IN',
-            loginTask: 'porelo-login-an-agent',
-          ),
+          const AgentSignIn(agent: 'an-agent', state: 'NOT_SIGNED_IN', running: 'porelo-login-an-agent'),
         );
 
       final now = _Unreadable();
@@ -223,22 +255,209 @@ void main() {
     });
   });
 
-  group('the terminal of a login task', () {
-    test('a window shut while it is open closes it too', () async {
-      // Harm: the terminal of a login task keeps its program and its handles after the window is gone.
-      FakeTerminal? far;
-      final sessions = Sessions(
-        openTerminal: (executable, arguments, {columns = 80, rows = 24}) =>
-            far = FakeTerminal(<String>[executable, ...arguments]),
+  group('an agent the machine cannot say of', () {
+    // Harm: an agent whose own provider the machine cannot use is held for ever, though the start settles another
+    // credential and the machine says work can start.
+    test('starts where the machine says work can start, and offers no sign-in', () async {
+      final machine = FakeBackend(const <Task>[])
+        ..signsIn = true
+        ..signInOf['an-agent'] = const AgentSignIn(agent: 'an-agent', state: 'CANNOT_SAY');
+      final starting = await _opened(machine);
+      starting.chooseAgent('an-agent');
+      await pumpEventQueue();
+
+      expect(starting.ready, isTrue);
+      expect(starting.signIn.whySignInCannot, isNotNull);
+    });
+
+    test('starts nothing while the machine does not say work can start', () async {
+      // Harm: the machine's silence on the start is read as leave to start.
+      final machine = FakeBackend(const <Task>[])
+        ..signsIn = true
+        ..signInOf['an-agent'] = const AgentSignIn(agent: 'an-agent', state: 'CANNOT_SAY')
+        ..canStartFails = 'the vault could not be read';
+      final starting = await _opened(machine);
+      starting.chooseAgent('an-agent');
+      await pumpEventQueue();
+
+      expect(starting.ready, isFalse);
+    });
+
+    test('is not put up for a sign-in by the start of the agents where the machine says each can start', () async {
+      // Harm: the wizard holds every start on a sign-in the machine cannot make, though each row can start.
+      final project = _withOneNotCarried();
+      final machine = FakeBackend(const <Task>[])
+        ..theProjectsItHas = <Project>[project]
+        ..signsIn = true
+        ..signInOf['other-agent'] = const AgentSignIn(agent: 'other-agent', state: 'CANNOT_SAY');
+      final starting = StartAgents();
+      addTearDown(starting.dispose);
+      await starting.open(machine, project);
+      await pumpEventQueue();
+
+      expect(starting.agentsToSignIn, isEmpty);
+      expect(starting.signInsHold, isFalse);
+    });
+  });
+
+  group('a repository the machine does not carry', () {
+    // Harm: work is started, or asked about, in a repository the machine says it does not carry.
+    test('is never put up in the start of the agents, nor asked about', () async {
+      final project = _withOneNotCarried();
+      final machine = FakeBackend(const <Task>[])..theProjectsItHas = <Project>[project];
+      final starting = StartAgents();
+      addTearDown(starting.dispose);
+      await starting.open(machine, project);
+      await pumpEventQueue();
+
+      final row = starting.rows.firstWhere((each) => each.repository == 'payments-api');
+      expect(row.cannot, isNotNull);
+      expect(row.toStart, isFalse);
+      expect(machine.askedAboutRepositories, isNot(contains('payments-api')));
+    });
+
+    test('leaves nothing to start at one click where it is the only one naming an agent', () {
+      final project = Project.from(const <String, dynamic>{
+        'name': 'checkout',
+        'securityClass': 'guarded',
+        'file': '/srv/checkout/project.yml',
+        'repositories': <Map<String, dynamic>>[
+          <String, dynamic>{'name': 'checkout', 'own': true},
+          <String, dynamic>{'name': 'payments-api', 'agent': 'an-agent', 'carriedHere': false},
+          <String, dynamic>{'name': 'ledger', 'agent': '', 'carriedHere': true},
+        ],
+      });
+
+      expect(StartAgents.whyNot(project), isNotNull);
+    });
+
+    test('is not offered by the start form', () async {
+      final project = _withOneNotCarried();
+      final machine = FakeBackend(const <Task>[])..theProjectsItHas = <Project>[project];
+      final starting = StartWork();
+      addTearDown(starting.dispose);
+      await starting.open(machine, project);
+
+      expect(starting.offeredRepositories, <String>['ledger']);
+    });
+
+    test('is not started in from a job that names it', () async {
+      final project = _withOneNotCarried();
+      final machine = FakeBackend(const <Task>[])..theProjectsItHas = <Project>[project];
+      final starting = StartWork();
+      addTearDown(starting.dispose);
+      await starting.openFrom(
+        machine,
+        project,
+        const Template(
+          name: 'job',
+          project: 'checkout',
+          agent: 'an-agent',
+          mode: Mode.agent,
+          prompt: '',
+          repository: 'payments-api',
+        ),
       );
-      addTearDown(sessions.dispose);
-      sessions.openBeside('porelo-login-an-agent', const Machine(name: 'local', socketPath: '/run/porelo.sock'));
-      expect(far, isNotNull);
+      starting.callIt('work');
+      await pumpEventQueue();
 
-      await sessions.leaveAll();
+      expect(starting.repository, isNot('payments-api'));
+      expect(starting.ready, isFalse);
+      expect(machine.askedAboutRepositories, isNot(contains('payments-api')));
+    });
 
-      expect(far!.closed, isTrue);
-      expect(sessions.beside, isEmpty);
+    test('is not started in by going on with a task there', () async {
+      final project = _withOneNotCarried();
+      final task = World.anAgentsTask('an-agent', 'payments-api', 'checkout', 'pay', running: false);
+      final machine = FakeBackend(<Task>[task])..theProjectsItHas = <Project>[project];
+      final starting = StartWork();
+      addTearDown(starting.dispose);
+      await starting.continueFrom(machine, project, task);
+      starting.prompt = 'more';
+      await pumpEventQueue();
+
+      expect(starting.repository, isNot('payments-api'));
+      expect(starting.ready, isFalse);
+    });
+  });
+
+  group('a sign-in left while it is out', () {
+    // Harm: a late answer opens a 31-minute wait on the machine and a terminal for a view nobody has open.
+    test('left while its start is out, it opens no wait and no terminal', () async {
+      final machine = _holdingTheStart();
+      var attached = 0;
+      final signingIn = SigningIn()..attachHere = (_) async => attached++;
+      addTearDown(signingIn.dispose);
+      signingIn.take(machine, const AgentSignIn(agent: 'an-agent', state: 'NOT_SIGNED_IN'));
+
+      final started = signingIn.signIn();
+      await pumpEventQueue();
+      signingIn.leave();
+      machine.signInStartHeld!.complete();
+      await started;
+      await pumpEventQueue();
+
+      expect(machine.signInWaits, isEmpty);
+      expect(attached, 0);
+      expect(signingIn.starting, isFalse);
+    });
+  });
+
+  group('a sign-in pressed again', () {
+    // Harm: a second terminal is stacked on the one still open, attached to the same login.
+    test('while its terminal is open opens no second one', () async {
+      final machine = FakeBackend(const <Task>[])..signsIn = true;
+      final open = Completer<void>();
+      var attached = 0;
+      final signingIn = SigningIn()
+        ..attachHere = (_) {
+          attached++;
+          return open.future;
+        };
+      addTearDown(signingIn.dispose);
+      signingIn.take(machine, const AgentSignIn(agent: 'an-agent', state: 'NOT_SIGNED_IN'));
+
+      await signingIn.signIn();
+      await signingIn.signIn();
+
+      expect(attached, 1);
+      open.complete();
+    });
+
+    // Harm: the wait stays on a login that is gone, and the one the machine named now is never waited on.
+    test('waits on the login the machine names, not on one before', () async {
+      final machine = FakeBackend(const <Task>[])..signsIn = true;
+      final signingIn = SigningIn();
+      addTearDown(signingIn.dispose);
+      signingIn.take(machine, const AgentSignIn(agent: 'an-agent', state: 'NOT_SIGNED_IN', running: ''));
+      final before = machine.signInWait;
+      expect(machine.signInWaits, hasLength(1));
+
+      await signingIn.signIn();
+
+      expect(signingIn.container, 'porelo-login-an-agent');
+      expect(machine.signInWaits, hasLength(2), reason: 'the login named now is waited on');
+      expect(before!.hasListener, isFalse);
+    });
+  });
+
+  group('asked again', () {
+    // Harm: an agent once read signed in stays signed in here after the machine's vault was shut.
+    test('asks again whether the agent is signed in, also after it read signed in', () async {
+      final machine = FakeBackend(const <Task>[])
+        ..signsIn = true
+        ..signInOf['an-agent'] = const AgentSignIn(agent: 'an-agent', state: 'SIGNED_IN');
+      final starting = await _opened(machine);
+      starting.chooseAgent('an-agent');
+      await pumpEventQueue();
+      expect(starting.signIn.state, 'SIGNED_IN');
+
+      machine.signInOf['an-agent'] = const AgentSignIn(agent: 'an-agent', state: 'VAULT_LOCKED');
+      await starting.askAgain();
+      await pumpEventQueue();
+
+      expect(starting.signIn.state, 'VAULT_LOCKED');
+      expect(starting.ready, isFalse);
     });
   });
 }

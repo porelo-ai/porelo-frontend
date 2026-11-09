@@ -22,24 +22,32 @@ gap here is a backend method that has to be added, not a workaround waiting to b
   served yet). The window reads it already: until it is served the trailer check cannot be made, since a
   `Co-Authored-By` outside git's trailer block is in no trailer line; the review shows no message body.
 
-- **A task's names and model, and the default model per provider** (agreed for `Tasks1`, not served yet). `Task`
-  gains `model` (what it was started with, `""` for the agent's own default), `modelLabel` (the provider's name for
-  it), `display` (the room's name, `Agent Pi`), `short` (the name given at its start, else the one the machine made)
-  and `named`; `Project.defaultModels` and `Repository.defaultModels` list `ProviderModel(provider, model, label,
-  from)`, a repository's already merged over its project's. The interface reads them already: absent, a task's
-  model and names read as not reported (never as the agent's own default), and its name is shown as before; the
-  start form fills no default and says the machine takes the provider's default. Absent `model` on `Start` means
-  the provider's default, so a task that ran its agent's own default (`""`) cannot be continued on that same own
+- **A task's names and model, and the model a start runs on per provider** (built in `Tasks1`, not served by a
+  released Porelo yet). `Task` gains `model` (`""` for the agent's own default), `modelLabel`, `modelFrom` (`start`,
+  `repository`, `project` or `agent`), `short`, `named` (the name the start was given, `""` when none) and `display`
+  (what a client shows: named, else short, else the container name); `ProviderModels(project, repository?)` answers
+  `ProviderModel(provider, model, label, from)` per provider. The interface reads them already: absent, a task's
+  model and names read as not reported (never as the agent's own default), its name is shown as before, and the
+  start form fills no model and says the machine takes the provider's default. Absent `model` on `Start` means the
+  provider's default, so a task that ran its agent's own default (`""`) cannot be continued on that same own
   default while its provider has one: the wire has no way to ask for it.
 
-- **An agent's sign-in as the machine's own login task** (agreed for `Tasks1`, not served yet).
-  `AgentSignIns(agents?)` answers `AgentSignIn(agent, provider, state, since?, signingInSince?, loginTask?)`, state
-  `SIGNED_IN`, `NOT_SIGNED_IN`, `SIGNING_IN`, `VAULT_SHUT` or `CANNOT_SIGN_IN`; `AgentSignInStart(agent)` answers
-  `(task, started)`, starting the login task or naming the one that runs; `AgentSignInWait(agent)` streams `(state,
-  detail?)` until `SIGNED_IN` or `NOT_SIGNED_IN`; refusals `CannotSignIn(agent, reason)`, `NoSuchAgent(agent)`,
-  `VaultShut()`. `Task` gains `kind` (`LOGIN` for a login task). Ending a sign-in is stopping its login task. Until
-  served, every start goes as before: `CanStart`'s missing credential and the agent's own login in a terminal.
-  `Start` names no refusal for a sign-in gone missing meanwhile; the window asks `AgentSignIns` after a failed start.
+- **An agent's sign-in as the machine's own login** (built in `Tasks1`, not served by a released Porelo yet).
+  `AgentSignIns()` answers `AgentSignIn(agent, state, running?)` for every installed agent, state `SIGNED_IN`,
+  `NOT_SIGNED_IN`, `VAULT_LOCKED` or `CANNOT_SAY`; `AgentSignInStart(agent, force?, remote?)` answers `(container,
+  started, attach)`, starting the login or answering the one that runs, refused with `SignInRefused(agent, reason,
+  detail)`; `AgentSignInWait(agent)` answers once `(stored, reason)` when the sign-in ends, at most 30 minutes later.
+  The login is no task. Until served, every start goes as before: `CanStart`'s missing credential and the agent's
+  own login in a terminal. The contract has no way to end a sign-in from the window; it ends in its terminal or by
+  itself. `Start` names no refusal for a sign-in gone missing meanwhile; the window asks `AgentSignIns` after a
+  failed start.
+
+- **A repository's carry, central state and work on its machine** (built in Porelo, not served yet). `Repository`
+  gains `carriedHere`, `tasks`, `running`, `ahead` with `aheadMeasured`, and `central` with `centralWhy`. The
+  interface reads them already: a project's page opened from a machine says each repository's carry, central state
+  and work from them, for a person who is no Machine Admin too; a repository not carried is not offered a start. Until
+  served, those rows say what they said before, the carry and central state from the host's `org status` where a
+  Machine Admin reads it. Giving a machine back still asks the host's `org status` alone.
 
 - **Where a forwarded gate commit is retained.** `Approve` returns the incoming push name in `forwarded`, the
   destination `branch` and an optional `pullRequest`; it returns neither the forwarded commit nor its retained ref

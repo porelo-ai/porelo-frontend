@@ -161,8 +161,9 @@ Command leaveWorkCommand(VoidCallback leave, {String? unavailable}) => Command(
   unavailable: unavailable,
 );
 
-/// Signs the agent of [signingIn] in on its machine: starts the machine's login task, or opens the one that runs, and
-/// waits on it. [busy] is why not while something else is out, as a start.
+/// Signs the agent of [signingIn] in on its machine: starts the machine's own login, or has it answer the one that
+/// runs, opens a terminal on that machine attached to it, and waits on it. [busy] is why not while something else is
+/// out, as a start.
 Command signInCommand(SigningIn signingIn, {String? busy}) => Command(
   id: 'work.signIn',
   label: 'Sign in',
@@ -172,14 +173,25 @@ Command signInCommand(SigningIn signingIn, {String? busy}) => Command(
   unavailableNow: () => busy ?? signingIn.whySignInCannot,
 );
 
-/// Ends the sign-in of [signingIn] that runs, by stopping its login task as any task is stopped. Nothing starts.
-Command endTheSignInCommand(SigningIn signingIn) => Command(
-  id: 'work.endTheSignIn',
-  label: 'End the sign-in',
+/// Imports the sign-in the machine found in its own agent directory, the first way after it said it holds one.
+Command importTheSignInCommand(SigningIn signingIn, {String? busy}) => Command(
+  id: 'work.importTheSignIn',
+  label: 'Use the sign-in found on the machine',
   group: 'Work',
   home: Home.openedView,
-  run: () => unawaited(signingIn.end()),
-  unavailableNow: () => signingIn.whyEndCannot,
+  run: () => unawaited(signingIn.importTheSignIn()),
+  unavailableNow: () => busy ?? signingIn.whyImportCannot,
+);
+
+/// Signs the agent in with a sign-in of its own although the machine holds one: the second decision, offered only
+/// after the machine said so, and only on the person's press.
+Command signInAnywayCommand(SigningIn signingIn, {String? busy}) => Command(
+  id: 'work.signInAnyway',
+  label: 'Sign in anyway, beside the sign-in found',
+  group: 'Work',
+  home: Home.openedView,
+  run: () => unawaited(signingIn.signIn(force: true)),
+  unavailableNow: () => busy ?? signingIn.whySignInAnywayCannot,
   danger: true,
 );
 
@@ -592,17 +604,21 @@ Command retrySilentMachine(Machine machine, FleetModel fleet) => Command(
 String? notAnswering(FleetModel fleet) =>
     fleet.reachability == Reachability.connected ? null : 'the machine is not answering';
 
-/// Starts work in the named repository, shared by its row's button and menu item.
+/// Starts work in the named repository, shared by its row's button and menu item. [carriedHere] false, where the
+/// machine does not carry it, never starts: a start there is refused.
 Command repositoryStartCommand({
   required String repository,
   required void Function(String)? onStart,
   String? unavailable,
+  bool? carriedHere,
 }) => Command(
   id: 'start-in-$repository',
   label: 'Start work in $repository',
   group: 'Work',
   home: Home.repositoryRow,
-  unavailable: unavailable ?? (onStart == null ? 'work cannot start in this project' : null),
+  unavailable: carriedHere == false
+      ? 'This machine does not carry $repository, so work cannot start in it here.'
+      : unavailable ?? (onStart == null ? 'work cannot start in this project' : null),
   run: () => onStart?.call(repository),
 );
 

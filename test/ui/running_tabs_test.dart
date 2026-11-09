@@ -43,7 +43,7 @@ void main() {
   // Harm: two pieces of work of one short name in different projects have tabs nobody can tell apart.
   testWidgets('two tabs of one short name say which project each is of', (tester) async {
     Task named(String name, String project) =>
-        Task.from(<String, dynamic>{...wire(World.aTask(name, project)), 'short': 'pi'});
+        Task.from(<String, dynamic>{...wire(World.aTask(name, project)), 'short': 'pi', 'display': 'pi'});
     await World.startBackend(<Task>[named('porelo-checkout-pi', 'checkout'), named('porelo-billing-pi', 'billing')]);
     await World.startApp(tester);
     await tester.tap(find.byKey(const Key('work-view-running')));

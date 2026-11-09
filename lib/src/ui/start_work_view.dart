@@ -154,7 +154,7 @@ class _StartWorkDialogState extends State<StartWorkDialog> {
     super.dispose();
   }
 
-  /// Whether the agent is signed in by the machine's own login task, shown here: only on a machine that has them.
+  /// Whether the agent is signed in by the machine's own login, shown here: only on a machine that has them.
   bool _signsInHere(StartWork starting) {
     final signIn = starting.signIn;
     return signIn.served == true &&
@@ -246,7 +246,7 @@ class _StartWorkDialogState extends State<StartWorkDialog> {
                   ),
                 // What a start needs comes first, above the fold: a sign-in nobody saw was why a
                 // new person started a shell where the agent said "Not logged in".
-                // On a machine with sign-ins of its own: its login task, waited on here.
+                // On a machine with sign-ins of its own: its own login, waited on here.
                 if (_signsInHere(starting))
                   SignInPanel(signingIn: starting.signIn, onOpenTheVault: widget.onOpenWithThisDevice),
                 if (_signsInFirst(starting))

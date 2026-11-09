@@ -250,16 +250,22 @@ abstract class FleetBackend {
   /// Stops a task, keeping it and its workspace.
   Future<Stopped> stopTask(String task);
 
-  /// Whether each of [agents] is signed in on the machine, or every installed agent where none is named.
+  /// Each installed agent's sign-in state on the machine, read once for all of them.
   ///
   /// Errors with [FeatureNotSupported] against a machine older than its sign-in, where a start goes as before.
-  Future<List<AgentSignIn>> agentSignIns({List<String>? agents});
+  Future<List<AgentSignIn>> agentSignIns();
 
-  /// Starts [agent]'s sign-in as the machine's own login task, or answers the one that runs already: never a second.
-  Future<SignInStarted> agentSignInStart(String agent);
+  /// Starts [agent]'s own login on the machine, or answers the one that runs already: never a second. [force] is
+  /// the person's second decision after `ALREADY_SIGNED_IN`; [remote] says the person reaches the machine from
+  /// another one.
+  Future<SignInStarted> agentSignInStart(String agent, {bool? force, bool? remote});
 
-  /// Waits on [agent]'s sign-in that runs, ending on its final reply; with none running it answers once, at once.
+  /// Waits until [agent]'s sign-in ends, at most 30 minutes, and answers once; at once where none runs. **On a
+  /// connection of its own**, closed when the subscription is canceled, which does not end the sign-in.
   Stream<SignInWaited> agentSignInWait(String agent);
+
+  /// The model a start on [project] (and [repository]) would run on for each provider, when it names none.
+  Future<List<ProviderModel>> providerModels(String project, {String? repository});
 
   /// Removes a task, or refuses and says why.
   ///
@@ -752,13 +758,18 @@ class PoreloBackend implements FleetBackend {
   Future<Stopped> stopTask(String task) => _opened().stop(task);
 
   @override
-  Future<List<AgentSignIn>> agentSignIns({List<String>? agents}) => _opened().agentSignIns(agents: agents);
+  Future<List<AgentSignIn>> agentSignIns() => _opened().agentSignIns();
 
   @override
-  Future<SignInStarted> agentSignInStart(String agent) => _opened().agentSignInStart(agent);
+  Future<SignInStarted> agentSignInStart(String agent, {bool? force, bool? remote}) =>
+      _opened().agentSignInStart(agent, force: force, remote: remote);
 
   @override
   Stream<SignInWaited> agentSignInWait(String agent) => _opened().agentSignInWait(agent);
+
+  @override
+  Future<List<ProviderModel>> providerModels(String project, {String? repository}) =>
+      _opened().providerModels(project, repository: repository);
 
   @override
   Future<Removed> removeTask(String task, {bool? rescue, bool? force}) =>

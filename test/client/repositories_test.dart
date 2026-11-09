@@ -142,6 +142,73 @@ void main() {
     );
   });
 
+  // An older daemon, or one that has no answer yet, read as nothing ahead, nothing running, or carried.
+  test("a repository's carry, central state and work are read as said, and as not said by an older daemon", () async {
+    daemon.method(
+      'Projects',
+      (_) => <String, dynamic>{
+        'projects': <Map<String, dynamic>>[
+          <String, dynamic>{
+            'name': 'checkout',
+            'repositories': <Map<String, dynamic>>[
+              <String, dynamic>{'name': 'checkout', 'own': true},
+              <String, dynamic>{
+                'name': 'payments-api',
+                'carriedHere': true,
+                'tasks': 2,
+                'running': 1,
+                'ahead': 3,
+                'aheadMeasured': '2026-11-09T08:00:00Z',
+                'central': 'ahead',
+              },
+              <String, dynamic>{
+                'name': 'docs',
+                'carriedHere': false,
+                'tasks': 0,
+                'running': 0,
+                'central': 'cannot-say',
+                'centralWhy': 'no-read-key',
+              },
+              <String, dynamic>{'name': 'odd', 'tasks': '2', 'running': -1, 'ahead': 'many', 'carriedHere': 'yes'},
+            ],
+          },
+          <String, dynamic>{
+            'name': 'older',
+            'repositories': <Map<String, dynamic>>[
+              <String, dynamic>{'name': 'older', 'own': true},
+              <String, dynamic>{'name': 'api'},
+            ],
+          },
+        ],
+      },
+    );
+
+    final projects = await (await connect()).projects();
+    Repository of(String name) => projects.first.repositoryStates.firstWhere((each) => each.name == name);
+
+    final said = of('payments-api');
+    expect(said.carriedHere, isTrue);
+    expect((said.tasks, said.running), (2, 1));
+    expect((said.ahead, said.aheadMeasured, said.central), (3, '2026-11-09T08:00:00Z', 'ahead'));
+    final docs = of('docs');
+    expect(docs.carriedHere, isFalse, reason: 'not carried, which is not "not said"');
+    expect((docs.tasks, docs.running), (0, 0), reason: 'none, as said');
+    expect((docs.central, docs.centralWhy, docs.ahead), ('cannot-say', 'no-read-key', null));
+    final odd = of('odd');
+    expect(
+      [odd.carriedHere, odd.tasks, odd.running, odd.ahead],
+      everyElement(isNull),
+      reason: 'a value of the wrong kind is not said, never 0 or carried',
+    );
+    for (final older in projects.last.repositoryStates) {
+      expect(
+        [older.carriedHere, older.tasks, older.running, older.ahead, older.aheadMeasured, older.central],
+        everyElement(isNull),
+        reason: 'a daemon older than the fields says nothing, which is not none, 0 or up to date',
+      );
+    }
+  });
+
   group('each repository has a gate of its own', () {
     Future<Map<String, String?>> asked({String? repository}) async {
       final names = <String, String?>{};

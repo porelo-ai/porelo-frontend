@@ -1,10 +1,13 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../support/world.dart';
 
 /// Usage: the terminal of {'porelo-login-an-agent'} is open over the form
-Future<void> theTerminalOfIsOpenOverTheForm(WidgetTester tester, String task) async {
-  expect(World.sessions.beside, isNotEmpty, reason: 'no terminal of a login task is open');
-  expect(World.sessions.beside.last.task, task);
-  expect(World.terminals.last.command.join(' '), endsWith('porelo task attach $task'));
+///
+/// Attached to that login by what the machine named, run on this computer's own machine.
+Future<void> theTerminalOfIsOpenOverTheForm(WidgetTester tester, String container) async {
+  expect(find.byKey(const Key('unlock-cancel')), findsOneWidget, reason: 'no terminal of a sign-in is open');
+  expect(World.terminals, isNotEmpty);
+  expect(World.terminals.last.command, <String>['podman', 'attach', container]);
 }

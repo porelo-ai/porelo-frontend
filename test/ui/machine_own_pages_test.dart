@@ -95,6 +95,73 @@ void main() {
     }
   });
 
+  // Harm: a repository the machine says it does not carry reads as carried, and work is started there to be refused.
+  testWidgets('a repository its machine says it does not carry is not shown as carried', (tester) async {
+    await World.startBackend(World.work);
+    World.backend.theProjectsItHas = [
+      ...World.backend.theProjectsItHas,
+      Project.from(const {
+        'name': 'demo',
+        'carried': true,
+        'repositories': [
+          {'name': 'demo', 'own': true},
+          {'name': 'demo-api', 'carriedHere': true, 'central': 'up-to-date'},
+          {'name': 'demo-docs', 'carriedHere': false},
+        ],
+      }),
+    ];
+    final connections = FixtureConnections(['build'])
+      ..hostProgress = HostProgress.read('''
+{"projects":[{"project":"demo","state":"carried","repositories":[
+{"repository":"demo-api","state":"taken","central":{"state":"up-to-date"}},
+{"repository":"demo-docs","state":"taken","central":{"state":"up-to-date"}}
+]}]}
+''');
+    final machine = await _withTheCard(tester, connections: connections);
+    World.shell.choosePlace(ShellPlace(Section.machine, machine: machine, machineSection: MachineSection.projects));
+    await World.settle(tester);
+    await _tap(tester, 'project build/demo');
+    final row = find.byKey(const Key('repository-demo-docs'));
+    expect(find.descendant(of: row, matching: find.textContaining('not carried here')), findsOneWidget);
+    expect(find.descendant(of: row, matching: find.textContaining('at central')), findsNothing);
+    expect(tester.widget<ListTile>(row).onTap, isNull, reason: 'a tap on it starts work there');
+  });
+
+  // Harm: a repository the host says is not carried there, which the daemon does not list, is started from its row.
+  testWidgets('a repository the host says the machine does not carry yet is not started from its row', (tester) async {
+    await World.startBackend(World.work);
+    World.backend.theProjectsItHas = [
+      ...World.backend.theProjectsItHas,
+      Project.from(const {
+        'name': 'demo',
+        'file': '/srv/demo/project.yml',
+        'repositories': [
+          {'name': 'demo', 'own': true},
+          {'name': 'demo-api', 'carriedHere': true, 'central': 'up-to-date'},
+        ],
+      }),
+    ];
+    final connections = FixtureConnections(['build'])
+      ..hostProgress = HostProgress.read('''
+{"projects":[{"project":"demo","state":"carried","repositories":[
+{"repository":"demo-api","state":"taken","central":{"state":"up-to-date"}},
+{"repository":"demo-docs","state":"waiting"}
+]}]}
+''');
+    final machine = await _withTheCard(tester, connections: connections);
+    World.shell.choosePlace(ShellPlace(Section.machine, machine: machine, machineSection: MachineSection.projects));
+    await World.settle(tester);
+    await _tap(tester, 'project build/demo');
+    final row = find.byKey(const Key('repository-demo-docs'));
+    expect(find.descendant(of: row, matching: find.textContaining('not carried')), findsOneWidget);
+    expect(tester.widget<ListTile>(row).onTap, isNull, reason: 'a tap on it starts work there');
+    expect(
+      tester.widget<ListTile>(find.byKey(const Key('repository-demo-api'))).onTap,
+      isNotNull,
+      reason: 'one carried starts',
+    );
+  });
+
   // Harm: what a person cannot read of the machine reads as nothing carried and nothing running.
   testWidgets("a project on a machine one is no Machine Admin of says what is not read", (tester) async {
     await World.startBackend(World.work);

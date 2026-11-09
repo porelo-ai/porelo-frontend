@@ -114,7 +114,6 @@ import 'vault_view.dart';
 import 'start_agents_view.dart';
 import 'first_start_view.dart' show askFirstStart;
 import 'start_work_view.dart';
-import 'login_task_terminal.dart';
 import 'sign_in_panel.dart';
 import '../app/agent_sign_in.dart';
 import 'widening_view.dart';
@@ -524,6 +523,7 @@ class _ShellState extends State<Shell> {
   Machine? _observedMachine;
   void _machineChanged() {
     _dropForgottenTools();
+    _leaveTheSignInsOfForgottenMachines();
     final machine = widget.machines.current;
     if (_observedMachine == machine) return;
     _observedMachine = machine;
@@ -877,7 +877,7 @@ class _ShellState extends State<Shell> {
       _ => null,
     };
     final signingIn = <Command>[
-      if (signIn != null) ...[signInCommand(signIn), endTheSignInCommand(signIn)],
+      if (signIn != null) ...[signInCommand(signIn), importTheSignInCommand(signIn), signInAnywayCommand(signIn)],
     ];
     final run = _openedRun;
     if (run != null) {
@@ -2457,20 +2457,34 @@ class _ShellState extends State<Shell> {
   }
 
   /// On an organization's machine, offers only the repositories of [project] it has taken, and says why not the
-  /// others; where it cannot be asked, says so, and every one stays offered.
+  /// others; where it cannot be asked, says so, and every one stays offered. One the machine's own Porelo says it
+  /// does not carry is never offered.
   Future<void> _offerWhatTheHostHas(String project) async {
+    final starting = widget.starting;
+    // What the machine's own daemon says it does not carry is never offered, whatever the host says after: a start
+    // there is refused.
+    final notCarried = <String>{
+      for (final each in starting.project?.repositoryStates ?? const <Repository>[])
+        if (each.carriedHere == false && starting.project?.name == project) each.name,
+    };
+    final notCarriedWords = switch (notCarried.length) {
+      0 => null,
+      1 => 'The machine does not carry ${notCarried.single}, and would refuse a start there.',
+      final n => 'The machine does not carry $n of the repositories, and would refuse a start there.',
+    };
+    void offerOnly(Set<String> names, String? words) => starting.offerOnly(
+      names.difference(notCarried),
+      [?words, ?notCarriedWords].isEmpty ? null : [?words, ?notCarriedWords].join(' '),
+    );
+    if (notCarried.isNotEmpty) offerOnly(starting.project!.workRepositories.toSet(), null);
     final host = widget.machines.current.hostCard?.name;
     final connections = _hostConnections;
     if (host == null || connections == null || project == defaultProject) return;
-    final starting = widget.starting;
     // The form's own machine, which the question is about, whichever is chosen meanwhile.
     final on = starting.openedOn;
     if (!connections.connected(host)) {
       starting.notOfferedWords = '$host was not asked which repositories it has taken, so every one is offered.';
-      return starting.offerOnly(
-        starting.project?.workRepositories.toSet() ?? const <String>{},
-        starting.notOfferedWords,
-      );
+      return offerOnly(starting.project?.workRepositories.toSet() ?? const <String>{}, starting.notOfferedWords);
     }
     final HostProgress progress;
     // Still the same start on the same machine, after the wait: another opened meanwhile is not this one.
@@ -2479,7 +2493,7 @@ class _ShellState extends State<Shell> {
       progress = await connections.progress(host);
     } on OrganizationRefused catch (refused) {
       if (!same()) return;
-      return starting.offerOnly(
+      return offerOnly(
         starting.project!.workRepositories.toSet(),
         '$host could not be asked which repositories it has taken, so every one is offered: ${refused.words}',
       );
@@ -2492,7 +2506,7 @@ class _ShellState extends State<Shell> {
       if (row.state != 'taken' && work.contains(row.repository)) byState[row.state] = (byState[row.state] ?? 0) + 1;
     }
     String count(int n) => n == 1 ? '1 repository' : '$n repositories';
-    starting.offerOnly(
+    offerOnly(
       {
         for (final row in rows)
           if (row.state == 'taken') row.repository,
@@ -2541,9 +2555,7 @@ class _ShellState extends State<Shell> {
       return;
     }
     final vault = _toolsFor(machine).vault;
-    final signIn = widget.starting.signIn
-      ..machine = machine.name
-      ..openTheLoginTask = (task) => _openTheLoginTask(task, machine, stillOpen: () => widget.starting.signIn.running);
+    final signIn = _signInOn(widget.starting.signIn, machine);
     await openStartWork(
       context,
       starting: widget.starting,
@@ -2563,18 +2575,63 @@ class _ShellState extends State<Shell> {
           ? null
           : () => _fixTheUpstreamToStart(machine),
     );
-    // Left however it was left: only the wait is dropped, and the login task goes on, which is said.
+    // Left however it was left: only the wait is dropped, and the sign-in goes on on the machine, which is said.
     final left = signIn.leave();
-    signIn.openTheLoginTask = null;
+    signIn.attachHere = null;
     if (left != null && widget.machines.all.contains(machine)) widget.machines.of(machine).say(left);
     widget.starting.close();
   }
 
-  /// Opens the terminal of the login task [task] on [machine], the one the sign-in was started on, while
-  /// [stillOpen] says its sign-in runs.
-  Future<void> _openTheLoginTask(String task, Machine machine, {required bool Function() stillOpen}) async {
-    if (!mounted || !widget.machines.all.contains(machine) || !stillOpen()) return;
-    await openTheLoginTask(context, sessions: widget.sessions, machine: machine, task: task);
+  /// Puts [signIn] on [machine]: its name for the sentences, whether the person reaches it from another one, and
+  /// a terminal attached to its login **on that machine**, never here for a machine reached from elsewhere.
+  SigningIn _signInOn(SigningIn signIn, Machine machine) => signIn
+    ..machine = machine.name
+    ..remote = machine.needsATunnel || (!machine.isThisComputer && machine.relay?.kind != 'wsl')
+    ..cannotAttach = onTheMachine(machine, const <String>['porelo'], terminal: true) == null
+        ? '${machine.name} is reached through a socket this window does not raise, so no terminal opens there '
+              'from here; sign in at the machine with porelo vault login'
+        : null
+    ..attachHere = (attach) => _attachToTheSignIn(attach, machine, signIn);
+
+  /// Runs [attach], as the machine named it, on [machine] in a terminal, while [signIn] says its login runs there:
+  /// the person follows the link and pastes the code there, never into this program. **Closing it leaves the
+  /// terminal only**; what waits on the sign-in goes on waiting.
+  Future<void> _attachToTheSignIn(List<String> attach, Machine machine, SigningIn signIn) async {
+    if (!mounted || !widget.machines.all.contains(machine) || !signIn.running) return;
+    final command = onTheMachine(machine, attach, terminal: true);
+    if (command == null) return;
+    await runInATerminal(
+      context,
+      title: 'Sign in to ${signIn.who} on ${machine.name}',
+      explanation:
+          'Follow the link the terminal shows, sign in in your browser, and paste the code it gives you here, in the '
+          'terminal. It goes straight to the machine and never through this program.',
+      machine: machine,
+      command: command,
+      open: widget.sessions.openTerminal,
+      stillWorking:
+          'The sign-in runs on ${machine.name}. The first one builds its image, which takes a few minutes and may '
+          'print nothing for a while.',
+      cancel: 'Close the terminal',
+    );
+  }
+
+  /// Leaves the waits on sign-ins of a machine no longer watched: their connections close, and the sign-ins go on
+  /// on the machine.
+  void _leaveTheSignInsOfForgottenMachines() {
+    bool forgotten(SigningIn signIn) {
+      final on = signIn.on;
+      return on != null && !widget.machines.all.any((each) => identical(widget.machines.of(each).backend, on));
+    }
+
+    for (final signIn in <SigningIn>[
+      widget.starting.signIn,
+      _startingAgents.signing,
+      ..._signInsAfterAFailedStart.values,
+    ]) {
+      // Whatever is still out is left too, a start or a question among them: its late answer opens nothing.
+      if (forgotten(signIn) && (signIn.out || signIn.running)) signIn.leave();
+    }
   }
 
   /// A login shell on the machine, for a person to run what the machine named.
@@ -2730,9 +2787,7 @@ class _ShellState extends State<Shell> {
     // A row's agent comes with its file, so this is the first it can be said for a project just taken.
     if (StartAgents.whyNot(project) case final lacking?) return fleet.say(lacking);
     final starting = _startingAgents;
-    starting.signing
-      ..machine = machine.name
-      ..openTheLoginTask = (task) => _openTheLoginTask(task, machine, stillOpen: () => starting.signing.running);
+    _signInOn(starting.signing, machine);
     unawaited(starting.open(fleet.backend, project));
     await openStartAgents(
       context,
@@ -2748,8 +2803,8 @@ class _ShellState extends State<Shell> {
               from: 'the wizard',
             ),
     );
-    // Closed however it was left: nothing more starts, and a login task that runs goes on, which is said.
-    starting.signing.openTheLoginTask = null;
+    // Closed however it was left: nothing more starts, and a sign-in that runs goes on on the machine, which is said.
+    starting.signing.attachHere = null;
     final left = starting.left;
     starting.left = null;
     if (left != null && widget.machines.all.contains(machine)) widget.machines.of(machine).say(left);
@@ -2891,13 +2946,19 @@ class _ShellState extends State<Shell> {
     widget.operations.removeListener(check);
     _waitsForAFailedStart.remove(operation.id);
     if (!operation.failed || !widget.machines.all.contains(machine)) return;
-    final signIn = SigningIn()..machine = machine.name;
-    signIn.openTheLoginTask = (task) => _openTheLoginTask(task, machine, stillOpen: () => signIn.running);
+    final signIn = _signInOn(SigningIn(), machine);
     await signIn.ask(on, agent: agent);
     if (!mounted || !widget.machines.all.contains(machine) || signIn.signedIn || signIn.served != true) {
+      signIn.leave();
       signIn.dispose();
       return;
     }
+    // Its view closed while the machine was asked: a sign-in found running there is not waited on.
+    final open = switch (widget.shell.opened) {
+      OperationOpened(:final id) => id,
+      _ => null,
+    };
+    if (open != operation.id) signIn.leave();
     setState(() => _signInsAfterAFailedStart[operation.id] = signIn);
   }
 
@@ -5326,15 +5387,16 @@ class _ShellState extends State<Shell> {
     if (widget.sessions.any && !_runningIsShown) unawaited(widget.sessions.leave());
   }
 
-  /// Leaves the wait on the sign-in a failed start offered once its view is no longer open: **its login task goes
-  /// on**, which is said; opened again, the view offers it again.
+  /// Leaves the wait on the sign-in a failed start offered once its view is no longer open: **the sign-in goes on**
+  /// on the machine, which is said; opened again, the view offers it again.
   void _leaveTheSignInsWithTheirView() {
     final open = switch (widget.shell.opened) {
       OperationOpened(:final id) => id,
       _ => null,
     };
     for (final MapEntry(key: id, value: signIn) in _signInsAfterAFailedStart.entries) {
-      if (id == open || !signIn.waiting) continue;
+      // Whatever is still out is left too, a start or a question among them: its late answer opens nothing.
+      if (id == open || !(signIn.out || signIn.attaching)) continue;
       final left = signIn.leave();
       final machine = widget.machines.all.where((each) => each.name == signIn.machine).firstOrNull;
       if (left != null && machine != null) widget.machines.of(machine).say(left);
@@ -5804,17 +5866,15 @@ class _ShellState extends State<Shell> {
     // A machine that does not answer now has its last list, which is no word on what runs there now.
     final tasks = fleet != null && fleet.listRead && fleet.reachability == Reachability.connected ? fleet.tasks : null;
     final p = project.project;
-    final names = <String>{
+    final listed = <String, Repository>{
       for (final each in p.repositoryStates)
-        if (!each.own || p.repositoryStates.length == 1) each.name,
+        if (!each.own || p.repositoryStates.length == 1) each.name: each,
     };
+    final names = listed.keys.toSet();
     if (!_onTheOrganizationsPage(machine)) {
       return {
-        for (final name in names)
-          name: [
-            p.carried ? 'carried, not taken yet' : 'on the machine',
-            runningIn(project: project.name, repository: name, tasks: tasks),
-          ].join(' · '),
+        for (final each in listed.values)
+          each.name: repositoryOnAMachine(project: project.name, listed: each, carried: p.carried, tasks: tasks),
       };
     }
     final card = machine.hostCard!.name;
@@ -5834,6 +5894,7 @@ class _ShellState extends State<Shell> {
           progressRead: read && progress != null,
           tasks: tasks,
           carriedAlone: carriedAlone,
+          listed: listed[name],
         ),
     };
   }
