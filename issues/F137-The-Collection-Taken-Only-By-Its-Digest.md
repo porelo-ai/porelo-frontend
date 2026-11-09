@@ -1,7 +1,7 @@
 # F137 — The Collection Taken Only By Its Digest
 
-**Status:** Rework: the collection's digest is compared before the copy but not on the host, so a tarball swapped
-there after the copy is installed. To be built after the foo test.
+**Status:** Implementing; the rework: the collection's digest is compared before the copy but not on the host, so a
+tarball swapped there after the copy is installed.
 **Size:** S - one pinned digest, checked twice, with a test seen red on a changed byte.
 
 **What must be true.** `porelo-host up` installs on the host only the porelo-host collection whose
