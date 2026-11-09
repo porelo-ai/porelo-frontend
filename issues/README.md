@@ -95,6 +95,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 |---|---|---|---|
 | <a id="f445"></a>[F445](F445-What-A-Rehearsal-Cannot-Drive-In-The-Window-Stood-In-For.md) | S | the rehearsed move through the window; the host reading the central token from the vault, for its last part | The sign-in up to its terminal, the host key compared by the test, a screenshot on failure, and the gathered push, each passed, failed or said not run. |
 | <a id="f444"></a>[F444](F444-A-Move-Driven-Through-The-Window-Against-A-Rented-Host.md) | M | a rented host set up for a test organization of one test person | The main scenarios of a move driven through the real window, unattended, in a local VM under a virtual display, against a rented host, each checked on the host. |
+| <a id="f446"></a>[F446](F446-The-Stories-Of-A-Project-On-A-Planning-Board.md) | M | — | *Planning* shows a project's stories on a board, phases as columns with their states, read and watched from the machine; blocked by the daemon's planning part. |
 
 ### Backlog
 
@@ -108,7 +109,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f362"></a>[F362](F362-A-Click-Answers-At-Once.md) | S | — | A click on a row shows its page and its reading line at once; the delay seen in the foo test is measured down to its cause. |
 | <a id="f117"></a>[F117](F117-What-Walk-8-Left-Unbuilt.md) | M | — | A tile's repository in its heading, a refused release said as an error that stays. |
 | <a id="f111"></a>[F111](F111-All-Of-A-Pieces-Logs-In-One-Timeline.md) | M | — | All of a piece's logs in one timeline, by time, filterable by source. |
-| <a id="f446"></a>[F446](F446-The-Stories-Of-A-Project-On-A-Planning-Board.md) | M | — | *Planning* shows a project's stories on a board, phases as columns with their states, read and watched from the machine; blocked by the daemon's planning part. |
 | <a id="f447"></a>[F447](F447-A-Story-Moved-On-The-Board-And-Saved.md) | M | [F446](README.md#f446) | A story dragged to another state, kept pending until saved through the machine or undone; a drop on a working state starts its work instead. |
 | <a id="f448"></a>[F448](F448-A-Story-And-An-Issue-Opened-From-The-Board.md) | M | [F446](README.md#f446) | A story's and an issue's screen with a breadcrumb and *Open story*/*Open issue*, an issue moved alone. |
 | <a id="f449"></a>[F449](F449-Work-On-A-Story-Started-From-The-Board.md) | M | [F447](README.md#f447) | *Start work* for a story, filled by the machine's proposal: mode, agent, model; the tasks and coordinator shown, not typed; the agent's outcome on its ended run and under *Needs you*. |
