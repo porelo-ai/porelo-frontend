@@ -104,6 +104,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="f203"></a>[F203](F203-This-Repository-Worked-In-A-Porelo-Task.md) | S | — | This repository's agent working in an attended Porelo task on the host, its build green on the host's Forgejo, reached in the room, with a way back. |
+| <a id="f463"></a>[F463](F463-This-Machine-Listed-Once-After-Its-Socket-Moved.md) | XS | — | This machine listed once, at its socket as it is now, whatever socket was saved for it. |
 
 ### Backlog
 
