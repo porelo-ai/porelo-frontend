@@ -30,10 +30,12 @@ own.
   not reset the first.
 - `lib/src/ui/planning_view.dart` (new), after the design: phases as columns, a phase's states inside it with its
   working states on top and tinted, each with its count; a phase or one state folds to its number and the priority
-  marks of its cards; cards show id, priority chip, title, the work running on it (agent, mode, since), the number of
+  marks of its cards; cards show id, priority chip, title, the work running on it (agent, mode, since) or *nobody at work* where its
+  work was stopped and it still stands in a working state, the number of
   issues, the share in Review or Finished as a bar, and unfold to their issues; the closed states (Finished,
   Rejected) hidden behind *Show Finished and Rejected (n)*; a project chooser where more than one project has
-  planning; a priority filter and a search over id and title. Priority order then number, as the design.
+  planning, read from the machine shown, or from another watched machine that offers that project's planning; a
+  priority filter and a search over id and title. Priority order then number, as the design.
 - An older machine without the planning part: the page says the machine does not offer planning, and nothing else.
 - `lib/src/mock/mock_daemon.dart` and the fake backend in `test/features/support/world.dart` answer the part with the
   design's stories, so `dart tool/mock_daemon.dart` shows the board.
@@ -50,8 +52,8 @@ own.
 
 ## Open questions
 
-- Which machine's planning the board shows, among the machines the window watches. Proposal: the machine where the
-  operator starts the work, so the board, the work and its terminals are on one machine.
+- None. Any machine that offers a project's planning may serve its board; work runs where the operator starts it
+  (the operator, 2026-11-09).
 
 ## To be checked
 
