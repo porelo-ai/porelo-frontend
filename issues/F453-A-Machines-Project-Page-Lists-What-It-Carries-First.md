@@ -1,6 +1,6 @@
 # F453 — A Machine's Project Page Lists What It Carries First
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** S - one list sorted and folded, the host's raw words replaced, the forge's names shown as such, one count
 said as zero.
 
