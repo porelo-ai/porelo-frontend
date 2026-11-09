@@ -127,6 +127,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f443"></a>[F443](F443-Forge-Token-Handed-Over-When-The-Machine-Asks.md) | S | the daemon's ask for the person's forge token on a host, with its command | The person's forge token on a host made by the host's own command, run in a terminal there from the window when the host asks; never through this program. |
 | <a id="f123"></a>[F123](F123-Where-A-Machine-And-A-Project-Stand-In-Their-Organisations-Tree.md) | — | — | Where a machine and a project stand in their organisation's tree, and which settings bind them. |
 | <a id="f166"></a>[F166](F166-A-Host-Rented-Through-OpenTofu.md) | M | — | `porelo-host up` and `down` renting and giving back through the OpenTofu module, its secrets only in `tofu`'s environment; `--given` kept. |
 
@@ -134,7 +135,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f443"></a>[F443](F443-Forge-Token-Handed-Over-When-The-Machine-Asks.md) | — | the daemon's wire for the hand-over | A forge token handed over to a machine when it asks for one, by the machine's own way of taking it. |
 | <a id="f437"></a>[F437](F437-Join-Leave-And-Accept-A-Card-In-The-Window.md) | M | the backend's card proposal and leave | Join an organization by a card proposal, an owner accepting it on the person's row, and leaving an organization, from the window. |
 | <a id="f436"></a>[F436](F436-Every-Task-Run-Kept-And-Read-In-The-Window.md) | L | the backend's task timeline | Every task that runs or ran, removed ones too, in a history view: who started and stopped it, its timeline and numbers, its logs as views of the one log stream, after it is gone too. |
 | <a id="f430"></a>[F430](F430-Leftovers-Of-The-Rental-Findings.md) | — | — | What the fixes of the trial move's findings named as not built, gathered for the operator to place: the wizard's last pages in a test, the old preparing dialog, Forward's stale-push check, a give-back that leaves the machine listed. |
