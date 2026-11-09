@@ -28,7 +28,7 @@ void main() {
         backend.failPlanning(
           unsupported
               ? const FeatureNotSupported('planning')
-              : const VarlinkException('PlanningRefused', {'detail': 'cannot read planning'}),
+              : const VarlinkException('WorkNotAllowed', {'detail': 'cannot read planning'}),
         );
         clock.flushMicrotasks();
         try {
@@ -60,8 +60,8 @@ void main() {
       unawaited(backend.endPlanning());
       clock.flushMicrotasks();
       try {
-        expect(board.problem, contains('watch ended'));
-        expect(board.live, isFalse);
+        expect(board.problem, isNull);
+        expect(board.live, isTrue);
         expect(backend.planningWatchers, 0);
       } finally {
         board.dispose();
@@ -80,7 +80,7 @@ void main() {
       clock.flushMicrotasks();
       try {
         expect(board.live, isTrue);
-        backend.failPlanning(const VarlinkException('PlanningRefused', {'detail': 'Planning store cannot be read'}));
+        backend.failPlanning(const VarlinkException('WorkNotAllowed', {'detail': 'Planning store cannot be read'}));
         clock.flushMicrotasks();
         expect(board.problem, 'Planning store cannot be read');
         expect(board.live, isFalse);

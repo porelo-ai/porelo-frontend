@@ -33,14 +33,29 @@ Map<String, dynamic> _board(
 };
 Map<String, dynamic> _proposal(String model) => {
   'modes': ['UNATTENDED'],
+  'coordinator': 'START',
+  'comment': '',
   'readingRounds': 3,
+  'issueReadingRounds': <Map<String, dynamic>>[],
   'repositories': [
-    {'repository': 'repo', 'task': 'task', 'agent': 'agent', 'model': model, 'subAgents': <Map<String, dynamic>>[]},
+    {
+      'repository': 'repo',
+      'issues': <String>[],
+      'main': {'name': 'main', 'role': 'MAIN', 'agent': 'agent', 'model': model, 'brief': 'Work'},
+      'subAgents': <Map<String, dynamic>>[],
+    },
   ],
 };
 
 class _Source extends FakeBackend {
   _Source() : super([]);
+  @override
+  Future<StoryWorkProposal> proposeStoryWork(String project, String story, String to) {
+    final proposal = storyWork.proposals[story];
+    if (proposal != null) proposal['revision'] = planning[project]!['revision'];
+    return super.proposeStoryWork(project, story, to);
+  }
+
   int workReads = 0;
   Object? workError;
   Completer<StoryWorkStatus>? heldWork;
@@ -80,7 +95,12 @@ void main() {
     final sent = second.storyWork.calls.where((call) => call.$1 == 'StartStoryWork').single.$2;
     expect(sent['revision'], 'second');
     expect(sent['repositories'], [
-      {'repository': 'repo', 'agent': 'changed-agent', 'model': 'chosen-model'},
+      {
+        'repository': 'repo',
+        'issues': <String>[],
+        'main': {'name': 'main', 'role': 'MAIN', 'agent': 'changed-agent', 'model': 'chosen-model', 'brief': 'Work'},
+        'subAgents': <Map<String, dynamic>>[],
+      },
     ]);
     work.dispose();
     a.dispose();
@@ -106,10 +126,16 @@ void main() {
     expect(identical(work.board, a), isTrue);
     first.heldStart!.complete(
       StoryWorkStarted.from({
-        'started': true,
-        'tasks': [
-          {'name': 'first-task', 'running': true},
-        ],
+        'revision': 'first',
+        'work': {
+          'atWork': true,
+          'repositories': [
+            {'repository': 'repo'},
+          ],
+          'tasks': [
+            {'task': 'first-task', 'role': 'MAIN', 'atWork': true},
+          ],
+        },
       }),
     );
     expect(await pending, isTrue);
@@ -242,11 +268,20 @@ void main() {
       'repositories': [
         {
           'repository': 'repo',
-          'task': 'task',
-          'agent': 'agent',
-          'model': 'model',
+          'issues': <String>[],
+          'main': {'name': 'main', 'role': 'MAIN', 'agent': 'agent', 'model': 'model', 'brief': 'Work'},
           'subAgents': [
-            {'name': 'reader', 'agent': 'agent', 'model': 'proposal-model'},
+            {
+              'id': 'reader',
+              'issue': 'item',
+              'kind': 'READER',
+              'workingState': 'Reading',
+              'brief': 'Read',
+              'choice': 'KEEP',
+              'name': 'reader',
+              'agent': 'agent',
+              'model': 'proposal-model',
+            },
           ],
         },
       ],
@@ -285,8 +320,9 @@ void main() {
       ((unknown['stories'] as List).single as Map<String, dynamic>)['work'] = <String, dynamic>{};
       backend.pushPlanning('demo', unknown);
       await Future<void>.delayed(Duration.zero);
-      expect(backend.workReads, 1);
-      expect(board.startUnavailable(board.stories.single), 'work status not reported');
+      // Work without its tasks is incomplete, so the fallback read is tried again.
+      expect(backend.workReads, 2);
+      expect(board.startUnavailable(board.stories.single), 'the machine does not offer story work status');
       board.dispose();
       await backend.stop();
     }
@@ -335,11 +371,20 @@ void main() {
       'repositories': [
         {
           'repository': 'repo',
-          'task': 'task',
-          'agent': 'agent',
-          'model': 'model',
+          'issues': <String>[],
+          'main': {'name': 'main', 'role': 'MAIN', 'agent': 'agent', 'model': 'model', 'brief': 'Work'},
           'subAgents': [
-            {'name': 'reader', 'agent': 'reader-agent', 'model': ''},
+            {
+              'id': 'reader',
+              'issue': 'item',
+              'kind': 'READER',
+              'workingState': 'Reading',
+              'brief': 'Read',
+              'choice': 'KEEP',
+              'name': 'reader',
+              'agent': 'reader-agent',
+              'model': '',
+            },
           ],
         },
       ],
@@ -354,8 +399,11 @@ void main() {
     work.setComment('The main agent handles the reading.');
     expect(await work.start(), isTrue);
     expect(
-      (backend.storyWork.calls.where((call) => call.$1 == 'StartStoryWork').single.$2['subAgents'] as List).single,
-      {'repository': 'repo', 'name': 'reader', 'choice': 'DROP'},
+      (((backend.storyWork.calls.where((call) => call.$1 == 'StartStoryWork').single.$2['repositories'] as List).single
+                  as Map)['subAgents']
+              as List)
+          .single['choice'],
+      'DROP',
     );
     work.dispose();
     board.dispose();

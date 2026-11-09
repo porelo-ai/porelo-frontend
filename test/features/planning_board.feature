@@ -55,11 +55,11 @@ Feature: The stories of a project on a planning board
         And the planning watch fails
         Then the planning error says {'Planning store cannot be read'}
 
-    # Harm: a finished watch leaves a frozen board looking live.
-    Scenario: An ended watch is shown
+    # Harm: a daemon that answers WatchStories once, without more, loses the board it answered.
+    Scenario: An ended single-answer watch keeps its board
         When I open the planning board
         And the planning watch ends
-        Then the planning error says {'The planning watch ended'}
+        Then the planning story {'ST291'} is in {'Backlog'}
 
     # Harm: filters conceal or retain work outside the chosen priority and search.
     Scenario: Priority and search narrow the board

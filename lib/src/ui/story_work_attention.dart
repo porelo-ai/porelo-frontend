@@ -109,7 +109,7 @@ class _StoryWorkAttentionViewState extends State<StoryWorkAttentionView> {
                       title: Text('${row.story.id} — ${row.story.title}'),
                       content: SingleChildScrollView(
                         child: Text(
-                          '${row.story.state}\n${row.story.gain}\n${row.story.test}\n${ended.reason.isEmpty ? 'Reason not reported' : ended.reason}',
+                          '${row.story.state}\n${row.story.description}\n${ended.reason.isEmpty ? 'Reason not reported' : ended.reason}',
                         ),
                       ),
                       actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close'))],

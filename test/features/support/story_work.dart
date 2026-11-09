@@ -100,7 +100,11 @@ Future<void> prepareWork(WidgetTester tester, String condition) async {
       World.elsewhere.storyWork.proposals['ST291'] = {
         ...proposed,
         'repositories': [
-          for (final repo in repos) {...repo, 'model': 'other-machine-model'},
+          for (final repo in repos)
+            {
+              ...repo,
+              'main': {...repo['main'] as Map<String, dynamic>, 'model': 'other-machine-model'},
+            },
         ],
       };
     case 'start refused':
@@ -125,8 +129,19 @@ Future<void> prepareWork(WidgetTester tester, String condition) async {
     case 'ended blocked':
       final board = planningFixture();
       planningMaps(board, 'stories').firstWhere((story) => story['id'] == 'ST291')['state'] = 'In analysis';
-      World.backend.storyWork.statuses['ST291'] = {
-        'ended': {'at': '2026-01-01T00:00:00Z', 'reason': 'Outcome: blocked - waiting for the repository key.'},
+      planningMaps(board, 'stories').firstWhere((story) => story['id'] == 'ST291')['work'] = {
+        'atWork': false,
+        'tasks': [
+          {
+            'task': 'main',
+            'ended': {
+              'outcome': 'BLOCKED',
+              'at': 'instant',
+              'why': 'Outcome: blocked - waiting for the repository key.',
+              'answer': '',
+            },
+          },
+        ],
       };
       await pushPlanning(tester, board);
     case 'stopped reading':
@@ -161,7 +176,7 @@ Future<void> chooseWork(WidgetTester tester, String choice) async {
     case 'start':
       await workTap(tester, 'story-work-start');
     case 'drop reader':
-      await workTap(tester, 'story-work-choice ${workRepository()} reader DROP');
+      await workTap(tester, 'story-work-choice ${workRepository()} porelo/B540/READER DROP');
     case 'comment and start':
       await workText(tester, 'story-work-comment', 'Use the chosen reading setup.');
       await workTap(tester, 'story-work-start');
@@ -174,9 +189,9 @@ Future<void> chooseWork(WidgetTester tester, String choice) async {
     case 'change main model':
       await workText(tester, 'story-work-main-model porelo', 'chosen-main-model');
     case 'change reader':
-      await workTap(tester, 'story-work-choice porelo reader CHANGE');
+      await workTap(tester, 'story-work-choice porelo porelo/B540/READER CHANGE');
     case 'change reader agent':
-      await workTap(tester, 'story-work-agent porelo reader');
+      await workTap(tester, 'story-work-agent porelo porelo/B540/READER');
       await tester.tap(find.byKey(const Key('start-agent-choice an-agent')).last);
       await World.settle(tester);
     case 'comment':
@@ -193,8 +208,8 @@ Future<void> chooseWork(WidgetTester tester, String choice) async {
       await workTap(tester, 'planning-show-closed');
       await workTap(tester, 'planning-fold-phase Done');
     case 'change reader and rounds':
-      await workTap(tester, 'story-work-choice ${workRepository()} reader CHANGE');
-      await workText(tester, 'story-work-model ${workRepository()} reader', 'chosen-reader-model');
+      await workTap(tester, 'story-work-choice ${workRepository()} porelo/B540/READER CHANGE');
+      await workText(tester, 'story-work-model ${workRepository()} porelo/B540/READER', 'chosen-reader-model');
       await workText(tester, 'story-work-rounds', '5');
       final perIssue = find.text('Per issue');
       await tester.ensureVisible(perIssue);
@@ -232,15 +247,18 @@ Future<void> proveWork(WidgetTester tester, String proof) async {
     case 'proposal defaults and allowed modes':
       expect(workKey('story-work-mode UNATTENDED'), findsOneWidget);
       expect(workKey('story-work-mode AGENT'), findsNothing);
-      expect(tester.widget<TextFormField>(workKey('story-work-rounds')).initialValue, '3');
-      expect(find.text('Coordinator · codex · coordinator-model'), findsOneWidget);
+      expect(tester.widget<TextFormField>(workKey('story-work-rounds')).initialValue, '2');
+      expect(workKey('story-work-coordinator'), findsOneWidget);
       expect(workKey('story-work-task porelo'), findsOneWidget);
       expect(workKey('story-work-task porelo-host'), findsOneWidget);
       expect(find.textContaining('B540, B541'), findsOneWidget);
-      expect(tester.widget<ChoiceChip>(workKey('story-work-choice porelo reader KEEP')).selected, isTrue);
-      expect(tester.widget<ChoiceChip>(workKey('story-work-choice porelo-host reader KEEP')).selected, isTrue);
-      expect(find.text('The agents work alone in their tasks. You see their progress on the board.'), findsOneWidget);
-      expect(find.text('Start the analysis'), findsOneWidget);
+      expect(tester.widget<ChoiceChip>(workKey('story-work-choice porelo porelo/B540/READER KEEP')).selected, isTrue);
+      expect(
+        tester.widget<ChoiceChip>(workKey('story-work-choice porelo-host porelo-host/HO156/READER KEEP')).selected,
+        isTrue,
+      );
+      expect(find.text('The agents work unattended.'), findsOneWidget);
+      expect(find.text('Start 2 tasks'), findsOneWidget);
     case 'other machine proposal visible':
       expect(find.textContaining('Story supplied by another machine'), findsOneWidget);
       final model = find.descendant(of: workKey('story-work-main-model porelo'), matching: find.byType(EditableText));
@@ -289,13 +307,18 @@ Future<void> proveWork(WidgetTester tester, String proof) async {
       expect(cardText(), contains('an-agent'));
     case 'change proposal prefilled':
       expect(
-        tester.widget<DropdownButtonFormField<String>>(workKey('story-work-agent porelo reader')).initialValue,
+        tester
+            .widget<DropdownButtonFormField<String>>(workKey('story-work-agent porelo porelo/B540/READER'))
+            .initialValue,
         'claude-code',
       );
       expect(
         tester
             .widget<EditableText>(
-              find.descendant(of: workKey('story-work-model porelo reader'), matching: find.byType(EditableText)),
+              find.descendant(
+                of: workKey('story-work-model porelo porelo/B540/READER'),
+                matching: find.byType(EditableText),
+              ),
             )
             .controller
             .text,
@@ -394,19 +417,16 @@ Future<void> proveWork(WidgetTester tester, String proof) async {
         final text = tester.widget<Text>(name);
         expect(text.maxLines, isNull);
         expect(text.overflow, isNull);
-        expect(
-          text.data,
-          key == 'story-work-task porelo' ? 'st291-porelo · porelo' : 'st291-porelo-host · porelo-host',
-        );
+        expect(text.data, key == 'story-work-task porelo' ? 'porelo' : 'porelo-host');
         expect(tester.getSize(name).width, lessThanOrEqualTo(390));
       }
-      await workTap(tester, 'story-work-choice porelo reader CHANGE');
-      for (final key in ['story-work-agent porelo reader', 'story-work-model porelo reader']) {
+      await workTap(tester, 'story-work-choice porelo porelo/B540/READER CHANGE');
+      for (final key in ['story-work-agent porelo porelo/B540/READER', 'story-work-model porelo porelo/B540/READER']) {
         await tester.ensureVisible(workKey(key));
         await tester.pump();
         expect(workKey(key).hitTestable(), findsOneWidget);
       }
-      await workText(tester, 'story-work-model porelo reader', 'narrow-reader-model');
+      await workText(tester, 'story-work-model porelo porelo/B540/READER', 'narrow-reader-model');
       final perIssue = find.text('Per issue');
       await tester.ensureVisible(perIssue);
       await tester.tap(perIssue);

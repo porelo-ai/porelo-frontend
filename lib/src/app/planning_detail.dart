@@ -85,13 +85,16 @@ class PlanningDetail extends ChangeNotifier {
       : null;
 
   /// Whether the shared Save has reviewed work and a current connection.
-  bool get canSaveMoves => board.pending.isNotEmpty && moveUnavailable == null;
+  bool get canSaveMoves =>
+      board.pending.isNotEmpty && moveUnavailable == null && !board.unavailableActions.containsKey('SaveMoves');
 
   /// Stages one issue in the board's pending batch.
   void queueMove(String id, String to) {
     if (_disposed || board.disposed || moveUnavailable != null) return;
     final issue = issues?.issues.where((issue) => issue.id == id).firstOrNull;
-    if (issue == null || issue.state.isEmpty || !moveStates.any((state) => state.name == to)) return;
+    if (issue == null || issue.state.isEmpty || to != issue.state && !moveStates.any((state) => state.name == to)) {
+      return;
+    }
     board.moveIssue(id, to, reported: issue);
   }
 
@@ -172,8 +175,9 @@ class PlanningDetail extends ChangeNotifier {
         issueError = 'Issue: ${planningFailureWords(error)}';
       }
       if (!current()) return;
-      final owner = nextIssue?.issue?.story;
-      if (owner != null && owner.isNotEmpty) await readStory(owner);
+      final owner =
+          board.stories.where((story) => story.issues.any((issue) => issue.id == id)).firstOrNull?.id ?? storyId;
+      if (owner.isNotEmpty) await readStory(owner);
     } else {
       await readStory(storyId);
       if (!current()) return;
@@ -184,13 +188,9 @@ class PlanningDetail extends ChangeNotifier {
       }
     }
     if (!current()) return;
-    final failed = storyError != null || issuesError != null || issueError != null;
-    final hasLastReply = story != null || issues != null || issue != null;
-    if (!failed || !hasLastReply) {
-      story = nextStory;
-      issues = nextIssues;
-      issue = nextIssue;
-    }
+    if (nextStory != null) story = nextStory;
+    if (nextIssues != null) issues = nextIssues;
+    if (nextIssue != null) issue = nextIssue;
     storyProblem = storyError;
     issuesProblem = issuesError;
     issueProblem = issueError;

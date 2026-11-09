@@ -6,18 +6,6 @@ import 'package:porelo_frontend/client.dart';
 import 'planning_board.dart';
 import 'fleet_backend.dart';
 
-/// The daemon's refusal words, shared by story and reading actions.
-String planningFailureWords(Object error) {
-  if (error is VarlinkException) {
-    for (final key in ['detail', 'message']) {
-      final words = error.parameters[key];
-      if (words is String && words.trim().isNotEmpty) return words;
-    }
-    return 'Refused: ${error.simpleName}.';
-  }
-  return '$error';
-}
-
 /// A proposal and start bound to one watched machine and board revision.
 class StoryWork extends ChangeNotifier {
   /// Captures the initial source and the watched alternatives for the same project.
@@ -125,18 +113,22 @@ class StoryWork extends ChangeNotifier {
   bool get needsComment => choices.values.any((each) => each.choice != 'KEEP');
 
   bool get _validSubAgents => proposal!.repositories.every(
-    (repo) => repo.subAgents.every((sub) {
-      final chosen = choices[(repo.repository, sub.name)];
-      return switch (chosen?.choice) {
-        'KEEP' => sub.agent.isNotEmpty && sub.model.isNotEmpty,
-        'DROP' => true,
-        'CHANGE' =>
-          chosen!.agent?.isNotEmpty == true &&
-              chosen.model?.isNotEmpty == true &&
-              (chosen.agent != sub.agent || chosen.model != sub.model),
-        _ => false,
-      };
-    }),
+    (repo) =>
+        repo.main.role == 'MAIN' &&
+        repo.subAgents.every((sub) {
+          final chosen = choices[(repo.repository, sub.id)];
+          return switch (chosen?.choice) {
+            'KEEP' =>
+              {'BUILDER', 'TESTER', 'READER'}.contains(sub.role) && sub.agent.isNotEmpty && sub.model.isNotEmpty,
+            'DROP' => true,
+            'CHANGE' =>
+              {'BUILDER', 'TESTER', 'READER'}.contains(sub.role) &&
+                  chosen!.agent?.isNotEmpty == true &&
+                  chosen.model?.isNotEmpty == true &&
+                  (chosen.agent != sub.agent || chosen.model != sub.model),
+            _ => false,
+          };
+        }),
   );
 
   static int? _rounds(String text) {
@@ -165,8 +157,8 @@ class StoryWork extends ChangeNotifier {
   /// The daemon's action-specific label, or a count from its proposed tasks.
   String get startLabel => proposal == null
       ? 'Start work'
-      : proposal!.startLabel.isNotEmpty
-      ? proposal!.startLabel
+      : proposal!.repositories.length == 1
+      ? 'Start $to'
       : 'Start ${proposal!.repositories.length} ${proposal!.repositories.length == 1 ? 'task' : 'tasks'}';
 
   /// Reads the proposal and agent list from the same captured machine.
@@ -200,6 +192,16 @@ class StoryWork extends ChangeNotifier {
       proposal = answer;
       mode = answer.modes.where((each) => ['UNATTENDED', 'AGENT'].contains(each)).firstOrNull;
       rounds = answer.readingRounds?.toString() ?? '';
+      comment = answer.comment;
+      for (final override in answer.issueReadingRounds) {
+        issueRounds[override.issue] = override.rounds?.toString() ?? '';
+      }
+      if (answer.revision != revision) {
+        proposal = null;
+        problem = 'The planning revision changed. Reopen Start work.';
+        unawaited(board.reload());
+        return;
+      }
       for (final repo in answer.repositories) {
         repositories[repo.repository] = StoryWorkMainAgent(
           repository: repo.repository,
@@ -207,10 +209,10 @@ class StoryWork extends ChangeNotifier {
           model: repo.model,
         );
         for (final sub in repo.subAgents) {
-          choices[(repo.repository, sub.name)] = StoryWorkChoice(
+          choices[(repo.repository, sub.id)] = StoryWorkChoice(
             repository: repo.repository,
-            name: sub.name,
-            choice: 'KEEP',
+            name: sub.id,
+            choice: !{'BUILDER', 'TESTER', 'READER'}.contains(sub.role) ? 'DROP' : sub.choice,
           );
         }
       }
@@ -221,7 +223,12 @@ class StoryWork extends ChangeNotifier {
         problem = listed.failures.entries.map((each) => '${each.key}: ${each.value}').join('\n');
       }
     } catch (error) {
-      if (valid()) problem = planningFailureWords(error);
+      if (valid()) {
+        problem = planningFailureWords(error);
+        if (error is VarlinkException && error.simpleName == 'NotYetBuilt') {
+          board.unavailableActions['ProposeStoryWork'] = problem!;
+        }
+      }
     } finally {
       if (valid()) {
         busy = false;
@@ -316,12 +323,12 @@ class StoryWork extends ChangeNotifier {
   }
 
   /// Selects Keep, Change or Drop; Change requires an explicitly chosen model.
-  void choose(String repository, StoryWorkSubAgent sub, String choice, {String? agent, String? model}) {
-    if (busy || !current) return;
-    final previous = choices[(repository, sub.name)];
-    choices[(repository, sub.name)] = StoryWorkChoice(
+  void choose(String repository, PlanAssignment sub, String choice, {String? agent, String? model}) {
+    if (busy || !current || !{'BUILDER', 'TESTER', 'READER'}.contains(sub.role)) return;
+    final previous = choices[(repository, sub.id)];
+    choices[(repository, sub.id)] = StoryWorkChoice(
       repository: repository,
-      name: sub.name,
+      name: sub.id,
       choice: choice,
       agent: choice == 'CHANGE' ? agent ?? previous?.agent ?? sub.agent : null,
       model: choice == 'CHANGE' ? model ?? (previous?.choice == 'CHANGE' ? previous?.model : null) ?? sub.model : null,
@@ -346,6 +353,7 @@ class StoryWork extends ChangeNotifier {
           revision: revision,
           subAgents: choices.values.toList(),
           repositories: repositories.values.toList(),
+          proposedRepositories: proposal!.repositories,
           comment: comment.isEmpty ? null : comment,
           readingRounds: _rounds(rounds),
           issueReadingRounds: {
@@ -357,9 +365,16 @@ class StoryWork extends ChangeNotifier {
       if (_disposed || generation != _generation) return false;
       result = answer;
       if (!answer.started) problem = 'The machine did not start the story work.';
+      if (answer.started) await board.reload();
       return answer.started;
     } catch (error) {
-      if (!_disposed && generation == _generation) problem = planningFailureWords(error);
+      if (!_disposed && generation == _generation) {
+        problem = planningFailureWords(error);
+        if (error is VarlinkException && error.simpleName == 'NotYetBuilt') {
+          board.unavailableActions[error.parameters['method'] as String? ?? 'StartStoryWork'] = problem!;
+        }
+        if (error is VarlinkException && error.simpleName == 'StaleRevision') unawaited(board.reload());
+      }
       return false;
     } finally {
       if (!_disposed && generation == _generation) {
@@ -410,7 +425,7 @@ class PlanningAttention {
   final PlanIssue? issue;
 
   /// The machine’s reported reason and instant for an ended story run.
-  final StoryWorkEnded? ended;
+  final WorkEnded? ended;
 }
 
 /// Findings and a revision-bound reading decision. A success waits for the board's echo.
@@ -463,23 +478,26 @@ class ReadingDecision extends ChangeNotifier {
       );
 
   /// Why the decision cannot run, retained beside the disabled choices.
-  String? get unavailable => row.board.isDisposed
-      ? 'The planning source is no longer watched.'
-      : !current
-      ? 'The board changed or is no longer live.'
-      : busy
-      ? 'Waiting for the machine’s answer.'
-      : submitted
-      ? 'Waiting for the board to confirm the decision.'
-      : problem ??
-            (detail?.findingsReported != true
-                ? 'The last findings have not been reported.'
-                : row.issue?.rounds == null
-                ? 'The reading round was not reported.'
-                : null);
+  String? get unavailable =>
+      row.board.unavailableActions['ResolveIssueReading'] ??
+      (row.board.isDisposed
+          ? 'The planning source is no longer watched.'
+          : !current
+          ? 'The board changed or is no longer live.'
+          : busy
+          ? 'Waiting for the machine’s answer.'
+          : submitted
+          ? 'Waiting for the board to confirm the decision.'
+          : problem ??
+                (detail?.findingsReported != true
+                    ? 'The last findings have not been reported.'
+                    : row.issue?.rounds == null
+                    ? 'The reading round was not reported.'
+                    : null));
 
   /// Whether current findings, round and revision allow a reading decision.
   bool get canResolve =>
+      !row.board.unavailableActions.containsKey('ResolveIssueReading') &&
       current &&
       problem == null &&
       detail?.findingsReported == true &&
@@ -504,7 +522,13 @@ class ReadingDecision extends ChangeNotifier {
         }
       }
     } catch (error) {
-      if (!_disposed) problem = planningFailureWords(error);
+      if (!_disposed) {
+        problem = planningFailureWords(error);
+        if (error is VarlinkException && error.simpleName == 'NotYetBuilt') {
+          row.board.unavailableActions['ResolveIssueReading'] = problem!;
+        }
+        if (error is VarlinkException && error.simpleName == 'StaleRevision') unawaited(row.board.reload());
+      }
     } finally {
       if (!_disposed) {
         busy = false;
@@ -527,15 +551,25 @@ class ReadingDecision extends ChangeNotifier {
     try {
       await backend.resolveIssueReading(
         project,
+        row.story.id,
         row.issue!.id,
         row.issue!.rounds!,
         choice,
         revision,
         comment: comment?.trim(),
       );
-      if (!_disposed) submitted = true;
+      if (!_disposed) {
+        submitted = true;
+        await row.board.reload();
+      }
     } catch (error) {
-      if (!_disposed) problem = planningFailureWords(error);
+      if (!_disposed) {
+        problem = planningFailureWords(error);
+        if (error is VarlinkException && error.simpleName == 'NotYetBuilt') {
+          row.board.unavailableActions['ResolveIssueReading'] = problem!;
+        }
+        if (error is VarlinkException && error.simpleName == 'StaleRevision') unawaited(row.board.reload());
+      }
     } finally {
       if (!_disposed) {
         busy = false;

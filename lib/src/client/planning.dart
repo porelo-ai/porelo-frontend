@@ -11,20 +11,14 @@ List<T> _planList<T>(Object? value, T Function(Map<String, dynamic>) read) =>
 
 /// One state, with the machine's kind preserved even when unknown.
 class PlanState {
-  /// Reads fields without inventing an absent kind or completion rule.
-  PlanState.from(Map<String, dynamic> map)
-    : name = _planText(map, 'name'),
-      kind = _planText(map, 'kind'),
-      done = map['done'] is String ? map['done'] as String : null;
+  /// Reads the configured state and preserves unknown kinds for display.
+  PlanState.from(Map<String, dynamic> map) : name = _planText(map, 'name'), kind = _planText(map, 'kind');
 
-  /// The configured name.
+  /// The name reported by the daemon.
   final String name;
 
-  /// `WAITING`, `WORKING`, `CLOSED`, unknown, or empty when unsaid.
+  /// The kind reported by the daemon.
   final String kind;
-
-  /// The completion rule, when reported.
-  final String? done;
 }
 
 /// A configured column and the names of its states.
@@ -41,40 +35,157 @@ class PlanPhase {
 
 /// Work reported for a story, without inferring whether anyone is working.
 class PlanWork {
-  /// Reads the daemon's report.
+  /// Reads the complete durable work record.
   PlanWork.from(Map<String, dynamic> map)
-    : tasks = _planStrings(map['tasks']),
+    : _tasksReported = _planMapsReported(map['tasks']),
+      tasks = _planList(map['tasks'], PlanWorkTask.from),
       coordinator = map['coordinator'] is String ? map['coordinator'] as String : null,
+      since = _planText(map, 'since'),
+      atWork = map['atWork'] is bool ? map['atWork'] as bool : null,
+      repositories = _planList(map['repositories'], PlanRepositoryWork.from),
+      comment = _planText(map, 'comment'),
+      readingRounds = map['readingRounds'] is int ? map['readingRounds'] as int : null,
+      issueReadingRounds = _planList(map['issueReadingRounds'], PlanIssueReadingRounds.from),
+      issues = _planList(map['issues'], PlanWorkIssue.from);
+
+  /// The tasks reported by the daemon.
+  final List<PlanWorkTask> tasks;
+
+  /// The coordinator reported by the daemon.
+  final String? coordinator;
+
+  /// The since reported by the daemon.
+  final String since;
+
+  /// The atWork reported by the daemon.
+  final bool? atWork;
+
+  /// The repositories reported by the daemon.
+  final List<PlanRepositoryWork> repositories;
+
+  /// The comment reported by the daemon.
+  final String comment;
+
+  /// The readingRounds reported by the daemon.
+  final int? readingRounds;
+
+  /// The issueReadingRounds reported by the daemon.
+  final List<PlanIssueReadingRounds> issueReadingRounds;
+
+  /// The issues reported by the daemon.
+  final List<PlanWorkIssue> issues;
+
+  /// The first recorded outcome requiring attention, if any.
+  WorkEnded? get ended =>
+      tasks.map((task) => task.ended).whereType<WorkEnded>().where((end) => end.outcome != 'DONE').firstOrNull;
+
+  /// The reported value presented to the window.
+  bool get tasksReported => _tasksReported;
+
+  /// The _tasksReported reported by the daemon.
+  final bool _tasksReported;
+
+  /// The reported value presented to the window.
+  String get mode => tasks.firstOrNull?.mode ?? '';
+
+  /// The reported value presented to the window.
+  String get agent => tasks.firstOrNull?.agent ?? '';
+
+  /// The reported value presented to the window.
+  String get model => tasks.firstOrNull?.model ?? '';
+}
+
+/// One recorded runtime participant; identity is never inferred from its name.
+class PlanWorkTask {
+  /// Reads the fields reported by the daemon.
+  PlanWorkTask.from(Map<String, dynamic> map)
+    : task = _planText(map, 'task'),
+      containerId = _planText(map, 'containerId'),
+      repository = _planText(map, 'repository'),
+      issues = _planStrings(map['issues']),
+      state = _planText(map, 'state'),
+      done = _planText(map, 'done'),
       mode = _planText(map, 'mode'),
       agent = _planText(map, 'agent'),
       model = _planText(map, 'model'),
+      role = _planText(map, 'role'),
       since = _planText(map, 'since'),
-      atWork = map['atWork'] is bool ? map['atWork'] as bool : null;
+      atWork = map['atWork'] is bool ? map['atWork'] as bool : null,
+      ended = map['ended'] is Map<String, dynamic> ? WorkEnded.from(map['ended'] as Map<String, dynamic>) : null;
 
-  /// The participating tasks.
-  final List<String> tasks;
+  /// The task, containerId, repository, state, done, mode, agent, model, role, since reported by the daemon.
+  final String task, containerId, repository, state, done, mode, agent, model, role, since;
 
-  /// The coordinator, if named.
-  final String? coordinator;
+  /// The issues reported by the daemon.
+  final List<String> issues;
 
-  /// The mode as reported, including unknown modes.
-  final String mode;
-
-  /// The agent as reported.
-  final String agent;
-
-  /// The model as reported.
-  final String model;
-
-  /// The reported start instant.
-  final String since;
-
-  /// Whether work runs, or null when unsaid.
+  /// The atWork reported by the daemon.
   final bool? atWork;
+
+  /// The recorded outcome, absent while a task has no outcome.
+  final WorkEnded? ended;
+}
+
+/// A saved per-issue reading allowance.
+class PlanIssueReadingRounds {
+  /// Reads the fields reported by the daemon.
+  PlanIssueReadingRounds.from(Map<String, dynamic> map)
+    : issue = _planText(map, 'issue'),
+      rounds = map['rounds'] is int ? map['rounds'] as int : null;
+
+  /// The issue reported by the daemon.
+  final String issue;
+
+  /// The rounds reported by the daemon.
+  final int? rounds;
+}
+
+/// A durable issue result, including the reason for its stop.
+class PlanWorkIssue {
+  /// Reads the fields reported by the daemon.
+  PlanWorkIssue.from(Map<String, dynamic> map)
+    : issue = _planText(map, 'issue'),
+      rounds = map['rounds'] is int ? map['rounds'] as int : null,
+      roundsMost = map['roundsMost'] is int ? map['roundsMost'] as int : null,
+      atWork = map['atWork'] is bool ? map['atWork'] as bool : null,
+      needsYou = map['needsYou'] is bool ? map['needsYou'] as bool : null,
+      readingStopped = map['readingStopped'] is bool ? map['readingStopped'] as bool : null,
+      findings = _planList(map['findings'], PlanFinding.from),
+      reason = _planText(map, 'reason');
+
+  /// The issue, reason reported by the daemon.
+  final String issue, reason;
+
+  /// The rounds, roundsMost reported by the daemon.
+  final int? rounds, roundsMost;
+
+  /// The atWork, needsYou, readingStopped reported by the daemon.
+  final bool? atWork, needsYou, readingStopped;
+
+  /// The findings reported by the daemon.
+  final List<PlanFinding> findings;
 }
 
 /// One issue belonging to a story.
 class PlanIssue {
+  /// Applies destinations explicitly confirmed by the save answer.
+  PlanIssue.withState(PlanIssue source, this.state)
+    : id = source.id,
+      repository = source.repository,
+      title = source.title,
+      size = source.size,
+      blockedBy = source.blockedBy,
+      blockedByReported = source.blockedByReported,
+      link = source.link,
+      rounds = source.rounds,
+      roundsMost = source.roundsMost,
+      readingStopped = source.readingStopped,
+      atWork = source.atWork,
+      needsYou = source.needsYou,
+      findings = source.findings,
+      whatMustBeTrue = source.whatMustBeTrue,
+      subAgents = source.subAgents;
+
   /// Reads fields leniently.
   PlanIssue.from(Map<String, dynamic> map)
     : id = _planText(map, 'id'),
@@ -84,12 +195,15 @@ class PlanIssue {
       size = _planText(map, 'size'),
       blockedBy = _planStrings(map['blockedBy']),
       blockedByReported = _planStringsReported(map['blockedBy']),
-      story = _planText(map, 'story'),
-      revision = _planText(map, 'revision'),
       link = _planText(map, 'link'),
       rounds = map['rounds'] is int ? map['rounds'] as int : null,
       roundsMost = map['roundsMost'] is int ? map['roundsMost'] as int : null,
-      readingStopped = map['readingStopped'] is bool ? map['readingStopped'] as bool : null;
+      readingStopped = map['readingStopped'] is bool ? map['readingStopped'] as bool : null,
+      atWork = map['atWork'] is bool ? map['atWork'] as bool : null,
+      needsYou = map['needsYou'] is bool ? map['needsYou'] as bool : null,
+      findings = _planList(map['findings'], PlanFinding.from),
+      whatMustBeTrue = map['whatMustBeTrue'] is String ? map['whatMustBeTrue'] as String : null,
+      subAgents = map['subAgents'] is List ? _planList(map['subAgents'], PlanWorker.from) : null;
 
   /// The issue's identifier.
   final String id;
@@ -112,11 +226,17 @@ class PlanIssue {
   /// Whether blockers were actually reported.
   final bool blockedByReported;
 
-  /// Its owning story, when reported.
-  final String story;
+  /// The atWork, needsYou reported by the daemon.
+  final bool? atWork, needsYou;
 
-  /// Its opaque revision, when reported.
-  final String revision;
+  /// The findings reported by the daemon.
+  final List<PlanFinding> findings;
+
+  /// The whatMustBeTrue reported by the daemon.
+  final String? whatMustBeTrue;
+
+  /// The subAgents reported by the daemon.
+  final List<PlanWorker>? subAgents;
 
   /// Its web link.
   final String link;
@@ -133,22 +253,31 @@ class PlanIssue {
 
 /// One story, whose state is always the machine's answer.
 class PlanStory {
+  /// Applies destinations explicitly confirmed by the save answer.
+  PlanStory.withMoves(PlanStory source, Map<String, String> moves, String? destination)
+    : id = source.id,
+      title = source.title,
+      state = destination ?? source.state,
+      priority = source.priority,
+      description = source.description,
+      issues = [for (final issue in source.issues) PlanIssue.withState(issue, moves[issue.id] ?? issue.state)],
+      issuesReported = source.issuesReported,
+      link = source.link,
+      work = source.work,
+      workReported = source.workReported;
+
   /// Reads fields leniently and preserves unknown priorities.
   PlanStory.from(Map<String, dynamic> map)
     : id = _planText(map, 'id'),
       title = _planText(map, 'title'),
       state = _planText(map, 'state'),
-      priority = _planText(map, 'priority'),
-      revision = _planText(map, 'revision'),
-      gain = _planText(map, 'gain'),
-      test = _planText(map, 'test'),
+      priority = map['priority'] is String ? map['priority'] as String : null,
+      description = _planText(map, 'description'),
       issues = _planList(map['issues'], PlanIssue.from),
       issuesReported = _planMapsReported(map['issues']),
       link = _planText(map, 'link'),
       work = map['work'] is Map<String, dynamic> ? PlanWork.from(map['work'] as Map<String, dynamic>) : null,
-      ended = map['ended'] is Map<String, dynamic> ? StoryWorkEnded.from(map['ended'] as Map<String, dynamic>) : null,
-      workReported = map.containsKey('work'),
-      endedReported = map.containsKey('ended');
+      workReported = map.containsKey('work');
 
   /// Its identifier.
   final String id;
@@ -160,16 +289,10 @@ class PlanStory {
   final String state;
 
   /// Its reported priority, empty when unsaid.
-  final String priority;
+  final String? priority;
 
-  /// Its opaque revision, when reported.
-  final String revision;
-
-  /// What it gains.
-  final String gain;
-
-  /// The acceptance test in words.
-  final String test;
+  /// Full story text from GetStory.
+  final String description;
 
   /// Its issues, empty when unsaid.
   final List<PlanIssue> issues;
@@ -184,13 +307,15 @@ class PlanStory {
   final bool workReported;
 
   /// Whether the watch supplied the ended outcome, including an explicitly cleared outcome.
-  final bool endedReported;
+  bool get endedReported => workReported;
 
   /// Its work, when reported.
+  /// The work record returned by the daemon.
   final PlanWork? work;
 
   /// Why the story stopped before reaching its done state.
-  final StoryWorkEnded? ended;
+  /// The first recorded outcome requiring attention, if any.
+  WorkEnded? get ended => work?.ended;
 
   /// The number in Review or Finished, when the list and every issue state were reported.
   int? get completedIssues => issuesReported && issues.every((issue) => issue.state.isNotEmpty)
@@ -200,25 +325,50 @@ class PlanStory {
 
 /// A workflow or a whole board reply; absent fields stay empty.
 class PlanningSnapshot {
+  /// Applies destinations explicitly confirmed by the save answer.
+  PlanningSnapshot.saved(
+    PlanningSnapshot source,
+    this.revision,
+    Map<String, String> moves,
+    Map<String, String> destinations,
+  ) : states = source.states,
+      phases = source.phases,
+      work = source.work,
+      faults = source.faults,
+      statesReported = source.statesReported,
+      phasesReported = source.phasesReported,
+      storiesReported = source.storiesReported,
+      stories = [for (final story in source.stories) PlanStory.withMoves(story, moves, destinations[story.id])];
+
   /// Reads a snapshot without deriving story states.
   PlanningSnapshot.from(Map<String, dynamic> map)
-    : states = _planList(map['states'], PlanState.from),
+    : work = _planList(map['work'], PlanWorkRule.from),
+      faults = _planStrings(map['faults']),
+      states = _planList(map['states'], PlanState.from),
       phases = _planList(map['phases'], PlanPhase.from),
       stories = _planList(map['stories'], PlanStory.from),
       revision = _planText(map, 'revision'),
-      statesReported = map['states'] is List,
-      phasesReported = map['phases'] is List,
-      storiesReported = map['stories'] is List;
+      statesReported = _planMapsReported(map['states']),
+      phasesReported = _planMapsReported(map['phases']),
+      storiesReported = _planMapsReported(map['stories']);
 
   /// Combines the separate workflow and story reads without deriving any states.
   PlanningSnapshot.fromParts(PlanningSnapshot workflow, PlanningSnapshot board)
-    : states = workflow.states,
+    : work = workflow.work,
+      faults = workflow.faults,
+      states = workflow.states,
       phases = workflow.phases,
       stories = board.stories,
       revision = board.revision,
       statesReported = workflow.statesReported,
       phasesReported = workflow.phasesReported,
       storiesReported = board.storiesReported;
+
+  /// The work reported by the daemon.
+  final List<PlanWorkRule> work;
+
+  /// The faults reported by the daemon.
+  final List<String> faults;
 
   /// Whether the daemon sent the state list.
   final bool statesReported;
@@ -270,13 +420,16 @@ class PlanningStoryMove extends PlanningMove {
 
   /// The requested state.
   @override
+  /// The to reported by the daemon.
   final String to;
 
   @override
+  /// The reported value presented to the window.
   String get id => story;
 
   /// The wire fields.
   @override
+  /// Serializes the complete record with its stable identity.
   Map<String, dynamic> toMap() => {'story': story, 'to': to};
 }
 
@@ -290,23 +443,35 @@ class PlanningIssueMove extends PlanningMove {
 
   /// The destination state.
   @override
+  /// The to reported by the daemon.
   final String to;
 
   @override
+  /// The reported value presented to the window.
   String get id => issue;
 
   /// The wire fields.
   @override
+  /// Serializes the complete record with its stable identity.
   Map<String, dynamic> toMap() => {'issue': issue, 'to': to};
 }
 
 /// The daemon's confirmation, without inventing a missing result or revision.
-class PlanningMoveResult extends PlanningSnapshot {
-  /// Reads the stand-in move reply.
-  PlanningMoveResult.from(super.map) : moved = map['moved'] == true, super.from();
+class PlanningMoveResult {
+  /// Reads the fields reported by the daemon.
+  PlanningMoveResult.from(Map<String, dynamic> map)
+    : revision = _planText(map, 'revision'),
+      moved = _planStrings(map['moved']),
+      complete = _planStringsReported(map['moved']);
 
-  /// Whether the daemon moved the requested work.
-  final bool moved;
+  /// The revision reported by the daemon.
+  final String revision;
+
+  /// The moved reported by the daemon.
+  final List<String> moved;
+
+  /// The complete reported by the daemon.
+  final bool complete;
 }
 
 /// One finding from the reader's last report, preserving unknown severities.
@@ -336,9 +501,9 @@ class PlanFinding {
 }
 
 /// A sub-agent reported for an issue.
-class PlanSubAgent {
+class PlanWorker {
   /// Preserves each field independently.
-  PlanSubAgent.from(Map<String, dynamic> map)
+  PlanWorker.from(Map<String, dynamic> map)
     : name = _planText(map, 'name'),
       role = _planText(map, 'role'),
       agent = _planText(map, 'agent'),
@@ -363,16 +528,16 @@ class PlanSubAgent {
 
 /// The standalone story and its source text.
 class PlanStoryDetail {
-  /// Keeps a missing record distinct from an empty story.
+  /// Reads the fields reported by the daemon.
   PlanStoryDetail.from(Map<String, dynamic> map)
     : story = map['story'] is Map<String, dynamic> ? PlanStory.from(map['story'] as Map<String, dynamic>) : null,
-      text = _planText(map, 'text');
+      revision = _planText(map, 'revision');
 
-  /// The story, when supplied.
+  /// The full story returned by the daemon.
   final PlanStory? story;
 
-  /// Its Markdown source.
-  final String text;
+  /// The revision reported by the daemon.
+  final String revision;
 }
 
 /// A separately read issue list; an omitted list is never an empty list.
@@ -381,7 +546,11 @@ class PlanIssueList {
   PlanIssueList.from(Map<String, dynamic> map)
     : issues = _planList(map['issues'], PlanIssue.from),
       reported = _planMapsReported(map['issues']),
-      supplied = map['issues'] != null;
+      supplied = map['issues'] != null,
+      revision = _planText(map, 'revision');
+
+  /// The revision reported by the daemon.
+  final String revision;
 
   /// The issues supplied.
   final List<PlanIssue> issues;
@@ -396,24 +565,28 @@ class PlanIssueList {
 /// The standalone issue, acceptance criteria, last findings and sub-agents.
 class PlanIssueDetail {
   /// Reads additive fields leniently without inventing absent reports.
-  PlanIssueDetail.from(Map<String, dynamic> map)
-    : issue = map['issue'] is Map<String, dynamic> ? PlanIssue.from(map['issue'] as Map<String, dynamic>) : null,
-      text = _planText(map, 'text'),
-      whatMustBeTrue = _planStrings(map['whatMustBeTrue']),
-      criteriaReported = _planStringsReported(map['whatMustBeTrue']),
+  factory PlanIssueDetail.from(Map<String, dynamic> map) => PlanIssueDetail._(
+    map['issue'] is Map<String, dynamic> ? map['issue'] as Map<String, dynamic> : <String, dynamic>{},
+    _planText(map, 'revision'),
+  );
+  PlanIssueDetail._(Map<String, dynamic> map, this.revision)
+    : issue = map.isEmpty ? null : PlanIssue.from(map),
+      whatMustBeTrue = map['whatMustBeTrue'] is String ? [map['whatMustBeTrue'] as String] : [],
+      criteriaReported = map['whatMustBeTrue'] is String,
       criteriaSupplied = map['whatMustBeTrue'] != null,
       findings = _planList(map['findings'], PlanFinding.from),
       findingsReported = _planMapsReported(map['findings']),
       findingsSupplied = map['findings'] != null,
-      subAgents = _planList(map['subAgents'], PlanSubAgent.from),
+      subAgents = _planList(map['subAgents'], PlanWorker.from),
       subAgentsReported = _planMapsReported(map['subAgents']),
       subAgentsSupplied = map['subAgents'] != null;
 
-  /// The issue when supplied.
-  final PlanIssue? issue;
+  /// The revision reported by the daemon.
+  final String revision;
 
-  /// Its Markdown source.
-  final String text;
+  /// The issue when supplied.
+  /// The issue record returned by the daemon.
+  final PlanIssue? issue;
 
   /// Its acceptance criteria.
   final List<String> whatMustBeTrue;
@@ -434,7 +607,7 @@ class PlanIssueDetail {
   final bool findingsSupplied;
 
   /// The reported sub-agents.
-  final List<PlanSubAgent> subAgents;
+  final List<PlanWorker> subAgents;
 
   /// Whether the sub-agent list is complete.
   final bool subAgentsReported;
@@ -450,33 +623,21 @@ class PlanIssueDetail {
   ];
 }
 
-/// The stand-in planning protocol, isolated here until served by the daemon.
+/// The planning methods served by the daemon.
 extension PlanningClient on PoreloClient {
-  /// Saves staged stories and issues atomically and reads the resulting board and issue states.
-  Future<PlanningMoveResult> moveStories(String project, List<PlanningMove> moves, String revision) async =>
+  /// Saves the entire reviewed batch in one atomic daemon call.
+  Future<PlanningMoveResult> saveMoves(String project, List<PlanningMove> moves, String revision) async =>
       PlanningMoveResult.from(
-        await _call('MoveStories', {
+        await _call('SaveMoves', {
           'project': project,
           'moves': moves.map((move) => move.toMap()).toList(),
           'revision': revision,
         }),
       );
 
-  /// Moves one story using the revision read before staging moves.
-  Future<PlanningMoveResult> moveStory(String project, String story, String to, String revision) async =>
-      PlanningMoveResult.from(
-        await _call('MoveStory', {'project': project, 'story': story, 'to': to, 'revision': revision}),
-      );
-
-  /// Moves issues atomically using the daemon's current revision.
-  Future<PlanningMoveResult> moveIssues(String project, List<PlanningIssueMove> moves, String revision) async =>
-      PlanningMoveResult.from(
-        await _call('MoveIssues', {
-          'project': project,
-          'moves': moves.map((move) => move.toMap()).toList(),
-          'revision': revision,
-        }),
-      );
+  /// Explicitly refreshes the adapter store.
+  Future<String> refreshStories(String project) async =>
+      _planText(await _call('RefreshStories', {'project': project}), 'revision');
 
   /// Reads one story and its source text.
   Future<PlanStoryDetail> getStory(String project, String story) async =>
@@ -495,88 +656,134 @@ extension PlanningClient on PoreloClient {
       PlanningSnapshot.from(await _call('GetPlanningWorkflow', {'project': project}));
 
   /// Reads a project's stories and revision.
-  Future<PlanningSnapshot> stories(String project) async =>
-      PlanningSnapshot.from(await _call('ListStories', {'project': project}));
+  Future<PlanningSnapshot> stories(String project, {List<String>? states}) async =>
+      PlanningSnapshot.from(await _call('ListStories', {'project': project, 'states': ?states}));
 
   /// Watches whole-board replacements, including the first reply immediately.
-  Stream<PlanningSnapshot> watchStories(String project) =>
-      _callMore('WatchStories', {'project': project}).map(PlanningSnapshot.from);
+  Stream<PlanningSnapshot> watchStories(String project) {
+    final replies = StreamController<PlanningSnapshot>();
+    StreamSubscription<Map<String, dynamic>>? subscription;
+    bool cancelled = false, fallingBack = false;
+    replies.onListen = () {
+      subscription = _callMore('WatchStories', {'project': project}).listen(
+        (reply) => replies.add(PlanningSnapshot.from(reply)),
+        onError: (Object error, StackTrace stack) async {
+          if (error is VarlinkException && error.simpleName == 'NotYetBuilt') {
+            fallingBack = true;
+            try {
+              final reply = await _call('WatchStories', {'project': project});
+              if (!cancelled) replies.add(PlanningSnapshot.from(reply));
+            } catch (failure, trace) {
+              if (!cancelled) replies.addError(failure, trace);
+            }
+            if (!cancelled) await replies.close();
+          } else if (!cancelled) {
+            replies.addError(error, stack);
+          }
+        },
+        onDone: () {
+          if (!cancelled && !fallingBack && !replies.isClosed) unawaited(replies.close());
+        },
+      );
+    };
+    replies.onCancel = () {
+      cancelled = true;
+      return subscription?.cancel();
+    };
+    return replies.stream;
+  }
 }
 
 /// The machine's reason for an ended story run.
-class StoryWorkEnded {
-  /// Reads the machine’s reported fields.
-  StoryWorkEnded.from(Map<String, dynamic> map) : at = _planText(map, 'at'), reason = _planText(map, 'reason');
+class WorkEnded {
+  /// Reads the fields reported by the daemon.
+  WorkEnded.from(Map<String, dynamic> map)
+    : at = _planText(map, 'at'),
+      outcome = _planText(map, 'outcome'),
+      why = _planText(map, 'why'),
+      answer = _planText(map, 'answer');
 
-  /// The instant reported by the machine, empty when unsaid.
-  final String at;
+  /// The at, outcome, why, answer reported by the daemon.
+  final String at, outcome, why, answer;
 
-  /// The machine’s verbatim explanation.
-  final String reason;
+  /// The reported value presented to the window.
+  String get reason => [why, answer].where((text) => text.isNotEmpty).join('\n');
 }
 
 /// One proposed participant, including the reader.
-class StoryWorkSubAgent {
-  /// Reads the machine’s reported fields.
-  StoryWorkSubAgent.from(Map<String, dynamic> map)
-    : name = _planText(map, 'name'),
-      role = _planText(map, 'role'),
+class PlanAssignment {
+  /// Reads the fields reported by the daemon.
+  PlanAssignment.from(Map<String, dynamic> map)
+    : id = _planText(map, 'id'),
+      issue = _planText(map, 'issue'),
+      name = _planText(map, 'name'),
+      kind = _planText(map, 'kind'),
       agent = _planText(map, 'agent'),
       model = _planText(map, 'model'),
-      brief = _planText(map, 'brief');
+      workingState = _planText(map, 'workingState'),
+      brief = _planText(map, 'brief'),
+      choice = _planText(map, 'choice');
 
-  /// The proposed participant’s name within its repository.
-  final String name;
+  /// The id, issue, name, role, agent, model, workingState, brief, choice reported by the daemon.
+  final String id, issue, name, kind, agent, model, workingState, brief, choice;
 
-  /// The role as reported, including unknown roles.
-  final String role;
+  /// The assignment kind, presented beside worker roles.
+  String get role => kind;
 
-  /// The agent identifier named by the machine or selected for a replacement.
-  final String agent;
-
-  /// The model identifier, including an explicitly empty default.
-  final String model;
-
-  /// The participant’s work order as supplied by the machine.
-  final String brief;
+  /// Serializes the complete record with its stable identity.
+  Map<String, dynamic> toMap() => {
+    'id': id,
+    'issue': issue,
+    'name': name,
+    'kind': kind,
+    'agent': agent,
+    'model': model,
+    'workingState': workingState,
+    'brief': brief,
+    'choice': choice,
+  };
 }
 
 /// A repository's task and its proposed participants.
-class StoryWorkRepository {
-  /// Reads the machine’s reported fields.
-  StoryWorkRepository.from(Map<String, dynamic> map)
+class PlanRepositoryWork {
+  /// Reads the fields reported by the daemon.
+  PlanRepositoryWork.from(Map<String, dynamic> map)
     : repository = _planText(map, 'repository'),
-      task = _planText(map, 'task'),
-      agent = _planText(map, 'agent'),
-      model = _planText(map, 'model'),
-      modelHint = _planText(map, 'modelHint'),
-      workOrder = _planText(map, 'workOrder'),
       issues = _planStrings(map['issues']),
-      subAgents = _planList(map['subAgents'], StoryWorkSubAgent.from);
+      main = PlanWorker.from(map['main'] is Map<String, dynamic> ? map['main'] as Map<String, dynamic> : {}),
+      subAgents = _planList(map['subAgents'], PlanAssignment.from);
 
-  /// The repository name supplied by the machine.
+  /// The repository reported by the daemon.
   final String repository;
 
-  /// The task name supplied by the machine.
-  final String task;
-
-  /// The agent identifier named by the machine or selected for a replacement.
-  final String agent;
-
-  /// The model identifier, including an explicitly empty default.
-  final String model;
-
-  /// The machine's explanation of the proposed model.
-  final String modelHint;
-
-  /// The main agent's work order, shown read-only.
-  final String workOrder;
-
-  /// The issues covered by this task, as named by the proposal.
+  /// The issues reported by the daemon.
   final List<String> issues;
 
-  /// The proposed participants, or the explicit choices sent at start.
-  final List<StoryWorkSubAgent> subAgents;
+  /// The required main worker for this repository.
+  final PlanWorker main;
+
+  /// The subAgents reported by the daemon.
+  final List<PlanAssignment> subAgents;
+
+  /// The reported value presented to the window.
+  String get agent => main.agent;
+
+  /// The reported value presented to the window.
+  String get model => main.model;
+
+  /// The reported value presented to the window.
+  String get task => main.name;
+
+  /// The reported value presented to the window.
+  String get workOrder => main.brief;
+
+  /// Serializes the complete record with its stable identity.
+  Map<String, dynamic> toMap() => {
+    'repository': repository,
+    'issues': issues,
+    'main': {'name': main.name, 'role': main.role, 'agent': main.agent, 'model': main.model, 'brief': main.brief},
+    'subAgents': subAgents.map((sub) => sub.toMap()).toList(),
+  };
 }
 
 /// An issue whose reading limit can be overridden at start.
@@ -593,75 +800,41 @@ class StoryWorkIssue {
 
 /// The complete proposal for a start; missing limits are never invented.
 class StoryWorkProposal {
-  /// Reads the machine’s reported fields.
+  /// Reads the fields reported by the daemon.
   StoryWorkProposal.from(Map<String, dynamic> map)
     : modes = _planStrings(map['modes']),
-      repositories = _planList(map['repositories'], StoryWorkRepository.from),
-      coordinator = map['coordinator'] is Map<String, dynamic>
-          ? StoryWorkCoordinator.from(map['coordinator'] as Map<String, dynamic>)
-          : null,
+      repositories = _planList(map['repositories'], PlanRepositoryWork.from),
+      coordinator = _planText(map, 'coordinator'),
+      comment = _planText(map, 'comment'),
       readingRounds = map['readingRounds'] is int ? map['readingRounds'] as int : null,
-      issues = _planList(map['issues'], StoryWorkIssue.from),
-      modeDetails = _planList(map['modeDetails'], StoryWorkMode.from),
-      startLabel = _planText(map, 'startLabel');
+      issueReadingRounds = _planList(map['issueReadingRounds'], PlanIssueReadingRounds.from),
+      revision = _planText(map, 'revision');
 
-  /// The daemon's explanations and work orders for the allowed modes.
-  final List<StoryWorkMode> modeDetails;
-
-  /// The action-specific start button label, when supplied.
-  final String startLabel;
-
-  /// The modes the project permits, preserving unknown values.
+  /// The modes reported by the daemon.
   final List<String> modes;
 
-  /// The proposed repository tasks in the machine’s order.
-  final List<StoryWorkRepository> repositories;
+  /// The repositories reported by the daemon.
+  final List<PlanRepositoryWork> repositories;
 
-  /// The proposed coordinator, when supplied.
-  final StoryWorkCoordinator? coordinator;
+  /// The coordinator, comment, revision reported by the daemon.
+  final String coordinator, comment, revision;
 
-  /// The proposed or selected overall reading limit, null when unsaid.
+  /// The readingRounds reported by the daemon.
   final int? readingRounds;
 
-  /// The issues available for per-issue reading limits.
-  final List<StoryWorkIssue> issues;
+  /// The issueReadingRounds reported by the daemon.
+  final List<PlanIssueReadingRounds> issueReadingRounds;
+
+  /// The proposed issue identities grouped by repository.
+  List<StoryWorkIssue> get issues => [
+    for (final repo in repositories)
+      for (final issue in repo.issues) StoryWorkIssue.from({'id': issue, 'repository': repo.repository}),
+  ];
 }
 
 /// The daemon's words describing one way of working.
-class StoryWorkMode {
-  /// Reads a mode description without inventing missing words.
-  StoryWorkMode.from(Map<String, dynamic> map)
-    : mode = _planText(map, 'mode'),
-      words = _planText(map, 'words'),
-      workOrder = _planText(map, 'workOrder');
-
-  /// The wire mode described.
-  final String mode;
-
-  /// What this involvement means, in the machine's words.
-  final String words;
-
-  /// The main work order for this mode.
-  final String workOrder;
-}
 
 /// A proposed coordinator and whether it is started or told about the story.
-class StoryWorkCoordinator {
-  /// Reads the daemon's proposal and action sentence.
-  StoryWorkCoordinator.from(Map<String, dynamic> map)
-    : agent = _planText(map, 'agent'),
-      model = _planText(map, 'model'),
-      sentence = _planText(map, 'sentence');
-
-  /// The proposed agent.
-  final String agent;
-
-  /// The proposed model.
-  final String model;
-
-  /// Whether the coordinator starts or is told, in the machine's words.
-  final String sentence;
-}
 
 /// The main agent and model chosen for one repository.
 class StoryWorkMainAgent {
@@ -676,9 +849,6 @@ class StoryWorkMainAgent {
 
   /// The chosen model identifier.
   final String model;
-
-  /// Serializes the fields accepted by StartStoryWork.
-  Map<String, dynamic> toMap() => {'repository': repository, 'agent': agent, 'model': model};
 }
 
 /// The explicit choice for one proposed sub-agent.
@@ -700,15 +870,6 @@ class StoryWorkChoice {
 
   /// The model identifier, including an explicitly empty default.
   final String? model;
-
-  /// Serializes the exact fields sent to the daemon, omitting absent overrides.
-  Map<String, dynamic> toMap() => {
-    'repository': repository,
-    'name': name,
-    'choice': choice,
-    if (agent != null) 'agent': agent,
-    if (model != null) 'model': model,
-  };
 }
 
 /// A revision-bound start decision.
@@ -722,6 +883,7 @@ class StoryWorkRequest {
     required this.revision,
     required this.subAgents,
     this.repositories = const [],
+    this.proposedRepositories = const [],
     this.comment,
     this.readingRounds,
     this.issueReadingRounds = const {},
@@ -748,6 +910,9 @@ class StoryWorkRequest {
   /// The chosen main agent and model for every proposed repository.
   final List<StoryWorkMainAgent> repositories;
 
+  /// The proposedRepositories reported by the daemon.
+  final List<PlanRepositoryWork> proposedRepositories;
+
   /// The explanation for changed or dropped participants.
   final String? comment;
 
@@ -757,6 +922,29 @@ class StoryWorkRequest {
   /// Explicit issue limits, omitted on the wire when there are no overrides.
   final Map<String, int> issueReadingRounds;
 
+  Map<String, dynamic> _selectedRepository(PlanRepositoryWork repo) {
+    final main = repositories.where((each) => each.repository == repo.repository).firstOrNull;
+    return {
+      ...repo.toMap(),
+      'main': {
+        ...(repo.toMap()['main'] as Map<String, dynamic>),
+        if (main != null) 'agent': main.agent,
+        if (main != null) 'model': main.model,
+      },
+      'subAgents': [for (final sub in repo.subAgents) _selectedAssignment(repo.repository, sub)],
+    };
+  }
+
+  Map<String, dynamic> _selectedAssignment(String repository, PlanAssignment sub) {
+    final choice = subAgents.where((each) => each.repository == repository && each.name == sub.id).firstOrNull;
+    return {
+      ...sub.toMap(),
+      'choice': sub.role == 'OTHER' ? 'DROP' : choice?.choice ?? sub.choice,
+      if (choice?.choice == 'CHANGE') 'agent': choice!.agent,
+      if (choice?.choice == 'CHANGE') 'model': choice!.model,
+    };
+  }
+
   /// Serializes the exact fields sent to the daemon, omitting absent overrides.
   Map<String, dynamic> toMap() => {
     'project': project,
@@ -764,8 +952,8 @@ class StoryWorkRequest {
     'to': to,
     'mode': mode,
     'revision': revision,
-    'subAgents': subAgents.map((each) => each.toMap()).toList(),
-    'repositories': repositories.map((each) => each.toMap()).toList(),
+    if (proposedRepositories.isNotEmpty)
+      'repositories': [for (final repo in proposedRepositories) _selectedRepository(repo)],
     'comment': ?comment,
     if (readingRounds != null) 'readingRounds': readingRounds,
     if (issueReadingRounds.isNotEmpty)
@@ -777,85 +965,92 @@ class StoryWorkRequest {
 
 /// Whether the machine accepted the start, and its resulting revision.
 class StoryWorkStarted {
-  /// Reads the machine’s reported fields.
+  /// Reads the fields reported by the daemon.
   StoryWorkStarted.from(Map<String, dynamic> map)
-    : started = map['started'] == true,
-      revision = _planText(map, 'revision'),
-      tasks = _planList(map['tasks'], Task.from),
-      coordinator = map['coordinator'] is Map<String, dynamic>
-          ? Task.from(map['coordinator'] as Map<String, dynamic>)
-          : null;
+    : work = map['work'] is Map<String, dynamic> ? PlanWork.from(map['work'] as Map<String, dynamic>) : null,
+      revision = _planText(map, 'revision');
 
-  /// The started tasks returned by the same authoritative start answer.
-  final List<Task> tasks;
+  /// The work record returned by the daemon.
+  final PlanWork? work;
 
-  /// The coordinator returned by the start, when several repositories need one.
-  final Task? coordinator;
+  /// The revision reported by the daemon.
+  final String revision;
 
-  /// The task whose terminal With you opens.
-  Task? get terminalTask {
-    final task = coordinator ?? (tasks.length == 1 ? tasks.single : null);
-    return task != null && task.name.isNotEmpty && task.running ? task : null;
+  /// The reported value presented to the window.
+  bool get started => work?.atWork == true && work?.tasksReported == true && revision.isNotEmpty;
+
+  /// Runtime tasks reported by the authoritative start answer.
+  List<Task> get tasks => tasksFor('');
+
+  /// Supplies the project captured by the request when opening runtime tasks.
+  List<Task> tasksFor(String project) => [
+    for (final task in work?.tasks ?? <PlanWorkTask>[])
+      Task.from({
+        'name': task.task,
+        'project': project,
+        'containerId': task.containerId,
+        'repository': task.repository,
+        'agent': task.agent,
+        'model': task.model,
+        'running': task.atWork == true,
+        'mode': task.mode == 'AGENT' ? 'SHELL' : task.mode,
+        'state': task.state,
+      }),
+  ];
+
+  /// The recorded coordinator for several repositories, or the main task.
+  String? get terminalName {
+    final name = (work?.repositories.length ?? 0) > 1
+        ? work?.coordinator
+        : work?.tasks.where((task) => task.role == 'MAIN').firstOrNull?.task;
+    return name != null && name.trim().isNotEmpty ? name : null;
   }
 
-  /// Whether the daemon confirmed that story work started.
-  final bool started;
-
-  /// The opaque revision used to bind this decision.
-  final String revision;
+  /// The returned running participant matching the terminal identity.
+  Task? get terminalTask =>
+      terminalName == null ? null : tasks.where((task) => task.name == terminalName && task.running).firstOrNull;
 }
 
 /// The work and any ended outcome returned by GetStoryWork.
 class StoryWorkStatus {
-  /// Reads the machine’s reported fields.
+  /// Reads the fields reported by the daemon.
   StoryWorkStatus.from(Map<String, dynamic> map)
-    : work = map['work'] is Map<String, dynamic> ? PlanWork.from(map['work'] as Map<String, dynamic>) : null,
-      ended = map['ended'] is Map<String, dynamic> ? StoryWorkEnded.from(map['ended'] as Map<String, dynamic>) : null;
+    : work = map['work'] is Map<String, dynamic> ? PlanWork.from(map['work'] as Map<String, dynamic>) : null;
 
-  /// The work status reported by the daemon.
+  /// The work record returned by the daemon.
   final PlanWork? work;
 
-  /// The machine’s reported reason and instant for an ended story run.
-  final StoryWorkEnded? ended;
-}
-
-/// One last reading finding, preserving unknown severity words.
-class ReadingFinding {
-  /// Reads the machine’s reported fields.
-  ReadingFinding.from(Map<String, dynamic> map) : severity = _planText(map, 'severity'), text = _planText(map, 'text');
-
-  /// The finding’s severity, preserving unknown values.
-  final String severity;
-
-  /// The finding’s words supplied by the machine.
-  final String text;
+  /// The first recorded outcome requiring attention, if any.
+  WorkEnded? get ended => work?.ended;
 }
 
 /// The findings returned by GetIssue, separate from the compact board summary.
 class PlanningIssueDetail {
   /// Reads the machine’s reported fields.
-  PlanningIssueDetail.from(Map<String, dynamic> map)
-    : findings = _planList(map['findings'], ReadingFinding.from),
+  factory PlanningIssueDetail.from(Map<String, dynamic> map) =>
+      PlanningIssueDetail._(map['issue'] is Map<String, dynamic> ? map['issue'] as Map<String, dynamic> : {});
+  PlanningIssueDetail._(Map<String, dynamic> map)
+    : findings = _planList(map['findings'], PlanFinding.from),
       findingsReported =
-          map['findings'] is List &&
+          _planMapsReported(map['findings']) &&
           (map['findings'] as List).every(
-            (each) => each is Map<String, dynamic> && each['severity'] is String && each['text'] is String,
+            (entry) => (entry as Map<String, dynamic>)['severity'] is String && entry['text'] is String,
           );
 
   /// Whether the reply supplied a complete, correctly shaped findings list.
   final bool findingsReported;
 
   /// The last findings returned by the machine.
-  final List<ReadingFinding> findings;
+  final List<PlanFinding> findings;
 
   /// Findings in reported order within blocking and remaining severities.
-  List<ReadingFinding> get blockingFirst => [
+  List<PlanFinding> get blockingFirst => [
     ...findings.where((each) => each.severity == 'BLOCKING'),
     ...findings.where((each) => each.severity != 'BLOCKING'),
   ];
 }
 
-/// Story work methods of the planning stand-in protocol.
+/// Story work methods served by the daemon.
 extension StoryWorkClient on PoreloClient {
   /// Reads the proposed tasks and participants for a working state.
   Future<StoryWorkProposal> proposeStoryWork(String project, String story, String to) async =>
@@ -870,31 +1065,72 @@ extension StoryWorkClient on PoreloClient {
       StoryWorkStatus.from(await _call('GetStoryWork', {'project': project, 'story': story}));
 
   /// Stops the story’s work without changing its planning state.
-  Future<void> stopStoryWork(String project, String story) async {
-    await _call('StopStoryWork', {'project': project, 'story': story});
-  }
+  Future<StoryWorkStatus> stopStoryWork(String project, String story) async =>
+      StoryWorkStatus.from(await _call('StopStoryWork', {'project': project, 'story': story}));
 
   /// Reads the issue’s last findings from GetIssue.
   Future<PlanningIssueDetail> getPlanningIssue(String project, String issue) async =>
       PlanningIssueDetail.from(await _call('GetIssue', {'project': project, 'issue': issue}));
 
   /// Sends a revision-bound decision for one stopped reading round.
-  Future<String> resolveIssueReading(
+  Future<ReadingResolution> resolveIssueReading(
     String project,
+    String story,
     String issue,
     int round,
     String choice,
     String revision, {
     String? comment,
-  }) async => _planText(
+  }) async => ReadingResolution.from(
     await _call('ResolveIssueReading', {
       'project': project,
+      'story': story,
       'issue': issue,
       'round': round,
       'choice': choice,
       'revision': revision,
-      'comment': ?comment,
+      'comment': comment ?? '',
     }),
-    'revision',
   );
+}
+
+/// Signed work settings for a working state.
+class PlanWorkRule {
+  /// Reads the fields reported by the daemon.
+  PlanWorkRule.from(Map<String, dynamic> map)
+    : state = _planText(map, 'state'),
+      from = _planStrings(map['from']),
+      done = _planText(map, 'done'),
+      then = map['then'] is String ? map['then'] as String : null,
+      blocked = map['blocked'] is String ? map['blocked'] as String : null,
+      per = _planText(map, 'per'),
+      modes = _planStrings(map['modes']),
+      order = _planText(map, 'order');
+
+  /// The state, done, per, order reported by the daemon.
+  final String state, done, per, order;
+
+  /// The then, blocked reported by the daemon.
+  final String? then, blocked;
+
+  /// The from, modes reported by the daemon.
+  final List<String> from, modes;
+}
+
+/// The authoritative outcome of a reading decision.
+class ReadingResolution {
+  /// Reads the fields reported by the daemon.
+  ReadingResolution.from(Map<String, dynamic> map)
+    : issue = map['issue'] is Map<String, dynamic> ? PlanIssue.from(map['issue'] as Map<String, dynamic>) : null,
+      work = map['work'] is Map<String, dynamic> ? PlanWork.from(map['work'] as Map<String, dynamic>) : null,
+      revision = _planText(map, 'revision');
+
+  /// The issue record returned by the daemon.
+  final PlanIssue? issue;
+
+  /// The work record returned by the daemon.
+  final PlanWork? work;
+
+  /// The revision reported by the daemon.
+  final String revision;
 }

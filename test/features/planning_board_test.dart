@@ -99,11 +99,11 @@ void main() {
       await thePlanningWatchFails(tester);
       await thePlanningErrorSays(tester, 'Planning store cannot be read');
     });
-    testWidgets('''An ended watch is shown''', (tester) async {
+    testWidgets('''An ended single-answer watch keeps its board''', (tester) async {
       await bddSetUp(tester);
       await iOpenThePlanningBoard(tester);
       await thePlanningWatchEnds(tester);
-      await thePlanningErrorSays(tester, 'The planning watch ended');
+      await thePlanningStoryIsIn(tester, 'ST291', 'Backlog');
     });
     testWidgets('''Priority and search narrow the board''', (tester) async {
       await bddSetUp(tester);

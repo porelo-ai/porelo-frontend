@@ -61,11 +61,11 @@ class _StoryWorkDialogState extends State<StoryWorkDialog> {
               children: [
                 Text('${work.story.id} — ${_said(work.story.title)}'),
                 Text('${_said(work.story.state)} → ${work.to}'),
-                DropdownButtonFormField<PlanningBoard>(
+                DropdownButton<PlanningBoard>(
                   key: const Key('story-work-machine'),
-                  initialValue: work.board,
+                  value: work.board,
                   isExpanded: true,
-                  decoration: const InputDecoration(labelText: 'Machine'),
+                  hint: const Text('Machine'),
                   items: [
                     for (final source in work.machines.entries)
                       DropdownMenuItem(
@@ -93,17 +93,16 @@ class _StoryWorkDialogState extends State<StoryWorkDialog> {
                           if (source != null) work.changeMachine(source);
                         },
                 ),
-                DropdownButtonFormField<String>(
+                DropdownButton<String>(
                   key: const Key('story-work-target'),
-                  initialValue: work.to,
+                  value: work.board.states.any((state) => state.kind == 'WORKING' && state.name == work.to)
+                      ? work.to
+                      : null,
                   isExpanded: true,
-                  decoration: const InputDecoration(labelText: 'Working state'),
+                  hint: const Text('Working state'),
                   items: [
-                    for (final state in {
-                      work.to,
-                      ...work.board.states.where((state) => state.kind == 'WORKING').map((state) => state.name),
-                    })
-                      DropdownMenuItem(value: state, child: Text(state)),
+                    for (final state in work.board.states.where((state) => state.kind == 'WORKING'))
+                      DropdownMenuItem(value: state.name, child: Text(state.name)),
                   ],
                   onChanged: !work.sourceCurrent || work.busy
                       ? null
@@ -181,7 +180,7 @@ class _StoryWorkDialogState extends State<StoryWorkDialog> {
         for (final repo in proposal.repositories) ...[
           const SizedBox(height: Space.normal),
           Text(
-            '${repo.task} · ${repo.repository}',
+            repo.repository,
             key: Key('story-work-task ${repo.repository}'),
             style: Theme.of(context).textTheme.titleSmall,
           ),
@@ -199,27 +198,29 @@ class _StoryWorkDialogState extends State<StoryWorkDialog> {
           StartModelField(
             fieldKey: Key('story-work-main-model ${repo.repository}'),
             initialValue: work.repositories[repo.repository]!.model,
-            help: _said(repo.modelHint),
+            help: 'Model proposed for ${work.to}.',
             hint: 'not reported',
             enabled: enabled,
             onChanged: (value) => work.chooseMain(repo.repository, model: value),
           ),
-          for (final sub in repo.subAgents) _sub(repo.repository, sub, enabled),
+          for (final sub in repo.subAgents)
+            _sub(repo.repository, sub, enabled && {'BUILDER', 'TESTER', 'READER'}.contains(sub.role)),
           ExpansionTile(
             title: Text('The work order for ${repo.task}'),
             children: [SelectableText(_said(repo.workOrder), key: Key('story-work-order ${repo.repository}'))],
           ),
         ],
-        if (proposal.coordinator case final coordinator?) ...[
-          const SizedBox(height: Space.normal),
-          Text('Coordinator · ${_said(coordinator.agent)} · ${_said(coordinator.model)}'),
-          Text(_said(coordinator.sentence), key: const Key('story-work-coordinator')),
-        ],
+        const SizedBox(height: Space.normal),
+        Text(switch (proposal.coordinator) {
+          'START' => 'Start the project coordinator.',
+          'TELL' => 'Tell the running project coordinator about this story.',
+          _ => 'Coordinator: ${_said(proposal.coordinator)}',
+        }, key: const Key('story-work-coordinator')),
         ExpansionTile(
           title: const Text('The work order the agent gets'),
           children: [
             SelectableText(
-              _said(proposal.modeDetails.where((each) => each.mode == work.mode).firstOrNull?.workOrder ?? ''),
+              proposal.repositories.map((repo) => repo.workOrder).join('\n\n'),
               key: const Key('story-work-order'),
             ),
           ],
@@ -280,7 +281,7 @@ class _StoryWorkDialogState extends State<StoryWorkDialog> {
                 Flexible(child: Text(mode == 'UNATTENDED' ? 'Unattended' : 'With you')),
               ],
             ),
-            Text(_said(proposal.modeDetails.where((each) => each.mode == mode).firstOrNull?.words ?? '')),
+            Text(mode == 'AGENT' ? 'Work with the agents in the terminal.' : 'The agents work unattended.'),
           ],
         ),
       ),
@@ -319,10 +320,10 @@ class _StoryWorkDialogState extends State<StoryWorkDialog> {
     );
   }
 
-  Widget _sub(String repository, StoryWorkSubAgent sub, bool enabled) {
-    final chosen = work.choices[(repository, sub.name)]!;
+  Widget _sub(String repository, PlanAssignment sub, bool enabled) {
+    final chosen = work.choices[(repository, sub.id)]!;
     return Padding(
-      key: Key('story-work-sub $repository ${sub.name}'),
+      key: Key('story-work-sub $repository ${sub.id}'),
       padding: const EdgeInsets.only(top: Space.small),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -334,7 +335,7 @@ class _StoryWorkDialogState extends State<StoryWorkDialog> {
             children: [
               for (final choice in ['KEEP', 'CHANGE', 'DROP'])
                 ChoiceChip(
-                  key: Key('story-work-choice $repository ${sub.name} $choice'),
+                  key: Key('story-work-choice $repository ${sub.id} $choice'),
                   label: Text(switch (choice) {
                     'KEEP' => 'Keep',
                     'CHANGE' => 'Change',
@@ -347,14 +348,14 @@ class _StoryWorkDialogState extends State<StoryWorkDialog> {
           ),
           if (chosen.choice == 'CHANGE') ...[
             _agentPicker(
-              key: Key('story-work-agent $repository ${sub.name}'),
+              key: Key('story-work-agent $repository ${sub.id}'),
               value: chosen.agent ?? '',
               proposed: sub.agent,
               enabled: enabled,
               choose: (value) => work.choose(repository, sub, 'CHANGE', agent: value),
             ),
             StartModelField(
-              fieldKey: Key('story-work-model $repository ${sub.name}'),
+              fieldKey: Key('story-work-model $repository ${sub.id}'),
               initialValue: chosen.model,
               enabled: enabled,
               hint: 'Choose a model',

@@ -81,7 +81,6 @@ class PlanningView extends StatelessWidget {
     required this.taskUnavailable,
     required this.onNeedsYou,
     this.onStarted,
-    this.onStartRequested,
     super.key,
   });
 
@@ -99,9 +98,6 @@ class PlanningView extends StatelessWidget {
 
   /// Opens a confirmed With you start in its task session.
   final Future<void> Function(StoryWork)? onStarted;
-
-  /// Observes a working-state drop before its Start work dialog opens.
-  final void Function(PlanStory story, PlanState state)? onStartRequested;
 
   /// Opens Needs you for an issue stopped in Reading.
   final VoidCallback onNeedsYou;
@@ -130,15 +126,8 @@ class PlanningView extends StatelessWidget {
           ],
         );
       }
-      void open(PlanningBoard owner, String story, [String? issue]) => shell.choosePlace(
-        ShellPlace(
-          Section.planning,
-          project: owner.project,
-          planningSource: boards.sourceOf(owner),
-          story: story,
-          issue: issue,
-        ),
-      );
+      void open(PlanningBoard owner, String story, [String? issue]) =>
+          openPlanningCommand(boards, shell, owner, story, issue: issue).run();
       return Stack(
         fit: StackFit.expand,
         children: [
@@ -161,7 +150,6 @@ class PlanningView extends StatelessWidget {
               },
               providerProblems: boards.problemsFor(board),
               onNeedsYou: onNeedsYou,
-              onStartRequested: onStartRequested,
               onStarted: onStarted,
               unavailableMachines: [
                 for (final machine in boards.machines.all)
@@ -213,7 +201,6 @@ class _BoardView extends StatefulWidget {
     required this.onStory,
     required this.onIssue,
     this.onStarted,
-    this.onStartRequested,
     required this.machines,
     required this.unavailableMachines,
     super.key,
@@ -227,7 +214,6 @@ class _BoardView extends StatefulWidget {
   final ValueChanged<String> onStory;
   final void Function(String, String) onIssue;
   final Future<void> Function(StoryWork)? onStarted;
-  final void Function(PlanStory, PlanState)? onStartRequested;
   final Map<PlanningBoard, String> machines;
   final List<String> unavailableMachines;
   @override
@@ -377,6 +363,7 @@ class _BoardViewState extends State<_BoardView> {
                 key: const Key('planning-move-error'),
                 style: TextStyle(color: theme.colorScheme.error),
               ),
+            if (board.moveNotice case final notice?) Text(notice, key: const Key('planning-move-notice')),
             if (board.snapshot != null)
               TextButton.icon(
                 key: const Key('planning-reload'),
@@ -469,13 +456,13 @@ class _BoardViewState extends State<_BoardView> {
       key: Key('planning-drop ${state.name}'),
       onWillAcceptWithDetails: (details) =>
           !board.saving &&
+          {'WAITING', 'WORKING', 'CLOSED'}.contains(state.kind) &&
           board.live &&
           board.stories.any((story) => story.id == details.data && board.displayedState(story) != state.name),
       onAcceptWithDetails: (details) {
         final story = board.stories.where((story) => story.id == details.data).firstOrNull;
         if (story == null || board.displayedState(story) == state.name) return;
         if (state.kind == 'WORKING') {
-          widget.onStartRequested?.call(story, state);
           unawaited(_start(story, target: state));
         } else {
           board.move(details.data, state.name);
@@ -534,7 +521,7 @@ class _BoardViewState extends State<_BoardView> {
                             child: Wrap(
                               spacing: Space.tight,
                               children: [
-                                _priority(context, story.priority, mark: true),
+                                _priority(context, story.priority ?? '', mark: true),
                                 Text(story.id),
                                 _menu(story),
                                 if (board.pending[story.id] case final move? when move.problem == null)
@@ -563,6 +550,7 @@ class _BoardViewState extends State<_BoardView> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('${board.pending.length} state change(s) not saved yet:'),
+          if (savePlanningCommand(board).unavailable case final reason?) Text(reason),
           for (final entry in board.pending.entries)
             Wrap(
               key: Key('planning-pending ${entry.key}'),
@@ -590,7 +578,7 @@ class _BoardViewState extends State<_BoardView> {
               ),
               FilledButton(
                 key: const Key('planning-save'),
-                onPressed: board.saving || !board.live ? null : () => unawaited(board.save()),
+                onPressed: savePlanningCommand(board).available ? savePlanningCommand(board).run : null,
                 child: Text(board.saving ? 'Saving…' : 'Save'),
               ),
             ],
@@ -637,12 +625,13 @@ class _BoardViewState extends State<_BoardView> {
   String? _work(PlanStory story) {
     final work = board.workOf(story);
     final working = board.state(story.state)?.kind == 'WORKING';
+    final mainTasks = work?.tasks.where((task) => task.role == 'MAIN').length ?? 0;
     if (work == null) return working ? 'Work not reported' : null;
     if (work.atWork == false) return working ? 'nobody at work' : null;
     return [
       if (work.atWork == null) 'Work status not reported',
       if (work.coordinator?.isNotEmpty ?? false) work.coordinator!,
-      if (work.tasks.isNotEmpty) '${work.tasks.length} ${work.tasks.length == 1 ? 'task' : 'tasks'}',
+      if (mainTasks > 0) '$mainTasks ${mainTasks == 1 ? 'task' : 'tasks'}',
       work.agent.isEmpty ? 'Agent not reported' : work.agent,
       work.model.isEmpty ? 'Model not reported' : work.model,
       if (work.mode.isNotEmpty)
@@ -736,13 +725,15 @@ class _BoardViewState extends State<_BoardView> {
         id: 'planning-stop ${story.id}',
         label: 'Stop work',
         home: Home.tileMenu,
-        unavailable: !board.live
-            ? 'the planning board is not live'
-            : board.actionBusy
-            ? 'waiting for the machine'
-            : board.workOf(story)?.atWork != true
-            ? 'no running work was reported'
-            : null,
+        unavailable:
+            board.unavailableActions['StopStoryWork'] ??
+            (!board.live
+                ? 'the planning board is not live'
+                : board.actionBusy
+                ? 'waiting for the machine'
+                : board.workOf(story)?.atWork != true
+                ? 'no running work was reported'
+                : null),
         run: () => unawaited(_stop(story)),
       ),
     ],
@@ -769,7 +760,7 @@ class _BoardViewState extends State<_BoardView> {
                   spacing: Space.small,
                   children: [
                     Text(story.id, style: theme.textTheme.labelMedium),
-                    _priority(context, story.priority),
+                    _priority(context, story.priority ?? ''),
                     _menu(story),
                   ],
                 ),

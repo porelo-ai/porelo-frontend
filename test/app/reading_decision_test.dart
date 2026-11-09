@@ -57,11 +57,13 @@ void main() {
       for (final choice in ['REVIEW_ANYWAY', 'ONE_MORE_ROUND', 'REWORK'])
         {
           'project': 'checkout',
+          'story': 'ST291',
           'issue': issue,
           'round': 3,
           'choice': choice,
           'revision': 'design-1',
-          if (choice == 'REWORK') 'comment': 'Keep the credential inside.',
+          // ResolveIssueReading takes the story and a comment that is never omitted.
+          'comment': choice == 'REWORK' ? 'Keep the credential inside.' : '',
         },
     ]);
   });

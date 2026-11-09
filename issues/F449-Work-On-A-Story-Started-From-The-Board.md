@@ -1,6 +1,6 @@
 # F449 — Work On A Story Started From The Board
 
-**Status:** Implementing, against a stand-in for the daemon; blocked by [F447](README.md#f447).
+**Status:** Review.
 **Size:** M - a variant of the start dialog filled by the machine's proposal, the start and stop of a story's work,
 the agent's outcome where its run ended and its entry under *Needs you*, and a feature file; no task name or
 repository typed.

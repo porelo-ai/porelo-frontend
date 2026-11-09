@@ -30,31 +30,31 @@ Feature: Planning moves stay pending until saved
         When I drag planning story {'ST291'} to {'Review'}
         And I save planning moves
         Then planning story {'ST291'} has no pending move
-        And the planning story {'ST291'} is in {'Review'}
+        And the planning story {'ST291'} is in {'Implementing'}
         When I expand planning story issues {'ST291'}
         Then advanced planning issues keep their state
 
     # Harm: a batch partly commits or its cards do not take the daemon answer.
     Scenario: Save several stories atomically
         When I drag planning story {'ST291'} to {'Review'}
-        And I drag planning story {'ST292'} to {'Review'}
+        And I drag planning story {'ST293'} to {'Review'}
         And I save planning moves
         Then planning story {'ST291'} has no pending move
-        And planning story {'ST292'} has no pending move
-        And the planning story {'ST291'} is in {'Review'}
-        And the planning story {'ST292'} is in {'Review'}
+        And planning story {'ST293'} has no pending move
+        And the planning story {'ST291'} is in {'Implementing'}
+        And the planning story {'ST293'} is in {'Review'}
 
     # Harm: stale intent overwrites somebody else's planning change or is silently lost.
     Scenario: A stale revision rereads and keeps the remaining intent usable
         When I drag planning story {'ST291'} to {'Review'}
         And the planning revision changes on the machine
         And I save planning moves
-        Then the planning move error says {'Planning changed since this board was read'}
+        Then the planning move notice says {'Planning changed'}
         And planning story {'ST291'} has a pending move
         And planning Save is usable
         When I save planning moves
         Then planning story {'ST291'} has no pending move
-        And the planning story {'ST291'} is in {'Review'}
+        And the planning story {'ST291'} is in {'Implementing'}
 
     # Harm: a refused move appears saved or its daemon reason is hidden.
     Scenario: A refusal keeps the pending move and the daemon words
@@ -132,16 +132,16 @@ Feature: Planning moves stay pending until saved
     Scenario: Undo a refusal and save the other card
         Given the planning machine refuses story {'ST291'} with {'Work is still running'}
         When I drag planning story {'ST291'} to {'Review'}
-        And I drag planning story {'ST292'} to {'Review'}
+        And I drag planning story {'ST293'} to {'Review'}
         And I save planning moves
         Then planning story {'ST291'} shows refusal {'Work is still running'}
-        And planning story {'ST292'} is marked moved
+        And planning story {'ST293'} is marked moved
         When I undo planning story {'ST291'}
         Then no planning move error is shown
         And planning Save is usable
         When I save planning moves
-        Then planning story {'ST292'} has no pending move
-        And the planning story {'ST292'} is in {'Review'}
+        Then planning story {'ST293'} has no pending move
+        And the planning story {'ST293'} is in {'Review'}
         And the planning story {'ST291'} is in {'Backlog'}
 
     # Harm: folding a refused card hides its daemon reason or marks it as moved again.
@@ -207,9 +207,10 @@ Feature: Planning moves stay pending until saved
         When I drag planning story {'ST291'} to {'Review'}
         And the planning revision changes on the machine
         And I save planning moves
-        Then the planning move error says {'Planning changed since this board was read'}
+        Then the planning move notice says {'Planning changed'}
         When I undo all planning moves
         Then no planning move error is shown
+        And no planning move notice is shown
         And planning story {'ST291'} has no pending move
         And the planning story {'ST291'} is in {'Backlog'}
 

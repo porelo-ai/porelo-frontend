@@ -8,9 +8,7 @@ Feature: Open stories and issues from planning
     # Harm: a card opens stale summaries instead of the machine supplied story and source text.
     Scenario: A card opens its story
         When I open planning story {'ST291'}
-        Then planning details contain {'The host is run by porelo-host'}
-        And planning details contain {'Rent a host'}
-        And planning details contain {'# Story source'}
+        Then planning details contain {'# Story source'}
         And planning details contain {'0 of 15 in Review or Finished'}
         And the planning issue table is shown
         And the planning breadcrumb is {'Planning,ST291'}
@@ -22,7 +20,6 @@ Feature: Open stories and issues from planning
         And I open planning issue {'B541'}
         Then the planning breadcrumb is {'Planning,ST291,B541'}
         And Planning is selected in the rail
-        And planning details contain {'**Issue source**'}
         And planning details contain {'Only confirmed work is published'}
         And planning details contain {'Read the final changes'}
         And the last planning findings put blocking first
@@ -179,7 +176,7 @@ Feature: Open stories and issues from planning
         And I remember the planning board position
         And I open planning story {'ST291'}
         And the planning watch fails
-        Then planning details contain {'The host is run by porelo-host'}
+        Then planning details contain {'# Story source'}
         And planning details do not contain {'Story supplied by another machine'}
         When I press planning breadcrumb {0}
         Then the planning board position is retained
@@ -192,19 +189,11 @@ Feature: Open stories and issues from planning
         And I open planning issue {'B541'}
         Then the planning section {'Blocked by'} contains {'Not reported'}
 
-    # Harm: a missing daemon owner is replaced with a navigation assumption.
-    Scenario: An absent issue owner stays unknown
-        Given the machine reports the planning issue owner {''}
-        When I unfold planning story {'ST291'}
-        And I open planning issue {'B541'}
-        Then the planning section {'Story'} contains {'Not reported'}
-        And the planning owner link is absent
-
     # Harm: an issue moved to another story keeps its old local owner link.
     Scenario: The reported issue owner opens its own story
-        Given the machine reports the planning issue owner {'ST294'}
         When I unfold planning story {'ST291'}
         And I open planning issue {'B541'}
+        And the machine lists planning issue {'B541'} under story {'ST294'}
         Then the planning section {'Story'} contains {'ST294'}
         When I open the planning owner story
         Then the planning breadcrumb is {'Planning,ST294'}
@@ -215,7 +204,7 @@ Feature: Open stories and issues from planning
         When I unfold planning story {'ST291'}
         And I open planning issue {'B541'}
         Then the planning detail error is {'Story: This part is locked for repair'}
-        And planning details contain {'**Issue source**'}
+        And planning details contain {'Only confirmed work is published'}
         When I open the planning web link {'Open issue'}
         Then the planning browser opened {'https://example.org/issues/B541'}
 
@@ -273,7 +262,6 @@ Feature: Open stories and issues from planning
         When I unfold planning story {'ST291'}
         And I open planning issue {'B541'}
         Then planning details contain {'Acceptance criteria not reported completely'}
-        And planning details contain {'Keep this criterion'}
         And planning details contain {'Sub-agents not reported completely'}
         And planning details contain {'Visible reader'}
 
@@ -306,7 +294,7 @@ Feature: Open stories and issues from planning
         When I unfold planning story {'ST291'}
         And I open planning issue {'B541'}
         And the planning replacement part {'Issue'} is refused
-        Then planning details contain {'**Issue source**'}
+        Then planning details contain {'Only confirmed work is published'}
         And the planning detail error is {'Issue: This part is locked for repair'}
         When I open the planning web link {'Open issue'}
         Then the planning browser opened {'https://example.org/issues/B541'}
@@ -403,4 +391,4 @@ Feature: Open stories and issues from planning
             | error              | words                    |
             | MoveNotAllowed     | Policy refused this move |
             | StateNotAllowed    | Policy refused this move |
-            | EnteredOnlyByWork  | EnteredOnlyByWork         |
+            | EnteredOnlyByWork  | entered only by work     |

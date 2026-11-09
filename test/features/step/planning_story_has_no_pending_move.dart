@@ -6,5 +6,5 @@ import '../support/planning.dart';
 Future<void> planningStoryHasNoPendingMove(WidgetTester tester, String id) async {
   expect(planningElement('pending $id'), findsNothing);
   expect(planningElement('undo $id'), findsNothing);
-  expect(planningText(tester, planningElement('card $id')), isNot(contains('moved')));
+  expect(find.descendant(of: planningElement('card $id'), matching: find.text('moved')), findsNothing);
 }

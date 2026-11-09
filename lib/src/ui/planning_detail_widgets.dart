@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../app/links.dart';
+import '../app/commands.dart';
 import '../app/planning_board.dart';
 import 'tokens.dart';
 
@@ -54,14 +54,13 @@ class _PlanningWebLinkState extends State<PlanningWebLink> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         OutlinedButton.icon(
-          onPressed: () async {
-            try {
-              await openLink(address);
-            } catch (error) {
-              if (!mounted) return;
-              setState(() => _problem = planningFailureWords(error));
-            }
-          },
+          onPressed: planningWebCommand(
+            widget.label,
+            widget.link,
+            onError: (error) {
+              if (mounted) setState(() => _problem = planningFailureWords(error));
+            },
+          ).run,
           icon: const Icon(Icons.open_in_new),
           label: Text(widget.label),
         ),

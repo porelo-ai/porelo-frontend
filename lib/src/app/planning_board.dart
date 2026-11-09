@@ -148,18 +148,32 @@ class PlanningBoard extends ChangeNotifier {
       _watching = backend
           .watchStories(project)
           .listen(
-            (reply) {
-              if (!current()) return;
+            (reply) async {
               final order = ++_replyOrder;
-              if (saving) {
-                if (reply.complete && reply.revision.isNotEmpty) _deferredSnapshot = (reply, order);
-              } else {
-                _accept(reply, order: order);
+              try {
+                final prior = snapshot;
+                final names = prior?.states.map((state) => state.name).toSet() ?? <String>{};
+                final unknown = reply.stories.any(
+                  (story) => !names.contains(story.state) || story.issues.any((issue) => !names.contains(issue.state)),
+                );
+                final workflow = prior == null || unknown ? await backend.planningWorkflow(project) : prior;
+                if (!current()) return;
+                final combined = _checked(PlanningSnapshot.fromParts(workflow, reply));
+                if (saving) {
+                  _deferredSnapshot = (combined, order);
+                } else {
+                  _accept(combined, order: order);
+                }
+                problem = workflow.faults.isEmpty ? null : workflow.faults.join('\n');
+                unsupported = false;
+                live = true;
+                notifyListeners();
+              } catch (error) {
+                if (!current()) return;
+                problem = planningFailureWords(error);
+                live = false;
+                notifyListeners();
               }
-              problem = null;
-              unsupported = false;
-              live = true;
-              notifyListeners();
             },
             onError: (Object error) {
               if (!current()) return;
@@ -175,10 +189,8 @@ class PlanningBoard extends ChangeNotifier {
             },
             onDone: () {
               if (!current()) return;
-              _generation++;
               _watching = null;
-              live = false;
-              if (!unsupported) problem ??= 'The planning watch ended. The board is no longer live.';
+              // A final snapshot is a complete answer on daemons without subscriptions.
               notifyListeners();
             },
           );
@@ -198,6 +210,9 @@ class PlanningBoard extends ChangeNotifier {
   /// The last story action’s refusal, when one was reported.
   String? actionProblem;
 
+  /// Methods this machine explicitly cannot perform yet.
+  final Map<String, String> unavailableActions = {};
+
   /// Whether a story action is awaiting its answer.
   bool actionBusy = false;
 
@@ -207,30 +222,39 @@ class PlanningBoard extends ChangeNotifier {
   final Set<String> workUnsupported = {};
 
   /// Work from the watch, or the fallback only when that field was not supplied.
-  PlanWork? workOf(PlanStory story) =>
-      story.work ??
-      (state(story.state)?.kind == 'WORKING' && identical(_workSnapshots[story.id], snapshot)
-          ? storyWork[story.id]?.work
-          : null);
+  PlanWork? workOf(PlanStory story) => story.work != null && story.work!.tasksReported
+      ? story.work
+      : identical(_workSnapshots[story.id], snapshot)
+      ? storyWork[story.id]?.work ?? story.work
+      : story.work;
 
-  /// Ended outcome from the watch, including its authoritative clearing answer.
-  StoryWorkEnded? endedOf(PlanStory story) => story.endedReported
-      ? story.ended
+  /// Task outcomes are authoritative only after a complete work read.
+  WorkEnded? endedOf(PlanStory story) => !_needsWorkRead(story)
+      ? story.work?.ended
       : identical(_workSnapshots[story.id], snapshot)
       ? storyWork[story.id]?.ended
       : null;
 
-  bool _needsWorkRead(PlanStory story) => state(story.state)?.kind == 'WORKING' && story.work == null;
+  bool _needsWorkRead(PlanStory story) =>
+      state(story.state)?.kind == 'WORKING' &&
+      (!story.workReported || story.work != null && !story.work!.tasksReported);
 
   /// Whether an ended outcome is current enough to resolve a retained attention row.
   bool endedCurrent(PlanStory story) =>
-      story.endedReported || !_needsWorkRead(story) || identical(_workSnapshots[story.id], snapshot);
+      !_needsWorkRead(story) ||
+      identical(_workSnapshots[story.id], snapshot) &&
+          !workProblems.containsKey(story.id) &&
+          !workUnsupported.contains(story.id);
 
   /// Why a story cannot start, preserving unknown work as unknown.
   String? startUnavailable(PlanStory story) {
+    if (unavailableActions['StartStoryWork'] ?? unavailableActions['ProposeStoryWork'] case final reason?) {
+      return reason;
+    }
     if (_disposed || !live || snapshot?.complete != true) return 'the planning board is not live and complete';
     if (snapshot!.revision.isEmpty) return 'the planning revision was not reported';
     final kind = state(story.state)?.kind;
+    if (!{'WAITING', 'WORKING', 'CLOSED'}.contains(kind)) return 'the story state does not permit starting work';
     if (story.work == null && (kind == 'WAITING' || kind == 'CLOSED')) return null;
     if (_needsWorkRead(story) && !identical(_workSnapshots[story.id], snapshot)) {
       return workProblems[story.id] ??
@@ -272,6 +296,9 @@ class PlanningBoard extends ChangeNotifier {
       try {
         final answer = await source.getStoryWork(name, story.id);
         if (!current()) return;
+        if (answer.work != null && !answer.work!.tasksReported) {
+          throw const FormatException('The machine did not report the work tasks.');
+        }
         storyWork[story.id] = answer;
         _workSnapshots[story.id] = reply;
         workProblems.remove(story.id);
@@ -279,7 +306,7 @@ class PlanningBoard extends ChangeNotifier {
       } catch (error) {
         if (!current()) return;
         storyWork.remove(story.id);
-        _workSnapshots[story.id] = reply;
+        _workSnapshots.remove(story.id);
         if (error is FeatureNotSupported || error is VarlinkException && error.isMethodNotFound) {
           workUnsupported.add(story.id);
           workProblems.remove(story.id);
@@ -324,8 +351,14 @@ class PlanningBoard extends ChangeNotifier {
     _changed();
     try {
       await source.stopStoryWork(name, story);
+      if (!_disposed && generation == _generation) await reload();
     } catch (error) {
-      if (!_disposed && generation == _generation) reportActionProblem(error);
+      if (!_disposed && generation == _generation) {
+        reportActionProblem(error);
+        if (error is VarlinkException && error.simpleName == 'NotYetBuilt') {
+          unavailableActions['StopStoryWork'] = planningFailureWords(error);
+        }
+      }
     } finally {
       if (!_disposed && generation == _generation) {
         actionBusy = false;
@@ -357,6 +390,7 @@ class PlanningBoard extends ChangeNotifier {
       workProblems.clear();
       _workSnapshots.clear();
       workUnsupported.clear();
+      unavailableActions.clear();
     }
     actionBusy = false;
     problem = null;
@@ -387,7 +421,7 @@ class PlanningBoard extends ChangeNotifier {
     final story = stories.where((story) => story.id == id).firstOrNull;
     final target = state(to);
     if (story == null || target == null) return;
-    if (target.kind == 'WORKING') return;
+    if (!{'WAITING', 'CLOSED'}.contains(target.kind)) return;
     if (snapshot!.revision.isEmpty) {
       moveProblem = 'The machine did not report a planning revision. Reload planning before moving stories.';
       _changed();
@@ -415,12 +449,13 @@ class PlanningBoard extends ChangeNotifier {
         ? reported
         : stories.expand((story) => story.issues).where((issue) => issue.id == id).firstOrNull;
     final target = state(to);
-    if (issue == null || issue.state.isEmpty || target == null || !{'WAITING', 'CLOSED'}.contains(target.kind)) return;
+    if (issue == null || issue.state.isEmpty) return;
     final key = 'issue $id';
     if (to == issue.state) {
       undo(key);
       return;
     }
+    if (target == null || !{'WAITING', 'CLOSED'}.contains(target.kind)) return;
     _pending[key] = PendingPlanningMove(issue.state, to, isIssue: true);
     moveProblem = null;
     moveNotice = null;
@@ -529,7 +564,7 @@ class PlanningBoard extends ChangeNotifier {
 
   /// Saves all pending story and issue destinations atomically and applies only the daemon's complete answer.
   Future<void> save() async {
-    if (_disposed || saving || _pending.isEmpty || !live) return;
+    if (_disposed || saving || _pending.isEmpty || !live || unavailableActions.containsKey('SaveMoves')) return;
     saving = true;
     final generation = _generation;
     final revision = snapshot?.revision ?? '';
@@ -548,43 +583,89 @@ class PlanningBoard extends ChangeNotifier {
     _changed();
     try {
       _checked(snapshot!);
-      final reply = await backend.moveStories(project, moves, revision);
-      final order = ++_replyOrder;
+      final reply = await backend.saveMoves(project, moves, revision);
       if (_disposed || generation != _generation) return;
-      _checked(reply);
-      if (!reply.moved) throw StateError('The machine did not confirm the planning moves.');
+      if (!reply.complete || reply.revision.isEmpty) {
+        throw const FormatException('The machine did not report the saved revision and moved issues.');
+      }
+      final previous = snapshot!;
+      final destinations = <String, String>{};
+      final storyDestinations = <String, String>{};
       for (final entry in batch.entries) {
-        if (_reportedState(reply, entry.key, entry.value) == entry.value.to) {
+        final move = entry.value;
+        final id = move.isIssue ? entry.key.substring('issue '.length) : entry.key;
+        final story = previous.stories.where((story) => story.id == id).firstOrNull;
+        final expected = move.isIssue
+            ? [id]
+            : [
+                for (final issue in story?.issues ?? <PlanIssue>[])
+                  if (issue.state == story!.state) issue.id,
+              ];
+        if (expected.every(reply.moved.contains)) {
+          for (final issue in expected) {
+            destinations[issue] = move.to;
+          }
+          if (!move.isIssue) storyDestinations[id] = move.to;
           _pending.remove(entry.key);
         } else {
           _pending[entry.key]?.problem = 'The machine did not confirm this destination.';
         }
       }
+      _accept(
+        PlanningSnapshot.saved(previous, reply.revision, destinations, storyDestinations),
+        order: ++_replyOrder,
+        reconcile: false,
+      );
       if (_pending.isEmpty) {
         moveNotice = batch.values.every((move) => move.isIssue) ? 'Issue changes saved.' : 'Planning changes saved.';
       }
-      _accept(reply, order: order, reconcile: false);
+      _changed();
+      // SaveMoves does not return computed story states; read them from the store.
+      final latest = await backend.stories(project);
+      if (_disposed || generation != _generation) return;
+      _accept(_checked(PlanningSnapshot.fromParts(snapshot!, latest)), order: ++_replyOrder);
     } on VarlinkException catch (error) {
       if (_disposed || generation != _generation) return;
       final detail = planningFailureWords(error);
-      final item = error.parameters['item'] ?? error.parameters['issue'];
-      final named = item is String ? 'issue $item' : error.parameters['story'];
+      final item = error.parameters['item'] ?? error.parameters['issue'] ?? error.parameters['story'];
+      final named = item is String && batch.containsKey(item)
+          ? item
+          : item is String
+          ? 'issue $item'
+          : null;
       final affected = named is String && batch.containsKey(named) ? [named] : batch.keys;
-      for (final key in affected) {
-        _pending[key]?.problem = detail;
+      if (error.simpleName != 'StaleRevision') {
+        for (final key in affected) {
+          _pending[key]?.problem = detail;
+        }
       }
-      if ({'PlanningChanged', 'StaleRevision'}.contains(error.simpleName)) {
+      if (error.simpleName == 'NotYetBuilt') unavailableActions['SaveMoves'] = detail;
+      if (error.simpleName == 'StaleRevision') {
         moveProblem = detail;
         moveNotice = 'Planning changed. Review the pending moves and save again.';
         try {
           final reply = await _read();
-          if (!_disposed && generation == _generation) _accept(reply.$1, order: reply.$2);
+          if (!_disposed && generation == _generation) {
+            for (final move in _pending.values) {
+              move.problem = null;
+            }
+            moveProblem = null;
+            _accept(reply.$1, order: reply.$2);
+            moveNotice = _pending.isEmpty
+                ? 'The pending moves were made elsewhere.'
+                : 'Planning changed. Review the pending moves and save again.';
+          }
         } catch (readError) {
           if (!_disposed && generation == _generation) moveProblem = '$detail ${planningFailureWords(readError)}';
         }
       }
     } catch (error) {
-      if (!_disposed && generation == _generation) moveProblem = planningFailureWords(error);
+      if (!_disposed && generation == _generation) {
+        moveProblem = planningFailureWords(error);
+        for (final key in batch.keys) {
+          _pending[key]?.problem = moveProblem;
+        }
+      }
     } finally {
       _finishOperation();
     }
@@ -623,7 +704,7 @@ class PlanningBoard extends ChangeNotifier {
       : stories.where((story) => state(story.state)?.kind == 'CLOSED').length;
 
   /// The priority rank, with unknown or missing values after known ones.
-  static int rank(String priority) => switch (priority) {
+  static int rank(String? priority) => switch (priority) {
     'Highest' => 0,
     'High' => 1,
     'Medium' => 2,
@@ -866,16 +947,23 @@ class PlanningBoards extends ChangeNotifier {
 /// Preserves a daemon refusal in its own detail words.
 String planningFailureWords(Object error) {
   if (error is VarlinkException) {
-    final detail = error.parameters['detail'];
-    if (detail is String && detail.trim().isNotEmpty) return detail;
-    final message = error.parameters['message'];
-    if (message is String && message.trim().isNotEmpty) return message;
-    final reason = error.parameters['reason'];
-    if (reason is String && reason.trim().isNotEmpty) return reason;
-    if (error.simpleName == 'EnteredOnlyByWork') {
-      return 'EnteredOnlyByWork: ${error.parameters['to']} can be entered only by work.';
+    if (error.simpleName == 'NotYetBuilt') return 'This machine does not offer ${error.parameters['method']} yet.';
+    final words = [
+      for (final key in ['detail', 'message', 'reason'])
+        if (error.parameters[key] is String && (error.parameters[key] as String).trim().isNotEmpty)
+          error.parameters[key] as String,
+    ].firstOrNull;
+    final retry = error.parameters['retryAfter'];
+    if (words != null) return '$words${retry is int && retry > 0 ? ' — try again in $retry s' : ''}';
+    if (error.simpleName == 'PlanningAdapterError') {
+      final diagnostic = '${error.parameters['error']}: ${error.parameters['parameters']}';
+      final safe = diagnostic.replaceAll(RegExp(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]'), '');
+      return safe.length > 4096 ? safe.substring(0, 4096) : safe;
     }
-    return 'Refused: ${error.simpleName}.';
+    if (error.simpleName == 'EnteredOnlyByWork') return '${error.parameters['to']} can be entered only by work.';
+    return '${error.simpleName}: ${error.parameters}';
   }
+  if (error is StateError) return error.message.toString();
+  if (error is FormatException) return error.message;
   return '$error';
 }

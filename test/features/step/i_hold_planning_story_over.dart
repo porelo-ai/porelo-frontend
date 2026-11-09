@@ -26,9 +26,12 @@ Future<void> iHoldPlanningStoryOver(WidgetTester tester, String id, String state
     planningDrag = null;
     await held?.cancel();
   });
-  planningDrag = await tester.startGesture(tester.getTopLeft(source) + const Offset(20, 20));
+  // Once a move is staged, the pending list shortens the board, so the grip is the card's visible part.
+  final visible = tester.getRect(source).intersect(tester.getRect(planningElement('board-scroll')));
+  planningDrag = await tester.startGesture(visible.topLeft + const Offset(20, 20));
   await planningDrag!.moveBy(const Offset(0, -20));
   await tester.pump();
-  await planningDrag!.moveTo(tester.getCenter(heading));
+  final over = tester.getRect(target).intersect(tester.getRect(planningElement('board-scroll')));
+  await planningDrag!.moveTo(over.center);
   await tester.pump();
 }

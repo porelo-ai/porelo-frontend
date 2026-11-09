@@ -17,7 +17,7 @@ import './step/i_save_planning_moves.dart';
 import './step/i_expand_planning_story_issues.dart';
 import './step/advanced_planning_issues_keep_their_state.dart';
 import './step/the_planning_revision_changes_on_the_machine.dart';
-import './step/the_planning_move_error_says.dart';
+import './step/the_planning_move_notice_says.dart';
 import './step/planning_save_is_usable.dart';
 import './step/the_planning_machine_refuses_moves_with.dart';
 import './step/planning_story_shows_refusal.dart';
@@ -42,6 +42,7 @@ import './step/i_undo_all_planning_moves.dart';
 import './step/the_planning_machine_refuses_story_with.dart';
 import './step/i_fold_the_planning_phase.dart';
 import './step/the_planning_save_refuses_for_story_with.dart';
+import './step/no_planning_move_notice_is_shown.dart';
 import './step/no_planning_drop_hint_names.dart';
 import './step/no_planning_start_is_requested.dart';
 
@@ -78,31 +79,31 @@ void main() {
       await iDragPlanningStoryTo(tester, 'ST291', 'Review');
       await iSavePlanningMoves(tester);
       await planningStoryHasNoPendingMove(tester, 'ST291');
-      await thePlanningStoryIsIn(tester, 'ST291', 'Review');
+      await thePlanningStoryIsIn(tester, 'ST291', 'Implementing');
       await iExpandPlanningStoryIssues(tester, 'ST291');
       await advancedPlanningIssuesKeepTheirState(tester);
     });
     testWidgets('''Save several stories atomically''', (tester) async {
       await bddSetUp(tester);
       await iDragPlanningStoryTo(tester, 'ST291', 'Review');
-      await iDragPlanningStoryTo(tester, 'ST292', 'Review');
+      await iDragPlanningStoryTo(tester, 'ST293', 'Review');
       await iSavePlanningMoves(tester);
       await planningStoryHasNoPendingMove(tester, 'ST291');
-      await planningStoryHasNoPendingMove(tester, 'ST292');
-      await thePlanningStoryIsIn(tester, 'ST291', 'Review');
-      await thePlanningStoryIsIn(tester, 'ST292', 'Review');
+      await planningStoryHasNoPendingMove(tester, 'ST293');
+      await thePlanningStoryIsIn(tester, 'ST291', 'Implementing');
+      await thePlanningStoryIsIn(tester, 'ST293', 'Review');
     });
     testWidgets('''A stale revision rereads and keeps the remaining intent usable''', (tester) async {
       await bddSetUp(tester);
       await iDragPlanningStoryTo(tester, 'ST291', 'Review');
       await thePlanningRevisionChangesOnTheMachine(tester);
       await iSavePlanningMoves(tester);
-      await thePlanningMoveErrorSays(tester, 'Planning changed since this board was read');
+      await thePlanningMoveNoticeSays(tester, 'Planning changed');
       await planningStoryHasAPendingMove(tester, 'ST291');
       await planningSaveIsUsable(tester);
       await iSavePlanningMoves(tester);
       await planningStoryHasNoPendingMove(tester, 'ST291');
-      await thePlanningStoryIsIn(tester, 'ST291', 'Review');
+      await thePlanningStoryIsIn(tester, 'ST291', 'Implementing');
     });
     testWidgets('''A refusal keeps the pending move and the daemon words''', (tester) async {
       await bddSetUp(tester);
@@ -180,16 +181,16 @@ void main() {
       await bddSetUp(tester);
       await thePlanningMachineRefusesStoryWith(tester, 'ST291', 'Work is still running');
       await iDragPlanningStoryTo(tester, 'ST291', 'Review');
-      await iDragPlanningStoryTo(tester, 'ST292', 'Review');
+      await iDragPlanningStoryTo(tester, 'ST293', 'Review');
       await iSavePlanningMoves(tester);
       await planningStoryShowsRefusal(tester, 'ST291', 'Work is still running');
-      await planningStoryIsMarkedMoved(tester, 'ST292');
+      await planningStoryIsMarkedMoved(tester, 'ST293');
       await iUndoPlanningStory(tester, 'ST291');
       await noPlanningMoveErrorIsShown(tester);
       await planningSaveIsUsable(tester);
       await iSavePlanningMoves(tester);
-      await planningStoryHasNoPendingMove(tester, 'ST292');
-      await thePlanningStoryIsIn(tester, 'ST292', 'Review');
+      await planningStoryHasNoPendingMove(tester, 'ST293');
+      await thePlanningStoryIsIn(tester, 'ST293', 'Review');
       await thePlanningStoryIsIn(tester, 'ST291', 'Backlog');
     });
     testWidgets('''A folded refused card keeps its own reason''', (tester) async {
@@ -255,9 +256,10 @@ void main() {
       await iDragPlanningStoryTo(tester, 'ST291', 'Review');
       await thePlanningRevisionChangesOnTheMachine(tester);
       await iSavePlanningMoves(tester);
-      await thePlanningMoveErrorSays(tester, 'Planning changed since this board was read');
+      await thePlanningMoveNoticeSays(tester, 'Planning changed');
       await iUndoAllPlanningMoves(tester);
       await noPlanningMoveErrorIsShown(tester);
+      await noPlanningMoveNoticeIsShown(tester);
       await planningStoryHasNoPendingMove(tester, 'ST291');
       await thePlanningStoryIsIn(tester, 'ST291', 'Backlog');
     });

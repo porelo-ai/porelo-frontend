@@ -43,7 +43,6 @@ void main() {
             shell: World.shell,
             onTask: (_, _) {},
             taskUnavailable: (_, _) => null,
-            onStartRequested: (story, state) {},
             onNeedsYou: () {},
           ),
         ),

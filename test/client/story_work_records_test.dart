@@ -22,9 +22,11 @@ void main() {
         ],
       },
     ]) {
-      expect(PlanningIssueDetail.from(reply).findingsReported, isFalse, reason: '$reply');
+      expect(PlanningIssueDetail.from({'issue': reply}).findingsReported, isFalse, reason: '$reply');
     }
-    final clean = PlanningIssueDetail.from({'findings': <Map<String, dynamic>>[]});
+    final clean = PlanningIssueDetail.from({
+      'issue': {'findings': <Map<String, dynamic>>[]},
+    });
     expect(clean.findingsReported, isTrue);
     expect(clean.findings, isEmpty);
   });
@@ -32,12 +34,14 @@ void main() {
   // Harm: a blocking finding is hidden behind less urgent or future severity values.
   test('blocking findings lead without losing unknown severities or source order', () {
     final detail = PlanningIssueDetail.from({
-      'findings': [
-        {'severity': 'FUTURE', 'text': 'a'},
-        {'severity': 'BLOCKING', 'text': 'b'},
-        {'severity': 'NOTE', 'text': 'c'},
-        {'severity': 'BLOCKING', 'text': 'd'},
-      ],
+      'issue': {
+        'findings': [
+          {'severity': 'FUTURE', 'text': 'a'},
+          {'severity': 'BLOCKING', 'text': 'b'},
+          {'severity': 'NOTE', 'text': 'c'},
+          {'severity': 'BLOCKING', 'text': 'd'},
+        ],
+      },
     });
     expect(detail.findingsReported, isTrue);
     expect(detail.blockingFirst.map((each) => each.text), ['b', 'd', 'a', 'c']);
@@ -45,10 +49,13 @@ void main() {
   });
 
   // Harm: a missing start flag is taken as work having started.
-  test('a start requires explicit confirmation and preserves its revision', () {
+  test('a start requires recorded running work and preserves its revision', () {
     expect(StoryWorkStarted.from({}).started, isFalse);
     expect(StoryWorkStarted.from({'started': 'true'}).started, isFalse);
-    final started = StoryWorkStarted.from({'started': true, 'revision': 'opaque'});
+    final started = StoryWorkStarted.from({
+      'work': {'atWork': true, 'tasks': <Map<String, dynamic>>[]},
+      'revision': 'opaque',
+    });
     expect(started.started, isTrue);
     expect(started.revision, 'opaque');
   });
@@ -63,49 +70,45 @@ void main() {
       revision: 'r1',
       subAgents: [StoryWorkChoice(repository: 'repo', name: 'reader', choice: 'CHANGE', agent: 'agent', model: '')],
     );
-    expect(request.toMap(), {
-      'project': 'demo',
-      'story': 'S1',
-      'to': 'Building',
-      'mode': 'AGENT',
-      'revision': 'r1',
-      'repositories': <Map<String, dynamic>>[],
-      'subAgents': [
-        {'repository': 'repo', 'name': 'reader', 'choice': 'CHANGE', 'agent': 'agent', 'model': ''},
-      ],
-    });
+    expect(request.toMap(), {'project': 'demo', 'story': 'S1', 'to': 'Building', 'mode': 'AGENT', 'revision': 'r1'});
   });
   // Harm: With you opens a blank or stopped task from a malformed start answer.
   test('terminal selection rejects missing names and stopped tasks', () {
     for (final task in <Map<String, dynamic>>[
       {},
-      {'name': 'stopped', 'running': false},
-      {'name': '', 'running': true},
+      {'task': 'stopped', 'role': 'MAIN', 'atWork': false},
+      {'task': '', 'role': 'MAIN', 'atWork': true},
     ]) {
       expect(
         StoryWorkStarted.from({
-          'started': true,
-          'tasks': [task],
+          'work': {
+            'atWork': true,
+            'tasks': [task],
+          },
+          'revision': 'r1',
         }).terminalTask,
         isNull,
       );
       expect(
         StoryWorkStarted.from({
-          'started': true,
-          'tasks': [
-            {'name': 'valid', 'running': true},
-          ],
-          'coordinator': task,
+          'work': {
+            'atWork': true,
+            'tasks': [task],
+          },
+          'revision': 'r1',
         }).terminalTask,
         isNull,
       );
     }
     expect(
       StoryWorkStarted.from({
-        'started': true,
-        'tasks': [
-          {'name': 'valid', 'running': true},
-        ],
+        'work': {
+          'atWork': true,
+          'tasks': [
+            {'task': 'valid', 'role': 'MAIN', 'atWork': true},
+          ],
+        },
+        'revision': 'r1',
       }).terminalTask!.name,
       'valid',
     );

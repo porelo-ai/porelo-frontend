@@ -1,9 +1,8 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:porelo_frontend/client.dart';
 
 import '../app/planning_detail.dart';
+import '../app/commands.dart';
 import 'planning_detail_widgets.dart';
 import 'tokens.dart';
 
@@ -46,17 +45,13 @@ class PlanningStoryView extends StatelessWidget {
             spacing: Space.small,
             children: [
               Text(story.id),
-              Chip(label: Text(planningValue(story.priority))),
+              Chip(label: Text(planningValue(story.priority ?? ''))),
               Chip(label: Text(planningValue(story.state))),
             ],
           ),
           Text(planningValue(story.title), style: Theme.of(context).textTheme.headlineSmall),
           PlanningWebLink(link: story.link, label: 'Open story'),
-          if (story.revision.isNotEmpty) Text('Story revision: ${story.revision}'),
-          planningSection(context, 'What it gains', [SelectableText(planningValue(story.gain))]),
-          planningSection(context, 'Your test', [SelectableText(planningValue(story.test))]),
-          if (detail.story!.text.isNotEmpty)
-            planningSection(context, 'Story text', [SelectableText(detail.story!.text)]),
+          planningSection(context, 'Description', [SelectableText(planningValue(story.description))]),
         ],
         planningSection(context, 'Issues', [
           if (detail.moveUnavailable case final reason? when !detail.loading && !detail.saving) Text(reason),
@@ -76,7 +71,7 @@ class PlanningStoryView extends StatelessWidget {
               children: [
                 FilledButton(
                   key: const Key('planning-save-moves'),
-                  onPressed: detail.canSaveMoves ? () => unawaited(detail.saveMoves()) : null,
+                  onPressed: detail.canSaveMoves ? savePlanningCommand(detail.board).run : null,
                   child: Text(detail.saving ? 'Saving changes…' : 'Save changes'),
                 ),
                 TextButton(
@@ -145,12 +140,26 @@ class PlanningStoryView extends StatelessWidget {
               Text('Mode: ${planningWorkMode(story.work!.mode)}'),
               if (story.work!.since.isNotEmpty) Text('Since ${story.work!.since}'),
               for (final task in story.work!.tasks)
-                PlanningTaskLink(name: task, onOpen: () => onTask(task), unavailable: taskUnavailable(task)),
+                PlanningTaskLink(
+                  name: task.task,
+                  onOpen: () => onTask(task.task),
+                  unavailable: taskUnavailable(task.task),
+                ),
             ],
           ]),
       ],
     );
   }
+
+  String? _moveUnavailable(PlanIssue issue) =>
+      detail.moveUnavailable ??
+      (issue.id.isEmpty
+          ? 'Issue identifier not reported.'
+          : issue.state.isEmpty
+          ? 'Issue state not reported.'
+          : detail.moveStates.isEmpty && !detail.pendingMoves.containsKey(issue.id)
+          ? 'No waiting or closed destinations were reported.'
+          : null);
 
   Widget _issueState(BuildContext context, PlanIssue issue) => Column(
     mainAxisSize: MainAxisSize.min,
@@ -158,14 +167,12 @@ class PlanningStoryView extends StatelessWidget {
     children: [
       PopupMenuButton<String>(
         key: Key('planning-move ${issue.id}'),
-        tooltip: detail.moveUnavailable ?? 'Change the state of ${issue.id}',
-        enabled:
-            detail.moveUnavailable == null &&
-            issue.id.isNotEmpty &&
-            issue.state.isNotEmpty &&
-            detail.moveStates.isNotEmpty,
-        onSelected: (to) => detail.queueMove(issue.id, to),
+        tooltip: _moveUnavailable(issue) ?? 'Change the state of ${issue.id}',
+        enabled: _moveUnavailable(issue) == null,
+        onSelected: (to) => movePlanningIssueCommand(detail.board, issue, to).run(),
         itemBuilder: (_) => [
+          if (detail.pendingMoves.containsKey(issue.id))
+            PopupMenuItem(value: issue.state, child: const Text('Undo this move')),
           for (final state in detail.moveStates)
             PopupMenuItem(
               value: state.name,
@@ -181,6 +188,7 @@ class PlanningStoryView extends StatelessWidget {
           ],
         ),
       ),
+      if (_moveUnavailable(issue) case final reason?) Text(reason),
       if (detail.pendingMoves[issue.id] case final move?)
         Text('Pending: ${move.to}', key: Key('planning-move-pending ${issue.id}')),
       if (detail.moveProblems[issue.id] case final problem?)

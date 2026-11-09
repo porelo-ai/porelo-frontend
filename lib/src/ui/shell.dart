@@ -192,7 +192,6 @@ class Shell extends StatefulWidget {
     required this.connections,
     this.forges,
     this.settingsDropped = false,
-    this.planningStartFeedback,
     this.organizationSource,
     this.hostConnections,
     this.connectionsFor,
@@ -215,7 +214,6 @@ class Shell extends StatefulWidget {
   final bool settingsDropped;
 
   /// Optional rehearsal feedback; production starts provide their own flow.
-  final Widget Function(String story, String state)? planningStartFeedback;
 
   /// Where the organization is read and changed, absent while this computer reads none.
   final OrganizationSource? organizationSource;
@@ -675,13 +673,6 @@ class _ShellState extends State<Shell> {
     }
   }
 
-  Widget? _planningStartFeedback;
-
-  void _requestPlanningStart(PlanStory story, PlanState state) {
-    final feedback = widget.planningStartFeedback?.call(story.id, state.name);
-    if (feedback != null) setState(() => _planningStartFeedback = feedback);
-  }
-
   bool _planningLeaveApproved = false;
   bool _planningLeaveAsked = false;
 
@@ -780,7 +771,7 @@ class _ShellState extends State<Shell> {
       if (machine != null)
         for (final command in [..._machineMenu(on: machine), _machinePanic(machine)]) command.id: command,
     };
-    final all = _unscopedCommands();
+    final all = [..._unscopedCommands(), ...planningCommands(_planning, widget.shell)];
     final ids = all.map((command) => command.id).toSet();
     return [
       for (final command in all) scoped[command.id] ?? _commandForItem(command).unless(_itemScopeProblem(command)),
@@ -3973,8 +3964,6 @@ class _ShellState extends State<Shell> {
                             Section.attention => _needsYou(),
                             Section.planning => Column(
                               children: [
-                                if (_planningStartFeedback case final feedback?)
-                                  KeyedSubtree(key: const Key('planning-start-request'), child: feedback),
                                 Expanded(
                                   child: PlanningView(
                                     boards: _planning,
@@ -3982,7 +3971,6 @@ class _ShellState extends State<Shell> {
                                     taskUnavailable: _planningTaskUnavailable,
                                     onTask: _openPlanningTask,
                                     onNeedsYou: () => widget.shell.goTo(Section.attention),
-                                    onStartRequested: _requestPlanningStart,
                                     onStarted: _storyWorkStarted,
                                   ),
                                 ),
@@ -6371,16 +6359,23 @@ class _ShellState extends State<Shell> {
     final machine = widget.machines.all
         .where((machine) => identical(widget.machines.of(machine).backend, work.backend))
         .firstOrNull;
-    final task = work.result?.terminalTask;
+    final name = work.result?.terminalName;
+    final returnedTasks = work.result?.tasksFor(work.project) ?? <Task>[];
+    final task =
+        returnedTasks.where((task) => task.name == name && task.running).firstOrNull ??
+        (machine == null
+            ? null
+            : widget.machines
+                  .of(machine)
+                  .tasks
+                  .where((task) => task.project == work.project && task.name == name && task.running)
+                  .firstOrNull);
     if (!mounted) return;
     if (machine == null || task == null) {
       work.board.reportActionProblem('The start answer did not report a terminal task on a watched machine.');
       return;
     }
-    _workView.rememberStarted(machine.name, [
-      ...work.result!.tasks,
-      ?work.result!.coordinator,
-    ], observed: widget.machines.of(machine).tasks);
+    _workView.rememberStarted(machine.name, [...returnedTasks], observed: widget.machines.of(machine).tasks);
     _workView.showNewTerminal(machine.name, task);
     _openSession(task, on: machine);
   }

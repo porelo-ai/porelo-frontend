@@ -100,7 +100,11 @@ void main() {
     final pending = late.load();
     final before = notifications;
     late.dispose();
-    backend.findings.complete(PlanningIssueDetail.from({'findings': <Map<String, dynamic>>[]}));
+    backend.findings.complete(
+      PlanningIssueDetail.from({
+        'issue': {'findings': <Map<String, dynamic>>[]},
+      }),
+    );
     await pending;
     expect(late.detail, isNull);
     expect(notifications, before);
@@ -120,13 +124,15 @@ void main() {
     );
     story['work'] = {
       'atWork': true,
-      'tasks': ['new-run'],
+      'tasks': [
+        {'task': 'new-run', 'role': 'MAIN', 'atWork': true},
+      ],
     };
     backend.pushPlanning('checkout', replacement);
     await Future<void>.delayed(Duration.zero);
     await board.stopWork('ST291', revision: revision, source: backend, sourceProject: 'checkout');
     expect(backend.storyWork.calls.where((call) => call.$1 == 'StopStoryWork'), isEmpty);
-    expect(board.stories.firstWhere((story) => story.id == 'ST291').work!.tasks, ['new-run']);
+    expect(board.stories.firstWhere((story) => story.id == 'ST291').work!.tasks.map((task) => task.task), ['new-run']);
     board.dispose();
     await backend.stop();
   });

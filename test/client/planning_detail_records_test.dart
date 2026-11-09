@@ -1,13 +1,13 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/mock/planning_data.dart';
+import 'package:porelo_frontend/src/mock/planning_moves.dart';
 
 void main() {
   // Harm: omitted or malformed detail fields masquerade as a clean reading or completed work.
   test('detail records distinguish absent reports from explicit empty reports', () {
     final missing = PlanIssueDetail.from({});
     expect(missing.issue, isNull);
-    expect(missing.text, isEmpty);
     expect(missing.criteriaReported, isFalse);
     expect(missing.findingsReported, isFalse);
     expect(missing.subAgentsReported, isFalse);
@@ -15,9 +15,7 @@ void main() {
     expect(PlanIssueList.from({'issues': 'wrong'}).reported, isFalse);
     expect(PlanIssueList.from({'issues': <dynamic>[]}).reported, isTrue);
     final empty = PlanIssueDetail.from({
-      'whatMustBeTrue': <String>[],
-      'findings': <dynamic>[],
-      'subAgents': <dynamic>[],
+      'issue': {'whatMustBeTrue': '', 'findings': <dynamic>[], 'subAgents': <dynamic>[]},
     });
     expect(empty.criteriaReported, isTrue);
     expect(empty.findingsReported, isTrue);
@@ -30,9 +28,11 @@ void main() {
   // Harm: malformed entries are filtered into an apparently clean reading or empty work list.
   test('malformed list entries cannot confirm a complete empty report', () {
     final malformed = PlanIssueDetail.from({
-      'findings': [false],
-      'whatMustBeTrue': [9],
-      'subAgents': [false],
+      'issue': {
+        'findings': [false],
+        'whatMustBeTrue': [9],
+        'subAgents': [false],
+      },
     });
     expect(malformed.findingsReported, isFalse);
     expect(malformed.criteriaReported, isFalse);
@@ -50,10 +50,12 @@ void main() {
       isFalse,
     );
     final partial = PlanIssueDetail.from({
-      'findings': [
-        false,
-        {'number': 1, 'severity': 'BLOCKING', 'text': 'Still visible'},
-      ],
+      'issue': {
+        'findings': [
+          false,
+          {'number': 1, 'severity': 'BLOCKING', 'text': 'Still visible'},
+        ],
+      },
     });
     expect(partial.findingsReported, isFalse);
     expect(partial.findings.single.text, 'Still visible');
@@ -81,7 +83,9 @@ void main() {
     expect(valid.blockedBy, ['parent', 'other']);
     expect(
       PlanIssueDetail.from({
-        'whatMustBeTrue': [''],
+        'issue': {
+          'whatMustBeTrue': [''],
+        },
       }).criteriaReported,
       isFalse,
     );
@@ -121,8 +125,11 @@ void main() {
     expect(issue.blockedByReported, isFalse);
     expect(
       PlanWork.from({
-        'tasks': ['', 'task', '  '],
-      }).tasks,
+        'tasks': [
+          false,
+          {'task': 'task'},
+        ],
+      }).tasks.map((task) => task.task),
       ['task'],
     );
   });
@@ -130,13 +137,15 @@ void main() {
   // Harm: a blocking finding is buried behind notes or readers lose the report order.
   test('blocking findings precede notes and unknown severities in stable report order', () {
     final reply = PlanIssueDetail.from({
-      'findings': [
-        {'number': 5, 'severity': 'NOTE'},
-        {'number': 9, 'severity': 'BLOCKING'},
-        {'number': 3, 'severity': 'LATER'},
-        {'number': 8, 'severity': 'BLOCKING'},
-        {'number': 2, 'severity': 'NOTE'},
-      ],
+      'issue': {
+        'findings': [
+          {'number': 5, 'severity': 'NOTE'},
+          {'number': 9, 'severity': 'BLOCKING'},
+          {'number': 3, 'severity': 'LATER'},
+          {'number': 8, 'severity': 'BLOCKING'},
+          {'number': 2, 'severity': 'NOTE'},
+        ],
+      },
     });
     expect(reply.orderedFindings.map((finding) => finding.number), [9, 8, 5, 2, 3]);
     expect(reply.findings.map((finding) => finding.number), [5, 9, 3, 8, 2]);
@@ -145,32 +154,33 @@ void main() {
   // Harm: issue ownership or source text is lost and navigation reaches the wrong item.
   test('standalone records preserve source text revisions ownership and sub-agent fields', () {
     final story = PlanStoryDetail.from({
-      'story': {'id': 'S2', 'revision': 'story-rev'},
-      'text': '# Source',
+      'story': {'id': 'S2', 'description': '# Source'},
+      'revision': 'story-rev',
     });
     expect(story.story!.id, 'S2');
-    expect(story.story!.revision, 'story-rev');
-    expect(story.text, '# Source');
+    expect(story.revision, 'story-rev');
+    expect(story.story!.description, '# Source');
     final issue = PlanIssueDetail.from({
-      'issue': {'id': 'I2', 'story': 'S2', 'repository': 'frontend', 'revision': 'issue-rev'},
-      'text': '**Issue source**',
-      'whatMustBeTrue': ['First', 9, 'Second'],
-      'subAgents': [
-        {'name': 'Reader', 'role': 'review', 'agent': 'Agent', 'model': 'Model', 'brief': 'Read only'},
-      ],
+      'revision': 'issue-rev',
+      'issue': {
+        'id': 'I2',
+        'repository': 'frontend',
+        'whatMustBeTrue': 'First\nSecond',
+        'subAgents': [
+          {'name': 'Reader', 'role': 'READER', 'agent': 'Agent', 'model': 'Model', 'brief': 'Read only'},
+        ],
+      },
     });
     expect(issue.issue!.id, 'I2');
-    expect(issue.issue!.story, 'S2');
     expect(issue.issue!.repository, 'frontend');
-    expect(issue.issue!.revision, 'issue-rev');
-    expect(issue.text, '**Issue source**');
-    expect(issue.whatMustBeTrue, ['First', 'Second']);
+    expect(issue.revision, 'issue-rev');
+    expect(issue.whatMustBeTrue, ['First\nSecond']);
     final agent = issue.subAgents.single;
     expect(
       [agent.name, agent.role, agent.agent, agent.model, agent.brief],
-      ['Reader', 'review', 'Agent', 'Model', 'Read only'],
+      ['Reader', 'READER', 'Agent', 'Model', 'Read only'],
     );
-    expect(PlanSubAgent.from({'model': false}).model, isEmpty);
+    expect(PlanWorker.from({'model': false}).model, isEmpty);
   });
   // Harm: the stand-in overwrites the daemon fixture's reported or absent issue owner.
   test('the stand-in preserves an explicit issue owner and explicit absence', () {
@@ -188,7 +198,7 @@ void main() {
     };
     expect(mockPlanningIssue(fixture, 'I2')!['story'], 'S3');
     expect(mockPlanningIssue(fixture, 'I3')!['story'], isNull);
-    expect(mockPlanningIssue(fixture, 'I4')!['story'], 'S2');
+    expect(mockPlanningIssue(fixture, 'I4')!.containsKey('story'), isFalse);
   });
   // Harm: move serialization changes the selected issue, target or revision confirmation.
   test('issue move records preserve the exact wire fields and confirmation', () {
@@ -219,9 +229,12 @@ void main() {
       ],
     };
     expect(
-      () => mockMoveIssues(board, [
-        {'issue': 'first', 'to': 'Done'},
-      ], 'old'),
+      () => applyPlanningMove(board, {
+        'moves': [
+          {'issue': 'first', 'to': 'Done'},
+        ],
+        'revision': 'old',
+      }),
       throwsA(
         isA<VarlinkException>().having((error) => error.simpleName, 'name', 'StaleRevision').having(
           (error) => error.parameters,
@@ -231,10 +244,13 @@ void main() {
       ),
     );
     expect(
-      () => mockMoveIssues(board, [
-        {'issue': 'first', 'to': 'Done'},
-        {'issue': 'second', 'to': 'Working'},
-      ], 'r1'),
+      () => applyPlanningMove(board, {
+        'moves': [
+          {'issue': 'first', 'to': 'Done'},
+          {'issue': 'second', 'to': 'Working'},
+        ],
+        'revision': 'r1',
+      }),
       throwsA(
         isA<VarlinkException>().having((error) => error.simpleName, 'name', 'EnteredOnlyByWork').having(
           (error) => error.parameters,
@@ -245,9 +261,12 @@ void main() {
     );
     expect(mockPlanningIssue(board, 'first')!['state'], 'Working');
     expect(
-      () => mockMoveIssues(board, [
-        {'issue': 'first', 'to': 'unknown'},
-      ], 'r1'),
+      () => applyPlanningMove(board, {
+        'moves': [
+          {'issue': 'first', 'to': 'unknown'},
+        ],
+        'revision': 'r1',
+      }),
       throwsA(
         isA<VarlinkException>().having((error) => error.simpleName, 'name', 'StateNotAllowed').having(
           (error) => error.parameters.keys.toSet(),
@@ -257,20 +276,26 @@ void main() {
       ),
     );
     expect(
-      () => mockMoveIssues(board, [
-        {'issue': 'missing', 'to': 'Done'},
-      ], 'r1'),
+      () => applyPlanningMove(board, {
+        'moves': [
+          {'issue': 'missing', 'to': 'Done'},
+        ],
+        'revision': 'r1',
+      }),
       throwsA(
-        isA<VarlinkException>().having((error) => error.simpleName, 'name', 'MoveNotAllowed').having(
+        isA<VarlinkException>().having((error) => error.simpleName, 'name', 'NoSuchIssue').having(
           (error) => error.parameters.keys.toSet(),
           'fields',
-          {'item', 'from', 'to', 'reason'},
+          {'issue'},
         ),
       ),
     );
-    final moved = mockMoveIssues(board, [
-      {'issue': 'first', 'to': 'Done'},
-    ], 'r1');
+    final moved = applyPlanningMove(board, {
+      'moves': [
+        {'issue': 'first', 'to': 'Done'},
+      ],
+      'revision': 'r1',
+    });
     expect(mockPlanningIssue(moved, 'first')!['state'], 'Done');
     expect(mockPlanningIssue(moved, 'second')!['state'], 'Working');
     expect(mockPlanningIssue(board, 'first')!['state'], 'Working');

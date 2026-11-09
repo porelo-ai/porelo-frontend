@@ -10,6 +10,8 @@ import 'package:porelo_frontend/src/app/settings.dart';
 import '../features/support/world.dart';
 
 class _Backend extends Fake implements FleetBackend {
+  @override
+  Future<PlanningSnapshot> planningWorkflow(String project) async => _snapshot('workflow');
   final controllers = <String, StreamController<PlanningSnapshot>>{};
   final canceled = <String>[];
   @override
@@ -48,7 +50,7 @@ void main() {
     (FeatureNotSupported('planning'), true, null),
     (VarlinkException('org.varlink.service.MethodNotFound', {'method': 'WatchStories'}), true, null),
     (
-      VarlinkException('org.fuin.porelo.Tasks1.PlanningRefused', {'detail': 'Planning store cannot be read'}),
+      VarlinkException('org.fuin.porelo.Tasks1.WorkNotAllowed', {'detail': 'Planning store cannot be read'}),
       false,
       'Planning store cannot be read',
     ),
@@ -106,6 +108,7 @@ void main() {
     await Future<void>.delayed(Duration.zero);
     expect(backend.canceled, ['first']);
     backend.controllers['first']!.add(_snapshot('late'));
+    await Future<void>.delayed(Duration.zero);
     expect(notifications, 0);
     await backend.controllers['first']!.close();
   });
@@ -116,23 +119,27 @@ void main() {
     final board = PlanningBoard(backend, 'first');
     addTearDown(board.dispose);
     backend.controllers['first']!.add(_snapshot('old'));
+    await Future<void>.delayed(Duration.zero);
     expect(board.stories.single.id, 'old');
     await board.changeProject(backend, 'second');
     expect(backend.canceled, ['first']);
     expect(board.snapshot, isNull);
     backend.controllers['first']!.add(_snapshot('late'));
+    await Future<void>.delayed(Duration.zero);
     backend.controllers['second']!.add(_snapshot('new'));
+    await Future<void>.delayed(Duration.zero);
     expect(board.project, 'second');
     expect(board.stories.single.id, 'new');
     await backend.controllers['first']!.close();
   });
 
   // Harm: deleted stories or old workflow metadata survive a complete replacement.
-  test('each answer replaces the entire snapshot including deletions', () {
+  test('story answers replace deletions while the separate workflow remains', () async {
     final backend = _Backend();
     final board = PlanningBoard(backend, 'project');
     addTearDown(board.dispose);
     backend.controllers['project']!.add(_snapshot('old'));
+    await Future<void>.delayed(Duration.zero);
     expect(board.workingCount, 1);
     backend.controllers['project']!.add(
       PlanningSnapshot.from({
@@ -142,9 +149,10 @@ void main() {
         'revision': 'empty',
       }),
     );
+    await Future<void>.delayed(Duration.zero);
     expect(board.stories, isEmpty);
-    expect(board.phases, isEmpty);
-    expect(board.states, isEmpty);
+    expect(board.phases.single.name, 'Build');
+    expect(board.states.single.name, 'Building');
     expect(board.snapshot!.revision, 'empty');
     expect(board.workingCount, 0);
   });
@@ -155,8 +163,9 @@ void main() {
     final board = PlanningBoard(backend, 'project');
     addTearDown(board.dispose);
     backend.controllers['project']!.add(_snapshot('retained'));
+    await Future<void>.delayed(Duration.zero);
     backend.controllers['project']!.addError(
-      const VarlinkException('PlanningRefused', {'detail': 'cannot read the store'}),
+      const VarlinkException('WorkNotAllowed', {'detail': 'cannot read the store'}),
     );
     await Future<void>.delayed(Duration.zero);
     expect(board.problem, 'cannot read the store');
@@ -174,10 +183,10 @@ void main() {
       ({'detail': 'The detail', 'message': 'The message'}, 'The detail'),
       ({'detail': ' ', 'message': 'The message'}, 'The message'),
       ({'detail': 7, 'message': 'The message'}, 'The message'),
-      ({'detail': 7, 'message': false}, 'Refused: PlanningRefused.'),
+      ({'detail': 7, 'message': false}, 'WorkNotAllowed: {detail: 7, message: false}'),
     ];
     for (final (parameters, words) in cases) {
-      backend.controllers['project']!.addError(VarlinkException('org.fuin.porelo.Tasks1.PlanningRefused', parameters));
+      backend.controllers['project']!.addError(VarlinkException('org.fuin.porelo.Tasks1.WorkNotAllowed', parameters));
       await Future<void>.delayed(Duration.zero);
       expect(board.problem, words);
       backend.controllers.remove('project');
@@ -186,24 +195,26 @@ void main() {
   });
 
   // Harm: a normally ended stream leaves a frozen board looking current.
-  test('a final answer is retained but watch completion is visible', () async {
+  test('a final watch snapshot remains usable without a subscription', () async {
     final backend = _Backend();
     final board = PlanningBoard(backend, 'project');
     addTearDown(board.dispose);
     backend.controllers['project']!.add(_snapshot('last'));
+    await Future<void>.delayed(Duration.zero);
     expect(board.live, isTrue);
     await backend.controllers['project']!.close();
-    expect(board.live, isFalse);
-    expect(board.problem, contains('watch ended'));
+    expect(board.live, isTrue);
+    expect(board.problem, isNull);
     expect(board.stories.single.id, 'last');
   });
 
   // Harm: absent workflow data becomes a reassuring zero or drops an orphan story.
-  test('incomplete and inconsistent replies remain unsaid or visibly unplaced', () {
+  test('incomplete and inconsistent replies remain unsaid or visibly unplaced', () async {
     final backend = _Backend();
     final board = PlanningBoard(backend, 'project');
     addTearDown(board.dispose);
     backend.controllers['project']!.add(PlanningSnapshot.from({}));
+    await Future<void>.delayed(Duration.zero);
     expect(board.workingCount, isNull);
     expect(board.closedCount, isNull);
     backend.controllers['project']!.add(
@@ -213,8 +224,10 @@ void main() {
         'stories': [
           {'id': 'orphan', 'state': 'Future state'},
         ],
+        'revision': 'orphan',
       }),
     );
+    await Future<void>.delayed(Duration.zero);
     expect(board.unplaced.single.id, 'orphan');
     expect(board.workingCount, isNull);
   });
@@ -226,11 +239,13 @@ void main() {
     board.filter(PlanningPriority.high);
     board.search('story');
     backend.controllers['project']!.add(_snapshot('before'));
+    await Future<void>.delayed(Duration.zero);
     await backend.controllers['project']!.close();
-    expect(board.problem, contains('watch ended'));
+    expect(board.problem, isNull);
     backend.controllers.remove('project');
     await board.retry();
     backend.controllers['project']!.add(_snapshot('after'));
+    await Future<void>.delayed(Duration.zero);
     expect(board.live, isTrue);
     expect(board.problem, isNull);
     expect(board.stories.single.id, 'after');
@@ -243,7 +258,7 @@ void main() {
     final source = StreamController<PlanningSnapshot>(onCancel: () => canceled.future);
     final backend = _SlowCancellation(source);
     final board = PlanningBoard(backend, 'project');
-    source.addError(const VarlinkException('PlanningRefused', {'detail': 'store unavailable'}));
+    source.addError(const VarlinkException('WorkNotAllowed', {'detail': 'store unavailable'}));
     await Future<void>.delayed(Duration.zero);
     try {
       expect(board.problem, contains('store unavailable'));

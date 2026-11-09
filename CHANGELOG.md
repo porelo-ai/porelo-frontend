@@ -7,6 +7,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- The window now reads the planning part as the daemon serves it.
+
 ### Added
 
 - Planning stories can be dragged to pending states, undone individually, and saved atomically with revision checks and daemon refusals.

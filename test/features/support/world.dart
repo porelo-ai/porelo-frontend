@@ -99,9 +99,33 @@ class FakeBackend implements FleetBackend {
   late final storyWork = MockStoryWork(_planningFor, pushPlanning);
   Map<String, dynamic> _workCall(String method, Map<String, dynamic> parameters) {
     try {
-      return storyWork.call(method, parameters);
-    } on MockPlanningRefusal catch (error) {
-      throw VarlinkException('org.fuin.porelo.Tasks1.PlanningRefused', {'detail': error.detail});
+      final result = storyWork.call(method, parameters);
+      if (method == 'StartStoryWork' && result['work'] is Map<String, dynamic>) {
+        final work = result['work'] as Map<String, dynamic>;
+        final project = parameters['project'] as String;
+        final participants = (work['tasks'] as List).cast<Map<String, dynamic>>();
+        final names = participants.map((task) => task['task']).toSet();
+        final coordinator = work['coordinator'];
+        if (coordinator is String) names.add(coordinator);
+        _tasks = [
+          ..._tasks.where((task) => task.project != project || !names.contains(task.name)),
+          for (final task in participants)
+            Task.from({
+              ...task,
+              'name': task['task'],
+              'project': project,
+              'running': task['atWork'],
+              'mode': task['mode'] == 'AGENT' ? 'SHELL' : task['mode'],
+            }),
+          if (coordinator is String)
+            _tasks.where((task) => task.project == project && task.name == coordinator && task.running).firstOrNull ??
+                Task.from({'name': coordinator, 'project': project, 'running': true, 'mode': 'SHELL'}),
+        ];
+        _changes.add(_tasks);
+      }
+      return result;
+    } on VarlinkException {
+      rethrow;
     }
   }
 
@@ -115,31 +139,32 @@ class FakeBackend implements FleetBackend {
   Future<StoryWorkStatus> getStoryWork(String project, String story) async =>
       StoryWorkStatus.from(_workCall('GetStoryWork', {'project': project, 'story': story}));
   @override
-  Future<void> stopStoryWork(String project, String story) async {
-    _workCall('StopStoryWork', {'project': project, 'story': story});
-  }
+  Future<StoryWorkStatus> stopStoryWork(String project, String story) async =>
+      StoryWorkStatus.from(_workCall('StopStoryWork', {'project': project, 'story': story}));
 
   @override
   Future<PlanningIssueDetail> getPlanningIssue(String project, String issue) async =>
       PlanningIssueDetail.from(_workCall('GetIssue', {'project': project, 'issue': issue}));
   @override
-  Future<String> resolveIssueReading(
+  Future<ReadingResolution> resolveIssueReading(
     String project,
+    String story,
     String issue,
     int round,
     String choice,
     String revision, {
     String? comment,
-  }) async =>
-      _workCall('ResolveIssueReading', {
-            'project': project,
-            'issue': issue,
-            'round': round,
-            'choice': choice,
-            'revision': revision,
-            'comment': ?comment,
-          })['revision']
-          as String;
+  }) async => ReadingResolution.from(
+    _workCall('ResolveIssueReading', {
+      'project': project,
+      'story': story,
+      'issue': issue,
+      'round': round,
+      'choice': choice,
+      'revision': revision,
+      'comment': comment ?? '',
+    }),
+  );
 
   /// Whether this machine predates planning.
   bool withoutPlanning = false;
@@ -174,27 +199,20 @@ class FakeBackend implements FleetBackend {
     if (planningRefusedStory != null &&
         moves is List &&
         moves.any((dynamic move) => move is Map && move['story'] == planningRefusedStory)) {
-      throw VarlinkException('org.fuin.porelo.Tasks1.PlanningRefused', {
+      throw VarlinkException('org.fuin.porelo.Tasks1.WorkNotAllowed', {
         'story': planningRefusedStory,
         'detail': planningRefusalDetail,
       });
     }
     if (planningMoveFailure case final failure?) throw failure;
     final board = applyPlanningMove(_planningFor(project), parameters);
-    pushPlanning(project, board);
-    return PlanningMoveResult.from({...board, 'moved': true});
+    planning[project] = board;
+    // Save answers independently of the watch so the client must apply its confirmation.
+    return PlanningMoveResult.from({'revision': board['revision'], 'moved': board['moved']});
   }
 
   @override
-  Future<PlanningMoveResult> moveStories(String project, List<PlanningMove> moves, String revision) =>
-      _movePlanning(project, {'moves': moves.map((move) => move.toMap()).toList(), 'revision': revision});
-
-  @override
-  Future<PlanningMoveResult> moveStory(String project, String story, String to, String revision) =>
-      _movePlanning(project, {'story': story, 'to': to, 'revision': revision});
-
-  @override
-  Future<PlanningMoveResult> moveIssues(String project, List<PlanningIssueMove> moves, String revision) =>
+  Future<PlanningMoveResult> saveMoves(String project, List<PlanningMove> moves, String revision) =>
       _movePlanning(project, {'moves': moves.map((move) => move.toMap()).toList(), 'revision': revision});
 
   /// The number of active planning subscriptions.
@@ -227,8 +245,8 @@ class FakeBackend implements FleetBackend {
     if (planningPartFailures['Story'] case final failure?) throw failure;
     if (readPlanningStory case final read?) return read(project, story);
     final record = mockPlanningStory(_planningFor(project), story);
-    if (record == null) throw const VarlinkException('NoSuchStory', {'detail': 'Story not found.'});
-    return PlanStoryDetail.from({'story': record, 'text': record['text']});
+    if (record == null) throw VarlinkException('NoSuchStory', {'story': story});
+    return PlanStoryDetail.from({'story': record, 'revision': _planningFor(project)['revision']});
   }
 
   @override
@@ -237,8 +255,8 @@ class FakeBackend implements FleetBackend {
     if (planningPartFailures['Issue list'] case final failure?) throw failure;
     if (readPlanningIssues case final read?) return read(project, story);
     final record = mockPlanningStory(_planningFor(project), story);
-    if (record == null) throw const VarlinkException('NoSuchStory', {'detail': 'Story not found.'});
-    return PlanIssueList.from({'issues': record['issues']});
+    if (record == null) throw VarlinkException('NoSuchStory', {'story': story});
+    return PlanIssueList.from({'issues': record['issues'], 'revision': _planningFor(project)['revision']});
   }
 
   @override
@@ -246,21 +264,23 @@ class FakeBackend implements FleetBackend {
     if (planningDetailFailure case final failure?) throw failure;
     if (planningPartFailures['Issue'] case final failure?) throw failure;
     final record = mockPlanningIssue(_planningFor(project), issue);
-    if (record == null) throw const VarlinkException('NoSuchIssue', {'detail': 'Issue not found.'});
-    return PlanIssueDetail.from({
-      'issue': record,
-      'text': record['text'],
-      'whatMustBeTrue': record['whatMustBeTrue'],
-      'findings': record['findings'],
-      'subAgents': record['subAgents'],
-    });
+    if (record == null) throw VarlinkException('NoSuchIssue', {'issue': issue});
+    return PlanIssueDetail.from({'issue': record, 'revision': _planningFor(project)['revision']});
   }
 
   @override
   Future<PlanningSnapshot> planningWorkflow(String project) async {
     final board = _planningFor(project);
-    return PlanningSnapshot.from({'states': board['states'], 'phases': board['phases']});
+    return PlanningSnapshot.from({
+      'states': board['states'],
+      'phases': board['phases'],
+      'work': board['work'] ?? <dynamic>[],
+      'faults': board['faults'] ?? <dynamic>[],
+    });
   }
+
+  @override
+  Future<String> refreshStories(String project) async => _planningFor(project)['revision'] as String;
 
   @override
   Future<PlanningSnapshot> stories(String project) async {
@@ -278,12 +298,12 @@ class FakeBackend implements FleetBackend {
         final first = _planningFor(project);
         subscription = _planningChanges.stream.listen(
           (change) {
-            if (change.$1 == project) replies.add(PlanningSnapshot.from(change.$2));
+            if (change.$1 == project) replies.add(PlanningSnapshot.from(planningSummary(change.$2)));
           },
           onError: replies.addError,
           onDone: replies.close,
         );
-        replies.add(PlanningSnapshot.from(first));
+        replies.add(PlanningSnapshot.from(planningSummary(first)));
       } catch (error, stack) {
         replies.addError(error, stack);
       }
@@ -3545,7 +3565,6 @@ class World {
         connections: connections,
         forges: forges,
         settingsDropped: settingsDropped,
-        planningStartFeedback: (story, state) => Text('$story → $state'),
         organizationSource: organizationSource ?? organizationAtStart,
         hostConnections: hostConnections,
         hostAccess: composedHostAccess,

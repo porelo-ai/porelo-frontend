@@ -46,7 +46,7 @@ void main() {
   // Harm: dropping a reader silently removes review of outgoing work.
   test('drop requires a comment and sends no replacement agent', () async {
     final repo = work.proposal!.repositories.first;
-    final reader = repo.subAgents.firstWhere((sub) => sub.role == 'reader');
+    final reader = repo.subAgents.firstWhere((sub) => sub.role == 'READER');
     work.choose(repo.repository, reader, 'DROP');
     expect(work.canStart, isFalse);
     expect(await work.start(), isFalse);
@@ -54,17 +54,23 @@ void main() {
     work.setComment('Use the repository review outside this run.');
     expect(await work.start(), isTrue);
     final request = backend.storyWork.calls.where((call) => call.$1 == 'StartStoryWork').single.$2;
-    final sent = (request['subAgents'] as List).cast<Map<String, dynamic>>().firstWhere(
-      (sub) => sub['repository'] == repo.repository && sub['name'] == reader.name,
-    );
-    expect(sent, {'repository': repo.repository, 'name': reader.name, 'choice': 'DROP'});
+    final sent =
+        (((request['repositories'] as List).cast<Map<String, dynamic>>().firstWhere(
+                  (item) => item['repository'] == repo.repository,
+                ))['subAgents']
+                as List)
+            .cast<Map<String, dynamic>>()
+            .firstWhere((item) => item['id'] == reader.id);
+    expect(sent['choice'], 'DROP');
+    expect(sent['brief'], reader.brief);
+    expect(sent['agent'], reader.agent);
     expect(request['comment'], 'Use the repository review outside this run.');
   });
 
   // Harm: a changed participant or limit is ignored by the actual start request.
   test('changed reader and per issue rounds reach start exactly', () async {
     final repo = work.proposal!.repositories.first;
-    final sub = repo.subAgents.firstWhere((sub) => sub.role == 'reader');
+    final sub = repo.subAgents.firstWhere((sub) => sub.role == 'READER');
     final issue = work.proposal!.issues.first.id;
     work.choose(repo.repository, sub, 'CHANGE', agent: 'claude-code', model: 'chosen-model');
     work.setComment('Use a different participant.');
@@ -76,18 +82,16 @@ void main() {
     expect(request['issueReadingRounds'], [
       {'issue': issue, 'rounds': 7},
     ]);
-    expect(
-      (request['subAgents'] as List).cast<Map<String, dynamic>>().firstWhere(
-        (choice) => choice['repository'] == repo.repository && choice['name'] == sub.name,
-      ),
-      {
-        'repository': repo.repository,
-        'name': sub.name,
-        'choice': 'CHANGE',
-        'agent': 'claude-code',
-        'model': 'chosen-model',
-      },
-    );
+    final selected =
+        (((request['repositories'] as List).cast<Map<String, dynamic>>().firstWhere(
+                  (item) => item['repository'] == repo.repository,
+                ))['subAgents']
+                as List)
+            .cast<Map<String, dynamic>>()
+            .firstWhere((item) => item['id'] == sub.id);
+    expect(selected['choice'], 'CHANGE');
+    expect(selected['agent'], 'claude-code');
+    expect(selected['model'], 'chosen-model');
   });
 
   // Harm: invalid limits disable reading or send a different value from the one entered.

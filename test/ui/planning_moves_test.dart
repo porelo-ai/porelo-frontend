@@ -11,7 +11,6 @@ import '../features/support/world.dart';
 
 Future<(FakeBackend, PlanningBoards)> _showBoard(
   WidgetTester tester, {
-  required void Function(PlanStory, PlanState) onStartRequested,
   bool twoProjects = false,
   FakeBackend? otherProvider,
 }) async {
@@ -69,7 +68,6 @@ Future<(FakeBackend, PlanningBoards)> _showBoard(
           onTask: (_, _) {},
           taskUnavailable: (_, _) => null,
           onNeedsYou: () {},
-          onStartRequested: onStartRequested,
         ),
       ),
     ),
@@ -80,14 +78,8 @@ Future<(FakeBackend, PlanningBoards)> _showBoard(
 
 void main() {
   // Harm: a WORKING drop starts without the shell's request or silently does nothing.
-  testWidgets('an unfolded working drop calls the owner with the exact story and state', (tester) async {
-    final requests = <(String, String)>[];
-    final (backend, boards) = await _showBoard(
-      tester,
-      onStartRequested: (story, state) {
-        requests.add((story.id, state.name));
-      },
-    );
+  testWidgets('an unfolded working drop opens the shipped start dialog', (tester) async {
+    final (backend, boards) = await _showBoard(tester);
     final source = find.byKey(const Key('planning-card StoryOne'));
     final target = find.byKey(const Key('planning-state Building'));
     final drag = await tester.startGesture(tester.getTopLeft(source) + const Offset(20, 20));
@@ -97,7 +89,9 @@ void main() {
     await tester.pump();
     await drag.up();
     await World.settle(tester);
-    expect(requests, [('StoryOne', 'Building')]);
+    expect(find.byKey(const Key('story-work-dialog')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('story-work-cancel')));
+    await World.settle(tester);
     expect(find.descendant(of: find.byKey(const Key('planning-state Ready')), matching: source), findsOneWidget);
     expect(find.byKey(const Key('planning-pending StoryOne')), findsNothing);
     expect(find.byKey(const Key('planning-move-error')), findsNothing);
@@ -107,13 +101,7 @@ void main() {
 
   // Harm: dropping a card back on its own state requests another start or offers a misleading drop.
   testWidgets('a card over its current waiting or working state has no hint or start request', (tester) async {
-    final requests = <(String, String)>[];
-    final (backend, _) = await _showBoard(
-      tester,
-      onStartRequested: (story, state) {
-        requests.add((story.id, state.name));
-      },
-    );
+    final (backend, _) = await _showBoard(tester);
     for (final state in ['Ready', 'Building']) {
       final data = backend.planning['checkout']!;
       (data['stories'] as List<dynamic>).first['state'] = state;
@@ -129,7 +117,7 @@ void main() {
       expect(find.text('Drop here for $state'), findsNothing);
       await drag.up();
       await World.settle(tester);
-      expect(requests, isEmpty);
+      expect(find.byKey(const Key('story-work-dialog')), findsNothing);
       expect(find.descendant(of: target, matching: source), findsOneWidget);
       expect(find.byKey(const Key('planning-pending StoryOne')), findsNothing);
     }
@@ -137,7 +125,7 @@ void main() {
 
   // Harm: a canceled project switch loses pending work or leaves the selector displaying another project.
   testWidgets('two projects can be switched only after confirming and cancel restores the selector', (tester) async {
-    final (_, boards) = await _showBoard(tester, twoProjects: true, onStartRequested: (story, state) {});
+    final (_, boards) = await _showBoard(tester, twoProjects: true);
     boards.selected!.move('StoryOne', 'Done');
     await World.settle(tester);
     final selector = find.byKey(const Key('planning-project'));
@@ -172,7 +160,7 @@ void main() {
   ) async {
     final other = FakeBackend([])..nodeId = 'other-planning-node';
     addTearDown(other.stop);
-    final (backend, boards) = await _showBoard(tester, otherProvider: other, onStartRequested: (story, state) {});
+    final (backend, boards) = await _showBoard(tester, otherProvider: other);
     other.theProjectsItHas = [
       Project.from({'name': 'checkout'}),
     ];
@@ -208,7 +196,7 @@ void main() {
 
   // Harm: a leave question opened during a save stays blocked after the machine answers.
   testWidgets('a leave question updates when its in-flight save finishes', (tester) async {
-    final (backend, boards) = await _showBoard(tester, onStartRequested: (story, state) {});
+    final (backend, boards) = await _showBoard(tester);
     final board = boards.selected!;
     backend.planningMoveGate = Completer<void>();
     board.move('StoryOne', 'Done');
@@ -231,7 +219,7 @@ void main() {
 
   // Harm: simultaneous leave requests stack duplicate questions and resume two actions.
   testWidgets('a second leave request keeps exactly one question open', (tester) async {
-    final (_, boards) = await _showBoard(tester, onStartRequested: (story, state) {});
+    final (_, boards) = await _showBoard(tester);
     final board = boards.selected!;
     board.move('StoryOne', 'Done');
     final context = tester.element(find.byType(PlanningView));
@@ -249,7 +237,7 @@ void main() {
 
   // Harm: an unplaced story's pending summary conceals its unreported source.
   testWidgets('an unreported source is visible in the pending summary', (tester) async {
-    final (backend, boards) = await _showBoard(tester, onStartRequested: (story, state) {});
+    final (backend, boards) = await _showBoard(tester);
     final data = backend.planning['checkout']!;
     (data['stories'] as List<dynamic>).first['state'] = '';
     backend.pushPlanning('checkout', data);

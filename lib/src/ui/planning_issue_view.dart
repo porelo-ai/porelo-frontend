@@ -37,6 +37,8 @@ class PlanningIssueView extends StatelessWidget {
           : const Text('Issue not reported.');
     }
     final work = detail.story?.story?.work;
+    final owner =
+        detail.board.stories.where((story) => story.issues.any((item) => item.id == issue.id)).firstOrNull?.id ?? '';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -50,7 +52,7 @@ class PlanningIssueView extends StatelessWidget {
         ),
         Text(planningValue(issue.title), style: Theme.of(context).textTheme.headlineSmall),
         PlanningWebLink(link: issue.link, label: 'Open issue'),
-        if (issue.revision.isNotEmpty) Text('Issue revision: ${issue.revision}'),
+        if (reply.revision.isNotEmpty) Text('Revision: ${reply.revision}'),
         planningSection(context, 'Size', [Text(planningValue(issue.size))]),
         planningSection(context, 'Blocked by', [
           Text(
@@ -62,18 +64,14 @@ class PlanningIssueView extends StatelessWidget {
           ),
         ]),
         planningSection(context, 'Story', [
-          if (issue.story.isEmpty)
+          if (owner.isEmpty)
             const Text('Not reported')
           else
-            TextButton(
-              key: const Key('planning-owner-story'),
-              onPressed: () => onStory(issue.story),
-              child: Text(issue.story),
-            ),
+            TextButton(key: const Key('planning-owner-story'), onPressed: () => onStory(owner), child: Text(owner)),
         ]),
         planningSection(context, 'Who builds it', [
           Text('Repository: ${planningValue(issue.repository)}'),
-          if (issue.story.isEmpty)
+          if (owner.isEmpty)
             const Text('Owning story not reported')
           else if (work == null && detail.storyProblem == null)
             const Text('Work not reported')
@@ -83,8 +81,14 @@ class PlanningIssueView extends StatelessWidget {
               false => 'Nobody at work on this story',
               null => 'Work status not reported',
             }),
-            for (final task in work.tasks)
-              PlanningTaskLink(name: task, onOpen: () => onTask(task), unavailable: taskUnavailable(task)),
+            for (final task in work.tasks.where(
+              (task) => task.issues.contains(issue.id) || task.repository == issue.repository,
+            ))
+              PlanningTaskLink(
+                name: task.task,
+                onOpen: () => onTask(task.task),
+                unavailable: taskUnavailable(task.task),
+              ),
           ],
         ]),
         planningSection(context, 'What must be true', [
@@ -98,7 +102,6 @@ class PlanningIssueView extends StatelessWidget {
             const Text('No acceptance criteria.'),
           for (final text in reply.whatMustBeTrue) SelectableText(text),
         ]),
-        if (reply.text.isNotEmpty) planningSection(context, 'Issue text', [SelectableText(reply.text)]),
         planningSection(context, 'Last reader findings', [
           if (!reply.findingsReported)
             Text(reply.findingsSupplied ? 'Findings not reported completely' : 'Findings not reported'),

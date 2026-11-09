@@ -118,12 +118,19 @@ void main() {
     expect(env.planningRows, isEmpty);
   });
 
-  // Harm: ended work is retained from an old snapshot after a failed fallback, or its clearing never reaches attention.
-  test('real board notifications clear old fallback work on errors and unsupported methods', () async {
+  // Harm: failed work reads silently resolve an outcome that still needs the person.
+  test('real board notifications retain ended attention on errors and unsupported methods', () async {
     final backend = _Backend(_snapshot('initial', working: true));
     backend.status = StoryWorkStatus.from({
-      'work': {'atWork': false},
-      'ended': {'at': 'instant', 'reason': 'Needs a repository key.'},
+      'work': {
+        'atWork': false,
+        'tasks': [
+          {
+            'task': 'main',
+            'ended': {'at': 'instant', 'outcome': 'BLOCKED', 'why': 'Needs a repository key.', 'answer': ''},
+          },
+        ],
+      },
     });
     final env = _Environment();
     await env.open(backend);
@@ -140,7 +147,7 @@ void main() {
       expect(source.storyWork, isEmpty);
       expect(source.workOf(source.stories.single), isNull);
       expect(source.endedOf(source.stories.single), isNull);
-      expect(env.planningRows, isEmpty);
+      expect(env.planningRows, ['story ended builder/demo/story']);
       if (error is VarlinkException) {
         expect(source.workProblems, {'story': 'Work cannot be read.'});
       } else {

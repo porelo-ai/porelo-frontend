@@ -5,5 +5,5 @@ import '../support/world.dart';
 
 /// Usage: the planning machine refuses moves with {words}
 Future<void> thePlanningMachineRefusesMovesWith(WidgetTester tester, String words) async {
-  World.backend.planningMoveFailure = VarlinkException('org.fuin.porelo.Tasks1.PlanningRefused', {'detail': words});
+  World.backend.planningMoveFailure = VarlinkException('org.fuin.porelo.Tasks1.WorkNotAllowed', {'detail': words});
 }

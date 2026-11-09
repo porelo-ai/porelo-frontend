@@ -35,10 +35,9 @@ Future<void> startPlanningDetails(WidgetTester tester) async {
   _folded = null;
   _browser = null;
   _browserAddress = null;
-  _story()['text'] = '# Story source';
+  _story()['description'] = '# Story source';
   _issue().addAll({
-    'text': '**Issue source**',
-    'whatMustBeTrue': ['Only confirmed work is published'],
+    'whatMustBeTrue': 'Only confirmed work is published',
     'findings': [
       {'number': 7, 'severity': 'NOTE', 'text': 'Keep the explanation', 'file': 'lib/note.dart'},
       {'number': 9, 'severity': 'BLOCKING', 'text': 'Check the boundary', 'file': 'lib/boundary.dart', 'line': 42},
@@ -184,7 +183,7 @@ void setPlanningIssueLink(String link) => _issue()['link'] = link;
 
 /// Refuses detail reads independently of a successful watch.
 void refusePlanningDetails() => World.backend.planningDetailFailure = const VarlinkException(
-  'org.fuin.porelo.Tasks1.PlanningRefused',
+  'org.fuin.porelo.Tasks1.WorkNotAllowed',
   {'detail': 'The story store is locked for repair'},
 );
 
@@ -277,7 +276,6 @@ Future<void> narrowPlanningPane(WidgetTester tester) async {
               onTask: (_, _) {},
               taskUnavailable: (_, _) => 'Task unavailable in this preview.',
               onNeedsYou: () {},
-              onStartRequested: (_, _) {},
             ),
           ),
         ),
@@ -289,12 +287,21 @@ Future<void> narrowPlanningPane(WidgetTester tester) async {
 
 /// Refuses one RPC while leaving independently read content available.
 void refusePlanningPart(String part) => World.backend.planningPartFailures[part] = const VarlinkException(
-  'org.fuin.porelo.Tasks1.PlanningRefused',
+  'org.fuin.porelo.Tasks1.WorkNotAllowed',
   {'detail': 'This part is locked for repair'},
 );
 
-/// Supplies the issue's owner exactly, including an absent owner.
-void reportPlanningOwner(String owner) => _issue()['story'] = owner.isEmpty ? null : owner;
+/// Lists an issue under another story on the machine's board, as a move between stories would.
+Future<void> listPlanningIssueUnder(WidgetTester tester, String issue, String story) async {
+  final board = World.backend.planning['checkout']!;
+  final stories = planningMaps(board, 'stories');
+  final owner = stories.singleWhere((each) => planningMaps(each, 'issues').any((item) => item['id'] == issue));
+  final moved = planningMaps(owner, 'issues').singleWhere((item) => item['id'] == issue);
+  (owner['issues'] as List<dynamic>).remove(moved);
+  (mockStory(story)['issues'] as List<dynamic>).add(moved);
+  World.backend.pushPlanning('checkout', {...board, 'revision': 'issue-moved'});
+  await World.settle(tester);
+}
 
 /// Supplies malformed blockers without turning them into an unblocked answer.
 Future<void> reportMalformedPlanningBlockers(WidgetTester tester) async {
@@ -305,11 +312,31 @@ Future<void> reportMalformedPlanningBlockers(WidgetTester tester) async {
 
 /// Names work known on the scenario's machine, or work absent from its task list.
 void reportPlanningWork(bool known) => _story()['work'] = {
-  'tasks': [known ? 'porelo-checkout-shell' : 'missing-task'],
+  'tasks': [
+    {
+      'task': known ? 'porelo-checkout-shell' : 'missing-task',
+      'containerId': 'container',
+      'repository': 'porelo',
+      'issues': ['B540', 'B541'],
+      'state': 'Implementing',
+      'done': 'Review',
+      'mode': 'UNATTENDED',
+      'agent': 'Agent',
+      'model': 'Model',
+      'role': 'MAIN',
+      'since': 'instant',
+      'atWork': true,
+      'ended': null,
+    },
+  ],
+  'coordinator': null,
+  'since': 'instant',
   'atWork': true,
-  'agent': 'Agent',
-  'model': 'Model',
-  'mode': 'UNATTENDED',
+  'repositories': <Map<String, dynamic>>[],
+  'comment': '',
+  'readingRounds': 2,
+  'issueReadingRounds': <Map<String, dynamic>>[],
+  'issues': <Map<String, dynamic>>[],
 };
 
 /// Tests task reachability using the rendered button and explanation.
@@ -385,8 +412,13 @@ Future<void> refusePlanningReplacement(WidgetTester tester, String part) async {
 }
 
 /// Supplies known wire modes without inventing a coordinator name.
-void reportPlanningMode(String mode) =>
-    _story()['work'] = {'tasks': <String>[], 'atWork': true, 'mode': mode, 'coordinator': ''};
+void reportPlanningMode(String mode) => _story()['work'] = {
+  'tasks': [
+    {'task': 'main', 'role': 'MAIN', 'mode': mode, 'atWork': true},
+  ],
+  'atWork': true,
+  'coordinator': '',
+};
 
 /// Opens one row's configured state menu and chooses a real destination.
 Future<void> movePlanningIssue(WidgetTester tester, String id, String to) async {
@@ -394,17 +426,10 @@ Future<void> movePlanningIssue(WidgetTester tester, String id, String to) async 
   await tapPlanning(tester, planningElement('move-to $id $to'));
 }
 
-/// Reads one issue's displayed state cell, not the fake store.
-String planningIssueStateText(WidgetTester tester, String id) {
-  final link = find.descendant(of: planningElement('detail'), matching: planningElement('issue $id'));
-  expect(link, findsOneWidget);
-  final table = tester.widget<DataTable>(
-    find.descendant(of: planningElement('detail'), matching: find.byType(DataTable)),
-  );
-  final row = table.rows.singleWhere(
-    (row) => row.cells.first.child is TextButton && row.cells.first.child.key == Key('planning-issue $id'),
-  );
-  return planningText(tester, find.byWidget(row.cells.last.child));
+/// Reads one issue's reported state from its row's state control, without the pending or reason lines.
+String planningIssueReportedState(WidgetTester tester, String id) {
+  final control = find.descendant(of: planningElement('detail'), matching: planningElement('move $id'));
+  return planningText(tester, control).trim();
 }
 
 /// Saves through the actual enabled button.

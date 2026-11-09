@@ -73,20 +73,20 @@ class _Backend extends Fake implements FleetBackend {
   }
 
   @override
-  Future<PlanningMoveResult> moveStories(String project, List<PlanningMove> moves, String revision) async {
+  Future<PlanningMoveResult> saveMoves(String project, List<PlanningMove> moves, String revision) async {
     final parameters = {'project': project, 'moves': moves.map((move) => move.toMap()).toList(), 'revision': revision};
     calls.add(parameters);
     if (gate case final waiting?) await waiting.future;
     if (failure case final error?) throw error;
     if (moves.any((move) => move is PlanningStoryMove && move.story == refusedStory)) {
-      throw VarlinkException('org.fuin.porelo.Tasks1.PlanningRefused', {
+      throw VarlinkException('org.fuin.porelo.Tasks1.WorkNotAllowed', {
         'story': refusedStory,
         'detail': 'Work is still running',
       });
     }
-    if (!confirmed) return PlanningMoveResult.from({...data, 'moved': false});
+    if (!confirmed) return PlanningMoveResult.from({'revision': data['revision'], 'moved': <String>[]});
     data = applyPlanningMove(data, parameters);
-    final answer = {...data, 'moved': true};
+    final answer = {'revision': data['revision'], 'moved': data['moved']};
     return PlanningMoveResult.from(reply?.call(answer) ?? answer);
   }
 }
@@ -125,11 +125,13 @@ void main() {
   late _Backend backend;
   late PlanningBoard board;
   var disposed = false;
-  setUp(() {
+  setUp(() async {
     disposed = false;
     backend = _Backend();
     board = PlanningBoard(backend, 'demo');
     backend.changes.add(PlanningSnapshot.from(backend.data));
+    await Future<void>.delayed(Duration.zero);
+    backend.workflowReads = 0;
   });
   tearDown(() async {
     if (!disposed) board.dispose();
@@ -153,7 +155,7 @@ void main() {
   });
 
   // Harm: several pending moves commit partly, or issue states stay stale until a watch arrives.
-  test('one atomic save applies the complete daemon answer without extra reads or a watch', () async {
+  test('one atomic save applies confirmed issues and rereads computed story states', () async {
     board.move('StoryOne', 'Done');
     board.move('StoryTwo', 'Done');
     await board.save();
@@ -168,11 +170,12 @@ void main() {
       },
     ]);
     expect(board.pending, isEmpty);
-    expect(board.cards('Done').map((story) => story.id), ['StoryOne', 'StoryTwo']);
+    expect(board.cards('Done').map((story) => story.id), ['StoryTwo']);
+    expect(board.stories.first.state, 'Elsewhere');
     expect(board.stories.first.issues.map((issue) => issue.state), ['Done', 'Elsewhere']);
-    expect(board.snapshot!.revision, 'initial-move');
+    expect(board.snapshot!.revision, 'initial:moved');
     expect(backend.workflowReads, 0);
-    expect(backend.storyReads, 0);
+    expect(backend.storyReads, 1);
   });
 
   // Harm: issue drafts are lost on detail navigation or saved separately from story moves.
@@ -194,10 +197,10 @@ void main() {
       },
     ]);
     expect(board.pending, isEmpty);
-    expect(board.stories.first.state, 'Done');
+    expect(board.stories.first.state, 'Ready');
     expect(board.stories.first.issues.map((issue) => issue.state), ['Done', 'Ready']);
     expect(backend.workflowReads, 0);
-    expect(backend.storyReads, 0);
+    expect(backend.storyReads, 1);
   });
 
   // Harm: refusal of an explicit issue publishes part of a story-and-issue batch.
@@ -251,7 +254,7 @@ void main() {
           {'story': 'StoryTwo', 'to': 'Building'},
         ],
       }),
-      throwsA(isA<VarlinkException>().having((error) => error.parameters['story'], 'refused story', 'StoryTwo')),
+      throwsA(isA<VarlinkException>().having((error) => error.parameters['item'], 'refused story', 'StoryTwo')),
     );
     expect((source['stories'] as List<dynamic>).map((story) => story['state']), ['Ready', 'Ready']);
     expect((source['stories'] as List<dynamic>).first['issues'][0]['state'], 'Ready');
@@ -295,7 +298,8 @@ void main() {
       ],
     });
     final story = (result['stories'] as List<dynamic>).first;
-    expect(story['state'], 'Ready');
+    // The story's state is computed: its earliest open issue state in workflow order.
+    expect(story['state'], 'Elsewhere');
     expect(story['issues'][0]['state'], 'Done');
     expect(story['issues'][1]['state'], 'Elsewhere');
     expect(result['revision'], allOf(isA<String>(), isNotEmpty, isNot(source['revision'])));
@@ -306,6 +310,10 @@ void main() {
     board.move('StoryOne', 'Done');
     board.move('StoryTwo', 'Done');
     (backend.data['stories'] as List<dynamic>).first['state'] = 'Done';
+    for (final issue
+        in ((backend.data['stories'] as List<dynamic>).first['issues'] as List).cast<Map<String, dynamic>>()) {
+      issue['state'] = 'Done';
+    }
     (backend.data['stories'] as List<dynamic>)[1]['state'] = 'Elsewhere';
     backend.data['revision'] = 'changed';
     await board.save();
@@ -314,7 +322,8 @@ void main() {
     expect(backend.storyReads, 1);
     expect(board.pending.keys, ['StoryTwo']);
     expect(board.pending['StoryTwo']!.from, 'Elsewhere');
-    expect(board.moveProblem, contains('Planning changed since'));
+    expect(board.pending['StoryTwo']!.problem, isNull);
+    expect(board.displayedState(board.stories.last), 'Done');
     expect(board.moveProblem, contains('StoryOne was moved to Done elsewhere'));
     await board.save();
     expect(backend.calls.last['revision'], 'changed');
@@ -361,7 +370,7 @@ void main() {
 
   // Harm: correcting one refused destination leaves Save blocked or clears another refusal.
   test('a new drag clears exactly its own refusal', () async {
-    backend.failure = const VarlinkException('org.fuin.porelo.Tasks1.PlanningRefused', {
+    backend.failure = const VarlinkException('org.fuin.porelo.Tasks1.WorkNotAllowed', {
       'detail': 'Work is still running',
     });
     board.move('StoryOne', 'Done');
@@ -380,7 +389,7 @@ void main() {
 
   // Harm: unrecognized or unnamed daemon refusals leave rejected cards marked as moved.
   test('all named and unnamed refusal kinds return the affected cards to their reported columns', () async {
-    for (final name in ['PlanningRefused', 'NoSuchStory', 'AnotherRefusal']) {
+    for (final name in ['WorkNotAllowed', 'NoSuchStory', 'AnotherRefusal']) {
       for (final named in [true, false]) {
         board.move('StoryOne', 'Done');
         board.move('StoryTwo', 'Done');
@@ -421,7 +430,7 @@ void main() {
       backend.listingStarted = Completer<void>();
       if (staleSave) {
         board.move('StoryOne', 'Done');
-        backend.failure = const VarlinkException('org.fuin.porelo.Tasks1.PlanningChanged', {'detail': 'Board changed'});
+        backend.failure = const VarlinkException('org.fuin.porelo.Tasks1.StaleRevision', {'detail': 'Board changed'});
       }
       final operation = staleSave ? board.save() : board.reload();
       await backend.listingStarted!.future;
@@ -451,8 +460,9 @@ void main() {
       backend.gate!.complete();
       await saved;
       expect(board.snapshot!.complete, isTrue);
-      expect(board.snapshot!.revision, 'initial-move');
-      expect(board.stories.first.state, 'Done');
+      expect(board.snapshot!.revision, 'initial:moved');
+      expect(board.stories.first.issues.first.state, 'Done');
+      expect(board.stories.first.state, 'Elsewhere');
     }
   });
 
@@ -496,7 +506,7 @@ void main() {
   // Harm: malformed save answers erase intent or replace a complete board with missing data.
   test('save retains the board and pending intent on incomplete or unversioned replies', () async {
     for (final broken in <Map<String, dynamic> Function(Map<String, dynamic>)>[
-      (reply) => {...reply}..remove('stories'),
+      (reply) => {...reply}..remove('moved'),
       (reply) => {...reply, 'revision': ''},
     ]) {
       backend.data = _fixture();
@@ -508,7 +518,8 @@ void main() {
       expect(board.snapshot!.revision, 'initial');
       expect(board.stories.first.state, 'Ready');
       expect(board.pending.keys, ['StoryOne']);
-      expect(board.moveProblem, contains('complete planning board and revision'));
+      expect(board.pending['StoryOne']!.problem, isNotNull);
+      expect(board.moveProblem, isNotNull);
       board.undoAll();
     }
   });
@@ -520,7 +531,8 @@ void main() {
     await board.save();
     expect(board.pending.keys, ['StoryOne']);
     expect(board.stories.first.state, 'Ready');
-    expect(board.moveProblem, contains('did not confirm'));
+    expect(board.pending['StoryOne']!.problem, isNotNull);
+    expect(board.cards('Ready').map((story) => story.id), contains('StoryOne'));
   });
 
   // Harm: reconnects during writes lose the only request to restart the watch.
@@ -536,7 +548,8 @@ void main() {
     expect(backend.watches, 2);
     backend.changes.add(PlanningSnapshot.from(backend.data));
     expect(board.live, isTrue);
-    expect(board.stories.first.state, 'Done');
+    expect(board.stories.first.issues.first.state, 'Done');
+    expect(board.stories.first.state, 'Elsewhere');
   });
 
   // Harm: repeated presses duplicate writes and edits during a write lose pending intent.
@@ -572,18 +585,15 @@ void main() {
     expect(backend.changes.hasListener, isFalse);
   });
 
-  // Harm: an unfamiliar state kind is refused in the window before the daemon can judge it.
-  test('unknown state kinds reach the daemon and working states never become pending', () async {
+  // Harm: an unfamiliar state kind authorizes an unsupported move.
+  test('unknown state kinds and working states never become pending', () async {
     board.move('StoryOne', 'Building');
     expect(board.pending, isEmpty);
     expect(board.moveProblem, isNull);
     board.move('StoryOne', 'Future');
-    expect(board.pending['StoryOne']!.to, 'Future');
+    expect(board.pending, isEmpty);
     await board.save();
-    expect(backend.calls.single['moves'], [
-      {'story': 'StoryOne', 'to': 'Future'},
-    ]);
-    expect(board.pending['StoryOne']!.problem, 'A move must go to a waiting or closed state.');
+    expect(backend.calls, isEmpty);
     expect(board.stories.first.state, 'Ready');
   });
 
@@ -596,6 +606,8 @@ void main() {
     expect(board.moveProblem, contains('StoryOne is no longer reported'));
     (backend.data['stories'] as List<dynamic>).first['state'] = '';
     backend.changes.add(PlanningSnapshot.from(backend.data));
+    // An unfamiliar state rereads the workflow before the watch answer is accepted.
+    await Future<void>.delayed(Duration.zero);
     board.move('StoryTwo', 'Done');
     expect(board.pending['StoryTwo']!.from, '');
     expect(board.moveProblem, contains('StoryOne is no longer reported'));

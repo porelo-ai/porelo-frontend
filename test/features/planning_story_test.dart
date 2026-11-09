@@ -45,8 +45,7 @@ import './step/another_machine_offers_the_same_project_planning.dart';
 import './step/the_planning_board_contains.dart';
 import './step/the_machine_reports_malformed_planning_blockers.dart';
 import './step/the_planning_section_contains.dart';
-import './step/the_machine_reports_the_planning_issue_owner.dart';
-import './step/the_planning_owner_link_is_absent.dart';
+import './step/the_machine_lists_planning_issue_under_story.dart';
 import './step/i_open_the_planning_owner_story.dart';
 import './step/the_planning_part_is_refused.dart';
 import './step/the_planning_story_has_known_work.dart';
@@ -92,8 +91,6 @@ void main() {
     testWidgets('''A card opens its story''', (tester) async {
       await bddSetUp(tester);
       await iOpenPlanningStory(tester, 'ST291');
-      await planningDetailsContain(tester, 'The host is run by porelo-host');
-      await planningDetailsContain(tester, 'Rent a host');
       await planningDetailsContain(tester, '# Story source');
       await planningDetailsContain(tester, '0 of 15 in Review or Finished');
       await thePlanningIssueTableIsShown(tester);
@@ -106,7 +103,6 @@ void main() {
       await iOpenPlanningIssue(tester, 'B541');
       await thePlanningBreadcrumbIs(tester, 'Planning,ST291,B541');
       await planningIsSelectedInTheRail(tester);
-      await planningDetailsContain(tester, '**Issue source**');
       await planningDetailsContain(tester, 'Only confirmed work is published');
       await planningDetailsContain(tester, 'Read the final changes');
       await theLastPlanningFindingsPutBlockingFirst(tester);
@@ -272,7 +268,7 @@ void main() {
       await iRememberThePlanningBoardPosition(tester);
       await iOpenPlanningStory(tester, 'ST291');
       await thePlanningWatchFails(tester);
-      await planningDetailsContain(tester, 'The host is run by porelo-host');
+      await planningDetailsContain(tester, '# Story source');
       await planningDetailsDoNotContain(tester, 'Story supplied by another machine');
       await iPressPlanningBreadcrumb(tester, 0);
       await thePlanningBoardPositionIsRetained(tester);
@@ -285,19 +281,11 @@ void main() {
       await iOpenPlanningIssue(tester, 'B541');
       await thePlanningSectionContains(tester, 'Blocked by', 'Not reported');
     });
-    testWidgets('''An absent issue owner stays unknown''', (tester) async {
-      await bddSetUp(tester);
-      await theMachineReportsThePlanningIssueOwner(tester, '');
-      await iUnfoldPlanningStory(tester, 'ST291');
-      await iOpenPlanningIssue(tester, 'B541');
-      await thePlanningSectionContains(tester, 'Story', 'Not reported');
-      await thePlanningOwnerLinkIsAbsent(tester);
-    });
     testWidgets('''The reported issue owner opens its own story''', (tester) async {
       await bddSetUp(tester);
-      await theMachineReportsThePlanningIssueOwner(tester, 'ST294');
       await iUnfoldPlanningStory(tester, 'ST291');
       await iOpenPlanningIssue(tester, 'B541');
+      await theMachineListsPlanningIssueUnderStory(tester, 'B541', 'ST294');
       await thePlanningSectionContains(tester, 'Story', 'ST294');
       await iOpenThePlanningOwnerStory(tester);
       await thePlanningBreadcrumbIs(tester, 'Planning,ST294');
@@ -308,7 +296,7 @@ void main() {
       await iUnfoldPlanningStory(tester, 'ST291');
       await iOpenPlanningIssue(tester, 'B541');
       await thePlanningDetailErrorIs(tester, 'Story: This part is locked for repair');
-      await planningDetailsContain(tester, '**Issue source**');
+      await planningDetailsContain(tester, 'Only confirmed work is published');
       await iOpenThePlanningWebLink(tester, 'Open issue');
       await thePlanningBrowserOpened(tester, 'https://example.org/issues/B541');
     });
@@ -366,7 +354,6 @@ void main() {
       await iUnfoldPlanningStory(tester, 'ST291');
       await iOpenPlanningIssue(tester, 'B541');
       await planningDetailsContain(tester, 'Acceptance criteria not reported completely');
-      await planningDetailsContain(tester, 'Keep this criterion');
       await planningDetailsContain(tester, 'Sub-agents not reported completely');
       await planningDetailsContain(tester, 'Visible reader');
     });
@@ -399,7 +386,7 @@ void main() {
       await iUnfoldPlanningStory(tester, 'ST291');
       await iOpenPlanningIssue(tester, 'B541');
       await thePlanningReplacementPartIsRefused(tester, 'Issue');
-      await planningDetailsContain(tester, '**Issue source**');
+      await planningDetailsContain(tester, 'Only confirmed work is published');
       await thePlanningDetailErrorIs(tester, 'Issue: This part is locked for repair');
       await iOpenThePlanningWebLink(tester, 'Open issue');
       await thePlanningBrowserOpened(tester, 'https://example.org/issues/B541');
@@ -522,7 +509,7 @@ void main() {
       },
     );
     testWidgets(
-      '''Outline: Daemon refusals identify the affected pending issue (EnteredOnlyByWork, EnteredOnlyByWork)''',
+      '''Outline: Daemon refusals identify the affected pending issue (EnteredOnlyByWork, entered only by work)''',
       (tester) async {
         await bddSetUp(tester);
         await thePlanningMoveIsRefusedWith(tester, 'EnteredOnlyByWork');
@@ -530,7 +517,7 @@ void main() {
         await iMovePlanningIssueTo(tester, 'B540', 'Review');
         await iMovePlanningIssueTo(tester, 'B541', 'Review');
         await iSaveThePlanningMoves(tester);
-        await thePlanningMoveForSays(tester, 'B541', 'EnteredOnlyByWork');
+        await thePlanningMoveForSays(tester, 'B541', 'entered only by work');
         await thePlanningMoveForHasNoRefusal(tester, 'B540');
         await thePlanningIssueReports(tester, 'B540', 'Implementing');
         await thePlanningIssueReports(tester, 'B541', 'Implementing');

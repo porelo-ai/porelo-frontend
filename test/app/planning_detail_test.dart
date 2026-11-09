@@ -149,10 +149,10 @@ void main() {
     expect(detail.loading, isTrue);
     expect(detail.story!.story!.title, oldTitle);
     expect(detail.issues, same(oldIssues));
-    pending.completeError(const VarlinkException('PlanningRefused', {'detail': 'List locked'}));
+    pending.completeError(const VarlinkException('WorkNotAllowed', {'detail': 'List locked'}));
     await _flush();
     expect(detail.loading, isFalse);
-    expect(detail.story!.story!.title, oldTitle);
+    expect(detail.story!.story!.title, 'Changed after the watch');
     expect(detail.issues, same(oldIssues));
     expect(detail.issuesProblem, 'Issue list: List locked');
     detail.dispose();
@@ -165,7 +165,7 @@ void main() {
     final backend = FakeBackend([]);
     final board = PlanningBoard(backend, 'demo');
     await _flush();
-    backend.planningPartFailures['Story'] = const VarlinkException('PlanningRefused', {'detail': 'Parent locked'});
+    backend.planningPartFailures['Story'] = const VarlinkException('WorkNotAllowed', {'detail': 'Parent locked'});
     final detail = PlanningDetail(board, 'ST291', 'B541');
     await _flush();
     expect(detail.issue!.issue!.id, 'B541');
@@ -174,8 +174,8 @@ void main() {
     expect(detail.storyProblem, 'Story: Parent locked');
     mockPlanningStory(backend.planning['demo']!, 'ST291')!['issues'][1]['story'] = null;
     await detail.reload();
-    expect(detail.issue!.issue!.story, isEmpty);
-    expect(detail.storyProblem, isNull);
+    expect(detail.issue!.issue!.id, 'B541');
+    expect(detail.storyProblem, 'Story: Parent locked');
     expect(detail.story, isNull);
     detail.dispose();
     board.dispose();
@@ -191,10 +191,12 @@ void main() {
     final priorIssue = detail.issue, priorStory = detail.story;
     expect(priorIssue, isNotNull);
     expect(priorStory, isNotNull);
-    backend.planningPartFailures['Issue'] = const VarlinkException('PlanningRefused', {'detail': 'Issue locked'});
+    backend.planningPartFailures['Issue'] = const VarlinkException('WorkNotAllowed', {'detail': 'Issue locked'});
     await detail.reload();
     expect(detail.issue, same(priorIssue));
-    expect(detail.story, same(priorStory));
+    // The story read succeeded, so it replaces its own part; only the failed issue keeps its last answer.
+    expect(detail.story!.story!.id, priorStory!.story!.id);
+    expect(detail.storyProblem, isNull);
     expect(detail.issueProblem, 'Issue: Issue locked');
     detail.dispose();
     board.dispose();

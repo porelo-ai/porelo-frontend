@@ -27,13 +27,15 @@ class _Wedged implements FleetBackend {
   Future<StoryWorkStatus> getStoryWork(String project, String story) async =>
       throw const FeatureNotSupported('story work');
   @override
-  Future<void> stopStoryWork(String project, String story) async => throw const FeatureNotSupported('story work');
+  Future<StoryWorkStatus> stopStoryWork(String project, String story) async =>
+      throw const FeatureNotSupported('story work');
   @override
   Future<PlanningIssueDetail> getPlanningIssue(String project, String issue) async =>
       throw const FeatureNotSupported('reading');
   @override
-  Future<String> resolveIssueReading(
+  Future<ReadingResolution> resolveIssueReading(
     String project,
+    String story,
     String issue,
     int round,
     String choice,
@@ -45,16 +47,11 @@ class _Wedged implements FleetBackend {
   Future<PlanningSnapshot> planningWorkflow(String project) async => throw const FeatureNotSupported('planning');
 
   @override
-  Future<PlanningMoveResult> moveStories(String project, List<PlanningMove> moves, String revision) async =>
-      throw const FeatureNotSupported('MoveStories');
+  Future<PlanningMoveResult> saveMoves(String project, List<PlanningMove> moves, String revision) async =>
+      throw const FeatureNotSupported('SaveMoves');
 
   @override
-  Future<PlanningMoveResult> moveStory(String project, String story, String to, String revision) async =>
-      throw const FeatureNotSupported('MoveStory');
-
-  @override
-  Future<PlanningMoveResult> moveIssues(String project, List<PlanningIssueMove> moves, String revision) async =>
-      throw const FeatureNotSupported('MoveIssues');
+  Future<String> refreshStories(String project) async => throw const FeatureNotSupported('RefreshStories');
 
   @override
   Future<PlanningSnapshot> stories(String project) async => throw const FeatureNotSupported('planning');
@@ -498,13 +495,15 @@ class _Machine implements FleetBackend {
   Future<StoryWorkStatus> getStoryWork(String project, String story) async =>
       throw const FeatureNotSupported('story work');
   @override
-  Future<void> stopStoryWork(String project, String story) async => throw const FeatureNotSupported('story work');
+  Future<StoryWorkStatus> stopStoryWork(String project, String story) async =>
+      throw const FeatureNotSupported('story work');
   @override
   Future<PlanningIssueDetail> getPlanningIssue(String project, String issue) async =>
       throw const FeatureNotSupported('reading');
   @override
-  Future<String> resolveIssueReading(
+  Future<ReadingResolution> resolveIssueReading(
     String project,
+    String story,
     String issue,
     int round,
     String choice,
@@ -516,16 +515,11 @@ class _Machine implements FleetBackend {
   Future<PlanningSnapshot> planningWorkflow(String project) async => throw const FeatureNotSupported('planning');
 
   @override
-  Future<PlanningMoveResult> moveStories(String project, List<PlanningMove> moves, String revision) async =>
-      throw const FeatureNotSupported('MoveStories');
+  Future<PlanningMoveResult> saveMoves(String project, List<PlanningMove> moves, String revision) async =>
+      throw const FeatureNotSupported('SaveMoves');
 
   @override
-  Future<PlanningMoveResult> moveStory(String project, String story, String to, String revision) async =>
-      throw const FeatureNotSupported('MoveStory');
-
-  @override
-  Future<PlanningMoveResult> moveIssues(String project, List<PlanningIssueMove> moves, String revision) async =>
-      throw const FeatureNotSupported('MoveIssues');
+  Future<String> refreshStories(String project) async => throw const FeatureNotSupported('RefreshStories');
 
   @override
   Future<PlanningSnapshot> stories(String project) async => throw const FeatureNotSupported('planning');

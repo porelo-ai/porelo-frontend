@@ -211,13 +211,14 @@ abstract class FleetBackend {
   Future<List<Project>> projects();
 
   /// Saves a board's story and issue destinations atomically against its revision.
-  Future<PlanningMoveResult> moveStories(String project, List<PlanningMove> moves, String revision);
+  Future<PlanningMoveResult> saveMoves(String project, List<PlanningMove> moves, String revision);
 
   /// Moves one story against the board's revision.
-  Future<PlanningMoveResult> moveStory(String project, String story, String to, String revision);
 
   /// Moves an issue batch against the board's revision.
-  Future<PlanningMoveResult> moveIssues(String project, List<PlanningIssueMove> moves, String revision);
+
+  /// Explicitly refreshes the planning store.
+  Future<String> refreshStories(String project);
 
   /// Reads a standalone planning story.
   Future<PlanStoryDetail> getStory(String project, String story);
@@ -247,14 +248,15 @@ abstract class FleetBackend {
   Future<StoryWorkStatus> getStoryWork(String project, String story);
 
   /// Stops the story’s work without changing its planning state.
-  Future<void> stopStoryWork(String project, String story);
+  Future<StoryWorkStatus> stopStoryWork(String project, String story);
 
   /// Reads the issue’s last findings from GetIssue.
   Future<PlanningIssueDetail> getPlanningIssue(String project, String issue);
 
   /// Sends a revision-bound decision for one stopped reading round.
-  Future<String> resolveIssueReading(
+  Future<ReadingResolution> resolveIssueReading(
     String project,
+    String story,
     String issue,
     int round,
     String choice,
@@ -719,16 +721,11 @@ class PoreloBackend implements FleetBackend {
   Future<PlanningSnapshot> planningWorkflow(String project) => _opened().planningWorkflow(project);
 
   @override
-  Future<PlanningMoveResult> moveStories(String project, List<PlanningMove> moves, String revision) =>
-      _opened().moveStories(project, moves, revision);
+  Future<PlanningMoveResult> saveMoves(String project, List<PlanningMove> moves, String revision) =>
+      _opened().saveMoves(project, moves, revision);
 
   @override
-  Future<PlanningMoveResult> moveStory(String project, String story, String to, String revision) =>
-      _opened().moveStory(project, story, to, revision);
-
-  @override
-  Future<PlanningMoveResult> moveIssues(String project, List<PlanningIssueMove> moves, String revision) =>
-      _opened().moveIssues(project, moves, revision);
+  Future<String> refreshStories(String project) => _opened().refreshStories(project);
 
   @override
   Future<PlanningSnapshot> stories(String project) => _opened().stories(project);
@@ -744,19 +741,20 @@ class PoreloBackend implements FleetBackend {
   @override
   Future<StoryWorkStatus> getStoryWork(String project, String story) => _opened().getStoryWork(project, story);
   @override
-  Future<void> stopStoryWork(String project, String story) => _opened().stopStoryWork(project, story);
+  Future<StoryWorkStatus> stopStoryWork(String project, String story) => _opened().stopStoryWork(project, story);
   @override
   Future<PlanningIssueDetail> getPlanningIssue(String project, String issue) =>
       _opened().getPlanningIssue(project, issue);
   @override
-  Future<String> resolveIssueReading(
+  Future<ReadingResolution> resolveIssueReading(
     String project,
+    String story,
     String issue,
     int round,
     String choice,
     String revision, {
     String? comment,
-  }) => _opened().resolveIssueReading(project, issue, round, choice, revision, comment: comment);
+  }) => _opened().resolveIssueReading(project, story, issue, round, choice, revision, comment: comment);
 
   @override
   Stream<List<Task>> watch() => _opened().watchTasks();
