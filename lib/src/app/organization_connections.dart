@@ -137,8 +137,9 @@ class CardHostConnections extends HostConnections {
 
   /// What the machine now says of the token is what stands, whoever gave it and from where.
   HostProgress _heard(String host, HostProgress progress) {
-    if (!progress.waitsForToken && _waiting.remove(host)) notifyListeners();
-    return progress;
+    if (!progress.waitsForToken) _waiting.remove(host);
+    // Kept for every page that shows it, which hears of it so.
+    return keepHeard(host, progress);
   }
 
   @override

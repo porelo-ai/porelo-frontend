@@ -1,3 +1,4 @@
+import '../app/host_progress.dart';
 import '../app/organization_source.dart';
 
 /// The central forge's address: as the organization names it, or as its repository's address says.
@@ -42,11 +43,41 @@ String organizationForgeName(OrganizationView? view) {
 String organizationTokenWords(OrganizationView view, String machine, {String? project}) {
   final forge = organizationForgeName(view);
   final where = forge == 'central forge' ? 'the central forge' : forge;
-  final purpose = project == null
-      ? "it adds its own read-only key to the Porelo organization's repository"
-      : 'it adds a read-only key for $project to its central repository and copies that repository to its own forge';
-  return '$machine has no account at $where, so it needs your $forge token once'
-      '${project == null ? '' : ', for $project'}: $purpose. '
-      'From then on it reads with that key. It does not keep the token. '
-      'The token must be allowed to administer the repository (Administration: write) and read its contents.';
+  if (project == null) {
+    return '$machine has no account at $where, so it needs your $forge token once: it adds its own read-only key to '
+        "the Porelo organization's repository. From then on it reads with that key. It does not keep the token. "
+        'The token must be allowed to administer the repository (Administration: write) and read its contents.';
+  }
+  return '$machine has no account at $where and keeps no token, so it needs your $forge token once for $project: each '
+      'repository of it the machine takes needs a read-only key added at $where and its first copy made on the '
+      "machine's own forge. From then on it reads with those keys. "
+      'The token must be allowed to administer those repositories (Administration: write) and read their contents.';
 }
+
+/// What [said] waits for, beside the project or its repository: this person's token for [forge], or the project's Git
+/// repository where the machine took no address for it, which a token cannot help; null where it waits for neither.
+String? waitingWords(HostProjectProgress? said, String forge) {
+  if (said == null) return null;
+  if (said.hasNoAddress) {
+    return "waits for its Git repository to be made: the machine has no address for it until the project's admin "
+        'creates it or files its address anew';
+  }
+  if (!said.waitsForToken) return null;
+  final words = 'waits for your $forge token';
+  return said.why == null ? words : '$words: ${said.why}';
+}
+
+/// One machine an organization names that, as it said last, waits for this person's token for a project, or for that
+/// project's Git repository.
+typedef ProjectWait = ({String host, HostProjectProgress said});
+
+/// The machines carrying [project] that, as [connections] heard them last, wait for it: one for each, so a project on
+/// two machines is given its token on the one that waits. Only a Machine Admin's machines were asked.
+List<ProjectWait> projectWaits(OrganizationView? view, HostConnections? connections, String project) => [
+  if (view != null && connections != null)
+    for (final host in view.hosts)
+      if (host.projects.contains(project) ||
+          view.projects.any((each) => each.name == project && each.host == host.name))
+        if (connections.heard(host.name)?.of(project) case final said? when said.waitsForToken || said.hasNoAddress)
+          (host: host.name, said: said),
+];

@@ -175,13 +175,17 @@ class FixtureConnections extends HostConnections {
   @override
   Future<HostProgress> refresh(String host) async {
     _ask('refresh $host');
-    return hostProgress;
+    // A machine answers over ssh, never within the call that asked it.
+    await Future<void>.value();
+    return keepHeard(host, hostProgress);
   }
 
   @override
   Future<HostProgress> progress(String host) async {
     _ask('progress $host');
-    return hostProgress;
+    // A machine answers over ssh, never within the call that asked it.
+    await Future<void>.value();
+    return keepHeard(host, hostProgress);
   }
 }
 

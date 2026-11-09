@@ -19,8 +19,8 @@ import 'identity_view.dart';
 import 'filtered_list_section.dart';
 import '../app/settings.dart';
 import 'page_explanation.dart';
-import 'organization_token_words.dart' show forgeOrganizationWords;
 import 'organization_dialogs.dart';
+import 'organization_token_words.dart';
 import 'how_long.dart';
 import 'key_recovery_dialog.dart';
 import 'organization_host_pages.dart';
@@ -88,6 +88,7 @@ class OrganizationPage extends StatefulWidget {
     this.onHost,
     this.connections,
     this.onGiveToken,
+    this.tokenBusy,
     this.identity,
     this.prepareMachine,
     this.onPrepare,
@@ -126,6 +127,9 @@ class OrganizationPage extends StatefulWidget {
 
   /// Gives the host admin's token to a machine; answers the words to show, if any.
   final GiveHostToken? onGiveToken;
+
+  /// Why a machine cannot be given the token now, as while it is being given it; null where it can.
+  final String? Function(String host)? tokenBusy;
 
   /// *Set up a machine…*, absent where this computer offers none.
   final Command? prepareMachine;
@@ -168,7 +172,8 @@ class _OrganizationPageState extends State<OrganizationPage> {
   Widget build(BuildContext context) {
     final organization = widget.organization;
     return ListenableBuilder(
-      listenable: organization,
+      // The connections too: what a machine says of a project waiting for its token is said on its row.
+      listenable: Listenable.merge([organization, ?widget.connections]),
       builder: (context, _) {
         final view = organization.view;
         // Not lazy: an explanation being read stays open, and the warning can reach the owners.
@@ -520,132 +525,7 @@ class _OrganizationPageState extends State<OrganizationPage> {
           for (final project in view.projects)
             (
               words: '${project.name} ${project.admins.join(' ')} ${_standingIn(view, project)}',
-              child: _Row(
-                icon: Icons.folder_outlined,
-                title: project.name,
-                subtitle: _projectWords(project),
-                state: _standingIn(view, project),
-                below: view.saysNoRepository(project) ? _noRepository(view, organization, project, show) : null,
-                actions: [
-                  if (!view.saysNoRepository(project) &&
-                      view.holdsRoles &&
-                      widget.onProject != null &&
-                      _isIn(view, project))
-                    _command('goToProject/${project.name}', 'Go to the project', () => widget.onProject!(project.name)),
-                  // It files what a checkout holds in the project's own repository, so that comes first.
-                  if (!view.saysNoRepository(project) &&
-                      (view.isOrganizationAdmin || (view.holdsRoles && project.admins.contains(view.me))))
-                    _command(
-                      'initializeProject/${project.name}',
-                      'Fill it from a checkout…',
-                      () => show(
-                        ProjectInitDialog(
-                          organization: organization,
-                          project: project.name,
-                          pickFolder: widget.pickFolder,
-                        ),
-                      ),
-                    ),
-                  if (!view.carriedWhole(project.name) && hostsAdministeredBy(view).isNotEmpty)
-                    _command(
-                      'putOnMachine/${project.name}',
-                      'Put it on a machine…',
-                      () => unawaited(
-                        putProjectOnAMachine(
-                          context,
-                          organization: organization,
-                          project: project.name,
-                          connections: widget.connections,
-                          onGiveToken: widget.onGiveToken,
-                        ),
-                      ),
-                    ),
-                  if (project.host case final machine?
-                      when hostsAdministeredBy(view).any((host) => host.name == machine))
-                    _command(
-                      'takeOffMachine/${project.name}',
-                      'Take it off the machine…',
-                      danger: true,
-                      () => show(takeProjectOffTheMachine(organization, project: project.name, machine: machine)),
-                    ),
-                  if (view.isOrganizationAdmin) ...[
-                    _command(
-                      'addProjectAdmin/${project.name}',
-                      'Add an admin…',
-                      () => show(
-                        OrganizationPersonDialog(
-                          organization,
-                          people: [
-                            for (final person in view.holdingRoles)
-                              if (!project.admins.contains(person.login)) person.login,
-                          ],
-                          title: 'Another admin of ${project.name}',
-                          personLabel: 'Project Admin',
-                          words:
-                              'They may change its members and repositories. An owner may do this much in a project, for '
-                              'when its admins have lost their keys, and nothing else there.',
-                          confirm: 'Add them',
-                          change: OrganizationChange.addProjectMember,
-                          // A member already there is added by nothing: their role is what changes.
-                          changeFor: (person) => project.members.contains(person)
-                              ? OrganizationChange.changeProjectMemberRole
-                              : OrganizationChange.addProjectMember,
-                          input: (_, person) => {'project': project.name, 'login': person, 'role': 'admin'},
-                        ),
-                      ),
-                    ),
-                    for (final admin in project.admins)
-                      _command(
-                        'removeProjectAdmin/${project.name}/$admin',
-                        'Remove $admin as admin…',
-                        danger: true,
-                        () => show(
-                          OrganizationConfirmDialog(
-                            organization,
-                            title: 'Remove $admin as an admin of ${project.name}?',
-                            words: project.admins.length == 1
-                                ? '$admin is its last admin: nobody can change this project until you add another.'
-                                : '$admin leaves the project, and its other admins go on.',
-                            confirm: 'Remove',
-                            change: OrganizationChange.removeProjectMember,
-                            input: {'project': project.name, 'login': admin},
-                          ),
-                        ),
-                      ),
-                    _command(
-                      'changeProjectAdmin/${project.name}',
-                      'Change the Project Admin…',
-                      () => show(
-                        OrganizationPersonDialog(
-                          organization,
-                          title: 'Another Project Admin for ${project.name}',
-                          personLabel: 'Project Admin',
-                          words:
-                              'They become the first admin on its card, and may change its members and repositories.',
-                          confirm: 'Name them',
-                          change: OrganizationChange.changeProjectAdmin,
-                          input: (_, person) => {'project': project.name, 'admin': person},
-                        ),
-                      ),
-                    ),
-                    _command(
-                      'removeProject/${project.name}',
-                      'Remove the project…',
-                      danger: true,
-                      () => show(
-                        OrganizationConfirmDialog(
-                          organization,
-                          title: 'Remove ${project.name}?',
-                          words: _removingProjectWords(project),
-                          confirm: 'Remove the project',
-                          change: OrganizationChange.removeProject,
-                          input: {'project': project.name},
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
+              child: _projectRow(view, organization, project, show),
             ),
         ],
       ).withOrganizationChanges(
@@ -653,6 +533,162 @@ class _OrganizationPageState extends State<OrganizationPage> {
         names: [for (final project in view.projects) project.name],
         reviewProject: widget.onProject,
       );
+
+  /// What [host] said last of each project it waits for the token for, in words.
+  Map<String, String> _waitsOn(OrganizationView view, OrganizationHost host) {
+    final forge = organizationForgeName(view);
+    return {
+      for (final project in host.projects)
+        project: ?waitingWords(widget.connections?.heard(host.name)?.of(project), forge),
+    };
+  }
+
+  /// One project's row: who it has, where it is, and what its machine waits for before it takes it.
+  Widget _projectRow(
+    OrganizationView view,
+    Organization organization,
+    OrganizationProject project,
+    void Function(Widget) show,
+  ) {
+    final waits = projectWaits(view, widget.connections, project.name);
+    final forge = organizationForgeName(view);
+    return _Row(
+      icon: Icons.folder_outlined,
+      title: project.name,
+      subtitle: [
+        _projectWords(project),
+        for (final wait in waits) '${wait.host} ${waitingWords(wait.said, forge)}',
+      ].join(' · '),
+      state: _standingIn(view, project),
+      below: view.saysNoRepository(project) ? _noRepository(view, organization, project, show) : null,
+      actions: [
+        if (!view.saysNoRepository(project) && view.holdsRoles && widget.onProject != null && _isIn(view, project))
+          _command('goToProject/${project.name}', 'Go to the project', () => widget.onProject!(project.name)),
+        // It files what a checkout holds in the project's own repository, so that comes first.
+        if (!view.saysNoRepository(project) &&
+            (view.isOrganizationAdmin || (view.holdsRoles && project.admins.contains(view.me))))
+          _command(
+            'initializeProject/${project.name}',
+            'Fill it from a checkout…',
+            () => show(
+              ProjectInitDialog(organization: organization, project: project.name, pickFolder: widget.pickFolder),
+            ),
+          ),
+        for (final wait in waits)
+          if (wait.said.waitsForToken)
+            _Action(
+              giveTokenCommand(
+                host: wait.host,
+                project: project.name,
+                forge: forge,
+                give: widget.onGiveToken == null ? null : (host) => unawaited(widget.onGiveToken!(host)),
+                busy: () => widget.tokenBusy?.call(wait.host),
+                hidden: !hostsAdministeredBy(view).any((host) => host.name == wait.host),
+              ),
+              danger: false,
+            ),
+        // Its placing waiting for the token is followed again from here, as it was put on.
+        if ((!view.carriedWhole(project.name) ||
+                waits.any((wait) => hostsAdministeredBy(view).any((host) => host.name == wait.host))) &&
+            hostsAdministeredBy(view).isNotEmpty)
+          _command(
+            'putOnMachine/${project.name}',
+            'Put it on a machine…',
+            () => unawaited(
+              putProjectOnAMachine(
+                context,
+                organization: organization,
+                project: project.name,
+                connections: widget.connections,
+                onGiveToken: widget.onGiveToken,
+              ),
+            ),
+          ),
+        if (project.host case final machine? when hostsAdministeredBy(view).any((host) => host.name == machine))
+          _command(
+            'takeOffMachine/${project.name}',
+            'Take it off the machine…',
+            danger: true,
+            () => show(takeProjectOffTheMachine(organization, project: project.name, machine: machine)),
+          ),
+        if (view.isOrganizationAdmin) ...[
+          _command(
+            'addProjectAdmin/${project.name}',
+            'Add an admin…',
+            () => show(
+              OrganizationPersonDialog(
+                organization,
+                people: [
+                  for (final person in view.holdingRoles)
+                    if (!project.admins.contains(person.login)) person.login,
+                ],
+                title: 'Another admin of ${project.name}',
+                personLabel: 'Project Admin',
+                words:
+                    'They may change its members and repositories. An owner may do this much in a project, for '
+                    'when its admins have lost their keys, and nothing else there.',
+                confirm: 'Add them',
+                change: OrganizationChange.addProjectMember,
+                // A member already there is added by nothing: their role is what changes.
+                changeFor: (person) => project.members.contains(person)
+                    ? OrganizationChange.changeProjectMemberRole
+                    : OrganizationChange.addProjectMember,
+                input: (_, person) => {'project': project.name, 'login': person, 'role': 'admin'},
+              ),
+            ),
+          ),
+          for (final admin in project.admins)
+            _command(
+              'removeProjectAdmin/${project.name}/$admin',
+              'Remove $admin as admin…',
+              danger: true,
+              () => show(
+                OrganizationConfirmDialog(
+                  organization,
+                  title: 'Remove $admin as an admin of ${project.name}?',
+                  words: project.admins.length == 1
+                      ? '$admin is its last admin: nobody can change this project until you add another.'
+                      : '$admin leaves the project, and its other admins go on.',
+                  confirm: 'Remove',
+                  change: OrganizationChange.removeProjectMember,
+                  input: {'project': project.name, 'login': admin},
+                ),
+              ),
+            ),
+          _command(
+            'changeProjectAdmin/${project.name}',
+            'Change the Project Admin…',
+            () => show(
+              OrganizationPersonDialog(
+                organization,
+                title: 'Another Project Admin for ${project.name}',
+                personLabel: 'Project Admin',
+                words: 'They become the first admin on its card, and may change its members and repositories.',
+                confirm: 'Name them',
+                change: OrganizationChange.changeProjectAdmin,
+                input: (_, person) => {'project': project.name, 'admin': person},
+              ),
+            ),
+          ),
+          _command(
+            'removeProject/${project.name}',
+            'Remove the project…',
+            danger: true,
+            () => show(
+              OrganizationConfirmDialog(
+                organization,
+                title: 'Remove ${project.name}?',
+                words: _removingProjectWords(project),
+                confirm: 'Remove the project',
+                change: OrganizationChange.removeProject,
+                input: {'project': project.name},
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
 
   /// What comes next for a project with no Git repository: its Project Admin makes it, here.
   Widget _noRepository(
@@ -739,7 +775,7 @@ class _OrganizationPageState extends State<OrganizationPage> {
             key: ValueKey('organization-machine ${host.name}'),
             view: view,
             host: host,
-            words: _hostWords(host),
+            words: _hostWords(host, waits: _waitsOn(view, host)),
             connections: widget.connections,
             onOpen: () => widget.onHost?.call(host.name),
             onPrepare: widget.onPrepare == null ? null : () => widget.onPrepare!(host.name),
@@ -1087,7 +1123,8 @@ String _standingIn(OrganizationView view, OrganizationProject project) => !view.
     ? 'you are a member'
     : 'you are not a member';
 
-String _hostWords(OrganizationHost host) => [
+/// A machine's facts; a project it said last it waits for the token for, a key of [waits], is never called carried.
+String _hostWords(OrganizationHost host, {Map<String, String> waits = const {}}) => [
   if (host.address case final address?) host.port == null ? address : _reach(address, host.port!) else 'no address yet',
   if (host.admins.isEmpty)
     'no Machine Admin'
@@ -1095,7 +1132,14 @@ String _hostWords(OrganizationHost host) => [
     'Machine Admin ${host.admins.single}'
   else
     'Machine Admins ${host.admins.join(', ')}',
-  if (host.projects.isEmpty) 'carries no project' else 'carries ${host.projects.join(', ')}',
+  // One the machine waits for the token for is put on it, not carried; its row says what it waits for.
+  if (host.projects.isEmpty)
+    'carries no project'
+  else ...[
+    if (host.projects.where((project) => !waits.containsKey(project)) case final carried when carried.isNotEmpty)
+      'carries ${carried.join(', ')}',
+    if (waits.isNotEmpty) 'put on it: ${waits.keys.join(', ')}',
+  ],
 ].join(' · ');
 
 String _reach(String address, int port) => address.contains(':') ? '[$address]:$port' : '$address:$port';

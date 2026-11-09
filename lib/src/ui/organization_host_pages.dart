@@ -157,6 +157,15 @@ class _OrganizationMachineRowState extends State<OrganizationMachineRow> {
             (project.admins.contains(view.me) || project.members.contains(view.me)))
           project.name,
     ];
+    // What the machine said last of each: one it waits for the token for is never ready to work on.
+    final forge = organizationForgeName(view);
+    final waits = {
+      for (final project in mine) project: ?waitingWords(widget.connections?.heard(host.name)?.of(project), forge),
+    };
+    final ready = [
+      for (final project in mine)
+        if (!waits.containsKey(project)) project,
+    ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -193,11 +202,12 @@ class _OrganizationMachineRowState extends State<OrganizationMachineRow> {
               else if (admitting)
                 Tunnel.admissionWords
               else if (connected)
-                mine.isEmpty ? 'connected' : 'connected, ready to work on'
+                ready.isEmpty ? 'connected' : 'connected, ready to work on ${ready.join(', ')}'
               else if (host.address == null)
                 '${host.name} is listed, not set up yet.${givesIt ? '' : ' It waits for ${host.admins.join(' or ')}.'}'
               else
                 ?why,
+              for (final MapEntry(key: project, value: words) in waits.entries) '$project $words',
             ].join(' · '),
           ),
           trailing: Wrap(
@@ -383,6 +393,9 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
   HostProgress? _progress;
   bool _askedProgress = false;
   int _progressReads = 0;
+
+  /// What the machine said last, wherever it was asked, as this page last took it.
+  HostProgress? _heardSeen;
   DateTime? _answeredAt;
 
   /// Whether the machine's forge last answered through this computer's forward; null where it was not asked.
@@ -454,6 +467,8 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
   void didUpdateWidget(covariant OrganizationHostPage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.refresh != widget.refresh) {
+      // The refresh asks every machine its Machine Admin may ask again, once: its answer is taken as it comes, and
+      // only a machine nothing was heard of yet is asked from here.
       _askedProgress = false;
       _askProgress();
       _askedForge = false;
@@ -467,15 +482,34 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     return view != null && host != null && view.holdsRoles && host.admins.contains(view.me);
   }
 
+  /// Asks the machine how far it has come, once per connection: what it said already, wherever it was asked, is taken
+  /// rather than asked again as root. What it says later from anywhere, as after its token was given or a refresh, is
+  /// taken too.
   void _askProgress() {
     final connections = widget.connections;
     if (connections == null || !connections.connected(widget.host) || !_isAdminHere) {
       _askedProgress = false;
+      // Losing contact keeps the last word read; one no longer theirs to read is no word of theirs now.
+      if (!_isAdminHere && _progress != null) {
+        setState(() {
+          _progress = null;
+          _heardSeen = null;
+        });
+      }
       return;
     }
-    if (_askedProgress) return;
+    final heard = connections.heard(widget.host);
+    if (_askedProgress || heard != null) {
+      _askedProgress = true;
+      // Its own read in flight answers for itself, and the newest of it stands.
+      if (heard != null && !identical(heard, _heardSeen) && !_acting) {
+        _heardSeen = heard;
+        if (!identical(heard, _progress)) setState(() => _progress = heard);
+      }
+      return;
+    }
     _askedProgress = true;
-    unawaited(_read(() => connections.progress(widget.host)));
+    unawaited(_read(() => connections.ask(widget.host)));
   }
 
   /// Takes what the host says; a refusal is shown on the page, never read as a state. Asked by a button, the refusal
@@ -510,6 +544,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
   /// Gives the host the token, then reads it again; answers why it was not given, or why the reading failed.
   Future<String?> _giveToken() async {
     final first = _progress?.waitsForToken ?? false;
+    final before = widget.connections?.heard(widget.host);
     // The page is busy while the token is given, as for any other ask of the machine.
     setState(() => _working++);
     final String? words;
@@ -520,7 +555,11 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     }
     final connections = widget.connections;
     if (!mounted || connections == null) return words;
-    final refusal = await _read(() => connections.progress(widget.host), byAButton: true);
+    // A given token has the machine asked once already, where it was given: its answer is taken, not asked again.
+    final heard = connections.heard(widget.host);
+    final refusal = heard != null && !identical(heard, before)
+        ? await _read(() async => heard, byAButton: true)
+        : await _read(() => connections.ask(widget.host), byAButton: true);
     // The host has made the account it could not make before: now the connection itself can come up.
     final answer = mounted && first && !(_progress?.waitsForToken ?? true)
         ? words ?? await _act(() => connections.connect(widget.host), byAButton: true)
@@ -799,9 +838,12 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
                         leading: const Icon(Icons.folder_outlined),
                         title: name,
                         subtitleMaxLines: null,
-                        state: _progress?.of(name)?.state ?? 'not read',
+                        state: _progressChip(_progress?.of(name)),
                         onOpen: null,
-                        menu: null,
+                        menu: switch (_giveTokenFor(view, host, name)) {
+                          final give? => CommandMenu(commands: [give], tooltip: 'What can be done with $name'),
+                          null => null,
+                        },
                         subtitleKey: ValueKey('organization.projectSource/$name'),
                         subtitle: 'From the organization: ${organizationWords(name)}',
                       ),
@@ -817,6 +859,34 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
         : Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [...pending, list]);
   }
 
+  /// The host's word on a project for its chip: never its raw word where this build knows what it means, and never
+  /// waiting for a token where the host has no address for it, which a token cannot help.
+  String _progressChip(HostProjectProgress? said) => switch (said) {
+    null => 'not read',
+    HostProjectProgress(hasNoAddress: true) => 'Waiting for its repository',
+    HostProjectProgress(waitsForToken: true) => 'Waiting for your token',
+    HostProjectProgress(state: 'carried') => 'Carried',
+    HostProjectProgress(state: 'pending') => 'Being put on',
+    HostProjectProgress(state: 'held') => 'Held',
+    HostProjectProgress(state: 'refused') => 'Refused',
+    // A word of a later host, shown as it comes.
+    HostProjectProgress(:final state) => state,
+  };
+
+  /// *Give it my … token…* beside [name]'s row, where [host] waits for it for [name]; given as the page's own button
+  /// gives it, and offered to its Machine Admin alone.
+  Command? _giveTokenFor(OrganizationView view, OrganizationHost host, String name) {
+    if (!(_progress?.of(name)?.waitsForToken ?? false)) return null;
+    return giveTokenCommand(
+      host: host.name,
+      project: name,
+      forge: organizationForgeName(view),
+      give: widget.onGiveToken == null ? null : (_) => unawaited(_giveToken()),
+      busy: () => _acting ? 'Waiting for the machine…' : null,
+      hidden: !view.holdsRoles || !host.admins.contains(view.me),
+    );
+  }
+
   /// The repositories of [name] that [host] carries, where it carries only some: each named, and taken off alone by
   /// its Machine Admin.
   List<Widget> _carriedPart(OrganizationHost host, String name, {required bool isAdmin}) => [
@@ -830,7 +900,11 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
           title: Text(repository),
           subtitle: Text(
             [
-              'Of $name, carried here alone',
+              // Put here alone, it is carried only once the machine stops waiting for the token for it.
+              if (waitingWords(_progress?.of(name), organizationForgeName(widget.organization.view)) case final waits?)
+                'Of $name, put here alone; the machine $waits'
+              else
+                'Of $name, carried here alone',
               if (_takenRow(name, repository)?.central case final central?) central.words,
             ].join(' · '),
           ),
@@ -1069,11 +1143,17 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     // Kept here with its connection down: that is what Connect is for, as on the row.
     final isDown = connected && !isUp && !waits;
     final why = _whyNotConnect(host, connections);
+    // A project the machine waits for a token for is taken by nothing: never ready to work on, whatever is listed.
+    final waiting = {
+      for (final said in _progress?.projects ?? const <HostProjectProgress>[])
+        if (said.waitsForToken || said.hasNoAddress) said.project,
+    };
     final mine = [
       for (final project in view.projects)
         // A project carried in part may be on this machine and another, and the store names one host for it.
         if ((project.host == host.name || host.projects.contains(project.name)) &&
             !view.saysNoRepository(project) &&
+            !waiting.contains(project.name) &&
             (project.admins.contains(view.me) || project.members.contains(view.me)))
           project.name,
     ];
@@ -1139,6 +1219,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
             key: const ValueKey('organization.connectionWords'),
             ready
                 ? 'Connected as ${view.me}.${mine.isEmpty ? '' : ' Ready to work on: ${mine.join(', ')}.'}'
+                      '${waiting.isEmpty ? '' : ' Waiting before $name takes them: ${waiting.join(', ')}.'}'
                 : isDown
                 ? 'Not connected now: the connection to $name is down. Connect brings it back.'
                 : connected
@@ -1397,7 +1478,7 @@ class _HostProgressReadingState extends State<HostProgressReading> {
   @override
   void initState() {
     super.initState();
-    widget.connections?.addListener(_ask);
+    widget.connections?.addListener(_heard);
     widget.organization.addListener(_ask);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _ask();
@@ -1406,9 +1487,15 @@ class _HostProgressReadingState extends State<HostProgressReading> {
 
   @override
   void dispose() {
-    widget.connections?.removeListener(_ask);
+    widget.connections?.removeListener(_heard);
     widget.organization.removeListener(_ask);
     super.dispose();
+  }
+
+  /// The connections changed, or the machine was heard again from anywhere, as after its token was given: shown here.
+  void _heard() {
+    _ask();
+    if (mounted) setState(() {});
   }
 
   /// Why the machine is not asked, or null where it is.
@@ -1433,6 +1520,8 @@ class _HostProgressReadingState extends State<HostProgressReading> {
     }
     if (_asked) return;
     _asked = true;
+    // What the machine said already, wherever it was asked, is taken rather than asked again as root.
+    if (widget.connections?.heard(widget.host) != null) return;
     unawaited(_read());
   }
 
@@ -1441,7 +1530,7 @@ class _HostProgressReadingState extends State<HostProgressReading> {
     HostProgress? progress;
     String? refused;
     try {
-      progress = await widget.connections!.progress(widget.host);
+      progress = await widget.connections!.ask(widget.host);
     } on OrganizationRefused catch (refusal) {
       refused = refusal.words;
     }
@@ -1455,7 +1544,8 @@ class _HostProgressReadingState extends State<HostProgressReading> {
   @override
   Widget build(BuildContext context) {
     final why = _notAsked ?? (_refused == null ? null : '${widget.host} did not say how it stands: $_refused');
-    final progress = why == null ? _progress : null;
+    // What the machine said last, wherever it was asked: after its token was given, it no longer waits here either.
+    final progress = why == null ? (widget.connections?.heard(widget.host) ?? _progress) : null;
     return widget.builder(
       context,
       progress,

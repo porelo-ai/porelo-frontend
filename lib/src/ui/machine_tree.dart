@@ -5,6 +5,7 @@ import '../app/commands.dart';
 import '../app/fleet_model.dart';
 import '../app/host_progress.dart';
 import 'command_menu.dart';
+import 'organization_token_words.dart';
 import 'tokens.dart';
 import 'window_size.dart';
 import 'filtered_list_section.dart';
@@ -36,15 +37,16 @@ class StopEverywhere extends StatelessWidget {
   }
 }
 
-/// What a machine holds of one repository of a project: its row's words, and whether it carries it (null where
-/// nobody said).
-typedef OnTheMachine = ({String words, bool? carried});
+/// What a machine holds of one repository of a project: its row's words, whether it carries it (null where nobody
+/// said), and why work cannot start in it there now, where it cannot.
+typedef OnTheMachine = ({String words, bool? carried, String? startRefused});
 
 /// What a machine an organization's card names holds of [repository] of [project], for its row on the project's page
 /// opened from that machine: carried, not carried or held; its state at central; the work running in it. [progress] is
 /// what the machine said of the project, null where it said nothing of it; [progressRead] is false where the machine
 /// was not asked, and [tasks] null where its work was not read: each then says not read, never none. What the
-/// machine's own daemon says of it in [listed] is taken before any of these, where it says it.
+/// machine's own daemon says of it in [listed] is taken before any of these, where it says it, except that a project
+/// the machine waits for a token for is never called carried, and says it waits for the token of [forge].
 String repositoryOnTheMachine({
   required String project,
   required String repository,
@@ -53,6 +55,7 @@ String repositoryOnTheMachine({
   required List<Task>? tasks,
   List<String>? carriedAlone,
   Repository? listed,
+  String forge = 'central forge',
 }) {
   final row = progress?.repositories.where((each) => each.repository == repository).firstOrNull;
   final held = _standing(
@@ -61,6 +64,7 @@ String repositoryOnTheMachine({
     progressRead: progressRead,
     carriedAlone: carriedAlone,
     listed: listed,
+    forge: forge,
   ).words;
   final host = progressRead && row?.state == 'taken' ? (row?.central ?? const HostRepositoryCentral()) : null;
   final daemon = listed?.central;
@@ -88,52 +92,93 @@ bool? carriedOnTheMachine({
   required bool progressRead,
   List<String>? carriedAlone,
   Repository? listed,
+  String forge = 'central forge',
 }) => _standing(
   repository: repository,
   progress: progress,
   progressRead: progressRead,
   carriedAlone: carriedAlone,
   listed: listed,
+  forge: forge,
 ).carried;
 
-/// Carried, not carried or held, in words and as a fact, for [repositoryOnTheMachine] and [carriedOnTheMachine].
-({String words, bool? carried}) _standing({
+/// Why work cannot start in [repository] on the machine, as [repositoryOnTheMachine] words it: one it does not carry,
+/// has not taken yet, or one of a project it waits for a token for; null where nothing said here refuses it.
+String? startRefusedOnTheMachine({
   required String repository,
   required HostProjectProgress? progress,
   required bool progressRead,
   List<String>? carriedAlone,
   Repository? listed,
+  String forge = 'central forge',
+}) => _standing(
+  repository: repository,
+  progress: progress,
+  progressRead: progressRead,
+  carriedAlone: carriedAlone,
+  listed: listed,
+  forge: forge,
+).startRefused;
+
+/// Carried, not carried, held or waiting, in words and as a fact, with why work cannot start there, for
+/// [repositoryOnTheMachine], [carriedOnTheMachine] and [startRefusedOnTheMachine].
+OnTheMachine _standing({
+  required String repository,
+  required HostProjectProgress? progress,
+  required bool progressRead,
+  List<String>? carriedAlone,
+  Repository? listed,
+  String forge = 'central forge',
 }) {
   final row = progress?.repositories.where((each) => each.repository == repository).firstOrNull;
   final alone = carriedAlone != null && carriedAlone.contains(repository);
   final notHere = carriedAlone != null && !alone;
   final daemonCarried = listed == null ? null : carriedWords(listed);
+  final notCarried = 'This machine does not carry $repository, so work cannot start in it here.';
+  final waits = waitingWords(progress, forge);
   if (listed?.carriedHere == false) {
     // Not carried here, so nothing of it is held here, whatever the project is.
-    return (words: daemonCarried!, carried: false);
+    return (words: daemonCarried!, carried: false, startRefused: notCarried);
+  }
+  // Waiting for a token, the machine takes none of the project, whatever its daemon lists: never called carried. One
+  // the organization puts on another machine does not wait here.
+  if (progressRead && waits != null) {
+    if (notHere) return (words: 'not carried here', carried: false, startRefused: notCarried);
+    return (
+      words: waits,
+      carried: null,
+      startRefused: 'The machine $waits, and takes no repository before then, so work cannot start in $repository.',
+    );
   }
   // Held is the project's state: it holds only what the machine carries of it, never one the host left out or that is
   // still on its way. A host that lists no repositories says nothing of which, so only the left-out ones are excluded.
   final heldHere =
       listed?.carriedHere == true || (progress?.repositories.isEmpty ?? true ? !notHere : row?.state == 'taken');
   if (progressRead && progress?.state == 'held' && heldHere) {
-    return (words: 'held: ${progress?.why ?? 'it has unpushed work'}', carried: true);
+    return (words: 'held: ${progress?.why ?? 'it has unpushed work'}', carried: true, startRefused: null);
   }
   if (daemonCarried != null) {
-    return (words: alone ? 'carried here alone' : daemonCarried, carried: listed?.carriedHere);
+    return (
+      words: alone ? 'carried here alone' : daemonCarried,
+      carried: listed?.carriedHere,
+      startRefused: listed?.carriedHere == false ? notCarried : null,
+    );
   }
   if (!progressRead) {
     // What the organization planned for the machine is no word that it carries it.
-    return notHere ? (words: 'not carried here', carried: false) : (words: 'carried: not read', carried: null);
+    return notHere
+        ? (words: 'not carried here', carried: false, startRefused: notCarried)
+        : (words: 'carried: not read', carried: null, startRefused: null);
   }
+  final notYet = 'The machine has not taken $repository yet, so work cannot start in it here.';
   return switch (row?.state) {
-    'taken' => (words: alone ? 'carried here alone' : 'carried', carried: true),
-    'waiting' => (words: 'not carried yet', carried: null),
-    'no-central' => (words: 'not carried: it names no central address', carried: false),
-    'not-carried' => (words: 'not carried here', carried: false),
-    null => (words: notHere ? 'not carried here' : 'not carried', carried: false),
+    'taken' => (words: alone ? 'carried here alone' : 'carried', carried: true, startRefused: null),
+    'waiting' => (words: 'not carried yet', carried: null, startRefused: notYet),
+    'no-central' => (words: 'not carried: it names no central address', carried: false, startRefused: notCarried),
+    'not-carried' => (words: 'not carried here', carried: false, startRefused: notCarried),
+    null => (words: notHere ? 'not carried here' : 'not carried', carried: false, startRefused: notCarried),
     // A word of a later host, shown as it comes.
-    final state => (words: 'not carried: $state', carried: false),
+    final state => (words: 'not carried: $state', carried: false, startRefused: notCarried),
   };
 }
 
@@ -262,8 +307,21 @@ class ProjectHeader extends StatelessWidget {
     this.homeserver,
     this.showTitle = true,
     this.onTheMachine,
+    this.waits,
+    this.waitsWhy,
+    this.giveToken,
     super.key,
   });
+
+  /// What the machine waits for before it takes any of the project, as its token, said in place of carried; null
+  /// where it waits for nothing of this person's or was not asked.
+  final String? waits;
+
+  /// Why the machine asks for the token, beside [waits].
+  final String? waitsWhy;
+
+  /// *Give it my … token…*, beside [waits] and on each repository's row; null where it waits for none.
+  final Command? giveToken;
 
   /// What the machine holds of each repository, in words beside its row, where the page was opened from that machine;
   /// a repository only the machine names gets a row of its own, and those it does not carry fold below the rest.
@@ -346,9 +404,12 @@ class ProjectHeader extends StatelessWidget {
       if (p.environmentIsStale) 'environment older than its project file',
       if (p.pending > 0) '${p.pending} waiting at the gate',
       if (muted) 'not notified',
-      if (!project.canBeActedOn && !isDefault && !p.carried) 'not on this machine',
-      if (p.carried) 'carried by this machine; starting work takes it here',
+      if (!project.canBeActedOn && !isDefault && !p.carried && waits == null) 'not on this machine',
+      // Never carried while the machine says it waits: it takes nothing of the project before then.
+      if (p.carried && waits == null) 'carried by this machine; starting work takes it here',
+      ?waits,
     ];
+    final token = giveToken;
     final counts =
         '${project.running} of ${project.howMuchWork} running'
         '${p.securityClass.isEmpty ? '' : ' · ${p.securityClass}'}';
@@ -378,6 +439,22 @@ class ProjectHeader extends StatelessWidget {
         Text(counts, key: const Key('project-counts'), style: theme.textTheme.bodySmall),
         if (facts.isNotEmpty)
           Text(facts.join('  ·  '), key: const Key('project-facts'), style: theme.textTheme.bodySmall),
+        if (waits != null) ...[
+          if (waitsWhy case final why?)
+            Text(why, key: const Key('project-waits-why'), style: theme.textTheme.bodySmall),
+          if (token != null && token.visible)
+            Padding(
+              padding: const EdgeInsets.only(top: Space.small),
+              child: Tooltip(
+                message: token.unavailable ?? token.label,
+                child: FilledButton.tonal(
+                  key: const Key('project-give-token'),
+                  onPressed: token.available ? token.run : null,
+                  child: Text(token.label),
+                ),
+              ),
+            ),
+        ],
         // How far behind, for a project whose only repository is its own, and for default.
         if (p.behindReason.isNotEmpty && (isDefault || workRepositories.isEmpty))
           Text(
@@ -407,9 +484,8 @@ class ProjectHeader extends StatelessWidget {
                 title: title,
                 initiallyOpen: open,
                 repositories: part,
-                onTheMachine: {
-                  for (final MapEntry(:key, :value) in (onTheMachine ?? const {}).entries) key: value.words,
-                },
+                onTheMachine: onTheMachine ?? const {},
+                giveToken: waits == null ? null : giveToken,
                 onStart: project.canBeActedOn ? onStart : null,
                 startUnavailable: startUnavailable,
                 onSync: project.canBeActedOn ? onSync : null,
@@ -430,6 +506,7 @@ class _Repositories extends StatelessWidget {
     required this.initiallyOpen,
     required this.repositories,
     required this.onTheMachine,
+    this.giveToken,
     this.onStart,
     this.startUnavailable,
     this.onSync,
@@ -442,7 +519,8 @@ class _Repositories extends StatelessWidget {
   final String title;
   final bool initiallyOpen;
   final List<Repository> repositories;
-  final Map<String, String> onTheMachine;
+  final Map<String, OnTheMachine> onTheMachine;
+  final Command? giveToken;
   final void Function(String repository)? onStart;
   final String? startUnavailable;
   final void Function(String repository)? onSync;
@@ -463,6 +541,7 @@ class _Repositories extends StatelessWidget {
           child: _RepositoryLine(
             repository: repository,
             onTheMachine: onTheMachine[repository.name],
+            giveToken: giveToken,
             onStart: onStart,
             startUnavailable: startUnavailable,
             onSync: onSync,
@@ -482,6 +561,7 @@ class _RepositoryLine extends StatelessWidget {
   const _RepositoryLine({
     required this.repository,
     this.onTheMachine,
+    this.giveToken,
     this.onStart,
     this.startUnavailable,
     this.onSync,
@@ -491,7 +571,8 @@ class _RepositoryLine extends StatelessWidget {
   });
 
   final Repository repository;
-  final String? onTheMachine;
+  final OnTheMachine? onTheMachine;
+  final Command? giveToken;
   final void Function(String repository)? onStart;
   final String? startUnavailable;
   final void Function(String repository)? onSync;
@@ -506,14 +587,13 @@ class _RepositoryLine extends StatelessWidget {
       repository: name,
       onStart: onStart,
       unavailable: startUnavailable,
-      // Not carried where its daemon says so, or where what is said of it on the machine reads not carried, as of
-      // one the host has not taken there yet: a start there is refused.
-      carriedHere: repository.carriedHere == false || (onTheMachine?.startsWith('not carried') ?? false)
-          ? false
-          : repository.carriedHere,
+      carriedHere: repository.carriedHere,
+      // Refused where the machine does not carry it, has not taken it yet, or waits for its token: said as such, never
+      // read from the row's words.
+      refused: onTheMachine?.startRefused,
     );
     final state = <String>[
-      ?onTheMachine,
+      ?onTheMachine?.words,
       if (repository.pending > 0) '${repository.pending} waiting at the gate',
       if (repository.behindReason.isNotEmpty) repository.behindWords,
     ].join(' · ');
@@ -528,6 +608,7 @@ class _RepositoryLine extends StatelessWidget {
         tooltip: 'What can be done with $name',
         commands: [
           start,
+          ?giveToken,
           Command(
             id: 'sync-$name',
             label: "Ask $name's upstream how far behind it is, now",

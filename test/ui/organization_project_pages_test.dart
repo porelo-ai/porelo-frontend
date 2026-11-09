@@ -981,4 +981,49 @@ void main() {
       expect(fixture.writes.single.input, {'host': 'spare', 'project': 'mine'});
     });
   });
+
+  // Harm: the token for a project waiting on one machine is given to another, the one the organization names for it.
+  testWidgets('a project waiting for the token on its machine offers it to that machine alone', (tester) async {
+    final view = organizationFor(
+      'pat',
+      host: const OrganizationHost(
+        name: 'build',
+        admins: ['pat'],
+        projects: ['demo', 'split'],
+        repositories: {
+          'split': ['split-api'],
+        },
+      ),
+      moreProjects: const [
+        OrganizationProject(name: 'split', admins: ['pat'], host: 'spare', repositories: 2),
+      ],
+    );
+    final organization = Organization(FixtureOrganization(view));
+    addTearDown(organization.dispose);
+    final connections = FixtureConnections(['build', 'spare'])
+      ..hostProgress = HostProgress.read('{"projects":[{"project":"split","state":"waiting-for-token"}]}');
+    await connections.progress('build');
+    final given = <String>[];
+    await _settle(
+      tester,
+      OrganizationProjectsPage(
+        organization: organization,
+        connections: connections,
+        onProject: (_) {},
+        onGiveToken: (host, {atOnce = false}) async {
+          given.add(host);
+          return null;
+        },
+      ),
+    );
+    final commands = tester.widget<CommandMenu>(find.byKey(const ValueKey('organization.projectMenu split'))).commands;
+    final tokens = [
+      for (final command in commands)
+        if (command.id.startsWith('giveToken/')) command,
+    ];
+    expect([for (final each in tokens) each.id], ['giveToken/build/split']);
+    tokens.single.run();
+    await tester.pumpAndSettle();
+    expect(given, ['build']);
+  });
 }

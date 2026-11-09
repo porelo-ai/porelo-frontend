@@ -13,6 +13,7 @@ import 'filtered_list_section.dart';
 import 'page_explanation.dart';
 import 'organization_dialogs.dart';
 import 'organization_host_pages.dart';
+import 'organization_token_words.dart';
 import 'placing_project_dialog.dart' show GiveHostToken;
 import 'tokens.dart';
 import 'expandable_list_row.dart';
@@ -38,9 +39,17 @@ class OrganizationProjectsPage extends StatefulWidget {
     this.onHost,
     this.menuFor,
     this.connections,
+    this.onGiveToken,
+    this.tokenBusy,
     this.onOthers,
     super.key,
   });
+
+  /// Gives a machine waiting for one this person's token; null where it cannot be given from here.
+  final GiveHostToken? onGiveToken;
+
+  /// Why a machine cannot be given the token now, as while it is being given it; null where it can.
+  final String? Function(String host)? tokenBusy;
 
   /// Opens the projects of every machine this computer watches, also those no organization holds: *Default* and a
   /// checkout's local copy stand only there.
@@ -195,79 +204,7 @@ class _OrganizationProjectsPageState extends State<OrganizationProjectsPage> {
               problem: widget.organization.problem,
               onRetry: () => unawaited(widget.organization.refresh()),
               storageId: 'my-projects',
-              rows: [
-                for (final project in mine)
-                  (
-                    words: project.name,
-                    child: LeafListRow(
-                      key: ValueKey('my-project ${project.name}'),
-                      state: _isLocked(project) ? 'locked' : _roleIn(view, project)!,
-                      leading: const Icon(Icons.folder_outlined),
-                      title: project.name,
-                      subtitle: Text(
-                        '${project.repositories == null ? '' : '${_count(project.repositories!, 'repository', 'repositories')} · '}'
-                        '${peopleOf(project)} · '
-                        '${project.host == null ? 'not on a machine yet · a Machine Admin puts it on one' : 'on ${project.host}'}'
-                        '${_centralWords(view, _central[project.name]) == null ? '' : ' · ${_centralWords(view, _central[project.name])}'}'
-                        '${_refusals[project.host] == null ? '' : ' · ${_refusals[project.host]}'}'
-                        '${_greyWords(project, view)}',
-                      ),
-                      trailing: Wrap(
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        spacing: Space.normal,
-                        children: [
-                          if (_central[project.name]?.offersPush ?? false)
-                            if (project.host case final host? when !_isLocked(project))
-                              for (final command in widget.menuFor?.call(project.name, host) ?? const <Command>[])
-                                if (command.id == 'project.pushApprovedMain')
-                                  Tooltip(
-                                    message: command.unavailable ?? command.label,
-                                    child: OutlinedButton(
-                                      key: ValueKey('organization.pushApprovedMain ${project.name}'),
-                                      onPressed: command.available ? command.run : null,
-                                      child: Text(command.label),
-                                    ),
-                                  ),
-                          if (project.host case final host? when !_isLocked(project))
-                            if (view.holdsRoles && !(widget.connections?.connected(host) ?? false))
-                              Tooltip(
-                                message: widget.connections == null
-                                    ? 'This computer has no way to connect yet.'
-                                    : _connecting.contains(host)
-                                    ? 'Connecting to $host…'
-                                    : 'Connect to $host',
-                                child: FilledButton(
-                                  key: ValueKey('organization.connectToHost ${project.name}'),
-                                  onPressed: widget.connections == null || _connecting.contains(host)
-                                      ? null
-                                      : () => unawaited(_connect(host)),
-                                  child: Text('Connect to $host'),
-                                ),
-                              ),
-                          if (project.host case final host? when !_isLocked(project))
-                            if (widget.connections case final held?
-                                when _refusals[host] != null && !_connecting.contains(host))
-                              LastConnectAttempt(held, host),
-                          if (project.host case final host? when !_isLocked(project))
-                            CommandMenu(
-                              key: ValueKey('organization.projectMenu ${project.name}'),
-                              commands: [
-                                if (widget.onHost != null && view.holdsRoles && (widget.connections?.up(host) ?? false))
-                                  organizationCommand(
-                                    id: 'openOnHost ${project.name}',
-                                    label: 'Work on it',
-                                    run: () => widget.onHost!(project.name, host),
-                                  ),
-                                ...?widget.menuFor?.call(project.name, host),
-                              ],
-                              tooltip: 'What can be done with ${project.name}',
-                            ),
-                        ],
-                      ),
-                      onTap: () => widget.onProject(project.name),
-                    ),
-                  ),
-              ],
+              rows: [for (final project in mine) (words: project.name, child: _row(view, project))],
             ),
           if (view != null && mine.isEmpty)
             const Text(
@@ -287,6 +224,99 @@ class _OrganizationProjectsPageState extends State<OrganizationProjectsPage> {
       );
     },
   );
+
+  /// One of the person's projects: where it is, how it stands with central, and what its machine waits for.
+  Widget _row(OrganizationView view, OrganizationProject project) {
+    final waits = projectWaits(view, widget.connections, project.name);
+    final forge = organizationForgeName(view);
+    final tokens = [
+      for (final wait in waits)
+        if (wait.said.waitsForToken)
+          giveTokenCommand(
+            host: wait.host,
+            project: project.name,
+            forge: forge,
+            give: widget.onGiveToken == null ? null : (host) => unawaited(widget.onGiveToken!(host)),
+            busy: () => widget.tokenBusy?.call(wait.host),
+            hidden: !hostsAdministeredBy(view).any((host) => host.name == wait.host),
+          ),
+    ];
+    return LeafListRow(
+      key: ValueKey('my-project ${project.name}'),
+      state: _isLocked(project) ? 'locked' : _roleIn(view, project)!,
+      leading: const Icon(Icons.folder_outlined),
+      title: project.name,
+      subtitle: Text(
+        '${project.repositories == null ? '' : '${_count(project.repositories!, 'repository', 'repositories')} · '}'
+        '${peopleOf(project)} · '
+        '${project.host == null ? 'not on a machine yet · a Machine Admin puts it on one' : 'on ${project.host}'}'
+        '${[for (final wait in waits) ' · ${wait.host} ${waitingWords(wait.said, forge)}'].join()}'
+        '${_centralWords(view, _central[project.name]) == null ? '' : ' · ${_centralWords(view, _central[project.name])}'}'
+        '${_refusals[project.host] == null ? '' : ' · ${_refusals[project.host]}'}'
+        '${_greyWords(project, view)}',
+      ),
+      trailing: Wrap(
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: Space.normal,
+        children: [
+          if (_central[project.name]?.offersPush ?? false)
+            if (project.host case final host? when !_isLocked(project))
+              for (final command in widget.menuFor?.call(project.name, host) ?? const <Command>[])
+                if (command.id == 'project.pushApprovedMain')
+                  Tooltip(
+                    message: command.unavailable ?? command.label,
+                    child: OutlinedButton(
+                      key: ValueKey('organization.pushApprovedMain ${project.name}'),
+                      onPressed: command.available ? command.run : null,
+                      child: Text(command.label),
+                    ),
+                  ),
+          if (project.host case final host? when !_isLocked(project))
+            if (view.holdsRoles && !(widget.connections?.connected(host) ?? false))
+              Tooltip(
+                message: widget.connections == null
+                    ? 'This computer has no way to connect yet.'
+                    : _connecting.contains(host)
+                    ? 'Connecting to $host…'
+                    : 'Connect to $host',
+                child: FilledButton(
+                  key: ValueKey('organization.connectToHost ${project.name}'),
+                  onPressed: widget.connections == null || _connecting.contains(host)
+                      ? null
+                      : () => unawaited(_connect(host)),
+                  child: Text('Connect to $host'),
+                ),
+              ),
+          if (project.host case final host? when !_isLocked(project))
+            if (widget.connections case final held? when _refusals[host] != null && !_connecting.contains(host))
+              LastConnectAttempt(held, host),
+          if (project.host case final host? when !_isLocked(project))
+            CommandMenu(
+              key: ValueKey('organization.projectMenu ${project.name}'),
+              commands: [
+                if (widget.onHost != null && view.holdsRoles && (widget.connections?.up(host) ?? false))
+                  organizationCommand(
+                    id: 'openOnHost ${project.name}',
+                    label: 'Work on it',
+                    run: () => widget.onHost!(project.name, host),
+                  ),
+                ...?widget.menuFor?.call(project.name, host),
+                ...tokens,
+              ],
+              tooltip: 'What can be done with ${project.name}',
+            )
+          // Carried in part, it names no one machine, yet one that waits for the token is offered it here too.
+          else if (tokens.isNotEmpty && !_isLocked(project))
+            CommandMenu(
+              key: ValueKey('organization.projectMenu ${project.name}'),
+              commands: tokens,
+              tooltip: 'What can be done with ${project.name}',
+            ),
+        ],
+      ),
+      onTap: () => widget.onProject(project.name),
+    );
+  }
 }
 
 String _count(int count, String one, String many) => counted(count, one, many);
@@ -473,8 +503,12 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
     final project = organization?.projects.where((each) => each.name == widget.project).firstOrNull;
     if (organization == null || project == null) return const [];
     final hosts = hostsAdministeredBy(organization);
+    // Its placing waiting for the token on a machine of this person's is followed again from here, as it was put on.
+    final waits = projectWaits(organization, widget.connections, project.name);
     return [
-      if (!organization.carriedWhole(project.name) && hosts.isNotEmpty)
+      if ((!organization.carriedWhole(project.name) ||
+              waits.any((wait) => hosts.any((host) => host.name == wait.host))) &&
+          hosts.isNotEmpty)
         Command(
           id: 'project.putOnMachine',
           label: 'Put it on a machine…',

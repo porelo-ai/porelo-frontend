@@ -18,6 +18,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f452"></a>[F452](F452-A-Project-Waiting-For-The-Token-Says-So-Where-It-Is-Shown.md) | — | — | A project the host reports waiting for the token says so, why, and offers the token on its row, the machine's project page and each repository row; never called carried; the placing dialog not grey when opened again. |
 | <a id="f456"></a>[F456](F456-The-Room-Found-From-A-Task-And-A-Project.md) | XS | — | The project's room opened in one step from a task tile and the project's page. |
 | <a id="f459"></a>[F459](F459-The-Footer-Counts-What-Runs-Where.md) | XS | — | The footer's refresh and action counts name the machine and what they count. |
 | <a id="f453"></a>[F453](F453-A-Machines-Project-Page-Lists-What-It-Carries-First.md) | S | — | A machine's project page lists the carried repositories first and folds the rest with their count; no raw host word; forge names shown as such; zero tasks said as 0. |
@@ -103,7 +104,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="f203"></a>[F203](F203-This-Repository-Worked-In-A-Porelo-Task.md) | S | — | This repository's agent working in an attended Porelo task on the host, its build green on the host's Forgejo, reached in the room, with a way back. |
-| <a id="f452"></a>[F452](F452-A-Project-Waiting-For-The-Token-Says-So-Where-It-Is-Shown.md) | M | — | A project the host reports waiting for the token says so, why, and offers the token on its row, the machine's project page and each repository row; never called carried; the placing dialog not grey when opened again. |
 
 ### Backlog
 

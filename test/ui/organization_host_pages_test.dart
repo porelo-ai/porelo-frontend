@@ -450,6 +450,66 @@ void main() {
       return (connections: made, opened: opened);
     }
 
+    // Harm: the placing dialog goes on saying the machine waits, and offers the token again, after it was given there.
+    testWidgets('the placing dialog hears that the token was given from it', (tester) async {
+      final connections = FixtureConnections(['build'])
+        ..hostProgress = HostProgress.read('{"projects":[{"project":"split","state":"waiting-for-token"}]}');
+      await connections.progress('build');
+      await section(
+        tester,
+        organizationFor(
+          'hana',
+          host: const OrganizationHost(
+            name: 'build',
+            admins: ['hana'],
+            projects: ['demo', 'split'],
+            repositories: {
+              'split': ['split-api'],
+            },
+          ),
+          moreProjects: const [
+            OrganizationProject(name: 'split', admins: ['hana'], host: 'build'),
+          ],
+        ),
+        connections: connections,
+        onGiveToken: (host, {atOnce = false}) async {
+          connections.hostProgress = HostProgress.read(
+            '{"projects":[{"project":"split","state":"carried","repositories":[]}]}',
+          );
+          // As the token's step does once the machine took it.
+          await connections.progress(host);
+          return null;
+        },
+      );
+      await pressOrganizationAction(tester, 'putOnMachine/split');
+      final give = find.byKey(const ValueKey('organization-carry-give-token build'));
+      expect(give, findsOneWidget);
+      await tester.tap(give);
+      await tester.pumpAndSettle();
+      expect(give, findsNothing);
+    });
+
+    // Harm: a machine whose one project of this person's waits for the token reads as ready to work on, and as
+    // carrying it.
+    testWidgets('a machine waiting for the token for a project is not ready to work on it', (tester) async {
+      final connections = FixtureConnections(['build'])
+        ..hostProgress = HostProgress.read('{"projects":[{"project":"demo","state":"waiting-for-token"}]}');
+      await connections.progress('build');
+      await section(
+        tester,
+        organizationFor(
+          'pat',
+          host: const OrganizationHost(name: 'build', admins: ['pat'], projects: ['demo']),
+        ),
+        connections: connections,
+      );
+      final row = find.byKey(const ValueKey('organization-machine build'));
+      expect(row, findsOneWidget);
+      expect(find.descendant(of: row, matching: find.textContaining('ready to work on')), findsNothing);
+      expect(find.descendant(of: row, matching: find.textContaining('carries demo')), findsNothing);
+      expect(find.descendant(of: row, matching: find.textContaining('waits for your')), findsOneWidget);
+    });
+
     // Harm: *Connect* greys for a moment and returns, with no word, as in the foo test.
     testWidgets('a connect on a machine waiting for its token names that step, beside the button', (tester) async {
       final connections = FixtureConnections()..waiting.add('build');
@@ -605,7 +665,15 @@ void main() {
     }
 
     // Harm: a machine's explicit refusal reads as unknown, obscuring what prevents work there.
-    for (final state in ['carried', 'pending', 'waiting-for-token', 'held', 'refused', 'future-state']) {
+    for (final (state, words) in [
+      ('carried', 'Carried'),
+      ('pending', 'Being put on'),
+      ('waiting-for-token', 'Waiting for your token'),
+      ('held', 'Held'),
+      ('refused', 'Refused'),
+      // A word of a later host, shown as it comes.
+      ('future-state', 'future-state'),
+    ]) {
       testWidgets('the project chip keeps the host state $state and stands beside its name', (tester) async {
         final made = await page(
           tester,
@@ -617,7 +685,7 @@ void main() {
         );
         final source = find.byKey(const ValueKey('organization.projectSource/demo'));
         final row = find.ancestor(of: source, matching: find.byType(ListTile)).first;
-        final chip = find.descendant(of: row, matching: find.widgetWithText(Chip, state));
+        final chip = find.descendant(of: row, matching: find.widgetWithText(Chip, words));
         expect(chip, findsOneWidget);
         final name = find.descendant(of: row, matching: find.text('demo'));
         expect(tester.getRect(chip).left, greaterThan(tester.getRect(name).right));
@@ -1023,6 +1091,84 @@ void main() {
       await pressOrganizationAction(tester, 'giveToken');
       expect(gave, ['build']);
       expect(_action('giveToken'), findsNothing);
+    });
+
+    // Harm: a repository of a project its machine waits for the token for reads as carried there alone.
+    testWidgets('a repository carried alone of a waiting project is not called carried', (tester) async {
+      final connections = FixtureConnections(['build'])
+        ..hostProgress = HostProgress.read('{"projects":[{"project":"split","state":"waiting-for-token"}]}');
+      await page(
+        tester,
+        'hana',
+        connections: connections,
+        moreProjects: const [
+          OrganizationProject(name: 'split', admins: ['hana'], host: 'build'),
+        ],
+        shown: const OrganizationHost(
+          name: 'build',
+          admins: ['hana'],
+          projects: ['demo', 'split'],
+          repositories: {
+            'split': ['split-api'],
+          },
+        ),
+      );
+      final row = find.byKey(const ValueKey('organization.carried/split/split-api'));
+      expect(row, findsOneWidget);
+      expect(find.descendant(of: row, matching: find.textContaining('carried')), findsNothing);
+      expect(find.descendant(of: row, matching: find.textContaining('waits for your')), findsOneWidget);
+    });
+
+    // Harm: the machine's page goes on saying it waits for the token, and offers it again, after it was given from
+    // elsewhere and the machine said so.
+    testWidgets('the page hears that the machine no longer waits, wherever that was asked', (tester) async {
+      final connections = FixtureConnections(['build'])..hostProgress = const HostProgress(waitsForToken: true);
+      await page(tester, 'hana', connections: connections);
+      expect(_action('giveToken'), findsOneWidget);
+      connections.hostProgress = const HostProgress();
+      await connections.progress('build');
+      await tester.pumpAndSettle();
+      expect(_action('giveToken'), findsNothing);
+    });
+
+    // Harm: a member who was the machine's admin is kept from their project by a wait the machine told them of
+    // before, which nobody may read to them now.
+    testWidgets('a wait read as Machine Admin is not kept once the role is gone', (tester) async {
+      final connections = FixtureConnections(['build'])
+        ..hostProgress = HostProgress.read('{"projects":[{"project":"demo","state":"waiting-for-token"}]}');
+      final made = await page(
+        tester,
+        'mia',
+        connections: connections,
+        shown: const OrganizationHost(name: 'build', admins: ['mia'], projects: ['demo']),
+      );
+      String said() => tester.widget<Text>(find.byKey(const ValueKey('organization.connectionWords'))).data!;
+      expect(said(), isNot(contains('Ready to work on: demo')));
+      made.source.view = organizationFor('mia');
+      await tester.widget<OrganizationHostPage>(find.byType(OrganizationHostPage)).organization.refresh();
+      await tester.pumpAndSettle();
+      expect(said(), contains('Ready to work on: demo'));
+    });
+
+    // Harm: a token given from the machine's page asks the machine as root again, where the token's own step asked it
+    // already, a second login its host counts.
+    testWidgets('a token given from the page asks the machine once', (tester) async {
+      final connections = FixtureConnections(['build'])..hostProgress = const HostProgress(waitsForToken: true);
+      await page(
+        tester,
+        'hana',
+        connections: connections,
+        onGiveToken: (host, {atOnce = false}) async {
+          connections.hostProgress = const HostProgress();
+          // As the token's step does once the machine took it.
+          await connections.progress(host);
+          return null;
+        },
+      );
+      connections.asked.clear();
+      await pressOrganizationAction(tester, 'giveToken');
+      expect(connections.asked.where((each) => each.startsWith('progress')), ['progress build']);
+      expect(_action('giveToken'), findsNothing, reason: 'it no longer waits');
     });
 
     // Harm: the button seems dead, as in the foo test: a press with no token must leave words on the page.

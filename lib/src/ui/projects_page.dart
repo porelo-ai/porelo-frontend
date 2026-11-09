@@ -20,6 +20,7 @@ class ProjectsPage extends StatelessWidget {
     required this.muted,
     required this.onProject,
     required this.menuFor,
+    this.waits,
     this.highlight,
     this.onShown,
     super.key,
@@ -42,6 +43,9 @@ class ProjectsPage extends StatelessWidget {
 
   /// Creates commands for one project on one machine.
   final List<Command> Function(Machine machine, ProjectOnScreen project) menuFor;
+
+  /// What a machine waits for before it takes a project, as its token, said in place of carried; null where nothing.
+  final String? Function(Machine machine, ProjectOnScreen project)? waits;
 
   /// The command the finder is revealing.
   final String? highlight;
@@ -82,6 +86,7 @@ class ProjectsPage extends StatelessWidget {
                   muted: muted.contains(row.project.name),
                   onOpen: () => onProject(row.machine, row.project.name),
                   commands: menuFor(row.machine, row.project),
+                  waits: waits?.call(row.machine, row.project),
                 ),
               ),
           ],
@@ -91,7 +96,8 @@ class ProjectsPage extends StatelessWidget {
   }
 }
 
-/// Creates the same project row in the top list and a machine's Projects section.
+/// Creates the same project row in the top list and a machine's Projects section. [waits] is what the machine waits for
+/// before it takes the project, as its token: then the row never says it is carried.
 Widget projectListRow({
   required Machine machine,
   required ProjectOnScreen project,
@@ -99,6 +105,7 @@ Widget projectListRow({
   required VoidCallback onOpen,
   required List<Command> commands,
   bool muted = false,
+  String? waits,
 }) {
   final isDefault = project.name == defaultProject;
   final identity = '${machine.name}/${project.name}';
@@ -115,6 +122,8 @@ Widget projectListRow({
     title: isDefault ? 'Default' : project.label,
     state: !connected
         ? 'not read'
+        : waits != null
+        ? 'Waiting'
         : isDefault || project.project.carried || project.canBeActedOn
         ? 'on the machine'
         : 'Not on this machine',
@@ -125,10 +134,11 @@ Widget projectListRow({
       if (tunnel != null) ?tunnel.words else if (machine.needsATunnel) 'Tunnel not reached' else 'No SSH tunnel needed',
       if (tunnel?.problem != tunnel?.words) ?tunnel?.problem,
       if (project.project.pending > 0) '${project.project.pending} waiting for review',
-      if (project.project.carried) 'Carried by this machine; starting work takes it here',
+      if (waits != null) 'The machine $waits',
+      if (project.project.carried && waits == null) 'Carried by this machine; starting work takes it here',
       if (!isDefault && !project.project.carried && !project.project.prepared) 'Environment not prepared',
       if (project.project.environmentIsStale) 'Environment older than its project file',
-      if (!isDefault && !project.canBeActedOn && !project.project.carried) 'Not on this machine',
+      if (!isDefault && !project.canBeActedOn && !project.project.carried && waits == null) 'Not on this machine',
       if (muted) 'Notifications off',
     ].join(' · '),
     leading: Icon(selected ? Icons.folder : Icons.folder_outlined),

@@ -12,7 +12,7 @@ import '../app/environment_tokens.dart';
 import '../app/homeserver_forwards.dart';
 import '../app/host_check_run.dart';
 import '../app/host_access.dart';
-import '../app/host_progress.dart' show HostProgress, HostRepositoryProgress;
+import '../app/host_progress.dart' show HostProgress, HostProjectProgress, HostRepositoryProgress;
 import '../app/host_runs.dart';
 import '../app/product.dart';
 import '../app/forge.dart';
@@ -31,6 +31,7 @@ import '../app/host_token.dart';
 import '../app/run_here.dart';
 import '../app/task_certifying.dart';
 import '../app/organization_source.dart';
+import '../app/token_giving.dart';
 import '../app/porelo_organization_source.dart';
 import '../app/egress.dart';
 import '../app/agent_inventory.dart';
@@ -508,6 +509,12 @@ class _ShellState extends State<Shell> {
     };
     _homeservers.addListener(_homeserversChanged);
     _organization?.addListener(_homeserversChanged);
+    // What a machine says of a project waiting for its token is said wherever the project is shown, asked once per
+    // machine its Machine Admin is connected to.
+    _organization?.addListener(_askHostsOnce);
+    _hostConnections?.addListener(_askHostsOnce);
+    _tokens.addListener(_homeserversChanged);
+    if (_organization?.view case final view?) _hostConnections?.askOnce(view);
     // What was joined before is reachable again from the start, at the same port.
     unawaited(_homeservers.restore(widget.machines));
     // Which forges are set up is read now, asking none of them anything, so a project's menu can say
@@ -652,6 +659,8 @@ class _ShellState extends State<Shell> {
     if (!quietly) {
       await _organization?.refresh();
       if (!mounted) return;
+      // Each machine its Machine Admin is connected to is asked again, once, for every page that shows it.
+      if (_organization?.view case final view?) _hostConnections?.askOnce(view, again: true);
       setState(() => _organizationPageRefresh++);
     }
     // A key loaded into the agent, or revoked, since the last read changes what a host admin is offered.
@@ -831,6 +840,10 @@ class _ShellState extends State<Shell> {
   }
 
   List<Command> _unscopedCommands() => commandsFor(
+    selectedProjectWaits: switch (_fleet.selectedProject?.name) {
+      final name? => _waitWhyNot(widget.machines.current, name),
+      null => null,
+    },
     viewActions: [
       ..._viewActions(),
       ..._organizationFactsCommands(),
@@ -1164,6 +1177,7 @@ class _ShellState extends State<Shell> {
       itsForgeIsMissing: _itsForgeIsMissing(project),
       showTheDefault: () => unawaited(_showTheDefault()),
       startTheAgents: () => unawaited(_startTheAgents(project.name)),
+      waits: _waitWhyNot(on ?? widget.machines.current, project.name),
     ))
       // Run on the project's own machine, with it chosen there: a row on Projects can be another
       // machine's than the one acted on.
@@ -1802,6 +1816,8 @@ class _ShellState extends State<Shell> {
       ? OrganizationProjectsPage(
           organization: organization,
           connections: _hostConnections,
+          onGiveToken: _giveHostToken,
+          tokenBusy: _tokens.busy,
           onProject: (name) => setState(() {
             _organizationProjectFrom = const ShellPlace(Section.projects);
             _organizationProject = name;
@@ -1880,6 +1896,7 @@ class _ShellState extends State<Shell> {
                   identity: widget.identity,
                   connections: _hostConnections,
                   onGiveToken: _giveHostToken,
+                  tokenBusy: _tokens.busy,
                   onPrepare: _prepareThisMachine,
                   preparing: _preparingFor,
                   onProtocol: (run) => unawaited(_openHostRun(run)),
@@ -2375,6 +2392,8 @@ class _ShellState extends State<Shell> {
   Future<void> _startFromTemplate(Template job) async {
     final selected = _fleet.selectedProject?.project;
     if (selected == null) return;
+    // Its machine waits for the token: it takes nothing of the project, and would refuse the start.
+    if (_waitWhyNot(widget.machines.current, selected.name) case final waits?) return _fleet.say(waits);
     final why = await _takeIfCarried(selected.name);
     if (!mounted) return;
     if (why != null) return _fleet.say(why);
@@ -2393,6 +2412,8 @@ class _ShellState extends State<Shell> {
     if (selected == null) return;
     // In default, work starts on a repository named first: the one way, wherever it is asked for.
     if (selected.name == defaultProject) return _startInDefault();
+    // Its machine waits for the token: it takes nothing of the project, and would refuse the start.
+    if (_waitWhyNot(widget.machines.current, selected.name) case final waits?) return _fleet.say(waits);
     final why = await _takeIfCarried(selected.name);
     if (why != null) return _fleet.say(why);
     final project = _listed(selected.name);
@@ -2452,6 +2473,7 @@ class _ShellState extends State<Shell> {
           'there lists a project only after a first start. On the machine, '
           'porelo task prepare -p $project --dry-run takes it.';
     }
+    if (_waitWhyNot(widget.machines.current, project) case final waits?) return waits;
     final why = await _takeIfCarried(project);
     if (why != null) return why;
     final cannot = StartWork.whyNot(_listed(project));
@@ -2474,6 +2496,8 @@ class _ShellState extends State<Shell> {
     if (said.isNotEmpty) _fleet.say(said);
     String withNotes(String words) => said.isEmpty ? words : '$words $said';
     Project? listed() => _listed(name);
+    // Its machine waits for the token: it takes nothing of the project, and would refuse the start.
+    if (_waitWhyNot(widget.machines.current, name) case final waits?) return _fleet.say(withNotes(waits));
     final why = await _takeIfCarried(name);
     if (!mounted) return;
     if (why != null) return _fleet.say(withNotes(why));
@@ -2532,7 +2556,11 @@ class _ShellState extends State<Shell> {
     if (host == null || connections == null || project == defaultProject) return;
     // The form's own machine, which the question is about, whichever is chosen meanwhile.
     final on = starting.openedOn;
-    if (!connections.connected(host)) {
+    final view = _organization?.view;
+    final card = view?.hosts.where((each) => each.name == host).firstOrNull;
+    // Asking logs in as root: only its Machine Admin asks, and a refused login counts against anyone else.
+    final mayAsk = view != null && card != null && view.holdsRoles && card.admins.contains(view.me);
+    if (!connections.connected(host) || !mayAsk) {
       starting.notOfferedWords = '$host was not asked which repositories it has taken, so every one is offered.';
       return offerOnly(starting.project?.workRepositories.toSet() ?? const <String>{}, starting.notOfferedWords);
     }
@@ -2540,7 +2568,8 @@ class _ShellState extends State<Shell> {
     // Still the same start on the same machine, after the wait: another opened meanwhile is not this one.
     bool same() => mounted && starting.project?.name == project && on != null && identical(starting.openedOn, on);
     try {
-      progress = await connections.progress(host);
+      // What it said already, wherever it was asked, is taken rather than asked again as root.
+      progress = connections.heard(host) ?? await connections.ask(host);
     } on OrganizationRefused catch (refused) {
       if (!same()) return;
       return offerOnly(
@@ -4238,6 +4267,7 @@ class _ShellState extends State<Shell> {
                           from: ShellPlace(Section.machine, machine: machine, machineSection: MachineSection.projects),
                         ),
                         projectCommands: (project) => _pageProjectCommands(machine, project),
+                        waits: (project) => _waitWords(machine, project.name),
                       ))
                         (words: row.name, child: row.row),
                     ],
@@ -5220,6 +5250,7 @@ class _ShellState extends State<Shell> {
               _openPageProject(machine, project);
             },
             menuFor: _pageProjectCommands,
+            waits: (machine, project) => _waitWords(machine, project.name),
           ),
         ),
       );
@@ -5380,7 +5411,11 @@ class _ShellState extends State<Shell> {
     final fleet = widget.machines.of(where);
     final projects = <ProjectOnScreen>[
       for (final project in fleet.projects)
-        if (project.name != defaultProject && (project.canBeActedOn || project.project.carried)) project,
+        // One its machine waits for the token for takes no work there, however it is listed.
+        if (project.name != defaultProject &&
+            (project.canBeActedOn || project.project.carried) &&
+            _waitOn(where, project.name) == null)
+          project,
     ];
     // Then in which project, or in none: work in the Default project is default, every machine's. Asked on a machine
     // that carries one project besides Default, the window knows it: the form opens in it, with a way to another.
@@ -5587,6 +5622,7 @@ class _ShellState extends State<Shell> {
   List<Command> _pageProjectCommands(Machine machine, ProjectOnScreen project) {
     final watched = widget.machines.all.contains(machine);
     final answering = watched && widget.machines.of(machine).reachability == Reachability.connected;
+    final waits = _waitWhyNot(machine, project.name);
     final openWork = Command(
       id: 'work.start',
       label: 'Start work',
@@ -5596,9 +5632,11 @@ class _ShellState extends State<Shell> {
           ? 'This machine is not connected.'
           : project.name == defaultProject
           ? null
-          : project.canBeActedOn || project.project.carried
-          ? StartWork.whyNot(project.project)
-          : 'This project is not on this machine.',
+          // The machine takes nothing of a project before it has its token: a start would be refused.
+          : waits ??
+                (project.canBeActedOn || project.project.carried
+                    ? StartWork.whyNot(project.project)
+                    : 'This project is not on this machine.'),
       run: () {
         _openPageProject(machine, project.name);
         unawaited(project.name == defaultProject ? _startInDefault() : _startWork());
@@ -5606,6 +5644,7 @@ class _ShellState extends State<Shell> {
     );
     return [
       openWork,
+      ?_giveTokenFor(machine, project.name),
       projectWorkCommand(
         open: () {
           _workView.showList(searchFor: project.name == defaultProject ? WorkRow.projectOf(null) : project.name);
@@ -5696,9 +5735,63 @@ class _ShellState extends State<Shell> {
     );
   }
 
+  /// Gives a machine the token once at a time, wherever asked from; a given token has the machine asked again by the
+  /// token's step, which every page showing it hears.
+  late final _tokens = TokenGiving(_giveHostTokenNow);
+
+  /// The row's *Give it your token…*, never twice at once to one machine: see [_giveHostTokenNow].
+  Future<String?> _giveHostToken(String host, {bool atOnce = false}) => _tokens.give(host, atOnce: atOnce);
+
+  /// Asks each connected machine its Machine Admin may ask how far it has come, once, and shows what it said.
+  void _askHostsOnce() {
+    final view = _organization?.view;
+    if (view != null) _hostConnections?.askOnce(view);
+    if (mounted) setState(() {});
+  }
+
+  /// What [machine] said last, where an organization's card names it; null for one no card names.
+  HostProgress? _heardFrom(Machine machine) => switch (machine.hostCard) {
+    final card? when _organization != null => _hostConnections?.heard(card.name),
+    _ => null,
+  };
+
+  /// What [machine], an organization's card names, waits for before it takes [project], as it said last; null where
+  /// it waits for nothing of this person's, or was not asked.
+  HostProjectProgress? _waitOn(Machine machine, String project) {
+    if (!_onTheOrganizationsPage(machine)) return null;
+    final said = _hostConnections?.heard(machine.hostCard!.name)?.of(project);
+    return said != null && (said.waitsForToken || said.hasNoAddress) ? said : null;
+  }
+
+  /// [_waitOn] in words beside the project, or null.
+  String? _waitWords(Machine machine, String project) =>
+      waitingWords(_waitOn(machine, project), organizationForgeName(_organization?.view));
+
+  /// Why work cannot start in [project] on [machine] while it waits, or null.
+  String? _waitWhyNot(Machine machine, String project) => _onTheOrganizationsPage(machine)
+      ? waitsWhyNot(host: machine.hostCard!.name, project: project, waits: _waitWords(machine, project))
+      : null;
+
+  /// *Give it my … token…* for [project] on [machine], where it waits for the token; offered to its Machine Admin.
+  Command? _giveTokenFor(Machine machine, String project) {
+    final said = _waitOn(machine, project);
+    if (said == null || !said.waitsForToken) return null;
+    final host = machine.hostCard!.name;
+    final view = _organization?.view;
+    final card = view?.hosts.where((each) => each.name == host).firstOrNull;
+    return giveTokenCommand(
+      host: host,
+      project: project,
+      forge: organizationForgeName(view),
+      give: (host) => unawaited(_giveHostToken(host)),
+      busy: () => _tokens.busy(host),
+      hidden: view == null || card == null || !view.holdsRoles || !card.admins.contains(view.me),
+    );
+  }
+
   /// The row's *Give it your token…*: the token's own page, every source with what it answered. [atOnce] gives the
   /// entry this computer's Porelo-Vault declares without the page, where it declares one.
-  Future<String?> _giveHostToken(String host, {bool atOnce = false}) async {
+  Future<String?> _giveHostTokenNow(String host, {bool atOnce = false}) async {
     final step = _hostTokenStep(host);
     final forge = organizationForgeName(_organization?.view);
     try {
@@ -5879,6 +5972,12 @@ class _ShellState extends State<Shell> {
     String? notRead,
   }) {
     final watched = widget.machines.all.contains(machine);
+    // What the machine waits for, as it said last: on this page however it was opened, never read as carried.
+    final waitOn = _waitOn(machine, project.name) ?? progress?.of(project.name);
+    final waits = waitingWords(waitOn, organizationForgeName(_organization?.view));
+    final waitWhyNot = waits == null
+        ? null
+        : waitsWhyNot(host: machine.hostCard!.name, project: project.name, waits: waits);
     return ProjectDetailsPage(
       key: ValueKey('project ${machine.name}/${project.name}'),
       machine: machine,
@@ -5930,10 +6029,27 @@ class _ShellState extends State<Shell> {
           unawaited(_startWork(repository: repository));
         },
         homeserver: _homeserverWords(machine, project.name),
-        onTheMachine: from == null ? null : _onTheMachine(machine, project, progress: progress, read: notRead == null),
-        startUnavailable: watched
-            ? StartWork.whyNot(project.project) ?? notAnswering(widget.machines.of(machine))
-            : 'This machine is not connected.',
+        onTheMachine: from == null && waits == null
+            ? null
+            : _onTheMachine(
+                machine,
+                project,
+                progress: progress ?? _heardFrom(machine),
+                read: notRead == null || waits != null,
+              ),
+        waits: waits == null ? null : 'The machine $waits',
+        waitsWhy: switch (_organization?.view) {
+          final view? when waitOn != null && waitOn.waitsForToken => organizationTokenWords(
+            view,
+            machine.hostCard!.name,
+            project: project.name,
+          ),
+          _ => null,
+        },
+        giveToken: _giveTokenFor(machine, project.name),
+        startUnavailable: !watched
+            ? 'This machine is not connected.'
+            : waitWhyNot ?? StartWork.whyNot(project.project) ?? notAnswering(widget.machines.of(machine)),
       ),
       jobs: [
         for (final job in widget.templates.forProject(project.name))
@@ -5944,7 +6060,7 @@ class _ShellState extends State<Shell> {
               highlighted: highlight == 'template.start/${job.project}/${job.name}',
               onShown: widget.shell.shown,
               unavailable: watched && job.startable
-                  ? notAnswering(widget.machines.of(machine))
+                  ? waitWhyNot ?? notAnswering(widget.machines.of(machine))
                   : 'This job cannot start here.',
               onPressed: () {
                 _openPageProject(machine, project.name);
@@ -5995,6 +6111,7 @@ class _ShellState extends State<Shell> {
           each.name: (
             words: repositoryOnAMachine(project: project.name, listed: each, carried: p.carried, tasks: tasks),
             carried: each.carriedHere,
+            startRefused: null,
           ),
       };
     }
@@ -6002,6 +6119,7 @@ class _ShellState extends State<Shell> {
     final host = _organization?.view?.hosts.where((each) => each.name == card).firstOrNull;
     final carriedAlone = host?.repositories[project.name];
     final said = progress?.of(project.name);
+    final forge = organizationForgeName(_organization?.view);
     return {
       for (final name in {
         ...names,
@@ -6017,6 +6135,7 @@ class _ShellState extends State<Shell> {
             tasks: tasks,
             carriedAlone: carriedAlone,
             listed: listed[name],
+            forge: forge,
           ),
           carried: carriedOnTheMachine(
             repository: name,
@@ -6024,6 +6143,15 @@ class _ShellState extends State<Shell> {
             progressRead: read && progress != null,
             carriedAlone: carriedAlone,
             listed: listed[name],
+            forge: forge,
+          ),
+          startRefused: startRefusedOnTheMachine(
+            repository: name,
+            progress: said,
+            progressRead: read && progress != null,
+            carriedAlone: carriedAlone,
+            listed: listed[name],
+            forge: forge,
           ),
         ),
     };
@@ -6098,6 +6226,7 @@ class _ShellState extends State<Shell> {
               onProject: (project) =>
                   _openPageProject(machine, project, from: ShellPlace(Section.machine, machine: machine)),
               projectCommands: (project) => _pageProjectCommands(machine, project),
+              waits: (project) => _waitWords(machine, project.name),
             ),
           )
         : details;
@@ -6236,7 +6365,10 @@ class _ShellState extends State<Shell> {
             await _fleet.refresh(quietly: true);
             if (!mounted) return null;
             final others = _fleet.projects.where(
-              (each) => each.name != defaultProject && (each.canBeActedOn || each.project.carried),
+              (each) =>
+                  each.name != defaultProject &&
+                  (each.canBeActedOn || each.project.carried) &&
+                  _waitOn(machine, each.name) == null,
             );
             if (others.isNotEmpty) {
               unawaited(_newWork(on: machine));
@@ -6440,6 +6572,9 @@ class _ShellState extends State<Shell> {
       source.prepareForgeWrite = null;
       source.confirmForgeHost = null;
     }
+    _organization?.removeListener(_askHostsOnce);
+    _hostConnections?.removeListener(_askHostsOnce);
+    _tokens.dispose();
     if (widget.hostConnections == null) _hostConnections?.dispose();
     _organization?.removeListener(_readStandings);
     _organization?.dispose();

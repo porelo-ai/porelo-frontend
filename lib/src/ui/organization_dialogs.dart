@@ -7,6 +7,7 @@ import '../app/organization_source.dart';
 import 'choice_field.dart';
 import 'command_menu.dart';
 import 'filtered_list_section.dart';
+import 'organization_token_words.dart';
 import 'placing_project_dialog.dart';
 import 'project_file_entry.dart';
 import 'tokens.dart';
@@ -743,7 +744,8 @@ List<OrganizationHost> hostsAdministeredBy(OrganizationView view) => !view.holds
 
 /// Puts [project] on one of the machines this person administers, then follows that machine until it carries the
 /// project or says why not. A project just put on a machine waits for a token: once it was taken, the machine is
-/// asked to fetch at once.
+/// asked to fetch at once. Asked again while a machine of this person's waits for the token for it, it follows that
+/// placing at once where nothing of the project is left to put on, and says so beside the choice otherwise.
 Future<void> putProjectOnAMachine(
   BuildContext context, {
   required Organization organization,
@@ -753,6 +755,26 @@ Future<void> putProjectOnAMachine(
 }) async {
   final view = organization.view;
   if (view == null) return;
+  final mine = hostsAdministeredBy(view);
+  final waiting = [
+    for (final wait in projectWaits(view, connections, project))
+      if (mine.any((host) => host.name == wait.host)) wait,
+  ];
+  if (waiting.isNotEmpty && view.carriedWhole(project)) {
+    if (connections == null) return;
+    await showDialog<void>(
+      context: context,
+      builder: (_) => PlacingProjectDialog(
+        project: project,
+        host: waiting.first.host,
+        view: view,
+        connections: connections,
+        onGiveToken: onGiveToken,
+      ),
+    );
+    return;
+  }
+  final forge = organizationForgeName(view);
   final carrying = CarryingChoice(view, project);
   await showDialog<void>(
     context: context,
@@ -768,7 +790,34 @@ Future<void> putProjectOnAMachine(
           'This can take up to five minutes.',
       confirm: 'Put it on the machine',
       change: OrganizationChange.addProjectToHost,
-      below: (_, changed) => CarryChoice(organization: organization, carrying: carrying, changed: changed),
+      below: (_, changed) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // What the machine says now: a token given from here, or anywhere, takes its wait away.
+          if (connections != null)
+            ListenableBuilder(
+              listenable: connections,
+              builder: (context, _) => Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (final wait in projectWaits(view, connections, project))
+                    if (mine.any((host) => host.name == wait.host)) ...[
+                      Text('Its placing on ${wait.host} ${waitingWords(wait.said, forge)}.'),
+                      if (wait.said.waitsForToken && onGiveToken != null)
+                        TextButton(
+                          key: ValueKey('organization-carry-give-token ${wait.host}'),
+                          onPressed: () => unawaited(onGiveToken(wait.host)),
+                          child: Text('Give ${wait.host} my $forge token…'),
+                        ),
+                    ],
+                ],
+              ),
+            ),
+          CarryChoice(organization: organization, carrying: carrying, changed: changed),
+        ],
+      ),
       ready: (_) => carrying.whole || carrying.chosen.isNotEmpty,
       input: (_, machine) => {
         'host': carrying.machine = machine,

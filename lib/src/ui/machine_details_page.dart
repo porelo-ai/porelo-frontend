@@ -15,6 +15,7 @@ List<({String name, Widget row})> machineProjectRows({
   required Machines machines,
   required void Function(String project) onProject,
   required List<Command> Function(ProjectOnScreen project) projectCommands,
+  String? Function(ProjectOnScreen project)? waits,
 }) => [
   for (final project in projectsOnMachine(machines, machine))
     (
@@ -25,6 +26,7 @@ List<({String name, Widget row})> machineProjectRows({
         machines: machines,
         onOpen: () => onProject(project.name),
         commands: projectCommands(project),
+        waits: waits?.call(project),
       ),
     ),
 ];

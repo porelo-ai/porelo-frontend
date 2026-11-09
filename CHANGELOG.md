@@ -14,6 +14,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Changed
 
 - The window now reads the planning part as the daemon serves it.
+- A project whose host waits for the person's token says so wherever it is shown, is never called carried there, starts no work, and offers *Give it my … token…* to that host.
 - A task's menu offers *Open its project’s room*, and the project's page a button *Open the project’s room*.
 - The footer's refresh and actions counts name the machine they count, and a refresh that lost contact says so.
 - A machine's page of a project lists the repositories it carries first and folds the others under *Not carried here*, with their count; the host's `not-carried` reads as "not carried here".

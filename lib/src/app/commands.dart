@@ -627,12 +627,14 @@ String? notAnswering(FleetModel fleet) =>
     fleet.reachability == Reachability.connected ? null : 'the machine is not answering';
 
 /// Starts work in the named repository, shared by its row's button and menu item. [carriedHere] false, where the
-/// machine does not carry it, never starts: a start there is refused.
+/// machine does not carry it, never starts: a start there is refused. [refused] is why the machine would refuse it
+/// there now, as one it has not taken yet, or one of a project that waits for its token.
 Command repositoryStartCommand({
   required String repository,
   required void Function(String)? onStart,
   String? unavailable,
   bool? carriedHere,
+  String? refused,
 }) => Command(
   id: 'start-in-$repository',
   label: 'Start work in $repository',
@@ -640,9 +642,34 @@ Command repositoryStartCommand({
   home: Home.repositoryRow,
   unavailable: carriedHere == false
       ? 'This machine does not carry $repository, so work cannot start in it here.'
-      : unavailable ?? (onStart == null ? 'work cannot start in this project' : null),
+      : refused ?? unavailable ?? (onStart == null ? 'work cannot start in this project' : null),
   run: () => onStart?.call(repository),
 );
+
+/// *Give it my … token…* for [host], which waits for it for [project]: offered beside every place that says so, to the
+/// Machine Admin who can give it; [hidden] for anyone else. [busy] says, when asked, why it cannot run now, as while
+/// the token is being given there already.
+Command giveTokenCommand({
+  required String host,
+  required String project,
+  required String forge,
+  required void Function(String host)? give,
+  String? Function()? busy,
+  bool hidden = false,
+}) => Command(
+  id: 'giveToken/$host/$project',
+  label: 'Give $host my $forge token…',
+  group: 'Organization',
+  home: Home.organizationRow,
+  hidden: hidden,
+  unavailable: give == null ? 'The token cannot be given from here.' : null,
+  unavailableNow: busy,
+  run: () => give?.call(host),
+);
+
+/// Why work cannot start in [project] on [host], which waits as [waits] says; null where it does not wait.
+String? waitsWhyNot({required String host, required String project, required String? waits}) =>
+    waits == null ? null : '$host $waits, and takes no repository of $project before then.';
 
 /// Why `Start` would refuse [task], in words, or null when it would start it.
 String? whyNotStart(Task task) {
@@ -665,7 +692,8 @@ String? whyNotStart(Task task) {
 
 /// What one project can be told to do, on its card and in the finder.
 ///
-/// Judged for [project] itself, so a card that is not the selected one offers what is true of it.
+/// Judged for [project] itself, so a card that is not the selected one offers what is true of it. [waits] is why its
+/// machine takes none of its repositories now, as while it waits for its token.
 List<Command> projectCommands({
   required ProjectOnScreen? project,
   required FleetModel fleet,
@@ -686,6 +714,7 @@ List<Command> projectCommands({
   String? itsForgeIsMissing,
   VoidCallback? showTheDefault,
   VoidCallback? startTheAgents,
+  String? waits,
 }) {
   const nothing = 'no project selected';
   // default's settings are Porelo's own and fixed: nothing here changes what it may reach.
@@ -694,8 +723,9 @@ List<Command> projectCommands({
       ? nothing
       : project.canBeActedOn
       ? null
+      // Never called carried while its machine waits for the token for it.
       : project.project.carried
-      ? '${project.name} is carried by this machine and not taken here yet: starting work takes it'
+      ? waits ?? '${project.name} is carried by this machine and not taken here yet: starting work takes it'
       : '${project.name} is not on this machine';
   return <Command>[
     // The long-running agents of the project's repositories, each with the agent its project.yml names.
@@ -705,9 +735,12 @@ List<Command> projectCommands({
       group: 'Project',
       home: Home.projectMenu,
       run: startTheAgents ?? () {},
-      unavailable: project?.project.carried == true
-          ? (startTheAgents == null ? 'not offered here' : null)
-          : noFile ?? (startTheAgents == null ? 'not offered here' : StartAgents.whyNot(project!.project)),
+      // A machine waiting for its token takes no repository, however the project stands.
+      unavailable:
+          waits ??
+          (project?.project.carried == true
+              ? (startTheAgents == null ? 'not offered here' : null)
+              : noFile ?? (startTheAgents == null ? 'not offered here' : StartAgents.whyNot(project!.project))),
     ),
     Command(
       id: 'gate.open',
@@ -1183,8 +1216,10 @@ List<Command> machineCommands({
 ///
 /// This is the whole list, and it is deliberately shorter than the product will be: about a
 /// third of the requirements have no backend method behind them, so their actions do not exist
-/// to be named yet. See `doc/Contract-Gaps.md`.
+/// to be named yet. See `doc/Contract-Gaps.md`. [selectedProjectWaits] is why the selected project's machine takes none of
+/// its repositories now, as while it waits for its token.
 List<Command> commandsFor({
+  String? selectedProjectWaits,
   List<Command> viewActions = const [],
   required FleetModel fleet,
   required Machine machine,
@@ -1406,6 +1441,7 @@ List<Command> commandsFor({
       itsForgeIsMissing: itsForgeIsMissing,
       showTheDefault: showTheDefault,
       startTheAgents: startTheAgents,
+      waits: selectedProjectWaits,
     ),
     Command(
       id: 'work.start',
@@ -1414,7 +1450,7 @@ List<Command> commandsFor({
       home: Home.startTile,
       shortcut: const SingleActivator(LogicalKeyboardKey.keyN, control: true),
       run: startWork,
-      unavailable: StartWork.whyNot(selectedProject?.project) ?? notAnswering(fleet),
+      unavailable: selectedProjectWaits ?? StartWork.whyNot(selectedProject?.project) ?? notAnswering(fleet),
     ),
     // One command per named job, so a template turns up in the finder like any other action.
     for (final job in selectedProject == null ? const <Template>[] : templates.forProject(selectedProject.name))
@@ -1426,7 +1462,7 @@ List<Command> commandsFor({
         run: () => startFromTemplate(job),
         unavailable: !job.startable
             ? 'this job is missing something it needs to run'
-            : StartWork.whyNot(selectedProject?.project),
+            : selectedProjectWaits ?? StartWork.whyNot(selectedProject?.project),
       ),
     Command(
       id: 'detail.open',

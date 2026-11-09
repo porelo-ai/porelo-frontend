@@ -155,4 +155,80 @@ void main() {
       expect(_row(listed: const Repository(name: 'core')), contains('no task running'));
     });
   });
+
+  // Harm: a project the machine waits for a token for reads as carried, and work is started where the machine refuses
+  // it; or one carried on another machine reads as waiting here, and the token goes to the wrong one.
+  group('a project its machine waits for a token for', () {
+    final waiting = _said(state: 'waiting-for-token', why: 'no key to read the central forge');
+    const listed = Repository(name: 'core', carriedHere: true, central: 'up-to-date', tasks: 0, running: 0);
+    ({String words, bool? carried, String? refused}) standing({
+      HostProjectProgress? progress,
+      Repository? listed,
+      List<String>? carriedAlone,
+    }) {
+      final said = progress ?? waiting;
+      return (
+        words: repositoryOnTheMachine(
+          project: 'demo',
+          repository: 'core',
+          progress: said,
+          progressRead: true,
+          tasks: const [],
+          carriedAlone: carriedAlone,
+          listed: listed,
+          forge: 'GitHub',
+        ),
+        carried: carriedOnTheMachine(
+          repository: 'core',
+          progress: said,
+          progressRead: true,
+          carriedAlone: carriedAlone,
+          listed: listed,
+          forge: 'GitHub',
+        ),
+        refused: startRefusedOnTheMachine(
+          repository: 'core',
+          progress: said,
+          progressRead: true,
+          carriedAlone: carriedAlone,
+          listed: listed,
+          forge: 'GitHub',
+        ),
+      );
+    }
+
+    test('is never called carried, though its daemon lists it carried, and no work starts in it', () {
+      final said = standing(listed: listed);
+      expect(said.words, startsWith('waits for your GitHub token: no key to read the central forge'));
+      expect(said.words, isNot(contains('carried')));
+      expect(said.carried, isNot(isTrue));
+      expect(said.refused, isNotNull);
+    });
+
+    test('is never called carried where its daemon says nothing', () {
+      final said = standing();
+      expect(said.words, startsWith('waits for your GitHub token'));
+      expect(said.refused, isNotNull);
+    });
+
+    test('a repository its daemon says it does not carry is not carried, not waiting', () {
+      final said = standing(listed: const Repository(name: 'core', carriedHere: false));
+      expect(said.words, startsWith('not carried here'));
+      expect(said.carried, isFalse);
+    });
+
+    test('a repository the organization puts on another machine does not wait here', () {
+      final said = standing(carriedAlone: ['docs']);
+      expect(said.words, startsWith('not carried here'));
+      expect(said.words, isNot(contains('token')));
+      expect(said.carried, isFalse);
+    });
+
+    test('one the machine has no address for waits for its repository, not a token', () {
+      final said = standing(progress: waiting.withNoAddress(), listed: listed);
+      expect(said.words, isNot(contains('token')));
+      expect(said.words, isNot(contains('carried')));
+      expect(said.refused, isNotNull);
+    });
+  });
 }

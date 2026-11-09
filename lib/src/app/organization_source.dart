@@ -823,6 +823,66 @@ abstract class HostConnections extends ChangeNotifier {
 
   /// How [project] on [host] stands with the central forge; cannot say where this computer cannot ask.
   Future<CentralState> central(String host, String project) async => const CentralState();
+
+  final _heard = <String, HostProgress>{};
+  final _askedOnce = <String>{};
+
+  /// The hosts the last [askOnce] found this person may not ask: gone, or not theirs to administer.
+  final _notTheirs = <String>{};
+
+  /// The ask of each host on its way, which a second ask joins.
+  final _asking = <String, Future<HostProgress>>{};
+
+  /// Asks [host] how far it has come, as [progress] does, joining an ask already on its way rather than logging in as
+  /// root a second time.
+  Future<HostProgress> ask(String host) => _asking[host] ??= progress(host).whenComplete(() {
+    // In a block: a callback answering this very future would wait for itself.
+    _asking.remove(host);
+  });
+
+  /// What [host] last said of how far it has come, while this computer is connected to it; null where it was not
+  /// asked. Asking it is [progress] or [refresh]; this asks nothing.
+  HostProgress? heard(String host) => connected(host) ? _heard[host] : null;
+
+  /// Keeps [progress] as what [host] said last, for every page that shows it, and answers it.
+  @protected
+  HostProgress keepHeard(String host, HostProgress progress) {
+    // An answer that comes after these connections were let go has nobody left to tell.
+    if (_letGo) return progress;
+    // Asked before the connection went or the role was taken, it stands for nobody now.
+    if (!connected(host) || _notTheirs.contains(host)) return progress;
+    _heard[host] = progress;
+    notifyListeners();
+    return progress;
+  }
+
+  bool _letGo = false;
+
+  @override
+  void dispose() {
+    _letGo = true;
+    super.dispose();
+  }
+
+  /// Asks each machine of [view] once how far it has come, where this person is its Machine Admin and connected to
+  /// it: asking logs in as root, which a host counts against anyone else. Asked again only once the connection went
+  /// and came back, or [again], as by a refresh; a refusal is no answer and leaves [heard] as it was.
+  void askOnce(OrganizationView view, {bool again = false}) {
+    if (again) _askedOnce.clear();
+    for (final host in view.hosts) {
+      final mayAsk = view.holdsRoles && host.admins.contains(view.me) && connected(host.name);
+      if (!mayAsk) {
+        // Gone or no longer theirs to ask: what it said before stands for nobody now.
+        _askedOnce.remove(host.name);
+        _heard.remove(host.name);
+        _notTheirs.add(host.name);
+        continue;
+      }
+      _notTheirs.remove(host.name);
+      if (!_askedOnce.add(host.name)) continue;
+      unawaited(ask(host.name).then<void>((_) {}, onError: (Object _) {}));
+    }
+  }
 }
 
 /// One thing founding a Porelo organization needs, as Core says it: its words are shown, not read.

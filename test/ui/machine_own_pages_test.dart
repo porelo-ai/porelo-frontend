@@ -6,8 +6,11 @@ import 'package:porelo_frontend/src/app/host_progress.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/organization_source.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
+import 'package:porelo_frontend/src/app/templates.dart';
 import 'package:porelo_frontend/src/ui/expandable_list_row.dart';
+import 'package:porelo_frontend/src/ui/machine_view.dart' show TemplateRow;
 import 'package:porelo_frontend/src/ui/page_explanation.dart';
+import 'package:porelo_frontend/src/ui/project_details_page.dart';
 
 import '../features/support/world.dart';
 import '../support/organization_fixtures.dart';
@@ -40,6 +43,27 @@ Future<Machine> _withTheCard(
   await World.machines.add(machine);
   await World.settle(tester);
   return machine;
+}
+
+/// Machine `build`, whose daemon lists `demo` carried for this person, while the host says it waits for the token.
+Future<Machine> _waitingDemo(WidgetTester tester, {FixtureConnections? connections}) async {
+  await World.startBackend(World.work);
+  World.backend.theProjectsItHas = [
+    ...World.backend.theProjectsItHas,
+    Project.from(const {
+      'name': 'demo',
+      'carried': true,
+      'repositories': [
+        {'name': 'demo'},
+      ],
+    }),
+  ];
+  // What `org status` answers for a project put on the machine before its admin gave the token.
+  return _withTheCard(
+    tester,
+    connections: (connections ?? FixtureConnections(['build']))
+      ..hostProgress = HostProgress.read('{"projects":[{"project":"demo","state":"waiting-for-token"}]}'),
+  );
 }
 
 void main() {
@@ -234,5 +258,218 @@ void main() {
     final path = tester.widget<PageHead>(find.byType(PageHead).first).path.map((step) => step.label).toList();
     expect(path, ['My projects']);
     expect(find.byKey(const Key('project-general-page')), findsNothing);
+  });
+
+  // Harm: a project its machine waits for the token for reads as carried, on its row and on its page however that is
+  // opened, and work is started there that the machine refuses.
+  testWidgets('a project its machine waits for the token for is never carried, and no work starts in it', (
+    tester,
+  ) async {
+    await World.startBackend(World.work);
+    World.backend.theProjectsItHas = [
+      ...World.backend.theProjectsItHas,
+      Project.from(const {
+        'name': 'demo',
+        'file': '/srv/demo/project.yml',
+        'carried': true,
+        'repositories': [
+          {'name': 'demo', 'own': true},
+          {'name': 'demo-api', 'carriedHere': true, 'central': 'up-to-date'},
+        ],
+      }),
+    ];
+    // What `org status` answers for a project put on the machine before its admin gave the token.
+    final connections = FixtureConnections(['build'])
+      ..hostProgress = HostProgress.read(
+        '{"projects":[{"project":"demo","state":"waiting-for-token","why":"no key to read the central forge"}]}',
+      );
+    final machine = await _withTheCard(tester, connections: connections);
+    World.shell.choosePlace(ShellPlace(Section.machine, machine: machine, machineSection: MachineSection.projects));
+    await World.settle(tester);
+    final listRow = find.byKey(const ValueKey('projects-row build/demo'));
+    expect(find.descendant(of: listRow, matching: find.textContaining('arried')), findsNothing);
+    expect(find.descendant(of: listRow, matching: find.textContaining('waits for your')), findsOneWidget);
+
+    Future<void> neverCarried(String route) async {
+      final facts = tester.widget<Text>(find.byKey(const Key('project-facts'))).data!;
+      expect(facts, isNot(contains('carried')), reason: route);
+      expect(facts, contains('waits for your'), reason: route);
+      await World.showRepository(tester, 'demo-api');
+      final row = find.byKey(const Key('repository-demo-api'));
+      expect(
+        find.descendant(of: row, matching: find.textContaining('carried')),
+        findsNothing,
+        reason: route,
+      );
+      expect(tester.widget<ListTile>(row).onTap, isNull, reason: '$route: a tap on it starts work there');
+      final commands = tester.widget<ProjectDetailsPage>(find.byType(ProjectDetailsPage)).commands;
+      for (final id in ['work.start', 'project.startAgents']) {
+        expect(commands.where((each) => each.id == id).single.available, isFalse, reason: '$route: $id');
+      }
+      expect(find.byKey(const Key('project-give-token')), findsOneWidget, reason: route);
+    }
+
+    await _tap(tester, 'project build/demo');
+    await neverCarried('opened from its machine');
+    World.shell.show('work.start', section: Section.project);
+    await World.settle(tester);
+    await neverCarried('opened by the finder');
+  });
+
+  // Harm: a project of a machine no organization's card names, opened from that machine's page while an organization is
+  // read, crashes the window.
+  testWidgets('a project of this machine opens from its page while an organization is read', (tester) async {
+    await World.startBackend(World.work);
+    World.backend.theProjectsItHas = [
+      ...World.backend.theProjectsItHas,
+      Project.from(const {
+        'name': 'demo',
+        'file': '/srv/demo/project.yml',
+        'repositories': [
+          {'name': 'demo'},
+        ],
+      }),
+    ];
+    await World.startApp(
+      tester,
+      organizationSource: FixtureOrganization(organizationFor('hana')),
+      hostConnections: FixtureConnections(['build']),
+    );
+    final machine = World.machines.current;
+    expect(machine.hostCard, isNull);
+    World.shell.choosePlace(ShellPlace(Section.machine, machine: machine, machineSection: MachineSection.projects));
+    await World.settle(tester);
+    await _tap(tester, 'project ${machine.name}/demo');
+    expect(tester.takeException(), isNull);
+    expect(find.byKey(const Key('repository-demo')), findsOneWidget);
+  });
+
+  // Harm: work starts in a project its machine waits for the token for, from *Start work* on the machine's page,
+  // which takes the only project the machine lists.
+  testWidgets('start work on a machine waiting for the token takes no project there', (tester) async {
+    final machine = await _waitingDemo(tester);
+    World.shell.choosePlace(ShellPlace(Section.machine, machine: machine));
+    await World.settle(tester);
+    // Asked of a machine listing other projects too, it is not offered among them.
+    await World.tapInView(tester, 'organization.startWork/build');
+    await World.settle(tester);
+    expect(find.byKey(const ValueKey('new-work-in demo')), findsNothing);
+    await tester.tapAt(Offset.zero);
+    await World.settle(tester);
+    // Asked of a machine listing it alone, it is not taken for the one project there.
+    World.backend.theProjectsItHas = [
+      for (final each in World.backend.theProjectsItHas)
+        if (each.name == 'demo') each,
+    ];
+    await World.tapInView(tester, 'organization.startWork/build');
+    await World.settle(tester);
+    expect(World.backend.taken, isEmpty);
+    expect(World.starting.project?.name, isNot('demo'));
+  });
+
+  // Harm: a saved job starts in a project its machine waits for the token for.
+  testWidgets('a saved job does not start in a project its machine waits for the token for', (tester) async {
+    final machine = await _waitingDemo(tester);
+    await World.templates.keep(
+      const Template(name: 'nightly', project: 'demo', agent: 'an-agent', mode: Mode.agent, prompt: 'run'),
+    );
+    World.shell.choosePlace(ShellPlace(Section.machine, machine: machine, machineSection: MachineSection.projects));
+    await World.settle(tester);
+    await _tap(tester, 'project build/demo');
+    final row = tester.widget<TemplateRow>(find.byType(TemplateRow));
+    expect(row.unavailable, isNotNull);
+    row.onPressed();
+    await World.settle(tester);
+    expect(World.backend.taken, isEmpty);
+    expect(World.starting.project, isNull);
+  });
+
+  // Harm: opening the start form asks the machine as root for a person who is no Machine Admin of it, a refused login
+  // that counts against them.
+  testWidgets('starting work as a member asks the machine nothing as root', (tester) async {
+    await World.startBackend(World.work);
+    World.backend.theProjectsItHas = [
+      ...World.backend.theProjectsItHas,
+      Project.from(const {
+        'name': 'demo',
+        'file': '/srv/demo/project.yml',
+        'repositories': [
+          {'name': 'demo'},
+        ],
+      }),
+    ];
+    final connections = FixtureConnections(['build']);
+    final machine = await _withTheCard(tester, me: 'mia', connections: connections);
+    World.shell.choosePlace(ShellPlace(Section.machine, machine: machine, machineSection: MachineSection.projects));
+    await World.settle(tester);
+    await _tap(tester, 'project build/demo');
+    await World.showRepository(tester, 'demo');
+    await tester.tap(find.byKey(const Key('repository-demo')));
+    await World.settle(tester);
+    expect(World.starting.project?.name, 'demo', reason: 'the start form opened');
+    expect(connections.asked.where((each) => each.startsWith('progress') || each.startsWith('refresh')), isEmpty);
+  });
+
+  // Harm: each page that shows the machine asks it again as root, a fan of logins its host counts, where one answer
+  // per connection is what there is to read.
+  testWidgets('the machine is asked how far it has come once, whichever of its pages open', (tester) async {
+    final connections = FixtureConnections(['build']);
+    final machine = await _waitingDemo(tester, connections: connections);
+    int asks() => connections.asked.where((each) => each == 'progress build').length;
+    expect(asks(), 1, reason: 'asked once as the connection was read');
+    for (var round = 0; round < 2; round++) {
+      World.shell.choosePlace(ShellPlace(Section.machine, machine: machine));
+      await World.settle(tester);
+      World.shell.choosePlace(ShellPlace(Section.machine, machine: machine, machineSection: MachineSection.projects));
+      await World.settle(tester);
+      await _tap(tester, 'project build/demo');
+    }
+    expect(asks(), 1);
+  });
+
+  // Harm: Refresh leaves a project's page saying it waits for the token after the machine took it, and its work
+  // refused, where Refresh is the way to read the machine again.
+  testWidgets("Refresh asks the machine again on a project's page", (tester) async {
+    final connections = FixtureConnections(['build']);
+    final machine = await _waitingDemo(tester, connections: connections);
+    await World.settings.setRefreshSeconds(0);
+    World.shell.choosePlace(ShellPlace(Section.machine, machine: machine, machineSection: MachineSection.projects));
+    await World.settle(tester);
+    await _tap(tester, 'project build/demo');
+    expect(tester.widget<Text>(find.byKey(const Key('project-facts'))).data, contains('waits for your'));
+    connections.hostProgress = HostProgress.read(
+      '{"projects":[{"project":"demo","state":"carried","repositories":[{"repository":"demo","state":"taken"}]}]}',
+    );
+    await World.tapInView(tester, 'refresh-all');
+    await World.settle(tester);
+    expect(tester.widget<Text>(find.byKey(const Key('project-facts'))).data, isNot(contains('waits for your')));
+  });
+
+  // Harm: each start form a Machine Admin opens logs in to the machine as root again, for what it said already.
+  testWidgets('opening the start form takes what the machine said, asking nothing more', (tester) async {
+    await World.startBackend(World.work);
+    World.backend.theProjectsItHas = [
+      ...World.backend.theProjectsItHas,
+      Project.from(const {
+        'name': 'demo',
+        'file': '/srv/demo/project.yml',
+        'repositories': [
+          {'name': 'demo'},
+        ],
+      }),
+    ];
+    final connections = FixtureConnections(['build'])
+      ..hostProgress = HostProgress.read(
+        '{"projects":[{"project":"demo","state":"carried","repositories":[{"repository":"demo","state":"taken"}]}]}',
+      );
+    final machine = await _withTheCard(tester, connections: connections);
+    World.shell.choosePlace(ShellPlace(Section.machine, machine: machine, machineSection: MachineSection.projects));
+    await World.settle(tester);
+    await _tap(tester, 'project build/demo');
+    await World.showRepository(tester, 'demo');
+    await tester.tap(find.byKey(const Key('repository-demo')));
+    await World.settle(tester);
+    expect(World.starting.project?.name, 'demo', reason: 'the start form opened');
+    expect(connections.asked.where((each) => each == 'progress build'), hasLength(1));
   });
 }
