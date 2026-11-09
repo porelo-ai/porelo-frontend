@@ -9,7 +9,10 @@ Future<void> eachRepositoryOfTheProjectSaysWhetherTheHostCarriesItAsTheHostSays(
     pictured(tester, () async {
       final project = await theProjectOnTheHost();
       expect(project, isNotNull, reason: 'the host lists ${Rehearsal.project}');
-      final repositories = (project!['repositories'] as List<dynamic>? ?? const []).whereType<Map<String, dynamic>>();
+      // Not the project's own repository: no work starts there, and the page lists only those it can.
+      final repositories = (project!['repositories'] as List<dynamic>? ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .where((each) => each['own'] != true);
       expect(repositories, isNotEmpty, reason: 'the host names its repositories');
       for (final each in repositories) {
         final name = each['name'] as String;

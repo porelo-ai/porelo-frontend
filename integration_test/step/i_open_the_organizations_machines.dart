@@ -11,12 +11,19 @@ Future<void> iOpenTheOrganizationsMachines(WidgetTester tester) async {
     (w) =>
         w.key is ValueKey<String> && RegExp(r'^rail organization [^ ]+$').hasMatch((w.key! as ValueKey<String>).value),
   );
+  // Read after the place was chosen, the organization's row stays folded under it: unfolded as a person would.
+  final fold = find.byKey(const ValueKey<String>('fold organizations'));
   await pumpUntil(
     tester,
-    () => organization.evaluate().isNotEmpty,
+    () => organization.evaluate().isNotEmpty || fold.evaluate().isNotEmpty,
     timeout: const Duration(minutes: 1),
     what: 'the organization',
   );
+  if (organization.evaluate().isEmpty) {
+    await tester.ensureVisible(fold.first);
+    await tester.tap(fold.first);
+    await pumpUntil(tester, () => organization.evaluate().isNotEmpty, what: "the organization's row");
+  }
   final key = (organization.evaluate().first.widget.key! as ValueKey<String>).value;
   await tester.ensureVisible(organization.first);
   await tester.tap(organization.first);

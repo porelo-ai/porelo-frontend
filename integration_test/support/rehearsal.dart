@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
+import 'package:porelo_frontend/src/ui/start_work_view.dart';
 
 import 'e2e.dart';
 import 'remote.dart';
@@ -78,8 +79,9 @@ Future<List<String>> theCarriedRepositories() async {
   final project = await theProjectOnTheHost();
   final repositories = (project?['repositories'] as List<dynamic>? ?? const []).whereType<Map<String, dynamic>>();
   return [
+    // The project's own repository holds its file and planning; no work starts there, and its page does not list it.
     for (final each in repositories)
-      if (each['carriedHere'] == true) each['name'] as String,
+      if (each['carriedHere'] == true && each['own'] != true) each['name'] as String,
   ];
 }
 
@@ -122,6 +124,8 @@ Future<void> toTheProjectOnTheHost(WidgetTester tester) async {
 
 /// Presses the item [label] of the popup menu opened by the button keyed [menu], scrolling inside a tall menu.
 Future<void> chooseFromTheMenu(WidgetTester tester, Finder menu, String label) async {
+  // The page draws its rows once the machine answered, after its frame is there.
+  await pumpUntil(tester, () => menu.evaluate().isNotEmpty, what: 'the menu for $label');
   await tester.ensureVisible(menu.first);
   await tester.tap(menu.first);
   await pumpFor(tester);
@@ -129,6 +133,21 @@ Future<void> chooseFromTheMenu(WidgetTester tester, Finder menu, String label) a
   await pumpUntil(tester, () => item.evaluate().isNotEmpty, what: 'the menu to offer $label');
   await tester.tap(item.first);
   await pumpFor(tester);
+}
+
+/// Chooses the first agent the form offers where the repository names none and the form asks for one, as a person
+/// would; where an agent is named, or the machine chooses, the form is left as it is.
+Future<void> chooseAnAgentWhereNoneIsNamed(WidgetTester tester) async {
+  final field = find.byKey(const Key('start-agent'));
+  await pumpUntil(tester, () => field.evaluate().isNotEmpty, what: 'the form to offer its agents');
+  if (find.descendant(of: field, matching: find.text('Choose an agent')).evaluate().isEmpty) return;
+  await tester.ensureVisible(field.first);
+  await tester.tap(field.first);
+  await pumpFor(tester);
+  final offered = find.byType(StartAgentChoice);
+  await pumpUntil(tester, () => offered.evaluate().isNotEmpty, what: 'an agent to choose');
+  await tester.tap(offered.first);
+  await pumpFor(tester, const Duration(seconds: 2));
 }
 
 /// The text a field shows, or "" where it is not there.

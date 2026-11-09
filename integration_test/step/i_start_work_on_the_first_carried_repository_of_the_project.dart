@@ -12,6 +12,7 @@ Future<void> iStartWorkOnTheFirstCarriedRepositoryOfTheProject(WidgetTester test
   Rehearsal.startedRepository = repository;
   await toTheProjectOnTheHost(tester);
   await chooseFromTheMenu(tester, find.byKey(Key('repository-menu $repository')), 'Start work in $repository');
+  await chooseAnAgentWhereNoneIsNamed(tester);
   // The form asks the machine before Start is offered: whether it can start, the sign-in, the model.
   final go = find.byKey(const Key('start-go'));
   await pumpUntil(

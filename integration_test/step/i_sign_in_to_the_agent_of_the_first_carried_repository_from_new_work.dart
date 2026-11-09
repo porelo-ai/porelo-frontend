@@ -16,6 +16,7 @@ Future<void> iSignInToTheAgentOfTheFirstCarriedRepositoryFromNewWork(WidgetTeste
     find.byKey(Key('repository-menu ${carried.first}')),
     'Start work in ${carried.first}',
   );
+  await chooseAnAgentWhereNoneIsNamed(tester);
   // The form asks the host whether its agent is signed in; the sign-in is offered, and pressable, only once it has.
   final signIn = find.byKey(const Key('start-sign-in-button'));
   final anyway = find.byKey(const Key('start-sign-in-anyway'));
