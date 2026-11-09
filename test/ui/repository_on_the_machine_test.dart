@@ -82,6 +82,25 @@ void main() {
     expect(words, startsWith('not carried here'));
   });
 
+  // Harm: a repository the machine does not carry reads as held there, and its row starts work, while the project is held.
+  test('a repository the host says it does not carry is not held there, though the project is held', () {
+    final progress = _said(
+      state: 'held',
+      why: 'core',
+      repositories: [
+        {'repository': 'core', 'state': 'taken'},
+        {'repository': 'docs', 'state': 'not-carried'},
+      ],
+    );
+    expect(_row(repository: 'docs', progress: progress), startsWith('not carried here'));
+    expect(
+      carriedOnTheMachine(repository: 'docs', progress: progress, progressRead: true),
+      isFalse,
+      reason: 'it would stand among the carried and start work there',
+    );
+    expect(_row(repository: 'core', progress: progress), startsWith('held: core'));
+  });
+
   // Harm: what the organization planned reads as what the machine carries, though nobody reported it.
   test('a repository planned for the machine alone is not said to be carried there when nothing was read', () {
     final words = _row(progressRead: false, carriedAlone: ['core']);

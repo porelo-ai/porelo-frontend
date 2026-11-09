@@ -18,6 +18,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f453"></a>[F453](F453-A-Machines-Project-Page-Lists-What-It-Carries-First.md) | S | — | A machine's project page lists the carried repositories first and folds the rest with their count; no raw host word; forge names shown as such; zero tasks said as 0. |
 | <a id="f137"></a>[F137](F137-The-Collection-Taken-Only-By-Its-Digest.md) | — | — | The collection installed on the host only by the digest the package expects, checked here and there. |
 | <a id="f438"></a>[F438](F438-Rows-And-Running-Steps-After-The-Third-Move.md) | M | — | A row keeps its chip and buttons inside, running steps say they run, a machine not yet admitting says it waits, growing output follows its last line. |
 | <a id="f439"></a>[F439](F439-A-Machines-Own-Pages-After-The-Third-Move.md) | M | — | One header with *Open its forge* in sight, *Machine Admins* alone, a project's repositories on a machine, *New work* without a needless question, a dead forge forward noticed. |
@@ -100,7 +101,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="f203"></a>[F203](F203-This-Repository-Worked-In-A-Porelo-Task.md) | S | — | This repository's agent working in an attended Porelo task on the host, its build green on the host's Forgejo, reached in the room, with a way back. |
-| <a id="f453"></a>[F453](F453-A-Machines-Project-Page-Lists-What-It-Carries-First.md) | S | — | A machine's project page lists the carried repositories first and folds the rest with their count; no raw host word; forge names shown as such; zero tasks said as 0. |
 
 ### Backlog
 

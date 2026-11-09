@@ -1,6 +1,6 @@
 # F453 — A Machine's Project Page Lists What It Carries First
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** S - one list sorted and folded, the host's raw words replaced, the forge's names shown as such, one count
 said as zero.
 
@@ -13,15 +13,19 @@ one line that counts them, so the few placed there are not buried among the proj
 - Right after carrying, a repository with no task says "0 tasks", not "tasks: not reported", where the machine was
   asked and answered.
 
-## Plan
+## How it stands
 
-- `lib/src/ui/machine_tree.dart`: `repositoryOnTheMachine` maps a known state word to words and drops the fallback
-  `not carried: $state` for states the host names as not carried; the page's list sorts carried first and folds the
-  rest in one expandable row.
-- The forge's name comes from what the host answers for the repository; where the answer has none, the project's name
-  stands alone.
-- Red first: a widget test of the page with a host answering `not-carried` for fifteen repositories and `taken` for
-  three, which today lists the raw word and the fifteen first.
+- `lib/src/ui/machine_tree.dart`: `carriedOnTheMachine` says, from the same reading as the row's words, whether the
+  machine carries a repository; the project's page lists the carried ones first, then those nobody said of, and folds
+  those it does not carry under *Not carried here (N)*. Where it carries none, the list stays whole and open.
+- The host's `not-carried` reads "not carried here"; a word of a later host is still shown as it comes.
+- **Not built: "0 tasks" for a repository only the host names.** The machine's daemon does not list such a repository,
+  so its work is not counted, and a guard holds that work nobody counted never reads as none; it reads as counted once
+  the daemon lists the repository with its counts.
+- **Not built: the forge's name beside the project's.** Neither the daemon's list (`Repository.name`) nor the host's
+  answer (`repository` per row in `host_progress.dart`) carries a repository's forge name; showing it needs one of them
+  to answer it.
+- Order, folding and wording only: no new test, as the rules ask for what only reads wrong.
 
 ## Acceptance
 

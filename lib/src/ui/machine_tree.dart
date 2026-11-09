@@ -36,6 +36,10 @@ class StopEverywhere extends StatelessWidget {
   }
 }
 
+/// What a machine holds of one repository of a project: its row's words, and whether it carries it (null where
+/// nobody said).
+typedef OnTheMachine = ({String words, bool? carried});
+
 /// What a machine an organization's card names holds of [repository] of [project], for its row on the project's page
 /// opened from that machine: carried, not carried or held; its state at central; the work running in it. [progress] is
 /// what the machine said of the project, null where it said nothing of it; [progressRead] is false where the machine
@@ -51,26 +55,13 @@ String repositoryOnTheMachine({
   Repository? listed,
 }) {
   final row = progress?.repositories.where((each) => each.repository == repository).firstOrNull;
-  final alone = carriedAlone != null && carriedAlone.contains(repository);
-  final notHere = carriedAlone != null && !alone;
-  final daemonCarried = listed == null ? null : carriedWords(listed);
-  final held = listed?.carriedHere == false
-      // Not carried here, so nothing of it is held here, whatever the project is.
-      ? daemonCarried!
-      : progressRead && progress?.state == 'held'
-      ? 'held: ${progress?.why ?? 'it has unpushed work'}'
-      : daemonCarried != null
-      ? (alone ? 'carried here alone' : daemonCarried)
-      : !progressRead
-      // What the organization planned for the machine is no word that it carries it.
-      ? (notHere ? 'not carried here' : 'carried: not read')
-      : switch (row?.state) {
-          'taken' => alone ? 'carried here alone' : 'carried',
-          'waiting' => 'not carried yet',
-          'no-central' => 'not carried: it names no central address',
-          null => notHere ? 'not carried here' : 'not carried',
-          final state => 'not carried: $state',
-        };
+  final held = _standing(
+    repository: repository,
+    progress: progress,
+    progressRead: progressRead,
+    carriedAlone: carriedAlone,
+    listed: listed,
+  ).words;
   final host = progressRead && row?.state == 'taken' ? (row?.central ?? const HostRepositoryCentral()) : null;
   final daemon = listed?.central;
   // The two may disagree, one older than the other: up to date never hides what is not.
@@ -87,6 +78,63 @@ String repositoryOnTheMachine({
       ? 'central: not reported'
       : null;
   return [held, ?central, workIn(project: project, repository: repository, listed: listed, tasks: tasks)].join(' · ');
+}
+
+/// Whether the machine carries [repository], as [repositoryOnTheMachine] words it: true where it carries or holds it,
+/// false where it does not, null where nobody said or it is on its way there.
+bool? carriedOnTheMachine({
+  required String repository,
+  required HostProjectProgress? progress,
+  required bool progressRead,
+  List<String>? carriedAlone,
+  Repository? listed,
+}) => _standing(
+  repository: repository,
+  progress: progress,
+  progressRead: progressRead,
+  carriedAlone: carriedAlone,
+  listed: listed,
+).carried;
+
+/// Carried, not carried or held, in words and as a fact, for [repositoryOnTheMachine] and [carriedOnTheMachine].
+({String words, bool? carried}) _standing({
+  required String repository,
+  required HostProjectProgress? progress,
+  required bool progressRead,
+  List<String>? carriedAlone,
+  Repository? listed,
+}) {
+  final row = progress?.repositories.where((each) => each.repository == repository).firstOrNull;
+  final alone = carriedAlone != null && carriedAlone.contains(repository);
+  final notHere = carriedAlone != null && !alone;
+  final daemonCarried = listed == null ? null : carriedWords(listed);
+  if (listed?.carriedHere == false) {
+    // Not carried here, so nothing of it is held here, whatever the project is.
+    return (words: daemonCarried!, carried: false);
+  }
+  // Held is the project's state: it holds only what the machine carries of it, never one the host left out or that is
+  // still on its way. A host that lists no repositories says nothing of which, so only the left-out ones are excluded.
+  final heldHere =
+      listed?.carriedHere == true || (progress?.repositories.isEmpty ?? true ? !notHere : row?.state == 'taken');
+  if (progressRead && progress?.state == 'held' && heldHere) {
+    return (words: 'held: ${progress?.why ?? 'it has unpushed work'}', carried: true);
+  }
+  if (daemonCarried != null) {
+    return (words: alone ? 'carried here alone' : daemonCarried, carried: listed?.carriedHere);
+  }
+  if (!progressRead) {
+    // What the organization planned for the machine is no word that it carries it.
+    return notHere ? (words: 'not carried here', carried: false) : (words: 'carried: not read', carried: null);
+  }
+  return switch (row?.state) {
+    'taken' => (words: alone ? 'carried here alone' : 'carried', carried: true),
+    'waiting' => (words: 'not carried yet', carried: null),
+    'no-central' => (words: 'not carried: it names no central address', carried: false),
+    'not-carried' => (words: 'not carried here', carried: false),
+    null => (words: notHere ? 'not carried here' : 'not carried', carried: false),
+    // A word of a later host, shown as it comes.
+    final state => (words: 'not carried: $state', carried: false),
+  };
 }
 
 /// The work of [repository] of [project] for its row: as the machine whose daemon listed it as [listed] counts it,
@@ -218,8 +266,8 @@ class ProjectHeader extends StatelessWidget {
   });
 
   /// What the machine holds of each repository, in words beside its row, where the page was opened from that machine;
-  /// a repository only the machine names gets a row of its own.
-  final Map<String, String>? onTheMachine;
+  /// a repository only the machine names gets a row of its own, and those it does not carry fold below the rest.
+  final Map<String, OnTheMachine>? onTheMachine;
 
   /// Where a Matrix client here reaches the project's homeserver, or why it cannot; null where nobody
   /// joined its conversation from here.
@@ -282,6 +330,17 @@ class ProjectHeader extends StatelessWidget {
       for (final name in onTheMachine?.keys ?? const <String>[])
         if (!listed.any((each) => each.name == name)) Repository(name: name),
     ];
+    // What the machine carries first; what it does not carry folds below, counted, so the few placed there show.
+    bool? carried(Repository repository) => onTheMachine?[repository.name]?.carried;
+    final carriedFirst = [
+      ...workRepositories.where((each) => carried(each) == true),
+      ...workRepositories.where((each) => carried(each) == null),
+    ];
+    // Nothing to put first: the list stays whole and open.
+    final here = carriedFirst.isEmpty ? workRepositories : carriedFirst;
+    final notHere = carriedFirst.isEmpty
+        ? const <Repository>[]
+        : workRepositories.where((each) => carried(each) == false).toList();
     final facts = <String>[
       if (!p.prepared && !isDefault && !p.carried) 'environment not prepared',
       if (p.environmentIsStale) 'environment older than its project file',
@@ -338,16 +397,26 @@ class ProjectHeader extends StatelessWidget {
           Text(words, key: const Key('project-homeserver'), style: theme.textTheme.bodySmall),
         if (workRepositories.isNotEmpty) ...<Widget>[
           const SizedBox(height: Space.normal),
-          _Repositories(
-            repositories: workRepositories,
-            onTheMachine: onTheMachine ?? const {},
-            onStart: project.canBeActedOn ? onStart : null,
-            startUnavailable: startUnavailable,
-            onSync: project.canBeActedOn ? onSync : null,
-            onBackups: project.canBeActedOn ? onBackups : null,
-            onOpens: project.canBeActedOn ? onOpens : null,
-            onReach: project.canBeActedOn ? onReach : null,
-          ),
+          for (final (part, title, open) in [
+            (here, 'Repositories', true),
+            (notHere, 'Not carried here (${notHere.length})', false),
+          ])
+            if (part.isNotEmpty)
+              _Repositories(
+                key: Key(open ? 'project-repositories' : 'project-repositories-not-carried'),
+                title: title,
+                initiallyOpen: open,
+                repositories: part,
+                onTheMachine: {
+                  for (final MapEntry(:key, :value) in (onTheMachine ?? const {}).entries) key: value.words,
+                },
+                onStart: project.canBeActedOn ? onStart : null,
+                startUnavailable: startUnavailable,
+                onSync: project.canBeActedOn ? onSync : null,
+                onBackups: project.canBeActedOn ? onBackups : null,
+                onOpens: project.canBeActedOn ? onOpens : null,
+                onReach: project.canBeActedOn ? onReach : null,
+              ),
         ],
       ],
     );
@@ -357,6 +426,8 @@ class ProjectHeader extends StatelessWidget {
 /// A project's repositories, a card each, as machines and projects are listed.
 class _Repositories extends StatelessWidget {
   const _Repositories({
+    required this.title,
+    required this.initiallyOpen,
     required this.repositories,
     required this.onTheMachine,
     this.onStart,
@@ -365,8 +436,11 @@ class _Repositories extends StatelessWidget {
     this.onBackups,
     this.onOpens,
     this.onReach,
+    super.key,
   });
 
+  final String title;
+  final bool initiallyOpen;
   final List<Repository> repositories;
   final Map<String, String> onTheMachine;
   final void Function(String repository)? onStart;
@@ -378,10 +452,10 @@ class _Repositories extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => FilteredListSection(
-    key: const Key('project-repositories'),
-    title: 'Repositories',
-    storageId: 'project-repositories',
+    title: title,
+    storageId: initiallyOpen ? 'project-repositories' : 'project-repositories-not-carried',
     collapsible: true,
+    initiallyOpen: initiallyOpen,
     rows: [
       for (final repository in repositories)
         (

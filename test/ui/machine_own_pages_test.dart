@@ -121,6 +121,7 @@ void main() {
     World.shell.choosePlace(ShellPlace(Section.machine, machine: machine, machineSection: MachineSection.projects));
     await World.settle(tester);
     await _tap(tester, 'project build/demo');
+    await World.showRepository(tester, 'demo-docs');
     final row = find.byKey(const Key('repository-demo-docs'));
     expect(find.descendant(of: row, matching: find.textContaining('not carried here')), findsOneWidget);
     expect(find.descendant(of: row, matching: find.textContaining('at central')), findsNothing);
@@ -209,6 +210,7 @@ void main() {
     World.backend.absent = const VarlinkDisconnected('gone');
     World.backend.lose();
     await World.settle(tester);
+    await World.showRepository(tester, 'demo');
     final row = find.byKey(const Key('repository-demo'));
     expect(find.descendant(of: row, matching: find.textContaining('tasks: not read')), findsOneWidget);
     final head = find.byType(PageHead).first;

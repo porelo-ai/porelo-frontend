@@ -3817,9 +3817,20 @@ class World {
     await tester.pump();
   }
 
+  /// Brings [repository]'s row on the project's page into the tree: one the machine does not carry is folded under
+  /// *Not carried here*, which is opened for it.
+  static Future<void> showRepository(WidgetTester tester, String repository) async {
+    final fold = find.byKey(const ValueKey('project-repositories-not-carried-fold'));
+    if (find.byKey(Key('repository-$repository')).evaluate().isEmpty && fold.evaluate().isNotEmpty) {
+      await tester.tap(fold);
+      await settle(tester);
+    }
+  }
+
   /// Chooses [what] (`sync`, `backups`, `opens`, `reach`, `start-in`) from [repository]'s row menu
   /// on the project's page.
   static Future<void> fromARepositorysMenu(WidgetTester tester, String repository, String what) async {
+    await showRepository(tester, repository);
     await tester.tap(find.byKey(Key('repository-menu $repository')));
     await settle(tester);
     await tester.tap(find.byKey(Key('$what-$repository')));

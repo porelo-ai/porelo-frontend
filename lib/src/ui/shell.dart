@@ -5966,7 +5966,7 @@ class _ShellState extends State<Shell> {
 
   /// What [machine] holds of each repository of [project], by name: from what the host said where its card names it,
   /// and from the machine's own list of work.
-  Map<String, String> _onTheMachine(
+  Map<String, OnTheMachine> _onTheMachine(
     Machine machine,
     ProjectOnScreen project, {
     required HostProgress? progress,
@@ -5984,7 +5984,10 @@ class _ShellState extends State<Shell> {
     if (!_onTheOrganizationsPage(machine)) {
       return {
         for (final each in listed.values)
-          each.name: repositoryOnAMachine(project: project.name, listed: each, carried: p.carried, tasks: tasks),
+          each.name: (
+            words: repositoryOnAMachine(project: project.name, listed: each, carried: p.carried, tasks: tasks),
+            carried: each.carriedHere,
+          ),
       };
     }
     final card = machine.hostCard!.name;
@@ -5997,14 +6000,23 @@ class _ShellState extends State<Shell> {
         for (final row in said?.repositories ?? const <HostRepositoryProgress>[]) row.repository,
         ...?carriedAlone,
       })
-        name: repositoryOnTheMachine(
-          project: project.name,
-          repository: name,
-          progress: said,
-          progressRead: read && progress != null,
-          tasks: tasks,
-          carriedAlone: carriedAlone,
-          listed: listed[name],
+        name: (
+          words: repositoryOnTheMachine(
+            project: project.name,
+            repository: name,
+            progress: said,
+            progressRead: read && progress != null,
+            tasks: tasks,
+            carriedAlone: carriedAlone,
+            listed: listed[name],
+          ),
+          carried: carriedOnTheMachine(
+            repository: name,
+            progress: said,
+            progressRead: read && progress != null,
+            carriedAlone: carriedAlone,
+            listed: listed[name],
+          ),
         ),
     };
   }
