@@ -9,6 +9,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Planning stories can be dragged to pending states, undone individually, and saved atomically with revision checks and daemon refusals.
+
 - *Planning* shows a project’s stories by workflow phase, with live updates, priority and search filters, folding, issue progress and reading rounds; a stopped reading leads to *Needs you*.
 
 - *Set up a machine* offers *Run it for me* for the bootstrap line: on your press it runs the line on the server as the first login, trusting only the SSH host key you compared, and tries root's login right after; where sudo wants your password it says so, and the terminal stays the way.

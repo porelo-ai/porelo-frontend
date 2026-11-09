@@ -6,16 +6,76 @@ import 'package:porelo_frontend/client.dart';
 import '../app/planning_board.dart';
 import 'tokens.dart';
 
-/// The read-only planning board, supplied by watched machines.
+final _planningLeaveDialogs = Expando<bool>();
+
+/// Asks before leaving unsaved work; a save in flight must finish first.
+Future<bool> confirmPlanningLeave(BuildContext context, Iterable<PlanningBoard> boards, {bool quitting = false}) async {
+  final watched = boards.toList();
+  final navigator = Navigator.of(context);
+  if (_planningLeaveDialogs[navigator] == true) return false;
+  if (!watched.any((board) => board.pending.isNotEmpty || board.saving)) return true;
+  _planningLeaveDialogs[navigator] = true;
+  try {
+    return await showDialog<bool>(
+          context: context,
+          builder: (context) => ListenableBuilder(
+            listenable: Listenable.merge(watched),
+            builder: (context, _) {
+              final saving = watched.any((board) => board.saving);
+              final pending = watched.any((board) => board.pending.isNotEmpty);
+              return AlertDialog(
+                title: Text(
+                  saving
+                      ? 'Planning is saving'
+                      : pending
+                      ? 'Unsaved planning moves'
+                      : 'Planning saved',
+                ),
+                content: Text(
+                  saving
+                      ? 'Wait for the machine’s answer before leaving.'
+                      : !pending
+                      ? 'The planning changes are saved. You can continue.'
+                      : quitting
+                      ? 'Closing the window loses unsaved planning moves. Close anyway?'
+                      : 'These planning moves have not been saved. Leave them pending and continue?',
+                ),
+                actions: [
+                  TextButton(
+                    key: const Key('planning-stay'),
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text('Keep editing'),
+                  ),
+                  if (!saving)
+                    TextButton(
+                      key: const Key('planning-leave'),
+                      onPressed: () => Navigator.pop(context, true),
+                      child: Text(quitting ? 'Close anyway' : 'Leave with moves pending'),
+                    ),
+                ],
+              );
+            },
+          ),
+        ) ??
+        false;
+  } finally {
+    _planningLeaveDialogs[navigator] = false;
+  }
+}
+
+/// The planning board and its unsaved moves, supplied by watched machines.
 class PlanningView extends StatelessWidget {
   /// Takes the boards retained by the shell.
-  const PlanningView({required this.boards, required this.onNeedsYou, super.key});
+  const PlanningView({required this.boards, required this.onNeedsYou, required this.onStartRequested, super.key});
 
   /// The projects and their planning providers.
   final PlanningBoards boards;
 
   /// Opens Needs you for an issue stopped in Reading.
   final VoidCallback onNeedsYou;
+
+  /// Hands working-state drops to the shell that owns starting work.
+  final void Function(PlanStory story, PlanState state) onStartRequested;
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
@@ -30,6 +90,7 @@ class PlanningView extends StatelessWidget {
         select: boards.select,
         providerProblems: boards.providerProblems,
         onNeedsYou: onNeedsYou,
+        onStartRequested: onStartRequested,
       );
     },
   );
@@ -42,6 +103,7 @@ class _BoardView extends StatefulWidget {
     required this.select,
     required this.providerProblems,
     required this.onNeedsYou,
+    required this.onStartRequested,
     super.key,
   });
   final PlanningBoard board;
@@ -49,12 +111,16 @@ class _BoardView extends StatefulWidget {
   final ValueChanged<String> select;
   final List<String> providerProblems;
   final VoidCallback onNeedsYou;
+
+  /// Hands working-state drops to the shell that owns starting work.
+  final void Function(PlanStory story, PlanState state) onStartRequested;
   @override
   State<_BoardView> createState() => _BoardViewState();
 }
 
 class _BoardViewState extends State<_BoardView> {
   late final _search = TextEditingController(text: board.preferences.search);
+  Key _project = UniqueKey();
   PlanningBoard get board => widget.board;
   @override
   void dispose() {
@@ -88,16 +154,26 @@ class _BoardViewState extends State<_BoardView> {
               children: [
                 if (widget.projects.length > 1)
                   SizedBox(
+                    key: const Key('planning-project'),
                     width: Sizes.listFilter,
                     child: DropdownButtonFormField<String>(
-                      key: const Key('planning-project'),
+                      key: _project,
                       initialValue: board.project,
                       decoration: const InputDecoration(labelText: 'Project'),
                       isExpanded: true,
                       items: [for (final name in widget.projects) DropdownMenuItem(value: name, child: Text(name))],
-                      onChanged: (name) {
-                        if (name != null) widget.select(name);
-                      },
+                      onChanged: board.saving
+                          ? null
+                          : (name) async {
+                              if (name != null &&
+                                  name != board.project &&
+                                  await confirmPlanningLeave(context, [board]) &&
+                                  mounted) {
+                                widget.select(name);
+                              } else if (mounted) {
+                                setState(() => _project = UniqueKey());
+                              }
+                            },
                     ),
                   ),
                 SizedBox(
@@ -159,6 +235,20 @@ class _BoardViewState extends State<_BoardView> {
                 icon: const Icon(Icons.refresh),
                 label: const Text('Retry planning'),
               ),
+            if (board.moveProblem case final problem?)
+              Text(
+                problem,
+                key: const Key('planning-move-error'),
+                style: TextStyle(color: theme.colorScheme.error),
+              ),
+            if (board.snapshot != null)
+              TextButton.icon(
+                key: const Key('planning-reload'),
+                onPressed: board.saving ? null : () => unawaited(board.reload()),
+                icon: const Icon(Icons.refresh),
+                label: const Text('Reload planning'),
+              ),
+            if (board.pending.isNotEmpty) Flexible(child: _pending(context)),
             const SizedBox(height: Space.normal),
             if (board.snapshot == null && board.problem == null)
               const Text('Waiting for the machine’s planning answer.'),
@@ -236,64 +326,144 @@ class _BoardViewState extends State<_BoardView> {
     final cards = board.cards(state.name);
     final folded = phaseFolded || board.preferences.foldedStates.contains(state.name);
     final theme = Theme.of(context);
-    return Container(
+    return DragTarget<String>(
       key: Key('planning-state ${state.name}'),
-      padding: const EdgeInsets.all(Space.tight),
-      margin: const EdgeInsets.only(bottom: Space.small),
-      decoration: BoxDecoration(
-        color: state.kind == 'WORKING' ? PlanningStyle.working(theme.colorScheme) : null,
-        borderRadius: BorderRadius.circular(Radii.small),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              if (state.kind == 'WORKING')
-                const Padding(
-                  padding: EdgeInsets.only(right: Space.tight),
-                  child: Icon(Icons.schedule, size: Sizes.mark),
-                ),
-              Expanded(child: Text(state.name, style: theme.textTheme.labelMedium)),
-              Text('${cards.length}'),
-              if (!phaseFolded)
-                IconButton(
-                  key: Key('planning-fold-state ${state.name}'),
-                  tooltip: '${folded ? 'Unfold' : 'Fold'} ${state.name}',
-                  onPressed: () => board.foldState(state.name),
-                  icon: Icon(folded ? Icons.chevron_right : Icons.expand_more, size: Sizes.rowIcon),
-                ),
-            ],
-          ),
-          if (state.kind.isEmpty)
-            const Text('State kind not reported')
-          else if (!{'WAITING', 'WORKING', 'CLOSED'}.contains(state.kind))
-            Text(state.kind),
-          if (folded)
-            Wrap(
-              spacing: Space.tight,
-              runSpacing: Space.tight,
+      onWillAcceptWithDetails: (details) =>
+          !board.saving &&
+          board.live &&
+          board.stories.any((story) => story.id == details.data && board.displayedState(story) != state.name),
+      onAcceptWithDetails: (details) {
+        final story = board.stories.where((story) => story.id == details.data).firstOrNull;
+        if (story == null || board.displayedState(story) == state.name) return;
+        if (state.kind == 'WORKING') {
+          widget.onStartRequested(story, state);
+        } else {
+          board.move(details.data, state.name);
+        }
+      },
+      builder: (context, candidates, rejected) => Container(
+        padding: const EdgeInsets.all(Space.tight),
+        margin: const EdgeInsets.only(bottom: Space.small),
+        decoration: BoxDecoration(
+          color: state.kind == 'WORKING' ? PlanningStyle.working(theme.colorScheme) : null,
+          borderRadius: BorderRadius.circular(Radii.small),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (candidates.isNotEmpty) Text('Drop here for ${state.name}'),
+            Row(
               children: [
-                for (final story in cards)
-                  Tooltip(
-                    message: '${story.id} — ${story.title} (${story.priority})',
-                    child: Container(
-                      key: Key('planning-card ${story.id}'),
-                      padding: const EdgeInsets.all(Space.tight),
-                      child: Wrap(
-                        spacing: Space.tight,
-                        children: [_priority(context, story.priority, mark: true), Text(story.id)],
-                      ),
-                    ),
+                if (state.kind == 'WORKING')
+                  const Padding(
+                    padding: EdgeInsets.only(right: Space.tight),
+                    child: Icon(Icons.schedule, size: Sizes.mark),
+                  ),
+                Expanded(child: Text(state.name, style: theme.textTheme.labelMedium)),
+                Text('${cards.length}'),
+                if (!phaseFolded)
+                  IconButton(
+                    key: Key('planning-fold-state ${state.name}'),
+                    tooltip: '${folded ? 'Unfold' : 'Fold'} ${state.name}',
+                    onPressed: () => board.foldState(state.name),
+                    icon: Icon(folded ? Icons.chevron_right : Icons.expand_more, size: Sizes.rowIcon),
                   ),
               ],
-            )
-          else
-            for (final story in cards) _card(context, story),
-        ],
+            ),
+            if (state.kind.isEmpty)
+              const Text('State kind not reported')
+            else if (!{'WAITING', 'WORKING', 'CLOSED'}.contains(state.kind))
+              Text(state.kind),
+            if (folded)
+              Wrap(
+                spacing: Space.tight,
+                runSpacing: Space.tight,
+                children: [
+                  for (final story in cards)
+                    _drag(
+                      story,
+                      Tooltip(
+                        message: '${story.id} — ${story.title} (${story.priority})',
+                        child: Container(
+                          key: Key('planning-card ${story.id}'),
+                          padding: const EdgeInsets.all(Space.tight),
+                          child: Wrap(
+                            spacing: Space.tight,
+                            children: [
+                              _priority(context, story.priority, mark: true),
+                              Text(story.id),
+                              if (board.pending[story.id] case final move? when move.problem == null)
+                                const Text('moved'),
+                              if (board.pending[story.id]?.problem case final problem?) Text(problem),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              )
+            else
+              for (final story in cards) _card(context, story),
+          ],
+        ),
       ),
     );
   }
+
+  Widget _pending(BuildContext context) => ConstrainedBox(
+    constraints: const BoxConstraints(maxHeight: PlanningStyle.column),
+    child: SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('${board.pending.length} state change(s) not saved yet:'),
+          for (final entry in board.pending.entries)
+            Wrap(
+              key: Key('planning-pending ${entry.key}'),
+              spacing: Space.small,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(
+                  '${entry.key} ${entry.value.from.isEmpty ? 'not reported' : entry.value.from} → ${entry.value.to}',
+                ),
+                if (entry.value.problem != null) Text(entry.value.problem!),
+                TextButton(
+                  key: Key('planning-undo ${entry.key}'),
+                  onPressed: board.saving ? null : () => board.undo(entry.key),
+                  child: const Text('Undo'),
+                ),
+              ],
+            ),
+          Wrap(
+            spacing: Space.small,
+            children: [
+              TextButton(
+                key: const Key('planning-undo-all'),
+                onPressed: board.saving ? null : board.undoAll,
+                child: const Text('Undo all'),
+              ),
+              FilledButton(
+                key: const Key('planning-save'),
+                onPressed: board.saving || !board.live ? null : () => unawaited(board.save()),
+                child: Text(board.saving ? 'Saving…' : 'Save'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    ),
+  );
+
+  Widget _drag(PlanStory story, Widget child) => Draggable<String>(
+    data: story.id,
+    maxSimultaneousDrags: board.saving || !board.live ? 0 : 1,
+    feedback: Material(
+      elevation: Space.tight,
+      child: Padding(padding: const EdgeInsets.all(Space.small), child: Text(story.id)),
+    ),
+    childWhenDragging: Opacity(opacity: Opacities.stale, child: child),
+    child: child,
+  );
 
   Widget _priority(BuildContext context, String priority, {bool mark = false}) {
     final colors = PlanningStyle.priority(priority, Theme.of(context).colorScheme);
@@ -358,84 +528,91 @@ class _BoardViewState extends State<_BoardView> {
     final theme = Theme.of(context);
     final open = board.preferences.expandedStories.contains(story.id);
     final work = _work(story);
-    return Card(
-      key: Key('planning-card ${story.id}'),
-      margin: const EdgeInsets.only(bottom: Space.small),
-      child: Padding(
-        padding: const EdgeInsets.all(Space.normal),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Wrap(
-              spacing: Space.small,
-              children: [
-                Text(story.id, style: theme.textTheme.labelMedium),
-                _priority(context, story.priority),
-              ],
-            ),
-            const SizedBox(height: Space.small),
-            Text(story.title),
-            if (work != null && work.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: Space.small),
-                child: Text(work, style: theme.textTheme.bodySmall),
+    return _drag(
+      story,
+      Card(
+        key: Key('planning-card ${story.id}'),
+        margin: const EdgeInsets.only(bottom: Space.small),
+        child: Padding(
+          padding: const EdgeInsets.all(Space.normal),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Wrap(
+                spacing: Space.small,
+                children: [
+                  Text(story.id, style: theme.textTheme.labelMedium),
+                  _priority(context, story.priority),
+                ],
               ),
-            if (story.issues.any(
-              (issue) => issue.state == 'Reading' || issue.state == 'Reworking' || issue.readingStopped == true,
-            ))
-              _reading(story),
-            if (!story.issuesReported)
-              const Text('Issues not reported')
-            else
-              TextButton(
-                onPressed: story.issues.isEmpty ? null : () => board.expand(story.id),
-                style: TextButton.styleFrom(padding: EdgeInsets.zero),
-                child: Row(
-                  children: [
-                    Icon(open ? Icons.expand_more : Icons.chevron_right, size: Sizes.mark),
-                    Expanded(
-                      child: Text(
-                        story.issues.isEmpty
-                            ? 'no issues yet'
-                            : '${story.issues.length} ${story.issues.length == 1 ? 'issue' : 'issues'}',
-                      ),
-                    ),
-                    if (story.issues.isNotEmpty && story.completedIssues != null) ...[
-                      SizedBox(
-                        width: PlanningStyle.progress,
-                        child: LinearProgressIndicator(
-                          value: story.completedIssues! / story.issues.length,
-                          semanticsLabel: 'Issues in Review or Finished',
-                        ),
-                      ),
-                      const SizedBox(width: Space.tight),
-                      Text('${story.completedIssues}/${story.issues.length}'),
-                    ],
-                  ],
-                ),
-              ),
-            if (story.issuesReported && story.completedIssues == null) const Text('Issue progress not reported'),
-            if (open)
-              for (final issue in story.issues)
+              const SizedBox(height: Space.small),
+              Text(story.title),
+              if (board.pending[story.id] case final move? when move.problem == null) const Text('moved'),
+              if (board.pending[story.id]?.problem case final problem?) Text(problem),
+              if (work != null && work.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: Space.small),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Text(work, style: theme.textTheme.bodySmall),
+                ),
+              if (story.issues.any(
+                (issue) => issue.state == 'Reading' || issue.state == 'Reworking' || issue.readingStopped == true,
+              ))
+                _reading(story),
+              if (!story.issuesReported)
+                const Text('Issues not reported')
+              else
+                TextButton(
+                  key: Key('planning-issues ${story.id}'),
+                  onPressed: story.issues.isEmpty ? null : () => board.expand(story.id),
+                  style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                  child: Row(
                     children: [
-                      Text('${issue.id} · ${issue.repository}'),
-                      if (issue.title.isNotEmpty) Text(issue.title),
-                      Wrap(
-                        spacing: Space.small,
-                        children: [
-                          if (issue.state.isNotEmpty) Text(issue.state),
-                          if (issue.size.isNotEmpty) Text(issue.size),
-                        ],
+                      Icon(open ? Icons.expand_more : Icons.chevron_right, size: Sizes.mark),
+                      Expanded(
+                        child: Text(
+                          story.issues.isEmpty
+                              ? 'no issues yet'
+                              : '${story.issues.length} ${story.issues.length == 1 ? 'issue' : 'issues'}',
+                        ),
                       ),
-                      if (issue.blockedBy.isNotEmpty) Text('Blocked by ${issue.blockedBy.join(', ')}'),
+                      if (story.issues.isNotEmpty && story.completedIssues != null) ...[
+                        SizedBox(
+                          width: PlanningStyle.progress,
+                          child: LinearProgressIndicator(
+                            value: story.completedIssues! / story.issues.length,
+                            semanticsLabel: 'Issues in Review or Finished',
+                          ),
+                        ),
+                        const SizedBox(width: Space.tight),
+                        Text('${story.completedIssues}/${story.issues.length}'),
+                      ],
                     ],
                   ),
                 ),
-          ],
+              if (story.issuesReported && story.completedIssues == null) const Text('Issue progress not reported'),
+              if (open)
+                for (final issue in story.issues)
+                  Padding(
+                    key: Key('planning-issue ${story.id} ${issue.id}'),
+                    padding: const EdgeInsets.only(top: Space.small),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('${issue.id} · ${issue.repository}'),
+                        if (issue.title.isNotEmpty) Text(issue.title),
+                        Wrap(
+                          spacing: Space.small,
+                          children: [
+                            if (issue.state.isNotEmpty) Text(issue.state),
+                            if (issue.size.isNotEmpty) Text(issue.size),
+                          ],
+                        ),
+                        if (issue.blockedBy.isNotEmpty) Text('Blocked by ${issue.blockedBy.join(', ')}'),
+                      ],
+                    ),
+                  ),
+            ],
+          ),
         ),
       ),
     );

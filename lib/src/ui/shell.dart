@@ -191,6 +191,7 @@ class Shell extends StatefulWidget {
     required this.connections,
     this.forges,
     this.settingsDropped = false,
+    this.planningStartFeedback,
     this.organizationSource,
     this.hostConnections,
     this.connectionsFor,
@@ -211,6 +212,9 @@ class Shell extends StatefulWidget {
 
   /// Whether this start dropped settings from before the organization model, which the person is told once.
   final bool settingsDropped;
+
+  /// Optional rehearsal feedback; production starts provide their own flow.
+  final Widget Function(String story, String state)? planningStartFeedback;
 
   /// Where the organization is read and changed, absent while this computer reads none.
   final OrganizationSource? organizationSource;
@@ -451,6 +455,7 @@ class _ShellState extends State<Shell> {
     widget.machines.resumeAutomaticRetries();
     widget.shell.initializeNavigation(widget.machines.current);
     widget.shell.addListener(_followTreeTool);
+    widget.shell.beforeNavigation = _beforePlanningNavigation;
     widget.shell.addListener(_checkOrganizationPlace);
     _organization?.addListener(_checkOrganizationPlace);
     _observedMachine = widget.machines.current;
@@ -667,8 +672,53 @@ class _ShellState extends State<Shell> {
     }
   }
 
+  Widget? _planningStartFeedback;
+
+  void _requestPlanningStart(PlanStory story, PlanState state) {
+    final feedback = widget.planningStartFeedback?.call(story.id, state.name);
+    if (feedback != null) setState(() => _planningStartFeedback = feedback);
+  }
+
+  bool _planningLeaveApproved = false;
+  bool _planningLeaveAsked = false;
+
+  bool _beforePlanningNavigation(Section destination, VoidCallback resume) {
+    if (_planningLeaveApproved ||
+        widget.shell.section != Section.planning ||
+        destination == Section.planning ||
+        _planning.pendingBoards.isEmpty) {
+      return true;
+    }
+    if (_planningLeaveAsked) return false;
+    _planningLeaveAsked = true;
+    unawaited(() async {
+      try {
+        if (await confirmPlanningLeave(context, _planning.pendingBoards) && mounted) {
+          _planningLeaveApproved = true;
+          try {
+            resume();
+          } finally {
+            _planningLeaveApproved = false;
+          }
+        }
+      } finally {
+        _planningLeaveAsked = false;
+      }
+    }());
+    return false;
+  }
+
   /// Stops setup still renting, preserves remote work, and releases this window's forwards.
   Future<AppExitResponse> _letGo() async {
+    if (_planningLeaveAsked) return AppExitResponse.cancel;
+    _planningLeaveAsked = true;
+    bool agreedToLeave;
+    try {
+      agreedToLeave = await confirmPlanningLeave(context, _planning.pendingBoards, quitting: true);
+    } finally {
+      _planningLeaveAsked = false;
+    }
+    if (!agreedToLeave || !mounted) return AppExitResponse.cancel;
     final running = <String>[
       for (final machine in widget.machines.all)
         for (final task in widget.machines.of(machine).tasks)
@@ -3743,16 +3793,15 @@ class _ShellState extends State<Shell> {
       chosen.run();
     } else {
       if ({Home.machineTitle, Home.machineMenu, Home.statusLine}.contains(chosen.home)) {
-        widget.shell.openMachine(machine);
-        widget.shell.showOnItem(chosen.id);
+        _revealFoundAt(ShellPlace(Section.machine, machine: machine), chosen.id);
         return;
       }
       if (chosen.home == Home.organizationRow && _organization?.view != null) {
-        widget.shell.choosePlace(ShellPlace(Section.organization, organization: _organization!.view!.name));
-        if (!widget.shell.foldedOpen.contains(widget.shell.place.key)) {
-          widget.shell.toggleFold(widget.shell.place.key);
-        }
-        widget.shell.showOnItem(chosen.id);
+        _revealFoundAt(
+          ShellPlace(Section.organization, organization: _organization!.view!.name),
+          chosen.id,
+          unfold: true,
+        );
         return;
       }
       if (chosen.home == Home.machineRow) {
@@ -3760,17 +3809,20 @@ class _ShellState extends State<Shell> {
             .where((run) => chosen.group == run.name || chosen.group == '${run.project} server')
             .firstOrNull;
         if (run != null) {
-          widget.shell.openMachine(Machine(name: run.name, socketPath: ''));
-          widget.shell.showOnItem(chosen.id);
+          _revealFoundAt(
+            ShellPlace(
+              Section.machine,
+              machine: Machine(name: run.name, socketPath: ''),
+            ),
+            chosen.id,
+          );
           return;
         }
-        widget.shell.openMachine(machine);
-        widget.shell.showOnItem(chosen.id);
+        _revealFoundAt(ShellPlace(Section.machine, machine: machine), chosen.id);
         return;
       }
       if (chosen.home == Home.organizationRow) {
-        widget.shell.choosePlace(const ShellPlace(Section.organizations));
-        widget.shell.showOnItem(chosen.id);
+        _revealFoundAt(const ShellPlace(Section.organizations), chosen.id);
         return;
       }
       // Where it lives: a piece of work's tile is under Work, a project's menu on its page, setting
@@ -3789,6 +3841,13 @@ class _ShellState extends State<Shell> {
         },
       );
     }
+  }
+
+  void _revealFoundAt(ShellPlace place, String command, {bool unfold = false}) {
+    if (!_beforePlanningNavigation(place.section, () => _revealFoundAt(place, command, unfold: unfold))) return;
+    widget.shell.choosePlace(place);
+    if (unfold && !widget.shell.foldedOpen.contains(place.key)) widget.shell.toggleFold(place.key);
+    widget.shell.showOnItem(command);
   }
 
   void _openWork() {
@@ -3879,9 +3938,18 @@ class _ShellState extends State<Shell> {
                           child: switch (widget.shell.section) {
                             Section.work => _workArea(),
                             Section.attention => _needsYou(),
-                            Section.planning => PlanningView(
-                              boards: _planning,
-                              onNeedsYou: () => widget.shell.goTo(Section.attention),
+                            Section.planning => Column(
+                              children: [
+                                if (_planningStartFeedback case final feedback?)
+                                  KeyedSubtree(key: const Key('planning-start-request'), child: feedback),
+                                Expanded(
+                                  child: PlanningView(
+                                    boards: _planning,
+                                    onNeedsYou: () => widget.shell.goTo(Section.attention),
+                                    onStartRequested: _requestPlanningStart,
+                                  ),
+                                ),
+                              ],
                             ),
                             Section.cards => _cardsPage(),
                             Section.organizations => _organizationsFacts(),
@@ -4009,6 +4077,12 @@ class _ShellState extends State<Shell> {
   );
 
   void _chooseTreePlace(ShellPlace place, bool branch, {bool selectMachine = true}) {
+    if (!_beforePlanningNavigation(
+      place.section,
+      () => _chooseTreePlace(place, branch, selectMachine: selectMachine),
+    )) {
+      return;
+    }
     if (place.machineSection != null &&
         place.machine != null &&
         (!widget.machines.all.contains(place.machine) ||
@@ -5028,20 +5102,7 @@ class _ShellState extends State<Shell> {
               ),
         forges: !_forges.loaded || _forges.busy ? null : listedForges(_forges.allEntries, _heldConnections).length,
         width: width,
-        onGo: (section) {
-          _leaveDrawer();
-          setState(() {
-            _organizationProject = null;
-            _machineProjects = false;
-            _organizationHost = null;
-            _organizationHostFrom = null;
-            _organizationProjectFrom = null;
-          });
-          if (section == Section.work) {
-            _workView.search.clear();
-          }
-          widget.shell.goTo(section);
-        },
+        onGo: _goToSection,
         onRefresh: () => unawaited(_refreshAll()),
         onStopEverywhere:
             widget.machines.all.any((each) => widget.machines.of(each).reachability == Reachability.connected)
@@ -5050,6 +5111,20 @@ class _ShellState extends State<Shell> {
       );
     },
   );
+
+  void _goToSection(Section section) {
+    if (!_beforePlanningNavigation(section, () => _goToSection(section))) return;
+    _leaveDrawer();
+    setState(() {
+      _organizationProject = null;
+      _machineProjects = false;
+      _organizationHost = null;
+      _organizationHostFrom = null;
+      _organizationProjectFrom = null;
+    });
+    if (section == Section.work) _workView.search.clear();
+    widget.shell.goTo(section);
+  }
 
   /// Every project on every machine, and the ways to set one up: setting up, out of the daily way.
   /// Today's list of a machine's projects, with the way back to the organization's where it is opened from there.
@@ -6270,6 +6345,7 @@ class _ShellState extends State<Shell> {
     _planning.dispose();
     widget.machines.pauseAutomaticRetries();
     widget.shell.removeListener(_followTreeTool);
+    widget.shell.beforeNavigation = null;
     widget.shell.removeListener(_checkOrganizationPlace);
     _organization?.removeListener(_checkOrganizationPlace);
     widget.machines.removeListener(_machineChanged);

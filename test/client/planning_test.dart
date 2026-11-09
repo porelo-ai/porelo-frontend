@@ -86,7 +86,7 @@ void main() {
         expect(parameters, {'project': 'demo'});
         return {
           'stories': [
-            {'id': 'S1', 'state': 'Investigating', 'priority': 'Urgent'},
+            {'id': 'StoryOne', 'state': 'Investigating', 'priority': 'Urgent'},
           ],
           'revision': 'r7',
         };
@@ -98,6 +98,100 @@ void main() {
       expect(stories.stories.single.state, 'Investigating');
       expect(stories.stories.single.priority, 'Urgent');
       expect(stories.revision, 'r7');
+    });
+
+    // Harm: a move reaches the wrong project, loses its revision, or serializes the wrong fields.
+    test('story and issue moves send exactly the stand-in contract', () async {
+      daemon.method('MoveStory', (parameters) {
+        expect(parameters, {'project': 'demo', 'story': 'StoryOne', 'to': 'Review', 'revision': 'r1'});
+        return {'moved': true, 'revision': 'r2'};
+      });
+      daemon.method('MoveIssues', (parameters) {
+        expect(parameters, {
+          'project': 'demo',
+          'moves': [
+            {'issue': 'IssueOne', 'to': 'Finished'},
+            {'issue': 'IssueTwo', 'to': 'Review'},
+          ],
+          'revision': 'r2',
+        });
+        return {'moved': true, 'revision': 'r3'};
+      });
+      final story = await client.moveStory('demo', 'StoryOne', 'Review', 'r1');
+      expect(story.moved, isTrue);
+      expect(story.revision, 'r2');
+      final issues = await client.moveIssues('demo', [
+        const PlanningIssueMove('IssueOne', 'Finished'),
+        const PlanningIssueMove('IssueTwo', 'Review'),
+      ], story.revision);
+      expect(issues.moved, isTrue);
+      expect(issues.revision, 'r3');
+    });
+
+    // Harm: an atomic save loses a destination or omits daemon-reported issue states.
+    test('an atomic story batch sends one revision and reads the complete move answer', () async {
+      var calls = 0;
+      daemon.method('MoveStories', (parameters) {
+        calls++;
+        expect(parameters, {
+          'project': 'demo',
+          'moves': [
+            {'story': 'StoryOne', 'to': 'Review'},
+            {'story': 'StoryTwo', 'to': 'Finished'},
+          ],
+          'revision': 'initial',
+        });
+        return {
+          'moved': true,
+          'revision': 'saved',
+          'states': [
+            {'name': 'Review', 'kind': 'WAITING'},
+            {'name': 'Finished', 'kind': 'CLOSED'},
+          ],
+          'phases': [
+            {
+              'name': 'Work',
+              'states': ['Review', 'Finished'],
+            },
+          ],
+          'stories': [
+            {
+              'id': 'StoryOne',
+              'state': 'Review',
+              'issues': [
+                {'id': 'IssueOne', 'state': 'Review'},
+                {'id': 'IssueTwo', 'state': 'Finished'},
+              ],
+            },
+            {'id': 'StoryTwo', 'state': 'Finished', 'issues': <Map<String, dynamic>>[]},
+          ],
+        };
+      });
+      final reply = await client.moveStories('demo', [
+        const PlanningStoryMove('StoryOne', 'Review'),
+        const PlanningStoryMove('StoryTwo', 'Finished'),
+      ], 'initial');
+      expect(calls, 1);
+      expect(reply.complete, isTrue);
+      expect(reply.moved, isTrue);
+      expect(reply.revision, 'saved');
+      expect(reply.stories.map((story) => story.state), ['Review', 'Finished']);
+      expect(reply.stories.first.issues.map((issue) => issue.state), ['Review', 'Finished']);
+    });
+
+    // Harm: stale planning errors lose the daemon details before reaching the board.
+    test('both move methods preserve stale revision details', () async {
+      for (final method in ['MoveStories', 'MoveStory', 'MoveIssues']) {
+        daemon.fails(method, 'org.fuin.porelo.Tasks1.PlanningChanged', {'detail': 'The planning revision changed'});
+      }
+      final refused = throwsA(
+        isA<VarlinkException>()
+            .having((error) => error.name, 'name', 'org.fuin.porelo.Tasks1.PlanningChanged')
+            .having((error) => error.parameters['detail'], 'detail', 'The planning revision changed'),
+      );
+      await expectLater(client.moveStories('demo', [const PlanningStoryMove('StoryOne', 'Review')], 'old'), refused);
+      await expectLater(client.moveStory('demo', 'StoryOne', 'Review', 'old'), refused);
+      await expectLater(client.moveIssues('demo', [const PlanningIssueMove('IssueOne', 'Review')], 'old'), refused);
     });
 
     // Harm: the board misses the initial answer or applies another project's changes.

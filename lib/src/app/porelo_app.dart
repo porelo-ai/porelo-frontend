@@ -62,6 +62,7 @@ class PoreloApp extends StatelessWidget {
     required this.connections,
     this.forges,
     this.settingsDropped = false,
+    this.planningStartFeedback,
     this.organizationSource,
     this.hostConnections,
     this.connectionsFor,
@@ -81,6 +82,9 @@ class PoreloApp extends StatelessWidget {
 
   /// Whether this start dropped settings from before the organization model, which the person is told once.
   final bool settingsDropped;
+
+  /// Optional rehearsal feedback; production starts provide their own flow.
+  final Widget Function(String story, String state)? planningStartFeedback;
 
   /// Where the organization is read and changed, absent while this computer reads none.
   final OrganizationSource? organizationSource;
@@ -237,6 +241,7 @@ class PoreloApp extends StatelessWidget {
           connections: connections,
           forges: forges,
           settingsDropped: settingsDropped,
+          planningStartFeedback: planningStartFeedback,
           organizationSource: organizationSource,
           hostConnections: hostConnections,
           connectionsFor: connectionsFor,

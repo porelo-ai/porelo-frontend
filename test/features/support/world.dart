@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:porelo_frontend/src/mock/planning_data.dart';
+import 'package:porelo_frontend/src/mock/planning_moves.dart';
 
 import 'legacy_forge_key.dart';
 export 'legacy_forge_key.dart';
@@ -103,6 +104,51 @@ class FakeBackend implements FleetBackend {
 
   /// A daemon failure supplied by a scenario.
   Object? planningFailure;
+
+  /// A refusal of move calls without failing the board's watch.
+  Object? planningMoveFailure;
+
+  /// A story-specific refusal that leaves unrelated saves available.
+  String? planningRefusedStory;
+
+  /// Detail attached to that refused story.
+  String planningRefusalDetail = '';
+
+  /// A controlled write used by lifecycle tests without a timer.
+  Completer<void>? planningMoveGate;
+
+  /// Move calls observed by acceptance tests.
+  final List<Map<String, dynamic>> planningMoveCalls = [];
+
+  Future<PlanningMoveResult> _movePlanning(String project, Map<String, dynamic> parameters) async {
+    planningMoveCalls.add({'project': project, ...parameters});
+    if (planningMoveGate case final gate?) await gate.future;
+    final moves = parameters['moves'];
+    if (planningRefusedStory != null &&
+        moves is List &&
+        moves.any((dynamic move) => move is Map && move['story'] == planningRefusedStory)) {
+      throw VarlinkException('org.fuin.porelo.Tasks1.PlanningRefused', {
+        'story': planningRefusedStory,
+        'detail': planningRefusalDetail,
+      });
+    }
+    if (planningMoveFailure case final failure?) throw failure;
+    final board = applyPlanningMove(_planningFor(project), parameters);
+    pushPlanning(project, board);
+    return PlanningMoveResult.from({...board, 'moved': true});
+  }
+
+  @override
+  Future<PlanningMoveResult> moveStories(String project, List<PlanningStoryMove> moves, String revision) =>
+      _movePlanning(project, {'moves': moves.map((move) => move.toMap()).toList(), 'revision': revision});
+
+  @override
+  Future<PlanningMoveResult> moveStory(String project, String story, String to, String revision) =>
+      _movePlanning(project, {'story': story, 'to': to, 'revision': revision});
+
+  @override
+  Future<PlanningMoveResult> moveIssues(String project, List<PlanningIssueMove> moves, String revision) =>
+      _movePlanning(project, {'moves': moves.map((move) => move.toMap()).toList(), 'revision': revision});
 
   /// The number of active planning subscriptions.
   int planningWatchers = 0;
@@ -3402,6 +3448,7 @@ class World {
         connections: connections,
         forges: forges,
         settingsDropped: settingsDropped,
+        planningStartFeedback: (story, state) => Text('$story → $state'),
         organizationSource: organizationSource ?? organizationAtStart,
         hostConnections: hostConnections,
         hostAccess: composedHostAccess,

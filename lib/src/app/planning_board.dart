@@ -51,6 +51,21 @@ class PlanningPreferences {
   final Set<String> expandedStories = {};
 }
 
+/// An unsaved destination, kept separately from the daemon's story state.
+class PendingPlanningMove {
+  /// Records the original state for the unsaved-move summary.
+  PendingPlanningMove(this.from, this.to);
+
+  /// The state when staging began.
+  String from;
+
+  /// The requested destination.
+  final String to;
+
+  /// The daemon's refusal, if this move failed.
+  String? problem;
+}
+
 /// A project's board, replaced only by whole replies from its machine.
 class PlanningBoard extends ChangeNotifier {
   /// Starts a watch with independently retained view choices.
@@ -79,6 +94,21 @@ class PlanningBoard extends ChangeNotifier {
 
   /// Whether changes are still arriving.
   bool live = false;
+  final Map<String, PendingPlanningMove> _pending = {};
+
+  /// Unsaved moves in staging order.
+  Map<String, PendingPlanningMove> get pending => Map.unmodifiable(_pending);
+
+  /// Whether a save or reload is in progress.
+  bool saving = false;
+
+  /// Save, reload, or drop feedback, using daemon details on failures.
+  String? moveProblem;
+
+  (FleetBackend, String)? _queuedProject;
+  (PlanningSnapshot, int)? _deferredSnapshot;
+  int _replyOrder = 0;
+  int _snapshotOrder = 0;
   StreamSubscription<PlanningSnapshot>? _watching;
   bool _disposed = false;
   int _generation = 0;
@@ -92,7 +122,12 @@ class PlanningBoard extends ChangeNotifier {
           .listen(
             (reply) {
               if (!current()) return;
-              snapshot = reply;
+              final order = ++_replyOrder;
+              if (saving) {
+                if (reply.complete && reply.revision.isNotEmpty) _deferredSnapshot = (reply, order);
+              } else {
+                _accept(reply, order: order);
+              }
               problem = null;
               unsupported = false;
               live = true;
@@ -138,6 +173,10 @@ class PlanningBoard extends ChangeNotifier {
   /// Replaces the source, canceling its silent watch before accepting another project's replies.
   Future<void> changeProject(FleetBackend next, String name) async {
     if (_disposed) return;
+    if (saving) {
+      _queuedProject = (next, name);
+      return;
+    }
     final sameProject = identical(backend, next) && project == name;
     final generation = ++_generation;
     final watching = _watching;
@@ -146,7 +185,11 @@ class PlanningBoard extends ChangeNotifier {
     if (_disposed || generation != _generation) return;
     backend = next;
     project = name;
-    if (!sameProject) snapshot = null;
+    if (!sameProject) {
+      snapshot = null;
+      _pending.clear();
+      moveProblem = null;
+    }
     problem = null;
     unsupported = false;
     live = false;
@@ -156,6 +199,179 @@ class PlanningBoard extends ChangeNotifier {
 
   /// Restarts this project's watch after a failure, retaining its last snapshot and view choices.
   Future<void> retry() => changeProject(backend, project);
+
+  /// The displayed destination, with failed moves kept in their reported state.
+  String displayedState(PlanStory story) {
+    final move = _pending[story.id];
+    final destination = move == null ? null : state(move.to);
+    return move != null &&
+            move.problem == null &&
+            destination != null &&
+            phases.any((phase) => phase.states.contains(move.to))
+        ? move.to
+        : story.state;
+  }
+
+  /// Stages a waiting or closed destination without sending any command.
+  void move(String id, String to) {
+    if (_disposed || saving || snapshot?.complete != true || !live) return;
+    final story = stories.where((story) => story.id == id).firstOrNull;
+    final target = state(to);
+    if (story == null || target == null) return;
+    if (target.kind == 'WORKING') return;
+    if (snapshot!.revision.isEmpty) {
+      moveProblem = 'The machine did not report a planning revision. Reload planning before moving stories.';
+      _changed();
+      return;
+    }
+    if (to == story.state) {
+      undo(id);
+      return;
+    }
+    _pending[id] = PendingPlanningMove(story.state, to);
+    _changed();
+  }
+
+  /// Drops one unsaved move without touching the daemon.
+  void undo(String id) {
+    if (_disposed || saving) return;
+    _pending.remove(id);
+    if (_pending.isEmpty) moveProblem = null;
+    _changed();
+  }
+
+  /// Drops all unsaved moves without touching the daemon.
+  void undoAll() {
+    if (_disposed || saving) return;
+    _pending.clear();
+    moveProblem = null;
+    _changed();
+  }
+
+  PlanningSnapshot _checked(PlanningSnapshot reply) {
+    if (!reply.complete || reply.revision.isEmpty) {
+      throw StateError('The machine did not report a complete planning board and revision.');
+    }
+    return reply;
+  }
+
+  Future<(PlanningSnapshot, int)> _read() async {
+    final workflow = await backend.planningWorkflow(project);
+    if (_disposed) throw StateError('The planning board was closed.');
+    final reply = await backend.stories(project);
+    final order = ++_replyOrder;
+    return (_checked(PlanningSnapshot.fromParts(workflow, reply)), order);
+  }
+
+  void _accept(PlanningSnapshot reply, {required int order, bool reconcile = true}) {
+    if (order <= _snapshotOrder) return;
+    snapshot = reply;
+    _snapshotOrder = order;
+    if (!reconcile || !reply.complete || reply.revision.isEmpty) return;
+    final reconciled = <String>[];
+    for (final entry in _pending.entries.toList()) {
+      final story = reply.stories.where((story) => story.id == entry.key).firstOrNull;
+      if (story == null) {
+        _pending.remove(entry.key);
+        reconciled.add('${entry.key} is no longer reported by the machine.');
+      } else if (story.state == entry.value.to) {
+        _pending.remove(entry.key);
+        reconciled.add('${entry.key} was moved to ${entry.value.to} elsewhere.');
+      } else {
+        entry.value.from = story.state;
+      }
+    }
+    if (reconciled.isNotEmpty) {
+      final detail = reconciled.join(' ');
+      moveProblem = moveProblem == null ? detail : '$moveProblem $detail';
+    }
+  }
+
+  void _finishOperation() {
+    if (_disposed) return;
+    saving = false;
+    final deferred = _deferredSnapshot;
+    _deferredSnapshot = null;
+    if (deferred != null && deferred.$1.complete && deferred.$1.revision.isNotEmpty && deferred.$2 > _snapshotOrder) {
+      _accept(deferred.$1, order: deferred.$2);
+    }
+    _changed();
+    final queued = _queuedProject;
+    _queuedProject = null;
+    if (queued != null) unawaited(changeProject(queued.$1, queued.$2));
+  }
+
+  /// Reloads and reconciles pending destinations while retaining their individual refusals.
+  Future<void> reload() async {
+    if (_disposed || saving) return;
+    saving = true;
+    final generation = _generation;
+    _changed();
+    try {
+      final reply = await _read();
+      if (_disposed || generation != _generation) return;
+      moveProblem = null;
+      _accept(reply.$1, order: reply.$2);
+    } catch (error) {
+      if (!_disposed && generation == _generation) moveProblem = _failureWords(error);
+    } finally {
+      _finishOperation();
+    }
+  }
+
+  /// Saves all pending stories atomically and applies only the daemon's complete answer.
+  Future<void> save() async {
+    if (_disposed || saving || _pending.isEmpty || !live) return;
+    saving = true;
+    final generation = _generation;
+    final revision = snapshot?.revision ?? '';
+    final moves = [for (final entry in _pending.entries) PlanningStoryMove(entry.key, entry.value.to)];
+    moveProblem = null;
+    for (final move in _pending.values) {
+      move.problem = null;
+    }
+    _changed();
+    try {
+      _checked(snapshot!);
+      final reply = await backend.moveStories(project, moves, revision);
+      final order = ++_replyOrder;
+      if (_disposed || generation != _generation) return;
+      _checked(reply);
+      if (!reply.moved) throw StateError('The machine did not confirm the planning moves.');
+      for (final move in moves) {
+        final story = reply.stories.where((story) => story.id == move.story).firstOrNull;
+        if (story?.state == move.to) {
+          _pending.remove(move.story);
+        } else {
+          _pending[move.story]?.problem = 'The machine did not confirm this destination.';
+        }
+      }
+      _accept(reply, order: order, reconcile: false);
+    } on VarlinkException catch (error) {
+      if (_disposed || generation != _generation) return;
+      final detail = _failureWords(error);
+      final named = error.parameters['story'];
+      final affected = named is String && moves.any((move) => move.story == named)
+          ? moves.where((move) => move.story == named).toList()
+          : moves;
+      for (final move in affected) {
+        _pending[move.story]?.problem = detail;
+      }
+      if (error.simpleName == 'PlanningChanged') {
+        moveProblem = detail;
+        try {
+          final reply = await _read();
+          if (!_disposed && generation == _generation) _accept(reply.$1, order: reply.$2);
+        } catch (readError) {
+          if (!_disposed && generation == _generation) moveProblem = '$detail ${_failureWords(readError)}';
+        }
+      }
+    } catch (error) {
+      if (!_disposed && generation == _generation) moveProblem = _failureWords(error);
+    } finally {
+      _finishOperation();
+    }
+  }
 
   /// The reported states, without inventing any workflow.
   List<PlanState> get states => snapshot?.states ?? const [];
@@ -213,11 +429,14 @@ class PlanningBoard extends ChangeNotifier {
     });
 
   /// The filtered, sorted stories of exactly this reported state.
-  List<PlanStory> cards(String name) => _sort(stories.where((story) => story.state == name));
+  List<PlanStory> cards(String name) => _sort(stories.where((story) => displayedState(story) == name));
 
   /// Stories whose state is missing from the column configuration, kept visible with an explanation.
   List<PlanStory> get unplaced => _sort(
-    stories.where((story) => state(story.state) == null || !phases.any((phase) => phase.states.contains(story.state))),
+    stories.where(
+      (story) =>
+          state(displayedState(story)) == null || !phases.any((phase) => phase.states.contains(displayedState(story))),
+    ),
   );
 
   /// Updates the priority filter.
@@ -333,6 +552,10 @@ class PlanningBoards extends ChangeNotifier {
     if (!_disposed) notifyListeners();
   }
 
+  /// Boards holding unsaved work, including providers no longer selected.
+  Iterable<PlanningBoard> get pendingBoards =>
+      _boards.values.where((board) => board.pending.isNotEmpty || board.saving);
+
   /// The project names with at least one provider that has not refused planning.
   List<String> get projects =>
       _boards.entries.where((entry) => !entry.value.unsupported).map((entry) => entry.key.$2).toSet().toList();
@@ -356,6 +579,10 @@ class PlanningBoards extends ChangeNotifier {
     final candidates = _boards.values.where((board) => board.project == name && !board.unsupported).toList();
     final preferred = _boards[(machines.current.name, name)];
     bool current(PlanningBoard board) => board.live && board.snapshot?.complete == true;
+    bool holdsPending(PlanningBoard board) => board.pending.isNotEmpty || board.saving;
+    if (preferred != null && !preferred.unsupported && holdsPending(preferred)) return preferred;
+    final pending = candidates.where(holdsPending).firstOrNull;
+    if (pending != null) return pending;
     if (preferred != null && !preferred.unsupported && current(preferred)) return preferred;
     return candidates.where(current).firstOrNull ??
         (preferred != null && !preferred.unsupported ? preferred : candidates.firstOrNull);

@@ -14,3 +14,6 @@ test/features/step/the_machine_reports_a_stopped_reading.dart
 test/features/step/the_machine_reports_issues_in_reading_and_reworking.dart
 test/features/step/the_moved_planning_story_is_absent_from_backlog.dart
 test/features/step/the_planning_build_stories_are_sorted.dart
+test/features/planning_moves.feature
+test/features/planning_moves_test.dart
+test/features/step/advanced_planning_issues_keep_their_state.dart

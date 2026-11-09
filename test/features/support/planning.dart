@@ -28,3 +28,6 @@ String planningText(WidgetTester tester, Finder finder) {
       .map((text) => text.data ?? '')
       .join(' ');
 }
+
+/// The pointer held over a planning drop target until a scenario releases it.
+TestGesture? planningDrag;

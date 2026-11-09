@@ -4,6 +4,9 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'planning_data.dart';
+import 'planning_moves.dart';
+
+import 'package:porelo_frontend/client.dart';
 
 /// Thrown from a handler to refuse the call, the way the daemon refuses one.
 ///
@@ -40,6 +43,17 @@ class MockDaemon {
       final board = planningFor(parameters);
       return {'stories': board['stories'], 'revision': board['revision']};
     });
+    for (final name in ['MoveStories', 'MoveStory', 'MoveIssues']) {
+      method(name, (parameters) {
+        try {
+          final board = applyPlanningMove(planningFor(parameters), parameters);
+          pushPlanning(parameters['project'] as String, board);
+          return {...board, 'moved': true};
+        } on VarlinkException catch (error) {
+          throw MockRefusal(error.name, error.parameters);
+        }
+      });
+    }
     pushes('WatchStories', (parameters) {
       final project = parameters['project'];
       final first = planningFor(parameters);

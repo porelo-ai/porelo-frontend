@@ -341,8 +341,12 @@ class ShellModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// The frame's synchronous navigation gate, which can resume after an async question.
+  bool Function(Section destination, VoidCallback resume)? beforeNavigation;
+
   /// Selects an exact place; selecting a chosen parent again folds it.
   void choosePlace(ShellPlace next, {bool branch = false}) {
+    if (!(beforeNavigation?.call(next.section, () => choosePlace(next, branch: branch)) ?? true)) return;
     final same = _place.key == next.key;
     _foldedOpen.addAll(next.ancestors);
     if (branch && same) {
@@ -371,6 +375,7 @@ class ShellModel extends ChangeNotifier {
 
   /// Opens a machine without substituting the current local selection.
   void openMachine(Machine machine) {
+    if (!(beforeNavigation?.call(Section.machine, () => openMachine(machine)) ?? true)) return;
     itemMachine = machine;
     itemProject = null;
     _place = ShellPlace(Section.machine, machine: machine);
@@ -381,6 +386,7 @@ class ShellModel extends ChangeNotifier {
 
   /// Opens a project using the full machine/project identity.
   void openProject(Machine machine, String project) {
+    if (!(beforeNavigation?.call(Section.project, () => openProject(machine, project)) ?? true)) return;
     itemMachine = machine;
     itemProject = project;
     _place = ShellPlace(Section.project, machine: machine);
@@ -410,6 +416,7 @@ class ShellModel extends ChangeNotifier {
 
   /// Goes to a section, closing whatever was open over the one before.
   void goTo(Section section) {
+    if (!(beforeNavigation?.call(section, () => goTo(section)) ?? true)) return;
     final hadItem = itemMachine != null || itemProject != null;
     itemMachine = null;
     itemProject = null;
@@ -430,6 +437,7 @@ class ShellModel extends ChangeNotifier {
   /// Shows where [command] lives - [section], which the command's home says - with nothing open over
   /// it.
   void show(String command, {Section section = Section.machine}) {
+    if (!(beforeNavigation?.call(section, () => show(command, section: section)) ?? true)) return;
     itemMachine = null;
     itemProject = null;
     _place = ShellPlace(section);

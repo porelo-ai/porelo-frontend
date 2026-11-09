@@ -210,6 +210,15 @@ abstract class FleetBackend {
   /// invisible, and that is the one most likely to need attention.
   Future<List<Project>> projects();
 
+  /// Saves a board's story destinations atomically against its revision.
+  Future<PlanningMoveResult> moveStories(String project, List<PlanningStoryMove> moves, String revision);
+
+  /// Moves one story against the board's revision.
+  Future<PlanningMoveResult> moveStory(String project, String story, String to, String revision);
+
+  /// Moves an issue batch against the board's revision.
+  Future<PlanningMoveResult> moveIssues(String project, List<PlanningIssueMove> moves, String revision);
+
   /// Reads the project's planning workflow.
   Future<PlanningSnapshot> planningWorkflow(String project);
 
@@ -665,6 +674,18 @@ class PoreloBackend implements FleetBackend {
 
   @override
   Future<PlanningSnapshot> planningWorkflow(String project) => _opened().planningWorkflow(project);
+
+  @override
+  Future<PlanningMoveResult> moveStories(String project, List<PlanningStoryMove> moves, String revision) =>
+      _opened().moveStories(project, moves, revision);
+
+  @override
+  Future<PlanningMoveResult> moveStory(String project, String story, String to, String revision) =>
+      _opened().moveStory(project, story, to, revision);
+
+  @override
+  Future<PlanningMoveResult> moveIssues(String project, List<PlanningIssueMove> moves, String revision) =>
+      _opened().moveIssues(project, moves, revision);
 
   @override
   Future<PlanningSnapshot> stories(String project) => _opened().stories(project);

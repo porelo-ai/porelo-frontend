@@ -38,7 +38,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: PlanningView(boards: boards, onNeedsYou: () {}),
+          body: PlanningView(boards: boards, onNeedsYou: () {}, onStartRequested: (story, state) {}),
         ),
       ),
     );

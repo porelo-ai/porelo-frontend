@@ -178,6 +178,16 @@ class PlanningSnapshot {
       phasesReported = map['phases'] is List,
       storiesReported = map['stories'] is List;
 
+  /// Combines the separate workflow and story reads without deriving any states.
+  PlanningSnapshot.fromParts(PlanningSnapshot workflow, PlanningSnapshot board)
+    : states = workflow.states,
+      phases = workflow.phases,
+      stories = board.stories,
+      revision = board.revision,
+      statesReported = workflow.statesReported,
+      phasesReported = workflow.phasesReported,
+      storiesReported = board.storiesReported;
+
   /// Whether the daemon sent the state list.
   final bool statesReported;
 
@@ -203,8 +213,73 @@ class PlanningSnapshot {
   final String revision;
 }
 
+/// One story destination in an atomic board save.
+class PlanningStoryMove {
+  /// Keeps the daemon's story identifier and destination.
+  const PlanningStoryMove(this.story, this.to);
+
+  /// The story to move.
+  final String story;
+
+  /// The requested state.
+  final String to;
+
+  /// The wire fields.
+  Map<String, dynamic> toMap() => {'story': story, 'to': to};
+}
+
+/// One issue destination sent as part of an atomic issue move.
+class PlanningIssueMove {
+  /// Keeps the daemon's issue identifier and destination.
+  const PlanningIssueMove(this.issue, this.to);
+
+  /// The issue to move.
+  final String issue;
+
+  /// The destination state.
+  final String to;
+
+  /// The wire fields.
+  Map<String, dynamic> toMap() => {'issue': issue, 'to': to};
+}
+
+/// The daemon's confirmation, without inventing a missing result or revision.
+class PlanningMoveResult extends PlanningSnapshot {
+  /// Reads the stand-in move reply.
+  PlanningMoveResult.from(super.map) : moved = map['moved'] == true, super.from();
+
+  /// Whether the daemon moved the requested work.
+  final bool moved;
+}
+
 /// The stand-in planning protocol, isolated here until served by the daemon.
 extension PlanningClient on PoreloClient {
+  /// Saves every staged story atomically and reads the resulting board and issue states.
+  Future<PlanningMoveResult> moveStories(String project, List<PlanningStoryMove> moves, String revision) async =>
+      PlanningMoveResult.from(
+        await _call('MoveStories', {
+          'project': project,
+          'moves': moves.map((move) => move.toMap()).toList(),
+          'revision': revision,
+        }),
+      );
+
+  /// Moves one story using the revision read before staging moves.
+  Future<PlanningMoveResult> moveStory(String project, String story, String to, String revision) async =>
+      PlanningMoveResult.from(
+        await _call('MoveStory', {'project': project, 'story': story, 'to': to, 'revision': revision}),
+      );
+
+  /// Moves issues atomically using the daemon's current revision.
+  Future<PlanningMoveResult> moveIssues(String project, List<PlanningIssueMove> moves, String revision) async =>
+      PlanningMoveResult.from(
+        await _call('MoveIssues', {
+          'project': project,
+          'moves': moves.map((move) => move.toMap()).toList(),
+          'revision': revision,
+        }),
+      );
+
   /// Reads a project's workflow.
   Future<PlanningSnapshot> planningWorkflow(String project) async =>
       PlanningSnapshot.from(await _call('GetPlanningWorkflow', {'project': project}));
