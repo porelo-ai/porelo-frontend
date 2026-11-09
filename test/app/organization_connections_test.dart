@@ -371,7 +371,10 @@ void main() {
   // say otherwise.
   test('once the wait has passed, a kept turn-away says the refusal, and says it changed', () async {
     final made = await connections(_mia(host: _hostOfMia));
-    machines.tunnels.awaitAdmission('build', by: DateTime.now().add(const Duration(milliseconds: 300)));
+    // Far enough ahead that the connect itself is still inside the wait on a busy runner (300 ms was not, run
+    // 42572008122); the test then waits until it has passed, however long the connect took.
+    final by = DateTime.now().add(const Duration(seconds: 3));
+    machines.tunnels.awaitAdmission('build', by: by);
     turnedAway = true;
     await made.connect('build');
     final tunnel = machines.tunnels.of(machines.all.singleWhere((each) => each.name == 'build'))!;
@@ -380,7 +383,7 @@ void main() {
     void heard() => told++;
     machines.tunnels.addListener(heard);
     addTearDown(() => machines.tunnels.removeListener(heard));
-    await Future<void>.delayed(const Duration(milliseconds: 400));
+    await Future<void>.delayed(by.difference(DateTime.now()) + const Duration(milliseconds: 300));
     expect(tunnel.admitting, isFalse);
     expect(made.waitsForAdmission('build'), isFalse);
     expect(tunnel.problem, contains('refused this account'));
