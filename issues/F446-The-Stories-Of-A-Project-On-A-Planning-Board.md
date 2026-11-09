@@ -18,7 +18,9 @@ own.
   answers the whole board first and again on every change, whoever made it.
 - A story's state is the machine's, computed from its issues; the window never derives it.
 - *Reading* is a working state of its own, entered by the machine on its own when the build before it is done; an
-  issue in Reading or Reworking carries the number of reading rounds it has been through.
+  issue in Reading or Reworking carries the number of reading rounds it has been through and the most it may have.
+  An issue whose rounds are used up with blocking findings left stops in Reading and is marked as waiting for the
+  operator.
 
 ## Plan
 
@@ -32,7 +34,8 @@ own.
   not reset the first.
 - `lib/src/ui/planning_view.dart` (new), after the design: phases as columns, a phase's states inside it with its
   working states on top and tinted, each with its count; a phase or one state folds to its number and the priority
-  marks of its cards; cards show id, priority chip, title, the round where an issue of it is in Reading or Reworking (*reading 2 of 3*), the work running on it (agent, mode, since) or *nobody at work* where its
+  marks of its cards; cards show id, priority chip, title, the round where an issue of it is in Reading or Reworking (*reading 2 of 3*), *stopped in Reading - needs you*
+  where its rounds are used up (opening *Needs you* at that entry), the work running on it (agent, mode, since) or *nobody at work* where its
   work was stopped and it still stands in a working state, the number of
   issues, the share in Review or Finished as a bar, and unfold to their issues; the closed states (Finished,
   Rejected) hidden behind *Show Finished and Rejected (n)*; a project chooser where more than one project has
