@@ -128,6 +128,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f190"></a>[F190](F190-Approved-Work-Brought-To-The-Central-Forge.md) | M | — | A host pull request's state and approval, and approved work brought on to the central forge bound to commit, repository and pull request, with level, class and checks in one line. | — |
 | <a id="f191"></a>[F191](F191-Held-And-Outgoing-Forge-Comments-Released.md) | M | — | Held inbound forge comments and outgoing ones in *Needs you*, each released, dismissed, sent or refused alone, a person's own from IntelliJ too, bound to commit and pull request. | — |
 | <a id="f394"></a>[F394](F394-A-Tunnel-Forward-Only-The-Person-Reaches.md) | M | — | What the window forwards from a machine is reached only by the person: a relay of the window's own lets in only the person's connections, the host refusing other sites' requests to the forge's web. | 2 |
+| <a id="f437"></a>[F437](F437-Join-Leave-And-Accept-A-Card-In-The-Window.md) | M | the backend's card proposal and leave | Join an organization by a card proposal, an owner accepting it on the person's row, and leaving an organization, from the window. | — |
 
 ### Accepted
 
@@ -136,7 +137,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f443"></a>[F443](F443-Forge-Token-Handed-Over-When-The-Machine-Asks.md) | S | the daemon's ask for the person's forge token on a host, with its command | The person's forge token on a host made by the host's own command, run in a terminal there from the window when the host asks; never through this program. |
 | <a id="f123"></a>[F123](F123-Where-A-Machine-And-A-Project-Stand-In-Their-Organisations-Tree.md) | — | — | Where a machine and a project stand in their organisation's tree, and which settings bind them. |
 | <a id="f166"></a>[F166](F166-A-Host-Rented-Through-OpenTofu.md) | M | — | `porelo-host up` and `down` renting and giving back through the OpenTofu module, its secrets only in `tofu`'s environment; `--given` kept. |
-| <a id="f437"></a>[F437](F437-Join-Leave-And-Accept-A-Card-In-The-Window.md) | M | the backend's card proposal and leave | Join an organization by a card proposal, an owner accepting it on the person's row, and leaving an organization, from the window. |
 
 ### Idea
 
