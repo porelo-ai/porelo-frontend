@@ -1,6 +1,6 @@
 # F444 — A Move Driven Through The Window Against A Rented Host
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** M - a local VM that runs the window under a virtual display, one feature file of a move's main scenarios
 reusing the steps of the suite against a leased machine, its report, and one try on a rented server.
 
