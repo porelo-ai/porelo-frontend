@@ -40,3 +40,18 @@ Feature: A move rehearsed in the window against a rented host
         When I forward it to a new branch of the rehearsal
         Then the host's forge has that branch at the reviewed commit
         And the task's tile says how its builds stand, as the host's runner says
+
+    Scenario: the host's key the organization holds is the one the server has
+        Given the host is connected from the organization
+        When I open the host's page in the organization
+        Then the key it shows is the one read from the server as root
+
+    Scenario: an agent's sign-in goes on on the host after its terminal is closed
+        Given the host is connected from the organization
+        When I sign in to the agent of the first carried repository from New work
+        Then the terminal shows the provider's link
+        When I close the terminal
+        Then the host's login of that agent still runs
+
+    Scenario: the gathered push to central
+        Then the gathered push to central is said not to run yet, with why

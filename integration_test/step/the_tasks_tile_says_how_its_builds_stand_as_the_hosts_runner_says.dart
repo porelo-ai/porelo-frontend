@@ -5,7 +5,7 @@ import '../support/e2e.dart';
 import '../support/rehearsal.dart';
 
 /// Usage: the task's tile says how its builds stand, as the host's runner says
-Future<void> theTasksTileSaysHowItsBuildsStandAsTheHostsRunnerSays(WidgetTester tester) async {
+Future<void> theTasksTileSaysHowItsBuildsStandAsTheHostsRunnerSays(WidgetTester tester) => pictured(tester, () async {
   // The host's runner builds the forwarded commit and the host's daemon reads it onto the task; the tile is to say
   // that build, by its commit, and not "not followed" or "no build yet".
   Map<String, dynamic>? build;
@@ -36,4 +36,4 @@ Future<void> theTasksTileSaysHowItsBuildsStandAsTheHostsRunnerSays(WidgetTester 
   final verdict = build!['verdict'] as String;
   if (verdict == 'failure') expect(said, contains('failed'), reason: 'the host says it failed');
   if (verdict == 'success') expect(said, isNot(contains('failed')), reason: 'the host says it passed');
-}
+});

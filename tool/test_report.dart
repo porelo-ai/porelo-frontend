@@ -70,7 +70,10 @@ Future<void> main(List<String> arguments) async {
     // A skipped one checked nothing, so it is never OK; the word is padded so the names stand in one column.
     await File(lines).writeAsString(
       run.results
-          .map((result) => '${result.skipped ? 'SKIPPED' : (result.held ? 'OK' : 'FAIL').padRight(7)} ${result.name}\n')
+          .map(
+            (result) =>
+                '${result.skipped ? 'SKIPPED' : (result.held ? 'OK' : 'FAIL').padRight(7)} ${result.name}${_why(result)}\n',
+          )
           .join(),
     );
   }
@@ -92,11 +95,14 @@ Future<void> main(List<String> arguments) async {
   final skipped = run.results.where((result) => result.skipped).toList();
   print('${target.path}: ${run.results.length} tests, ${_verdict(failed, skipped.length)}');
   for (final result in skipped) {
-    print('  skipped: ${result.name} (${_shorten(result.suite)})');
+    print('  skipped: ${result.name} (${_shorten(result.suite)})${_why(result)}');
   }
   print('${junit.path}: grouped by feature');
   if (failed > 0) exitCode = 1;
 }
+
+/// Why a skipped test did not run, as its skip said it, or nothing.
+String _why(Result result) => result.skipped && result.skippedBecause.isNotEmpty ? ': ${result.skippedBecause}' : '';
 
 /// One scenario or test, as it ran.
 class Result {
@@ -119,6 +125,9 @@ class Result {
   /// **Never counted as passed.** `--machine` reports a skip as `result: success`, and read that way
   /// the live daemon's tests showed as ticks — the one check whose absence matters.
   bool skipped = false;
+
+  /// What its skip said, from `markTestSkipped`: printed with `messageType: skip`, not among what it printed.
+  String skippedBecause = '';
 
   /// Whether it ran and passed.
   bool get held => passed && !skipped;
@@ -235,7 +244,11 @@ Run _read(File source) {
         run.results.add(result);
       case 'print':
         final result = open[decoded['testID'] as int];
-        result?.printed.add('${decoded['message']}');
+        if (decoded['messageType'] == 'skip') {
+          result?.skippedBecause = '${decoded['message']}'.trim();
+        } else {
+          result?.printed.add('${decoded['message']}');
+        }
       case 'error':
         final result = open[decoded['testID'] as int];
         result?.problems.add('${decoded['error']}\n${decoded['stackTrace'] ?? ''}'.trimRight());

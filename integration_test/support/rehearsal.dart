@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
 
@@ -30,6 +32,15 @@ abstract final class Rehearsal {
 
   /// The repository work was started on.
   static String? startedRepository;
+
+  /// The key the rehearsal read from the server as root when it was rented, `TYPE BASE64`.
+  static String get hostKey => _required('PORELO_REHEARSAL_HOST_KEY');
+
+  /// Why the scenario that runs is not run, once it said so: its later steps do nothing.
+  static String? notRun;
+
+  /// The agents the host said were not signed in before the window signed one in.
+  static Set<String> notSignedIn = {};
 
   /// The task whose work waited at its gate.
   static String? waitingTask;
@@ -144,3 +155,64 @@ String theWordsUnder(WidgetTester tester, Finder of) => [
       _ => '',
     },
 ].join(' · ');
+
+/// Marks the scenario not run, with [why] in the report, and has its later steps do nothing.
+void notRunBecause(String why) {
+  Rehearsal.notRun = why;
+  markTestSkipped(why);
+}
+
+/// The host's agents with a login running, each with its login's container, by the daemon's own list.
+Future<Map<String, String>> theSignInsRunningOnTheHost() async => {
+  for (final each in await _theSignIns())
+    if (each['running'] case final String running when running.isNotEmpty) each['agent'] as String: running,
+};
+
+/// The host's agents it says are not signed in.
+Future<Set<String>> theAgentsNotSignedInOnTheHost() async => {
+  for (final each in await _theSignIns())
+    if (each['state'] == 'NOT_SIGNED_IN') each['agent'] as String,
+};
+
+Future<List<Map<String, dynamic>>> _theSignIns() async =>
+    ((await askTheHostsDaemon('AgentSignIns'))['signIns'] as List<dynamic>? ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .toList();
+
+/// Runs one step of the rehearsal, and where it fails keeps a picture of the window in `PORELO_REHEARSAL_SHOTS`,
+/// named after the scenario, before the failure goes on unchanged.
+///
+/// Taken inside the step, while the frame still stands: Flutter checks after every test that its exception
+/// reporter was left as it was, so a picture is never hung on that.
+Future<void> pictured(WidgetTester tester, Future<void> Function() step) async {
+  try {
+    await step();
+  } catch (_) {
+    await _keepAPicture(tester);
+    rethrow;
+  }
+}
+
+Future<void> _keepAPicture(WidgetTester tester) async {
+  final into = Platform.environment['PORELO_REHEARSAL_SHOTS'] ?? '';
+  if (into.isEmpty) return;
+  try {
+    final view = tester.binding.renderViews.first;
+    final layer = view.debugLayer;
+    if (layer is! OffsetLayer) return;
+    // The root layer scales the test's logical screen onto the window: the picture is of the window, whole.
+    final whole = Offset.zero & view.size;
+    final bounds = layer is TransformLayer && layer.transform != null
+        ? MatrixUtils.transformRect(layer.transform!, whole)
+        : whole;
+    final image = await layer.toImage(bounds);
+    final png = await image.toByteData(format: ui.ImageByteFormat.png);
+    if (png == null) return;
+    final name = tester.testDescription.replaceAll(RegExp(r'[^A-Za-z0-9]+'), '-').replaceAll(RegExp(r'^-|-$'), '');
+    await Directory(into).create(recursive: true);
+    await File('$into/$name.png').writeAsBytes(png.buffer.asUint8List());
+  } on Object catch (missed) {
+    // A picture missed never hides the failure it was for.
+    debugPrint('no picture of the failure: $missed');
+  }
+}

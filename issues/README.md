@@ -83,6 +83,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f427"></a>[F427](F427-A-Hosts-Forge-Opened-From-Its-Machine.md) | S | — | A connected host's row and machine page offer *Open its forge*, at the address its forge answers to. |
 | <a id="f441"></a>[F441](F441-Starting-Work-Signs-In-Names-And-Model.md) | L | — | Work starts without a host shell: the agent's sign-in asked in the window, tasks named as named, the model shown and changeable. |
 | <a id="f444"></a>[F444](F444-A-Move-Driven-Through-The-Window-Against-A-Rented-Host.md) | M | a rented host set up for a test organization of one test person | The main scenarios of a move driven through the real window, unattended, in a local VM under a virtual display, against a rented host, each checked on the host. |
+| <a id="f445"></a>[F445](F445-What-A-Rehearsal-Cannot-Drive-In-The-Window-Stood-In-For.md) | S | the rehearsed move through the window; the host reading the central token from the vault, for its last part | The sign-in up to its terminal, the host key compared by the test, a screenshot on failure, and the gathered push, each passed, failed or said not run. |
 
 ### Rework
 
@@ -94,7 +95,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f445"></a>[F445](F445-What-A-Rehearsal-Cannot-Drive-In-The-Window-Stood-In-For.md) | S | the rehearsed move through the window; the host reading the central token from the vault, for its last part | The sign-in up to its terminal, the host key compared by the test, a screenshot on failure, and the gathered push, each passed, failed or said not run. |
 | <a id="f446"></a>[F446](F446-The-Stories-Of-A-Project-On-A-Planning-Board.md) | M | — | *Planning* shows a project's stories on a board, phases as columns with their states, read and watched from the machine; blocked by the daemon's planning part. |
 | <a id="f447"></a>[F447](F447-A-Story-Moved-On-The-Board-And-Saved.md) | M | [F446](README.md#f446) | A story dragged to another state, kept pending until saved through the machine or undone; a drop on a working state starts its work instead. |
 | <a id="f448"></a>[F448](F448-A-Story-And-An-Issue-Opened-From-The-Board.md) | M | [F446](README.md#f446) | A story's and an issue's screen with a breadcrumb and *Open story*/*Open issue*, an issue moved alone. |

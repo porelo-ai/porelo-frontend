@@ -24,6 +24,13 @@ import './step/the_review_names_its_commit_and_who_made_it.dart';
 import './step/i_forward_it_to_a_new_branch_of_the_rehearsal.dart';
 import './step/the_hosts_forge_has_that_branch_at_the_reviewed_commit.dart';
 import './step/the_tasks_tile_says_how_its_builds_stand_as_the_hosts_runner_says.dart';
+import './step/i_open_the_hosts_page_in_the_organization.dart';
+import './step/the_key_it_shows_is_the_one_read_from_the_server_as_root.dart';
+import './step/i_sign_in_to_the_agent_of_the_first_carried_repository_from_new_work.dart';
+import './step/the_terminal_shows_the_providers_link.dart';
+import './step/i_close_the_terminal.dart';
+import './step/the_hosts_login_of_that_agent_still_runs.dart';
+import './step/the_gathered_push_to_central_is_said_not_to_run_yet_with_why.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -71,6 +78,24 @@ void main() {
       await iForwardItToANewBranchOfTheRehearsal(tester);
       await theHostsForgeHasThatBranchAtTheReviewedCommit(tester);
       await theTasksTileSaysHowItsBuildsStandAsTheHostsRunnerSays(tester);
+    });
+    testWidgets('''the host's key the organization holds is the one the server has''', (tester) async {
+      await bddSetUp(tester);
+      await theHostIsConnectedFromTheOrganization(tester);
+      await iOpenTheHostsPageInTheOrganization(tester);
+      await theKeyItShowsIsTheOneReadFromTheServerAsRoot(tester);
+    });
+    testWidgets('''an agent's sign-in goes on on the host after its terminal is closed''', (tester) async {
+      await bddSetUp(tester);
+      await theHostIsConnectedFromTheOrganization(tester);
+      await iSignInToTheAgentOfTheFirstCarriedRepositoryFromNewWork(tester);
+      await theTerminalShowsTheProvidersLink(tester);
+      await iCloseTheTerminal(tester);
+      await theHostsLoginOfThatAgentStillRuns(tester);
+    });
+    testWidgets('''the gathered push to central''', (tester) async {
+      await bddSetUp(tester);
+      await theGatheredPushToCentralIsSaidNotToRunYetWithWhy(tester);
     });
   });
 }

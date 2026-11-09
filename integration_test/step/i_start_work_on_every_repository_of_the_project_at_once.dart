@@ -5,7 +5,7 @@ import '../support/e2e.dart';
 import '../support/rehearsal.dart';
 
 /// Usage: I start work on every repository of the project at once
-Future<void> iStartWorkOnEveryRepositoryOfTheProjectAtOnce(WidgetTester tester) async {
+Future<void> iStartWorkOnEveryRepositoryOfTheProjectAtOnce(WidgetTester tester) => pictured(tester, () async {
   await toTheProjectOnTheHost(tester);
   await chooseFromTheMenu(tester, find.byKey(const Key('project-menu')), 'Start an agent for each repository…');
   // Which repositories, then the sign-ins, each held until the machine has answered; then the check and Start.
@@ -37,4 +37,4 @@ Future<void> iStartWorkOnEveryRepositoryOfTheProjectAtOnce(WidgetTester tester) 
   );
   await tester.tap(finish.first);
   await pumpFor(tester);
-}
+});

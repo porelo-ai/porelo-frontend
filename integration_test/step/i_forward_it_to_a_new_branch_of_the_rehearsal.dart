@@ -5,7 +5,7 @@ import '../support/e2e.dart';
 import '../support/rehearsal.dart';
 
 /// Usage: I forward it to a new branch of the rehearsal
-Future<void> iForwardItToANewBranchOfTheRehearsal(WidgetTester tester) async {
+Future<void> iForwardItToANewBranchOfTheRehearsal(WidgetTester tester) => pictured(tester, () async {
   // A branch of its own, never the default one: the rehearsal leaves the project's branches as they were.
   final branch = 'rehearsal-${DateTime.now().toUtc().millisecondsSinceEpoch}';
   Rehearsal.forwardedBranch = branch;
@@ -35,4 +35,4 @@ Future<void> iForwardItToANewBranchOfTheRehearsal(WidgetTester tester) async {
     timeout: const Duration(minutes: 3),
     what: 'the gate to send it to ${Rehearsal.forwardedBranch}',
   );
-}
+});

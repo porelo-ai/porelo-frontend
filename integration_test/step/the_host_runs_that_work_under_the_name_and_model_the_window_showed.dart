@@ -4,7 +4,7 @@ import '../support/e2e.dart';
 import '../support/rehearsal.dart';
 
 /// Usage: the host runs that work, under the name and model the window showed
-Future<void> theHostRunsThatWorkUnderTheNameAndModelTheWindowShowed(WidgetTester tester) async {
+Future<void> theHostRunsThatWorkUnderTheNameAndModelTheWindowShowed(WidgetTester tester) => pictured(tester, () async {
   final repository = Rehearsal.startedRepository!;
   Map<String, dynamic>? task;
   await pumpUntil(
@@ -36,4 +36,4 @@ Future<void> theHostRunsThatWorkUnderTheNameAndModelTheWindowShowed(WidgetTester
     () => find.textContaining(display as String).evaluate().isNotEmpty,
     what: 'Work to show $display',
   );
-}
+});

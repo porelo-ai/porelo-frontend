@@ -220,8 +220,8 @@ void main() {
     expect('${ran.stdout}', contains('1 tests'));
   });
 
-  // Harm: a rehearsal's report says a scenario held when it failed or never ran.
-  test('a line per scenario says OK only for one that ran and passed', () {
+  // Harm: a rehearsal's report says a scenario held when it failed or never ran, or not why it did not run.
+  test('a line per scenario says OK only for one that ran and passed, and why one did not run', () {
     final suite = '${Directory.current.path}/integration_test/rehearsing_a_move_test.dart';
     Map<String, dynamic> start(int id, String name) => <String, dynamic>{
       'type': 'testStart',
@@ -246,6 +246,7 @@ void main() {
           },
           <String, dynamic>{'type': 'testDone', 'testID': 2, 'result': 'failure', 'time': 9},
           start(3, 'the push reaches central'),
+          <String, dynamic>{'type': 'print', 'testID': 3, 'messageType': 'skip', 'message': 'waits on the vault'},
           <String, dynamic>{'type': 'testDone', 'testID': 3, 'result': 'success', 'skipped': true, 'time': 9},
           <String, dynamic>{'type': 'done', 'time': 9},
         ].map(jsonEncode).join('\n'),
@@ -262,7 +263,7 @@ void main() {
     expect(lines.readAsLinesSync(), <String>[
       'OK      the host is reached',
       'FAIL    the builds are read',
-      'SKIPPED the push reaches central',
+      'SKIPPED the push reaches central: waits on the vault',
     ]);
   });
 }

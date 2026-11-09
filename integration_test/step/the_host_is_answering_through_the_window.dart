@@ -5,7 +5,7 @@ import '../support/rehearsal.dart';
 import '../support/remote.dart';
 
 /// Usage: the host is answering through the window
-Future<void> theHostIsAnsweringThroughTheWindow(WidgetTester tester) async {
+Future<void> theHostIsAnsweringThroughTheWindow(WidgetTester tester) => pictured(tester, () async {
   // The version the host's porelo gives, on the host's page: read through the window's own link to its daemon.
   final version = (await onTheTestMachine('porelo --version')).trim().split(RegExp(r'\s+')).last;
   expect(version, isNotEmpty);
@@ -20,4 +20,4 @@ Future<void> theHostIsAnsweringThroughTheWindow(WidgetTester tester) async {
     timeout: const Duration(minutes: 1),
     what: 'the host page to name porelo $version',
   );
-}
+});

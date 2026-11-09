@@ -4,7 +4,7 @@ import '../support/e2e.dart';
 import '../support/rehearsal.dart';
 
 /// Usage: the host runs one task for each carried repository
-Future<void> theHostRunsOneTaskForEachCarriedRepository(WidgetTester tester) async {
+Future<void> theHostRunsOneTaskForEachCarriedRepository(WidgetTester tester) => pictured(tester, () async {
   final carried = await theCarriedRepositories();
   expect(carried, isNotEmpty);
   late Map<String, int> running;
@@ -27,4 +27,4 @@ Future<void> theHostRunsOneTaskForEachCarriedRepository(WidgetTester tester) asy
   for (final MapEntry(:key, :value) in running.entries) {
     expect(value, lessThanOrEqualTo(key == Rehearsal.startedRepository ? 2 : 1), reason: key);
   }
-}
+});

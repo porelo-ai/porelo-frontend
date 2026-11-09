@@ -5,7 +5,7 @@ import '../support/e2e.dart';
 import '../support/rehearsal.dart';
 
 /// Usage: I start work on the first carried repository of the project
-Future<void> iStartWorkOnTheFirstCarriedRepositoryOfTheProject(WidgetTester tester) async {
+Future<void> iStartWorkOnTheFirstCarriedRepositoryOfTheProject(WidgetTester tester) => pictured(tester, () async {
   final carried = await theCarriedRepositories();
   expect(carried, isNotEmpty, reason: 'the host carries a repository of ${Rehearsal.project}');
   final repository = carried.first;
@@ -30,4 +30,4 @@ Future<void> iStartWorkOnTheFirstCarriedRepositoryOfTheProject(WidgetTester test
     timeout: const Duration(minutes: 10),
     what: 'the start to finish',
   );
-}
+});

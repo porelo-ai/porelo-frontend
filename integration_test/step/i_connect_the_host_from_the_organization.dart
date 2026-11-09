@@ -6,10 +6,10 @@ import '../support/rehearsal.dart';
 import 'i_open_the_organizations_machines.dart';
 
 /// Usage: I connect the host from the organization
-Future<void> iConnectTheHostFromTheOrganization(WidgetTester tester) async {
+Future<void> iConnectTheHostFromTheOrganization(WidgetTester tester) => pictured(tester, () async {
   // A run starts unconnected: a host found connected already was not connected by this press.
   await connectTheHost(tester, alreadyIsAFault: true);
-}
+});
 
 /// Connects the host from its row on the organization's machines, where a person's own host offers *Connect*.
 Future<void> connectTheHost(WidgetTester tester, {required bool alreadyIsAFault}) async {

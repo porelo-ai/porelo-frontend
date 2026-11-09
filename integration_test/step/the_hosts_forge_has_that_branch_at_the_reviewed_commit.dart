@@ -5,7 +5,7 @@ import '../support/rehearsal.dart';
 import '../support/remote.dart';
 
 /// Usage: the host's forge has that branch at the reviewed commit
-Future<void> theHostsForgeHasThatBranchAtTheReviewedCommit(WidgetTester tester) async {
+Future<void> theHostsForgeHasThatBranchAtTheReviewedCommit(WidgetTester tester) => pictured(tester, () async {
   final repository = (await theProjectsTasksOnTheHost()).firstWhere(
     (t) => t['name'] == Rehearsal.waitingTask,
   )['repository'];
@@ -21,4 +21,4 @@ Future<void> theHostsForgeHasThatBranchAtTheReviewedCommit(WidgetTester tester) 
     timeout: const Duration(minutes: 2),
     what: 'the forge to have ${Rehearsal.forwardedBranch} at the reviewed commit',
   );
-}
+});

@@ -8,7 +8,8 @@
 #
 # `check` says what the VM lacks and changes nothing. `run` checks first, copies this checkout's HEAD to the VM,
 # runs integration_test/rehearsing_a_move_test.dart there through tool/e2e.sh, and writes the report into DIR:
-# one line per scenario (`OK` or `FAIL`), the HTML and JUnit report, and the test's own output.
+# one line per scenario (`OK`, `FAIL`, or `SKIPPED` with why it did not run), a picture of the window for each one
+# that failed, the HTML and JUnit report, and the test's own output.
 #
 # The test person's key never enters the VM: SSH_AUTH_SOCK must name an agent holding it (a throwaway one, never
 # the operator's), and only the VM's connection forwards it, for the run alone. The VM is reached with --vm-key.
@@ -119,6 +120,7 @@ run="rehearsal/$(date -u +%Y%m%dT%H%M%SZ)-$commit"
 mkdir -p "$report"
 # A report left from an earlier run would be read as this one's.
 rm -f "$report/results.json" "$report/run.log" "$report/report.html" "$report/results.xml" "$report/scenarios.txt"
+rm -rf "$report/pictures"
 
 # Taken away on every ending: what still runs of the window's part, the run's copy, and the host's key where this
 # run added it.
@@ -180,18 +182,24 @@ as_the_person_on_vm \
     "cd ~/$run && exec setsid sh -c 'echo \$\$ >pid; exec \"\$@\"' rehearse env -u DISPLAY -u WAYLAND_DISPLAY -u DBUS_SESSION_BUS_ADDRESS \
         PATH=\$HOME/$flutter_dir/bin:\$PATH PORELO_E2E_HOST='$host' PORELO_E2E_REMOTE_SOCKET='$socket' PORELO_E2E_OWN_SETTINGS=1 \
         PORELO_REHEARSAL_HOST_NAME='$host_name' PORELO_REHEARSAL_PROJECT='$project' \
+        PORELO_REHEARSAL_HOST_KEY='$host_key' PORELO_REHEARSAL_SHOTS=\$HOME/$run/pictures \
         timeout --signal=TERM ${budget}m dbus-run-session -- \
         tool/e2e.sh --machine integration_test/rehearsing_a_move_test.dart" \
     >"$report/results.json" 2>"$report/run.log" || status=$?
+# The pictures of failed scenarios, before the run's copy is taken away.
+if on_vm "[ -d ~/$run/pictures ]"; then on_vm "tar -C ~/$run -c pictures" | tar -x -C "$report" || true; fi
 [ "$status" -ne 124 ] || echo "rehearse: the window's part ran out its $budget minutes and was stopped" | tee -a "$report/run.log" >&2
 
 (cd "$here" && dart tool/test_report.dart "$report/results.json" "$report/report.html" "$report/results.xml" \
     --heading='The move rehearsed in the window' --against="$host, from $vm" --lines="$report/scenarios.txt") || true
-# Passed only where every scenario says OK: no lines, a FAIL or a SKIPPED is a failed rehearsal, whatever the exit.
+# Passed only where no scenario failed and one at least ran: no lines, a FAIL, or nothing but SKIPPED is a failed
+# rehearsal, whatever the exit. A SKIPPED line says why it did not run.
 if [ ! -s "$report/scenarios.txt" ]; then
     echo "rehearse: no scenario was reported; see $report/run.log" >&2
     [ "$status" -ne 0 ] || status=1
-elif grep -qv '^OK ' "$report/scenarios.txt"; then
+elif ! grep -q '^OK ' "$report/scenarios.txt"; then
+    [ "$status" -ne 0 ] || status=1
+elif grep -qv '^\(OK\|SKIPPED\) ' "$report/scenarios.txt"; then
     [ "$status" -ne 0 ] || status=1
 fi
 cat "$report/scenarios.txt" 2>/dev/null || true

@@ -5,7 +5,7 @@ import '../support/e2e.dart';
 import '../support/rehearsal.dart';
 
 /// Usage: I review that work at the gate
-Future<void> iReviewThatWorkAtTheGate(WidgetTester tester) async {
+Future<void> iReviewThatWorkAtTheGate(WidgetTester tester) => pictured(tester, () async {
   // Waiting work is answered under Needs you, from its tile there.
   final tile = theTileOf(Rehearsal.waitingTask!);
   await toThePlace(tester, 'attention');
@@ -40,4 +40,4 @@ Future<void> iReviewThatWorkAtTheGate(WidgetTester tester) async {
     what: 'the review to name its commit',
   );
   Rehearsal.reviewedCommit = full.firstMatch(theWordsUnder(tester, commit.first))!.group(0);
-}
+});

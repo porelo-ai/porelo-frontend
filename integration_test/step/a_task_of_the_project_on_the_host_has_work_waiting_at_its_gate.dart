@@ -4,7 +4,7 @@ import '../support/e2e.dart';
 import '../support/rehearsal.dart';
 
 /// Usage: a task of the project on the host has work waiting at its gate
-Future<void> aTaskOfTheProjectOnTheHostHasWorkWaitingAtItsGate(WidgetTester tester) async {
+Future<void> aTaskOfTheProjectOnTheHostHasWorkWaitingAtItsGate(WidgetTester tester) => pictured(tester, () async {
   // The tasks work by themselves; this waits, as the host says it, for the first of them to push to its gate.
   await pumpUntil(
     tester,
@@ -20,4 +20,4 @@ Future<void> aTaskOfTheProjectOnTheHostHasWorkWaitingAtItsGate(WidgetTester test
     timeout: const Duration(minutes: 30),
     what: 'a task of ${Rehearsal.project} to push to its gate',
   );
-}
+});
