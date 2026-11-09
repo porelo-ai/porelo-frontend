@@ -18,6 +18,18 @@ gap here is a backend method that has to be added, not a workaround waiting to b
 
 ## Not on the wire yet
 
+- **Planning details and issue state changes.** The interface uses stand-in `GetStory(project, story)`,
+  `ListStoryIssues(project, story)` and `GetIssue(project, issue)` reads for story text, issue acceptance
+  criteria, last reader findings and sub-agents. Story and issue destinations share one pending batch and
+  one Save. The stand-in `MoveStories(project, moves, revision)` accepts both `(story, to)` and `(issue, to)`
+  entries atomically and returns `moved`, the new revision, and the complete workflow, story list and issue
+  states. Story moves apply before explicit issue destinations. A stale revision returns
+  `PlanningChanged(detail)` or `StaleRevision(revision)`; refused issue moves return
+  `MoveNotAllowed(item, from, to, reason)`, `StateNotAllowed(item, from, to, reason)` or
+  `EnteredOnlyByWork(item, to)`. The interface keeps still-applicable drafts after rereading stale planning
+  and displays a refusal beside its named item. These stand-ins must be served before the flow works
+  against a real machine.
+
 - **A pushed commit's whole message** (a `message` on `PendingPush` and `ReviewCommit`, agreed for `Tasks1`, not
   served yet). The window reads it already: until it is served the trailer check cannot be made, since a
   `Co-Authored-By` outside git's trailer block is in no trailer line; the review shows no message body.

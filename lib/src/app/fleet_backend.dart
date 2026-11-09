@@ -210,14 +210,23 @@ abstract class FleetBackend {
   /// invisible, and that is the one most likely to need attention.
   Future<List<Project>> projects();
 
-  /// Saves a board's story destinations atomically against its revision.
-  Future<PlanningMoveResult> moveStories(String project, List<PlanningStoryMove> moves, String revision);
+  /// Saves a board's story and issue destinations atomically against its revision.
+  Future<PlanningMoveResult> moveStories(String project, List<PlanningMove> moves, String revision);
 
   /// Moves one story against the board's revision.
   Future<PlanningMoveResult> moveStory(String project, String story, String to, String revision);
 
   /// Moves an issue batch against the board's revision.
   Future<PlanningMoveResult> moveIssues(String project, List<PlanningIssueMove> moves, String revision);
+
+  /// Reads a standalone planning story.
+  Future<PlanStoryDetail> getStory(String project, String story);
+
+  /// Reads its issue list.
+  Future<PlanIssueList> listStoryIssues(String project, String story);
+
+  /// Reads a standalone planning issue.
+  Future<PlanIssueDetail> getIssue(String project, String issue);
 
   /// Reads the project's planning workflow.
   Future<PlanningSnapshot> planningWorkflow(String project);
@@ -673,10 +682,19 @@ class PoreloBackend implements FleetBackend {
   Future<TakenProject> takeProject(String project) => _opened().takeProject(project);
 
   @override
+  Future<PlanStoryDetail> getStory(String project, String story) => _opened().getStory(project, story);
+
+  @override
+  Future<PlanIssueList> listStoryIssues(String project, String story) => _opened().listStoryIssues(project, story);
+
+  @override
+  Future<PlanIssueDetail> getIssue(String project, String issue) => _opened().getIssue(project, issue);
+
+  @override
   Future<PlanningSnapshot> planningWorkflow(String project) => _opened().planningWorkflow(project);
 
   @override
-  Future<PlanningMoveResult> moveStories(String project, List<PlanningStoryMove> moves, String revision) =>
+  Future<PlanningMoveResult> moveStories(String project, List<PlanningMove> moves, String revision) =>
       _opened().moveStories(project, moves, revision);
 
   @override

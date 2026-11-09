@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import '../wire/varlink_exception.dart';
+
 /// A fresh board for the interactive mock and scenarios to change independently.
 Map<String, dynamic> mockPlanningBoard() => jsonDecode(r'''
 {
@@ -344,6 +346,7 @@ Map<String, dynamic> mockPlanningBoard() => jsonDecode(r'''
     },
     {
       "id": "ST291",
+      "text": "# The host tool\n\nThe host runs through a packaged native program.",
       "title": "The host run by a program of its own, built like porelo",
       "state": "Backlog",
       "priority": "Highest",
@@ -362,6 +365,13 @@ Map<String, dynamic> mockPlanningBoard() => jsonDecode(r'''
         },
         {
           "id": "B541",
+          "text": "# Read the organization\n\nRead the host and task facts from their signed records.",
+          "whatMustBeTrue": ["Only confirmed work is published"],
+          "findings": [
+            {"number": 1, "severity": "BLOCKING", "text": "Check the signature before using the record.", "file": "src/records.dart", "line": 42},
+            {"number": 2, "severity": "NOTE", "text": "Keep the explanation beside the result."}
+          ],
+          "subAgents": [{"name": "Reader", "role": "review", "agent": "Agent", "model": "Model", "brief": "Read the final changes."}],
           "repository": "porelo",
           "state": "Implementing",
           "title": "The host tool reads the organization and a task by its signature",
@@ -1012,3 +1022,77 @@ Map<String, dynamic> mockPlanningBoard() => jsonDecode(r'''
   "revision": "design-1"
 }
 ''') as Map<String, dynamic>;
+
+/// Finds exactly one reported story for stand-in detail reads.
+Map<String, dynamic>? mockPlanningStory(Map<String, dynamic> board, Object? id) {
+  final stories = board['stories'];
+  if (id is! String || id.isEmpty || stories is! List) return null;
+  return stories.whereType<Map<String, dynamic>>().where((story) => story['id'] == id).firstOrNull;
+}
+
+/// Finds an issue and supplies its owning story from the stand-in store.
+Map<String, dynamic>? mockPlanningIssue(Map<String, dynamic> board, Object? id) {
+  final stories = board['stories'];
+  if (id is! String || id.isEmpty || stories is! List) return null;
+  for (final story in stories.whereType<Map<String, dynamic>>()) {
+    final issues = story['issues'];
+    if (issues is! List) continue;
+    final issue = issues.whereType<Map<String, dynamic>>().where((issue) => issue['id'] == id).firstOrNull;
+    if (issue != null) return {'story': story['id'], ...issue};
+  }
+  return null;
+}
+
+/// Validates the entire move batch before replacing any of the stand-in store's data.
+Map<String, dynamic> mockMoveIssues(Map<String, dynamic> board, Object? moves, Object? revision) {
+  Never refuse(String name, Map<String, dynamic> parameters) =>
+      throw VarlinkException('org.fuin.porelo.Tasks1.$name', parameters);
+  if (revision is! String || revision != board['revision']) {
+    refuse('StaleRevision', {'revision': board['revision'] is String ? board['revision'] : ''});
+  }
+  final next = jsonDecode(jsonEncode(board)) as Map<String, dynamic>;
+  final states = next['states'] is List
+      ? (next['states'] as List).whereType<Map<String, dynamic>>().toList()
+      : <Map<String, dynamic>>[];
+  final issues = <Map<String, dynamic>>[
+    if (next['stories'] is List)
+      for (final story in (next['stories'] as List).whereType<Map<String, dynamic>>())
+        if (story['issues'] is List) ...(story['issues'] as List).whereType<Map<String, dynamic>>(),
+  ];
+  if (moves is! List) {
+    refuse('MoveNotAllowed', {'item': '', 'from': '', 'to': '', 'reason': 'The issue moves must be a list.'});
+  }
+  final changes = <(Map<String, dynamic>, String)>[];
+  final seen = <String>{};
+  for (final value in moves) {
+    final map = value is Map<String, dynamic> ? value : <String, dynamic>{};
+    final item = map['issue'] is String ? map['issue'] as String : '';
+    final to = map['to'] is String ? map['to'] as String : '';
+    final issue = issues.where((issue) => issue['id'] == item).firstOrNull;
+    final from = issue?['state'] is String ? issue!['state'] as String : '';
+    if (item.isEmpty || to.isEmpty || issue == null || !seen.add(item)) {
+      refuse('MoveNotAllowed', {
+        'item': item,
+        'from': from,
+        'to': to,
+        'reason': 'Each move must name one existing issue and one destination, without duplicates.',
+      });
+    }
+    final state = states.where((state) => state['name'] == to).firstOrNull;
+    if (state?['kind'] == 'WORKING') refuse('EnteredOnlyByWork', {'item': item, 'to': to});
+    if (state == null || !{'WAITING', 'CLOSED'}.contains(state['kind'])) {
+      refuse('StateNotAllowed', {
+        'item': item,
+        'from': from,
+        'to': to,
+        'reason': 'The destination is not a configured waiting or closed state.',
+      });
+    }
+    changes.add((issue, to));
+  }
+  for (final (issue, to) in changes) {
+    issue['state'] = to;
+  }
+  next['revision'] = '$revision:moved';
+  return next;
+}

@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:porelo_frontend/client.dart';
 
+import 'planning_data.dart';
+
 /// Applies stand-in daemon moves to a copy, publishing nothing on a refusal.
 Map<String, dynamic> applyPlanningMove(Map<String, dynamic> source, Map<String, dynamic> parameters) {
   Never refuse(String name, String detail) =>
@@ -24,13 +26,20 @@ Map<String, dynamic> applyPlanningMove(Map<String, dynamic> source, Map<String, 
     var result = board;
     final seen = <String>{};
     for (final move in batch) {
-      if (move is! Map<String, dynamic> || move['story'] is! String || !seen.add(move['story'] as String)) {
-        refuse('PlanningRefused', 'Each story must be named exactly once.');
+      if (move is! Map<String, dynamic> || (move.containsKey('story') == move.containsKey('issue'))) {
+        refuse('PlanningRefused', 'Each move must name exactly one story or issue.');
+      }
+      final kind = move.containsKey('story') ? 'story' : 'issue';
+      final id = move[kind];
+      if (id is! String || id.isEmpty || !seen.add('$kind $id')) {
+        refuse('PlanningRefused', 'Each story or issue must be named exactly once.');
       }
       try {
-        result = applyPlanningMove(result, {'story': move['story'], 'to': move['to'], 'revision': result['revision']});
+        result = kind == 'story'
+            ? applyPlanningMove(result, {'story': id, 'to': move['to'], 'revision': result['revision']})
+            : mockMoveIssues(result, [move], result['revision']);
       } on VarlinkException catch (error) {
-        throw VarlinkException(error.name, {...error.parameters, 'story': move['story']});
+        throw VarlinkException(error.name, {...error.parameters, kind: id});
       }
     }
     result['revision'] = '${source['revision']}-move';
@@ -45,23 +54,7 @@ Map<String, dynamic> applyPlanningMove(Map<String, dynamic> source, Map<String, 
     }
     story['state'] = parameters['to'];
   } else {
-    final moves = parameters['moves'];
-    if (moves is! List) refuse('PlanningRefused', 'Issue moves must be a list.');
-    final seen = <String>{};
-    for (final move in moves) {
-      if (move is! Map<String, dynamic> || move['issue'] is! String || !seen.add(move['issue'] as String)) {
-        refuse('PlanningRefused', 'Each issue must be named exactly once.');
-      }
-      destination(move['to']);
-      final issues = stories
-          .expand((story) => (story['issues'] as List<dynamic>? ?? const []))
-          .cast<Map<String, dynamic>>()
-          .where((issue) => issue['id'] == move['issue']);
-      if (issues.isEmpty) refuse('NoSuchIssue', 'The issue is unknown.');
-      for (final issue in issues) {
-        issue['state'] = move['to'];
-      }
-    }
+    return mockMoveIssues(source, parameters['moves'], parameters['revision']);
   }
   board['revision'] = '${source['revision']}-move';
   return board;

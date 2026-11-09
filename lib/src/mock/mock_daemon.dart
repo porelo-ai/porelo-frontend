@@ -35,6 +35,27 @@ class MockRefusal implements Exception {
 class MockDaemon {
   /// Registers stateful room membership methods; tests may replace or remove them.
   MockDaemon() {
+    method('GetStory', (parameters) {
+      final story = mockPlanningStory(planningFor(parameters), parameters['story']);
+      if (story == null) throw MockRefusal('$interfaceName.NoSuchStory', {'detail': 'Story not found.'});
+      return {'story': story, 'text': story['text']};
+    });
+    method('ListStoryIssues', (parameters) {
+      final story = mockPlanningStory(planningFor(parameters), parameters['story']);
+      if (story == null) throw MockRefusal('$interfaceName.NoSuchStory', {'detail': 'Story not found.'});
+      return {'issues': story['issues']};
+    });
+    method('GetIssue', (parameters) {
+      final issue = mockPlanningIssue(planningFor(parameters), parameters['issue']);
+      if (issue == null) throw MockRefusal('$interfaceName.NoSuchIssue', {'detail': 'Issue not found.'});
+      return {
+        'issue': issue,
+        'text': issue['text'],
+        'whatMustBeTrue': issue['whatMustBeTrue'],
+        'findings': issue['findings'],
+        'subAgents': issue['subAgents'],
+      };
+    });
     method('GetPlanningWorkflow', (parameters) {
       final board = planningFor(parameters);
       return {'states': board['states'], 'phases': board['phases']};

@@ -3850,6 +3850,36 @@ class _ShellState extends State<Shell> {
     widget.shell.showOnItem(command);
   }
 
+  void _openPlanningTask(PlanningBoard board, String name) {
+    if (!_beforePlanningNavigation(Section.work, () => _openPlanningTask(board, name))) return;
+    if (board.disposed) return;
+    final machine = widget.machines.all
+        .where((machine) => identical(widget.machines.of(machine).backend, board.backend))
+        .firstOrNull;
+    if (machine == null) return;
+    final fleet = widget.machines.of(machine);
+    final task = fleet.tasks.where((task) => task.name == name && task.project == board.project).firstOrNull;
+    if (task == null) return;
+    widget.machines.select(machine);
+    fleet.selectProject(board.project);
+    fleet.selectTask(name);
+    widget.shell.goTo(Section.work);
+    _openWork();
+  }
+
+  String? _planningTaskUnavailable(PlanningBoard board, String name) {
+    final machine = widget.machines.all
+        .where((machine) => identical(widget.machines.of(machine).backend, board.backend))
+        .firstOrNull;
+    if (machine == null || board.disposed) return 'This window no longer knows the machine for $name.';
+    final task = widget.machines
+        .of(machine)
+        .tasks
+        .where((task) => task.name == name && task.project == board.project)
+        .firstOrNull;
+    return task == null ? 'This window does not know task $name on this machine.' : null;
+  }
+
   void _openWork() {
     final task = _fleet.selectedTask;
     if (task == null) return;
@@ -3945,6 +3975,9 @@ class _ShellState extends State<Shell> {
                                 Expanded(
                                   child: PlanningView(
                                     boards: _planning,
+                                    shell: widget.shell,
+                                    taskUnavailable: _planningTaskUnavailable,
+                                    onTask: _openPlanningTask,
                                     onNeedsYou: () => widget.shell.goTo(Section.attention),
                                     onStartRequested: _requestPlanningStart,
                                   ),

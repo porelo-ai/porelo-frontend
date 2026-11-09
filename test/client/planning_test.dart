@@ -194,6 +194,106 @@ void main() {
       await expectLater(client.moveIssues('demo', [const PlanningIssueMove('IssueOne', 'Review')], 'old'), refused);
     });
 
+    // Harm: detail reads send the wrong identifier or project and display a different item.
+    test('standalone reads send exact project and identifier parameters', () async {
+      daemon.method('GetStory', (parameters) {
+        expect(parameters, {'project': 'demo', 'story': 'S2'});
+        return {
+          'story': {'id': 'S2', 'revision': 'r2'},
+          'text': '# Story',
+        };
+      });
+      daemon.method('ListStoryIssues', (parameters) {
+        expect(parameters, {'project': 'demo', 'story': 'S2'});
+        return {
+          'issues': [
+            {'id': 'I2', 'state': 'Reading'},
+          ],
+        };
+      });
+      daemon.method('GetIssue', (parameters) {
+        expect(parameters, {'project': 'demo', 'issue': 'I2'});
+        return {
+          'issue': {'id': 'I2', 'story': 'S2'},
+          'text': '# Issue',
+          'whatMustBeTrue': ['Confirmed work only'],
+          'findings': [
+            {'number': 3, 'severity': 'BLOCKING', 'text': 'Check', 'line': 4},
+          ],
+          'subAgents': [
+            {'name': 'Reader', 'brief': 'Read only'},
+          ],
+        };
+      });
+      final story = await client.getStory('demo', 'S2');
+      expect(story.story!.revision, 'r2');
+      expect(story.text, '# Story');
+      final issues = await client.listStoryIssues('demo', 'S2');
+      expect(issues.reported, isTrue);
+      expect(issues.issues.single.id, 'I2');
+      final issue = await client.getIssue('demo', 'I2');
+      expect(issue.issue!.story, 'S2');
+      expect(issue.whatMustBeTrue, ['Confirmed work only']);
+      expect(issue.findings.single.number, 3);
+      expect(issue.findings.single.line, 4);
+      expect(issue.subAgents.single.brief, 'Read only');
+    });
+
+    // Harm: a missing detail feature disables the board or a daemon refusal loses its detail words.
+    test('standalone reads preserve missing methods and daemon refusals', () async {
+      daemon.remove('GetStory');
+      daemon.remove('ListStoryIssues');
+      daemon.remove('GetIssue');
+      await expectLater(client.getStory('demo', 'S2'), throwsA(isA<FeatureNotSupported>()));
+      await expectLater(client.listStoryIssues('demo', 'S2'), throwsA(isA<FeatureNotSupported>()));
+      await expectLater(client.getIssue('demo', 'I2'), throwsA(isA<FeatureNotSupported>()));
+      for (final method in ['GetStory', 'ListStoryIssues', 'GetIssue']) {
+        daemon.fails(method, 'org.fuin.porelo.Tasks1.PlanningRefused', {'detail': 'Store locked'});
+      }
+      final refused = throwsA(
+        isA<VarlinkException>().having((error) => error.parameters['detail'], 'detail', 'Store locked'),
+      );
+      await expectLater(client.getStory('demo', 'S2'), refused);
+      await expectLater(client.listStoryIssues('demo', 'S2'), refused);
+      await expectLater(client.getIssue('demo', 'I2'), refused);
+    });
+
+    // Harm: a move saves a different issue, destination or revision than the one reviewed.
+    test('issue moves use the agreed request and retain daemon refusal fields', () async {
+      daemon.method('MoveIssues', (parameters) {
+        expect(parameters, {
+          'project': 'demo',
+          'moves': [
+            {'issue': 'sample', 'to': 'Review'},
+          ],
+          'revision': 'r1',
+        });
+        return {'revision': 'r2'};
+      });
+      expect((await client.moveIssues('demo', [const PlanningIssueMove('sample', 'Review')], 'r1')).revision, 'r2');
+      for (final refusal in <String, Map<String, dynamic>>{
+        'StaleRevision': {'revision': 'r3'},
+        'MoveNotAllowed': {'item': 'sample', 'from': 'Working', 'to': 'Review', 'reason': 'Policy refuses'},
+        'StateNotAllowed': {'item': 'sample', 'from': 'Working', 'to': 'Review', 'reason': 'State refuses'},
+        'EnteredOnlyByWork': {'item': 'sample', 'to': 'Review'},
+      }.entries) {
+        daemon.fails('MoveIssues', 'org.fuin.porelo.Tasks1.${refusal.key}', refusal.value);
+        await expectLater(
+          client.moveIssues('demo', [const PlanningIssueMove('sample', 'Review')], 'r1'),
+          throwsA(
+            isA<VarlinkException>()
+                .having((error) => error.simpleName, 'name', refusal.key)
+                .having((error) => error.parameters, 'parameters', refusal.value),
+          ),
+        );
+      }
+      daemon.remove('MoveIssues');
+      await expectLater(
+        client.moveIssues('demo', [const PlanningIssueMove('sample', 'Review')], 'r1'),
+        throwsA(isA<FeatureNotSupported>()),
+      );
+    });
+
     // Harm: the board misses the initial answer or applies another project's changes.
     test('the watch immediately answers and pushes replacements only for its project', () async {
       final first = Completer<PlanningSnapshot>(), changed = Completer<PlanningSnapshot>();

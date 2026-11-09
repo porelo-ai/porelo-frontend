@@ -4,6 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:porelo_frontend/client.dart';
 
 import '../app/planning_board.dart';
+import '../app/planning_detail.dart';
+import '../app/shell_model.dart';
+import 'planning_story_view.dart';
+import 'planning_issue_view.dart';
 import 'tokens.dart';
 
 final _planningLeaveDialogs = Expando<bool>();
@@ -66,7 +70,24 @@ Future<bool> confirmPlanningLeave(BuildContext context, Iterable<PlanningBoard> 
 /// The planning board and its unsaved moves, supplied by watched machines.
 class PlanningView extends StatelessWidget {
   /// Takes the boards retained by the shell.
-  const PlanningView({required this.boards, required this.onNeedsYou, required this.onStartRequested, super.key});
+  const PlanningView({
+    required this.boards,
+    required this.shell,
+    required this.onTask,
+    required this.taskUnavailable,
+    required this.onNeedsYou,
+    required this.onStartRequested,
+    super.key,
+  });
+
+  /// Navigation shared with the back key and finder.
+  final ShellModel shell;
+
+  /// Opens work on the board that reported it.
+  final void Function(PlanningBoard, String) onTask;
+
+  /// Why a task on this provider cannot be opened now.
+  final String? Function(PlanningBoard, String) taskUnavailable;
 
   /// The projects and their planning providers.
   final PlanningBoards boards;
@@ -79,18 +100,84 @@ class PlanningView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-    listenable: boards,
+    listenable: Listenable.merge([boards, shell]),
     builder: (context, _) {
-      final board = boards.selected;
-      if (board == null) return const Center(child: Text('No project planning has been read from this machine.'));
-      return _BoardView(
-        key: ObjectKey(board),
-        board: board,
-        projects: boards.projects,
-        select: boards.select,
-        providerProblems: boards.providerProblems,
-        onNeedsYou: onNeedsYou,
-        onStartRequested: onStartRequested,
+      final place = shell.place;
+      final detailBoard = boards.at(place.planningSource, place.project);
+      final pinned = place.story != null;
+      final board = pinned ? detailBoard : boards.selected;
+      if (board == null) {
+        return Column(
+          children: [
+            TextButton(
+              key: const Key('planning-crumb 0'),
+              onPressed: () => shell.choosePlace(const ShellPlace(Section.planning)),
+              child: const Text('Planning'),
+            ),
+            Text(
+              pinned
+                  ? 'The machine supplying this planning item is no longer available.'
+                  : 'No project planning has been read from this machine.',
+            ),
+          ],
+        );
+      }
+      void open(PlanningBoard owner, String story, [String? issue]) => shell.choosePlace(
+        ShellPlace(
+          Section.planning,
+          project: owner.project,
+          planningSource: boards.sourceOf(owner),
+          story: story,
+          issue: issue,
+        ),
+      );
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          Offstage(
+            offstage: place.story != null,
+            child: _BoardView(
+              key: ObjectKey(board),
+              board: board,
+              projects: boards.projects,
+              select: (project) {
+                boards.select(project);
+                final selected = boards.selected;
+                shell.choosePlace(
+                  ShellPlace(
+                    Section.planning,
+                    project: project,
+                    planningSource: selected == null ? null : boards.sourceOf(selected),
+                  ),
+                );
+              },
+              providerProblems: boards.problemsFor(board),
+              onNeedsYou: onNeedsYou,
+              onStartRequested: onStartRequested,
+              onStory: (story) => open(board, story),
+              onIssue: (story, issue) => open(board, story, issue),
+            ),
+          ),
+          if (place.story != null && detailBoard != null)
+            _PlanningDetailView(
+              key: ValueKey((detailBoard, place.story, place.issue)),
+              board: detailBoard,
+              story: place.story!,
+              issue: place.issue,
+              onBoard: () => shell.choosePlace(
+                ShellPlace(
+                  Section.planning,
+                  project: detailBoard.project,
+                  planningSource: boards.sourceOf(detailBoard),
+                ),
+              ),
+              onParent: () => open(detailBoard, place.story!),
+              onStory: (story) => open(detailBoard, story),
+              onIssue: (issue) => open(detailBoard, place.story!, issue),
+              onTask: (task) => onTask(detailBoard, task),
+              taskUnavailable: (task) => taskUnavailable(detailBoard, task),
+            ),
+        ],
       );
     },
   );
@@ -104,6 +191,8 @@ class _BoardView extends StatefulWidget {
     required this.providerProblems,
     required this.onNeedsYou,
     required this.onStartRequested,
+    required this.onStory,
+    required this.onIssue,
     super.key,
   });
   final PlanningBoard board;
@@ -114,6 +203,8 @@ class _BoardView extends StatefulWidget {
 
   /// Hands working-state drops to the shell that owns starting work.
   final void Function(PlanStory story, PlanState state) onStartRequested;
+  final ValueChanged<String> onStory;
+  final void Function(String, String) onIssue;
   @override
   State<_BoardView> createState() => _BoardViewState();
 }
@@ -122,8 +213,24 @@ class _BoardViewState extends State<_BoardView> {
   late final _search = TextEditingController(text: board.preferences.search);
   Key _project = UniqueKey();
   PlanningBoard get board => widget.board;
+  late final _vertical = ScrollController(
+    initialScrollOffset: board.preferences.verticalOffset,
+    keepScrollOffset: false,
+  )..addListener(_rememberScroll);
+  late final _horizontal = ScrollController(
+    initialScrollOffset: board.preferences.horizontalOffset,
+    keepScrollOffset: false,
+  )..addListener(_rememberScroll);
+
+  void _rememberScroll() {
+    if (_vertical.hasClients) board.preferences.verticalOffset = _vertical.offset;
+    if (_horizontal.hasClients) board.preferences.horizontalOffset = _horizontal.offset;
+  }
+
   @override
   void dispose() {
+    _vertical.dispose();
+    _horizontal.dispose();
     _search.dispose();
     super.dispose();
   }
@@ -139,6 +246,7 @@ class _BoardViewState extends State<_BoardView> {
       }
       final theme = Theme.of(context);
       return Padding(
+        key: const Key('planning-board'),
         padding: const EdgeInsets.all(Space.wide),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -256,7 +364,10 @@ class _BoardViewState extends State<_BoardView> {
               child: board.snapshot == null
                   ? const SizedBox.shrink()
                   : SingleChildScrollView(
+                      key: const Key('planning-board-scroll'),
+                      controller: _vertical,
                       child: SingleChildScrollView(
+                        controller: _horizontal,
                         scrollDirection: Axis.horizontal,
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -382,20 +493,24 @@ class _BoardViewState extends State<_BoardView> {
                   for (final story in cards)
                     _drag(
                       story,
-                      Tooltip(
-                        message: '${story.id} — ${story.title} (${story.priority})',
-                        child: Container(
-                          key: Key('planning-card ${story.id}'),
-                          padding: const EdgeInsets.all(Space.tight),
-                          child: Wrap(
-                            spacing: Space.tight,
-                            children: [
-                              _priority(context, story.priority, mark: true),
-                              Text(story.id),
-                              if (board.pending[story.id] case final move? when move.problem == null)
-                                const Text('moved'),
-                              if (board.pending[story.id]?.problem case final problem?) Text(problem),
-                            ],
+                      InkWell(
+                        key: Key('planning-story ${story.id}'),
+                        onTap: story.id.isEmpty ? null : () => widget.onStory(story.id),
+                        child: Tooltip(
+                          message: '${story.id} — ${story.title} (${story.priority})',
+                          child: Container(
+                            key: Key('planning-card ${story.id}'),
+                            padding: const EdgeInsets.all(Space.tight),
+                            child: Wrap(
+                              spacing: Space.tight,
+                              children: [
+                                _priority(context, story.priority, mark: true),
+                                Text(story.id),
+                                if (board.pending[story.id] case final move? when move.problem == null)
+                                  const Text('moved'),
+                                if (board.pending[story.id]?.problem case final problem?) Text(problem),
+                              ],
+                            ),
                           ),
                         ),
                       ),
@@ -533,88 +648,201 @@ class _BoardViewState extends State<_BoardView> {
       Card(
         key: Key('planning-card ${story.id}'),
         margin: const EdgeInsets.only(bottom: Space.small),
-        child: Padding(
-          padding: const EdgeInsets.all(Space.normal),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Wrap(
-                spacing: Space.small,
-                children: [
-                  Text(story.id, style: theme.textTheme.labelMedium),
-                  _priority(context, story.priority),
-                ],
-              ),
-              const SizedBox(height: Space.small),
-              Text(story.title),
-              if (board.pending[story.id] case final move? when move.problem == null) const Text('moved'),
-              if (board.pending[story.id]?.problem case final problem?) Text(problem),
-              if (work != null && work.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: Space.small),
-                  child: Text(work, style: theme.textTheme.bodySmall),
+        child: InkWell(
+          key: Key('planning-story ${story.id}'),
+          onTap: story.id.isEmpty ? null : () => widget.onStory(story.id),
+          child: Padding(
+            padding: const EdgeInsets.all(Space.normal),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Wrap(
+                  spacing: Space.small,
+                  children: [
+                    Text(story.id, style: theme.textTheme.labelMedium),
+                    _priority(context, story.priority),
+                  ],
                 ),
-              if (story.issues.any(
-                (issue) => issue.state == 'Reading' || issue.state == 'Reworking' || issue.readingStopped == true,
-              ))
-                _reading(story),
-              if (!story.issuesReported)
-                const Text('Issues not reported')
-              else
-                TextButton(
-                  key: Key('planning-issues ${story.id}'),
-                  onPressed: story.issues.isEmpty ? null : () => board.expand(story.id),
-                  style: TextButton.styleFrom(padding: EdgeInsets.zero),
-                  child: Row(
-                    children: [
-                      Icon(open ? Icons.expand_more : Icons.chevron_right, size: Sizes.mark),
-                      Expanded(
-                        child: Text(
-                          story.issues.isEmpty
-                              ? 'no issues yet'
-                              : '${story.issues.length} ${story.issues.length == 1 ? 'issue' : 'issues'}',
-                        ),
-                      ),
-                      if (story.issues.isNotEmpty && story.completedIssues != null) ...[
-                        SizedBox(
-                          width: PlanningStyle.progress,
-                          child: LinearProgressIndicator(
-                            value: story.completedIssues! / story.issues.length,
-                            semanticsLabel: 'Issues in Review or Finished',
+                const SizedBox(height: Space.small),
+                Text(story.title),
+                if (board.pending[story.id] case final move? when move.problem == null) const Text('moved'),
+                if (board.pending[story.id]?.problem case final problem?) Text(problem),
+                if (work != null && work.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: Space.small),
+                    child: Text(work, style: theme.textTheme.bodySmall),
+                  ),
+                if (story.issues.any(
+                  (issue) => issue.state == 'Reading' || issue.state == 'Reworking' || issue.readingStopped == true,
+                ))
+                  _reading(story),
+                if (!story.issuesReported)
+                  const Text('Issues not reported')
+                else
+                  TextButton(
+                    key: Key('planning-expand ${story.id}'),
+                    onPressed: story.issues.isEmpty ? null : () => board.expand(story.id),
+                    style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                    child: Row(
+                      key: Key('planning-issues ${story.id}'),
+                      children: [
+                        Icon(open ? Icons.expand_more : Icons.chevron_right, size: Sizes.mark),
+                        Expanded(
+                          child: Text(
+                            story.issues.isEmpty
+                                ? 'no issues yet'
+                                : '${story.issues.length} ${story.issues.length == 1 ? 'issue' : 'issues'}',
                           ),
                         ),
-                        const SizedBox(width: Space.tight),
-                        Text('${story.completedIssues}/${story.issues.length}'),
-                      ],
-                    ],
-                  ),
-                ),
-              if (story.issuesReported && story.completedIssues == null) const Text('Issue progress not reported'),
-              if (open)
-                for (final issue in story.issues)
-                  Padding(
-                    key: Key('planning-issue ${story.id} ${issue.id}'),
-                    padding: const EdgeInsets.only(top: Space.small),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('${issue.id} · ${issue.repository}'),
-                        if (issue.title.isNotEmpty) Text(issue.title),
-                        Wrap(
-                          spacing: Space.small,
-                          children: [
-                            if (issue.state.isNotEmpty) Text(issue.state),
-                            if (issue.size.isNotEmpty) Text(issue.size),
-                          ],
-                        ),
-                        if (issue.blockedBy.isNotEmpty) Text('Blocked by ${issue.blockedBy.join(', ')}'),
+                        if (story.issues.isNotEmpty && story.completedIssues != null) ...[
+                          SizedBox(
+                            width: PlanningStyle.progress,
+                            child: LinearProgressIndicator(
+                              value: story.completedIssues! / story.issues.length,
+                              semanticsLabel: 'Issues in Review or Finished',
+                            ),
+                          ),
+                          const SizedBox(width: Space.tight),
+                          Text('${story.completedIssues}/${story.issues.length}'),
+                        ],
                       ],
                     ),
                   ),
-            ],
+                if (story.issuesReported && story.completedIssues == null) const Text('Issue progress not reported'),
+                if (open)
+                  for (final issue in story.issues)
+                    Padding(
+                      key: Key('planning-issue ${story.id} ${issue.id}'),
+                      padding: const EdgeInsets.only(top: Space.small),
+                      child: Column(
+                        key: Key('planning-issue-row ${issue.id}'),
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          TextButton(
+                            key: Key('planning-issue ${issue.id}'),
+                            onPressed: issue.id.isEmpty ? null : () => widget.onIssue(story.id, issue.id),
+                            child: Text('${issue.id} · ${issue.repository}'),
+                          ),
+                          if (issue.title.isNotEmpty) Text(issue.title),
+                          Wrap(
+                            spacing: Space.small,
+                            children: [
+                              if (issue.state.isNotEmpty) Text(issue.state),
+                              if (issue.size.isNotEmpty) Text(issue.size),
+                            ],
+                          ),
+                          if (!issue.blockedByReported)
+                            const Text('Blockers not reported')
+                          else if (issue.blockedBy.isNotEmpty)
+                            Text('Blocked by ${issue.blockedBy.join(', ')}'),
+                        ],
+                      ),
+                    ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
+}
+
+class _PlanningDetailView extends StatefulWidget {
+  const _PlanningDetailView({
+    required this.board,
+    required this.story,
+    required this.issue,
+    required this.onBoard,
+    required this.onParent,
+    required this.onStory,
+    required this.onIssue,
+    required this.onTask,
+    required this.taskUnavailable,
+    super.key,
+  });
+  final PlanningBoard board;
+  final String story;
+  final String? issue;
+  final VoidCallback onBoard, onParent;
+  final ValueChanged<String> onStory, onIssue, onTask;
+  final String? Function(String) taskUnavailable;
+
+  @override
+  State<_PlanningDetailView> createState() => _PlanningDetailViewState();
+}
+
+class _PlanningDetailViewState extends State<_PlanningDetailView> {
+  late final detail = PlanningDetail(widget.board, widget.story, widget.issue);
+
+  @override
+  void dispose() {
+    detail.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: detail,
+    builder: (context, _) => SingleChildScrollView(
+      key: const Key('planning-detail'),
+      padding: const EdgeInsets.all(Space.normal),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              TextButton(key: const Key('planning-crumb 0'), onPressed: widget.onBoard, child: const Text('Planning')),
+              const Text('›'),
+              TextButton(
+                key: const Key('planning-crumb 1'),
+                onPressed: widget.issue == null ? null : widget.onParent,
+                child: Text(widget.story),
+              ),
+              if (widget.issue != null) ...[const Text('›'), Text(widget.issue!, key: const Key('planning-crumb 2'))],
+            ],
+          ),
+          Text('Project ${widget.board.project} · From ${widget.board.backend.label}'),
+          if (detail.loading) const Text('Waiting for the machine’s planning answer.'),
+          if (widget.board.problem case final problem?) ...[
+            Text(problem, key: const Key('planning-watch-error')),
+            TextButton.icon(
+              key: const Key('planning-retry'),
+              onPressed: () => unawaited(widget.board.retry()),
+              icon: const Icon(Icons.refresh),
+              label: const Text('Retry planning'),
+            ),
+          ],
+          if (!widget.board.live) const Text('Planning is no longer live. The last answer may be out of date.'),
+          if (detail.problem case final problem?) ...[
+            if (detail.story != null || detail.issues != null || detail.issue != null)
+              const Text('Showing the last read details; the latest read failed.'),
+            Text(
+              problem,
+              key: const Key('planning-detail-error'),
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+            TextButton(
+              onPressed: detail.saving ? null : () => unawaited(detail.reload()),
+              child: const Text('Retry details'),
+            ),
+          ],
+          if (widget.issue == null)
+            PlanningStoryView(
+              detail: detail,
+              onIssue: widget.onIssue,
+              onTask: widget.onTask,
+              taskUnavailable: widget.taskUnavailable,
+            )
+          else
+            PlanningIssueView(
+              detail: detail,
+              onStory: widget.onStory,
+              onTask: widget.onTask,
+              taskUnavailable: widget.taskUnavailable,
+            ),
+        ],
+      ),
+    ),
+  );
 }

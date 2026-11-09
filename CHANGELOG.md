@@ -10,6 +10,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - Planning stories can be dragged to pending states, undone individually, and saved atomically with revision checks and daemon refusals.
+- Story issue rows stage individual state changes in the same pending batch and atomic Save as story moves, retain applicable moves after a revision conflict, and display daemon refusals beside the affected issue.
+
+- Planning cards and issue rows open live story and issue details with breadcrumbs, web links, reader findings and sub-agents.
 
 - *Planning* shows a project’s stories by workflow phase, with live updates, priority and search filters, folding, issue progress and reading rounds; a stopped reading leads to *Needs you*.
 
@@ -164,6 +167,12 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `--roles project-admin` role is gone: a project admin is whoever the organization says.
 
 ### Fixed
+
+- Saving planning moves waits for the latest issue details when a save reply and watch update arrive together.
+
+- Planning falls back to a live board after leaving a detail, keeps the last details after a failed refresh, and shows task-link refusal reasons and a watch retry in place.
+
+- Planning details retain their source and board position, preserve successful reads when another part fails, and explain unavailable task links.
 
 - Machine sections keep actions, vault reads, and overlays on their named machine when the current selection changes, release forgotten-machine observations, and safely cancel reads after a page closes.
 - Machine navigation keeps connection and setup recovery actions, organization host management and card creation reachable, restores only valid saved places, and keeps tools and unread counts tied to the machine shown.

@@ -63,6 +63,33 @@ void main() {
     expect(work.search.text, isEmpty);
   });
 
+  // Harm: task navigation bypasses a leave refusal or loses the requested detail after resuming.
+  testWidgets('opening planning work changes selection and opens detail only after confirming leave', (tester) async {
+    await _pendingPlanning(tester);
+    final view = tester.widget<PlanningView>(find.byType(PlanningView));
+    final board = view.boards.selected!;
+    final fleet = World.machines.fleet;
+    final prior = fleet.selectedTask;
+    view.onTask(board, 'porelo-checkout-migrate');
+    await World.settle(tester);
+    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(World.shell.detailOpen, isFalse);
+    expect(fleet.selectedTask, same(prior));
+    await tester.tap(find.byKey(const Key('planning-stay')));
+    await World.settle(tester);
+    expect(World.shell.section, Section.planning);
+    expect(World.shell.detailOpen, isFalse);
+    expect(fleet.selectedTask, same(prior));
+    view.onTask(board, 'porelo-checkout-migrate');
+    await World.settle(tester);
+    await tester.tap(find.byKey(const Key('planning-leave')));
+    await World.settle(tester);
+    expect(World.shell.section, Section.work);
+    expect(World.shell.detailOpen, isTrue);
+    expect(fleet.selectedTask!.name, 'porelo-checkout-migrate');
+    expect(board.pending, isNotEmpty);
+  });
+
   // Harm: a finder selection loses its highlighted command while deferred navigation resumes.
   testWidgets('a confirmed finder navigation opens and highlights the selected machine command', (tester) async {
     await _pendingPlanning(tester);

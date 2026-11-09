@@ -114,7 +114,29 @@ enum OrganizationSection {
 @immutable
 class ShellPlace {
   /// Keeps a destination without depending on the current machine selection.
-  const ShellPlace(this.section, {this.machine, this.machineSection, this.organization, this.organizationSection});
+  const ShellPlace(
+    this.section, {
+    this.machine,
+    this.machineSection,
+    this.organization,
+    this.organizationSection,
+    this.project,
+    this.planningSource,
+    this.story,
+    this.issue,
+  });
+
+  /// The planning project's name.
+  final String? project;
+
+  /// The machine name supplying this planning destination.
+  final String? planningSource;
+
+  /// The opened story identifier.
+  final String? story;
+
+  /// The opened issue identifier.
+  final String? issue;
 
   /// The top-level page or item kind.
   final Section section;
@@ -139,6 +161,8 @@ class ShellPlace {
 
   /// A stable tree row identity.
   String get key => switch (section) {
+    Section.planning when story != null =>
+      'planning ${Uri.encodeComponent(planningSource ?? '')} ${Uri.encodeComponent(project ?? '')} ${Uri.encodeComponent(story!)} ${Uri.encodeComponent(issue ?? '')}',
     Section.machine when machine != null =>
       '${machineKey(machine!.name)}${machineSection == null ? '' : ' ${machineSection!.name}'}',
     Section.organization when organization != null =>
@@ -148,6 +172,7 @@ class ShellPlace {
 
   /// Ancestors opened to reveal this place.
   List<String> get ancestors => [
+    if (section == Section.planning && story != null) 'planning',
     if (machine != null) 'machines',
     if (machineSection != null) machineKey(machine!.name),
     if (organization != null) 'organizations',
@@ -348,7 +373,7 @@ class ShellModel extends ChangeNotifier {
   void choosePlace(ShellPlace next, {bool branch = false}) {
     if (!(beforeNavigation?.call(next.section, () => choosePlace(next, branch: branch)) ?? true)) return;
     final same = _place.key == next.key;
-    _foldedOpen.addAll(next.ancestors);
+    _foldedOpen.addAll(next.ancestors.where((key) => key != 'planning'));
     if (branch && same) {
       toggleFold(next.key);
       return;
@@ -363,7 +388,7 @@ class ShellModel extends ChangeNotifier {
 
   /// Reveals the chosen row when a phone drawer opens.
   void revealPlace() {
-    _foldedOpen.addAll(_place.ancestors);
+    _foldedOpen.addAll(_place.ancestors.where((key) => key != 'planning'));
     notifyListeners();
   }
 
@@ -417,7 +442,7 @@ class ShellModel extends ChangeNotifier {
   /// Goes to a section, closing whatever was open over the one before.
   void goTo(Section section) {
     if (!(beforeNavigation?.call(section, () => goTo(section)) ?? true)) return;
-    final hadItem = itemMachine != null || itemProject != null;
+    final hadItem = itemMachine != null || itemProject != null || _place.story != null;
     itemMachine = null;
     itemProject = null;
     _place = ShellPlace(section);
@@ -486,7 +511,7 @@ class ShellModel extends ChangeNotifier {
   void openBackups() => _open(const BackupsOpened());
 
   /// Whether Escape can dismiss an overlay or return from a machine tool to its facts.
-  bool get canClose => anythingOpen || _onMachineTool;
+  bool get canClose => anythingOpen || _onMachineTool || _place.story != null;
 
   bool get _onMachineTool =>
       _place.section == Section.machine &&
@@ -501,6 +526,17 @@ class ShellModel extends ChangeNotifier {
   /// Closes an overlay, or returns from a machine tool to its named machine's facts.
   void close() {
     if (!canClose) return;
+    if (!anythingOpen && _place.section == Section.planning && _place.story != null) {
+      choosePlace(
+        ShellPlace(
+          Section.planning,
+          project: _place.project,
+          planningSource: _place.planningSource,
+          story: _place.issue == null ? null : _place.story,
+        ),
+      );
+      return;
+    }
     final returnToMachine = !anythingOpen && _onMachineTool;
     _opened = const NothingOpened();
     if (returnToMachine) {

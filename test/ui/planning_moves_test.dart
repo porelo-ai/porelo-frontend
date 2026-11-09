@@ -63,7 +63,14 @@ Future<(FakeBackend, PlanningBoards)> _showBoard(
   await tester.pumpWidget(
     MaterialApp(
       home: Scaffold(
-        body: PlanningView(boards: boards, onNeedsYou: () {}, onStartRequested: onStartRequested),
+        body: PlanningView(
+          boards: boards,
+          shell: World.shell,
+          onTask: (_, _) {},
+          taskUnavailable: (_, _) => null,
+          onNeedsYou: () {},
+          onStartRequested: onStartRequested,
+        ),
       ),
     ),
   );

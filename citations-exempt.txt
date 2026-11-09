@@ -17,3 +17,7 @@ test/features/step/the_planning_build_stories_are_sorted.dart
 test/features/planning_moves.feature
 test/features/planning_moves_test.dart
 test/features/step/advanced_planning_issues_keep_their_state.dart
+test/app/planning_detail_test.dart
+test/features/planning_story.feature
+test/features/planning_story_test.dart
+test/features/support/planning_details.dart

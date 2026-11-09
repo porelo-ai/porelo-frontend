@@ -364,7 +364,9 @@ class _ShellRailState extends State<ShellRail> {
 
   Widget _row(BuildContext context, _TreeRow row, int index) {
     final theme = Theme.of(context);
-    final chosen = selected == row.place.key;
+    final chosen =
+        selected == row.place.key ||
+        row.place.section == Section.planning && (widget.place?.ancestors.contains('planning') ?? false);
     final ancestor = widget.place?.ancestors.contains(row.place.key) ?? false;
     final open = widget.foldedOpen.contains(row.place.key);
     final treeKey = row.place.key;

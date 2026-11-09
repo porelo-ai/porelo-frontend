@@ -1,0 +1,287 @@
+import 'dart:async';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:porelo_frontend/client.dart';
+import 'package:porelo_frontend/src/app/planning_board.dart';
+import 'package:porelo_frontend/src/app/planning_detail.dart';
+import 'package:porelo_frontend/src/app/shell_model.dart';
+import 'package:porelo_frontend/src/mock/planning_data.dart';
+
+import '../features/support/world.dart';
+
+Future<void> _flush() => Future<void>.delayed(Duration.zero);
+
+class _StrictPlanningBoard extends PlanningBoard {
+  _StrictPlanningBoard(super.backend, super.project);
+
+  @override
+  void removeListener(void Function() listener) {
+    if (disposed) throw StateError('Listener removed from a disposed board');
+    super.removeListener(listener);
+  }
+}
+
+void main() {
+  // Harm: completing a request after leaving the screen notifies a disposed model or continues reading.
+  test('late replies after disposal cannot publish or start the dependent read', () async {
+    final backend = FakeBackend([]);
+    final board = PlanningBoard(backend, 'demo');
+    await _flush();
+    final pending = Completer<PlanStoryDetail>();
+    backend.readPlanningStory = (_, _) => pending.future;
+    final detail = PlanningDetail(board, 'ST291', null);
+    final notifications = <String>[];
+    detail.addListener(() => notifications.add('changed'));
+    detail.dispose();
+    pending.complete(
+      PlanStoryDetail.from({
+        'story': {'id': 'ST291', 'title': 'Late'},
+      }),
+    );
+    await _flush();
+    expect(notifications, isEmpty);
+    expect(detail.story, isNull);
+    expect(detail.issues, isNull);
+    board.dispose();
+    expect(backend.planningWatchers, 0);
+    await backend.stop();
+  });
+
+  // Harm: a slow old snapshot overwrites the newer story after the watch changed.
+  test('a newer board replacement invalidates an older detail reply', () async {
+    final backend = FakeBackend([]);
+    final board = PlanningBoard(backend, 'demo');
+    await _flush();
+    final pending = <Completer<PlanStoryDetail>>[];
+    backend.readPlanningStory = (_, _) {
+      final reply = Completer<PlanStoryDetail>();
+      pending.add(reply);
+      return reply.future;
+    };
+    final detail = PlanningDetail(board, 'ST291', null);
+    backend.pushPlanning('demo', mockPlanningBoard());
+    await _flush();
+    expect(pending, hasLength(2));
+    pending.last.complete(
+      PlanStoryDetail.from({
+        'story': {'id': 'ST291', 'title': 'New'},
+      }),
+    );
+    await _flush();
+    expect(detail.story!.story!.title, 'New');
+    pending.first.complete(
+      PlanStoryDetail.from({
+        'story': {'id': 'ST291', 'title': 'Old'},
+      }),
+    );
+    await _flush();
+    expect(detail.story!.story!.title, 'New');
+    expect(detail.problem, isNull);
+    expect(detail.issues!.reported, isTrue);
+    detail.dispose();
+    final afterDispose = <String>[];
+    backend.readPlanningStory = (_, _) async {
+      afterDispose.add('read');
+      return PlanStoryDetail.from({});
+    };
+    backend.pushPlanning('demo', mockPlanningBoard());
+    await _flush();
+    expect(afterDispose, isEmpty);
+    board.dispose();
+    await backend.stop();
+  });
+
+  // Harm: a reply for another identifier is rendered under the requested breadcrumb.
+  test('a mismatched story is refused without publishing it', () async {
+    final backend = FakeBackend([]);
+    final board = PlanningBoard(backend, 'demo');
+    await _flush();
+    backend.readPlanningStory = (_, _) async => PlanStoryDetail.from({
+      'story': {'id': 'other', 'title': 'Wrong'},
+    });
+    final detail = PlanningDetail(board, 'ST291', null);
+    await _flush();
+    expect(detail.story, isNull);
+    expect(detail.problem, contains('did not return the requested story'));
+    expect(detail.loading, isFalse);
+    detail.dispose();
+    board.dispose();
+    await backend.stop();
+  });
+  // Harm: removing a provider leaves detail disposal calling into its released board.
+  test('detail disposal does not remove a listener from a disposed board', () async {
+    final backend = FakeBackend([]);
+    final board = _StrictPlanningBoard(backend, 'demo');
+    await _flush();
+    final pending = Completer<PlanStoryDetail>();
+    backend.readPlanningStory = (_, _) => pending.future;
+    final detail = PlanningDetail(board, 'ST291', null);
+    final changed = <String>[];
+    detail.addListener(() => changed.add('changed'));
+    board.dispose();
+    expect(detail.dispose, returnsNormally);
+    pending.complete(
+      PlanStoryDetail.from({
+        'story': {'id': 'ST291'},
+      }),
+    );
+    await _flush();
+    expect(changed, isEmpty);
+    expect(backend.planningWatchers, 0);
+    await backend.stop();
+  });
+
+  // Harm: an in-flight issue-list read publishes a new story beside an older list.
+  test('a reload publishes its parts together and names a failed issue list', () async {
+    final backend = FakeBackend([]);
+    final board = PlanningBoard(backend, 'demo');
+    await _flush();
+    final detail = PlanningDetail(board, 'ST291', null);
+    await _flush();
+    final oldTitle = detail.story!.story!.title;
+    final oldIssues = detail.issues;
+    final pending = Completer<PlanIssueList>();
+    backend.readPlanningIssues = (_, _) => pending.future;
+    final replacement = mockPlanningBoard();
+    mockPlanningStory(replacement, 'ST291')!['title'] = 'Changed after the watch';
+    backend.pushPlanning('demo', replacement);
+    await _flush();
+    expect(detail.loading, isTrue);
+    expect(detail.story!.story!.title, oldTitle);
+    expect(detail.issues, same(oldIssues));
+    pending.completeError(const VarlinkException('PlanningRefused', {'detail': 'List locked'}));
+    await _flush();
+    expect(detail.loading, isFalse);
+    expect(detail.story!.story!.title, oldTitle);
+    expect(detail.issues, same(oldIssues));
+    expect(detail.issuesProblem, 'Issue list: List locked');
+    detail.dispose();
+    board.dispose();
+    await backend.stop();
+  });
+
+  // Harm: a failed parent hides a successfully read issue or invents an owner.
+  test('issue content survives a parent failure and an omitted owner is not inferred', () async {
+    final backend = FakeBackend([]);
+    final board = PlanningBoard(backend, 'demo');
+    await _flush();
+    backend.planningPartFailures['Story'] = const VarlinkException('PlanningRefused', {'detail': 'Parent locked'});
+    final detail = PlanningDetail(board, 'ST291', 'B541');
+    await _flush();
+    expect(detail.issue!.issue!.id, 'B541');
+    expect(detail.issue!.issue!.link, 'https://example.org/issues/B541');
+    expect(detail.story, isNull);
+    expect(detail.storyProblem, 'Story: Parent locked');
+    mockPlanningStory(backend.planning['demo']!, 'ST291')!['issues'][1]['story'] = null;
+    await detail.reload();
+    expect(detail.issue!.issue!.story, isEmpty);
+    expect(detail.storyProblem, isNull);
+    expect(detail.story, isNull);
+    detail.dispose();
+    board.dispose();
+    await backend.stop();
+  });
+  // Harm: a failed issue refresh erases the last issue and its owning story.
+  test('a failed issue refresh retains the last published issue group', () async {
+    final backend = FakeBackend([]);
+    final board = PlanningBoard(backend, 'demo');
+    await _flush();
+    final detail = PlanningDetail(board, 'ST291', 'B541');
+    await _flush();
+    final priorIssue = detail.issue, priorStory = detail.story;
+    expect(priorIssue, isNotNull);
+    expect(priorStory, isNotNull);
+    backend.planningPartFailures['Issue'] = const VarlinkException('PlanningRefused', {'detail': 'Issue locked'});
+    await detail.reload();
+    expect(detail.issue, same(priorIssue));
+    expect(detail.story, same(priorStory));
+    expect(detail.issueProblem, 'Issue: Issue locked');
+    detail.dispose();
+    board.dispose();
+    await backend.stop();
+  });
+
+  // Harm: navigation persists a leaf as a collapsible branch and restores invalid tree state.
+  test('planning is an ancestor without becoming a saved fold', () {
+    final shell = ShellModel();
+    shell.choosePlace(const ShellPlace(Section.planning, project: 'demo', planningSource: 'local', story: 'sample'));
+    shell.revealPlace();
+    expect(shell.place.ancestors, contains('planning'));
+    expect(shell.navigation['folded'], isNot(contains('planning')));
+    shell.dispose();
+  });
+  // Harm: a draft edits sibling states or appears saved before the daemon acknowledgement.
+  test('one issue stays pending until its confirmed save is reread', () async {
+    final backend = FakeBackend([]);
+    final board = PlanningBoard(backend, 'demo');
+    await _flush();
+    final detail = PlanningDetail(board, 'ST291', null);
+    await _flush();
+    detail.queueMove('B541', 'Review');
+    expect(detail.issues!.issues.singleWhere((issue) => issue.id == 'B541').state, 'Implementing');
+    expect(detail.pendingMoves.keys, ['B541']);
+    final held = Completer<void>();
+    backend.planningMoveHeld = held;
+    final save = detail.saveMoves();
+    expect(detail.saving, isTrue);
+    expect(detail.issues!.issues.singleWhere((issue) => issue.id == 'B541').state, 'Implementing');
+    held.complete();
+    await save;
+    expect(detail.pendingMoves, isEmpty);
+    expect(backend.planningMoveCalls, hasLength(1));
+    expect(detail.issues!.issues.singleWhere((issue) => issue.id == 'B541').state, 'Review');
+    expect(detail.issues!.issues.singleWhere((issue) => issue.id == 'B540').state, 'Implementing');
+    detail.dispose();
+    board.dispose();
+    await backend.stop();
+  });
+
+  // Harm: stale planning is overwritten or pending work is silently discarded.
+  test('stale issue moves reread and keep only still-applicable drafts without retrying writes', () async {
+    final backend = FakeBackend([]);
+    final board = PlanningBoard(backend, 'demo');
+    await _flush();
+    final detail = PlanningDetail(board, 'ST291', null);
+    await _flush();
+    detail.queueMove('B540', 'Review');
+    detail.queueMove('B541', 'Review');
+    final raw = backend.planning['demo']!;
+    raw['revision'] = 'elsewhere';
+    final story = mockPlanningStory(raw, 'ST291')!;
+    (story['issues'] as List).cast<Map<String, dynamic>>().singleWhere((issue) => issue['id'] == 'B540')['state'] =
+        'Review';
+    await detail.saveMoves();
+    expect(detail.pendingMoves.keys, ['B541']);
+    expect(backend.planningMoveCalls, hasLength(1));
+    expect(detail.issues!.issues.singleWhere((issue) => issue.id == 'B541').state, 'Implementing');
+    expect(detail.moveNotice, contains('save again'));
+    await detail.saveMoves();
+    expect(backend.planningMoveCalls, hasLength(2));
+    expect(detail.pendingMoves, isEmpty);
+    expect(detail.issues!.issues.singleWhere((issue) => issue.id == 'B541').state, 'Review');
+    detail.dispose();
+    board.dispose();
+    await backend.stop();
+  });
+
+  // Harm: a save finishing after navigation notifies a disposed detail model.
+  test('a held save completes without notifying after disposal', () async {
+    final backend = FakeBackend([]);
+    final board = PlanningBoard(backend, 'demo');
+    await _flush();
+    final detail = PlanningDetail(board, 'ST291', null);
+    await _flush();
+    detail.queueMove('B541', 'Review');
+    final held = Completer<void>();
+    backend.planningMoveHeld = held;
+    final save = detail.saveMoves();
+    final changes = <String>[];
+    detail.addListener(() => changes.add('changed'));
+    detail.dispose();
+    held.complete();
+    await save;
+    expect(changes, isEmpty);
+    board.dispose();
+    await backend.stop();
+  });
+}

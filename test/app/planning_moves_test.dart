@@ -73,12 +73,12 @@ class _Backend extends Fake implements FleetBackend {
   }
 
   @override
-  Future<PlanningMoveResult> moveStories(String project, List<PlanningStoryMove> moves, String revision) async {
+  Future<PlanningMoveResult> moveStories(String project, List<PlanningMove> moves, String revision) async {
     final parameters = {'project': project, 'moves': moves.map((move) => move.toMap()).toList(), 'revision': revision};
     calls.add(parameters);
     if (gate case final waiting?) await waiting.future;
     if (failure case final error?) throw error;
-    if (moves.any((move) => move.story == refusedStory)) {
+    if (moves.any((move) => move is PlanningStoryMove && move.story == refusedStory)) {
       throw VarlinkException('org.fuin.porelo.Tasks1.PlanningRefused', {
         'story': refusedStory,
         'detail': 'Work is still running',
@@ -175,6 +175,71 @@ void main() {
     expect(backend.storyReads, 0);
   });
 
+  // Harm: issue drafts are lost on detail navigation or saved separately from story moves.
+  test('story and explicit issue moves share one pending batch and one atomic save', () async {
+    board.moveIssue('IssueTwo', 'Ready');
+    board.move('StoryOne', 'Done');
+    expect(board.pending, hasLength(2));
+    expect(board.pendingIssues.keys, ['IssueTwo']);
+    expect(backend.calls, isEmpty);
+    await board.save();
+    expect(backend.calls, [
+      {
+        'project': 'demo',
+        'moves': [
+          {'story': 'StoryOne', 'to': 'Done'},
+          {'issue': 'IssueTwo', 'to': 'Ready'},
+        ],
+        'revision': 'initial',
+      },
+    ]);
+    expect(board.pending, isEmpty);
+    expect(board.stories.first.state, 'Done');
+    expect(board.stories.first.issues.map((issue) => issue.state), ['Done', 'Ready']);
+    expect(backend.workflowReads, 0);
+    expect(backend.storyReads, 0);
+  });
+
+  // Harm: refusal of an explicit issue publishes part of a story-and-issue batch.
+  test('a refused explicit issue leaves the entire mixed batch pending and the store unchanged', () async {
+    board.move('StoryOne', 'Done');
+    board.moveIssue('IssueTwo', 'Ready');
+    backend.failure = const VarlinkException('StateNotAllowed', {'item': 'IssueTwo', 'reason': 'Policy refuses'});
+    await board.save();
+    expect(backend.calls, hasLength(1));
+    expect(board.pending, hasLength(2));
+    expect(board.pending['StoryOne']!.problem, isNull);
+    expect(board.pendingIssues['IssueTwo']!.problem, 'Policy refuses');
+    expect(board.stories.first.state, 'Ready');
+    expect(board.stories.first.issues.map((issue) => issue.state), ['Ready', 'Elsewhere']);
+    expect(backend.data['revision'], 'initial');
+    board.undoAll();
+    expect(board.pending, isEmpty);
+    expect(board.pendingIssues, isEmpty);
+    expect(backend.calls, hasLength(1));
+  });
+
+  // Harm: an unreported embedded issue list silently discards a reviewed standalone issue draft.
+  test('issue drafts survive unreported board lists and accept confirmed standalone rows', () {
+    board.moveIssue('IssueTwo', 'Done');
+    backend.changes.add(
+      PlanningSnapshot.from({
+        ...backend.data,
+        'stories': [
+          {'id': 'StoryOne', 'state': 'Ready'},
+          {'id': 'StoryTwo', 'state': 'Ready', 'issues': <Map<String, dynamic>>[]},
+        ],
+        'revision': 'partial-issues',
+      }),
+    );
+    expect(board.pendingIssues['IssueTwo']!.to, 'Done');
+    board.moveIssue('Standalone', 'Done', reported: PlanIssue.from({'id': 'Standalone', 'state': 'Ready'}));
+    expect(board.pendingIssues.keys, ['IssueTwo', 'Standalone']);
+    expect(backend.calls, isEmpty);
+    board.undoAll();
+    expect(board.pending, isEmpty);
+  });
+
   // Harm: a refused second story leaves an earlier story committed by an atomic save.
   test('the stand-in publishes none of a refused story batch', () {
     final source = _fixture();
@@ -233,7 +298,7 @@ void main() {
     expect(story['state'], 'Ready');
     expect(story['issues'][0]['state'], 'Done');
     expect(story['issues'][1]['state'], 'Elsewhere');
-    expect(result['revision'], 'initial-move');
+    expect(result['revision'], allOf(isA<String>(), isNotEmpty, isNot(source['revision'])));
   });
 
   // Harm: a stale save overwrites others or loses the remaining operator intent.

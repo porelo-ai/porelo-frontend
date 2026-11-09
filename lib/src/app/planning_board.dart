@@ -38,6 +38,12 @@ class PlanningPreferences {
   /// The search over identifier and title.
   String search = '';
 
+  /// The last vertical board position, retained across provider replacements.
+  double verticalOffset = 0;
+
+  /// The last horizontal board position, retained across provider replacements.
+  double horizontalOffset = 0;
+
   /// Whether closed states are shown.
   bool showClosed = false;
 
@@ -54,7 +60,10 @@ class PlanningPreferences {
 /// An unsaved destination, kept separately from the daemon's story state.
 class PendingPlanningMove {
   /// Records the original state for the unsaved-move summary.
-  PendingPlanningMove(this.from, this.to);
+  PendingPlanningMove(this.from, this.to, {this.isIssue = false});
+
+  /// Whether this destination belongs to an issue rather than a story.
+  final bool isIssue;
 
   /// The state when staging began.
   String from;
@@ -105,12 +114,19 @@ class PlanningBoard extends ChangeNotifier {
   /// Save, reload, or drop feedback, using daemon details on failures.
   String? moveProblem;
 
+  /// Confirmation or revision-change feedback from the shared save.
+  String? moveNotice;
+
   (FleetBackend, String)? _queuedProject;
   (PlanningSnapshot, int)? _deferredSnapshot;
   int _replyOrder = 0;
   int _snapshotOrder = 0;
   StreamSubscription<PlanningSnapshot>? _watching;
   bool _disposed = false;
+
+  /// Whether this board has released its listeners and watch.
+  bool get disposed => _disposed;
+
   int _generation = 0;
 
   void _listen() {
@@ -138,7 +154,7 @@ class PlanningBoard extends ChangeNotifier {
               final watching = _watching;
               _watching = null;
               unsupported = error is FeatureNotSupported || error is VarlinkException && error.isMethodNotFound;
-              problem = unsupported ? null : _failureWords(error);
+              problem = unsupported ? null : planningFailureWords(error);
               live = false;
               notifyListeners();
               // A retry can start without waiting again on this terminal subscription's cancellation.
@@ -154,20 +170,9 @@ class PlanningBoard extends ChangeNotifier {
           );
     } catch (error) {
       unsupported = error is FeatureNotSupported || error is VarlinkException && error.isMethodNotFound;
-      problem = unsupported ? null : _failureWords(error);
+      problem = unsupported ? null : planningFailureWords(error);
       live = false;
     }
-  }
-
-  String _failureWords(Object error) {
-    if (error is VarlinkException) {
-      final detail = error.parameters['detail'];
-      if (detail is String && detail.trim().isNotEmpty) return detail;
-      final message = error.parameters['message'];
-      if (message is String && message.trim().isNotEmpty) return message;
-      return 'Refused: ${error.simpleName}.';
-    }
-    return '$error';
   }
 
   /// Replaces the source, canceling its silent watch before accepting another project's replies.
@@ -229,8 +234,38 @@ class PlanningBoard extends ChangeNotifier {
       return;
     }
     _pending[id] = PendingPlanningMove(story.state, to);
+    moveNotice = null;
     _changed();
   }
+
+  /// Issue destinations in the same pending batch as the story moves.
+  Map<String, PendingPlanningMove> get pendingIssues => {
+    for (final entry in _pending.entries)
+      if (entry.value.isIssue) entry.key.substring('issue '.length): entry.value,
+  };
+
+  /// Stages one issue without changing its reported state or any sibling.
+  void moveIssue(String id, String to, {PlanIssue? reported}) {
+    if (_disposed || saving || snapshot?.complete != true || !live || snapshot!.revision.isEmpty) return;
+    final issue = reported?.id == id
+        ? reported
+        : stories.expand((story) => story.issues).where((issue) => issue.id == id).firstOrNull;
+    final target = state(to);
+    if (issue == null || issue.state.isEmpty || target == null || !{'WAITING', 'CLOSED'}.contains(target.kind)) return;
+    final key = 'issue $id';
+    if (to == issue.state) {
+      undo(key);
+      return;
+    }
+    _pending[key] = PendingPlanningMove(issue.state, to, isIssue: true);
+    moveProblem = null;
+    moveNotice = null;
+    _changed();
+  }
+
+  String? _reportedState(PlanningSnapshot reply, String key, PendingPlanningMove move) => move.isIssue
+      ? reply.stories.expand((story) => story.issues).where((issue) => 'issue ${issue.id}' == key).firstOrNull?.state
+      : reply.stories.where((story) => story.id == key).firstOrNull?.state;
 
   /// Drops one unsaved move without touching the daemon.
   void undo(String id) {
@@ -245,6 +280,7 @@ class PlanningBoard extends ChangeNotifier {
     if (_disposed || saving) return;
     _pending.clear();
     moveProblem = null;
+    moveNotice = null;
     _changed();
   }
 
@@ -270,15 +306,18 @@ class PlanningBoard extends ChangeNotifier {
     if (!reconcile || !reply.complete || reply.revision.isEmpty) return;
     final reconciled = <String>[];
     for (final entry in _pending.entries.toList()) {
-      final story = reply.stories.where((story) => story.id == entry.key).firstOrNull;
-      if (story == null) {
+      final reported = _reportedState(reply, entry.key, entry.value);
+      if (reported == null && entry.value.isIssue && reply.stories.any((story) => !story.issuesReported)) {
+        continue;
+      }
+      if (reported == null) {
         _pending.remove(entry.key);
         reconciled.add('${entry.key} is no longer reported by the machine.');
-      } else if (story.state == entry.value.to) {
+      } else if (reported == entry.value.to) {
         _pending.remove(entry.key);
         reconciled.add('${entry.key} was moved to ${entry.value.to} elsewhere.');
       } else {
-        entry.value.from = story.state;
+        entry.value.from = reported;
       }
     }
     if (reconciled.isNotEmpty) {
@@ -313,20 +352,27 @@ class PlanningBoard extends ChangeNotifier {
       moveProblem = null;
       _accept(reply.$1, order: reply.$2);
     } catch (error) {
-      if (!_disposed && generation == _generation) moveProblem = _failureWords(error);
+      if (!_disposed && generation == _generation) moveProblem = planningFailureWords(error);
     } finally {
       _finishOperation();
     }
   }
 
-  /// Saves all pending stories atomically and applies only the daemon's complete answer.
+  /// Saves all pending story and issue destinations atomically and applies only the daemon's complete answer.
   Future<void> save() async {
     if (_disposed || saving || _pending.isEmpty || !live) return;
     saving = true;
     final generation = _generation;
     final revision = snapshot?.revision ?? '';
-    final moves = [for (final entry in _pending.entries) PlanningStoryMove(entry.key, entry.value.to)];
+    final batch = Map.of(_pending);
+    final moves = <PlanningMove>[
+      for (final entry in batch.entries)
+        if (!entry.value.isIssue) PlanningStoryMove(entry.key, entry.value.to),
+      for (final entry in batch.entries)
+        if (entry.value.isIssue) PlanningIssueMove(entry.key.substring('issue '.length), entry.value.to),
+    ];
     moveProblem = null;
+    moveNotice = null;
     for (final move in _pending.values) {
       move.problem = null;
     }
@@ -338,36 +384,38 @@ class PlanningBoard extends ChangeNotifier {
       if (_disposed || generation != _generation) return;
       _checked(reply);
       if (!reply.moved) throw StateError('The machine did not confirm the planning moves.');
-      for (final move in moves) {
-        final story = reply.stories.where((story) => story.id == move.story).firstOrNull;
-        if (story?.state == move.to) {
-          _pending.remove(move.story);
+      for (final entry in batch.entries) {
+        if (_reportedState(reply, entry.key, entry.value) == entry.value.to) {
+          _pending.remove(entry.key);
         } else {
-          _pending[move.story]?.problem = 'The machine did not confirm this destination.';
+          _pending[entry.key]?.problem = 'The machine did not confirm this destination.';
         }
+      }
+      if (_pending.isEmpty) {
+        moveNotice = batch.values.every((move) => move.isIssue) ? 'Issue changes saved.' : 'Planning changes saved.';
       }
       _accept(reply, order: order, reconcile: false);
     } on VarlinkException catch (error) {
       if (_disposed || generation != _generation) return;
-      final detail = _failureWords(error);
-      final named = error.parameters['story'];
-      final affected = named is String && moves.any((move) => move.story == named)
-          ? moves.where((move) => move.story == named).toList()
-          : moves;
-      for (final move in affected) {
-        _pending[move.story]?.problem = detail;
+      final detail = planningFailureWords(error);
+      final item = error.parameters['item'] ?? error.parameters['issue'];
+      final named = item is String ? 'issue $item' : error.parameters['story'];
+      final affected = named is String && batch.containsKey(named) ? [named] : batch.keys;
+      for (final key in affected) {
+        _pending[key]?.problem = detail;
       }
-      if (error.simpleName == 'PlanningChanged') {
+      if ({'PlanningChanged', 'StaleRevision'}.contains(error.simpleName)) {
         moveProblem = detail;
+        moveNotice = 'Planning changed. Review the pending moves and save again.';
         try {
           final reply = await _read();
           if (!_disposed && generation == _generation) _accept(reply.$1, order: reply.$2);
         } catch (readError) {
-          if (!_disposed && generation == _generation) moveProblem = '$detail ${_failureWords(readError)}';
+          if (!_disposed && generation == _generation) moveProblem = '$detail ${planningFailureWords(readError)}';
         }
       }
     } catch (error) {
-      if (!_disposed && generation == _generation) moveProblem = _failureWords(error);
+      if (!_disposed && generation == _generation) moveProblem = planningFailureWords(error);
     } finally {
       _finishOperation();
     }
@@ -517,7 +565,9 @@ class PlanningBoards extends ChangeNotifier {
     };
     for (final key in _boards.keys.toList()) {
       if (!wanted.containsKey(key) || !identical(_boards[key]!.backend, wanted[key])) {
-        _boards.remove(key)!.dispose();
+        final removed = _boards.remove(key)!;
+        removed.removeListener(_changed);
+        removed.dispose();
       }
     }
     for (final entry in wanted.entries) {
@@ -588,15 +638,22 @@ class PlanningBoards extends ChangeNotifier {
         (preferred != null && !preferred.unsupported ? preferred : candidates.firstOrNull);
   }
 
+  /// The stable owner of a board, independent of the current machine selection.
+  String? sourceOf(PlanningBoard board) =>
+      _boards.entries.where((entry) => identical(entry.value, board)).firstOrNull?.key.$1;
+
+  /// A detail destination stays on its original project and machine.
+  PlanningBoard? at(String? source, String? project) => _boards[(source, project)];
+
   /// Errors from other providers of the selected project, retained even while a live provider supplies it.
-  List<String> get providerProblems {
-    final shown = selected;
-    return [
-      for (final board in _boards.values)
-        if (!identical(board, shown) && board.project == shown?.project && board.problem != null)
-          '${board.backend.label}: ${board.problem}',
-    ];
-  }
+  List<String> get providerProblems => problemsFor(selected);
+
+  /// Errors from other providers of the board actually on screen, including a pinned destination.
+  List<String> problemsFor(PlanningBoard? shown) => [
+    for (final board in _boards.values)
+      if (!identical(board, shown) && board.project == shown?.project && board.problem != null)
+        '${board.backend.label}: ${board.problem}',
+  ];
 
   /// Selects a project without resetting its view choices.
   void select(String name) {
@@ -621,9 +678,27 @@ class PlanningBoards extends ChangeNotifier {
     _disposed = true;
     machines.removeListener(_sync);
     for (final board in _boards.values) {
+      board.removeListener(_changed);
       board.dispose();
     }
     _boards.clear();
     super.dispose();
   }
+}
+
+/// Preserves a daemon refusal in its own detail words.
+String planningFailureWords(Object error) {
+  if (error is VarlinkException) {
+    final detail = error.parameters['detail'];
+    if (detail is String && detail.trim().isNotEmpty) return detail;
+    final message = error.parameters['message'];
+    if (message is String && message.trim().isNotEmpty) return message;
+    final reason = error.parameters['reason'];
+    if (reason is String && reason.trim().isNotEmpty) return reason;
+    if (error.simpleName == 'EnteredOnlyByWork') {
+      return 'EnteredOnlyByWork: ${error.parameters['to']} can be entered only by work.';
+    }
+    return 'Refused: ${error.simpleName}.';
+  }
+  return '$error';
 }

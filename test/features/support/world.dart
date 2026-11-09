@@ -123,6 +123,7 @@ class FakeBackend implements FleetBackend {
   Future<PlanningMoveResult> _movePlanning(String project, Map<String, dynamic> parameters) async {
     planningMoveCalls.add({'project': project, ...parameters});
     if (planningMoveGate case final gate?) await gate.future;
+    if (planningMoveHeld case final held?) await held.future;
     final moves = parameters['moves'];
     if (planningRefusedStory != null &&
         moves is List &&
@@ -139,7 +140,7 @@ class FakeBackend implements FleetBackend {
   }
 
   @override
-  Future<PlanningMoveResult> moveStories(String project, List<PlanningStoryMove> moves, String revision) =>
+  Future<PlanningMoveResult> moveStories(String project, List<PlanningMove> moves, String revision) =>
       _movePlanning(project, {'moves': moves.map((move) => move.toMap()).toList(), 'revision': revision});
 
   @override
@@ -157,6 +158,56 @@ class FakeBackend implements FleetBackend {
     if (withoutPlanning) throw const FeatureNotSupported('planning');
     if (planningFailure case final failure?) throw failure;
     return planning.putIfAbsent(project, mockPlanningBoard);
+  }
+
+  /// A detail-only refusal, independent of the board watch.
+  Object? planningDetailFailure;
+
+  /// Failures of individual detail parts, independent of the other reads.
+  final Map<String, Object> planningPartFailures = {};
+
+  /// Optional issue-list read controlled by a lifecycle test.
+  Future<PlanIssueList> Function(String, String)? readPlanningIssues;
+
+  /// Optional delayed reads for navigation and disposal scenarios.
+  Future<PlanStoryDetail> Function(String, String)? readPlanningStory;
+
+  /// An optional pending save, completed by a scenario.
+  Completer<void>? planningMoveHeld;
+
+  @override
+  Future<PlanStoryDetail> getStory(String project, String story) async {
+    if (planningDetailFailure case final failure?) throw failure;
+    if (planningPartFailures['Story'] case final failure?) throw failure;
+    if (readPlanningStory case final read?) return read(project, story);
+    final record = mockPlanningStory(_planningFor(project), story);
+    if (record == null) throw const VarlinkException('NoSuchStory', {'detail': 'Story not found.'});
+    return PlanStoryDetail.from({'story': record, 'text': record['text']});
+  }
+
+  @override
+  Future<PlanIssueList> listStoryIssues(String project, String story) async {
+    if (planningDetailFailure case final failure?) throw failure;
+    if (planningPartFailures['Issue list'] case final failure?) throw failure;
+    if (readPlanningIssues case final read?) return read(project, story);
+    final record = mockPlanningStory(_planningFor(project), story);
+    if (record == null) throw const VarlinkException('NoSuchStory', {'detail': 'Story not found.'});
+    return PlanIssueList.from({'issues': record['issues']});
+  }
+
+  @override
+  Future<PlanIssueDetail> getIssue(String project, String issue) async {
+    if (planningDetailFailure case final failure?) throw failure;
+    if (planningPartFailures['Issue'] case final failure?) throw failure;
+    final record = mockPlanningIssue(_planningFor(project), issue);
+    if (record == null) throw const VarlinkException('NoSuchIssue', {'detail': 'Issue not found.'});
+    return PlanIssueDetail.from({
+      'issue': record,
+      'text': record['text'],
+      'whatMustBeTrue': record['whatMustBeTrue'],
+      'findings': record['findings'],
+      'subAgents': record['subAgents'],
+    });
   }
 
   @override

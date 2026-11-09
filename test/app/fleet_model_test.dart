@@ -8,10 +8,20 @@ import 'package:porelo_frontend/src/app/fleet_model.dart';
 /// A backend that is reachable and useless: the socket opens and nothing is ever answered.
 class _Wedged implements FleetBackend {
   @override
+  Future<PlanStoryDetail> getStory(String project, String story) async => throw const FeatureNotSupported('GetStory');
+
+  @override
+  Future<PlanIssueList> listStoryIssues(String project, String story) async =>
+      throw const FeatureNotSupported('ListStoryIssues');
+
+  @override
+  Future<PlanIssueDetail> getIssue(String project, String issue) async => throw const FeatureNotSupported('GetIssue');
+
+  @override
   Future<PlanningSnapshot> planningWorkflow(String project) async => throw const FeatureNotSupported('planning');
 
   @override
-  Future<PlanningMoveResult> moveStories(String project, List<PlanningStoryMove> moves, String revision) async =>
+  Future<PlanningMoveResult> moveStories(String project, List<PlanningMove> moves, String revision) async =>
       throw const FeatureNotSupported('MoveStories');
 
   @override
@@ -445,10 +455,20 @@ class _Wedged implements FleetBackend {
 /// it does not list at all.
 class _Machine implements FleetBackend {
   @override
+  Future<PlanStoryDetail> getStory(String project, String story) async => throw const FeatureNotSupported('GetStory');
+
+  @override
+  Future<PlanIssueList> listStoryIssues(String project, String story) async =>
+      throw const FeatureNotSupported('ListStoryIssues');
+
+  @override
+  Future<PlanIssueDetail> getIssue(String project, String issue) async => throw const FeatureNotSupported('GetIssue');
+
+  @override
   Future<PlanningSnapshot> planningWorkflow(String project) async => throw const FeatureNotSupported('planning');
 
   @override
-  Future<PlanningMoveResult> moveStories(String project, List<PlanningStoryMove> moves, String revision) async =>
+  Future<PlanningMoveResult> moveStories(String project, List<PlanningMove> moves, String revision) async =>
       throw const FeatureNotSupported('MoveStories');
 
   @override
