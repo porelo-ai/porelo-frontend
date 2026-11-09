@@ -1,6 +1,6 @@
 # F452 — A Project Waiting For The Token Says So Where It Is Shown
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** M - one state read already (`HostProgress`), said in four places that read it differently today, the token
 action offered beside each, and the placing dialog opened again.
 
