@@ -8,13 +8,14 @@ image:
     from: docker.io/library/ubuntu:24.04@sha256:68ee22004a9109b44973313b02ff7b1de250f1de0f5ecb628d73f579aaff33ac
     run: |
         # What `flutter build linux`, the packages, the secret store's tests and the published key's
-        # test (gpg, which the Build's runner has preinstalled) need, from Ubuntu.
+        # test (gpg, which the Build's runner has preinstalled) need, from Ubuntu; xvfb and xauth for
+        # the integration leg's display under `xvfb-run`.
         RUN apt-get update \
          && DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y \
               ca-certificates curl git unzip xz-utils zip \
               clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libsecret-1-dev \
               libstdc++-12-dev dpkg-dev binutils rpm \
-              gnome-keyring dbus python3 openssh-client gnupg \
+              gnome-keyring dbus python3 openssh-client gnupg xvfb xauth \
          && rm -rf /var/lib/apt/lists/*
         # The GraalVM porelo-machines pins, checked against its digest.
         RUN curl -fsSL -o /tmp/graalvm.tar.gz \

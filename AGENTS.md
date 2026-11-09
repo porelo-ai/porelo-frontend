@@ -569,6 +569,10 @@ several machines over their varlink socket. Its issues carry the prefix `F`; its
   keys, a closed standard input is no key, and it runs on otherwise.
 - **The Linux desktop toolchain is `clang`, `cmake`, `ninja`, `pkg-config`, `libgtk-3-dev` and
   `libsecret-1-dev`**; `flutter doctor -v` says what is missing.
+- **Before a commit, its message passes the Build's check**: `java -cp "$(cat build/jdk-cp.txt)"
+  org.fuin.porelo.release.Main check-commits origin/main..HEAD`, with `build/jdk-cp.txt` from a current Maven build.
+- **A whole suite runs with `TMPDIR` on a disk with room**: its `dart_test.*` folders and logs grow large, and a
+  `/tmp` held in memory fills.
 - **Skills it uses:** `dart-add-unit-test`, `dart-build-cli-app`, `dart-collect-coverage`,
   `dart-generate-test-mocks`, `dart-resolve-package-conflicts`, `dart-run-static-analysis`,
   `dart-use-path-package`, `dart-use-pattern-matching`, `dart-use-primary-constructors`,

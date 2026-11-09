@@ -26,6 +26,14 @@ issue is worked to Review from inside that task, to show the move done.
   leg on a leased machine, which stay the central forge's.
 - **The name**: `Agent Frontend`, nickname `Frontend` in porelo-project's `project.yml`.
 
+## How it stands
+
+- `porelo.yml` installs `xvfb` and `xauth`; `xvfb-run` was seen to give a display on the image's pinned Ubuntu base.
+- `AGENTS.md` carries the rules that hold in a task too: the commit message checked before a commit, and a whole
+  suite with `TMPDIR` on a disk with room; one reading per issue and the tests run on a commit are the shared rules'.
+- Left: the move itself (step 3), once the host stands and the operator starts the task. Since steps 1 and 2 are
+  built here, the change worked in the task is the next small issue of this repository instead.
+
 ## Plan
 
 1. `porelo.yml`: `xvfb` in the image, so the integration leg can run under `xvfb-run` where a machine is given.
