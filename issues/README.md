@@ -102,6 +102,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 |---|---|---|---|
 | <a id="f203"></a>[F203](F203-This-Repository-Worked-In-A-Porelo-Task.md) | S | — | This repository's agent working in an attended Porelo task on the host, its build green on the host's Forgejo, reached in the room, with a way back. |
 | <a id="f452"></a>[F452](F452-A-Project-Waiting-For-The-Token-Says-So-Where-It-Is-Shown.md) | M | — | A project the host reports waiting for the token says so, why, and offers the token on its row, the machine's project page and each repository row; never called carried; the placing dialog not grey when opened again. |
+| <a id="f459"></a>[F459](F459-The-Footer-Counts-What-Runs-Where.md) | XS | — | The footer's refresh and action counts name the machine and what they count. |
 
 ### Backlog
 
@@ -120,7 +121,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f456"></a>[F456](F456-The-Room-Found-From-A-Task-And-A-Project.md) | XS | — | The project's room opened in one step from a task tile and the project's page. |
 | <a id="f457"></a>[F457](F457-Needs-You-Names-The-One-Thing-To-Do.md) | L | a call reporting a host forge's pull requests, and the backend's state for a done task, for those parts | *Needs you* items name one action, close with their cause, can be marked seen, embed no task tile; nothing waits at the gate in class online; a done task shown done; the commit's makers shown. |
 | <a id="f458"></a>[F458](F458-The-Task-Terminal-Grows-With-The-Window.md) | XS | the task session following the latest client | The agent's screen grows with the window. |
-| <a id="f459"></a>[F459](F459-The-Footer-Counts-What-Runs-Where.md) | XS | — | The footer's refresh and action counts name the machine and what they count. |
 | <a id="f460"></a>[F460](F460-The-Hosts-Finished-Work-Brought-To-Central-From-The-Window.md) | M | the backend's gathered push to central | *Bring it to central…* brings a host's finished `main` to the central forge from the project's page, refusals in the backend's words. |
 | <a id="f461"></a>[F461](F461-Every-Screen-Of-The-Window-Read-For-Look-And-Sense.md) | M | — | Every screen captured headless at three sizes, light and dark, full and empty, read by another model against a visual and a logical checklist; every finding listed with its screen and size, nothing fixed yet. |
 

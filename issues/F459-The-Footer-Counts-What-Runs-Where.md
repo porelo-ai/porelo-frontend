@@ -1,6 +1,6 @@
 # F459 — The Footer Counts What Runs Where
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** XS - two lines of the footer worded for the machine they count.
 
 **What must be true.** The footer never reads as if nothing runs while a task and its workflows run: each count names
