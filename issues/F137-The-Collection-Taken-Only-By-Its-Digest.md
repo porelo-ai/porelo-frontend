@@ -1,7 +1,6 @@
 # F137 — The Collection Taken Only By Its Digest
 
-**Status:** Implementing; the rework: the collection's digest is compared before the copy but not on the host, so a
-tarball swapped there after the copy is installed.
+**Status:** Review.
 **Size:** S - one pinned digest, checked twice, with a test seen red on a changed byte.
 
 **What must be true.** `porelo-host up` installs on the host only the porelo-host collection whose
@@ -10,10 +9,11 @@ copied, and again on the host before `ansible-galaxy collection install`, saying
 
 ## How it stands
 
-Read from the code, not run. The promise is not kept on the host. `HostRun.up` in
-`packages/porelo_host/lib/src/host_run.dart` compares the collection's SHA-256 before the copy, then copies it and
-runs `ansible-galaxy collection install` with no check of it on the host; the one `sha256sum -c` there checks the
-machine file. A tarball swapped on the host after the copy is installed.
+`HostRun.up` in `packages/porelo_host/lib/src/host_run.dart` refuses a tarball whose SHA-256 differs before anything
+is copied, and the host checks the copied tarball again in the same command that runs `ansible-galaxy collection
+install`, right before it, ending the step with 65; both refusals name the digest found and the one expected.
+`test/up_given_test.dart` runs that command in bash with stand-ins for `apt-get` and `ansible-galaxy`: a tarball
+swapped after the copy is refused and never reaches the installer, and the copied one does.
 
 ## Why
 

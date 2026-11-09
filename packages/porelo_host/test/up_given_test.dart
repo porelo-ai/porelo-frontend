@@ -136,15 +136,26 @@ void main() {
       'cat > /var/tmp/porelo-host/inventory.yml',
       'copy ${machineFile.path} /var/tmp/porelo-host/machine.yml',
       remote.commands[5],
-      "set -e; if command -v cloud-init >/dev/null; then cloud-init status --wait >/dev/null || [ \$? -le 2 ]; fi\n"
-          'DEBIAN_FRONTEND=noninteractive apt-get update -q >/dev/null\n'
-          'DEBIAN_FRONTEND=noninteractive apt-get install -y -q ansible-core >/dev/null\n'
-          'install -d -o root -g root -m 0755 /usr/share/ansible\n'
-          'env LC_ALL=C.UTF-8 LANG=C.UTF-8 ansible-galaxy collection install --force -p /usr/share/ansible/collections /var/tmp/porelo-host/collection.tar.gz >/dev/null',
+      remote.commands[6],
       'env LC_ALL=C.UTF-8 LANG=C.UTF-8 ANSIBLE_COLLECTIONS_PATH=/usr/share/ansible/collections '
           'ANSIBLE_STDOUT_CALLBACK=porelo.host.lines ansible-playbook -c local -i /var/tmp/porelo-host/inventory.yml porelo.host.up',
     ]);
     expect(remote.commands[2], matches(r'^copy .*/collection\.tar\.gz /var/tmp/porelo-host/collection\.tar\.gz$'));
+    expect(
+      remote.commands[6],
+      startsWith(
+        "set -e; if command -v cloud-init >/dev/null; then cloud-init status --wait >/dev/null || [ \$? -le 2 ]; fi\n"
+        'DEBIAN_FRONTEND=noninteractive apt-get update -q >/dev/null\n'
+        'DEBIAN_FRONTEND=noninteractive apt-get install -y -q ansible-core >/dev/null\n',
+      ),
+    );
+    expect(
+      remote.commands[6],
+      endsWith(
+        'env LC_ALL=C.UTF-8 LANG=C.UTF-8 ansible-galaxy collection install --force -p /usr/share/ansible/collections '
+        '/var/tmp/porelo-host/collection.tar.gz >/dev/null',
+      ),
+    );
     expect(remote.users.toSet(), {'root'});
     final inventory = jsonDecode(
       remote.runs.singleWhere((r) => r.command == 'cat > /var/tmp/porelo-host/inventory.yml').input,
@@ -359,6 +370,51 @@ void main() {
     expect(await up(), Exit.done);
     expect(replacing.copied, [0, 128, 255, 10]);
   });
+  // Harm: a tarball swapped on the host after the copy is installed by ansible-galaxy as root, which can write outside
+  // its target.
+  for (final swapped in [false, true]) {
+    test(
+      swapped
+          ? 'a collection swapped on the host after the copy is refused before ansible-galaxy runs, naming both digests'
+          : 'the collection copied unchanged reaches ansible-galaxy',
+      () async {
+        expect(await up(), Exit.done, reason: errors.toString());
+        final install = remote.commands.singleWhere((command) => command.contains('ansible-galaxy collection install'));
+        final work = Directory('${scratch.path}/remote-work')..createSync();
+        final stubs = Directory('${scratch.path}/stubs')..createSync();
+        final installed = File('${scratch.path}/installed');
+        Future<void> stub(String tool, String body) async {
+          File('${stubs.path}/$tool').writeAsStringSync('#!/bin/sh\n$body\n');
+          await Process.run('chmod', ['+x', '${stubs.path}/$tool']);
+        }
+
+        for (final tool in ['apt-get', 'cloud-init', 'install']) {
+          await stub(tool, 'exit 0');
+        }
+        await stub('ansible-galaxy', 'touch ${installed.path}');
+        await File('${work.path}/collection.tar.gz').writeAsBytes(swapped ? [42] : await collection.readAsBytes());
+        final result = await Process.run(
+          'bash',
+          ['-c', install.replaceAll('/var/tmp/porelo-host', work.path)],
+          environment: {'PATH': '${stubs.path}:${Platform.environment['PATH']}'},
+        );
+        if (swapped) {
+          expect(result.exitCode, Exit.refused, reason: 'A swapped collection must end the step.');
+          expect(installed.existsSync(), isFalse, reason: 'ansible-galaxy must not see a swapped collection.');
+          expect(result.stderr, contains(sha256.convert([42]).toString()), reason: 'The host names what it found.');
+          expect(
+            result.stderr,
+            contains(sha256.convert(await collection.readAsBytes()).toString()),
+            reason: 'The host names what it expected.',
+          );
+        } else {
+          expect(result.exitCode, 0, reason: '${result.stderr}');
+          expect(installed.existsSync(), isTrue, reason: 'The checked collection must be installed.');
+        }
+      },
+    );
+  }
+
   // Harm: a local host account must not redirect privileged preparation writes through symlinks.
   for (final target in ['directory', 'collection.tar.gz', 'inventory.yml']) {
     test('preparation refuses a symlink at its $target upload path', () async {

@@ -163,6 +163,15 @@ Future<(String, String)> sshKeygenEd25519() async {
 /// Where everything goes on the host.
 const _workdir = '/var/tmp/porelo-host';
 
+/// The host's own check of the copied collection, right before `ansible-galaxy` reads it: [expected] is 64 hex digits,
+/// validated before it reaches this line.
+String _collectionCheck(String expected) =>
+    'found=\$(sha256sum < $_workdir/collection.tar.gz | cut -d " " -f 1)\n'
+    'if [ "\$found" != $expected ]; then\n'
+    '  printf "The collection on the host has SHA-256 %s, expected %s; it was not installed.\\n" "\$found" $expected >&2\n'
+    '  exit ${Exit.refused}\n'
+    'fi\n';
+
 const _collections = '/usr/share/ansible/collections';
 
 // The helper takes `org` only from root itself, never through sudo; a rental that logs in as anyone else has no people.
@@ -462,8 +471,11 @@ class HostRun {
         throw const FormatException('The collection must be a regular file.');
       }
       final bytes = await File(source).readAsBytes();
-      if (sha256.convert(bytes).toString() != expected.toLowerCase()) {
-        throw const FormatException('The collection is not a regular file with the expected SHA-256.');
+      final found = sha256.convert(bytes).toString();
+      if (found != expected.toLowerCase()) {
+        throw FormatException(
+          'The collection has SHA-256 $found, expected ${expected.toLowerCase()}; nothing was copied.',
+        );
       }
       final machineFile = plan.machineFile == null ? null : _uploadFile(plan.machineFile!);
       checkedCollection = await Directory.systemTemp.createTemp('porelo-collection-');
@@ -544,6 +556,7 @@ done''',
             'DEBIAN_FRONTEND=noninteractive apt-get update -q >/dev/null\n'
             'DEBIAN_FRONTEND=noninteractive apt-get install -y -q ansible-core >/dev/null\n'
             'install -d -o root -g root -m 0755 /usr/share/ansible\n'
+            '${_collectionCheck(expected.toLowerCase())}'
             'env LC_ALL=C.UTF-8 LANG=C.UTF-8 ansible-galaxy collection install --force -p $_collections $_workdir/collection.tar.gz >/dev/null',
       );
       if (result.exitCode != 0) return _refused('ansible', result, 'Ansible or the collection did not install.');

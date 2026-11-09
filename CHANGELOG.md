@@ -7,6 +7,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Security
+
+- `porelo-host up` checks the collection's SHA-256 again on the host, right before `ansible-galaxy` installs it, and refuses a tarball changed there after the copy; both refusals name the digest found and the one expected.
+
 ### Changed
 
 - The window now reads the planning part as the daemon serves it.
