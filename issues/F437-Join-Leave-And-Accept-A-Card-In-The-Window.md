@@ -1,6 +1,6 @@
 # F437 — Join, Leave And Accept A Card In The Window
 
-**Status:** Idea.
+**Status:** Accepted, for estimation.
 
 **What must be true.** A person who cannot write an organization's repository asks to join it from the window, by
 filing their card as a proposal; an owner sees the proposal on the waiting person's row in *People* and accepts it
