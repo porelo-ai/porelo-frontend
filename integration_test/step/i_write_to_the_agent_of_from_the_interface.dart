@@ -48,9 +48,14 @@ Future<void> iWriteToTheAgentOfFromTheInterface(WidgetTester tester, String word
   await tester.enterText(find.byKey(const Key('words')), words);
   await tester.pump();
   await tester.tap(find.byKey(const Key('words-confirm')));
+  // Said with the name the task is shown by, which is the machine's own short name where it gives one (`e2e-talk`),
+  // and the whole name only where it gives none; whether it reached the inbox is the next step's, on the machine.
   await pumpUntil(
     tester,
-    () => find.textContaining('Written into the inbox of $task').evaluate().isNotEmpty,
+    () => find
+        .textContaining(RegExp(r'Written into the inbox of \S+\. Its agent reads it there\.'))
+        .evaluate()
+        .isNotEmpty,
     timeout: const Duration(seconds: 30),
     what: 'the machine to write it',
   );
