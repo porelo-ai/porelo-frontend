@@ -1,6 +1,6 @@
 # F462 — A Host's Central Reason Said In Words
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** XS - one switch of six known reasons in the words of the repository's row.
 
 **What must be true.** Where the host cannot say how its copy of a repository stands against central, the row says
