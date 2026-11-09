@@ -1,6 +1,6 @@
 # F203 — This Repository Worked In A Porelo Task
 
-**Status:** Backlog.
+**Status:** Implementing; its move into a task waits for the host and the task.
 **Size:** S - the image's missing display tool, the local rules that still hold in a task carried into `AGENTS.md`,
 and the move's own small change worked in the task; the rest stands already.
 
