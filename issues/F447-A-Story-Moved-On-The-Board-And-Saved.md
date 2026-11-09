@@ -11,7 +11,8 @@ all of them through the machine at once, or *Undo* drops them. A drag into a wor
 ## What it builds against (in words)
 
 - A move of a story to a waiting or closed state, with the revision the board was read at: the machine moves every
-  issue that is in the story's state (issues further on stay), all moves or none, and answers the new revision.
+  issue that is in the story's state (issues further on stay), all moves or none, and answers the new revision and
+  the issues it moved.
 - Refusals: the revision is stale (the board changed since), the move is not allowed from that state (with the
   machine's reason), or the story is unknown.
 - A move of one issue alone, the same way, for the story's own screen.
@@ -21,7 +22,8 @@ all of them through the machine at once, or *Undo* drops them. A drag into a wor
 - `lib/src/ui/planning_view.dart`: each card a `LongPressDraggable`/`Draggable`, each state group a `DragTarget`
   that shows *Drop here for <state>* while a card is over it; a folded phase or state accepts a drop too.
 - `lib/src/app/planning_board.dart`: the pending moves (story → state), each card marked *moved*; the bar *n state
-  change(s) not saved yet: …* with *Undo* and *Save*. Save sends them in one call with the board's revision; on a
+  change(s) not saved yet: …* with *Undo* and *Save*. Save sends them in one call with the board's revision, and the cards take the issues the machine says it moved
+  at once, before the watch brings the rest; on a
   stale revision the board is read again and the moves that still apply stay pending, the others are named as made
   elsewhere; on a refusal the machine's words are shown beside the card and the move stays pending.
 - A drop on a working state is never pending: it opens the start of the work (built with that issue), and the card
@@ -47,4 +49,4 @@ all of them through the machine at once, or *Undo* drops them. A drag into a wor
 
 ## To be checked
 
-- Whether the machine's move of a story answers the issues it moved, or the board waits for the watch.
+- Nothing yet; the names once the daemon's part is served.

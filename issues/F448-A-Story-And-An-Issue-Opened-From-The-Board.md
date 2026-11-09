@@ -12,7 +12,8 @@ the item's own web page in the browser.
 ## What it builds against (in words)
 
 - A story read alone, with its issues; an issue read alone: id, repository, title, state, size, blocked by, its story,
-  who builds it, what must be true, and its web link. Both carry the revision.
+  what must be true, and its web link. Both carry the revision. Who builds an issue is its repository, and the task
+  working on it where the story's work names one.
 - A move of one issue to a waiting or closed state, as the board's move of a story.
 
 ## Plan
@@ -22,8 +23,9 @@ the item's own web page in the browser.
 - `lib/src/ui/planning_story_view.dart` (new): head (id, priority chip, state, *Open story*), *What it gains*, *Your
   test*, the issues as a table (issue, title, repository, size, state) with the share in Review or Finished, *No issues
   yet* where none; each issue row has a state menu that moves that issue alone, pending and saved as on the board.
-- `lib/src/ui/planning_issue_view.dart` (new): state, repository, title, size, blocked by, story (a link back), who
-  builds it, *What must be true*, *Open issue*.
+- `lib/src/ui/planning_issue_view.dart` (new): state, repository, title, size, blocked by, story (a link back), *Who
+  builds it* (the repository, and the task at work on it from the story's work, opening that task), *What must be
+  true*, *Open issue*.
 - *Open story* and *Open issue* go through `openLink` (`lib/src/app/links.dart`) with the link the machine gave, and
   only an `https` link is offered, as *How this login works* is.
 - Kept current from the board's watch: a story or issue changed elsewhere changes on its open screen.
@@ -42,4 +44,4 @@ the item's own web page in the browser.
 
 ## To be checked
 
-- Whether the machine's issue carries *what must be true* and *who builds it*, or the screen shows only what it carries.
+- Nothing yet; the names once the daemon's part is served.

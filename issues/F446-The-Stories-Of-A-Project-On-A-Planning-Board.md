@@ -50,11 +50,9 @@ own.
 
 ## Open questions
 
-- None.
+- Which machine's planning the board shows, among the machines the window watches. Proposal: the machine where the
+  operator starts the work, so the board, the work and its terminals are on one machine.
 
 ## To be checked
 
-- Which machine answers a project's planning (the one carrying its store) and how the window finds it among the
-  machines it watches; the method and field names once the daemon's part is served.
-- Whether *Needs you* already shows the machine's planning entries ("… Analyzed - look at it") through the events it
-  reads, or needs its own row.
+- The method and field names once the daemon's part is served.
