@@ -1,6 +1,6 @@
 # F456 — The Room Found From A Task And A Project
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** XS - the existing room action placed where a person looks for it, by its own name.
 
 **What must be true.** A person finds a project's room from the task they work in and from the project's page in one
