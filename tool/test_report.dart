@@ -5,7 +5,9 @@
 //
 // Usage:
 //   flutter test --machine > build/test-results.json
-//   dart tool/test_report.dart [results.json] [report.html] [results.xml]
+//   dart tool/test_report.dart [results.json] [report.html] [results.xml] [--lines=scenarios.txt]
+//
+// `--lines=` also writes one line per test, `OK`, `FAIL` or `SKIPPED` and its name, for a rehearsal's report.
 //
 // The two GitHub surfaces are separate switches, so both can be driven from a terminal:
 //   GITHUB_ACTIONS=true GITHUB_STEP_SUMMARY=/tmp/summary.md dart tool/test_report.dart
@@ -16,12 +18,20 @@ import 'dart:io';
 String _heading = 'Scenarios';
 String _against = 'a fake backend, in a widget-test frame';
 
+/// Where one line per test goes, if anywhere: `--lines=`.
+String? _lines;
+
 Future<void> main(List<String> arguments) async {
   final args = <String>[
     for (final argument in arguments)
       if (argument.startsWith('--heading='))
         ...(() {
           _heading = argument.substring('--heading='.length);
+          return <String>[];
+        })()
+      else if (argument.startsWith('--lines='))
+        ...(() {
+          _lines = argument.substring('--lines='.length);
           return <String>[];
         })()
       else if (argument.startsWith('--against='))
@@ -56,6 +66,14 @@ Future<void> main(List<String> arguments) async {
   await target.writeAsString(_page(run));
   await junit.parent.create(recursive: true);
   await junit.writeAsString(_junit(run));
+  if (_lines case final lines?) {
+    // A skipped one checked nothing, so it is never OK; the word is padded so the names stand in one column.
+    await File(lines).writeAsString(
+      run.results
+          .map((result) => '${result.skipped ? 'SKIPPED' : (result.held ? 'OK' : 'FAIL').padRight(7)} ${result.name}\n')
+          .join(),
+    );
+  }
 
   // Absent means "not on a runner", and both switches are read separately: a summary written to a
   // file nobody set would go nowhere, and an annotation printed outside Actions is noise in a

@@ -554,6 +554,7 @@ several machines over their varlink socket. Its issues carry the prefix `F`; its
     flutter test                                # the whole suite
     flutter test --tags documents               # a change to documents or issues alone
     tool/e2e.sh                                 # the integration leg, against PORELO_E2E_HOST
+    tool/rehearse_window.sh check --vm …        # a move rehearsed in the window, in a VM, against a rented host
     flutter build linux --release && tool/package.sh
 
 - **`dart analyze`, never `flutter analyze`**, which rewrites `analysis_options.yaml` with an exclude

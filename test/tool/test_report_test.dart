@@ -219,4 +219,50 @@ void main() {
     expect(File('${scratch.path}/results.xml').existsSync(), isTrue);
     expect('${ran.stdout}', contains('1 tests'));
   });
+
+  // Harm: a rehearsal's report says a scenario held when it failed or never ran.
+  test('a line per scenario says OK only for one that ran and passed', () {
+    final suite = '${Directory.current.path}/integration_test/rehearsing_a_move_test.dart';
+    Map<String, dynamic> start(int id, String name) => <String, dynamic>{
+      'type': 'testStart',
+      'test': <String, dynamic>{'id': id, 'name': name, 'suiteID': 0, 'groupIDs': <int>[]},
+    };
+    final source = File('${scratch.path}/results.json')
+      ..writeAsStringSync(
+        <Map<String, dynamic>>[
+          <String, dynamic>{
+            'type': 'suite',
+            'suite': <String, dynamic>{'id': 0, 'path': suite},
+          },
+          start(1, 'the host is reached'),
+          <String, dynamic>{'type': 'testDone', 'testID': 1, 'result': 'success', 'time': 3},
+          start(2, 'the builds are read'),
+          <String, dynamic>{'type': 'print', 'testID': 2, 'message': 'waited 30s for the build; on screen: [Work]'},
+          <String, dynamic>{
+            'type': 'error',
+            'testID': 2,
+            'error': 'Test failed. See exception logs above.',
+            'stackTrace': '',
+          },
+          <String, dynamic>{'type': 'testDone', 'testID': 2, 'result': 'failure', 'time': 9},
+          start(3, 'the push reaches central'),
+          <String, dynamic>{'type': 'testDone', 'testID': 3, 'result': 'success', 'skipped': true, 'time': 9},
+          <String, dynamic>{'type': 'done', 'time': 9},
+        ].map(jsonEncode).join('\n'),
+      );
+    final lines = File('${scratch.path}/scenarios.txt');
+    Process.runSync('dart', <String>[
+      'tool/test_report.dart',
+      source.path,
+      '${scratch.path}/report.html',
+      '${scratch.path}/results.xml',
+      '--lines=${lines.path}',
+    ]);
+
+    expect(lines.readAsLinesSync(), <String>[
+      'OK      the host is reached',
+      'FAIL    the builds are read',
+      'SKIPPED the push reaches central',
+    ]);
+  });
 }

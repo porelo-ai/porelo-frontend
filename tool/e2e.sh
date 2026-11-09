@@ -86,7 +86,10 @@ command -v xvfb-run >/dev/null || {
     exit 1
 }
 unset WAYLAND_DISPLAY
-export GDK_BACKEND=x11 XDG_RUNTIME_DIR="$here/run" XDG_CONFIG_HOME="$here/config"
+export GDK_BACKEND=x11 XDG_RUNTIME_DIR="$here/run"
+# A rehearsed move keeps the account's own settings: its window reads the person's organization through the local
+# porelo, from the card that account holds. Everything else starts from nothing.
+if [ "${PORELO_E2E_OWN_SETTINGS:-}" != 1 ]; then export XDG_CONFIG_HOME="$here/config"; fi
 
 # Options pass through (CI adds --machine); the target is added when none was named, or
 # flutter would run `test/` instead. One file: a desktop app is started once per run, and a second

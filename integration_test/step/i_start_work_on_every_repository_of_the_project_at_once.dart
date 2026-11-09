@@ -1,0 +1,40 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+import '../support/e2e.dart';
+import '../support/rehearsal.dart';
+
+/// Usage: I start work on every repository of the project at once
+Future<void> iStartWorkOnEveryRepositoryOfTheProjectAtOnce(WidgetTester tester) async {
+  await toTheProjectOnTheHost(tester);
+  await chooseFromTheMenu(tester, find.byKey(const Key('project-menu')), 'Start an agent for each repository…');
+  // Which repositories, then the sign-ins, each held until the machine has answered; then the check and Start.
+  final next = find.byKey(const Key('wizard-next'));
+  final start = find.byKey(const Key('start-it'));
+  bool enabled(Finder button) =>
+      button.evaluate().isNotEmpty && tester.widget<ButtonStyleButton>(button.first).onPressed != null;
+  while (start.evaluate().isEmpty) {
+    await pumpUntil(
+      tester,
+      () => enabled(next) || start.evaluate().isNotEmpty,
+      timeout: const Duration(minutes: 3),
+      what: 'the batch to go on',
+    );
+    if (start.evaluate().isNotEmpty) break;
+    await tester.tap(next.first);
+    await pumpFor(tester);
+  }
+  await pumpUntil(tester, () => enabled(start), timeout: const Duration(minutes: 3), what: 'the batch to offer Start');
+  await tester.tap(start.first);
+  await pumpFor(tester);
+  // Its last step holds Finish until every start has its answer.
+  final finish = find.ancestor(of: find.text('Finish'), matching: find.byKey(const Key('wizard-next')));
+  await pumpUntil(
+    tester,
+    () => finish.evaluate().isNotEmpty && tester.widget<ButtonStyleButton>(finish.first).onPressed != null,
+    timeout: const Duration(minutes: 15),
+    what: 'the batch to finish',
+  );
+  await tester.tap(finish.first);
+  await pumpFor(tester);
+}

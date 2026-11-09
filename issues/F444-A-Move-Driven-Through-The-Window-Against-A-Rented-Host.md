@@ -1,6 +1,6 @@
 # F444 — A Move Driven Through The Window Against A Rented Host
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** M - a local VM that runs the window under a virtual display, one feature file of a move's main scenarios
 reusing the steps of the suite against a leased machine, its report, and one try on a rented server.
 
@@ -58,3 +58,41 @@ against a single machine, not a host of an organization with its projects, tasks
 
 - Whether the host's runner builds within the time budget, or the builds scenario waits longer than the rest.
 - Whether a task's first push needs anything typed on the host; if it does, the scenario stops before it and says so.
+
+## How it stands
+
+- `tool/rehearse_window.sh check` names what the VM lacks and the line that installs it, and whether its account
+  follows an organization; `run` copies HEAD to the VM, fetches the pinned Flutter checked against its published
+  sha256, takes every value only in the form it can have (no quote, space or leading dash reaches a command line
+  on the VM), trusts only the host key it is given and stops where the VM knows another for the address, forwards
+  the test person's agent for the run alone with no X11 forwarding, stops the window's part after
+  `--budget-minutes`, and writes `scenarios.txt` (`OK`, `FAIL` or `SKIPPED` per scenario), the
+  HTML and JUnit report and the run's output. The VM's copy and the host's key in its known hosts are taken away
+  on every ending, and what still runs of the window's part there is stopped. It exits 0 only where every scenario
+  says `OK`.
+- `tool/test_report.dart --lines=` writes the line per scenario; a skipped one is never `OK`.
+- `tool/e2e.sh` keeps the account's settings only with `PORELO_E2E_OWN_SETTINGS=1`: the window reads the
+  organization through the local `porelo`, from the card that account holds. Every other run starts from nothing.
+- `integration_test/rehearsing_a_move.feature`, each step comparing the screen with the host's daemon (asked over
+  the contract with `varlinkctl`) or its `porelo build status`: the host connected from its row on the organization's
+  machines (a host connected before the run is a failure there); the
+  organization's machines listing it with the project; the project's repositories carried as the host says; work
+  started under the name and model the window showed; the batch, one task per carried repository; a task's work
+  waiting at its gate reviewed from *Needs you* (commit, author), forwarded to a new branch `rehearsal-<time>`
+  (never the default) until the host no longer holds it, found at the host's forge at that commit, and the tile
+  naming the build the host's daemon read for that commit, failed where the host says so.
+- agy's reading (gemini-4-argon-high), not ready: three steps used the wrong page or button (connect from *My
+  machines*, the review from *Work*, the batch's Start on its first page), checks that passed on empty values or on
+  "carried: not read", a builds check that compared nothing, quoting of the values into the VM's command lines, the
+  shared known hosts, a stale report and an exit 0 without scenarios. All fixed. Not taken: `test_report.dart`
+  counting a skip as no failure, which the Build relies on for the live daemon's tests; the rehearsal reads the
+  lines instead.
+- **Not built:** a grant under *Needs you* (only if a start asks for one, which the run cannot bring about), and
+  *Take Porelo off*, which removes Porelo from the rented host; the host rehearsal returns the server anyway. Either
+  is added if the review asks for it.
+- **Not yet run:** the VM lacks `libsecret-1-dev`, the test person's card and the organization; `check` says each.
+  The operator installs the package. Core's answer: the card (`identity/card`, `key.pub`) and `organization.yml`
+  are copied into the VM account's porelo settings directory, public files only; `run` stops unless
+  `porelo identity show --json` there says the forwarded agent holds the card's key.
+- Fail-fast is the budget alone: the scenarios share one host, and a red one stops none after it.
+
