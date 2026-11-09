@@ -113,6 +113,15 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f117"></a>[F117](F117-What-Walk-8-Left-Unbuilt.md) | M | — | A tile's repository in its heading, a refused release said as an error that stays. |
 | <a id="f111"></a>[F111](F111-All-Of-A-Pieces-Logs-In-One-Timeline.md) | M | — | All of a piece's logs in one timeline, by time, filterable by source. |
 | <a id="f437"></a>[F437](F437-Join-Leave-And-Accept-A-Card-In-The-Window.md) | M | the backend's card proposal and leave | Join an organization by a card proposal, an owner accepting it on the person's row, and leaving an organization, from the window. |
+| <a id="f452"></a>[F452](F452-A-Project-Waiting-For-The-Token-Says-So-Where-It-Is-Shown.md) | M | — | A project the host reports waiting for the token says so, why, and offers the token on its row, the machine's project page and each repository row; never called carried; the placing dialog not grey when opened again. |
+| <a id="f453"></a>[F453](F453-A-Machines-Project-Page-Lists-What-It-Carries-First.md) | S | — | A machine's project page lists the carried repositories first and folds the rest with their count; no raw host word; forge names shown as such; zero tasks said as 0. |
+| <a id="f454"></a>[F454](F454-Placing-Says-Its-Progress-In-Its-Dialog.md) | S | — | Placing shows its progress and end in its dialog; *My machines* keeps a machine being prepared. |
+| <a id="f455"></a>[F455](F455-The-Organization-Read-Now-From-The-Window.md) | S | the host's start of its follow on demand | *Read the organization now* asks the host to read the organization at once. |
+| <a id="f456"></a>[F456](F456-The-Room-Found-From-A-Task-And-A-Project.md) | XS | — | The project's room opened in one step from a task tile and the project's page. |
+| <a id="f457"></a>[F457](F457-Needs-You-Names-The-One-Thing-To-Do.md) | M | the backend's state for a task that said it is done, for that part | *Needs you* items name one action, close with their cause, can be marked seen, embed no task tile; nothing waits at the gate in class online; a done task shown done; the commit's makers shown. |
+| <a id="f458"></a>[F458](F458-The-Task-Terminal-Grows-With-The-Window.md) | XS | the task session following the latest client | The agent's screen grows with the window. |
+| <a id="f459"></a>[F459](F459-The-Footer-Counts-What-Runs-Where.md) | XS | — | The footer's refresh and action counts name the machine and what they count. |
+| <a id="f460"></a>[F460](F460-The-Hosts-Finished-Work-Brought-To-Central-From-The-Window.md) | M | the backend's gathered push to central | *Bring it to central…* brings a host's finished `main` to the central forge from the project's page, refusals in the backend's words. |
 
 ### Analyzed
 
