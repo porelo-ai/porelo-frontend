@@ -1,6 +1,6 @@
 # F447 — A Story Moved On The Board And Saved
 
-**Status:** Backlog; blocked by [F446](README.md#f446).
+**Status:** Implementing, against a stand-in for the daemon; blocked by [F446](README.md#f446).
 **Size:** M - drag and drop on the board's cards and states, the moves kept as pending until saved or undone, one
 write of the contract with its refusals, and a feature file.
 
