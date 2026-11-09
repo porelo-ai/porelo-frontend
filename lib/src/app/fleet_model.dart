@@ -373,8 +373,10 @@ class FleetModel extends ChangeNotifier {
     _busy = true;
     _notify();
     try {
-      await _readOnce();
-      _say('Refreshed: ${_tasks.length} ${_tasks.length == 1 ? 'task' : 'tasks'}.');
+      // Lost contact is said by the read, and a count of the tasks last known would replace it.
+      if (!await _readOnce()) return;
+      // Named for its machine: a count of none here read as none running while a host's task ran.
+      _say('Refreshed ${backend.label}: ${_tasks.length} ${_tasks.length == 1 ? 'task' : 'tasks'} there.');
     } finally {
       _busy = false;
       _notify();
@@ -541,14 +543,17 @@ class FleetModel extends ChangeNotifier {
     }
   }
 
-  Future<void> _readOnce() async {
+  /// Reads the projects and tasks again; false where contact was lost, which it then says.
+  Future<bool> _readOnce() async {
     try {
       // Nothing refreshes the project list on its own — `WatchProjects` is not used yet — so it is
       // asked for again beside the tasks, after anything that would have changed it.
       _known = await backend.projects();
       _adopt(await backend.tasks());
+      return true;
     } on VarlinkDisconnected catch (ex) {
       _lostContact(ex);
+      return false;
     }
   }
 

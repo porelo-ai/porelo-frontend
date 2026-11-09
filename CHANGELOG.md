@@ -14,6 +14,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Changed
 
 - The window now reads the planning part as the daemon serves it.
+- The footer's refresh and actions counts name the machine they count, and a refresh that lost contact says so.
 - A machine's page of a project lists the repositories it carries first and folds the others under *Not carried here*, with their count; the host's `not-carried` reads as "not carried here".
 
 ### Added

@@ -207,4 +207,16 @@ void main() {
     await _needs(tester);
     _needsCount(tester, 0);
   });
+
+  // Harm: contact with the machine was lost during a refresh, and the footer then counts its old tasks as just read.
+  testWidgets('a refresh that lost contact says so, not a count', (tester) async {
+    await World.startBackend(World.work);
+    await World.startApp(tester);
+    await World.fleet.refresh(quietly: true);
+    World.backend.listingProjectsFails = const VarlinkDisconnected('Connection reset');
+    await World.fleet.refresh();
+    await World.settle(tester);
+    World.backend.listingProjectsFails = null;
+    expect(World.fleet.status, contains('Lost contact'));
+  });
 }

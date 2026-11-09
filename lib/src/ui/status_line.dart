@@ -161,9 +161,10 @@ class _Operations extends StatelessWidget {
       onPressed: onShow,
       child: Text(
         all.isEmpty
-            ? 'nothing run yet'
+            ? 'No actions asked here on $machine yet'
             // Actions asked here, not work: "0 running" beside a running task reads as a contradiction.
-            : 'Actions: $running running, ${all.length - running} finished${failed > 0 ? ', $failed failed' : ''}',
+            : 'Actions asked here on $machine: $running running, ${all.length - running} finished'
+                  '${failed > 0 ? ', $failed failed' : ''}',
         overflow: TextOverflow.ellipsis,
         style: Theme.of(context).textTheme.bodySmall,
       ),
