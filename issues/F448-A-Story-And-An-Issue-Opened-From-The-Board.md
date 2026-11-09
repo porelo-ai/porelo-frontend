@@ -1,6 +1,6 @@
 # F448 — A Story And An Issue Opened From The Board
 
-**Status:** Analyzed; blocked by [F446](README.md#f446).
+**Status:** Backlog; blocked by [F446](README.md#f446).
 **Size:** M - two screens with a breadcrumb, their reads of the contract, one issue moved alone, the web links opened,
 and a feature file.
 

@@ -1,6 +1,6 @@
 # F446 — The Stories Of A Project On A Planning Board
 
-**Status:** Analyzed; blocked by the daemon's planning part on the wire.
+**Status:** Backlog; blocked by the daemon's planning part on the wire.
 **Size:** M - a new place with its page, one part of the contract read and watched, its models, the mock daemon and the
 fake backend taught it, and a feature file; no logic of the window's own.
 
