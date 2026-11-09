@@ -26,6 +26,8 @@ import 'organization_token_words.dart';
 import 'filtered_list_section.dart';
 import 'page_explanation.dart';
 import 'tokens.dart';
+import '../app/story_work.dart';
+import 'story_work_attention.dart';
 import 'window_size.dart';
 
 /// What needs a person, from every machine at once. The window opens here.
@@ -105,8 +107,15 @@ class AttentionView extends StatefulWidget {
 class _AttentionViewState extends State<AttentionView> {
   final _filter = TextEditingController();
 
-  bool _matches(ExpandableListRow row) =>
-      '${row.title} ${row.subtitle ?? ''} ${row.state}'.toLowerCase().contains(_filter.text.trim().toLowerCase());
+  bool _matches(Widget row) {
+    final words = switch (row) {
+      ExpandableListRow() => '${row.title} ${row.subtitle ?? ''} ${row.state}',
+      StoryWorkAttentionView() =>
+        '${row.row.story.id} ${row.row.story.title} ${row.row.issue?.id ?? ''} ${row.row.ended?.reason ?? ''} ${row.row.project} ${row.machine}',
+      _ => '',
+    };
+    return words.toLowerCase().contains(_filter.text.trim().toLowerCase());
+  }
 
   @override
   void initState() {
@@ -236,7 +245,15 @@ class _AttentionViewState extends State<AttentionView> {
 }
 
 extension on _AttentionViewState {
-  ExpandableListRow _row(BuildContext context, AttentionRow row, {bool resolved = false}) {
+  Widget _row(BuildContext context, AttentionRow row, {bool resolved = false}) {
+    if (row.kind == AttentionKind.planning) {
+      return StoryWorkAttentionView(
+        key: ValueKey('attention-row ${row.id}'),
+        row: row.value as PlanningAttention,
+        machine: row.machine,
+        resolved: resolved,
+      );
+    }
     final attention = widget.attention;
     final reason = resolved ? 'this row is resolved' : null;
     void details() => unawaited(
@@ -266,6 +283,8 @@ extension on _AttentionViewState {
     Key? primaryKey;
     var steps = const <Widget>[];
     switch (row.kind) {
+      case AttentionKind.planning:
+        break;
       case AttentionKind.host:
         final stop = row.value as HostStop;
         final runs = attention.hostRuns;
@@ -525,6 +544,8 @@ extension on _AttentionViewState {
     final attention = widget.attention;
     final reason = resolved ? 'this row is resolved' : null;
     switch (row.kind) {
+      case AttentionKind.planning:
+        return const SizedBox.shrink();
       case AttentionKind.host:
         final stop = row.value as HostStop;
         final runs = attention.hostRuns;
@@ -1020,6 +1041,8 @@ abstract final class TileSaid {
     final where = onTheRow ? TaskTile._whereOnARow(tile) : TaskTile._where(tile);
     return <Widget>[
       // What an unattended run came to, under what it wrote, and where to go from here.
+      if (task?.agentEnded?.lastAnswer case final answer? when answer.isNotEmpty)
+        Text(answer, key: const Key('tile-last-answer')),
       if (task case Task(mode: Mode.unattended, agentEnded: final ended?))
         Text(TaskTile._cameTo(task, ended), key: const Key('tile-run-ended'), style: text.bodyMedium),
       // Why it is down, when a restart of its machine took it: in the machine's words.

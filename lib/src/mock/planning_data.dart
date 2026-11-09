@@ -1096,3 +1096,257 @@ Map<String, dynamic> mockMoveIssues(Map<String, dynamic> board, Object? moves, O
   next['revision'] = '$revision:moved';
   return next;
 }
+
+/// A refusal produced by the stateful planning stand-in.
+class MockPlanningRefusal implements Exception {
+  /// Keeps the refusal detail returned by the stand-in.
+  const MockPlanningRefusal(this.detail);
+
+  /// The verbatim reason this call was refused.
+  final String detail;
+}
+
+/// The same daemon decisions behind the socket mock and widget FakeBackend.
+class MockStoryWork {
+  /// Uses the same authoritative board reader and watch publisher as planning.
+  MockStoryWork(this.boardFor, this.changed);
+
+  /// Reads the authoritative board for one project.
+  final Map<String, dynamic> Function(String) boardFor;
+
+  /// Publishes a complete replacement on that project’s watch.
+  final void Function(String, Map<String, dynamic>) changed;
+
+  /// Copies every method and parameter received for inspection by tests.
+  final List<(String, Map<String, dynamic>)> calls = [];
+
+  /// Explicit proposals supplied by scenarios, indexed by story.
+  final Map<String, Map<String, dynamic>> proposals = {};
+
+  /// The last findings returned by the machine.
+  final Map<String, List<Map<String, dynamic>>> findings = {};
+
+  /// Explicit GetStoryWork answers supplied by scenarios, indexed by story.
+  final Map<String, Map<String, dynamic>> statuses = {};
+
+  /// The daemon detail returned instead of processing a call, when set.
+  String? refusal;
+
+  /// Whether calls answer without publishing the replacement board, to exercise echo waits.
+  bool deferEcho = false;
+  int _revision = 0;
+
+  /// Processes one planning call against the current board and refuses stale decisions.
+  Map<String, dynamic> call(String method, Map<String, dynamic> parameters) {
+    calls.add((method, jsonDecode(jsonEncode(parameters)) as Map<String, dynamic>));
+    if (refusal case final detail?) throw MockPlanningRefusal(detail);
+    final project = parameters['project'];
+    if (project is! String || project.isEmpty || project.contains('/') || project.contains('\\')) {
+      throw const MockPlanningRefusal('A project name is required.');
+    }
+    final board = jsonDecode(jsonEncode(boardFor(project))) as Map<String, dynamic>;
+    final stories = (board['stories'] as List).cast<Map<String, dynamic>>();
+    final story = stories.where((story) => story['id'] == parameters['story']).firstOrNull;
+    final issues = stories.expand((story) => (story['issues'] as List? ?? []).cast<Map<String, dynamic>>());
+    final issue = issues.where((issue) => issue['id'] == parameters['issue']).firstOrNull;
+    if (method == 'GetIssue') {
+      if (issue == null) throw const MockPlanningRefusal('The issue is not on this board.');
+      final detail = mockPlanningIssue(board, parameters['issue'])!;
+      return {
+        ...detail,
+        'issue': detail,
+        'text': detail['text'],
+        'whatMustBeTrue': detail['whatMustBeTrue'],
+        'findings': findings[issue['id']] ?? detail['findings'] ?? <Map<String, dynamic>>[],
+        'subAgents': detail['subAgents'],
+      };
+    }
+    if (method == 'ResolveIssueReading') {
+      if (parameters['revision'] != board['revision']) {
+        throw const MockPlanningRefusal('The planning revision changed.');
+      }
+      if (issue == null || issue['readingStopped'] != true || issue['rounds'] != parameters['round']) {
+        throw const MockPlanningRefusal('This reading is no longer stopped at that round.');
+      }
+      final choice = parameters['choice'];
+      if (!['REVIEW_ANYWAY', 'ONE_MORE_ROUND', 'REWORK'].contains(choice)) {
+        throw const MockPlanningRefusal('Unknown reading choice.');
+      }
+      if (choice == 'REWORK' &&
+          (parameters['comment'] is! String || (parameters['comment'] as String).trim().isEmpty)) {
+        throw const MockPlanningRefusal('Rework needs a comment.');
+      }
+      issue['readingStopped'] = false;
+      if (choice == 'REVIEW_ANYWAY') issue['state'] = 'Review';
+      if (choice == 'ONE_MORE_ROUND') {
+        issue['roundsMost'] = (issue['roundsMost'] as int? ?? parameters['round'] as int) + 1;
+      }
+      if (choice == 'REWORK') issue['state'] = 'Reworking';
+      board['revision'] = 'work-${++_revision}';
+      if (!deferEcho) changed(project, board);
+      return {'revision': board['revision']};
+    }
+    if (story == null) throw const MockPlanningRefusal('The story is not on this board.');
+    if (method == 'GetStoryWork') return statuses[story['id']] ?? {'work': story['work'], 'ended': story['ended']};
+    if (method == 'ProposeStoryWork') {
+      final supplied = proposals[story['id']];
+      if (supplied != null) return supplied;
+      final repositories = (story['issues'] as List? ?? [])
+          .cast<Map<String, dynamic>>()
+          .map((issue) => issue['repository'] as String)
+          .toSet();
+      if (repositories.isEmpty) repositories.add('porelo-project');
+      return {
+        'modes': ['UNATTENDED', 'AGENT'],
+        'readingRounds': 3,
+        'startLabel': parameters['to'] == 'In analysis' ? 'Start the analysis' : 'Start ${repositories.length} tasks',
+        'modeDetails': [
+          {
+            'mode': 'UNATTENDED',
+            'words': 'The agents work alone in their tasks. You see their progress on the board.',
+            'workOrder':
+                'Work on story ${story['id']} alone. Read its gain and test and finish the work for ${parameters['to']}.',
+          },
+          {
+            'mode': 'AGENT',
+            'words': 'You work with the agents in the coordinator’s terminal, or the story’s one task.',
+            'workOrder': 'Work on story ${story['id']} with the person in the terminal. Ask before deciding.',
+          },
+        ],
+        'repositories': [
+          for (final repo in repositories)
+            {
+              'repository': repo,
+              'task': '${(story['id'] as String).toLowerCase()}-$repo',
+              'agent': 'codex',
+              'model': 'proposed-model',
+              'modelHint': 'Proposed from this repository’s settings for ${parameters['to']}.',
+              'workOrder':
+                  'Read the index and build the issues of ${story['id']} in $repo. Follow the project’s review and build rules.',
+              'issues': [
+                for (final issue in (story['issues'] as List).cast<Map<String, dynamic>>())
+                  if (issue['repository'] == repo) issue['id'],
+              ],
+              'subAgents': [
+                {
+                  'name': 'builder',
+                  'role': 'builder',
+                  'agent': 'codex',
+                  'model': 'proposed-model',
+                  'brief': 'Build the issues in this repository.',
+                },
+                {
+                  'name': 'reader',
+                  'role': 'reader',
+                  'agent': 'claude-code',
+                  'model': 'reader-model',
+                  'brief': 'Read the final changes.',
+                },
+              ],
+            },
+        ],
+        if (repositories.length > 1)
+          'coordinator': {
+            'agent': 'codex',
+            'model': 'coordinator-model',
+            'sentence':
+                stories.any(
+                  (each) =>
+                      each['work'] is Map &&
+                      (each['work'] as Map)['atWork'] == true &&
+                      (each['work'] as Map)['coordinator'] != null,
+                )
+                ? 'The project’s coordinator is running. It is told to oversee this story as well; no second coordinator is started.'
+                : 'The project’s coordinator is started to oversee this story.',
+          },
+        'issues': [
+          for (final issue in (story['issues'] as List? ?? []).cast<Map<String, dynamic>>())
+            {'id': issue['id'], 'repository': issue['repository']},
+        ],
+      };
+    }
+    if (method == 'StopStoryWork') {
+      if (story['work'] is! Map || (story['work'] as Map)['atWork'] != true) {
+        throw const MockPlanningRefusal('No story work is running.');
+      }
+      story['work'] = {...story['work'] as Map<String, dynamic>, 'atWork': false};
+      board['revision'] = 'work-${++_revision}';
+      if (!deferEcho) changed(project, board);
+      return {};
+    }
+    if (method != 'StartStoryWork') throw const MockPlanningRefusal('Unknown planning method.');
+    if (parameters['revision'] != board['revision']) throw const MockPlanningRefusal('The planning revision changed.');
+    final state = (board['states'] as List)
+        .cast<Map<String, dynamic>>()
+        .where((state) => state['name'] == parameters['to'])
+        .firstOrNull;
+    if (state?['kind'] != 'WORKING') throw const MockPlanningRefusal('The target is not a working state.');
+    if (story['work'] is Map && (story['work'] as Map)['atWork'] == true) {
+      throw const MockPlanningRefusal('Work is already running.');
+    }
+    final proposal =
+        proposals[story['id']] ??
+        call('ProposeStoryWork', {'project': project, 'story': story['id'], 'to': parameters['to']});
+    if (!(proposal['modes'] as List).contains(parameters['mode'])) {
+      throw const MockPlanningRefusal('The project does not allow that mode.');
+    }
+    final subs = (parameters['subAgents'] as List).cast<Map<String, dynamic>>();
+    if (subs.any((sub) => sub['choice'] != 'KEEP') &&
+        (parameters['comment'] is! String || (parameters['comment'] as String).trim().isEmpty)) {
+      throw const MockPlanningRefusal('A changed or dropped participant needs a comment.');
+    }
+    final selected = (parameters['repositories'] as List? ?? []).cast<Map<String, dynamic>>();
+    final proposedRepos = (proposal['repositories'] as List).cast<Map<String, dynamic>>();
+    if (selected.length != proposedRepos.length ||
+        selected.any(
+          (repo) =>
+              !proposedRepos.any((proposed) => proposed['repository'] == repo['repository']) ||
+              repo['agent'] is! String ||
+              (repo['agent'] as String).isEmpty ||
+              repo['model'] is! String ||
+              (repo['model'] as String).isEmpty,
+        )) {
+      throw const MockPlanningRefusal('Choose the main agent and model for every repository.');
+    }
+    story['state'] = parameters['to'];
+    story['ended'] = null;
+    final repos = (proposal['repositories'] as List).cast<Map<String, dynamic>>();
+    story['work'] = {
+      'tasks': [for (final repo in repos) repo['task']],
+      if (proposal['coordinator'] != null) 'coordinator': 'coordinator',
+      'mode': parameters['mode'],
+      'agent': selected.first['agent'],
+      'model': selected.first['model'],
+      'atWork': true,
+    };
+    board['revision'] = 'work-${++_revision}';
+    if (!deferEcho) changed(project, board);
+    Map<String, dynamic> taskFor(String name, String repository, String agent, String model) => {
+      'name': name,
+      'task': name,
+      'project': project,
+      'repository': repository,
+      'agent': agent,
+      'model': model,
+      'running': true,
+      'state': 'Up',
+      'mode': parameters['mode'] == 'AGENT' ? 'SHELL' : 'UNATTENDED',
+      'activity': 'WORKING',
+    };
+    return {
+      'started': true,
+      'revision': board['revision'],
+      'tasks': [
+        for (final repo in repos)
+          taskFor(
+            repo['task'] as String,
+            repo['repository'] as String,
+            selected.firstWhere((each) => each['repository'] == repo['repository'])['agent'] as String,
+            selected.firstWhere((each) => each['repository'] == repo['repository'])['model'] as String,
+          ),
+      ],
+      if (proposal['coordinator'] case final Map<String, dynamic> coordinator)
+        'coordinator': taskFor('coordinator', '', coordinator['agent'] as String, coordinator['model'] as String),
+    };
+  }
+}

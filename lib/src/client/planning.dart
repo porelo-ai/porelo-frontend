@@ -145,7 +145,10 @@ class PlanStory {
       issues = _planList(map['issues'], PlanIssue.from),
       issuesReported = _planMapsReported(map['issues']),
       link = _planText(map, 'link'),
-      work = map['work'] is Map<String, dynamic> ? PlanWork.from(map['work'] as Map<String, dynamic>) : null;
+      work = map['work'] is Map<String, dynamic> ? PlanWork.from(map['work'] as Map<String, dynamic>) : null,
+      ended = map['ended'] is Map<String, dynamic> ? StoryWorkEnded.from(map['ended'] as Map<String, dynamic>) : null,
+      workReported = map.containsKey('work'),
+      endedReported = map.containsKey('ended');
 
   /// Its identifier.
   final String id;
@@ -177,8 +180,17 @@ class PlanStory {
   /// Its web link.
   final String link;
 
+  /// Whether the watch supplied work status, including an explicitly absent work record.
+  final bool workReported;
+
+  /// Whether the watch supplied the ended outcome, including an explicitly cleared outcome.
+  final bool endedReported;
+
   /// Its work, when reported.
   final PlanWork? work;
+
+  /// Why the story stopped before reaching its done state.
+  final StoryWorkEnded? ended;
 
   /// The number in Review or Finished, when the list and every issue state were reported.
   int? get completedIssues => issuesReported && issues.every((issue) => issue.state.isNotEmpty)
@@ -489,4 +501,400 @@ extension PlanningClient on PoreloClient {
   /// Watches whole-board replacements, including the first reply immediately.
   Stream<PlanningSnapshot> watchStories(String project) =>
       _callMore('WatchStories', {'project': project}).map(PlanningSnapshot.from);
+}
+
+/// The machine's reason for an ended story run.
+class StoryWorkEnded {
+  /// Reads the machine’s reported fields.
+  StoryWorkEnded.from(Map<String, dynamic> map) : at = _planText(map, 'at'), reason = _planText(map, 'reason');
+
+  /// The instant reported by the machine, empty when unsaid.
+  final String at;
+
+  /// The machine’s verbatim explanation.
+  final String reason;
+}
+
+/// One proposed participant, including the reader.
+class StoryWorkSubAgent {
+  /// Reads the machine’s reported fields.
+  StoryWorkSubAgent.from(Map<String, dynamic> map)
+    : name = _planText(map, 'name'),
+      role = _planText(map, 'role'),
+      agent = _planText(map, 'agent'),
+      model = _planText(map, 'model'),
+      brief = _planText(map, 'brief');
+
+  /// The proposed participant’s name within its repository.
+  final String name;
+
+  /// The role as reported, including unknown roles.
+  final String role;
+
+  /// The agent identifier named by the machine or selected for a replacement.
+  final String agent;
+
+  /// The model identifier, including an explicitly empty default.
+  final String model;
+
+  /// The participant’s work order as supplied by the machine.
+  final String brief;
+}
+
+/// A repository's task and its proposed participants.
+class StoryWorkRepository {
+  /// Reads the machine’s reported fields.
+  StoryWorkRepository.from(Map<String, dynamic> map)
+    : repository = _planText(map, 'repository'),
+      task = _planText(map, 'task'),
+      agent = _planText(map, 'agent'),
+      model = _planText(map, 'model'),
+      modelHint = _planText(map, 'modelHint'),
+      workOrder = _planText(map, 'workOrder'),
+      issues = _planStrings(map['issues']),
+      subAgents = _planList(map['subAgents'], StoryWorkSubAgent.from);
+
+  /// The repository name supplied by the machine.
+  final String repository;
+
+  /// The task name supplied by the machine.
+  final String task;
+
+  /// The agent identifier named by the machine or selected for a replacement.
+  final String agent;
+
+  /// The model identifier, including an explicitly empty default.
+  final String model;
+
+  /// The machine's explanation of the proposed model.
+  final String modelHint;
+
+  /// The main agent's work order, shown read-only.
+  final String workOrder;
+
+  /// The issues covered by this task, as named by the proposal.
+  final List<String> issues;
+
+  /// The proposed participants, or the explicit choices sent at start.
+  final List<StoryWorkSubAgent> subAgents;
+}
+
+/// An issue whose reading limit can be overridden at start.
+class StoryWorkIssue {
+  /// Reads the machine’s reported fields.
+  StoryWorkIssue.from(Map<String, dynamic> map) : id = _planText(map, 'id'), repository = _planText(map, 'repository');
+
+  /// The issue identifier supplied by the machine.
+  final String id;
+
+  /// The repository name supplied by the machine.
+  final String repository;
+}
+
+/// The complete proposal for a start; missing limits are never invented.
+class StoryWorkProposal {
+  /// Reads the machine’s reported fields.
+  StoryWorkProposal.from(Map<String, dynamic> map)
+    : modes = _planStrings(map['modes']),
+      repositories = _planList(map['repositories'], StoryWorkRepository.from),
+      coordinator = map['coordinator'] is Map<String, dynamic>
+          ? StoryWorkCoordinator.from(map['coordinator'] as Map<String, dynamic>)
+          : null,
+      readingRounds = map['readingRounds'] is int ? map['readingRounds'] as int : null,
+      issues = _planList(map['issues'], StoryWorkIssue.from),
+      modeDetails = _planList(map['modeDetails'], StoryWorkMode.from),
+      startLabel = _planText(map, 'startLabel');
+
+  /// The daemon's explanations and work orders for the allowed modes.
+  final List<StoryWorkMode> modeDetails;
+
+  /// The action-specific start button label, when supplied.
+  final String startLabel;
+
+  /// The modes the project permits, preserving unknown values.
+  final List<String> modes;
+
+  /// The proposed repository tasks in the machine’s order.
+  final List<StoryWorkRepository> repositories;
+
+  /// The proposed coordinator, when supplied.
+  final StoryWorkCoordinator? coordinator;
+
+  /// The proposed or selected overall reading limit, null when unsaid.
+  final int? readingRounds;
+
+  /// The issues available for per-issue reading limits.
+  final List<StoryWorkIssue> issues;
+}
+
+/// The daemon's words describing one way of working.
+class StoryWorkMode {
+  /// Reads a mode description without inventing missing words.
+  StoryWorkMode.from(Map<String, dynamic> map)
+    : mode = _planText(map, 'mode'),
+      words = _planText(map, 'words'),
+      workOrder = _planText(map, 'workOrder');
+
+  /// The wire mode described.
+  final String mode;
+
+  /// What this involvement means, in the machine's words.
+  final String words;
+
+  /// The main work order for this mode.
+  final String workOrder;
+}
+
+/// A proposed coordinator and whether it is started or told about the story.
+class StoryWorkCoordinator {
+  /// Reads the daemon's proposal and action sentence.
+  StoryWorkCoordinator.from(Map<String, dynamic> map)
+    : agent = _planText(map, 'agent'),
+      model = _planText(map, 'model'),
+      sentence = _planText(map, 'sentence');
+
+  /// The proposed agent.
+  final String agent;
+
+  /// The proposed model.
+  final String model;
+
+  /// Whether the coordinator starts or is told, in the machine's words.
+  final String sentence;
+}
+
+/// The main agent and model chosen for one repository.
+class StoryWorkMainAgent {
+  /// Keeps the repository identity and explicit main-agent choice.
+  const StoryWorkMainAgent({required this.repository, required this.agent, required this.model});
+
+  /// The repository the choice applies to.
+  final String repository;
+
+  /// The chosen agent identifier.
+  final String agent;
+
+  /// The chosen model identifier.
+  final String model;
+
+  /// Serializes the fields accepted by StartStoryWork.
+  Map<String, dynamic> toMap() => {'repository': repository, 'agent': agent, 'model': model};
+}
+
+/// The explicit choice for one proposed sub-agent.
+class StoryWorkChoice {
+  /// Keeps the source facts and choices for this view or decision.
+  const StoryWorkChoice({required this.repository, required this.name, required this.choice, this.agent, this.model});
+
+  /// The repository name supplied by the machine.
+  final String repository;
+
+  /// The proposed participant’s name within its repository.
+  final String name;
+
+  /// The explicit KEEP, CHANGE or DROP choice.
+  final String choice;
+
+  /// The agent identifier named by the machine or selected for a replacement.
+  final String? agent;
+
+  /// The model identifier, including an explicitly empty default.
+  final String? model;
+
+  /// Serializes the exact fields sent to the daemon, omitting absent overrides.
+  Map<String, dynamic> toMap() => {
+    'repository': repository,
+    'name': name,
+    'choice': choice,
+    if (agent != null) 'agent': agent,
+    if (model != null) 'model': model,
+  };
+}
+
+/// A revision-bound start decision.
+class StoryWorkRequest {
+  /// Keeps the source facts and choices for this view or decision.
+  const StoryWorkRequest({
+    required this.project,
+    required this.story,
+    required this.to,
+    required this.mode,
+    required this.revision,
+    required this.subAgents,
+    this.repositories = const [],
+    this.comment,
+    this.readingRounds,
+    this.issueReadingRounds = const {},
+  });
+
+  /// The project name sent to the machine.
+  final String project;
+
+  /// The story identifier reported by the board.
+  final String story;
+
+  /// The target working state named by the workflow.
+  final String to;
+
+  /// The explicitly selected wire mode.
+  final String mode;
+
+  /// The opaque revision used to bind this decision.
+  final String revision;
+
+  /// The proposed participants, or the explicit choices sent at start.
+  final List<StoryWorkChoice> subAgents;
+
+  /// The chosen main agent and model for every proposed repository.
+  final List<StoryWorkMainAgent> repositories;
+
+  /// The explanation for changed or dropped participants.
+  final String? comment;
+
+  /// The proposed or selected overall reading limit, null when unsaid.
+  final int? readingRounds;
+
+  /// Explicit issue limits, omitted on the wire when there are no overrides.
+  final Map<String, int> issueReadingRounds;
+
+  /// Serializes the exact fields sent to the daemon, omitting absent overrides.
+  Map<String, dynamic> toMap() => {
+    'project': project,
+    'story': story,
+    'to': to,
+    'mode': mode,
+    'revision': revision,
+    'subAgents': subAgents.map((each) => each.toMap()).toList(),
+    'repositories': repositories.map((each) => each.toMap()).toList(),
+    'comment': ?comment,
+    if (readingRounds != null) 'readingRounds': readingRounds,
+    if (issueReadingRounds.isNotEmpty)
+      'issueReadingRounds': [
+        for (final each in issueReadingRounds.entries) {'issue': each.key, 'rounds': each.value},
+      ],
+  };
+}
+
+/// Whether the machine accepted the start, and its resulting revision.
+class StoryWorkStarted {
+  /// Reads the machine’s reported fields.
+  StoryWorkStarted.from(Map<String, dynamic> map)
+    : started = map['started'] == true,
+      revision = _planText(map, 'revision'),
+      tasks = _planList(map['tasks'], Task.from),
+      coordinator = map['coordinator'] is Map<String, dynamic>
+          ? Task.from(map['coordinator'] as Map<String, dynamic>)
+          : null;
+
+  /// The started tasks returned by the same authoritative start answer.
+  final List<Task> tasks;
+
+  /// The coordinator returned by the start, when several repositories need one.
+  final Task? coordinator;
+
+  /// The task whose terminal With you opens.
+  Task? get terminalTask {
+    final task = coordinator ?? (tasks.length == 1 ? tasks.single : null);
+    return task != null && task.name.isNotEmpty && task.running ? task : null;
+  }
+
+  /// Whether the daemon confirmed that story work started.
+  final bool started;
+
+  /// The opaque revision used to bind this decision.
+  final String revision;
+}
+
+/// The work and any ended outcome returned by GetStoryWork.
+class StoryWorkStatus {
+  /// Reads the machine’s reported fields.
+  StoryWorkStatus.from(Map<String, dynamic> map)
+    : work = map['work'] is Map<String, dynamic> ? PlanWork.from(map['work'] as Map<String, dynamic>) : null,
+      ended = map['ended'] is Map<String, dynamic> ? StoryWorkEnded.from(map['ended'] as Map<String, dynamic>) : null;
+
+  /// The work status reported by the daemon.
+  final PlanWork? work;
+
+  /// The machine’s reported reason and instant for an ended story run.
+  final StoryWorkEnded? ended;
+}
+
+/// One last reading finding, preserving unknown severity words.
+class ReadingFinding {
+  /// Reads the machine’s reported fields.
+  ReadingFinding.from(Map<String, dynamic> map) : severity = _planText(map, 'severity'), text = _planText(map, 'text');
+
+  /// The finding’s severity, preserving unknown values.
+  final String severity;
+
+  /// The finding’s words supplied by the machine.
+  final String text;
+}
+
+/// The findings returned by GetIssue, separate from the compact board summary.
+class PlanningIssueDetail {
+  /// Reads the machine’s reported fields.
+  PlanningIssueDetail.from(Map<String, dynamic> map)
+    : findings = _planList(map['findings'], ReadingFinding.from),
+      findingsReported =
+          map['findings'] is List &&
+          (map['findings'] as List).every(
+            (each) => each is Map<String, dynamic> && each['severity'] is String && each['text'] is String,
+          );
+
+  /// Whether the reply supplied a complete, correctly shaped findings list.
+  final bool findingsReported;
+
+  /// The last findings returned by the machine.
+  final List<ReadingFinding> findings;
+
+  /// Findings in reported order within blocking and remaining severities.
+  List<ReadingFinding> get blockingFirst => [
+    ...findings.where((each) => each.severity == 'BLOCKING'),
+    ...findings.where((each) => each.severity != 'BLOCKING'),
+  ];
+}
+
+/// Story work methods of the planning stand-in protocol.
+extension StoryWorkClient on PoreloClient {
+  /// Reads the proposed tasks and participants for a working state.
+  Future<StoryWorkProposal> proposeStoryWork(String project, String story, String to) async =>
+      StoryWorkProposal.from(await _call('ProposeStoryWork', {'project': project, 'story': story, 'to': to}));
+
+  /// Starts story work with explicit choices and the board revision.
+  Future<StoryWorkStarted> startStoryWork(StoryWorkRequest request) async =>
+      StoryWorkStarted.from(await _call('StartStoryWork', request.toMap()));
+
+  /// Reads current work and any ended outcome for a story.
+  Future<StoryWorkStatus> getStoryWork(String project, String story) async =>
+      StoryWorkStatus.from(await _call('GetStoryWork', {'project': project, 'story': story}));
+
+  /// Stops the story’s work without changing its planning state.
+  Future<void> stopStoryWork(String project, String story) async {
+    await _call('StopStoryWork', {'project': project, 'story': story});
+  }
+
+  /// Reads the issue’s last findings from GetIssue.
+  Future<PlanningIssueDetail> getPlanningIssue(String project, String issue) async =>
+      PlanningIssueDetail.from(await _call('GetIssue', {'project': project, 'issue': issue}));
+
+  /// Sends a revision-bound decision for one stopped reading round.
+  Future<String> resolveIssueReading(
+    String project,
+    String issue,
+    int round,
+    String choice,
+    String revision, {
+    String? comment,
+  }) async => _planText(
+    await _call('ResolveIssueReading', {
+      'project': project,
+      'issue': issue,
+      'round': round,
+      'choice': choice,
+      'revision': revision,
+      'comment': ?comment,
+    }),
+    'revision',
+  );
 }

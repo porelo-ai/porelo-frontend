@@ -13,6 +13,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Story issue rows stage individual state changes in the same pending batch and atomic Save as story moves, retain applicable moves after a revision conflict, and display daemon refusals beside the affected issue.
 
 - Planning cards and issue rows open live story and issue details with breadcrumbs, web links, reader findings and sub-agents.
+- Stories can start and stop work from the planning board, choosing a watched machine, main agents, proposed participants and reading limits; *With you* opens the returned task, and ended work and stopped readings offer decisions in *Needs you*.
 
 - *Planning* shows a project’s stories by workflow phase, with live updates, priority and search filters, folding, issue progress and reading rounds; a stopped reading leads to *Needs you*.
 

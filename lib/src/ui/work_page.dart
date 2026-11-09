@@ -48,6 +48,39 @@ class WorkView extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Tasks confirmed by a start answer, retained until the task watch catches up.
+  final Map<(String, String), Task> startedTasks = {};
+
+  /// Opens returned tasks without waiting for an independently delayed task list.
+  final Map<(String, String), Task?> _startBaselines = {};
+
+  /// Keeps returned tasks ahead of the task list that preceded their start.
+  void rememberStarted(String machine, List<Task> tasks, {List<Task> observed = const []}) {
+    for (final task in tasks) {
+      if (task.name.isEmpty) continue;
+      final key = (machine, task.name);
+      if (!task.running) {
+        startedTasks.remove(key);
+        _startBaselines.remove(key);
+        continue;
+      }
+      startedTasks[key] = task;
+      _startBaselines[key] = observed.where((old) => old.name == task.name).firstOrNull;
+    }
+    notifyListeners();
+  }
+
+  /// Accepts a later task-watch record as authoritative, including a task that already ended.
+  void reconcileStarted(String machine, Iterable<Task> reported) {
+    for (final task in reported) {
+      final key = (machine, task.name);
+      if (startedTasks.containsKey(key) && !identical(_startBaselines[key], task)) {
+        startedTasks.remove(key);
+        _startBaselines.remove(key);
+      }
+    }
+  }
+
   /// The tab chosen under *Running*, by machine and work.
   String? get tab => _tab;
   String? _tab;

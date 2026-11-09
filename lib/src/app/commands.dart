@@ -1835,3 +1835,13 @@ List<Command> centralReviewCommands({
     ),
   ];
 }
+
+/// An action on a planning story, start form or reading decision.
+Command planningCommand({
+  required String id,
+  required String label,
+  required VoidCallback run,
+  Home home = Home.openedView,
+  String? unavailable,
+  bool danger = false,
+}) => Command(id: id, label: label, group: 'Planning', home: home, run: run, unavailable: unavailable, danger: danger);

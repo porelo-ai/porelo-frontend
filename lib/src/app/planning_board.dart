@@ -129,6 +129,18 @@ class PlanningBoard extends ChangeNotifier {
 
   int _generation = 0;
 
+  /// Whether this source has released its notifier and subscriptions.
+  bool get isDisposed => _disposed;
+
+  /// Subscribes only while this source exists; cancellation never touches a disposed notifier.
+  VoidCallback follow(VoidCallback listener) {
+    if (_disposed) return () {};
+    addListener(listener);
+    return () {
+      if (!_disposed) removeListener(listener);
+    };
+  }
+
   void _listen() {
     final generation = ++_generation;
     bool current() => !_disposed && generation == _generation;
@@ -151,6 +163,7 @@ class PlanningBoard extends ChangeNotifier {
             },
             onError: (Object error) {
               if (!current()) return;
+              _generation++;
               final watching = _watching;
               _watching = null;
               unsupported = error is FeatureNotSupported || error is VarlinkException && error.isMethodNotFound;
@@ -162,6 +175,7 @@ class PlanningBoard extends ChangeNotifier {
             },
             onDone: () {
               if (!current()) return;
+              _generation++;
               _watching = null;
               live = false;
               if (!unsupported) problem ??= 'The planning watch ended. The board is no longer live.';
@@ -172,6 +186,151 @@ class PlanningBoard extends ChangeNotifier {
       unsupported = error is FeatureNotSupported || error is VarlinkException && error.isMethodNotFound;
       problem = unsupported ? null : planningFailureWords(error);
       live = false;
+    }
+  }
+
+  /// Story work read from this exact provider, retained while its watch is stale.
+  final Map<String, StoryWorkStatus> storyWork = {};
+
+  /// Failures to read story work, retained in the daemon’s words.
+  final Map<String, String> workProblems = {};
+
+  /// The last story action’s refusal, when one was reported.
+  String? actionProblem;
+
+  /// Whether a story action is awaiting its answer.
+  bool actionBusy = false;
+
+  final Map<String, PlanningSnapshot> _workSnapshots = {};
+
+  /// Stories whose older daemon cannot supply missing watch fields.
+  final Set<String> workUnsupported = {};
+
+  /// Work from the watch, or the fallback only when that field was not supplied.
+  PlanWork? workOf(PlanStory story) =>
+      story.work ??
+      (state(story.state)?.kind == 'WORKING' && identical(_workSnapshots[story.id], snapshot)
+          ? storyWork[story.id]?.work
+          : null);
+
+  /// Ended outcome from the watch, including its authoritative clearing answer.
+  StoryWorkEnded? endedOf(PlanStory story) => story.endedReported
+      ? story.ended
+      : identical(_workSnapshots[story.id], snapshot)
+      ? storyWork[story.id]?.ended
+      : null;
+
+  bool _needsWorkRead(PlanStory story) => state(story.state)?.kind == 'WORKING' && story.work == null;
+
+  /// Whether an ended outcome is current enough to resolve a retained attention row.
+  bool endedCurrent(PlanStory story) =>
+      story.endedReported || !_needsWorkRead(story) || identical(_workSnapshots[story.id], snapshot);
+
+  /// Why a story cannot start, preserving unknown work as unknown.
+  String? startUnavailable(PlanStory story) {
+    if (_disposed || !live || snapshot?.complete != true) return 'the planning board is not live and complete';
+    if (snapshot!.revision.isEmpty) return 'the planning revision was not reported';
+    final kind = state(story.state)?.kind;
+    if (story.work == null && (kind == 'WAITING' || kind == 'CLOSED')) return null;
+    if (_needsWorkRead(story) && !identical(_workSnapshots[story.id], snapshot)) {
+      return workProblems[story.id] ??
+          (workUnsupported.contains(story.id)
+              ? 'the machine does not offer story work status'
+              : 'work status not reported');
+    }
+    if (_needsWorkRead(story)) {
+      if (workProblems[story.id] case final problem?) return problem;
+      if (workUnsupported.contains(story.id)) return 'the machine does not offer story work status';
+    }
+    return switch (workOf(story)?.atWork) {
+      false => null,
+      true => 'work is already running',
+      null => 'work status not reported',
+    };
+  }
+
+  /// Reports an action error and redraws every consumer of this board.
+  void reportActionProblem(Object error) {
+    if (_disposed) return;
+    actionProblem = planningFailureWords(error);
+    _changed();
+  }
+
+  Future<void> _readWork(PlanningSnapshot reply, int generation) async {
+    final source = backend;
+    final name = project;
+    bool current() => !_disposed && generation == _generation && identical(snapshot, reply);
+    for (final story in reply.stories) {
+      if (!current()) return;
+      storyWork.remove(story.id);
+      _workSnapshots.remove(story.id);
+      if (!_needsWorkRead(story)) {
+        workProblems.remove(story.id);
+        workUnsupported.remove(story.id);
+        continue;
+      }
+      try {
+        final answer = await source.getStoryWork(name, story.id);
+        if (!current()) return;
+        storyWork[story.id] = answer;
+        _workSnapshots[story.id] = reply;
+        workProblems.remove(story.id);
+        workUnsupported.remove(story.id);
+      } catch (error) {
+        if (!current()) return;
+        storyWork.remove(story.id);
+        _workSnapshots[story.id] = reply;
+        if (error is FeatureNotSupported || error is VarlinkException && error.isMethodNotFound) {
+          workUnsupported.add(story.id);
+          workProblems.remove(story.id);
+        } else {
+          workProblems[story.id] = planningFailureWords(error);
+        }
+      }
+      _changed();
+    }
+    if (!current()) return;
+    final ids = reply.stories.map((story) => story.id).toSet();
+    storyWork.removeWhere((id, _) => !ids.contains(id));
+    _workSnapshots.removeWhere((id, _) => !ids.contains(id));
+    workProblems.removeWhere((id, _) => !ids.contains(id));
+    workUnsupported.removeWhere((id) => !ids.contains(id));
+    _changed();
+  }
+
+  /// Stops work without moving the story locally.
+  Future<void> stopWork(
+    String story, {
+    required String revision,
+    required FleetBackend source,
+    required String sourceProject,
+  }) async {
+    if (_disposed || actionBusy) return;
+    if (!live ||
+        revision.isEmpty ||
+        !identical(backend, source) ||
+        project != sourceProject ||
+        snapshot?.complete != true ||
+        snapshot?.revision != revision ||
+        !stories.any((each) => each.id == story && workOf(each)?.atWork == true)) {
+      actionProblem = 'The board changed while Stop work was open. Open it again for the current run.';
+      _changed();
+      return;
+    }
+    actionBusy = true;
+    actionProblem = null;
+    final generation = _generation;
+    final name = sourceProject;
+    _changed();
+    try {
+      await source.stopStoryWork(name, story);
+    } catch (error) {
+      if (!_disposed && generation == _generation) reportActionProblem(error);
+    } finally {
+      if (!_disposed && generation == _generation) {
+        actionBusy = false;
+        _changed();
+      }
     }
   }
 
@@ -194,7 +353,12 @@ class PlanningBoard extends ChangeNotifier {
       snapshot = null;
       _pending.clear();
       moveProblem = null;
+      storyWork.clear();
+      workProblems.clear();
+      _workSnapshots.clear();
+      workUnsupported.clear();
     }
+    actionBusy = false;
     problem = null;
     unsupported = false;
     live = false;
@@ -303,6 +467,11 @@ class PlanningBoard extends ChangeNotifier {
     if (order <= _snapshotOrder) return;
     snapshot = reply;
     _snapshotOrder = order;
+    storyWork.clear();
+    _workSnapshots.clear();
+    workProblems.clear();
+    workUnsupported.clear();
+    unawaited(_readWork(reply, _generation));
     if (!reconcile || !reply.complete || reply.revision.isEmpty) return;
     final reconciled = <String>[];
     for (final entry in _pending.entries.toList()) {
@@ -532,6 +701,7 @@ class PlanningBoard extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    live = false;
     _generation++;
     unawaited(_watching?.cancel());
     super.dispose();
@@ -605,6 +775,13 @@ class PlanningBoards extends ChangeNotifier {
   /// Boards holding unsaved work, including providers no longer selected.
   Iterable<PlanningBoard> get pendingBoards =>
       _boards.values.where((board) => board.pending.isNotEmpty || board.saving);
+
+  /// The machine identity owning this exact source.
+  String machineOf(PlanningBoard board) =>
+      _boards.entries.where((entry) => identical(entry.value, board)).firstOrNull?.key.$1 ?? board.backend.label;
+
+  /// Every source, including stale boards, for machine-scoped attention rows.
+  List<PlanningBoard> get sources => List.unmodifiable(_boards.values);
 
   /// The project names with at least one provider that has not refused planning.
   List<String> get projects =>

@@ -1020,6 +1020,7 @@ class AgentEnded {
     this.source = '',
     this.status,
     this.unpushed = 0,
+    this.lastAnswer = '',
   });
 
   /// Reads one from a reply.
@@ -1030,6 +1031,7 @@ class AgentEnded {
     source: _string(map, 'source'),
     status: map['status'] is int ? map['status'] as int : null,
     unpushed: _int(map, 'unpushed'),
+    lastAnswer: _string(map, 'lastAnswer'),
   );
 
   /// When the log's last line was written.
@@ -1049,6 +1051,9 @@ class AgentEnded {
 
   /// How many changed files never reached the gate.
   final int unpushed;
+
+  /// The agent's last answer at the end of the run, when reported.
+  final String lastAnswer;
 
   /// Whether a person has to look: it stopped before its end, or left work that never reached the
   /// gate.

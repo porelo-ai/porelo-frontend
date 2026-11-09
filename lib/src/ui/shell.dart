@@ -67,6 +67,7 @@ import 'clearing_view.dart';
 import '../app/settings.dart';
 import '../app/shell_model.dart';
 import '../app/planning_board.dart';
+import '../app/story_work.dart';
 import 'planning_view.dart';
 
 import 'package:porelo_frontend/client.dart';
@@ -490,7 +491,9 @@ class _ShellState extends State<Shell> {
     );
     // A read of the organization or the proven identity changes what a host admin is offered at once.
     widget.hostAccess?.addListener(_homeserversChanged);
-    _attention = Attention(widget.machines, widget.settings, widget.operations)..hostRuns = _hostRuns;
+    _attention = Attention(widget.machines, widget.settings, widget.operations)
+      ..hostRuns = _hostRuns
+      ..planning = _planning;
     _homeservers = HomeserverForwards(widget.settings);
     // One that cannot be raised is said under Needs you; the project's page says the address.
     _attention.homeservers = _homeservers;
@@ -3980,6 +3983,7 @@ class _ShellState extends State<Shell> {
                                     onTask: _openPlanningTask,
                                     onNeedsYou: () => widget.shell.goTo(Section.attention),
                                     onStartRequested: _requestPlanningStart,
+                                    onStarted: _storyWorkStarted,
                                   ),
                                 ),
                               ],
@@ -6362,6 +6366,25 @@ class _ShellState extends State<Shell> {
     }
   }
 
+  Future<void> _storyWorkStarted(StoryWork work) async {
+    if (work.mode != 'AGENT') return;
+    final machine = widget.machines.all
+        .where((machine) => identical(widget.machines.of(machine).backend, work.backend))
+        .firstOrNull;
+    final task = work.result?.terminalTask;
+    if (!mounted) return;
+    if (machine == null || task == null) {
+      work.board.reportActionProblem('The start answer did not report a terminal task on a watched machine.');
+      return;
+    }
+    _workView.rememberStarted(machine.name, [
+      ...work.result!.tasks,
+      ?work.result!.coordinator,
+    ], observed: widget.machines.of(machine).tasks);
+    _workView.showNewTerminal(machine.name, task);
+    _openSession(task, on: machine);
+  }
+
   /// Opens a session on [task] in its tab under *Running*, the one place a terminal is, leaving the one
   /// that was open: **one at a time**.
   void _openSession(Task task, {Machine? on}) {
@@ -6375,6 +6398,7 @@ class _ShellState extends State<Shell> {
 
   @override
   void dispose() {
+    _attention.dispose();
     _planning.dispose();
     widget.machines.pauseAutomaticRetries();
     widget.shell.removeListener(_followTreeTool);
@@ -6426,7 +6450,6 @@ class _ShellState extends State<Shell> {
     _leaving.dispose();
     _homeservers.removeListener(_homeserversChanged);
     widget.hostAccess?.removeListener(_homeserversChanged);
-    _attention.dispose();
     _workView.dispose();
     _hostRuns.dispose();
     _homeservers.dispose();

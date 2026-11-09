@@ -21,3 +21,11 @@ test/app/planning_detail_test.dart
 test/features/planning_story.feature
 test/features/planning_story_test.dart
 test/features/support/planning_details.dart
+test/app/planning_attention_test.dart
+test/app/reading_decision_test.dart
+test/app/story_work_lifecycle_test.dart
+test/app/story_work_test.dart
+test/features/story_work.feature
+test/features/story_work_test.dart
+test/features/support/story_work.dart
+test/client/story_work_socket_test.dart

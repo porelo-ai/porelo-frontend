@@ -11,6 +11,8 @@ import 'machines.dart';
 import 'operations.dart';
 import 'organization_source.dart';
 import 'settings.dart';
+import 'planning_board.dart';
+import 'story_work.dart';
 
 /// Why a tile sits where it does. Earlier is more urgent.
 enum Demand {
@@ -74,6 +76,9 @@ class Tile {
 
 /// The kinds of attention row, including notices that are not work.
 enum AttentionKind {
+  /// A story ended or an issue reading stopped on its planning source.
+  planning,
+
   /// A project server stopped for a person during preparation.
   host,
 
@@ -179,6 +184,16 @@ class Attention extends ChangeNotifier {
 
   HostRuns? _hostRuns;
 
+  PlanningBoards? _planning;
+
+  /// Reuses the shell's planning watches rather than opening another subscription.
+  set planning(PlanningBoards? boards) {
+    _planning?.removeListener(_changed);
+    _planning = boards;
+    boards?.addListener(_changed);
+    _changed();
+  }
+
   /// Follows what [organization] waits for from this person: a machine's first token, as the last *Connect*
   /// found it, and a project's Git repository.
   void watchOrganization(Organization organization, HostConnections? connections) {
@@ -255,6 +270,28 @@ class Attention extends ChangeNotifier {
       'message ${machine.name}/${message.task}/${message.handle}';
 
   Iterable<AttentionRow> _rows() sync* {
+    for (final board in _planning?.sources ?? <PlanningBoard>[]) {
+      final machine = _planning!.machineOf(board);
+      for (final story in board.stories) {
+        final ended = board.endedOf(story);
+        if (ended != null) {
+          yield AttentionRow(
+            AttentionKind.planning,
+            'story ended $machine/${board.project}/${story.id}',
+            machine,
+            PlanningAttention(board, story, ended: ended),
+          );
+        }
+        for (final issue in story.issues.where((issue) => issue.readingStopped == true)) {
+          yield AttentionRow(
+            AttentionKind.planning,
+            'reading $machine/${board.project}/${issue.id}',
+            machine,
+            PlanningAttention(board, story, issue: issue),
+          );
+        }
+      }
+    }
     // Said here, where it stays while the records are set aside, never on a status line the next connection overwrites.
     if (_machines.setAside case final words?) {
       yield AttentionRow(AttentionKind.setAside, 'set aside', 'This computer', words);
@@ -347,6 +384,24 @@ class Attention extends ChangeNotifier {
   void _rememberRows() {
     _noteRanOut();
     final rows = _rows().toList();
+    final present = rows.map((row) => row.id).toSet();
+    for (final old in _lastRows.values.where(
+      (row) => row.kind == AttentionKind.planning && !present.contains(row.id),
+    )) {
+      final value = old.value as PlanningAttention;
+      if (machineNamed(old.machine) == null) continue;
+      final source = _planning?.sources
+          .where((board) => _planning!.machineOf(board) == old.machine && board.project == value.project)
+          .firstOrNull;
+      if (source == null ||
+          !source.live ||
+          source.snapshot?.complete != true ||
+          value.ended != null &&
+              source.stories.any((story) => story.id == value.story.id) &&
+              !source.endedCurrent(source.stories.firstWhere((story) => story.id == value.story.id))) {
+        rows.add(old);
+      }
+    }
     final ids = rows.map((row) => row.id).toSet();
     _readMessages.removeWhere((id) => !ids.contains(id));
     _openRows = rows.where((row) => !_readMessages.contains(row.id)).toList();
@@ -644,8 +699,11 @@ class Attention extends ChangeNotifier {
     await settings.setSeenSilent(<String>{...settings.seenSilent, machine.name});
   }
 
+  bool _disposed = false;
+
   /// A machine that answers again is forgotten as seen, so its next silence is said.
   void _changed() {
+    if (_disposed) return;
     final settings = _settings;
     if (settings != null) {
       final answering = <String>{
@@ -848,6 +906,8 @@ class Attention extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
+    _planning?.removeListener(_changed);
     _machines.removeListener(_follow);
     _settings?.removeListener(_changed);
     _operations?.removeListener(_changed);

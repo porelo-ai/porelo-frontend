@@ -5,6 +5,10 @@ import 'package:porelo_frontend/client.dart';
 
 import '../app/planning_board.dart';
 import '../app/planning_detail.dart';
+import '../app/story_work.dart';
+import '../app/commands.dart';
+import 'command_menu.dart';
+import 'story_work_dialog.dart';
 import '../app/shell_model.dart';
 import 'planning_story_view.dart';
 import 'planning_issue_view.dart';
@@ -76,7 +80,8 @@ class PlanningView extends StatelessWidget {
     required this.onTask,
     required this.taskUnavailable,
     required this.onNeedsYou,
-    required this.onStartRequested,
+    this.onStarted,
+    this.onStartRequested,
     super.key,
   });
 
@@ -92,11 +97,14 @@ class PlanningView extends StatelessWidget {
   /// The projects and their planning providers.
   final PlanningBoards boards;
 
+  /// Opens a confirmed With you start in its task session.
+  final Future<void> Function(StoryWork)? onStarted;
+
+  /// Observes a working-state drop before its Start work dialog opens.
+  final void Function(PlanStory story, PlanState state)? onStartRequested;
+
   /// Opens Needs you for an issue stopped in Reading.
   final VoidCallback onNeedsYou;
-
-  /// Hands working-state drops to the shell that owns starting work.
-  final void Function(PlanStory story, PlanState state) onStartRequested;
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
@@ -154,6 +162,18 @@ class PlanningView extends StatelessWidget {
               providerProblems: boards.problemsFor(board),
               onNeedsYou: onNeedsYou,
               onStartRequested: onStartRequested,
+              onStarted: onStarted,
+              unavailableMachines: [
+                for (final machine in boards.machines.all)
+                  if (!boards.sources.any(
+                    (source) => source.project == board.project && boards.machineOf(source) == machine.name,
+                  ))
+                    machine.name,
+              ],
+              machines: {
+                for (final source in boards.sources.where((source) => source.project == board.project))
+                  source: boards.machineOf(source),
+              },
               onStory: (story) => open(board, story),
               onIssue: (story, issue) => open(board, story, issue),
             ),
@@ -190,9 +210,12 @@ class _BoardView extends StatefulWidget {
     required this.select,
     required this.providerProblems,
     required this.onNeedsYou,
-    required this.onStartRequested,
     required this.onStory,
     required this.onIssue,
+    this.onStarted,
+    this.onStartRequested,
+    required this.machines,
+    required this.unavailableMachines,
     super.key,
   });
   final PlanningBoard board;
@@ -201,10 +224,12 @@ class _BoardView extends StatefulWidget {
   final List<String> providerProblems;
   final VoidCallback onNeedsYou;
 
-  /// Hands working-state drops to the shell that owns starting work.
-  final void Function(PlanStory story, PlanState state) onStartRequested;
   final ValueChanged<String> onStory;
   final void Function(String, String) onIssue;
+  final Future<void> Function(StoryWork)? onStarted;
+  final void Function(PlanStory, PlanState)? onStartRequested;
+  final Map<PlanningBoard, String> machines;
+  final List<String> unavailableMachines;
   @override
   State<_BoardView> createState() => _BoardViewState();
 }
@@ -325,6 +350,9 @@ class _BoardViewState extends State<_BoardView> {
               Text(problem, style: TextStyle(color: theme.colorScheme.error)),
             if (!board.live && board.snapshot != null && board.problem == null)
               const Text('Waiting for the machine’s planning answer.'),
+            if (board.actionProblem case final problem?) Text(problem, key: const Key('planning-action-error')),
+            for (final entry in board.workProblems.entries) Text('${entry.key}: ${entry.value}'),
+            for (final story in board.workUnsupported) Text('$story: the machine does not offer story work status.'),
             if (board.problem case final problem?)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: Space.small),
@@ -438,7 +466,7 @@ class _BoardViewState extends State<_BoardView> {
     final folded = phaseFolded || board.preferences.foldedStates.contains(state.name);
     final theme = Theme.of(context);
     return DragTarget<String>(
-      key: Key('planning-state ${state.name}'),
+      key: Key('planning-drop ${state.name}'),
       onWillAcceptWithDetails: (details) =>
           !board.saving &&
           board.live &&
@@ -447,12 +475,14 @@ class _BoardViewState extends State<_BoardView> {
         final story = board.stories.where((story) => story.id == details.data).firstOrNull;
         if (story == null || board.displayedState(story) == state.name) return;
         if (state.kind == 'WORKING') {
-          widget.onStartRequested(story, state);
+          widget.onStartRequested?.call(story, state);
+          unawaited(_start(story, target: state));
         } else {
           board.move(details.data, state.name);
         }
       },
       builder: (context, candidates, rejected) => Container(
+        key: Key('planning-state ${state.name}'),
         padding: const EdgeInsets.all(Space.tight),
         margin: const EdgeInsets.only(bottom: Space.small),
         decoration: BoxDecoration(
@@ -506,6 +536,7 @@ class _BoardViewState extends State<_BoardView> {
                               children: [
                                 _priority(context, story.priority, mark: true),
                                 Text(story.id),
+                                _menu(story),
                                 if (board.pending[story.id] case final move? when move.problem == null)
                                   const Text('moved'),
                                 if (board.pending[story.id]?.problem case final problem?) Text(problem),
@@ -604,15 +635,16 @@ class _BoardViewState extends State<_BoardView> {
   }
 
   String? _work(PlanStory story) {
-    final work = story.work;
-    if (work == null) return board.state(story.state)?.kind == 'WORKING' ? 'Work not reported' : null;
-    if (work.atWork == false) return 'nobody at work';
+    final work = board.workOf(story);
+    final working = board.state(story.state)?.kind == 'WORKING';
+    if (work == null) return working ? 'Work not reported' : null;
+    if (work.atWork == false) return working ? 'nobody at work' : null;
     return [
       if (work.atWork == null) 'Work status not reported',
       if (work.coordinator?.isNotEmpty ?? false) work.coordinator!,
       if (work.tasks.isNotEmpty) '${work.tasks.length} ${work.tasks.length == 1 ? 'task' : 'tasks'}',
-      if (work.agent.isNotEmpty) work.agent,
-      if (work.model.isNotEmpty) work.model,
+      work.agent.isEmpty ? 'Agent not reported' : work.agent,
+      work.model.isEmpty ? 'Model not reported' : work.model,
       if (work.mode.isNotEmpty)
         switch (work.mode) {
           'UNATTENDED' => 'unattended',
@@ -639,6 +671,83 @@ class _BoardViewState extends State<_BoardView> {
         : KeyedSubtree(key: key, child: lines);
   }
 
+  Future<void> _start(PlanStory story, {PlanState? target}) async {
+    target ??=
+        board.states.where((state) => state.kind == 'WORKING' && state.name != story.state).firstOrNull ??
+        board.states.where((state) => state.kind == 'WORKING').firstOrNull;
+    if (target == null || board.startUnavailable(story) != null) return;
+    final work = StoryWork(
+      board,
+      story,
+      target.name,
+      machines: widget.machines,
+      unavailableMachines: widget.unavailableMachines,
+    );
+    try {
+      final started = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => StoryWorkDialog(work),
+      );
+      if (started == true && mounted) await widget.onStarted?.call(work);
+    } finally {
+      work.dispose();
+    }
+  }
+
+  Future<void> _stop(PlanStory story) async {
+    final source = board;
+    final backend = source.backend;
+    final project = source.project;
+    final revision = source.snapshot?.revision;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Stop work on ${story.id}?'),
+        content: const Text('The story stays in its working state with nobody at work until it is moved.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          FilledButton(
+            key: const Key('story-work-stop-confirm'),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Stop work'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || confirmed != true || revision == null) return;
+    await source.stopWork(story.id, revision: revision, source: backend, sourceProject: project);
+  }
+
+  Widget _menu(PlanStory story) => CommandMenu(
+    key: Key('planning-menu ${story.id}'),
+    tooltip: 'Work on ${story.id}',
+    commands: [
+      planningCommand(
+        id: 'planning-start ${story.id}',
+        label: 'Start work…',
+        home: Home.tileMenu,
+        unavailable:
+            board.startUnavailable(story) ??
+            (!board.states.any((state) => state.kind == 'WORKING') ? 'no working state was reported' : null),
+        run: () => unawaited(_start(story)),
+      ),
+      planningCommand(
+        id: 'planning-stop ${story.id}',
+        label: 'Stop work',
+        home: Home.tileMenu,
+        unavailable: !board.live
+            ? 'the planning board is not live'
+            : board.actionBusy
+            ? 'waiting for the machine'
+            : board.workOf(story)?.atWork != true
+            ? 'no running work was reported'
+            : null,
+        run: () => unawaited(_stop(story)),
+      ),
+    ],
+  );
+
   Widget _card(BuildContext context, PlanStory story) {
     final theme = Theme.of(context);
     final open = board.preferences.expandedStories.contains(story.id);
@@ -661,6 +770,7 @@ class _BoardViewState extends State<_BoardView> {
                   children: [
                     Text(story.id, style: theme.textTheme.labelMedium),
                     _priority(context, story.priority),
+                    _menu(story),
                   ],
                 ),
                 const SizedBox(height: Space.small),

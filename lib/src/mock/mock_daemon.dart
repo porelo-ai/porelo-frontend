@@ -45,17 +45,22 @@ class MockDaemon {
       if (story == null) throw MockRefusal('$interfaceName.NoSuchStory', {'detail': 'Story not found.'});
       return {'issues': story['issues']};
     });
-    method('GetIssue', (parameters) {
-      final issue = mockPlanningIssue(planningFor(parameters), parameters['issue']);
-      if (issue == null) throw MockRefusal('$interfaceName.NoSuchIssue', {'detail': 'Issue not found.'});
-      return {
-        'issue': issue,
-        'text': issue['text'],
-        'whatMustBeTrue': issue['whatMustBeTrue'],
-        'findings': issue['findings'],
-        'subAgents': issue['subAgents'],
-      };
-    });
+    for (final name in [
+      'ProposeStoryWork',
+      'StartStoryWork',
+      'GetStoryWork',
+      'StopStoryWork',
+      'GetIssue',
+      'ResolveIssueReading',
+    ]) {
+      method(name, (parameters) {
+        try {
+          return storyWork.call(name, parameters);
+        } on MockPlanningRefusal catch (error) {
+          throw MockRefusal('$interfaceName.PlanningRefused', {'detail': error.detail});
+        }
+      });
+    }
     method('GetPlanningWorkflow', (parameters) {
       final board = planningFor(parameters);
       return {'states': board['states'], 'phases': board['phases']};
@@ -113,6 +118,9 @@ class MockDaemon {
       return <String, dynamic>{'user': '', 'kept': false, 'why': ''};
     });
   }
+
+  /// Stateful story work shared with the widget stand-in.
+  late final storyWork = MockStoryWork((project) => planningFor({'project': project}), pushPlanning);
 
   /// Whole planning boards by project, initialized independently when first read.
   final Map<String, Map<String, dynamic>> planning = {};

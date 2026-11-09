@@ -117,15 +117,31 @@ class _RunningViewState extends State<RunningView> {
 
   /// Every running agent, in an order that does not move while somebody works: a tab that jumps
   /// when its agent changes state is a tab pressed by mistake.
-  List<Tile> _tabs() =>
-      <Tile>[
-        for (final machine in widget.attention.machinesOnce)
-          if (widget.onlyMachine == null || machine == widget.onlyMachine)
-            ...widget.attention.tilesOn(machine).where((tile) => tile.task?.running ?? false),
-      ]..sort((a, b) {
-        final byMachine = a.machine.name.compareTo(b.machine.name);
-        return byMachine != 0 ? byMachine : a.task!.name.compareTo(b.task!.name);
-      });
+  List<Tile> _tabs() {
+    final tabs = <Tile>[];
+    for (final machine in widget.attention.machinesOnce) {
+      if (widget.onlyMachine != null && machine != widget.onlyMachine) continue;
+      final reported = widget.attention.tilesOn(machine);
+      _view.reconcileStarted(machine.name, reported.map((tile) => tile.task).whereType<Task>());
+      tabs.addAll(
+        reported.where(
+          (tile) =>
+              (tile.task?.running ?? false) &&
+              tile.task!.name.isNotEmpty &&
+              !_view.startedTasks.containsKey((machine.name, tile.task!.name)),
+        ),
+      );
+      for (final entry in _view.startedTasks.entries.where(
+        (entry) => entry.key.$1 == machine.name && entry.value.name.isNotEmpty && entry.value.running,
+      )) {
+        tabs.add(Tile(machine: machine, fleet: widget.machines.of(machine), demand: Demand.unseen, task: entry.value));
+      }
+    }
+    return tabs..sort((a, b) {
+      final byMachine = a.machine.name.compareTo(b.machine.name);
+      return byMachine != 0 ? byMachine : a.task!.name.compareTo(b.task!.name);
+    });
+  }
 
   static String _idOf(Tile tile) => WorkView.placeOf(tile.machine.name, tile.task!.name);
 

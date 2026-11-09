@@ -95,6 +95,52 @@ class FakeBackend implements FleetBackend {
   /// Constructor taking what the machine has on it.
   FakeBackend(this._tasks);
 
+  /// Revision-checked work decisions, with observable calls for scenarios.
+  late final storyWork = MockStoryWork(_planningFor, pushPlanning);
+  Map<String, dynamic> _workCall(String method, Map<String, dynamic> parameters) {
+    try {
+      return storyWork.call(method, parameters);
+    } on MockPlanningRefusal catch (error) {
+      throw VarlinkException('org.fuin.porelo.Tasks1.PlanningRefused', {'detail': error.detail});
+    }
+  }
+
+  @override
+  Future<StoryWorkProposal> proposeStoryWork(String project, String story, String to) async =>
+      StoryWorkProposal.from(_workCall('ProposeStoryWork', {'project': project, 'story': story, 'to': to}));
+  @override
+  Future<StoryWorkStarted> startStoryWork(StoryWorkRequest request) async =>
+      StoryWorkStarted.from(_workCall('StartStoryWork', request.toMap()));
+  @override
+  Future<StoryWorkStatus> getStoryWork(String project, String story) async =>
+      StoryWorkStatus.from(_workCall('GetStoryWork', {'project': project, 'story': story}));
+  @override
+  Future<void> stopStoryWork(String project, String story) async {
+    _workCall('StopStoryWork', {'project': project, 'story': story});
+  }
+
+  @override
+  Future<PlanningIssueDetail> getPlanningIssue(String project, String issue) async =>
+      PlanningIssueDetail.from(_workCall('GetIssue', {'project': project, 'issue': issue}));
+  @override
+  Future<String> resolveIssueReading(
+    String project,
+    String issue,
+    int round,
+    String choice,
+    String revision, {
+    String? comment,
+  }) async =>
+      _workCall('ResolveIssueReading', {
+            'project': project,
+            'issue': issue,
+            'round': round,
+            'choice': choice,
+            'revision': revision,
+            'comment': ?comment,
+          })['revision']
+          as String;
+
   /// Whether this machine predates planning.
   bool withoutPlanning = false;
 

@@ -321,7 +321,7 @@ class _StartWorkDialogState extends State<StartWorkDialog> {
                       for (final agent in starting.agentsInOrder)
                         DropdownMenuItem<String>(
                           value: agent.name,
-                          child: _AgentChoice(agent: agent),
+                          child: StartAgentChoice(agent: agent),
                         ),
                     ],
                     onChanged: starting.chooseAgent,
@@ -345,16 +345,10 @@ class _StartWorkDialogState extends State<StartWorkDialog> {
                 // The provider's default is filled in once the machine says which provider runs; sent only
                 // when it holds one.
                 const SizedBox(height: Space.normal),
-                TextField(
-                  key: const Key('start-model'),
+                StartModelField(
+                  fieldKey: const Key('start-model'),
                   controller: _modelShown(starting.model),
-                  decoration: InputDecoration(
-                    labelText: 'Model',
-                    hintText: 'The default',
-                    border: const OutlineInputBorder(),
-                    helperText: starting.modelHelp,
-                    helperMaxLines: 4,
-                  ),
+                  help: starting.modelHelp,
                   onChanged: starting.chooseModel,
                 ),
                 if (starting.modelWords case final words?)
@@ -487,9 +481,11 @@ class _ImportTheSignIn extends StatelessWidget {
 String _nameOf(Agent agent) => agent.version.isEmpty ? agent.label : '${agent.label} · ${agent.version}';
 
 /// One agent of the list, with what it finds of itself on the machine.
-class _AgentChoice extends StatelessWidget {
-  const _AgentChoice({required this.agent});
+class StartAgentChoice extends StatelessWidget {
+  /// Shows the installed agent's identity and availability.
+  const StartAgentChoice({required this.agent, super.key});
 
+  /// The agent reported by the selected machine.
   final Agent agent;
 
   /// **Cannot say never reads as signed out**: an agent that could not be asked may well be signed in.
@@ -1070,6 +1066,68 @@ class _SignInFirst extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// The model entry shared by task starts and repository choices in a story start.
+class StartModelField extends StatelessWidget {
+  /// Uses the caller's controller, or a form-owned initial value for a proposal.
+  const StartModelField({
+    required this.fieldKey,
+    required this.onChanged,
+    this.controller,
+    this.initialValue,
+    this.help,
+    this.hint = 'The default',
+    this.enabled = true,
+    super.key,
+  });
+
+  /// The key of the actual text input.
+  final Key fieldKey;
+
+  /// The explicit model choice to retain.
+  final ValueChanged<String> onChanged;
+
+  /// A controller owned by the task start form, when present.
+  final TextEditingController? controller;
+
+  /// The model proposed for this repository, when no controller is supplied.
+  final String? initialValue;
+
+  /// The daemon's explanation of the proposal.
+  final String? help;
+
+  /// The words shown for an unfilled model.
+  final String hint;
+
+  /// Whether the captured source still accepts choices.
+  final bool enabled;
+  @override
+  Widget build(BuildContext context) {
+    final decoration = InputDecoration(
+      labelText: 'Model',
+      hintText: hint,
+      border: const OutlineInputBorder(),
+      helperText: help,
+      helperMaxLines: 4,
+    );
+    if (controller != null) {
+      return TextField(
+        key: fieldKey,
+        controller: controller,
+        decoration: decoration,
+        enabled: enabled,
+        onChanged: onChanged,
+      );
+    }
+    return TextFormField(
+      key: fieldKey,
+      initialValue: initialValue,
+      decoration: decoration,
+      enabled: enabled,
+      onChanged: onChanged,
     );
   }
 }
