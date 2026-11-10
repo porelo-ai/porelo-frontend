@@ -32,7 +32,12 @@ Future<void> _tap(WidgetTester tester, Finder finder) async {
   await _pump(tester);
 }
 
-Future<FixtureOrganization> _open(WidgetTester tester, {bool carriedElsewhere = false}) async {
+Future<FixtureOrganization> _open(
+  WidgetTester tester, {
+  bool carriedElsewhere = false,
+  HostConnections? connections,
+  void Function(FixtureOrganization source)? before,
+}) async {
   tester.view.physicalSize = const Size(1280, 800);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
@@ -51,6 +56,7 @@ Future<FixtureOrganization> _open(WidgetTester tester, {bool carriedElsewhere = 
       ),
     ),
   )..projects['other'] = const ProjectView(name: 'other', revision: 'p2', repositories: _repositories);
+  before?.call(source);
   final organization = Organization(source);
   addTearDown(organization.dispose);
   await organization.refresh();
@@ -59,7 +65,9 @@ Future<FixtureOrganization> _open(WidgetTester tester, {bool carriedElsewhere = 
       home: Scaffold(
         body: Builder(
           builder: (context) => TextButton(
-            onPressed: () => unawaited(putProjectOnAMachine(context, organization: organization, project: 'other')),
+            onPressed: () => unawaited(
+              putProjectOnAMachine(context, organization: organization, project: 'other', connections: connections),
+            ),
             child: const Text('Open'),
           ),
         ),
@@ -148,5 +156,31 @@ void main() {
     await _tap(tester, _row('core'));
     await _tap(tester, _confirm());
     expect(source.writes.single.input, {'host': 'build', 'project': 'other', 'repositories': 'core'});
+  });
+
+  // Harm: a placing the machine took ends with the dialog gone and nothing said, where the machine's read lags.
+  testWidgets('a placing that was taken goes on in its own dialog, though the read does not show it yet', (
+    tester,
+  ) async {
+    final source = await _open(tester, connections: FixtureConnections(['build']));
+    await _tap(tester, _control('all'));
+    await _tap(tester, _confirm());
+    expect(source.writes, hasLength(1));
+    expect(find.byKey(const Key('placing-project')), findsOneWidget);
+  });
+
+  // Harm: a refused placing closes onto a row, and the person never learns why it did not happen.
+  testWidgets('a refused placing says why in the dialog it was asked from', (tester) async {
+    final source = await _open(
+      tester,
+      connections: FixtureConnections(),
+      before: (source) => source.refuseNext = const OrganizationRefused('The machine did not answer.'),
+    );
+    await _tap(tester, _control('all'));
+    await _tap(tester, _confirm());
+    expect(source.writes, hasLength(1));
+    expect(find.text('The machine did not answer.'), findsOneWidget);
+    expect(_confirm(), findsOneWidget);
+    expect(find.byKey(const Key('placing-project')), findsNothing);
   });
 }

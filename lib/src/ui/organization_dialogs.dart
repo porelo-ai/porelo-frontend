@@ -24,10 +24,15 @@ class OrganizationChangeDialog extends StatefulWidget {
     required this.ask,
     this.invalid,
     this.base,
+    this.waitsForItsWrite = false,
   });
 
   /// The organization the change is asked of.
   final Organization organization;
+
+  /// Whether a list change stays open until it is answered, too, and closes saying it was taken: where what
+  /// follows the change goes on from this dialog, a row alone would not say it happened.
+  final bool waitsForItsWrite;
 
   /// The dialog's title.
   final String title;
@@ -71,7 +76,9 @@ class _OrganizationChangeDialogState extends State<OrganizationChangeDialog> {
     final asked = widget.ask();
     if (asked == null) return;
     if (asked.change.byHand) return _askForTheEntry(asked.change, asked.input);
-    if (widget.organization.view != null && OrganizationRowChange.target(asked.change, asked.input) != null) {
+    if (!widget.waitsForItsWrite &&
+        widget.organization.view != null &&
+        OrganizationRowChange.target(asked.change, asked.input) != null) {
       unawaited(widget.organization.write(asked.change, asked.input, base: widget.base, provisional: true));
       Navigator.of(context).pop();
       return;
@@ -83,7 +90,7 @@ class _OrganizationChangeDialogState extends State<OrganizationChangeDialog> {
     final refusal = await widget.organization.write(asked.change, asked.input, base: widget.base);
     if (!mounted) return;
     if (refusal == null) {
-      Navigator.of(context).pop();
+      Navigator.of(context).pop(true);
     } else {
       setState(() {
         _asking = false;
@@ -511,7 +518,11 @@ class OrganizationPersonDialog extends StatefulWidget {
     this.helper = 'Any person of the organization whose card is not revoked.',
     this.below,
     this.ready,
+    this.waitsForItsWrite = false,
   });
+
+  /// Whether the dialog stays open until its change is answered, and closes saying it was taken.
+  final bool waitsForItsWrite;
 
   /// What else this person is asked, under the words.
   final Widget? Function(String? person, VoidCallback changed)? below;
@@ -583,6 +594,7 @@ class _OrganizationPersonDialogState extends State<OrganizationPersonDialog> {
       title: widget.title,
       confirm: widget.confirm,
       base: widget.base,
+      waitsForItsWrite: widget.waitsForItsWrite,
       body: (context, changed) => Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -776,10 +788,12 @@ Future<void> putProjectOnAMachine(
   }
   final forge = organizationForgeName(view);
   final carrying = CarryingChoice(view, project);
-  await showDialog<void>(
+  // Open until the store answers: a refusal is said beside the choice, and a placing it took goes on below.
+  final taken = await showDialog<bool>(
     context: context,
     builder: (_) => OrganizationPersonDialog(
       organization,
+      waitsForItsWrite: true,
       people: [for (final host in hostsAdministeredBy(view)) host.name],
       helper: 'A repository is on one machine at a time.',
       title: 'Put $project on a machine',
@@ -827,17 +841,10 @@ Future<void> putProjectOnAMachine(
     ),
   );
   await organization.whenIdle;
-  // The machine chosen, once what it carries of the project changed: a dialog cancelled or refused changed nothing,
-  // and the machine may carry a part already.
-  String carried(OrganizationView? view, String machine) {
-    final host = view?.hosts.where((each) => each.name == machine).firstOrNull;
-    return host == null || !host.projects.contains(project)
-        ? ''
-        : (host.repositories[project] ?? ['(whole)']).join(',');
-  }
-
+  // A placing taken is followed though the organization's read does not show it yet; a dialog cancelled changed
+  // nothing, and a refused one said why where it was asked.
   final machine = carrying.machine;
-  if (machine == null || carried(organization.view, machine) == carried(view, machine)) return;
+  if (taken != true || machine == null) return;
   if (connections == null || !context.mounted) return;
   await showDialog<void>(
     context: context,

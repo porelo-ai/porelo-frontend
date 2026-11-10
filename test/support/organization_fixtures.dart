@@ -158,6 +158,8 @@ class FixtureConnections extends HostConnections {
   @override
   Future<void> connect(String host) async {
     _ask('connect $host');
+    // As Porelo's own connections do: what changed is told once the attempt ran, never in the asking call.
+    await Future<void>.value();
     hosts.add(host);
     notifyListeners();
   }
