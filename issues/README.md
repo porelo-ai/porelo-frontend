@@ -113,7 +113,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f443"></a>[F443](F443-Forge-Token-Handed-Over-When-The-Machine-Asks.md) | S | - | The person's forge token on a host made by the host's own command, run in a terminal there from the window when the host asks; never through this program. |
 | <a id="f470"></a>[F470](F470-A-Story-Moved-Against-Its-Issues-Is-Warned-And-Confirmed.md) | S | - | A story moved on the board against its issues is warned, naming them, and saved only when confirmed; it keeps that state. |
 | <a id="f469"></a>[F469](F469-A-Project-Page-Shows-Porelos-Kept-Read-And-Its-Age.md) | S | - | A project page shows Porelo's kept read at once with its age, then the fresh one; nothing old shown as just read. |
 | <a id="f321"></a>[F321](F321-Send-The-Terminal-Input-Fix-Upstream.md) | S | - | The terminal input fix offered upstream, and this repository's copy of `xterm` dropped once a release holds it. |
@@ -134,6 +133,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f443"></a>[F443](F443-Forge-Token-Handed-Over-When-The-Machine-Asks.md) | S | - | The person's forge token on a host made by the host's own command, run in a terminal there from the window when the host asks; never through this program. |
 | <a id="f203"></a>[F203](F203-This-Repository-Worked-In-A-Porelo-Task.md) | S | - | This repository's agent working in an attended Porelo task on the host, its build green on the host's Forgejo, reached in the room, with a way back. |
 | <a id="f457"></a>[F457](F457-Needs-You-Names-The-One-Thing-To-Do.md) | L | - | *Needs you* items name one action, close with their cause, can be marked seen, embed no task tile; nothing waits at the gate in class online; a done task shown done; the commit's makers shown. |
 | <a id="f458"></a>[F458](F458-The-Task-Terminal-Grows-With-The-Window.md) | XS | - | The agent's screen grows with the window. |
