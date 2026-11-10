@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F472",
   "title": "The Packages Carry The Third-Party Notices As A File",
-  "state": "Analyzed",
+  "state": "Backlog",
   "size": "S",
   "priority": "Medium",
   "rank": 12,
@@ -17,10 +17,11 @@
 **Why this size.** one build step that unpacks a file Flutter already writes, two entries in the package description,
 and a test of the unpacked file.
 
-**How it stands.** The operator decided on 2026-11-10 that every repository that ships a .deb or .rpm with
-third-party code built in ships its notices as one THIRD-PARTY-NOTICES file, with the full license texts, and gave
-this issue the priority Medium. The Java repositories take a generator from porelo-buildtools; the window needs none,
-since Flutter already collects its notices. Like every adoption, it is built once that generator is on main.
+**How it stands.** The operator decided on 2026-11-10 that every repository that ships a .deb or .rpm with third-party
+code built in ships its notices as one THIRD-PARTY-NOTICES file, with the full license texts, and gave this issue the
+priority Medium. The Java repositories take a generator from porelo-buildtools, on its main since 2026-11-10; the window
+needs none, since Flutter already collects its notices. Backlog (operator, 2026-11-10): it is built after
+[F443](README.md#f443), [F455](README.md#f455) and [F460](README.md#f460).
 
 **What must be true.** Someone who installs the window's .deb or .rpm finds the licenses of all third-party code built
 into it as a plain text file, in the place their system looks: `/usr/share/doc/porelo-frontend/THIRD-PARTY-NOTICES`,
