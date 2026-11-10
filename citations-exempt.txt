@@ -3,6 +3,8 @@ packages/xterm/lib/src/core/input/keytab/keytab.dart
 packages/xterm/lib/src/core/input/keytab/keytab_default.dart
 packages/xterm/lib/src/core/input/keytab/qt_keyname.dart
 lib/src/mock/planning_data.dart
+packages/porelo_planning/lib/src/fake/planning_data.dart
+packages/porelo_planning/test/mock_planning_test.dart
 test/features/planning_board.feature
 test/features/planning_board_test.dart
 test/features/step/another_machine_offers_the_same_project_planning.dart
