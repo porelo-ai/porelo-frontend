@@ -40,13 +40,19 @@ Read in today's code (porelo-frontend 3b63f9a7):
 - **Embedding:** a git dependency with a fixed ref and `path: screen` into porelo-planner, as `guided_walk` is embedded.
   While the change is built, the window starts against the package in porelo-planner's checkout through an
   uncommitted `pubspec_overrides.yaml`.
-- **Tests:** the planning unit and widget tests move with the code, against a fake of the package's client. The
-  window keeps the feature files that walk the embedding: `planning_board.feature`, `planning_moves.feature`,
-  `planning_story.feature` and `story_work.feature`.
+- **The window keeps no planning code of its own** (the operator, 2026-11-10): `client/planning.dart`, the planning
+  views and models, and the planning mock (`mock/planning_data.dart`, `mock/planning_moves.dart` and the planning
+  parts of `mock/mock_daemon.dart` and `mock/machine.dart`) are deleted here; the window only embeds `porelo_planning`
+  and implements its hooks. The mock's board goes into the package as its fake client, so the package's tests, its
+  example and the window's tests read the same stories until the planner's mock mode serves them.
+- **Tests:** the planning unit and widget tests move with the code, against that fake client. The window keeps the
+  feature files that walk the embedding (`planning_board.feature`, `planning_moves.feature`,
+  `planning_story.feature` and `story_work.feature`), run against the package's fake client and, once it exists,
+  against the planner's mock mode.
 - **Steps:**
   1. Agreed: the module's place and name, with Agent Planner (below).
   2. Cut the package out in porelo-planner, with every moved test green there.
-  3. Embed it in the window and delete the moved code here.
+  3. Embed it in the window and delete the window's planning code and its mock here.
   4. Every window test green, and the window started locally from porelo-planner's checkout.
   5. Hand it over to Agent Planner.
 
