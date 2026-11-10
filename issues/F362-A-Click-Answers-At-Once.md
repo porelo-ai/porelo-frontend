@@ -31,6 +31,21 @@ An earlier issue, *A Server Dialog Opens At Once*, settled one dialog, not this 
 - **Nothing read on the way runs long by itself.** The row's action only sets state (`_organizationProject`, or `Machines.select`, `selectProject` and `ShellModel.openProject`), `readProject` goes straight to an awaited `porelo`, and those hold no synchronous file or process call. A search of `lib/src/ui` finds no `SelectionArea`, `SelectableRegion`, long press, pan or double tap recognizer. What the listeners of those changes rebuild was not read call by call; the test's frame times above are its measure.
 - **So no cause is found in what a test can measure, and nothing is changed.** That leaves the real window, and the two seconds of the read above.
 
+- **A profile build on a hidden display, as a person of the test organization against its real organization**
+  (2026-11-10, ten rounds each in two runs, the window at 1280x800, a press held 80 ms on the row of *My projects*
+  that opens the project, then let go):
+
+  | From | To | Fastest | Median | Slowest |
+  |---|---|---|---|---|
+  | the press | the frame with its press effect | 15 ms | 17 ms | 22 ms |
+  | the release | the page with its "Reading …" line | 17 ms | 26 ms | 41 ms |
+  | the press | the page's content | 2.6 s | 2.9 s | 3.5 s |
+
+  The slowest frame of all rounds took 95 ms, none of them on the way from the press to the page. `porelo project
+  show foo-project --json` alone took 2.5 to 2.7 s in three runs, against 0.05 s for `porelo --version`.
+- **So the window answers at once, and its content waits for Porelo's read of the project.** The delay seen is the
+  two to three seconds in which the page stands with its head and "Reading …", and not what the person came for.
+
 ## What to measure next
 
 Only a real window can show the first two:
