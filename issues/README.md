@@ -131,6 +131,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f464"></a>[F464](F464-My-Machines-Keeps-A-Machine-Being-Prepared.md) | S | — | *My machines* keeps a machine being prepared in its list and count, the drop caught live first. |
 | <a id="f465"></a>[F465](F465-Needs-You-Rows-Say-Their-Name-Once-And-Whole.md) | XS | — | A row under *Needs you* names its machine once, and its title is shown whole where the row has room. |
 | <a id="f467"></a>[F467](F467-A-Board-Without-Streaming-Says-It-Is-Not-Live.md) | XS | — | A planning board read without streaming says it is not live and offers a reload. |
+| <a id="f468"></a>[F468](F468-The-Work-Page-Offers-To-Take-A-Repository-Out-Of-Default.md) | S | Porelo's offer to remove a repository from `default` once a project names it | The work page offers to take a repository out of `default` once a project of the organization names it. |
 
 ### Analyzed
 
