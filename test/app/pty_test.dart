@@ -47,6 +47,34 @@ void main() {
     expect((await printed).trim().split('\n').last.trim(), '43 132');
   });
 
+  // Harm: ssh and tmux follow a size only when the kernel signals it, so a grown window would
+  // keep the agent's screen at the size it was opened with.
+  test('a new size is signalled to what runs there', () async {
+    final pty = Pty.start(
+      'sh',
+      <String>['-c', r"trap 'stty size; exit 0' WINCH; echo ready; while :; do sleep 0.05; done"],
+      columns: 80,
+      rows: 24,
+    );
+    addTearDown(pty.close);
+    final ready = Completer<void>();
+    final said = StringBuffer();
+    pty.output.transform(utf8.decoder).listen((chunk) {
+      said.write(chunk);
+      if (!ready.isCompleted && said.toString().contains('ready')) ready.complete();
+    });
+    await ready.future.timeout(const Duration(seconds: 5));
+
+    pty.resize(columns: 132, rows: 43);
+
+    expect(
+      await pty.ended.timeout(const Duration(seconds: 5), onTimeout: () => -1),
+      0,
+      reason: 'only the signal ends its loop; it printed: $said',
+    );
+    expect(said.toString().trim().split('\n').last.trim(), '43 132');
+  });
+
   test('what it exits with is what is reported', () async {
     final pty = Pty.start('sh', <String>['-c', 'exit 69']);
     await whatItPrinted(pty);
