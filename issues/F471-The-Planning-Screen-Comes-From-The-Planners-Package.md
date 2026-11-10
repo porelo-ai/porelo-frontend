@@ -37,25 +37,36 @@ Read in today's code (porelo-frontend 3b63f9a7):
   `PlanningBoards`, `FleetBackend`, `FleetModel` and `Machines`. With one local planner that coupling goes; until the
   planner's API exists, the package reads through a client interface with today's models, and the window answers it
   from the daemon as now.
-- **Embedding:** a git dependency with a fixed ref and a `path:` into porelo-planner, as `guided_walk` is embedded.
+- **Embedding:** a git dependency with a fixed ref and `path: screen` into porelo-planner, as `guided_walk` is embedded.
   While the change is built, the window starts against the package in porelo-planner's checkout through an
   uncommitted `pubspec_overrides.yaml`.
 - **Tests:** the planning unit and widget tests move with the code, against a fake of the package's client. The
   window keeps the feature files that walk the embedding: `planning_board.feature`, `planning_moves.feature`,
   `planning_story.feature` and `story_work.feature`.
 - **Steps:**
-  1. Agree on the module's place and name with Agent Planner.
+  1. Agreed: the module's place and name, with Agent Planner (below).
   2. Cut the package out in porelo-planner, with every moved test green there.
   3. Embed it in the window and delete the moved code here.
   4. Every window test green, and the window started locally from porelo-planner's checkout.
   5. Hand it over to Agent Planner.
 
-## To be checked
+## Agreed with Agent Planner (2026-11-10)
 
-- The module's place and name in porelo-planner, and how its Maven build runs Flutter there. Agreed with Agent Planner
-  before the code moves.
-- Where the planner says it listens, so the window hands the package its base URL rather than guessing a port.
-- Whether porelo-planner's CI runs Flutter beside Java.
+- **Place and names:** the directory `screen/` at porelo-planner's root, a Maven module `porelo-planner-screen` built
+  only under the profile `all`, the Dart package `porelo_planning`, with Flutter pinned as the window pins it.
+  porelo-planner's CI gets a job with that Flutter beside its JDK. The window embeds it with `git:`, a tag and
+  `path: screen`.
+- **The package's face:** `PlanningScreen(client, startTask, taskChanges, agents)`.
+  - `PlanningClient` is an interface of the package; `PlanningClient.http(baseUrl, token)` is the planner's
+    REST/SSE one. Until that exists, the window passes a client that answers from today's daemon.
+  - `PlanningAction` is what the window wraps in its command menu.
+  - `hasPendingMoves` is for the leave guard.
+  - A `Listenable` of Needs-you entries comes with their widget.
+- **Address and token:** the planner writes them into a file only its user may read, in the user's runtime
+  directory; the window reads it and builds the client.
+- **Task changes:** the window reports each change of a task it started (started, ended, stopped) through
+  `client.taskEvent`; `taskChanges` is only what the screen shows of a run.
+- **The theme:** the package has none of its own; its colors come from the window's theme.
 
 ## Acceptance
 
