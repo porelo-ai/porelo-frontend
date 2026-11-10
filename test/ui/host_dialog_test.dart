@@ -621,21 +621,14 @@ void main() {
     expect(state.commands.single, ['down', ...signedSetup.giveBackArguments('orchard'), '--memberships']);
     expect(tester.widget<FilledButton>(find.byKey(const Key('host-confirm-down'))).onPressed, isNull);
     answerHolders(state.processes.single, [
-      holder('alice', admin: true),
-      holder(
-        'bob',
-        projects: [
-          {'project': 'garden', 'role': 'member'},
-        ],
-      ),
+      holder('alice', state: 'locked', purgeOn: '2000-01-01'),
+      holder('bob', state: 'locked', purgeOn: '2000-01-02'),
       holder('retired', state: 'purged'),
     ]);
     await World.settle(tester);
-    expect(find.textContaining('alice:'), findsOneWidget);
-    expect(find.textContaining('Machine Admin'), findsOneWidget);
-    expect(find.textContaining('bob:'), findsOneWidget);
-    expect(find.textContaining('garden'), findsOneWidget);
-    expect(find.textContaining('member)'), findsOneWidget);
+    expect(find.textContaining('alice: locked'), findsOneWidget);
+    expect(find.textContaining('bob: locked'), findsOneWidget);
+    expect(find.textContaining('alice, bob and everything they hold here are permanently deleted'), findsOneWidget);
     expect(find.textContaining('retired:'), findsNothing);
     expect(find.byKey(const Key('host-force-down')), findsNothing);
     expect(state.commands, hasLength(1), reason: 'reading memberships cannot purge them');
@@ -653,6 +646,39 @@ void main() {
     state.processes.last.end(0);
     await World.settle(tester);
     expect(state.settings.hostUp('orchard'), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  // Harm: the machine purges only a person locked, listed in no project and past their purge day; one confirmed
+  // otherwise is refused there, and the take-down stops with the machine kept and billed, its reason unsaid here.
+  testWidgets('only those the machine can purge are offered, the others named with why not', (tester) async {
+    final state = await openTakeDown(tester);
+    answerHolders(state.processes.single, [
+      holder('alice', admin: true),
+      holder(
+        'bob',
+        state: 'locked',
+        purgeOn: '2000-01-01',
+        projects: [
+          {'project': 'garden', 'role': 'member'},
+        ],
+      ),
+      holder('carol', state: 'locked', purgeOn: '2000-01-01'),
+      holder('dan', state: 'locked', purgeOn: '2999-01-01'),
+    ]);
+    await World.settle(tester);
+    expect(find.textContaining('carol:'), findsOneWidget);
+    expect(find.textContaining('alice: Machine Admin; not offered'), findsOneWidget);
+    expect(find.textContaining('bob: garden (member); not offered'), findsOneWidget);
+    expect(find.textContaining('still listed in a project'), findsOneWidget);
+    expect(find.textContaining('dan: locked; not offered'), findsOneWidget);
+    expect(find.textContaining('until 2999-01-01'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('host-confirm-down')));
+    await World.settle(tester);
+    expect(state.commands.last, ['down', ...signedSetup.giveBackArguments('orchard'), '--purge', 'carol']);
+    state.processes.last.line(const host.Step('give-back', host.StepState.done));
+    state.processes.last.end(0);
+    await World.settle(tester);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
@@ -909,7 +935,7 @@ void main() {
   // Harm: someone admitted after confirmation must never be purged without a new explicit choice.
   testWidgets('a refused down reads new holders and waits for their confirmation', (tester) async {
     final state = await openTakeDown(tester);
-    answerHolders(state.processes.single, [holder('alice', admin: true)]);
+    answerHolders(state.processes.single, [holder('alice', state: 'locked', purgeOn: '2000-01-01')]);
     await World.settle(tester);
     final earlierChoice = tester.widget<FilledButton>(find.byKey(const Key('host-confirm-down'))).onPressed!;
     await tester.tap(find.byKey(const Key('host-confirm-down')));
@@ -925,14 +951,7 @@ void main() {
     expect(state.commands.last, contains('--memberships'));
     expect(state.settings.hostUp('orchard'), isNotNull);
     expect(tester.widget<FilledButton>(find.byKey(const Key('host-confirm-down'))).onPressed, isNull);
-    answerHolders(state.processes.last, [
-      holder(
-        'charlie',
-        projects: [
-          {'project': 'garden', 'role': 'admin'},
-        ],
-      ),
-    ]);
+    answerHolders(state.processes.last, [holder('charlie', state: 'locked', purgeOn: '2000-01-01')]);
     await World.settle(tester);
     expect(find.textContaining('charlie:'), findsOneWidget);
     expect(find.textContaining('alice:'), findsNothing);
@@ -1876,8 +1895,9 @@ Map<String, Object?> holder(
   String login, {
   bool admin = false,
   String state = 'active',
+  String? purgeOn,
   List<Object?> projects = const [],
-}) => {'login': login, 'state': state, 'host_admin': admin, 'projects': projects};
+}) => {'login': login, 'state': state, 'host_admin': admin, 'projects': projects, 'purge_on': ?purgeOn};
 
 void answerHolders(HostProcess process, List<Map<String, Object?>> persons) {
   process.line(host.Step('org-status', host.StepState.done, words: jsonEncode({'persons': persons})));

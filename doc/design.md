@@ -263,10 +263,11 @@ planned for 0.9, sprint 5. The server stays as it is, and that is said in words.
 takes the setup off, and releasing it at the provider is the person's own step; a saved rental from before is
 released by the provider's confirmation, and a give-back that fails keeps the recovery record.
 Before Porelo is taken off or a rental returned, the dialog reads, by `org status` as root, who still holds machine
-administration or a project on the machine. The person confirms the removal of exactly those named accounts and all they
-hold. Each is purged as root before the down play (`porelo-host person purge`), and the first failure stops the rest,
-the play and the release; the host purges only a person locked, listed in no project and past their purge day, and
-refuses anyone else in its own words. A
+administration or a project on the machine, and who is locked with a purge day. The host purges only a person locked,
+listed in no project, no Machine Admin and past their purge day, so only those are offered: the person confirms the
+removal of exactly those named accounts and all they hold, and every other account is named with why it is not offered.
+Each confirmed one is purged as root before the down play (`porelo-host person purge`), and the first failure stops the
+rest, the play and the release. A
 status that cannot be read purges nothing and leaves the ordinary take-down, whose play still refuses while anyone holds a
 membership. A holder new after a refused play needs another confirmation, and a failed take-down then offers the one
 confirmed as a loss.

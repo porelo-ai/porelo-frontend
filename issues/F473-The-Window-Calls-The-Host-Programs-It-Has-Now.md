@@ -14,8 +14,8 @@
 }
 ```
 
-**Why this size.** Five remote command lines in two modules and the package, one read moved to the daemon's answer, and
-their tests; no contract changes.
+**Why this size.** Five remote command lines in two modules and the package, one read moved to the daemon's answer, the
+take-down's purge confirmation narrowed to whom the host purges, and their tests; no contract changes.
 
 **What must be true.** A host admin who opens a machine's page, presses *Fetch now*, gives a host their token, or takes
 Porelo off a machine reaches the host's own program, not one the host no longer has. A person on *My projects* sees how
@@ -58,14 +58,18 @@ root program is `/usr/sbin/porelo-host`, and a person's push and pull are Porelo
   current host package, and none names `porelo-host-person` or `porelo-host-push`.
 - *My projects* shows a project's central state as the host's daemon lists it, and never up to date for a count nobody
   gave.
+- *Take Porelo off this machine…* offers to delete only accounts the host can purge, and names every other holder with
+  why it is not offered.
 
 ## How it stands
 
 - Built on the branch `fix-host-programs`, with the tests above red first and the whole suite run once.
 - The host's `person purge` purges only a person locked, listed in no project and past their purge day; the old one
-  purged any recorded person. The take-down still purges each membership holder the person confirmed, so a holder still
-  listed in a project is now refused in the host's words, and the take-down stops there, as `doc/design.md` says.
-  Whether the confirmation should offer only those the host can purge is for the operator to decide.
+  purged any recorded person. The take-down's purge confirmation offers only the people the host can purge, as
+  `porelo-host org status --json` says, and names the others with the host's reason, not offering them (operator,
+  2026-11-10). `HostMembership` keeps each person's state and purge day and says why the host would refuse them;
+  `host_dialog.dart` purges only those it would not. Red first in `test/ui/host_dialog_test.dart`: only those the
+  machine can purge are offered, the others named with why not.
 - Reading fixed: of its four must-fix findings three were taken, each with a test seen red first - a carried
   repository with no central answer no longer lets a project read as up to date; central waits for the daemon's
   connection, and a backend not open cannot say; a row says nothing while it is asked and asks again after a reconnect

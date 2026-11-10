@@ -187,9 +187,9 @@ void checkPurgeLogin(String login) {
   }
 }
 
-/// A person whose server account still holds organization memberships.
+/// A person whose server account still holds organization memberships, or who is locked with a purge day.
 class HostMembership {
-  const HostMembership._(this.login, this.hostAdmin, this.projects);
+  const HostMembership._(this.login, this.hostAdmin, this.projects, {this.state = 'active', this.purgeOn});
 
   /// The account that an explicit purge may remove.
   final String login;
@@ -199,6 +199,24 @@ class HostMembership {
 
   /// Each project and the role this person holds there.
   final List<({String project, String role})> projects;
+
+  /// The host's word on the account: `active`, `locked` or `pending`.
+  final String state;
+
+  /// The day the host deletes the account by itself, as `YYYY-MM-DD`, where it is locked.
+  final String? purgeOn;
+
+  /// Why the host's `person purge` refuses this person on [today] (`YYYY-MM-DD`), or null where it purges them: it
+  /// purges only a person locked, listed in no project, no Machine Admin, and past their purge day.
+  String? whyNotPurged(String today) {
+    if (hostAdmin) return 'a Machine Admin is never purged';
+    if (projects.isNotEmpty) return 'a person still listed in a project is never purged';
+    if (state != 'locked') return 'only a locked account is purged';
+    final day = purgeOn;
+    if (day == null) return 'the machine names no purge day';
+    if (today.compareTo(day) < 0) return 'it is purged only from its purge day, and it is kept until $day';
+    return null;
+  }
 
   /// Validates every person before returning any holders; missing data is never an empty answer.
   static List<HostMembership> readStatus(String answer) {
@@ -237,7 +255,10 @@ class HostMembership {
           throw malformed;
         }
       }
-      if (admin || roles.isNotEmpty) holders.add(HostMembership._(login, admin, List.unmodifiable(roles)));
+      final purgeOn = person['purge_on'] as String?;
+      if (admin || roles.isNotEmpty || (state == 'locked' && purgeOn != null)) {
+        holders.add(HostMembership._(login, admin, List.unmodifiable(roles), state: state, purgeOn: purgeOn));
+      }
     }
     return List.unmodifiable(holders);
   }

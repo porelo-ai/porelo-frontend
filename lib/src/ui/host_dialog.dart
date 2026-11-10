@@ -674,6 +674,22 @@ class _HostDialogState extends State<HostDialog> {
     }
   }
 
+  /// Today on the machine's calendar, as its purge day is written.
+  static String _today() => DateTime.now().toUtc().toIso8601String().substring(0, 10);
+
+  /// The holders the machine purges: the take-down offers only those.
+  static List<HostMembership> _purged(List<HostMembership> holders) => [
+    for (final holder in holders)
+      if (holder.whyNotPurged(_today()) == null) holder,
+  ];
+
+  /// What [holder] holds here, in words.
+  static String _holds(HostMembership holder) => [
+    if (holder.hostAdmin) 'Machine Admin',
+    for (final project in holder.projects) '${project.project} (${project.role})',
+    if (!holder.hostAdmin && holder.projects.isEmpty) holder.state,
+  ].join(', ');
+
   Future<void> _giveBack({
     bool anyway = false,
     bool centralLossConfirmed = false,
@@ -701,7 +717,7 @@ class _HostDialogState extends State<HostDialog> {
     try {
       await session.down(
         giveBackAnyway: anyway,
-        purge: anyway ? const [] : [for (final holder in holders!) holder.login],
+        purge: anyway ? const [] : [for (final holder in _purged(holders!)) holder.login],
       );
       if (!hostGivenBack(session)) {
         throw StateError(
@@ -985,11 +1001,19 @@ class _HostDialogState extends State<HostDialog> {
                 if (holders != null && holders.isNotEmpty) ...[
                   for (final holder in holders)
                     Text(
-                      '${holder.login}: ${[if (holder.hostAdmin) 'Machine Admin', for (final project in holder.projects) '${project.project} (${project.role})'].join(', ')}',
+                      '${holder.login}: ${_holds(holder)}'
+                      '${switch (holder.whyNotPurged(_today())) {
+                        final why? => '; not offered: the machine purges only an account locked, listed in no project '
+                            'and past its purge day, and $why.',
+                        null => '',
+                      }}',
                     ),
-                  const Text(
-                    'The accounts named above and everything they hold here are permanently deleted. This cannot be undone.',
-                  ),
+                  if (_purged(holders).isNotEmpty)
+                    Text(
+                      '${_purged(holders).map((holder) => holder.login).join(', ')} and everything '
+                      '${_purged(holders).length == 1 ? 'it holds' : 'they hold'} here are permanently deleted. '
+                      'This cannot be undone.',
+                    ),
                 ],
               ],
               if (_problem != null && !_givenBack && widget.takeDownOnly && _centralBlockers?.isNotEmpty != true)
@@ -1093,7 +1117,7 @@ class _HostDialogState extends State<HostDialog> {
                 ? null
                 : () => _giveBack(holders: holders),
             child: Text(
-              holders?.isNotEmpty == true
+              holders != null && _purged(holders).isNotEmpty
                   ? rental
                         ? 'Delete these accounts and return it'
                         : 'Delete these accounts and take Porelo off'
