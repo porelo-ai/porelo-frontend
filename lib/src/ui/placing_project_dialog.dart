@@ -79,6 +79,9 @@ class _PlacingProjectDialogState extends State<PlacingProjectDialog> {
   }
 
   Future<void> _begin() async {
+    // Not while the dialog is being built: what the connections tell would mark the screen below it while it builds.
+    await Future<void>.value();
+    if (!mounted) return;
     try {
       if (!widget.connections.connected(widget.host)) await widget.connections.connect(widget.host);
     } on OrganizationRefused catch (refused) {

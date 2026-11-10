@@ -1,15 +1,13 @@
 # F454 — Placing Says Its Progress In Its Dialog
 
 **Status:** Review.
-**Size:** S - the placing's progress and end said in the dialog that started it, and one list that does not drop a
-machine while it is being prepared.
+**Size:** S - the placing's progress and end said in the dialog that started it.
 
 **What must be true.** A person who puts a project on a machine sees its progress and its end in the dialog they
-started it from, and *My machines* never drops a machine for a moment while it is being prepared.
+started it from.
 - *Put it on the machine* keeps its dialog open with the placing's steps, and ends with a line that says it succeeded
   or what failed; the project row says the same once the dialog is closed.
-- *My machines* keeps a machine being prepared in its list and count throughout; a machine read twice does not
-  appear, vanish and appear again.
+- *My machines* keeping a machine being prepared went to [F464](README.md#f464).
 
 ## Plan
 
@@ -30,13 +28,17 @@ started it from, and *My machines* never drops a machine for a moment while it i
   said. Seen red: both new tests in `test/ui/organization_carry_choice_test.dart`.
 - The test fixture's `connect` now tells its listeners after an await, as `CardHostConnections` does; told inside
   the asking call, it marked the choice dialog's list dirty while the placing dialog was being built.
-- *My machines* dropping a machine for a moment did not reproduce: a model test counting `machinesPageRows` and
-  `listedMachines` on every notify of a preparation stayed green, so it was not kept (never red). The cause is
-  outside `HostRuns` and `Machines`, likely the shell's ready callback or the organization's re-read; it needs a
-  live run that shows it, with a picture, before it can be fixed. The coordinator decides whether that half stays
-  here or goes to its own issue.
+- While the store is asked, the choice's body takes no pointer and no focus, so no list or token dialog opens over
+  it; the answer closes the choice dialog itself, past anything lying over it. The placing dialog starts following
+  after its first build, never inside it. Seen red: a list opened over a running write stayed, and the choice dialog
+  with it. Cancel after a refusal follows nothing (seen red with the `taken` check removed).
+- One code reading by another model: one must-fix (a write answered while a list or the token dialog lay over the
+  choice popped that and left the choice stuck) and two may-fix (Cancel after a refusal untested; the placing dialog
+  starting inside its build), all taken.
+- *My machines* dropping a machine being prepared is its own issue, [F464](README.md#f464),
+  by the operator's decision; it did not reproduce in the model and is to be caught live.
 
 ## Acceptance
 
 - A placing in the mock ends with its success line in the dialog; seen to fail: a dialog that closes with no outcome.
-- A preparation in the mock keeps *My machines* at its count through the end of the preparation.
+- *My machines* through a preparation: see [F464](README.md#f464).

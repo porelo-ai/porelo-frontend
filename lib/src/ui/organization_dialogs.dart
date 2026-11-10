@@ -59,6 +59,9 @@ class OrganizationChangeDialog extends StatefulWidget {
 class _OrganizationChangeDialogState extends State<OrganizationChangeDialog> {
   String? _refusal;
   bool _asking = false;
+
+  // A change being written: what it was asked with stays as it was until it is answered.
+  bool _writing = false;
   ProjectFileByHand? _byHand;
 
   // Counts what was typed since the entry was asked for: an entry for what is no longer typed is never shown.
@@ -85,15 +88,20 @@ class _OrganizationChangeDialogState extends State<OrganizationChangeDialog> {
     }
     setState(() {
       _asking = true;
+      _writing = true;
       _refusal = null;
     });
+    final route = ModalRoute.of(context);
     final refusal = await widget.organization.write(asked.change, asked.input, base: widget.base);
     if (!mounted) return;
     if (refusal == null) {
+      // The answer closes this dialog, never whatever came to lie over it.
+      if (route != null && !route.isCurrent) Navigator.of(context).popUntil((each) => each == route);
       Navigator.of(context).pop(true);
     } else {
       setState(() {
         _asking = false;
+        _writing = false;
         _refusal = refusal;
       });
     }
@@ -135,13 +143,19 @@ class _OrganizationChangeDialogState extends State<OrganizationChangeDialog> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // A refusal answers what was asked, not what is being typed since.
-              widget.body(
-                context,
-                () => setState(() {
-                  _refusal = null;
-                  _byHand = null;
-                  _edits++;
-                }),
+              AbsorbPointer(
+                absorbing: _writing,
+                child: ExcludeFocus(
+                  excluding: _writing,
+                  child: widget.body(
+                    context,
+                    () => setState(() {
+                      _refusal = null;
+                      _byHand = null;
+                      _edits++;
+                    }),
+                  ),
+                ),
               ),
               if (_asking) ...[
                 const SizedBox(height: Space.small),

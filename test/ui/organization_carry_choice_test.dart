@@ -181,6 +181,39 @@ void main() {
     expect(source.writes, hasLength(1));
     expect(find.text('The machine did not answer.'), findsOneWidget);
     expect(_confirm(), findsOneWidget);
-    expect(find.byKey(const Key('placing-project')), findsNothing);
+    await _tap(tester, find.text('Cancel'));
+    expect(_confirm(), findsNothing);
+    expect(find.byKey(const Key('placing-project')), findsNothing, reason: 'a refused placing is not followed');
+  });
+
+  // Harm: a placing taken while a list is open over its dialog closes that list, and the dialog stays stuck.
+  testWidgets('while the placing is asked for, its choices wait, and the answer closes the dialog itself', (
+    tester,
+  ) async {
+    final held = Completer<void>();
+    final source = await _open(
+      tester,
+      connections: FixtureConnections(['build']),
+      before: (source) => source.holdWrites = held.future,
+    );
+    await _tap(tester, _control('all'));
+    await tester.tap(_confirm());
+    await tester.pump();
+    expect(source.writes, hasLength(1));
+    await tester.ensureVisible(find.byKey(const Key('organization-person')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('organization-person')), warnIfMissed: false);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(
+      find.byKey(const Key('organization-person-build')),
+      findsOneWidget,
+      reason: 'the chosen machine alone, no list over the asking',
+    );
+    held.complete();
+    await _pump(tester);
+    expect(tester.takeException(), isNull);
+    expect(find.byKey(const Key('organization-person')), findsNothing, reason: 'the choice is closed');
+    expect(find.byKey(const Key('placing-project')), findsOneWidget);
   });
 }

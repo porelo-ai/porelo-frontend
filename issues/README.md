@@ -20,7 +20,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 |---|---|---|---|
 | <a id="f462"></a>[F462](F462-A-Hosts-Central-Reason-Said-In-Words.md) | — | — | Where the host cannot say how its copy stands against central, the row says why in words, never the daemon's token. |
 | <a id="f463"></a>[F463](F463-This-Machine-Listed-Once-After-Its-Socket-Moved.md) | — | — | This machine listed once, at its socket as it is now, whatever socket was saved for it. |
-| <a id="f454"></a>[F454](F454-Placing-Says-Its-Progress-In-Its-Dialog.md) | — | — | Placing shows its progress and end in its dialog; *My machines* keeps a machine being prepared. |
+| <a id="f454"></a>[F454](F454-Placing-Says-Its-Progress-In-Its-Dialog.md) | — | — | Placing shows its progress and end in its dialog. |
 | <a id="f452"></a>[F452](F452-A-Project-Waiting-For-The-Token-Says-So-Where-It-Is-Shown.md) | — | — | A project the host reports waiting for the token says so, why, and offers the token on its row, the machine's project page and each repository row; never called carried; the placing dialog not grey when opened again. |
 | <a id="f456"></a>[F456](F456-The-Room-Found-From-A-Task-And-A-Project.md) | XS | — | The project's room opened in one step from a task tile and the project's page. |
 | <a id="f459"></a>[F459](F459-The-Footer-Counts-What-Runs-Where.md) | XS | — | The footer's refresh and action counts name the machine and what they count. |
@@ -125,6 +125,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f458"></a>[F458](F458-The-Task-Terminal-Grows-With-The-Window.md) | XS | the task session following the latest client | The agent's screen grows with the window. |
 | <a id="f460"></a>[F460](F460-The-Hosts-Finished-Work-Brought-To-Central-From-The-Window.md) | M | the backend's gathered push to central | *Bring it to central…* brings a host's finished `main` to the central forge from the project's page, refusals in the backend's words. |
 | <a id="f461"></a>[F461](F461-Every-Screen-Of-The-Window-Read-For-Look-And-Sense.md) | M | — | Every screen captured headless at three sizes, light and dark, full and empty, read by another model against a visual and a logical checklist; every finding listed with its screen and size, nothing fixed yet. |
+| <a id="f464"></a>[F464](F464-My-Machines-Keeps-A-Machine-Being-Prepared.md) | S | — | *My machines* keeps a machine being prepared in its list and count, the drop caught live first. |
 
 ### Analyzed
 
