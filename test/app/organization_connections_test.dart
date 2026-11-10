@@ -113,9 +113,11 @@ void main() {
   late List<_Master> masters;
   late String hostSays;
   late List<List<String>> ran;
+  late Completer<void>? holdStart;
 
   setUp(() {
     ran = [];
+    holdStart = null;
     masters = [];
     turnedAway = false;
     hostSays = '{}';
@@ -127,6 +129,7 @@ void main() {
       configEnvironment: {'XDG_CONFIG_HOME': folder.path},
       start: (command) async {
         launches.add(command);
+        await holdStart?.future;
         if (turnedAway) return _Turned();
         final master = _Master();
         masters.add(master);
@@ -339,6 +342,31 @@ void main() {
     await made.connect('build');
     expect(made.up('build'), isTrue);
     expect(made.waitsForAdmission('build'), isFalse);
+  });
+
+  // Harm: a machine just prepared vanished from My machines while Connect raised it anew; the person took it for
+  // lost, or prepared it a second time.
+  test('a machine just prepared stays listed while Connect raises it anew', () async {
+    final made = await connections(_mia(host: _hostOfMia));
+    machines.tunnels.awaitAdmission('build', by: DateTime.now().add(const Duration(minutes: 5)));
+    turnedAway = true;
+    await made.connect('build');
+    expect(made.up('build'), isFalse, reason: 'kept while the machine makes the account');
+    final listed = <bool>[];
+    void read() => listed.add(machines.all.any((each) => each.name == 'build'));
+    machines.addListener(read);
+    addTearDown(() => machines.removeListener(read));
+
+    turnedAway = false;
+    final gate = holdStart = Completer<void>();
+    final again = made.connect('build');
+    await pumpEventQueue();
+    read();
+    gate.complete();
+    await again;
+    read();
+    expect(made.up('build'), isTrue);
+    expect(listed, isNot(contains(false)), reason: 'listed on every change while it was raised anew');
   });
 
   // Harm: a machine just prepared that waits for its first token makes no account however long one waits; shown as a

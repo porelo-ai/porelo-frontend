@@ -217,8 +217,8 @@ class CardHostConnections extends HostConnections {
     }
     if (known != null) {
       lines.add('A connection kept here is taken down and made anew.');
+      // Listed while it is made anew: the new one takes its place, and only a refusal takes it off.
       await machines.tunnels.dropAndUnpublish(known);
-      await machines.forget(known);
     }
     final machine = Machine.fromHostCard(
       card,
@@ -253,6 +253,7 @@ class CardHostConnections extends HostConnections {
             sshRefusalWords(machines.tunnels.of(machine)?.problem) ??
             'The connection to ${card.name} could not be opened.';
         await machines.tunnels.dropAndUnpublish(machine);
+        if (known != null) await machines.forget(known);
         throw OrganizationRefused(why);
       }
     }
