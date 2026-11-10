@@ -16,6 +16,9 @@ Map<String, dynamic> applyPlanningMove(Map<String, dynamic> source, Map<String, 
   }
   final seen = <String>{};
   final moved = <String>[];
+  // Every move is resolved on the shown board; story moves are written before explicit issue moves.
+  final storyWrites = <void Function()>[];
+  final issueWrites = <void Function()>[];
   for (final value in batch) {
     final move = value is Map<String, dynamic> ? value : <String, dynamic>{};
     final isStory = move['story'] is String;
@@ -46,23 +49,41 @@ Map<String, dynamic> applyPlanningMove(Map<String, dynamic> source, Map<String, 
       });
     }
     if (isStory) {
-      for (final item in _leastAdvanced(states, (story!['issues'] as List? ?? []).cast<Map<String, dynamic>>())) {
-        item['state'] = to;
-        moved.add(item['id'] as String);
+      final issues = (story!['issues'] as List? ?? []).cast<Map<String, dynamic>>();
+      if (issues.any((item) => !states.any((state) => state['name'] == item['state']))) {
+        invalid('An issue of the story stands in a state outside the workflow.');
       }
-      story['state'] = to;
+      final least = _leastAdvanced(states, issues);
+      storyWrites.add(() {
+        for (final item in least) {
+          item['state'] = to;
+          moved.add(item['id'] as String);
+        }
+        if (issues.isEmpty) story['state'] = to;
+      });
     } else {
-      issue!['state'] = to;
-      moved.add(id);
+      issueWrites.add(() {
+        issue!['state'] = to;
+        moved.add(id);
+      });
     }
   }
-  for (final story in stories) {
-    final least = _leastAdvanced(states, (story['issues'] as List? ?? []).cast<Map<String, dynamic>>());
-    if (least.isNotEmpty) story['state'] = least.first['state'];
+  for (final write in [...storyWrites, ...issueWrites]) {
+    write();
   }
+  settleStoryStates(board);
   board['revision'] = '${source['revision']}:moved';
   board['moved'] = moved;
   return board;
+}
+
+/// Puts every story with issues in the earliest open state of its issues, or the earliest closed one when all are.
+void settleStoryStates(Map<String, dynamic> board) {
+  final states = (board['states'] as List).cast<Map<String, dynamic>>();
+  for (final story in (board['stories'] as List).cast<Map<String, dynamic>>()) {
+    final least = _leastAdvanced(states, (story['issues'] as List? ?? []).cast<Map<String, dynamic>>());
+    if (least.isNotEmpty) story['state'] = least.first['state'];
+  }
 }
 
 /// The issues in the earliest open state in workflow order, or in the earliest closed state when all are closed.

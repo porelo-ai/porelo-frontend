@@ -637,7 +637,10 @@ void main() {
       checked.add(story['id'] as String);
       if (story['state'] != earliest) breaking.add('${story['id']} in ${story['state']}, rule says $earliest');
     }
-    expect(checked, isNotEmpty);
+    expect(checked, [
+      'ST72', 'ST14', 'ST15', 'ST291', 'ST292', 'ST23', 'ST27', //
+      'ST12', 'ST5', 'ST193', 'ST1', 'ST2', 'ST3', 'ST10', 'ST243',
+    ]);
     expect(breaking, isEmpty);
   });
 
@@ -665,24 +668,194 @@ void main() {
       'detail': 'The store is not reachable',
     });
     await board.save();
-    // The reread failed, so the card shows its destination while its issues stand in Done and Elsewhere.
-    expect(board.stories.first.state, 'Done');
+    // The reread failed, so the card keeps the machine's last answer while its issues stand in Done and Elsewhere.
+    expect(board.stories.first.state, 'Ready');
     expect(board.stories.first.issues.map((issue) => issue.state), ['Done', 'Elsewhere']);
     backend.readFailure = null;
     backend.listing = Completer<PlanningSnapshot>();
     backend.listingStarted = Completer<void>();
-    board.move('StoryOne', 'Ready');
+    board.move('StoryOne', 'Done');
     final saving = board.save();
     await backend.listingStarted!.future;
     expect(backend.calls.last['moves'], [
-      {'story': 'StoryOne', 'to': 'Ready'},
+      {'story': 'StoryOne', 'to': 'Done'},
     ]);
     // The machine moved IssueTwo, the least advanced; the board must take that as its confirmation.
     expect(backend.data['moved'], ['IssueTwo']);
     expect(board.pending['StoryOne']?.problem, isNull);
     expect(board.pending, isEmpty);
-    expect(board.stories.first.issues.map((issue) => issue.state), ['Done', 'Ready']);
+    expect(board.stories.first.issues.map((issue) => issue.state), ['Done', 'Done']);
     backend.listing!.complete(PlanningSnapshot.from(backend.data));
     await saving;
+  });
+
+  // Harm: a story shown closed while one of its issues is still open hides open work after a save.
+  test('a saved story with issues keeps its reported state until the machine says its new one', () async {
+    backend.listing = Completer<PlanningSnapshot>();
+    backend.listingStarted = Completer<void>();
+    board.move('StoryOne', 'Done');
+    final saving = board.save();
+    await backend.listingStarted!.future;
+    expect(board.pending, isEmpty);
+    expect(board.stories.first.issues.map((issue) => issue.state), ['Done', 'Elsewhere']);
+    expect(board.stories.first.state, 'Ready');
+    backend.listing!.complete(PlanningSnapshot.from(backend.data));
+    await saving;
+    expect(board.stories.first.state, 'Elsewhere');
+  });
+
+  // Harm: a reread failing after a made save goes unsaid, or turns off saving for good.
+  test('a failed reread after a confirmed save says so and leaves Save offered', () async {
+    board.move('StoryTwo', 'Done');
+    backend.readFailure = const VarlinkException('org.fuin.porelo.Tasks1.NotYetBuilt', {'method': 'ListStories'});
+    await board.save();
+    expect(board.pending, isEmpty);
+    expect(board.moveProblem, isNotNull);
+    expect(board.unavailableActions.keys, isNot(contains('SaveMoves')));
+  });
+
+  // Harm: a story move the machine did not confirm is dropped as saved.
+  test('an empty answer confirms no move of a story whose issues are unreported or outside the workflow', () async {
+    final unreported = _fixture();
+    ((unreported['stories'] as List<dynamic>).first as Map<String, dynamic>).remove('issues');
+    final unplaced = _fixture();
+    ((unplaced['stories'] as List<dynamic>).first as Map<String, dynamic>)['issues'] = [
+      {'id': 'IssueOne', 'state': 'Gone'},
+    ];
+    for (final (index, data) in [unreported, unplaced].indexed) {
+      board.undoAll();
+      backend.data = {...data, 'revision': 'shown-$index'};
+      backend.changes.add(PlanningSnapshot.from(backend.data));
+      await Future<void>.delayed(Duration.zero);
+      backend.confirmed = false;
+      board.move('StoryOne', 'Done');
+      await board.save();
+      expect(board.pending['StoryOne']?.problem, 'The machine did not confirm this destination.', reason: '$index');
+    }
+  });
+
+  // Harm: after a save that moved an issue alone and with its story, the board shows it where the machine did not.
+  test('an issue move staged before its story move shows where the machine put it', () async {
+    board.moveIssue('IssueOne', 'Elsewhere');
+    board.move('StoryOne', 'Done');
+    backend.listing = Completer<PlanningSnapshot>();
+    backend.listingStarted = Completer<void>();
+    final saving = board.save();
+    await backend.listingStarted!.future;
+    final stored =
+        ((backend.data['stories'] as List<dynamic>).first as Map<String, dynamic>)['issues'] as List<dynamic>;
+    expect(stored.map((issue) => issue['state']), ['Elsewhere', 'Elsewhere']);
+    expect(board.stories.first.issues.map((issue) => issue.state), ['Elsewhere', 'Elsewhere']);
+    backend.listing!.complete(PlanningSnapshot.from(backend.data));
+    await saving;
+  });
+
+  // Harm: the stand-in moves a story by issues an earlier item of the same batch changed, not by the shown board.
+  test('the stand-in moves a story by its least advanced issues on the shown board, before explicit issues', () {
+    final result = applyPlanningMove(_fixture(), {
+      'revision': 'initial',
+      'moves': [
+        {'issue': 'IssueOne', 'to': 'Elsewhere'},
+        {'story': 'StoryOne', 'to': 'Done'},
+      ],
+    });
+    final story = (result['stories'] as List<dynamic>).first as Map<String, dynamic>;
+    expect((story['issues'] as List<dynamic>).map((issue) => issue['state']), ['Elsewhere', 'Elsewhere']);
+  });
+
+  // Harm: the stand-in writes the state of a story that has issues, which the daemon refuses.
+  test('the stand-in refuses a story move when an issue stands outside the workflow', () {
+    final source = _fixture();
+    ((source['stories'] as List<dynamic>).first as Map<String, dynamic>)['issues'] = [
+      {'id': 'IssueOne', 'state': 'Gone'},
+    ];
+    expect(
+      () => applyPlanningMove(source, {
+        'revision': 'initial',
+        'moves': [
+          {'story': 'StoryOne', 'to': 'Done'},
+        ],
+      }),
+      throwsA(isA<VarlinkException>().having((error) => error.simpleName, 'refusal', 'MoveNotAllowed')),
+    );
+  });
+
+  // Harm: a story whose issues are all closed moves the wrong closed issue, in the stand-in or on the board.
+  test('a story with every issue closed moves those in the earliest closed state', () async {
+    Map<String, dynamic> closed() => {
+      'states': [
+        {'name': 'Ready', 'kind': 'WAITING'},
+        {'name': 'Finished', 'kind': 'CLOSED'},
+        {'name': 'Rejected', 'kind': 'CLOSED'},
+      ],
+      'phases': [
+        {
+          'name': 'Work',
+          'states': ['Ready', 'Finished', 'Rejected'],
+        },
+      ],
+      'stories': [
+        {
+          'id': 'StoryOne',
+          'state': 'Finished',
+          'issues': [
+            {'id': 'IssueOne', 'state': 'Rejected'},
+            {'id': 'IssueTwo', 'state': 'Finished'},
+          ],
+        },
+      ],
+      'revision': 'closed',
+    };
+    final result = applyPlanningMove(closed(), {
+      'revision': 'closed',
+      'moves': [
+        {'story': 'StoryOne', 'to': 'Ready'},
+      ],
+    });
+    expect(result['moved'], ['IssueTwo']);
+    backend.data = closed();
+    backend.changes.add(PlanningSnapshot.from(backend.data));
+    await Future<void>.delayed(Duration.zero);
+    backend.listing = Completer<PlanningSnapshot>();
+    backend.listingStarted = Completer<void>();
+    board.move('StoryOne', 'Ready');
+    final saving = board.save();
+    await backend.listingStarted!.future;
+    expect(board.pending, isEmpty);
+    expect(board.stories.first.issues.map((issue) => issue.state), ['Rejected', 'Ready']);
+    backend.listing!.complete(PlanningSnapshot.from(backend.data));
+    await saving;
+  });
+
+  // Harm: starting work or deciding a reading in the mock publishes a story where the daemon never puts it.
+  test('the stand-in keeps a story in the earliest open state of its issues after a start or a reading decision', () {
+    final board = mockPlanningBoard();
+    final published = <String, Map<String, dynamic>>{};
+    final work = MockStoryWork((project) => board, (project, changed) => published[project] = changed);
+    Map<String, dynamic> story(Map<String, dynamic> board, String id) =>
+        (board['stories'] as List<dynamic>).cast<Map<String, dynamic>>().firstWhere((story) => story['id'] == id);
+    work('StartStoryWork', {
+      'project': 'demo',
+      'story': 'ST291',
+      'to': 'Reading',
+      'mode': 'UNATTENDED',
+      'revision': board['revision'],
+    });
+    // B540 and B541 stay in Implementing, earlier than Reading.
+    expect(story(published['demo']!, 'ST291')['state'], 'Implementing');
+    final reading = story(board, 'ST1');
+    reading['state'] = 'Reading';
+    final stopped = (reading['issues'] as List<dynamic>).first as Map<String, dynamic>;
+    stopped.addAll({'state': 'Reading', 'readingStopped': true, 'rounds': 2, 'roundsMost': 2});
+    work('ResolveIssueReading', {
+      'project': 'demo',
+      'story': 'ST1',
+      'issue': stopped['id'],
+      'round': 2,
+      'choice': 'REVIEW_ANYWAY',
+      'comment': '',
+      'revision': board['revision'],
+    });
+    expect(story(published['demo']!, 'ST1')['state'], 'Review');
   });
 }

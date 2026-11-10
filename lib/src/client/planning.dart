@@ -318,13 +318,14 @@ class PlanStory {
   WorkEnded? get ended => work?.ended;
 
   /// The issues a move of this story changes, as the daemon chooses them: those in the earliest open state in
-  /// workflow order, or in the earliest closed state when all are closed; an issue outside the workflow is none.
-  List<PlanIssue> leastAdvancedIssues(List<PlanState> states) {
+  /// workflow order, or in the earliest closed state when all are closed. Null when that cannot be told: the issues
+  /// were not reported, or one stands in a state outside the workflow.
+  List<PlanIssue>? leastAdvancedIssues(List<PlanState> states) {
     int place(PlanIssue issue) => states.indexWhere((state) => state.name == issue.state);
-    final placed = issues.where((issue) => place(issue) >= 0).toList();
-    final open = placed.where((issue) => states[place(issue)].kind != 'CLOSED').toList();
-    final candidates = open.isEmpty ? placed : open;
-    if (candidates.isEmpty) return const [];
+    if (!issuesReported || issues.any((issue) => place(issue) < 0)) return null;
+    if (issues.isEmpty) return const [];
+    final open = issues.where((issue) => states[place(issue)].kind != 'CLOSED').toList();
+    final candidates = open.isEmpty ? issues : open;
     final earliest = candidates.map(place).reduce((a, b) => a < b ? a : b);
     return [
       for (final issue in candidates)

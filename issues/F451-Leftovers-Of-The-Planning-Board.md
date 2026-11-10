@@ -40,9 +40,31 @@ Each point is to be checked against the code before it is fixed.
     e.g. `ST292 in Backlog, rule says Implementing`.
   - *the stand-in moves a story by its least advanced issues, whatever state the story reports* failed with
     `Expected: ['IssueOne'] Actual: ['IssueTwo']`.
-  - *a story move expects its least advanced issues to move, not those in its shown state* - after a save whose reread
-    failed, the card shows its destination ahead of its issues - failed with `Actual: 'The machine did not confirm
+  - *a story move expects its least advanced issues to move, not those in its shown state* - at the time, after a save
+    whose reread failed, the card showed its destination ahead of its issues; since the reading it keeps the
+    machine's last answer - failed with `Actual: 'The machine did not confirm
     this destination.'`
+- A reading of the change by another model found three faults to fix and three to consider; each taken was seen red
+  first in `test/app/planning_moves_test.dart`:
+  - Taken: an empty `moved` confirmed a story move whose issues were unreported or stood outside the workflow; the
+    board now cannot tell those issues and keeps the move pending (red: `Expected: 'The machine did not confirm this
+    destination.' Actual: <null>`, for each case).
+  - Taken: the board applied a save's confirmations in staging order while the moves go out stories first, so an
+    issue moved alone and with its story showed the story's destination (red: `['Done', 'Elsewhere']` instead of
+    `['Elsewhere', 'Elsewhere']`); the mock now resolves every story move on the shown board and writes story moves
+    before explicit issue moves (red: `['Done', 'Done']`), and refuses a story move with an issue outside the workflow
+    (red: no refusal).
+  - Taken: a saved story with issues showed its destination until the reread, though an issue could stay open; it now
+    keeps the machine's last answer (red: `Expected: 'Ready' Actual: 'Done'`; the test of a move after a failed reread
+    reads the same). A reread failing after a made save was caught as a save refusal, which said nothing and could
+    mark saving unavailable; it now says so on the board (red: `Expected: not null Actual: <null>`).
+  - Taken: a test of a story whose issues are all closed, over two closed states, in the mock and the board, and the
+    exact stories the mock board test checks; both were green on the code, so each was seen red by breaking the code
+    on purpose (only open issues, or the latest state) and dropping one story's issues from a copy of the data.
+  - Taken: the mock's `StartStoryWork` and `ResolveIssueReading` now put the story where its issues place it before
+    publishing (red: `Expected: 'Implementing' Actual: 'Reading'` and `Expected: 'Review' Actual: 'Reading'`). Which
+    issues a start takes is left as it was, since the interface leaves that to the proposal.
+  - Declined: the index's Size column for this issue stays `—`, as for every issue in Review.
 
 ## Acceptance
 

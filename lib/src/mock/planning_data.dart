@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import '../wire/varlink_exception.dart';
+import 'planning_moves.dart';
 
 /// A fresh board for the interactive mock and scenarios to change independently.
 Map<String, dynamic> mockPlanningBoard() => jsonDecode(r'''
@@ -2045,6 +2046,7 @@ class MockStoryWork {
     }
 
     void publish() {
+      settleStoryStates(board);
       board['revision'] = '${board['revision']}:work-${++_revision}';
       if (!deferEcho) changed(project, board);
     }

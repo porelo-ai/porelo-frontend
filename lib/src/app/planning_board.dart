@@ -591,18 +591,24 @@ class PlanningBoard extends ChangeNotifier {
       final previous = snapshot!;
       final destinations = <String, String>{};
       final storyDestinations = <String, String>{};
-      for (final entry in batch.entries) {
+      // In the order sent: story moves first, so an explicit issue move made after them wins.
+      final ordered = [
+        ...batch.entries.where((entry) => !entry.value.isIssue),
+        ...batch.entries.where((entry) => entry.value.isIssue),
+      ];
+      for (final entry in ordered) {
         final move = entry.value;
         final id = move.isIssue ? entry.key.substring('issue '.length) : entry.key;
         final story = previous.stories.where((story) => story.id == id).firstOrNull;
         final expected = move.isIssue
             ? [id]
-            : [for (final issue in story?.leastAdvancedIssues(previous.states) ?? <PlanIssue>[]) issue.id];
-        if (expected.every(reply.moved.contains)) {
+            : story?.leastAdvancedIssues(previous.states)?.map((issue) => issue.id).toList();
+        if (expected != null && expected.every(reply.moved.contains)) {
           for (final issue in expected) {
             destinations[issue] = move.to;
           }
-          if (!move.isIssue) storyDestinations[id] = move.to;
+          // A story with issues stands where the daemon computes it, read again below.
+          if (!move.isIssue && expected.isEmpty) storyDestinations[id] = move.to;
           _pending.remove(entry.key);
         } else {
           _pending[entry.key]?.problem = 'The machine did not confirm this destination.';
@@ -618,9 +624,17 @@ class PlanningBoard extends ChangeNotifier {
       }
       _changed();
       // SaveMoves does not return computed story states; read them from the store.
-      final latest = await backend.stories(project);
+      final PlanningSnapshot latest;
+      try {
+        latest = _checked(PlanningSnapshot.fromParts(snapshot!, await backend.stories(project)));
+      } catch (error) {
+        if (!_disposed && generation == _generation) {
+          moveProblem = 'Saved, but planning could not be read again: ${planningFailureWords(error)}';
+        }
+        return;
+      }
       if (_disposed || generation != _generation) return;
-      _accept(_checked(PlanningSnapshot.fromParts(snapshot!, latest)), order: ++_replyOrder);
+      _accept(latest, order: ++_replyOrder);
     } on VarlinkException catch (error) {
       if (_disposed || generation != _generation) return;
       final detail = planningFailureWords(error);
