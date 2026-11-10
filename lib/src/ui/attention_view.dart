@@ -50,7 +50,6 @@ class AttentionView extends StatefulWidget {
     this.unlockFor,
     this.onRemoveProject,
     this.whyNoRemoval,
-    this.onPutAway,
     this.onSelect,
     this.onOpenOperation,
     this.onOpenHost,
@@ -86,9 +85,6 @@ class AttentionView extends StatefulWidget {
 
   /// Opens the gate for the work's project.
   final void Function(Tile tile) onReview;
-
-  /// Puts away the outcome of a question, on the machine that asked it.
-  final void Function(Tile tile, Prompt prompt)? onPutAway;
 
   /// Opens the retained host stop and its terminal before a daemon exists.
   final void Function(String project)? onOpenHost;
@@ -430,6 +426,7 @@ extension on _AttentionViewState {
         );
         primaryKey = const Key('failed-operation-open');
       case AttentionKind.tile:
+        // One cause of one piece of work: the row offers what that cause asks, and nothing of the rest.
         final tile = row.value as Tile;
         title = tile.task == null
             ? tile.questions.firstOrNull?.task ?? tile.settled?.task ?? 'Unknown work'
@@ -437,12 +434,11 @@ extension on _AttentionViewState {
             ? tile.task!.name
             : tile.task!.label;
         // A row kept only for how its question came out says that, not how its work stands.
-        state =
-            tile.settled != null && tile.questions.isEmpty && tile.demand != Demand.ended && tile.demand != Demand.gate
-            ? TaskTile._settledWords(tile.settled!)
-            : TaskTile._headline(tile);
+        state = tile.settled != null && tile.questions.isEmpty
+            ? TileWords._settledWords(tile.settled!)
+            : TileWords._headline(tile);
         // What came out of a question stays readable on its row, also folded.
-        if (tile.settled != null && tile.questions.isEmpty) resolvedState = TaskTile._settledWords(tile.settled!);
+        if (tile.settled != null && tile.questions.isEmpty) resolvedState = TileWords._settledWords(tile.settled!);
         icon = Icons.work_outline;
         // Opening how work ended is seeing it: the row has done its work.
         open = resolved || widget.onSelect == null
@@ -451,12 +447,13 @@ extension on _AttentionViewState {
                 if (tile.demand == Demand.ended) attention.putAwayTheEnd(tile);
                 widget.onSelect!(tile);
               };
-        if (tile.task?.hasWorkWaiting ?? false) {
+        if (tile.demand == Demand.gate) {
           primary = reviewAttentionWorkCommand(
             run: () => widget.onReview(tile),
             unavailable:
                 reason ?? (tile.fleet.reachability == Reachability.connected ? null : 'the machine is not answering'),
           );
+          primaryKey = const Key('gate-review');
         }
         if (!resolved) steps = _stepsOf(tile);
       case AttentionKind.setAside:
@@ -481,7 +478,7 @@ extension on _AttentionViewState {
         );
     }
     final navigation = listOpenCommand(label: 'Open details', home: Home.attentionRow, open: open);
-    final said = !resolved && row.kind == AttentionKind.tile ? TaskTile.saidOnItsRow(row.value as Tile) : null;
+    final said = !resolved && row.kind == AttentionKind.tile ? TileWords.saidOnItsRow(row.value as Tile) : null;
     return ExpandableListRow(
       key: ValueKey('attention-row ${row.id}'),
       leading: row.kind == AttentionKind.tile
@@ -503,7 +500,7 @@ extension on _AttentionViewState {
   }
 
   /// What a row of work offers on itself, where it has more than one next step: a question its
-  /// terminal and both answers, work that ended its log and putting it away.
+  /// terminal and both answers, an end its log and putting it away. A push at the gate is a row of its own.
   List<Widget> _stepsOf(Tile tile) {
     final first = tile.questions.firstOrNull;
     final session = widget.actionsFor(tile).where((command) => command.id == 'work.session').firstOrNull;
@@ -548,20 +545,6 @@ extension on _AttentionViewState {
         onPressed: () => widget.attention.putAwayTheEnd(tile),
         child: const Text('Put it away'),
       ),
-      if (tile.task?.hasWorkWaiting ?? false)
-        FilledButton(
-          key: const Key('ended-review'),
-          onPressed: tile.fleet.reachability == Reachability.connected
-              ? reviewAttentionWorkCommand(
-                  run: () {
-                    // Opened: what it holds stays a row, how it ended is no longer unseen.
-                    widget.attention.putAwayTheEnd(tile);
-                    widget.onReview(tile);
-                  },
-                ).run
-              : null,
-          child: const Text('Review at the gate'),
-        ),
     ];
   }
 
@@ -795,20 +778,7 @@ extension on _AttentionViewState {
           onOpen: resolved || widget.onOpenOperation == null ? null : () => widget.onOpenOperation!(operation),
         );
       case AttentionKind.tile:
-        final tile = row.value as Tile;
-        return TaskTile(
-          tile: tile,
-          resolved: resolved,
-          actions: tile.task == null
-              ? const []
-              : [for (final command in widget.actionsFor(tile)) command.unless(reason)],
-          onDecide: widget.onDecide,
-          onReview: widget.onReview,
-          onPutAway: widget.onPutAway,
-          // Its answers stand on the row, where a resolved one's are no longer offered.
-          answersOnTheRow: !resolved,
-          onSelect: resolved || widget.onSelect == null ? null : () => widget.onSelect!(tile),
-        );
+        return _CauseFacts(tile: row.value as Tile, id: row.id);
       case AttentionKind.setAside:
         return Text(row.value as String);
       case AttentionKind.ranOut:
@@ -850,6 +820,51 @@ extension on _AttentionViewState {
     if (lastUsed.isEmpty) return '${project.name} — never used here';
     final ago = howLongSince(DateTime.tryParse(lastUsed), now: widget.attention.now);
     return '${project.name} — ${ago == null ? 'last use unknown' : 'last used $ago ago'}';
+  }
+}
+
+/// What a row of one cause says when opened: its machine, its sentence and what is known of its work, without the
+/// work's own tile, menu or buttons, which stay in *Work*.
+class _CauseFacts extends StatelessWidget {
+  const _CauseFacts({required this.tile, required this.id});
+
+  final Tile tile;
+
+  /// The row's id.
+  final String id;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    final task = tile.task;
+    final outcome = tile.questions.isEmpty ? tile.settled : null;
+    return Padding(
+      key: ValueKey<String>('cause-facts $id'),
+      padding: const EdgeInsets.all(Space.normal),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          NeedsMachine(tile.machine.name),
+          Text(
+            outcome == null ? TileWords._headline(tile) : TileWords._settledWords(outcome),
+            key: const Key('cause-sentence'),
+          ),
+          // A question can come before the list names its work; said, so nobody looks for it in Work.
+          if (task == null)
+            Text(
+              "Its work is not on this machine's list yet: the question came before the list named it.",
+              key: const Key('cause-no-task'),
+              style: text.bodySmall,
+            ),
+          if (task != null)
+            if (BuildsSaid.onTheTile(task) case final said?) _BuildLine(said, scheme, folded: false),
+          if (task != null && task.phase.isNotEmpty)
+            Text(task.phase, key: const Key('tile-phase'), style: text.bodySmall),
+          ...TileSaid.of(context, tile, onTheRow: false),
+        ],
+      ),
+    );
   }
 }
 
@@ -989,8 +1004,6 @@ enum _NeedsGroup {
     AttentionKind.tile => switch ((row.value as Tile).demand) {
       Demand.question => decide,
       Demand.gate => reviews,
-      // What it holds at the gate is the next step, whatever else its end says.
-      Demand.ended when (row.value as Tile).task?.hasWorkWaiting ?? false => reviews,
       _ => rest,
     },
     _ => rest,
@@ -1139,15 +1152,15 @@ abstract final class TileSaid {
     final text = Theme.of(context).textTheme;
     final task = tile.task;
     final first = tile.questions.isEmpty ? null : tile.questions.first;
-    final aboutTheDeadline = first == null ? null : TaskTile._deadlineLine(first);
+    final aboutTheDeadline = first == null ? null : TileWords._deadlineLine(first);
     final ending = task == null ? null : certificateEnding(task);
-    final where = onTheRow ? TaskTile._whereOnARow(tile) : TaskTile._where(tile);
+    final where = onTheRow ? TileWords._whereOnARow(tile) : TileWords._where(tile);
     return <Widget>[
       // What an unattended run came to, under what it wrote, and where to go from here.
       if (task?.agentEnded?.lastAnswer case final answer? when answer.isNotEmpty)
         Text(answer, key: const Key('tile-last-answer')),
       if (task case Task(mode: Mode.unattended, agentEnded: final ended?))
-        Text(TaskTile._cameTo(task, ended), key: const Key('tile-run-ended'), style: text.bodyMedium),
+        Text(TileWords._cameTo(task, ended), key: const Key('tile-run-ended'), style: text.bodyMedium),
       // Why it is down, when a restart of its machine took it: in the machine's words.
       if (task != null && task.takenDownByARestart)
         Text(task.startDetail, key: const Key('tile-why-down'), style: text.bodySmall),
@@ -1208,202 +1221,19 @@ abstract final class TileSaid {
   }
 }
 
-/// One tile. Its state is legible without opening it, and it carries its own actions.
-class TaskTile extends StatelessWidget {
-  /// Constructor taking the tile and what it can do.
-  const TaskTile({
-    required this.tile,
-    required this.actions,
-    required this.onDecide,
-    required this.onReview,
-    this.onPutAway,
-    this.resolved = false,
-    this.answersOnTheRow = false,
-    this.onSelect,
-    this.highlight,
-    this.onShown,
-    super.key,
-  });
-
-  /// Whether this snapshot has been resolved and its actions must remain disabled.
-  final bool resolved;
-
-  /// Whether the row around it offers the answers to its question, so it does not again.
-  final bool answersOnTheRow;
-
-  /// What the tile is about.
-  final Tile tile;
-
-  /// What its work can be told to do.
-  final List<Command> actions;
-
-  /// Answers a question, on the machine that asked it.
-  final void Function(Tile tile, Prompt prompt, {required bool allow}) onDecide;
-
-  /// Opens the gate for the work's project.
-  final void Function(Tile tile) onReview;
-
-  /// Puts away the outcome of a question, on the machine that asked it. No button without it.
-  final void Function(Tile tile, Prompt prompt)? onPutAway;
-
-  /// Selects its work.
-  final VoidCallback? onSelect;
-
-  /// The command the finder went to.
-  final String? highlight;
-
-  /// Called once the menu opened on [highlight].
-  final VoidCallback? onShown;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final text = Theme.of(context).textTheme;
-    final task = tile.task;
-    final urgent = tile.demand == Demand.question;
-    final first = tile.questions.isEmpty ? null : tile.questions.first;
-    final answering = first != null && tile.fleet.clearance.answering(first);
-    // Nothing on a machine that is not answering can be told anything.
-    final answers = !resolved && tile.fleet.reachability == Reachability.connected;
-    // The tile's button and its menu run the same command, so they cannot disagree about it.
-    final session = actions.where((command) => command.id == 'work.session').firstOrNull;
-
-    return SizedBox(
-      width: Sizes.tile,
-      child: GestureDetector(
-        onSecondaryTapDown: resolved || actions.isEmpty
-            ? null
-            : (details) => showCommandMenu(context, details.globalPosition, actions),
-        child: Card(
-          key: ValueKey<String>('tile ${tile.machine.name} ${task?.name ?? first?.task ?? ''}'),
-          // A stopped piece of work is greyed as a whole, not only by its mark (walk 8).
-          color: urgent
-              ? scheme.surfaceContainerLow
-              : (tile.demand == Demand.stopped ? scheme.surfaceContainerHighest : null),
-          child: InkWell(
-            onTap: onSelect,
-            child: Padding(
-              padding: const EdgeInsets.all(Space.normal),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  // Headed by the work, which tells tiles apart; the machine is the same for every tile
-                  // on a machine's page (walk 8). It is said under it all the same: two
-                  // machines can serve the same socket path, and only the name tells them apart.
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Padding(
-                        padding: const EdgeInsets.only(top: Space.small, right: Space.small),
-                        child: _StateMark(tile.demand, scheme),
-                      ),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            // Selectable, because the name is what somebody types into `porelo` on the machine.
-                            if (task != null || first != null)
-                              SelectableText(
-                                task == null ? first!.task : task.shown,
-                                key: const Key('tile-what'),
-                                style: text.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                              ),
-                            KeyedSubtree(key: const Key('tile-machine'), child: NeedsMachine(tile.machine.name)),
-                            Text(_headline(tile), key: const Key('tile-headline'), style: text.titleSmall),
-                          ],
-                        ),
-                      ),
-                      if (actions.isNotEmpty)
-                        CommandMenu(
-                          enabled: !resolved,
-                          // Its own per work, so a walk can point at one tile's menu among several.
-                          key: ValueKey<String>('tile-menu ${task?.name ?? first?.task ?? ''}'),
-                          commands: actions,
-                          tooltip: 'What ${task?.name ?? 'this'} can be told to do',
-                          highlight: highlight,
-                          onShown: onShown,
-                        ),
-                    ],
-                  ),
-                  // What the build of its last push did, as the machine reads it from the forge: in a
-                  // line of its own under the head, folded or not, since a build is a step that matters;
-                  // the commit, the jobs and the age only when opened.
-                  if (task != null)
-                    if (BuildsSaid.onTheTile(task) case final said?) _BuildLine(said, scheme, folded: false),
-                  // Folded, the tile is its work, its machine and its mark; the rest when opened.
-                  if (task != null && task.phase.isNotEmpty)
-                    Text(task.phase, key: const Key('tile-phase'), style: text.bodySmall),
-                  ..._said(context, onTheRow: false),
-                  // The last answer, so a question that ran out does not quietly disappear.
-                  if (first == null && tile.settled != null)
-                    Text(_settledWords(tile.settled!), key: const Key('tile-settled'), style: text.bodySmall),
-                  // On a row kept for what else its work holds; alone, it goes under Recently resolved.
-                  if (first == null && tile.settled != null && onPutAway != null && !resolved)
-                    TextButton(
-                      key: const Key('tile-put-away'),
-                      onPressed: putAwayQuestionCommand(run: () => onPutAway!(tile, tile.settled!)).run,
-                      child: const Text('Got it'),
-                    ),
-                  if (first != null || (session?.available ?? false) || (task?.hasWorkWaiting ?? false)) ...<Widget>[
-                    const SizedBox(height: Space.small),
-                    Wrap(
-                      spacing: Space.small,
-                      children: <Widget>[
-                        if (first != null && !answersOnTheRow) ...<Widget>[
-                          TextButton(
-                            key: const Key('tile-let-through'),
-                            onPressed: answering || !answers
-                                ? null
-                                : questionDecisionCommand(
-                                    allow: true,
-                                    run: () => onDecide(tile, first, allow: true),
-                                  ).run,
-                            child: const Text('Let it through'),
-                          ),
-                          TextButton(
-                            key: const Key('tile-keep-blocked'),
-                            onPressed: answering || !answers
-                                ? null
-                                : questionDecisionCommand(
-                                    allow: false,
-                                    run: () => onDecide(tile, first, allow: false),
-                                  ).run,
-                            child: const Text('Keep it blocked'),
-                          ),
-                        ],
-                        if (session != null && session.available)
-                          TextButton(key: const Key('tile-attach'), onPressed: session.run, child: Text(session.label)),
-                        if (task?.hasWorkWaiting ?? false)
-                          TextButton(
-                            key: const Key('tile-review'),
-                            onPressed: answers ? reviewAttentionWorkCommand(run: () => onReview(tile)).run : null,
-                            child: const Text('Review at the gate'),
-                          ),
-                      ],
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// What is known of the work beyond its state, in lines, on a row of *Work* and in a row of *Needs
-  /// you* alike.
-  List<Widget> _said(BuildContext context, {required bool onTheRow}) => TileSaid.of(context, tile, onTheRow: onTheRow);
-
+/// What is said of a piece of work, in words: its state's sentence, a question's time and what came out of it.
+abstract final class TileWords {
   /// What [task]'s unattended run came to, from what the machine says of its end and its gate.
   static String _cameTo(Task task, AgentEnded ended) => switch ((ended.finished, task.hasWorkWaiting)) {
     (true, true) => 'Finished: its work waits at the gate, to be reviewed there.',
     (false, true) => 'Stopped before its end, and its work waits at the gate: its output above says why.',
-    (true, false) when ended.unpushed > 0 =>
-      'Finished, but ${ended.unpushed} changed ${ended.unpushed == 1 ? 'file' : 'files'} never reached the gate.',
+    (true, false) when ended.unpushed > 0 => 'Finished, but ${_unpushed(ended.unpushed)}.',
     (true, false) => 'Finished, and nothing waits at the gate: its output above says what it did.',
     (false, false) => 'Stopped before its end, and nothing waits at the gate: its output above says why.',
   };
+
+  /// Files its agent changed that no push carried to the gate, which go with the task when it is removed.
+  static String _unpushed(int files) => '$files changed ${files == 1 ? 'file' : 'files'} never reached the gate';
 
   static String _settledWords(Prompt prompt) => prompt.expired
       ? '${prompt.shown} ran out — it stays blocked'
@@ -1447,8 +1277,23 @@ class TaskTile extends StatelessWidget {
         under: <String>[
           if (when.isNotEmpty) when,
           '${first.protocol}${first.prefix.isEmpty ? '' : ', stopped by ${first.prefix}'}',
+          if (task == null) 'its work is not listed yet',
           where,
         ].join(' · '),
+      );
+    }
+    if (tile.demand == Demand.question && task != null) {
+      return (
+        title: '$name waits on ${task.waitingFor.isEmpty ? 'an answer' : task.waitingFor}',
+        under: <String>[WorkRow.projectOf(task), where].join(' · '),
+      );
+    }
+    if (tile.demand == Demand.ended && task != null) {
+      final ended = task.agentEnded;
+      final unpushed = ended?.unpushed ?? 0;
+      return (
+        title: '$name: read how its agent ended',
+        under: <String>[ended?.words ?? 'Its agent ended', if (unpushed > 0) _unpushed(unpushed), where].join(' · '),
       );
     }
     if (tile.demand == Demand.gate && task != null) {
@@ -1584,7 +1429,7 @@ class WorkRow extends StatelessWidget {
 
   /// The state's whole sentence, for a row opened: what ended it, how long, what it asks for.
   static String sentenceOf(Tile tile, {required bool terminalEnded}) =>
-      _terminalSays(tile, terminalEnded) ? 'No terminal is open in it' : TaskTile._headline(tile);
+      _terminalSays(tile, terminalEnded) ? 'No terminal is open in it' : TileWords._headline(tile);
 
   /// Whether an ended terminal is what its state says: not where it asks a person, nor where its work is done.
   static bool _terminalSays(Tile tile, bool terminalEnded) =>
@@ -1756,7 +1601,7 @@ class WorkRow extends StatelessWidget {
                     // The last answer, so a question that ran out does not quietly disappear.
                     if (tile.questions.isEmpty && tile.settled != null)
                       Text(
-                        TaskTile._settledWords(tile.settled!),
+                        TileWords._settledWords(tile.settled!),
                         key: const Key('tile-settled'),
                         style: text.bodySmall,
                       ),

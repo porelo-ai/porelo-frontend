@@ -113,7 +113,7 @@ void main() {
     final row = find.byWidgetPredicate((widget) {
       final key = widget.key;
       return key is ValueKey<String> &&
-          key.value.startsWith('attention-row tile ') &&
+          key.value.startsWith('attention-row gate ') &&
           key.value.endsWith('/porelo-checkout-done');
     });
     expect(row, findsOneWidget);

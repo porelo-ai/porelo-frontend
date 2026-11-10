@@ -5538,10 +5538,6 @@ class _ShellState extends State<Shell> {
           whyNoRemoval: _whyNoRemoval,
           onDecide: (tile, prompt, {required allow}) =>
               tile.fleet.clearance.decide(tile.fleet.backend, prompt, allow: allow),
-          onPutAway: (tile, prompt) {
-            tile.fleet.clearance.forget(prompt);
-            _attention.questionPutAway(tile.machine, prompt);
-          },
           onOpenOperation: (operation) => widget.shell.openOperation(operation.id),
           actionsFor: _tileActions,
           onSelect: _goToWork,

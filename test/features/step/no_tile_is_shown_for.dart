@@ -8,4 +8,9 @@ import '../../support/expand_list_rows.dart';
 Future<void> noTileIsShownFor(WidgetTester tester, String work) async {
   await expandListRows(tester, within: find.byKey(const Key('open-attention')));
   expect(tileFor(work), findsNothing);
+  expect(
+    find.descendant(of: find.byKey(const Key('open-attention')), matching: causeRows(work)),
+    findsNothing,
+    reason: 'nothing of $work waits on a person',
+  );
 }

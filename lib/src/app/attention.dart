@@ -42,7 +42,7 @@ enum Demand {
   stopped,
 }
 
-/// One tile: a piece of work, or a question the list has not caught up with.
+/// One tile: a piece of work, or a question the list has not caught up with; under *Needs you*, one cause of it.
 @immutable
 class Tile {
   /// Constructor taking what the tile is about.
@@ -112,7 +112,8 @@ enum AttentionKind {
   /// A person's operation failed.
   operation,
 
-  /// Work needs a decision or has an outcome to put away.
+  /// One cause of one piece of work waiting on a person - a question, an end nobody has seen, a push at the gate -
+  /// or what came out of a question.
   tile,
 
   /// A machine dropped questions unseen.
@@ -371,8 +372,9 @@ class Attention extends ChangeNotifier {
         );
       }
     }
-    for (final tile in needing.where((tile) => tile.demand == Demand.question)) {
-      yield _tileRow(tile);
+    final causes = this.causes;
+    for (final cause in causes.where((cause) => cause.demand == Demand.question)) {
+      yield _causeRow(cause);
     }
     for (final operation in failedUnseen) {
       yield AttentionRow(
@@ -382,17 +384,44 @@ class Attention extends ChangeNotifier {
         Operation.fromStored(operation.toStored(operation.output.length))!,
       );
     }
-    for (final tile in needing.where((tile) => tile.demand != Demand.question)) {
-      yield _tileRow(tile);
+    for (final cause in causes.where((cause) => cause.demand != Demand.question)) {
+      yield _causeRow(cause);
     }
   }
 
-  AttentionRow _tileRow(Tile tile) => AttentionRow(
-    AttentionKind.tile,
-    'tile ${tile.machine.name}/${tile.task?.name ?? tile.questions.first.task}',
-    tile.machine.name,
-    tile,
-  );
+  AttentionRow _causeRow(Tile cause) => AttentionRow(AttentionKind.tile, causeId(cause), cause.machine.name, cause);
+
+  /// The row id of one cause from [causes], or of what came out of a question: a question by its own identity, so
+  /// two questions of one task are two rows and its answer replaces the question it answers.
+  static String causeId(Tile cause) {
+    final machine = cause.machine.name;
+    final work = '$machine/${cause.task?.name ?? cause.questions.firstOrNull?.task ?? cause.settled?.task ?? ''}';
+    return switch (cause.demand) {
+      Demand.question when cause.questions.isNotEmpty => 'question $machine/${cause.questions.first.identity}',
+      Demand.question when cause.settled != null => 'question $machine/${cause.settled!.identity}',
+      Demand.question => 'waits $work',
+      Demand.ended => 'ended $work',
+      _ => 'gate $work',
+    };
+  }
+
+  /// Each cause that waits on a person, as a tile of its own, most urgent first: every open question, a wait the
+  /// task says it is in with nothing asked, an end nobody has seen and a push at the gate. One piece of work can
+  /// hold several at once, and none hides another.
+  List<Tile> get causes => <Tile>[for (final tile in needing) ..._causesOf(tile)]..sort(_byDemand);
+
+  List<Tile> _causesOf(Tile tile) {
+    final task = tile.task;
+    Tile cause(Demand demand, [List<Prompt> questions = const <Prompt>[]]) =>
+        Tile(machine: tile.machine, fleet: tile.fleet, demand: demand, task: task, questions: questions);
+    return <Tile>[
+      for (final question in tile.questions) cause(Demand.question, <Prompt>[question]),
+      if (task != null && tile.questions.isEmpty && task.activity == Activity.waiting) cause(Demand.question),
+      if (task != null && !_endSeen(tile.machine, task) && (task.agentEnded?.needsSomebody ?? false))
+        cause(Demand.ended),
+      if (task?.hasWorkWaiting ?? false) cause(Demand.gate),
+    ];
+  }
 
   /// [row] as it ended: a pull request with how the machine confirmed it ended, where it did.
   AttentionRow _asItEnded(AttentionRow row, Machine? machine) {
@@ -535,30 +564,33 @@ class Attention extends ChangeNotifier {
     _changed();
   }
 
-  /// The same for a question whose words stand on a row of its work.
-  void questionPutAway(Machine machine, Prompt prompt) {
-    for (final each in _ranOut) {
-      if (each.id == '${machine.name}/${prompt.identity}') ranOutSeen(each);
-    }
-  }
-
   /// Outcomes already placed under *Recently resolved*, so one whose time is up does not return.
   final Set<String> _outcomesKept = <String>{};
 
-  /// Places what came out of a question under *Recently resolved*, once, with its words: unless its
-  /// work has a row anyway for what else it holds, where it is said and put away.
+  /// Places what came out of each question under *Recently resolved*, once, with its words, under the id of the
+  /// question it answers: whatever else its work holds has rows of its own.
   void _keepOutcomes(Map<String, AttentionRow> open) {
     String keyOf(String machine, Prompt prompt) => '$machine/${prompt.identity}';
-    for (final tile in tiles) {
-      for (final asked in tile.questions) {
-        _outcomesKept.remove(keyOf(tile.machine.name, asked));
+    for (final machine in _counted) {
+      final fleet = fleetOf(machine);
+      if (fleet.reachability != Reachability.connected) continue;
+      for (final asked in fleet.clearance.waiting) {
+        _outcomesKept.remove(keyOf(machine.name, asked));
       }
-      final settled = tile.settled;
       // One that ran out has a row of its own until it is seen.
-      if (settled == null || settled.expired) continue;
-      final row = _tileRow(tile);
-      if (open.containsKey(row.id) || !_outcomesKept.add(keyOf(tile.machine.name, settled))) continue;
-      _resolved[row.id] = ResolvedAttention(row, _clock());
+      for (final settled in fleet.clearance.settled.where((each) => !each.expired)) {
+        final row = _causeRow(
+          Tile(
+            machine: machine,
+            fleet: fleet,
+            demand: Demand.question,
+            task: fleet.tasks.where((task) => task.name == settled.task).firstOrNull,
+            settled: settled,
+          ),
+        );
+        if (open.containsKey(row.id) || !_outcomesKept.add(keyOf(machine.name, settled))) continue;
+        _resolved[row.id] = ResolvedAttention(row, _clock());
+      }
     }
     _outcomesKept.retainAll(<String>{
       for (final machine in _machines.all)

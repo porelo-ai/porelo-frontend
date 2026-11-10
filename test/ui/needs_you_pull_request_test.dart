@@ -5,7 +5,6 @@ import 'package:porelo_host/porelo_host.dart' show HostCardSsh;
 import 'package:porelo_frontend/src/app/host_pull_requests.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
-import 'package:porelo_frontend/src/ui/attention_view.dart';
 import 'package:porelo_frontend/src/ui/command_to_copy.dart';
 
 import '../features/support/world.dart';
@@ -93,7 +92,13 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.descendant(of: _row(1), matching: find.byType(TaskTile)), findsNothing);
+    expect(
+      find.descendant(
+        of: _row(1),
+        matching: find.byWidgetPredicate((widget) => '${widget.key}'.startsWith("[<'tile ")),
+      ),
+      findsNothing,
+    );
 
     World.opened.clear();
     await tester.tap(find.descendant(of: _row(1), matching: find.text('Open the pull request')));

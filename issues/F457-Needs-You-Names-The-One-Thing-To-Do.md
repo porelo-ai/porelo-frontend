@@ -65,7 +65,26 @@ Read in today's code at its plan reading; the parts are built in this order, eac
 Part 4 first: the pull request on a host's forge and the done task's own state, freed by Porelo's
 `PullRequests`/`WatchPullRequests` and the task state `done` (2026-11-10).
 
-- **Part 4 built** (2026-11-10), parts 1-3 not yet:
+- **Part 1 built** (2026-11-10), parts 2 and 3 not yet:
+  - `Attention.causes` makes one row per cause: each open question by its own identity
+    (`question <machine>/<task>/<key>`), a wait the task says it is in with nothing asked (`waits`), an end nobody has
+    seen (`ended`) and a push at the gate (`gate`), so a question no longer hides an ended agent and an ended agent no
+    longer hides a push. What came out of each question goes under *Recently resolved* under that question's id, also
+    when its work holds a push; the *Got it* on a kept row is gone with the row.
+  - Each row offers its cause's action: a question *Keep it blocked* and *Let it through* (and its terminal), an end
+    *Read its log* and *Put it away*, a push *Review at the gate*; reviewing the push no longer puts the end away. A
+    held message is still decided only in its dialog, once its text was read; no decision named *Rework…* exists in
+    the window, so none was kept.
+  - No task tile, menu or tile button stands in a row; the tile widget is gone, and *Work* keeps the task's own. What
+    only the tile said is on the cause's row when opened: `unenforced` clearance, asked before, a question's deadline,
+    files changed that never reached the gate (also on the folded row), and a question whose work the machine does not
+    list yet. An ended row stands under *Also needs you*, its push under *Reviews*.
+  - Seen red first: `test/ui/needs_you_causes_test.dart` (two rows for a question and an end, two for an end and a
+    push, both answers, every fact on its row, no tile inside a row; the held message test was seen red by letting the
+    dialog decide unread). Changed with the shape: three tests in `test/ui/work_page_faults_test.dart`, one in
+    `test/ui/done_task_test.dart`, one check in `test/ui/needs_you_pull_request_test.dart`, and the steps behind
+    `needs_a_person.feature`, whose wording is unchanged.
+- **Part 4 built** (2026-11-10):
   - The client reads Porelo's `PullRequests` and `WatchPullRequests` (`HostPullRequest`, `PullRequestsSeen`), with
     the two refusals typed; `lib/src/app/host_pull_requests.dart` watches each project a machine carries and keeps
     its rows: a row closes only when the watch lists it ended; an error or a lost connection marks the rows stale and

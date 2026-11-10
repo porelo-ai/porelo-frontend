@@ -16,7 +16,6 @@ import '../features/step/i_choose_the_tab_of.dart';
 import '../features/step/i_go_to_the_running_work.dart';
 import '../features/step/i_open_the_command_finder.dart';
 import '../features/step/i_pick_in_the_finder.dart';
-import '../features/step/i_put_away_what_the_tile_says.dart';
 import '../features/step/i_search_the_work_for.dart';
 import '../features/step/i_watch_another_machine_called.dart';
 import '../features/step/the_machine_is_the_same_node.dart';
@@ -99,21 +98,21 @@ void main() {
       expect(count(tester), isNot(before));
     });
 
-    // Harm: a push to review stood among the rest, and its button leaves the row saying it was never seen.
-    testWidgets('work that ended with a push waiting stands under Reviews, and reviewing it is opening it', (
-      tester,
-    ) async {
+    // Harm: a push to review stood among the rest, or reviewing it took away the end nobody has read.
+    testWidgets('work that ended with a push waiting has its push under Reviews and its end beside it', (tester) async {
       await theApp(tester);
       await toSection(tester, Section.attention);
       World.theWorkIs(work, activity: 'ENDED', agentEnded: anEnd(), waiting: 1);
       await World.settle(tester);
       await theRowOfIsInTheGroup(tester, work, 'reviews');
+      await theRowOfIsInTheGroup(tester, work, 'rest');
       await expandListRows(tester, within: find.byKey(const Key('open-attention')));
-      await tester.tap(find.byKey(const Key('ended-review')).first);
+      await tester.tap(find.byKey(const Key('gate-review')).first);
       await World.settle(tester);
       World.shell.close();
       await toSection(tester, Section.attention);
-      expect(find.byKey(const Key('ended-put-away')), findsNothing);
+      await expandListRows(tester, within: find.byKey(const Key('open-attention')));
+      expect(find.byKey(const Key('ended-put-away')), findsOneWidget, reason: 'its end is still unread');
       await theRowOfIsInTheGroup(tester, work, 'reviews');
     });
 
@@ -476,7 +475,7 @@ void main() {
       await pumpEventQueue();
       expect(attention.needingSomebody, counted - 1);
       Iterable<ResolvedAttention> outcome() =>
-          attention.recentlyResolved.where((each) => each.row.id.endsWith('/porelo-checkout-shell'));
+          attention.recentlyResolved.where((each) => each.row.id.endsWith('/${asked.identity}'));
       expect(outcome(), hasLength(1));
       expect((outcome().single.row.value as Tile).settled, isNotNull);
 
@@ -490,20 +489,24 @@ void main() {
       expect(attention.needingSomebody, counted - 1);
     });
 
-    // Harm: the answer on work that still holds a push cannot be put away, or takes the push with it.
-    testWidgets('an outcome on work with a push waiting stays on its row until put away', (tester) async {
+    // Harm: the answer on work that still holds a push is lost, or takes the push with it.
+    testWidgets('an outcome on work with a push waiting goes under Recently resolved, and the push stays', (
+      tester,
+    ) async {
       await theApp(tester);
       await toSection(tester, Section.attention);
       World.theWorkIs(work, activity: 'WORKING', waiting: 1);
       final asked = World.blocked('api.example.test:443');
       World.backend.asking.add(asked);
       await World.settle(tester);
+      await theRowOfIsInTheGroup(tester, work, 'decide');
       World.backend.asking.add(World.settled(asked, 'allow'));
       await World.settle(tester);
       await theRowOfIsInTheGroup(tester, work, 'reviews');
-      await iPutAwayWhatTheTileSays(tester, work);
-      await theRowOfIsInTheGroup(tester, work, 'reviews');
-      expect(find.byKey(const Key('tile-put-away')), findsNothing);
+      final resolved = find.byKey(const Key('recently-resolved'));
+      await expandListRows(tester, within: resolved);
+      expect(find.descendant(of: resolved, matching: find.textContaining('is now reachable')), findsWidgets);
+      expect(find.byKey(const ValueKey<String>('needs-group decide')), findsNothing);
     });
   });
 

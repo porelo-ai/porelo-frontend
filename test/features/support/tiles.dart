@@ -64,6 +64,15 @@ String whatTheRowOfSays(WidgetTester tester, String project) {
 /// order they are drawn.
 Finder workRows() => find.byWidgetPredicate((widget) => '${widget.key}'.startsWith("[<'tile "));
 
+/// The rows of *Needs you* for what a piece of work waits on - a question, a wait, an end, a push at the gate - each a
+/// row of its own; with [work], only that work's.
+Finder causeRows([String? work]) => find.byWidgetPredicate((widget) {
+  final key = widget.key;
+  if (key is! ValueKey<String>) return false;
+  final match = RegExp(r'^attention-row (question|waits|ended|gate) [^/]+/([^/]+)').firstMatch(key.value);
+  return match != null && (work == null || match.group(2) == work);
+});
+
 /// The navigation row of one machine.
 Finder railEntryFor(String machine) => find.byKey(ValueKey<String>('rail ${ShellPlace.machineKey(machine)}'));
 
