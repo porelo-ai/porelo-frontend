@@ -709,6 +709,8 @@ class Machines extends ChangeNotifier {
   int? _thisMachineMoved(List<Machine> stored) {
     if ((Platform.environment['PORELO_SOCKET'] ?? '').isNotEmpty) return null;
     final local = Machine.local();
+    // Without a local daemon's socket, as on Windows, nothing here is this machine's to have moved.
+    if (local.socketPath.isEmpty) return null;
     final at = stored.indexWhere(
       (each) =>
           each.name == local.name &&
