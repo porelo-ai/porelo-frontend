@@ -123,6 +123,62 @@ void main() {
     expect(issues.issues.map((each) => each.id), contains('B541'));
   }, skip: skip);
 
+  // Harm: moves saved over a board that changed since it was read overwrite another window's moves.
+  test('a batch saved at a revision the board has left is refused as stale, with the planner\'s words', () async {
+    final source = window.providers.single.source;
+    final read = await source.stories('demo');
+
+    await expectLater(
+      source.saveMoves('demo', const [PlanningStoryMove('ST293', 'Accepted')], 'not-${read.revision}'),
+      throwsA(
+        isA<PlanningRefusal>()
+            .having((refusal) => refusal.name, 'name', 'StaleRevision')
+            .having((refusal) => planningFailureWords(refusal), 'words shown', 'The board moved since that revision.'),
+      ),
+    );
+    expect((await source.stories('demo')).revision, read.revision, reason: 'a refused batch writes nothing');
+  }, skip: skip);
+
+  // Harm: a move the planner does not allow is shown saved, or shown refused without the planner's reason.
+  test('a move the planner does not allow is refused with the reason the board shows beside the card', () async {
+    final source = window.providers.single.source;
+    final read = await source.stories('demo');
+
+    // The planner takes each item once in a batch; the board never sends one twice, so the call is made here.
+    await expectLater(
+      source.saveMoves('demo', const [
+        PlanningStoryMove('ST293', 'Accepted'),
+        PlanningStoryMove('ST293', 'Idea'),
+      ], read.revision),
+      throwsA(
+        isA<PlanningRefusal>()
+            .having((refusal) => refusal.name, 'name', 'MoveNotAllowed')
+            .having((refusal) => refusal.parameters['item'], 'item', 'ST293')
+            .having(
+              (refusal) => planningFailureWords(refusal),
+              'words shown',
+              'Each move must name exactly one item, once.',
+            ),
+      ),
+    );
+    expect((await source.stories('demo')).revision, read.revision, reason: 'a refused batch writes nothing');
+  }, skip: skip);
+
+  // Harm: a move of a story the planner does not hold is lost silently or shown as saved.
+  test('a move of a story the planner does not hold is refused as unknown, in the planner\'s words', () async {
+    final source = window.providers.single.source;
+    final read = await source.stories('demo');
+
+    await expectLater(
+      source.saveMoves('demo', const [PlanningStoryMove('ST9999', 'Accepted')], read.revision),
+      throwsA(
+        isA<PlanningRefusal>()
+            .having((refusal) => refusal.name, 'name', 'NoSuchStory')
+            .having((refusal) => planningFailureWords(refusal), 'words shown', 'There is no story ST9999.'),
+      ),
+    );
+  }, skip: skip);
+
   // Harm: a refusal of the planner's is lost, turned into an empty board, or shown by its name alone.
   test('the planner refuses a project whose repository is a local path, and the refusal keeps its words', () async {
     repository = '/srv/git/demo';
