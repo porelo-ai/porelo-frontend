@@ -37,7 +37,7 @@ Feature: A move rehearsed in the window against a rented host
         And a task of the project on the host has work waiting at its gate
         When I review that work at the gate
         Then the review names its commit and who made it
-        When I forward it to a new branch of the rehearsal
+        When I forward it to the task's own branch on the host's forge
         Then the host's forge has that branch at the reviewed commit
         And the task's tile says how its builds stand, as the host's runner says
 
