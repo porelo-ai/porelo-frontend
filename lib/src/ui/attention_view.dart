@@ -156,7 +156,7 @@ class _AttentionViewState extends State<AttentionView> {
       final count = widget.attention.needingCount;
       final countKnown = count != null;
       _keepTicking(
-        widget.attention.needing.any((tile) => tile.questions.any((question) => question.expiresAt != null)),
+        widget.attention.causes.any((cause) => cause.questions.any((question) => question.expiresAt != null)),
       );
       return SingleChildScrollView(
         padding: const EdgeInsets.all(Space.normal),
@@ -443,7 +443,8 @@ extension on _AttentionViewState {
         if (tile.settled != null && tile.questions.isEmpty) resolvedState = TileWords._settledWords(tile.settled!);
         icon = Icons.work_outline;
         // Opening how work ended is seeing it: the row has done its work.
-        open = resolved || widget.onSelect == null
+        // A question whose work the list does not name yet has nowhere in Work to go to.
+        open = resolved || tile.task == null || widget.onSelect == null
             ? details
             : () {
                 if (tile.demand == Demand.ended) attention.putAwayTheEnd(tile);
@@ -857,7 +858,7 @@ class _CauseFacts extends StatelessWidget {
             key: const Key('cause-sentence'),
           ),
           // A question can come before the list names its work; said, so nobody looks for it in Work.
-          if (task == null)
+          if (task == null && outcome == null)
             Text(
               "Its work is not on this machine's list yet: the question came before the list named it.",
               key: const Key('cause-no-task'),
@@ -1188,11 +1189,14 @@ abstract final class TileSaid {
     final ending = task == null ? null : certificateEnding(task);
     final where = onTheRow ? TileWords._whereOnARow(tile) : TileWords._where(tile);
     return <Widget>[
-      // What an unattended run came to, under what it wrote, and where to go from here.
-      if (task?.agentEnded?.lastAnswer case final answer? when answer.isNotEmpty)
-        Text(answer, key: const Key('tile-last-answer')),
-      if (task case Task(mode: Mode.unattended, agentEnded: final ended?))
-        Text(TileWords._cameTo(task, ended), key: const Key('tile-run-ended'), style: text.bodyMedium),
+      // What an unattended run came to, under what it wrote, and where to go from here: on a row of Work, and on the
+      // row of its end, never on the row of another cause of its work.
+      if (onTheRow || tile.demand == Demand.ended) ...<Widget>[
+        if (task?.agentEnded?.lastAnswer case final answer? when answer.isNotEmpty)
+          Text(answer, key: const Key('tile-last-answer')),
+        if (task case Task(mode: Mode.unattended, agentEnded: final ended?))
+          Text(TileWords._cameTo(task, ended), key: const Key('tile-run-ended'), style: text.bodyMedium),
+      ],
       // Why it is down, when a restart of its machine took it: in the machine's words.
       if (task != null && task.takenDownByARestart)
         Text(task.startDetail, key: const Key('tile-why-down'), style: text.bodySmall),
@@ -1223,13 +1227,14 @@ abstract final class TileSaid {
       ],
       const SizedBox(height: Space.small),
       // The container's name, where the heading is another: it is what every call takes.
-      if (task != null && task.shown != task.name)
+      // Selectable where nothing else on it is: it is what somebody types into `porelo` on the machine.
+      if (task != null && (!onTheRow || task.shown != task.name))
         SelectableText(task.name, key: const Key('tile-name'), style: text.bodySmall),
       if (where.isNotEmpty) Text(where, key: const Key('tile-where'), style: text.bodySmall),
       // Said here as well: the status line is easy to miss from a tile.
       if (task != null && tile.fleet.saidAbout(task.name) != null)
         Text(tile.fleet.saidAbout(task.name)!, key: const Key('tile-said'), style: text.bodySmall),
-      if (task != null && task.activity == Activity.waiting && task.waitingFor.isNotEmpty)
+      if (first == null && task != null && task.activity == Activity.waiting && task.waitingFor.isNotEmpty)
         Text(
           'waiting on ${task.waitingFor}',
           key: const Key('waiting-for'),
@@ -1299,13 +1304,12 @@ abstract final class TileWords {
   static ({String title, String under})? saidOnItsRow(Tile tile) {
     final task = tile.task;
     final first = tile.questions.firstOrNull;
-    final name = task?.name ?? first?.task ?? '';
+    final name = task?.shown ?? first?.task ?? '';
     final where = 'on ${tile.machine.name}';
     if (tile.demand == Demand.question && first != null) {
-      final more = tile.questions.length - 1;
       final when = _question(tile.questions).split(' · ').skip(1).join(' · ');
       return (
-        title: '$name asks to reach ${first.shown}${more > 0 ? ' and $more more' : ''}',
+        title: '$name asks to reach ${first.shown}',
         under: <String>[
           if (when.isNotEmpty) when,
           '${first.protocol}${first.prefix.isEmpty ? '' : ', stopped by ${first.prefix}'}',

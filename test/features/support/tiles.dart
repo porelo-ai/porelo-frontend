@@ -73,6 +73,19 @@ Finder causeRows([String? work]) => find.byWidgetPredicate((widget) {
   return match != null && (work == null || match.group(2) == work);
 });
 
+/// Where what is said of [work] is read: its rows under *Needs you* where the page shows any, opened; otherwise its
+/// tile, gone to as [toTheTile] does. A step about *Needs you* never passes on what *Work* says.
+Future<Finder> whereTheTileIs(WidgetTester tester, String work) async {
+  final open = find.byKey(const Key('open-attention'));
+  if (open.evaluate().isNotEmpty) {
+    await expandListRows(tester, within: open);
+    final rows = find.descendant(of: open, matching: causeRows(work));
+    if (rows.evaluate().isNotEmpty) return rows;
+  }
+  await toTheTile(tester, work);
+  return tileFor(work);
+}
+
 /// The navigation row of one machine.
 Finder railEntryFor(String machine) => find.byKey(ValueKey<String>('rail ${ShellPlace.machineKey(machine)}'));
 

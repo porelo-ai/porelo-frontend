@@ -65,6 +65,23 @@ Read in today's code at its plan reading; the parts are built in this order, eac
 Part 4 first: the pull request on a host's forge and the done task's own state, freed by Porelo's
 `PullRequests`/`WatchPullRequests` and the task state `done` (2026-11-10).
 
+- Each part gets one reading of its own new code by another model, its findings fixed once, and no second reading (the coordinator, 2026-11-10).
+- **Part 1's reading fixed** (2026-11-10), each finding checked against the code first:
+  - Taken, red first in `test/app/attention_causes_test.dart`: a question that ran out no longer also stands under
+    *Recently resolved* (red: `Expected: not contains a string starting with 'question '`); a wait that becomes its
+    question is not said resolved (red: `Expected: not contains a string starting with 'waits '`), and a question
+    answered while the list still says the task waits asks nothing again until the list says so (red: the same line,
+    on the open rows). The waits row stands down while an answer of that task is newer than its wait.
+  - Taken, red first in `test/ui/needs_you_causes_test.dart`: the steps about a tile read its row under *Needs you*
+    when that is the page shown, never leaving for *Work* (red: `Expected: throws <Instance of 'TestFailure'> Actual:
+    <Instance of 'Future<void>'> Which: emitted <null>`, the step passed on *Work*'s tile).
+  - Taken without a test, as they only read wrong and harm nothing: a row's title says the task's caption, and an
+    unfolded row lets the name be selected where it is not the title; a question whose task is not listed yet unfolds
+    instead of opening *Work*; an unfolded row says an ended agent's lines only on its own end row, the wait once, and
+    no "came before the list" on a resolved question; the countdown reads `causes`, `needing`'s doc is current, the
+    dead count of more questions is gone and questions of one time are ordered by identity.
+  - Declined: cause-specific titles for resolved ended and gate rows; the unfolded row already says what came out,
+    and the folded header names the task, so the worth is low.
 - **Part 2 built** (2026-11-10), part 3 not yet:
   - *Seen* stands only where nothing is owed: a silent machine, an ended agent with nothing outside the gate, a
     question that ran out, dropped questions, the notice of machines set aside (new) and a story's ended work (new,

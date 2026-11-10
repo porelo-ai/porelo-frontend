@@ -391,6 +391,14 @@ class Attention extends ChangeNotifier {
     }
   }
 
+  /// Whether the question [row] asked ran out, as its machine says now.
+  bool _ranOutNow(AttentionRow row) {
+    final cause = row.value;
+    if (cause is! Tile || cause.questions.isEmpty) return false;
+    final asked = cause.questions.first.identity;
+    return cause.fleet.clearance.settled.any((each) => each.expired && each.identity == asked);
+  }
+
   AttentionRow _causeRow(Tile cause) => AttentionRow(AttentionKind.tile, causeId(cause), cause.machine.name, cause);
 
   /// The row id of one cause from [causes], or of what came out of a question: a question by its own identity, so
@@ -412,13 +420,24 @@ class Attention extends ChangeNotifier {
   /// hold several at once, and none hides another.
   List<Tile> get causes => <Tile>[for (final tile in needing) ..._causesOf(tile)]..sort(_byDemand);
 
+  /// Whether a question of [tile]'s work was settled since its wait began: the list has not caught up with the
+  /// answer yet, and the wait it still says is that question's. Unknown where the list says no start.
+  static bool _answeredSince(Tile tile) {
+    final since = DateTime.tryParse(tile.task?.since ?? '');
+    if (since == null) return false;
+    return tile.fleet.clearance.settled.any(
+      (each) => each.task == tile.task!.name && !(DateTime.tryParse(each.at)?.isBefore(since) ?? true),
+    );
+  }
+
   List<Tile> _causesOf(Tile tile) {
     final task = tile.task;
     Tile cause(Demand demand, [List<Prompt> questions = const <Prompt>[]]) =>
         Tile(machine: tile.machine, fleet: tile.fleet, demand: demand, task: task, questions: questions);
     return <Tile>[
       for (final question in tile.questions) cause(Demand.question, <Prompt>[question]),
-      if (task != null && tile.questions.isEmpty && task.activity == Activity.waiting) cause(Demand.question),
+      if (task != null && tile.questions.isEmpty && task.activity == Activity.waiting && !_answeredSince(tile))
+        cause(Demand.question),
       if (task != null && !_endSeen(tile.machine, task) && (task.agentEnded?.needsSomebody ?? false))
         cause(Demand.ended),
       if (task?.hasWorkWaiting ?? false) cause(Demand.gate),
@@ -471,6 +490,11 @@ class Attention extends ChangeNotifier {
     _readMessages.removeWhere((id) => !ids.contains(id));
     _openRows = rows.where((row) => !_readMessages.contains(row.id)).toList();
     final open = {for (final row in _openRows) row.id: row};
+    // A wait that ends became its question or went on, and a question that ran out has its own row: neither is
+    // resolved, so neither is said to be.
+    _lastRows.removeWhere(
+      (id, row) => !open.containsKey(id) && (id.startsWith('waits ') || id.startsWith('question ') && _ranOutNow(row)),
+    );
     for (final row in _lastRows.values) {
       if (open.containsKey(row.id)) continue;
       final machine = machineNamed(row.machine);
@@ -903,7 +927,7 @@ class Attention extends ChangeNotifier {
   /// question that was answered or ran out and has not been put away. Work that finished with nothing
   /// waiting is none of these: it stays under Work alone.
   ///
-  /// **What the window opens on**. A list of every tile is,
+  /// **What the window opens on**, as [causes], one row per cause of each. A list of every tile is,
   /// at fifty tasks, fifty tiles of which two need anybody — and the reason to open the window is
   /// the two. Everything else — working, quiet, unseen, stopped — is still drawn, in its machine's
   /// area, which is where somebody looking at that machine goes.
@@ -1041,7 +1065,10 @@ class Attention extends ChangeNotifier {
     if (byAge != 0) return byAge;
     final byMachine = a.machine.name.compareTo(b.machine.name);
     if (byMachine != 0) return byMachine;
-    return (a.task?.name ?? '').compareTo(b.task?.name ?? '');
+    final byTask = (a.task?.name ?? '').compareTo(b.task?.name ?? '');
+    if (byTask != 0) return byTask;
+    // Two questions of one work, or of work not listed yet, are told apart by what they ask.
+    return (a.questions.firstOrNull?.identity ?? '').compareTo(b.questions.firstOrNull?.identity ?? '');
   }
 
   static final _never = DateTime.utc(9999);

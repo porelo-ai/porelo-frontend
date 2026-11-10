@@ -5,6 +5,7 @@ import 'package:porelo_frontend/src/app/shell_model.dart';
 
 import '../features/step/the_agent_of_ended_with_the_providers.dart';
 import '../features/step/the_agent_of_finished_with_changed_files_outside_the_gate.dart';
+import '../features/step/the_tile_says.dart';
 import '../features/support/world.dart';
 import '../support/expand_list_rows.dart';
 
@@ -209,5 +210,21 @@ void main() {
       expect(_in(row, find.byKey(const Key('ended-put-away'))), findsNothing);
       expect(_in(row, find.text('Seen')), findsNothing);
     }
+  });
+
+  // Harm: a scenario about Needs you passes on what Work says, so a fact missing from Needs you goes unseen.
+  testWidgets('the steps about a tile read its row under Needs you, never Work', (tester) async {
+    await World.startBackend(World.work);
+    await World.startApp(tester);
+    World.backend.asking.add(World.blocked('api.example.test:443'));
+    await _toNeedsYou(tester);
+
+    await expectLater(
+      theTileSays(tester, 'porelo-checkout-shell', 'Way of working'),
+      throwsA(isA<TestFailure>()),
+      reason: 'only a row of Work says how its work works',
+    );
+    expect(World.shell.section, Section.attention, reason: 'the step stays where the scenario is');
+    await theTileSays(tester, 'porelo-checkout-shell', 'does not say when');
   });
 }
