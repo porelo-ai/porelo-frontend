@@ -164,6 +164,13 @@ Finder theTileOf(String task) => find.byWidgetPredicate(
       RegExp('^tile .* ${RegExp.escape(task)}\$').hasMatch((w.key! as ValueKey<String>).value),
 );
 
+/// The row of [task] under *Needs you*.
+Finder theRowOf(String task) => find.byWidgetPredicate(
+  (w) =>
+      w.key is ValueKey<String> &&
+      RegExp('^attention-row tile .*/${RegExp.escape(task)}\$').hasMatch((w.key! as ValueKey<String>).value),
+);
+
 /// What the widgets under [of] say, joined.
 String theWordsUnder(WidgetTester tester, Finder of) => [
   for (final each
