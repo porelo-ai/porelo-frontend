@@ -149,7 +149,7 @@ class MissingHostForgeToken extends VarlinkException {
   MissingHostForgeToken(VarlinkException refusal)
     : credential = '${refusal.parameters['credential'] ?? ''}',
       storeCommand = switch (refusal.parameters['storeCommand']) {
-        final List<dynamic> words => words.whereType<String>().toList(),
+        final List<dynamic> words when words.isNotEmpty && words.every(_safeWord) => words.cast<String>().toList(),
         _ => const <String>[],
       },
       super(refusal.name, refusal.parameters);
@@ -157,8 +157,13 @@ class MissingHostForgeToken extends VarlinkException {
   /// The vault entry it looked for; a name, never a value.
   final String credential;
 
-  /// The command that stores it, as its arguments; empty where the machine named none.
+  /// The command that stores it, as its arguments; empty where the machine named none, or named one with a word
+  /// that is no text, is empty, or holds a control or line separator: such a command is never offered to copy.
   final List<String> storeCommand;
+
+  static final _unsafe = RegExp('[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029]');
+
+  static bool _safeWord(Object? word) => word is String && word.isNotEmpty && !_unsafe.hasMatch(word);
 }
 
 /// The machine would not read its host forge's pull requests, and says why: [reason] (`settings`,

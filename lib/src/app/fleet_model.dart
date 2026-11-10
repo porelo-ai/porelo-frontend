@@ -66,8 +66,12 @@ class ProjectOnScreen {
   ///
   /// The daemon's own counts, not a count of [tasks]: it assembles them from the gate mirrors,
   /// the tasks that exist and the recorded project files, and knows about work this end may not
-  /// have matched by name. Derive nothing here that the far end already knows.
-  int get running => project.running;
+  /// have matched by name. Derive nothing here that the far end already knows, but one thing: a task whose agent
+  /// said its work is done is up without running work, so it is left out of the count.
+  int get running {
+    final done = tasks.where((task) => task.running && !task.runningWork).length;
+    return project.running - done < 0 ? 0 : project.running - done;
+  }
 
   /// How many tasks it has, running or stopped.
   int get howMuchWork => project.tasks;
@@ -374,6 +378,7 @@ class FleetModel extends ChangeNotifier {
       return;
     }
     mailboxes.askAgain();
+    pullRequests.askAgain();
     if (quietly) {
       await _readOnce();
       return;
@@ -615,9 +620,9 @@ class FleetModel extends ChangeNotifier {
   /// Watches the pull requests of every project this machine carries a repository of, as a host of it.
   void _followPullRequests() {
     if (_disposed || _reachability != Reachability.connected) return;
-    pullRequests.follow(backend, <String>[
+    pullRequests.follow(backend, <Project>[
       for (final project in _known)
-        if (project.repositoryStates.any((repository) => repository.carriedHere == true)) project.name,
+        if (project.repositoryStates.any((repository) => repository.carriedHere == true)) project,
     ]);
   }
 

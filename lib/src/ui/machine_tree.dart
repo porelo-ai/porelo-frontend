@@ -265,13 +265,16 @@ String _asOf(DateTime when) {
 /// running work from [tasks] where they agree; null where the daemon does not count, which leaves [runningIn]. Not
 /// read where [tasks] is null, as the machine does not answer now and its count is its last.
 String? countedIn({required String project, required Repository repository, required List<Task>? tasks}) {
-  final (counted, up) = (repository.tasks, repository.running);
-  if (counted == null || up == null) return null;
+  final (counted, listedUp) = (repository.tasks, repository.running);
+  if (counted == null || listedUp == null) return null;
   if (tasks == null) return 'tasks: not read';
+  bool here(Task task) => task.project == project && task.repository == repository.name;
+  // A task whose agent said its work is done is up, and counted so by the machine, but runs no work.
+  final done = tasks.where((task) => here(task) && task.running && !task.runningWork).length;
+  final up = listedUp - done < 0 ? 0 : listedUp - done;
   final names = [
     for (final task in tasks)
-      if (task.running && task.project == project && task.repository == repository.name)
-        task.shown == task.name ? task.task : task.shown,
+      if (task.runningWork && here(task)) task.shown == task.name ? task.task : task.shown,
   ];
   final of = '$up of ${counted == 1 ? '1 task' : '$counted tasks'} running';
   return names.isNotEmpty && names.length == up ? '$of: ${names.join(', ')}' : of;

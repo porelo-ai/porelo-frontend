@@ -402,13 +402,22 @@ extension on _AttentionViewState {
         title = each.action;
         subtitle = '${each.request.title} · ${each.project.name}';
         state = each.stale ? 'May be out of date' : 'Waits for your merge';
-        resolvedState = 'Merged or closed';
+        resolvedState = switch (each.ended) {
+          'merged' => 'Merged',
+          'closed' => 'Closed',
+          null || '' => 'No longer open on the forge',
+          final other => 'Ended: $other',
+        };
         icon = Icons.merge_type;
         primary = _openPullRequest(each, reason);
       case AttentionKind.pullRequestsRefused:
         final each = row.value as PullRequestsRefusedRow;
         title = 'Pull requests of ${each.project} cannot be read';
-        state = each.storeCommand == null ? 'Refused' : 'Forge token missing';
+        state = each.refusal is MissingHostForgeToken
+            ? 'Forge token missing'
+            : each.refusal is HostPullRequestsRefused
+            ? 'Refused'
+            : 'Not answered';
         icon = Icons.key_off_outlined;
       case AttentionKind.operation:
         final operation = row.value as Operation;
@@ -821,23 +830,18 @@ extension on _AttentionViewState {
   Command _openPullRequest(PullRequestRow each, String? reason) {
     final address = each.address;
     final host = each.machine.hostCard?.name;
+    final connections = widget.attention.hostConnections;
     return openPullRequestCommand(
       run: () {
         if (address == null || host == null) return;
-        final fleet = widget.attention.fleetOf(each.machine);
+        final messenger = ScaffoldMessenger.maybeOf(context);
         unawaited(
-          openOnHostForge(address, host: host, connections: widget.attention.hostConnections).then((refused) {
-            if (refused != null) fleet.say(refused);
+          openOnHostForge(address, host: host, connections: connections).then((refused) {
+            if (refused != null) messenger?.showSnackBar(SnackBar(content: Text(refused)));
           }),
         );
       },
-      unavailable:
-          reason ??
-          (host == null || each.machine.hostCard?.forgeUrl == null
-              ? 'this computer reaches no forge of ${each.machine.name}'
-              : address == null
-              ? 'the machine does not say where its forge keeps ${each.request.repository}'
-              : null),
+      unavailable: reason ?? whyPullRequestCannotOpen(each, connections),
     );
   }
 
@@ -1565,7 +1569,7 @@ class WorkRow extends StatelessWidget {
   final VoidCallback? onShown;
 
   /// What says its state in words: an ended terminal first, since nothing else on the row would.
-  static String stateOf(Tile tile, {required bool terminalEnded}) => terminalEnded && !_asksAPerson(tile)
+  static String stateOf(Tile tile, {required bool terminalEnded}) => _terminalSays(tile, terminalEnded)
       ? 'no terminal open'
       : switch (tile.demand) {
           Demand.question when tile.questions.isNotEmpty => 'asks to reach a host',
@@ -1581,7 +1585,11 @@ class WorkRow extends StatelessWidget {
 
   /// The state's whole sentence, for a row opened: what ended it, how long, what it asks for.
   static String sentenceOf(Tile tile, {required bool terminalEnded}) =>
-      terminalEnded && !_asksAPerson(tile) ? 'No terminal is open in it' : TaskTile._headline(tile);
+      _terminalSays(tile, terminalEnded) ? 'No terminal is open in it' : TaskTile._headline(tile);
+
+  /// Whether an ended terminal is what its state says: not where it asks a person, nor where its work is done.
+  static bool _terminalSays(Tile tile, bool terminalEnded) =>
+      terminalEnded && !_asksAPerson(tile) && tile.demand != Demand.done;
 
   /// Whether what it waits for is a person: that comes before anything said of its terminal.
   static bool _asksAPerson(Tile tile) => const {Demand.question, Demand.ended, Demand.gate}.contains(tile.demand);

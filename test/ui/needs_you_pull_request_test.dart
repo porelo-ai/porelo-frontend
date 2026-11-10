@@ -174,4 +174,25 @@ void main() {
     expect(find.textContaining('vault-unreadable'), findsNothing);
     expect(find.descendant(of: refused, matching: find.byType(CommandToCopy)), findsNothing);
   });
+
+  // Harm: a token missing reads as a refusal, or the words send the person to a command that is not shown.
+  testWidgets('a missing token with no safe command is labelled as missing, with no command to copy', (tester) async {
+    final watch = await _watched(tester);
+    watch.fail(
+      MissingHostForgeToken(
+        const VarlinkException('org.fuin.porelo.Tasks1.MissingHostForgeToken', <String, dynamic>{
+          'credential': 'forge.person',
+          'storeCommand': <String>['porelo', 'host', 'forge-token\nrm -rf ~'],
+        }),
+      ),
+    );
+    await World.settle(tester);
+
+    final refused = find.byKey(const ValueKey<String>('attention-row pull requests refused elsewhere/foo'));
+    expect(find.descendant(of: refused, matching: find.text('Forge token missing')), findsWidgets);
+    await expandListRows(tester, within: refused);
+    await World.settle(tester);
+    expect(find.descendant(of: refused, matching: find.byType(CommandToCopy)), findsNothing);
+    expect(find.descendant(of: refused, matching: find.textContaining('command below')), findsNothing);
+  });
 }

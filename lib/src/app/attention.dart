@@ -374,16 +374,13 @@ class Attention extends ChangeNotifier {
     }
     for (final machine in _counted) {
       final pullRequests = fleetOf(machine).pullRequests;
-      final listed = {for (final project in fleetOf(machine).listedProjects) project.name: project};
       for (final each in pullRequests.open) {
-        if (listed[each.project] case final project?) {
-          yield AttentionRow(
-            AttentionKind.pullRequest,
-            'pull request ${machine.name}/${each.project}/${each.request.key}',
-            machine.name,
-            PullRequestRow(machine: machine, project: project, request: each.request, stale: each.stale),
-          );
-        }
+        yield AttentionRow(
+          AttentionKind.pullRequest,
+          'pull request ${machine.name}/${each.project.name}/${each.request.key}',
+          machine.name,
+          PullRequestRow(machine: machine, project: each.project, request: each.request, stale: each.stale),
+        );
       }
       for (final each in pullRequests.refused) {
         yield AttentionRow(
@@ -416,6 +413,27 @@ class Attention extends ChangeNotifier {
     tile.machine.name,
     tile,
   );
+
+  /// [row] as it ended: a pull request with how the machine confirmed it ended, where it did.
+  AttentionRow _asItEnded(AttentionRow row, Machine? machine) {
+    if (row.kind != AttentionKind.pullRequest || machine == null) return row;
+    final value = row.value as PullRequestRow;
+    final ended = fleetOf(machine).pullRequests.endedAs(value.project.name, value.request.key);
+    if (ended == null) return row;
+    return AttentionRow(
+      row.kind,
+      row.id,
+      row.machine,
+      PullRequestRow(
+        machine: value.machine,
+        project: value.project,
+        request: value.request,
+        stale: false,
+        ended: ended,
+      ),
+      read: row.read,
+    );
+  }
 
   void _rememberRows() {
     _noteRanOut();
@@ -455,7 +473,7 @@ class Attention extends ChangeNotifier {
               (fleetOf(machine).reachability == Reachability.connected &&
                       (row.kind != AttentionKind.message || fleetOf(machine).mailboxes.problem == null) ||
                   row.kind == AttentionKind.silent && (_settings?.seenSilent.contains(row.machine) ?? false)));
-      if (resolved) _resolved[row.id] = ResolvedAttention(row, _clock());
+      if (resolved) _resolved[row.id] = ResolvedAttention(_asItEnded(row, machine), _clock());
     }
     _keepOutcomes(open);
     _lastRows.removeWhere(

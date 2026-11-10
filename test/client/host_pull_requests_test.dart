@@ -70,6 +70,40 @@ void main() {
     expect(HostPullRequest.from(<String, dynamic>{'trailers': <Object>[]}).trailers, isEmpty);
   });
 
+  // Harm: trailer lines with anything but text in them read as a list the trailer check can judge, so a commit with
+  // makers unreported shows none.
+  test('trailers holding anything but text are not reported', () {
+    expect(
+      HostPullRequest.from(<String, dynamic>{
+        'trailers': <Object>[123],
+      }).trailers,
+      isNull,
+    );
+    expect(
+      HostPullRequest.from(<String, dynamic>{
+        'trailers': <Object?>['Assisted-by: a, b', null],
+      }).trailers,
+      isNull,
+    );
+  });
+
+  // Harm: a faulty machine's store command carries what breaks out of a terminal's paste, or is copied cut short.
+  test('a store command with a word that is no text, is empty, or holds a control or line separator is none', () {
+    for (final words in <List<Object?>>[
+      <Object?>['porelo', 'host', 7],
+      <Object?>['porelo', ''],
+      <Object?>['porelo', '\x1b[201~'],
+      <Object?>['porelo', 'a\nb'],
+      <Object?>['porelo', 'a\u2028b'],
+      <Object?>['porelo', 'a\x85b'],
+    ]) {
+      final missing = MissingHostForgeToken(
+        VarlinkException('org.fuin.porelo.Tasks1.MissingHostForgeToken', <String, dynamic>{'storeCommand': words}),
+      );
+      expect(missing.storeCommand, isEmpty, reason: '$words');
+    }
+  });
+
   // Harm: the watch's changes are lost, so a merged pull request still asks the person for a merge.
   test('the watch answers every change, its ended rows with it', () async {
     final changes = StreamController<Map<String, dynamic>>();

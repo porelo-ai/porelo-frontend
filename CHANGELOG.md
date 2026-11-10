@@ -24,6 +24,14 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - A machine's page of a project lists the repositories it carries first and folds the others under *Not carried here*, with their count; the host's `not-carried` reads as "not carried here".
 - A saved story move on *Planning* counts as made once the machine moves the story's least advanced issues, as the machine chooses them, rather than staying pending with *The machine did not confirm this destination* when the card shows the story ahead of its issues.
 
+### Fixed
+
+- A pull request under *Needs you* no longer reads as merged or closed when its host stops carrying or listing its project for a while: it stays, as possibly out of date, and a resolved one says *Merged*, *Closed* or *No longer open on the forge*.
+- A watch of a host forge's pull requests that ends without a word or loses its own connection is said and asked again; refreshing the machine or opening *Needs you* asks again at once.
+- A store command for a missing forge token with a control or line-separator character is never offered to copy, and the words then point at no command.
+- The rail's and a machine's running counts, and a project's and a repository's, leave out a task whose agent said its work is done.
+- *Open the pull request* waits for the connection to its host, and a forward that could not be raised is said beside it.
+
 ### Added
 
 - *Needs you* names each pull request open on the forge of a host that carries a project, as "pull request 1 of foo-1 waits for your approval and merge", with its head commit's makers through the trailer check and *Open the pull request*, which opens it on the host's forge; the row closes when the host says it was merged or closed, stays as possibly out of date while the host is asked again, and a missing forge token or a refused read is said in words, the store command to copy.

@@ -3074,6 +3074,9 @@ class FakePullRequestWatch {
   void answer(List<HostPullRequest> open, {List<HostPullRequest> ended = const <HostPullRequest>[]}) =>
       _said.add(PullRequestsSeen(open: open, ended: ended));
 
+  /// Ends it without an error, as a final reply would.
+  void end() => unawaited(_said.close());
+
   /// Ends it with [error], as the machine ends a watch it cannot keep.
   void fail(Object error) {
     _said.addError(error);

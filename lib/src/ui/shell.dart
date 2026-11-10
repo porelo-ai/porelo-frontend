@@ -2430,7 +2430,7 @@ class _ShellState extends State<Shell> {
   List<String> _runningElsewhere(String name) => <String>[
     for (final machine in widget.machines.all)
       if (machine != widget.machines.current &&
-          widget.machines.of(machine).tasks.any((task) => task.running && task.project == name))
+          widget.machines.of(machine).tasks.any((task) => task.runningWork && task.project == name))
         machine.name,
   ];
 
@@ -4779,7 +4779,7 @@ class _ShellState extends State<Shell> {
           label: 'Work',
           icon: Icons.work_outline,
           value: read
-              ? counted(fleet.tasks.where((task) => task.running).length, 'task running', 'tasks running')
+              ? counted(fleet.tasks.where((task) => task.runningWork).length, 'task running', 'tasks running')
               : 'not read',
           detail: read
               ? counted(projectsOnMachine(widget.machines, machine).length, 'project', 'projects')
@@ -5144,7 +5144,7 @@ class _ShellState extends State<Shell> {
             ? null
             : <int>[
                 for (final machine in _attention.machinesOnce)
-                  widget.machines.of(machine).tasks.where((task) => task.running).length,
+                  widget.machines.of(machine).tasks.where((task) => task.runningWork).length,
               ].fold<int>(0, (sum, each) => sum + each),
         work: _attention.workCount,
         planning: _planning.workingCount,
@@ -5479,6 +5479,7 @@ class _ShellState extends State<Shell> {
           onOpened: () {
             for (final machine in widget.machines.all) {
               widget.machines.of(machine).mailboxes.askAgain();
+              widget.machines.of(machine).pullRequests.askAgain();
             }
           },
           attention: _attention,

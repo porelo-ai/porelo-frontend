@@ -69,9 +69,27 @@ Read in today's code at its plan reading; the parts are built in this order, eac
     `test/client/mock_pull_requests_test.dart`).
   - Limits: the trailer check on a pull request always says it cannot be checked here, since Porelo reports no whole
     commit message; the address is built from the repository's upstream name, so a row whose repository has none
-    shows but cannot be opened (a new gap in `doc/Contract-Gaps.md`); the side tree's counts are the daemon's own
-    `running`, which counts a done task whose container is up.
+    shows but cannot be opened (a new gap in `doc/Contract-Gaps.md`); the side tree's counts start from the daemon's
+    own `running` and leave out a done task whose container is up.
   - Not run live: the rented host runs a Porelo from before the pull request calls.
+- A second reading of part 4 came back with eight must-fix and four may-fix findings; one fix round took them as
+  follows, each test seen red first.
+  - Taken: the rail's and the machine card's running counts, a project's and a repository's running counts, and a
+    done task whose terminal ended now leave a done task out or call it done; a pull request ends only when its
+    project's host says so, and a project no longer carried or listed keeps its rows as possibly out of date instead
+    of resolving them, while a resolved row says *Merged*, *Closed* or *No longer open on the forge*; a watch that
+    ends without a word or loses its own connection is said and asked again; a store command is offered only when
+    every word is text free of control and line separators, the words name "the command below" only when there is
+    one, and the row's state follows the refusal's type; trailers holding anything but text read as not reported;
+    the tests now reach the rail's count, a quoted command, and the forge forward raised before a pull request
+    opens.
+  - Taken from the may-fix: an upstream that names no repository (a bare host, a bare word) gives no address;
+    *Open the pull request* waits for the connection to its host and says a failed forward in a snack bar; refreshing
+    a machine or opening *Needs you* asks a refused or ended watch again at once.
+  - Declined: counting the orphaned project's tasks by running work, since its count is the containers up like the
+    daemon's and the project's count now leaves done tasks out once, so changing both would leave them out twice;
+    reading the trailers as the whole truth, since the interface says a field it leaves out means the check cannot
+    be made, and the gate shares that rule.
 
 ## Acceptance
 

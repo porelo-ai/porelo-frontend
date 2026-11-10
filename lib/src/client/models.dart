@@ -4216,7 +4216,7 @@ class HostPullRequest {
     head: _string(map, 'head'),
     author: _optional(map, 'author'),
     committer: _optional(map, 'committer'),
-    trailers: map['trailers'] is List ? _strings(map, 'trailers') : null,
+    trailers: _lines(map['trailers']),
     state: _string(map, 'state'),
   );
 
