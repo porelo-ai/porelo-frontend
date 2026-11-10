@@ -1279,6 +1279,12 @@ abstract final class TileWords {
     (true, true) => 'Finished: its work waits at the gate, to be reviewed there.',
     (false, true) => 'Stopped before its end, and its work waits at the gate: its output above says why.',
     (true, false) when ended.unpushed > 0 => 'Finished, but ${_unpushed(ended.unpushed)}.',
+    (true, false) when task.online =>
+      'Finished, in an online project, where nothing is reviewed: its output above '
+          'says what it did.',
+    (false, false) when task.online =>
+      'Stopped before its end, in an online project, where nothing is reviewed: '
+          'its output above says why.',
     (true, false) => 'Finished, and nothing waits at the gate: its output above says what it did.',
     (false, false) => 'Stopped before its end, and nothing waits at the gate: its output above says why.',
   };
@@ -1797,7 +1803,11 @@ class _WorkFactsState extends State<_WorkFacts> {
           fact(
             'gate',
             'Commits at the gate',
-            task.hasWorkWaiting ? '${task.waiting}' : (task.running ? 'none yet' : 'none'),
+            task.online
+                ? task.atTheGate
+                : task.hasWorkWaiting
+                ? '${task.waiting}'
+                : (task.running ? 'none yet' : 'none'),
           ),
         ],
       ),

@@ -57,4 +57,21 @@ void main() {
     expect(task.waiting, 0);
     expect(task.hasWorkWaiting, isFalse);
   });
+  // Harm: an online task's push passes to the forge unreviewed, yet the window would say it waits for review and
+  // count it as needing a person.
+  test('an online task that says its work waits derives no gate from it', () {
+    final task = taskWith(<String, dynamic>{'securityClass': 'online', 'waiting': 1});
+
+    expect(task.hasWorkWaiting, isFalse);
+    expect(task.atTheGate, 'nothing is reviewed in an online project');
+  });
+
+  // Harm: a class not read, or not said, taken for online hides work that does wait at the gate.
+  test('an empty or other class is never taken for online', () {
+    for (final securityClass in ['', 'guarded', 'Online', 'offline']) {
+      final task = taskWith(<String, dynamic>{'securityClass': securityClass, 'waiting': 1});
+      expect(task.hasWorkWaiting, isTrue, reason: securityClass);
+      expect(task.atTheGate, 'its own work is waiting for review', reason: securityClass);
+    }
+  });
 }

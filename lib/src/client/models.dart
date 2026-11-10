@@ -454,8 +454,13 @@ class Task {
   /// the field the other way round, went to build it, and withdrew it for that reason.
   final int waiting;
 
-  /// Whether this task's own work is waiting for somebody to review it.
-  bool get hasWorkWaiting => waiting > 0;
+  /// Whether this task's own work is waiting for somebody to review it. Never in an [online] project, whatever
+  /// [waiting] says: nothing is reviewed there, so no row, count or words of the gate are derived from it. A push
+  /// its gate's `Pending` still lists is said from that, not from here.
+  bool get hasWorkWaiting => waiting > 0 && !online;
+
+  /// Whether it belongs to an `online` project, as the machine says: an empty or unknown class is not one.
+  bool get online => securityClass == 'online';
 
   /// Whether it is running work: its container up, and its agent has not said its work is done.
   bool get runningWork => running && activity != Activity.done;
@@ -496,7 +501,7 @@ class Task {
   /// could be.
   String get atTheGate => hasWorkWaiting
       ? 'its own work is waiting for review'
-      : securityClass == 'online'
+      : online
       ? 'nothing is reviewed in an online project'
       : 'nothing of its own is waiting';
 

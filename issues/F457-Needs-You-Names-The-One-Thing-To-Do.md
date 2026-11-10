@@ -66,6 +66,24 @@ Part 4 first: the pull request on a host's forge and the done task's own state, 
 `PullRequests`/`WatchPullRequests` and the task state `done` (2026-11-10).
 
 - Each part gets one reading of its own new code by another model, its findings fixed once, and no second reading (the coordinator, 2026-11-10).
+- **Part 3 built** (2026-11-10), against the interface as documented (the coordinator agreed):
+  - Measured first, read-only, on 2026-11-10: no `online` project was found anywhere readable. The tasks of the one
+    project on the rented host all recorded class `guarded`, the person's gate there held no mirror and nothing
+    pending, and the project's own description named no class. So nothing of an `online` project was seen live;
+    the live check stays with the operator's test.
+  - `Task.online` is the class exactly as the machine says it; an empty, unread or other class is not online.
+    `Task.hasWorkWaiting` is never true for an online task, whatever its `waiting` says, so `Attention.demandOf`, the
+    cause rows, *Work*'s row and its sentence, *Running* and the counts derive no gate from it. *Work*'s fact
+    *Commits at the gate* says that nothing is reviewed in an online project, and how its agent ended no longer says
+    that nothing waits at the gate.
+  - A push the gate's `Pending` still lists is said from that, never from the class: `Project.pending` on
+    *Projects* and the machine's tree, and the gate's own list, read no class, so an online project's push stays
+    shown, and a guarded project keeps its words.
+  - Red first: `test/client/task_test.dart` (an online task saying its work waits: `Expected: false Actual: <true>`)
+    and `test/ui/online_class_test.dart` (no gate row of an online task under *Needs you*: `Expected: no matching
+    candidates Actual: ... Found 1 widget`). Two guards held from the start, as the window reads no class there: an
+    empty or other class with work waiting keeps its gate (`task_test.dart`), and an online project's pending pushes
+    and a guarded one's stay said on *Projects* (`online_class_test.dart`).
 - **Part 2's reading fixed** (2026-11-10), each finding checked against the code first:
   - Taken, red first in `test/app/seen_marks_test.dart`:
     - Must 1: a seen question its machine says again came back as unseen once its mark's week was over (red:
