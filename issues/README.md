@@ -88,6 +88,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f190"></a>[F190](F190-Approved-Work-Brought-To-The-Central-Forge.md) | M | - | A host pull request's state and approval, and approved work brought on to the central forge bound to commit, repository and pull request, with level, class and checks in one line. | - |
 | <a id="f191"></a>[F191](F191-Held-And-Outgoing-Forge-Comments-Released.md) | M | - | Held inbound forge comments and outgoing ones in *Needs you*, each released, dismissed, sent or refused alone, a person's own from IntelliJ too, bound to commit and pull request. | - |
 | <a id="f394"></a>[F394](F394-A-Tunnel-Forward-Only-The-Person-Reaches.md) | M | - | What the window forwards from a machine is reached only by the person: a relay of the window's own lets in only the person's connections, the host refusing other sites' requests to the forge's web. | 2 |
+| <a id="f472"></a>[F472](F472-The-Packages-Carry-The-Third-Party-Notices-As-A-File.md) | S | - | The .deb and .rpm carry the licenses of all third-party code built into the window as one plain THIRD-PARTY-NOTICES file, unpacked from Flutter's own notices. | - |
 
 ## Estimated
 
