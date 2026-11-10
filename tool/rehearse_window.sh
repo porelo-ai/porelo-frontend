@@ -183,6 +183,8 @@ socket=$(as_the_person_on_vm "ssh -x -o BatchMode=yes '$host' 'printf /run/user/
     exit 1
 }
 
+# Who porelo on the VM takes itself to be, kept beside it: an organization read as someone not in it lists no host.
+as_the_person_on_vm "porelo identity show --json" >"$report/identity-on-vm.json" 2>&1 || true
 # What the window will read of the organization, as the person on the VM: kept in the report, and the run stops here
 # with its words where the host is not in it, instead of every scenario waiting for a host that cannot appear.
 as_the_person_on_vm "porelo org --json" >"$report/org-on-vm.json" 2>"$report/org-on-vm.err" || {
