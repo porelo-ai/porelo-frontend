@@ -67,7 +67,6 @@ import 'organization_access_dialogs.dart';
 import 'clearing_view.dart';
 import '../app/settings.dart';
 import '../app/shell_model.dart';
-import '../app/planning_daemon.dart';
 import 'planning_embedding.dart';
 
 import 'package:porelo_frontend/client.dart';
@@ -541,14 +540,20 @@ class _ShellState extends State<Shell> {
   /// How this person stands in each project, which decides whether they may move its work.
   String? _treeTool;
   Machine? _observedMachine;
-  late final _embeddedPlanning =
-      widget.planning ?? EmbeddedPlanning(DaemonPlanningClient(widget.machines), startTask: daemonStartTask);
-  late final _planning = PlanningBoards(_embeddedPlanning.client);
+
+  /// The boards of the planning the window was given, absent where nothing serves planning: then the planning place
+  /// says so, and nothing else in the window asks after planning.
+  late final _planning = switch (widget.planning) {
+    final planning? => PlanningBoards(planning.client),
+    null => null,
+  };
   late final _planningHost = ShellPlanningHost(widget.shell, needsYou: () => widget.shell.goTo(Section.attention));
 
   /// The watched machine that provides [source], if one still is.
-  Machine? _planningMachine(PlanningSource source) =>
-      planningMachineOf(widget.machines, _embeddedPlanning.client, source);
+  Machine? _planningMachine(PlanningSource source) => switch (widget.planning) {
+    final planning? => planningMachineOf(widget.machines, planning.client, source),
+    null => null,
+  };
 
   void _machineChanged() {
     _dropForgottenTools();
@@ -701,14 +706,14 @@ class _ShellState extends State<Shell> {
     if (_planningLeaveApproved ||
         widget.shell.section != Section.planning ||
         destination == Section.planning ||
-        !_planning.hasPendingMoves) {
+        !(_planning?.hasPendingMoves ?? false)) {
       return true;
     }
     if (_planningLeaveAsked) return false;
     _planningLeaveAsked = true;
     unawaited(() async {
       try {
-        if (await confirmPlanningLeave(context, _planning.pendingBoards) && mounted) {
+        if (await confirmPlanningLeave(context, _planning!.pendingBoards) && mounted) {
           _planningLeaveApproved = true;
           try {
             resume();
@@ -729,7 +734,8 @@ class _ShellState extends State<Shell> {
     _planningLeaveAsked = true;
     bool agreedToLeave;
     try {
-      agreedToLeave = await confirmPlanningLeave(context, _planning.pendingBoards, quitting: true);
+      final planning = _planning;
+      agreedToLeave = planning == null || await confirmPlanningLeave(context, planning.pendingBoards, quitting: true);
     } finally {
       _planningLeaveAsked = false;
     }
@@ -792,7 +798,10 @@ class _ShellState extends State<Shell> {
       if (machine != null)
         for (final command in [..._machineMenu(on: machine), _machinePanic(machine)]) command.id: command,
     };
-    final all = [..._unscopedCommands(), ...planningCommands(_planning, _planningHost)];
+    final all = [
+      ..._unscopedCommands(),
+      if (_planning case final planning?) ...planningCommands(planning, _planningHost),
+    ];
     final ids = all.map((command) => command.id).toSet();
     return [
       for (final command in all) scoped[command.id] ?? _commandForItem(command).unless(_itemScopeProblem(command)),
@@ -4008,23 +4017,7 @@ class _ShellState extends State<Shell> {
                           child: switch (widget.shell.section) {
                             Section.work => _workArea(),
                             Section.attention => _needsYou(),
-                            Section.planning => Column(
-                              children: [
-                                Expanded(
-                                  child: PlanningScreen(
-                                    boards: _planning,
-                                    host: _planningHost,
-                                    startTask: _embeddedPlanning.startTask,
-                                    taskChanges: WindowTaskChanges(
-                                      whyNot: _planningTaskUnavailable,
-                                      opening: _openPlanningTask,
-                                      onStarted: _storyWorkStarted,
-                                    ),
-                                    agents: MachinePlanningAgents(widget.machines, _embeddedPlanning.client),
-                                  ),
-                                ),
-                              ],
-                            ),
+                            Section.planning => _planningPage(),
                             Section.cards => _cardsPage(),
                             Section.organizations => _organizationsFacts(),
                             Section.machines =>
@@ -4142,6 +4135,32 @@ class _ShellState extends State<Shell> {
       const PopupMenuItem(value: 'about', child: Text('About Porelo')),
     ],
   );
+
+  /// The planning screen of the planning the window was given, or one line that none is reached.
+  Widget _planningPage() => switch ((widget.planning, _planning)) {
+    (final planning?, final boards?) => PlanningScreen(
+      boards: boards,
+      host: _planningHost,
+      startTask: planning.startTask,
+      taskChanges: WindowTaskChanges(
+        whyNot: _planningTaskUnavailable,
+        opening: _openPlanningTask,
+        onStarted: _storyWorkStarted,
+      ),
+      agents: MachinePlanningAgents(widget.machines, planning.client),
+    ),
+    _ => Center(
+      child: Padding(
+        padding: const EdgeInsets.all(Space.loose),
+        child: Text(
+          planningNotReached,
+          key: const Key('planning-not-reached'),
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+      ),
+    ),
+  };
 
   Widget _cardsPage() => Center(
     child: FilledButton(
@@ -5114,7 +5133,7 @@ class _ShellState extends State<Shell> {
       widget.machines,
       _hostRuns,
       _workView,
-      _planning,
+      ?_planning,
       ?_organization,
       for (final machine in widget.machines.all) widget.machines.of(machine),
     ]),
@@ -5158,7 +5177,8 @@ class _ShellState extends State<Shell> {
                   widget.machines.of(machine).tasks.where((task) => task.runningWork).length,
               ].fold<int>(0, (sum, each) => sum + each),
         work: _attention.workCount,
-        planning: _planning.workingCount,
+        planning: _planning?.workingCount,
+        planningCounted: _planning != null,
         needing: _attention.needingCount,
         machines:
             rows.preparations.length +
@@ -6529,9 +6549,9 @@ class _ShellState extends State<Shell> {
     if (work.mode != 'AGENT') return;
     final machine = _planningMachine(work.backend);
     final name = work.result?.terminalName;
-    final returnedTasks = work.result?.tasksFor(work.project) ?? <Task>[];
+    final returnedTasks = startedTasks(work.result, work.project);
     final task =
-        returnedTasks.where((task) => task.name == name && task.running).firstOrNull ??
+        startedTerminal(work.result, work.project) ??
         (machine == null
             ? null
             : widget.machines
@@ -6563,7 +6583,7 @@ class _ShellState extends State<Shell> {
   @override
   void dispose() {
     _attention.dispose();
-    _planning.dispose();
+    _planning?.dispose();
     widget.machines.pauseAutomaticRetries();
     widget.shell.removeListener(_followTreeTool);
     widget.shell.beforeNavigation = null;

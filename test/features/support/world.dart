@@ -4,9 +4,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:porelo_frontend/src/mock/planning_data.dart';
-import 'package:porelo_frontend/src/mock/planning_moves.dart';
-
 import 'legacy_forge_key.dart';
 export 'legacy_forge_key.dart';
 
@@ -57,7 +54,7 @@ import 'package:porelo_frontend/src/app/shell_model.dart';
 import 'package:porelo_frontend/src/app/porelo_app.dart';
 import 'package:porelo_frontend/src/ui/planning_embedding.dart' show EmbeddedPlanning;
 import 'package:porelo_planning/planning_fake.dart' show MockPlanningClient, MockPlanningSource, mockStartTask;
-import 'package:porelo_planning/porelo_planning.dart' show PlanningProvider;
+import 'package:porelo_planning/porelo_planning.dart' show PlanningProvider, PlanningSource;
 
 /// A backend that answers whatever a scenario needs it to.
 ///
@@ -98,20 +95,6 @@ class FakeBackend implements FleetBackend {
   /// Constructor taking what the machine has on it.
   FakeBackend(this._tasks);
 
-  /// Revision-checked work decisions, with observable calls for scenarios.
-  late final storyWork = MockStoryWork(_planningFor, pushPlanning);
-  Map<String, dynamic> _workCall(String method, Map<String, dynamic> parameters) {
-    try {
-      final result = storyWork.call(method, parameters);
-      if (method == 'StartStoryWork' && result['work'] is Map<String, dynamic>) {
-        tookStoryWork(parameters['project'] as String, result['work'] as Map<String, dynamic>);
-      }
-      return result;
-    } on VarlinkException {
-      rethrow;
-    }
-  }
-
   /// Runs the tasks of story work started on this machine's planning, as the machine runs what it started.
   void tookStoryWork(String project, Map<String, dynamic> work) {
     final participants = (work['tasks'] as List).cast<Map<String, dynamic>>();
@@ -134,205 +117,6 @@ class FakeBackend implements FleetBackend {
     ];
     _changes.add(_tasks);
   }
-
-  @override
-  Future<StoryWorkProposal> proposeStoryWork(String project, String story, String to) async =>
-      StoryWorkProposal.from(_workCall('ProposeStoryWork', {'project': project, 'story': story, 'to': to}));
-  @override
-  Future<StoryWorkStarted> startStoryWork(StoryWorkRequest request) async =>
-      StoryWorkStarted.from(_workCall('StartStoryWork', request.toMap()));
-  @override
-  Future<StoryWorkStatus> getStoryWork(String project, String story) async =>
-      StoryWorkStatus.from(_workCall('GetStoryWork', {'project': project, 'story': story}));
-  @override
-  Future<StoryWorkStatus> stopStoryWork(String project, String story) async =>
-      StoryWorkStatus.from(_workCall('StopStoryWork', {'project': project, 'story': story}));
-
-  @override
-  Future<PlanningIssueDetail> getPlanningIssue(String project, String issue) async =>
-      PlanningIssueDetail.from(_workCall('GetIssue', {'project': project, 'issue': issue}));
-  @override
-  Future<ReadingResolution> resolveIssueReading(
-    String project,
-    String story,
-    String issue,
-    int round,
-    String choice,
-    String revision, {
-    String? comment,
-  }) async => ReadingResolution.from(
-    _workCall('ResolveIssueReading', {
-      'project': project,
-      'story': story,
-      'issue': issue,
-      'round': round,
-      'choice': choice,
-      'revision': revision,
-      'comment': comment ?? '',
-    }),
-  );
-
-  /// Whether this machine predates planning.
-  bool withoutPlanning = false;
-
-  /// Whole boards that scenarios can replace independently per project.
-  final Map<String, Map<String, dynamic>> planning = {};
-  final _planningChanges = StreamController<(String, Map<String, dynamic>)>.broadcast();
-
-  /// A daemon failure supplied by a scenario.
-  Object? planningFailure;
-
-  /// A refusal of move calls without failing the board's watch.
-  Object? planningMoveFailure;
-
-  /// A story-specific refusal that leaves unrelated saves available.
-  String? planningRefusedStory;
-
-  /// Detail attached to that refused story.
-  String planningRefusalDetail = '';
-
-  /// A controlled write used by lifecycle tests without a timer.
-  Completer<void>? planningMoveGate;
-
-  /// Move calls observed by acceptance tests.
-  final List<Map<String, dynamic>> planningMoveCalls = [];
-
-  Future<PlanningMoveResult> _movePlanning(String project, Map<String, dynamic> parameters) async {
-    planningMoveCalls.add({'project': project, ...parameters});
-    if (planningMoveGate case final gate?) await gate.future;
-    if (planningMoveHeld case final held?) await held.future;
-    final moves = parameters['moves'];
-    if (planningRefusedStory != null &&
-        moves is List &&
-        moves.any((dynamic move) => move is Map && move['story'] == planningRefusedStory)) {
-      throw VarlinkException('org.fuin.porelo.Tasks1.WorkNotAllowed', {
-        'story': planningRefusedStory,
-        'detail': planningRefusalDetail,
-      });
-    }
-    if (planningMoveFailure case final failure?) throw failure;
-    final board = applyPlanningMove(_planningFor(project), parameters);
-    planning[project] = board;
-    // Save answers independently of the watch so the client must apply its confirmation.
-    return PlanningMoveResult.from({'revision': board['revision'], 'moved': board['moved']});
-  }
-
-  @override
-  Future<PlanningMoveResult> saveMoves(String project, List<PlanningMove> moves, String revision) =>
-      _movePlanning(project, {'moves': moves.map((move) => move.toMap()).toList(), 'revision': revision});
-
-  /// The number of active planning subscriptions.
-  int planningWatchers = 0;
-
-  Map<String, dynamic> _planningFor(String project) {
-    if (withoutPlanning) throw const FeatureNotSupported('planning');
-    if (planningFailure case final failure?) throw failure;
-    return planning.putIfAbsent(project, mockPlanningBoard);
-  }
-
-  /// A detail-only refusal, independent of the board watch.
-  Object? planningDetailFailure;
-
-  /// Failures of individual detail parts, independent of the other reads.
-  final Map<String, Object> planningPartFailures = {};
-
-  /// Optional issue-list read controlled by a lifecycle test.
-  Future<PlanIssueList> Function(String, String)? readPlanningIssues;
-
-  /// Optional delayed reads for navigation and disposal scenarios.
-  Future<PlanStoryDetail> Function(String, String)? readPlanningStory;
-
-  /// An optional pending save, completed by a scenario.
-  Completer<void>? planningMoveHeld;
-
-  @override
-  Future<PlanStoryDetail> getStory(String project, String story) async {
-    if (planningDetailFailure case final failure?) throw failure;
-    if (planningPartFailures['Story'] case final failure?) throw failure;
-    if (readPlanningStory case final read?) return read(project, story);
-    final record = mockPlanningStory(_planningFor(project), story);
-    if (record == null) throw VarlinkException('NoSuchStory', {'story': story});
-    return PlanStoryDetail.from({'story': record, 'revision': _planningFor(project)['revision']});
-  }
-
-  @override
-  Future<PlanIssueList> listStoryIssues(String project, String story) async {
-    if (planningDetailFailure case final failure?) throw failure;
-    if (planningPartFailures['Issue list'] case final failure?) throw failure;
-    if (readPlanningIssues case final read?) return read(project, story);
-    final record = mockPlanningStory(_planningFor(project), story);
-    if (record == null) throw VarlinkException('NoSuchStory', {'story': story});
-    return PlanIssueList.from({'issues': record['issues'], 'revision': _planningFor(project)['revision']});
-  }
-
-  @override
-  Future<PlanIssueDetail> getIssue(String project, String issue) async {
-    if (planningDetailFailure case final failure?) throw failure;
-    if (planningPartFailures['Issue'] case final failure?) throw failure;
-    final record = mockPlanningIssue(_planningFor(project), issue);
-    if (record == null) throw VarlinkException('NoSuchIssue', {'issue': issue});
-    return PlanIssueDetail.from({'issue': record, 'revision': _planningFor(project)['revision']});
-  }
-
-  @override
-  Future<PlanningSnapshot> planningWorkflow(String project) async {
-    final board = _planningFor(project);
-    return PlanningSnapshot.from({
-      'states': board['states'],
-      'phases': board['phases'],
-      'work': board['work'] ?? <dynamic>[],
-      'faults': board['faults'] ?? <dynamic>[],
-    });
-  }
-
-  @override
-  Future<String> refreshStories(String project) async => _planningFor(project)['revision'] as String;
-
-  @override
-  Future<PlanningSnapshot> stories(String project) async {
-    final board = _planningFor(project);
-    return PlanningSnapshot.from({'stories': board['stories'], 'revision': board['revision']});
-  }
-
-  @override
-  Stream<PlanningSnapshot> watchStories(String project) {
-    final replies = StreamController<PlanningSnapshot>();
-    StreamSubscription<(String, Map<String, dynamic>)>? subscription;
-    replies.onListen = () {
-      planningWatchers++;
-      try {
-        final first = _planningFor(project);
-        subscription = _planningChanges.stream.listen(
-          (change) {
-            if (change.$1 == project) replies.add(PlanningSnapshot.from(planningSummary(change.$2)));
-          },
-          onError: replies.addError,
-          onDone: replies.close,
-        );
-        replies.add(PlanningSnapshot.from(planningSummary(first)));
-      } catch (error, stack) {
-        replies.addError(error, stack);
-      }
-    };
-    replies.onCancel = () {
-      planningWatchers--;
-      // A broadcast listener detaches synchronously; its cached future may belong to another clock.
-      unawaited(subscription?.cancel());
-    };
-    return replies.stream;
-  }
-
-  /// Pushes a whole changed board on exactly this project's watch.
-  void pushPlanning(String project, Map<String, dynamic> board) {
-    planning[project] = board;
-    _planningChanges.add((project, board));
-  }
-
-  /// Fails the planning watches with the machine's own answer.
-  void failPlanning(Object error) => _planningChanges.addError(error);
-
-  /// Ends the planning watches without another snapshot.
-  Future<void> endPlanning() => _planningChanges.close();
 
   List<Task> _tasks;
   final _changes = StreamController<List<Task>>.broadcast();
@@ -3055,7 +2839,6 @@ diff --git a/lib/money.dart b/lib/money.dart
   /// Closes the change stream.
   Future<void> stop() async {
     // An ended watch was closed in its consumer's clock, which may already have stopped.
-    if (!_planningChanges.isClosed) await _planningChanges.close();
     await _changes.close();
     await asking.close();
     await talking.close();
@@ -3120,17 +2903,24 @@ class World {
   static late FakeBackend backend;
 
   static final _planningSources = Expando<MockPlanningSource>();
+  static final _planningBackends = Expando<FleetBackend>();
 
   /// The planning [backend]'s machine serves, kept as long as that backend is.
-  static MockPlanningSource planningOn(FleetBackend backend) =>
-      _planningSources[backend] ??= MockPlanningSource(backend.label)
-        ..onStarted = backend is FakeBackend ? backend.tookStoryWork : null;
+  static MockPlanningSource planningOn(FleetBackend backend) {
+    if (_planningSources[backend] case final source?) return source;
+    final source = MockPlanningSource(backend.label)..onStarted = backend is FakeBackend ? backend.tookStoryWork : null;
+    _planningBackends[source] = backend;
+    return _planningSources[backend] = source;
+  }
+
+  /// The backend whose machine serves [source].
+  static FleetBackend backendOfPlanning(PlanningSource source) => _planningBackends[source]!;
 
   /// The planning the backend under test serves.
   static MockPlanningSource get planning => planningOn(backend);
 
   /// Every watched machine as a provider of the planning it serves, named as the machine.
-  static EmbeddedPlanning _planningOf(Machines machines) => EmbeddedPlanning(
+  static EmbeddedPlanning planningOf(Machines machines) => EmbeddedPlanning(
     MockPlanningClient(
       () => [
         for (final machine in machines.all)
@@ -3477,7 +3267,8 @@ class World {
   /// The organization the next [startApp] reads, where a scenario set one before it.
   static OrganizationSource? organizationAtStart;
 
-  /// Builds the interface against that backend and connects it.
+  /// Builds the interface against that backend and connects it; its planning is the stand-in's unless
+  /// [planningServed] is false, as in a window that reaches no planner.
   ///
   /// At a desktop size, because that is what this is: the default 800x600 test surface is a
   /// narrow window, and every scenario would have been judging the fallback layout by accident.
@@ -3487,6 +3278,7 @@ class World {
     OrganizationSource? organizationSource,
     HostConnections? hostConnections,
     Future<HostAccess> Function(Settings settings)? hostAccess,
+    bool planningServed = true,
   }) async {
     // The view rather than the surface, at a pixel ratio of one: the surface is set in *physical*
     // pixels, so a default ratio quietly turns a desktop window into a narrow one and every
@@ -3649,7 +3441,7 @@ class World {
         backups: backups,
         narrowing: narrowing,
         held: held,
-        planning: _planningOf(machines),
+        planning: planningServed ? planningOf(machines) : null,
       ),
     );
     await settle(tester);
@@ -3720,7 +3512,7 @@ class World {
         backups: backups,
         narrowing: narrowing,
         held: held,
-        planning: _planningOf(machines),
+        planning: planningOf(machines),
       ),
     );
     await settle(tester);
@@ -3755,7 +3547,7 @@ class World {
         backups: backups,
         narrowing: narrowing,
         held: held,
-        planning: _planningOf(machines),
+        planning: planningOf(machines),
       ),
     );
     await settle(tester);

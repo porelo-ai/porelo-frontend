@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:porelo_frontend/client.dart';
+import 'package:porelo_frontend/src/ui/planning_embedding.dart';
+import 'package:porelo_planning/porelo_planning.dart';
 
 void main() {
   // Harm: With you opens a blank or stopped task from a malformed start answer.
@@ -10,27 +11,20 @@ void main() {
       {'task': '', 'role': 'MAIN', 'atWork': true},
     ]) {
       expect(
-        StoryWorkStarted.from({
-          'work': {
-            'atWork': true,
-            'tasks': [task],
-          },
-          'revision': 'r1',
-        }).terminalTask,
-        isNull,
-      );
-      expect(
-        StoryWorkStarted.from({
-          'work': {
-            'atWork': true,
-            'tasks': [task],
-          },
-          'revision': 'r1',
-        }).terminalTask,
+        startedTerminal(
+          StoryWorkStarted.from({
+            'work': {
+              'atWork': true,
+              'tasks': [task],
+            },
+            'revision': 'r1',
+          }),
+          'demo',
+        ),
         isNull,
       );
     }
-    expect(
+    final started = startedTerminal(
       StoryWorkStarted.from({
         'work': {
           'atWork': true,
@@ -39,8 +33,12 @@ void main() {
           ],
         },
         'revision': 'r1',
-      }).terminalTask!.name,
-      'valid',
+      }),
+      'demo',
     );
+    expect(started!.name, 'valid');
+    expect(started.project, 'demo');
+    expect(started.running, isTrue);
+    expect(startedTerminal(null, 'demo'), isNull);
   });
 }

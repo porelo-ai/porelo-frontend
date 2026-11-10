@@ -13,14 +13,42 @@ import 'package:porelo_planning/porelo_planning.dart'
         PlanningStartTask,
         PlanningTaskChanges,
         PlanningUnsupported,
-        StoryWork;
+        PlanWorkTask,
+        StoryWork,
+        StoryWorkStarted;
 
 import '../app/links.dart' as links;
 import '../app/machines.dart';
 import '../app/shell_model.dart';
+import '../client/models.dart' show Task;
 import '../client/porelo_client.dart' show FeatureNotSupported;
 import '../wire/varlink_exception.dart';
 import 'start_work_view.dart' show StartAgentChoice;
+
+/// What the planning place says where the window was given no planning: planning is the planner's, not the window's.
+const planningNotReached = 'Planning comes from porelo-planner, which this window does not reach yet.';
+
+/// The runs a confirmed start reported, as the window's own tasks of [project].
+List<Task> startedTasks(StoryWorkStarted? started, String project) => [
+  for (final task in started?.work?.tasks ?? const <PlanWorkTask>[])
+    Task.from({
+      'name': task.task,
+      'project': project,
+      'containerId': task.containerId,
+      'repository': task.repository,
+      'agent': task.agent,
+      'model': task.model,
+      'running': task.atWork == true,
+      'mode': task.mode == 'AGENT' ? 'SHELL' : task.mode,
+      'state': task.state,
+    }),
+];
+
+/// The running task a confirmed start names as the one to open, if it reported one.
+Task? startedTerminal(StoryWorkStarted? started, String project) {
+  final name = started?.terminalName;
+  return startedTasks(started, project).where((task) => task.name == name && task.running).firstOrNull;
+}
 
 /// Where the window's planning place reads its boards, and how a start of story work it confirms reaches them.
 class EmbeddedPlanning {

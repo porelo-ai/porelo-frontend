@@ -260,7 +260,7 @@ Future<void> openPlanningBrowser(WidgetTester tester, String label) async {
 
 /// Uses a narrow planning pane inside the required desktop test window.
 Future<void> narrowPlanningPane(WidgetTester tester) async {
-  final boards = PlanningBoards(DaemonPlanningClient(World.machines));
+  final boards = PlanningBoards(World.planningOf(World.machines).client);
   addTearDown(boards.dispose);
   await tester.pumpWidget(
     MaterialApp(

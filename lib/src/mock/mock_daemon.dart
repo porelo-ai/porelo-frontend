@@ -3,11 +3,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'planning_data.dart';
-import 'planning_moves.dart';
-
-import 'package:porelo_frontend/client.dart';
-
 /// Thrown from a handler to refuse the call, the way the daemon refuses one.
 ///
 /// A method that refuses depending on *what it was asked* is a real thing — `NoSuchLog` is
@@ -35,86 +30,6 @@ class MockRefusal implements Exception {
 class MockDaemon {
   /// Registers stateful room membership methods; tests may replace or remove them.
   MockDaemon() {
-    method('GetStory', (parameters) {
-      final story = mockPlanningStory(planningFor(parameters), parameters['story']);
-      if (story == null) throw MockRefusal('$interfaceName.NoSuchStory', {'story': parameters['story']});
-      return {'story': story, 'revision': planningFor(parameters)['revision']};
-    });
-    method('ListStoryIssues', (parameters) {
-      final story = mockPlanningStory(planningFor(parameters), parameters['story']);
-      if (story == null) throw MockRefusal('$interfaceName.NoSuchStory', {'story': parameters['story']});
-      return {
-        'issues': ((planningSummary(planningFor(parameters))['stories'] as List)
-            .cast<Map<String, dynamic>>()
-            .firstWhere((item) => item['id'] == story['id']))['issues'],
-        'revision': planningFor(parameters)['revision'],
-      };
-    });
-    for (final name in [
-      'ProposeStoryWork',
-      'StartStoryWork',
-      'GetStoryWork',
-      'StopStoryWork',
-      'GetIssue',
-      'ResolveIssueReading',
-    ]) {
-      method(name, (parameters) {
-        try {
-          return storyWork.call(name, parameters);
-        } on VarlinkException catch (error) {
-          throw MockRefusal(error.name, error.parameters);
-        }
-      });
-    }
-    method('GetPlanningWorkflow', (parameters) {
-      final board = planningFor(parameters);
-      return {
-        'states': board['states'],
-        'phases': board['phases'],
-        'work': board['work'] ?? <dynamic>[],
-        'faults': board['faults'] ?? <dynamic>[],
-      };
-    });
-    method('ListStories', (parameters) {
-      final board = planningFor(parameters);
-      final summary = planningSummary(board);
-      if (parameters['states'] case final List<dynamic> states) {
-        summary['stories'] = (summary['stories'] as List)
-            .where((story) => states.contains((story as Map)['state']))
-            .toList();
-      }
-      return summary;
-    });
-    for (final name in ['SaveMoves']) {
-      method(name, (parameters) {
-        try {
-          final board = applyPlanningMove(planningFor(parameters), parameters);
-          pushPlanning(parameters['project'] as String, board);
-          return {'revision': board['revision'], 'moved': board['moved']};
-        } on VarlinkException catch (error) {
-          throw MockRefusal(error.name, error.parameters);
-        }
-      });
-    }
-    method('RefreshStories', (parameters) => {'revision': planningFor(parameters)['revision']});
-    pushes('WatchStories', (parameters) {
-      final project = parameters['project'];
-      final first = planningFor(parameters);
-      final replies = StreamController<Map<String, dynamic>>();
-      StreamSubscription<(String, Map<String, dynamic>)>? watching;
-      replies.onListen = () {
-        watching = _planningChanges.stream.listen(
-          (change) {
-            if (change.$1 == project) replies.add(planningSummary(change.$2));
-          },
-          onError: replies.addError,
-          onDone: replies.close,
-        );
-        replies.add(planningSummary(first));
-      };
-      replies.onCancel = () => watching?.cancel();
-      return replies.stream;
-    });
     method(
       'MessageMembers',
       (parameters) => <String, dynamic>{
@@ -134,31 +49,6 @@ class MockDaemon {
       members!.removeAt(index);
       return <String, dynamic>{'user': '', 'kept': false, 'why': ''};
     });
-  }
-
-  /// Stateful story work shared with the widget stand-in.
-  late final storyWork = MockStoryWork((project) => planningFor({'project': project}), pushPlanning);
-
-  /// Whole planning boards by project, initialized independently when first read.
-  final Map<String, Map<String, dynamic>> planning = {};
-  final _planningChanges = StreamController<(String, Map<String, dynamic>)>.broadcast();
-
-  /// Work changes also update the interactive machine task watch.
-  Stream<(String, Map<String, dynamic>)> get planningChanges => _planningChanges.stream;
-
-  /// Validates project names before reading or starting a watch.
-  Map<String, dynamic> planningFor(Map<String, dynamic> parameters) {
-    final project = parameters['project'];
-    if (project is! String || project.isEmpty || project.contains('/') || project.contains('\\')) {
-      throw MockRefusal('$interfaceName.NoSuchProject', {'project': project});
-    }
-    return planning.putIfAbsent(project, mockPlanningBoard);
-  }
-
-  /// Replaces exactly one project's board and pushes that complete answer.
-  void pushPlanning(String project, Map<String, dynamic> board) {
-    planning[project] = board;
-    _planningChanges.add((project, board));
   }
 
   /// The room members returned by project, changed only by confirmed mock calls.
@@ -267,7 +157,6 @@ class MockDaemon {
       client.destroy();
     }
     _clients.clear();
-    await _planningChanges.close();
     await _server?.close();
     await _directory?.delete(recursive: true);
   }

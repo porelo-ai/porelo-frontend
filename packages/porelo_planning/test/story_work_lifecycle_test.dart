@@ -1,14 +1,13 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:porelo_frontend/src/mock/planning_data.dart';
+import 'package:porelo_planning/planning_fake.dart';
 import 'package:porelo_planning/porelo_planning.dart';
 
-import '../features/support/world.dart';
-import '../support/planning_embedding.dart';
+import 'support/story_work_support.dart';
 
-class _Delayed extends FakeBackend {
-  _Delayed() : super([]);
+class _Delayed extends MockPlanningSource {
+  _Delayed();
   final proposal = Completer<StoryWorkProposal>();
   final started = Completer<StoryWorkStarted>();
   var findings = Completer<PlanningIssueDetail>();
@@ -31,7 +30,7 @@ void main() {
   // Harm: a closing dialog is notified or receives stale proposal state after disposal.
   test('a late proposal does not notify a disposed form', () async {
     final backend = _Delayed();
-    final board = PlanningBoard(FleetPlanningSource(backend), 'checkout');
+    final board = PlanningBoard(backend, 'checkout');
     await Future<void>.delayed(Duration.zero);
     final work = planningStoryWork(board, board.stories.first, 'In analysis');
     var notifications = 0;
@@ -49,13 +48,13 @@ void main() {
     expect(notifications, before);
     expect(work.proposal, isNull);
     board.dispose();
-    await backend.stop();
+    await backend.end();
   });
 
   // Harm: repeated presses create duplicate work and a late start notifies a disposed dialog.
   test('only one pending start is sent and late completion is quiet', () async {
     final backend = _Delayed()..delayProposal = false;
-    final board = PlanningBoard(FleetPlanningSource(backend), 'checkout');
+    final board = PlanningBoard(backend, 'checkout');
     await Future<void>.delayed(Duration.zero);
     final work = planningStoryWork(board, board.stories.firstWhere((story) => story.id == 'ST291'), 'Implementing');
     await work.load();
@@ -70,7 +69,7 @@ void main() {
     expect(await starting, isFalse);
     expect(notifications, before);
     board.dispose();
-    await backend.stop();
+    await backend.end();
   });
 
   // Harm: missing findings authorize approval, or their late arrival updates a disposed row.
@@ -81,8 +80,8 @@ void main() {
       (story) => story['id'] == 'ST291',
     );
     ((storyMap['issues'] as List).first as Map<String, dynamic>).addAll({'readingStopped': true, 'rounds': 3});
-    backend.planning['checkout'] = snapshot;
-    final board = PlanningBoard(FleetPlanningSource(backend), 'checkout');
+    backend.boards['checkout'] = snapshot;
+    final board = PlanningBoard(backend, 'checkout');
     await Future<void>.delayed(Duration.zero);
     final story = board.stories.firstWhere((story) => story.id == 'ST291');
     final reading = ReadingDecision(PlanningAttention(board, story, issue: story.issues.first));
@@ -108,13 +107,13 @@ void main() {
     expect(late.detail, isNull);
     expect(notifications, before);
     board.dispose();
-    await backend.stop();
+    await backend.end();
   });
 
   // Harm: a delayed Stop confirmation stops a newer run on the same story.
   test('stop rejects a revision that changed during confirmation', () async {
-    final backend = FakeBackend([]);
-    final board = PlanningBoard(FleetPlanningSource(backend), 'checkout');
+    final backend = MockPlanningSource();
+    final board = PlanningBoard(backend, 'checkout');
     await Future<void>.delayed(Duration.zero);
     final revision = board.snapshot!.revision;
     final replacement = mockPlanningBoard()..['revision'] = 'replacement-run';
@@ -127,12 +126,12 @@ void main() {
         {'task': 'new-run', 'role': 'MAIN', 'atWork': true},
       ],
     };
-    backend.pushPlanning('checkout', replacement);
+    backend.push('checkout', replacement);
     await Future<void>.delayed(Duration.zero);
-    await board.stopWork('ST291', revision: revision, source: FleetPlanningSource(backend), sourceProject: 'checkout');
-    expect(backend.storyWork.calls.where((call) => call.$1 == 'StopStoryWork'), isEmpty);
+    await board.stopWork('ST291', revision: revision, source: backend, sourceProject: 'checkout');
+    expect(backend.work.calls.where((call) => call.$1 == 'StopStoryWork'), isEmpty);
     expect(board.stories.firstWhere((story) => story.id == 'ST291').work!.tasks.map((task) => task.task), ['new-run']);
     board.dispose();
-    await backend.stop();
+    await backend.end();
   });
 }

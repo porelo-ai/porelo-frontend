@@ -36,7 +36,7 @@ const storyReadingIssue = 'B540';
 
 /// Uses a 390-wide component host while the test view remains 1280x800.
 Future<void> openNarrowWork(WidgetTester tester) async {
-  final board = PlanningBoard(FleetPlanningSource(World.backend), 'checkout');
+  final board = PlanningBoard(World.planning, 'checkout');
   await World.settle(tester);
   final work = planningStoryWork(board, board.stories.firstWhere((story) => story.id == 'ST291'), 'In analysis');
   addTearDown(() {

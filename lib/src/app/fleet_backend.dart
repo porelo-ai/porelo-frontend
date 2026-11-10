@@ -210,60 +210,6 @@ abstract class FleetBackend {
   /// invisible, and that is the one most likely to need attention.
   Future<List<Project>> projects();
 
-  /// Saves a board's story and issue destinations atomically against its revision.
-  Future<PlanningMoveResult> saveMoves(String project, List<PlanningMove> moves, String revision);
-
-  /// Moves one story against the board's revision.
-
-  /// Moves an issue batch against the board's revision.
-
-  /// Explicitly refreshes the planning store.
-  Future<String> refreshStories(String project);
-
-  /// Reads a standalone planning story.
-  Future<PlanStoryDetail> getStory(String project, String story);
-
-  /// Reads its issue list.
-  Future<PlanIssueList> listStoryIssues(String project, String story);
-
-  /// Reads a standalone planning issue.
-  Future<PlanIssueDetail> getIssue(String project, String issue);
-
-  /// Reads the project's planning workflow.
-  Future<PlanningSnapshot> planningWorkflow(String project);
-
-  /// Reads its stories and revision.
-  Future<PlanningSnapshot> stories(String project);
-
-  /// Watches whole-board replacements for this project.
-  Stream<PlanningSnapshot> watchStories(String project);
-
-  /// Proposes a story start on a working state.
-  Future<StoryWorkProposal> proposeStoryWork(String project, String story, String to);
-
-  /// Starts story work with explicit choices and the board revision.
-  Future<StoryWorkStarted> startStoryWork(StoryWorkRequest request);
-
-  /// Reads current work and any ended outcome for a story.
-  Future<StoryWorkStatus> getStoryWork(String project, String story);
-
-  /// Stops the story’s work without changing its planning state.
-  Future<StoryWorkStatus> stopStoryWork(String project, String story);
-
-  /// Reads the issue’s last findings from GetIssue.
-  Future<PlanningIssueDetail> getPlanningIssue(String project, String issue);
-
-  /// Sends a revision-bound decision for one stopped reading round.
-  Future<ReadingResolution> resolveIssueReading(
-    String project,
-    String story,
-    String issue,
-    int round,
-    String choice,
-    String revision, {
-    String? comment,
-  });
-
   /// Takes a project the machine carries for this person, as a person's act; see [Project.carried].
   Future<TakenProject> takeProject(String project);
 
@@ -711,54 +657,6 @@ class PoreloBackend implements FleetBackend {
 
   @override
   Future<TakenProject> takeProject(String project) => _opened().takeProject(project);
-
-  @override
-  Future<PlanStoryDetail> getStory(String project, String story) => _opened().getStory(project, story);
-
-  @override
-  Future<PlanIssueList> listStoryIssues(String project, String story) => _opened().listStoryIssues(project, story);
-
-  @override
-  Future<PlanIssueDetail> getIssue(String project, String issue) => _opened().getIssue(project, issue);
-
-  @override
-  Future<PlanningSnapshot> planningWorkflow(String project) => _opened().planningWorkflow(project);
-
-  @override
-  Future<PlanningMoveResult> saveMoves(String project, List<PlanningMove> moves, String revision) =>
-      _opened().saveMoves(project, moves, revision);
-
-  @override
-  Future<String> refreshStories(String project) => _opened().refreshStories(project);
-
-  @override
-  Future<PlanningSnapshot> stories(String project) => _opened().stories(project);
-
-  @override
-  Stream<PlanningSnapshot> watchStories(String project) => _opened().watchStories(project);
-
-  @override
-  Future<StoryWorkProposal> proposeStoryWork(String project, String story, String to) =>
-      _opened().proposeStoryWork(project, story, to);
-  @override
-  Future<StoryWorkStarted> startStoryWork(StoryWorkRequest request) => _opened().startStoryWork(request);
-  @override
-  Future<StoryWorkStatus> getStoryWork(String project, String story) => _opened().getStoryWork(project, story);
-  @override
-  Future<StoryWorkStatus> stopStoryWork(String project, String story) => _opened().stopStoryWork(project, story);
-  @override
-  Future<PlanningIssueDetail> getPlanningIssue(String project, String issue) =>
-      _opened().getPlanningIssue(project, issue);
-  @override
-  Future<ReadingResolution> resolveIssueReading(
-    String project,
-    String story,
-    String issue,
-    int round,
-    String choice,
-    String revision, {
-    String? comment,
-  }) => _opened().resolveIssueReading(project, story, issue, round, choice, revision, comment: comment);
 
   @override
   Stream<List<Task>> watch() => _opened().watchTasks();

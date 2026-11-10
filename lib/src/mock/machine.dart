@@ -45,7 +45,6 @@ method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
   line: ?string, step: ?StartStep, steps: ?[]StartStep, container: ?string, exitCode: ?int
 )
 ''';
-    _planningChanges = daemon.planningChanges.listen((change) => _planningWork(change.$1, change.$2));
     daemon.method('List', (_) => <String, dynamic>{'tasks': _listing});
     daemon.method(
       'Agents',
@@ -235,36 +234,6 @@ method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
 
   /// What is on the machine, as it goes over the wire.
   late List<Map<String, dynamic>> tasks;
-  StreamSubscription<(String, Map<String, dynamic>)>? _planningChanges;
-
-  void _planningWork(String project, Map<String, dynamic> board) {
-    for (final story in (board['stories'] as List).cast<Map<String, dynamic>>()) {
-      final work = story['work'];
-      if (work is! Map<String, dynamic>) continue;
-      final participants = (work['tasks'] as List? ?? <dynamic>[]).cast<Map<String, dynamic>>();
-      for (final record in participants) {
-        final name = record['task'] as String;
-        final existing = tasks.where((task) => task['name'] == name && task['project'] == project).firstOrNull;
-        final task = existing ?? _task(name, project);
-        task.addAll({
-          'agent': record['agent'],
-          'model': record['model'],
-          'mode': record['mode'] == 'AGENT' ? 'SHELL' : record['mode'],
-          'running': record['atWork'],
-          'repository': record['repository'],
-        });
-        if (existing == null) tasks.add(task);
-      }
-      final coordinator = work['coordinator'];
-      if (work['atWork'] == true &&
-          coordinator is String &&
-          !tasks.any((task) => task['name'] == coordinator && task['project'] == project && task['running'] == true)) {
-        tasks.add({..._task(coordinator, project), 'mode': 'SHELL'});
-      }
-    }
-    _changes.add(<String, dynamic>{'tasks': _listing});
-  }
-
   final _changes = StreamController<Map<String, dynamic>>.broadcast();
   Completer<void>? _waitingStart;
 
@@ -320,7 +289,6 @@ method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
 
   /// Stops answering.
   Future<void> close() async {
-    await _planningChanges?.cancel();
     failWaitingStart();
     _bound?.cancel();
     await _changes.close();

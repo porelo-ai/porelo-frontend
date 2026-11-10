@@ -1,12 +1,13 @@
-import 'package:porelo_frontend/src/app/planning_daemon.dart';
+import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
 import 'package:porelo_frontend/src/ui/planning_embedding.dart';
 import 'package:porelo_frontend/src/ui/start_work_view.dart' show StartAgentChoice;
+import 'package:porelo_planning/planning_fake.dart';
 import 'package:porelo_planning/porelo_planning.dart';
 
-export 'package:porelo_frontend/src/app/planning_daemon.dart';
+import '../features/support/world.dart';
 
-/// The planning screen as the window embeds it: the window's place, its daemons' starts and agents.
+/// The planning screen as the window embeds it: the window's place, the stand-in's starts, its machine's agents.
 PlanningScreen planningView({
   required PlanningBoards boards,
   required ShellModel shell,
@@ -17,12 +18,12 @@ PlanningScreen planningView({
 }) => PlanningScreen(
   boards: boards,
   host: ShellPlanningHost(shell, needsYou: onNeedsYou),
-  startTask: daemonStartTask,
+  startTask: mockStartTask,
   taskChanges: WindowTaskChanges(whyNot: taskUnavailable, opening: onTask, onStarted: onStarted ?? (_) async {}),
-  agents: const _DaemonAgents(),
+  agents: const BackendAgents(),
 );
 
-/// A start form whose start and agents come from the board's own daemon, as in the window.
+/// A start form whose start is the stand-in's and whose agents come from the board's machine, as in the window.
 StoryWork planningStoryWork(
   PlanningBoard board,
   PlanStory story,
@@ -33,21 +34,26 @@ StoryWork planningStoryWork(
   board,
   story,
   to,
-  startTask: daemonStartTask,
-  agentChoices: const _DaemonAgents(),
+  startTask: mockStartTask,
+  agentChoices: const BackendAgents(),
   machines: machines,
   unavailableMachines: unavailableMachines,
 );
 
-/// The agents a source's own daemon offers, as the window shows them.
-class _DaemonAgents implements PlanningAgents {
-  const _DaemonAgents();
+/// The agents the machine serving a stand-in source offers, as the window shows them.
+class BackendAgents implements PlanningAgents {
+  /// Asks the machine of each source.
+  const BackendAgents();
 
   @override
   Future<PlanningAgentList> on(PlanningSource source) async {
-    final listed = await (source as FleetPlanningSource).agentsOn();
-    return PlanningAgentList([
-      for (final agent in listed.agents) PlanningAgent(agent.name, choice: StartAgentChoice(agent: agent)),
-    ], listed.failures);
+    try {
+      final listed = await World.backendOfPlanning(source).agentsOn();
+      return PlanningAgentList([
+        for (final agent in listed.agents) PlanningAgent(agent.name, choice: StartAgentChoice(agent: agent)),
+      ], listed.failures);
+    } on VarlinkException catch (error) {
+      throw PlanningRefusal(error.simpleName, error.parameters, error.toString(), error.isMethodNotFound);
+    }
   }
 }

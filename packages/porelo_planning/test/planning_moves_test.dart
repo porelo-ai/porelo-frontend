@@ -1,15 +1,9 @@
+import 'dart:io';
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:porelo_frontend/client.dart';
-import 'package:porelo_frontend/src/app/fleet_backend.dart';
-import 'package:porelo_frontend/src/app/shell_model.dart';
-import 'package:porelo_frontend/src/app/machines.dart';
-import 'package:porelo_frontend/src/mock/planning_data.dart';
-import 'package:porelo_frontend/src/mock/planning_moves.dart';
+import 'package:porelo_planning/planning_fake.dart';
 import 'package:porelo_planning/porelo_planning.dart';
-
-import '../support/planning_embedding.dart';
 
 Map<String, dynamic> _fixture() => {
   'states': [
@@ -39,7 +33,7 @@ Map<String, dynamic> _fixture() => {
   'revision': 'initial',
 };
 
-class _Backend extends Fake implements FleetBackend {
+class _Backend extends Fake implements PlanningSource {
   Map<String, dynamic> data = _fixture();
   final changes = StreamController<PlanningSnapshot>.broadcast(sync: true);
   final calls = <Map<String, dynamic>>[];
@@ -82,7 +76,7 @@ class _Backend extends Fake implements FleetBackend {
     if (gate case final waiting?) await waiting.future;
     if (failure case final error?) throw error;
     if (moves.any((move) => move is PlanningStoryMove && move.story == refusedStory)) {
-      throw VarlinkException('org.fuin.porelo.Tasks1.WorkNotAllowed', {
+      throw mockRefusal('org.fuin.porelo.Tasks1.WorkNotAllowed', {
         'story': refusedStory,
         'detail': 'Work is still running',
       });
@@ -95,43 +89,13 @@ class _Backend extends Fake implements FleetBackend {
 }
 
 void main() {
-  // Harm: a navigation entry point bypasses the unsaved-work question and changes the current page.
-  test('all navigation entry points can be refused and explicitly resumed', () {
-    final machine = Machine(name: 'demo', socketPath: '');
-    final actions = <(void Function(ShellModel), Section)>[
-      ((shell) => shell.goTo(Section.work), Section.work),
-      ((shell) => shell.choosePlace(const ShellPlace(Section.work)), Section.work),
-      ((shell) => shell.openMachine(machine), Section.machine),
-      ((shell) => shell.openProject(machine, 'demo'), Section.project),
-      ((shell) => shell.show('test', section: Section.work), Section.work),
-    ];
-    for (final action in actions) {
-      final shell = ShellModel()..goTo(Section.planning);
-      void Function()? resume;
-      shell.beforeNavigation = (destination, next) {
-        expect(destination, action.$2);
-        resume = next;
-        return false;
-      };
-      action.$1(shell);
-      expect(shell.section, Section.planning);
-      expect(shell.place.section, Section.planning);
-      expect(shell.itemMachine, isNull);
-      expect(resume, isNotNull);
-      shell.beforeNavigation = null;
-      resume!();
-      expect(shell.section, action.$2);
-      shell.dispose();
-    }
-  });
-
   late _Backend backend;
   late PlanningBoard board;
   var disposed = false;
   setUp(() async {
     disposed = false;
     backend = _Backend();
-    board = PlanningBoard(FleetPlanningSource(backend), 'demo');
+    board = PlanningBoard(backend, 'demo');
     backend.changes.add(PlanningSnapshot.from(backend.data));
     await Future<void>.delayed(Duration.zero);
     backend.workflowReads = 0;
@@ -210,7 +174,7 @@ void main() {
   test('a refused explicit issue leaves the entire mixed batch pending and the store unchanged', () async {
     board.move('StoryOne', 'Done');
     board.moveIssue('IssueTwo', 'Ready');
-    backend.failure = const VarlinkException('StateNotAllowed', {'item': 'IssueTwo', 'reason': 'Policy refuses'});
+    backend.failure = mockRefusal('StateNotAllowed', {'item': 'IssueTwo', 'reason': 'Policy refuses'});
     await board.save();
     expect(backend.calls, hasLength(1));
     expect(board.pending, hasLength(2));
@@ -257,7 +221,7 @@ void main() {
           {'story': 'StoryTwo', 'to': 'Building'},
         ],
       }),
-      throwsA(isA<VarlinkException>().having((error) => error.parameters['item'], 'refused story', 'StoryTwo')),
+      throwsA(isA<PlanningRefusal>().having((error) => error.parameters['item'], 'refused story', 'StoryTwo')),
     );
     expect((source['stories'] as List<dynamic>).map((story) => story['state']), ['Ready', 'Ready']);
     expect((source['stories'] as List<dynamic>).first['issues'][0]['state'], 'Ready');
@@ -275,7 +239,7 @@ void main() {
           {'issue': 'missing', 'to': 'Done'},
         ],
       }),
-      throwsA(isA<VarlinkException>()),
+      throwsA(isA<PlanningRefusal>()),
     );
     expect((source['stories'] as List<dynamic>).first['issues'][0]['state'], 'Ready');
     for (final parameters in [
@@ -292,7 +256,7 @@ void main() {
         ],
       },
     ]) {
-      expect(() => applyPlanningMove(source, parameters), throwsA(isA<VarlinkException>()));
+      expect(() => applyPlanningMove(source, parameters), throwsA(isA<PlanningRefusal>()));
     }
     final result = applyPlanningMove(source, {
       'revision': 'initial',
@@ -373,9 +337,7 @@ void main() {
 
   // Harm: correcting one refused destination leaves Save blocked or clears another refusal.
   test('a new drag clears exactly its own refusal', () async {
-    backend.failure = const VarlinkException('org.fuin.porelo.Tasks1.WorkNotAllowed', {
-      'detail': 'Work is still running',
-    });
+    backend.failure = mockRefusal('org.fuin.porelo.Tasks1.WorkNotAllowed', {'detail': 'Work is still running'});
     board.move('StoryOne', 'Done');
     board.move('StoryTwo', 'Done');
     await board.save();
@@ -396,7 +358,7 @@ void main() {
       for (final named in [true, false]) {
         board.move('StoryOne', 'Done');
         board.move('StoryTwo', 'Done');
-        backend.failure = VarlinkException('org.fuin.porelo.Tasks1.$name', {
+        backend.failure = mockRefusal('org.fuin.porelo.Tasks1.$name', {
           'detail': 'The daemon refused this save',
           if (named) 'story': 'StoryOne',
         });
@@ -433,7 +395,7 @@ void main() {
       backend.listingStarted = Completer<void>();
       if (staleSave) {
         board.move('StoryOne', 'Done');
-        backend.failure = const VarlinkException('org.fuin.porelo.Tasks1.StaleRevision', {'detail': 'Board changed'});
+        backend.failure = mockRefusal('org.fuin.porelo.Tasks1.StaleRevision', {'detail': 'Board changed'});
       }
       final operation = staleSave ? board.save() : board.reload();
       await backend.listingStarted!.future;
@@ -472,7 +434,7 @@ void main() {
   // Harm: discarding every deferred watch loses a real later board after an RPC refusal.
   test('a complete deferred watch newer than the held board is applied', () async {
     backend.gate = Completer<void>();
-    backend.failure = const VarlinkException('org.fuin.porelo.Tasks1.NoSuchStory', {
+    backend.failure = mockRefusal('org.fuin.porelo.Tasks1.NoSuchStory', {
       'story': 'StoryOne',
       'detail': 'Story unavailable',
     });
@@ -493,7 +455,7 @@ void main() {
   test('undoing the last move or all moves clears the board error', () async {
     for (final all in [false, true]) {
       board.move('StoryOne', 'Done');
-      backend.failure = const VarlinkDisconnected('Connection lost');
+      backend.failure = const SocketException('Connection lost');
       await board.save();
       expect(board.moveProblem, contains('Connection lost'));
       if (all) {
@@ -543,7 +505,7 @@ void main() {
     backend.gate = Completer<void>();
     board.move('StoryOne', 'Done');
     final saved = board.save();
-    await board.changeProject(FleetPlanningSource(backend), 'demo');
+    await board.changeProject(backend, 'demo');
     expect(backend.watches, 1);
     backend.gate!.complete();
     await saved;
@@ -665,7 +627,7 @@ void main() {
   // Harm: the board calls a story move the machine made unconfirmed, keeping a saved move pending.
   test('a story move expects its least advanced issues to move, not those in its shown state', () async {
     board.move('StoryOne', 'Done');
-    backend.readFailure = const VarlinkException('org.fuin.porelo.Tasks1.PlanningAdapterRefused', {
+    backend.readFailure = mockRefusal('org.fuin.porelo.Tasks1.PlanningAdapterRefused', {
       'adapter': 'board',
       'detail': 'The store is not reachable',
     });
@@ -709,7 +671,7 @@ void main() {
   // Harm: a reread failing after a made save goes unsaid, or turns off saving for good.
   test('a failed reread after a confirmed save says so and leaves Save offered', () async {
     board.move('StoryTwo', 'Done');
-    backend.readFailure = const VarlinkException('org.fuin.porelo.Tasks1.NotYetBuilt', {'method': 'ListStories'});
+    backend.readFailure = mockRefusal('org.fuin.porelo.Tasks1.NotYetBuilt', {'method': 'ListStories'});
     await board.save();
     expect(board.pending, isEmpty);
     expect(board.moveProblem, isNotNull);
@@ -778,7 +740,7 @@ void main() {
           {'story': 'StoryOne', 'to': 'Done'},
         ],
       }),
-      throwsA(isA<VarlinkException>().having((error) => error.simpleName, 'refusal', 'MoveNotAllowed')),
+      throwsA(isA<PlanningRefusal>().having((error) => error.name, 'refusal', 'MoveNotAllowed')),
     );
   });
 

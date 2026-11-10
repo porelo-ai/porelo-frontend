@@ -1,18 +1,18 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:porelo_planning/planning_fake.dart';
 import 'package:porelo_planning/porelo_planning.dart';
 
-import '../features/support/world.dart';
-import '../support/planning_embedding.dart';
+import 'support/story_work_support.dart';
 
 Future<void> _turn() => Future<void>.delayed(Duration.zero);
 
 void main() {
-  late FakeBackend backend;
+  late MockPlanningSource backend;
   late PlanningBoard board;
   late StoryWork work;
   setUp(() async {
-    backend = FakeBackend([]);
-    board = PlanningBoard(FleetPlanningSource(backend), 'checkout');
+    backend = MockPlanningSource();
+    board = PlanningBoard(backend, 'checkout');
     await _turn();
     work = planningStoryWork(board, board.stories.firstWhere((story) => story.id == 'ST291'), 'Implementing');
     await work.load();
@@ -20,27 +20,27 @@ void main() {
   tearDown(() async {
     work.dispose();
     board.dispose();
-    await backend.stop();
+    await backend.end();
   });
 
   // Harm: a start runs in a mode the project does not allow.
   test('only allowed modes can start', () async {
-    final proposal = backend.storyWork.call('ProposeStoryWork', {
+    final proposal = backend.work.call('ProposeStoryWork', {
       'project': 'checkout',
       'story': 'ST291',
       'to': 'Implementing',
     });
-    backend.storyWork.proposals['ST291'] = {
+    backend.work.proposals['ST291'] = {
       ...proposal,
       'modes': ['UNATTENDED'],
     };
     await work.load();
     work.chooseMode('AGENT');
     expect(await work.start(), isFalse);
-    expect(backend.storyWork.calls.where((call) => call.$1 == 'StartStoryWork'), isEmpty);
+    expect(backend.work.calls.where((call) => call.$1 == 'StartStoryWork'), isEmpty);
     work.chooseMode('UNATTENDED');
     expect(await work.start(), isTrue);
-    expect(backend.storyWork.calls.where((call) => call.$1 == 'StartStoryWork').single.$2['mode'], 'UNATTENDED');
+    expect(backend.work.calls.where((call) => call.$1 == 'StartStoryWork').single.$2['mode'], 'UNATTENDED');
   });
 
   // Harm: dropping a reader silently removes review of outgoing work.
@@ -50,10 +50,10 @@ void main() {
     work.choose(repo.repository, reader, 'DROP');
     expect(work.canStart, isFalse);
     expect(await work.start(), isFalse);
-    expect(backend.storyWork.calls.where((call) => call.$1 == 'StartStoryWork'), isEmpty);
+    expect(backend.work.calls.where((call) => call.$1 == 'StartStoryWork'), isEmpty);
     work.setComment('Use the repository review outside this run.');
     expect(await work.start(), isTrue);
-    final request = backend.storyWork.calls.where((call) => call.$1 == 'StartStoryWork').single.$2;
+    final request = backend.work.calls.where((call) => call.$1 == 'StartStoryWork').single.$2;
     final sent =
         (((request['repositories'] as List).cast<Map<String, dynamic>>().firstWhere(
                   (item) => item['repository'] == repo.repository,
@@ -77,7 +77,7 @@ void main() {
     work.setRounds('5');
     work.setRounds('7', issue);
     expect(await work.start(), isTrue);
-    final request = backend.storyWork.calls.where((call) => call.$1 == 'StartStoryWork').single.$2;
+    final request = backend.work.calls.where((call) => call.$1 == 'StartStoryWork').single.$2;
     expect(request['readingRounds'], 5);
     expect(request['issueReadingRounds'], [
       {'issue': issue, 'rounds': 7},
@@ -104,12 +104,12 @@ void main() {
     work.setRounds('3');
     work.setRounds('0', work.proposal!.issues.first.id);
     expect(await work.start(), isFalse);
-    expect(backend.storyWork.calls.where((call) => call.$1 == 'StartStoryWork'), isEmpty);
+    expect(backend.work.calls.where((call) => call.$1 == 'StartStoryWork'), isEmpty);
   });
 
   // Harm: a refusal moves a card locally and hides the machine's explanation.
   test('refusal keeps the board and exposes detail', () async {
-    backend.storyWork.refusal = 'This repository cannot start on this machine.';
+    backend.work.refusal = 'This repository cannot start on this machine.';
     expect(await work.start(), isFalse);
     expect(work.problem, 'This repository cannot start on this machine.');
     expect(board.stories.firstWhere((story) => story.id == 'ST291').state, 'Backlog');
@@ -117,27 +117,27 @@ void main() {
 
   // Harm: work is sent with an obsolete proposal after another board revision arrives.
   test('a stale proposal cannot start', () async {
-    final snapshot = Map<String, dynamic>.of(backend.planning['checkout']!)..['revision'] = 'new';
-    backend.pushPlanning('checkout', snapshot);
+    final snapshot = Map<String, dynamic>.of(backend.boards['checkout']!)..['revision'] = 'new';
+    backend.push('checkout', snapshot);
     await _turn();
     expect(await work.start(), isFalse);
-    expect(backend.storyWork.calls.where((call) => call.$1 == 'StartStoryWork'), isEmpty);
+    expect(backend.work.calls.where((call) => call.$1 == 'StartStoryWork'), isEmpty);
   });
 
   // Harm: an unversioned board lets work start without detecting concurrent changes.
   test('a board without a revision cannot authorize a start', () async {
-    backend.pushPlanning('checkout', {...backend.planning['checkout']!, 'revision': ''});
+    backend.push('checkout', {...backend.boards['checkout']!, 'revision': ''});
     await _turn();
     work.dispose();
     work = planningStoryWork(board, board.stories.firstWhere((story) => story.id == 'ST291'), 'Implementing');
     await work.load();
     expect(await work.start(), isFalse);
-    expect(backend.storyWork.calls.where((call) => call.$1 == 'StartStoryWork'), isEmpty);
+    expect(backend.work.calls.where((call) => call.$1 == 'StartStoryWork'), isEmpty);
   });
 
   // Harm: a successful response fabricates a state before the daemon's board echo.
   test('start waits for the board echo', () async {
-    backend.storyWork.deferEcho = true;
+    backend.work.deferEcho = true;
     expect(await work.start(), isTrue);
     expect(board.stories.firstWhere((story) => story.id == 'ST291').state, 'Backlog');
   });

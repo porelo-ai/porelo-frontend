@@ -8,58 +8,6 @@ import 'package:porelo_frontend/src/app/fleet_model.dart';
 /// A backend that is reachable and useless: the socket opens and nothing is ever answered.
 class _Wedged implements FleetBackend {
   @override
-  Future<PlanStoryDetail> getStory(String project, String story) async => throw const FeatureNotSupported('GetStory');
-
-  @override
-  Future<PlanIssueList> listStoryIssues(String project, String story) async =>
-      throw const FeatureNotSupported('ListStoryIssues');
-
-  @override
-  Future<PlanIssueDetail> getIssue(String project, String issue) async => throw const FeatureNotSupported('GetIssue');
-
-  @override
-  Future<StoryWorkProposal> proposeStoryWork(String project, String story, String to) async =>
-      throw const FeatureNotSupported('story work');
-  @override
-  Future<StoryWorkStarted> startStoryWork(StoryWorkRequest request) async =>
-      throw const FeatureNotSupported('story work');
-  @override
-  Future<StoryWorkStatus> getStoryWork(String project, String story) async =>
-      throw const FeatureNotSupported('story work');
-  @override
-  Future<StoryWorkStatus> stopStoryWork(String project, String story) async =>
-      throw const FeatureNotSupported('story work');
-  @override
-  Future<PlanningIssueDetail> getPlanningIssue(String project, String issue) async =>
-      throw const FeatureNotSupported('reading');
-  @override
-  Future<ReadingResolution> resolveIssueReading(
-    String project,
-    String story,
-    String issue,
-    int round,
-    String choice,
-    String revision, {
-    String? comment,
-  }) async => throw const FeatureNotSupported('reading');
-
-  @override
-  Future<PlanningSnapshot> planningWorkflow(String project) async => throw const FeatureNotSupported('planning');
-
-  @override
-  Future<PlanningMoveResult> saveMoves(String project, List<PlanningMove> moves, String revision) async =>
-      throw const FeatureNotSupported('SaveMoves');
-
-  @override
-  Future<String> refreshStories(String project) async => throw const FeatureNotSupported('RefreshStories');
-
-  @override
-  Future<PlanningSnapshot> stories(String project) async => throw const FeatureNotSupported('planning');
-
-  @override
-  Stream<PlanningSnapshot> watchStories(String project) => Stream.error(const FeatureNotSupported('planning'));
-
-  @override
   Future<TakenProject> takeProject(String project) async => const TakenProject();
 
   @override
@@ -478,58 +426,6 @@ class _Wedged implements FleetBackend {
 /// A machine that lists one project nothing has ever run on, and one task belonging to a project
 /// it does not list at all.
 class _Machine implements FleetBackend {
-  @override
-  Future<PlanStoryDetail> getStory(String project, String story) async => throw const FeatureNotSupported('GetStory');
-
-  @override
-  Future<PlanIssueList> listStoryIssues(String project, String story) async =>
-      throw const FeatureNotSupported('ListStoryIssues');
-
-  @override
-  Future<PlanIssueDetail> getIssue(String project, String issue) async => throw const FeatureNotSupported('GetIssue');
-
-  @override
-  Future<StoryWorkProposal> proposeStoryWork(String project, String story, String to) async =>
-      throw const FeatureNotSupported('story work');
-  @override
-  Future<StoryWorkStarted> startStoryWork(StoryWorkRequest request) async =>
-      throw const FeatureNotSupported('story work');
-  @override
-  Future<StoryWorkStatus> getStoryWork(String project, String story) async =>
-      throw const FeatureNotSupported('story work');
-  @override
-  Future<StoryWorkStatus> stopStoryWork(String project, String story) async =>
-      throw const FeatureNotSupported('story work');
-  @override
-  Future<PlanningIssueDetail> getPlanningIssue(String project, String issue) async =>
-      throw const FeatureNotSupported('reading');
-  @override
-  Future<ReadingResolution> resolveIssueReading(
-    String project,
-    String story,
-    String issue,
-    int round,
-    String choice,
-    String revision, {
-    String? comment,
-  }) async => throw const FeatureNotSupported('reading');
-
-  @override
-  Future<PlanningSnapshot> planningWorkflow(String project) async => throw const FeatureNotSupported('planning');
-
-  @override
-  Future<PlanningMoveResult> saveMoves(String project, List<PlanningMove> moves, String revision) async =>
-      throw const FeatureNotSupported('SaveMoves');
-
-  @override
-  Future<String> refreshStories(String project) async => throw const FeatureNotSupported('RefreshStories');
-
-  @override
-  Future<PlanningSnapshot> stories(String project) async => throw const FeatureNotSupported('planning');
-
-  @override
-  Stream<PlanningSnapshot> watchStories(String project) => Stream.error(const FeatureNotSupported('planning'));
-
   @override
   Future<TakenProject> takeProject(String project) async => const TakenProject();
 

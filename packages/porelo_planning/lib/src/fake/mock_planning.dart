@@ -272,6 +272,9 @@ class MockPlanningClient extends ChangeNotifier implements PlanningClient {
     changes?.removeListener(listener);
   }
 
+  /// Tells the listeners that the providers, or the window's choice among them, changed.
+  void changed() => notifyListeners();
+
   @override
   List<PlanningProvider> get providers => _providers();
 

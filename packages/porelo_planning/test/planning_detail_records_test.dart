@@ -1,7 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:porelo_frontend/client.dart';
-import 'package:porelo_frontend/src/mock/planning_data.dart';
-import 'package:porelo_frontend/src/mock/planning_moves.dart';
+import 'package:porelo_planning/planning_fake.dart';
+import 'package:porelo_planning/porelo_planning.dart';
 
 void main() {
   // Harm: omitted or malformed detail fields masquerade as a clean reading or completed work.
@@ -236,7 +235,7 @@ void main() {
         'revision': 'old',
       }),
       throwsA(
-        isA<VarlinkException>().having((error) => error.simpleName, 'name', 'StaleRevision').having(
+        isA<PlanningRefusal>().having((error) => error.name, 'name', 'StaleRevision').having(
           (error) => error.parameters,
           'parameters',
           {'revision': 'r1'},
@@ -252,7 +251,7 @@ void main() {
         'revision': 'r1',
       }),
       throwsA(
-        isA<VarlinkException>().having((error) => error.simpleName, 'name', 'EnteredOnlyByWork').having(
+        isA<PlanningRefusal>().having((error) => error.name, 'name', 'EnteredOnlyByWork').having(
           (error) => error.parameters,
           'parameters',
           {'item': 'second', 'to': 'Working'},
@@ -268,7 +267,7 @@ void main() {
         'revision': 'r1',
       }),
       throwsA(
-        isA<VarlinkException>().having((error) => error.simpleName, 'name', 'StateNotAllowed').having(
+        isA<PlanningRefusal>().having((error) => error.name, 'name', 'StateNotAllowed').having(
           (error) => error.parameters.keys.toSet(),
           'fields',
           {'item', 'from', 'to', 'reason'},
@@ -283,7 +282,7 @@ void main() {
         'revision': 'r1',
       }),
       throwsA(
-        isA<VarlinkException>().having((error) => error.simpleName, 'name', 'NoSuchIssue').having(
+        isA<PlanningRefusal>().having((error) => error.name, 'name', 'NoSuchIssue').having(
           (error) => error.parameters.keys.toSet(),
           'fields',
           {'issue'},
