@@ -84,8 +84,9 @@ check() {
             command -v "$t" >/dev/null || echo "tool $t"
         done
         for p in libgtk-3-dev libsecret-1-dev; do dpkg -s "$p" >/dev/null 2>&1 || echo "package $p"; done
-        porelo identity show --json >/dev/null 2>&1 || echo "no porelo identity here: copy in the test person'"'"'s card"
-        porelo org --json >/dev/null 2>&1 || echo "porelo follows no organization here: copy in its organization.yml"') || {
+        c=${XDG_CONFIG_HOME:-$HOME/.config}/porelo
+        [ -s "$c/identity/card" ] || echo "no porelo identity here: copy in the test person'"'"'s card"
+        [ -s "$c/organization.yml" ] || echo "porelo follows no organization here: copy in its organization.yml"') || {
         echo "rehearse: $vm cannot be reached with $vm_key" >&2
         return 1
     }
@@ -96,6 +97,13 @@ check() {
         packages=$(printf '%s\n' "$missing" | sed -n 's/^package //p; s/^tool xvfb-run$/xvfb/p; s/^tool \(clang\|cmake\|git\|curl\)$/\1/p;
             s/^tool ninja$/ninja-build/p; s/^tool pkg-config$/pkg-config/p; s/^tool xz$/xz-utils/p; s/^tool dbus-run-session$/dbus/p' | tr '\n' ' ')
         [ -z "$packages" ] || echo "  the operator installs them there with: sudo apt install $packages" >&2
+        return 1
+    fi
+    # The organization is read only with the test person's agent, named in REHEARSAL_PERSON_AGENT as the rehearsal
+    # names it; never with the agent of whoever calls the check.
+    if [ -n "${REHEARSAL_PERSON_AGENT:-}" ] &&
+        ! SSH_AUTH_SOCK=$REHEARSAL_PERSON_AGENT as_the_person_on_vm 'porelo org --json >/dev/null 2>&1'; then
+        echo "rehearse: porelo on $vm cannot read the organization with the agent given" >&2
         return 1
     fi
     echo "rehearse: $vm has what the run needs; Flutter $flutter_version is fetched into ~/$flutter_dir if missing"
