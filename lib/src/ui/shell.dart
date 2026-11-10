@@ -81,14 +81,10 @@ import 'package:porelo_host/porelo_host.dart'
         HostCardSsh,
         HostFilesRefused,
         OpenSsh,
-        ProjectTransfer,
         organizationRefreshArguments,
         organizationRefreshFeedCommand,
-        RemoteNotStarted,
-        SecretsFile,
-        projectTransferFeedCommand;
+        SecretsFile;
 
-import '../app/project_transfers.dart';
 import '../app/host_keys.dart' show SshHostKeys;
 import '../app/host_token_sources.dart';
 import '../app/server_first_login.dart' show tryRootLogin;
@@ -112,7 +108,6 @@ import 'project_deletion_view.dart';
 import 'projects_page.dart';
 import 'machine_details_page.dart';
 import 'project_details_page.dart';
-import '../app/project_standing.dart';
 import 'shell_rail.dart';
 import 'facts_page.dart';
 import 'filtered_list_section.dart';
@@ -396,12 +391,6 @@ class _ShellState extends State<Shell> {
   late final Attention _attention;
   late final HostRuns _hostRuns;
 
-  /// The central transfers' guards; each transfer itself runs in a terminal the person types the master password into.
-  final _transfers = ProjectTransfers(source: _TerminalOnly());
-
-  /// The card host projects whose push or pull runs now, `<machine>/<project>`: one at a time each.
-  final _transfersRunning = <String>{};
-
   /// The host `main`s brought to central from a project's page, and what each said last.
   final _centralReleases = CentralReleases();
 
@@ -489,9 +478,6 @@ class _ShellState extends State<Shell> {
         );
       });
     }
-    _standings.addListener(_homeserversChanged);
-    unawaited(_standings.read());
-    _organization?.addListener(_readStandings);
     _hostRuns = HostRuns(
       widget.machines,
       hostAccess: widget.hostAccess,
@@ -649,11 +635,6 @@ class _ShellState extends State<Shell> {
     }
   }
 
-  /// How this person stands in each project, which decides whether they may move its work.
-  late final ProjectStandings _standings = ProjectStandings(widget.organizationSource);
-
-  void _readStandings() => unawaited(_standings.read());
-
   Timer? _refreshing;
   int _refreshingEvery = -1;
   int _organizationPageRefresh = 0;
@@ -678,8 +659,6 @@ class _ShellState extends State<Shell> {
   Future<void> _readAll({bool quietly = false}) async {
     final identity = widget.identity;
     if (widget.shell.section == Section.organization && identity != null && !identity.busy) await identity.load();
-    if (!mounted) return;
-    await _standings.read();
     if (!mounted) return;
     // refresh() first forgets the answers it kept; the quiet timer leaves the store alone.
     if (!quietly) {
@@ -1866,19 +1845,6 @@ class _ShellState extends State<Shell> {
               });
               widget.shell.goTo(Section.machines);
             }
-          },
-          menuFor: (project, host) {
-            final machine = widget.machines.all.where((machine) => machine.hostCard?.name == host).firstOrNull;
-            if (machine == null) return const [];
-            return cardHostTransferCommands(
-              transfers: _transfers,
-              machine: machine,
-              project: project,
-              whyNoRight: _standings.whyNoRight(project),
-              hasSecrets: centralToken(widget.settings.secretsFile, desk.environment) != null,
-              running: _transfersRunning.contains('${machine.name}/$project'),
-              start: (direction) => unawaited(_transferInATerminal(machine, project, direction)),
-            );
           },
           onOthers: () => setState(() => _machineProjects = true),
         )
@@ -5731,16 +5697,6 @@ class _ShellState extends State<Shell> {
           on: machine,
         ).where((command) => project.name != defaultProject || command.id != 'project.clear'),
       if (watched) ..._centralCommands(machine, project, answering: answering),
-      if (watched)
-        ...cardHostTransferCommands(
-          transfers: _transfers,
-          machine: machine,
-          project: project.name,
-          whyNoRight: _standings.whyNoRight(project.name),
-          hasSecrets: centralToken(widget.settings.secretsFile, desk.environment) != null,
-          running: _transfersRunning.contains('${machine.name}/${project.name}'),
-          start: (direction) => unawaited(_transferInATerminal(machine, project.name, direction)),
-        ),
     ];
   }
 
@@ -5831,29 +5787,6 @@ class _ShellState extends State<Shell> {
       } on Exception {
         // Not heard now: the page says what the host said last, and this window's own answer.
       }
-    }
-  }
-
-  /// Pushes the approved main, or takes the central state, in a terminal here: the terminal reads the central token
-  /// from the variable this instance was started with, or from the person's secrets file after its master password
-  /// is typed there, and hands it to the host's own command on its standard input, so the token never passes through this
-  /// program.
-  Future<void> _transferInATerminal(Machine machine, String project, ProjectTransfer direction) async {
-    final key = '${machine.name}/$project';
-    if (!_transfersRunning.add(key)) return;
-    setState(() {});
-    try {
-      // The menu was built from an earlier read; a lock since then must stop this run.
-      await _standings.read();
-      if (!mounted) return;
-      if (_standings.whyNoRight(project) case final why?) {
-        _fleet.say(why);
-        return;
-      }
-      await _transferOnce(machine, project, direction);
-    } finally {
-      _transfersRunning.remove(key);
-      if (mounted) setState(() {});
     }
   }
 
@@ -6091,44 +6024,6 @@ class _ShellState extends State<Shell> {
             'from that file and sends it to $target on its standard input; this window does not see or keep it.'
       : 'The terminal sends the central forge token this instance was started with to $target on its standard input, '
             'and asks nothing.';
-
-  Future<void> _transferOnce(Machine machine, String project, ProjectTransfer direction) async {
-    final card = machine.hostCard;
-    if (card == null) return;
-    final List<String> command;
-    final CentralToken? secrets;
-    try {
-      secrets = centralToken(widget.settings.secretsFile, desk.environment);
-      if (secrets == null) return;
-      command = projectTransferFeedCommand(
-        direction: direction,
-        project: project,
-        repositories: const [],
-        card: card,
-        config: machine.sshConfig,
-        token: secrets,
-        marked: false,
-      );
-    } on HostFilesRefused catch (refused) {
-      _fleet.say(refused.message);
-      return;
-    } on FormatException catch (refused) {
-      _fleet.say(refused.message);
-      return;
-    }
-    if (!mounted) return;
-    final push = direction == ProjectTransfer.push;
-    await runInATerminal(
-      context,
-      title: push ? 'Push the approved main of $project' : 'Take the central state of $project',
-      explanation: _centralTokenWords(secrets, machine.name),
-      machine: machine,
-      command: command,
-      open: widget.sessions.openTerminal,
-      showCommand: false,
-      completed: push ? 'The approved main was pushed.' : 'The central state was taken.',
-    );
-  }
 
   /// One project's page on [machine]: under My projects, or, opened [from] the machine, what of it is on that machine,
   /// with the host's [progress] where it was read and why not where [notRead] says.
@@ -6760,9 +6655,7 @@ class _ShellState extends State<Shell> {
     _hostConnections?.removeListener(_askHostsOnce);
     _tokens.dispose();
     if (widget.hostConnections == null) _hostConnections?.dispose();
-    _organization?.removeListener(_readStandings);
     _organization?.dispose();
-    _transfers.dispose();
     _centralReleases.removeListener(_homeserversChanged);
     _centralReleases.dispose();
     for (final run in _runs.values) {
@@ -6795,8 +6688,6 @@ class _ShellState extends State<Shell> {
     _handIns.dispose();
     _startingAgents.dispose();
     // Only the one made here: a connection the app handed in is the app's.
-    _standings.removeListener(_homeserversChanged);
-    _standings.dispose();
     if (widget.forges == null) _forges.dispose();
     super.dispose();
   }
@@ -6891,15 +6782,4 @@ String signInExplanation(Agent agent, String machine) {
       '$opening Then follow what the terminal below says.'
           '${agent.loginDocumentation.isEmpty ? '' : ' The agent describes its sign-in at ${agent.loginDocumentation}.'} $stored',
   };
-}
-
-/// Stands behind the transfer guards only: a transfer runs in the person's terminal, never through this source.
-class _TerminalOnly implements CentralTransferSource {
-  @override
-  Future<TransferResult> run(
-    TransferSelection selection,
-    ProjectTransfer direction, {
-    required void Function() onSubmitted,
-    void Function(String line)? onLine,
-  }) => throw const RemoteNotStarted();
 }

@@ -283,9 +283,6 @@ class CentralState {
       repositories.isEmpty ||
       repositories.any((row) => row.state != 'ahead' && row.state != 'up-to-date' && row.state != 'moved-on');
 
-  /// Whether to offer the push beside the row.
-  bool get offersPush => ahead > 0 && !movedOn;
-
   /// What the row says, with [forge] the central forge's name.
   String words(String forge) {
     if (movedOn) return '$forge has moved on: a push would be refused';

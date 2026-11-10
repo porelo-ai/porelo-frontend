@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:porelo_host/porelo_host.dart' show ProjectTransfer;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:porelo_frontend/client.dart';
@@ -26,7 +25,6 @@ import 'start_work.dart';
 import 'task_certifying.dart';
 import 'templates.dart';
 import 'vault.dart';
-import 'project_transfers.dart';
 import 'central_reviews.dart';
 import 'forge.dart';
 import 'links.dart';
@@ -1809,66 +1807,6 @@ Command putAwayQuestionCommand({required VoidCallback run, String? unavailable})
 /// Puts away a failed operation without opening what it printed.
 Command operationSeenCommand({required VoidCallback run, String? unavailable}) =>
     _attentionRowCommand(id: 'operation.seen', label: 'Seen', run: run, unavailable: unavailable);
-
-/// Project-menu actions for a person with a role in the project, independent of startup roles.
-List<Command> projectTransferCommands({
-  required ProjectTransfers transfers,
-  required TransferSelection selection,
-  required void Function(ProjectTransfer direction) start,
-}) => [
-  for (final direction in ProjectTransfer.values)
-    Command(
-      id: direction == ProjectTransfer.push ? 'project.pushApprovedMain' : 'project.takeCentralState',
-      label: direction == ProjectTransfer.push ? 'Push the approved main…' : 'Take the central state…',
-      group: selection.project,
-      home: Home.projectMenu,
-      unavailable: transfers.unavailable(selection),
-      run: () {
-        if (transfers.unavailable(selection) == null) start(direction);
-      },
-    ),
-];
-
-/// The project menu's central transfers for a project on a card host, the person being the card's login.
-///
-/// [whyNoRight] says why the person holds no working role in the project, null when they do; the host itself refuses
-/// what the role does not allow. Without a secrets file ([hasSecrets] false) nothing can feed the central token.
-List<Command> cardHostTransferCommands({
-  required ProjectTransfers transfers,
-  required Machine machine,
-  required String project,
-  required String? whyNoRight,
-  required bool hasSecrets,
-  required void Function(ProjectTransfer direction) start,
-  bool running = false,
-}) {
-  final card = machine.hostCard;
-  if (card == null || project == defaultProject) return const [];
-  final selection = TransferSelection(
-    machine: machine,
-    person: card.login,
-    forge: 'central',
-    project: project,
-    canPush: whyNoRight == null,
-  );
-  final why = running
-      ? 'A push or pull of this project runs already; wait for its end.'
-      : whyNoRight ??
-            (hasSecrets ? null : 'Choose your secrets file under My forges first: the central token is read from it.');
-  return [
-    for (final command in projectTransferCommands(transfers: transfers, selection: selection, start: start))
-      why == null
-          ? command
-          : Command(
-              id: command.id,
-              label: command.label,
-              group: command.group,
-              home: command.home,
-              unavailable: why,
-              run: () {},
-            ),
-  ];
-}
 
 /// Explicit central forge actions for the project menu and selected request.
 List<Command> centralReviewCommands({

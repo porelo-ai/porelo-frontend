@@ -165,109 +165,28 @@ void main() {
 
   // Harm: a person cannot see that approved work waits to go to the central forge, or takes cannot say for up to date.
   group('how a project stands with the central forge', () {
-    for (final (answer, words, offers) in [
+    for (final (answer, words) in [
       (
         '{"read_at":"2026-11-03T15:00:01Z","repositories":[{"repository":"a","state":"ahead","commits":3}]}',
         '3 approved commits not yet at',
-        true,
       ),
-      ('{"repositories":[{"repository":"a","state":"up-to-date"}]}', 'up to date with', false),
+      ('{"repositories":[{"repository":"a","state":"up-to-date"}]}', 'up to date with'),
       (
         '{"repositories":[{"repository":"a","state":"ahead","commits":1},{"repository":"c","state":"moved-on"}]}',
         'has moved on: a push would be refused',
-        false,
       ),
       (
         '{"repositories":[{"repository":"a","state":"cannot-say","why":"unreachable"}]}',
         'cannot say how it stands with',
-        false,
       ),
-      ('{"repositories":[]}', 'cannot say how it stands with', false),
-      ('not json', 'cannot say how it stands with', false),
+      ('{"repositories":[]}', 'cannot say how it stands with'),
+      ('not json', 'cannot say how it stands with'),
     ]) {
       test('$answer says $words', () {
         final state = CentralState.fromAnswer(answer);
         expect(state.words('GitHub'), contains(words));
-        expect(state.offersPush, offers);
       });
     }
-
-    // Harm: a machine's words forge a line of the row, or turn its reason round.
-    testWidgets('a reason from a machine is shown as text it cannot arrange', (tester) async {
-      final organization = Organization(FixtureOrganization(organizationFor('mia')));
-      addTearDown(organization.dispose);
-      await _settle(
-        tester,
-        OrganizationProjectsPage(
-          organization: organization,
-          connections: _Central(),
-          onProject: (_) {},
-          menuFor: (project, host) => [
-            Command(
-              id: 'project.pushApprovedMain',
-              label: 'Push the approved main…',
-              group: project,
-              run: () {},
-              unavailable: 'refused\nall is well\u202e',
-            ),
-          ],
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(find.textContaining('refused?all is well?'), findsOneWidget);
-    });
-
-    // Harm: a grey push whose reason only a hover can find.
-    testWidgets('a push that cannot be asked says why in the row', (tester) async {
-      final organization = Organization(FixtureOrganization(organizationFor('mia')));
-      addTearDown(organization.dispose);
-      await _settle(
-        tester,
-        OrganizationProjectsPage(
-          organization: organization,
-          connections: _Central(),
-          onProject: (_) {},
-          menuFor: (project, host) => [
-            Command(
-              id: 'project.pushApprovedMain',
-              label: 'Push the approved main…',
-              group: project,
-              run: () {},
-              unavailable: 'the host is not connected',
-            ),
-          ],
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(find.textContaining('Push the approved main: the host is not connected'), findsOneWidget);
-    });
-
-    testWidgets('a row offers the push only while commits wait, beside the row', (tester) async {
-      var pushed = 0;
-      final organization = Organization(FixtureOrganization(organizationFor('mia')));
-      addTearDown(organization.dispose);
-      final connections = _Central();
-      await _settle(
-        tester,
-        OrganizationProjectsPage(
-          organization: organization,
-          connections: connections,
-          onProject: (_) {},
-          menuFor: (project, host) => [
-            Command(
-              id: 'project.pushApprovedMain',
-              label: 'Push the approved main…',
-              group: project,
-              run: () => pushed++,
-            ),
-          ],
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(find.textContaining('2 approved commits not yet at'), findsOneWidget);
-      await _tap(tester, find.byKey(const ValueKey('organization.pushApprovedMain demo')));
-      expect(pushed, 1);
-    });
   });
 
   // Harm: a locked member takes their project for one they can work on; a local project cannot be found from here.
@@ -444,6 +363,20 @@ void main() {
       await connections.disconnect('build');
       await tester.pump();
       expect(connect, findsOneWidget, reason: 'A connection ended elsewhere must be offered again here.');
+    });
+
+    // Harm: approved work that waits for central goes unseen, or the row offers a second way to release it beside the
+    // project's page on its host, where *Bring it to central…* brings it.
+    testWidgets('a row says what waits for central, and offers no push of its own', (tester) async {
+      final organization = Organization(FixtureOrganization(organizationFor('mia')));
+      addTearDown(organization.dispose);
+      await _settle(
+        tester,
+        OrganizationProjectsPage(organization: organization, connections: _Central(), onProject: (_) {}),
+      );
+      await tester.pumpAndSettle();
+      expect(find.textContaining('2 approved commits not yet at'), findsOneWidget);
+      expect(find.textContaining('Push the approved main'), findsNothing);
     });
 
     // Harm: a host lists a project only after a first start, so a member cannot push what the host gathered.

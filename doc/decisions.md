@@ -887,8 +887,8 @@ organization's card, and is told what is missing where the card is not enough.
 ## A row's actions are behind one menu, and a page's lists are cards
 
 Every row of *Organization*, of a machine's page and of a project's page holds its actions in one ⋮, as *Machines*,
-*Projects* and *Forges* already did, because a row with five actions is wider than the pane. Two stand beside the row:
-*Connect* while not connected, and *Push the approved main…* while approved commits wait. A person sees only the actions
+*Projects* and *Forges* already did, because a row with five actions is wider than the pane. One stands beside the
+row: *Connect* while not connected. A person sees only the actions
 of their roles, so a row with none shows no menu, and what cannot be run stays greyed with its reason. What adds to a
 section, and *Add me*, is on no row and stays visible.
 

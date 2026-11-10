@@ -24,8 +24,10 @@ naming a refused login, is on Porelo's main (2026-11-10), in its review.
   Tasks1 `PushToCentral` streams the stages, and the page says what reached central or why not.
 - A refused token reads as refused, with the forge and its status; a missing central token offers the machine's own
   store command in a terminal on it; the window never sees a token.
-- *Push the approved main…*, the older terminal transfer through the secrets file, still stands beside it in the
-  project menu.
+- (operator, 2026-11-10) *Bring it to central…* replaces *Push the approved main…* and *Take the central state…*:
+  the terminal transfer through the secrets file and the host's old push program is gone from the project menu and
+  from the organization's project rows, with its guards by role, which only it used; the row still says what waits
+  for central.
 - Reading fixed: forgetting a machine and closing the window cancel its push and end the wait on it; a second press
   while the question is open or the push runs starts nothing, and an empty list pushes nothing; a repository the
   machine does not carry, the host's placement leaves out or the host has not taken is never named, nor one this

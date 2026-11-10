@@ -1,17 +1,12 @@
-import 'package:porelo_host/porelo_host.dart';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
-import 'package:porelo_frontend/src/app/commands.dart';
-import 'package:porelo_frontend/src/app/project_transfers.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
 import 'package:porelo_frontend/src/ui/command_menu.dart';
 
 import '../features/step/the_project_has_the_repositories.dart';
 import '../features/support/world.dart';
-import '../support/transfer_selection.dart';
 
 Future<void> _project(WidgetTester tester) async {
   await World.startBackend(World.work);
@@ -26,20 +21,6 @@ Future<void> _start(WidgetTester tester) async {
   World.starting.chooseAgent('an-agent');
   await World.settle(tester);
   await World.tapInView(tester, 'start-go');
-}
-
-class _UnavailableTerminal implements CentralTransferSource {
-  int reads = 0;
-  @override
-  Future<TransferResult> run(
-    TransferSelection selection,
-    ProjectTransfer direction, {
-    required void Function() onSubmitted,
-    void Function(String)? onLine,
-  }) async {
-    reads++;
-    throw const RemoteNotStarted();
-  }
 }
 
 void main() {
@@ -61,52 +42,6 @@ void main() {
     expect(World.backend.starts.map((start) => start.repository), ['billing-api']);
     expect(World.elsewhere.starts, isEmpty);
   });
-  for (final admitted in [false, true]) {
-    // Harm: a project action bypasses admission or starts SSH with no vault credential.
-    testWidgets('central transfer stops before host execution when admitted=$admitted and the vault is unavailable', (
-      tester,
-    ) async {
-      tester.view.physicalSize = const Size(1280, 800);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-      final vault = _UnavailableTerminal();
-      final transfers = ProjectTransfers(source: vault);
-      addTearDown(transfers.dispose);
-      final chosen = selection(allowed: admitted);
-      Future<TransferAnswer>? pending;
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: Center(
-              child: CommandMenu(
-                tooltip: 'Project actions',
-                commands: projectTransferCommands(
-                  transfers: transfers,
-                  selection: chosen,
-                  start: (direction) {
-                    pending = transfers.start(chosen, direction, refresh: () async {});
-                  },
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-      expect(vault.reads, 0);
-      await tester.tap(find.byType(PopupMenuButton<String>));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-      final item = tester.widget<PopupMenuItem<String>>(find.byKey(const Key('project.pushApprovedMain')));
-      expect(item.enabled, admitted);
-      if (admitted) {
-        await tester.tap(find.byKey(const Key('project.pushApprovedMain')));
-        await tester.pump(const Duration(milliseconds: 300));
-        expect((await pending!).state, TransferState.unavailable);
-      }
-      expect(vault.reads, admitted ? 1 : 0);
-    });
-  }
 
   // Harm: work starts in a different repository than the row that opened the form.
   testWidgets('a row start keeps its repository until Change chooses another', (tester) async {

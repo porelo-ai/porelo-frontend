@@ -204,6 +204,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Removed
 
+- *Push the approved main…* and *Take the central state…*, the terminal transfer through the secrets file and the host's old push program, are gone from the project menu and the organization's project rows: *Bring it to central…* on the project's page on its host replaces them.
 - The interface's own organization checkout and its reads: the repository setting, the private checkout, the bundle
   and access contracts behind them, the host's former signed publication and its returned-host memory. The
   `--roles project-admin` role is gone: a project admin is whoever the organization says.

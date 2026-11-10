@@ -224,16 +224,14 @@ prepared, as the host's own play stops, and the host vault is not opened from he
 address, as `porelo host unlock` takes neither, which the interface says in words. A whole preparation given by name, and any
 run over a real IPv6 network, have not been tried.
 
-*Push the approved main…* and *Take the central state…* run the host's own commands for a person whom
-`porelo project list` gives a role in that project and does not list as locked. The list is read at start, on
-every refresh and again when either is chosen. While it cannot be read, or where this computer reads no
-organization, both stay listed as unavailable with the reason.
+*Bring it to central…*, on a project's page on its host, is the one way the window releases a host's approved main
+to the central forge: through the machine's own `PushToCentral`, after the person agreed to the commits it names. The
+host refuses what a person's role does not allow, and the page says it in the machine's words.
 
 A project's row says how its machine's approved commits stand with the central forge, from `porelo-host-push --central`
 read as root over the person's connection: so many waiting, up to date, the forge moved on, or that it cannot say, which
-never reads as up to date. The answer can be five minutes old and says when it was read. It only prompts: *Push the
-approved main…* stands beside the row while commits wait, for every member not locked, as pushing is no admin's
-privilege, and the push itself decides.
+never reads as up to date. The answer can be five minutes old and says when it was read. The row only says it: the
+work is brought there from the project's page on its host.
 
 *Set up a machine…* opens for a person the organization names as a Machine Admin of that very machine, judged on what
 `porelo org --json` answers, read again before anything happens; a `stale` answer prepares nothing. The wizard asks

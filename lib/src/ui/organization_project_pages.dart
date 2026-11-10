@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../app/commands.dart';
-import '../app/task_certifying.dart';
 import '../app/host_progress.dart';
 import '../app/organization_source.dart';
 import '../app/repository_address.dart';
@@ -119,12 +118,8 @@ class _OrganizationProjectsPageState extends State<OrganizationProjectsPage> {
   String _greyWords(OrganizationProject project, OrganizationView view) {
     final host = project.host;
     if (host == null || _isLocked(project)) return '';
-    final push = (_central[project.name]?.offersPush ?? false)
-        ? widget.menuFor?.call(project.name, host).where((each) => each.id == 'project.pushApprovedMain').firstOrNull
-        : null;
     final connects = view.holdsRoles && !(widget.connections?.connected(host) ?? false);
     return <String>[
-      if (push?.unavailable case final why?) '${push!.label.replaceAll('…', '')}: ${printableForAPerson(why)}',
       if (connects && widget.connections == null) 'This computer has no way to connect yet.',
       if (connects && _connecting.contains(host)) 'Connecting to $host…',
     ].map((words) => ' · $words').join();
@@ -264,18 +259,6 @@ class _OrganizationProjectsPageState extends State<OrganizationProjectsPage> {
         crossAxisAlignment: WrapCrossAlignment.center,
         spacing: Space.normal,
         children: [
-          if (_central[project.name]?.offersPush ?? false)
-            if (project.host case final host? when !_isLocked(project))
-              for (final command in widget.menuFor?.call(project.name, host) ?? const <Command>[])
-                if (command.id == 'project.pushApprovedMain')
-                  Tooltip(
-                    message: command.unavailable ?? command.label,
-                    child: OutlinedButton(
-                      key: ValueKey('organization.pushApprovedMain ${project.name}'),
-                      onPressed: command.available ? command.run : null,
-                      child: Text(command.label),
-                    ),
-                  ),
           if (project.host case final host? when !_isLocked(project))
             if (view.holdsRoles && !(widget.connections?.connected(host) ?? false))
               Tooltip(
