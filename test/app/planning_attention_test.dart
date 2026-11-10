@@ -4,10 +4,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/attention.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
-import 'package:porelo_frontend/src/app/planning_board.dart';
 import 'package:porelo_frontend/src/app/settings.dart';
+import 'package:porelo_planning/porelo_planning.dart';
 
 import '../features/support/world.dart';
+import '../support/planning_embedding.dart';
 
 Map<String, dynamic> _snapshot(String revision, {bool stopped = false, bool working = false}) => {
   'states': [
@@ -69,7 +70,7 @@ class _Environment {
     );
     await machines.add(const Machine(name: 'builder', socketPath: '/tmp/builder.sock', kind: 'host'));
     await Future.wait([for (final machine in machines.all) machines.of(machine).untilAsked()]);
-    boards = PlanningBoards(machines);
+    boards = PlanningBoards(DaemonPlanningClient(machines));
     attention = Attention(machines)..planning = boards;
     await _turn();
   }

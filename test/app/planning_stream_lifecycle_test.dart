@@ -3,9 +3,10 @@ import 'dart:async';
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
-import 'package:porelo_frontend/src/app/planning_board.dart';
+import 'package:porelo_planning/porelo_planning.dart';
 
 import '../features/support/world.dart';
+import '../support/planning_embedding.dart';
 
 Future<void> _primeCancellation() async {
   final stream = StreamController<void>.broadcast();
@@ -22,7 +23,7 @@ void main() {
       late PlanningBoard board;
       fakeAsync((clock) {
         backend = FakeBackend([]);
-        board = PlanningBoard(backend, 'checkout');
+        board = PlanningBoard(FleetPlanningSource(backend), 'checkout');
         clock.flushMicrotasks();
         expect(board.live, isTrue);
         backend.failPlanning(
@@ -54,7 +55,7 @@ void main() {
     late PlanningBoard board;
     fakeAsync((clock) {
       backend = FakeBackend([]);
-      board = PlanningBoard(backend, 'checkout');
+      board = PlanningBoard(FleetPlanningSource(backend), 'checkout');
       clock.flushMicrotasks();
       expect(board.live, isTrue);
       unawaited(backend.endPlanning());
@@ -76,7 +77,7 @@ void main() {
     late PlanningBoard board;
     fakeAsync((clock) {
       backend = FakeBackend([]);
-      board = PlanningBoard(backend, 'checkout');
+      board = PlanningBoard(FleetPlanningSource(backend), 'checkout');
       clock.flushMicrotasks();
       try {
         expect(board.live, isTrue);

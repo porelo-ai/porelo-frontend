@@ -5,6 +5,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:porelo_frontend/client.dart';
+import 'package:porelo_planning/porelo_planning.dart' show PlanningAttention, PlanningBoards, PlanningNeedsYou;
 
 import 'fleet_model.dart';
 import 'host_pull_requests.dart';
@@ -12,8 +13,6 @@ import 'machines.dart';
 import 'operations.dart';
 import 'organization_source.dart';
 import 'settings.dart';
-import 'planning_board.dart';
-import 'story_work.dart';
 
 /// Why a tile sits where it does. Earlier is more urgent.
 enum Demand {
@@ -284,27 +283,8 @@ class Attention extends ChangeNotifier {
       'message ${machine.name}/${message.task}/${message.handle}';
 
   Iterable<AttentionRow> _rows() sync* {
-    for (final board in _planning?.sources ?? <PlanningBoard>[]) {
-      final machine = _planning!.machineOf(board);
-      for (final story in board.stories) {
-        final ended = board.endedOf(story);
-        if (ended != null) {
-          yield AttentionRow(
-            AttentionKind.planning,
-            'story ended $machine/${board.project}/${story.id}',
-            machine,
-            PlanningAttention(board, story, ended: ended),
-          );
-        }
-        for (final issue in story.issues.where((issue) => issue.readingStopped == true)) {
-          yield AttentionRow(
-            AttentionKind.planning,
-            'reading $machine/${board.project}/${issue.id}',
-            machine,
-            PlanningAttention(board, story, issue: issue),
-          );
-        }
-      }
+    for (final entry in _planning?.needsYou ?? const <PlanningNeedsYou>[]) {
+      yield AttentionRow(AttentionKind.planning, entry.id, entry.machine, entry.attention);
     }
     // Said here, where it stays while the records are set aside, never on a status line the next connection overwrites.
     if (_machines.setAside case final words?) {

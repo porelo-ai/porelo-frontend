@@ -1,18 +1,17 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:porelo_frontend/client.dart';
 
-import '../app/planning_board.dart';
-import '../app/planning_detail.dart';
-import '../app/story_work.dart';
-import '../app/commands.dart';
-import 'command_menu.dart';
-import 'story_work_dialog.dart';
-import '../app/shell_model.dart';
-import 'planning_story_view.dart';
+import '../hooks.dart';
+import '../models.dart';
+import '../planning_board.dart';
+import '../planning_detail.dart';
+import '../story_work.dart';
+import 'actions.dart';
 import 'planning_issue_view.dart';
-import 'tokens.dart';
+import 'planning_story_view.dart';
+import 'story_work_dialog.dart';
+import 'style.dart';
 
 final _planningLeaveDialogs = Expando<bool>();
 
@@ -71,43 +70,39 @@ Future<bool> confirmPlanningLeave(BuildContext context, Iterable<PlanningBoard> 
   }
 }
 
-/// The planning board and its unsaved moves, supplied by watched machines.
-class PlanningView extends StatelessWidget {
-  /// Takes the boards retained by the shell.
-  const PlanningView({
+/// The planning board, its stories and issues, and their unsaved moves, supplied by the client's providers.
+class PlanningScreen extends StatelessWidget {
+  /// Takes the boards the window keeps and the hooks through which the window takes part.
+  const PlanningScreen({
     required this.boards,
-    required this.shell,
-    required this.onTask,
-    required this.taskUnavailable,
-    required this.onNeedsYou,
-    this.onStarted,
+    required this.host,
+    required this.startTask,
+    required this.taskChanges,
+    required this.agents,
     super.key,
   });
 
-  /// Navigation shared with the back key and finder.
-  final ShellModel shell;
-
-  /// Opens work on the board that reported it.
-  final void Function(PlanningBoard, String) onTask;
-
-  /// Why a task on this provider cannot be opened now.
-  final String? Function(PlanningBoard, String) taskUnavailable;
-
-  /// The projects and their planning providers.
+  /// The projects and their planning providers, kept by the window while the screen is not shown.
   final PlanningBoards boards;
 
-  /// Opens a confirmed With you start in its task session.
-  final Future<void> Function(StoryWork)? onStarted;
+  /// Where the screen stands, and what the window opens for it.
+  final PlanningHost host;
 
-  /// Opens Needs you for an issue stopped in Reading.
-  final VoidCallback onNeedsYou;
+  /// How a start of story work reaches the window.
+  final PlanningStartTask startTask;
+
+  /// What the screen shows of a run, and what the window does with it.
+  final PlanningTaskChanges taskChanges;
+
+  /// The agents a start may choose.
+  final PlanningAgents agents;
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-    listenable: Listenable.merge([boards, shell]),
+    listenable: Listenable.merge([boards, host]),
     builder: (context, _) {
-      final place = shell.place;
-      final detailBoard = boards.at(place.planningSource, place.project);
+      final place = host.place;
+      final detailBoard = boards.at(place.source, place.project);
       final pinned = place.story != null;
       final board = pinned ? detailBoard : boards.selected;
       if (board == null) {
@@ -115,7 +110,7 @@ class PlanningView extends StatelessWidget {
           children: [
             TextButton(
               key: const Key('planning-crumb 0'),
-              onPressed: () => shell.choosePlace(const ShellPlace(Section.planning)),
+              onPressed: () => host.go(const PlanningPlace()),
               child: const Text('Planning'),
             ),
             Text(
@@ -127,7 +122,7 @@ class PlanningView extends StatelessWidget {
         );
       }
       void open(PlanningBoard owner, String story, [String? issue]) =>
-          openPlanningCommand(boards, shell, owner, story, issue: issue).run();
+          openPlanningAction(boards, host, owner, story, issue: issue).run();
       return Stack(
         fit: StackFit.expand,
         children: [
@@ -140,23 +135,19 @@ class PlanningView extends StatelessWidget {
               select: (project) {
                 boards.select(project);
                 final selected = boards.selected;
-                shell.choosePlace(
-                  ShellPlace(
-                    Section.planning,
-                    project: project,
-                    planningSource: selected == null ? null : boards.sourceOf(selected),
-                  ),
-                );
+                host.go(PlanningPlace(project: project, source: selected == null ? null : boards.sourceOf(selected)));
               },
               providerProblems: boards.problemsFor(board),
-              onNeedsYou: onNeedsYou,
-              onStarted: onStarted,
+              onNeedsYou: host.openNeedsYou,
+              onStarted: taskChanges.started,
+              startTask: startTask,
+              agents: agents,
               unavailableMachines: [
-                for (final machine in boards.machines.all)
+                for (final machine in boards.providerNames)
                   if (!boards.sources.any(
-                    (source) => source.project == board.project && boards.machineOf(source) == machine.name,
+                    (source) => source.project == board.project && boards.machineOf(source) == machine,
                   ))
-                    machine.name,
+                    machine,
               ],
               machines: {
                 for (final source in boards.sources.where((source) => source.project == board.project))
@@ -172,18 +163,13 @@ class PlanningView extends StatelessWidget {
               board: detailBoard,
               story: place.story!,
               issue: place.issue,
-              onBoard: () => shell.choosePlace(
-                ShellPlace(
-                  Section.planning,
-                  project: detailBoard.project,
-                  planningSource: boards.sourceOf(detailBoard),
-                ),
-              ),
+              onBoard: () => host.go(PlanningPlace(project: detailBoard.project, source: boards.sourceOf(detailBoard))),
               onParent: () => open(detailBoard, place.story!),
               onStory: (story) => open(detailBoard, story),
               onIssue: (issue) => open(detailBoard, place.story!, issue),
-              onTask: (task) => onTask(detailBoard, task),
-              taskUnavailable: (task) => taskUnavailable(detailBoard, task),
+              onTask: (task) => taskChanges.open(detailBoard, task),
+              taskUnavailable: (task) => taskChanges.unavailable(detailBoard, task),
+              openLink: host.openLink,
             ),
         ],
       );
@@ -200,7 +186,9 @@ class _BoardView extends StatefulWidget {
     required this.onNeedsYou,
     required this.onStory,
     required this.onIssue,
-    this.onStarted,
+    required this.onStarted,
+    required this.startTask,
+    required this.agents,
     required this.machines,
     required this.unavailableMachines,
     super.key,
@@ -213,7 +201,9 @@ class _BoardView extends StatefulWidget {
 
   final ValueChanged<String> onStory;
   final void Function(String, String) onIssue;
-  final Future<void> Function(StoryWork)? onStarted;
+  final Future<void> Function(StoryWork) onStarted;
+  final PlanningStartTask startTask;
+  final PlanningAgents agents;
   final Map<PlanningBoard, String> machines;
   final List<String> unavailableMachines;
   @override
@@ -274,7 +264,7 @@ class _BoardViewState extends State<_BoardView> {
                 if (widget.projects.length > 1)
                   SizedBox(
                     key: const Key('planning-project'),
-                    width: Sizes.listFilter,
+                    width: PlanningStyle.filter,
                     child: DropdownButtonFormField<String>(
                       key: _project,
                       initialValue: board.project,
@@ -296,7 +286,7 @@ class _BoardViewState extends State<_BoardView> {
                     ),
                   ),
                 SizedBox(
-                  width: Sizes.listFilter,
+                  width: PlanningStyle.filter,
                   child: DropdownButtonFormField<PlanningPriority>(
                     key: const Key('planning-priority'),
                     initialValue: board.preferences.priority,
@@ -312,7 +302,7 @@ class _BoardViewState extends State<_BoardView> {
                   ),
                 ),
                 SizedBox(
-                  width: Sizes.listFilter,
+                  width: PlanningStyle.filter,
                   child: TextField(
                     key: const Key('planning-search'),
                     controller: _search,
@@ -425,7 +415,7 @@ class _BoardViewState extends State<_BoardView> {
       padding: const EdgeInsets.all(Space.small),
       decoration: BoxDecoration(
         color: PlanningStyle.phase(Theme.of(context).colorScheme),
-        borderRadius: BorderRadius.circular(Radii.medium),
+        borderRadius: BorderRadius.circular(PlanningStyle.radiusMedium),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -474,7 +464,7 @@ class _BoardViewState extends State<_BoardView> {
         margin: const EdgeInsets.only(bottom: Space.small),
         decoration: BoxDecoration(
           color: state.kind == 'WORKING' ? PlanningStyle.working(theme.colorScheme) : null,
-          borderRadius: BorderRadius.circular(Radii.small),
+          borderRadius: BorderRadius.circular(PlanningStyle.radiusSmall),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -485,7 +475,7 @@ class _BoardViewState extends State<_BoardView> {
                 if (state.kind == 'WORKING')
                   const Padding(
                     padding: EdgeInsets.only(right: Space.tight),
-                    child: Icon(Icons.schedule, size: Sizes.mark),
+                    child: Icon(Icons.schedule, size: PlanningStyle.mark),
                   ),
                 Expanded(child: Text(state.name, style: theme.textTheme.labelMedium)),
                 Text('${cards.length}'),
@@ -494,7 +484,7 @@ class _BoardViewState extends State<_BoardView> {
                     key: Key('planning-fold-state ${state.name}'),
                     tooltip: '${folded ? 'Unfold' : 'Fold'} ${state.name}',
                     onPressed: () => board.foldState(state.name),
-                    icon: Icon(folded ? Icons.chevron_right : Icons.expand_more, size: Sizes.rowIcon),
+                    icon: Icon(folded ? Icons.chevron_right : Icons.expand_more, size: PlanningStyle.rowIcon),
                   ),
               ],
             ),
@@ -550,7 +540,7 @@ class _BoardViewState extends State<_BoardView> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('${board.pending.length} state change(s) not saved yet:'),
-          if (savePlanningCommand(board).unavailable case final reason?) Text(reason),
+          if (savePlanningAction(board).unavailable case final reason?) Text(reason),
           for (final entry in board.pending.entries)
             Wrap(
               key: Key('planning-pending ${entry.key}'),
@@ -578,7 +568,7 @@ class _BoardViewState extends State<_BoardView> {
               ),
               FilledButton(
                 key: const Key('planning-save'),
-                onPressed: savePlanningCommand(board).available ? savePlanningCommand(board).run : null,
+                onPressed: savePlanningAction(board).available ? savePlanningAction(board).run : null,
                 child: Text(board.saving ? 'Saving…' : 'Save'),
               ),
             ],
@@ -595,7 +585,7 @@ class _BoardViewState extends State<_BoardView> {
       elevation: Space.tight,
       child: Padding(padding: const EdgeInsets.all(Space.small), child: Text(story.id)),
     ),
-    childWhenDragging: Opacity(opacity: Opacities.stale, child: child),
+    childWhenDragging: Opacity(opacity: PlanningStyle.stale, child: child),
     child: child,
   );
 
@@ -616,7 +606,10 @@ class _BoardViewState extends State<_BoardView> {
       label: priority.isEmpty ? 'Priority not reported' : priority,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: Space.tight),
-        decoration: BoxDecoration(color: colors.background, borderRadius: BorderRadius.circular(Radii.small)),
+        decoration: BoxDecoration(
+          color: colors.background,
+          borderRadius: BorderRadius.circular(PlanningStyle.radiusSmall),
+        ),
         child: Text(label, style: Theme.of(context).textTheme.labelSmall?.copyWith(color: colors.foreground)),
       ),
     );
@@ -669,6 +662,8 @@ class _BoardViewState extends State<_BoardView> {
       board,
       story,
       target.name,
+      startTask: widget.startTask,
+      agentChoices: widget.agents,
       machines: widget.machines,
       unavailableMachines: widget.unavailableMachines,
     );
@@ -678,7 +673,7 @@ class _BoardViewState extends State<_BoardView> {
         barrierDismissible: false,
         builder: (_) => StoryWorkDialog(work),
       );
-      if (started == true && mounted) await widget.onStarted?.call(work);
+      if (started == true && mounted) await widget.onStarted(work);
     } finally {
       work.dispose();
     }
@@ -708,23 +703,21 @@ class _BoardViewState extends State<_BoardView> {
     await source.stopWork(story.id, revision: revision, source: backend, sourceProject: project);
   }
 
-  Widget _menu(PlanStory story) => CommandMenu(
+  Widget _menu(PlanStory story) => PlanningActionMenu(
     key: Key('planning-menu ${story.id}'),
     tooltip: 'Work on ${story.id}',
-    commands: [
-      planningCommand(
+    actions: [
+      PlanningAction(
         id: 'planning-start ${story.id}',
         label: 'Start work…',
-        home: Home.tileMenu,
         unavailable:
             board.startUnavailable(story) ??
             (!board.states.any((state) => state.kind == 'WORKING') ? 'no working state was reported' : null),
         run: () => unawaited(_start(story)),
       ),
-      planningCommand(
+      PlanningAction(
         id: 'planning-stop ${story.id}',
         label: 'Stop work',
-        home: Home.tileMenu,
         unavailable:
             board.unavailableActions['StopStoryWork'] ??
             (!board.live
@@ -787,7 +780,7 @@ class _BoardViewState extends State<_BoardView> {
                     child: Row(
                       key: Key('planning-issues ${story.id}'),
                       children: [
-                        Icon(open ? Icons.expand_more : Icons.chevron_right, size: Sizes.mark),
+                        Icon(open ? Icons.expand_more : Icons.chevron_right, size: PlanningStyle.mark),
                         Expanded(
                           child: Text(
                             story.issues.isEmpty
@@ -859,9 +852,11 @@ class _PlanningDetailView extends StatefulWidget {
     required this.onIssue,
     required this.onTask,
     required this.taskUnavailable,
+    required this.openLink,
     super.key,
   });
   final PlanningBoard board;
+  final Future<void> Function(Uri) openLink;
   final String story;
   final String? issue;
   final VoidCallback onBoard, onParent;
@@ -934,6 +929,7 @@ class _PlanningDetailViewState extends State<_PlanningDetailView> {
               onIssue: widget.onIssue,
               onTask: widget.onTask,
               taskUnavailable: widget.taskUnavailable,
+              openLink: widget.openLink,
             )
           else
             PlanningIssueView(
@@ -941,6 +937,7 @@ class _PlanningDetailViewState extends State<_PlanningDetailView> {
               onStory: widget.onStory,
               onTask: widget.onTask,
               taskUnavailable: widget.taskUnavailable,
+              openLink: widget.openLink,
             ),
         ],
       ),

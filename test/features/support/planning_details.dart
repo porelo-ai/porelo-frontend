@@ -5,13 +5,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/links.dart';
-import 'package:porelo_frontend/src/app/planning_board.dart';
-import 'package:porelo_frontend/src/ui/planning_view.dart';
 import 'package:porelo_frontend/src/ui/panes.dart';
+import 'package:porelo_planning/porelo_planning.dart';
 
 import '../step/a_backend_with_planning.dart';
 import 'planning.dart';
 import 'world.dart';
+import '../../support/planning_embedding.dart';
 
 Completer<PlanStoryDetail>? _heldStory;
 List<double>? _boardOffsets;
@@ -261,7 +261,7 @@ Future<void> openPlanningBrowser(WidgetTester tester, String label) async {
 
 /// Uses a narrow planning pane inside the required desktop test window.
 Future<void> narrowPlanningPane(WidgetTester tester) async {
-  final boards = PlanningBoards(World.machines);
+  final boards = PlanningBoards(DaemonPlanningClient(World.machines));
   addTearDown(boards.dispose);
   await tester.pumpWidget(
     MaterialApp(
@@ -270,7 +270,7 @@ Future<void> narrowPlanningPane(WidgetTester tester) async {
           alignment: Alignment.topLeft,
           child: SizedBox(
             width: 390,
-            child: PlanningView(
+            child: planningView(
               boards: boards,
               shell: World.shell,
               onTask: (_, _) {},
@@ -375,7 +375,7 @@ void expectPlanningRail(WidgetTester tester) {
 
 /// Removes the provider of the open page through the machine model.
 Future<void> removePlanningProvider(WidgetTester tester) async {
-  final view = tester.widget<PlanningView>(find.byType(PlanningView));
+  final view = tester.widget<PlanningScreen>(find.byType(PlanningScreen));
   final place = World.shell.place;
   final machine = World.machines.all.singleWhere((machine) => machine.name == place.planningSource);
   // No use of the old boards after the source has been forgotten.

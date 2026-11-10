@@ -1,0 +1,22 @@
+name: porelo_planning
+description: "The planning screen: a project's stories and issues by state, their moves, and the start of their work."
+publish_to: 'none'
+version: 0.5.1-SNAPSHOT
+
+environment:
+    sdk: ^3.13.0
+    # The window's own pin, so the package is built and tested with the Flutter the window ships with.
+    flutter: 3.47.0
+
+# Flutter and Dart alone: the package never imports the window, so it can be built and tested on its own.
+dependencies:
+    flutter:
+        sdk: flutter
+
+dev_dependencies:
+    flutter_test:
+        sdk: flutter
+    flutter_lints: ^6.0.0
+
+flutter:
+    uses-material-design: true

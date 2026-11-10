@@ -1,10 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
-import 'package:porelo_frontend/src/app/planning_board.dart';
-import 'package:porelo_frontend/src/app/story_work.dart';
 import 'package:porelo_frontend/src/mock/planning_data.dart';
+import 'package:porelo_planning/porelo_planning.dart';
 
 import '../features/support/world.dart';
+import '../support/planning_embedding.dart';
 
 void main() {
   late FakeBackend backend;
@@ -25,7 +25,7 @@ void main() {
       {'severity': 'NOTE', 'text': 'A small concern.'},
       {'severity': 'BLOCKING', 'text': 'A credential would escape.'},
     ];
-    board = PlanningBoard(backend, 'checkout');
+    board = PlanningBoard(FleetPlanningSource(backend), 'checkout');
     await Future<void>.delayed(Duration.zero);
     final shown = board.stories.firstWhere((story) => story.id == 'ST291');
     reading = ReadingDecision(PlanningAttention(board, shown, issue: shown.issues.first));

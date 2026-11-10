@@ -1,14 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:porelo_frontend/client.dart';
 
-import '../app/commands.dart';
-import '../app/planning_board.dart';
-import '../app/story_work.dart';
-import 'tokens.dart';
-import 'start_work_view.dart' show StartAgentChoice, StartModelField;
-import 'window_size.dart';
+import '../models.dart';
+import '../planning_board.dart';
+import '../story_work.dart';
+import 'style.dart';
 
 /// The proposed work and explicit choices, read from the chosen machine.
 class StoryWorkDialog extends StatefulWidget {
@@ -53,7 +50,7 @@ class _StoryWorkDialogState extends State<StoryWorkDialog> {
         key: const Key('story-work-dialog'),
         title: const Text('Start work'),
         content: SizedBox(
-          width: Sizes.dialog,
+          width: PlanningStyle.dialog,
           child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -130,27 +127,17 @@ class _StoryWorkDialogState extends State<StoryWorkDialog> {
         actions: [
           TextButton(
             key: const Key('story-work-cancel'),
-            onPressed: work.busy && proposal != null
-                ? null
-                : planningCommand(
-                    id: 'story-work.cancel',
-                    label: 'Cancel',
-                    run: () => Navigator.pop(context, false),
-                  ).run,
+            onPressed: work.busy && proposal != null ? null : () => Navigator.pop(context, false),
             child: const Text('Cancel'),
           ),
           FilledButton(
             key: const Key('story-work-start'),
             onPressed: !work.canStart
                 ? null
-                : planningCommand(
-                    id: 'story-work.start',
-                    label: work.startLabel,
-                    run: () async {
-                      final started = await work.start();
-                      if (context.mounted && started) Navigator.pop(context, true);
-                    },
-                  ).run,
+                : () async {
+                    final started = await work.start();
+                    if (context.mounted && started) Navigator.pop(context, true);
+                  },
             child: Text(work.startLabel),
           ),
         ],
@@ -167,7 +154,7 @@ class _StoryWorkDialogState extends State<StoryWorkDialog> {
         const SizedBox(height: Space.normal),
         const Text('How to work'),
         if (cards.isEmpty) const Text('The machine offered no supported modes.'),
-        if (WindowSize.fromContext(context) == WindowSize.compact)
+        if (MediaQuery.sizeOf(context).width < PlanningStyle.compactWidth)
           Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: cards)
         else
           Row(
@@ -195,7 +182,7 @@ class _StoryWorkDialogState extends State<StoryWorkDialog> {
             proposed: repo.agent,
             choose: (agent) => work.chooseMain(repo.repository, agent: agent),
           ),
-          StartModelField(
+          PlanningModelField(
             fieldKey: Key('story-work-main-model ${repo.repository}'),
             initialValue: work.repositories[repo.repository]!.model,
             help: 'Model proposed for ${work.to}.',
@@ -290,7 +277,7 @@ class _StoryWorkDialogState extends State<StoryWorkDialog> {
 
   Widget _agentItem(String name) {
     final agent = work.agents.where((agent) => agent.name == name).firstOrNull;
-    return agent == null ? Text(name) : StartAgentChoice(agent: agent);
+    return agent?.choice ?? Text(name);
   }
 
   Widget _agentPicker({
@@ -354,7 +341,7 @@ class _StoryWorkDialogState extends State<StoryWorkDialog> {
               enabled: enabled,
               choose: (value) => work.choose(repository, sub, 'CHANGE', agent: value),
             ),
-            StartModelField(
+            PlanningModelField(
               fieldKey: Key('story-work-model $repository ${sub.id}'),
               initialValue: chosen.model,
               enabled: enabled,
@@ -366,4 +353,51 @@ class _StoryWorkDialogState extends State<StoryWorkDialog> {
       ),
     );
   }
+}
+
+/// A model typed as it is named, or the one a proposal names.
+class PlanningModelField extends StatelessWidget {
+  /// Takes the input's key, what to do with a change and what to show around it.
+  const PlanningModelField({
+    required this.fieldKey,
+    required this.onChanged,
+    this.initialValue,
+    this.help,
+    this.hint = 'The default',
+    this.enabled = true,
+    super.key,
+  });
+
+  /// The key of the actual text input.
+  final Key fieldKey;
+
+  /// The explicit model choice to retain.
+  final ValueChanged<String> onChanged;
+
+  /// The model proposed, kept by the form.
+  final String? initialValue;
+
+  /// The provider's explanation of the proposal.
+  final String? help;
+
+  /// The words shown for an unfilled model.
+  final String hint;
+
+  /// Whether the captured source still accepts choices.
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) => TextFormField(
+    key: fieldKey,
+    initialValue: initialValue,
+    decoration: InputDecoration(
+      labelText: 'Model',
+      hintText: hint,
+      border: const OutlineInputBorder(),
+      helperText: help,
+      helperMaxLines: 4,
+    ),
+    enabled: enabled,
+    onChanged: onChanged,
+  );
 }

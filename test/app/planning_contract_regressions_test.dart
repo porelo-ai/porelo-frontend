@@ -3,13 +3,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
-import 'package:porelo_frontend/src/app/planning_board.dart';
-import 'package:porelo_frontend/src/app/planning_detail.dart';
-import 'package:porelo_frontend/src/app/story_work.dart';
 import 'package:porelo_frontend/src/mock/planning_data.dart';
-import 'package:porelo_frontend/src/ui/story_work_dialog.dart';
+import 'package:porelo_planning/porelo_planning.dart';
 
 import '../features/support/world.dart';
+import '../support/planning_embedding.dart';
 
 Future<void> _turn() => Future<void>.delayed(Duration.zero);
 
@@ -24,7 +22,7 @@ void main() {
   // Harm: a stale refusal keeps an applicable card in the old column and hides unsaved intent.
   test('stale reread clears a retained move refusal and preserves its destination', () async {
     final backend = FakeBackend([]);
-    final board = PlanningBoard(backend, 'demo');
+    final board = PlanningBoard(FleetPlanningSource(backend), 'demo');
     addTearDown(() async {
       board.dispose();
       await backend.stop();
@@ -44,7 +42,7 @@ void main() {
   // Harm: a transport or unsupported-action failure leaves a refused card looking moved.
   test('all save failures return unconfirmed cards to their reported state', () async {
     final backend = FakeBackend([]);
-    final board = PlanningBoard(backend, 'demo');
+    final board = PlanningBoard(FleetPlanningSource(backend), 'demo');
     addTearDown(() async {
       board.dispose();
       await backend.stop();
@@ -66,7 +64,7 @@ void main() {
   // Harm: a watch masks missing application of the save acknowledgement.
   test('save applies confirmed issue identities before a later listing or watch', () async {
     final backend = _HeldListing();
-    final board = PlanningBoard(backend, 'demo');
+    final board = PlanningBoard(FleetPlanningSource(backend), 'demo');
     addTearDown(() async {
       board.dispose();
       await backend.stop();
@@ -85,7 +83,7 @@ void main() {
   // Harm: detail navigation loses a staged move, or a working issue cannot be unstaged individually.
   test('issue drafts outlive detail screens and undo a working source individually', () async {
     final backend = FakeBackend([]);
-    final board = PlanningBoard(backend, 'demo');
+    final board = PlanningBoard(FleetPlanningSource(backend), 'demo');
     addTearDown(() async {
       board.dispose();
       await backend.stop();
@@ -110,7 +108,7 @@ void main() {
   // Harm: a failed parent read prevents a successful issue refresh from reaching the screen.
   test('successful issue changes survive a failed parent refresh', () async {
     final backend = FakeBackend([]);
-    final board = PlanningBoard(backend, 'demo');
+    final board = PlanningBoard(FleetPlanningSource(backend), 'demo');
     addTearDown(() async {
       board.dispose();
       await backend.stop();
@@ -144,9 +142,9 @@ void main() {
     (data['states'] as List).removeWhere(
       (state) => (state as Map)['kind'] == 'WORKING' && state['name'] != 'Investigating',
     );
-    final a = PlanningBoard(first, 'demo'), b = PlanningBoard(second, 'demo');
+    final a = PlanningBoard(FleetPlanningSource(first), 'demo'), b = PlanningBoard(FleetPlanningSource(second), 'demo');
     await tester.runAsync(_turn);
-    final work = StoryWork(
+    final work = planningStoryWork(
       a,
       a.stories.firstWhere((story) => story.id == 'ST291'),
       'In analysis',

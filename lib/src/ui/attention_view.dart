@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:porelo_frontend/client.dart';
+import 'package:porelo_planning/porelo_planning.dart' show PlanningAttention, StoryWorkAttentionView;
 
 import '../app/builds.dart';
 import '../app/granting.dart';
@@ -29,8 +30,6 @@ import 'filtered_list_section.dart';
 import 'gate_view.dart' show WhoMadeIt;
 import 'page_explanation.dart';
 import 'tokens.dart';
-import '../app/story_work.dart';
-import 'story_work_attention.dart';
 import 'window_size.dart';
 
 /// What needs a person, from every machine at once. The window opens here.

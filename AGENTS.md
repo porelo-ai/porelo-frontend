@@ -552,6 +552,7 @@ several machines over their varlink socket. Its issues carry the prefix `F`; its
     dart run build_runner build && dart format test/features integration_test   # after editing a feature
     dart analyze                                # stays at "No issues found!"
     flutter test                                # the whole suite
+    (cd packages/porelo_planning && flutter test)   # the planning package's own tests
     flutter test --tags documents               # a change to documents or issues alone
     tool/e2e.sh                                 # the integration leg, against PORELO_E2E_HOST
     tool/rehearse_window.sh check --vm …        # a move rehearsed in the window, in a VM, against a rented host
@@ -562,9 +563,10 @@ several machines over their varlink socket. Its issues carry the prefix `F`; its
 - **Dart is formatted with plain `dart format lib test integration_test tool`**, by the repository's own
   settings: never with `-l`, and never `packages/` (`packages/xterm` is not kept formatted). After
   `build_runner`, `dart format test/features integration_test` comes before the generated tests are compared.
-- **A new worktree runs `flutter pub get` and `dart pub get --directory=packages/porelo_host` before its
-  first `dart format` or `dart analyze`**: without resolved packages the include of `analysis_options.yaml`
-  fails, `dart format` rewraps about 1100 files at 80 columns and analyze reports thousands of errors.
+- **A new worktree runs `flutter pub get`, `dart pub get --directory=packages/porelo_host` and
+  `flutter pub get --directory=packages/porelo_planning` before its first `dart format` or `dart analyze`**:
+  without resolved packages the include of `analysis_options.yaml` fails, `dart format` rewraps about 1100
+  files at 80 columns and analyze reports thousands of errors.
 - **The mock daemon is started with a deadline** (`timeout 20 dart tool/mock_daemon.dart`): it reads
   keys, a closed standard input is no key, and it runs on otherwise.
 - **The Linux desktop toolchain is `clang`, `cmake`, `ninja`, `pkg-config`, `libgtk-3-dev` and
@@ -638,8 +640,9 @@ several machines over their varlink socket. Its issues carry the prefix `F`; its
   confirms it.
 - **No layout assumes the window is never a phone's.**
 - **A spacing, width, radius or colour is spelled only in `tokens.dart`, a width compared only in
-  `window_size.dart`**, which reads the window, never the pane: Porelo's look lives in one place;
-  icons are outlined, filled only when selected.
+  `window_size.dart`**, which reads the window, never the pane: Porelo's look lives in one place, and the
+  planning package, which imports nothing of the window, keeps its few in its own `style.dart`; icons are
+  outlined, filled only when selected.
 - **`PORELO_SOCKET` is read only in `Machine.local()`.**
 - **A node is an OS user with a `porelod`, so nothing is keyed by hostname alone; a host is an egress
   destination, never a machine.**

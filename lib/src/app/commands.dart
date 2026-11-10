@@ -4,10 +4,11 @@ import 'package:porelo_host/porelo_host.dart' show ProjectTransfer;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:porelo_frontend/client.dart';
+import 'package:porelo_planning/porelo_planning.dart'
+    show PlanningAction, PlanningBoards, PlanningHost, planningActions;
 
 import 'agent_sign_in.dart';
 import 'fleet_model.dart';
-import 'planning_board.dart';
 import 'host_runs.dart';
 import 'host_access.dart';
 import 'desk.dart';
@@ -1913,112 +1914,18 @@ List<Command> centralReviewCommands({
   ];
 }
 
-/// An action on a planning story, start form or reading decision.
-Command planningCommand({
-  required String id,
-  required String label,
-  required VoidCallback run,
-  Home home = Home.openedView,
-  String? unavailable,
-  bool danger = false,
-}) => Command(id: id, label: label, group: 'Planning', home: home, run: run, unavailable: unavailable, danger: danger);
-
-/// Opens a planning destination on the provider that supplied it.
-Command openPlanningCommand(
-  PlanningBoards boards,
-  ShellModel shell,
-  PlanningBoard board,
-  String story, {
-  String? issue,
-}) => planningCommand(
-  id: 'planning.open/${boards.sourceOf(board)}/${board.project}/$story${issue == null ? '' : '/$issue'}',
-  label: issue == null ? 'Open story $story' : 'Open issue $issue',
-  unavailable: board.disposed ? 'The planning source is no longer watched.' : null,
-  run: () => shell.choosePlace(
-    ShellPlace(
-      Section.planning,
-      project: board.project,
-      planningSource: boards.sourceOf(board),
-      story: story,
-      issue: issue,
-    ),
-  ),
+/// A planning action as one of this window's commands, so the command menu and palette list it.
+Command planningCommand(PlanningAction action) => Command(
+  id: action.id,
+  label: action.label,
+  group: 'Planning',
+  home: Home.openedView,
+  run: action.run,
+  unavailable: action.unavailable,
+  danger: action.danger,
 );
 
-/// A staged issue change always belongs to the board's reviewed batch.
-Command movePlanningIssueCommand(PlanningBoard board, PlanIssue issue, String to) => planningCommand(
-  id: 'planning.moveIssue/${board.project}/${issue.id}/$to',
-  label: '${issue.id} → $to',
-  unavailable: board.disposed || !board.live
-      ? 'The planning board is not live.'
-      : board.saving
-      ? 'Planning is saving.'
-      : null,
-  run: () => board.moveIssue(issue.id, to, reported: issue),
-);
-
-/// The same save command is used by the board, detail screens and finder.
-Command savePlanningCommand(PlanningBoard board) => planningCommand(
-  id: 'planning.save/${board.project}',
-  label: 'Save planning changes',
-  unavailable:
-      board.unavailableActions['SaveMoves'] ??
-      (board.saving
-          ? 'Planning is saving.'
-          : !board.live
-          ? 'The planning board is not live.'
-          : board.pending.isEmpty
-          ? 'No planning moves are pending.'
-          : null),
-  run: () => unawaited(board.save()),
-);
-
-/// Undo never calls the daemon.
-Command undoPlanningCommand(PlanningBoard board) => planningCommand(
-  id: 'planning.undo/${board.project}',
-  label: 'Undo planning changes',
-  unavailable: board.saving
-      ? 'Planning is saving.'
-      : board.pending.isEmpty
-      ? 'No planning moves are pending.'
-      : null,
-  run: board.undoAll,
-);
-
-/// Every story, issue and move is discoverable without a pointer gesture.
-List<Command> planningCommands(PlanningBoards boards, ShellModel shell) => [
-  for (final board in boards.sources) ...[
-    savePlanningCommand(board),
-    undoPlanningCommand(board),
-    for (final story in board.stories) ...[
-      openPlanningCommand(boards, shell, board, story.id),
-      planningWebCommand('Open story ${story.id} in browser', story.link, onError: board.reportActionProblem),
-      for (final issue in story.issues) ...[
-        openPlanningCommand(boards, shell, board, story.id, issue: issue.id),
-        planningWebCommand('Open issue ${issue.id} in browser', issue.link, onError: board.reportActionProblem),
-        if (board.pendingIssues.containsKey(issue.id)) movePlanningIssueCommand(board, issue, issue.state),
-        for (final state in board.states.where((state) => {'WAITING', 'CLOSED'}.contains(state.kind)))
-          movePlanningIssueCommand(board, issue, state.name),
-      ],
-    ],
-  ],
+/// Every planning story, issue and move as a command, reachable without a pointer gesture.
+List<Command> planningCommands(PlanningBoards boards, PlanningHost host) => [
+  for (final action in planningActions(boards, host)) planningCommand(action),
 ];
-
-/// A reported HTTPS address is the sole web destination offered for an item.
-Command planningWebCommand(String label, String link, {void Function(Object)? onError}) {
-  final address = Uri.tryParse(link);
-  return planningCommand(
-    id: 'planning.web/$link',
-    label: label,
-    unavailable: address == null || address.scheme != 'https' || address.host.isEmpty
-        ? 'No HTTPS link was reported.'
-        : null,
-    run: () async {
-      try {
-        if (address != null) await openLink(address);
-      } catch (error) {
-        onError?.call(error);
-      }
-    },
-  );
-}

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:porelo_frontend/client.dart';
 
-import '../app/planning_detail.dart';
-import '../app/commands.dart';
+import '../models.dart';
+import '../planning_detail.dart';
+import 'actions.dart';
 import 'planning_detail_widgets.dart';
-import 'tokens.dart';
+import 'style.dart';
 
 /// The machine's standalone story and separately read issue list.
 class PlanningStoryView extends StatelessWidget {
@@ -14,6 +14,7 @@ class PlanningStoryView extends StatelessWidget {
     required this.onIssue,
     required this.onTask,
     required this.taskUnavailable,
+    required this.openLink,
     super.key,
   });
 
@@ -28,6 +29,9 @@ class PlanningStoryView extends StatelessWidget {
 
   /// Why a task cannot be opened on its own provider.
   final String? Function(String) taskUnavailable;
+
+  /// Opens a web address in the person's browser.
+  final Future<void> Function(Uri) openLink;
 
   @override
   Widget build(BuildContext context) {
@@ -50,7 +54,7 @@ class PlanningStoryView extends StatelessWidget {
             ],
           ),
           Text(planningValue(story.title), style: Theme.of(context).textTheme.headlineSmall),
-          PlanningWebLink(link: story.link, label: 'Open story'),
+          PlanningWebLink(link: story.link, label: 'Open story', openLink: openLink),
           planningSection(context, 'Description', [SelectableText(planningValue(story.description))]),
         ],
         planningSection(context, 'Issues', [
@@ -71,7 +75,7 @@ class PlanningStoryView extends StatelessWidget {
               children: [
                 FilledButton(
                   key: const Key('planning-save-moves'),
-                  onPressed: detail.canSaveMoves ? savePlanningCommand(detail.board).run : null,
+                  onPressed: detail.canSaveMoves ? savePlanningAction(detail.board).run : null,
                   child: Text(detail.saving ? 'Saving changes…' : 'Save changes'),
                 ),
                 TextButton(
@@ -169,7 +173,7 @@ class PlanningStoryView extends StatelessWidget {
         key: Key('planning-move ${issue.id}'),
         tooltip: _moveUnavailable(issue) ?? 'Change the state of ${issue.id}',
         enabled: _moveUnavailable(issue) == null,
-        onSelected: (to) => movePlanningIssueCommand(detail.board, issue, to).run(),
+        onSelected: (to) => movePlanningIssueAction(detail.board, issue, to).run(),
         itemBuilder: (_) => [
           if (detail.pendingMoves.containsKey(issue.id))
             PopupMenuItem(value: issue.state, child: const Text('Undo this move')),
@@ -184,7 +188,7 @@ class PlanningStoryView extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(planningValue(issue.state)),
-            const Icon(Icons.expand_more, size: Sizes.rowIcon),
+            const Icon(Icons.expand_more, size: PlanningStyle.rowIcon),
           ],
         ),
       ),

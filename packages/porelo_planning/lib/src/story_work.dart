@@ -1,10 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:porelo_frontend/client.dart';
 
+import 'client.dart';
+import 'hooks.dart';
+import 'models.dart';
 import 'planning_board.dart';
-import 'fleet_backend.dart';
 
 /// A proposal and start bound to one watched machine and board revision.
 class StoryWork extends ChangeNotifier {
@@ -13,6 +14,8 @@ class StoryWork extends ChangeNotifier {
     this.board,
     this.story,
     this.to, {
+    required this.startTask,
+    required this.agentChoices,
     Map<PlanningBoard, String>? machines,
     this.unavailableMachines = const [],
   }) : backend = board.backend,
@@ -37,6 +40,12 @@ class StoryWork extends ChangeNotifier {
   /// Watched machines that have not supplied this project's planning.
   final List<String> unavailableMachines;
 
+  /// How the start reaches the window.
+  final PlanningStartTask startTask;
+
+  /// Where the agents a start may choose come from.
+  final PlanningAgents agentChoices;
+
   /// The project name sent to the chosen machine.
   String project;
 
@@ -44,7 +53,7 @@ class StoryWork extends ChangeNotifier {
   String revision;
 
   /// The chosen machine's backend.
-  FleetBackend backend;
+  PlanningSource backend;
 
   /// The daemon's proposal, once supplied.
   StoryWorkProposal? proposal;
@@ -68,7 +77,7 @@ class StoryWork extends ChangeNotifier {
   final Map<(String, String), StoryWorkChoice> choices = {};
 
   /// Installed agents reported by the chosen machine.
-  List<Agent> agents = [];
+  List<PlanningAgent> agents = [];
 
   /// The current refusal or incomplete-answer explanation.
   String? problem;
@@ -216,7 +225,7 @@ class StoryWork extends ChangeNotifier {
           );
         }
       }
-      final listed = await source.agentsOn();
+      final listed = await agentChoices.on(source);
       if (!valid()) return;
       agents = listed.agents;
       if (listed.failures.isNotEmpty) {
@@ -225,7 +234,7 @@ class StoryWork extends ChangeNotifier {
     } catch (error) {
       if (valid()) {
         problem = planningFailureWords(error);
-        if (error is VarlinkException && error.simpleName == 'NotYetBuilt') {
+        if (planningRefused(error, 'NotYetBuilt')) {
           board.unavailableActions['ProposeStoryWork'] = problem!;
         }
       }
@@ -344,7 +353,8 @@ class StoryWork extends ChangeNotifier {
     starting = true;
     _changed();
     try {
-      final answer = await backend.startStoryWork(
+      final answer = await startTask(
+        backend,
         StoryWorkRequest(
           project: project,
           story: story.id,
@@ -370,10 +380,11 @@ class StoryWork extends ChangeNotifier {
     } catch (error) {
       if (!_disposed && generation == _generation) {
         problem = planningFailureWords(error);
-        if (error is VarlinkException && error.simpleName == 'NotYetBuilt') {
-          board.unavailableActions[error.parameters['method'] as String? ?? 'StartStoryWork'] = problem!;
+        if (planningRefused(error, 'NotYetBuilt')) {
+          board.unavailableActions[(error as PlanningRefusal).parameters['method'] as String? ?? 'StartStoryWork'] =
+              problem!;
         }
-        if (error is VarlinkException && error.simpleName == 'StaleRevision') unawaited(board.reload());
+        if (planningRefused(error, 'StaleRevision')) unawaited(board.reload());
       }
       return false;
     } finally {
@@ -410,7 +421,7 @@ class PlanningAttention {
   final String project;
 
   /// The provider that supplied these facts.
-  final FleetBackend source;
+  final PlanningSource source;
 
   /// The revision that supplied this row and its reading round.
   final String revision;
@@ -442,7 +453,7 @@ class ReadingDecision extends ChangeNotifier {
   final String revision;
 
   /// The machine receiving this decision.
-  final FleetBackend backend;
+  final PlanningSource backend;
 
   /// The project name sent to the machine.
   final String project;
@@ -524,10 +535,10 @@ class ReadingDecision extends ChangeNotifier {
     } catch (error) {
       if (!_disposed) {
         problem = planningFailureWords(error);
-        if (error is VarlinkException && error.simpleName == 'NotYetBuilt') {
+        if (planningRefused(error, 'NotYetBuilt')) {
           row.board.unavailableActions['ResolveIssueReading'] = problem!;
         }
-        if (error is VarlinkException && error.simpleName == 'StaleRevision') unawaited(row.board.reload());
+        if (planningRefused(error, 'StaleRevision')) unawaited(row.board.reload());
       }
     } finally {
       if (!_disposed) {
@@ -565,10 +576,10 @@ class ReadingDecision extends ChangeNotifier {
     } catch (error) {
       if (!_disposed) {
         problem = planningFailureWords(error);
-        if (error is VarlinkException && error.simpleName == 'NotYetBuilt') {
+        if (planningRefused(error, 'NotYetBuilt')) {
           row.board.unavailableActions['ResolveIssueReading'] = problem!;
         }
-        if (error is VarlinkException && error.simpleName == 'StaleRevision') unawaited(row.board.reload());
+        if (planningRefused(error, 'StaleRevision')) unawaited(row.board.reload());
       }
     } finally {
       if (!_disposed) {
@@ -588,4 +599,19 @@ class ReadingDecision extends ChangeNotifier {
     _stopFollowing();
     super.dispose();
   }
+}
+
+/// One entry of Needs you from planning: a story's ended run or an issue's stopped reading.
+class PlanningNeedsYou {
+  /// Takes the entry's stable identity, its provider and its facts.
+  const PlanningNeedsYou(this.id, this.machine, this.attention);
+
+  /// The stable identity, the same while the same facts stand.
+  final String id;
+
+  /// The provider that reported it.
+  final String machine;
+
+  /// The facts and the board they came from.
+  final PlanningAttention attention;
 }

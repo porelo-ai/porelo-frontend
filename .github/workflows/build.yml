@@ -307,6 +307,7 @@ jobs:
               run: |
                   flutter pub get
                   dart pub get --directory=packages/porelo_host
+                  flutter pub get --directory=packages/porelo_planning
 
             - name: Analyze
               run: dart analyze --fatal-infos
@@ -324,6 +325,12 @@ jobs:
               timeout-minutes: 5
               working-directory: packages/porelo_host
               run: dart test --exclude-tags linux --reporter expanded
+
+            # The planning package's own tests, against its own stand-in of a planning service.
+            - name: Test the planning package
+              timeout-minutes: 5
+              working-directory: packages/porelo_planning
+              run: flutter test --reporter expanded
 
             - name: Build
               timeout-minutes: 20

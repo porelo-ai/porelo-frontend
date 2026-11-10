@@ -679,6 +679,13 @@ packages:
       relative: true
     source: path
     version: "0.5.1-SNAPSHOT"
+  porelo_planning:
+    dependency: "direct main"
+    description:
+      path: "packages/porelo_planning"
+      relative: true
+    source: path
+    version: "0.5.1-SNAPSHOT"
   process:
     dependency: transitive
     description:

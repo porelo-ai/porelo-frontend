@@ -1,11 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:porelo_frontend/client.dart';
 
-import 'fleet_backend.dart';
-import 'fleet_model.dart';
-import 'machines.dart';
+import 'client.dart';
+import 'models.dart';
+import 'story_work.dart';
 
 /// The priority limits offered above a board.
 enum PlanningPriority {
@@ -84,7 +83,7 @@ class PlanningBoard extends ChangeNotifier {
   }
 
   /// The machine supplying the board.
-  FleetBackend backend;
+  PlanningSource backend;
 
   /// The project name sent to that machine.
   String project;
@@ -117,7 +116,7 @@ class PlanningBoard extends ChangeNotifier {
   /// Confirmation or revision-change feedback from the shared save.
   String? moveNotice;
 
-  (FleetBackend, String)? _queuedProject;
+  (PlanningSource, String)? _queuedProject;
   (PlanningSnapshot, int)? _deferredSnapshot;
   int _replyOrder = 0;
   int _snapshotOrder = 0;
@@ -180,7 +179,7 @@ class PlanningBoard extends ChangeNotifier {
               _generation++;
               final watching = _watching;
               _watching = null;
-              unsupported = error is FeatureNotSupported || error is VarlinkException && error.isMethodNotFound;
+              unsupported = planningUnsupported(error);
               problem = unsupported ? null : planningFailureWords(error);
               live = false;
               notifyListeners();
@@ -195,7 +194,7 @@ class PlanningBoard extends ChangeNotifier {
             },
           );
     } catch (error) {
-      unsupported = error is FeatureNotSupported || error is VarlinkException && error.isMethodNotFound;
+      unsupported = planningUnsupported(error);
       problem = unsupported ? null : planningFailureWords(error);
       live = false;
     }
@@ -307,7 +306,7 @@ class PlanningBoard extends ChangeNotifier {
         if (!current()) return;
         storyWork.remove(story.id);
         _workSnapshots.remove(story.id);
-        if (error is FeatureNotSupported || error is VarlinkException && error.isMethodNotFound) {
+        if (planningUnsupported(error)) {
           workUnsupported.add(story.id);
           workProblems.remove(story.id);
         } else {
@@ -329,7 +328,7 @@ class PlanningBoard extends ChangeNotifier {
   Future<void> stopWork(
     String story, {
     required String revision,
-    required FleetBackend source,
+    required PlanningSource source,
     required String sourceProject,
   }) async {
     if (_disposed || actionBusy) return;
@@ -355,7 +354,7 @@ class PlanningBoard extends ChangeNotifier {
     } catch (error) {
       if (!_disposed && generation == _generation) {
         reportActionProblem(error);
-        if (error is VarlinkException && error.simpleName == 'NotYetBuilt') {
+        if (planningRefused(error, 'NotYetBuilt')) {
           unavailableActions['StopStoryWork'] = planningFailureWords(error);
         }
       }
@@ -368,7 +367,7 @@ class PlanningBoard extends ChangeNotifier {
   }
 
   /// Replaces the source, canceling its silent watch before accepting another project's replies.
-  Future<void> changeProject(FleetBackend next, String name) async {
+  Future<void> changeProject(PlanningSource next, String name) async {
     if (_disposed) return;
     if (saving) {
       _queuedProject = (next, name);
@@ -635,7 +634,7 @@ class PlanningBoard extends ChangeNotifier {
       }
       if (_disposed || generation != _generation) return;
       _accept(latest, order: ++_replyOrder);
-    } on VarlinkException catch (error) {
+    } on PlanningRefusal catch (error) {
       if (_disposed || generation != _generation) return;
       final detail = planningFailureWords(error);
       final item = error.parameters['item'] ?? error.parameters['issue'] ?? error.parameters['story'];
@@ -645,13 +644,13 @@ class PlanningBoard extends ChangeNotifier {
           ? 'issue $item'
           : null;
       final affected = named is String && batch.containsKey(named) ? [named] : batch.keys;
-      if (error.simpleName != 'StaleRevision') {
+      if (error.name != 'StaleRevision') {
         for (final key in affected) {
           _pending[key]?.problem = detail;
         }
       }
-      if (error.simpleName == 'NotYetBuilt') unavailableActions['SaveMoves'] = detail;
-      if (error.simpleName == 'StaleRevision') {
+      if (error.name == 'NotYetBuilt') unavailableActions['SaveMoves'] = detail;
+      if (error.name == 'StaleRevision') {
         moveProblem = detail;
         moveNotice = 'Planning changed. Review the pending moves and save again.';
         try {
@@ -802,14 +801,14 @@ class PlanningBoard extends ChangeNotifier {
 
 /// Keeps boards for watched projects and selects an available planning provider.
 class PlanningBoards extends ChangeNotifier {
-  /// Observes the fleet without opening sockets in the frame.
-  PlanningBoards(this.machines) {
-    machines.addListener(_sync);
+  /// Observes the client's providers without opening anything of its own.
+  PlanningBoards(this.client) {
+    client.addListener(_sync);
     _sync();
   }
 
-  /// The watched machines.
-  final Machines machines;
+  /// The providers of planning and what the window tells them.
+  final PlanningClient client;
   final Map<(String, String), PlanningBoard> _boards = {};
   final Map<String, PlanningPreferences> _preferences = {};
   String? _selected;
@@ -818,12 +817,12 @@ class PlanningBoards extends ChangeNotifier {
 
   void _sync() {
     if (_disposed) return;
-    final wanted = <(String, String), FleetBackend>{
-      for (final machine in machines.all)
-        for (final project in machines.of(machine).listedProjects)
-          if (machines.of(machine).reachability == Reachability.connected ||
-              _boards.containsKey((machine.name, project.name)))
-            (machine.name, project.name): machines.of(machine).backend,
+    final providers = client.providers;
+    final wanted = <(String, String), PlanningSource>{
+      for (final provider in providers)
+        for (final project in provider.projects)
+          if (provider.connected || _boards.containsKey((provider.name, project)))
+            (provider.name, project): provider.source,
     };
     for (final key in _boards.keys.toList()) {
       if (!wanted.containsKey(key) || !identical(_boards[key]!.backend, wanted[key])) {
@@ -834,9 +833,7 @@ class PlanningBoards extends ChangeNotifier {
     }
     for (final entry in wanted.entries) {
       if (_boards[entry.key] case final existing?) {
-        final connected = machines.all.any(
-          (machine) => machine.name == entry.key.$1 && machines.of(machine).reachability == Reachability.connected,
-        );
+        final connected = providers.any((provider) => provider.name == entry.key.$1 && provider.connected);
         if (connected && _connected[entry.key.$1] == false) {
           unawaited(existing.changeProject(entry.value, entry.key.$2));
         }
@@ -852,11 +849,7 @@ class PlanningBoards extends ChangeNotifier {
     }
     _connected
       ..clear()
-      ..addEntries(
-        machines.all.map(
-          (machine) => MapEntry(machine.name, machines.of(machine).reachability == Reachability.connected),
-        ),
-      );
+      ..addEntries(providers.map((provider) => MapEntry(provider.name, provider.connected)));
     _changed();
   }
 
@@ -867,6 +860,31 @@ class PlanningBoards extends ChangeNotifier {
   /// Boards holding unsaved work, including providers no longer selected.
   Iterable<PlanningBoard> get pendingBoards =>
       _boards.values.where((board) => board.pending.isNotEmpty || board.saving);
+
+  /// Whether any board holds an unsaved move or a save still waiting for its answer, so a leave is asked first.
+  bool get hasPendingMoves => pendingBoards.isNotEmpty;
+
+  /// The provider names known now, for saying which did not supply a project.
+  List<String> get providerNames => [for (final provider in client.providers) provider.name];
+
+  /// Ended story runs and stopped readings that need a person, from every source including stale ones.
+  List<PlanningNeedsYou> get needsYou => [
+    for (final board in sources)
+      for (final story in board.stories) ...[
+        if (board.endedOf(story) case final ended?)
+          PlanningNeedsYou(
+            'story ended ${machineOf(board)}/${board.project}/${story.id}',
+            machineOf(board),
+            PlanningAttention(board, story, ended: ended),
+          ),
+        for (final issue in story.issues.where((issue) => issue.readingStopped == true))
+          PlanningNeedsYou(
+            'reading ${machineOf(board)}/${board.project}/${issue.id}',
+            machineOf(board),
+            PlanningAttention(board, story, issue: issue),
+          ),
+      ],
+  ];
 
   /// The machine identity owning this exact source.
   String machineOf(PlanningBoard board) =>
@@ -884,11 +902,11 @@ class PlanningBoards extends ChangeNotifier {
     final available = projects;
     final name = available.contains(_selected)
         ? _selected
-        : available.contains(machines.fleet.selectedProject?.name)
-        ? machines.fleet.selectedProject?.name
+        : available.contains(client.chosenProject)
+        ? client.chosenProject
         : available.firstOrNull;
     if (name == null) {
-      return _boards.entries.where((entry) => entry.key.$1 == machines.current.name).firstOrNull?.value ??
+      return _boards.entries.where((entry) => entry.key.$1 == client.currentProvider).firstOrNull?.value ??
           _boards.values.firstOrNull;
     }
     return _provider(name);
@@ -896,7 +914,7 @@ class PlanningBoards extends ChangeNotifier {
 
   PlanningBoard? _provider(String name) {
     final candidates = _boards.values.where((board) => board.project == name && !board.unsupported).toList();
-    final preferred = _boards[(machines.current.name, name)];
+    final preferred = _boards[(client.currentProvider, name)];
     bool current(PlanningBoard board) => board.live && board.snapshot?.complete == true;
     bool holdsPending(PlanningBoard board) => board.pending.isNotEmpty || board.saving;
     if (preferred != null && !preferred.unsupported && holdsPending(preferred)) return preferred;
@@ -945,7 +963,7 @@ class PlanningBoards extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
-    machines.removeListener(_sync);
+    client.removeListener(_sync);
     for (final board in _boards.values) {
       board.removeListener(_changed);
       board.dispose();
@@ -957,8 +975,8 @@ class PlanningBoards extends ChangeNotifier {
 
 /// Preserves a daemon refusal in its own detail words.
 String planningFailureWords(Object error) {
-  if (error is VarlinkException) {
-    if (error.simpleName == 'NotYetBuilt') return 'This machine does not offer ${error.parameters['method']} yet.';
+  if (error is PlanningRefusal) {
+    if (error.name == 'NotYetBuilt') return 'This machine does not offer ${error.parameters['method']} yet.';
     final words = [
       for (final key in ['detail', 'message', 'reason'])
         if (error.parameters[key] is String && (error.parameters[key] as String).trim().isNotEmpty)
@@ -966,13 +984,13 @@ String planningFailureWords(Object error) {
     ].firstOrNull;
     final retry = error.parameters['retryAfter'];
     if (words != null) return '$words${retry is int && retry > 0 ? ' — try again in $retry s' : ''}';
-    if (error.simpleName == 'PlanningAdapterError') {
+    if (error.name == 'PlanningAdapterError') {
       final diagnostic = '${error.parameters['error']}: ${error.parameters['parameters']}';
       final safe = diagnostic.replaceAll(RegExp(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]'), '');
       return safe.length > 4096 ? safe.substring(0, 4096) : safe;
     }
-    if (error.simpleName == 'EnteredOnlyByWork') return '${error.parameters['to']} can be entered only by work.';
-    return '${error.simpleName}: ${error.parameters}';
+    if (error.name == 'EnteredOnlyByWork') return '${error.parameters['to']} can be entered only by work.';
+    return '${error.name}: ${error.parameters}';
   }
   if (error is StateError) return error.message.toString();
   if (error is FormatException) return error.message;

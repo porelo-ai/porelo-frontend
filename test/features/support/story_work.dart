@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:porelo_planning/porelo_planning.dart';
 
 import 'planning.dart';
 import 'world.dart';
 import '../../support/expand_list_rows.dart';
-
-import 'package:porelo_frontend/src/app/planning_board.dart';
-import 'package:porelo_frontend/src/app/story_work.dart';
-import 'package:porelo_frontend/src/ui/story_work_dialog.dart';
+import '../../support/planning_embedding.dart';
 
 /// The actual UI elements used by the story work scenarios.
 Finder workKey(String key) => find.byKey(Key(key));
@@ -38,9 +36,9 @@ const storyReadingIssue = 'B540';
 
 /// Uses a 390-wide component host while the test view remains 1280x800.
 Future<void> openNarrowWork(WidgetTester tester) async {
-  final board = PlanningBoard(World.backend, 'checkout');
+  final board = PlanningBoard(FleetPlanningSource(World.backend), 'checkout');
   await World.settle(tester);
-  final work = StoryWork(board, board.stories.firstWhere((story) => story.id == 'ST291'), 'In analysis');
+  final work = planningStoryWork(board, board.stories.firstWhere((story) => story.id == 'ST291'), 'In analysis');
   addTearDown(() {
     work.dispose();
     board.dispose();

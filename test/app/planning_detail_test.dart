@@ -2,12 +2,12 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
-import 'package:porelo_frontend/src/app/planning_board.dart';
-import 'package:porelo_frontend/src/app/planning_detail.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
 import 'package:porelo_frontend/src/mock/planning_data.dart';
+import 'package:porelo_planning/porelo_planning.dart';
 
 import '../features/support/world.dart';
+import '../support/planning_embedding.dart';
 
 Future<void> _flush() => Future<void>.delayed(Duration.zero);
 
@@ -25,7 +25,7 @@ void main() {
   // Harm: completing a request after leaving the screen notifies a disposed model or continues reading.
   test('late replies after disposal cannot publish or start the dependent read', () async {
     final backend = FakeBackend([]);
-    final board = PlanningBoard(backend, 'demo');
+    final board = PlanningBoard(FleetPlanningSource(backend), 'demo');
     await _flush();
     final pending = Completer<PlanStoryDetail>();
     backend.readPlanningStory = (_, _) => pending.future;
@@ -50,7 +50,7 @@ void main() {
   // Harm: a slow old snapshot overwrites the newer story after the watch changed.
   test('a newer board replacement invalidates an older detail reply', () async {
     final backend = FakeBackend([]);
-    final board = PlanningBoard(backend, 'demo');
+    final board = PlanningBoard(FleetPlanningSource(backend), 'demo');
     await _flush();
     final pending = <Completer<PlanStoryDetail>>[];
     backend.readPlanningStory = (_, _) {
@@ -94,7 +94,7 @@ void main() {
   // Harm: a reply for another identifier is rendered under the requested breadcrumb.
   test('a mismatched story is refused without publishing it', () async {
     final backend = FakeBackend([]);
-    final board = PlanningBoard(backend, 'demo');
+    final board = PlanningBoard(FleetPlanningSource(backend), 'demo');
     await _flush();
     backend.readPlanningStory = (_, _) async => PlanStoryDetail.from({
       'story': {'id': 'other', 'title': 'Wrong'},
@@ -111,7 +111,7 @@ void main() {
   // Harm: removing a provider leaves detail disposal calling into its released board.
   test('detail disposal does not remove a listener from a disposed board', () async {
     final backend = FakeBackend([]);
-    final board = _StrictPlanningBoard(backend, 'demo');
+    final board = _StrictPlanningBoard(FleetPlanningSource(backend), 'demo');
     await _flush();
     final pending = Completer<PlanStoryDetail>();
     backend.readPlanningStory = (_, _) => pending.future;
@@ -134,7 +134,7 @@ void main() {
   // Harm: an in-flight issue-list read publishes a new story beside an older list.
   test('a reload publishes its parts together and names a failed issue list', () async {
     final backend = FakeBackend([]);
-    final board = PlanningBoard(backend, 'demo');
+    final board = PlanningBoard(FleetPlanningSource(backend), 'demo');
     await _flush();
     final detail = PlanningDetail(board, 'ST291', null);
     await _flush();
@@ -163,7 +163,7 @@ void main() {
   // Harm: a failed parent hides a successfully read issue or invents an owner.
   test('issue content survives a parent failure and an omitted owner is not inferred', () async {
     final backend = FakeBackend([]);
-    final board = PlanningBoard(backend, 'demo');
+    final board = PlanningBoard(FleetPlanningSource(backend), 'demo');
     await _flush();
     backend.planningPartFailures['Story'] = const VarlinkException('WorkNotAllowed', {'detail': 'Parent locked'});
     final detail = PlanningDetail(board, 'ST291', 'B541');
@@ -184,7 +184,7 @@ void main() {
   // Harm: a failed issue refresh erases the last issue and its owning story.
   test('a failed issue refresh retains the last published issue group', () async {
     final backend = FakeBackend([]);
-    final board = PlanningBoard(backend, 'demo');
+    final board = PlanningBoard(FleetPlanningSource(backend), 'demo');
     await _flush();
     final detail = PlanningDetail(board, 'ST291', 'B541');
     await _flush();
@@ -215,7 +215,7 @@ void main() {
   // Harm: a draft edits sibling states or appears saved before the daemon acknowledgement.
   test('one issue stays pending until its confirmed save is reread', () async {
     final backend = FakeBackend([]);
-    final board = PlanningBoard(backend, 'demo');
+    final board = PlanningBoard(FleetPlanningSource(backend), 'demo');
     await _flush();
     final detail = PlanningDetail(board, 'ST291', null);
     await _flush();
@@ -241,7 +241,7 @@ void main() {
   // Harm: stale planning is overwritten or pending work is silently discarded.
   test('stale issue moves reread and keep only still-applicable drafts without retrying writes', () async {
     final backend = FakeBackend([]);
-    final board = PlanningBoard(backend, 'demo');
+    final board = PlanningBoard(FleetPlanningSource(backend), 'demo');
     await _flush();
     final detail = PlanningDetail(board, 'ST291', null);
     await _flush();
@@ -269,7 +269,7 @@ void main() {
   // Harm: a save finishing after navigation notifies a disposed detail model.
   test('a held save completes without notifying after disposal', () async {
     final backend = FakeBackend([]);
-    final board = PlanningBoard(backend, 'demo');
+    final board = PlanningBoard(FleetPlanningSource(backend), 'demo');
     await _flush();
     final detail = PlanningDetail(board, 'ST291', null);
     await _flush();

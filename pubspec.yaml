@@ -54,6 +54,9 @@ dependencies:
     # `porelo-host`'s own step lines and answers, read the way the command writes them.
     porelo_host:
         path: packages/porelo_host
+    # The planning screen, kept apart so it builds and tests without the window.
+    porelo_planning:
+        path: packages/porelo_planning
     cryptography: ^2.9.0
     path: ^1.9.1
 

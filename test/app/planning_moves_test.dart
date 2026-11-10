@@ -3,11 +3,13 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/fleet_backend.dart';
-import 'package:porelo_frontend/src/app/planning_board.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/mock/planning_data.dart';
 import 'package:porelo_frontend/src/mock/planning_moves.dart';
+import 'package:porelo_planning/porelo_planning.dart';
+
+import '../support/planning_embedding.dart';
 
 Map<String, dynamic> _fixture() => {
   'states': [
@@ -129,7 +131,7 @@ void main() {
   setUp(() async {
     disposed = false;
     backend = _Backend();
-    board = PlanningBoard(backend, 'demo');
+    board = PlanningBoard(FleetPlanningSource(backend), 'demo');
     backend.changes.add(PlanningSnapshot.from(backend.data));
     await Future<void>.delayed(Duration.zero);
     backend.workflowReads = 0;
@@ -541,7 +543,7 @@ void main() {
     backend.gate = Completer<void>();
     board.move('StoryOne', 'Done');
     final saved = board.save();
-    await board.changeProject(backend, 'demo');
+    await board.changeProject(FleetPlanningSource(backend), 'demo');
     expect(backend.watches, 1);
     backend.gate!.complete();
     await saved;

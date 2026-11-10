@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:porelo_frontend/src/app/planning_board.dart';
-import 'package:porelo_frontend/src/app/story_work.dart';
+import 'package:porelo_planning/porelo_planning.dart';
 
 import '../features/support/world.dart';
+import '../support/planning_embedding.dart';
 
 Future<void> _turn() => Future<void>.delayed(Duration.zero);
 
@@ -12,9 +12,9 @@ void main() {
   late StoryWork work;
   setUp(() async {
     backend = FakeBackend([]);
-    board = PlanningBoard(backend, 'checkout');
+    board = PlanningBoard(FleetPlanningSource(backend), 'checkout');
     await _turn();
-    work = StoryWork(board, board.stories.firstWhere((story) => story.id == 'ST291'), 'Implementing');
+    work = planningStoryWork(board, board.stories.firstWhere((story) => story.id == 'ST291'), 'Implementing');
     await work.load();
   });
   tearDown(() async {
@@ -129,7 +129,7 @@ void main() {
     backend.pushPlanning('checkout', {...backend.planning['checkout']!, 'revision': ''});
     await _turn();
     work.dispose();
-    work = StoryWork(board, board.stories.firstWhere((story) => story.id == 'ST291'), 'Implementing');
+    work = planningStoryWork(board, board.stories.firstWhere((story) => story.id == 'ST291'), 'Implementing');
     await work.load();
     expect(await work.start(), isFalse);
     expect(backend.storyWork.calls.where((call) => call.$1 == 'StartStoryWork'), isEmpty);

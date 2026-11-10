@@ -3,9 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
-import 'package:porelo_frontend/src/ui/planning_view.dart';
 import 'package:porelo_frontend/src/ui/shell_rail.dart';
 import 'package:porelo_frontend/src/ui/work_page.dart';
+import 'package:porelo_planning/porelo_planning.dart';
 
 import '../features/support/world.dart';
 
@@ -34,7 +34,7 @@ Future<WorkView> _pendingPlanning(WidgetTester tester) async {
   final work = tester.widget<WorkPage>(find.byType(WorkPage)).view;
   World.shell.goTo(Section.planning);
   await World.settle(tester);
-  tester.widget<PlanningView>(find.byType(PlanningView)).boards.selected!.move('StoryOne', 'Review');
+  tester.widget<PlanningScreen>(find.byType(PlanningScreen)).boards.selected!.move('StoryOne', 'Review');
   await World.settle(tester);
   return work;
 }
@@ -53,7 +53,7 @@ void main() {
     expect(work.search.text, 'keep-this-filter');
     await tester.tap(find.byKey(const Key('planning-stay')));
     await World.settle(tester);
-    expect(find.byType(PlanningView), findsOneWidget);
+    expect(find.byType(PlanningScreen), findsOneWidget);
     expect(work.search.text, 'keep-this-filter');
     rail.onGo(Section.work);
     await World.settle(tester);
@@ -66,11 +66,11 @@ void main() {
   // Harm: task navigation bypasses a leave refusal or loses the requested detail after resuming.
   testWidgets('opening planning work changes selection and opens detail only after confirming leave', (tester) async {
     await _pendingPlanning(tester);
-    final view = tester.widget<PlanningView>(find.byType(PlanningView));
+    final view = tester.widget<PlanningScreen>(find.byType(PlanningScreen));
     final board = view.boards.selected!;
     final fleet = World.machines.fleet;
     final prior = fleet.selectedTask;
-    view.onTask(board, 'porelo-checkout-migrate');
+    view.taskChanges.open(board, 'porelo-checkout-migrate');
     await World.settle(tester);
     expect(find.byType(AlertDialog), findsOneWidget);
     expect(World.shell.detailOpen, isFalse);
@@ -80,7 +80,7 @@ void main() {
     expect(World.shell.section, Section.planning);
     expect(World.shell.detailOpen, isFalse);
     expect(fleet.selectedTask, same(prior));
-    view.onTask(board, 'porelo-checkout-migrate');
+    view.taskChanges.open(board, 'porelo-checkout-migrate');
     await World.settle(tester);
     await tester.tap(find.byKey(const Key('planning-leave')));
     await World.settle(tester);
@@ -102,7 +102,7 @@ void main() {
     await tester.tap(find.widgetWithText(ListTile, 'Show the vault'));
     await World.settle(tester);
     expect(find.byType(AlertDialog), findsOneWidget);
-    expect(find.byType(PlanningView), findsOneWidget);
+    expect(find.byType(PlanningScreen), findsOneWidget);
     await tester.tap(find.byKey(const Key('planning-leave')));
     await World.settle(tester);
     final highlighted = find.byKey(const Key('highlighted'));

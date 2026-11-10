@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:porelo_frontend/client.dart';
+import 'package:porelo_planning/porelo_planning.dart';
 
 void main() {
   // Harm: a daemon outcome disappears because the client reads obsolete fields.

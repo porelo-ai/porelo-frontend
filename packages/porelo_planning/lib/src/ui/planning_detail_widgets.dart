@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../app/commands.dart';
-import '../app/planning_board.dart';
-import 'tokens.dart';
+import '../planning_board.dart';
+import 'actions.dart';
+import 'style.dart';
 
 /// An absent value is not an empty successful report.
 String planningValue(String value) => value.isEmpty ? 'Not reported' : value;
@@ -25,13 +25,16 @@ Widget planningSection(BuildContext context, String title, List<Widget> children
 /// Offers only a web address actually supplied by the machine.
 class PlanningWebLink extends StatefulWidget {
   /// Takes the machine's link unchanged.
-  const PlanningWebLink({required this.link, required this.label, super.key});
+  const PlanningWebLink({required this.link, required this.label, required this.openLink, super.key});
 
   /// The reported link.
   final String link;
 
   /// Open story or Open issue.
   final String label;
+
+  /// Opens the address in the person's browser.
+  final Future<void> Function(Uri) openLink;
 
   @override
   State<PlanningWebLink> createState() => _PlanningWebLinkState();
@@ -54,9 +57,10 @@ class _PlanningWebLinkState extends State<PlanningWebLink> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         OutlinedButton.icon(
-          onPressed: planningWebCommand(
+          onPressed: planningWebAction(
             widget.label,
             widget.link,
+            widget.openLink,
             onError: (error) {
               if (mounted) setState(() => _problem = planningFailureWords(error));
             },

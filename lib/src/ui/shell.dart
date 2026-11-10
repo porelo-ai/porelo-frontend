@@ -67,11 +67,12 @@ import 'organization_access_dialogs.dart';
 import 'clearing_view.dart';
 import '../app/settings.dart';
 import '../app/shell_model.dart';
-import '../app/planning_board.dart';
-import '../app/story_work.dart';
-import 'planning_view.dart';
+import '../app/planning_daemon.dart';
+import 'planning_embedding.dart';
 
 import 'package:porelo_frontend/client.dart';
+import 'package:porelo_planning/porelo_planning.dart'
+    show PlanningBoard, PlanningBoards, PlanningScreen, PlanningSource, StoryWork, confirmPlanningLeave;
 import 'package:porelo_host/porelo_host.dart'
     show
         CentralToken,
@@ -536,7 +537,13 @@ class _ShellState extends State<Shell> {
   /// How this person stands in each project, which decides whether they may move its work.
   String? _treeTool;
   Machine? _observedMachine;
-  late final _planning = PlanningBoards(widget.machines);
+  late final _planning = PlanningBoards(DaemonPlanningClient(widget.machines));
+  late final _planningHost = ShellPlanningHost(widget.shell, needsYou: () => widget.shell.goTo(Section.attention));
+
+  /// The watched machine whose daemon is [source], if one still is.
+  Machine? _planningMachine(PlanningSource source) => widget.machines.all
+      .where((machine) => identical(widget.machines.of(machine).backend, (source as FleetPlanningSource).fleet))
+      .firstOrNull;
 
   void _machineChanged() {
     _dropForgottenTools();
@@ -689,7 +696,7 @@ class _ShellState extends State<Shell> {
     if (_planningLeaveApproved ||
         widget.shell.section != Section.planning ||
         destination == Section.planning ||
-        _planning.pendingBoards.isEmpty) {
+        !_planning.hasPendingMoves) {
       return true;
     }
     if (_planningLeaveAsked) return false;
@@ -780,7 +787,7 @@ class _ShellState extends State<Shell> {
       if (machine != null)
         for (final command in [..._machineMenu(on: machine), _machinePanic(machine)]) command.id: command,
     };
-    final all = [..._unscopedCommands(), ...planningCommands(_planning, widget.shell)];
+    final all = [..._unscopedCommands(), ...planningCommands(_planning, _planningHost)];
     final ids = all.map((command) => command.id).toSet();
     return [
       for (final command in all) scoped[command.id] ?? _commandForItem(command).unless(_itemScopeProblem(command)),
@@ -3885,9 +3892,7 @@ class _ShellState extends State<Shell> {
   void _openPlanningTask(PlanningBoard board, String name) {
     if (!_beforePlanningNavigation(Section.work, () => _openPlanningTask(board, name))) return;
     if (board.disposed) return;
-    final machine = widget.machines.all
-        .where((machine) => identical(widget.machines.of(machine).backend, board.backend))
-        .firstOrNull;
+    final machine = _planningMachine(board.backend);
     if (machine == null) return;
     final fleet = widget.machines.of(machine);
     final task = fleet.tasks.where((task) => task.name == name && task.project == board.project).firstOrNull;
@@ -3900,9 +3905,7 @@ class _ShellState extends State<Shell> {
   }
 
   String? _planningTaskUnavailable(PlanningBoard board, String name) {
-    final machine = widget.machines.all
-        .where((machine) => identical(widget.machines.of(machine).backend, board.backend))
-        .firstOrNull;
+    final machine = _planningMachine(board.backend);
     if (machine == null || board.disposed) return 'This window no longer knows the machine for $name.';
     final task = widget.machines
         .of(machine)
@@ -4003,13 +4006,16 @@ class _ShellState extends State<Shell> {
                             Section.planning => Column(
                               children: [
                                 Expanded(
-                                  child: PlanningView(
+                                  child: PlanningScreen(
                                     boards: _planning,
-                                    shell: widget.shell,
-                                    taskUnavailable: _planningTaskUnavailable,
-                                    onTask: _openPlanningTask,
-                                    onNeedsYou: () => widget.shell.goTo(Section.attention),
-                                    onStarted: _storyWorkStarted,
+                                    host: _planningHost,
+                                    startTask: daemonStartTask,
+                                    taskChanges: WindowTaskChanges(
+                                      whyNot: _planningTaskUnavailable,
+                                      opening: _openPlanningTask,
+                                      onStarted: _storyWorkStarted,
+                                    ),
+                                    agents: const DaemonPlanningAgents(),
                                   ),
                                 ),
                               ],
@@ -6516,9 +6522,7 @@ class _ShellState extends State<Shell> {
 
   Future<void> _storyWorkStarted(StoryWork work) async {
     if (work.mode != 'AGENT') return;
-    final machine = widget.machines.all
-        .where((machine) => identical(widget.machines.of(machine).backend, work.backend))
-        .firstOrNull;
+    final machine = _planningMachine(work.backend);
     final name = work.result?.terminalName;
     final returnedTasks = work.result?.tasksFor(work.project) ?? <Task>[];
     final task =

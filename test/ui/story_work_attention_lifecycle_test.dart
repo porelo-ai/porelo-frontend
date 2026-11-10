@@ -3,11 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:porelo_frontend/src/app/planning_board.dart';
-import 'package:porelo_frontend/src/app/story_work.dart';
-import 'package:porelo_frontend/src/ui/story_work_attention.dart';
+import 'package:porelo_planning/porelo_planning.dart';
 
 import '../features/support/world.dart';
+import '../support/planning_embedding.dart';
 
 Map<String, dynamic> _snapshot(int round, {String issue = 'item'}) => {
   'states': <Map<String, dynamic>>[],
@@ -47,7 +46,7 @@ void main() {
   testWidgets('a retained reading row renders without attaching to its disposed source', (tester) async {
     _desktop(tester);
     final backend = FakeBackend([])..planning['demo'] = _snapshot(3);
-    final board = PlanningBoard(backend, 'demo');
+    final board = PlanningBoard(FleetPlanningSource(backend), 'demo');
     await World.settle(tester);
     final row = _row(board);
     backend.storyWork.findings['item'] = [
@@ -80,7 +79,7 @@ void main() {
   testWidgets('a comment opened for an old round is not sent after its decision changes', (tester) async {
     _desktop(tester);
     final backend = FakeBackend([])..planning['demo'] = _snapshot(3);
-    final board = PlanningBoard(backend, 'demo');
+    final board = PlanningBoard(FleetPlanningSource(backend), 'demo');
     await World.settle(tester);
     final row = ValueNotifier(_row(board));
     await tester.pumpWidget(
@@ -116,7 +115,7 @@ void main() {
   testWidgets('same-round revision changes preserve refusal and require an explicit refresh', (tester) async {
     _desktop(tester);
     final backend = FakeBackend([])..planning['demo'] = _snapshot(3);
-    final board = PlanningBoard(backend, 'demo');
+    final board = PlanningBoard(FleetPlanningSource(backend), 'demo');
     await World.settle(tester);
     final row = ValueNotifier(_row(board));
     await tester.pumpWidget(
@@ -158,7 +157,7 @@ void main() {
     backend.storyWork.findings['item'] = [
       {'severity': 'BLOCKING', 'text': 'Keep the key inside.'},
     ];
-    final board = PlanningBoard(backend, 'demo');
+    final board = PlanningBoard(FleetPlanningSource(backend), 'demo');
     await World.settle(tester);
     backend.failPlanning(const VarlinkDisconnected('The watch is disconnected.'));
     await World.settle(tester);
@@ -205,7 +204,7 @@ void main() {
     backend.storyWork.findings['other'] = [
       {'severity': 'NOTE', 'text': 'Other issue finding.'},
     ];
-    final board = PlanningBoard(backend, 'demo');
+    final board = PlanningBoard(FleetPlanningSource(backend), 'demo');
     await World.settle(tester);
     final row = ValueNotifier(_row(board));
     await tester.pumpWidget(

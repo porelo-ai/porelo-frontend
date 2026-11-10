@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../app/planning_detail.dart';
+import '../planning_detail.dart';
 import 'planning_detail_widgets.dart';
-import 'tokens.dart';
+import 'style.dart';
 
 /// The issue's facts, acceptance criteria, last reading and sub-agents.
 class PlanningIssueView extends StatelessWidget {
@@ -12,6 +12,7 @@ class PlanningIssueView extends StatelessWidget {
     required this.onStory,
     required this.onTask,
     required this.taskUnavailable,
+    required this.openLink,
     super.key,
   });
 
@@ -26,6 +27,9 @@ class PlanningIssueView extends StatelessWidget {
 
   /// Why a task cannot be opened on its own provider.
   final String? Function(String) taskUnavailable;
+
+  /// Opens a web address in the person's browser.
+  final Future<void> Function(Uri) openLink;
 
   @override
   Widget build(BuildContext context) {
@@ -51,7 +55,7 @@ class PlanningIssueView extends StatelessWidget {
           ],
         ),
         Text(planningValue(issue.title), style: Theme.of(context).textTheme.headlineSmall),
-        PlanningWebLink(link: issue.link, label: 'Open issue'),
+        PlanningWebLink(link: issue.link, label: 'Open issue', openLink: openLink),
         if (reply.revision.isNotEmpty) Text('Revision: ${reply.revision}'),
         planningSection(context, 'Size', [Text(planningValue(issue.size))]),
         planningSection(context, 'Blocked by', [

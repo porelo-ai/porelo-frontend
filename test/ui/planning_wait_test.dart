@@ -4,10 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
-import 'package:porelo_frontend/src/app/planning_board.dart';
-import 'package:porelo_frontend/src/ui/planning_view.dart';
+import 'package:porelo_planning/porelo_planning.dart';
 
 import '../features/support/world.dart';
+import '../support/planning_embedding.dart';
 
 class _SilentPlanning extends FakeBackend {
   _SilentPlanning() : super([]);
@@ -28,7 +28,7 @@ void main() {
     final machines = Machines(World.settings, reach: (_) => backend);
     await machines.load();
     await machines.fleet.untilAsked();
-    final boards = PlanningBoards(machines);
+    final boards = PlanningBoards(DaemonPlanningClient(machines));
     addTearDown(() async {
       boards.dispose();
       machines.dispose();
@@ -38,7 +38,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: PlanningView(
+          body: planningView(
             boards: boards,
             shell: World.shell,
             onTask: (_, _) {},

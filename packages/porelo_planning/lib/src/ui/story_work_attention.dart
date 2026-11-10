@@ -1,11 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:porelo_frontend/client.dart' show PlanningIssueDetail;
 
-import '../app/commands.dart';
-import '../app/story_work.dart';
-import 'tokens.dart';
+import '../models.dart';
+import '../story_work.dart';
+import 'actions.dart';
+import 'style.dart';
 
 /// Story outcomes and reading stops retain the daemon's words until the board clears them.
 class StoryWorkAttentionView extends StatefulWidget {
@@ -94,10 +94,9 @@ class _StoryWorkAttentionViewState extends State<StoryWorkAttentionView> {
               if (ended.at.isNotEmpty) Text(ended.at),
               _openStoryButton(
                 context,
-                planningCommand(
+                PlanningAction(
                   id: 'planning.open-story',
                   label: 'Open story',
-                  home: Home.attentionRow,
                   unavailable: widget.resolved
                       ? 'this row is resolved'
                       : row.board.isDisposed
@@ -164,16 +163,15 @@ class _StoryWorkAttentionViewState extends State<StoryWorkAttentionView> {
     );
   }
 
-  Widget _openStoryButton(BuildContext context, Command command) => Tooltip(
+  Widget _openStoryButton(BuildContext context, PlanningAction command) => Tooltip(
     message: command.unavailable ?? command.label,
     child: TextButton(onPressed: command.available ? command.run : null, child: const Text('Open story')),
   );
 
   Widget _decision(BuildContext context, ReadingDecision reading, String choice) {
-    final command = planningCommand(
+    final command = PlanningAction(
       id: 'reading.$choice',
       label: _label(choice),
-      home: Home.attentionRow,
       unavailable: reading.unavailable,
       run: () async {
         if (choice == 'REWORK') {

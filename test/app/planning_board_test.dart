@@ -4,10 +4,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/fleet_backend.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
-import 'package:porelo_frontend/src/app/planning_board.dart';
 import 'package:porelo_frontend/src/app/settings.dart';
+import 'package:porelo_planning/porelo_planning.dart';
 
 import '../features/support/world.dart';
+import '../support/planning_embedding.dart';
 
 class _Backend extends Fake implements FleetBackend {
   @override
@@ -56,7 +57,7 @@ void main() {
     ),
   ]) {
     test('a synchronous watch failure marks the board unavailable: $failure', () {
-      final board = PlanningBoard(_SynchronousFailure(failure), 'project');
+      final board = PlanningBoard(FleetPlanningSource(_SynchronousFailure(failure)), 'project');
       addTearDown(board.dispose);
       expect(board.live, isFalse);
       expect(board.unsupported, unsupported);
@@ -73,7 +74,7 @@ void main() {
       reach: (machine) => machine.name == 'other' ? second : first,
       tunnels: FakeTunnels(),
     );
-    final boards = PlanningBoards(machines);
+    final boards = PlanningBoards(DaemonPlanningClient(machines));
     addTearDown(() async {
       boards.dispose();
       machines.dispose();
@@ -86,20 +87,20 @@ void main() {
     await Future<void>.delayed(Duration.zero);
     expect(boards.projects, isEmpty);
     expect(boards.selected!.unsupported, isTrue);
-    expect(boards.selected!.backend, same(first));
+    expect(boards.selected!.backend, same(FleetPlanningSource(first)));
 
     machines.select(other);
     expect(boards.selected!.unsupported, isTrue);
-    expect(boards.selected!.backend, same(second));
+    expect(boards.selected!.backend, same(FleetPlanningSource(second)));
 
     machines.select(local);
-    expect(boards.selected!.backend, same(first));
+    expect(boards.selected!.backend, same(FleetPlanningSource(first)));
   });
 
   // Harm: a silent subscription keeps a project or a disposed window alive indefinitely.
   test('disposing cancels a watch even when it has never answered', () async {
     final backend = _Backend();
-    final board = PlanningBoard(backend, 'first');
+    final board = PlanningBoard(FleetPlanningSource(backend), 'first');
     var notifications = 0;
     board.addListener(() {
       notifications++;
@@ -116,12 +117,12 @@ void main() {
   // Harm: an old project's answer is shown below another project's name.
   test('changing project cancels the old watch and rejects its late replies', () async {
     final backend = _Backend();
-    final board = PlanningBoard(backend, 'first');
+    final board = PlanningBoard(FleetPlanningSource(backend), 'first');
     addTearDown(board.dispose);
     backend.controllers['first']!.add(_snapshot('old'));
     await Future<void>.delayed(Duration.zero);
     expect(board.stories.single.id, 'old');
-    await board.changeProject(backend, 'second');
+    await board.changeProject(FleetPlanningSource(backend), 'second');
     expect(backend.canceled, ['first']);
     expect(board.snapshot, isNull);
     backend.controllers['first']!.add(_snapshot('late'));
@@ -136,7 +137,7 @@ void main() {
   // Harm: deleted stories or old workflow metadata survive a complete replacement.
   test('story answers replace deletions while the separate workflow remains', () async {
     final backend = _Backend();
-    final board = PlanningBoard(backend, 'project');
+    final board = PlanningBoard(FleetPlanningSource(backend), 'project');
     addTearDown(board.dispose);
     backend.controllers['project']!.add(_snapshot('old'));
     await Future<void>.delayed(Duration.zero);
@@ -160,7 +161,7 @@ void main() {
   // Harm: losing a stream is mistaken for an empty or current board.
   test('errors preserve their words and make the last snapshot stale', () async {
     final backend = _Backend();
-    final board = PlanningBoard(backend, 'project');
+    final board = PlanningBoard(FleetPlanningSource(backend), 'project');
     addTearDown(board.dispose);
     backend.controllers['project']!.add(_snapshot('retained'));
     await Future<void>.delayed(Duration.zero);
@@ -177,7 +178,7 @@ void main() {
   // Harm: a daemon refusal is replaced by a raw exception or a malformed parameter instead of its words.
   test('planning refusal words prefer detail and then message without stringifying other values', () async {
     final backend = _Backend();
-    final board = PlanningBoard(backend, 'project');
+    final board = PlanningBoard(FleetPlanningSource(backend), 'project');
     addTearDown(board.dispose);
     final cases = <(Map<String, dynamic>, String)>[
       ({'detail': 'The detail', 'message': 'The message'}, 'The detail'),
@@ -197,7 +198,7 @@ void main() {
   // Harm: a normally ended stream leaves a frozen board looking current.
   test('a final watch snapshot remains usable without a subscription', () async {
     final backend = _Backend();
-    final board = PlanningBoard(backend, 'project');
+    final board = PlanningBoard(FleetPlanningSource(backend), 'project');
     addTearDown(board.dispose);
     backend.controllers['project']!.add(_snapshot('last'));
     await Future<void>.delayed(Duration.zero);
@@ -211,7 +212,7 @@ void main() {
   // Harm: absent workflow data becomes a reassuring zero or drops an orphan story.
   test('incomplete and inconsistent replies remain unsaid or visibly unplaced', () async {
     final backend = _Backend();
-    final board = PlanningBoard(backend, 'project');
+    final board = PlanningBoard(FleetPlanningSource(backend), 'project');
     addTearDown(board.dispose);
     backend.controllers['project']!.add(PlanningSnapshot.from({}));
     await Future<void>.delayed(Duration.zero);
@@ -234,7 +235,7 @@ void main() {
   // Harm: a failed planning stream cannot be resumed while the machine remains connected.
   test('retry replaces an ended watch without resetting the view choices', () async {
     final backend = _Backend();
-    final board = PlanningBoard(backend, 'project');
+    final board = PlanningBoard(FleetPlanningSource(backend), 'project');
     addTearDown(board.dispose);
     board.filter(PlanningPriority.high);
     board.search('story');
@@ -257,7 +258,7 @@ void main() {
     final canceled = Completer<void>();
     final source = StreamController<PlanningSnapshot>(onCancel: () => canceled.future);
     final backend = _SlowCancellation(source);
-    final board = PlanningBoard(backend, 'project');
+    final board = PlanningBoard(FleetPlanningSource(backend), 'project');
     source.addError(const VarlinkException('WorkNotAllowed', {'detail': 'store unavailable'}));
     await Future<void>.delayed(Duration.zero);
     try {

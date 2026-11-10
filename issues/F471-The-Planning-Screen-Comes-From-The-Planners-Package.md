@@ -56,6 +56,45 @@ Read in today's code (porelo-frontend 3b63f9a7):
   4. Every window test green, and the window started locally from porelo-planner's checkout.
   5. Hand it over to Agent Planner.
 
+## How it stands
+
+- **Step 1 is built inside this repository first.** The planning screen is the Flutter package
+  `packages/porelo_planning` (Dart package `porelo_planning`), which the window embeds with
+  `path: packages/porelo_planning`, as it embeds `packages/porelo_host`. The package imports only Flutter and
+  Dart, so the directory can move as it is into porelo-planner's `screen/`. Behavior is unchanged.
+- **What moved into the package:** the planning records (`lib/src/models.dart`, cut out of the `porelo_client`
+  library), the board, its moves and the boards across providers (`planning_board.dart`), the detail reads, the
+  Start work form and the reading decision (`story_work.dart`), and every planning view, the Start work dialog and
+  the Needs-you entry under `lib/src/ui/`. `PlanningStyle` and a small `Space` moved too; colors still come from
+  the window's theme through `Theme.of(context)`.
+- **The package's face** (`lib/porelo_planning.dart`): `PlanningScreen(boards, host, startTask, taskChanges,
+  agents)`, with `PlanningBoards(client)` built by the window, since the rail count, Needs you, the command
+  palette and the leave guard read the boards while another place is shown. `PlanningClient` lists the providers
+  of planning (today each watched machine), the current provider, the chosen project, and has `taskEvent`.
+  `PlanningSource` is one provider's calls. A refusal reaches the package as `PlanningRefusal`, a call not
+  offered as `PlanningUnsupported`. `PlanningAction` is what the window wraps in its own `Command`;
+  `PlanningBoards.hasPendingMoves` is the leave guard's question; `PlanningBoards.needsYou` lists the Needs-you
+  entries, and `StoryWorkAttentionView` shows one. `PlanningHost` is where the screen stands, how it moves and
+  what it opens, kept in the window's history. The records alone are also `lib/planning_models.dart`, free of
+  Flutter, which the window's client library re-exports, as its command-line mock daemon cannot load Flutter.
+- **The package already meets the frame of porelo-planner's `screen/`:** the same `analysis_options.yaml`,
+  `flutter_test` and `flutter_lints` as its only dev dependencies, `dart format --set-exit-if-changed lib test`,
+  `dart analyze --fatal-infos` and `flutter test` all clean.
+- **What the window keeps:** `lib/src/app/planning_daemon.dart` answers the package from today's daemons: a
+  `DaemonPlanningClient` over the watched machines, a `FleetPlanningSource` per machine that turns a varlink
+  refusal into the package's words, and `daemonStartTask`, which starts story work through the machine's own
+  story-work start as before. `lib/src/ui/planning_embedding.dart` holds the window's place, task and agent
+  hooks. The daemon's planning calls stay in `client/planning.dart`; `taskEvent` does nothing yet, as the daemon
+  follows the tasks it starts itself. The mock's planning data stays in the window.
+- **Tests:** the package has its own Dart stand-in of a planning service and its own tests, run by the Maven
+  build and the Windows job. The board, detail, start and screen tests that drive the window's `FakeBackend` and
+  the mock's planning data still run in the window, through the daemon adapter; the feature files stay in the
+  window and pass unchanged.
+- **Still to do:** move the tests that still drive `FakeBackend` into the package once its stand-in carries a
+  board as rich as the mock's; `PlanningClient.http` with the planner's REST and Server-Sent Events; then steps 2
+  to 5: the directory into porelo-planner's `screen/`, the window's `git:` dependency with a tag, and the
+  hand-over.
+
 ## Agreed with Agent Planner (2026-11-10)
 
 - **Place and names:** the directory `screen/` at porelo-planner's root, a Maven module `porelo-planner-screen` built

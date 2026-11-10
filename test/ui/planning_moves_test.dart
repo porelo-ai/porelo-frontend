@@ -4,10 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
-import 'package:porelo_frontend/src/app/planning_board.dart';
-import 'package:porelo_frontend/src/ui/planning_view.dart';
+import 'package:porelo_planning/porelo_planning.dart';
 
 import '../features/support/world.dart';
+import '../support/planning_embedding.dart';
 
 Future<(FakeBackend, PlanningBoards)> _showBoard(
   WidgetTester tester, {
@@ -53,7 +53,7 @@ Future<(FakeBackend, PlanningBoards)> _showBoard(
   );
   await machines.load();
   await machines.fleet.untilAsked();
-  final boards = PlanningBoards(machines);
+  final boards = PlanningBoards(DaemonPlanningClient(machines));
   addTearDown(() async {
     boards.dispose();
     machines.dispose();
@@ -62,7 +62,7 @@ Future<(FakeBackend, PlanningBoards)> _showBoard(
   await tester.pumpWidget(
     MaterialApp(
       home: Scaffold(
-        body: PlanningView(
+        body: planningView(
           boards: boards,
           shell: World.shell,
           onTask: (_, _) {},
@@ -170,11 +170,11 @@ void main() {
         {'id': 'StoryOne', 'title': 'Other provider story', 'state': 'Ready', 'issues': <Map<String, dynamic>>[]},
       ],
     };
-    final first = boards.machines.current;
+    final first = (boards.client as DaemonPlanningClient).machines.current;
     final localBoard = boards.selected!;
     const second = Machine(name: 'other-provider', socketPath: '/tmp/planning-other.sock');
-    await boards.machines.add(second);
-    boards.machines.select(second);
+    await (boards.client as DaemonPlanningClient).machines.add(second);
+    (boards.client as DaemonPlanningClient).machines.select(second);
     await World.settle(tester);
     final otherBoard = boards.selected!;
     expect(find.text('Other provider story'), findsOneWidget);
@@ -188,7 +188,7 @@ void main() {
     expect(find.text('Other provider story'), findsOneWidget);
     expect(find.text('A story'), findsNothing);
     expect(find.byKey(const Key('planning-pending StoryOne')), findsOneWidget);
-    boards.machines.select(first);
+    (boards.client as DaemonPlanningClient).machines.select(first);
     await World.settle(tester);
     expect(find.text('A story'), findsOneWidget);
     expect(find.text('Other provider story'), findsNothing);
@@ -202,7 +202,7 @@ void main() {
     board.move('StoryOne', 'Done');
     final saved = board.save();
     await tester.pump();
-    final leaving = confirmPlanningLeave(tester.element(find.byType(PlanningView)), [board]);
+    final leaving = confirmPlanningLeave(tester.element(find.byType(PlanningScreen)), [board]);
     await World.settle(tester);
     expect(find.text('Planning is saving'), findsOneWidget);
     expect(find.byKey(const Key('planning-leave')), findsNothing);
@@ -222,7 +222,7 @@ void main() {
     final (_, boards) = await _showBoard(tester);
     final board = boards.selected!;
     board.move('StoryOne', 'Done');
-    final context = tester.element(find.byType(PlanningView));
+    final context = tester.element(find.byType(PlanningScreen));
     final first = confirmPlanningLeave(context, [board]);
     await World.settle(tester);
     final second = await confirmPlanningLeave(context, [board], quitting: true);

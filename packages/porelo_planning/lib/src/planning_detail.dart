@@ -1,8 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:porelo_frontend/client.dart';
 
+import 'models.dart';
 import 'planning_board.dart';
 
 /// Reads one destination from its original board's machine and refreshes on board replacements.

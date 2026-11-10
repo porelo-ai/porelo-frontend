@@ -2,6 +2,22 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:porelo_planning/planning_models.dart'
+    show
+        PlanIssueDetail,
+        PlanIssueList,
+        PlanStoryDetail,
+        PlanWorkTask,
+        PlanningIssueDetail,
+        PlanningMove,
+        PlanningMoveResult,
+        PlanningSnapshot,
+        ReadingResolution,
+        StoryWorkProposal,
+        StoryWorkRequest,
+        StoryWorkStarted,
+        StoryWorkStatus;
+
 import '../wire/varlink_connection.dart';
 import '../wire/varlink_exception.dart';
 import 'models.dart';

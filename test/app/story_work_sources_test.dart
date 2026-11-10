@@ -2,10 +2,10 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
-import 'package:porelo_frontend/src/app/planning_board.dart';
-import 'package:porelo_frontend/src/app/story_work.dart';
+import 'package:porelo_planning/porelo_planning.dart';
 
 import '../features/support/world.dart';
+import '../support/planning_embedding.dart';
 
 Map<String, dynamic> _board(
   String revision, {
@@ -79,10 +79,15 @@ void main() {
     final second = _Source()..planning['demo'] = _board('second');
     first.storyWork.proposals['story'] = _proposal('first-model');
     second.storyWork.proposals['story'] = _proposal('second-model');
-    final a = PlanningBoard(first, 'demo');
-    final b = PlanningBoard(second, 'demo');
+    final a = PlanningBoard(FleetPlanningSource(first), 'demo');
+    final b = PlanningBoard(FleetPlanningSource(second), 'demo');
     await Future<void>.delayed(Duration.zero);
-    final work = StoryWork(a, a.stories.single, 'Building', machines: {a: 'first machine', b: 'second machine'});
+    final work = planningStoryWork(
+      a,
+      a.stories.single,
+      'Building',
+      machines: {a: 'first machine', b: 'second machine'},
+    );
     await work.load();
     work.changeMachine(b);
     await Future<void>.delayed(Duration.zero);
@@ -115,10 +120,10 @@ void main() {
     final second = _Source()..planning['demo'] = _board('second');
     first.storyWork.proposals['story'] = _proposal('model');
     first.heldStart = Completer<StoryWorkStarted>();
-    final a = PlanningBoard(first, 'demo');
-    final b = PlanningBoard(second, 'demo');
+    final a = PlanningBoard(FleetPlanningSource(first), 'demo');
+    final b = PlanningBoard(FleetPlanningSource(second), 'demo');
     await Future<void>.delayed(Duration.zero);
-    final work = StoryWork(a, a.stories.single, 'Building', machines: {a: 'first', b: 'second'});
+    final work = planningStoryWork(a, a.stories.single, 'Building', machines: {a: 'first', b: 'second'});
     await work.load();
     final pending = work.start();
     expect(work.starting, isTrue);
@@ -141,7 +146,7 @@ void main() {
     expect(await pending, isTrue);
     expect(work.starting, isFalse);
     expect(work.result!.terminalTask!.name, 'first-task');
-    expect(identical(work.backend, first), isTrue);
+    expect(identical(work.backend, FleetPlanningSource(first)), isTrue);
     work.dispose();
     a.dispose();
     b.dispose();
@@ -154,9 +159,9 @@ void main() {
     final backend = _Source()..planning['demo'] = _board('revision');
     backend.storyWork.proposals['story'] = _proposal('model');
     backend.theAgentsItCannotRead = {'agent': 'The agent manifest cannot be read.'};
-    final board = PlanningBoard(backend, 'demo');
+    final board = PlanningBoard(FleetPlanningSource(backend), 'demo');
     await Future<void>.delayed(Duration.zero);
-    final work = StoryWork(board, board.stories.single, 'Building');
+    final work = planningStoryWork(board, board.stories.single, 'Building');
     await work.load();
     expect(work.canStart, isFalse);
     expect(work.problem, contains('The agent manifest cannot be read.'));
@@ -172,7 +177,7 @@ void main() {
   // Harm: a second work-status call replaces authoritative watch data or floods an unsupported daemon.
   test('complete watch work avoids GetStoryWork and missing fields preserve unsupported status', () async {
     final backend = _Source()..planning['demo'] = _board('first');
-    final board = PlanningBoard(backend, 'demo');
+    final board = PlanningBoard(FleetPlanningSource(backend), 'demo');
     await Future<void>.delayed(Duration.zero);
     expect(backend.workReads, 0);
     expect(board.workOf(board.stories.single)!.atWork, isFalse);
@@ -199,10 +204,10 @@ void main() {
     final old = _Source()..planning['demo'] = _board('old', completeWork: false);
     old.heldWork = Completer<StoryWorkStatus>();
     final next = _Source()..planning['demo'] = _board('new');
-    final board = PlanningBoard(old, 'demo');
+    final board = PlanningBoard(FleetPlanningSource(old), 'demo');
     await Future<void>.delayed(Duration.zero);
     expect(old.workReads, 1);
-    await board.changeProject(next, 'demo');
+    await board.changeProject(FleetPlanningSource(next), 'demo');
     await Future<void>.delayed(Duration.zero);
     old.heldWork!.completeError(
       const VarlinkException('org.fuin.porelo.Tasks1.Refused', {'detail': 'Old source failure.'}),
@@ -219,7 +224,7 @@ void main() {
   // Harm: a retained attention row attaches or detaches a listener on a disposed source.
   test('a retained reading decision never subscribes to a disposed board', () async {
     final backend = _Source()..planning['demo'] = _board('revision');
-    final board = PlanningBoard(backend, 'demo');
+    final board = PlanningBoard(FleetPlanningSource(backend), 'demo');
     await Future<void>.delayed(Duration.zero);
     final story = board.stories.single;
     board.dispose();
@@ -234,12 +239,14 @@ void main() {
   // Harm: an action error is stored without rebuilding its visible board error.
   test('action errors notify their board and stop notifying after disposal', () async {
     final backend = _Source()..planning['demo'] = _board('revision');
-    final board = PlanningBoard(backend, 'demo');
+    final board = PlanningBoard(FleetPlanningSource(backend), 'demo');
     await Future<void>.delayed(Duration.zero);
     var notifications = 0;
     board.addListener(() => notifications++);
     board.reportActionProblem(
-      const VarlinkException('org.fuin.porelo.Tasks1.Refused', {'detail': 'Cannot open the terminal.'}),
+      planningErrorOf(
+        const VarlinkException('org.fuin.porelo.Tasks1.Refused', {'detail': 'Cannot open the terminal.'}),
+      ),
     );
     expect(board.actionProblem, 'Cannot open the terminal.');
     expect(notifications, 1);
@@ -258,9 +265,9 @@ void main() {
       'readingRounds': 3,
       'repositories': <Map<String, dynamic>>[],
     };
-    final board = PlanningBoard(backend, 'demo');
+    final board = PlanningBoard(FleetPlanningSource(backend), 'demo');
     await Future<void>.delayed(Duration.zero);
-    final work = StoryWork(board, board.stories.single, 'Building');
+    final work = planningStoryWork(board, board.stories.single, 'Building');
     await work.load();
     expect(await work.start(), isFalse);
     backend.storyWork.proposals['story'] = {
@@ -307,7 +314,7 @@ void main() {
       ((snapshot['stories'] as List).single as Map<String, dynamic>)['state'] = 'Idle';
       backend.planning['demo'] = snapshot;
       backend.workError = const FeatureNotSupported('story work');
-      final board = PlanningBoard(backend, 'demo');
+      final board = PlanningBoard(FleetPlanningSource(backend), 'demo');
       await Future<void>.delayed(Duration.zero);
       expect(backend.workReads, 0);
       expect(board.startUnavailable(board.stories.single), isNull);
@@ -335,11 +342,11 @@ void main() {
     final missing = _Source()..planning['demo'] = _board('missing', includeStory: false);
     first.storyWork.proposals['story'] = _proposal('first-model');
     next.storyWork.proposals['story'] = _proposal('next-model');
-    final a = PlanningBoard(first, 'demo');
-    final b = PlanningBoard(next, 'demo');
-    final c = PlanningBoard(missing, 'demo');
+    final a = PlanningBoard(FleetPlanningSource(first), 'demo');
+    final b = PlanningBoard(FleetPlanningSource(next), 'demo');
+    final c = PlanningBoard(FleetPlanningSource(missing), 'demo');
     await Future<void>.delayed(Duration.zero);
-    final work = StoryWork(a, a.stories.single, 'Building', machines: {a: 'first', b: 'next', c: 'missing'});
+    final work = planningStoryWork(a, a.stories.single, 'Building', machines: {a: 'first', b: 'next', c: 'missing'});
     await work.load();
     work.changeMachine(b);
     await Future<void>.delayed(Duration.zero);
@@ -389,9 +396,9 @@ void main() {
         },
       ],
     };
-    final board = PlanningBoard(backend, 'demo');
+    final board = PlanningBoard(FleetPlanningSource(backend), 'demo');
     await Future<void>.delayed(Duration.zero);
-    final work = StoryWork(board, board.stories.single, 'Building');
+    final work = planningStoryWork(board, board.stories.single, 'Building');
     await work.load();
     expect(await work.start(), isFalse);
     expect(backend.storyWork.calls.where((call) => call.$1 == 'StartStoryWork'), isEmpty);
