@@ -603,6 +603,7 @@ class Task {
     this.builds,
     this.buildReader,
     this.buildProblem,
+    this.buildsCredential,
   });
 
   /// How its agent ended, or null while it has not or the machine does not say.
@@ -631,6 +632,11 @@ class Task {
   /// Why the named reader does not follow them, `""` while it does; null from a machine that cannot
   /// say.
   final String? buildProblem;
+
+  /// The credential this task's start found missing on its machine, so its builds are not followed: what to run
+  /// there, and what it takes after (`restart`: only its next start follows them). [buildProblem] keeps the
+  /// sentence. Null where nothing is missing, and from a machine or a record older than the field.
+  final MissingCredential? buildsCredential;
 
   /// Reads one from a reply.
   factory Task.from(Map<String, dynamic> map) => Task(
@@ -684,6 +690,9 @@ class Task {
         : null,
     buildReader: map['buildReader'] is String ? map['buildReader'] as String : null,
     buildProblem: map['buildProblem'] is String ? map['buildProblem'] as String : null,
+    buildsCredential: map['buildsCredential'] is Map<String, dynamic>
+        ? MissingCredential.from(map['buildsCredential'] as Map<String, dynamic>)
+        : null,
   );
 }
 
@@ -3816,6 +3825,51 @@ class StartOutcome {
   String toString() => name;
 }
 
+/// A credential a machine's vault lacks for something beside the agent, and what to run **on that machine** to
+/// make it: `CanStart`'s `missing`, and a task's `buildsCredential`.
+class MissingCredential {
+  /// Constructor taking every field.
+  const MissingCredential({
+    required this.purpose,
+    required this.credential,
+    this.storeCommand = const <String>[],
+    this.afterStore = '',
+  });
+
+  /// What it is for, the wire's `for`: `builds`, or one this build does not know, shown as it comes.
+  final String purpose;
+
+  /// The vault key looked for; a name, never a value.
+  final String credential;
+
+  /// What to run on the machine to make it, as arguments, reading nothing on standard input; empty where the
+  /// machine named none, or one this window would not run (see [plainWords]).
+  final List<String> storeCommand;
+
+  /// What it takes once [storeCommand] ran: `ask-again` (whether work can start is answered anew) or `restart`
+  /// (a task follows its builds only from its next start), or one this build does not know, shown as it comes.
+  final String afterStore;
+
+  /// Reads one from a reply.
+  factory MissingCredential.from(Map<String, dynamic> map) => MissingCredential(
+    purpose: _string(map, 'for'),
+    credential: _string(map, 'credential'),
+    storeCommand: plainWords(map['storeCommand']),
+    afterStore: _string(map, 'afterStore'),
+  );
+
+  static final _unsafe = RegExp('[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029]');
+
+  /// [words] as a command's arguments, or empty where it is no list, is empty, or holds a word that is no text, is
+  /// empty, or holds a control or line separator: such a command is never offered to run or copy.
+  static List<String> plainWords(Object? words) => switch (words) {
+    final List<dynamic> all when all.isNotEmpty && all.every(_plain) => all.cast<String>().toList(),
+    _ => const <String>[],
+  };
+
+  static bool _plain(Object? word) => word is String && word.isNotEmpty && !_unsafe.hasMatch(word);
+}
+
 /// Whether a run can start, asked before anything is created.
 ///
 /// The rule it answers lives on the daemon and is not restated here: which credential a run needs
@@ -3886,6 +3940,10 @@ class Readiness {
   /// With `SETTINGS_UNSIGNED`, the commit that changed it.
   final String commit;
 
+  /// Credentials the machine's vault lacks for something beside the agent; **they hold no start back**. Empty
+  /// where none is missing, off a host, with a shut vault, and from a Porelo older than the field.
+  final List<MissingCredential> missing;
+
   /// Constructor taking every field.
   const Readiness({
     required this.ready,
@@ -3905,6 +3963,7 @@ class Readiness {
     this.settingsHash = '',
     this.file = '',
     this.commit = '',
+    this.missing = const <MissingCredential>[],
   });
 
   /// The same answer, naming [chosen] where the machine named no agent: a refusal about an agent
@@ -3929,6 +3988,7 @@ class Readiness {
           settingsHash: settingsHash,
           file: file,
           commit: commit,
+          missing: missing,
         );
 
   /// Reads one from a reply.
@@ -3954,6 +4014,7 @@ class Readiness {
     settingsHash: _string(map, 'settingsHash'),
     file: _string(map, 'file'),
     commit: _string(map, 'commit'),
+    missing: _list(map, 'missing').map(MissingCredential.from).toList(),
   );
 
   /// What to do about it, in one line, or empty when there is nothing to do.
