@@ -1221,7 +1221,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
               readNow.unavailable ??
               'Have $name read the organization now, rather than at its next round within five minutes',
           child: AskingButton(
-            key: const ValueKey('asking readNow'),
+            key: ValueKey('asking readNow/$name'),
             buttonKey: ValueKey('organization.readNow/$name'),
             answerKey: const ValueKey('organization.readNowWhy'),
             waiting: '$name reads the organization, which can take some minutes…',
@@ -1340,6 +1340,8 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     if (connections == null) return null;
     String? words;
     final refused = await _act(() async => words = await connections.followNow(host), byAButton: true);
+    // Greyed now, its reason stands once, beside the action, not twice.
+    if (connections.whyNotFollowNow(host) != null) return null;
     if (refused != null) return refused;
     if (!mounted || !_isAdminHere || !connections.connected(host)) return words;
     final unread = await _read(() => connections.progress(host), byAButton: true);

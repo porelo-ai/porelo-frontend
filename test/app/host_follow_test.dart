@@ -22,6 +22,9 @@ final _build = Machine.fromHostCard(
     Map<String, String> environment = const {},
     String? input,
   }) async {
+    // Only ssh to the host's own account, through its card's config, ever runs it.
+    expect(program, 'ssh');
+    expect(arguments, containsAllInOrder(['-F', _build.sshConfig, 'build']));
     asked.add(arguments.last);
     return answer;
   }
@@ -81,5 +84,39 @@ void main() {
             .having((it) => it is HostFollowUnavailable, 'unavailable', isFalse),
       ),
     );
+  });
+
+  // Harm: `porelo host follow` runs on this computer, or in its WSL, rather than on the host.
+  test('a machine that is not reached over ssh as the host is refused, and nothing runs', () async {
+    final asked = <String>[];
+    final follow = SshHostFollow(
+      run: (program, arguments, {inDirectory, environment = const {}, input}) async {
+        asked.add([program, ...arguments].join(' '));
+        return (code: 0, out: '{"completed":true,"exitCode":0}', err: '');
+      },
+    );
+    for (final (machine, host) in [(Machine.local(), 'build'), (_build, 'other')]) {
+      await expectLater(follow.follow(machine, host), throwsA(isA<OrganizationRefused>()));
+      expect(await follow.whyNotOffered(machine, host), isNotNull);
+    }
+    expect(asked, isEmpty);
+  });
+
+  // Harm: a read that ended well is said as failed with status 0, or a login shell's greeting hides the answer.
+  test("a completed answer is read after the login shell's own lines, and a failing ssh is not status 0", () async {
+    final greeted = _host((
+      code: 0,
+      out: 'Welcome to build\n{"invocation":"${'c' * 32}","completed":true,"exitCode":0}\n',
+      err: '',
+    ));
+    expect(await greeted.follow.follow(_build, 'build'), 'build read the organization.');
+
+    final lost = _host((
+      code: 255,
+      out: '{"invocation":"${'d' * 32}","completed":true,"exitCode":0}',
+      err: 'Connection reset\n',
+    ));
+    expect(await lost.follow.follow(_build, 'build'), isNot(contains('status 0')));
+    expect(await lost.follow.follow(_build, 'build'), contains('status 255'));
   });
 }

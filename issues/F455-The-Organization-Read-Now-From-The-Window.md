@@ -28,6 +28,13 @@ shell; Porelo's interface for the window has no call for it, by design.
   that reason until the connection is made anew; nothing is run on it.
 - A read longer than five minutes is ended on this computer by the window's limit on one command, and said so,
   while the machine finishes it; Porelo allows twelve minutes.
+- Reading fixed: the start runs only over ssh to the host's own account, never on this computer, its WSL or another
+  machine's account; a greyed host, or one not asked yet whose Porelo knows no start, runs nothing; an answer to an
+  earlier connection, or one heard while the tunnel was down, is not kept; a completed answer is read from the last
+  line after a login shell's own lines, and a lost answer is said by the status that came back, never as status 0;
+  a host that answers it offers no start says its reason once, beside the greyed action, and the button's answer is
+  kept per machine. Declined: clearing a successful read's answer when the tunnel later drops; it stays beside the
+  greyed action's *Connect first* until the next press, as for the page's other actions.
 - Not seen yet against a real host: the follow's journal showing the read the window started.
 
 **What must be true.** A person who changed the organization (placed a project, gave a token) asks the host to read

@@ -209,7 +209,7 @@ class CardHostConnections extends HostConnections {
     lines.add('The organization names ${card.name} at ${card.address}, ssh port ${card.sshPort}.');
     final known = _machine(host);
     _waiting.remove(card.name);
-    _followOffered.remove(card.name);
+    _forgetFollow(card.name);
     // Connected already with what the organization names: nothing to do, whatever number of projects it carries.
     if (known?.hostCard == card && machines.tunnels.of(known!)?.state == TunnelState.up) {
       lines.add('This computer is connected already with what the organization names.');
@@ -335,7 +335,7 @@ class CardHostConnections extends HostConnections {
     final machine = _machine(host);
     _waiting.remove(host);
     _attempts.remove(host);
-    _followOffered.remove(host);
+    _forgetFollow(host);
     if (machine == null) return;
     await machines.disconnect(machine);
     notifyListeners();
@@ -351,42 +351,70 @@ class CardHostConnections extends HostConnections {
   /// does not, or null where it does.
   final _followOffered = <String, String?>{};
 
-  /// The hosts asked so now.
-  final _askingFollow = <String>{};
+  /// The ask of each host on its way, which a second ask of the same connection joins.
+  final _askingFollow = <String, Future<String?>>{};
+
+  /// Each host's connection, counted: an answer to an earlier one, or one that went down meanwhile, stands for nothing.
+  final _followGeneration = <String, int>{};
+
+  /// Forgets what [host] was told of the start, and every answer still on its way: its connection changed.
+  void _forgetFollow(String host) {
+    _followGeneration[host] = (_followGeneration[host] ?? 0) + 1;
+    _followOffered.remove(host);
+    _askingFollow.remove(host);
+  }
+
+  /// Whether an answer asked at [generation] still stands for [host]'s connection.
+  bool _stillStands(String host, int generation) => !_disposed && _followGeneration[host] == generation && up(host);
+
+  static String _connectFirst(String host) => 'Connect first: $host is asked through your own account on it.';
 
   @override
   String? whyNotFollowNow(String host) {
     final machine = _machine(host);
-    if (machine == null || !up(host)) return 'Connect first: $host is asked through your own account on it.';
+    if (machine == null || !up(host)) {
+      // A connection down tells nothing of the next: its answer is asked again once it is up.
+      if (_followOffered.containsKey(host) || _askingFollow.containsKey(host)) _forgetFollow(host);
+      return _connectFirst(host);
+    }
     if (_followOffered.containsKey(host)) return _followOffered[host];
-    if (_askingFollow.add(host)) unawaited(_askFollowOffered(machine, host));
+    unawaited(_offered(machine, host));
     return 'Asking $host whether it offers this…';
   }
 
-  Future<void> _askFollowOffered(Machine machine, String host) async {
-    final String? why;
-    try {
-      why = await _follow.whyNotOffered(machine, host);
-    } finally {
-      _askingFollow.remove(host);
-    }
-    // Asked of a connection that went meanwhile, it says nothing of the next.
-    if (_disposed || _machine(host) != machine) return;
-    _followOffered[host] = why;
-    notifyListeners();
+  /// Whether [host] offers the start, asked once per connection and kept while it stands.
+  Future<String?> _offered(Machine machine, String host) {
+    if (_askingFollow[host] case final asking?) return asking;
+    final generation = _followGeneration[host] ?? 0;
+    late final Future<String?> asking;
+    asking = () async {
+      final why = await _follow.whyNotOffered(machine, host);
+      if (identical(_askingFollow[host], asking)) _askingFollow.remove(host);
+      if (_stillStands(host, generation)) {
+        _followOffered[host] = why;
+        notifyListeners();
+      }
+      return why;
+    }();
+    return _askingFollow[host] = asking;
   }
 
   @override
   Future<String> followNow(String host) async {
     final machine = _machine(host);
-    if (machine == null || !up(host)) {
-      throw OrganizationRefused('Connect first: $host is asked through your own account on it.');
+    if (machine == null || !up(host)) throw OrganizationRefused(_connectFirst(host));
+    final generation = _followGeneration[host] ?? 0;
+    // A host greyed, or not asked yet, runs nothing before it is known to offer the start.
+    if (!_followOffered.containsKey(host)) await _offered(machine, host);
+    if (!_stillStands(host, generation)) {
+      throw OrganizationRefused('The connection to $host changed meanwhile, so nothing was asked of it.');
     }
+    if (_followOffered[host] case final why?) throw HostFollowUnavailable(why);
     try {
       return await _follow.follow(machine, host);
     } on HostFollowUnavailable catch (unavailable) {
       // Not offered again until the connection is made anew, as with an updated host.
-      if (!_disposed && _machine(host) == machine) {
+      if (_stillStands(host, generation)) {
         _followOffered[host] = unavailable.words;
         notifyListeners();
       }

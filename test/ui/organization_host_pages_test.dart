@@ -1353,6 +1353,19 @@ void main() {
       expect(connections.asked, isNot(contains('followNow build')));
     });
 
+    // Harm: a machine that turns out to offer no start says its reason twice, or keeps a stale answer beside it.
+    testWidgets('a machine that answers it offers no start says so once, greyed', (tester) async {
+      const why = 'porelo: host follow is unavailable; update the host program to one supporting org follow-now';
+      final connections = FixtureConnections(['build'])..followUnavailable = why;
+      await page(tester, 'mia', connections: connections);
+      await pressOrganizationAction(tester, 'readNow/build');
+      expect(connections.asked, contains('followNow build'));
+      final button = find.byKey(const ValueKey('organization.readNow/build'));
+      expect(tester.widget<OutlinedButton>(button).onPressed, isNull);
+      expect(find.byKey(const ValueKey('organization.readNowWhy')), findsNothing);
+      expect(find.textContaining(why), findsOneWidget);
+    });
+
     // Harm: a person cannot tell whether this computer is connected, what that means, or how to go on from it.
     testWidgets('the top of the page says where one stands, and leads on', (tester) async {
       final started = <(String, String?)>[];

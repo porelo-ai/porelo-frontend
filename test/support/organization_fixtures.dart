@@ -1,3 +1,4 @@
+import 'package:porelo_frontend/src/app/host_follow.dart';
 import 'package:porelo_frontend/src/app/host_progress.dart';
 import 'package:porelo_frontend/src/app/organization_source.dart';
 
@@ -199,11 +200,21 @@ class FixtureConnections extends HostConnections {
   @override
   String? whyNotFollowNow(String host) => up(host) ? noFollowNow : 'Connect first.';
 
+  /// What the host answers its start with when it turns out to offer none, as status 69: it is greyed after.
+  String? followUnavailable;
+
   @override
   Future<String> followNow(String host) async {
+    // As Porelo's own connections do: a greyed host runs nothing.
+    if (whyNotFollowNow(host) case final why?) throw OrganizationRefused(why);
     _ask('followNow $host');
     // A machine answers over ssh, never within the call that asked it.
     await Future<void>.value();
+    if (followUnavailable case final why?) {
+      noFollowNow = why;
+      notifyListeners();
+      throw HostFollowUnavailable(why);
+    }
     if (afterFollow case final after?) hostProgress = after;
     return '$host read the organization.';
   }

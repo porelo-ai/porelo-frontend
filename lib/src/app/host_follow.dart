@@ -52,7 +52,9 @@ class SshHostFollow {
     final said = _said(ran.err);
     if (_completed(ran.out) case final status?) {
       if (status == 0 && ran.code == 0) return '$host read the organization.';
-      return '$host read the organization, and its read ended with status $status${said == null ? '' : ': $said'}';
+      // A read that ended well, its answer then lost on the way, is said by the status that came back.
+      final code = status == 0 ? ran.code : status;
+      return '$host read the organization, and its read ended with status $code${said == null ? '' : ': $said'}';
     }
     if (ran.code == _unavailable) {
       throw HostFollowUnavailable(said ?? '$host offers no start of its read of the organization.');
@@ -61,6 +63,13 @@ class SshHostFollow {
   }
 
   Future<Ran> _ask(Machine machine, String host, List<String> command) async {
+    // Only ssh to the host's own account: never this computer, its WSL, or another machine's account.
+    if (!machine.needsATunnel ||
+        machine.relay?.kind == 'wsl' ||
+        machine.host != host ||
+        machine.whyNotReachableHere != null) {
+      throw OrganizationRefused('This computer cannot reach your account on $host.');
+    }
     final line = onTheMachine(machine, command, terminal: false);
     if (line == null) throw OrganizationRefused('This computer cannot reach your account on $host.');
     try {
@@ -72,10 +81,13 @@ class SshHostFollow {
     }
   }
 
-  /// The pass's status where the host answered a completed one, or null.
+  /// The pass's status where the host answered a completed one, or null. The answer is its last line: a login shell
+  /// may say its own lines before it.
   static int? _completed(String out) {
+    final last = _said(out);
+    if (last == null) return null;
     try {
-      return switch (jsonDecode(out.trim())) {
+      return switch (jsonDecode(last)) {
         {'completed': true, 'exitCode': final int status} => status,
         _ => null,
       };

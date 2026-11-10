@@ -12,6 +12,7 @@ import 'package:porelo_frontend/src/app/host_follow.dart';
 import 'package:porelo_frontend/src/app/host_progress.dart';
 import 'package:porelo_frontend/src/app/organization_connections.dart';
 import 'package:porelo_frontend/src/app/organization_source.dart';
+import 'package:porelo_frontend/src/app/run_here.dart';
 import 'package:porelo_frontend/src/app/settings.dart';
 import 'package:porelo_frontend/src/app/tunnel.dart';
 import 'package:porelo_frontend/src/app/fleet_backend.dart';
@@ -650,12 +651,72 @@ void main() {
     expect(asked, hasLength(1), reason: 'asked once per connection');
     await expectLater(made.followNow('build'), throwsA(isA<HostFollowUnavailable>()));
     expect(made.whyNotFollowNow('build'), 'porelo: host follow is unavailable; update the host program');
+    final before = asked.length;
+    await expectLater(made.followNow('build'), throwsA(isA<HostFollowUnavailable>()));
+    expect(asked, hasLength(before), reason: 'a greyed host runs nothing');
     follows = 0;
     await made.disconnect('build');
     await made.connect('build');
     made.whyNotFollowNow('build');
     await pumpEventQueue();
     expect(made.whyNotFollowNow('build'), isNull, reason: 'a connection made anew asks again');
+  });
+
+  // Harm: a host whose Porelo knows no start is asked to run it, when the start is pressed before it was asked.
+  test('Read the organization now asks an unasked host first, and runs nothing on one without it', () async {
+    final asked = <String>[];
+    final made = await connections(
+      _mia(),
+      hostFollow: SshHostFollow(
+        run: (program, arguments, {inDirectory, environment = const {}, input}) async {
+          asked.add(arguments.last);
+          return (code: 2, out: '', err: "Unmatched argument at index 1: 'follow'\n");
+        },
+      ),
+    );
+    await made.connect('build');
+    await expectLater(made.followNow('build'), throwsA(isA<HostFollowUnavailable>()));
+    expect(asked, [contains('--help')], reason: 'only asked, never started');
+    expect(made.whyNotFollowNow('build'), contains('offers no start'));
+  });
+
+  // Harm: what an earlier connection was told greys, or frees, the action on the next one.
+  test('an answer to an earlier connection, or one heard while it was down, is not kept', () async {
+    final answers = <Completer<Ran>>[];
+    final made = await connections(
+      _mia(),
+      hostFollow: SshHostFollow(
+        run: (program, arguments, {inDirectory, environment = const {}, input}) {
+          final answer = Completer<Ran>();
+          answers.add(answer);
+          return answer.future;
+        },
+      ),
+    );
+    await made.connect('build');
+    made.whyNotFollowNow('build');
+    expect(answers, hasLength(1));
+    await made.disconnect('build');
+    await made.connect('build');
+    expect(made.whyNotFollowNow('build'), 'Asking build whether it offers this…');
+    expect(answers, hasLength(2), reason: 'the new connection asks for itself');
+    answers[0].complete((code: 2, out: '', err: ''));
+    answers[1].complete((code: 0, out: '', err: ''));
+    await pumpEventQueue();
+    expect(made.whyNotFollowNow('build'), isNull, reason: "the earlier connection's answer stands for nothing");
+
+    // The tunnel drops while the host is asked: ssh's failure then says nothing of the host.
+    await made.disconnect('build');
+    await made.connect('build');
+    made.whyNotFollowNow('build');
+    masters.last.kill();
+    await pumpEventQueue();
+    answers.last.complete((code: 255, out: '', err: 'Connection closed by 203.0.113.7\n'));
+    await pumpEventQueue();
+    final machine = machines.all.singleWhere((machine) => machine.name == 'build');
+    expect(await machines.tunnels.raiseFor(machine), isTrue);
+    expect(made.up('build'), isTrue);
+    expect(made.whyNotFollowNow('build'), isNot(contains('Connection closed')));
   });
 
   // Harm: a forward to a forge that stopped answering is never noticed, or another port than the card's is asked.
