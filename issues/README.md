@@ -32,7 +32,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f318"></a>[F318](F318-An-Owner-Makes-An-Admin-A-Developer.md) | - | - | An Organization Admin turns a project's admin into a developer with an entry on the organization page. |
 | <a id="f317"></a>[F317](F317-A-Homeservers-Token-Reaches-The-Host.md) | - | - | A homeserver's registration token comes along with `porelo host unlock` through Core, and lies in the host's vault. |
 | <a id="f308"></a>[F308](F308-The-Needs-You-Header-Counts-What-It-Lists.md) | - | - | The *Needs you* header, the rail's badge and the rows agree on what needs the person. |
-| <a id="f307"></a>[F307](F307-Push-And-Pull-Show-Their-Progress-In-The-Interface.md) | - | - | Push and pull on a card host show each repository's answer in the interface, the terminal only for the master password. |
 | <a id="f304"></a>[F304](F304-No-Message-Asks-A-Step-The-Interface-Can-Take.md) | M | - | No message tells the person to do a step the interface can take itself; actions read what they need and say so. |
 | <a id="f303"></a>[F303](F303-Menus-Beside-What-They-Act-On.md) | M | - | Each ⋮ menu placed with the row, section or title it acts on. |
 | <a id="f302"></a>[F302](F302-Refresh-Shows-What-It-Did.md) | S | - | Refresh shows that it runs and ends with what it read or what failed. |
@@ -407,6 +406,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Title | Why |
 |---|---|---|
+| <a id="f307"></a>F307 | Push And Pull Show Their Progress In The Interface | Nothing left to apply to: the terminal push and pull were removed for *Bring it to central…*, which says each repository's answer in the interface ([F460](#f460); operator, 2026-11-10). |
 | <a id="f386"></a>F386 | A Short Name People Read | The operator's word (2026-11-08): a problem with long task names is handled when one is seen. |
 | <a id="f142"></a>F142 | The Drafts Offered Before The First Task In Default | Folded into [F397](#f397): the proposal is the first-start question for a repository in Default, writing its `porelo.yml`, with no project draft to keep. |
 | <a id="f221"></a>F221 | A Host's Vault Unlocked From The Secrets File | Replaced by the host vault opened by the person's key: no value of a secrets file is fed to a host's vault. |
