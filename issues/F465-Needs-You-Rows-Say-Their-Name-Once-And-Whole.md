@@ -27,12 +27,35 @@
 
 ## Plan
 
-- `_row`: append the machine only where the title does not already name it (the silent machine's row, a machine's
-  own rows), and never twice.
-- `ExpandableListRow`: the title takes the width left after the state and the action, before it is cut; the full
-  title stays in a tooltip where it is cut.
-- Red first: a widget test of a silent machine's row (its title holds the machine's name once) and of a gate row at
-  1280 wide whose title fits (it is not cut).
+- `_row` in `lib/src/ui/attention_view.dart`: a silent machine's row takes its name as its title and appends
+  nothing, as a token's and a repository's row already did. A row of work (one row per cause) already names its
+  machine once, under its sentence ("on <machine>"), and appends nothing.
+- `ExpandableListRow` in `lib/src/ui/expandable_list_row.dart`: the state chip and the one action are as wide as
+  they need, each up to `Sizes.rowSideShare` (0.3) of the row, in place of `Flexible`, which kept for them half the
+  free width whether they used it or not; the title is `Expanded` and takes all they leave. Where it is still cut,
+  its tooltip keeps it whole, as before.
+- Tests, `test/ui/needs_you_row_words_test.dart`, each at 1280x720 and at 390x800: a silent machine's row names it
+  once; a gate row names its machine once and its title is whole or leaves no free pixel on its line; a row with a
+  long title, a short state and a short action leaves no free pixel either.
+
+## How it stands
+
+- Built (2026-11-10).
+- Already held by the rebuild of *Needs you* into one row per cause, shown by the gate row's test, green on the code
+  before this change: a row of work names its machine once, under its sentence, at both widths; and at 390 wide a
+  gate row's cut title already reached the disclosure beside it.
+- Red first, on the code before this change:
+  - The silent machine's row at both widths: `Expected: <1> Actual: <2>` (the row read the name twice).
+  - The gate row at 1280 wide: `Expected: a value less than or equal to <16.0> Actual: <161.6999969482422>`, the
+    width the action's `Flexible` kept free after the disclosure.
+  - The long title at 1280 wide, with only the state chip's `Flexible` put back: `... Actual: <450.79999923706055>`,
+    `while 450.79999923706055 pixels stand free at 696.7999992370605 on its line`.
+- The test font draws each letter as wide as it is tall, about twice a real font, so no gate row's title fits at
+  1280 in a widget test; the tests hold the layout instead: a cut title has no free pixel beside it. Measured once
+  with Noto Sans loaded in a throwaway widget test at 1280x720: the gate row's title "porelo-checkout-migrate: 1
+  commit waits at the gate" was cut at 210 pixels before this change and is whole (350 pixels) after it.
+- Not seen in the window against the mock: the window was not started for it. That the title stands whole at
+  1280x720 in the window's own font stays for the operator's test.
 
 ## Acceptance
 

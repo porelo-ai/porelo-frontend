@@ -32,6 +32,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- A machine that does not answer is named once on its row under *Needs you*, no longer as "this machine · this machine"; a row's state and action there take only the width they need, so its title is cut only where the row has no room left, no longer at half of it.
 - A task in an `online` project, whose pushes go to the forge without review, is no longer said to wait for review, counted under *Needs you* or offered a review, whatever its machine says of its own work; *Work* says that nothing is reviewed in an online project. A push its gate still lists is shown as before, and an empty or unread class is never taken for online.
 - A pull request under *Needs you* no longer reads as merged or closed when its host stops carrying or listing its project for a while: it stays, as possibly out of date, and a resolved one says *Merged*, *Closed* or *No longer open on the forge*.
 - A watch of a host forge's pull requests that ends without a word or loses its own connection is said and asked again; refreshing the machine or opening *Needs you* asks again at once.

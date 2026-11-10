@@ -489,10 +489,12 @@ extension on _AttentionViewState {
       leading: row.kind == AttentionKind.tile
           ? _StateMark((row.value as Tile).demand, Theme.of(context).colorScheme)
           : Icon(icon),
-      // These two name it in their sentence, and the second is a project's.
+      // A token's and a repository's sentence names its own, and a silent machine's title is its name: once.
       title:
           said?.title ??
-          (row.kind == AttentionKind.token || row.kind == AttentionKind.repository ? title : '$title · ${row.machine}'),
+          (row.kind == AttentionKind.token || row.kind == AttentionKind.repository || row.kind == AttentionKind.silent
+              ? title
+              : '$title · ${row.machine}'),
       subtitle: said?.under ?? subtitle,
       primaryFilled: row.kind == AttentionKind.tile,
       state: resolved ? resolvedState : state,

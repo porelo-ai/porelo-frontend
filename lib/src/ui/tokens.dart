@@ -407,6 +407,10 @@ abstract final class Sizes {
   /// The largest share of a row's width its buttons take beside its words before they wrap; the rest keeps the name.
   static const rowActionsShare = 0.6;
 
+  /// The largest share of a row's width its state, or its one action, takes beside its name; the name takes what
+  /// they leave, and is cut only past it.
+  static const rowSideShare = 0.3;
+
   /// What an icon button in a list's header measures on a desktop window.
   static const iconTarget = 32.0;
 

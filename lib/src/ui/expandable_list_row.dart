@@ -133,7 +133,12 @@ class _ExpandableListRowState extends State<ExpandableListRow> {
                         ),
                       ),
                       if (!compact) ...widget.steps,
-                      if (!compact && primary != null) Flexible(child: action(primary)),
+                      // As wide as it needs, up to its share: a flexible action would keep the half it leaves unused.
+                      if (!compact && primary != null)
+                        ConstrainedBox(
+                          constraints: BoxConstraints(maxWidth: constraints.maxWidth * Sizes.rowSideShare),
+                          child: action(primary),
+                        ),
                       IconButton(
                         tooltip: disclosure.label,
                         icon: Icon(_expanded ? Icons.expand_more : Icons.chevron_right),
@@ -351,7 +356,11 @@ class _RowWords extends StatelessWidget {
               Expanded(child: words),
               if (beside && state.isNotEmpty) ...[
                 const SizedBox(width: Space.small),
-                Flexible(child: StateChip(state)),
+                // As wide as it needs, up to its share, so the name takes every pixel the state leaves.
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: constraints.maxWidth * Sizes.rowSideShare),
+                  child: StateChip(state),
+                ),
               ],
             ],
           ),
