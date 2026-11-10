@@ -18,6 +18,9 @@ class _Backend extends FakeBackend {
   Completer<List<MessageMember>>? listing;
   bool refusesJoin = false;
 
+  /// Whether the join invites the person's existing account, as the transport answers for a second room.
+  bool invites = false;
+
   @override
   Future<List<MessageMember>> messageMembers(String project) async =>
       listing?.future ?? List<MessageMember>.of(accounts);
@@ -28,6 +31,18 @@ class _Backend extends FakeBackend {
     if (refusesJoin) throw const VarlinkException('org.fuin.porelo.Tasks1.ConversationRefused', {});
     if (!accounts.any((each) => each.person == person)) {
       accounts.add(MessageMember(person: person, user: '@$person:room'));
+    }
+    if (invites) {
+      return MessagesJoined(
+        transport: 'matrix',
+        shown: '',
+        invited: true,
+        login: {
+          'homeserver': 'https://matrix.example.org',
+          'user': '@$person:example.org',
+          'room': '#demo:example.org',
+        },
+      );
     }
     return MessagesJoined(
       transport: 'matrix',
@@ -104,6 +119,30 @@ void main() {
     expect((await store.read())['messagePeople'], {
       'local': {'demo': 'anna'},
     }, reason: 'only the scoped person name belongs in settings');
+  });
+
+  // Harm: a person invited with the account they have is told to sign in with a password that does not exist, asks for
+  // a new one, and so ends that account's sessions in every room.
+  testWidgets('a join that invites an existing account says to accept the invitation, with no password', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final backend = _Backend()..invites = true;
+    final settings = Settings(MemorySettingsStore());
+    addTearDown(settings.dispose);
+    final model = ProjectConversation(backend, machine, project, settings: settings);
+    addTearDown(model.dispose);
+    await model.join('anna');
+    await tester.pumpWidget(MaterialApp(home: MessagesDialog(conversation: model)));
+    await World.settle(tester);
+    expect(find.textContaining('ccept the invitation'), findsWidgets);
+    expect(find.textContaining('@anna:example.org'), findsWidgets);
+    expect(find.textContaining('#demo:example.org'), findsWidgets);
+    expect(find.textContaining('assword'), findsNothing, reason: 'no step or button names a password');
+    expect(find.textContaining('shown once'), findsNothing);
+    expect(find.byKey(const Key('join-reset')), findsNothing, reason: 'no new password is offered for an invitation');
   });
 
   // Harm: guessing membership before a reply can target a password reset at an account never joined.

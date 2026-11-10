@@ -260,7 +260,10 @@ class _MessagesDialogState extends State<MessagesDialog> {
           ),
         ),
         actions: <Widget>[
-          if (hostHomeserver == null && (joinedAs != null || (joined == null && model.alreadyJoined != null)))
+          // An invited account keeps its own password: there is none here to make anew.
+          if (hostHomeserver == null &&
+              !(joined?.invited ?? false) &&
+              (joinedAs != null || (joined == null && model.alreadyJoined != null)))
             Tooltip(
               message: reset.unavailable ?? '',
               child: OutlinedButton(
@@ -281,7 +284,7 @@ class _MessagesDialogState extends State<MessagesDialog> {
           TextButton(
             key: const Key('messages-close'),
             onPressed: () => Navigator.of(context).pop(),
-            child: Text(joined == null ? 'Done' : 'Done: the password is not shown again'),
+            child: Text(joined == null || joined.invited ? 'Done' : 'Done: the password is not shown again'),
           ),
         ],
       );
@@ -478,11 +481,49 @@ class _MessagesDialogState extends State<MessagesDialog> {
 
   static Widget _secretIf(bool secret, Widget child) => secret ? WalkSecret(child: child) : child;
 
+  // The person's existing account was invited into this room: they accept it where they are signed in already, and
+  // no password exists to show.
+  List<Widget> _invitation(BuildContext context, MessagesJoined joined) {
+    final text = Theme.of(context).textTheme;
+    final user = joined.login['user'];
+    final room = joined.login['room'];
+    return <Widget>[
+      const SizedBox(height: Space.small),
+      Text('Accept the invitation', style: text.titleSmall),
+      Text(
+        'The Matrix account ${user ?? 'they have already'} was invited into this room; nothing new was made.',
+        key: const Key('login-invited'),
+      ),
+      Text('1. Open the Matrix client they already sign in to${user == null ? '' : ', signed in as $user'}.'),
+      Text('2. Accept the invitation to the room${room == null ? '' : ' $room'}, then open it.'),
+      const SizedBox(height: Space.tight),
+      for (final (field, label) in _loginFields)
+        if (field != 'password')
+          if (joined.login[field] case final value?)
+            Row(
+              children: <Widget>[
+                SizedBox(
+                  width: Sizes.fieldName,
+                  child: Text(label, style: text.bodySmall),
+                ),
+                Expanded(
+                  child: SelectableText(
+                    value,
+                    key: ValueKey<String>('login $field'),
+                    style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+    ];
+  }
+
   List<Widget> _login(BuildContext context, ProjectConversation model, MessagesJoined joined) {
     final text = Theme.of(context).textTheme;
     final scheme = Theme.of(context).colorScheme;
     final port = joined.port;
     final element = openElementCommand();
+    if (joined.invited) return _invitation(context, joined);
     return <Widget>[
       const SizedBox(height: Space.small),
       Text('Join with Element', style: text.titleSmall),

@@ -1756,14 +1756,19 @@ class MessagesJoined {
   /// What a terminal prints.
   final String shown;
 
+  /// Whether the person's existing account was invited into this room rather than made: its login has no password,
+  /// and the person accepts the invitation in the client they use already. False where a daemon does not say.
+  final bool invited;
+
   /// Constructor taking every field.
-  const MessagesJoined({required this.transport, required this.login, required this.shown});
+  const MessagesJoined({required this.transport, required this.login, required this.shown, this.invited = false});
 
   /// Reads one from a reply.
   factory MessagesJoined.from(Map<String, dynamic> map) => MessagesJoined(
     transport: _string(map, 'transport'),
     login: _stringMap(map, 'login'),
     shown: _string(map, 'shown'),
+    invited: map['invited'] == true,
   );
 
   /// Whether the homeserver is the machine's own loopback, so a client elsewhere needs [port] forwarded.

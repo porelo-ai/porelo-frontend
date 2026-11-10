@@ -21,6 +21,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f462"></a>[F462](F462-A-Hosts-Central-Reason-Said-In-Words.md) | — | — | Where the host cannot say how its copy stands against central, the row says why in words, never the daemon's token. |
 | <a id="f463"></a>[F463](F463-This-Machine-Listed-Once-After-Its-Socket-Moved.md) | — | — | This machine listed once, at its socket as it is now, whatever socket was saved for it. |
 | <a id="f466"></a>[F466](F466-A-Taken-Repository-Stays-Carried-While-Another-Waits.md) | — | — | A repository the host has taken reads carried while the project waits for the token for another. |
+| <a id="f400"></a>[F400](F400-A-Join-Into-A-Second-Room-Says-To-Accept-The-Invitation.md) | — | — | *Join* that invites an existing Matrix account says to accept the invitation, with no password step. |
 | <a id="f454"></a>[F454](F454-Placing-Says-Its-Progress-In-Its-Dialog.md) | — | — | Placing shows its progress and end in its dialog. |
 | <a id="f452"></a>[F452](F452-A-Project-Waiting-For-The-Token-Says-So-Where-It-Is-Shown.md) | — | — | A project the host reports waiting for the token says so, why, and offers the token on its row, the machine's project page and each repository row; never called carried; the placing dialog not grey when opened again. |
 | <a id="f456"></a>[F456](F456-The-Room-Found-From-A-Task-And-A-Project.md) | XS | — | The project's room opened in one step from a task tile and the project's page. |
@@ -110,7 +111,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 |---|---|---|---|
 | <a id="f203"></a>[F203](F203-This-Repository-Worked-In-A-Porelo-Task.md) | S | — | This repository's agent working in an attended Porelo task on the host, its build green on the host's Forgejo, reached in the room, with a way back. |
 | <a id="f457"></a>[F457](F457-Needs-You-Names-The-One-Thing-To-Do.md) | L | — | *Needs you* items name one action, close with their cause, can be marked seen, embed no task tile; nothing waits at the gate in class online; a done task shown done; the commit's makers shown. |
-| <a id="f400"></a>[F400](F400-A-Join-Into-A-Second-Room-Says-To-Accept-The-Invitation.md) | XS | — | *Join* that invites an existing Matrix account says to accept the invitation, with no password step. |
 | <a id="f377"></a>[F377](F377-A-Hosts-Channel-Follows-The-Window.md) | S | — | A host the window prepares installs from the window's own channel. |
 | <a id="f379"></a>[F379](F379-Add-A-Project-In-One-Step-From-The-Window.md) | S | — | A person naming themselves Project Admin adds a project in one step from the window. |
 

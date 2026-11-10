@@ -1,6 +1,6 @@
 # F400 — A Join Into A Second Room Says To Accept The Invitation
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** XS - one field read, the steps' words for an invitation, and their test.
 
 **What must be true.** When *Join* in a project's messages invites a Matrix account the person already has, rather
@@ -23,6 +23,15 @@ shown below and that seeing it again means a new one, which is not so for an inv
 - **The test that goes red first:** a widget test of the messages view with a joined answer `invited: true` and no
   password: no step names a password and no row reads Password. It guards a person told to sign in with a password
   that does not exist, who then asks for a new one and loses their account's sessions.
+
+## How it stands
+
+- `MessagesJoined.invited` reads Porelo's `invited`, false where a daemon does not say. For an invitation the
+  messages dialog says the existing Matrix account was invited, to open the client they already sign in to as the
+  Matrix ID shown and accept the invitation to the room shown; it shows the homeserver, Matrix ID and room, no
+  password, no "shown once" note, no *New password*, and *Done* without the password sentence. Seen red: the
+  dialog said to sign in with a password (`test/ui/conversation_accounts_test.dart`).
+- Not run live: no host runs a Porelo with `invited` yet.
 
 ## Blocked by
 
