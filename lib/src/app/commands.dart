@@ -135,6 +135,27 @@ Command openHostForgeCommand({
   );
 }
 
+/// Has [host] read the organization now, rather than at its next round within five minutes; greyed with the reason
+/// where this computer cannot ask it or the host offers no such start.
+Command readOrganizationNowCommand({
+  required String host,
+  required HostConnections? connections,
+  void Function(String words)? onAnswer,
+}) => Command(
+  id: 'organization.readNow/$host',
+  label: 'Read the organization now',
+  group: 'Organization',
+  home: Home.organizationRow,
+  unavailableNow: () => connections == null
+      ? 'This computer cannot ask $host to read the organization now.'
+      : connections.whyNotFollowNow(host),
+  run: () => unawaited(
+    connections
+        ?.followNow(host)
+        .then<void>((words) => onAnswer?.call(words), onError: (Object refused) => onAnswer?.call('$refused')),
+  ),
+);
+
 /// Opens [host]'s forge, raising this computer's forward to it anew first where the forge gave no answer through it.
 /// Answers why the forward could not be raised anew, or null; the forge is opened whatever the forward now says, as the
 /// browser then shows what it gets.

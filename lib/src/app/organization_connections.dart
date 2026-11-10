@@ -5,6 +5,7 @@ import 'package:porelo_host/porelo_host.dart' show HostCardSsh, HostFiles, HostF
 
 import 'ssh_words.dart';
 import 'desk.dart';
+import 'host_follow.dart';
 import 'host_progress.dart';
 import 'machines.dart';
 import 'organization_source.dart';
@@ -20,11 +21,13 @@ class CardHostConnections extends HostConnections {
     required this.machines,
     required this.publicKey,
     SshHostProgress? hostProgress,
+    SshHostFollow? hostFollow,
     String Function(String host)? endpoint,
     Future<bool> Function(int port, String host)? forgeProbe,
     DateTime Function()? now,
   }) : _now = now ?? DateTime.now,
        _progress = hostProgress ?? SshHostProgress(),
+       _follow = hostFollow ?? SshHostFollow(),
        _endpoint = endpoint ?? Machine.endpointFor,
        _forgeProbe = forgeProbe ?? ((port, host) => forgeAnswersAt(port, hostName: '$host.localhost')) {
     machines.addListener(notifyListeners);
@@ -71,6 +74,8 @@ class CardHostConnections extends HostConnections {
   final Future<String> Function() publicKey;
 
   final SshHostProgress _progress;
+
+  final SshHostFollow _follow;
 
   final String Function(String host) _endpoint;
 
@@ -204,6 +209,7 @@ class CardHostConnections extends HostConnections {
     lines.add('The organization names ${card.name} at ${card.address}, ssh port ${card.sshPort}.');
     final known = _machine(host);
     _waiting.remove(card.name);
+    _followOffered.remove(card.name);
     // Connected already with what the organization names: nothing to do, whatever number of projects it carries.
     if (known?.hostCard == card && machines.tunnels.of(known!)?.state == TunnelState.up) {
       lines.add('This computer is connected already with what the organization names.');
@@ -329,6 +335,7 @@ class CardHostConnections extends HostConnections {
     final machine = _machine(host);
     _waiting.remove(host);
     _attempts.remove(host);
+    _followOffered.remove(host);
     if (machine == null) return;
     await machines.disconnect(machine);
     notifyListeners();
@@ -339,6 +346,53 @@ class CardHostConnections extends HostConnections {
 
   @override
   Future<HostProgress> progress(String host) async => _heard(host, await _progress.status(_config(host), host));
+
+  /// Whether each host offers the start of its read of the organization, as asked once per connection: the reason it
+  /// does not, or null where it does.
+  final _followOffered = <String, String?>{};
+
+  /// The hosts asked so now.
+  final _askingFollow = <String>{};
+
+  @override
+  String? whyNotFollowNow(String host) {
+    final machine = _machine(host);
+    if (machine == null || !up(host)) return 'Connect first: $host is asked through your own account on it.';
+    if (_followOffered.containsKey(host)) return _followOffered[host];
+    if (_askingFollow.add(host)) unawaited(_askFollowOffered(machine, host));
+    return 'Asking $host whether it offers this…';
+  }
+
+  Future<void> _askFollowOffered(Machine machine, String host) async {
+    final String? why;
+    try {
+      why = await _follow.whyNotOffered(machine, host);
+    } finally {
+      _askingFollow.remove(host);
+    }
+    // Asked of a connection that went meanwhile, it says nothing of the next.
+    if (_disposed || _machine(host) != machine) return;
+    _followOffered[host] = why;
+    notifyListeners();
+  }
+
+  @override
+  Future<String> followNow(String host) async {
+    final machine = _machine(host);
+    if (machine == null || !up(host)) {
+      throw OrganizationRefused('Connect first: $host is asked through your own account on it.');
+    }
+    try {
+      return await _follow.follow(machine, host);
+    } on HostFollowUnavailable catch (unavailable) {
+      // Not offered again until the connection is made anew, as with an updated host.
+      if (!_disposed && _machine(host) == machine) {
+        _followOffered[host] = unavailable.words;
+        notifyListeners();
+      }
+      rethrow;
+    }
+  }
 
   @override
   Future<CentralState> central(String host, String project) async =>

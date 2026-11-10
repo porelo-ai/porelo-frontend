@@ -1310,6 +1310,49 @@ void main() {
       );
     });
 
+    // Harm: a person who changed the organization waits up to five minutes for the machine's next round, or the page
+    // keeps saying what the machine said before its read.
+    testWidgets('Read the organization now shows what the read brought, at once', (tester) async {
+      final connections = FixtureConnections(['build'])
+        ..hostProgress = const HostProgress(
+          projects: [
+            HostProjectProgress(project: 'retired', state: 'held', why: 'app and docs have unpushed commits'),
+            HostProjectProgress(project: 'pending', state: 'carried'),
+          ],
+        )
+        ..afterFollow = const HostProgress(
+          projects: [HostProjectProgress(project: 'pending', state: 'carried')],
+        );
+      await page(tester, 'hana', connections: connections);
+      expect(find.text('retired'), findsOneWidget);
+      await pressOrganizationAction(tester, 'readNow/build');
+      expect(connections.asked, containsAllInOrder(['followNow build', 'progress build']));
+      expect(
+        tester.widget<Text>(find.byKey(const ValueKey('organization.readNowWhy'))).data,
+        'build read the organization.',
+      );
+      expect(find.text('retired'), findsNothing, reason: 'the state after the read, without a wait');
+    });
+
+    // Harm: a machine without the start is asked to run it anyway, or the person cannot tell why it is not offered.
+    testWidgets('a machine without the start greys Read the organization now with its reason and runs nothing', (
+      tester,
+    ) async {
+      const why = "build's Porelo offers no start of its read of the organization";
+      final connections = FixtureConnections(['build'])..noFollowNow = why;
+      await page(tester, 'mia', connections: connections);
+      final button = find.byKey(const ValueKey('organization.readNow/build'));
+      await tester.ensureVisible(button);
+      expect(tester.widget<OutlinedButton>(button).onPressed, isNull);
+      expect(
+        tester.widget<Text>(find.byKey(const ValueKey('organization.noReadNowWhy'))).data,
+        'Read the organization now: $why',
+      );
+      await tester.tap(button, warnIfMissed: false);
+      await tester.pumpAndSettle();
+      expect(connections.asked, isNot(contains('followNow build')));
+    });
+
     // Harm: a person cannot tell whether this computer is connected, what that means, or how to go on from it.
     testWidgets('the top of the page says where one stands, and leads on', (tester) async {
       final started = <(String, String?)>[];

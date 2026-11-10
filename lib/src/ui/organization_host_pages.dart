@@ -1166,6 +1166,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     ];
     final name = host.name;
     final forge = openHostForgeCommand(host: name, connections: connections, hasForge: host.webPort != null);
+    final readNow = readOrganizationNowCommand(host: name, connections: connections);
     final buttons = [
       if (ready && widget.onStartWork != null)
         AskingButton(
@@ -1214,6 +1215,20 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
           label: Text(forge.label),
         ),
       ),
+      if (connected)
+        Tooltip(
+          message:
+              readNow.unavailable ??
+              'Have $name read the organization now, rather than at its next round within five minutes',
+          child: AskingButton(
+            key: const ValueKey('asking readNow'),
+            buttonKey: ValueKey('organization.readNow/$name'),
+            answerKey: const ValueKey('organization.readNowWhy'),
+            waiting: '$name reads the organization, which can take some minutes…',
+            onAsk: _acting || !readNow.available ? null : () => _readNow(name),
+            label: Text(readNow.label),
+          ),
+        ),
       if (!ready && !_acting)
         if (connections case final held?) LastConnectAttempt(held, name),
     ];
@@ -1263,6 +1278,15 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ),
+          if (connected && readNow.unavailable != null)
+            Padding(
+              padding: const EdgeInsets.only(top: Space.small),
+              child: Text(
+                key: const ValueKey('organization.noReadNowWhy'),
+                '${readNow.label}: ${readNow.unavailable}',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
           // Where *Start work* is not offered, what stands in its way, said once beside where it would be.
           if (!ready && widget.onStartWork != null && view.myHosts.contains(host))
             Padding(
@@ -1307,6 +1331,19 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
       _startIn = mine.firstOrNull;
     }
     return true;
+  }
+
+  /// Has [host] read the organization now, then reads what it says of itself at once, where its Machine Admin may;
+  /// answers the host's words of the read, or its refusal.
+  Future<String?> _readNow(String host) async {
+    final connections = widget.connections;
+    if (connections == null) return null;
+    String? words;
+    final refused = await _act(() async => words = await connections.followNow(host), byAButton: true);
+    if (refused != null) return refused;
+    if (!mounted || !_isAdminHere || !connections.connected(host)) return words;
+    final unread = await _read(() => connections.progress(host), byAButton: true);
+    return unread == null ? words : '$words How it stands now could not be read: $unread';
   }
 
   /// Where the last choice said to start; null is Default.

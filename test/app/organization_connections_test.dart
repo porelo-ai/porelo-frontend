@@ -8,6 +8,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as path;
 import 'package:porelo_frontend/src/app/machines.dart';
+import 'package:porelo_frontend/src/app/host_follow.dart';
 import 'package:porelo_frontend/src/app/host_progress.dart';
 import 'package:porelo_frontend/src/app/organization_connections.dart';
 import 'package:porelo_frontend/src/app/organization_source.dart';
@@ -157,6 +158,7 @@ void main() {
     Future<String> Function()? publicKey,
     Future<bool> Function(int port, String host)? forgeProbe,
     DateTime Function()? now,
+    SshHostFollow? hostFollow,
   }) async {
     final organization = Organization(FixtureOrganization(view));
     addTearDown(organization.dispose);
@@ -172,6 +174,7 @@ void main() {
         },
       ),
       endpoint: (host) => path.join(folder.path, '$host.socket'),
+      hostFollow: hostFollow,
       forgeProbe: forgeProbe,
       now: now,
     );
@@ -620,6 +623,39 @@ void main() {
     await made.connect('build');
     await made.refresh('build');
     expect(refreshed, ['root@build']);
+  });
+
+  // Harm: the host is asked over and over whether it offers the start, or a host without it is offered it again.
+  test('Read the organization now asks once whether the host offers it, and a host without it is greyed', () async {
+    final asked = <String>[];
+    var follows = 69;
+    final made = await connections(
+      _mia(),
+      hostFollow: SshHostFollow(
+        run: (program, arguments, {inDirectory, environment = const {}, input}) async {
+          asked.add(arguments.last);
+          if (arguments.last.contains('--help')) return (code: 0, out: '', err: '');
+          return (code: follows, out: '', err: 'porelo: host follow is unavailable; update the host program\n');
+        },
+      ),
+    );
+    expect(made.whyNotFollowNow('build'), startsWith('Connect first'));
+    await expectLater(made.followNow('build'), throwsA(isA<OrganizationRefused>()));
+    expect(asked, isEmpty, reason: 'nothing runs without a connection');
+    await made.connect('build');
+    expect(made.whyNotFollowNow('build'), 'Asking build whether it offers this…');
+    await pumpEventQueue();
+    expect(made.whyNotFollowNow('build'), isNull);
+    expect(made.whyNotFollowNow('build'), isNull);
+    expect(asked, hasLength(1), reason: 'asked once per connection');
+    await expectLater(made.followNow('build'), throwsA(isA<HostFollowUnavailable>()));
+    expect(made.whyNotFollowNow('build'), 'porelo: host follow is unavailable; update the host program');
+    follows = 0;
+    await made.disconnect('build');
+    await made.connect('build');
+    made.whyNotFollowNow('build');
+    await pumpEventQueue();
+    expect(made.whyNotFollowNow('build'), isNull, reason: 'a connection made anew asks again');
   });
 
   // Harm: a forward to a forge that stopped answering is never noticed, or another port than the card's is asked.

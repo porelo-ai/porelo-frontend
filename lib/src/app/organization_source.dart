@@ -821,6 +821,15 @@ abstract class HostConnections extends ChangeNotifier {
   /// What [host] says of how far it has come. Only a host admin has this way in.
   Future<HostProgress> progress(String host);
 
+  /// Why [host] cannot be asked to read the organization now, or null where it can.
+  String? whyNotFollowNow(String host) => 'This computer cannot ask $host to read the organization now.';
+
+  /// Has [host] read the organization now, rather than at its next round within five minutes, through the person's own
+  /// account there, and answers what it said of that read. Anyone with an account there has this way in.
+  Future<String> followNow(String host) async => throw OrganizationRefused(
+    whyNotFollowNow(host) ?? 'This computer cannot ask $host to read the organization now.',
+  );
+
   /// How [project] on [host] stands with the central forge; cannot say where this computer cannot ask.
   Future<CentralState> central(String host, String project) async => const CentralState();
 

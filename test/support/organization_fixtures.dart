@@ -189,6 +189,24 @@ class FixtureConnections extends HostConnections {
     await Future<void>.value();
     return keepHeard(host, hostProgress);
   }
+
+  /// Why the host offers no start of its read of the organization; null where it offers one.
+  String? noFollowNow;
+
+  /// What the host says of itself once it read the organization now; null where the read changes nothing.
+  HostProgress? afterFollow;
+
+  @override
+  String? whyNotFollowNow(String host) => up(host) ? noFollowNow : 'Connect first.';
+
+  @override
+  Future<String> followNow(String host) async {
+    _ask('followNow $host');
+    // A machine answers over ssh, never within the call that asked it.
+    await Future<void>.value();
+    if (afterFollow case final after?) hostProgress = after;
+    return '$host read the organization.';
+  }
 }
 
 const _persons = [
