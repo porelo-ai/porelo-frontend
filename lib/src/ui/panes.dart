@@ -277,6 +277,8 @@ class ActivityMark extends StatelessWidget {
       Activity.working => (Icons.play_circle_outline, scheme.primary),
       Activity.idle => (Icons.pause_circle_outline, scheme.outline),
       Activity.dead => (Icons.stop_circle_outlined, scheme.outlineVariant),
+      // Its agent said it is done: at rest, whether or not its container is up.
+      Activity.done => (Icons.check_circle_outline, scheme.outline),
       Activity.unknown => (Icons.help_outline, scheme.outline),
       // A value from a later release, or a task older than these fields. Fall back to the one
       // thing that has always been there rather than picking a meaning.

@@ -2437,6 +2437,20 @@ class FakeBackend implements FleetBackend {
     );
   }
 
+  /// Every watch of a host forge's pull requests asked of this machine, in order; a scenario answers or fails it.
+  final List<FakePullRequestWatch> pullRequestWatches = <FakePullRequestWatch>[];
+
+  /// Whether this machine's Porelo has no `WatchPullRequests`.
+  bool withoutPullRequests = false;
+
+  @override
+  Stream<PullRequestsSeen> watchPullRequests(String project) {
+    if (withoutPullRequests) return Stream<PullRequestsSeen>.error(const FeatureNotSupported('WatchPullRequests'));
+    final watch = FakePullRequestWatch(project);
+    pullRequestWatches.add(watch);
+    return watch._said.stream;
+  }
+
   /// What the machine streams about authorizations a person has to grant; a scenario adds to it.
   final StreamController<AuthorizationNeeded> needing = StreamController<AuthorizationNeeded>.broadcast();
 
@@ -3039,6 +3053,31 @@ diff --git a/lib/money.dart b/lib/money.dart
     await _changes.close();
     await asking.close();
     await talking.close();
+    // Not awaited: a watch nobody listens to any more never says it is done.
+    for (final watch in pullRequestWatches) {
+      unawaited(watch._said.close());
+    }
+  }
+}
+
+/// One watch of a host forge's pull requests, as the machine answers it: driven by the scenario, never by a clock.
+class FakePullRequestWatch {
+  /// Constructor taking the project it was asked about.
+  FakePullRequestWatch(this.project);
+
+  /// The project it was asked about.
+  final String project;
+
+  final _said = StreamController<PullRequestsSeen>();
+
+  /// Says the whole list open now, and those seen to end since.
+  void answer(List<HostPullRequest> open, {List<HostPullRequest> ended = const <HostPullRequest>[]}) =>
+      _said.add(PullRequestsSeen(open: open, ended: ended));
+
+  /// Ends it with [error], as the machine ends a watch it cannot keep.
+  void fail(Object error) {
+    _said.addError(error);
+    unawaited(_said.close());
   }
 }
 

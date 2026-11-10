@@ -273,7 +273,7 @@ class ReviewView extends StatelessWidget {
                   children: gate.ranked.isEmpty
                       ? <Widget>[
                           ..._refusedKey(),
-                          _WhoMadeIt(push: push, commits: gate.commits),
+                          WhoMadeIt(push: push, commits: gate.commits),
                           for (final file in files) _File(file: file),
                           if (files.isEmpty)
                             const Padding(
@@ -285,7 +285,7 @@ class ReviewView extends StatelessWidget {
                         ]
                       : <Widget>[
                           ..._refusedKey(),
-                          _WhoMadeIt(push: push, commits: gate.commits),
+                          WhoMadeIt(push: push, commits: gate.commits),
                           ..._ranked(context, gate, files, onWithoutLineEndings),
                           if (push.fetch.isNotEmpty) _OwnClone(fetch: push.fetchFrom(login, sshConfig: sshConfig)),
                         ],
@@ -319,9 +319,11 @@ extension on ReviewView {
 /// else the head commit as the waiting push names it. What it does not report is said to be not
 /// reported, never left out, and the trailer check is then one that cannot be made here, never drawn
 /// as passed.
-class _WhoMadeIt extends StatelessWidget {
-  const _WhoMadeIt({required this.push, required this.commits});
+class WhoMadeIt extends StatelessWidget {
+  /// Constructor taking the push and, where the machine lists them, its commits.
+  const WhoMadeIt({required this.push, required this.commits, super.key});
 
+  /// The push whose head commit is shown where [commits] lists none.
   final PendingPush push;
 
   /// The review's commits; null where the machine does not list them.

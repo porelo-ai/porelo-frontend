@@ -18,9 +18,10 @@ gap here is a backend method that has to be added, not a workaround waiting to b
 
 ## Not on the wire yet
 
-- **A host forge's pull requests.** *Needs you* should name a pull request waiting on a host's forge for the
-  person's approval and merge, and close that row when it merges or closes. No call reports a host forge's open pull
-  requests, their makers, or their end; the window never asks a forge over HTTP itself.
+- **Where a host's forge keeps a repository.** `HostPullRequest` names its repository by its name in the
+  project's file, and nothing names the path of the host forge's copy of it. The window builds a pull request's
+  address from the project's name and the last part of the repository's address, as the host names its copy;
+  where the machine reports no address for the repository, the pull request is shown and cannot be opened.
 - **Planning details and issue state changes.** The interface uses stand-in `GetStory(project, story)`,
   `ListStoryIssues(project, story)` and `GetIssue(project, issue)` reads for story text, issue acceptance
   criteria, last reader findings and sub-agents. Story and issue destinations share one pending batch and

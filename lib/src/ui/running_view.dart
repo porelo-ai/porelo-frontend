@@ -600,6 +600,7 @@ class _Tab extends StatelessWidget {
       Demand.question || Demand.ended || Demand.gate => (colors.error, true),
       Demand.working => (states.working, true),
       Demand.unseen => (states.working, false),
+      Demand.done => (states.stopped, false),
       Demand.quiet => (states.waiting, false),
       Demand.stopped => (states.stopped, false),
     };

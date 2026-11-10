@@ -139,18 +139,35 @@ Command openHostForgeCommand({
 /// browser then shows what it gets.
 Future<String?> openHostForge({required String host, required HostConnections? connections}) async {
   if (connections == null) return null;
-  String? refused;
-  try {
-    if (await connections.forgeAnswers(host) == false) await connections.raiseForwardAnew(host);
-  } on OrganizationRefused catch (refusal) {
-    refused = refusal.words;
-  } on Object catch (error) {
-    // Whatever else went wrong is said beside the button, never left to an unawaited future.
-    refused = "The forward to $host's forge could not be raised anew: $error";
-  }
+  final refused = await _forgeForwardAnswers(host, connections);
   if (connections.forgeUrl(host) case final address?) await openLink(Uri.parse(address));
   return refused;
 }
+
+/// Opens [address], a page on [host]'s forge through this computer's forward to it, raising the forward anew first as
+/// [openHostForge] does where [connections] can; answers why it could not be raised anew, or null.
+Future<String?> openOnHostForge(Uri address, {required String host, required HostConnections? connections}) async {
+  final refused = connections == null ? null : await _forgeForwardAnswers(host, connections);
+  await openLink(address);
+  return refused;
+}
+
+/// Raises the forward to [host]'s forge anew where the forge gave no answer through it; why that failed, or null.
+Future<String?> _forgeForwardAnswers(String host, HostConnections connections) async {
+  try {
+    if (await connections.forgeAnswers(host) == false) await connections.raiseForwardAnew(host);
+  } on OrganizationRefused catch (refusal) {
+    return refusal.words;
+  } on Object catch (error) {
+    // Whatever else went wrong is said beside the button, never left to an unawaited future.
+    return "The forward to $host's forge could not be raised anew: $error";
+  }
+  return null;
+}
+
+/// Opens a pull request on its host's forge, where its approval and merge are given: never here.
+Command openPullRequestCommand({required VoidCallback run, String? unavailable}) =>
+    _attentionRowCommand(id: 'pullRequest.open', label: 'Open the pull request', run: run, unavailable: unavailable);
 
 /// Leaves a view onto work without interrupting the work itself.
 Command leaveWorkCommand(VoidCallback leave, {String? unavailable}) => Command(

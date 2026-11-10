@@ -48,6 +48,31 @@ Read in today's code at its plan reading; the parts are built in this order, eac
 - **The commit's makers** stand on a push's row as the gate's `Pending` reports them, run through the trailer check,
   said as the head commit's alone unless the push's commits were read, and "not reported" where absent.
 
+## How it stands
+
+- **Part 4 built** (2026-11-10), parts 1-3 not yet:
+  - The client reads Porelo's `PullRequests` and `WatchPullRequests` (`HostPullRequest`, `PullRequestsSeen`), with
+    the two refusals typed; `lib/src/app/host_pull_requests.dart` watches each project a machine carries and keeps
+    its rows: a row closes only when the watch lists it ended; an error or a lost connection marks the rows stale and
+    asks again after 30 seconds; an older daemon shows nothing.
+  - *Needs you* has a row per open pull request in *Reviews*, "Pull request N of <repository> waits for your approval
+    and merge", whose one action opens it on the host's forge (the forge forward raised as *Open its forge* does,
+    the address from the host's forge, the repository's copy and a positive number); the head commit's makers go
+    through the gate's own card and trailer check, "not reported by the machine" where absent; no task tile. A
+    refusal is one row per project in words, a missing token's store command shown to copy, never run.
+  - A task in state `done` is shown done in *Work* and on its *Needs you* row, never running; the running counts of
+    *Work* and of a repository's row leave it out (`Task.runningWork`). It makes no *Needs you* row on its own: it
+    waits on nobody.
+  - The mock's situation `pull-request` has one pull request that ends as merged (key `m`) and a done task.
+  - Each test was seen red first (`test/client/host_pull_requests_test.dart`, `test/app/host_pull_requests_test.dart`,
+    `test/ui/needs_you_pull_request_test.dart`, `test/ui/done_task_test.dart`,
+    `test/client/mock_pull_requests_test.dart`).
+  - Limits: the trailer check on a pull request always says it cannot be checked here, since Porelo reports no whole
+    commit message; the address is built from the repository's upstream name, so a row whose repository has none
+    shows but cannot be opened (a new gap in `doc/Contract-Gaps.md`); the side tree's counts are the daemon's own
+    `running`, which counts a done task whose container is up.
+  - Not run live: the rented host runs a Porelo from before the pull request calls.
+
 ## Acceptance
 
 - The mock with an `online` project: no waiting item; with a pull request waiting: one item, one action, gone after

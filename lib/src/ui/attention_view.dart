@@ -13,9 +13,11 @@ import '../app/attention.dart';
 import '../app/commands.dart';
 import '../app/settings.dart' show RanOutQuestion;
 import '../app/fleet_model.dart';
+import '../app/host_pull_requests.dart';
 import '../app/machines.dart';
 import '../app/operations.dart';
 import 'command_menu.dart';
+import 'command_to_copy.dart';
 import 'expandable_list_row.dart';
 import 'grant_view.dart';
 import 'held_message_view.dart';
@@ -24,6 +26,7 @@ import 'operations.dart';
 import 'needs_machine.dart';
 import 'organization_token_words.dart';
 import 'filtered_list_section.dart';
+import 'gate_view.dart' show WhoMadeIt;
 import 'page_explanation.dart';
 import 'tokens.dart';
 import '../app/story_work.dart';
@@ -275,6 +278,7 @@ extension on _AttentionViewState {
       ),
     );
     var title = row.machine;
+    String? subtitle;
     var state = resolved ? 'Resolved' : 'Needs you';
     var resolvedState = 'Resolved';
     var icon = Icons.info_outline;
@@ -393,6 +397,19 @@ extension on _AttentionViewState {
           ),
           unavailable: reason,
         );
+      case AttentionKind.pullRequest:
+        final each = row.value as PullRequestRow;
+        title = each.action;
+        subtitle = '${each.request.title} · ${each.project.name}';
+        state = each.stale ? 'May be out of date' : 'Waits for your merge';
+        resolvedState = 'Merged or closed';
+        icon = Icons.merge_type;
+        primary = _openPullRequest(each, reason);
+      case AttentionKind.pullRequestsRefused:
+        final each = row.value as PullRequestsRefusedRow;
+        title = 'Pull requests of ${each.project} cannot be read';
+        state = each.storeCommand == null ? 'Refused' : 'Forge token missing';
+        icon = Icons.key_off_outlined;
       case AttentionKind.operation:
         final operation = row.value as Operation;
         title = operation.title;
@@ -466,7 +483,7 @@ extension on _AttentionViewState {
       title:
           said?.title ??
           (row.kind == AttentionKind.token || row.kind == AttentionKind.repository ? title : '$title · ${row.machine}'),
-      subtitle: said?.under,
+      subtitle: said?.under ?? subtitle,
       primaryFilled: row.kind == AttentionKind.tile,
       state: resolved ? resolvedState : state,
       onOpen: navigation.run,
@@ -706,6 +723,63 @@ extension on _AttentionViewState {
           needed: each.needed,
           resolved: resolved,
         );
+      case AttentionKind.pullRequest:
+        final each = row.value as PullRequestRow;
+        final request = each.request;
+        return Column(
+          key: ValueKey<String>('pull-request ${row.id}'),
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            ListTile(
+              title: SelectableText(request.title),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  NeedsMachine(row.machine),
+                  Text(
+                    '${each.project.name} · ${request.repository} · approved and merged on the forge of '
+                    '${row.machine}, never from here',
+                  ),
+                  if (each.stale) const Text('What it says may be out of date: the machine is asked again.'),
+                ],
+              ),
+            ),
+            // The head commit's makers as the machine reads them, judged as a push's at the gate is.
+            WhoMadeIt(
+              push: PendingPush(
+                name: '',
+                commit: request.head,
+                subject: request.title,
+                waiting: '',
+                at: '',
+                author: request.author,
+                committer: request.committer,
+                trailers: request.trailers,
+              ),
+              commits: null,
+            ),
+            if (includePrimary) _RowCommand(_openPullRequest(each, reason)),
+          ],
+        );
+      case AttentionKind.pullRequestsRefused:
+        final each = row.value as PullRequestsRefusedRow;
+        return Card(
+          key: ValueKey<String>('pull-requests-refused ${row.id}'),
+          child: Padding(
+            padding: const EdgeInsets.all(Space.normal),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                NeedsMachine(row.machine),
+                Text(each.words),
+                if (each.storeCommand case final command?) ...<Widget>[
+                  const SizedBox(height: Space.small),
+                  CommandToCopy(command: command),
+                ],
+              ],
+            ),
+          ),
+        );
       case AttentionKind.operation:
         final operation = row.value as Operation;
         return _FailedOperation(
@@ -740,6 +814,31 @@ extension on _AttentionViewState {
           onSeen: resolved ? null : attention.fleetOf(each.machine).clearance.missedSeen,
         );
     }
+  }
+
+  /// Opens [each] on its host's forge, through this computer's forward to it; said why not where its address is not
+  /// known.
+  Command _openPullRequest(PullRequestRow each, String? reason) {
+    final address = each.address;
+    final host = each.machine.hostCard?.name;
+    return openPullRequestCommand(
+      run: () {
+        if (address == null || host == null) return;
+        final fleet = widget.attention.fleetOf(each.machine);
+        unawaited(
+          openOnHostForge(address, host: host, connections: widget.attention.hostConnections).then((refused) {
+            if (refused != null) fleet.say(refused);
+          }),
+        );
+      },
+      unavailable:
+          reason ??
+          (host == null || each.machine.hostCard?.forgeUrl == null
+              ? 'this computer reaches no forge of ${each.machine.name}'
+              : address == null
+              ? 'the machine does not say where its forge keeps ${each.request.repository}'
+              : null),
+    );
   }
 
   String _heldProjectWords(Project project) {
@@ -883,6 +982,7 @@ enum _NeedsGroup {
 
   static _NeedsGroup of(AttentionRow row) => switch (row.kind) {
     AttentionKind.message => decide,
+    AttentionKind.pullRequest => reviews,
     AttentionKind.tile => switch ((row.value as Tile).demand) {
       Demand.question => decide,
       Demand.gate => reviews,
@@ -1324,6 +1424,7 @@ class TaskTile extends StatelessWidget {
       Demand.quiet => 'Quiet$forHowLong',
       // Only that it runs: nothing here can see what it is doing, and nothing claims to.
       Demand.unseen => 'Running$forHowLong',
+      Demand.done => 'Done: its agent said its work is done',
       Demand.stopped => 'Not running',
     };
   }
@@ -1349,7 +1450,14 @@ class TaskTile extends StatelessWidget {
     }
     if (tile.demand == Demand.gate && task != null) {
       final commits = task.waiting == 1 ? '1 commit waits' : '${task.waiting} commits wait';
-      return (title: '$name: $commits at the gate', under: '${WorkRow.projectOf(task)} · $where');
+      return (
+        title: '$name: $commits at the gate',
+        under: <String>[
+          WorkRow.projectOf(task),
+          where,
+          if (task.activity == Activity.done) 'its agent said its work is done',
+        ].join(' · '),
+      );
     }
     return null;
   }
@@ -1467,6 +1575,7 @@ class WorkRow extends StatelessWidget {
           Demand.working => 'working',
           Demand.quiet => 'quiet',
           Demand.unseen => 'running',
+          Demand.done => 'done',
           Demand.stopped => 'not running',
         };
 
@@ -1817,6 +1926,7 @@ class _StateMark extends StatelessWidget {
       Demand.question || Demand.ended || Demand.gate => (scheme.error, true, 'Needs you'),
       Demand.working => (states.working, true, 'Working'),
       Demand.unseen => (states.working, false, 'Running'),
+      Demand.done => (states.stopped, false, 'Done'),
       Demand.quiet => (states.waiting, false, 'Waiting'),
       Demand.stopped => (states.stopped, false, 'Stopped'),
     };

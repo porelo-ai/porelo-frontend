@@ -123,6 +123,7 @@ The IDL carries the detail, a comment per method and per field. The shape of it:
 | **Files handed in** | `HandIn` (in parts), `TakeBack`, `HandIns` (the record, also after the task is gone) |
 | **The gate** | `Pending`, `Review`, `Approve`, `Reject`; `CredentialTryPush` tries a forward with one ssh key alone |
 | **Clearance** | `Prompts` (streams, and only streams), `Decide` |
+| **A host forge's pull requests** | `WatchPullRequests(project)` (streams), `PullRequests(project)`; refused with `MissingHostForgeToken(credential, storeCommand)` or `HostPullRequestsRefused(reason, message)` |
 
 Worth knowing before designing around them:
 
@@ -147,6 +148,17 @@ Worth knowing before designing around them:
   what is wrong. An absent field, an empty message (one the machine could not match to its commit),
   or a list holding anything but text, is not reported, and the check is then one that cannot be
   made, never one that passed.
+- **A host forge's open pull requests are watched for each project the machine carries a repository of**
+  (`carriedHere`), and each is a row of *Needs you* asking for its approval and merge on that forge. A row
+  closes only when the watch lists it in `ended`; a watch that ends with an error closes none, its rows read as
+  possibly out of date, and it is asked again. Its makers are shown through the trailer check above; without
+  the whole message that check is one that cannot be made. The window never asks the forge itself: it opens
+  the host card's forge forward at the project's name, the last part of the repository's address (as the host
+  names its copy) and the positive number. A missing token is said with the store command to copy and run on
+  the machine; a refusal in words for its reason, with the machine's message.
+- **A task whose agent said its work is done** has activity `DONE` and state `done`, whether its container
+  is up or stopped. It is shown as done, never as running, and no count of running work here counts it; it
+  needs a person only for what else it holds, such as work at the gate.
 - **`Stop` refuses.** A task holding commits that never reached the gate comes back as
   `HOLDS_WORK` and is left exactly as it was. That refusal is a feature and needs a real place in
   the interface, not an error toast.

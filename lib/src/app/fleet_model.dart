@@ -7,6 +7,7 @@ import 'clearance.dart';
 import 'authorizations.dart';
 import 'mailboxes.dart';
 import 'fleet_backend.dart';
+import 'host_pull_requests.dart';
 import 'outcome_words.dart';
 
 /// Whether the interface can currently reach the backend it is pointed at.
@@ -123,6 +124,7 @@ class FleetModel extends ChangeNotifier {
     clearance.addListener(_notify);
     mailboxes.addListener(_notify);
     authorizations.addListener(_notify);
+    pullRequests.addListener(_notify);
   }
 
   /// Which machine this is.
@@ -179,6 +181,10 @@ class FleetModel extends ChangeNotifier {
   /// What a person has to authorize on this machine before work can use it, for as long as it is
   /// watched: the question waits for somebody, and not only for whoever started the work.
   final authorizations = Authorizations();
+
+  /// The pull requests open on this machine's host forge, for each project it carries, for as long as it is
+  /// watched: each waits for a person's approval and merge there.
+  final pullRequests = HostPullRequests();
 
   ServiceInfo? _info;
   StreamSubscription<List<Task>>? _watching;
@@ -335,6 +341,8 @@ class FleetModel extends ChangeNotifier {
       _reachability = Reachability.connected;
       _answered = true;
       _say('Connected to ${backend.label}, ${info.product} ${info.version}.');
+      // Whatever its watches said before is asked again on this connection.
+      pullRequests.reconnected();
       await _readOnce();
       // Dropped while it was connecting — a stored list replacing the machine the window opened
       // with does that. Following now would listen through what dispose() already closed.
@@ -534,6 +542,7 @@ class FleetModel extends ChangeNotifier {
     _readingProjects = true;
     try {
       _known = await backend.projects();
+      _followPullRequests();
       _notify();
     } on VarlinkDisconnected {
       // The watch reports a lost connection; this one staying quiet keeps one event from being
@@ -549,6 +558,7 @@ class FleetModel extends ChangeNotifier {
       // Nothing refreshes the project list on its own — `WatchProjects` is not used yet — so it is
       // asked for again beside the tasks, after anything that would have changed it.
       _known = await backend.projects();
+      _followPullRequests();
       _adopt(await backend.tasks());
       return true;
     } on VarlinkDisconnected catch (ex) {
@@ -602,11 +612,21 @@ class FleetModel extends ChangeNotifier {
     _notify();
   }
 
+  /// Watches the pull requests of every project this machine carries a repository of, as a host of it.
+  void _followPullRequests() {
+    if (_disposed || _reachability != Reachability.connected) return;
+    pullRequests.follow(backend, <String>[
+      for (final project in _known)
+        if (project.repositoryStates.any((repository) => repository.carriedHere == true)) project.name,
+    ]);
+  }
+
   void _lostContact(VarlinkDisconnected ex) {
     // The last known list is kept on purpose. Clearing it would show a machine with nothing
     // running on it, which is the one reading a lost tunnel must never produce.
     _reachability = Reachability.unreachable;
     _live = false;
+    pullRequests.lostContact();
     _say('Lost contact with ${backend.label}: ${ex.message}');
     _tryAgainLater();
   }
@@ -665,6 +685,9 @@ class FleetModel extends ChangeNotifier {
       ..removeListener(_notify)
       ..dispose();
     authorizations
+      ..removeListener(_notify)
+      ..dispose();
+    pullRequests
       ..removeListener(_notify)
       ..dispose();
     super.dispose();

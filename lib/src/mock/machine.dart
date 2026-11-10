@@ -29,6 +29,13 @@ class MockMachine {
     _seeded.addAll(seededProjects);
     tasks = const {'empty', 'host'}.contains(situation) ? <Map<String, dynamic>>[] : _aMachineWithWorkOnIt();
     if (situation == 'host') _waiting.clear();
+    if (situation == 'pull-request') {
+      // Its agent said its work is done, and it rests with its container up.
+      tasks.add(<String, dynamic>{
+        ..._task('porelo-checkout-done', 'checkout', activity: 'DONE', mode: 'SHELL', minutesAgo: 30),
+        'state': 'done',
+      });
+    }
     daemon.version = '0.1.0+mock';
     daemon.description =
         '''
@@ -142,6 +149,14 @@ method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
       yield* _asking.stream;
     });
     daemon.method('Decide', _decide);
+    daemon.method('PullRequests', _pullRequests);
+    // pushes, not stream: a watch of a forge does not end, and a held-back stream would say a merge one change late.
+    daemon.pushes('WatchPullRequests', (parameters) async* {
+      yield _pullRequests(parameters);
+      yield* _pullRequestChanges.stream
+          .where((change) => change.$1 == parameters['project'])
+          .map((change) => change.$2);
+    });
     daemon.method('Remove', _remove);
     daemon.method('Panic', _panic);
     daemon.method('RemoveProject', _deleteProject);
@@ -206,6 +221,7 @@ method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
     'vault-locked': 'a vault nothing can read, so nothing can say what it holds',
     'no-credential': 'a vault with no credential for the provider a run would use',
     'upstream-unreadable': "a repository whose server refuses this machine's key, with no mirror yet",
+    'pull-request': "a pull request waiting on the host's forge, which m merges, and a task that said done",
   };
 
   /// The daemon answering for this machine.
@@ -258,6 +274,44 @@ method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
     if (waiting != null && !waiting.isCompleted) waiting.complete();
   }
 
+  /// Whether the pull request of the situation that has one is still open.
+  late bool _pullRequestOpen = situation == 'pull-request';
+
+  final _pullRequestChanges = StreamController<(String, Map<String, dynamic>)>.broadcast();
+
+  /// The one pull request on the host's forge, as `PullRequests` names it: a repository the host carries.
+  Map<String, dynamic> _pullRequest(String state) => <String, dynamic>{
+    'repository': 'checkout',
+    'number': 1,
+    'title': 'Round pennies the way the ledger does',
+    'head': '3f2a9c1e5b7d40a8c6e1f2b3a4d5c6e7f8091a2b',
+    'author': 'Agent Pi <agent-pi@example.org>',
+    'committer': 'Agent Pi <agent-pi@example.org>',
+    'trailers': <String>['Assisted-by: an-agent, a-model'],
+    'state': state,
+  };
+
+  /// What this machine's host forge has open for [parameters]' project: the one pull request, in its situation.
+  Map<String, dynamic> _pullRequests(Map<String, dynamic> parameters) => <String, dynamic>{
+    'pullRequests': <Map<String, dynamic>>[
+      if (_pullRequestOpen && parameters['project'] == 'checkout') _pullRequest('open'),
+    ],
+    'ended': const <Map<String, dynamic>>[],
+  };
+
+  /// Merges the open pull request, and tells every open `WatchPullRequests` it ended.
+  void mergePullRequest() {
+    if (!_pullRequestOpen) return;
+    _pullRequestOpen = false;
+    _pullRequestChanges.add((
+      'checkout',
+      <String, dynamic>{
+        'pullRequests': const <Map<String, dynamic>>[],
+        'ended': <Map<String, dynamic>>[_pullRequest('merged')],
+      },
+    ));
+  }
+
   /// Adds a task and tells every open `Watch` about it.
   void addTask(String name, String project) {
     tasks = <Map<String, dynamic>>[...tasks, _task(name, project)];
@@ -271,6 +325,7 @@ method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
     _bound?.cancel();
     await _changes.close();
     await _asking.close();
+    await _pullRequestChanges.close();
   }
 
   /// The logs this machine has.
@@ -1556,6 +1611,16 @@ method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
       'pending': _waiting.length,
       'tasks': tasks.where((task) => task['project'] == 'checkout').length,
       'running': tasks.where((task) => task['project'] == 'checkout' && task['running'] == true).length,
+      // A host of the project, carrying its repository on its forge: the window watches its pull requests.
+      if (situation == 'pull-request')
+        'repositories': <Map<String, dynamic>>[
+          <String, dynamic>{
+            'name': 'checkout',
+            'own': true,
+            'upstream': 'http://127.0.0.1:3001/checkout/checkout.git',
+            'carriedHere': true,
+          },
+        ],
     },
     <String, dynamic>{
       'name': 'billing',

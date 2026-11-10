@@ -203,6 +203,9 @@ class _Wedged implements FleetBackend {
   Stream<AuthorizationNeeded> authorizations() => const Stream<AuthorizationNeeded>.empty();
 
   @override
+  Stream<PullRequestsSeen> watchPullRequests(String project) => const Stream<PullRequestsSeen>.empty();
+
+  @override
   Future<MessagesJoined> joinMessages(String project, String person, {bool reset = false}) async =>
       throw UnimplementedError();
 
@@ -655,6 +658,9 @@ class _Machine implements FleetBackend {
 
   @override
   Stream<AuthorizationNeeded> authorizations() => const Stream<AuthorizationNeeded>.empty();
+
+  @override
+  Stream<PullRequestsSeen> watchPullRequests(String project) => const Stream<PullRequestsSeen>.empty();
 
   @override
   Future<MessagesJoined> joinMessages(String project, String person, {bool reset = false}) async =>

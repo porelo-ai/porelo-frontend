@@ -482,7 +482,8 @@ class _WorkPageState extends State<WorkPage> {
     final head = supplied is PageHead ? supplied : null;
     final scope = PageExplanationScope.of(context);
     final work = tiles.length == 1 ? 'piece of work' : 'pieces of work';
-    final running = tiles.where((tile) => tile.task?.running ?? false).length;
+    // Work its agent said is done is not running work, though its container may be up.
+    final running = tiles.where((tile) => tile.task?.runningWork ?? false).length;
     final machines = tiles.map((tile) => tile.machine).toSet().length;
     final countKnown = widget.attention.workRead(onlyMachine: widget.onlyMachine);
     final target = WindowSize.fromContext(context).showsTwoPanes ? Sizes.leafSort : Sizes.touchTarget;

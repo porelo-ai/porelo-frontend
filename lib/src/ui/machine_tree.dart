@@ -283,7 +283,7 @@ String runningIn({required String project, required String repository, required 
   final running = [
     for (final task in tasks)
       // From a machine that names no short one, its name within the project, as before.
-      if (task.running && task.project == project && task.repository == repository)
+      if (task.runningWork && task.project == project && task.repository == repository)
         task.shown == task.name ? task.task : task.shown,
   ];
   return switch (running.length) {

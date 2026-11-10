@@ -263,6 +263,10 @@ class Activity {
   /// wins over working and idle, which an ended agent's container can still look like.
   static const ended = Activity('ENDED');
 
+  /// Its agent said its work is done, and it rests: stopped, or up and producing nothing. It waits on nobody, and it
+  /// is not running work, whether or not its container is up.
+  static const done = Activity('DONE');
+
   /// Up, and nothing on this side can see what it is doing.
   ///
   /// The normal answer for a task somebody attached a terminal to: its work goes to that terminal
@@ -271,13 +275,14 @@ class Activity {
   static const unknown = Activity('UNKNOWN');
 
   /// The values this build knows. Not a validation list.
-  static const known = <Activity>[dead, waiting, working, idle, ended, unknown];
+  static const known = <Activity>[done, dead, waiting, working, idle, ended, unknown];
 
   /// Whether this build knows what it means.
   bool get recognized => known.any((value) => value.name == name);
 
   /// Words for a person, unrecognized values included.
   String get label => switch (name) {
+    'DONE' => 'done',
     'DEAD' => 'not running',
     'WAITING' => 'waiting',
     'WORKING' => 'working',
@@ -451,6 +456,9 @@ class Task {
 
   /// Whether this task's own work is waiting for somebody to review it.
   bool get hasWorkWaiting => waiting > 0;
+
+  /// Whether it is running work: its container up, and its agent has not said its work is done.
+  bool get runningWork => running && activity != Activity.done;
 
   /// What `Start` would do to it, without doing it. Empty from a daemon too old to say.
   final StartAction startAction;
@@ -4152,6 +4160,80 @@ class ForwardedPush {
     forwarded: _string(map, 'forwarded'),
     branch: _string(map, 'branch'),
     pullRequest: map['pullRequest'] is String ? map['pullRequest'] as String : null,
+  );
+}
+
+/// A pull request open on the forge of the host that carries a project, as the machine reads it with the person's
+/// forge token: the one thing it asks of a person is their approval and merge, on that forge.
+class HostPullRequest {
+  /// The repository's name in the project's file, as [Repository.name]; never the forge's own name for it.
+  final String repository;
+
+  /// Its number on the forge; only a positive one names a pull request.
+  final int number;
+
+  /// Its title, outside text shown as plain text.
+  final String title;
+
+  /// The head commit, a full commit id.
+  final String head;
+
+  /// Who wrote [head], `name <email>` as git has it; null where the machine does not say.
+  final String? author;
+
+  /// Who committed [head], as [author].
+  final String? committer;
+
+  /// [head]'s `Assisted-by` and `Co-Authored-By` trailer lines, unfolded; null where the machine does not say, which
+  /// is not *none*.
+  final List<String>? trailers;
+
+  /// `open`, `merged` or `closed`, or a later word shown as it comes.
+  final String state;
+
+  /// Constructor taking every field.
+  const HostPullRequest({
+    required this.repository,
+    required this.number,
+    required this.title,
+    required this.head,
+    required this.state,
+    this.author,
+    this.committer,
+    this.trailers,
+  });
+
+  /// Reads one from a reply.
+  factory HostPullRequest.from(Map<String, dynamic> map) => HostPullRequest(
+    repository: _string(map, 'repository'),
+    number: _int(map, 'number'),
+    title: _string(map, 'title'),
+    head: _string(map, 'head'),
+    author: _optional(map, 'author'),
+    committer: _optional(map, 'committer'),
+    trailers: map['trailers'] is List ? _strings(map, 'trailers') : null,
+    state: _string(map, 'state'),
+  );
+
+  /// What tells it apart within its project: its repository and its number.
+  String get key => '$repository#$number';
+}
+
+/// What one reading of a host forge's pull requests answered: the whole list open now, and those seen to end.
+class PullRequestsSeen {
+  /// Every pull request open now, the whole list.
+  final List<HostPullRequest> open;
+
+  /// Those confirmed merged or closed since the last answer, each once.
+  final List<HostPullRequest> ended;
+
+  /// Constructor taking both.
+  const PullRequestsSeen({required this.open, required this.ended});
+
+  /// Reads one from a reply.
+  factory PullRequestsSeen.from(Map<String, dynamic> map) => PullRequestsSeen(
+    open: _list(map, 'pullRequests').map(HostPullRequest.from).toList(),
+    ended: _list(map, 'ended').map(HostPullRequest.from).toList(),
   );
 }
 

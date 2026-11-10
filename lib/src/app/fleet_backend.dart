@@ -485,6 +485,10 @@ abstract class FleetBackend {
   /// What a person has to authorize before work can use it: what is open, then what changes.
   Stream<AuthorizationNeeded> authorizations();
 
+  /// The pull requests open on the forge of the host that carries [project], then each change; it ends only on an
+  /// error, [MissingHostForgeToken] and [HostPullRequestsRefused] among them.
+  Stream<PullRequestsSeen> watchPullRequests(String project);
+
   /// Lets [person] into [project]'s conversation, or gives their account a new password with [reset].
   Future<MessagesJoined> joinMessages(String project, String person, {bool reset = false});
 
@@ -1064,6 +1068,9 @@ class PoreloBackend implements FleetBackend {
 
   @override
   Stream<AuthorizationNeeded> authorizations() => _opened().authorizations();
+
+  @override
+  Stream<PullRequestsSeen> watchPullRequests(String project) => _opened().watchPullRequests(project);
 
   @override
   Future<MessagesJoined> joinMessages(String project, String person, {bool reset = false}) =>

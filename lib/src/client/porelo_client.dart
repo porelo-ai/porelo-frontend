@@ -142,6 +142,49 @@ class SignInRefused extends VarlinkException {
   final String detail;
 }
 
+/// The machine holds no forge token of the person's for its host's forge, under the entry its own command writes:
+/// [storeCommand] is that command, run on the machine by the person, never from here.
+class MissingHostForgeToken extends VarlinkException {
+  /// Constructor taking the refusal as it came.
+  MissingHostForgeToken(VarlinkException refusal)
+    : credential = '${refusal.parameters['credential'] ?? ''}',
+      storeCommand = switch (refusal.parameters['storeCommand']) {
+        final List<dynamic> words => words.whereType<String>().toList(),
+        _ => const <String>[],
+      },
+      super(refusal.name, refusal.parameters);
+
+  /// The vault entry it looked for; a name, never a value.
+  final String credential;
+
+  /// The command that stores it, as its arguments; empty where the machine named none.
+  final List<String> storeCommand;
+}
+
+/// The machine would not read its host forge's pull requests, and says why: [reason] (`settings`,
+/// `vault-unreadable`, `not-carried`, `forge`, `forge-answer`, `makers`, `bounds`, or one this build does not know),
+/// and [message] in words, shown as it comes.
+class HostPullRequestsRefused extends VarlinkException {
+  /// Constructor taking the refusal as it came.
+  HostPullRequestsRefused(VarlinkException refusal)
+    : reason = '${refusal.parameters['reason'] ?? ''}',
+      message = '${refusal.parameters['message'] ?? ''}',
+      super(refusal.name, refusal.parameters);
+
+  /// [refusal] as what it says, where it is one of the two a host forge's pull requests are refused with.
+  static Object typed(Object refusal) => switch (refusal) {
+    VarlinkException(simpleName: 'MissingHostForgeToken') => MissingHostForgeToken(refusal),
+    VarlinkException(simpleName: 'HostPullRequestsRefused') => HostPullRequestsRefused(refusal),
+    _ => refusal,
+  };
+
+  /// Why not, as the machine names it; empty where it gave none.
+  final String reason;
+
+  /// Why not, in the machine's words; empty where it gave none.
+  final String message;
+}
+
 /// What one machine has to run agents with: the ones it can use, the ones it cannot, and the ones
 /// it will never reach.
 ///
@@ -919,6 +962,25 @@ class PoreloClient {
   /// and an older one knows no other.
   Future<GateState> gate(String project, {String? upstream, String? repository}) async =>
       GateState.from(await _call('Pending', {'project': project, 'upstream': ?upstream, 'repository': ?repository}));
+
+  /// The pull requests open on the forge of the host that carries [project], read with the person's forge token.
+  /// Refused with [MissingHostForgeToken] or [HostPullRequestsRefused].
+  Future<PullRequestsSeen> pullRequests(String project) async {
+    try {
+      return PullRequestsSeen.from(await _call('PullRequests', {'project': project}));
+    } on VarlinkException catch (refusal) {
+      throw HostPullRequestsRefused.typed(refusal);
+    }
+  }
+
+  /// The same, then each change: the whole open list again, with those seen to end. It ends only on an error, after
+  /// which what it said is stale and is asked for again.
+  Stream<PullRequestsSeen> watchPullRequests(String project) => _callMore('WatchPullRequests', {'project': project})
+      .map(PullRequestsSeen.from)
+      .handleError(
+        (Object refusal) => throw HostPullRequestsRefused.typed(refusal),
+        test: (error) => error is VarlinkException,
+      );
 
   /// What a pending push contains: a diff and a log, and, from a Porelo that ranks the review, its
   /// files in the order to show them and what the task that pushed was asked.

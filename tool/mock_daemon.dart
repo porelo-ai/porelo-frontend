@@ -78,6 +78,7 @@ Future<void> main(List<String> args) async {
   print('  RETURN adds a task and pushes the change');
   print('  b blocks a connection, a allows it, d denies it, x lets it run out');
   if (situation == 'start-waits') print('  f fails the homeserver a start waits on');
+  if (situation == 'pull-request') print("  m merges the pull request on the host's forge");
   print('  ctrl-d or ctrl-c stops');
 
   // Asynchronously, and that is not a style choice: stdin.readLineSync() blocks the isolate, so a
@@ -90,6 +91,9 @@ Future<void> main(List<String> args) async {
     switch (line.trim()) {
       case 'f' when situation == 'start-waits':
         machine.failWaitingStart();
+      case 'm' when situation == 'pull-request':
+        machine.mergePullRequest();
+        print('merged pull request 1 — its row under Needs you closes');
       case 'b':
         asked = machine.blocks('api${++blocked}.example.test:443');
         print('blocked api$blocked.example.test:443 — answer it in the interface');

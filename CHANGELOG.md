@@ -25,6 +25,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- *Needs you* names each pull request open on the forge of a host that carries a project, as "pull request 1 of foo-1 waits for your approval and merge", with its head commit's makers through the trailer check and *Open the pull request*, which opens it on the host's forge; the row closes when the host says it was merged or closed, stays as possibly out of date while the host is asked again, and a missing forge token or a refused read is said in words, the store command to copy.
+- A task whose agent said its work is done is shown as done in *Work* and under *Needs you*, never as running, and no running count counts it.
+- The mock daemon's situation `pull-request` has one pull request waiting on the host's forge, merged with `m`, and a task that said done.
 - Planning stories can be dragged to pending states, undone individually, and saved atomically with revision checks and daemon refusals.
 - Story issue rows stage individual state changes in the same pending batch and atomic Save as story moves, retain applicable moves after a revision conflict, and display daemon refusals beside the affected issue.
 

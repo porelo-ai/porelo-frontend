@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:porelo_frontend/client.dart';
 
 import 'fleet_model.dart';
+import 'host_pull_requests.dart';
 import 'machines.dart';
 import 'operations.dart';
 import 'organization_source.dart';
@@ -34,6 +35,9 @@ enum Demand {
 
   /// Up, and nothing on this side can see what it is doing.
   unseen,
+
+  /// Its agent said its work is done, and it rests: it waits on nobody, and it is not running work.
+  done,
 
   /// Not running.
   stopped,
@@ -99,6 +103,12 @@ enum AttentionKind {
 
   /// A service needs authorization.
   authorization,
+
+  /// A pull request on a host's forge waits for the person's approval and merge.
+  pullRequest,
+
+  /// A host forge's pull requests cannot be read: a forge token is missing, or the machine refused.
+  pullRequestsRefused,
 
   /// A person's operation failed.
   operation,
@@ -232,6 +242,10 @@ class Attention extends ChangeNotifier {
   /// What the row of a machine waiting for its token says it from.
   OrganizationView? get tokenView => _tokensOf?.view;
 
+  /// This computer's connections to the organization's hosts, through which their forges are reached; null where the
+  /// window has none.
+  HostConnections? get hostConnections => _connections;
+
   final Machines _machines;
   final Settings? _settings;
   final Operations? _operations;
@@ -357,6 +371,28 @@ class Attention extends ChangeNotifier {
         row.machine.name,
         row,
       );
+    }
+    for (final machine in _counted) {
+      final pullRequests = fleetOf(machine).pullRequests;
+      final listed = {for (final project in fleetOf(machine).listedProjects) project.name: project};
+      for (final each in pullRequests.open) {
+        if (listed[each.project] case final project?) {
+          yield AttentionRow(
+            AttentionKind.pullRequest,
+            'pull request ${machine.name}/${each.project}/${each.request.key}',
+            machine.name,
+            PullRequestRow(machine: machine, project: project, request: each.request, stale: each.stale),
+          );
+        }
+      }
+      for (final each in pullRequests.refused) {
+        yield AttentionRow(
+          AttentionKind.pullRequestsRefused,
+          'pull requests refused ${machine.name}/${each.project}',
+          machine.name,
+          PullRequestsRefusedRow(machine: machine, project: each.project, refusal: each.refusal),
+        );
+      }
     }
     for (final tile in needing.where((tile) => tile.demand == Demand.question)) {
       yield _tileRow(tile);
@@ -847,6 +883,8 @@ class Attention extends ChangeNotifier {
     // Before the gate and before working: an ended agent's container can still look busy.
     if (!endSeen && (task.agentEnded?.needsSomebody ?? false)) return Demand.ended;
     if (task.hasWorkWaiting) return Demand.gate;
+    // Before stopped and running alike: its own word, which a stopped container and an idle one both keep.
+    if (task.activity == Activity.done) return Demand.done;
     if (task.activity == Activity.dead || !task.running) return Demand.stopped;
     return switch (task.activity.name) {
       'WORKING' => Demand.working,
