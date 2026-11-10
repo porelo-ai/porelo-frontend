@@ -94,4 +94,43 @@ void main() {
     expect(find.byType(PlanningScreen), findsOneWidget);
     expect(find.byKey(const Key('planning-not-reached')), findsNothing);
   });
+
+  // Harm: a planner that was not reached at the start stays unreached until the window is restarted.
+  testWidgets('refreshing tries a planner not yet reached again', (tester) async {
+    final planner = _Unreached();
+    addTearDown(planner.dispose);
+    await World.startBackend(World.work);
+    await World.startApp(tester, planning: (_) => EmbeddedPlanning(planner, startTask: plannerStartTask));
+    World.shell.goTo(Section.planning);
+    await World.settle(tester);
+    expect(find.text(plannerNotInstalled), findsOneWidget);
+
+    await World.tapInView(tester, 'refresh-all');
+    await World.settle(tester);
+
+    expect(planner.reaches, 1);
+  });
+}
+
+/// A planner the window has not reached, which counts how often it is asked to try again.
+class _Unreached extends ChangeNotifier implements PlanningClient, PlanningReach {
+  int reaches = 0;
+
+  @override
+  String? get notReached => plannerNotInstalled;
+
+  @override
+  Future<void> reach() async => reaches++;
+
+  @override
+  List<PlanningProvider> get providers => const [];
+
+  @override
+  String? get currentProvider => null;
+
+  @override
+  String? get chosenProject => null;
+
+  @override
+  Future<void> taskEvent(String project, String task, PlanningTaskEvent event) async {}
 }

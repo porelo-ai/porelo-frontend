@@ -39,6 +39,9 @@ typedef OpenPlanner = Future<HttpPlanningSource> Function(PlannerProjects projec
 abstract interface class PlanningReach implements Listenable {
   /// What the planning place says instead of a board, or null once planning is reached.
   String? get notReached;
+
+  /// Tries again to reach planning, as when the person refreshes.
+  Future<void> reach();
 }
 
 /// This computer's planner as the window's one provider of planning: found by its address file, started once where
@@ -51,13 +54,14 @@ class LocalPlanner extends ChangeNotifier implements PlanningClient, PlanningRea
     required this._repositories,
     String? Function()? chosenProject,
     this._changes,
-    this.runtimeDirectory,
+    String? runtimeDirectory,
     List<String>? candidates,
     StartPlanner? start,
     OpenPlanner? open,
     this.wait = const Duration(seconds: 20),
     this.poll = const Duration(milliseconds: 200),
   }) : _chosen = chosenProject,
+       runtimeDirectory = runtimeDirectory == null || runtimeDirectory.trim().isEmpty ? null : runtimeDirectory,
        candidates = candidates ?? plannerCandidates(Platform.environment),
        _start = start ?? _startDetached,
        _open = open ?? HttpPlanningSource.fromAddressFile {
@@ -85,7 +89,7 @@ class LocalPlanner extends ChangeNotifier implements PlanningClient, PlanningRea
   /// The provider's name, shown beside its answers.
   static const name = 'porelo-planner';
 
-  /// The runtime directory the planner writes its address under, `XDG_RUNTIME_DIR` when null.
+  /// The runtime directory the planner writes its address under, `XDG_RUNTIME_DIR` when null; a blank one is none.
   final String? runtimeDirectory;
 
   /// Where the planner may be, in the order they are tried.
@@ -116,45 +120,72 @@ class LocalPlanner extends ChangeNotifier implements PlanningClient, PlanningRea
   @override
   String? get notReached => _notReached;
 
-  /// Finds the planner, starting it where none runs; asked again, it answers the first try's end.
-  Future<void> reach() => _reaching ??= _reach();
+  /// Finds the planner, starting it where none runs; asked while it looks, it answers that look's end, and asked
+  /// after a failed look, it looks again, never starting a second planner.
+  @override
+  Future<void> reach() => _reaching ??= _reach().whenComplete(() {
+    if (_source == null) _reaching = null;
+  });
 
   Future<void> _reach() async {
-    if (await _found()) return;
-    if (_notReached != plannerLookedFor) return;
-    final program = candidates.where(_runnable).firstOrNull;
-    if (program == null) return _say(plannerNotInstalled);
-    try {
-      _started = true;
-      await _start(program, {'XDG_RUNTIME_DIR': ?runtimeDirectory});
-    } on Object catch (error) {
-      return _say('porelo-planner could not be started: $error');
+    if (await _look() != _Look.notRunning) return;
+    if (_started) {
+      return _say('porelo-planner was started, but did not say where it answers yet.');
     }
+    if (runtimeDirectory case final runtime? when !runtime.startsWith('/')) {
+      return _say('porelo-planner cannot be started: its runtime directory $runtime is not an absolute path.');
+    }
+    final programs = candidates.where(_runnable).toList();
+    if (programs.isEmpty) return _say(plannerNotInstalled);
+    if (await _startOneOf(programs) case final failure?) return _say('porelo-planner could not be started: $failure');
     final waited = Stopwatch()..start();
     while (!_disposed) {
       await Future<void>.delayed(poll);
-      if (await _found() || _notReached != plannerLookedFor) return;
+      if (await _look() != _Look.notRunning) return;
       if (waited.elapsed >= wait) {
         return _say('porelo-planner was started, but did not say where it answers within ${wait.inSeconds} s.');
       }
     }
   }
 
-  /// Whether the planner's address was read; a refusal other than a missing address is said and ends the search.
-  Future<bool> _found() async {
+  /// Starts the first of [programs] that can be started, or answers why none could.
+  Future<Object?> _startOneOf(List<String> programs) async {
+    Object? failure;
+    for (final program in programs) {
+      try {
+        _started = true;
+        await _start(program, {'XDG_RUNTIME_DIR': ?runtimeDirectory});
+        return null;
+      } on ProcessException catch (error) {
+        // Not started at all, as for a file this account may not run: the next may be.
+        _started = false;
+        failure = error;
+      } on Object catch (error) {
+        return error;
+      }
+    }
+    return failure;
+  }
+
+  /// Reads the planner's address; only a missing one means no planner runs, every other failure is said.
+  Future<_Look> _look() async {
     try {
       final source = await _open(_repositories, runtimeDirectory: runtimeDirectory);
       if (_disposed) {
         source.close();
-        return true;
+        return _Look.found;
       }
       _source = source;
       _notReached = null;
       notifyListeners();
-      return true;
+      return _Look.found;
     } on PlanningRefusal catch (refusal) {
-      if (refusal.name != 'NoAddress') _say('porelo-planner cannot be reached: $refusal');
-      return false;
+      if (refusal.name == 'NoAddress') return _Look.notRunning;
+      _say('porelo-planner cannot be reached: $refusal');
+      return _Look.refused;
+    } on Object catch (error) {
+      _say('porelo-planner cannot be reached: $error');
+      return _Look.refused;
     }
   }
 
@@ -198,11 +229,14 @@ class LocalPlanner extends ChangeNotifier implements PlanningClient, PlanningRea
       Process.start(executable, const [], environment: environment, mode: ProcessStartMode.detached);
 }
 
-/// Where the planner may be: where its package installs it, then on [environment]'s path.
+enum _Look { found, notRunning, refused }
+
+/// Where the planner may be: where its package installs it, then on [environment]'s path, taking only absolute folders
+/// that climb out of none.
 List<String> plannerCandidates(Map<String, String> environment) => [
   plannerInstalled,
   for (final folder in (environment['PATH'] ?? '').split(':'))
-    if (folder.startsWith('/')) '$folder/$plannerOnThePath',
+    if (folder.startsWith('/') && !folder.split('/').contains('..')) '$folder/$plannerOnThePath',
 ];
 
 /// The projects the watched machines list, each once, without the default project, which has no repository of its own.
@@ -221,18 +255,30 @@ PlannerProject plannerProjectOf(Machines machines, String project) {
   ], project);
 }
 
-/// Where [project]'s planning is kept: the upstream of its own repository, from the first of [known] that names one;
-/// refused in words where none does.
+/// Where [project]'s planning is kept: the upstream of its own repository, the first remote clone URL of [known], else
+/// the first upstream at all, which the planner then refuses in its own words; refused in words where none is named.
 PlannerProject plannerProjectIn(Iterable<Project> known, String project) {
-  for (final listed in known.where((each) => each.name == project)) {
-    final own = listed.ownRepository;
-    final upstream = listed.repositoryStates.where((each) => each.name == own).firstOrNull?.upstream.trim() ?? '';
-    if (upstream.isNotEmpty) return PlannerProject(upstream);
+  final upstreams = [
+    for (final listed in known.where((each) => each.name == project))
+      listed.repositoryStates.where((each) => each.name == listed.ownRepository).firstOrNull?.upstream.trim() ?? '',
+  ].where((upstream) => upstream.isNotEmpty);
+  if ((upstreams.where(isRemoteCloneUrl).firstOrNull ?? upstreams.firstOrNull) case final upstream?) {
+    return PlannerProject(upstream);
   }
-  throw PlanningRefusal(
-    'NoRepository',
-    {'project': project},
-    'No watched machine names where $project\'s own repository is followed from, so porelo-planner cannot be told '
-        'where its planning is kept.',
-  );
+  final words =
+      'No watched machine names where $project\'s own repository is followed from, so porelo-planner cannot be told '
+      'where its planning is kept.';
+  // In the parameters as well, where the board reads a refusal's words.
+  throw PlanningRefusal('NoRepository', {'project': project, 'detail': words}, words);
+}
+
+/// Whether [upstream] names a repository on another machine: a URL of a scheme other than `file`, or git's
+/// `host:path` form, whose colon comes before any slash.
+bool isRemoteCloneUrl(String upstream) {
+  if (RegExp(r'^([A-Za-z][A-Za-z0-9+.-]*)://').firstMatch(upstream) case final url?) {
+    return url.group(1)!.toLowerCase() != 'file';
+  }
+  final colon = upstream.indexOf(':');
+  final slash = upstream.indexOf('/');
+  return colon > 0 && (slash < 0 || colon < slash);
 }

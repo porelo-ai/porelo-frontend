@@ -4,8 +4,12 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/planner.dart';
-import 'package:porelo_frontend/src/client/models.dart';
+import 'package:porelo_frontend/client.dart';
+import 'package:porelo_frontend/src/app/machines.dart';
+import 'package:porelo_frontend/src/app/settings.dart';
 import 'package:porelo_planning/porelo_planning.dart';
+
+import '../features/support/world.dart';
 
 /// A stand-in planner on the loopback address that records every call and answers an empty board.
 class _Planner {
@@ -79,12 +83,19 @@ void main() {
     return file.path;
   }
 
-  LocalPlanner client({List<String>? candidates, StartPlanner? start, Duration? wait}) => LocalPlanner(
+  LocalPlanner client({
+    List<String>? candidates,
+    StartPlanner? start,
+    Duration? wait,
+    String? Function()? runtimeDirectory,
+    OpenPlanner? open,
+  }) => LocalPlanner(
     projects: () => ['demo'],
     repositories: (project) => PlannerProject('https://example.org/$project.git'),
-    runtimeDirectory: runtime.path,
+    runtimeDirectory: runtimeDirectory == null ? runtime.path : runtimeDirectory(),
     candidates: candidates ?? const [],
     start: start ?? (_, _) async => fail('no planner may be started'),
+    open: open,
     wait: wait ?? const Duration(seconds: 5),
     poll: const Duration(milliseconds: 20),
   )..let(clients.add);
@@ -171,36 +182,177 @@ void main() {
     expect(local.providers, isEmpty);
   });
 
-  // Harm: the window trusts a token others could read, or starts a second planner beside one that runs.
+  // Harm: the window trusts a token others could read, or starts a second planner beside one that runs and then
+  // loses the refusal's words to a timeout.
   test('an address file other accounts may read is refused in words, and no planner is started', () async {
     final running = await planner();
     await running.announce(runtime.path, mode: 420);
-    final local = client(candidates: [await program()]);
+    var starts = 0;
+    final local = client(candidates: [await program()], start: (_, _) async => starts++);
 
     await local.reach();
 
+    expect(starts, 0, reason: 'a refused address file is no planner that is not running');
     expect(local.notReached, contains('other accounts'));
     expect(local.providers, isEmpty);
     expect(running.calls, isEmpty);
   });
 
+  // Harm: an address file the planner did not write has the window start a second planner, and its words are lost.
+  test('an address file that is not the planner\'s is refused in words, and no planner is started', () async {
+    final directory = await Directory('${runtime.path}/porelo-planner').create();
+    await Process.run('chmod', ['700', directory.path]);
+    final file = File('${directory.path}/planner.json');
+    await file.writeAsString('not the planner\'s address');
+    await Process.run('chmod', ['600', file.path]);
+    var starts = 0;
+    final local = client(candidates: [await program()], start: (_, _) async => starts++);
+
+    await local.reach();
+
+    expect(starts, 0);
+    expect(local.notReached, contains('not JSON'));
+  });
+
+  // Harm: a planner is started into a runtime directory relative to wherever the window was started, which the read
+  // refuses, so the started planner is never found and the refusal is lost to a timeout.
+  test('a relative runtime directory is refused in words, and no planner is started', () async {
+    var starts = 0;
+    final local = client(
+      runtimeDirectory: () => 'relative/run',
+      candidates: [await program()],
+      start: (_, _) async => starts++,
+    );
+
+    await local.reach();
+
+    expect(starts, 0);
+    expect(local.notReached, contains('relative/run'));
+  });
+
+  // Harm: a blank runtime directory has the planner started with an empty XDG_RUNTIME_DIR while the window reads the
+  // account's own, so each looks in a different place.
+  test('a blank runtime directory is the account\'s own, for the start and the read alike', () async {
+    final reads = <String?>[];
+    final starts = <Map<String, String>>[];
+    final local = client(
+      runtimeDirectory: () => '  ',
+      candidates: [await program()],
+      start: (_, environment) async => starts.add(environment),
+      open: (_, {runtimeDirectory}) async {
+        reads.add(runtimeDirectory);
+        throw const PlanningRefusal('NoAddress', {}, 'no planner runs');
+      },
+      wait: const Duration(milliseconds: 60),
+    );
+
+    await local.reach();
+
+    expect(reads, everyElement(isNull));
+    expect(reads, isNotEmpty);
+    expect(starts, [<String, String>{}]);
+  });
+
+  // Harm: an unexpected failure while reading the address escapes unseen and leaves the place looking forever.
+  test('a failure other than a refusal while looking is said in words, and no planner is started', () async {
+    var starts = 0;
+    final local = client(
+      candidates: [await program()],
+      start: (_, _) async => starts++,
+      open: (_, {runtimeDirectory}) async => throw StateError('the address could not be taken'),
+    );
+
+    await local.reach();
+
+    expect(starts, 0);
+    expect(local.notReached, contains('the address could not be taken'));
+  });
+
+  // Harm: a planner installed or answering after the first try is never reached until the window is restarted.
+  test('a failed reach is tried again, and finds a planner installed since', () async {
+    final started = await planner();
+    final file = File('${bin.path}/porelo-planner');
+    await file.writeAsString('#!/bin/sh\nexit 1\n');
+    await Process.run('chmod', ['600', file.path]);
+    final starts = <String>[];
+    final local = client(
+      candidates: [file.path],
+      start: (executable, _) async {
+        starts.add(executable);
+        await started.announce(runtime.path);
+      },
+    );
+    await local.reach();
+    expect(local.notReached, plannerNotInstalled);
+
+    await Process.run('chmod', ['700', file.path]);
+    await local.reach();
+
+    expect(starts, [file.path]);
+    expect(local.notReached, isNull);
+  });
+
+  // Harm: a planner that answers late is never read, or a second planner is started beside the first.
+  test('a started planner that answers late is found when tried again, and is never started twice', () async {
+    final slow = await planner();
+    var starts = 0;
+    final local = client(
+      candidates: [await program()],
+      start: (_, _) async => starts++,
+      wait: const Duration(milliseconds: 100),
+    );
+    await local.reach();
+    expect(local.notReached, contains('did not say where it answers'));
+
+    await slow.announce(runtime.path);
+    await local.reach();
+
+    expect(starts, 1);
+    expect(local.notReached, isNull);
+  });
+
+  // Harm: one candidate the account cannot run hides another it can, so planning is never reached.
+  test('a candidate that cannot be started gives way to the next', () async {
+    final started = await planner();
+    final first = await program();
+    final second = File('${bin.path}/porelo-planner-second');
+    await second.writeAsString('#!/bin/sh\nexit 1\n');
+    await Process.run('chmod', ['700', second.path]);
+    final starts = <String>[];
+    final local = client(
+      candidates: [first, second.path],
+      start: (executable, _) async {
+        starts.add(executable);
+        if (executable == first) throw ProcessException(executable, const [], 'Permission denied', 13);
+        await started.announce(runtime.path);
+      },
+    );
+
+    await local.reach();
+
+    expect(starts, [first, second.path]);
+    expect(local.notReached, isNull);
+  });
+
   // Harm: a relative entry on the path runs a program from whatever directory the window was started in.
   test('the planner is looked for where its package puts it, then on the path, never by a relative path', () {
-    expect(plannerCandidates({'PATH': '/opt/a:bin::/usr/bin'}), [
+    expect(plannerCandidates({'PATH': '/opt/a:bin::/usr/bin: /tmp/bin:/usr/bin/../../tmp/bin:/opt/..'}), [
       plannerInstalled,
       '/opt/a/porelo-planner',
       '/usr/bin/porelo-planner',
     ]);
   });
 
+  Project project(String name, List<Map<String, dynamic>> repositories) =>
+      Project.from({'name': name, 'repositories': repositories});
+  Project own(String name, String upstream) => project(name, [
+    {'name': name, 'own': true, 'upstream': upstream},
+  ]);
+
   // Harm: the planner is told another repository than the project's own, or a project of another name.
-  test('a project is told with its own repository\'s upstream, and refused where no machine names one', () {
-    Project project(String name, List<Map<String, dynamic>> repositories) =>
-        Project.from({'name': name, 'repositories': repositories});
+  test('a project is told with its own repository\'s upstream, and refused in words where no machine names one', () {
     final known = [
-      project('other', [
-        {'name': 'other', 'own': true, 'upstream': 'https://example.org/other.git'},
-      ]),
+      own('other', 'https://example.org/other.git'),
       project('demo', [
         {'name': 'demo-code', 'own': false, 'upstream': 'https://example.org/demo-code.git'},
         {'name': 'demo', 'own': true, 'upstream': ''},
@@ -214,8 +366,109 @@ void main() {
     expect(plannerProjectIn(known, 'demo'), const PlannerProject('https://example.org/demo.git'));
     expect(
       () => plannerProjectIn(known.take(2), 'demo'),
-      throwsA(isA<PlanningRefusal>().having((refusal) => refusal.name, 'name', 'NoRepository')),
+      throwsA(
+        isA<PlanningRefusal>()
+            .having((refusal) => refusal.name, 'name', 'NoRepository')
+            .having(planningFailureWords, 'words on the board', contains('No watched machine names where demo')),
+      ),
     );
+  });
+
+  // Harm: a local path the planner refuses is told in place of a clone URL another machine names, so the board fails.
+  test('a remote clone URL is preferred to a local path, which is told only where no machine names a remote one', () {
+    expect(
+      plannerProjectIn([own('demo', '/home/user/git/demo'), own('demo', 'https://example.org/demo.git')], 'demo'),
+      const PlannerProject('https://example.org/demo.git'),
+    );
+    expect(
+      plannerProjectIn([own('demo', 'file:///srv/git/demo'), own('demo', 'git@example.org:org/demo.git')], 'demo'),
+      const PlannerProject('git@example.org:org/demo.git'),
+    );
+    expect(
+      plannerProjectIn([own('demo', '/srv/git/demo'), own('demo', '/home/user/git/demo')], 'demo'),
+      const PlannerProject('/srv/git/demo'),
+    );
+  });
+
+  group('the watched machines', () {
+    late Machines machines;
+    late Map<String, FakeBackend> backends;
+    const other = Machine(name: 'other', socketPath: '/tmp/other-planner.sock');
+
+    setUp(() async {
+      backends = {};
+      machines = Machines(
+        Settings(MemorySettingsStore()),
+        reach: (machine) => backends[machine.name] = FakeBackend(const <Task>[])..theProjectsItHas = [],
+        tunnels: FakeTunnels(),
+      );
+      await machines.add(other);
+      await Future<void>.delayed(Duration.zero);
+    });
+
+    tearDown(() => machines.dispose());
+
+    Future<void> listing(Machine machine, List<Project> projects) async {
+      backends[machine.name]!.theProjectsItHas = projects;
+      await machines.of(machine).refresh();
+    }
+
+    Machine shown() => machines.all.firstWhere((machine) => machine.name != other.name);
+
+    // Harm: the board is asked of a project the window never lists, of the default project, or of one project twice.
+    test('plan every project they list once, without the default project', () async {
+      await listing(shown(), [own('demo', 'https://example.org/demo.git'), own(defaultProject, '')]);
+      await listing(other, [
+        own('demo', 'https://example.org/demo.git'),
+        own('tools', 'https://example.org/tools.git'),
+      ]);
+
+      expect(plannedProjects(machines)..sort(), ['demo', 'tools']);
+    });
+
+    // Harm: the planner is told another machine's repository where the shown machine names its own.
+    test('name a project\'s repository from the machine shown first, then from another', () async {
+      await listing(shown(), [own('demo', 'https://example.org/shown/demo.git')]);
+      await listing(other, [
+        own('demo', 'https://example.org/other/demo.git'),
+        own('tools', 'https://example.org/tools.git'),
+      ]);
+
+      expect(plannerProjectOf(machines, 'demo'), const PlannerProject('https://example.org/shown/demo.git'));
+      expect(plannerProjectOf(machines, 'tools'), const PlannerProject('https://example.org/tools.git'));
+      machines.select(other);
+      expect(plannerProjectOf(machines, 'demo'), const PlannerProject('https://example.org/other/demo.git'));
+    });
+
+    // Harm: the shown machine's local path is told in place of the clone URL another machine names.
+    test('take another machine\'s clone URL over the shown machine\'s local path', () async {
+      await listing(shown(), [own('demo', '/home/user/git/demo')]);
+      await listing(other, [own('demo', 'https://example.org/demo.git')]);
+
+      expect(plannerProjectOf(machines, 'demo'), const PlannerProject('https://example.org/demo.git'));
+    });
+
+    // Harm: the planner's board lists projects the window does not, tells it other repositories, or opens another
+    // project than the one the person chose.
+    test('are what the planner of the window is told, and the chosen project is the shown machine\'s', () async {
+      await listing(shown(), [own('demo', 'https://example.org/demo.git'), own(defaultProject, '')]);
+      PlannerProjects? told;
+      final local = LocalPlanner.of(
+        machines,
+        candidates: const [],
+        open: (projects, {runtimeDirectory}) async {
+          told = projects;
+          return HttpPlanningSource(Uri.parse('http://127.0.0.1:9'), 'token', projects);
+        },
+      )..let(clients.add);
+      machines.fleet.selectProject('demo');
+
+      await local.reach();
+
+      expect(local.providers.single.projects, ['demo']);
+      expect(told!('demo'), const PlannerProject('https://example.org/demo.git'));
+      expect(local.chosenProject, 'demo');
+    });
   });
 }
 

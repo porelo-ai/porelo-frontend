@@ -669,6 +669,10 @@ class _ShellState extends State<Shell> {
       if (_organization?.view case final view?) _hostConnections?.askOnce(view, again: true);
       setState(() => _organizationPageRefresh++);
     }
+    // Planning not reached at the start, as a planner installed or answering since, is looked for again.
+    if (widget.planning?.client case final PlanningReach planning when !quietly && planning.notReached != null) {
+      unawaited(planning.reach());
+    }
     // A key loaded into the agent, or revoked, since the last read changes what a host admin is offered.
     await widget.hostAccess?.readAgain();
     if (!mounted) return;

@@ -14,7 +14,7 @@ void main() {
 
   late Directory runtime;
   late LocalPlanner window;
-  Process? started;
+  final started = <Process>[];
   var repository = 'https://example.org/demo.git';
 
   Future<void> reset() async {
@@ -42,9 +42,14 @@ void main() {
       repositories: (_) => PlannerProject(repository),
       runtimeDirectory: runtime.path,
       candidates: [planner],
-      // The mock mode, and a process the test can stop: the window's own start leaves its planner running.
-      start: (executable, environment) async =>
-          started = await Process.start(executable, ['--mock'], environment: environment),
+      // The mock mode, and a process the test can stop: the window's own start leaves its planner running. Every start
+      // is kept, so a second one is counted and stopped too; its output is drained so it never blocks on a full pipe.
+      start: (executable, environment) async {
+        final process = await Process.start(executable, ['--mock'], environment: environment);
+        started.add(process);
+        process.stdout.drain<void>().ignore();
+        process.stderr.drain<void>().ignore();
+      },
       wait: const Duration(seconds: 60),
     );
     await window.reach();
@@ -54,8 +59,10 @@ void main() {
   tearDownAll(() async {
     if (planner == null) return;
     window.dispose();
-    started?.kill();
-    await started?.exitCode;
+    for (final process in started) {
+      process.kill();
+      await process.exitCode;
+    }
     await runtime.delete(recursive: true);
   });
 
@@ -70,17 +77,21 @@ void main() {
   test('the window starts the planner once and reads the mock board through it', () async {
     final snapshot = await window.providers.single.source.stories('demo');
 
-    expect(window.started, isTrue);
+    expect(started, hasLength(1), reason: 'one window starts one planner');
     expect(snapshot.stories, isNotEmpty);
   }, skip: skip);
 
-  // Harm: a refusal of the planner's is lost or turned into an empty board.
-  test('the planner refuses a project whose repository is a local path, and the refusal keeps its name', () async {
+  // Harm: a refusal of the planner's is lost, turned into an empty board, or shown by its name alone.
+  test('the planner refuses a project whose repository is a local path, and the refusal keeps its words', () async {
     repository = '/srv/git/demo';
 
     await expectLater(
       window.providers.single.source.stories('demo'),
-      throwsA(isA<PlanningRefusal>().having((refusal) => refusal.name, 'name', 'NotACloneUrl')),
+      throwsA(
+        isA<PlanningRefusal>()
+            .having((refusal) => refusal.name, 'name', 'NotACloneUrl')
+            .having((refusal) => refusal.description.trim(), 'words', isNotEmpty),
+      ),
     );
   }, skip: skip);
 }
