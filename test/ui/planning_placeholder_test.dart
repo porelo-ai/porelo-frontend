@@ -68,7 +68,7 @@ void main() {
     expect(find.text(plannerNotInstalled), findsOneWidget);
     expect(find.byType(PlanningScreen), findsNothing);
     expect(find.byKey(const Key('rail-planning-count')), findsNothing, reason: 'nothing is counted without a planner');
-  });
+  }, skip: Platform.isWindows); // Linux only: porelo-planner, its runtime directory and POSIX modes.
 
   // Harm: a planner the window reached stays hidden behind the line, so its boards are never shown.
   testWidgets('a window that reaches its planner shows the planning screen in place of the line', (tester) async {
@@ -95,7 +95,7 @@ void main() {
 
     expect(find.byType(PlanningScreen), findsOneWidget);
     expect(find.byKey(const Key('planning-not-reached')), findsNothing);
-  });
+  }, skip: Platform.isWindows); // Linux only: porelo-planner, its runtime directory and POSIX modes.
 
   // Harm: a planner that was not reached at the start stays unreached until the window is restarted.
   testWidgets('refreshing tries a planner not yet reached again', (tester) async {

@@ -26,6 +26,11 @@ const plannerNotInstalled =
     'Planning comes from porelo-planner, which is not installed on this computer. '
     'Install the porelo-planner package and open Porelo again.';
 
+/// What the planning place says on Windows, which porelo-planner is not built for.
+const plannerNotOnWindows =
+    'Planning comes from porelo-planner, which runs on Linux only for now. '
+    'Planning is not offered in Porelo on Windows yet.';
+
 /// What the planning place says while the window looks for the planner or waits for the one it started.
 const plannerLookedFor = 'Looking for porelo-planner…';
 
@@ -49,6 +54,7 @@ abstract interface class PlanningReach implements Listenable {
 class LocalPlanner extends ChangeNotifier implements PlanningClient, PlanningReach {
   /// Takes the projects the window knows and their repositories; [runtimeDirectory] is the one the planner writes its
   /// address under, `XDG_RUNTIME_DIR` when null, and [candidates] where the planner may be, in the order they are tried.
+  /// [onWindows] is whether the window runs on Windows, where no planner is looked for or started.
   LocalPlanner({
     required this._projects,
     required this._repositories,
@@ -60,7 +66,9 @@ class LocalPlanner extends ChangeNotifier implements PlanningClient, PlanningRea
     OpenPlanner? open,
     this.wait = const Duration(seconds: 20),
     this.poll = const Duration(milliseconds: 200),
-  }) : _chosen = chosenProject,
+    bool? onWindows,
+  }) : _onWindows = onWindows ?? Platform.isWindows,
+       _chosen = chosenProject,
        runtimeDirectory = runtimeDirectory == null || runtimeDirectory.trim().isEmpty ? null : runtimeDirectory,
        candidates = candidates ?? plannerCandidates(Platform.environment),
        _start = start ?? _startDetached,
@@ -107,6 +115,7 @@ class LocalPlanner extends ChangeNotifier implements PlanningClient, PlanningRea
   final Listenable? _changes;
   final StartPlanner _start;
   final OpenPlanner _open;
+  final bool _onWindows;
 
   Future<void>? _reaching;
   HttpPlanningSource? _source;
@@ -128,6 +137,7 @@ class LocalPlanner extends ChangeNotifier implements PlanningClient, PlanningRea
   });
 
   Future<void> _reach() async {
+    if (_onWindows) return _say(plannerNotOnWindows);
     if (await _look() != _Look.notRunning) return;
     if (_started) {
       return _say('porelo-planner was started, but did not say where it answers yet.');

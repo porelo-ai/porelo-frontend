@@ -90,6 +90,10 @@ it reaches no planner it says why in words.
 
 ## How it stands
 
+- Windows: porelo-planner is built for Linux only, so on Windows the window looks for no planner, starts none and says
+  planning is not offered there yet. The planner tests that read its runtime directory and POSIX modes are bound to
+  Linux; main's Windows job had failed them, every Windows path being refused as not absolute. Seen red:
+  `test/app/planner_windows_test.dart`, the window opening the address on Windows.
 - Built on the branch: the window finds or starts the planner, tells it each project's repository and embeds its
   screen; unit and widget tests and the test against the mock mode pass here, the last against the planner's own build
   of the commit pinned.

@@ -1,3 +1,8 @@
+// Linux only: porelo-planner is built for Linux; these read its runtime directory, POSIX modes and paths.
+// Windows, where nothing is started, is tested in planner_windows_test.dart.
+@Tags(<String>['linux'])
+library;
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
