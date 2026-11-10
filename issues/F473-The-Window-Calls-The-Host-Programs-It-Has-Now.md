@@ -34,15 +34,20 @@ root program is `/usr/sbin/porelo-host`, and a person's push and pull are Porelo
 - The same file: `SshHostProgress.central`, which ran `porelo-host-push --central <project>` as root, is gone, and so is
   `CentralState.fromAnswer`. `CentralState.fromRepositories` reads the daemon's `Projects` row instead: each repository
   it carries with a `central` other than `no-central`, its `ahead` as the count and the oldest `aheadMeasured` as when it
-  was read. A repository said `ahead` with no count reads as cannot say, never as up to date.
+  was read. A repository said `ahead` with no count, and one carried with no `central` answered yet, read as cannot
+  say, never as up to date.
 - `lib/src/app/organization_connections.dart`: `CardHostConnections.central` asks the person's own daemon on the host
-  (`Machines.of(machine).backend.projects()`) once the connection is up; anything it cannot ask or that is not listed
-  cannot say. `organization_project_pages.dart` asks once the connection is up rather than as soon as it is made.
+  (`Machines.of(machine).backend.projects()`) once the connection is up and the machine's own connection to the daemon
+  has been asked (`FleetModel.untilAsked`); a daemon not connected, a backend not open (`StateError`) or a project not
+  listed cannot say. `organization_project_pages.dart` asks once per project and connection once it is up, says nothing
+  while it is asked, and forgets the answer and the ask when the connection goes or the project's host changes, so a
+  late answer of an old connection stands for nothing.
 - `packages/porelo_host/lib/src/host_run.dart`: the take-down's membership read is `/usr/sbin/porelo-host org status
   --json` and its purge `/usr/sbin/porelo-host person purge <login>`, as root.
 - `packages/porelo_host/lib/src/project_transfer.dart`: *Give it my token* feeds `/usr/sbin/porelo-host org refresh`,
-  through a terminal or directly, as root. The token feed shared with the gathered push stays as it was:
-  `projectTransferCommand`, which still names `porelo-host-push`, is no longer called by the window.
+  through a terminal or directly, as root. `ProjectTransfer`, `projectTransferFeedCommand` and `projectTransferCommand`,
+  which built `porelo-host-push` lines nothing called, are removed; the token feed stays, and
+  `organizationRefreshFeedCommand` takes `marked`, so the feed's tests run against `org refresh`.
 - Red first: `test/app/host_progress_test.dart` (the status and refresh lines), `test/app/organization_connections_test.dart`
   (central from the daemon, nothing run as root), and the package's `host_run_test.dart`, `down_cli_test.dart` and
   `project_transfer_test.dart` with the new lines; each was seen red against the old names.
@@ -61,6 +66,12 @@ root program is `/usr/sbin/porelo-host`, and a person's push and pull are Porelo
   purged any recorded person. The take-down still purges each membership holder the person confirmed, so a holder still
   listed in a project is now refused in the host's words, and the take-down stops there, as `doc/design.md` says.
   Whether the confirmation should offer only those the host can purge is for the operator to decide.
-- `projectTransferCommand` and its `porelo-host-push` line stay in the package unused by the window; the gathered push
-  goes through the daemon's `PushToCentral`.
+- Reading fixed: of its four must-fix findings three were taken, each with a test seen red first - a carried
+  repository with no central answer no longer lets a project read as up to date; central waits for the daemon's
+  connection, and a backend not open cannot say; a row says nothing while it is asked and asks again after a reconnect
+  or a change of host. The fourth, `--json` on `org refresh`, was declined: `porelo-host org refresh` has no `--json`
+  option and always answers the complete status as JSON (its manual page, and its `OrgRefresh` command, which prints
+  the follow's answer as JSON), so the option would be refused as wrong use. Both may-fix findings were taken: the
+  tests above, and the dead `porelo-host-push` builders removed. The window's gathered push goes through the daemon's
+  `PushToCentral`.
 - Not tried against a live host: the five lines were read in Porelo's host program and its manual page, not run.

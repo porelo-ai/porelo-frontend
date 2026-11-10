@@ -245,12 +245,16 @@ class CentralState {
   /// Keeps what the machine answered, an empty [repositories] where it could not say.
   const CentralState({this.readAt, this.repositories = const []});
 
-  /// Reads the repositories of the daemon's `Projects` row: each it carries and says a central state of. A repository
-  /// with no central forge has nothing to stand against; the oldest answer is when it was read.
+  /// Reads the repositories of the daemon's `Projects` row: each it carries and says a central state of, and each it
+  /// carries with none said yet, which cannot say. A repository with no central forge has nothing to stand against; the
+  /// oldest answer is when it was read.
   factory CentralState.fromRepositories(List<Repository> listed) {
     final said = [
       for (final each in listed)
-        if (each.carriedHere != false && each.central != null && each.central != 'no-central') each,
+        if (each.carriedHere != false &&
+            each.central != 'no-central' &&
+            (each.central != null || each.carriedHere == true))
+          each,
     ];
     DateTime? oldest;
     for (final each in said) {
@@ -259,7 +263,7 @@ class CentralState {
     }
     return CentralState(
       readAt: oldest,
-      repositories: [for (final each in said) (state: each.central!, commits: each.ahead ?? 0)],
+      repositories: [for (final each in said) (state: each.central ?? '', commits: each.ahead ?? 0)],
     );
   }
 

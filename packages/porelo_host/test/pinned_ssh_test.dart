@@ -603,12 +603,7 @@ void main() {
     await expectLater(ssh.copy('other', '', '/from', '/to'), throwsFormatException);
     await expectLater(ssh.copy('alpha', 'root', '/from', '/to'), throwsFormatException);
     expect(commands, isEmpty);
-    final answer = await ssh.run(
-      'alpha',
-      '',
-      projectTransferCommand(ProjectTransfer.push, 'example', ['api']),
-      input: 'synthetic\n',
-    );
+    final answer = await ssh.run('alpha', '', inTheLoginShell('porelo host push example api'), input: 'synthetic\n');
     expect(answer.exitCode, 0);
     expect(commands.single, [
       'ssh',
@@ -623,7 +618,7 @@ void main() {
       '-T',
       '--',
       'alpha',
-      'exec "\${SHELL:-/bin/sh}" -lc \'porelo-host-push example api\'',
+      'exec "\${SHELL:-/bin/sh}" -lc \'porelo host push example api\'',
     ]);
   }, tags: 'linux'); // Linux: /bin/sh stands in for the shared-master SSH command.
 

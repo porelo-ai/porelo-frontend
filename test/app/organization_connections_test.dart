@@ -240,6 +240,36 @@ void main() {
     },
   );
 
+  // Harm: the page asks as soon as the connection is up, before the daemon's connection over it has opened; Porelo's
+  // own backend then throws an error nothing catches, and the project stays as cannot say for good.
+  test("central waits for the daemon's connection to open, and an error of the backend cannot say", () async {
+    daemon.theProjectsItHas = [
+      Project.from(const <String, dynamic>{
+        'name': 'demo',
+        'repositories': [
+          {'name': 'api', 'central': 'ahead', 'ahead': 1, 'carriedHere': true},
+        ],
+      }),
+    ];
+    final opened = Completer<void>();
+    daemon.answersLater = opened;
+    // As Porelo's own backend does before open() answered.
+    daemon.listingProjectsFails = StateError('open() has not answered yet');
+    final made = await connections(_mia());
+    await made.connect('build');
+    final asked = made.central('build', 'demo');
+    daemon.listingProjectsFails = null;
+    opened.complete();
+    expect((await asked).repositories, [(state: 'ahead', commits: 1)]);
+
+    // Once the machine's own reread after connecting is over, so that only this ask meets the error.
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    daemon.listingProjectsFails = StateError('open() has not answered yet');
+    final failed = await made.central('build', 'demo');
+    daemon.listingProjectsFails = null;
+    expect(failed.cannotSay, isTrue);
+  });
+
   // Harm: two projects on one host would hold two connections, which the host's one account cannot tell apart.
   test('two projects on one host are one connection, and a second Connect changes nothing', () async {
     final view = organizationFor(

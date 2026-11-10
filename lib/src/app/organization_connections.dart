@@ -5,6 +5,7 @@ import 'package:porelo_host/porelo_host.dart' show HostCardSsh, HostFiles, HostF
 
 import 'ssh_words.dart';
 import 'desk.dart';
+import 'fleet_model.dart' show Reachability;
 import 'host_follow.dart';
 import 'host_progress.dart';
 import 'machines.dart';
@@ -463,10 +464,17 @@ class CardHostConnections extends HostConnections {
     final machine = _machine(host);
     if (machine == null || !up(host)) return const CentralState();
     try {
-      final listed = await machines.of(machine).backend.projects();
+      final fleet = machines.of(machine);
+      // The connection can be up before the daemon's connection over it has opened.
+      await fleet.untilAsked();
+      if (fleet.reachability != Reachability.connected) return const CentralState();
+      final listed = await fleet.backend.projects();
       final row = listed.where((each) => each.name == project).firstOrNull;
       return row == null ? const CentralState() : CentralState.fromRepositories(row.repositoryStates);
     } on Exception {
+      return const CentralState();
+    } on StateError {
+      // Porelo's own backend says so of a connection not open (yet or again).
       return const CentralState();
     }
   }

@@ -52,6 +52,20 @@ class _Central extends FixtureConnections {
       const CentralState(repositories: [(state: 'ahead', commits: 2)]);
 }
 
+/// Answers each ask of central only when the test lets it, counting the asks.
+class _HeldCentral extends FixtureConnections {
+  _HeldCentral() : super(const ['build']);
+
+  final asks = <Completer<CentralState>>[];
+
+  @override
+  Future<CentralState> central(String host, String project) {
+    final ask = Completer<CentralState>();
+    asks.add(ask);
+    return ask.future;
+  }
+}
+
 /// Holds each read of a project until the test lets it answer, as Porelo takes seconds to.
 class _HeldReads extends FixtureOrganization {
   _HeldReads(super.view);
@@ -181,6 +195,29 @@ void main() {
       ([row('ahead')], 'cannot say how it stands with'),
       ([row('ahead', 2), row('ahead')], '2 approved commits not yet at GitHub, and cannot say for the rest'),
       (<Map<String, Object?>>[], 'cannot say how it stands with'),
+      // A carried repository the host has not answered for yet is no repository at central.
+      (
+        [
+          row('up-to-date', 0),
+          {'name': 'unanswered', 'carriedHere': true},
+        ],
+        'cannot say how it stands with',
+      ),
+      (
+        [
+          row('ahead', 2),
+          {'name': 'unanswered', 'carriedHere': true},
+        ],
+        '2 approved commits not yet at GitHub, and cannot say for the rest',
+      ),
+      // One the machine does not carry stands nowhere against central here.
+      (
+        [
+          row('up-to-date', 0),
+          {'name': 'elsewhere', 'carriedHere': false},
+        ],
+        'up to date with GitHub',
+      ),
     ]) {
       test('$rows says $words', () {
         final listed = Project.from(<String, dynamic>{'name': 'demo', 'repositories': rows}).repositoryStates;
@@ -377,6 +414,34 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.textContaining('2 approved commits not yet at'), findsOneWidget);
       expect(find.textContaining('Push the approved main'), findsNothing);
+    });
+
+    // Harm: a row says it cannot say while the machine is still being asked, or keeps an answer from a connection that
+    // is gone, so work waiting for central goes unseen after a reconnect.
+    testWidgets('a row says nothing of central while it is asked, and asks again after a reconnect', (tester) async {
+      final organization = Organization(FixtureOrganization(organizationFor('mia')));
+      addTearDown(organization.dispose);
+      final connections = _HeldCentral();
+      await _settle(
+        tester,
+        OrganizationProjectsPage(organization: organization, connections: connections, onProject: (_) {}),
+      );
+      expect(connections.asks, hasLength(1));
+      expect(find.textContaining('cannot say how it stands'), findsNothing);
+      connections.asks.single.complete(const CentralState(repositories: [(state: 'up-to-date', commits: 0)]));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('up to date with'), findsOneWidget);
+
+      await connections.disconnect('build');
+      await tester.pumpAndSettle();
+      expect(find.textContaining('up to date with'), findsNothing, reason: 'an answer of a connection that is gone');
+      await connections.connect('build');
+      await tester.pumpAndSettle();
+      expect(connections.asks, hasLength(2));
+      // The first connection's answer, late, stands for nothing now.
+      connections.asks.last.complete(const CentralState(repositories: [(state: 'ahead', commits: 3)]));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('3 approved commits not yet at'), findsOneWidget);
     });
 
     // Harm: a host lists a project only after a first start, so a member cannot push what the host gathered.

@@ -81,6 +81,10 @@ class _OrganizationProjectsPageState extends State<OrganizationProjectsPage> {
   /// What `project list` answered; a refusal is said by the organization's own read, so this stays as it was.
   List<ListedProject> _listed = const [];
   final _central = <String, CentralState>{};
+
+  /// The ask of each project's central state on its way or answered, by the host it was asked of.
+  final _centralAsked = <String, ({String host, int number})>{};
+  int _centralAsks = 0;
   final _connecting = <String>{};
   final _refusals = <String, String>{};
 
@@ -100,17 +104,26 @@ class _OrganizationProjectsPageState extends State<OrganizationProjectsPage> {
     });
   }
 
-  /// Asks once per project, once the connection is up: the machine's own answer only changes at its follow, and its
-  /// daemon is asked through that connection.
+  /// Asks once per project and connection, once it is up: the machine's own answer only changes at its follow, and its
+  /// daemon is asked through that connection. Nothing is said while it is asked, and a connection gone, or a project
+  /// moved to another host, forgets the answer and the ask, whose late answer then stands for nothing.
   void _askCentral(OrganizationProject project) {
     final connections = widget.connections;
     final host = project.host;
-    if (connections == null || host == null || !connections.up(host)) return;
-    if (_central.containsKey(project.name)) return;
-    _central[project.name] = const CentralState();
+    final name = project.name;
+    if (connections == null || host == null || !connections.up(host)) {
+      _central.remove(name);
+      _centralAsked.remove(name);
+      return;
+    }
+    if (_centralAsked[name]?.host == host) return;
+    _central.remove(name);
+    final ask = (host: host, number: ++_centralAsks);
+    _centralAsked[name] = ask;
     unawaited(
-      connections.central(host, project.name).then((state) {
-        if (mounted) setState(() => _central[project.name] = state);
+      connections.central(host, name).then((state) {
+        if (!mounted || _centralAsked[name] != ask || !connections.up(host)) return;
+        setState(() => _central[name] = state);
       }),
     );
   }

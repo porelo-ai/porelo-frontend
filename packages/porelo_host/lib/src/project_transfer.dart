@@ -4,15 +4,6 @@ import 'host_card_ssh.dart';
 import 'secrets_file.dart';
 import 'ssh.dart';
 
-/// The two transfers a person may explicitly start with the central forge.
-enum ProjectTransfer {
-  /// Sends approved local main to central main.
-  push,
-
-  /// Brings central main to the host as central/main for a local pull request.
-  pull,
-}
-
 /// The local terminal's submission marker, consumed before showing host output.
 const projectTransferSubmitted = '__PORELO_CENTRAL_TRANSFER_SUBMITTED__';
 
@@ -22,38 +13,13 @@ const projectTransferNotSubmitted = '__PORELO_CENTRAL_TRANSFER_NOT_SUBMITTED__';
 /// The prefix attached only to public, shell-redacted host output.
 const projectTransferOutput = '__PORELO_CENTRAL_TRANSFER_OUTPUT__';
 
-/// Builds the terminal-only token feed through the already owned host connection.
-///
-/// [marked] adds the submission markers and the output prefix a reader of the terminal consumes; a terminal shown to the
-/// person as it is takes it false and shows the host's lines alone.
-List<String> projectTransferFeedCommand({
-  bool marked = true,
-  required ProjectTransfer direction,
-  required String project,
-  required List<String> repositories,
-  required HostCardSsh card,
-  required String config,
-  required CentralToken token,
-  Map<String, String>? environment,
-  bool? windows,
-  String ssh = '/usr/bin/ssh',
-}) {
-  return _tokenFeedCommand(
-    remote: projectTransferCommand(direction, project, repositories),
-    target: card.name,
-    marked: marked,
-    card: card,
-    config: config,
-    token: token,
-    environment: environment,
-    windows: windows,
-    ssh: ssh,
-  );
-}
-
 /// Builds the terminal-only feed of the host admin's central token to `org refresh`, as root through the same pinned
 /// config: the host takes a token only while something waits for one, so this runs only then.
+///
+/// [marked] adds the submission markers and the output prefix a reader of the terminal consumes; a terminal shown to the
+/// person as it is leaves it false and shows the host's lines alone.
 List<String> organizationRefreshFeedCommand({
+  bool marked = false,
   required HostCardSsh card,
   required String config,
   required CentralToken token,
@@ -63,7 +29,7 @@ List<String> organizationRefreshFeedCommand({
 }) => _tokenFeedCommand(
   remote: '/usr/sbin/porelo-host org refresh',
   target: 'root@${card.name}',
-  marked: false,
+  marked: marked,
   ownConnection: true,
   card: card,
   config: config,
@@ -194,24 +160,4 @@ List<String> _tokenFeedCommand({
     '-c',
     script,
   ];
-}
-
-/// The agreed own-account host invocation, containing public selections only.
-String projectTransferCommand(ProjectTransfer direction, String project, List<String> repositories) {
-  if (!RegExp(r'^[a-z0-9]([a-z0-9-]{0,38}[a-z0-9])?$').hasMatch(project)) {
-    throw const FormatException('Choose a lower-case project name of at most forty characters.');
-  }
-  for (final name in repositories) {
-    if (!RegExp(r'^[A-Za-z0-9][A-Za-z0-9_.-]*$').hasMatch(name)) {
-      throw const FormatException('Choose a project and repository by name, without a path or option.');
-    }
-  }
-  return inTheLoginShell(
-    [
-      'porelo-host-push',
-      if (direction == ProjectTransfer.pull) '--pull',
-      project,
-      ...repositories,
-    ].map(quoteForAShell).join(' '),
-  );
 }

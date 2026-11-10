@@ -66,21 +66,19 @@ void main() {
 
   for (final code in [0, 65, 255]) {
     // Harm: the actual terminal feed sends the wrong token protocol or leaks an echoed token.
-    test('terminal push and pull keep credentials off argv output and files for exit $code', () async {
+    test('the terminal feed keeps credentials off argv output and files for exit $code', () async {
       final fixture = await _Fixture.create();
       final before = {
         for (final entity in await fixture.folder.list().toList()) entity.path: await File(entity.path).readAsBytes(),
       };
-      for (final direction in ProjectTransfer.values) {
-        final result = await fixture.run(code: code, mode: 'echo', direction: direction);
-        expect(result.exitCode, code, reason: '${result.stdout} ${result.stderr}');
-        final text = '${result.stdout}${result.stderr}';
-        final value = String.fromCharCodes([102, 105, 120, 116, 117, 114, 101]);
-        expect(text.contains(value), isFalse, reason: 'the terminal must redact raw token echoes');
-        expect(text.contains(base64.encode(utf8.encode(value))), isFalse, reason: 'the encoded line is also secret');
-        expect(text, contains('host answer'));
-        expect(text, contains(projectTransferSubmitted));
-      }
+      final result = await fixture.run(code: code, mode: 'echo');
+      expect(result.exitCode, code, reason: '${result.stdout} ${result.stderr}');
+      final text = '${result.stdout}${result.stderr}';
+      final value = String.fromCharCodes([102, 105, 120, 116, 117, 114, 101]);
+      expect(text.contains(value), isFalse, reason: 'the terminal must redact raw token echoes');
+      expect(text.contains(base64.encode(utf8.encode(value))), isFalse, reason: 'the encoded line is also secret');
+      expect(text, contains('host answer'));
+      expect(text, contains(projectTransferSubmitted));
       final after = {
         for (final entity in await fixture.folder.list().toList()) entity.path: await File(entity.path).readAsBytes(),
       };
@@ -169,7 +167,7 @@ void main() {
     }, timeout: const Timeout(Duration(minutes: 1)));
   }
 
-  // Harm: porelo-host-push takes the bare token line; anything else pushes with a token the forge refuses.
+  // Harm: org refresh takes the bare token line; anything else pushes with a token the forge refuses.
   test('the terminal reads the root token and feeds it as one bare line', () async {
     final folder = await Directory.systemTemp.createTemp('central-transfer-');
     addTearDown(() => folder.delete(recursive: true));
@@ -305,11 +303,12 @@ print('ssh started', flush=True)
 value = bytes([102,105,120,116,117,114,101])
 encoded = base64.b64encode(value)
 if any(value in x.encode() or encoded in x.encode() for x in sys.argv + list(os.environ.values())): sys.exit(90)
-required = ['BatchMode=yes', 'StrictHostKeyChecking=yes', 'ForwardAgent=no', 'ProxyCommand=false', 'ControlMaster=no',
+required = ['BatchMode=yes', 'StrictHostKeyChecking=yes', 'ForwardAgent=no', 'ProxyCommand=none', 'ControlPath=none',
+    'ControlMaster=no',
     'UserKnownHostsFile="/config/porelo/ssh/alpha.conf.known_hosts"', 'GlobalKnownHostsFile=none',
     'KnownHostsCommand=none', 'VerifyHostKeyDNS=no', 'UpdateHostKeys=no', 'IdentitiesOnly=yes', 'ForwardX11=no']
 if any(option not in sys.argv for option in required): sys.exit(91)
-if ['-T', '--', 'alpha'] != sys.argv[-4:-1]: sys.exit(92)
+if ['-T', '--', 'root@alpha', '/usr/sbin/porelo-host org refresh'] != sys.argv[-4:]: sys.exit(92)
 if os.environ.get('TRANSFER_MODE') == 'pty':
     tty = os.open('/dev/tty', os.O_RDWR)
     os.write(tty, b'ssh phase\n'); os.read(tty, 1024); os.close(tty)
@@ -329,29 +328,24 @@ sys.exit(int(os.environ.get('TRANSFER_CODE', '0')))
     return fixture;
   }
 
-  List<String> command({ProjectTransfer direction = ProjectTransfer.push, CentralToken? secrets, bool marked = true}) =>
-      projectTransferFeedCommand(
-        marked: marked,
-        direction: direction,
-        project: 'example',
-        repositories: ['api'],
-        card: _card(),
-        config: '/config/porelo/ssh/alpha.conf',
-        token: secrets ?? SecretsFile(file, cli: cli),
-        ssh: ssh,
-        environment: {'XDG_CONFIG_HOME': '/config'},
-      );
+  List<String> command({CentralToken? secrets, bool marked = true}) => organizationRefreshFeedCommand(
+    marked: marked,
+    card: _card(),
+    config: '/config/porelo/ssh/alpha.conf',
+    token: secrets ?? SecretsFile(file, cli: cli),
+    ssh: ssh,
+    environment: {'XDG_CONFIG_HOME': '/config'},
+  );
   Future<ProcessResult> run({
     String mode = '',
     int code = 0,
-    ProjectTransfer direction = ProjectTransfer.push,
     CentralToken? secrets,
     Map<String, String> environment = const {},
     bool newline = true,
     bool marked = true,
     String typed = 'fixture master',
   }) async {
-    final args = command(direction: direction, secrets: secrets, marked: marked);
+    final args = command(secrets: secrets, marked: marked);
     final child = await Process.start(
       args.first,
       args.skip(1).toList(),
