@@ -108,6 +108,23 @@ void main() {
     }
   });
 
+  // Harm: the agent's screen stays small in a grown window, or the session is told the same size again and again.
+  testWidgets('a grown window sends the session its new size once, and a redraw sends none', (tester) async {
+    final (_, channel) = await open(tester);
+    final first = List<String>.of(channel.sizes);
+    expect(first, isNotEmpty, reason: 'the first size reaches the session');
+    await prints(tester, channel, 'some output\r\n');
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(channel.sizes, first, reason: 'a redraw at the same size sends nothing');
+    tester.view.physicalSize = const Size(1600, 1000);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    final grown = channel.sizes.sublist(first.length);
+    expect(grown, hasLength(1), reason: 'one new size: $grown');
+    final columns = int.parse(grown.single.split('x').first);
+    expect(columns, greaterThan(int.parse(first.last.split('x').first)));
+  });
+
   testWidgets('a task’s terminal says when the task was started, and nothing where that is unknown', (tester) async {
     await open(tester, startedAt: DateTime(2026, 10, 28, 20, 10));
     expect(
@@ -387,8 +404,11 @@ class _Channel implements SessionChannel {
   @override
   void send(String input) => sent.add(input);
 
+  /// Every size sent, as `columnsxrows`.
+  final List<String> sizes = <String>[];
+
   @override
-  void resize({required int columns, required int rows}) {}
+  void resize({required int columns, required int rows}) => sizes.add('${columns}x$rows');
 
   @override
   Future<int> get ended => _ended.future;
