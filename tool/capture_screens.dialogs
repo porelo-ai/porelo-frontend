@@ -1,0 +1,25 @@
+# The finder commands whose dialog or wizard tool/capture_screens.sh captures, one per line, as words the finder
+# matches with that command first, or as `WORDS => PRESSED` where its entry where it lives is worded otherwise.
+# Those that only ask come first; those that would act once confirmed come last, where a confirmation is captured
+# and put away with Escape.
+About Porelo
+My key and card
+Watch another machine
+Choose another Porelo organization
+Create an organization
+Keep resolved rows for
+New machines run work as
+Add another user that runs work
+Start work in this project => Start work
+Show what this project would open
+Read one of its logs
+Let this work reach something new
+Take something back from this work
+Change what this work does with a blocked connection
+Write to its agent
+Give this work something to read by
+Hold its project's messages to a peer
+Clear this project from the machine
+Clear this machine of everything
+Remove it
+Stop everything on every machine

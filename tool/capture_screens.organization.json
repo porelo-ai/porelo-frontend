@@ -1,0 +1,41 @@
+{
+  "name": "acme",
+  "kept_in": "the GitHub organization acme",
+  "address": "github.com:acme/org.git",
+  "forge": "github.com",
+  "settings": "adapter: git\nsettings:\n  repository: git@github.com:acme/org.git\n",
+  "vouched_by": "GitHub",
+  "revision": "56420b3",
+  "stale": false,
+  "me": {
+    "login": "alice",
+    "card": "trusted",
+    "owner": false,
+    "admin_of_hosts": [],
+    "projects": [{"project": "checkout", "role": "admin"}]
+  },
+  "owners": [{"login": "mia", "fingerprint": "SHA256:m", "backup": false}],
+  "people": [
+    {"login": "alice", "name": "Alice Example", "email": "alice@example.org", "fingerprint": "SHA256:a",
+     "state": "trusted", "vouched": "yes", "expires": "2028-11-02", "revoked": false, "why": ""},
+    {"login": "fay", "fingerprint": "SHA256:f", "state": "first-seen", "vouched": "cannot-say", "revoked": false},
+    {"login": "rex", "fingerprint": "SHA256:r", "state": "trusted", "vouched": "yes", "revoked": true},
+    {"login": "zed", "fingerprint": null, "state": "refused", "vouched": "no", "revoked": false, "why": "a bad card"}
+  ],
+  "projects": [
+    {"project": "checkout", "admins": ["alice"], "members": ["carol"], "first_admin": "alice", "opened": true,
+     "host": "build"}
+  ],
+  "hosts": [
+    {"host": "build", "address": "build.example.org", "ssh_port": 22, "ssh_host_key": "ssh-ed25519 AAAA",
+     "services": {"forge": {"web_port": 3000, "git_port": 2222}, "matrix": {"port": 8448}},
+     "admins": [{"login": "hank", "key": "ssh-ed25519 AAAA", "fingerprint": "SHA256:h", "backup": false}],
+     "projects": ["checkout"]},
+    {"host": "new", "address": null, "ssh_port": null, "ssh_host_key": null, "services": null,
+     "admins": [{"login": "hank", "key": "ssh-ed25519 AAAA", "fingerprint": "SHA256:h", "backup": false}],
+     "projects": []}
+  ],
+  "warnings": ["a warning"],
+  "refusals": [{"revision": "e3b390c", "path": "hosts/other/host.yml", "why": "signed by SHA256:x, not a host admin"}],
+  "sole_without_backup": [{"role": "owner", "host": null, "login": "mia"}]
+}
