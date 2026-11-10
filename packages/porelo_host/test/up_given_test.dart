@@ -51,6 +51,7 @@ void main() {
     List<String> extra = const [],
     String given = '192.0.2.7',
     String? machine,
+    String version = 'unreleased',
   }) async => runHostCommand(
     [
       'up',
@@ -75,6 +76,7 @@ void main() {
     output: output,
     errors: errors,
     environment: {'XDG_STATE_HOME': scratch.path, 'LOCALAPPDATA': scratch.path},
+    version: version,
   );
 
   // Harm: a server given by name or IPv6 address never completes, because the host reports its own IPv4 address; or its
@@ -120,6 +122,43 @@ void main() {
     ) as Map<String, Object?>;
     final variables = (inventory['all']! as Map<String, Object?>)['vars']! as Map<String, Object?>;
     expect(variables['porelo_host_kvm'], true);
+  });
+
+  Future<Object?> channelOf({required String version, List<String> extra = const []}) async {
+    expect(
+      await up(version: version, extra: extra),
+      Exit.done,
+      reason: '$output $errors',
+    );
+    final inventory = jsonDecode(
+      remote.runs.singleWhere((r) => r.command == 'cat > /var/tmp/porelo-host/inventory.yml').input,
+    ) as Map<String, Object?>;
+    return ((inventory['all']! as Map<String, Object?>)['vars']! as Map<String, Object?>)['porelo_host_distribution'];
+  }
+
+  // Harm: a released window prepares hosts from snapshots, and a person who chose releases gets untested packages.
+  test('a host prepared by a released porelo-host installs from releases', () async {
+    expect(await channelOf(version: '0.6.0'), 'releases');
+  });
+
+  // Harm: a snapshot window prepares hosts from releases, which lack what its own host plays ask.
+  test('a host prepared by a snapshot porelo-host installs from snapshots', () async {
+    expect(await channelOf(version: '0.6.0~snapshot.41'), 'snapshots');
+  });
+
+  // Harm: a development build, with no version compiled in, prepares hosts from releases.
+  test('a host prepared by a development build installs from snapshots', () async {
+    expect(await channelOf(version: 'unreleased'), 'snapshots');
+  });
+
+  // Harm: a channel asked for on the command line is overruled by the command's own version.
+  test('snapshots asked of a released porelo-host wins', () async {
+    expect(await channelOf(version: '0.6.0', extra: ['--distribution', 'snapshots']), 'snapshots');
+  });
+
+  // Harm: a channel asked for on the command line is overruled by the command's own version.
+  test('releases asked of a snapshot porelo-host wins', () async {
+    expect(await channelOf(version: '0.6.0~snapshot.41', extra: ['--distribution', 'releases']), 'releases');
   });
 
   test('up refuses --kvm with anything but true or false', () async {

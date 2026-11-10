@@ -102,8 +102,8 @@ class HostPlan {
   /// The image's own user with sudo, which the first steps run as.
   final String loginUser;
 
-  /// Where Porelo's package comes from: `releases` or `snapshots`. `snapshots` until a release of
-  /// Porelo carries `vault status`, which the host's plays ask; 0.5.0 has none.
+  /// Where Porelo's package comes from: `releases` or `snapshots`. The command passes the channel it was
+  /// built for, so a released `porelo-host` needs a released Porelo that carries what the host's plays ask.
   final String distribution;
 
   /// This desktop's `machine.yml`, uploaded into the setup's place on the host; a server's holds its organization part.

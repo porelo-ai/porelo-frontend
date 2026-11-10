@@ -66,6 +66,11 @@ Future<void> main(List<String> arguments) async {
 /// The version this command was built as, given by `dart compile exe -Dporelo_host.version=…`.
 const _version = String.fromEnvironment('porelo_host.version', defaultValue: 'unreleased');
 
+/// The channel a host installs Porelo from unless one is asked for: the one this command was built for.
+/// A build from source, with no version compiled in, stays on `snapshots`.
+String _channelOf(String version) =>
+    version == 'unreleased' || version.contains('~snapshot.') ? 'snapshots' : 'releases';
+
 /// Runs a host command with replaceable SSH and output for contract tests.
 Future<int> runHostCommand(
   List<String> arguments, {
@@ -75,6 +80,7 @@ Future<int> runHostCommand(
   Map<String, String>? environment,
   Future<Process> Function(String, List<String>)? startSsh,
   String? resolvedExecutable,
+  String version = _version,
 }) async {
   final out = output ?? stdout;
   final err = errors ?? stderr;
@@ -84,7 +90,7 @@ Future<int> runHostCommand(
     return Exit.done;
   }
   if (arguments.length == 1 && arguments.first == '--version') {
-    out.writeln(_version);
+    out.writeln(version);
     return Exit.done;
   }
   if (arguments.isNotEmpty && arguments.first == 'key') {
@@ -220,7 +226,7 @@ Future<int> runHostCommand(
     collection: options['collection'],
     collectionSha256: options['collection-sha256'],
     loginUser: options['login-user'] ?? (serverOnly ? 'root' : 'ubuntu'),
-    distribution: options['distribution'] ?? 'snapshots',
+    distribution: options['distribution'] ?? _channelOf(version),
     machineFile: options['machine-file'],
     bundle: options['bundle'],
   );
