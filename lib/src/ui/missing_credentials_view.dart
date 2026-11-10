@@ -33,7 +33,7 @@ class MissingCredentials extends StatelessWidget {
     children: <Widget>[
       for (final each in _once(missing))
         Container(
-          key: ValueKey<String>('missing-credential ${each.purpose} ${each.credential}'),
+          key: ValueKey<String>('missing-credential ${each._named}'),
           width: double.infinity,
           padding: const EdgeInsets.all(Space.normal),
           decoration: BoxDecoration(
@@ -55,12 +55,12 @@ class MissingCredentials extends StatelessWidget {
     ],
   );
 
-  /// Each entry once, by what it is for and its vault key: the same twice would be two boxes under one key.
+  /// Each entry once, by what it is for, its vault key and its forge: the same twice would be two boxes under one key.
   static List<MissingCredential> _once(List<MissingCredential> all) {
-    final seen = <(String, String)>{};
+    final seen = <(String, String, String)>{};
     return <MissingCredential>[
       for (final each in all)
-        if (seen.add((each.purpose, each.credential))) each,
+        if (seen.add(each.identity)) each,
     ];
   }
 
@@ -70,10 +70,10 @@ class MissingCredentials extends StatelessWidget {
         Align(
           alignment: AlignmentDirectional.centerStart,
           child: OutlinedButton.icon(
-            key: ValueKey<String>('store-missing ${each.purpose} ${each.credential}'),
+            key: ValueKey<String>('store-missing ${each._named}'),
             onPressed: () => unawaited(onStore!(each)),
             icon: const Icon(Icons.terminal, size: Sizes.rowIcon),
-            label: Text('Store ${each.credential.isEmpty ? 'it' : each.credential} on $machine, in a terminal there'),
+            label: Text('Store ${each.toStore} on $machine, in a terminal there'),
           ),
         ),
       ];
@@ -118,9 +118,7 @@ class _StoreTheBuildsCredentialState extends State<StoreTheBuildsCredential> {
   @override
   void didUpdateWidget(StoreTheBuildsCredential before) {
     super.didUpdateWidget(before);
-    if (before.machine != widget.machine ||
-        before.missing.purpose != widget.missing.purpose ||
-        before.missing.credential != widget.missing.credential) {
+    if (before.machine != widget.machine || before.missing.identity != widget.missing.identity) {
       _shown++;
       _ended = null;
       _running = false;
@@ -141,7 +139,6 @@ class _StoreTheBuildsCredentialState extends State<StoreTheBuildsCredential> {
   @override
   Widget build(BuildContext context) {
     final missing = widget.missing;
-    final key = missing.credential.isEmpty ? 'it' : missing.credential;
     return Column(
       key: const Key('builds-credential'),
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -152,7 +149,7 @@ class _StoreTheBuildsCredentialState extends State<StoreTheBuildsCredential> {
             key: const Key('store-builds-credential'),
             onPressed: _running ? null : () => unawaited(_store()),
             icon: const Icon(Icons.terminal, size: Sizes.rowIcon),
-            label: Text('Store $key on ${widget.machine}, in a terminal there'),
+            label: Text('Store ${missing.toStore} on ${widget.machine}, in a terminal there'),
           )
         else ...<Widget>[
           Text(missing.notRunHere(widget.machine)),
@@ -174,5 +171,13 @@ class _StoreTheBuildsCredentialState extends State<StoreTheBuildsCredential> {
           ),
       ],
     );
+  }
+}
+
+extension on MissingCredential {
+  /// Its keys' part: what it is for and its vault key, and its forge where it names one.
+  String get _named {
+    final (purpose, credential, forge) = identity;
+    return forge.isEmpty ? '$purpose $credential' : '$purpose $credential $forge';
   }
 }

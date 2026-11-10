@@ -35,7 +35,7 @@ host's command, in a start's answer and on a task.
   `MissingCredential`; a reply without them reads as nothing missing, and a command with a word that is not plain
   text is neither shown nor run.
 - *New work* and *Start an agent for each repository…* show each missing entry beside the start, naming the host and
-  the vault key; the start is not held back. *Store … on <host>, in a terminal there* runs the host's command over
+  the forge, or the vault key where the machine names no forge; the start is not held back. *Store … on <host>, in a terminal there* runs the host's command over
   ssh in the login shell, then asks `CanStart` again.
 - A task's detail shows, under its builds and their sentence, the same press; once the command ended with exit code
   0, it says that only the task's next start follows its builds.
@@ -46,10 +46,15 @@ host's command, in a start's answer and on a task.
   address starts with a dash offers no press; what the machine names for after the store is said where the window
   does not do it, also where the command is run by hand; and the tests of a WSL distribution reached over ssh and of
   a failed command were made to fail on their own break. Nothing of the reading was declined.
-- The start names the forge too: Porelo's main names it on each entry as `forge`, by the name the project's
-  `builds.forge` gives it, so a start says "<host>'s vault holds no token of yours for github". The client reads it
-  leniently; an entry from an older daemon, or a task kept before the field, names none, and the start then names
-  the vault key as before.
+- The forge: Porelo's main names it on each entry as `forge`, by the name the project's `builds.forge` gives it, so a
+  start says "<host>'s vault holds no token of yours for github", and the press and its terminal say *Store your
+  github token on <host>*, on a start and on a task alike. The client reads it leniently, trimmed, and as none where it
+  holds a control or line separator; an entry from an older daemon, or a task kept before the field, names none, and
+  the words name the vault key as before.
+- Reading of the forge fixed: a forge of blanks or with a control reads as none; entries that differ only by forge
+  are each shown, on a start and in the start of the agents; the press names what the sentence names; an entry
+  naming neither forge nor key reads as a sentence; and each new test was made to fail on its own break. Nothing of
+  the reading was declined.
 - Not this issue: the token for the central forge that `porelo-host-push --central` asks for on its terminal; the
   person types that one there.
 

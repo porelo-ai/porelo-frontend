@@ -18,11 +18,25 @@ List<String>? storedOnTheHost(Machine machine, MissingCredential missing) =>
 /// Words about a credential a machine lacks beside the agent, in the machine's own names; nothing derived that the
 /// machine did not say.
 extension MissingCredentialWords on MissingCredential {
-  /// The vault key, or words for it where the machine named none.
-  String get _key => credential.isEmpty ? 'the entry it looks for' : credential;
+  /// The forge the machine named, or empty where it named none in plain words.
+  String get _forge => MissingCredential.plainWord(forge);
 
   /// What the vault lacks: a token for the forge the machine named, or else its vault key alone.
-  String get _lacked => forge.isEmpty ? '$_key of yours' : 'token of yours for $forge';
+  String get _lacked => _forge.isNotEmpty
+      ? 'token of yours for $_forge'
+      : credential.isEmpty
+      ? 'entry of yours it looks for'
+      : '$credential of yours';
+
+  /// What a press stores, named as the sentence about it names it.
+  String get toStore => _forge.isNotEmpty
+      ? 'your $_forge token'
+      : credential.isEmpty
+      ? 'it'
+      : credential;
+
+  /// Tells entries apart: what it is for, its vault key and its forge.
+  (String, String, String) get identity => (purpose, credential, _forge);
 
   /// What [machine] lacks and what that costs a start there, which goes on all the same.
   String atTheStart(String machine) => switch (purpose) {

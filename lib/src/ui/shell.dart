@@ -2850,7 +2850,7 @@ class _ShellState extends State<Shell> {
     if (command == null || !mounted || !widget.machines.all.contains(machine)) return false;
     final end = await runInATerminal(
       context,
-      title: 'Store ${missing.credential.isEmpty ? 'it' : missing.credential} on ${machine.name}',
+      title: 'Store ${missing.toStore} on ${machine.name}',
       explanation:
           '${machine.name} makes it with its own command and keeps it in your vault there. It never goes '
           'through this program, and nothing here keeps it.',

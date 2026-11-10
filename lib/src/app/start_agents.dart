@@ -6,6 +6,7 @@ import 'package:porelo_frontend/client.dart';
 import 'agent_sign_in.dart';
 import 'commands.dart' show whyNotStart;
 import 'fleet_backend.dart';
+import 'missing_credentials.dart' show MissingCredentialWords;
 import 'quiet_after_dispose.dart';
 import 'task_names.dart';
 
@@ -336,11 +337,11 @@ class StartAgents extends ChangeNotifier with QuietAfterDispose {
   /// What the machine's vault lacks beside the agents, from the answers for the rows to start, each once: **it
   /// holds no start back**, and is said beside them.
   List<MissingCredential> get missing {
-    final seen = <(String, String)>{};
+    final seen = <(String, String, String)>{};
     return <MissingCredential>[
       for (final row in toStart)
         for (final each in row.readiness?.missing ?? const <MissingCredential>[])
-          if (seen.add((each.purpose, each.credential))) each,
+          if (seen.add(each.identity)) each,
     ];
   }
 

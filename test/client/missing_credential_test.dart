@@ -101,4 +101,24 @@ void main() {
     }).buildsCredential!;
     expect(odd.forge, '', reason: 'a forge that is no text is none');
   });
+
+  // Harm: a forge named with a line break or a control shows the person words the machine did not mean, or none.
+  test('a forge that is no plain word names none, and a task names its forge', () {
+    for (final odd in <Object?>['   ', 'github\nrm -rf ~', 'git\u2028hub', 'github\x00', '\x1b[31mgithub']) {
+      final read = Readiness.from(
+        ready(<String, dynamic>{
+          'missing': <Object?>[
+            <String, dynamic>{...entry(), 'forge': odd},
+          ],
+        }),
+      ).missing.single;
+      expect(read.forge, '', reason: '$odd');
+    }
+    expect(
+      task(<String, dynamic>{
+        'buildsCredential': <String, dynamic>{...entry(), 'forge': ' github '},
+      }).buildsCredential!.forge,
+      'github',
+    );
+  });
 }

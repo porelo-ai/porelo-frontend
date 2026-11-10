@@ -3859,7 +3859,7 @@ class MissingCredential {
   factory MissingCredential.from(Map<String, dynamic> map) => MissingCredential(
     purpose: _string(map, 'for'),
     credential: _string(map, 'credential'),
-    forge: _string(map, 'forge'),
+    forge: plainWord(map['forge']),
     storeCommand: plainWords(map['storeCommand']),
     afterStore: _string(map, 'afterStore'),
   );
@@ -3872,6 +3872,9 @@ class MissingCredential {
     final List<dynamic> all when all.isNotEmpty && all.every(_plain) => all.cast<String>().toList(),
     _ => const <String>[],
   };
+
+  /// [word] without blanks around it, or empty where it is no text or holds a control or line separator.
+  static String plainWord(Object? word) => word is String && !_unsafe.hasMatch(word) ? word.trim() : '';
 
   static bool _plain(Object? word) => word is String && word.isNotEmpty && !_unsafe.hasMatch(word);
 }

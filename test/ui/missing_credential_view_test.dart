@@ -70,6 +70,7 @@ Task _task({MissingCredential? waitingFor, String name = 'porelo-checkout-fix'})
     'buildsCredential': <String, dynamic>{
       'for': waitingFor.purpose,
       'credential': waitingFor.credential,
+      'forge': waitingFor.forge,
       'storeCommand': waitingFor.storeCommand,
       'afterStore': waitingFor.afterStore,
     },
@@ -115,6 +116,11 @@ void main() {
     final box = find.byKey(const ValueKey<String>('missing-credential builds forge.person'));
     expect(box, findsOneWidget);
     expect(find.descendant(of: box, matching: find.textContaining("build's vault holds no forge.person")), findsOne);
+    expect(
+      find.descendant(of: box, matching: find.textContaining('for github')),
+      findsNothing,
+      reason: 'none named',
+    );
     expect(tester.widget<FilledButton>(find.byKey(const Key('start-go'))).onPressed, isNotNull);
   });
 
@@ -141,28 +147,46 @@ void main() {
       ),
       onStoreTheMissing: (_) async {},
     );
-    final box = find.byKey(const ValueKey<String>('missing-credential builds forge.person'));
+    final box = find.byKey(const ValueKey<String>('missing-credential builds forge.person github'));
     expect(
       find.descendant(of: box, matching: find.textContaining("build's vault holds no token of yours for github")),
       findsOne,
     );
+    expect(find.descendant(of: box, matching: find.textContaining('forge.person')), findsNothing);
+    expect(
+      find.descendant(of: box, matching: find.text('Store your github token on build, in a terminal there')),
+      findsOne,
+      reason: 'the press names what the sentence names',
+    );
   });
 
-  // Harm: an older daemon's entry read as naming a forge it never named.
-  testWidgets('an entry that names no forge keeps naming the vault key alone', (tester) async {
-    await _start(tester, _ready, onStoreTheMissing: (_) async {});
-    final box = find.byKey(const ValueKey<String>('missing-credential builds forge.person'));
-    expect(find.descendant(of: box, matching: find.textContaining('for github')), findsNothing);
-    expect(
-      find.descendant(
-        of: box,
-        matching: find.text(
-          "build's vault holds no forge.person of yours, so a task started there is not told its builds. "
-          'Work starts all the same.',
-        ),
+  // Harm: one forge's ask dropped as a repeat of another's, so its token is never made.
+  testWidgets('entries that differ only by forge are each shown', (tester) async {
+    await _start(
+      tester,
+      const Readiness(
+        ready: true,
+        outcome: StartOutcome.ready,
+        agent: 'an-agent',
+        provider: 'a-provider',
+        credential: 'a-provider',
+        detail: '',
+        missing: <MissingCredential>[
+          _missing,
+          MissingCredential(
+            purpose: 'builds',
+            credential: 'forge.person',
+            forge: 'github',
+            storeCommand: <String>['porelo', 'host', 'forge-token'],
+            afterStore: 'ask-again',
+          ),
+        ],
       ),
-      findsOne,
+      onStoreTheMissing: (_) async {},
     );
+    expect(tester.takeException(), isNull);
+    expect(find.textContaining('holds no forge.person of yours'), findsOne);
+    expect(find.textContaining('holds no token of yours for github'), findsOne);
   });
 
   // Harm: the host's command run for another entry than the one the machine named.
@@ -186,6 +210,25 @@ void main() {
   });
 
   // Harm: a person believes the running task follows its builds once the token is stored.
+  // Harm: the press on a task makes a token for another forge than the one its builds read.
+  testWidgets("a task's press names the forge its builds wait for", (tester) async {
+    const waiting = MissingCredential(
+      purpose: 'builds',
+      credential: 'forge.person',
+      forge: 'github',
+      storeCommand: <String>['porelo', 'host', 'forge-token'],
+      afterStore: 'restart',
+    );
+    await _detail(tester, _task(waitingFor: waiting), onStore: (_) async => true);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('store-builds-credential')),
+        matching: find.text('Store your github token on build, in a terminal there'),
+      ),
+      findsOne,
+    );
+  });
+
   testWidgets("a task's builds offer the host's command, and say only its next start follows them", (tester) async {
     final stored = <MissingCredential>[];
     const waiting = MissingCredential(
