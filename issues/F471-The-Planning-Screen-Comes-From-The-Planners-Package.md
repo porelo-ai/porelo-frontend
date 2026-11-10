@@ -1,6 +1,6 @@
 # F471 — The Planning Screen Comes From The Planner's Package
 
-**Status:** Implementing (the operator, 2026-11-10).
+**Status:** Review.
 **Size:** M - the planning screen, its models and its tests cut out of the window into a Flutter package of
 porelo-planner, with no change in behavior, and the window embedding it through a few hooks.
 
@@ -99,8 +99,9 @@ Read in today's code (porelo-frontend 3b63f9a7):
   and takes `porelo_planning` by `git:`, the commit's full id and `path: screen`. Against porelo-planner's checkout,
   through an uncommitted `pubspec_overrides.yaml` that keeps the `xterm` override beside it, the whole window suite
   passes (3,660 tests, 26 skipped), and the window started on a hidden display ran 30 seconds with no error.
-- **Still to do:** porelo-planner pushes the commit first; then the window's `pubspec.lock` is read again against
-  it (and its ref changed, if the commit's id changed on the way), and the hand-over to Agent Planner. The planner's
+- **Handed over:** porelo-planner's main carries the screen (its commit's id changed on the rebase, its content did
+  not); the window pins that id, and `flutter pub get` from GitHub left the lock as committed. Agent Planner owns
+  the package from here. The planner's
   own client over REST and Server-Sent Events is the rework of [F446](README.md#f446), not this issue.
 
 ## Agreed with Agent Planner (2026-11-10)
