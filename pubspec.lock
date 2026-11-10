@@ -682,10 +682,12 @@ packages:
   porelo_planning:
     dependency: "direct main"
     description:
-      path: "packages/porelo_planning"
-      relative: true
-    source: path
-    version: "0.5.1-SNAPSHOT"
+      path: screen
+      ref: eb42d99be741e7e38ae20bef759d843dbfc0e81b
+      resolved-ref: eb42d99be741e7e38ae20bef759d843dbfc0e81b
+      url: "https://github.com/porelo-ai/porelo-planner.git"
+    source: git
+    version: "0.1.0-SNAPSHOT"
   process:
     dependency: transitive
     description:

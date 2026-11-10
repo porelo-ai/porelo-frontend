@@ -58,8 +58,8 @@ Read in today's code (porelo-frontend 3b63f9a7):
 
 ## How it stands
 
-- **Step 1 is built inside this repository first.** The planning screen is the Flutter package
-  `packages/porelo_planning` (Dart package `porelo_planning`), which the window embeds with
+- **Step 1 was built inside this repository first.** The planning screen became the Flutter package
+  `packages/porelo_planning` (Dart package `porelo_planning`), which the window embedded with
   `path: packages/porelo_planning`, as it embeds `packages/porelo_host`. The package imports only Flutter and
   Dart, so the directory can move as it is into porelo-planner's `screen/`.
 - **What moved into the package:** the planning records (`lib/src/models.dart`), the board, its moves and the
@@ -92,8 +92,16 @@ Read in today's code (porelo-frontend 3b63f9a7):
   against the stand-in. The window keeps its own: the placeholder, the Needs-you rows from planning, the planning
   place in its navigation, the started run it opens, and one stream lifecycle test that needs `fake_async`, which
   the frame's dev dependencies leave out.
-- **Still to do:** `PlanningClient.http` with the planner's REST and Server-Sent Events, then steps 2 to 5: the
-  directory into porelo-planner's `screen/`, the window's `git:` dependency with a tag, and the hand-over.
+- **Step 2: the package lives in porelo-planner.** The directory moved as it is into porelo-planner's `screen/`, on
+  the module frame Agent Planner built (its `pom.xml` under the profile `all`, the CI job, the pinned Flutter); there
+  `./mvnw -B -s settings.xml -Pall -pl screen verify` is green with the package's 133 tests, and its citation check
+  names the stand-in's made-up stories as exempt. The window dropped `packages/porelo_planning` and its build steps
+  and takes `porelo_planning` by `git:`, the commit's full id and `path: screen`. Against porelo-planner's checkout,
+  through an uncommitted `pubspec_overrides.yaml` that keeps the `xterm` override beside it, the whole window suite
+  passes (3,660 tests, 26 skipped), and the window started on a hidden display ran 30 seconds with no error.
+- **Still to do:** porelo-planner pushes the commit first; then the window's `pubspec.lock` is read again against
+  it (and its ref changed, if the commit's id changed on the way), and the hand-over to Agent Planner. The planner's
+  own client over REST and Server-Sent Events is the rework of [F446](README.md#f446), not this issue.
 
 ## Agreed with Agent Planner (2026-11-10)
 

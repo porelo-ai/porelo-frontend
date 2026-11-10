@@ -2,8 +2,6 @@ packages/xterm/lib/src/core/input/keys.dart
 packages/xterm/lib/src/core/input/keytab/keytab.dart
 packages/xterm/lib/src/core/input/keytab/keytab_default.dart
 packages/xterm/lib/src/core/input/keytab/qt_keyname.dart
-packages/porelo_planning/lib/src/fake/planning_data.dart
-packages/porelo_planning/test/mock_planning_test.dart
 test/features/planning_board.feature
 test/features/planning_board_test.dart
 test/features/step/another_machine_offers_the_same_project_planning.dart
@@ -18,16 +16,10 @@ test/features/step/the_planning_build_stories_are_sorted.dart
 test/features/planning_moves.feature
 test/features/planning_moves_test.dart
 test/features/step/advanced_planning_issues_keep_their_state.dart
-packages/porelo_planning/test/planning_detail_test.dart
 test/features/planning_story.feature
 test/features/planning_story_test.dart
 test/features/support/planning_details.dart
 test/app/planning_attention_test.dart
-packages/porelo_planning/test/reading_decision_test.dart
-packages/porelo_planning/test/story_work_lifecycle_test.dart
-packages/porelo_planning/test/story_work_test.dart
 test/features/story_work.feature
 test/features/story_work_test.dart
 test/features/support/story_work.dart
-packages/porelo_planning/test/planning_contract_regressions_test.dart
-packages/porelo_planning/test/planning_moves_test.dart

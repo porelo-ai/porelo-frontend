@@ -48,7 +48,6 @@ jobs:
               run: |
                   flutter pub get
                   dart pub get --directory=packages/porelo_host
-                  flutter pub get --directory=packages/porelo_planning
 
             - name: Analyze
               run: dart analyze --fatal-infos
