@@ -12,8 +12,15 @@ typedef AheadOfCentral = ({String repository, int? commits});
 
 /// The repositories of a project whose host `main` is ahead of central, in the order [listed] names them: as the
 /// machine's daemon lists them, or, of one it says nothing of at central, as the host itself said in [progress] of one
-/// it has taken. Empty where none is, or nothing was said.
-List<AheadOfCentral> aheadOfCentral({required List<Repository> listed, HostProjectProgress? progress}) {
+/// it has taken. Never one the machine does not carry, the host's placement [carriedAlone] leaves out, or the host has
+/// not taken; nor one [atCentral] names, as this window saw it reach central, on the host's older word alone. Empty
+/// where none is, or nothing was said.
+List<AheadOfCentral> aheadOfCentral({
+  required List<Repository> listed,
+  HostProjectProgress? progress,
+  List<String>? carriedAlone,
+  Set<String> atCentral = const {},
+}) {
   HostRepositoryCentral? hostSays(String repository) => progress?.repositories
       .where((each) => each.repository == repository && each.state == 'taken')
       .firstOrNull
@@ -27,15 +34,21 @@ List<AheadOfCentral> aheadOfCentral({required List<Repository> listed, HostProje
     final repository = listed.where((each) => each.name == name).firstOrNull;
     // A repository the machine does not carry has no copy there to bring.
     if (repository?.carriedHere == false) return null;
+    final row = progress?.repositories.where((each) => each.repository == name).firstOrNull;
+    final placed = carriedAlone == null || carriedAlone.contains(name);
+    // Where the daemon does not say it carries it, the host's placement and its own word on it decide.
+    if (repository?.carriedHere != true && (!placed || (row != null && row.state != 'taken'))) return null;
     final host = hostSays(name);
     final daemon = repository?.central;
     // The daemon's own word first, where it says one; the two may disagree, one older than the other, and up to date
-    // never hides what the host says is ahead, as the repository's row says it.
+    // never hides what the host says is ahead, as the repository's row says it, but for what this window just saw
+    // reach central, of which the host's word is older.
     if (daemon == 'ahead') {
       final commits = repository!.ahead;
       return (repository: name, commits: commits != null && commits > 0 ? commits : null);
     }
     if (daemon != null && daemon != 'up-to-date') return null;
+    if (atCentral.contains(name)) return null;
     return host?.state == 'ahead' ? (repository: name, commits: host!.commits) : null;
   }
 
@@ -45,7 +58,7 @@ List<AheadOfCentral> aheadOfCentral({required List<Repository> listed, HostProje
 /// Whether anything said of [listed] or [progress] stands against central at all: whether the machine is a host
 /// of the project, where *Bring it to central…* has a place.
 bool saysOfCentral({required List<Repository> listed, HostProjectProgress? progress}) =>
-    listed.any((each) => each.central != null) ||
+    listed.any((each) => each.carriedHere != false && each.central != null) ||
     (progress?.repositories.any((each) => each.state == 'taken' && each.central != null) ?? false);
 
 /// The commits [ahead] brings, in words: "3 commits of payments-api and 1 commit of billing".
@@ -95,7 +108,9 @@ Command bringToCentralCommand({
 Command storeCentralTokenCommand({required String credential, required VoidCallback run, String? unavailable}) =>
     Command(
       id: 'project.storeCentralToken',
-      label: 'Store the central token $credential in a terminal…',
+      label: credential.isEmpty
+          ? 'Store the central token in a terminal…'
+          : 'Store the central token $credential in a terminal…',
       group: 'Project',
       home: Home.projectMenu,
       unavailable: unavailable,
@@ -106,11 +121,13 @@ Command storeCentralTokenCommand({required String credential, required VoidCallb
 /// runs still, and the machine's refusal where it named one.
 typedef CentralReleaseSaid = ({String words, bool refused, bool running, CentralPushRefusal? refusal});
 
-/// The bringing of host `main`s to central from this window, one at most per machine and project at a time, and what
-/// each said last, which the project's page shows until the next one.
+/// The bringing of host `main`s to central from this window, one at most per machine and project at a time, from the
+/// question on, and what each said last, which the project's page shows until the next one.
 class CentralReleases extends ChangeNotifier {
   final _said = <String, CentralReleaseSaid>{};
-  final _running = <String, StreamSubscription<CentralPushProgress>>{};
+  final _atCentral = <String, Set<String>>{};
+  final _asking = <String>{};
+  final _running = <String, ({StreamSubscription<CentralPushProgress> push, Completer<void> done})>{};
   bool _disposed = false;
 
   static String _key(String machine, String project) => '$machine/$project';
@@ -118,11 +135,18 @@ class CentralReleases extends ChangeNotifier {
   /// What the last one for [project] on [machine] said, or null where none ran since this window started.
   CentralReleaseSaid? said(String machine, String project) => _said[_key(machine, project)];
 
-  /// Whether one for [project] on [machine] runs now.
-  bool running(String machine, String project) => _running.containsKey(_key(machine, project));
+  /// The repositories of [project] on [machine] whose last answer here said they are at central, pushed or already;
+  /// the host's older word does not offer them again.
+  Set<String> atCentral(String machine, String project) => _atCentral[_key(machine, project)] ?? const {};
 
-  /// Brings [repositories] of [project] to central through [backend], the daemon of [machine], and completes once the
-  /// machine answered; [host] fills a `<host>` the machine leaves in a command for this window to fill. Nothing is
+  /// Whether one for [project] on [machine] is asked about or runs now.
+  bool running(String machine, String project) =>
+      _asking.contains(_key(machine, project)) || _running.containsKey(_key(machine, project));
+
+  /// Asks [agree], where given, then brings [repositories] of [project] to central through [backend], the daemon of
+  /// [machine], and completes once the machine answered, the person said no, or it was cancelled. Nothing starts while
+  /// one for the same project on the same machine is asked about or runs, nor for no repository at all: an empty list
+  /// is every one the push configuration names. [host] fills a `<host>` the machine leaves in a command. Nothing is
   /// said to have reached central but what the machine's answer names.
   Future<void> bring(
     FleetBackend backend, {
@@ -130,15 +154,27 @@ class CentralReleases extends ChangeNotifier {
     required String project,
     required List<String> repositories,
     String? host,
-  }) {
+    Future<bool> Function()? agree,
+  }) async {
     final key = _key(machine, project);
-    if (_running.containsKey(key) || _disposed) return Future<void>.value();
+    if (repositories.isEmpty || running(machine, project) || _disposed) return;
+    _asking.add(key);
+    notifyListeners();
+    try {
+      if (agree != null && !await agree()) return;
+    } finally {
+      _asking.remove(key);
+      if (!_disposed) notifyListeners();
+    }
+    if (_disposed) return;
     final done = Completer<void>();
     void say(String words, {bool refused = false, bool running = false, CentralPushRefusal? refusal}) {
       if (_disposed) return;
       _said[key] = (words: words, refused: refused, running: running, refusal: refusal);
       notifyListeners();
     }
+
+    void reached(List<String> pushed, List<String> upToDate) => _atCentral[key] = {...pushed, ...upToDate};
 
     void end() {
       _running.remove(key);
@@ -148,22 +184,31 @@ class CentralReleases extends ChangeNotifier {
 
     var answered = false;
     say('Bringing ${repositories.join(', ')} to central…', running: true);
-    _running[key] = backend
+    final push = backend
         .pushToCentral(project, repositories: repositories)
         .listen(
           (reply) {
             if (reply.isFinal) {
               answered = true;
-              say(broughtWords(pushed: reply.pushed ?? const [], upToDate: reply.upToDate ?? const []));
+              final (pushed, upToDate) = (reply.pushed ?? const <String>[], reply.upToDate ?? const <String>[]);
+              reached(pushed, upToDate);
+              say(
+                broughtWords(pushed: pushed, upToDate: upToDate),
+                refused: pushed.isEmpty && upToDate.isEmpty,
+              );
             } else if (reply.repository != null && reply.stage != null) {
               say('Bringing to central: ${reply.repository} ${_stageWords(reply.stage!)}', running: true);
             }
           },
           onError: (Object error) {
             answered = true;
+            if (error is CentralPushRefusal) reached(error.pushed, error.upToDate);
             switch (error) {
               case CentralPushRefusal(kind: 'NothingToPush'):
-                say(broughtWords(pushed: error.pushed, upToDate: error.upToDate));
+                say(
+                  broughtWords(pushed: error.pushed, upToDate: error.upToDate),
+                  refused: error.pushed.isEmpty && error.upToDate.isEmpty,
+                );
               case final CentralPushRefusal refusal:
                 say(centralRefusalWords(refusal, host: host), refused: true, refusal: refusal);
               case FeatureNotSupported():
@@ -192,16 +237,35 @@ class CentralReleases extends ChangeNotifier {
           },
           cancelOnError: true,
         );
+    _running[key] = (push: push, done: done);
     return done.future;
+  }
+
+  /// Cancels the push of every machine but those named in [keep], as the machines this window still watches, and
+  /// forgets what each said: nobody is left to say its answer to.
+  void forget({required Set<String> keep}) {
+    bool gone(String key) => !keep.contains(key.substring(0, key.lastIndexOf('/')));
+    final cancelled = _running.keys.where(gone).toList();
+    cancelled.forEach(_cancel);
+    final before = _said.length + _atCentral.length;
+    _said.removeWhere((key, _) => gone(key));
+    _atCentral.removeWhere((key, _) => gone(key));
+    if (!_disposed && (cancelled.isNotEmpty || _said.length + _atCentral.length != before)) notifyListeners();
+  }
+
+  void _cancel(String key) {
+    final running = _running.remove(key);
+    if (running == null) return;
+    unawaited(running.push.cancel());
+    if (!running.done.isCompleted) running.done.complete();
   }
 
   @override
   void dispose() {
     _disposed = true;
-    for (final each in _running.values) {
-      unawaited(each.cancel());
+    for (final key in _running.keys.toList()) {
+      _cancel(key);
     }
-    _running.clear();
     super.dispose();
   }
 }
@@ -231,7 +295,11 @@ String centralRefusalWords(CentralPushRefusal refusal, {String? host}) {
     if (refusal.pushed.isNotEmpty) 'Brought to central before it stopped: ${refusal.pushed.join(', ')}.',
     if (refusal.upToDate.isNotEmpty) 'At central already: ${refusal.upToDate.join(', ')}.',
   ].join(' ');
-  final command = [for (final word in refusal.unlockCommand) word == '<host>' && host != null ? host : word].join(' ');
+  final filled = [
+    for (final word in refusal.unlockCommand) word == '<host>' && host != null && host.isNotEmpty ? host : word,
+  ];
+  // A placeholder nothing here can fill is no command to run.
+  final command = filled.contains('<host>') ? '' : filled.join(' ');
   final words = switch (refusal.kind) {
     'CentralVaultShut' => switch (refusal.unlock) {
       'init' => 'Nothing was pushed: the machine has no vault yet${command.isEmpty ? '' : '; make it with $command'}.',
@@ -250,7 +318,8 @@ String centralRefusalWords(CentralPushRefusal refusal, {String? host}) {
       'issuer' =>
         'Nothing was pushed: the host could not issue its own forge token for the push. '
             'Its administrator checks the sudo rule of its token issuer.',
-      final reason => 'Nothing was pushed: the host could not issue its own forge token ($reason).',
+      final reason =>
+        'Nothing was pushed: the host could not issue its own forge token (${named(reason, 'no reason given')}).',
     },
     'CentralPushRefused' => switch (refusal.reason) {
       'reconcile' =>

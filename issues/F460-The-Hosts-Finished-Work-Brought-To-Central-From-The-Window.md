@@ -26,6 +26,14 @@ naming a refused login, is on Porelo's main (2026-11-10), in its review.
   store command in a terminal on it; the window never sees a token.
 - *Push the approved main…*, the older terminal transfer through the secrets file, still stands beside it in the
   project menu.
+- Reading fixed: forgetting a machine and closing the window cancel its push and end the wait on it; a second press
+  while the question is open or the push runs starts nothing, and an empty list pushes nothing; a repository the
+  machine does not carry, the host's placement leaves out or the host has not taken is never named, nor one this
+  window just saw reach central on the host's older word, and the host is asked again after the answer; the menu and
+  the page's button read the same word of the host; an answer naming nothing reads as refused; an unfilled `<host>`,
+  an empty credential or an empty reason leaves no hole in the words. Declined: cancelling the push when the page is
+  left, because a cut stream stops Git mid-transfer and leaves a write that may have reached central (Porelo's
+  `CentralPushUncertain`); a release the person agreed to runs to its answer, which the page says when opened again.
 - Not yet run against a host: central's `main` at the host's commit after one press, and whether the row then says
   at central before the host's follow answers again.
 

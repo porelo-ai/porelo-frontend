@@ -564,6 +564,8 @@ class _ShellState extends State<Shell> {
 
   void _machineChanged() {
     _dropForgottenTools();
+    // A push of a machine no longer watched has nobody to say its answer to.
+    _centralReleases.forget(keep: {for (final each in widget.machines.all) each.name});
     _leaveTheSignInsOfForgottenMachines();
     final machine = widget.machines.current;
     if (_observedMachine == machine) return;
@@ -5744,10 +5746,28 @@ class _ShellState extends State<Shell> {
 
   /// *Bring it to central…* for [project] on [machine], and, once the machine said it holds no central token, the way
   /// to store it there; [answering] is whether the machine answers now. Hidden where it is no host of the project.
-  List<Command> _centralCommands(Machine machine, ProjectOnScreen project, {required bool answering}) {
-    final progress = _heardFrom(machine)?.of(project.name);
+  ///
+  /// [heard] is what the host said of how far it has come, where the page read it; the host's last word otherwise.
+  List<Command> _centralCommands(
+    Machine machine,
+    ProjectOnScreen project, {
+    required bool answering,
+    HostProgress? heard,
+  }) {
+    final progress = (heard ?? _heardFrom(machine))?.of(project.name);
     final listed = project.project.repositoryStates;
-    final ahead = aheadOfCentral(listed: listed, progress: progress);
+    final carriedAlone = _onTheOrganizationsPage(machine)
+        ? _organization?.view?.hosts
+              .where((each) => each.name == machine.hostCard!.name)
+              .firstOrNull
+              ?.repositories[project.name]
+        : null;
+    final ahead = aheadOfCentral(
+      listed: listed,
+      progress: progress,
+      carriedAlone: carriedAlone,
+      atCentral: _centralReleases.atCentral(machine.name, project.name),
+    );
     final refusal = _centralReleases.said(machine.name, project.name)?.refusal;
     final store = refusal?.kind == 'MissingCentralToken' && refusal!.storeCommand.isNotEmpty
         ? onTheMachine(machine, refusal.storeCommand, terminal: true)
@@ -5767,7 +5787,8 @@ class _ShellState extends State<Shell> {
           run: () => unawaited(
             runInATerminal(
               context,
-              title: 'Store ${refusal.credential} on ${machine.name}',
+              title:
+                  'Store ${refusal.credential.isEmpty ? 'the central token' : refusal.credential} on ${machine.name}',
               explanation:
                   'Type or paste your token for the central forge into the terminal. It goes straight to the '
                   'machine and never through this program, and nothing here keeps it. Then bring it to central again.',
@@ -5781,27 +5802,36 @@ class _ShellState extends State<Shell> {
   }
 
   /// Asks the person, naming the commits [ahead] brings, then brings [project]'s finished main on [machine] to
-  /// central through its daemon, and reads the machine again once it answered.
+  /// central through its daemon, and reads the machine, and what the host says of it, again once it answered. A second
+  /// press while it asks or runs starts nothing.
   Future<void> _bringToCentral(Machine machine, String project, List<AheadOfCentral> ahead) async {
     if (ahead.isEmpty || !widget.machines.all.contains(machine)) return;
-    final agreed = await confirmBringToCentral(
-      context,
-      project: project,
-      host: machine.hostCard?.name ?? machine.name,
-      ahead: ahead,
-    );
-    if (!agreed || !mounted || !widget.machines.all.contains(machine)) return;
+    final host = machine.hostCard?.name ?? machine.name;
     final fleet = widget.machines.of(machine);
     await _centralReleases.bring(
       fleet.backend,
       machine: machine.name,
       project: project,
       repositories: [for (final each in ahead) each.repository],
-      host: machine.hostCard?.name,
+      host: host,
+      agree: () async =>
+          mounted &&
+          await confirmBringToCentral(context, project: project, host: host, ahead: ahead) &&
+          mounted &&
+          widget.machines.all.contains(machine),
     );
     if (!mounted || !widget.machines.all.contains(machine)) return;
-    // The rows say again how each stands at central, as the machine now lists it.
+    // The rows say again how each stands at central, as the machine and the host now say it.
     await fleet.refresh(quietly: true);
+    final connections = _hostConnections;
+    final card = machine.hostCard?.name;
+    if (mounted && card != null && connections != null && connections.connected(card)) {
+      try {
+        await connections.progress(card);
+      } on Exception {
+        // Not heard now: the page says what the host said last, and this window's own answer.
+      }
+    }
   }
 
   /// Pushes the approved main, or takes the central state, in a terminal here: the terminal reads the central token
@@ -6112,6 +6142,14 @@ class _ShellState extends State<Shell> {
     String? notRead,
   }) {
     final watched = widget.machines.all.contains(machine);
+    // The menu and the page's own button name what the same word of the host says is ahead.
+    if (watched && progress != null) {
+      final answering = widget.machines.of(machine).reachability == Reachability.connected;
+      final central = {
+        for (final each in _centralCommands(machine, project, answering: answering, heard: progress)) each.id: each,
+      };
+      commands = [for (final each in commands) central[each.id] ?? each];
+    }
     // What the machine waits for, as it said last: on this page however it was opened, never read as carried.
     final waitOn = _waitOn(machine, project.name) ?? progress?.of(project.name);
     final waits = waitingWords(waitOn, organizationForgeName(_organization?.view));
