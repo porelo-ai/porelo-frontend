@@ -120,6 +120,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f443"></a>[F443](F443-Forge-Token-Handed-Over-When-The-Machine-Asks.md) | S | the daemon's ask for the person's forge token on a host, with its command | The person's forge token on a host made by the host's own command, run in a terminal there from the window when the host asks; never through this program. |
 | <a id="f470"></a>[F470](F470-A-Story-Moved-Against-Its-Issues-Is-Warned-And-Confirmed.md) | S | Porelo's planning keeping a story's explicit state and saying a mismatch | A story moved on the board against its issues is warned, naming them, and saved only when confirmed; it keeps that state. |
 | <a id="f469"></a>[F469](F469-A-Project-Page-Shows-Porelos-Kept-Read-And-Its-Age.md) | S | Porelo answering `project show` and `org` from its kept state with its age, and `--refresh` | A project page shows Porelo's kept read at once with its age, then the fresh one; nothing old shown as just read. |
 | <a id="f321"></a>[F321](F321-Send-The-Terminal-Input-Fix-Upstream.md) | S | the third move | The terminal input fix offered upstream, and this repository's copy of `xterm` dropped once a release holds it. |
@@ -128,7 +129,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f111"></a>[F111](F111-All-Of-A-Pieces-Logs-In-One-Timeline.md) | M | — | All of a piece's logs in one timeline, by time, filterable by source. |
 | <a id="f437"></a>[F437](F437-Join-Leave-And-Accept-A-Card-In-The-Window.md) | M | the backend's card proposal and leave | Join an organization by a card proposal, an owner accepting it on the person's row, and leaving an organization, from the window. |
 | <a id="f455"></a>[F455](F455-The-Organization-Read-Now-From-The-Window.md) | S | — | *Read the organization now* asks the host to read the organization at once. |
-| <a id="f458"></a>[F458](F458-The-Task-Terminal-Grows-With-The-Window.md) | XS | the task session following the latest client | The agent's screen grows with the window. |
+| <a id="f458"></a>[F458](F458-The-Task-Terminal-Grows-With-The-Window.md) | XS | — | The agent's screen grows with the window. |
 | <a id="f460"></a>[F460](F460-The-Hosts-Finished-Work-Brought-To-Central-From-The-Window.md) | M | — | *Bring it to central…* brings a host's finished `main` to the central forge from the project's page, refusals in the backend's words. |
 | <a id="f461"></a>[F461](F461-Every-Screen-Of-The-Window-Read-For-Look-And-Sense.md) | M | — | Every screen captured headless at three sizes, light and dark, full and empty, read by another model against a visual and a logical checklist; every finding listed with its screen and size, nothing fixed yet. |
 | <a id="f464"></a>[F464](F464-My-Machines-Keeps-A-Machine-Being-Prepared.md) | S | — | *My machines* keeps a machine being prepared in its list and count, the drop caught live first. |
@@ -157,7 +158,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="f450"></a>[F450](F450-The-Window-s-Tests-Follow-The-Test-Pyramid.md) | L | — | The window's tests moved to the test pyramid's shares: waits, network and processes faked, flows proven below the end-to-end runs, logic out of the widgets. |
-| <a id="f443"></a>[F443](F443-Forge-Token-Handed-Over-When-The-Machine-Asks.md) | S | the daemon's ask for the person's forge token on a host, with its command | The person's forge token on a host made by the host's own command, run in a terminal there from the window when the host asks; never through this program. |
 | <a id="f123"></a>[F123](F123-Where-A-Machine-And-A-Project-Stand-In-Their-Organisations-Tree.md) | — | — | Where a machine and a project stand in their organisation's tree, and which settings bind them. |
 | <a id="f166"></a>[F166](F166-A-Host-Rented-Through-OpenTofu.md) | M | — | `porelo-host up` and `down` renting and giving back through the OpenTofu module, its secrets only in `tofu`'s environment; `--given` kept. |
 

@@ -1,7 +1,6 @@
 # F458 — The Task Terminal Grows With The Window
 
-**Status:** Backlog; its live check waits for Porelo's session sizing after the latest client on a host the
-window reaches.
+**Status:** Backlog; Porelo's session sizing after the latest client is on its main (2026-11-10), in its review.
 **Size:** XS - the window's resize checked to reach the session, and a test of it once the session follows.
 
 **What must be true.** When the window grows, the agent's screen in a task's terminal grows with it; no filler of

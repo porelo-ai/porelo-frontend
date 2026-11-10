@@ -1,7 +1,8 @@
 # F443 — Forge Token Handed Over When The Machine Asks
 
-**Status:** Accepted; blocked by the daemon's ask for it on the wire.
-**Priority:** High, first among Accepted (the operator, 2026-11-09).
+**Status:** Backlog (the operator, 2026-11-10); blocked by the daemon's ask for it on the wire, a missing host forge
+token answered with the vault key and the host command, which Porelo builds after two issues of its own.
+**Priority:** High (the operator, 2026-11-09).
 **Size:** S - one more way a start's answer and a build's detail are read, the host's command run in a terminal on
 it as the store and import commands are, the machine asked again, and their tests; once the daemon says it.
 
