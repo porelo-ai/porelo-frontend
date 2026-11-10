@@ -90,6 +90,8 @@ it reaches no planner it says why in words.
 
 ## How it stands
 
+- The board is kept current: the planning package now watches the planner's event stream for each project shown,
+  takes a connection as lost after 45 seconds and tries again from 1 to 30 seconds apart; the window takes it as it is.
 - Windows: porelo-planner is built for Linux only, so on Windows the window looks for no planner, starts none and says
   planning is not offered there yet. The planner tests that read its runtime directory and POSIX modes are bound to
   Linux; main's Windows job had failed them, every Windows path being refused as not absolute. Seen red:
