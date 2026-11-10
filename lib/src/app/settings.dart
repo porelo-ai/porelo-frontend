@@ -603,6 +603,17 @@ class Settings extends ChangeNotifier {
         }
       }
     }
+    // Absent in settings written before it: nobody is invited there.
+    _messageInvited.clear();
+    final invited = stored['messageInvited'];
+    if (invited is Map) {
+      for (final MapEntry(key: machine, value: projects) in invited.entries) {
+        if (machine is! String || projects is! List) continue;
+        for (final project in projects) {
+          if (project is String && messagePerson(machine, project) != null) _messageInvited.add((machine, project));
+        }
+      }
+    }
     final draft = stored['setupDraft'];
     _forwardedBranches.clear();
     final forwards = stored['forwardedBranches'];
@@ -726,12 +737,31 @@ class Settings extends ChangeNotifier {
       throw ArgumentError('A machine, project, and valid chat name are required.');
     }
     if (messagePerson(machine, project) == person) return;
+    // An invitation belongs to the account it invited: another person, or none, is not invited.
+    _messageInvited.remove((machine, project));
     if (person == null) {
       final projects = _messagePeople[machine]!;
       projects.remove(project);
       if (projects.isEmpty) _messagePeople.remove(machine);
     } else {
       (_messagePeople[machine] ??= <String, String>{})[project] = person;
+    }
+    await _write();
+  }
+
+  final _messageInvited = <(String, String)>{};
+
+  /// Whether the remembered person of a machine's project room was invited with an account they had, rather than
+  /// made one: such an account keeps its own password, and nothing here offers it a new one.
+  bool messageInvited(String machine, String project) => _messageInvited.contains((machine, project));
+
+  /// Keeps whether the remembered person's join invited an account they had; ignored where nobody is remembered.
+  Future<void> rememberMessageInvited(String machine, String project, {required bool invited}) async {
+    if (messagePerson(machine, project) == null || messageInvited(machine, project) == invited) return;
+    if (invited) {
+      _messageInvited.add((machine, project));
+    } else {
+      _messageInvited.remove((machine, project));
     }
     await _write();
   }
@@ -1146,6 +1176,13 @@ class Settings extends ChangeNotifier {
     'keepResolvedMinutes': _keepResolvedMinutes,
     'workUser': _workUser,
     'messagePeople': {for (final entry in _messagePeople.entries) entry.key: Map<String, String>.of(entry.value)},
+    'messageInvited': <String, List<String>>{
+      for (final (machine, _) in _messageInvited)
+        machine: [
+          for (final (each, project) in _messageInvited)
+            if (each == machine) project,
+        ],
+    },
     'forwardedBranches': [
       for (final MapEntry(key: (machine, project, repository, task), value: branch) in _forwardedBranches.entries)
         {'machine': machine, 'project': project, 'repository': repository, 'task': task, 'branch': branch},

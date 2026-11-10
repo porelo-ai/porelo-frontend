@@ -31,6 +31,17 @@ shown below and that seeing it again means a new one, which is not so for an inv
   Matrix ID shown and accept the invitation to the room shown; it shows the homeserver, Matrix ID and room, no
   password, no "shown once" note, no *New password*, and *Done* without the password sentence. Seen red: the
   dialog said to sign in with a password (`test/ui/conversation_accounts_test.dart`).
+- A code reading found that after *Done* and opening the dialog again, or while the homeserver forward is down, the
+  join answer is gone and *New password* came back for the invited account, and that the tests did not decode the
+  answer, carried no password to suppress, nor opened the dialog again; also a grey-button note for a hidden
+  *New password*, no loopback forward note, empty Matrix ID or room words, and no copy buttons for an invitation.
+  All taken: the settings remember beside the person whether the join invited it (`messageInvited`, set before the
+  forward, cleared with the person, absent read as not invited), and that alone gates *New password* and its grey
+  words; the invitation shows the loopback note, treats an empty field as absent, and copies each field but a
+  password, which it never shows. Seen red: *New password* offered after reopening, the grey note, the missing
+  forward note, the empty Matrix ID row and the missing copy buttons (`test/ui/conversation_accounts_test.dart`);
+  the decoding (`test/client/messages_test.dart`), the shown password and the remembered invitation
+  (`test/app/room_accounts_test.dart`) by a deliberate break.
 - Not run live: no host runs a Porelo with `invited` yet.
 
 ## Blocked by

@@ -24,4 +24,21 @@ void main() {
     expect(HeldMessageRead.from(const <String, dynamic>{'direction': 'out'}).direction, 'out');
     expect(HeldMessage.from(const <String, dynamic>{}).direction, isEmpty);
   });
+
+  // Harm: an invitation read as a made account sends the person after a password that does not exist, and the reset
+  // they then ask for ends that account's sessions in every room.
+  test('a join answer is an invitation only where it says invited true', () {
+    Map<String, dynamic> answer(Object? invited) => <String, dynamic>{
+      'transport': 'matrix',
+      'shown': '',
+      'login': <String, dynamic>{'user': '@anna:example.org'},
+      'invited': ?invited,
+    };
+    expect(MessagesJoined.from(answer(true)).invited, isTrue, reason: 'the daemon said the account was invited');
+    expect(MessagesJoined.from(answer(false)).invited, isFalse, reason: 'the daemon said one was made');
+    expect(MessagesJoined.from(answer(null)).invited, isFalse, reason: 'an older daemon that does not say made one');
+    for (final wrong in <Object>['true', 1, <Object?>[], <String, Object?>{}]) {
+      expect(MessagesJoined.from(answer(wrong)).invited, isFalse, reason: 'a field not a bool is not coerced: $wrong');
+    }
+  });
 }

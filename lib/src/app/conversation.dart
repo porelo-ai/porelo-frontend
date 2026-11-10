@@ -63,6 +63,10 @@ class ProjectConversation extends ChangeNotifier {
   /// This computer's remembered person, only while present in the daemon's member answer.
   MessageMember? get joinedAs => members?.where((each) => each.person == _person).firstOrNull;
 
+  /// Whether [joinedAs] was invited with an account the person had, as remembered beyond this dialog: it keeps its
+  /// own password, so no new one is offered.
+  bool get invited => joinedAs != null && _settings.messageInvited(machine.name, project.name);
+
   /// The answered join only while its homeserver is reachable; never kept beyond this dialog.
   MessagesJoined? get joined {
     final answer = _joined;
@@ -140,7 +144,7 @@ class ProjectConversation extends ChangeNotifier {
   /// Replaces the confirmed account's password after an explicit request.
   Future<void> newPassword() async {
     final member = joinedAs;
-    if (member == null || busy) return;
+    if (member == null || busy || invited) return;
     await join(member.person, reset: true);
   }
 
@@ -163,6 +167,9 @@ class ProjectConversation extends ChangeNotifier {
     _pendingPerson = person;
     await _loadMembers(joinedPerson: person);
     if (_gone || joinedAs == null) return;
+    // Remembered before the forward, which can fail: the dialog opened again, or without the forward, still knows.
+    await _settings.rememberMessageInvited(machine.name, project.name, invited: answer.invited);
+    if (_gone) return;
     await _forwardTheHomeserver(answer);
     if (_gone) return;
     if (forwardProblem != null) {

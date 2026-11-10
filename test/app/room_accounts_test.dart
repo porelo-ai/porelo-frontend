@@ -24,6 +24,77 @@ void main() {
     expect(settings.messagePerson('local', 'other'), 'bea', reason: 'forgetting one room must preserve another');
   });
 
+  // Harm: an invited account forgotten as invited is offered New password, which ends its sessions in every room.
+  test(
+    'an invited membership survives reopening, goes with its person, and older settings read as not invited',
+    () async {
+      final store = MemorySettingsStore();
+      final settings = Settings(store);
+      addTearDown(settings.dispose);
+      await settings.rememberMessagePerson('local', 'demo', 'anna');
+      await settings.rememberMessageInvited('local', 'demo', invited: true);
+      await settings.rememberMessagePerson('local', 'other', 'bea');
+      final reopened = Settings(store);
+      addTearDown(reopened.dispose);
+      await reopened.load();
+      expect(reopened.messageInvited('local', 'demo'), isTrue, reason: 'an invitation must survive restarting');
+      expect(reopened.messageInvited('local', 'other'), isFalse, reason: 'each project keeps its own');
+      await reopened.rememberMessagePerson('local', 'demo', 'cleo');
+      expect(reopened.messageInvited('local', 'demo'), isFalse, reason: 'another person is not that invitation');
+      await settings.rememberMessageInvited('local', 'other', invited: true);
+      await settings.rememberMessagePerson('local', 'other', null);
+      expect(settings.messageInvited('local', 'other'), isFalse, reason: 'a forgotten member is not invited');
+      await settings.rememberMessagePerson('local', 'other', 'bea');
+      expect(settings.messageInvited('local', 'other'), isFalse, reason: 'joining again starts as not invited');
+      await settings.rememberMessageInvited('local', 'nobody', invited: true);
+      expect(settings.messageInvited('local', 'nobody'), isFalse, reason: 'only a remembered person is invited');
+
+      final older = Settings(
+        MemorySettingsStore({
+          'messagePeople': {
+            'local': {'demo': 'anna'},
+          },
+        }),
+      );
+      addTearDown(older.dispose);
+      await older.load();
+      expect(older.messageInvited('local', 'demo'), isFalse, reason: 'settings from before this field are not invited');
+      for (final value in <Object?>[
+        7,
+        'demo',
+        <Object?>['demo'],
+        <String, Object?>{'local': 'demo'},
+        <String, Object?>{'local': 7},
+        <String, Object?>{
+          'local': <Object?>[7, true, ''],
+        },
+        <String, Object?>{
+          'elsewhere': <Object?>['demo'],
+        },
+        <String, Object?>{
+          'local': <Object?>['other'],
+        },
+      ]) {
+        final wrong = Settings(
+          MemorySettingsStore({
+            'messagePeople': {
+              'local': {'demo': 'anna'},
+            },
+            'messageInvited': value,
+          }),
+        );
+        addTearDown(wrong.dispose);
+        await wrong.load();
+        expect(
+          wrong.messageInvited('local', 'demo'),
+          isFalse,
+          reason: 'an unchecked field is not an invitation: $value',
+        );
+        expect(wrong.messagePerson('local', 'demo'), 'anna', reason: 'a wrong field leaves the person readable');
+      }
+    },
+  );
+
   // Harm: unchecked stored fields can crash startup or select an invalid account for a password reset.
   test('stored room names check every machine project and person and ignore flat entries', () async {
     for (final value in <Object?>[

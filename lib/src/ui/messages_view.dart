@@ -123,6 +123,12 @@ class _MessagesDialogState extends State<MessagesDialog> {
       );
       // On a host the homeserver manages its people itself: a join here could only be refused.
       final offersJoin = hostHomeserver == null && joined == null && joinedAs == null;
+      // An invited account keeps its own password: there is none here to make anew, after Done and while the forward
+      // is down too, so the remembered invitation decides.
+      final offersReset =
+          hostHomeserver == null &&
+          !model.invited &&
+          (joinedAs != null || (joined == null && model.alreadyJoined != null));
       final reset = newMessagePasswordCommand(
         busy: model.busy,
         run: () => unawaited(joinedAs != null ? model.newPassword() : model.join(model.alreadyJoined!, reset: true)),
@@ -241,14 +247,7 @@ class _MessagesDialogState extends State<MessagesDialog> {
                       style: TextStyle(color: scheme.error),
                     ),
                   ),
-                if (_greyWords(
-                      joining: offersJoin ? join : null,
-                      resetting:
-                          hostHomeserver == null &&
-                              (joinedAs != null || (joined == null && model.alreadyJoined != null))
-                          ? reset
-                          : null,
-                    )
+                if (_greyWords(joining: offersJoin ? join : null, resetting: offersReset ? reset : null)
                     case final words?)
                   Padding(
                     padding: const EdgeInsets.only(top: Space.small),
@@ -260,10 +259,7 @@ class _MessagesDialogState extends State<MessagesDialog> {
           ),
         ),
         actions: <Widget>[
-          // An invited account keeps its own password: there is none here to make anew.
-          if (hostHomeserver == null &&
-              !(joined?.invited ?? false) &&
-              (joinedAs != null || (joined == null && model.alreadyJoined != null)))
+          if (offersReset)
             Tooltip(
               message: reset.unavailable ?? '',
               child: OutlinedButton(
@@ -483,10 +479,15 @@ class _MessagesDialogState extends State<MessagesDialog> {
 
   // The person's existing account was invited into this room: they accept it where they are signed in already, and
   // no password exists to show.
-  List<Widget> _invitation(BuildContext context, MessagesJoined joined) {
+  List<Widget> _invitation(BuildContext context, ProjectConversation model, MessagesJoined joined) {
     final text = Theme.of(context).textTheme;
-    final user = joined.login['user'];
-    final room = joined.login['room'];
+    // An empty field says nothing, as an absent one: it is not named, and gets no row.
+    String? given(String field) => switch (joined.login[field]) {
+      final value? when value.isNotEmpty => value,
+      _ => null,
+    };
+    final user = given('user');
+    final room = given('room');
     return <Widget>[
       const SizedBox(height: Space.small),
       Text('Accept the invitation', style: text.titleSmall),
@@ -497,33 +498,69 @@ class _MessagesDialogState extends State<MessagesDialog> {
       Text('1. Open the Matrix client they already sign in to${user == null ? '' : ', signed in as $user'}.'),
       Text('2. Accept the invitation to the room${room == null ? '' : ' $room'}, then open it.'),
       const SizedBox(height: Space.tight),
+      // Never the password: an invitation has none, and one sent anyway is not shown or copied.
       for (final (field, label) in _loginFields)
         if (field != 'password')
-          if (joined.login[field] case final value?)
-            Row(
-              children: <Widget>[
-                SizedBox(
-                  width: Sizes.fieldName,
-                  child: Text(label, style: text.bodySmall),
-                ),
-                Expanded(
-                  child: SelectableText(
-                    value,
-                    key: ValueKey<String>('login $field'),
-                    style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-                  ),
-                ),
-              ],
-            ),
+          if (given(field) case final value?) _loginRow(context, field, label, value),
+      ..._forwardNotice(context, model, joined),
+    ];
+  }
+
+  /// One field of a login, named as a Matrix client names it and copied on its own; the password blanked.
+  Widget _loginRow(BuildContext context, String field, String label, String value) => Row(
+    children: <Widget>[
+      SizedBox(
+        width: Sizes.fieldName,
+        child: Text(label, style: Theme.of(context).textTheme.bodySmall),
+      ),
+      Expanded(
+        // The password reads and writes in the project's room: blanked, and left out of what a walk writes down.
+        child: _secretIf(
+          field == 'password',
+          SelectableText(
+            value,
+            key: ValueKey<String>('login $field'),
+            style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+          ),
+        ),
+      ),
+      IconButton(
+        key: ValueKey<String>('login-copy $field'),
+        icon: const Icon(Icons.copy, size: Sizes.rowIcon),
+        tooltip: 'Copy the $label',
+        visualDensity: VisualDensity.compact,
+        onPressed: () => unawaited(Clipboard.setData(ClipboardData(text: value))),
+      ),
+    ],
+  );
+
+  /// Where a homeserver on the machine's loopback is reached from this computer, or nothing elsewhere.
+  List<Widget> _forwardNotice(BuildContext context, ProjectConversation model, MessagesJoined joined) {
+    final port = joined.port;
+    if (!joined.loopback || port == null) return const <Widget>[];
+    final text = Theme.of(context).textTheme;
+    final scheme = Theme.of(context).colorScheme;
+    return <Widget>[
+      const SizedBox(height: Space.small),
+      Text(
+        model.forwarded != null
+            ? 'The homeserver is on ${model.machine.name}’s loopback; port $port is forwarded from this '
+                  'computer while this window runs, so a Matrix client here reaches it at http://127.0.0.1:$port.'
+            : model.forwardProblem ??
+                  (model.machine.host.isNotEmpty
+                      ? 'Forwarding port $port from ${model.machine.name}…'
+                      : 'The homeserver is on this computer, at http://127.0.0.1:$port.'),
+        key: const Key('login-forward'),
+        style: model.forwardProblem == null ? text.bodySmall : TextStyle(color: scheme.error),
+      ),
     ];
   }
 
   List<Widget> _login(BuildContext context, ProjectConversation model, MessagesJoined joined) {
     final text = Theme.of(context).textTheme;
     final scheme = Theme.of(context).colorScheme;
-    final port = joined.port;
     final element = openElementCommand();
-    if (joined.invited) return _invitation(context, joined);
+    if (joined.invited) return _invitation(context, model, joined);
     return <Widget>[
       const SizedBox(height: Space.small),
       Text('Join with Element', style: text.titleSmall),
@@ -558,34 +595,7 @@ class _MessagesDialogState extends State<MessagesDialog> {
             // Named as a Matrix client names its fields, each copied on its own, since a client asks
             // for them one by one (walk 8: "user" is "Matrix ID" there, and nothing could be copied).
             for (final (field, label) in _loginFields)
-              if (joined.login[field] case final value?)
-                Row(
-                  children: <Widget>[
-                    SizedBox(
-                      width: Sizes.fieldName,
-                      child: Text(label, style: text.bodySmall),
-                    ),
-                    Expanded(
-                      // The password reads and writes in the project's room: blanked, and left out
-                      // of what a walk writes down.
-                      child: _secretIf(
-                        field == 'password',
-                        SelectableText(
-                          value,
-                          key: ValueKey<String>('login $field'),
-                          style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      key: ValueKey<String>('login-copy $field'),
-                      icon: const Icon(Icons.copy, size: Sizes.rowIcon),
-                      tooltip: 'Copy the $label',
-                      visualDensity: VisualDensity.compact,
-                      onPressed: () => unawaited(Clipboard.setData(ClipboardData(text: value))),
-                    ),
-                  ],
-                ),
+              if (joined.login[field] case final value?) _loginRow(context, field, label, value),
             Align(
               alignment: Alignment.centerRight,
               child: TextButton.icon(
@@ -611,20 +621,7 @@ class _MessagesDialogState extends State<MessagesDialog> {
           ],
         ),
       ),
-      if (joined.loopback && port != null) ...<Widget>[
-        const SizedBox(height: Space.small),
-        Text(
-          model.forwarded != null
-              ? 'The homeserver is on ${model.machine.name}’s loopback; port $port is forwarded from this '
-                    'computer while this window runs, so a Matrix client here reaches it at http://127.0.0.1:$port.'
-              : model.forwardProblem ??
-                    (model.machine.host.isNotEmpty
-                        ? 'Forwarding port $port from ${model.machine.name}…'
-                        : 'The homeserver is on this computer, at http://127.0.0.1:$port.'),
-          key: const Key('login-forward'),
-          style: model.forwardProblem == null ? text.bodySmall : TextStyle(color: scheme.error),
-        ),
-      ],
+      ..._forwardNotice(context, model, joined),
     ];
   }
 }
