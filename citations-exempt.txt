@@ -23,3 +23,4 @@ test/app/planning_attention_test.dart
 test/features/story_work.feature
 test/features/story_work_test.dart
 test/features/support/story_work.dart
+test/ui/planning_finder_test.dart

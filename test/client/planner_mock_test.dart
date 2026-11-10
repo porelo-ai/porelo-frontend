@@ -1,3 +1,8 @@
+// Linux only: porelo-planner is built for Linux, and its mock mode is started in a runtime directory set to mode
+// 700 with chmod.
+@Tags(<String>['linux'])
+library;
+
 import 'dart:convert';
 import 'dart:io';
 
@@ -79,6 +84,20 @@ void main() {
 
     expect(started, hasLength(1), reason: 'one window starts one planner');
     expect(snapshot.stories, isNotEmpty);
+  }, skip: skip);
+
+  // Harm: a card or an issue row opens nothing, or another item, when the window's planner is what serves the board.
+  test('a story and one of its issues are read alone through the window\'s planner', () async {
+    final source = window.providers.single.source;
+    final story = (await source.stories('demo')).stories.firstWhere((story) => story.issues.isNotEmpty);
+
+    final read = await source.getStory('demo', story.id);
+    final issues = await source.listStoryIssues('demo', story.id);
+    final issue = await source.getIssue('demo', story.issues.first.id);
+
+    expect(read.story?.id, story.id);
+    expect(issues.issues.map((each) => each.id), contains(story.issues.first.id));
+    expect(issue.issue?.id, story.issues.first.id);
   }, skip: skip);
 
   // Harm: a refusal of the planner's is lost, turned into an empty board, or shown by its name alone.
