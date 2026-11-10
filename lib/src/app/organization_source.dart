@@ -1059,10 +1059,17 @@ class Organization extends ChangeNotifier {
   /// Provisional rows, including refusals kept after leaving a page.
   Iterable<OrganizationRowChange> get rowChanges => List<OrganizationRowChange>.unmodifiable(_rowChanges);
 
-  /// Keeps only the revisions already read by a project's page, for an answered request's next attempt.
+  /// Keeps what a project's page read: its revision for an answered request's next attempt, the whole view to show at
+  /// once, marked as the last read, when the page opens again.
   void rememberProjectRevision(ProjectView project) {
     _projectBases[project.name] = project.revision;
+    _lastReads[project.name] = project;
   }
+
+  final _lastReads = <String, ProjectView>{};
+
+  /// What a page of [project] read last in this session, or null where none did.
+  ProjectView? lastReadOf(String project) => _lastReads[project];
 
   /// The default for a new repository: Core's policy, or this window's last confirmed project choice.
   ///

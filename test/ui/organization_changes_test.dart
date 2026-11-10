@@ -138,7 +138,8 @@ void main() {
     await page();
     await tester.pumpAndSettle();
     expect(find.text('No answer from the forge.'), findsOneWidget, reason: 'The refusal belongs to the request.');
-    expect(find.text('The project cannot be read.'), findsOneWidget);
+    // The page shows the last read beside it, whose sections say it too.
+    expect(find.text('The project cannot be read.'), findsWidgets);
     source.projectFailure = null;
     final retry = Completer<void>();
     source.holdWrites = retry.future;

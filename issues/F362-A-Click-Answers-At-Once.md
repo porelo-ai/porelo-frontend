@@ -1,6 +1,6 @@
 # F362 — A Click Answers At Once
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** S - a measurement on a real window first; the size of a fix follows from its cause.
 
 **What must be true.** Whatever a click starts, a person sees at once that it arrived: on a row that opens a page, the page with its "Reading…" line. In the foo test, clicking a row under *Projects*, for a moment nothing happens and then the page comes.
@@ -45,6 +45,30 @@ An earlier issue, *A Server Dialog Opens At Once*, settled one dialog, not this 
   show foo-project --json` alone took 2.5 to 2.7 s in three runs, against 0.05 s for `porelo --version`.
 - **So the window answers at once, and its content waits for Porelo's read of the project.** The delay seen is the
   two to three seconds in which the page stands with its head and "Reading …", and not what the person came for.
+
+## How it stands
+
+- **The page no longer waits empty for the read.** While the first read of a project runs, its head says what the
+  organization's list already holds of it, as its row under *My projects* does: its repositories, its people and the
+  person's role, instead of "not read".
+- **The organization keeps the last read of each project for the session.** Opened again, the page shows that read at
+  once, whole, with the line "Reading *project* again…", and offers no change while it shows it, since a change would
+  carry its revision; the new read replaces it when it lands. A reread that fails keeps the last read, says the problem,
+  and says that this is the project as last read.
+- **Red first**, in `test/ui/organization_project_pages_test.dart`, each seen to fail before the code:
+  - *while the first read runs, its head says what the list holds*: `Expected: '2 repositories · 2 people'`,
+    `Actual: 'not read'`.
+  - *opened again, it shows the last read at once, marked, with no change until the new read*: found 0 widgets with
+    key `organization-project-reading-again`, one expected. With the code in and its gate on the member rows broken,
+    it found `removeMember/pat` offered on the last read.
+  - *a reread that fails keeps the last read, says why, and says it is the last read*: found 0 widgets with key
+    `organization-project-as-last-read`, one expected.
+- **One test changed with it:** in `test/ui/organization_changes_test.dart`, a page opened again whose read fails
+  now shows the last read, whose sections say the refusal too, so it is found more than once.
+- **Not met by this:** the first point of the acceptance, a real window measured after the change, has not been done;
+  the measure above is the one before. The press effect is unchanged. The head's role before the first read does not
+  know a lock, which only the list page reads, so a locked member's head names their role until the read lands; no
+  change is offered meanwhile.
 
 ## What to measure next
 

@@ -14,6 +14,7 @@ import 'package:porelo_frontend/src/ui/command_menu.dart';
 
 import 'organization_actions.dart';
 
+import 'package:porelo_frontend/src/ui/expandable_list_row.dart' show StateChip;
 import 'package:porelo_frontend/src/ui/page_explanation.dart';
 
 Finder _action(String id) => organizationAction(id);
@@ -48,6 +49,40 @@ class _Central extends FixtureConnections {
   @override
   Future<CentralState> central(String host, String project) async =>
       const CentralState(repositories: [(state: 'ahead', commits: 2)]);
+}
+
+/// Holds each read of a project until the test lets it answer, as Porelo takes seconds to.
+class _HeldReads extends FixtureOrganization {
+  _HeldReads(super.view);
+
+  Completer<void>? held;
+
+  @override
+  Future<ProjectView> readProject(String project) async {
+    await held?.future;
+    return super.readProject(project);
+  }
+}
+
+/// Opens the project's page of [organization] and draws its first frame, the read still held.
+Future<void> _open(WidgetTester tester, Organization organization) async {
+  tester.view.physicalSize = const Size(1400, 1600);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+  await tester.pumpWidget(
+    MaterialApp(
+      home: Scaffold(
+        body: OrganizationProjectPage(organization: organization, project: 'demo', onBack: () {}),
+      ),
+    ),
+  );
+  await tester.pump();
+}
+
+/// Closes the page, as going back to the list does.
+Future<void> _close(WidgetTester tester) async {
+  await tester.pumpWidget(const MaterialApp(home: Scaffold(body: SizedBox())));
+  await tester.pump();
 }
 
 class _Connecting extends FixtureConnections {
@@ -468,6 +503,80 @@ void main() {
       'removeMember/mia',
       'lockMember/mia',
     ];
+
+    // Harm: a press seems lost for the seconds Porelo reads, the page saying nothing of what the list already holds.
+    testWidgets('while the first read runs, its head says what the list holds', (tester) async {
+      final fixture = _HeldReads(organizationFor('pat'))..held = Completer<void>();
+      final organization = Organization(fixture);
+      addTearDown(organization.dispose);
+      await organization.refresh();
+      await _open(tester, organization);
+      final head = tester.widget<PageHead>(find.byType(PageHead).first);
+      expect(head.subtitle, '2 repositories · 2 people');
+      expect((head.status! as StateChip).words, 'Project Admin');
+      expect(_action('changeAddress'), findsNothing);
+      fixture.held!.complete();
+      await tester.pumpAndSettle();
+      expect(tester.widget<PageHead>(find.byType(PageHead).first).subtitle, '2 repositories · 4 members');
+    });
+
+    // Harm: a last read shown again passes for the project as it stands, and a change is asked against its revision.
+    testWidgets('opened again, it shows the last read at once, marked, with no change until the new read', (
+      tester,
+    ) async {
+      final fixture = _HeldReads(organizationFor('pat', organizationAdmins: ['pat']));
+      final organization = Organization(fixture);
+      addTearDown(organization.dispose);
+      await organization.refresh();
+      await _open(tester, organization);
+      await tester.pumpAndSettle();
+      await _close(tester);
+      fixture
+        ..held = Completer<void>()
+        ..projects = {
+          'demo': const ProjectView(
+            name: 'demo',
+            revision: 'p2',
+            roles: ['developer', 'admin'],
+            repositories: [ProjectRepository(name: 'demo-site', address: 'git@forge.example.org:acme/site.git')],
+            members: [ProjectMember(login: 'pat', role: 'admin', standing: CardStanding.trusted)],
+          ),
+        };
+      await _open(tester, organization);
+      expect(find.byKey(const Key('organization-project-reading-again')), findsOneWidget);
+      expect(find.text('demo-docs'), findsOneWidget);
+      expect(tester.widget<PageHead>(find.byType(PageHead).first).subtitle, '2 repositories · 4 members');
+      for (final id in [...changes, 'memberRole/pat', 'removeMember/pat']) {
+        expect(_action(id), findsNothing, reason: id);
+      }
+      fixture.held!.complete();
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('organization-project-reading-again')), findsNothing);
+      expect(find.text('demo-docs'), findsNothing);
+      expect(find.text('demo-site'), findsOneWidget);
+      expect(_action('addRepository'), findsOneWidget);
+    });
+
+    // Harm: a reread that fails empties the page, or leaves the last read passing for the project as it stands.
+    testWidgets('a reread that fails keeps the last read, says why, and says it is the last read', (tester) async {
+      final fixture = _HeldReads(organizationFor('pat'));
+      final organization = Organization(fixture);
+      addTearDown(organization.dispose);
+      await organization.refresh();
+      await _open(tester, organization);
+      await tester.pumpAndSettle();
+      await _close(tester);
+      fixture.refuseReads = const OrganizationRefused('Porelo cannot reach the organization.');
+      await _open(tester, organization);
+      await tester.pumpAndSettle();
+      expect(find.text('Porelo cannot reach the organization.'), findsWidgets);
+      expect(find.byKey(const Key('organization-project-as-last-read')), findsOneWidget);
+      expect(find.byKey(const Key('organization-project-reading-again')), findsNothing);
+      expect(find.text('demo-docs'), findsOneWidget);
+      for (final id in changes) {
+        expect(_action(id), findsNothing, reason: id);
+      }
+    });
 
     // Harm: someone who may not is offered a change, or the one who may cannot find it.
     testWidgets('a project admin has every change, on another admin too', (tester) async {

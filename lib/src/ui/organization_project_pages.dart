@@ -374,9 +374,15 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
   String? _problem;
   bool _reading = true;
 
+  /// Whether [_view] is the session's last read, not yet confirmed by this page's own: a change would carry its
+  /// revision, so none is offered.
+  bool _lastRead = false;
+
   @override
   void initState() {
     super.initState();
+    _view = widget.organization.lastReadOf(widget.project);
+    _lastRead = _view != null;
     unawaited(_read());
     widget.organization.addListener(_organizationChanged);
     widget.organization.addWriteRead(_read);
@@ -406,6 +412,7 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
       widget.organization.rememberProjectRevision(view);
       setState(() {
         _view = view;
+        _lastRead = false;
         _problem = null;
       });
     } on OrganizationRefused catch (refused) {
@@ -442,7 +449,7 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
               !member.locked,
         );
     // Before it is opened there is no project.yml to change: opening it is all there is to do.
-    final changes = isAdmin && view.opened;
+    final changes = isAdmin && view.opened && !_lastRead;
     final commands = [
       if (changes)
         for (final policy in ['required', 'optional'])
@@ -452,6 +459,10 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
     final repositoryWords = view == null || !view.opened
         ? 'not read'
         : view.repositoriesProblem ?? '${view.repositories.length} repositories';
+    // Until its first read lands, the head says what the organization's list holds of it, as its row there does.
+    final listed = view == null && _reading && organization != null
+        ? organization.projects.where((each) => each.name == widget.project).firstOrNull
+        : null;
     return ListView(
       key: ValueKey('organization-project ${widget.project}'),
       padding: const EdgeInsets.all(Space.normal),
@@ -464,16 +475,31 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
             'My projects': Key('organization-project-back'),
             'Projects': Key('organization-project-back'),
           },
-          subtitle: _problem != null || _reading || view == null
-              ? 'not read'
-              : '$repositoryWords · ${counted(view.members.length, 'member', 'members')}',
-          status: view != null && organization != null ? StateChip(_myRole(view, organization)) : null,
+          subtitle: view != null && (_lastRead || (_problem == null && !_reading))
+              ? '$repositoryWords · ${counted(view.members.length, 'member', 'members')}'
+              : listed != null
+              ? '${listed.repositories == null ? '' : '${_count(listed.repositories!, 'repository', 'repositories')} · '}'
+                    '${peopleOf(listed)}'
+              : 'not read',
+          status: view != null && organization != null
+              ? StateChip(_myRole(view, organization))
+              : listed != null && _roleIn(organization!, listed) != null
+              ? StateChip(_roleIn(organization, listed)!)
+              : null,
           action: commands.isEmpty
               ? null
               : CommandMenu(tooltip: 'What can be done with ${widget.project}', commands: commands),
         ),
         if (_problem case final problem?) _Problem(problem),
-        if (_reading) Text('Reading ${widget.project}: its address, repositories, and members…'),
+        if (_reading && _lastRead)
+          Text('Reading ${widget.project} again…', key: const Key('organization-project-reading-again'))
+        else if (_reading)
+          Text('Reading ${widget.project}: its address, repositories, and members…'),
+        if (_lastRead && !_reading)
+          Text(
+            'This is ${widget.project} as last read; it could not be read again.',
+            key: const Key('organization-project-as-last-read'),
+          ),
         OrganizationChangeMark(widget.organization),
         for (final change in widget.organization.rowChanges)
           // Putting it on a machine or taking it off is asked from here too: its refusal stands here.
@@ -788,10 +814,11 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
               me: organization?.me,
               // Removing or demoting the last project admin is the store's to refuse.
               // A developer is their Project Admin's; an admin, or a role to or from it, the Organization Admin's.
-              changes: organization?.mayChangeMember(member.role, isProjectAdmin: isAdmin) ?? isAdmin,
+              // A last read not yet confirmed offers no change: it would carry that read's revision.
+              changes: !_lastRead && (organization?.mayChangeMember(member.role, isProjectAdmin: isAdmin) ?? isAdmin),
               roles: [
                 for (final role in view.roles)
-                  if (organization?.mayChangeMember(role, isProjectAdmin: isAdmin) ?? isAdmin) role,
+                  if (!_lastRead && (organization?.mayChangeMember(role, isProjectAdmin: isAdmin) ?? isAdmin)) role,
               ],
               organization: widget.organization,
               view: view,
