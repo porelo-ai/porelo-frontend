@@ -39,13 +39,15 @@ class _Planner {
   final HttpServer server;
   final calls = <(String, String, String?, String)>[];
 
-  /// Writes the address file as the planner does: owner-only, in an owner-only directory.
+  /// Writes the address file as the planner does: owner-only, in an owner-only directory, in one step.
   Future<void> announce(String runtime, {String token = 'token-of-the-test', int mode = 384}) async {
     final directory = await Directory('$runtime/porelo-planner').create(recursive: true);
     await Process.run('chmod', ['700', directory.path]);
-    final file = File('${directory.path}/planner.json');
-    await file.writeAsString(jsonEncode({'port': server.port, 'token': token}));
-    await Process.run('chmod', [mode.toRadixString(8), file.path]);
+    // Written beside it and renamed over, so a window looking meanwhile never sees it before its mode is set.
+    final written = File('${directory.path}/planner.json.new');
+    await written.writeAsString(jsonEncode({'port': server.port, 'token': token}));
+    await Process.run('chmod', [mode.toRadixString(8), written.path]);
+    await written.rename('${directory.path}/planner.json');
   }
 }
 
