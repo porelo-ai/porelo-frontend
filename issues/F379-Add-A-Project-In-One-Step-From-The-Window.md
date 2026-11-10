@@ -1,6 +1,6 @@
 # F379 — Add A Project In One Step From The Window
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** S - one choice in the dialog, and the refusal's words.
 
 **What must be true.** A person naming themselves Project Admin adds a project in the window in one step, as `porelo org project add PROJECT --admin LOGIN --create-repository` does. A person who names someone else keeps the two steps.

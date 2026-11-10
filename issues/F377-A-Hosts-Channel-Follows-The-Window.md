@@ -1,6 +1,6 @@
 # F377 — A Host's Channel Follows The Window
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** S - the channel `porelo-host` defaults to, read from its own version.
 
 **What must be true.** A host the window prepares installs from the window's own channel: a window from `snapshots` makes `snapshots` hosts, one from `releases` makes `releases` hosts.
