@@ -1,7 +1,7 @@
 # F457 — Needs You Names The One Thing To Do
 
-**Status:** Backlog; blocked, for the pull request on a host's forge, by a call that reports it, and for the done
-task's own state, by the backend's state for a task that said it is done.
+**Status:** Implementing, part 4 first: the pull request on a host's forge and the done task's own state, freed by
+Porelo's `PullRequests`/`WatchPullRequests` and the task state `done` (2026-11-10).
 **Size:** L - grown from M at its plan reading: *Needs you* split into one row per cause across the attention model,
 the task model and four views; a seen mark kept safely; a project in class `online` said alike on every screen; built
 in three parts.
