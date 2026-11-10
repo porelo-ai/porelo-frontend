@@ -108,6 +108,45 @@ void main() {
     expect(store.writes[2].base, 'r2');
   });
 
+  group('a project added with its repository in one step', () {
+    const mine = {'project': 'mine', 'admin': 'olive', 'review': 'optional'};
+
+    Future<FixtureOrganization> refusedAndAskedAgain({required bool added}) async {
+      final source = FixtureOrganization(organizationFor('olive'));
+      final organization = Organization(source);
+      addTearDown(organization.dispose);
+      await organization.refresh();
+      if (added) {
+        source.view = organizationFor(
+          'olive',
+          moreProjects: const [
+            OrganizationProject(name: 'mine', admins: ['olive']),
+          ],
+        );
+      }
+      source.refuseNext = const OrganizationRefused(
+        'project mine is added, and its repository is not: the forge refused: ask again',
+        reason: 'not-allowed',
+      );
+      expect(await organization.write(OrganizationChange.addProject, mine), isNotNull);
+      await organization.write(OrganizationChange.addProject, mine);
+      return source;
+    }
+
+    // Harm: the project stands without its repository, and asking again under a new id is refused as a project that
+    // exists, so the step the refusal says is left can never be finished from here.
+    test('refused after the project stood, is asked again under its id, which finishes it', () async {
+      final source = await refusedAndAskedAgain(added: true);
+      expect(source.writes[1].id, source.writes[0].id);
+    });
+
+    // Harm: a refusal that added nothing is asked again on the revision it was refused against.
+    test('refused before the project stood, is a new change when asked again', () async {
+      final source = await refusedAndAskedAgain(added: false);
+      expect(source.writes[1].id, isNot(source.writes[0].id));
+    });
+  });
+
   // Harm: a second change goes out against the revision the first one has just moved past.
   test('the change stays busy until the read after it is in', () async {
     await readAt('r1');

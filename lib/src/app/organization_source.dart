@@ -1305,6 +1305,9 @@ class Organization extends ChangeNotifier {
       changeProgress = 'Reading the Porelo organization again…';
       _changed();
       await refresh();
+      // A project added with its repository in one step may stand now without it. Under the same id Porelo finds the
+      // project it added and makes the repository; under a new one it refuses the project as one that exists.
+      if (refusal != null && _standsSinceAsked(change, input, before: current)) _unanswered[sameChange] = asked;
       if (_writeReads.isNotEmpty) {
         changeProgress = 'Reading the project again…';
         _changed();
@@ -1325,6 +1328,13 @@ class Organization extends ChangeNotifier {
       _changed();
     }
     return refusal;
+  }
+
+  /// Whether [change] adds a project with its repository, and the project stands now where it did not [before].
+  bool _standsSinceAsked(OrganizationChange change, Map<String, String> input, {required OrganizationView? before}) {
+    if (change != OrganizationChange.addProject || input['review'] == null) return false;
+    bool stands(OrganizationView? read) => read?.projects.any((project) => project.name == input['project']) ?? false;
+    return !stands(before) && stands(view);
   }
 
   /// Asks Porelo for the entry a project admin writes for [change], which changes a project file that exists.
