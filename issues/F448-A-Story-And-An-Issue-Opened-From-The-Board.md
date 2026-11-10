@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F448",
   "title": "A Story And An Issue Opened From The Board",
-  "state": "Rework",
+  "state": "Implementing",
   "size": "M",
   "priority": "Medium",
   "rank": 3,
@@ -35,30 +35,54 @@ the item's own web page in the browser.
 - A story read alone, with its issues; an issue read alone: id, repository, title, state, size, blocked by, its story,
   what must be true, and its web link. Both carry the revision. Who builds an issue is its repository, and the task
   working on it where the story's work names one.
+- An issue read alone also names its sub-issues by id.
 - A move of one issue to a waiting or closed state, as the board's move of a story.
+
+## How it stands
+
+- The story's and the issue's screens are the planning package's (`PlanningStoryView` and `PlanningIssueView` in
+  `porelo_planning`, pinned in `pubspec.yaml`), with their breadcrumb, *Open story*/*Open issue* offered only for an
+  `https` link the planner gave, an issue moved alone and saved with the board's moves, the reader's findings blocking
+  first, and the story's work opening its task. The window builds none of it.
+- The window's part is in place and tested against the package's stand-in source: `ShellPlanningHost`
+  (`lib/src/ui/planning_embedding.dart`) keeps the story and the issue opened as the window's own place (`ShellPlace`
+  with `story`/`issue`), so Escape leads from the issue to its story and then to the board with its filter, folds and
+  scroll kept, and the rail shows Planning; its `openLink` is the window's opener (`lib/src/app/links.dart`); a task
+  named by the story's work opens in the window (`WindowTaskChanges`); the finder lists every story and issue
+  (`planningCommands` in `lib/src/app/commands.dart`) and opens them in the same history, and their web pages through
+  the same opener.
+- Through the window's planner (`LocalPlanner`, `lib/src/app/planner.dart`) a story, its issue list and an issue are
+  read from the planner over HTTP by the package's `HttpPlanningSource`; the test against the planner's mock mode is
+  written and skipped where the planner is not installed, as on the machine this was built on.
+- Missing in the package, not built in the window: an issue's sub-issues, which the planner serves on an issue read
+  alone (`subIssues`) but which the package neither reads nor shows; and an issue moved alone against the planner,
+  since its HTTP source refuses saving moves as not offered yet (the planner's issue that brings moves and story work
+  into the screen package). Both stand once the package is pinned at a version that has them.
 
 ## Plan
 
-- `lib/src/app/shell_model.dart`: the planning place gains the story and the issue opened (`ShellPlace` with
-  `story`/`issue`), so the breadcrumb, the back key and the finder reach them as other places.
-- `lib/src/ui/planning_story_view.dart` (new): head (id, priority chip, state, *Open story*), *What it gains*, *Your
-  test*, the issues as a table (issue, title, repository, size, state) with the share in Review or Finished, *No issues
-  yet* where none; each issue row has a state menu that moves that issue alone, pending and saved as on the board.
-- `lib/src/ui/planning_issue_view.dart` (new): state, repository, title, size, blocked by, story (a link back), *Who
-  builds it* (the repository, and the task at work on it from the story's work, opening that task), *What must be
-  true*, the reader's last findings (blocking ones first and marked, notes after, each with file and line where
-  given), *Open issue*.
-- *Open story* and *Open issue* go through `openLink` (`lib/src/app/links.dart`) with the link the machine gave, and
-  only an `https` link is offered, as *How this login works* is.
-- Kept current from the board's watch: a story or issue changed elsewhere changes on its open screen.
-- `test/features/planning_story.feature`: open a story and one of its issues, the breadcrumb back, the web link offered
-  and opened, an issue moved alone and saved. First red: a link the machine did not give offered as *Open issue*.
+- No production code in the window: the screens, the breadcrumb, the links and the moves are the package's.
+- `test/ui/planning_finder_test.dart` (new): from Work, the finder opens a story and the back key leads to the board;
+  it opens an issue and the back key leads to its story, then the board; it opens an issue's web page through the
+  window's opener at the machine's address.
+- `test/client/planner_mock_test.dart`: a story, its issue list and one of its issues read alone through the window's
+  planner in mock mode; bound to Linux, as the planner is.
+- `test/features/planning_story.feature` keeps the screens as the window embeds them: a card opens its story, an issue
+  its reading, the breadcrumb and Escape back with the board's place kept, the exact web links and none without one,
+  the watch refreshing an open screen, refusals in their own words, and an issue moved alone and saved.
+- Once the package shows sub-issues and saves moves through the planner, the pin moves and a scenario per behavior is
+  added here.
 
 ## Acceptance
 
-- Story and issue screens show what the machine says of them, and a change elsewhere reaches an open screen.
-- The breadcrumb leads back to the board at the place it was left (filter, folds and scroll kept).
-- *Open story*/*Open issue* open exactly the machine's link, and are not offered without one.
+- A story and an issue opened from the board, an unfolded card or the finder are the window's place: the breadcrumb and
+  Escape lead back to the story and then to the board at the place it was left (filter, folds and scroll kept), and
+  the rail shows Planning.
+- *Open story*/*Open issue*, on the screen and in the finder, reach exactly the planner's link through the window's
+  opener, and are not offered without an `https` one.
+- Against the planner's mock mode, a story and an issue are read alone through the window's planner.
+- An issue's sub-issues are shown, and an issue moved alone is saved through the planner, once the package offers
+  both.
 
 ## Open questions
 
@@ -66,4 +90,4 @@ the item's own web page in the browser.
 
 ## To be checked
 
-- Nothing yet; the names once the daemon's part is served.
+- The mock-mode test on a machine with the planner installed, and the screens against a live planner.
