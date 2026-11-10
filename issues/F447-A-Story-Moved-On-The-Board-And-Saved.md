@@ -53,13 +53,16 @@ all of them through the planner at once, or *Undo* drops them. A drag into a wor
   revision the board has left refused as `StaleRevision`, a move not allowed refused as `MoveNotAllowed` with the
   planner's reason as the words the board shows, and a move of an unknown story refused as `NoSuchStory`, each in
   the planner's own words. Bound to Linux, and skipped where no planner is installed.
-- Missing in the planner, not built in the window: its mock mode saves no move (its mock store has no save, so every
-  allowed batch answers `NotOffered`), so a saved move and a `PartlySaved` answer cannot be shown against it; both are
-  added to the mock test once the mock saves.
-- The pin: the window takes moves from the planner only once the package is pinned at the version of the planner's
-  issue that brings moves and story work into the screen package. That version also changes how a story's work is
-  started (`PlanningStartTask`, `PlanningTaskChanges.started`, `StoryWork` without `result`), so the window builds
-  against it only together with the start of the work, which is the next issue's.
+- The planner's mock mode saves no move (its mock store has no save, so every allowed batch answers `NotOffered`), so
+  a saved move and a `PartlySaved` answer are shown on the package's stand-in source instead, in
+  `test/features/planning_moves.feature`: a saved move leaves no pending move and the board takes the planner's new
+  revision, so the next save goes through rather than being refused as stale; a `PartlySaved` answer shows on every
+  card of the batch in the planner's words with the repositories pushed and the one not pushed, and the board is read
+  again, so a story the pushed repository took stands where the planner's store holds it. Both are the package's
+  behavior and guard it: each went red when the package was broken on purpose (the saved move kept pending, the old
+  revision kept, no read after `PartlySaved`, its repositories left out of the words).
+- The package is pinned at the planner's version that brings moves and story work into the screen package, together
+  with the start of the work: a refused save refuses its whole batch, and every card of it shows the refusal.
 - A drop on a working state opens the start of the work and moves nothing; that start is the next issue's.
 
 ## Plan
@@ -67,10 +70,10 @@ all of them through the planner at once, or *Undo* drops them. A drag into a wor
 - No production code in the window: the drag, the pending moves, *Save*, *Undo*, the refusals and the call are the
   package's; the leave questions stand in the shell.
 - `test/client/planner_mock_test.dart`: a stale revision, `MoveNotAllowed` with its reason and an unknown story,
-  refused through the window's planner in mock mode; a saved move and `PartlySaved` once the mock saves.
-- `test/features/planning_moves.feature` stays on the package's stand-in source: drag, mark, undo, save, a stale
-  board, refusals in their own words, a drop on a working state, and the leave questions.
-- Once the package is pinned at the version that saves moves, the pin moves together with the start of the work.
+  refused through the window's planner in mock mode.
+- `test/features/planning_moves.feature` stays on the package's stand-in source: drag, mark, undo, save, a saved
+  move taking the planner's new revision, a `PartlySaved` answer and the board read again, a stale board, refusals in
+  their own words, a drop on a working state, and the leave questions.
 
 ## Acceptance
 
@@ -80,7 +83,8 @@ all of them through the planner at once, or *Undo* drops them. A drag into a wor
 - A move refused or overtaken says why in the planner's words and is not lost silently; against the planner's mock
   mode a stale revision, a move not allowed and an unknown story are refused through the window's planner.
 - Leaving Planning or closing the window with pending moves asks first.
-- A saved move and a partly saved batch are shown against the planner once its mock mode saves.
+- A saved move and a partly saved batch are shown on the package's stand-in source, since the planner's mock mode
+  saves no move.
 
 ## Open questions
 

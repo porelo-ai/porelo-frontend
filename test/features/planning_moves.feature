@@ -34,6 +34,28 @@ Feature: Planning moves stay pending until saved
         When I expand planning story issues {'ST291'}
         Then advanced planning issues keep their state
 
+    # Harm: a save keeps the board's old revision, so the next save is refused as stale, or keeps the saved move pending.
+    Scenario: A saved move takes the planner's new revision for the next save
+        When I drag planning story {'ST291'} to {'Review'}
+        And I save planning moves
+        Then planning story {'ST291'} has no pending move
+        When I drag planning story {'ST293'} to {'Review'}
+        And I save planning moves
+        Then no planning move error is shown
+        And planning story {'ST293'} has no pending move
+        And the planning story {'ST293'} is in {'Review'}
+
+    # Harm: a batch saved in some repositories only hides which were pushed, or shows a board the planner no longer holds.
+    Scenario: A partly saved batch says so in the planner's words and reads the board again
+        Given the planning save is partly saved with story {'ST292'} saved in {'Review'}
+        When I drag planning story {'ST291'} to {'Review'}
+        And I drag planning story {'ST292'} to {'Review'}
+        And I save planning moves
+        Then planning story {'ST291'} shows refusal {'The repository refused the push. Pushed: porelo. Not pushed: porelo-host.'}
+        And planning story {'ST292'} shows refusal {'The repository refused the push. Pushed: porelo. Not pushed: porelo-host.'}
+        And the planning story {'ST292'} is in {'Review'}
+        And the planning story {'ST291'} is in {'Backlog'}
+
     # Harm: a batch partly commits or its cards do not take the daemon answer.
     Scenario: Save several stories atomically
         When I drag planning story {'ST291'} to {'Review'}

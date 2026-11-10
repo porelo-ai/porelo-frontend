@@ -16,15 +16,16 @@ import './step/planning_story_has_no_pending_move.dart';
 import './step/i_save_planning_moves.dart';
 import './step/i_expand_planning_story_issues.dart';
 import './step/advanced_planning_issues_keep_their_state.dart';
+import './step/no_planning_move_error_is_shown.dart';
+import './step/the_planning_save_is_partly_saved_with_story_saved_in.dart';
+import './step/planning_story_shows_refusal.dart';
 import './step/the_planning_revision_changes_on_the_machine.dart';
 import './step/the_planning_move_notice_says.dart';
 import './step/planning_save_is_usable.dart';
 import './step/the_planning_machine_refuses_moves_with.dart';
-import './step/planning_story_shows_refusal.dart';
 import './step/planning_story_is_not_marked_moved.dart';
 import './step/i_reload_planning_moves.dart';
 import './step/planning_start_was_requested_for_in.dart';
-import './step/no_planning_move_error_is_shown.dart';
 import './step/i_show_closed_planning_states.dart';
 import './step/i_try_to_leave_planning_moves.dart';
 import './step/planning_asks_before_leaving.dart';
@@ -83,6 +84,36 @@ void main() {
       await thePlanningStoryIsIn(tester, 'ST291', 'Implementing');
       await iExpandPlanningStoryIssues(tester, 'ST291');
       await advancedPlanningIssuesKeepTheirState(tester);
+    });
+    testWidgets('''A saved move takes the planner's new revision for the next save''', (tester) async {
+      await bddSetUp(tester);
+      await iDragPlanningStoryTo(tester, 'ST291', 'Review');
+      await iSavePlanningMoves(tester);
+      await planningStoryHasNoPendingMove(tester, 'ST291');
+      await iDragPlanningStoryTo(tester, 'ST293', 'Review');
+      await iSavePlanningMoves(tester);
+      await noPlanningMoveErrorIsShown(tester);
+      await planningStoryHasNoPendingMove(tester, 'ST293');
+      await thePlanningStoryIsIn(tester, 'ST293', 'Review');
+    });
+    testWidgets('''A partly saved batch says so in the planner's words and reads the board again''', (tester) async {
+      await bddSetUp(tester);
+      await thePlanningSaveIsPartlySavedWithStorySavedIn(tester, 'ST292', 'Review');
+      await iDragPlanningStoryTo(tester, 'ST291', 'Review');
+      await iDragPlanningStoryTo(tester, 'ST292', 'Review');
+      await iSavePlanningMoves(tester);
+      await planningStoryShowsRefusal(
+        tester,
+        'ST291',
+        'The repository refused the push. Pushed: porelo. Not pushed: porelo-host.',
+      );
+      await planningStoryShowsRefusal(
+        tester,
+        'ST292',
+        'The repository refused the push. Pushed: porelo. Not pushed: porelo-host.',
+      );
+      await thePlanningStoryIsIn(tester, 'ST292', 'Review');
+      await thePlanningStoryIsIn(tester, 'ST291', 'Backlog');
     });
     testWidgets('''Save several stories atomically''', (tester) async {
       await bddSetUp(tester);
