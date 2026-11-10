@@ -409,7 +409,14 @@ class _WhileIdle extends StatelessWidget {
 /// The running or refused row, with retry and drop in its menu.
 class OrganizationPendingRow extends StatelessWidget {
   /// Shows [change] independently of the page that started it.
-  const OrganizationPendingRow(this.organization, this.change, {this.name, this.onReview, super.key});
+  const OrganizationPendingRow(
+    this.organization,
+    this.change, {
+    this.name,
+    this.onReview,
+    this.unconfirmed = false,
+    super.key,
+  });
 
   /// The organization keeping the request.
   final Organization organization;
@@ -422,6 +429,9 @@ class OrganizationPendingRow extends StatelessWidget {
 
   /// Lets the person read the project's current state before another attempt.
   final VoidCallback? onReview;
+
+  /// Whether the project's page shows a read of it not yet confirmed: an answered refusal waits for its read.
+  final bool unconfirmed;
 
   @override
   Widget build(BuildContext context) {
@@ -444,7 +454,9 @@ class OrganizationPendingRow extends StatelessWidget {
                 organizationCommand(
                   id: 'retryChange/${target.scope}/${target.name}',
                   label: 'Try again',
-                  unavailable: organization.whyNoRetry(change),
+                  unavailable:
+                      organization.whyNoRetry(change) ??
+                      (unconfirmed && !change.unanswered ? 'Review the project before asking again.' : null),
                   run: () => unawaited(organization.retryRowChange(change)),
                 ),
                 if (onReview != null)

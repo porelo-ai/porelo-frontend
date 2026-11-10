@@ -23,12 +23,14 @@ final _repositoryName = RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$');
 
 /// The person's role in [project] as the organization's lists say it, in the words its page says it: from the
 /// organization's read and what `project list` answered as [listed]. Null for a member whose role it has not said.
+///
+/// A Project Admin is one the organization's read names so: `project list` may have answered before it changed.
 String? _listedRole(OrganizationView view, OrganizationProject project, ListedProject? listed) {
   if (!project.admins.contains(view.me) && !project.members.contains(view.me)) return 'not a member';
   if (!view.holdsRoles) return 'no role';
   if (listed?.locked ?? false) return 'locked';
-  if (project.admins.contains(view.me) || listed?.role == ProjectView.adminRole) return 'Project Admin';
-  return listed?.role;
+  if (project.admins.contains(view.me)) return 'Project Admin';
+  return listed?.role == ProjectView.adminRole ? null : listed?.role;
 }
 
 /// The projects a person is a project admin or a member of, each with the one host carrying it.
@@ -422,8 +424,6 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
     _problem = null;
     widget.organization.addListener(_organizationChanged);
     widget.organization.addWriteRead(_read);
-    // First, as a project read answering before it waits for its members' cards.
-    if (widget.organization.view == null) unawaited(widget.organization.refresh());
     unawaited(_read());
   }
 
@@ -442,6 +442,10 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
     final read = ++_reads;
     final mark = widget.organization.writeMark;
     widget.organization.readingProjectAgain(widget.project);
+    // First, as a project read answering before it waits for its members' cards; one under way is waited for.
+    if (widget.organization.view == null && !widget.organization.reading) {
+      unawaited(widget.organization.refresh());
+    }
     setState(() {
       _reading = true;
       // Until this read lands, what the page shows is the project as last read.
@@ -535,11 +539,11 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
               ? '${listed.repositories == null ? '' : '${_count(listed.repositories!, 'repository', 'repositories')} · '}'
                     '${peopleOf(listed)}'
               : 'not read',
-          status: readRole != null
-              ? StateChip(readRole == 'Project Admin' && !isAdmin && _lastRead ? listedRole ?? 'member' : readRole)
-              : listedRole != null
-              ? StateChip(listedRole)
-              : null,
+          // A last read's role may have changed since: the head says the list's, or none where it has not said it.
+          status: switch (_lastRead || readRole == null ? listedRole : readRole) {
+            final role? => StateChip(role),
+            null => null,
+          },
           action: commands.isEmpty
               ? null
               : CommandMenu(tooltip: 'What can be done with ${widget.project}', commands: commands),
@@ -562,11 +566,20 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
                   change.change == OrganizationChange.createProjectRepository ||
                   change.change == OrganizationChange.addProjectToHost ||
                   change.change == OrganizationChange.removeProjectFromHost))
-            OrganizationPendingRow(widget.organization, change, onReview: () => unawaited(_read())),
+            OrganizationPendingRow(
+              widget.organization,
+              change,
+              onReview: () => unawaited(_read()),
+              unconfirmed: _lastRead,
+            ),
         if (view != null && !view.opened) _notOpened(view),
         if (view != null && view.opened) ...[
           Text(_reviewWords(view.review)),
-          if (!isAdmin) Text('${_adminsWords(view)} Only they change this project.'),
+          // A last read's Project Admins may have changed since: the list's are named where it holds the project.
+          if (!isAdmin)
+            Text(
+              '${_adminsWords(_lastRead && listed != null ? listed.admins : view.admins)} Only they change this project.',
+            ),
           const SizedBox(height: Space.normal),
           _address(view, changes),
           _repositories(view, changes),
@@ -594,6 +607,7 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
           label: 'Put it on a machine…',
           group: 'Organization',
           home: Home.organizationRow,
+          unavailable: widget.organization.busy ? 'Another change is still being asked for.' : null,
           run: () => unawaited(
             putProjectOnAMachine(
               context,
@@ -610,6 +624,7 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
           label: 'Take it off the machine…',
           group: 'Organization',
           home: Home.organizationRow,
+          unavailable: widget.organization.busy ? 'Another change is still being asked for.' : null,
           danger: true,
           run: () => _show(takeProjectOffTheMachine(widget.organization, project: widget.project, machine: machine)),
         ),
@@ -623,9 +638,9 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
     final word => 'Porelo calls the review policy “$word”; this page cannot say whether review is required.',
   };
 
-  String _adminsWords(ProjectView view) => view.admins.isEmpty
+  String _adminsWords(List<String> admins) => admins.isEmpty
       ? 'It has no Project Admin.'
-      : '${view.admins.length == 1 ? 'Project Admin' : 'Project Admins'} ${view.admins.join(', ')}.';
+      : '${admins.length == 1 ? 'Project Admin' : 'Project Admins'} ${admins.join(', ')}.';
 
   Command _reviewCommand(ProjectView view, String policy, {String? repository}) {
     final target = repository == null ? view.name : '$repository in ${view.name}';

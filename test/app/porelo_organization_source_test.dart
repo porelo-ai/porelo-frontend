@@ -537,6 +537,50 @@ void main() {
       expect(alice.standing, CardStanding.trusted);
     });
 
+    // Harm: a card revoked since the last read still holds its roles on a project read while the organization is read.
+    test("a project read answering during any of the organization's reads waits for it", () async {
+      Completer<void>? holding;
+      Map<String, Object?> organization = _org;
+      source = PoreloOrganizationSource(
+        run:
+            (
+              String program,
+              List<String> arguments, {
+              String? inDirectory,
+              Map<String, String> environment = const {},
+              String? input,
+            }) async {
+              if (arguments.first == 'org') await holding?.future;
+              return says(arguments.first == 'org' ? organization : _project);
+            },
+      );
+      await source.read();
+      organization = {
+        ..._org,
+        'people': [
+          for (final person in (_org['people']! as List<Object?>).cast<Map<String, Object?>>())
+            {...person, if (person['login'] == 'alice') 'revoked': true},
+        ],
+      };
+      holding = Completer<void>();
+      final read = source.read();
+      final project = source.readProject('demo');
+      await pumpEventQueue();
+      holding.complete();
+      await read;
+      final alice = (await project).members.singleWhere((each) => each.login == 'alice');
+      expect(alice.standing, CardStanding.revoked);
+    });
+
+    // Harm: with the organization unread, every member's card reads as "not yet", which holds its roles.
+    test('a project read is refused while no read of the organization has answered, never its cards guessed', () async {
+      answer = (arguments) => arguments.first == 'org'
+          ? (code: 69, out: jsonEncode({'reason': 'cannot-say', 'words': 'the organization cannot be read'}), err: '')
+          : says(_project);
+      await expectLater(source.read(), throwsA(isA<OrganizationRefused>()));
+      await expectLater(source.readProject('demo'), throwsA(isA<OrganizationRefused>()));
+    });
+
     // Harm: "could not say" reads as a project with no repositories.
     test('repositories that could not be read are said, never taken for none', () async {
       answer = (_) => says({

@@ -1075,24 +1075,46 @@ class Organization extends ChangeNotifier {
   /// lands, a refused change of it waits.
   void readingProjectAgain(String project) => _projectBases.remove(project);
 
-  /// Forgets every project's last read and revision, as when the organization they belong to is no longer this one.
+  /// Forgets every project's last read and revision, and what was answered of them, as when the organization they
+  /// belong to is no longer this one.
   void _forgetProjects() {
     _projectBases.clear();
     _lastReads.clear();
+    _addresses.clear();
+    _listed
+      ..value = null
+      ..problem = null
+      ..at = null;
+  }
+
+  /// Forgets [project]'s last read and its revision: what its page shows next comes from a read of its own.
+  void _forgetProject(String project) {
+    _projectBases.remove(project);
+    _lastReads.remove(project);
   }
 
   int _writesAsked = 0;
   bool _applying = false;
+
+  /// Whether a project read was not taken since the last request for an entry began: one that asks for no change reads
+  /// the page again.
+  bool _readHeldBack = false;
 
   /// A mark of the writes asked for so far, taken as a project's read starts; null while one is being asked for.
   int? get writeMark => _applying ? null : _writesAsked;
 
   /// Whether a project read that started at [mark] answers the project after every write asked for since: one begun
   /// before a write was answered may hold the project as it stood before, and the write reads it again.
-  bool readsAfterWrites(int? mark) => mark == _writesAsked && !_applying;
+  bool readsAfterWrites(int? mark) {
+    final after = mark == _writesAsked && !_applying;
+    if (!after) _readHeldBack = true;
+    return after;
+  }
 
-  /// How the person stands in [project] as `project list` last answered, or null where it has not.
-  ListedProject? listedOf(String project) => _listed.value?.where((each) => each.name == project).firstOrNull;
+  /// How the person stands in [project] as `project list` last answered of the organization, or null where it has not
+  /// or could not vouch for it.
+  ListedProject? listedOf(String project) =>
+      _listed.value?.where((each) => each.name == project && each.ofTheOrganization && !each.stale).firstOrNull;
 
   /// Keeps what `project list` answered a page that asked it, for [listedOf] and [whyNoRemoval].
   void keepListed(List<ListedProject> listed) {
@@ -1251,7 +1273,15 @@ class Organization extends ChangeNotifier {
   }
 
   /// Reads it again. A read that answers after a later one was asked for says nothing: it may be the older.
-  Future<void> refresh() => _lastRead = _read();
+  Future<void> refresh() {
+    _readsRunning++;
+    return _lastRead = _read().whenComplete(() => _readsRunning--);
+  }
+
+  int _readsRunning = 0;
+
+  /// Whether a read of it is under way.
+  bool get reading => _readsRunning > 0;
 
   /// Ends once the newest read has, so what it decides on is at least as new as a read asked for before.
   Future<void> _newestRead() async {
@@ -1274,7 +1304,9 @@ class Organization extends ChangeNotifier {
       // A stale read cannot tell that a project is gone.
       if (!answer.stale) {
         final standing = {for (final project in answer.projects) project.name};
-        _lastReads.removeWhere((project, _) => !standing.contains(project));
+        for (final project in [..._lastReads.keys, ..._projectBases.keys]) {
+          if (!standing.contains(project)) _forgetProject(project);
+        }
       }
     } on OrganizationRefused catch (refused) {
       if (read != _reads) return;
@@ -1347,7 +1379,7 @@ class Organization extends ChangeNotifier {
       }
       _unanswered.remove(sameChange);
       // Its page shows it as last read only until it reads it again.
-      if (input['project'] case final project?) _lastReads.remove(project);
+      if (input['project'] case final project?) _forgetProject(project);
       if (change.standsBeforeAnOrganization) _forgetProjects();
       _partlyAdded.remove(sameChange);
       if (change == OrganizationChange.createProjectRepository || change == OrganizationChange.removeProject) {
@@ -1458,10 +1490,19 @@ class Organization extends ChangeNotifier {
     busy = true;
     changeProgress = 'Asking Porelo for the entry…';
     _changed();
+    _readHeldBack = false;
+    var written = false;
     try {
-      await source.apply(OrganizationWrite(change: change, input: input, person: view?.me ?? '', base: '', id: ''));
+      _applying = true;
+      try {
+        await source.apply(OrganizationWrite(change: change, input: input, person: view?.me ?? '', base: '', id: ''));
+      } finally {
+        _applying = false;
+      }
       // Made by the source itself, as an older Porelo does: what it holds now is what the page shows next.
+      written = true;
       _writesAsked++;
+      if (input['project'] case final project?) _forgetProject(project);
       changeProgress = 'Reading the Porelo organization again…';
       _changed();
       await refresh();
@@ -1480,6 +1521,12 @@ class Organization extends ChangeNotifier {
     } on Exception {
       return (byHand: null, refusal: 'Porelo could not be asked for the entry. Nothing was changed.');
     } finally {
+      // Nothing was changed, so a read held back while it was asked holds the project as it stands: it is read again.
+      if (!written && _readHeldBack) {
+        for (final read in List.of(_writeReads)) {
+          await read();
+        }
+      }
       busy = false;
       changeProgress = null;
       _changed();

@@ -440,6 +440,59 @@ void main() {
         isNull,
       );
       expect(organization.lastReadOf('demo'), isNull);
+      expect(reviewed(organization), isFalse, reason: 'its revision is the one before the change');
+    });
+
+    // Harm: a change written by an older Porelo itself leaves the project shown, and asked again, as it was before.
+    test('is forgotten once an older Porelo writes its project file itself', () async {
+      final (source, organization) = await remembered();
+      source.writesProjectFiles = true;
+      final asked = await organization.entryFor(OrganizationChange.changeProjectReview, const {
+        'project': 'demo',
+        'review': 'required',
+      });
+      expect((asked.byHand, asked.refusal), (null, null));
+      expect(organization.lastReadOf('demo'), isNull);
+      expect(reviewed(organization), isFalse);
+    });
+
+    // Harm: a project read that answers while an older Porelo writes the project file passes for the project after it.
+    test('a read answering while an older Porelo writes the project file is not taken', () async {
+      final (source, organization) = await remembered();
+      final writing = Completer<void>();
+      source
+        ..writesProjectFiles = true
+        ..holdWrites = writing.future;
+      final mark = organization.writeMark;
+      final asked = organization.entryFor(OrganizationChange.changeProjectReview, const {
+        'project': 'demo',
+        'review': 'required',
+      });
+      await pumpEventQueue();
+      expect(organization.readsAfterWrites(mark), isFalse);
+      writing.complete();
+      await asked;
+      expect(organization.readsAfterWrites(mark), isFalse);
+    });
+
+    // Harm: another organization's role or lock in a project of the same name is said in this one's.
+    test('what project list said is forgotten with the organization, and only a fresh entry of it is named', () async {
+      final (_, organization) = await remembered();
+      organization.keepListed(const [ListedProject(name: 'demo', source: 'organization', role: 'admin')]);
+      expect(organization.listedOf('demo')?.role, 'admin');
+      expect(
+        await organization.write(OrganizationChange.chooseOrganization, const {
+          'address': 'git@forge.example.org:o/org.git',
+        }),
+        isNull,
+      );
+      expect(organization.listedOf('demo'), isNull);
+      organization.keepListed(const [
+        ListedProject(name: 'demo', source: 'organization', role: 'admin', stale: true),
+        ListedProject(name: 'other', source: 'local'),
+      ]);
+      expect(organization.listedOf('demo'), isNull, reason: 'a stale answer');
+      expect(organization.listedOf('other'), isNull, reason: "not the organization's");
     });
 
     // Harm: a removed project's page shows it at once as if it stood.
@@ -451,6 +504,7 @@ void main() {
       source.view = _holding('r3');
       await organization.refresh();
       expect(organization.lastReadOf('demo'), isNull);
+      expect(reviewed(organization), isFalse);
     });
   });
 }

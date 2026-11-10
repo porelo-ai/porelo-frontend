@@ -68,6 +68,24 @@ class _HeldReads extends FixtureOrganization {
   }
 }
 
+/// Holds the organization's reads until the test lets one answer, and counts them.
+class _HeldOrganization extends _HeldReads {
+  _HeldOrganization(super.view);
+
+  /// What the organization's reads wait for.
+  final organization = Completer<void>();
+
+  /// How many reads of the organization were asked for.
+  int organizationReads = 0;
+
+  @override
+  Future<OrganizationView> read() async {
+    organizationReads++;
+    await organization.future;
+    return super.read();
+  }
+}
+
 /// An action of the page, its machine's among them.
 Finder _command(String id) => id.startsWith('project.')
     ? find.byWidgetPredicate(
@@ -1210,33 +1228,143 @@ void main() {
       });
     }
 
+    /// [me]'s organization, demo in it as [demo] says.
+    OrganizationView holdingDemo(String me, OrganizationProject demo) {
+      final before = organizationFor(me);
+      return OrganizationView(
+        name: before.name,
+        keptIn: before.keptIn,
+        vouchedBy: before.vouchedBy,
+        revision: 'r2',
+        me: me,
+        persons: before.persons,
+        hosts: before.hosts,
+        owners: before.owners,
+        projects: [demo],
+      );
+    }
+
+    /// Opens demo again as its last read, after the organization's list came to say [demo].
+    Future<void> reopenAfter(
+      WidgetTester tester,
+      _HeldReads fixture,
+      Organization organization,
+      String me,
+      OrganizationProject demo,
+    ) async {
+      await _close(tester);
+      fixture
+        ..view = holdingDemo(me, demo)
+        ..held = Completer<void>();
+      await organization.refresh();
+      await _open(tester, organization);
+      expect(find.byKey(const Key('organization-project-reading-again')), findsOneWidget);
+    }
+
+    const demoted = OrganizationProject(
+      name: 'demo',
+      admins: ['mia'],
+      members: ['pat'],
+      host: 'build',
+      repositories: 1,
+    );
+
     // Harm: a last read calls someone the Project Admin, whose change is signed, after the list has demoted them.
     testWidgets('a last read claims no Project Admin the list no longer names', (tester) async {
       final (fixture, organization) = await read(tester, organizationFor('pat'));
       expect(_chip(tester), 'Project Admin');
-      await _close(tester);
-      final before = organizationFor('pat');
-      fixture
-        ..view = OrganizationView(
-          name: before.name,
-          keptIn: before.keptIn,
-          vouchedBy: before.vouchedBy,
-          revision: 'r2',
-          me: 'pat',
-          persons: before.persons,
-          hosts: before.hosts,
-          owners: before.owners,
-          projects: const [
-            OrganizationProject(name: 'demo', admins: ['mia'], members: ['pat'], host: 'build', repositories: 1),
-          ],
-        )
-        ..held = Completer<void>();
-      await organization.refresh();
-      await _open(tester, organization);
+      // As its row under My projects keeps it, from before the demotion.
+      organization.keepListed(const [ListedProject(name: 'demo', source: 'organization', role: 'admin')]);
+      await reopenAfter(tester, fixture, organization, 'pat', demoted);
       expect(_chip(tester), isNot('Project Admin'));
       expect(find.text('A change is signed with your key.'), findsNothing);
       fixture.held!.complete();
       await tester.pumpAndSettle();
+    });
+
+    // Harm: a last read names a role, or Project Admins, the list no longer says, or guesses one it has not said.
+    testWidgets('a last read names the role and the Project Admins as the list says them, and guesses none', (
+      tester,
+    ) async {
+      final (fixture, organization) = await read(tester, organizationFor('pat'));
+      await reopenAfter(tester, fixture, organization, 'pat', demoted);
+      expect(_chip(tester), isNull, reason: 'the list has not said what pat is now');
+      expect(find.text('Project Admin mia. Only they change this project.'), findsOneWidget);
+      fixture.held!.complete();
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('a last read says a member the list no longer holds is none', (tester) async {
+      final (fixture, organization) = await read(tester, organizationFor('mia'));
+      expect(_chip(tester), 'developer');
+      await reopenAfter(
+        tester,
+        fixture,
+        organization,
+        'mia',
+        const OrganizationProject(name: 'demo', admins: ['pat'], host: 'build', repositories: 1),
+      );
+      expect(_chip(tester), 'not a member');
+      fixture.held!.complete();
+      await tester.pumpAndSettle();
+    });
+
+    // Harm: a refused placing is asked again from a last read the page has not confirmed.
+    testWidgets('a refused placing waits for the read under way before it is asked again', (tester) async {
+      final (fixture, organization) = await read(tester, withMachine);
+      fixture.refuseNext = const OrganizationRefused('The machine said no.');
+      await organization.write(OrganizationChange.removeProjectFromHost, {
+        'host': 'build',
+        'project': 'demo',
+      }, provisional: true);
+      await tester.pumpAndSettle();
+      String? whyNot() => tester
+          .widget<CommandMenu>(_action('retryChange/organization-projects/demo'))
+          .commands
+          .singleWhere((command) => command.id == 'organization.retryChange/organization-projects/demo')
+          .unavailable;
+      expect(whyNot(), isNull, reason: 'the page read the project again after the refusal');
+      await _close(tester);
+      fixture.held = Completer<void>();
+      await _open(tester, organization);
+      expect(whyNot(), 'Review the project before asking again.');
+      fixture.held!.complete();
+      await tester.pumpAndSettle();
+      expect(whyNot(), isNull);
+    });
+
+    // Harm: a machine's change is begun while another change is still being asked for.
+    testWidgets("a machine's changes wait while another change is asked", (tester) async {
+      final (fixture, organization) = await read(tester, withMachine);
+      final writing = Completer<void>();
+      fixture.holdWrites = writing.future;
+      final write = organization.write(OrganizationChange.lockProjectMember, {'project': 'demo', 'login': 'mia'});
+      await tester.pump();
+      final takeOff = tester
+          .widget<CommandMenu>(_command('project.takeOffMachine'))
+          .commands
+          .singleWhere((command) => command.id == 'project.takeOffMachine');
+      expect(takeOff.unavailable, 'Another change is still being asked for.');
+      writing.complete();
+      expect(await write, isNull);
+      await tester.pumpAndSettle();
+    });
+
+    // Harm: a page opened while the organization is read starts a second read, which throws the first away.
+    testWidgets("a page opened while the organization is read waits for that read, and asks none of its own", (
+      tester,
+    ) async {
+      final fixture = _HeldOrganization(withMachine)..projects = {'demo': everything};
+      final organization = Organization(fixture);
+      addTearDown(organization.dispose);
+      final reading = organization.refresh();
+      await _open(tester, organization);
+      expect(fixture.organizationReads, 1);
+      fixture.organization.complete();
+      await reading;
+      await tester.pumpAndSettle();
+      expect(fixture.organizationReads, 1);
+      offers(findsOneWidget);
     });
 
     // Harm: a read begun before a change was answered passes for the project after it, and is kept as its last read.
@@ -1253,14 +1381,70 @@ void main() {
       expect(fixture.reads, 1, reason: 'the page read the project while the change was asked');
       expect(find.textContaining('Reading demo: its address'), findsOneWidget, reason: 'its answer is not taken');
       expect(_command('addRepository'), findsNothing);
-      await _close(tester);
+      expect(organization.lastReadOf('demo'), isNull);
+      fixture.held = Completer<void>();
+      writing.complete();
+      await tester.pump();
+      await tester.pump();
+      expect(fixture.reads, 2, reason: 'the change read the open page again');
+      expect(find.textContaining('Reading demo: its address'), findsOneWidget);
+      fixture.held!.complete();
+      expect(await write, isNull);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Reading demo'), findsNothing);
+      offers(findsOneWidget);
+    });
+
+    testWidgets('a read begun before a change is asked, answering while it is, counts only once it is read again', (
+      tester,
+    ) async {
+      final fixture = _HeldReads(withMachine)
+        ..projects = {'demo': everything}
+        ..held = Completer<void>();
+      final organization = Organization(fixture);
+      addTearDown(organization.dispose);
+      await organization.refresh();
+      await _open(tester, organization);
+      final writing = Completer<void>();
+      fixture.holdWrites = writing.future;
+      final write = organization.write(OrganizationChange.addProjectToHost, {'host': 'spare', 'project': 'other'});
+      fixture.held!.complete();
+      await tester.pump();
+      await tester.pump();
+      expect(find.textContaining('Reading demo: its address'), findsOneWidget, reason: 'its answer is not taken');
+      expect(organization.lastReadOf('demo'), isNull);
       writing.complete();
       expect(await write, isNull);
-      fixture.held = Completer<void>();
-      await _open(tester, organization);
-      expect(find.byKey(const Key('organization-project-reading-again')), findsNothing, reason: 'nothing was kept');
-      fixture.held!.complete();
       await tester.pumpAndSettle();
+      expect(fixture.reads, 2);
+      expect(find.textContaining('Reading demo'), findsNothing);
+      offers(findsOneWidget);
+    });
+
+    // Harm: a read held back while an entry is asked for, which changes nothing, leaves the page reading for good.
+    testWidgets('a read answering while an entry is asked for is read again once nothing was changed', (tester) async {
+      final fixture = _HeldReads(withMachine)
+        ..projects = {'demo': everything}
+        ..held = Completer<void>();
+      final organization = Organization(fixture);
+      addTearDown(organization.dispose);
+      await organization.refresh();
+      await _open(tester, organization);
+      final writing = Completer<void>();
+      fixture.holdWrites = writing.future;
+      final asked = organization.entryFor(OrganizationChange.changeProjectReview, {
+        'project': 'demo',
+        'review': 'required',
+      });
+      fixture.held!.complete();
+      await tester.pump();
+      await tester.pump();
+      expect(find.textContaining('Reading demo: its address'), findsOneWidget, reason: 'its answer is not taken');
+      writing.complete();
+      expect((await asked).byHand, isNotNull);
+      await tester.pumpAndSettle();
+      expect(fixture.reads, 2);
+      expect(find.textContaining('Reading demo'), findsNothing);
       offers(findsOneWidget);
     });
 

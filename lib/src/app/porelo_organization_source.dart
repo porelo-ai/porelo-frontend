@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -28,8 +29,11 @@ class PoreloOrganizationSource implements OrganizationSource, FoundingChecks {
   /// How people stood at the last read, for what `project show` does not say of them; null before any read answered.
   Map<String, CardStanding>? _standing;
 
-  /// The organization's read under way, which a project read answering before the first one waits for.
+  /// The organization's newest read while it is under way, which a project read answering meanwhile waits for.
   Future<void>? _organizationRead;
+
+  /// Whether the organization was asked for: once it was, a project read names no card it has not answered.
+  bool _organizationAsked = false;
 
   Future<Map<String, Object?>> _ask(List<String> arguments, {bool mayTrust = true}) async {
     final Ran ran;
@@ -120,8 +124,15 @@ class PoreloOrganizationSource implements OrganizationSource, FoundingChecks {
 
   @override
   Future<OrganizationView> read() {
+    _organizationAsked = true;
     final reading = _readOrganization();
-    _organizationRead = reading.then<void>((_) {}, onError: (Object _) {});
+    final settled = reading.then<void>((_) {}, onError: (Object _) {});
+    _organizationRead = settled;
+    unawaited(
+      settled.then((_) {
+        if (identical(_organizationRead, settled)) _organizationRead = null;
+      }),
+    );
     return reading;
   }
 
@@ -253,10 +264,20 @@ class PoreloOrganizationSource implements OrganizationSource, FoundingChecks {
   @override
   Future<ProjectView> readProject(String project) async {
     final answer = await _ask(['project', 'show', project]);
-    // Its members' cards stand in the organization's answer.
-    if (_standing == null) await _organizationRead;
-    final standing = _standing ?? const <String, CardStanding>{};
+    // Its members' cards stand in the organization's answer: the newest under way, or else the last that answered.
+    for (var reading = _organizationRead; reading != null; reading = _organizationRead) {
+      await reading;
+    }
+    final known = _standing;
+    final standing = known ?? const <String, CardStanding>{};
     return _reading(() {
+      // A card no answer said is no card "not yet" vouched for, which holds its roles: the read waits for one.
+      if (known == null && _organizationAsked && _maps(answer, 'members').isNotEmpty) {
+        throw const OrganizationRefused(
+          'The Porelo organization could not be read, so how the members of this project stand cannot be said.',
+          answered: false,
+        );
+      }
       final repositories = _maybeMap(answer, 'repositories');
       final state = repositories == null ? null : _text(repositories, 'state');
       return ProjectView(

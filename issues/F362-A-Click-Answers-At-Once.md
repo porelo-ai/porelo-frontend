@@ -89,6 +89,19 @@ An earlier issue, *A Server Dialog Opens At Once*, settled one dialog, not this 
   again under its own id and revision, never the shown read's; the machine's changes stay offered while a first read
   runs with no last read shown, as they act on the organization's read; a member whose role `project list` has not
   said gets no role in the head before the read, rather than a guessed one.
+- **A second reading of the code found six things to fix and three to consider; all were taken, none declined.** A
+  Project Admin is now only one the organization's read names, not one `project list` said before a demotion, and a
+  last read's head says the role the list says, or none where it has not said it, and names the list's Project Admins.
+  A project leaving the list, a taken change of it, and a change an older Porelo writes itself forget its revision with
+  its last read; what `project list` answered and the kept addresses are forgotten with the organization, and only a
+  fresh entry of the organization's is used. An answered refusal of putting a project on a machine, taking it off, or
+  making its repository offers no *Try again* while the page shows a last read. A project read waits for any read of
+  the organization under way, and one whose members' cards no read of the organization has answered is refused, after
+  the organization was asked and failed, rather than calling every card not yet asked about; the page starts the
+  organization's read only where none runs, and *Try again* starts it where none has answered. A request for an entry
+  counts as a write while it is asked, and a read held back meanwhile is read again where nothing was changed. The
+  machine's changes wait while another change is asked. Each test was seen red, the two reads answering during a
+  change and the read again after a request for an entry by breaking the code on purpose.
 
 ## What to measure next
 
