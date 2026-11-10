@@ -317,6 +317,21 @@ class PlanStory {
   /// The first recorded outcome requiring attention, if any.
   WorkEnded? get ended => work?.ended;
 
+  /// The issues a move of this story changes, as the daemon chooses them: those in the earliest open state in
+  /// workflow order, or in the earliest closed state when all are closed; an issue outside the workflow is none.
+  List<PlanIssue> leastAdvancedIssues(List<PlanState> states) {
+    int place(PlanIssue issue) => states.indexWhere((state) => state.name == issue.state);
+    final placed = issues.where((issue) => place(issue) >= 0).toList();
+    final open = placed.where((issue) => states[place(issue)].kind != 'CLOSED').toList();
+    final candidates = open.isEmpty ? placed : open;
+    if (candidates.isEmpty) return const [];
+    final earliest = candidates.map(place).reduce((a, b) => a < b ? a : b);
+    return [
+      for (final issue in candidates)
+        if (place(issue) == earliest) issue,
+    ];
+  }
+
   /// The number in Review or Finished, when the list and every issue state were reported.
   int? get completedIssues => issuesReported && issues.every((issue) => issue.state.isNotEmpty)
       ? issues.where((issue) => issue.state == 'Review' || issue.state == 'Finished').length

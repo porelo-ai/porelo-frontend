@@ -46,11 +46,9 @@ Map<String, dynamic> applyPlanningMove(Map<String, dynamic> source, Map<String, 
       });
     }
     if (isStory) {
-      for (final item in (story!['issues'] as List? ?? []).cast<Map<String, dynamic>>()) {
-        if (item['state'] == from) {
-          item['state'] = to;
-          moved.add(item['id'] as String);
-        }
+      for (final item in _leastAdvanced(states, (story!['issues'] as List? ?? []).cast<Map<String, dynamic>>())) {
+        item['state'] = to;
+        moved.add(item['id'] as String);
       }
       story['state'] = to;
     } else {
@@ -59,20 +57,24 @@ Map<String, dynamic> applyPlanningMove(Map<String, dynamic> source, Map<String, 
     }
   }
   for (final story in stories) {
-    final issues = (story['issues'] as List? ?? []).cast<Map<String, dynamic>>();
-    if (issues.isEmpty) continue;
-    final open = issues
-        .where((issue) => states.any((state) => state['name'] == issue['state'] && state['kind'] != 'CLOSED'))
-        .toList();
-    final candidates = open.isEmpty ? issues : open;
-    candidates.sort(
-      (a, b) => states
-          .indexWhere((state) => state['name'] == a['state'])
-          .compareTo(states.indexWhere((state) => state['name'] == b['state'])),
-    );
-    story['state'] = candidates.first['state'];
+    final least = _leastAdvanced(states, (story['issues'] as List? ?? []).cast<Map<String, dynamic>>());
+    if (least.isNotEmpty) story['state'] = least.first['state'];
   }
   board['revision'] = '${source['revision']}:moved';
   board['moved'] = moved;
   return board;
+}
+
+/// The issues in the earliest open state in workflow order, or in the earliest closed state when all are closed.
+List<Map<String, dynamic>> _leastAdvanced(List<Map<String, dynamic>> states, List<Map<String, dynamic>> issues) {
+  int place(Map<String, dynamic> issue) => states.indexWhere((state) => state['name'] == issue['state']);
+  final placed = issues.where((issue) => place(issue) >= 0).toList();
+  final open = placed.where((issue) => states[place(issue)]['kind'] != 'CLOSED').toList();
+  final candidates = open.isEmpty ? placed : open;
+  if (candidates.isEmpty) return const [];
+  final earliest = candidates.map(place).reduce((a, b) => a < b ? a : b);
+  return [
+    for (final issue in candidates)
+      if (place(issue) == earliest) issue,
+  ];
 }

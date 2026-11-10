@@ -21,6 +21,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The footer's refresh and actions counts name the machine they count, and a refresh that lost contact says so.
 - *Put it on the machine* stays open until the organization answers: a refusal is said there, and a placing taken always goes on in its own dialog to its end.
 - A machine's page of a project lists the repositories it carries first and folds the others under *Not carried here*, with their count; the host's `not-carried` reads as "not carried here".
+- A saved story move on *Planning* counts as made once the machine moves the story's least advanced issues, as the machine chooses them, rather than staying pending with *The machine did not confirm this destination* when the card shows the story ahead of its issues.
 
 ### Added
 

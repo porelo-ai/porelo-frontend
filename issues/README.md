@@ -97,6 +97,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f447"></a>[F447](F447-A-Story-Moved-On-The-Board-And-Saved.md) | M | — | A story dragged to another state, kept pending until saved through the machine or undone; a drop on a working state starts its work instead. |
 | <a id="f448"></a>[F448](F448-A-Story-And-An-Issue-Opened-From-The-Board.md) | M | — | A story's and an issue's screen with a breadcrumb and *Open story*/*Open issue*, an issue moved alone. |
 | <a id="f449"></a>[F449](F449-Work-On-A-Story-Started-From-The-Board.md) | M | — | *Start work* for a story, filled by the machine's proposal: mode, agent, model; the tasks and coordinator shown, not typed; the agent's outcome on its ended run and under *Needs you*. |
+| <a id="f451"></a>[F451](F451-Leftovers-Of-The-Planning-Board.md) | — | — | The mock's planning board under the interface's rule for a story's state, and a story's move taking the issues that rule names, in the mock and the client. |
 
 ### Rework
 
@@ -109,7 +110,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 |---|---|---|---|
 | <a id="f203"></a>[F203](F203-This-Repository-Worked-In-A-Porelo-Task.md) | S | — | This repository's agent working in an attended Porelo task on the host, its build green on the host's Forgejo, reached in the room, with a way back. |
 | <a id="f457"></a>[F457](F457-Needs-You-Names-The-One-Thing-To-Do.md) | L | — | *Needs you* items name one action, close with their cause, can be marked seen, embed no task tile; nothing waits at the gate in class online; a done task shown done; the commit's makers shown. |
-| <a id="f451"></a>[F451](F451-Leftovers-Of-The-Planning-Board.md) | S | — | The mock's planning board under the interface's rule for a story's state, and a story's move taking the issues that rule names, in the mock and the client. |
 
 ### Backlog
 

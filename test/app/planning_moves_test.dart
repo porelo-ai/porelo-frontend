@@ -640,4 +640,49 @@ void main() {
     expect(checked, isNotEmpty);
     expect(breaking, isEmpty);
   });
+
+  // Harm: the stand-in moves issues the daemon leaves, so a scenario saves a board the daemon never produces.
+  test('the stand-in moves a story by its least advanced issues, whatever state the story reports', () {
+    final source = _fixture();
+    final story = (source['stories'] as List<dynamic>).first as Map<String, dynamic>;
+    story['state'] = 'Elsewhere';
+    final result = applyPlanningMove(source, {
+      'revision': 'initial',
+      'moves': [
+        {'story': 'StoryOne', 'to': 'Done'},
+      ],
+    });
+    final moved = (result['stories'] as List<dynamic>).first as Map<String, dynamic>;
+    expect(result['moved'], ['IssueOne']);
+    expect((moved['issues'] as List<dynamic>).map((issue) => issue['state']), ['Done', 'Elsewhere']);
+  });
+
+  // Harm: the board calls a story move the machine made unconfirmed, keeping a saved move pending.
+  test('a story move expects its least advanced issues to move, not those in its shown state', () async {
+    board.move('StoryOne', 'Done');
+    backend.readFailure = const VarlinkException('org.fuin.porelo.Tasks1.PlanningAdapterRefused', {
+      'adapter': 'board',
+      'detail': 'The store is not reachable',
+    });
+    await board.save();
+    // The reread failed, so the card shows its destination while its issues stand in Done and Elsewhere.
+    expect(board.stories.first.state, 'Done');
+    expect(board.stories.first.issues.map((issue) => issue.state), ['Done', 'Elsewhere']);
+    backend.readFailure = null;
+    backend.listing = Completer<PlanningSnapshot>();
+    backend.listingStarted = Completer<void>();
+    board.move('StoryOne', 'Ready');
+    final saving = board.save();
+    await backend.listingStarted!.future;
+    expect(backend.calls.last['moves'], [
+      {'story': 'StoryOne', 'to': 'Ready'},
+    ]);
+    // The machine moved IssueTwo, the least advanced; the board must take that as its confirmation.
+    expect(backend.data['moved'], ['IssueTwo']);
+    expect(board.pending['StoryOne']?.problem, isNull);
+    expect(board.pending, isEmpty);
+    expect(board.stories.first.issues.map((issue) => issue.state), ['Done', 'Ready']);
+    backend.listing!.complete(PlanningSnapshot.from(backend.data));
+    await saving;
+  });
 }
