@@ -65,7 +65,36 @@ Read in today's code at its plan reading; the parts are built in this order, eac
 Part 4 first: the pull request on a host's forge and the done task's own state, freed by Porelo's
 `PullRequests`/`WatchPullRequests` and the task state `done` (2026-11-10).
 
-- **Part 1 built** (2026-11-10), parts 2 and 3 not yet:
+- **Part 2 built** (2026-11-10), part 3 not yet:
+  - *Seen* stands only where nothing is owed: a silent machine, an ended agent with nothing outside the gate, a
+    question that ran out, dropped questions, the notice of machines set aside (new) and a story's ended work (new,
+    beside the planning package's row; the package itself is unchanged). A question, a push at the gate, a pull
+    request and a stopped reading offer none, and an end that left files outside the gate neither offers *Seen* nor
+    goes when its log is read or its work opened; a mark an older build kept for such an end hides nothing.
+  - Each mark holds its occurrence, never an error's words: an end by its time (or its state's start), its outcome
+    and its count of files; a question that ran out by its identity and the time it ran out
+    (`<machine>/<task>/<key> at <time>`); a story's end by its entry and the time its work ended; the set-aside
+    notice by the machines it names; a silent machine by its name, the mark going the moment it answers, so it is
+    the silence since its last answer; dropped questions by their count, which a new drop raises. An end or a story
+    end without any time is seen only for the life of the window, so it cannot hide the next.
+  - Old marks: a seen question that ran out kept without a time names no occurrence, so it hides none and is dropped
+    at the next pruning; old end marks already held their time.
+  - Pruning: nothing is pruned or written before the settings are read (`Settings.loaded`); until then a mark lives
+    in the window only. An end's mark goes once its machine answered and read its list without it; a story's once
+    its board is live and complete and says that end no longer; the set-aside mark once the stored machines were
+    read and name other ones. Questions that ran out come only from the `Prompts` stream, which never says one is
+    gone: a seen one is kept 7 days (`Attention.ranOutSeenKeptFor`), long enough to outlast a computer asleep over a
+    weekend when the machine sends the same occurrence again on a new connection, and at most 50.
+  - Seen red first: `test/app/seen_marks_test.dart` (a question running out again is said again; an older build's
+    mark hides nothing; a seen mark kept a week, then dropped; an end with files outside the gate cannot be put away
+    nor hidden by a mark; a mark set before the settings were read keeps the stored ones), a story's end in
+    `test/app/planning_attention_test.dart`, the set-aside notice in `test/app/host_card_tunnel_test.dart`, and no
+    *Seen* on an end with files outside the gate, a question or a push in `test/ui/needs_you_causes_test.dart`.
+    `needs_a_person.feature`'s scenario on files outside the gate changed by design: it now finds no *Seen* and the
+    count unchanged after the log is read, where it put the end away before. The test of an end put away on a slow
+    machine in `test/ui/work_page_faults_test.dart`, and the feature tests' window, now read their settings first, as
+    the window does.
+- **Part 1 built** (2026-11-10):
   - `Attention.causes` makes one row per cause: each open question by its own identity
     (`question <machine>/<task>/<key>`), a wait the task says it is in with nothing asked (`waits`), an end nobody has
     seen (`ended`) and a push at the gate (`gate`), so a question no longer hides an ended agent and an ended agent no
@@ -73,8 +102,8 @@ Part 4 first: the pull request on a host's forge and the done task's own state, 
     when its work holds a push; the *Got it* on a kept row is gone with the row.
   - Each row offers its cause's action: a question *Keep it blocked* and *Let it through* (and its terminal), an end
     *Read its log* and *Put it away*, a push *Review at the gate*; reviewing the push no longer puts the end away. A
-    held message is still decided only in its dialog, once its text was read; no decision named *Rework…* exists in
-    the window, so none was kept.
+    held message is still decided only in its dialog, once its text was read. *Rework…* belongs to a stopped
+    reading's row, drawn by the planning package with *Review anyway* and *One more round*, and is unchanged.
   - No task tile, menu or tile button stands in a row; the tile widget is gone, and *Work* keeps the task's own. What
     only the tile said is on the cause's row when opened: `unenforced` clearance, asked before, a question's deadline,
     files changed that never reached the gate (also on the folded row), and a question whose work the machine does not

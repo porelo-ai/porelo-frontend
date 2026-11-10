@@ -70,6 +70,7 @@ class _Environment {
   late Attention attention;
   final backends = <_Backend>[];
   Future<void> open(_Backend backend) async {
+    await settings.load();
     active = backend;
     backends.add(backend);
     machines = Machines(
@@ -98,11 +99,13 @@ class _Environment {
       chosenProject: () => machines.fleet.selectedProject?.name,
     );
     boards = PlanningBoards(client);
-    attention = Attention(machines)..planning = boards;
+    attention = Attention(machines, settings)..planning = boards;
     await _turn();
   }
 
-  List<String> get planningRows => [
+  List<String> get planningRows => rowsOf(attention);
+
+  List<String> rowsOf(Attention attention) => [
     for (final row in attention.openRows)
       if (row.kind == AttentionKind.planning) row.id,
   ];
@@ -193,5 +196,41 @@ void main() {
     await _turn();
     expect(env.planningRows, isEmpty);
     expect(env.boards.sources.single.storyWork, isEmpty);
+  });
+
+  // Harm: a story's ended work that only informs can never be put away, comes back at every start, or once seen hides
+  // a later end of the same story.
+  test("a story's ended work is seen until the story's work ends again", () async {
+    final planning = _Planning(_snapshot('initial', working: true));
+    StoryWorkStatus endedAt(String at) => StoryWorkStatus.from({
+      'work': {
+        'atWork': false,
+        'tasks': [
+          {
+            'task': 'main',
+            'ended': {'at': at, 'outcome': 'BLOCKED', 'why': 'Needs a repository key.', 'answer': ''},
+          },
+        ],
+      },
+    });
+    planning.status = endedAt('2026-11-10T09:00:00Z');
+    final env = _Environment();
+    await env.open(_Backend(planning));
+    addTearDown(env.close);
+    expect(env.planningRows, ['story ended builder/demo/story']);
+
+    env.attention.storyEndSeen(env.attention.openRows.firstWhere((row) => row.kind == AttentionKind.planning));
+    await _turn();
+    expect(env.planningRows, isEmpty, reason: 'seen');
+
+    final again = Attention(env.machines, env.settings)..planning = env.boards;
+    addTearDown(again.dispose);
+    await _turn();
+    expect(env.rowsOf(again), isEmpty, reason: 'seen stays seen past a restart');
+
+    planning.status = endedAt('2026-11-10T10:00:00Z');
+    planning.push('demo', _snapshot('ended-again', working: true));
+    await _turn();
+    expect(env.planningRows, ['story ended builder/demo/story'], reason: 'its work ended again');
   });
 }

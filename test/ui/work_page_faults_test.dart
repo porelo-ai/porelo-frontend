@@ -169,6 +169,8 @@ void main() {
       });
       const far = Machine(name: 'elsewhere', socketPath: '/tmp/elsewhere.sock');
       final settings = Settings(MemorySettingsStore());
+      // As the application does: a mark is kept in the settings only once they were read.
+      await settings.load();
       final held = _HeldList(<Task>[ended('porelo-far')]);
       FakeBackend here() => FakeBackend(<Task>[ended('porelo-near'), ended('porelo-near-2')])..nodeId = 'here';
 

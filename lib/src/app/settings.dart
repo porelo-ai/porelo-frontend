@@ -460,16 +460,26 @@ class RanOutQuestion {
     required this.task,
     required this.shown,
     this.seen = false,
+    this.seenAt = '',
   });
 
-  /// Reads one from the settings file, or null for one it cannot read.
+  /// Reads one from the settings file, or null for one it cannot read. One an older build kept has no `seenAt`.
   static RanOutQuestion? fromStored(Map<String, dynamic> stored) {
     final (id, machine, task, shown) = (stored['id'], stored['machine'], stored['task'], stored['shown']);
     if (id is! String || machine is! String || task is! String || shown is! String) return null;
-    return RanOutQuestion(id: id, machine: machine, task: task, shown: shown, seen: stored['seen'] == true);
+    final seenAt = stored['seenAt'];
+    return RanOutQuestion(
+      id: id,
+      machine: machine,
+      task: task,
+      shown: shown,
+      seen: stored['seen'] == true,
+      seenAt: seenAt is String ? seenAt : '',
+    );
   }
 
-  /// The machine and the question's identity there.
+  /// The machine, the question's identity there and when it ran out: one occurrence. An older build kept the
+  /// identity alone, which no occurrence of today matches.
   final String id;
 
   /// The machine's name.
@@ -484,11 +494,28 @@ class RanOutQuestion {
   /// Whether somebody said they have seen it.
   final bool seen;
 
-  /// The same question, seen.
-  RanOutQuestion get asSeen => RanOutQuestion(id: id, machine: machine, task: task, shown: shown, seen: true);
+  /// When somebody said so, ISO-8601; empty where an older build kept it.
+  final String seenAt;
+
+  /// The same question, seen at [at].
+  RanOutQuestion seenAs(DateTime at) => RanOutQuestion(
+    id: id,
+    machine: machine,
+    task: task,
+    shown: shown,
+    seen: true,
+    seenAt: at.toUtc().toIso8601String(),
+  );
 
   /// What the settings file holds of it.
-  Map<String, Object> get stored => {'id': id, 'machine': machine, 'task': task, 'shown': shown, 'seen': seen};
+  Map<String, Object> get stored => {
+    'id': id,
+    'machine': machine,
+    'task': task,
+    'shown': shown,
+    'seen': seen,
+    if (seenAt.isNotEmpty) 'seenAt': seenAt,
+  };
 }
 
 /// What the person chose about how the interface looks.
@@ -717,8 +744,13 @@ class Settings extends ChangeNotifier {
     }
     final forges = stored['forges'];
     if (forges is List) _forges = List<Object?>.of(forges);
+    _loaded = true;
     notifyListeners();
   }
+
+  /// Whether [load] has read what an earlier run stored: before, a mark written would replace every stored one.
+  bool get loaded => _loaded;
+  bool _loaded = false;
 
   final _messagePeople = <String, Map<String, String>>{};
 
@@ -946,8 +978,13 @@ class Settings extends ChangeNotifier {
     }
     _setAside = List.unmodifiable(setAside);
     _olderMachines = older;
+    _machinesRead = true;
     return machines;
   }
+
+  /// Whether [machines] has read the stored machines, so [machinesSetAside] is whole.
+  bool get machinesRead => _machinesRead;
+  bool _machinesRead = false;
 
   List<Map<String, Object?>> _setAside = const [];
   bool _olderMachines = false;
@@ -1013,11 +1050,13 @@ class Settings extends ChangeNotifier {
   List<({String machine, String project, int port})> _homeservers =
       const <({String machine, String project, int port})>[];
 
-  /// Machines whose silence somebody has seen, until they answer again.
+  /// Machines whose silence somebody has seen, until they answer again; and, as `set aside: <its words>`, the notice
+  /// of machines set aside, until other machines are set aside.
   Set<String> get seenSilent => Set<String>.unmodifiable(_seenSilent);
   List<String> _seenSilent = const <String>[];
 
-  /// The ends of work somebody has opened or put away, each by its machine, its work and when it ended.
+  /// The ends of work somebody has opened or put away, each by its machine, its work and when it ended; and, as
+  /// `story ended <machine>/<project>/<story> at <when>`, the ends of a story's work somebody has seen.
   Set<String> get endedPutAway => Set<String>.unmodifiable(_endedPutAway);
   List<String> _endedPutAway = const <String>[];
 

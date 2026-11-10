@@ -188,4 +188,26 @@ void main() {
     expect(_rows('question '), findsOneWidget);
     expect(_rows('gate '), findsOneWidget);
   });
+
+  // Harm: changed files that never reached the gate are marked seen and lost with the task; a question or a push is
+  // waved away as seen.
+  testWidgets('Seen stands only on what informs: not on an end with files outside the gate', (tester) async {
+    await World.startBackend(World.work);
+    await World.startApp(tester);
+    await theAgentOfFinishedWithChangedFilesOutsideTheGate(tester, 'porelo-checkout-shell', 2);
+    await theAgentOfEndedWithTheProviders(tester, 'porelo-billing-shell', 402, 'This request requires more credits');
+    World.backend.asking.add(World.blocked('files.example.test:22', task: 'porelo-billing-audit'));
+    await _toNeedsYou(tester);
+
+    final owed = _rows('ended $_here/porelo-checkout-shell');
+    final informs = _rows('ended $_here/porelo-billing-shell');
+    expect(owed, findsOneWidget);
+    expect(_in(owed, find.byKey(const Key('ended-put-away'))), findsNothing, reason: 'its files are owed');
+    expect(_in(informs, find.byKey(const Key('ended-put-away'))), findsOneWidget, reason: 'it only informs');
+    for (final row in [_rows('question '), _rows('gate ')]) {
+      expect(row, findsOneWidget);
+      expect(_in(row, find.byKey(const Key('ended-put-away'))), findsNothing);
+      expect(_in(row, find.text('Seen')), findsNothing);
+    }
+  });
 }

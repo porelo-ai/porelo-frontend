@@ -3288,6 +3288,8 @@ class World {
     addTearDown(tester.view.reset);
     store = MemorySettingsStore();
     settings = Settings(store);
+    // As the application does before anything reads it: marks are written only once the settings were read.
+    await settings.load();
     shell = ShellModel();
     operationsStore = MemoryOperationsStore(file: File('/home/somebody/.local/state/porelo/operations.json'));
     filesOpened.clear();

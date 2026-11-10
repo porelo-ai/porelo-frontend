@@ -108,8 +108,8 @@ class _AttentionViewState extends State<AttentionView> {
   bool _matches(Widget row) {
     final words = switch (row) {
       ExpandableListRow() => '${row.title} ${row.subtitle ?? ''} ${row.state}',
-      StoryWorkAttentionView() =>
-        '${row.row.story.id} ${row.row.story.title} ${row.row.issue?.id ?? ''} ${row.row.ended?.reason ?? ''} ${row.row.project} ${row.machine}',
+      _PlanningRow(:final view) =>
+        '${view.row.story.id} ${view.row.story.title} ${view.row.issue?.id ?? ''} ${view.row.ended?.reason ?? ''} ${view.row.project} ${view.machine}',
       _ => '',
     };
     return words.toLowerCase().contains(_filter.text.trim().toLowerCase());
@@ -245,11 +245,13 @@ class _AttentionViewState extends State<AttentionView> {
 extension on _AttentionViewState {
   Widget _row(BuildContext context, AttentionRow row, {bool resolved = false}) {
     if (row.kind == AttentionKind.planning) {
-      return StoryWorkAttentionView(
+      final planning = row.value as PlanningAttention;
+      return _PlanningRow(
         key: ValueKey('attention-row ${row.id}'),
-        row: row.value as PlanningAttention,
-        machine: row.machine,
-        resolved: resolved,
+        view: StoryWorkAttentionView(row: planning, machine: row.machine, resolved: resolved),
+        // A story's ended work only informs: it can be seen. A stopped reading asks a decision and cannot.
+        onSeen: resolved || planning.ended == null ? null : () => widget.attention.storyEndSeen(row),
+        seenKey: ValueKey<String>('story-seen ${row.id}'),
       );
     }
     final attention = widget.attention;
@@ -460,6 +462,8 @@ extension on _AttentionViewState {
         title = 'Saved machines not watched';
         state = 'Set aside';
         icon = Icons.inventory_2_outlined;
+        primary = machineNoticeSeenCommand(run: attention.setAsideSeen, unavailable: reason);
+        primaryKey = const Key('set-aside-seen');
       case AttentionKind.ranOut:
         final each = row.value as RanOutQuestion;
         title = '${each.task} asked to reach ${each.shown}';
@@ -540,11 +544,13 @@ extension on _AttentionViewState {
           onPressed: () => widget.onReadLog!(tile),
           child: const Text('Read its log'),
         ),
-      TextButton(
-        key: const Key('ended-put-away'),
-        onPressed: () => widget.attention.putAwayTheEnd(tile),
-        child: const Text('Put it away'),
-      ),
+      // Seen only where nothing is owed: files that never reached the gate still are.
+      if ((tile.task?.agentEnded?.unpushed ?? 0) == 0)
+        TextButton(
+          key: const Key('ended-put-away'),
+          onPressed: () => widget.attention.putAwayTheEnd(tile),
+          child: const Text('Seen'),
+        ),
     ];
   }
 
@@ -866,6 +872,32 @@ class _CauseFacts extends StatelessWidget {
       ),
     );
   }
+}
+
+/// A planning entry as the planning package draws it, with *Seen* below where it only informs.
+class _PlanningRow extends StatelessWidget {
+  const _PlanningRow({required this.view, required this.onSeen, required this.seenKey, super.key});
+
+  final StoryWorkAttentionView view;
+  final VoidCallback? onSeen;
+  final Key seenKey;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: <Widget>[
+      view,
+      if (onSeen != null)
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton(
+            key: seenKey,
+            onPressed: machineNoticeSeenCommand(run: onSeen!).run,
+            child: const Text('Seen'),
+          ),
+        ),
+    ],
+  );
 }
 
 class _RowCommand extends StatelessWidget {

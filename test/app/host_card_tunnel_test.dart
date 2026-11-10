@@ -169,6 +169,44 @@ void main() {
     }
   });
 
+  // Harm: a notice that only informs can never be put away, comes back at every start, or once seen hides machines
+  // set aside later.
+  test('the notice of machines set aside is seen until the machines set aside change', () async {
+    Map<String, Object?> unreadable(String name) => {
+      ...host.stored,
+      'name': name,
+      'host': name,
+      'socket': '${folder.path}/$name',
+      'sshConfig': '${folder.path}/porelo/ssh/$name.conf',
+      'hostCard': {...host.hostCard!.stored, 'name': name, 'login': 'porelo_alice'},
+    };
+    final store = MemorySettingsStore({
+      'machines': [unreadable('gamma')],
+    });
+    Future<List<AttentionRow>> notices({void Function(Attention attention)? then}) async {
+      final settings = Settings(store);
+      await settings.load();
+      final machines = Machines(settings, reach: (_) => _StoppedBackend(), tunnels: tunnels);
+      await machines.load();
+      final attention = Attention(machines, settings);
+      then?.call(attention);
+      await pumpEventQueue();
+      final rows = attention.openRows.where((row) => row.kind == AttentionKind.setAside).toList();
+      attention.dispose();
+      machines.dispose();
+      settings.dispose();
+      return rows;
+    }
+
+    expect(await notices(then: (attention) => attention.setAsideSeen()), isEmpty, reason: 'seen');
+    expect(await notices(), isEmpty, reason: 'seen stays seen past a restart');
+    await store.write({
+      ...await store.read(),
+      'machines': [unreadable('gamma'), unreadable('zeta')],
+    });
+    expect(await notices(), hasLength(1), reason: 'another machine set aside is another notice');
+  });
+
   test('a card never reuses or drops a same-name non-card tunnel', () async {
     final other = Machine(name: host.name, socketPath: '${folder.path}/other', host: 'alice@other', remoteSocket: '/d');
     final server = await ServerSocket.bind(InternetAddress(other.socketPath, type: InternetAddressType.unix), 0);

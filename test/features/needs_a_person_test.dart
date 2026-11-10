@@ -70,6 +70,7 @@ import './step/i_put_away_how_the_work_ended.dart';
 import './step/i_go_to_the_place.dart';
 import './step/i_read_the_log_of_how_the_work_ended.dart';
 import './step/the_agent_of_finished_with_changed_files_outside_the_gate.dart';
+import './step/how_the_work_ended_cannot_be_marked_seen.dart';
 import './step/the_messages_of_wait_because.dart';
 
 void main() {
@@ -305,12 +306,13 @@ void main() {
       await iReadTheLogOfHowTheWorkEnded(tester);
       await theRailSaysIsWaiting(tester, '1');
     });
-    testWidgets('''work that left files outside the gate counts until it is put away''', (tester) async {
+    testWidgets('''work that left files outside the gate counts, and cannot be marked seen''', (tester) async {
       await bddSetUp(tester);
       await theAgentOfFinishedWithChangedFilesOutsideTheGate(tester, 'porelo-checkout-shell', 2);
       await theCountOfWhatNeedsAPersonIs(tester, '2 need you');
-      await iPutAwayHowTheWorkEnded(tester);
-      await theCountOfWhatNeedsAPersonIs(tester, '1 need you');
+      await howTheWorkEndedCannotBeMarkedSeen(tester);
+      await iReadTheLogOfHowTheWorkEnded(tester);
+      await theRailSaysIsWaiting(tester, '2');
     });
     testWidgets('''a row that is no work counts like any other''', (tester) async {
       await bddSetUp(tester);

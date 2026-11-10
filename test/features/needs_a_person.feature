@@ -222,12 +222,13 @@ Feature: What needs a person on every machine, without going anywhere
         And I read the log of how the work ended
         Then the rail says {'1'} is waiting
 
-    # Harm: changed files lost with the task because nothing said they exist.
-    Scenario: work that left files outside the gate counts until it is put away
+    # Harm: changed files lost with the task because nothing said they exist, or because a Seen waved them away.
+    Scenario: work that left files outside the gate counts, and cannot be marked seen
         When the agent of {'porelo-checkout-shell'} finished with {2} changed files outside the gate
         Then the count of what needs a person is {'2 need you'}
-        When I put away how the work ended
-        Then the count of what needs a person is {'1 need you'}
+        And how the work ended cannot be marked seen
+        When I read the log of how the work ended
+        Then the rail says {'2'} is waiting
 
     # Harm: a silent machine hiding a question behind a badge that reads nothing.
     Scenario: a row that is no work counts like any other
