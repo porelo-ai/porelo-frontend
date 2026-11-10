@@ -3340,8 +3340,8 @@ class World {
   /// The organization the next [startApp] reads, where a scenario set one before it.
   static OrganizationSource? organizationAtStart;
 
-  /// Builds the interface against that backend and connects it; its planning is the stand-in's unless
-  /// [planningServed] is false, as in a window that reaches no planner.
+  /// Builds the interface against that backend and connects it; its planning is [planning]'s where given, else the
+  /// stand-in's unless [planningServed] is false, as in a window that reaches no planner.
   ///
   /// At a desktop size, because that is what this is: the default 800x600 test surface is a
   /// narrow window, and every scenario would have been judging the fallback layout by accident.
@@ -3352,6 +3352,7 @@ class World {
     HostConnections? hostConnections,
     Future<HostAccess> Function(Settings settings)? hostAccess,
     bool planningServed = true,
+    EmbeddedPlanning Function(Machines machines)? planning,
   }) async {
     // The view rather than the surface, at a pixel ratio of one: the surface is set in *physical*
     // pixels, so a default ratio quietly turns a desktop window into a narrow one and every
@@ -3516,7 +3517,7 @@ class World {
         backups: backups,
         narrowing: narrowing,
         held: held,
-        planning: planningServed ? planningOf(machines) : null,
+        planning: planning?.call(machines) ?? (planningServed ? planningOf(machines) : null),
       ),
     );
     await settle(tester);

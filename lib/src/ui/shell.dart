@@ -70,6 +70,7 @@ import 'central_release_view.dart';
 import 'clearing_view.dart';
 import '../app/settings.dart';
 import '../app/shell_model.dart';
+import '../app/planner.dart' show PlanningReach;
 import 'planning_embedding.dart';
 
 import 'package:porelo_frontend/client.dart';
@@ -4147,31 +4148,46 @@ class _ShellState extends State<Shell> {
     ],
   );
 
-  /// The planning screen of the planning the window was given, or one line that none is reached.
+  /// The planning screen of the planning the window was given, or one line that none is reached, or why not yet.
   Widget _planningPage() => switch ((widget.planning, _planning)) {
-    (final planning?, final boards?) => PlanningScreen(
-      boards: boards,
-      host: _planningHost,
-      startTask: planning.startTask,
-      taskChanges: WindowTaskChanges(
-        whyNot: _planningTaskUnavailable,
-        opening: _openPlanningTask,
-        onStarted: _storyWorkStarted,
-      ),
-      agents: MachinePlanningAgents(widget.machines, planning.client),
-    ),
-    _ => Center(
-      child: Padding(
-        padding: const EdgeInsets.all(Space.loose),
-        child: Text(
-          planningNotReached,
-          key: const Key('planning-not-reached'),
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.bodyMedium,
+    (final planning?, final boards?) => ListenableBuilder(
+      listenable: planning.client,
+      builder: (context, _) => switch (planning.client) {
+        PlanningReach(notReached: final words?) => _planningLine(words),
+        _ => PlanningScreen(
+          boards: boards,
+          host: _planningHost,
+          startTask: planning.startTask,
+          taskChanges: WindowTaskChanges(
+            whyNot: _planningTaskUnavailable,
+            opening: _openPlanningTask,
+            onStarted: _storyWorkStarted,
+          ),
+          agents: MachinePlanningAgents(widget.machines, planning.client),
         ),
+      },
+    ),
+    _ => _planningLine(planningNotReached),
+  };
+
+  /// Whether the planning the window was given is reached, so its count can be said.
+  bool get _planningReached => switch (widget.planning?.client) {
+    null => false,
+    PlanningReach(notReached: _?) => false,
+    _ => true,
+  };
+
+  Widget _planningLine(String words) => Center(
+    child: Padding(
+      padding: const EdgeInsets.all(Space.loose),
+      child: Text(
+        words,
+        key: const Key('planning-not-reached'),
+        textAlign: TextAlign.center,
+        style: Theme.of(context).textTheme.bodyMedium,
       ),
     ),
-  };
+  );
 
   Widget _cardsPage() => Center(
     child: FilledButton(
@@ -5188,8 +5204,8 @@ class _ShellState extends State<Shell> {
                   widget.machines.of(machine).tasks.where((task) => task.runningWork).length,
               ].fold<int>(0, (sum, each) => sum + each),
         work: _attention.workCount,
-        planning: _planning?.workingCount,
-        planningCounted: _planning != null,
+        planning: _planningReached ? _planning?.workingCount : null,
+        planningCounted: _planningReached,
         needing: _attention.needingCount,
         machines:
             rows.preparations.length +

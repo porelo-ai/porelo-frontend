@@ -15,10 +15,12 @@ import 'package:porelo_planning/porelo_planning.dart'
         PlanningUnsupported,
         PlanWorkTask,
         StoryWork,
+        StoryWorkRequest,
         StoryWorkStarted;
 
 import '../app/links.dart' as links;
 import '../app/machines.dart';
+import '../app/planner.dart';
 import '../app/shell_model.dart';
 import '../client/models.dart' show Task;
 import '../client/porelo_client.dart' show FeatureNotSupported;
@@ -61,6 +63,15 @@ class EmbeddedPlanning {
   /// How a start of story work reaches the provider the person chose.
   final PlanningStartTask startTask;
 }
+
+/// The window's planning: this computer's planner, found or started once, its board read through the planner's own
+/// client.
+EmbeddedPlanning plannerPlanning(LocalPlanner planner) => EmbeddedPlanning(planner, startTask: plannerStartTask);
+
+/// A start of story work through the planner, which offers none yet: refused in the screen's words, as a start the
+/// provider does not offer.
+Future<StoryWorkStarted> plannerStartTask(PlanningSource source, StoryWorkRequest request) async =>
+    throw PlanningUnsupported('${source.label} does not offer starting story work yet');
 
 /// The watched machine that [client] names as the provider of [source], if one still is.
 ///

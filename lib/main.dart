@@ -40,7 +40,9 @@ import 'src/app/organization_connections.dart';
 import 'src/app/organization_source.dart';
 import 'src/app/porelo_app.dart';
 import 'src/app/porelo_organization_source.dart';
+import 'src/app/planner.dart';
 import 'src/ui/choice_field.dart';
+import 'src/ui/planning_embedding.dart' show plannerPlanning;
 import 'src/ui/terminal_diagnosis.dart';
 import 'src/ui/theme.dart';
 import 'src/ui/walk_texts.dart';
@@ -129,6 +131,7 @@ Future<PoreloApp> _compose() async {
   final notifications = Notifications(DesktopNotifier(), settings)..watchOperations(operations, open: (_) {});
   await notifications.load();
   final organizationSource = PoreloOrganizationSource();
+  final planner = LocalPlanner.of(machines);
   final app = PoreloApp(
     settingsDropped: settingsDropped,
     organizationSource: organizationSource,
@@ -161,6 +164,7 @@ Future<PoreloApp> _compose() async {
     // Reads the organization on every refresh, so only for a person whose role can use it.
     hostAccess: _hostAccess(organizationSource),
     identity: IdentityModel(Identity()),
+    planning: plannerPlanning(planner),
     // A development build started with PORELO_WALK=<folder>; a release build never has one.
     walk: _walk(),
   );
@@ -168,6 +172,7 @@ Future<PoreloApp> _compose() async {
   // Deliberately after the first frame: the window opens and says it is connecting, rather
   // than staying blank until a socket answers or does not. Every machine at once, because a
   // clearance prompt has a deadline and one nobody is connected to expires unseen.
+  WidgetsBinding.instance.addPostFrameCallback((_) => unawaited(planner.reach()));
   WidgetsBinding.instance.addPostFrameCallback(
     (_) => unawaited(
       machines.load().then((_) async {
