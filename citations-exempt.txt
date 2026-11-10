@@ -30,3 +30,4 @@ test/features/story_work_test.dart
 test/features/support/story_work.dart
 test/client/story_work_socket_test.dart
 test/app/planning_contract_regressions_test.dart
+test/app/planning_moves_test.dart
