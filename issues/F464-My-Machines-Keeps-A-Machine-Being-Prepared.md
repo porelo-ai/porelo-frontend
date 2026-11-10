@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F464",
   "title": "My Machines Keeps A Machine Being Prepared",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "Medium",
   "rank": 13,

@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F443",
   "title": "Forge Token Handed Over When The Machine Asks",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "High",
   "rank": 1,

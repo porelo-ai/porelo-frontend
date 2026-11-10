@@ -129,20 +129,15 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f443"></a>[F443](F443-Forge-Token-Handed-Over-When-The-Machine-Asks.md) | S | - | The person's forge token on a host made by the host's own command, run in a terminal there from the window when the host asks; never through this program. |
 | <a id="f203"></a>[F203](F203-This-Repository-Worked-In-A-Porelo-Task.md) | S | - | This repository's agent working in an attended Porelo task on the host, its build green on the host's Forgejo, reached in the room, with a way back. |
-| <a id="f457"></a>[F457](F457-Needs-You-Names-The-One-Thing-To-Do.md) | L | - | *Needs you* items name one action, close with their cause, can be marked seen, embed no task tile; nothing waits at the gate in class online; a done task shown done; the commit's makers shown. |
-| <a id="f455"></a>[F455](F455-The-Organization-Read-Now-From-The-Window.md) | S | - | *Read the organization now* asks the host to read the organization at once. |
-| <a id="f458"></a>[F458](F458-The-Task-Terminal-Grows-With-The-Window.md) | XS | - | The agent's screen grows with the window. |
-| <a id="f460"></a>[F460](F460-The-Hosts-Finished-Work-Brought-To-Central-From-The-Window.md) | M | - | *Bring it to central…* brings a host's finished `main` to the central forge from the project's page, refusals in the backend's words. |
-| <a id="f464"></a>[F464](F464-My-Machines-Keeps-A-Machine-Being-Prepared.md) | S | - | *My machines* keeps a machine being prepared in its list and count, the drop caught live first. |
-| <a id="f465"></a>[F465](F465-Needs-You-Rows-Say-Their-Name-Once-And-Whole.md) | XS | - | A row under *Needs you* names its machine once, and its title is shown whole where the row has room. |
 
 ## Review
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f443"></a>[F443](F443-Forge-Token-Handed-Over-When-The-Machine-Asks.md) | S | - | The person's forge token on a host made by the host's own command, run in a terminal there from the window when the host asks; never through this program. |
 | <a id="f471"></a>[F471](F471-The-Planning-Screen-Comes-From-The-Planners-Package.md) | M | - | The planning screen, its models and tests moved into a Flutter package of porelo-planner, with no change in behavior; the window embeds it and hands it the planner's address. |
+| <a id="f457"></a>[F457](F457-Needs-You-Names-The-One-Thing-To-Do.md) | L | - | *Needs you* items name one action, close with their cause, can be marked seen, embed no task tile; nothing waits at the gate in class online; a done task shown done; the commit's makers shown. |
 | <a id="f462"></a>[F462](F462-A-Hosts-Central-Reason-Said-In-Words.md) | XS | - | Where the host cannot say how its copy stands against central, the row says why in words, never the daemon's token. |
 | <a id="f463"></a>[F463](F463-This-Machine-Listed-Once-After-Its-Socket-Moved.md) | XS | - | This machine listed once, at its socket as it is now, whatever socket was saved for it. |
 | <a id="f466"></a>[F466](F466-A-Taken-Repository-Stays-Carried-While-Another-Waits.md) | S | - | A repository the host has taken reads carried while the project waits for the token for another. |
@@ -150,12 +145,17 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f454"></a>[F454](F454-Placing-Says-Its-Progress-In-Its-Dialog.md) | S | - | Placing shows its progress and end in its dialog. |
 | <a id="f452"></a>[F452](F452-A-Project-Waiting-For-The-Token-Says-So-Where-It-Is-Shown.md) | M | - | A project the host reports waiting for the token says so, why, and offers the token on its row, the machine's project page and each repository row; never called carried; the placing dialog not grey when opened again. |
 | <a id="f456"></a>[F456](F456-The-Room-Found-From-A-Task-And-A-Project.md) | XS | - | The project's room opened in one step from a task tile and the project's page. |
+| <a id="f455"></a>[F455](F455-The-Organization-Read-Now-From-The-Window.md) | S | - | *Read the organization now* asks the host to read the organization at once. |
 | <a id="f459"></a>[F459](F459-The-Footer-Counts-What-Runs-Where.md) | XS | - | The footer's refresh and action counts name the machine and what they count. |
 | <a id="f453"></a>[F453](F453-A-Machines-Project-Page-Lists-What-It-Carries-First.md) | S | - | A machine's project page lists the carried repositories first and folds the rest with their count; no raw host word; forge names shown as such; zero tasks said as 0. |
+| <a id="f458"></a>[F458](F458-The-Task-Terminal-Grows-With-The-Window.md) | XS | - | The agent's screen grows with the window. |
 | <a id="f137"></a>[F137](F137-The-Collection-Taken-Only-By-Its-Digest.md) | S | - | The collection installed on the host only by the digest the package expects, checked here and there. |
+| <a id="f460"></a>[F460](F460-The-Hosts-Finished-Work-Brought-To-Central-From-The-Window.md) | M | - | *Bring it to central…* brings a host's finished `main` to the central forge from the project's page, refusals in the backend's words. |
 | <a id="f438"></a>[F438](F438-Rows-And-Running-Steps-After-The-Third-Move.md) | M | - | A row keeps its chip and buttons inside, running steps say they run, a machine not yet admitting says it waits, growing output follows its last line. |
 | <a id="f379"></a>[F379](F379-Add-A-Project-In-One-Step-From-The-Window.md) | S | - | A person naming themselves Project Admin adds a project in one step from the window. |
+| <a id="f464"></a>[F464](F464-My-Machines-Keeps-A-Machine-Being-Prepared.md) | S | - | *My machines* keeps a machine being prepared in its list and count, the drop caught live first. |
 | <a id="f439"></a>[F439](F439-A-Machines-Own-Pages-After-The-Third-Move.md) | M | - | One header with *Open its forge* in sight, *Machine Admins* alone, a project's repositories on a machine, *New work* without a needless question, a dead forge forward noticed. |
+| <a id="f465"></a>[F465](F465-Needs-You-Rows-Say-Their-Name-Once-And-Whole.md) | XS | - | A row under *Needs you* names its machine once, and its title is shown whole where the row has room. |
 | <a id="f440"></a>[F440](F440-Agents-Gate-And-Builds-As-Designed.md) | M | - | *Agents & providers* as designed, the gate's review with author, committer and trailer, one line per workflow on a task's tile. |
 | <a id="f442"></a>[F442](F442-Joining-A-Hosts-Room-Through-Element.md) | S | - | On a host, joining the room opens Element signed in through SSO; elsewhere the join offers the admitted logins only. |
 | <a id="f429"></a>[F429](F429-The-Side-Bar-As-A-Folding-Tree.md) | XL | - | The side bar as a folding tree, as the design *Porelo Window Side Bar* draws it: each machine and organization with its sections, a page with entries under it showing facts and actions, every leaf in one look, the side bar beside the page from 600 wide; in four parts. |

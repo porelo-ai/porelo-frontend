@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F455",
   "title": "The Organization Read Now From The Window",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "Medium",
   "rank": 9,

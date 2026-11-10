@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F458",
   "title": "The Task Terminal Grows With The Window",
-  "state": "Implementing",
+  "state": "Review",
   "size": "XS",
   "priority": "Medium",
   "rank": 10,
