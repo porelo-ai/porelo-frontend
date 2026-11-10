@@ -86,18 +86,41 @@ void main() {
     expect(snapshot.stories, isNotEmpty);
   }, skip: skip);
 
-  // Harm: a card or an issue row opens nothing, or another item, when the window's planner is what serves the board.
-  test('a story and one of its issues are read alone through the window\'s planner', () async {
+  // Harm: a card or an issue row opens nothing, another item, or an item stripped of what its screen shows, when the
+  // window's planner is what serves the board.
+  test('a story and one of its issues are read alone through the window\'s planner, with their details', () async {
     final source = window.providers.single.source;
-    final story = (await source.stories('demo')).stories.firstWhere((story) => story.issues.isNotEmpty);
 
-    final read = await source.getStory('demo', story.id);
-    final issues = await source.listStoryIssues('demo', story.id);
-    final issue = await source.getIssue('demo', story.issues.first.id);
+    // ST291 and B541 as the planner's mock board holds them.
+    final read = await source.getStory('demo', 'ST291');
+    final issues = await source.listStoryIssues('demo', 'ST291');
+    final issue = await source.getIssue('demo', 'B541');
 
-    expect(read.story?.id, story.id);
-    expect(issues.issues.map((each) => each.id), contains(story.issues.first.id));
-    expect(issue.issue?.id, story.issues.first.id);
+    expect(read.revision, isNotEmpty);
+    expect(read.story?.id, 'ST291');
+    expect(read.story?.title, 'The host run by a program of its own, built like porelo');
+    expect(read.story?.priority, 'Highest');
+    expect(read.story?.description, startsWith('# The host tool'));
+    expect(read.story?.link, 'https://example.org/stories/ST291');
+
+    expect(issues.reported, isTrue, reason: 'the planner lists the story\'s issues in full');
+    final row = issues.issues.singleWhere((each) => each.id == 'B541');
+    expect(row.state, 'Implementing');
+    expect(row.link, 'https://example.org/issues/B541');
+
+    final detail = issue.issue;
+    expect(detail?.id, 'B541');
+    expect(detail?.repository, 'porelo');
+    expect(detail?.title, 'The host tool reads the organization and a task by its signature');
+    expect(detail?.state, 'Implementing');
+    expect(detail?.size, 'L');
+    expect(detail?.blockedBy, ['B540']);
+    expect(detail?.link, 'https://example.org/issues/B541');
+    expect(issue.criteriaReported, isTrue);
+    expect(issue.whatMustBeTrue, ['The work meets the story description.']);
+    // No story is asserted: the planner's issue read names none, and the screen finds the issue's story on the board,
+    // where ST291 lists B541.
+    expect(issues.issues.map((each) => each.id), contains('B541'));
   }, skip: skip);
 
   // Harm: a refusal of the planner's is lost, turned into an empty board, or shown by its name alone.
