@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F447",
   "title": "A Story Moved On The Board And Saved",
-  "state": "Rework",
+  "state": "Implementing",
   "size": "M",
   "priority": "Medium",
   "rank": 2,
@@ -18,49 +18,69 @@
 write of the contract with its refusals, and a feature file.
 
 **Why it is in Rework.** A move is saved through the planner, the local app that now holds the stories and issues,
-instead of the machine's daemon, which knows them no more. The window's planning mock
-(`lib/src/mock/planning_data.dart`, `planning_moves.dart` and what they serve) moves into the planner, which gets a mock
-mode serving this board; the window's planning tests start the planner in that mode instead of a mock in the window, and
-the Dart mock stays until the planner's mock mode exists. To be built once the planner's API is served.
+instead of the machine's daemon, which knows them no more. The window keeps no planning mock of its own: its board tests
+use the package's stand-in source (`package:porelo_planning/planning_fake.dart`), and its test against the planner
+starts the planner's own mock mode (`--mock`).
 
 **What must be true.** The operator drags a story to another state; the move is marked and kept until *Save* writes
-all of them through the machine at once, or *Undo* drops them. A drag into a working state starts the work instead
-(the dialog of the next issue); the window never decides a move is allowed, the machine does.
+all of them through the planner at once, or *Undo* drops them. A drag into a working state starts the work instead
+(the dialog of the next issue); the window never decides a move is allowed, the planner does.
 
 ## What it builds against (in words)
 
-- A move of a story to a waiting or closed state, with the revision the board was read at: the machine moves every
-  issue that is in the story's state (issues further on stay), all moves or none, and answers the new revision and
-  the issues it moved.
-- Refusals: the revision is stale (the board changed since), the move is not allowed from that state (with the
-  machine's reason), or the story is unknown.
-- A move of one issue alone, the same way, for the story's own screen.
+- One call of the planner saves a batch of story and issue moves, all or none, with the revision the board was read at;
+  a story's move moves every issue in its least advanced state, and the answer names the new revision and the issues
+  moved.
+- Refusals: the revision is stale (the board changed since), the move is not allowed (`MoveNotAllowed`, with the
+  planner's reason), or the story is unknown.
+- A batch saved in some repositories but not all answers `PartlySaved`, and every window is told the board that the
+  repositories already pushed hold.
+- Only the projects of porelo-ai's own central repositories are saved for now.
+
+## How it stands
+
+- The drag, the drop hint, the pending moves marked *moved*, *Save* and *Undo*, the call with the board's revision, the
+  cards taking the issues the planner moved, the stale board read again with the moves that still apply kept, and a
+  refusal's words beside its card are the planning package's (`PlanningBoard` and `PlanningView` in
+  `porelo_planning`), and its `HttpPlanningSource.saveMoves` makes the call. The window builds none of it.
+- The window's part is in place: through its planner (`LocalPlanner`, `lib/src/app/planner.dart`) the board's source
+  is the package's HTTP source, so a save reaches the planner with nothing of the window between; leaving Planning or
+  closing the window with pending moves asks first (`lib/src/ui/shell.dart`, with the package's
+  `confirmPlanningLeave` and `PlanningBoards.hasPendingMoves`). `test/features/planning_moves.feature` keeps the
+  board's moves as the window embeds them, on the package's stand-in source; removing the window's question turns
+  its four leave scenarios red.
+- `test/client/planner_mock_test.dart` asserts through the window's planner in the planner's mock mode: a batch at a
+  revision the board has left refused as `StaleRevision`, a move not allowed refused as `MoveNotAllowed` with the
+  planner's reason as the words the board shows, and a move of an unknown story refused as `NoSuchStory`, each in
+  the planner's own words. Bound to Linux, and skipped where no planner is installed.
+- Missing in the planner, not built in the window: its mock mode saves no move (its mock store has no save, so every
+  allowed batch answers `NotOffered`), so a saved move and a `PartlySaved` answer cannot be shown against it; both are
+  added to the mock test once the mock saves.
+- The pin: the window takes moves from the planner only once the package is pinned at the version of the planner's
+  issue that brings moves and story work into the screen package. That version also changes how a story's work is
+  started (`PlanningStartTask`, `PlanningTaskChanges.started`, `StoryWork` without `result`), so the window builds
+  against it only together with the start of the work, which is the next issue's.
+- A drop on a working state opens the start of the work and moves nothing; that start is the next issue's.
 
 ## Plan
 
-- `lib/src/ui/planning_view.dart`: each card a `LongPressDraggable`/`Draggable`, each state group a `DragTarget`
-  that shows *Drop here for <state>* while a card is over it; a folded phase or state accepts a drop too.
-- `lib/src/app/planning_board.dart`: the pending moves (story → state), each card marked *moved*; the bar *n state
-  change(s) not saved yet: …* with *Undo* and *Save*. Save sends them in one call with the board's revision, and the cards take the issues the machine says it moved
-  at once, before the watch brings the rest; on a
-  stale revision the board is read again and the moves that still apply stay pending, the others are named as made
-  elsewhere; on a refusal the machine's words are shown beside the card and the move stays pending.
-- A drop on a working state is never pending: it opens the start of the work (built with that issue), and the card
-  stays where it was until the work started.
-- The button is *Save*, not *Sign and save*: planning data carries no signature (the operator, 2026-11-09).
-- Leaving Planning or the window with pending moves asks first, as the window asks for an unsent message.
-- `client/porelo_client.dart`: the move of stories and of issues; the mock daemon and the fake backend apply them and
-  answer a stale revision when told to.
-- `test/features/planning_moves.feature`: drag, marked, undo, save; save on a stale board; a refused move with the
-  machine's words; a drop on a working state opens the start and moves nothing. First red: a saved move that the
-  machine refused still shown in its new column.
+- No production code in the window: the drag, the pending moves, *Save*, *Undo*, the refusals and the call are the
+  package's; the leave questions stand in the shell.
+- `test/client/planner_mock_test.dart`: a stale revision, `MoveNotAllowed` with its reason and an unknown story,
+  refused through the window's planner in mock mode; a saved move and `PartlySaved` once the mock saves.
+- `test/features/planning_moves.feature` stays on the package's stand-in source: drag, mark, undo, save, a stale
+  board, refusals in their own words, a drop on a working state, and the leave questions.
+- Once the package is pinned at the version that saves moves, the pin moves together with the start of the work.
 
 ## Acceptance
 
-- After *Save*, the cards stand where the machine's next answer puts them; nothing is shown moved that the machine did
-  not move.
-- *Undo* puts every pending card back without a call to the machine.
-- A move refused or overtaken says why and is not lost silently.
+- After *Save*, the cards stand where the planner's answer puts them; nothing is shown moved that the planner did not
+  move.
+- *Undo* puts every pending card back without a call to the planner.
+- A move refused or overtaken says why in the planner's words and is not lost silently; against the planner's mock
+  mode a stale revision, a move not allowed and an unknown story are refused through the window's planner.
+- Leaving Planning or closing the window with pending moves asks first.
+- A saved move and a partly saved batch are shown against the planner once its mock mode saves.
 
 ## Open questions
 
@@ -68,4 +88,5 @@ all of them through the machine at once, or *Undo* drops them. A drag into a wor
 
 ## To be checked
 
-- Nothing yet; the names once the daemon's part is served.
+- The mock-mode test on a machine with the planner installed, and a save against a live planner of a porelo-ai
+  central repository, including a partly saved batch.
