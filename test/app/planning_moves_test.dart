@@ -6,6 +6,7 @@ import 'package:porelo_frontend/src/app/fleet_backend.dart';
 import 'package:porelo_frontend/src/app/planning_board.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
+import 'package:porelo_frontend/src/mock/planning_data.dart';
 import 'package:porelo_frontend/src/mock/planning_moves.dart';
 
 Map<String, dynamic> _fixture() => {
@@ -611,5 +612,32 @@ void main() {
     board.move('StoryTwo', 'Done');
     expect(board.pending['StoryTwo']!.from, '');
     expect(board.moveProblem, contains('StoryOne is no longer reported'));
+  });
+
+  // Harm: the mock shows a story where the daemon never puts it, so a saved move lands elsewhere than expected.
+  test('every story of the mock board stands in the earliest open state of its issues', () {
+    final board = mockPlanningBoard();
+    final states = (board['states'] as List<dynamic>).cast<Map<String, dynamic>>();
+    final order = [for (final state in states) state['name'] as String];
+    final closed = {
+      for (final state in states)
+        if (state['kind'] == 'CLOSED') state['name'] as String,
+    };
+    final checked = <String>[];
+    final breaking = <String>[];
+    for (final story in (board['stories'] as List<dynamic>).cast<Map<String, dynamic>>()) {
+      final issues = [
+        for (final issue in (story['issues'] as List<dynamic>? ?? []).cast<Map<String, dynamic>>())
+          issue['state'] as String,
+      ];
+      if (issues.isEmpty) continue;
+      expect(issues.every(order.contains), isTrue, reason: '${story['id']} has an issue outside the workflow');
+      final open = issues.where((state) => !closed.contains(state)).toList();
+      final earliest = (open.isEmpty ? issues : open).reduce((a, b) => order.indexOf(a) <= order.indexOf(b) ? a : b);
+      checked.add(story['id'] as String);
+      if (story['state'] != earliest) breaking.add('${story['id']} in ${story['state']}, rule says $earliest');
+    }
+    expect(checked, isNotEmpty);
+    expect(breaking, isEmpty);
   });
 }

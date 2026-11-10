@@ -162,7 +162,7 @@ Map<String, dynamic> mockPlanningBoard() => jsonDecode(r'''
         {
           "id": "FC03",
           "repository": "porelo-forge-clients",
-          "state": "Analyzed",
+          "state": "Under estimation",
           "blockedBy": [],
           "link": "https://example.org/issues/FC03",
           "title": "Planning work",
@@ -179,7 +179,7 @@ Map<String, dynamic> mockPlanningBoard() => jsonDecode(r'''
         {
           "id": "FC09",
           "repository": "porelo-forge-clients",
-          "state": "Analyzed",
+          "state": "Under estimation",
           "blockedBy": [],
           "link": "https://example.org/issues/FC09",
           "title": "Planning work",
@@ -196,7 +196,7 @@ Map<String, dynamic> mockPlanningBoard() => jsonDecode(r'''
         {
           "id": "FC10",
           "repository": "porelo-forge-clients",
-          "state": "Analyzed",
+          "state": "Under estimation",
           "blockedBy": [],
           "link": "https://example.org/issues/FC10",
           "title": "Planning work",
@@ -213,7 +213,7 @@ Map<String, dynamic> mockPlanningBoard() => jsonDecode(r'''
         {
           "id": "FC11",
           "repository": "porelo-forge-clients",
-          "state": "Analyzed",
+          "state": "Under estimation",
           "blockedBy": [],
           "link": "https://example.org/issues/FC11",
           "title": "Planning work",
@@ -230,7 +230,7 @@ Map<String, dynamic> mockPlanningBoard() => jsonDecode(r'''
         {
           "id": "FC13",
           "repository": "porelo-forge-clients",
-          "state": "Analyzed",
+          "state": "Under estimation",
           "blockedBy": [],
           "link": "https://example.org/issues/FC13",
           "title": "Planning work",
@@ -405,7 +405,7 @@ Map<String, dynamic> mockPlanningBoard() => jsonDecode(r'''
         {
           "id": "SI05",
           "repository": "porelo-ai.github.io",
-          "state": "Implementing",
+          "state": "Estimated",
           "blockedBy": [],
           "link": "https://example.org/issues/SI05",
           "title": "Planning work",
@@ -734,7 +734,7 @@ Map<String, dynamic> mockPlanningBoard() => jsonDecode(r'''
         {
           "id": "B553",
           "repository": "porelo",
-          "state": "Implementing",
+          "state": "Backlog",
           "title": "A move runs without a terminal for a rehearsal",
           "size": "M",
           "blockedBy": [],
@@ -751,7 +751,7 @@ Map<String, dynamic> mockPlanningBoard() => jsonDecode(r'''
         {
           "id": "B554",
           "repository": "porelo",
-          "state": "Implementing",
+          "state": "Backlog",
           "title": "A forge token’s reach checked against what a move needs",
           "size": "S",
           "blockedBy": [],
@@ -768,7 +768,7 @@ Map<String, dynamic> mockPlanningBoard() => jsonDecode(r'''
         {
           "id": "F444",
           "repository": "porelo-frontend",
-          "state": "Implementing",
+          "state": "Backlog",
           "title": "A move driven through the window against a rented host",
           "size": "M",
           "blockedBy": [],
@@ -785,7 +785,7 @@ Map<String, dynamic> mockPlanningBoard() => jsonDecode(r'''
         {
           "id": "F445",
           "repository": "porelo-frontend",
-          "state": "Implementing",
+          "state": "Backlog",
           "title": "What a rehearsal cannot drive in the window, stood in for",
           "size": "S",
           "blockedBy": [
@@ -804,7 +804,7 @@ Map<String, dynamic> mockPlanningBoard() => jsonDecode(r'''
         {
           "id": "HO158",
           "repository": "porelo-host",
-          "state": "Implementing",
+          "state": "Backlog",
           "title": "A move rehearsed on a rented server",
           "size": "L",
           "blockedBy": [],
@@ -821,7 +821,7 @@ Map<String, dynamic> mockPlanningBoard() => jsonDecode(r'''
         {
           "id": "MX89",
           "repository": "porelo-message-matrix",
-          "state": "Implementing",
+          "state": "Backlog",
           "title": "A test person signs in through the gate unattended",
           "size": "S",
           "blockedBy": [],
@@ -838,7 +838,7 @@ Map<String, dynamic> mockPlanningBoard() => jsonDecode(r'''
         {
           "id": "MX90",
           "repository": "porelo-message-matrix",
-          "state": "Implementing",
+          "state": "Backlog",
           "title": "The room’s scenarios are rehearsed on a host",
           "size": "S",
           "blockedBy": [
@@ -857,7 +857,7 @@ Map<String, dynamic> mockPlanningBoard() => jsonDecode(r'''
         {
           "id": "MX91",
           "repository": "porelo-message-matrix",
-          "state": "Implementing",
+          "state": "Backlog",
           "title": "The rehearsal says a wake was answered",
           "size": "XS",
           "blockedBy": [
@@ -1003,7 +1003,7 @@ Map<String, dynamic> mockPlanningBoard() => jsonDecode(r'''
         {
           "id": "IJ14",
           "repository": "porelo-intellij",
-          "state": "Finished",
+          "state": "Implementing",
           "blockedBy": [],
           "link": "https://example.org/issues/IJ14",
           "title": "Planning work",
@@ -1260,7 +1260,7 @@ Map<String, dynamic> mockPlanningBoard() => jsonDecode(r'''
         {
           "id": "OM44",
           "repository": "porelo-omp",
-          "state": "Backlog",
+          "state": "Implementing",
           "blockedBy": [],
           "link": "https://example.org/issues/OM44",
           "title": "Planning work",
@@ -1397,7 +1397,7 @@ Map<String, dynamic> mockPlanningBoard() => jsonDecode(r'''
         {
           "id": "PJ106",
           "repository": "porelo-project",
-          "state": "Backlog",
+          "state": "Implementing",
           "blockedBy": [],
           "link": "https://example.org/issues/PJ106",
           "title": "Planning work",
