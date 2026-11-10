@@ -313,9 +313,9 @@ jobs:
 
             # A test marked `linux` needs what only Linux has, and says why; the documents are the Linux
             # job's. Each test has a minute, so one that would wait for ever ends the run and names itself.
-            # The suite takes 17 to 19 minutes on the runner, and its speed varies.
+            # The suite takes about 23 minutes on the runner, and a slow runner has taken over 30.
             - name: Test
-              timeout-minutes: 30
+              timeout-minutes: 40
               run: flutter test --exclude-tags "linux || documents" --timeout 60s --reporter expanded --concurrency 1
 
             # The host package's own tests: the command `porelo-host` is built from it for Windows too; those
