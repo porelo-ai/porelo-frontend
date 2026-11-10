@@ -720,3 +720,26 @@ Feature: Starting work with an agent, a mode and a credential
         Then the start reached only the machine its form was opened on
         When the start brings up {'porelo-checkout-schema-work'} in {'checkout'}, running {'SHELL'}
         Then the session opened is on the machine its form was opened on
+
+    # A host's vault without the person's forge token for builds: work starts all the same, and the host's own
+    # command runs there, never here, before the machine is asked again.
+    Scenario: what a host lacks for builds is stored there from the start, and starting is asked again
+        Given starting says the host lacks {'host-builds'} for builds, stored by {'porelo host forge-token'}
+        And the machine is reached over ssh as {'alice@vm'}
+        When I go to the work
+        And I select the project {'checkout'}
+        And I start work in this project
+        And I choose the agent {'An Agent'}
+        Then it says {'holds no host-builds of yours'}
+        And starting is offered
+        When I store {'host-builds'} on the host from the start
+        Then a terminal runs {'ssh -t alice@vm porelo host forge-token'} on the machine
+        When the unlock terminal ends and is put away
+        Then whether work can start is asked again
+
+    Scenario: what this computer's own daemon lacks for builds is never run here
+        Given starting says the host lacks {'host-builds'} for builds, stored by {'porelo host forge-token'}
+        When I start work in this project
+        And I choose the agent {'An Agent'}
+        Then it says {'holds no host-builds of yours'}
+        And storing {'host-builds'} on the host is not offered

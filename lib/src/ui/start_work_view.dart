@@ -8,6 +8,7 @@ import '../app/templates.dart';
 import 'choice_field.dart';
 import 'tokens.dart';
 import 'dialog_scroll.dart';
+import 'missing_credentials_view.dart';
 import 'sign_in_panel.dart';
 import '../app/links.dart';
 
@@ -28,6 +29,8 @@ Future<bool> openStartWork(
   Future<void> Function()? onOpenWithThisDevice,
   Future<void> Function(String entry)? onGrant,
   Future<void> Function()? onFixInATerminal,
+  Future<void> Function(MissingCredential missing)? onStoreTheMissing,
+  String machine = '',
   VoidCallback? onChangeProject,
 }) async =>
     await showDialog<bool>(
@@ -43,6 +46,8 @@ Future<bool> openStartWork(
         onOpenWithThisDevice: onOpenWithThisDevice,
         onGrant: onGrant,
         onFixInATerminal: onFixInATerminal,
+        onStoreTheMissing: onStoreTheMissing,
+        machine: machine,
       ),
     ) ??
     false;
@@ -60,6 +65,8 @@ class StartWorkDialog extends StatefulWidget {
     this.onOpenWithThisDevice,
     this.onGrant,
     this.onFixInATerminal,
+    this.onStoreTheMissing,
+    this.machine = '',
     this.onChangeProject,
     super.key,
   });
@@ -96,6 +103,13 @@ class StartWorkDialog extends StatefulWidget {
   /// Opens a terminal on the machine to fix an upstream that refused its key, then asks again; null
   /// where nothing here reaches that machine.
   final Future<void> Function()? onFixInATerminal;
+
+  /// Runs on the machine the command it named for a credential its vault lacks beside the agent, in a terminal
+  /// there, then asks again; null where this window does not reach that machine itself.
+  final Future<void> Function(MissingCredential missing)? onStoreTheMissing;
+
+  /// The name of the machine the form was opened on, as the window shows it.
+  final String machine;
 
   @override
   State<StartWorkDialog> createState() => _StartWorkDialogState();
@@ -409,6 +423,15 @@ class _StartWorkDialogState extends State<StartWorkDialog> {
                     onLogIn: widget.onLogIn,
                     onOpenWithThisDevice: widget.onOpenWithThisDevice,
                     onFixInATerminal: widget.onFixInATerminal,
+                  ),
+                ],
+                // Beside the start, never in its way: what the vault lacks beside the agent holds nothing back.
+                if (starting.readiness?.missing case final missing? when missing.isNotEmpty) ...<Widget>[
+                  const SizedBox(height: Space.wide),
+                  MissingCredentials(
+                    missing: missing,
+                    machine: widget.machine.isEmpty ? 'The machine' : widget.machine,
+                    onStore: widget.onStoreTheMissing,
                   ),
                 ],
                 const SizedBox(height: Space.normal),

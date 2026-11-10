@@ -270,3 +270,17 @@ Feature: Starting the agent each repository names, at one click
         And I press {'Sign in'}
         Then the terminal of the sign-in is on the machine its form was opened on
         And no sign-in reached the machine {'elsewhere'}
+
+    # As at a single start: what a host lacks for builds holds no agent back, and its command runs on the host.
+    Scenario: what a host lacks for builds is stored there from the wizard, and each start is asked again
+        Given starting says the host lacks {'host-builds'} for builds, stored by {'porelo host forge-token'}
+        And the machine is reached over ssh as {'alice@vm'}
+        When I go to the work
+        And I choose {'Start an agent for each repository…'} from the menu of the project {'checkout'}
+        And I go on
+        Then it says {'holds no host-builds of yours'}
+        And going on is offered
+        When I store {'host-builds'} on the host from the start
+        Then a terminal runs {'ssh -t alice@vm porelo host forge-token'} on the machine
+        When the unlock terminal ends and is put away
+        Then whether work can start is asked again

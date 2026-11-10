@@ -5,6 +5,7 @@ import '../app/builds.dart';
 import '../app/hand_in.dart';
 import '../app/work_held.dart';
 import 'how_long.dart';
+import 'missing_credentials_view.dart';
 import 'tokens.dart';
 
 /// The heading over a pane, so a pane is identifiable when it is the only one on screen.
@@ -62,8 +63,17 @@ class WorkDetail extends StatelessWidget {
     this.repository,
     this.handing,
     this.handIns,
+    this.machine = '',
+    this.onStoreTheBuildsCredential,
     super.key,
   });
+
+  /// The name of the machine it runs on, as the window shows it.
+  final String machine;
+
+  /// Runs on [machine] its command for the credential the task's builds wait for, in a terminal there, answering
+  /// whether it ended without an error; null where this window does not reach that machine itself.
+  final Future<bool> Function(MissingCredential missing)? onStoreTheBuildsCredential;
 
   /// A file being handed to work, or the last one, where this frame hands files in.
   final HandingIn? handing;
@@ -158,6 +168,16 @@ class WorkDetail extends StatelessWidget {
                 ),
               if (BuildsSaid.inTheDetail(task) case final lines when lines.isNotEmpty)
                 _Field(key: const Key('builds'), name: 'Builds', value: lines.join('\n')),
+              // The sentence stands in the builds above; here the host's command for what they wait for.
+              if (task.buildsCredential case final missing?)
+                Padding(
+                  padding: const EdgeInsetsDirectional.only(start: Sizes.fieldName, bottom: Space.tight),
+                  child: StoreTheBuildsCredential(
+                    missing: missing,
+                    machine: machine.isEmpty ? 'the machine' : machine,
+                    onStore: onStoreTheBuildsCredential,
+                  ),
+                ),
               if (handIns?.lines(task.name) case final lines? when lines.isNotEmpty)
                 _Field(key: const Key('hand-in-record'), name: 'Hand-in record', value: lines.join('\n')),
               if (task.takenDownByARestart) _Field(name: 'Why it is down', value: task.startDetail),

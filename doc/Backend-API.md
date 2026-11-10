@@ -119,7 +119,7 @@ The IDL carries the detail, a comment per method and per field. The shape of it:
 | **A carried project** | A row of `Projects` with `carried: true` and an empty `file`: the host carries it and this person has not taken it here. `TakeProject` takes it, once, at a person's act, and answers `{file}` or `{reason, words}`; a list never takes |
 | **A repository on its machine** | A `Repository` of `Projects` says `carriedHere` (whether this machine, a host of the project, carries it; absent on a machine that is no host of it), `tasks` and `running` (its work, and how much is up), `central` with `centralWhy` (how the host forge's copy stands against central, as the host last said; new values may appear), and `ahead` with `aheadMeasured` (the commits for central, as last answered). The window takes each where it is said, on the project's page opened from a machine, its rows' start and the repositories *New work* offers; where one is absent it says what it said before or *not reported*, never 0 and never up to date |
 | **Running tasks** | `Start` (creates or brings back; streams the build), `Stop` (keeps it), `Remove`, `Tail` (follows a log) |
-| **Builds of a push** | `Task.builds`, `buildReader`, `buildProblem` (no method: `Watch` carries them) |
+| **Builds of a push** | `Task.builds`, `buildReader`, `buildProblem`, `buildsCredential` (no method: `Watch` carries them) |
 | **Files handed in** | `HandIn` (in parts), `TakeBack`, `HandIns` (the record, also after the task is gone) |
 | **The gate** | `Pending`, `Review`, `Approve`, `Reject`; `CredentialTryPush` tries a forward with one ssh key alone |
 | **Clearance** | `Prompts` (streams, and only streams), `Decide` |
@@ -209,6 +209,14 @@ Worth knowing before designing around them:
   `buildProblem` says why a named reader does not work. A `Build` lists its jobs only once the verdict
   is `failure` or final, and a job's `log` is the name of a file in the task, never its text. All
   three are absent from a machine older than builds, which is drawn as saying nothing.
+- **What a host's vault lacks beside the agent is a `MissingCredential`**: `for` (`builds`, or one shown as it
+  comes), the vault key `credential`, the host's `storeCommand`, which reads nothing on standard input, and
+  `afterStore` (`ask-again` or `restart`, or one shown as it comes). `CanStart`'s `missing` lists them; they hold no
+  start back, and are empty off a host and with a shut vault. A task's `buildsCredential` is the one its start found
+  missing, with `afterStore` `restart`, while `buildProblem` keeps the sentence. The command runs in a terminal on
+  that host over ssh, in the login shell, and never on this computer; one with a word that is not plain text is
+  neither shown nor run. After `ask-again` the window asks `CanStart` again; after `restart` it says that only the
+  task's next start follows its builds. A machine older than these fields sends neither, and the window adds nothing.
 - **A build's `runs` give the tile one line per workflow run**, each `name` with its `result` as the
   forge spells it (`queued` and `in_progress` while it is not finished; one not known here is shown as
   it comes and is no pass). The tile says passed only where the verdict is `success` and every run

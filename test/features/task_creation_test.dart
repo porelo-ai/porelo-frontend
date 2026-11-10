@@ -141,6 +141,10 @@ import './step/i_watch_another_machine_called.dart';
 import './step/the_machine_is_chosen_behind_the_form.dart';
 import './step/the_start_reached_only_the_machine_its_form_was_opened_on.dart';
 import './step/the_session_opened_is_on_the_machine_its_form_was_opened_on.dart';
+import './step/starting_says_the_host_lacks_for_builds_stored_by.dart';
+import './step/the_machine_is_reached_over_ssh_as.dart';
+import './step/i_store_on_the_host_from_the_start.dart';
+import './step/storing_on_the_host_is_not_offered.dart';
 
 void main() {
   group('''Starting work with an agent, a mode and a credential''', () {
@@ -912,6 +916,31 @@ void main() {
       await theStartReachedOnlyTheMachineItsFormWasOpenedOn(tester);
       await theStartBringsUpInRunning(tester, 'porelo-checkout-schema-work', 'checkout', 'SHELL');
       await theSessionOpenedIsOnTheMachineItsFormWasOpenedOn(tester);
+    });
+    testWidgets('''what a host lacks for builds is stored there from the start, and starting is asked again''', (
+      tester,
+    ) async {
+      await bddSetUp(tester);
+      await startingSaysTheHostLacksForBuildsStoredBy(tester, 'host-builds', 'porelo host forge-token');
+      await theMachineIsReachedOverSshAs(tester, 'alice@vm');
+      await iGoToTheWork(tester);
+      await iSelectTheProject(tester, 'checkout');
+      await iStartWorkInThisProject(tester);
+      await iChooseTheAgent(tester, 'An Agent');
+      await itSays(tester, 'holds no host-builds of yours');
+      await startingIsOffered(tester);
+      await iStoreOnTheHostFromTheStart(tester, 'host-builds');
+      await aTerminalRunsOnTheMachine(tester, 'ssh -t alice@vm porelo host forge-token');
+      await theUnlockTerminalEndsAndIsPutAway(tester);
+      await whetherWorkCanStartIsAskedAgain(tester);
+    });
+    testWidgets('''what this computer's own daemon lacks for builds is never run here''', (tester) async {
+      await bddSetUp(tester);
+      await startingSaysTheHostLacksForBuildsStoredBy(tester, 'host-builds', 'porelo host forge-token');
+      await iStartWorkInThisProject(tester);
+      await iChooseTheAgent(tester, 'An Agent');
+      await itSays(tester, 'holds no host-builds of yours');
+      await storingOnTheHostIsNotOffered(tester, 'host-builds');
     });
   });
 }

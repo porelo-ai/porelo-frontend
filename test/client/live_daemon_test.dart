@@ -89,6 +89,23 @@ void main() {
       }
     });
 
+    test('declares every name this client reads for a credential a host lacks beside the agent', () async {
+      // Read field by field: a name dropped on the far side would leave a host's ask unread, and no remedy offered.
+      final contract = await client.contract();
+      final expected = <String, List<String>>{
+        'type MissingCredential (': ['for', 'credential', 'storeCommand', 'afterStore'],
+        'method CanStart(': ['missing'],
+        'type Task (': ['buildProblem', 'buildsCredential'],
+      };
+      for (final MapEntry(key: head, value: names) in expected.entries) {
+        final text = declarationIn(contract, head);
+        expect(text, isNotNull, reason: '"$head" is not in the served contract');
+        for (final name in names) {
+          expect(declares(text!, name), isTrue, reason: '$name is read by this client and not declared in "$head"');
+        }
+      }
+    });
+
     test('answers Keyslots with slots this build can read', () async {
       // Readable while the vault is locked and changes nothing, so it is the one keyslot call made
       // here; the other three would change a vault.

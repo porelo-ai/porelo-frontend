@@ -38,6 +38,7 @@ import '../app/agent_inventory.dart';
 import '../app/authentication.dart';
 import '../app/backups.dart';
 import '../app/emergency_stop.dart';
+import '../app/missing_credentials.dart';
 import '../app/start_agents.dart';
 import '../app/start_work.dart';
 import '../app/templates.dart';
@@ -2674,6 +2675,8 @@ class _ShellState extends State<Shell> {
       onFixInATerminal: onTheMachine(machine, _aShell, terminal: true) == null
           ? null
           : () => _fixTheUpstreamToStart(machine),
+      onStoreTheMissing: reachesTheHostItself(machine) ? (missing) => _storeTheMissingToStart(machine, missing) : null,
+      machine: machine.name,
     );
     // Left however it was left: only the wait is dropped, and the sign-in goes on on the machine, which is said.
     final left = signIn.leave();
@@ -2858,6 +2861,32 @@ class _ShellState extends State<Shell> {
     await widget.starting.askAgain();
   }
 
+  /// Stores what the machine's vault lacks beside the agent by the machine's own command, in a terminal there, then
+  /// asks the machine again whether work can start: whether it is there now is the machine's to say.
+  Future<void> _storeTheMissingToStart(Machine machine, MissingCredential missing) async {
+    await _storeOnTheHost(machine, missing);
+    if (!_formStillOn(machine)) return;
+    await widget.starting.askAgain();
+  }
+
+  /// Runs on [machine] the command it named for [missing], in a terminal there, and **only there, over its own
+  /// ssh**: never on this computer, whose vault is another. Answers whether it ended with exit code 0.
+  Future<bool> _storeOnTheHost(Machine machine, MissingCredential missing) async {
+    final command = storedOnTheHost(machine, missing);
+    if (command == null || !mounted || !widget.machines.all.contains(machine)) return false;
+    final end = await runInATerminal(
+      context,
+      title: 'Store ${missing.credential.isEmpty ? 'it' : missing.credential} on ${machine.name}',
+      explanation:
+          '${machine.name} makes it with its own command and keeps it in your vault there. It never goes '
+          'through this program, and nothing here keeps it.',
+      machine: machine,
+      command: command,
+      open: widget.sessions.openTerminal,
+    );
+    return end.code == 0;
+  }
+
   /// Runs [agent]'s own login on the machine, through Porelo, in a terminal there: its page is offered
   /// as a link to open here, and its reply to `localhost` is forwarded while the terminal is open.
   /// Then asks the machine again whether work can start.
@@ -2902,6 +2931,14 @@ class _ShellState extends State<Shell> {
               stillMissing: () => starting.signInsNeeded.any((each) => each.name == agent.name),
               from: 'the wizard',
             ),
+      onStoreTheMissing: reachesTheHostItself(machine)
+          ? (missing) async {
+              await _storeOnTheHost(machine, missing);
+              if (mounted && widget.machines.all.contains(machine) && starting.project != null) {
+                await starting.askAgain();
+              }
+            }
+          : null,
     );
     // Closed however it was left: nothing more starts, and a sign-in that runs goes on on the machine, which is said.
     starting.signing.attachHere = null;
@@ -6466,6 +6503,10 @@ class _ShellState extends State<Shell> {
           held: widget.held,
           handing: _handing,
           handIns: _handIns,
+          machine: machine.name,
+          onStoreTheBuildsCredential: reachesTheHostItself(machine)
+              ? (missing) => _storeOnTheHost(machine, missing)
+              : null,
           onClose: widget.shell.close,
         );
       case BackupsOpened():

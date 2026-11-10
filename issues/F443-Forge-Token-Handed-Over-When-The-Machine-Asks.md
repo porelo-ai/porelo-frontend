@@ -25,33 +25,41 @@ log or the person's clipboard.
 
 ## How it stands
 
-The operator put it in Backlog on 2026-11-10 and gave it the priority High on 2026-11-09.
+Its Porelo part is on Porelo's main: a missing host forge token is answered on the wire with the vault key and the
+host's command, in a start's answer and on a task.
 
-Its Porelo part is on Porelo's main since 2026-11-10: a missing host forge token is answered on the wire with the
-vault key and the host command, in a start's answer and in a build's detail. Nothing blocks it any more.
-
-- On a host, the person's forge token for the host's own forge is made by the host: `porelo-host-forge-token`, run in
+- On a host, the person's forge token for the host's own forge is made by the host: `porelo host forge-token`, run in
   a shell on the host, has the forge make a token for the person's login and puts it into the person's vault there.
   Nobody types or sees it.
-- Where it is missing, a task's start says so only in words, in the start's own output ("… which your vault does not
-  hold; run porelo-host-forge-token on this host, then start the task again to be told its builds"); the task starts
-  but is never told its builds. No answer on the wire says it as a reason or names the command.
-- So today the person runs that command in an ssh shell on the host before the first start, as the fourth move's
-  guide does.
+- Built in the window: the client reads `CanStart`'s `missing` and a task's `buildsCredential`, each a
+  `MissingCredential`; a reply without them reads as nothing missing, and a command with a word that is not plain
+  text is neither shown nor run.
+- *New work* and *Start an agent for each repository…* show each missing entry beside the start, naming the host and
+  the vault key; the start is not held back. *Store … on <host>, in a terminal there* runs the host's command over
+  ssh in the login shell, then asks `CanStart` again.
+- A task's detail shows, under its builds and their sentence, the same press; once the command ended with exit code
+  0, it says that only the task's next start follows its builds.
+- The command runs only on a machine this window reaches over its own ssh, never on this computer, a WSL
+  distribution or a socket forwarded by somebody else; there the command is shown to run on the host by hand.
 - Not this issue: the token for the central forge that `porelo-host-push --central` asks for on its terminal; the
   person types that one there.
 
 ## Plan
 
-1. The daemon names the ask, field by field, agreed in the channel first. One way that fits the wire as it stands:
-   `CanStart`'s `CREDENTIAL_MISSING` (or a reason of its own) for the person's forge entry, with `credential` the vault
-   key looked for and `storeCommand` the host's command, with nothing on its standard input; a build read for the
-   person that lacks it says the same in its detail, with the command.
-2. The window shows it in *New work*, the batch and a task's builds as it shows a missing credential today: the
-   machine's sentence, and a button that runs the named command on that host in a terminal (over ssh in the login
-   shell), then asks again. Where the daemon holds the start back, the start waits until the host says the entry is
-   there; where it only warns, the start goes on and the warning stays beside it.
-3. An older daemon: as today; the start goes on, and the window adds nothing.
+1. The wire, as Porelo serves it: `MissingCredential(for, credential, storeCommand, afterStore)`, with `for`
+   `builds` and `afterStore` `ask-again` or `restart` (an unknown value of either shown as it comes), and
+   `storeCommand` reading nothing on standard input. `CanStart` carries `missing: []MissingCredential`, which holds
+   no start back, each entry `ask-again`, and is empty off a host and with `VAULT_LOCKED`. `Task` carries
+   `buildsCredential: ?MissingCredential`, `restart`, while `buildProblem` keeps the sentence.
+2. `lib/src/client/models.dart`: `MissingCredential`, `Readiness.missing`, `Task.buildsCredential`; the plain-word
+   check shared with the pull requests' missing token.
+3. `lib/src/app/missing_credentials.dart`: the command only over the window's own ssh to the host, and the words.
+4. `lib/src/ui/missing_credentials_view.dart`, shown by `start_work_view.dart`, `start_agents_view.dart` and
+   `panes.dart`; `shell.dart` runs the command in a terminal on the host, then asks `CanStart` again or, for a task,
+   says the next start follows the builds.
+5. Tests, each seen red first: `test/client/missing_credential_test.dart`, `test/app/missing_credentials_test.dart`,
+   `test/ui/missing_credential_view_test.dart`, and scenarios in `task_creation.feature` and `start_agents.feature`;
+   the live contract check names the new fields.
 
 ## Acceptance
 
@@ -67,7 +75,11 @@ vault key and the host command, in a start's answer and in a build's detail. Not
 
 ## To be checked
 
-- The daemon's ask, field by field, once agreed in the channel.
-- What the host's command says when the person's vault is shut (today exit 65, "the vault refused the person's forge
+- The wire names the vault key but not the forge, so the window says which host and which entry, not which forge;
+  whether the daemon should name the forge is a question for Porelo.
+- What the host's command says when the person's vault is shut (exit 65, "the vault refused the person's forge
   token; unlock it and retry") and when the person is not admitted yet (exit 69), and whether the window offers the
-  vault's opening there as it does for a start.
+  vault's opening there as it does for a start; today the terminal shows what the command prints, and the start is
+  asked again.
+- The live contract check of the new fields, run against a daemon of Porelo's main; so far read only against its
+  IDL text.

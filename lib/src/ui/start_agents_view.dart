@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:porelo_frontend/client.dart';
 
 import '../app/start_agents.dart';
+import 'missing_credentials_view.dart';
 import 'sign_in_panel.dart';
 import 'tokens.dart';
 import 'wizard.dart';
@@ -12,16 +13,20 @@ import 'wizard.dart';
 /// sign-ins they need, a summary, and then the starts one after another.
 ///
 /// [onLogIn] runs an agent's own login in a terminal on the machine; null where nothing here reaches it.
+/// [onStoreTheMissing] runs the machine's command for a credential its vault lacks beside the agents, in a terminal
+/// there, then asks again; null where this window does not reach that machine itself.
 Future<void> openStartAgents(
   BuildContext context, {
   required StartAgents starting,
   Future<void> Function(Agent agent)? onLogIn,
+  Future<void> Function(MissingCredential missing)? onStoreTheMissing,
 }) async {
   try {
     await showDialog<void>(
       context: context,
       barrierDismissible: false,
-      builder: (context) => StartAgentsWizard(starting: starting, onLogIn: onLogIn),
+      builder: (context) =>
+          StartAgentsWizard(starting: starting, onLogIn: onLogIn, onStoreTheMissing: onStoreTheMissing),
     );
   } finally {
     // Closed however it is left: what is not sent yet is never sent, and no answer lands in a later opening.
@@ -32,13 +37,16 @@ Future<void> openStartAgents(
 /// The wizard itself, separated so it can be built directly in a test.
 class StartAgentsWizard extends StatelessWidget {
   /// Constructor taking the model and the sign-in.
-  const StartAgentsWizard({required this.starting, this.onLogIn, super.key});
+  const StartAgentsWizard({required this.starting, this.onLogIn, this.onStoreTheMissing, super.key});
 
   /// What is being started.
   final StartAgents starting;
 
   /// Runs an agent's own login on the machine, then asks again; null where not offered.
   final Future<void> Function(Agent agent)? onLogIn;
+
+  /// Runs the machine's command for a credential its vault lacks, then asks again; null where not offered.
+  final Future<void> Function(MissingCredential missing)? onStoreTheMissing;
 
   @override
   Widget build(BuildContext context) => Wizard(
@@ -67,7 +75,7 @@ class StartAgentsWizard extends StatelessWidget {
         words:
             'An agent with nothing to sign in with on this machine is signed in first, with its own login in a '
             'terminal there. What it gives is kept in the vault, never by this program.',
-        panel: (context) => _SignIns(starting: starting, onLogIn: onLogIn),
+        panel: (context) => _SignIns(starting: starting, onLogIn: onLogIn, onStoreTheMissing: onStoreTheMissing),
         check: () {
           if (!starting.asked) return 'Wait until the machine has said whether each agent can start.';
           if (starting.askProblem case final problem?) return problem;
@@ -141,10 +149,11 @@ class _Repositories extends StatelessWidget {
 }
 
 class _SignIns extends StatelessWidget {
-  const _SignIns({required this.starting, required this.onLogIn});
+  const _SignIns({required this.starting, required this.onLogIn, required this.onStoreTheMissing});
 
   final StartAgents starting;
   final Future<void> Function(Agent agent)? onLogIn;
+  final Future<void> Function(MissingCredential missing)? onStoreTheMissing;
 
   @override
   Widget build(BuildContext context) {
@@ -189,6 +198,9 @@ class _SignIns extends StatelessWidget {
                 Text('Sign in to ${_labelOf(agent)} on the machine itself, then ask again here.'),
             ],
           ),
+        // Beside the starts, never in their way: what the vault lacks beside the agents holds nothing back.
+        if (starting.missing case final missing when missing.isNotEmpty)
+          MissingCredentials(missing: missing, machine: starting.signing.machine, onStore: onStoreTheMissing),
         TextButton.icon(
           key: const Key('start-agents-ask-again'),
           onPressed: () => unawaited(starting.askAgain()),

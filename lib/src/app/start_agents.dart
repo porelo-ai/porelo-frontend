@@ -333,6 +333,17 @@ class StartAgents extends ChangeNotifier with QuietAfterDispose {
   /// The rows the machine says cannot start now for another reason than a sign-in, with its words.
   Iterable<AgentRow> get held => rows.where((each) => each.held != null && !each.needsASignIn);
 
+  /// What the machine's vault lacks beside the agents, from the answers for the rows to start, each once: **it
+  /// holds no start back**, and is said beside them.
+  List<MissingCredential> get missing {
+    final seen = <(String, String)>{};
+    return <MissingCredential>[
+      for (final row in toStart)
+        for (final each in row.readiness?.missing ?? const <MissingCredential>[])
+          if (seen.add((each.purpose, each.credential))) each,
+    ];
+  }
+
   /// Whether a start is under way.
   bool get starting => rows.any((each) => each.state == AgentStart.starting);
 
