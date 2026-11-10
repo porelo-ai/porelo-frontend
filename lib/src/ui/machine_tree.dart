@@ -120,6 +120,9 @@ String? startRefusedOnTheMachine({
   forge: forge,
 ).startRefused;
 
+/// The states of a repository on its host that a wait of its project for the token does not touch.
+const _waitsNot = {'taken', 'no-central', 'not-carried'};
+
 /// Carried, not carried, held or waiting, in words and as a fact, with why work cannot start there, for
 /// [repositoryOnTheMachine], [carriedOnTheMachine] and [startRefusedOnTheMachine].
 OnTheMachine _standing({
@@ -140,9 +143,10 @@ OnTheMachine _standing({
     // Not carried here, so nothing of it is held here, whatever the project is.
     return (words: daemonCarried!, carried: false, startRefused: notCarried);
   }
-  // Waiting for a token, the machine takes none of the project, whatever its daemon lists: never called carried. One
-  // the organization puts on another machine does not wait here.
-  if (progressRead && waits != null) {
+  // Waiting for a token, the machine takes nothing more of the project, whatever its daemon lists: never called
+  // carried. One it has taken already stays carried while it waits for another (seen live); one with no central
+  // address, one the host does not carry, and one the organization puts on another machine do not wait here.
+  if (progressRead && waits != null && !_waitsNot.contains(row?.state)) {
     if (notHere) return (words: 'not carried here', carried: false, startRefused: notCarried);
     return (
       words: waits,
@@ -608,7 +612,8 @@ class _RepositoryLine extends StatelessWidget {
         tooltip: 'What can be done with $name',
         commands: [
           start,
-          ?giveToken,
+          // Offered where this repository waits for it, never on one carried or not carried here.
+          if (onTheMachine?.carried == null) ?giveToken,
           Command(
             id: 'sync-$name',
             label: "Ask $name's upstream how far behind it is, now",

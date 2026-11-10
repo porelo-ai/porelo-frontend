@@ -162,9 +162,12 @@ class _OrganizationMachineRowState extends State<OrganizationMachineRow> {
     final waits = {
       for (final project in mine) project: ?waitingWords(widget.connections?.heard(host.name)?.of(project), forge),
     };
+    // One the machine has taken some of is ready to work on there, while it waits for the rest.
     final ready = [
       for (final project in mine)
-        if (!waits.containsKey(project)) project,
+        if (!waits.containsKey(project) ||
+            (widget.connections?.heard(host.name)?.of(project)?.taken.isNotEmpty ?? false))
+          project,
     ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -900,11 +903,14 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
           title: Text(repository),
           subtitle: Text(
             [
-              // Put here alone, it is carried only once the machine stops waiting for the token for it.
-              if (waitingWords(_progress?.of(name), organizationForgeName(widget.organization.view)) case final waits?)
-                'Of $name, put here alone; the machine $waits'
-              else
-                'Of $name, carried here alone',
+              // Put here alone, it is carried only once the machine stops waiting for the token for it; one it has
+              // taken already stays carried while it waits for another.
+              switch (_takenRow(name, repository) == null
+                  ? waitingWords(_progress?.of(name), organizationForgeName(widget.organization.view))
+                  : null) {
+                final waits? => 'Of $name, put here alone; the machine $waits',
+                null => 'Of $name, carried here alone',
+              },
               if (_takenRow(name, repository)?.central case final central?) central.words,
             ].join(' · '),
           ),
@@ -1143,10 +1149,11 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     // Kept here with its connection down: that is what Connect is for, as on the row.
     final isDown = connected && !isUp && !waits;
     final why = _whyNotConnect(host, connections);
-    // A project the machine waits for a token for is taken by nothing: never ready to work on, whatever is listed.
+    // A project the machine waits for a token for, with nothing of it taken, is never ready to work on, whatever is
+    // listed; one with some of it taken is, while it waits for the rest.
     final waiting = {
       for (final said in _progress?.projects ?? const <HostProjectProgress>[])
-        if (said.waitsForToken || said.hasNoAddress) said.project,
+        if ((said.waitsForToken || said.hasNoAddress) && said.taken.isEmpty) said.project,
     };
     final mine = [
       for (final project in view.projects)

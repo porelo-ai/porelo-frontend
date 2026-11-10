@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:porelo_frontend/src/ui/command_menu.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_host/porelo_host.dart' as host;
 import 'package:porelo_frontend/src/app/host_progress.dart';
@@ -314,6 +315,58 @@ void main() {
     World.shell.show('work.start', section: Section.project);
     await World.settle(tester);
     await neverCarried('opened by the finder');
+  });
+
+  // Harm: while the machine waits for the token for one new repository, the ones it has taken refuse work (seen live).
+  testWidgets('a waiting project starts work in the repositories its machine has taken, not in the one that waits', (
+    tester,
+  ) async {
+    await World.startBackend(World.work);
+    World.backend.theProjectsItHas = [
+      ...World.backend.theProjectsItHas,
+      Project.from(const {
+        'name': 'demo',
+        'file': '/srv/demo/project.yml',
+        'carried': true,
+        'repositories': [
+          {'name': 'demo', 'own': true},
+          {'name': 'demo-api', 'carriedHere': true, 'central': 'up-to-date'},
+          {'name': 'demo-docs'},
+        ],
+      }),
+    ];
+    final connections = FixtureConnections(['build'])
+      ..hostProgress = HostProgress.read(
+        '{"projects":[{"project":"demo","state":"waiting-for-token","why":"demo-docs: waits for a central token",'
+        '"repositories":[{"repository":"demo-api","state":"taken","central":{"state":"up-to-date"}},'
+        '{"repository":"demo-docs","state":"waiting","why":"waits for a central token"}]}]}',
+      );
+    final machine = await _withTheCard(tester, connections: connections);
+    World.shell.choosePlace(ShellPlace(Section.machine, machine: machine, machineSection: MachineSection.projects));
+    await World.settle(tester);
+    await _tap(tester, 'project build/demo');
+    await World.showRepository(tester, 'demo-api');
+    final taken = find.byKey(const Key('repository-demo-api'));
+    expect(find.descendant(of: taken, matching: find.textContaining('token')), findsNothing);
+    expect(
+      tester.widget<ListTile>(taken).onTap,
+      isNotNull,
+      reason: 'work starts in a repository the machine has taken',
+    );
+    final commands = tester.widget<ProjectDetailsPage>(find.byType(ProjectDetailsPage)).commands;
+    expect(commands.where((each) => each.id == 'work.start').single.available, isTrue);
+    await World.showRepository(tester, 'demo-docs');
+    final waiting = find.byKey(const Key('repository-demo-docs'));
+    expect(find.descendant(of: waiting, matching: find.textContaining('waits for your')), findsOneWidget);
+    expect(tester.widget<ListTile>(waiting).onTap, isNull, reason: 'no work starts in the repository that waits');
+    expect(find.byKey(const Key('project-give-token')), findsOneWidget);
+    // The token is offered on the row that waits for it, not on the one taken.
+    List<String> menu(String repository) => [
+      for (final each in tester.widget<CommandMenu>(find.byKey(Key('repository-menu $repository'))).commands)
+        each.label,
+    ];
+    expect(menu('demo-api').where((label) => label.contains('token')), isEmpty);
+    expect(menu('demo-docs').where((label) => label.contains('token')), isNotEmpty);
   });
 
   // Harm: a project of a machine no organization's card names, opened from that machine's page while an organization is

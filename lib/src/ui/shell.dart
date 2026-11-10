@@ -5415,7 +5415,7 @@ class _ShellState extends State<Shell> {
         // One its machine waits for the token for takes no work there, however it is listed.
         if (project.name != defaultProject &&
             (project.canBeActedOn || project.project.carried) &&
-            _waitOn(where, project.name) == null)
+            !_takesNoWork(where, project.name))
           project,
     ];
     // Then in which project, or in none: work in the Default project is default, every machine's. Asked on a machine
@@ -5768,10 +5768,15 @@ class _ShellState extends State<Shell> {
   String? _waitWords(Machine machine, String project) =>
       waitingWords(_waitOn(machine, project), organizationForgeName(_organization?.view));
 
-  /// Why work cannot start in [project] on [machine] while it waits, or null.
-  String? _waitWhyNot(Machine machine, String project) => _onTheOrganizationsPage(machine)
+  /// Why work cannot start in [project] on [machine] while it waits, or null: none where the machine has taken some
+  /// of it, whose rows each say whether work starts in them.
+  String? _waitWhyNot(Machine machine, String project) =>
+      _onTheOrganizationsPage(machine) && _takesNoWork(machine, project)
       ? waitsWhyNot(host: machine.hostCard!.name, project: project, waits: _waitWords(machine, project))
       : null;
+
+  /// Whether [project] waits on [machine] with nothing of it taken there, so no work starts in it at all.
+  bool _takesNoWork(Machine machine, String project) => _waitOn(machine, project)?.taken.isEmpty ?? false;
 
   /// *Give it my … token…* for [project] on [machine], where it waits for the token; offered to its Machine Admin.
   Command? _giveTokenFor(Machine machine, String project) {
@@ -5976,7 +5981,8 @@ class _ShellState extends State<Shell> {
     // What the machine waits for, as it said last: on this page however it was opened, never read as carried.
     final waitOn = _waitOn(machine, project.name) ?? progress?.of(project.name);
     final waits = waitingWords(waitOn, organizationForgeName(_organization?.view));
-    final waitWhyNot = waits == null
+    // Where the machine has taken some of it, each repository's row says whether work starts there.
+    final waitWhyNot = waits == null || (waitOn?.taken.isNotEmpty ?? false)
         ? null
         : waitsWhyNot(host: machine.hostCard!.name, project: project.name, waits: waits);
     return ProjectDetailsPage(
@@ -6369,7 +6375,7 @@ class _ShellState extends State<Shell> {
               (each) =>
                   each.name != defaultProject &&
                   (each.canBeActedOn || each.project.carried) &&
-                  _waitOn(machine, each.name) == null,
+                  !_takesNoWork(machine, each.name),
             );
             if (others.isNotEmpty) {
               unawaited(_newWork(on: machine));

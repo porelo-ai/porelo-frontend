@@ -1119,6 +1119,45 @@ void main() {
       expect(find.descendant(of: row, matching: find.textContaining('waits for your')), findsOneWidget);
     });
 
+    // Harm: while the machine waits for the token for one new repository, the ones it has taken read as waiting and
+    // their project as not ready to work on (seen live).
+    testWidgets('a waiting project with a repository taken is ready to work on, and that repository is carried', (
+      tester,
+    ) async {
+      final connections = FixtureConnections(['build'])
+        ..hostProgress = HostProgress.read(
+          '{"projects":[{"project":"split","state":"waiting-for-token","why":"split-web: waits for a central token",'
+          '"repositories":[{"repository":"split-api","state":"taken","central":{"state":"up-to-date"}},'
+          '{"repository":"split-web","state":"waiting"}]}]}',
+        );
+      await connections.progress('build');
+      await page(
+        tester,
+        'hana',
+        connections: connections,
+        moreProjects: const [
+          OrganizationProject(name: 'split', admins: ['hana'], host: 'build'),
+        ],
+        shown: const OrganizationHost(
+          name: 'build',
+          admins: ['hana'],
+          projects: ['split'],
+          repositories: {
+            'split': ['split-api', 'split-web'],
+          },
+        ),
+      );
+      await tester.pumpAndSettle();
+      final taken = find.byKey(const ValueKey('organization.carried/split/split-api'));
+      expect(find.descendant(of: taken, matching: find.textContaining('carried here alone')), findsOneWidget);
+      expect(find.descendant(of: taken, matching: find.textContaining('waits for your')), findsNothing);
+      final waiting = find.byKey(const ValueKey('organization.carried/split/split-web'));
+      expect(find.descendant(of: waiting, matching: find.textContaining('waits for your')), findsOneWidget);
+      final said = tester.widget<Text>(find.byKey(const ValueKey('organization.connectionWords'))).data!;
+      expect(said, contains('Ready to work on: split'));
+      expect(said, isNot(contains('Waiting before build takes them: split')));
+    });
+
     // Harm: the machine's page goes on saying it waits for the token, and offers it again, after it was given from
     // elsewhere and the machine said so.
     testWidgets('the page hears that the machine no longer waits, wherever that was asked', (tester) async {

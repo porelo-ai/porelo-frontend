@@ -247,6 +247,56 @@ void main() {
       expect(said.carried, isFalse);
     });
 
+    // Seen live: a project waiting for one new repository said so on every row, its taken ones too.
+    test('a repository the machine has taken is carried, and only the one still to take waits', () {
+      final partly = _said(
+        state: 'waiting-for-token',
+        why: 'docs: waits for a central token',
+        repositories: [
+          {
+            'repository': 'core',
+            'state': 'taken',
+            'central': {'state': 'up-to-date'},
+          },
+          {'repository': 'docs', 'state': 'waiting', 'why': 'waits for a central token'},
+          {'repository': 'local-lib', 'state': 'no-central'},
+          {'repository': 'other', 'state': 'not-carried'},
+        ],
+      );
+      for (final (route, said) in [
+        ('its daemon lists it', standing(progress: partly, listed: listed)),
+        ('only the host names it', standing(progress: partly)),
+      ]) {
+        expect(said.words, isNot(contains('token')), reason: route);
+        expect(said.words, startsWith('carried'), reason: route);
+        expect(said.carried, isTrue, reason: route);
+        expect(said.refused, isNull, reason: route);
+      }
+      // Neither one with no central address nor one not carried here waits for a token.
+      for (final repository in ['local-lib', 'other']) {
+        final said = carriedOnTheMachine(repository: repository, progress: partly, progressRead: true, forge: 'GitHub');
+        final words = repositoryOnTheMachine(
+          project: 'demo',
+          repository: repository,
+          progress: partly,
+          progressRead: true,
+          tasks: const [],
+          forge: 'GitHub',
+        );
+        expect(words, isNot(contains('token')), reason: repository);
+        expect(said, isFalse, reason: repository);
+      }
+      final docs = repositoryOnTheMachine(
+        project: 'demo',
+        repository: 'docs',
+        progress: partly,
+        progressRead: true,
+        tasks: const [],
+        forge: 'GitHub',
+      );
+      expect(docs, startsWith('waits for your GitHub token'));
+    });
+
     test('one the machine has no address for waits for its repository, not a token', () {
       final said = standing(progress: waiting.withNoAddress(), listed: listed);
       expect(said.words, isNot(contains('token')));
