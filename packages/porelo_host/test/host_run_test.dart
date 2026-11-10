@@ -71,11 +71,11 @@ class ScriptedRemote implements Remote {
     users.add(user);
     if (input != null) inputs.add(input);
     runs.add((command: command, input: input ?? ''));
-    if (command.endsWith('/porelo-host-person org status')) {
+    if (command == '/usr/sbin/porelo-host org status --json') {
       const LineSplitter().convert(status).forEach((line) => onLine?.call(line));
       return statusResult;
     }
-    if (command.contains('/porelo-host-person purge ')) {
+    if (command.startsWith('/usr/sbin/porelo-host person purge ')) {
       final login = command.split(' ').last;
       for (final line in purgeOutput[login] ?? const <String>[]) {
         onLine?.call(line);
@@ -176,8 +176,10 @@ void main() {
       },
     );
     expect(await run.down(plan, purge: ['alice', 'bob', 'alice']), Exit.done);
-    final purges = remote.commands.where((command) => command.contains('/porelo-host-person purge ')).toList();
-    expect(purges, ['/usr/local/sbin/porelo-host-person purge alice', '/usr/local/sbin/porelo-host-person purge bob']);
+    final purges = remote.commands
+        .where((command) => command.startsWith('/usr/sbin/porelo-host person purge '))
+        .toList();
+    expect(purges, ['/usr/sbin/porelo-host person purge alice', '/usr/sbin/porelo-host person purge bob']);
     expect(remote.commands.first, 'trust');
     expect(
       remote.commands.indexOf(purges.last),
@@ -199,7 +201,7 @@ void main() {
       );
       if (failure == 'stdout') remote.purgeOutput['alice'] = ['alice still has an unreviewed task'];
       expect(await runner().down(plan, purge: ['alice', 'bob']), failure == 'ssh' ? Exit.unreachable : Exit.refused);
-      expect(remote.commands, ['/usr/local/sbin/porelo-host-person purge alice']);
+      expect(remote.commands, ['/usr/sbin/porelo-host person purge alice']);
       expect(steps.last.state, StepState.refused);
       expect(steps.last.words, contains('alice'));
       expect(steps.last.words, contains('unreviewed task'));
@@ -271,7 +273,7 @@ void main() {
     expect(pins, [('192.0.2.7', sshKey)]);
     expect(provider.found, [HostPlan.tagFor('garden')]);
     expect(remote.users, ['root']);
-    expect(remote.commands, ['/usr/local/sbin/porelo-host-person org status']);
+    expect(remote.commands, ['/usr/sbin/porelo-host org status --json']);
     final status = Step.fromLine(steps.last.toLine())!;
     expect((status.step, status.state), ('org-status', StepState.done));
     final holders = HostMembership.readStatus(status.words!);
@@ -406,7 +408,7 @@ void main() {
       expect(steps.last.state, StepState.refused);
       expect(steps.where((step) => step.step == 'org-status' && step.state == StepState.done), isEmpty);
       expect(provider.released, isEmpty);
-      expect(remote.commands, ['/usr/local/sbin/porelo-host-person org status']);
+      expect(remote.commands, ['/usr/sbin/porelo-host org status --json']);
     });
   }
 

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:porelo_frontend/client.dart' show Project;
 import 'package:porelo_frontend/src/app/commands.dart';
 import 'package:porelo_frontend/src/app/organization_source.dart';
 import 'package:porelo_frontend/src/app/host_progress.dart';
@@ -165,26 +166,25 @@ void main() {
 
   // Harm: a person cannot see that approved work waits to go to the central forge, or takes cannot say for up to date.
   group('how a project stands with the central forge', () {
-    for (final (answer, words) in [
-      (
-        '{"read_at":"2026-11-03T15:00:01Z","repositories":[{"repository":"a","state":"ahead","commits":3}]}',
-        '3 approved commits not yet at',
-      ),
-      ('{"repositories":[{"repository":"a","state":"up-to-date"}]}', 'up to date with'),
-      (
-        '{"repositories":[{"repository":"a","state":"ahead","commits":1},{"repository":"c","state":"moved-on"}]}',
-        'has moved on: a push would be refused',
-      ),
-      (
-        '{"repositories":[{"repository":"a","state":"cannot-say","why":"unreachable"}]}',
-        'cannot say how it stands with',
-      ),
-      ('{"repositories":[]}', 'cannot say how it stands with'),
-      ('not json', 'cannot say how it stands with'),
+    Map<String, Object?> row(String state, [int? ahead]) => {
+      'name': 'r$state$ahead',
+      'central': state,
+      'ahead': ?ahead,
+      'carriedHere': true,
+    };
+    for (final (rows, words) in [
+      ([row('ahead', 3)], '3 approved commits not yet at'),
+      ([row('up-to-date', 0)], 'up to date with'),
+      ([row('ahead', 1), row('moved-on')], 'has moved on: a push would be refused'),
+      ([row('cannot-say')], 'cannot say how it stands with'),
+      // Ahead by a count nobody gave is no count of none.
+      ([row('ahead')], 'cannot say how it stands with'),
+      ([row('ahead', 2), row('ahead')], '2 approved commits not yet at GitHub, and cannot say for the rest'),
+      (<Map<String, Object?>>[], 'cannot say how it stands with'),
     ]) {
-      test('$answer says $words', () {
-        final state = CentralState.fromAnswer(answer);
-        expect(state.words('GitHub'), contains(words));
+      test('$rows says $words', () {
+        final listed = Project.from(<String, dynamic>{'name': 'demo', 'repositories': rows}).repositoryStates;
+        expect(CentralState.fromRepositories(listed).words('GitHub'), contains(words));
       });
     }
   });

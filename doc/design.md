@@ -228,9 +228,11 @@ run over a real IPv6 network, have not been tried.
 to the central forge: through the machine's own `PushToCentral`, after the person agreed to the commits it names. The
 host refuses what a person's role does not allow, and the page says it in the machine's words.
 
-A project's row says how its machine's approved commits stand with the central forge, from `porelo-host-push --central`
-read as root over the person's connection: so many waiting, up to date, the forge moved on, or that it cannot say, which
-never reads as up to date. The answer can be five minutes old and says when it was read. The row only says it: the
+A project's row says how its machine's approved commits stand with the central forge, as the person's own daemon on the
+host lists it in `Projects` (each carried repository's `central`, `ahead` and `aheadMeasured`), asked over the person's
+connection once it is up: so many waiting, up to date, the forge moved on, or that it cannot say, which never reads as
+up to date; ahead by a count nobody gave cannot say either. The answer can be five minutes old and says when it was
+read. The row only says it: the
 work is brought there from the project's page on its host.
 
 *Set up a machine…* opens for a person the organization names as a Machine Admin of that very machine, judged on what
@@ -262,7 +264,9 @@ takes the setup off, and releasing it at the provider is the person's own step; 
 released by the provider's confirmation, and a give-back that fails keeps the recovery record.
 Before Porelo is taken off or a rental returned, the dialog reads, by `org status` as root, who still holds machine
 administration or a project on the machine. The person confirms the removal of exactly those named accounts and all they
-hold. Each is purged as root before the down play, and the first failure stops the rest, the play and the release. A
+hold. Each is purged as root before the down play (`porelo-host person purge`), and the first failure stops the rest,
+the play and the release; the host purges only a person locked, listed in no project and past their purge day, and
+refuses anyone else in its own words. A
 status that cannot be read purges nothing and leaves the ordinary take-down, whose play still refuses while anyone holds a
 membership. A holder new after a refused play needs another confirmation, and a failed take-down then offers the one
 confirmed as a loss.

@@ -20,7 +20,7 @@ void main() {
     );
     final script = command.last;
     expect(script, contains('root@alpha'));
-    expect(script, contains('porelo-host-person org refresh'));
+    expect(script, contains("'/usr/sbin/porelo-host org refresh'"));
     expect(script, contains(r'''{ printf '%s\n' "$transfer_token"; } |'''));
     expect(script, isNot(contains('__PORELO_CENTRAL')));
   });
@@ -41,7 +41,7 @@ void main() {
     ).last;
     expect(arguments.first, '/usr/bin/ssh');
     expect(arguments.sublist(1, 3), ['-F', config]);
-    expect(arguments.sublist(arguments.length - 2), ['root@alpha', '/usr/local/sbin/porelo-host-person org refresh']);
+    expect(arguments.sublist(arguments.length - 2), ['root@alpha', '/usr/sbin/porelo-host org refresh']);
     // The same ssh as the way through a terminal, so neither pins less than the other.
     for (final each in arguments.skip(1).where((word) => word.contains('='))) {
       expect(feeding, contains(each));

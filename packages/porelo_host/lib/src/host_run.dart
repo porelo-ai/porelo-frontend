@@ -636,7 +636,7 @@ done''',
       final result = await remote.run(
         address,
         plan.loginUser,
-        '/usr/local/sbin/porelo-host-person org status',
+        '/usr/sbin/porelo-host org status --json',
         onLine: answer.writeln,
       );
       final words = [result.stderr, answer.toString()].where((part) => part.isNotEmpty).join('\n');
@@ -694,7 +694,7 @@ done''',
       final result = await remote.run(
         address,
         plan.loginUser,
-        '/usr/local/sbin/porelo-host-person purge $login',
+        '/usr/sbin/porelo-host person purge $login',
         onLine: output.writeln,
       );
       final words = [result.stderr, output.toString()].where((part) => part.isNotEmpty).join('\n');

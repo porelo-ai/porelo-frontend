@@ -61,7 +61,7 @@ List<String> organizationRefreshFeedCommand({
   bool? windows,
   String ssh = '/usr/bin/ssh',
 }) => _tokenFeedCommand(
-  remote: '/usr/local/sbin/porelo-host-person org refresh',
+  remote: '/usr/sbin/porelo-host org refresh',
   target: 'root@${card.name}',
   marked: false,
   ownConnection: true,
@@ -91,7 +91,7 @@ List<String> organizationRefreshArguments({
     config: config,
     ownConnection: true,
     target: 'root@${card.name}',
-    remote: '/usr/local/sbin/porelo-host-person org refresh',
+    remote: '/usr/sbin/porelo-host org refresh',
   );
 }
 

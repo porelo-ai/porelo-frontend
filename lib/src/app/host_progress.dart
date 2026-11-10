@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:porelo_frontend/client.dart' show Repository;
+
 import 'organization_source.dart';
 import 'run_here.dart';
 
@@ -237,36 +239,31 @@ class HostProgress {
   bool get wantsToken => waitsForToken || projects.any((project) => project.waitsForToken);
 }
 
-/// How one project on a machine stands with the central forge, as its follow last read it; only a prompt, as the
-/// push still decides.
+/// How one project on a machine stands with the central forge, as the person's own daemon there last listed it; only a
+/// prompt, as the push still decides.
 class CentralState {
   /// Keeps what the machine answered, an empty [repositories] where it could not say.
   const CentralState({this.readAt, this.repositories = const []});
 
-  /// Reads the machine's answer; anything else than its contract's shape cannot say, and never reads as up to date.
-  factory CentralState.fromAnswer(String answer) {
-    try {
-      final read = jsonDecode(answer);
-      if (read is! Map) return const CentralState();
-      final rows = read['repositories'];
-      return CentralState(
-        readAt: read['read_at'] is String ? DateTime.tryParse(read['read_at'] as String) : null,
-        repositories: [
-          if (rows is List)
-            for (final row in rows)
-              if (row is Map)
-                (
-                  state: row['state'] is String ? row['state'] as String : '',
-                  commits: row['commits'] is int ? row['commits'] as int : 0,
-                ),
-        ],
-      );
-    } on FormatException {
-      return const CentralState();
+  /// Reads the repositories of the daemon's `Projects` row: each it carries and says a central state of. A repository
+  /// with no central forge has nothing to stand against; the oldest answer is when it was read.
+  factory CentralState.fromRepositories(List<Repository> listed) {
+    final said = [
+      for (final each in listed)
+        if (each.carriedHere != false && each.central != null && each.central != 'no-central') each,
+    ];
+    DateTime? oldest;
+    for (final each in said) {
+      final at = each.aheadMeasured == null ? null : DateTime.tryParse(each.aheadMeasured!);
+      if (at != null && (oldest == null || at.isBefore(oldest))) oldest = at;
     }
+    return CentralState(
+      readAt: oldest,
+      repositories: [for (final each in said) (state: each.central!, commits: each.ahead ?? 0)],
+    );
   }
 
-  /// When the machine's follow read, normally up to five minutes ago.
+  /// When the host's follow measured it, normally up to five minutes ago.
   final DateTime? readAt;
 
   /// Each repository's state: `ahead`, `up-to-date`, `moved-on`; anything else cannot say.
@@ -278,10 +275,12 @@ class CentralState {
   /// Whether a push would be refused.
   bool get movedOn => repositories.any((row) => row.state == 'moved-on');
 
-  /// Whether a repository's state, or all of them, cannot be said.
+  /// Whether a repository's state, or all of them, cannot be said: ahead by a count nobody gave says no count.
   bool get cannotSay =>
       repositories.isEmpty ||
-      repositories.any((row) => row.state != 'ahead' && row.state != 'up-to-date' && row.state != 'moved-on');
+      repositories.any(
+        (row) => (row.state == 'ahead' && row.commits <= 0) || !{'ahead', 'up-to-date', 'moved-on'}.contains(row.state),
+      );
 
   /// What the row says, with [forge] the central forge's name.
   String words(String forge) {
@@ -305,17 +304,14 @@ class SshHostProgress {
 
   final RunHere _run;
 
-  /// The host's read-only answer.
-  static const statusVerb = '/usr/local/sbin/porelo-host-person org status';
+  /// The host's read-only answer, as JSON: without `--json` it says it in words.
+  static const statusVerb = '/usr/sbin/porelo-host org status --json';
 
   /// Makes the host fetch now, with nothing on its standard input: a token goes only by the terminal.
-  static const refreshVerb = '/usr/local/sbin/porelo-host-person org refresh';
+  static const refreshVerb = '/usr/sbin/porelo-host org refresh';
 
   /// What the host keeps of a project, and whether it took an address for it. Read-only.
   static String projectFileVerb(String project) => 'cat /etc/porelo-host/organization/projects/$project.json';
-
-  /// How [project] stands with the central forge, as the machine's follow wrote it. Read-only, with no token or root.
-  static String centralVerb(String project) => '/usr/local/sbin/porelo-host-push --central $project';
 
   /// The name of a project whose file can be asked for in a remote command.
   static final _plainName = RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$');
@@ -323,20 +319,6 @@ class SshHostProgress {
   /// What the host [host], reached through [config], says of itself.
   Future<HostProgress> status(String config, String host) async =>
       _withAddresses(config, host, await _ask(config, host, statusVerb));
-
-  /// What [host] says of [project] and the central forge; an answer it refuses or a call that fails cannot say.
-  Future<CentralState> central(String config, String host, String project) async {
-    if (!_plainName.hasMatch(project)) return const CentralState();
-    final Ran answer;
-    try {
-      answer = await _ssh(config, host, centralVerb(project));
-    } on ProcessException {
-      return const CentralState();
-    } on WorkspaceRefused {
-      return const CentralState();
-    }
-    return answer.code == 0 ? CentralState.fromAnswer(answer.out) : const CentralState();
-  }
 
   /// Asks [host] to fetch now, and what it says then.
   Future<HostProgress> refresh(String config, String host) async =>

@@ -70,7 +70,7 @@ class OrganizationProjectsPage extends StatefulWidget {
   /// there, so no machine's list holds these until then.
   final List<Command> Function(String project, String host)? menuFor;
 
-  /// Asks a connected machine how a project stands with the central forge, absent where this computer cannot.
+  /// Asks a connected machine's daemon how a project stands with the central forge, absent where this computer cannot.
   final HostConnections? connections;
 
   @override
@@ -100,11 +100,12 @@ class _OrganizationProjectsPageState extends State<OrganizationProjectsPage> {
     });
   }
 
-  /// Asks once per project and connection, as the machine's own answer only changes at its follow.
+  /// Asks once per project, once the connection is up: the machine's own answer only changes at its follow, and its
+  /// daemon is asked through that connection.
   void _askCentral(OrganizationProject project) {
     final connections = widget.connections;
     final host = project.host;
-    if (connections == null || host == null || !connections.connected(host)) return;
+    if (connections == null || host == null || !connections.up(host)) return;
     if (_central.containsKey(project.name)) return;
     _central[project.name] = const CentralState();
     unawaited(

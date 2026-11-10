@@ -7,6 +7,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as path;
+import 'package:porelo_frontend/client.dart' show Project;
 import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/host_follow.dart';
 import 'package:porelo_frontend/src/app/host_progress.dart';
@@ -114,8 +115,10 @@ void main() {
   late String hostSays;
   late List<List<String>> ran;
   late Completer<void>? holdStart;
+  late FakeBackend daemon;
 
   setUp(() {
+    daemon = FakeBackend(const []);
     ran = [];
     holdStart = null;
     masters = [];
@@ -148,7 +151,7 @@ void main() {
     );
     store = _Saves();
     final settings = Settings(store);
-    machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: tunnels);
+    machines = Machines(settings, reach: (_) => daemon, tunnels: tunnels);
     addTearDown(() async {
       await tunnels.dropEverything();
       machines.dispose();
@@ -204,6 +207,38 @@ void main() {
     expect(File(config('build')).readAsStringSync(), contains('203.0.113.7'));
     expect(launches, hasLength(1));
   });
+
+  // Harm: the host no longer has the program the row asked, so every project read as one that cannot say how it
+  // stands with central, and work waiting there was never said; or the person's daemon on the host is passed over.
+  test(
+    "a project's central state is the person's own daemon's answer on the host, not a program run as root",
+    () async {
+      daemon.theProjectsItHas = [
+        Project.from(const <String, dynamic>{
+          'name': 'demo',
+          'repositories': [
+            {
+              'name': 'api',
+              'central': 'ahead',
+              'ahead': 2,
+              'aheadMeasured': '2026-11-10T20:00:00Z',
+              'carriedHere': true,
+            },
+            {'name': 'docs', 'central': 'no-central', 'carriedHere': true},
+            {'name': 'gone', 'central': 'ahead', 'ahead': 9, 'carriedHere': false},
+          ],
+        }),
+      ];
+      final made = await connections(_mia());
+      await made.connect('build');
+      final state = await made.central('build', 'demo');
+      expect(refreshed, isEmpty, reason: 'nothing was run as root on the host');
+      expect(state.repositories, [(state: 'ahead', commits: 2)]);
+      expect(state.readAt, DateTime.utc(2026, 11, 10, 20));
+      expect(state.words('GitHub'), '2 approved commits not yet at GitHub');
+      expect((await made.central('build', 'unknown')).cannotSay, isTrue);
+    },
+  );
 
   // Harm: two projects on one host would hold two connections, which the host's one account cannot tell apart.
   test('two projects on one host are one connection, and a second Connect changes nothing', () async {

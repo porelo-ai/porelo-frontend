@@ -144,6 +144,16 @@ void main() {
       expect(fed, '');
     });
 
+    // Harm: the window asks for a program the host no longer has, so every machine page says the host refused, and
+    // asked without `--json` the host answers in words nothing here can read.
+    test("root is asked by the host's own program, its status as JSON", () async {
+      await progress.status('/c/build.conf', 'build');
+      expect(asked.sublist(asked.length - 2), ['root@build', '/usr/sbin/porelo-host org status --json']);
+      await progress.refresh('/c/build.conf', 'build');
+      expect(asked.sublist(asked.length - 2), ['root@build', '/usr/sbin/porelo-host org refresh']);
+      expect(fed, '', reason: 'a refresh from here carries no token');
+    });
+
     // Harm: a host admin gives a token that cannot help, as the host took no address for the project, and is told
     // the host still waits for it; or a project that does wait is no longer offered the token.
     group('a project waiting for the token', () {
@@ -228,10 +238,10 @@ void main() {
 
     // Harm: a refusal reads as a state.
     test("a refusal is said in the host's words", () async {
-      answer = (code: 65, out: '', err: 'porelo-host-person: nope\n');
+      answer = (code: 65, out: '', err: 'porelo-host: nope\n');
       await expectLater(
         progress.status('/c/build.conf', 'build'),
-        throwsA(isA<OrganizationRefused>().having((refused) => refused.words, 'words', 'porelo-host-person: nope')),
+        throwsA(isA<OrganizationRefused>().having((refused) => refused.words, 'words', 'porelo-host: nope')),
       );
     });
   });

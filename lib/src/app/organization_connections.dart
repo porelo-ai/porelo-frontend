@@ -456,9 +456,20 @@ class CardHostConnections extends HostConnections {
     }
   }
 
+  /// The person's own daemon on [host] answers it in its `Projects`, as the host's follow measured it; what it cannot
+  /// be asked, or leaves unsaid, cannot say.
   @override
-  Future<CentralState> central(String host, String project) async =>
-      connected(host) ? _progress.central(_config(host), host, project) : const CentralState();
+  Future<CentralState> central(String host, String project) async {
+    final machine = _machine(host);
+    if (machine == null || !up(host)) return const CentralState();
+    try {
+      final listed = await machines.of(machine).backend.projects();
+      final row = listed.where((each) => each.name == project).firstOrNull;
+      return row == null ? const CentralState() : CentralState.fromRepositories(row.repositoryStates);
+    } on Exception {
+      return const CentralState();
+    }
+  }
 
   String _config(String host) {
     final machine = _machine(host);

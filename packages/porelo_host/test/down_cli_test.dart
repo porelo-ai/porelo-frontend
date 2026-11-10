@@ -72,9 +72,9 @@ void main() {
   test('the CLI passes each named purge to teardown once', () async {
     final remote = ScriptedRemote([]);
     expect(await invoke(['--purge', 'alice', '--purge', 'bob', '--purge', 'alice'], remote), Exit.done);
-    expect(remote.commands.where((command) => command.contains('/porelo-host-person purge ')), [
-      '/usr/local/sbin/porelo-host-person purge alice',
-      '/usr/local/sbin/porelo-host-person purge bob',
+    expect(remote.commands.where((command) => command.startsWith('/usr/sbin/porelo-host person purge ')), [
+      '/usr/sbin/porelo-host person purge alice',
+      '/usr/sbin/porelo-host person purge bob',
     ]);
   });
 
@@ -83,7 +83,7 @@ void main() {
     final remote = ScriptedRemote([]);
     final output = StringBuffer();
     expect(await invoke(['--memberships'], remote, output: output), Exit.done);
-    expect(remote.commands, ['/usr/local/sbin/porelo-host-person org status']);
+    expect(remote.commands, ['/usr/sbin/porelo-host org status --json']);
     expect(LineSplitter.split(output.toString()).map(Step.fromLine).last!.step, 'org-status');
   });
 

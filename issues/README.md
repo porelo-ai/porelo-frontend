@@ -134,6 +134,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="f443"></a>[F443](F443-Forge-Token-Handed-Over-When-The-Machine-Asks.md) | S | - | The person's forge token on a host made by the host's own command, run in a terminal there from the window when the host asks; never through this program. |
+| <a id="f473"></a>[F473](F473-The-Window-Calls-The-Host-Programs-It-Has-Now.md) | S | - | Every call the window makes on a host names a program the host has now: root's org status, org refresh and person purge by /usr/sbin/porelo-host, and a project's central state from the person's own daemon there, so no machine page fails on a removed program. |
 | <a id="f471"></a>[F471](F471-The-Planning-Screen-Comes-From-The-Planners-Package.md) | M | - | The planning screen, its models and tests moved into a Flutter package of porelo-planner, with no change in behavior; the window embeds it and hands it the planner's address. |
 | <a id="f457"></a>[F457](F457-Needs-You-Names-The-One-Thing-To-Do.md) | L | - | *Needs you* items name one action, close with their cause, can be marked seen, embed no task tile; nothing waits at the gate in class online; a done task shown done; the commit's makers shown. |
 | <a id="f462"></a>[F462](F462-A-Hosts-Central-Reason-Said-In-Words.md) | XS | - | Where the host cannot say how its copy stands against central, the row says why in words, never the daemon's token. |
