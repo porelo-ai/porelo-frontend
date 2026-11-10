@@ -59,6 +59,8 @@ void main() {
 
   setUp(() async {
     runtime = await Directory.systemTemp.createTemp('planner-runtime-');
+    // Closed to others, as /run/user is: the planner's package refuses a runtime directory others may write.
+    await Process.run('chmod', ['700', runtime.path]);
     bin = await Directory.systemTemp.createTemp('planner-bin-');
   });
 

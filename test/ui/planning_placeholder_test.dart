@@ -42,6 +42,7 @@ void main() {
     tester,
   ) async {
     final runtime = Directory.systemTemp.createTempSync('planner-runtime-');
+    Process.runSync('chmod', ['700', runtime.path]);
     addTearDown(() => runtime.deleteSync(recursive: true));
     late LocalPlanner planner;
     await World.startBackend(World.work);
@@ -72,6 +73,7 @@ void main() {
   // Harm: a planner the window reached stays hidden behind the line, so its boards are never shown.
   testWidgets('a window that reaches its planner shows the planning screen in place of the line', (tester) async {
     final runtime = Directory.systemTemp.createTempSync('planner-runtime-');
+    Process.runSync('chmod', ['700', runtime.path]);
     addTearDown(() => runtime.deleteSync(recursive: true));
     final directory = Directory('${runtime.path}/porelo-planner')..createSync();
     Process.runSync('chmod', ['700', directory.path]);
