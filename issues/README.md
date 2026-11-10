@@ -106,6 +106,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="f203"></a>[F203](F203-This-Repository-Worked-In-A-Porelo-Task.md) | S | — | This repository's agent working in an attended Porelo task on the host, its build green on the host's Forgejo, reached in the room, with a way back. |
+| <a id="f454"></a>[F454](F454-Placing-Says-Its-Progress-In-Its-Dialog.md) | S | — | Placing shows its progress and end in its dialog; *My machines* keeps a machine being prepared. |
 
 ### Backlog
 
@@ -119,7 +120,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f117"></a>[F117](F117-What-Walk-8-Left-Unbuilt.md) | M | — | A tile's repository in its heading, a refused release said as an error that stays. |
 | <a id="f111"></a>[F111](F111-All-Of-A-Pieces-Logs-In-One-Timeline.md) | M | — | All of a piece's logs in one timeline, by time, filterable by source. |
 | <a id="f437"></a>[F437](F437-Join-Leave-And-Accept-A-Card-In-The-Window.md) | M | the backend's card proposal and leave | Join an organization by a card proposal, an owner accepting it on the person's row, and leaving an organization, from the window. |
-| <a id="f454"></a>[F454](F454-Placing-Says-Its-Progress-In-Its-Dialog.md) | S | — | Placing shows its progress and end in its dialog; *My machines* keeps a machine being prepared. |
 | <a id="f455"></a>[F455](F455-The-Organization-Read-Now-From-The-Window.md) | S | the host's start of its follow on demand | *Read the organization now* asks the host to read the organization at once. |
 | <a id="f457"></a>[F457](F457-Needs-You-Names-The-One-Thing-To-Do.md) | L | a call reporting a host forge's pull requests, and the backend's state for a done task, for those parts | *Needs you* items name one action, close with their cause, can be marked seen, embed no task tile; nothing waits at the gate in class online; a done task shown done; the commit's makers shown. |
 | <a id="f458"></a>[F458](F458-The-Task-Terminal-Grows-With-The-Window.md) | XS | the task session following the latest client | The agent's screen grows with the window. |

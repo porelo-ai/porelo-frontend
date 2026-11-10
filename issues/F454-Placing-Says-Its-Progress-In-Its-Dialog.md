@@ -1,6 +1,6 @@
 # F454 — Placing Says Its Progress In Its Dialog
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** S - the placing's progress and end said in the dialog that started it, and one list that does not drop a
 machine while it is being prepared.
 
