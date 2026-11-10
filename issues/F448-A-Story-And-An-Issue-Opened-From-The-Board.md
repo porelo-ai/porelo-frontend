@@ -1,6 +1,10 @@
 # F448 — A Story And An Issue Opened From The Board
 
-**Status:** Review.
+**Status:** Rework: the story and the issue are read from the planner, the local app that now holds them, instead of the
+machine's daemon, which knows them no more; an issue's screen also shows its sub-issues. The window's planning mock
+(`lib/src/mock/planning_data.dart`, `planning_moves.dart` and what they serve) moves into the planner, which gets a mock
+mode serving this board; the window's planning tests start the planner in that mode instead of a mock in the window, and
+the Dart mock stays until the planner's mock mode exists. To be built once the planner's API is served.
 **Size:** M - two screens with a breadcrumb, their reads of the contract, one issue moved alone, the web links opened,
 and a feature file.
 

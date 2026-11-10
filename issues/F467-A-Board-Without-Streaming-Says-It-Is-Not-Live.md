@@ -1,10 +1,10 @@
 # F467 — A Board Without Streaming Says It Is Not Live
 
 **Status:** Backlog.
-**Size:** XS - one line on the planning board where the daemon does not stream it.
+**Size:** XS - one line on the planning board where the planner does not stream it.
 
-**What must be true.** A planning board read from a daemon that does not stream it says it is not live, and that a
-reload shows the current state; it never stands as if it followed the daemon.
+**What must be true.** A planning board read from a planner that does not stream it, or whose stream broke, says it is
+not live, and that a reload shows the current state; it never stands as if it followed the planner.
 - Placed by the operator (2026-11-10) from [F451](README.md#f451), point 3: today the board keeps showing what it
   read, with no word that it no longer follows.
 

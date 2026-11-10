@@ -1,6 +1,12 @@
 # F449 — Work On A Story Started From The Board
 
-**Status:** Review.
+**Status:** Rework: *Start work* takes the planner's proposal and starts the tasks itself through the machine's *Start*,
+giving each task all it needs when it starts, a sub-issue a task of its own; the states are set through the planner, the
+local app that now holds the stories and issues, instead of the machine's daemon, which knows them no more. The window's
+planning mock (`lib/src/mock/planning_data.dart`, `planning_moves.dart` and what they serve) moves into the planner,
+which gets a mock mode serving this board; the window's planning tests start the planner in that mode instead of a mock
+in the window, and the Dart mock stays until the planner's mock mode exists. To be built once the planner's API is
+served.
 **Size:** M - a variant of the start dialog filled by the machine's proposal, the start and stop of a story's work,
 the agent's outcome where its run ended and its entry under *Needs you*, and a feature file; no task name or
 repository typed.

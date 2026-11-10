@@ -1,6 +1,11 @@
 # F446 — The Stories Of A Project On A Planning Board
 
-**Status:** Review, built against a stand-in for the daemon; the names are checked once its planning part is served.
+**Status:** Rework: the board's source becomes porelo-planner, the local app that serves the stories and issues over
+REST (OpenAPI) and Server-Sent Events, instead of the machine's daemon, which knows no stories or issues any more. The
+window's planning mock (`lib/src/mock/planning_data.dart`, `planning_moves.dart` and what they serve) moves into the
+planner, which gets a mock mode serving this board; the window's planning tests start the planner in that mode instead
+of a mock in the window, and the Dart mock stays until the planner's mock mode exists. To be built once the planner's
+API is served.
 **Size:** M - a new place with its page, one part of the contract read and watched, its models, the mock daemon and the
 fake backend taught it, and a feature file; no logic of the window's own.
 

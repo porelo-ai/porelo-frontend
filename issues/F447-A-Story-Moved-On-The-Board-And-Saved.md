@@ -1,6 +1,10 @@
 # F447 — A Story Moved On The Board And Saved
 
-**Status:** Review.
+**Status:** Rework: a move is saved through the planner, the local app that now holds the stories and issues, instead of
+the machine's daemon, which knows them no more. The window's planning mock (`lib/src/mock/planning_data.dart`,
+`planning_moves.dart` and what they serve) moves into the planner, which gets a mock mode serving this board; the
+window's planning tests start the planner in that mode instead of a mock in the window, and the Dart mock stays until
+the planner's mock mode exists. To be built once the planner's API is served.
 **Size:** M - drag and drop on the board's cards and states, the moves kept as pending until saved or undone, one
 write of the contract with its refusals, and a feature file.
 

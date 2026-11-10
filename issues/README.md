@@ -95,10 +95,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f441"></a>[F441](F441-Starting-Work-Signs-In-Names-And-Model.md) | L | — | Work starts without a host shell: the agent's sign-in asked in the window, tasks named as named, the model shown and changeable. |
 | <a id="f444"></a>[F444](F444-A-Move-Driven-Through-The-Window-Against-A-Rented-Host.md) | M | a rented host set up for a test organization of one test person | The main scenarios of a move driven through the real window, unattended, in a local VM under a virtual display, against a rented host, each checked on the host. |
 | <a id="f445"></a>[F445](F445-What-A-Rehearsal-Cannot-Drive-In-The-Window-Stood-In-For.md) | S | the rehearsed move through the window; the host reading the central token from the vault, for its last part | The sign-in up to its terminal, the host key compared by the test, a screenshot on failure, and the gathered push, each passed, failed or said not run. |
-| <a id="f446"></a>[F446](F446-The-Stories-Of-A-Project-On-A-Planning-Board.md) | M | — | *Planning* shows a project's stories on a board, phases as columns with their states, read and watched from the machine, built against a stand-in for the daemon. |
-| <a id="f447"></a>[F447](F447-A-Story-Moved-On-The-Board-And-Saved.md) | M | — | A story dragged to another state, kept pending until saved through the machine or undone; a drop on a working state starts its work instead. |
-| <a id="f448"></a>[F448](F448-A-Story-And-An-Issue-Opened-From-The-Board.md) | M | — | A story's and an issue's screen with a breadcrumb and *Open story*/*Open issue*, an issue moved alone. |
-| <a id="f449"></a>[F449](F449-Work-On-A-Story-Started-From-The-Board.md) | M | — | *Start work* for a story, filled by the machine's proposal: mode, agent, model; the tasks and coordinator shown, not typed; the agent's outcome on its ended run and under *Needs you*. |
 | <a id="f451"></a>[F451](F451-Leftovers-Of-The-Planning-Board.md) | — | — | The mock's planning board under the interface's rule for a story's state, and a story's move taking the issues that rule names, in the mock and the client. |
 | <a id="f377"></a>[F377](F377-A-Hosts-Channel-Follows-The-Window.md) | — | — | A host the window prepares installs from the window's own channel. |
 | <a id="f362"></a>[F362](F362-A-Click-Answers-At-Once.md) | — | — | A click on a row shows its page and its reading line at once; the delay seen is the read, so the page shows what the list holds while it reads, and a project's last read at once when opened again. |
@@ -107,6 +103,10 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f446"></a>[F446](F446-The-Stories-Of-A-Project-On-A-Planning-Board.md) | M | — | *Planning* shows a project's stories on a board, phases as columns with their states, read and watched from the planner. |
+| <a id="f447"></a>[F447](F447-A-Story-Moved-On-The-Board-And-Saved.md) | M | — | A story dragged to another state, kept pending until saved through the planner or undone; a drop on a working state starts its work instead. |
+| <a id="f448"></a>[F448](F448-A-Story-And-An-Issue-Opened-From-The-Board.md) | M | — | A story's and an issue's screen with a breadcrumb and *Open story*/*Open issue*, an issue moved alone and its sub-issues shown. |
+| <a id="f449"></a>[F449](F449-Work-On-A-Story-Started-From-The-Board.md) | M | — | *Start work* for a story, filled by the planner's proposal, its tasks started through *Start*: mode, agent, model; the tasks and coordinator shown, not typed; the agent's outcome on its ended run and under *Needs you*. |
 
 ### Implementing
 
@@ -132,7 +132,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f461"></a>[F461](F461-Every-Screen-Of-The-Window-Read-For-Look-And-Sense.md) | M | — | Every screen captured headless at three sizes, light and dark, full and empty, read by another model against a visual and a logical checklist; every finding listed with its screen and size, nothing fixed yet. |
 | <a id="f464"></a>[F464](F464-My-Machines-Keeps-A-Machine-Being-Prepared.md) | S | — | *My machines* keeps a machine being prepared in its list and count, the drop caught live first. |
 | <a id="f465"></a>[F465](F465-Needs-You-Rows-Say-Their-Name-Once-And-Whole.md) | XS | — | A row under *Needs you* names its machine once, and its title is shown whole where the row has room. |
-| <a id="f467"></a>[F467](F467-A-Board-Without-Streaming-Says-It-Is-Not-Live.md) | XS | — | A planning board read without streaming says it is not live and offers a reload. |
+| <a id="f467"></a>[F467](F467-A-Board-Without-Streaming-Says-It-Is-Not-Live.md) | XS | — | A planning board read without streaming, or with its stream broken, says it is not live and offers a reload. |
 | <a id="f468"></a>[F468](F468-The-Work-Page-Offers-To-Take-A-Repository-Out-Of-Default.md) | S | Porelo's offer to remove a repository from `default` once a project names it | The work page offers to take a repository out of `default` once a project of the organization names it. |
 
 ### Analyzed
