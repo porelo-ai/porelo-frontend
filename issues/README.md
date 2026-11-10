@@ -128,6 +128,8 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f461"></a>[F461](F461-Every-Screen-Of-The-Window-Read-For-Look-And-Sense.md) | M | — | Every screen captured headless at three sizes, light and dark, full and empty, read by another model against a visual and a logical checklist; every finding listed with its screen and size, nothing fixed yet. |
 | <a id="f464"></a>[F464](F464-My-Machines-Keeps-A-Machine-Being-Prepared.md) | S | — | *My machines* keeps a machine being prepared in its list and count, the drop caught live first. |
 | <a id="f465"></a>[F465](F465-Needs-You-Rows-Say-Their-Name-Once-And-Whole.md) | XS | — | A row under *Needs you* names its machine once, and its title is shown whole where the row has room. |
+| <a id="f451"></a>[F451](F451-Leftovers-Of-The-Planning-Board.md) | S | — | The mock's planning board under the interface's rule for a story's state, and a story's move taking the issues that rule names, in the mock and the client. |
+| <a id="f467"></a>[F467](F467-A-Board-Without-Streaming-Says-It-Is-Not-Live.md) | XS | — | A planning board read without streaming says it is not live and offers a reload. |
 
 ### Analyzed
 
@@ -159,7 +161,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="f436"></a>[F436](F436-Every-Task-Run-Kept-And-Read-In-The-Window.md) | L | the backend's task timeline | Every task that runs or ran, removed ones too, in a history view: who started and stopped it, its timeline and numbers, its logs as views of the one log stream, after it is gone too. |
-| <a id="f451"></a>[F451](F451-Leftovers-Of-The-Planning-Board.md) | — | — | What fitting the planning board to the daemon left unbuilt, gathered for the operator to place: the mock board against the story state rule, a board without streaming said to be not live, the finder's planning commands and the start dialog's machine choice untested. |
 | <a id="f430"></a>[F430](F430-Leftovers-Of-The-Rental-Findings.md) | — | — | What the fixes of the trial move's findings named as not built, gathered for the operator to place: the wizard's last pages in a test, the old preparing dialog, Forward's stale-push check, a give-back that leaves the machine listed. |
 | <a id="f402"></a>[F402](F402-Prepare-A-Server-As-The-Standard-Wizard.md) | — | — | *Prepare a server* as steps of the standard wizard, each fitting the window. |
 | <a id="f99"></a>[F99](F99-An-Attached-Agent-Shown-At-Rest-Or-Working.md) | — | — | A work tile says whether an attached agent is at rest or working; implementation waits for the verified screen-derived daemon answer. |

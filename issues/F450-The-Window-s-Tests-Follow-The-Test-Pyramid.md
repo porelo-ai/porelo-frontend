@@ -115,6 +115,14 @@ and the widget scenarios they replace removed with them.
 
 - None yet.
 
+## Placed here from F451
+
+Placed by the operator (2026-11-10) from [F451](README.md#f451), points 4 and 5:
+- **The planning commands in the finder** (open a story or an issue, move an issue, open its web page, save, undo) are
+  registered with no test that fails when they are not.
+- **The start dialog's machine choice** has a test that fails only as a type error when the old field returns, not on
+  the behavior it guards: a rejected machine change leaving the old working state selected.
+
 ## To be checked
 
 - The end-to-end run's measured time per scenario on the leased machine, for the table.

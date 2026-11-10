@@ -1,6 +1,8 @@
 # F451 — Leftovers Of The Planning Board
 
-**Status:** Idea.
+**Status:** Backlog.
+**Size:** S - the mock's board brought under the interface's rule for a story's state, and a story's move
+taking the issues that rule names, in the mock and the client alike.
 
 **What must be true.** What fitting the planning board to the daemon's interface ([F446](README.md#f446) to
 [F449](README.md#f449)) left unbuilt is kept in one place until the operator places each part: in an issue of its own,
@@ -16,9 +18,20 @@ Each point is to be checked against the code before it is fixed.
   move of one of them lands elsewhere than a person expects from the mock.
 - **Which issues a story's move takes** is chosen, in the mock and in the client, as those in the story's state, not
   as the least advanced ones; the two agree only while the board follows the rule above.
-- **A board read from a daemon that does not stream says it is not live**, and that a reload shows the current state;
-  today it keeps its board shown without saying so.
-- **The planning commands in the finder** (open a story or an issue, move an issue, open its web page, save, undo) are
-  registered with no test that fails when they are not.
-- **The start dialog's machine choice** has a test that fails only as a type error when the old field returns, not on
-  the behavior it guards: a rejected machine change leaving the old working state selected.
+- Placed by the operator (2026-11-10): the two points above are built here; a board without streaming saying it is
+  not live went to [F467](README.md#f467); the finder's planning commands and the start dialog's machine choice went
+  to [F450](README.md#f450).
+
+## Plan
+
+- Bring the mock's board (`lib/src/mock/`, its planning stories) under the rule: each story in the earliest open state
+  of its issues, in workflow order; the six named stories fixed, and a test over the whole mock board that fails for
+  any story that breaks the rule.
+- A story's move takes the least advanced issues, as the interface says, in the mock and in the client
+  (`lib/src/client/planning.dart` and the board's move), not those in the story's state.
+- Red first for each: the rule test over the mock board, and a move of a story whose issues stand in two states.
+
+## Acceptance
+
+- Every story of the mock's board stands where the rule puts it; a saved move of a story with issues in two states
+  moves the least advanced ones, in the mock and the client; each test seen red first.
