@@ -72,30 +72,27 @@ Future<void> prepareWork(WidgetTester tester, String condition) async {
     case 'working without work':
       final board = planningFixture();
       planningMaps(board, 'stories').firstWhere((story) => story['id'] == 'ST291')['state'] = 'In analysis';
-      World.backend.storyWork.statuses['ST291'] = {};
+      World.planning.work.statuses['ST291'] = {};
       await pushPlanning(tester, board);
     case 'unknown work':
       final board = planningFixture();
       planningMaps(board, 'stories').firstWhere((story) => story['id'] == 'ST291')['work'] = <String, dynamic>{};
       await pushPlanning(tester, board);
     case 'only unattended':
-      final proposed = World.backend.storyWork.call('ProposeStoryWork', {
+      final proposed = World.planning.work.call('ProposeStoryWork', {
         'project': 'checkout',
         'story': 'ST291',
         'to': 'In analysis',
       });
-      World.backend.storyWork.proposals['ST291'] = {
+      World.planning.work.proposals['ST291'] = {
         ...proposed,
         'modes': ['UNATTENDED'],
       };
     case 'second machine proposal':
-      final proposed = World.elsewhere.storyWork.call('ProposeStoryWork', {
-        'project': 'checkout',
-        'story': 'ST291',
-        'to': 'In analysis',
-      });
+      final proposed = World.planningOn(World.elsewhere).work
+          .call('ProposeStoryWork', {'project': 'checkout', 'story': 'ST291', 'to': 'In analysis'});
       final repos = (proposed['repositories'] as List).cast<Map<String, dynamic>>();
-      World.elsewhere.storyWork.proposals['ST291'] = {
+      World.planningOn(World.elsewhere).work.proposals['ST291'] = {
         ...proposed,
         'repositories': [
           for (final repo in repos)
@@ -106,11 +103,11 @@ Future<void> prepareWork(WidgetTester tester, String condition) async {
         ],
       };
     case 'start refused':
-      World.backend.storyWork.refusal = 'The repository cannot start on this machine.';
+      World.planning.work.refusal = 'The repository cannot start on this machine.';
     case 'reading refused':
-      World.backend.storyWork.refusal = 'This reading cannot be resolved now.';
+      World.planning.work.refusal = 'This reading cannot be resolved now.';
     case 'new revision':
-      final board = {...World.backend.planning['checkout']!, 'revision': 'changed-elsewhere'};
+      final board = {...World.planning.boards['checkout']!, 'revision': 'changed-elsewhere'};
       await pushPlanning(tester, board);
     case 'ended task answer':
       World.theWorkIs(
@@ -148,11 +145,11 @@ Future<void> prepareWork(WidgetTester tester, String condition) async {
       final story = planningMaps(board, 'stories').firstWhere((story) => story['id'] == 'ST291');
       final issue = (story['issues'] as List).first as Map<String, dynamic>;
       issue.addAll({'state': 'Reading', 'rounds': 3, 'roundsMost': 3, 'readingStopped': true});
-      World.backend.storyWork.findings[issue['id'] as String] = [
+      World.planning.work.findings[issue['id'] as String] = [
         {'severity': 'NOTE', 'text': 'A small concern.'},
         {'severity': 'BLOCKING', 'text': 'A credential would leave the task.'},
       ];
-      World.backend.storyWork.deferEcho = condition == 'stopped reading without echo';
+      World.planning.work.deferEcho = condition == 'stopped reading without echo';
       await pushPlanning(tester, board);
     default:
       throw StateError('Unknown story work condition: $condition');

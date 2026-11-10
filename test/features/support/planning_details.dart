@@ -3,9 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/links.dart';
 import 'package:porelo_frontend/src/ui/panes.dart';
+import 'package:porelo_planning/planning_fake.dart';
 import 'package:porelo_planning/porelo_planning.dart';
 
 import '../step/a_backend_with_planning.dart';
@@ -23,13 +23,13 @@ Map<String, dynamic> _story() => mockStory('ST291');
 
 /// Returns the scenario's mutable story, without silently creating one.
 Map<String, dynamic> mockStory(String id) =>
-    planningMaps(World.backend.planning['checkout']!, 'stories').singleWhere((story) => story['id'] == id);
+    planningMaps(World.planning.boards['checkout']!, 'stories').singleWhere((story) => story['id'] == id);
 Map<String, dynamic> _issue() => planningMaps(_story(), 'issues').singleWhere((issue) => issue['id'] == 'B541');
 
 /// Sets up source fields explicitly reported by this scenario's machine.
 Future<void> startPlanningDetails(WidgetTester tester) async {
   await aBackendWithPlanning(tester);
-  World.backend.planning['checkout'] = planningFixture();
+  World.planning.boards['checkout'] = planningFixture();
   _heldStory = null;
   _boardOffsets = null;
   _folded = null;
@@ -155,14 +155,14 @@ Future<void> updatePlanningDetails(WidgetTester tester) async {
   _story()['title'] = 'Updated story title';
   _issue()['title'] = 'Updated issue title';
   _issue()['state'] = 'Review';
-  World.backend.pushPlanning('checkout', {...World.backend.planning['checkout']!, 'revision': 'updated'});
+  World.planning.push('checkout', {...World.planning.boards['checkout']!, 'revision': 'updated'});
   await World.settle(tester);
 }
 
 /// Supplies an independently delayed answer for the lifecycle scenario.
 void delayPlanningStory() {
   _heldStory = Completer<PlanStoryDetail>();
-  World.backend.readPlanningStory = (_, _) => _heldStory!.future;
+  World.planning.readStory = (_, _) => _heldStory!.future;
 }
 
 /// Completes the old request only after its screen has been left.
@@ -182,10 +182,9 @@ Future<void> planningBack(WidgetTester tester) async {
 void setPlanningIssueLink(String link) => _issue()['link'] = link;
 
 /// Refuses detail reads independently of a successful watch.
-void refusePlanningDetails() => World.backend.planningDetailFailure = const VarlinkException(
-  'org.fuin.porelo.Tasks1.WorkNotAllowed',
-  {'detail': 'The story store is locked for repair'},
-);
+void refusePlanningDetails() => World.planning.detailFailure = mockRefusal('org.fuin.porelo.Tasks1.WorkNotAllowed', {
+  'detail': 'The story store is locked for repair',
+});
 
 /// Omits the list instead of confirming that it is empty.
 void omitPlanningIssues() => _story().remove('issues');
@@ -286,27 +285,27 @@ Future<void> narrowPlanningPane(WidgetTester tester) async {
 }
 
 /// Refuses one RPC while leaving independently read content available.
-void refusePlanningPart(String part) => World.backend.planningPartFailures[part] = const VarlinkException(
+void refusePlanningPart(String part) => World.planning.partFailures[part] = mockRefusal(
   'org.fuin.porelo.Tasks1.WorkNotAllowed',
   {'detail': 'This part is locked for repair'},
 );
 
 /// Lists an issue under another story on the machine's board, as a move between stories would.
 Future<void> listPlanningIssueUnder(WidgetTester tester, String issue, String story) async {
-  final board = World.backend.planning['checkout']!;
+  final board = World.planning.boards['checkout']!;
   final stories = planningMaps(board, 'stories');
   final owner = stories.singleWhere((each) => planningMaps(each, 'issues').any((item) => item['id'] == issue));
   final moved = planningMaps(owner, 'issues').singleWhere((item) => item['id'] == issue);
   (owner['issues'] as List<dynamic>).remove(moved);
   (mockStory(story)['issues'] as List<dynamic>).add(moved);
-  World.backend.pushPlanning('checkout', {...board, 'revision': 'issue-moved'});
+  World.planning.push('checkout', {...board, 'revision': 'issue-moved'});
   await World.settle(tester);
 }
 
 /// Supplies malformed blockers without turning them into an unblocked answer.
 Future<void> reportMalformedPlanningBlockers(WidgetTester tester) async {
   _issue()['blockedBy'] = [false, ''];
-  World.backend.pushPlanning('checkout', {...World.backend.planning['checkout']!});
+  World.planning.push('checkout', {...World.planning.boards['checkout']!});
   await World.settle(tester);
 }
 
@@ -407,7 +406,7 @@ void reportEmptyFindingFile() => _issue()['findings'] = [
 /// A watch replacement starts a fresh read group and preserves the last answer on failure.
 Future<void> refusePlanningReplacement(WidgetTester tester, String part) async {
   refusePlanningPart(part);
-  World.backend.pushPlanning('checkout', {...World.backend.planning['checkout']!, 'revision': 'failed-read'});
+  World.planning.push('checkout', {...World.planning.boards['checkout']!, 'revision': 'failed-read'});
   await World.settle(tester);
 }
 
@@ -436,11 +435,11 @@ String planningIssueReportedState(WidgetTester tester, String id) {
 Future<void> savePlanningMoves(WidgetTester tester) => tapPlanning(tester, planningElement('save-moves'));
 
 /// A scenario can hold the daemon acknowledgement without editing any state optimistically.
-void holdPlanningMove() => World.backend.planningMoveHeld = Completer<void>();
+void holdPlanningMove() => World.planning.moveHeld = Completer<void>();
 
 /// Completes the daemon acknowledgement on demand.
 Future<void> completePlanningMove(WidgetTester tester) async {
-  World.backend.planningMoveHeld!.complete();
+  World.planning.moveHeld!.complete();
   await World.settle(tester);
 }
 
@@ -449,12 +448,12 @@ void stalePlanningMoves() {
   _story()['issues'] = [
     for (final issue in planningMaps(_story(), 'issues')) {...issue, if (issue['id'] == 'B540') 'state': 'Review'},
   ];
-  World.backend.planning['checkout']!['revision'] = 'external-change';
+  World.planning.boards['checkout']!['revision'] = 'external-change';
 }
 
 /// Produces the exact refusal contract for the named pending move.
 void refusePlanningMove(String name) {
-  World.backend.planningMoveFailure = VarlinkException(
+  World.planning.moveFailure = mockRefusal(
     'org.fuin.porelo.Tasks1.$name',
     name == 'EnteredOnlyByWork'
         ? {'item': 'B541', 'to': 'Review'}

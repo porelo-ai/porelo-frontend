@@ -204,6 +204,7 @@ class Shell extends StatefulWidget {
     required this.backups,
     required this.narrowing,
     required this.held,
+    this.planning,
     this.walk,
     super.key,
   });
@@ -311,6 +312,9 @@ class Shell extends StatefulWidget {
 
   /// What the work being looked at holds that never reached the gate.
   final WorkHeld held;
+
+  /// Where the planning place reads its boards and starts story work, absent where nothing serves planning.
+  final EmbeddedPlanning? planning;
 
   @override
   State<Shell> createState() => _ShellState();
@@ -537,13 +541,14 @@ class _ShellState extends State<Shell> {
   /// How this person stands in each project, which decides whether they may move its work.
   String? _treeTool;
   Machine? _observedMachine;
-  late final _planning = PlanningBoards(DaemonPlanningClient(widget.machines));
+  late final _embeddedPlanning =
+      widget.planning ?? EmbeddedPlanning(DaemonPlanningClient(widget.machines), startTask: daemonStartTask);
+  late final _planning = PlanningBoards(_embeddedPlanning.client);
   late final _planningHost = ShellPlanningHost(widget.shell, needsYou: () => widget.shell.goTo(Section.attention));
 
-  /// The watched machine whose daemon is [source], if one still is.
-  Machine? _planningMachine(PlanningSource source) => widget.machines.all
-      .where((machine) => identical(widget.machines.of(machine).backend, (source as FleetPlanningSource).fleet))
-      .firstOrNull;
+  /// The watched machine that provides [source], if one still is.
+  Machine? _planningMachine(PlanningSource source) =>
+      planningMachineOf(widget.machines, _embeddedPlanning.client, source);
 
   void _machineChanged() {
     _dropForgottenTools();
@@ -4009,13 +4014,13 @@ class _ShellState extends State<Shell> {
                                   child: PlanningScreen(
                                     boards: _planning,
                                     host: _planningHost,
-                                    startTask: daemonStartTask,
+                                    startTask: _embeddedPlanning.startTask,
                                     taskChanges: WindowTaskChanges(
                                       whyNot: _planningTaskUnavailable,
                                       opening: _openPlanningTask,
                                       onStarted: _storyWorkStarted,
                                     ),
-                                    agents: const DaemonPlanningAgents(),
+                                    agents: MachinePlanningAgents(widget.machines, _embeddedPlanning.client),
                                   ),
                                 ),
                               ],

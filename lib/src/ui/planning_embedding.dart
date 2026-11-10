@@ -5,16 +5,43 @@ import 'package:porelo_planning/porelo_planning.dart'
         PlanningAgentList,
         PlanningAgents,
         PlanningBoard,
+        PlanningClient,
         PlanningHost,
         PlanningPlace,
+        PlanningRefusal,
         PlanningSource,
+        PlanningStartTask,
         PlanningTaskChanges,
+        PlanningUnsupported,
         StoryWork;
 
 import '../app/links.dart' as links;
-import '../app/planning_daemon.dart';
+import '../app/machines.dart';
 import '../app/shell_model.dart';
+import '../client/porelo_client.dart' show FeatureNotSupported;
+import '../wire/varlink_exception.dart';
 import 'start_work_view.dart' show StartAgentChoice;
+
+/// Where the window's planning place reads its boards, and how a start of story work it confirms reaches them.
+class EmbeddedPlanning {
+  /// Takes the providers of planning and how a start reaches the chosen one.
+  const EmbeddedPlanning(this.client, {required this.startTask});
+
+  /// The providers of planning, one per machine that serves it.
+  final PlanningClient client;
+
+  /// How a start of story work reaches the provider the person chose.
+  final PlanningStartTask startTask;
+}
+
+/// The watched machine that [client] names as the provider of [source], if one still is.
+///
+/// A provider is named as the machine it stands for, so the window finds the tasks of a run where the machine keeps
+/// them.
+Machine? planningMachineOf(Machines machines, PlanningClient client, PlanningSource source) {
+  final name = client.providers.where((provider) => identical(provider.source, source)).firstOrNull?.name;
+  return name == null ? null : machines.all.where((machine) => machine.name == name).firstOrNull;
+}
 
 /// The planning screen's place as this window's own place, kept in the window's history.
 class ShellPlanningHost implements PlanningHost {
@@ -83,16 +110,31 @@ class WindowTaskChanges implements PlanningTaskChanges {
   Future<void> started(StoryWork work) => onStarted(work);
 }
 
-/// The agents a machine's daemon offers a start, shown as the window's start shows them.
-class DaemonPlanningAgents implements PlanningAgents {
-  /// Asks each source's own daemon.
-  const DaemonPlanningAgents();
+/// The agents the machine of a provider offers a start, shown as the window's start shows them.
+class MachinePlanningAgents implements PlanningAgents {
+  /// Finds each provider's machine among [machines] by the name [client] gives it.
+  const MachinePlanningAgents(this.machines, this.client);
+
+  /// The watched machines.
+  final Machines machines;
+
+  /// The providers of planning, each named as its machine.
+  final PlanningClient client;
 
   @override
   Future<PlanningAgentList> on(PlanningSource source) async {
-    final listed = await (source as FleetPlanningSource).agentsOn();
-    return PlanningAgentList([
-      for (final agent in listed.agents) PlanningAgent(agent.name, choice: StartAgentChoice(agent: agent)),
-    ], listed.failures);
+    final machine = planningMachineOf(machines, client, source);
+    if (machine == null) throw StateError('This window no longer knows the machine of ${source.label}.');
+    try {
+      final listed = await machines.of(machine).backend.agentsOn();
+      return PlanningAgentList([
+        for (final agent in listed.agents) PlanningAgent(agent.name, choice: StartAgentChoice(agent: agent)),
+      ], listed.failures);
+    } on VarlinkException catch (error) {
+      // In the planning screen's words, so a refusal reads there as every other refusal does.
+      throw PlanningRefusal(error.simpleName, error.parameters, error.toString(), error.isMethodNotFound);
+    } on FeatureNotSupported catch (error) {
+      throw PlanningUnsupported(error.toString());
+    }
   }
 }

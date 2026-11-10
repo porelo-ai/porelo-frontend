@@ -7,5 +7,5 @@ import '../support/world.dart';
 Future<void> thePlanningRevisionChangesOnTheMachine(WidgetTester tester) async {
   final board = planningFixture();
   board['revision'] = 'another-revision';
-  World.backend.planning['checkout'] = board;
+  World.planning.boards['checkout'] = board;
 }

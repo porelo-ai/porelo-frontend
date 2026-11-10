@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:porelo_frontend/src/mock/planning_data.dart';
+import 'package:porelo_planning/planning_fake.dart';
 
 import 'world.dart';
 
@@ -9,7 +9,7 @@ Map<String, dynamic> planningFixture() => mockPlanningBoard();
 
 /// Pushes one complete answer for the scenario's known project.
 Future<void> pushPlanning(WidgetTester tester, Map<String, dynamic> snapshot) async {
-  World.backend.pushPlanning('checkout', snapshot);
+  World.planning.push('checkout', snapshot);
   await World.settle(tester);
 }
 

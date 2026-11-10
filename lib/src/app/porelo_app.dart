@@ -3,6 +3,7 @@ import 'package:guided_walk/guided_walk.dart';
 
 import '../ui/theme.dart';
 
+import '../ui/planning_embedding.dart' show EmbeddedPlanning;
 import '../ui/shell.dart';
 import 'egress.dart';
 import 'product.dart';
@@ -72,6 +73,7 @@ class PoreloApp extends StatelessWidget {
     required this.backups,
     required this.narrowing,
     required this.held,
+    this.planning,
     this.walk,
     super.key,
   });
@@ -177,6 +179,9 @@ class PoreloApp extends StatelessWidget {
   /// What the work being looked at holds that never reached the gate.
   final WorkHeld held;
 
+  /// Where the planning place reads its boards and starts story work, absent where nothing serves planning.
+  final EmbeddedPlanning? planning;
+
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     // Only the appearance rebuilds the application; everything else rebuilds the frame.
@@ -249,6 +254,7 @@ class PoreloApp extends StatelessWidget {
           backups: backups,
           narrowing: narrowing,
           held: held,
+          planning: planning,
           walk: walk,
         ),
       ),

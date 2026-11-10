@@ -1,6 +1,7 @@
 import 'package:porelo_frontend/src/app/planning_daemon.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
 import 'package:porelo_frontend/src/ui/planning_embedding.dart';
+import 'package:porelo_frontend/src/ui/start_work_view.dart' show StartAgentChoice;
 import 'package:porelo_planning/porelo_planning.dart';
 
 export 'package:porelo_frontend/src/app/planning_daemon.dart';
@@ -18,7 +19,7 @@ PlanningScreen planningView({
   host: ShellPlanningHost(shell, needsYou: onNeedsYou),
   startTask: daemonStartTask,
   taskChanges: WindowTaskChanges(whyNot: taskUnavailable, opening: onTask, onStarted: onStarted ?? (_) async {}),
-  agents: const DaemonPlanningAgents(),
+  agents: const _DaemonAgents(),
 );
 
 /// A start form whose start and agents come from the board's own daemon, as in the window.
@@ -33,7 +34,20 @@ StoryWork planningStoryWork(
   story,
   to,
   startTask: daemonStartTask,
-  agentChoices: const DaemonPlanningAgents(),
+  agentChoices: const _DaemonAgents(),
   machines: machines,
   unavailableMachines: unavailableMachines,
 );
+
+/// The agents a source's own daemon offers, as the window shows them.
+class _DaemonAgents implements PlanningAgents {
+  const _DaemonAgents();
+
+  @override
+  Future<PlanningAgentList> on(PlanningSource source) async {
+    final listed = await (source as FleetPlanningSource).agentsOn();
+    return PlanningAgentList([
+      for (final agent in listed.agents) PlanningAgent(agent.name, choice: StartAgentChoice(agent: agent)),
+    ], listed.failures);
+  }
+}

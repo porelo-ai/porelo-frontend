@@ -13,7 +13,7 @@ Future<void> anotherMachineOffersTheSameProjectPlanning(WidgetTester tester) asy
   final board = planningFixture();
   planningMaps(board, 'stories').singleWhere((story) => story['id'] == 'ST291')['title'] =
       'Story supplied by another machine';
-  World.elsewhere.planning['checkout'] = board;
+  World.planningOn(World.elsewhere).boards['checkout'] = board;
   await World.machines.add(const Machine(name: 'elsewhere', socketPath: '/tmp/world-elsewhere.sock'));
   await World.settle(tester);
 }

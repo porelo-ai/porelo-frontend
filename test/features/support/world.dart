@@ -55,6 +55,9 @@ import 'package:porelo_frontend/src/app/host_access.dart';
 import 'package:porelo_frontend/src/app/settings.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
 import 'package:porelo_frontend/src/app/porelo_app.dart';
+import 'package:porelo_frontend/src/ui/planning_embedding.dart' show EmbeddedPlanning;
+import 'package:porelo_planning/planning_fake.dart' show MockPlanningClient, MockPlanningSource, mockStartTask;
+import 'package:porelo_planning/porelo_planning.dart' show PlanningProvider;
 
 /// A backend that answers whatever a scenario needs it to.
 ///
@@ -101,32 +104,35 @@ class FakeBackend implements FleetBackend {
     try {
       final result = storyWork.call(method, parameters);
       if (method == 'StartStoryWork' && result['work'] is Map<String, dynamic>) {
-        final work = result['work'] as Map<String, dynamic>;
-        final project = parameters['project'] as String;
-        final participants = (work['tasks'] as List).cast<Map<String, dynamic>>();
-        final names = participants.map((task) => task['task']).toSet();
-        final coordinator = work['coordinator'];
-        if (coordinator is String) names.add(coordinator);
-        _tasks = [
-          ..._tasks.where((task) => task.project != project || !names.contains(task.name)),
-          for (final task in participants)
-            Task.from({
-              ...task,
-              'name': task['task'],
-              'project': project,
-              'running': task['atWork'],
-              'mode': task['mode'] == 'AGENT' ? 'SHELL' : task['mode'],
-            }),
-          if (coordinator is String)
-            _tasks.where((task) => task.project == project && task.name == coordinator && task.running).firstOrNull ??
-                Task.from({'name': coordinator, 'project': project, 'running': true, 'mode': 'SHELL'}),
-        ];
-        _changes.add(_tasks);
+        tookStoryWork(parameters['project'] as String, result['work'] as Map<String, dynamic>);
       }
       return result;
     } on VarlinkException {
       rethrow;
     }
+  }
+
+  /// Runs the tasks of story work started on this machine's planning, as the machine runs what it started.
+  void tookStoryWork(String project, Map<String, dynamic> work) {
+    final participants = (work['tasks'] as List).cast<Map<String, dynamic>>();
+    final names = participants.map((task) => task['task']).toSet();
+    final coordinator = work['coordinator'];
+    if (coordinator is String) names.add(coordinator);
+    _tasks = [
+      ..._tasks.where((task) => task.project != project || !names.contains(task.name)),
+      for (final task in participants)
+        Task.from({
+          ...task,
+          'name': task['task'],
+          'project': project,
+          'running': task['atWork'],
+          'mode': task['mode'] == 'AGENT' ? 'SHELL' : task['mode'],
+        }),
+      if (coordinator is String)
+        _tasks.where((task) => task.project == project && task.name == coordinator && task.running).firstOrNull ??
+            Task.from({'name': coordinator, 'project': project, 'running': true, 'mode': 'SHELL'}),
+    ];
+    _changes.add(_tasks);
   }
 
   @override
@@ -3113,6 +3119,35 @@ class World {
   /// The backend under test.
   static late FakeBackend backend;
 
+  static final _planningSources = Expando<MockPlanningSource>();
+
+  /// The planning [backend]'s machine serves, kept as long as that backend is.
+  static MockPlanningSource planningOn(FleetBackend backend) =>
+      _planningSources[backend] ??= MockPlanningSource(backend.label)
+        ..onStarted = backend is FakeBackend ? backend.tookStoryWork : null;
+
+  /// The planning the backend under test serves.
+  static MockPlanningSource get planning => planningOn(backend);
+
+  /// Every watched machine as a provider of the planning it serves, named as the machine.
+  static EmbeddedPlanning _planningOf(Machines machines) => EmbeddedPlanning(
+    MockPlanningClient(
+      () => [
+        for (final machine in machines.all)
+          PlanningProvider(
+            name: machine.name,
+            connected: machines.of(machine).reachability == Reachability.connected,
+            projects: [for (final project in machines.of(machine).listedProjects) project.name],
+            source: planningOn(machines.of(machine).backend),
+          ),
+      ],
+      changes: machines,
+      currentProvider: () => machines.current.name,
+      chosenProject: () => machines.fleet.selectedProject?.name,
+    ),
+    startTask: mockStartTask,
+  );
+
   /// What the window answered when it was asked to close, once it has.
   static Future<Object?>? closing;
 
@@ -3614,6 +3649,7 @@ class World {
         backups: backups,
         narrowing: narrowing,
         held: held,
+        planning: _planningOf(machines),
       ),
     );
     await settle(tester);
@@ -3684,6 +3720,7 @@ class World {
         backups: backups,
         narrowing: narrowing,
         held: held,
+        planning: _planningOf(machines),
       ),
     );
     await settle(tester);
@@ -3718,6 +3755,7 @@ class World {
         backups: backups,
         narrowing: narrowing,
         held: held,
+        planning: _planningOf(machines),
       ),
     );
     await settle(tester);

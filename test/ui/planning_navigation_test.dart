@@ -14,7 +14,7 @@ Future<WorkView> _pendingPlanning(WidgetTester tester) async {
   World.backend.theProjectsItHas = [
     Project.from({'name': 'checkout'}),
   ];
-  World.backend.planning['checkout'] = {
+  World.planning.boards['checkout'] = {
     'states': [
       {'name': 'Ready', 'kind': 'WAITING'},
       {'name': 'Review', 'kind': 'WAITING'},
