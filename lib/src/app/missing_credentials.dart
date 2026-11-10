@@ -7,7 +7,8 @@ import 'machines.dart';
 ///
 /// **Only there, never on this computer**: a host's command for a missing credential makes it for the host's own
 /// forge and keeps it in the person's vault there; run here it would reach another vault, or none.
-bool reachesTheHostItself(Machine machine) => machine.needsATunnel && machine.kind != 'wsl';
+bool reachesTheHostItself(Machine machine) =>
+    machine.needsATunnel && machine.kind != 'wsl' && !machine.host.startsWith('-');
 
 /// [missing]'s own command, run on [machine] in a terminal over ssh, in the account's login shell; null where this
 /// window does not reach [machine] itself (see [reachesTheHostItself]) or [missing] names no command it would run.
@@ -30,13 +31,15 @@ extension MissingCredentialWords on MissingCredential {
           'Work starts all the same.',
   };
 
-  /// What it takes once its command ran, where the machine says something this window does not do itself; null
-  /// for `ask-again` and `restart`, which it does or says.
-  String? get thenUnknown => switch (afterStore) {
-    'ask-again' || 'restart' => null,
-    '' => 'The machine does not say what it takes once it is stored.',
-    _ => 'Once it is stored, the machine says: $afterStore.',
-  };
+  /// What it takes once its command ran, in words; null for [done], which the place showing it does itself.
+  String? afterStoring({required String done}) => afterStore == done
+      ? null
+      : switch (afterStore) {
+          'ask-again' => 'Once it is stored, ask the machine again.',
+          'restart' => 'Once it is stored, a task follows its builds only from its next start.',
+          '' => 'The machine does not say what it takes once it is stored.',
+          _ => 'Once it is stored, the machine says: $afterStore.',
+        };
 
   /// The command as it is run, to copy into a terminal on the machine; null where it named none this window runs.
   String? get commandToCopy => storeCommand.isEmpty ? null : storeCommand.map(quoteForAShell).join(' ');

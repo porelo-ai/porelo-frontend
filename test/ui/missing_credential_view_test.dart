@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
@@ -59,8 +61,8 @@ Future<StartWork> _start(
   return starting;
 }
 
-Task _task({MissingCredential? waitingFor}) => Task.from(<String, dynamic>{
-  'name': 'porelo-checkout-fix',
+Task _task({MissingCredential? waitingFor, String name = 'porelo-checkout-fix'}) => Task.from(<String, dynamic>{
+  'name': name,
   'project': 'checkout',
   'buildReader': 'host-forge',
   'buildProblem': 'your vault does not hold forge.person; run porelo host forge-token on this host',
@@ -77,25 +79,40 @@ Future<void> _detail(
   WidgetTester tester,
   Task task, {
   Future<bool> Function(MissingCredential missing)? onStore,
+  String machine = 'build',
+  WorkHeld? held,
 }) async {
   _size(tester);
-  final held = WorkHeld();
-  addTearDown(held.dispose);
+  final shown = held ?? WorkHeld();
+  if (held == null) addTearDown(shown.dispose);
   await tester.pumpWidget(
     MaterialApp(
       home: Scaffold(
-        body: WorkDetail(task: task, held: held, onClose: () {}, machine: 'build', onStoreTheBuildsCredential: onStore),
+        body: WorkDetail(
+          task: task,
+          held: shown,
+          onClose: () {},
+          machine: machine,
+          onStoreTheBuildsCredential: onStore,
+        ),
       ),
     ),
   );
   await tester.pumpAndSettle();
 }
 
+const _restart = MissingCredential(
+  purpose: 'builds',
+  credential: 'forge.person',
+  storeCommand: <String>['porelo', 'host', 'forge-token'],
+  afterStore: 'restart',
+);
+
 void main() {
   // Harm: work held back over a token only its builds need, or the host's ask never seen.
   testWidgets('a start names what the host lacks beside it, and is not held back', (tester) async {
     await _start(tester, _ready, onStoreTheMissing: (_) async {});
-    final box = find.byKey(const ValueKey<String>('missing-credential forge.person'));
+    final box = find.byKey(const ValueKey<String>('missing-credential builds forge.person'));
     expect(box, findsOneWidget);
     expect(find.descendant(of: box, matching: find.textContaining("build's vault holds no forge.person")), findsOne);
     expect(tester.widget<FilledButton>(find.byKey(const Key('start-go'))).onPressed, isNotNull);
@@ -105,7 +122,7 @@ void main() {
   testWidgets('its press hands the entry the machine named to be stored on the host', (tester) async {
     final stored = <MissingCredential>[];
     await _start(tester, _ready, onStoreTheMissing: (missing) async => stored.add(missing));
-    final press = find.byKey(const ValueKey<String>('store-missing forge.person'));
+    final press = find.byKey(const ValueKey<String>('store-missing builds forge.person'));
     await tester.ensureVisible(press);
     await tester.pumpAndSettle();
     await tester.tap(press);
@@ -116,8 +133,8 @@ void main() {
   // Harm: a press that would run the host's command where this window does not reach the host itself.
   testWidgets('where the window does not reach the host itself, nothing is offered to run', (tester) async {
     await _start(tester, _ready);
-    expect(find.byKey(const ValueKey<String>('missing-credential forge.person')), findsOneWidget);
-    expect(find.byKey(const ValueKey<String>('store-missing forge.person')), findsNothing);
+    expect(find.byKey(const ValueKey<String>('missing-credential builds forge.person')), findsOneWidget);
+    expect(find.byKey(const ValueKey<String>('store-missing builds forge.person')), findsNothing);
     expect(find.text('porelo host forge-token'), findsOneWidget, reason: 'shown to run there by hand');
   });
 
@@ -165,7 +182,110 @@ void main() {
     );
     await tester.tap(find.byKey(const Key('store-builds-credential')));
     await tester.pumpAndSettle();
-    expect(tester.widget<Text>(find.byKey(const Key('builds-credential-stored'))).data, isNot(contains('next start')));
+    final said = tester.widget<Text>(find.byKey(const Key('builds-credential-stored'))).data;
+    expect(said, isNot(contains('next start')));
+    expect(said, contains('did not end without an error'));
+  });
+
+  // Harm: a task or machine opened next reads as stored, or waits on, a command that ran for another one.
+  testWidgets("what the command did for one task is never said of the next one opened", (tester) async {
+    final held = WorkHeld();
+    addTearDown(held.dispose);
+    await _detail(
+      tester,
+      _task(waitingFor: _restart),
+      held: held,
+      onStore: (_) async => true,
+    );
+    await tester.tap(find.byKey(const Key('store-builds-credential')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('builds-credential-stored')), findsOneWidget);
+    await _detail(
+      tester,
+      _task(waitingFor: _restart, name: 'porelo-checkout-other'),
+      held: held,
+      onStore: (_) async => true,
+    );
+    expect(find.byKey(const Key('builds-credential-stored')), findsNothing, reason: 'another task');
+    await _detail(
+      tester,
+      _task(waitingFor: _restart, name: 'porelo-checkout-other'),
+      held: held,
+      machine: 'other',
+    );
+    expect(find.byKey(const Key('builds-credential-stored')), findsNothing, reason: 'another machine');
+  });
+
+  testWidgets('a command still running for one task neither holds nor answers the next one', (tester) async {
+    final held = WorkHeld();
+    addTearDown(held.dispose);
+    final first = Completer<bool>();
+    await _detail(
+      tester,
+      _task(waitingFor: _restart),
+      held: held,
+      onStore: (_) => first.future,
+    );
+    await tester.tap(find.byKey(const Key('store-builds-credential')));
+    await tester.pump();
+    await _detail(
+      tester,
+      _task(waitingFor: _restart, name: 'porelo-checkout-other'),
+      held: held,
+      onStore: (_) async => true,
+    );
+    expect(tester.widget<OutlinedButton>(find.byKey(const Key('store-builds-credential'))).onPressed, isNotNull);
+    first.complete(true);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('builds-credential-stored')), findsNothing);
+  });
+
+  // Harm: a person who runs the command by hand is never told the running task needs a new start.
+  testWidgets('where the command is run by hand, the task says only its next start follows its builds', (tester) async {
+    await _detail(tester, _task(waitingFor: _restart));
+    expect(find.byKey(const Key('store-builds-credential')), findsNothing);
+    expect(find.textContaining('next start'), findsOneWidget);
+  });
+
+  // Harm: a remedy the machine names dropped where this window does not do it itself.
+  testWidgets('a start says what the machine names for after the store, where it is no ask again', (tester) async {
+    await _start(
+      tester,
+      const Readiness(
+        ready: true,
+        outcome: StartOutcome.ready,
+        agent: 'an-agent',
+        provider: 'a-provider',
+        credential: 'a-provider',
+        detail: '',
+        missing: <MissingCredential>[_restart],
+      ),
+      onStoreTheMissing: (_) async {},
+    );
+    expect(find.textContaining('next start'), findsOneWidget);
+  });
+
+  // Harm: two entries under one key throw, and the start's form shows nothing at all.
+  testWidgets('entries that share a vault key are each shown, and the same one once', (tester) async {
+    await _start(
+      tester,
+      const Readiness(
+        ready: true,
+        outcome: StartOutcome.ready,
+        agent: 'an-agent',
+        provider: 'a-provider',
+        credential: 'a-provider',
+        detail: '',
+        missing: <MissingCredential>[
+          _missing,
+          _missing,
+          MissingCredential(purpose: 'mirrors', credential: 'forge.person', afterStore: 'ask-again'),
+        ],
+      ),
+      onStoreTheMissing: (_) async {},
+    );
+    expect(tester.takeException(), isNull);
+    expect(find.textContaining('holds no forge.person'), findsNWidgets(2));
   });
 
   // Harm: a button that runs a command a task from an older daemon never named, read out of its sentence.

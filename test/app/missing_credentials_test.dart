@@ -32,9 +32,24 @@ void main() {
     for (final machine in <Machine>[
       Machine(name: 'this computer', socketPath: Backend.local().socketPath),
       const Machine(name: 'forwarded', socketPath: '/tmp/forwarded.sock'),
-      const Machine(name: 'wsl', socketPath: '', kind: 'wsl', distribution: 'Ubuntu'),
+      const Machine(
+        name: 'wsl',
+        socketPath: '/tmp/wsl.sock',
+        kind: 'wsl',
+        distribution: 'Ubuntu',
+        host: 'alice@build',
+        remoteSocket: '/run/user/1000/porelo/porelod.sock',
+      ),
+      // ssh would read it as an option, not a host.
+      const Machine(
+        name: 'dash',
+        socketPath: '/tmp/dash.sock',
+        host: '-oProxyCommand=sh',
+        remoteSocket: '/run/user/1000/porelo/porelod.sock',
+      ),
     ]) {
       expect(storedOnTheHost(machine, missing), isNull, reason: machine.name);
+      expect(reachesTheHostItself(machine), isFalse, reason: '${machine.name}: no press is offered that runs nothing');
     }
   });
 

@@ -31,9 +31,9 @@ class MissingCredentials extends StatelessWidget {
     crossAxisAlignment: CrossAxisAlignment.start,
     spacing: Space.small,
     children: <Widget>[
-      for (final each in missing)
+      for (final each in _once(missing))
         Container(
-          key: ValueKey<String>('missing-credential ${each.credential}'),
+          key: ValueKey<String>('missing-credential ${each.purpose} ${each.credential}'),
           width: double.infinity,
           padding: const EdgeInsets.all(Space.normal),
           decoration: BoxDecoration(
@@ -46,7 +46,8 @@ class MissingCredentials extends StatelessWidget {
             spacing: Space.small,
             children: <Widget>[
               Text(each.atTheStart(machine)),
-              if (each.thenUnknown case final then?) Text(then, style: Theme.of(context).textTheme.bodySmall),
+              if (each.afterStoring(done: 'ask-again') case final then?)
+                Text(then, style: Theme.of(context).textTheme.bodySmall),
               ..._store(each),
             ],
           ),
@@ -54,13 +55,22 @@ class MissingCredentials extends StatelessWidget {
     ],
   );
 
+  /// Each entry once, by what it is for and its vault key: the same twice would be two boxes under one key.
+  static List<MissingCredential> _once(List<MissingCredential> all) {
+    final seen = <(String, String)>{};
+    return <MissingCredential>[
+      for (final each in all)
+        if (seen.add((each.purpose, each.credential))) each,
+    ];
+  }
+
   List<Widget> _store(MissingCredential each) {
     if (onStore != null && each.storeCommand.isNotEmpty) {
       return <Widget>[
         Align(
           alignment: AlignmentDirectional.centerStart,
           child: OutlinedButton.icon(
-            key: ValueKey<String>('store-missing ${each.credential}'),
+            key: ValueKey<String>('store-missing ${each.purpose} ${each.credential}'),
             onPressed: () => unawaited(onStore!(each)),
             icon: const Icon(Icons.terminal, size: Sizes.rowIcon),
             label: Text('Store ${each.credential.isEmpty ? 'it' : each.credential} on $machine, in a terminal there'),
@@ -102,10 +112,26 @@ class _StoreTheBuildsCredentialState extends State<StoreTheBuildsCredential> {
 
   bool _running = false;
 
+  /// Counts what it is shown for: a command's end for one it was shown for before lands nowhere.
+  int _shown = 0;
+
+  @override
+  void didUpdateWidget(StoreTheBuildsCredential before) {
+    super.didUpdateWidget(before);
+    if (before.machine != widget.machine ||
+        before.missing.purpose != widget.missing.purpose ||
+        before.missing.credential != widget.missing.credential) {
+      _shown++;
+      _ended = null;
+      _running = false;
+    }
+  }
+
   Future<void> _store() async {
+    final shown = _shown;
     setState(() => _running = true);
     final ended = await widget.onStore!(widget.missing);
-    if (!mounted) return;
+    if (!mounted || shown != _shown) return;
     setState(() {
       _running = false;
       _ended = ended;
@@ -131,11 +157,15 @@ class _StoreTheBuildsCredentialState extends State<StoreTheBuildsCredential> {
         else ...<Widget>[
           Text(missing.notRunHere(widget.machine)),
           if (missing.commandToCopy case final command?) CommandToCopy(command: command),
+          Text(switch (missing.afterStore) {
+            'restart' => 'Once it is stored, this task follows its builds only from its next start.',
+            _ => missing.afterStoring(done: 'restart') ?? '',
+          }),
         ],
         if (_ended == true)
           Text(switch (missing.afterStore) {
             'restart' => 'The command ended without an error. This task follows its builds only from its next start.',
-            _ => 'The command ended without an error. ${missing.thenUnknown ?? ''}'.trim(),
+            _ => 'The command ended without an error. ${missing.afterStoring(done: 'restart') ?? ''}'.trim(),
           }, key: const Key('builds-credential-stored'))
         else if (_ended == false)
           const Text(

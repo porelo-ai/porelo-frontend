@@ -173,6 +173,13 @@ class WorkDetail extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsetsDirectional.only(start: Sizes.fieldName, bottom: Space.tight),
                   child: StoreTheBuildsCredential(
+                    // Its own for each task, machine and entry: what the command did for one is never another's.
+                    key: ValueKey<(String, String, String, String)>((
+                      machine,
+                      task.name,
+                      missing.purpose,
+                      missing.credential,
+                    )),
                     missing: missing,
                     machine: machine.isEmpty ? 'the machine' : machine,
                     onStore: onStoreTheBuildsCredential,

@@ -41,6 +41,11 @@ host's command, in a start's answer and on a task.
   0, it says that only the task's next start follows its builds.
 - The command runs only on a machine this window reaches over its own ssh, never on this computer, a WSL
   distribution or a socket forwarded by somebody else; there the command is shown to run on the host by hand.
+- Reading fixed: a task's store state is its own for each task, machine and entry, and a command's end for one
+  opened before lands nowhere; entries sharing a vault key are each shown, the same one once; a host whose ssh
+  address starts with a dash offers no press; what the machine names for after the store is said where the window
+  does not do it, also where the command is run by hand; and the tests of a WSL distribution reached over ssh and of
+  a failed command were made to fail on their own break. Nothing of the reading was declined.
 - Not this issue: the token for the central forge that `porelo-host-push --central` asks for on its terminal; the
   person types that one there.
 
