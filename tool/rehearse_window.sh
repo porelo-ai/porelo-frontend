@@ -183,6 +183,21 @@ socket=$(as_the_person_on_vm "ssh -x -o BatchMode=yes '$host' 'printf /run/user/
     exit 1
 }
 
+# What the window will read of the organization, as the person on the VM: kept in the report, and the run stops here
+# with its words where the host is not in it, instead of every scenario waiting for a host that cannot appear.
+as_the_person_on_vm "porelo org --json" >"$report/org-on-vm.json" 2>"$report/org-on-vm.err" || {
+    echo "rehearse: porelo on $vm cannot read the organization as the person: $(tail -n 1 "$report/org-on-vm.err")" >&2
+    exit 1
+}
+python3 -I - "$report/org-on-vm.json" "$host_name" <<'EOF' >&2 || exit 1
+import json, sys
+answer = json.load(open(sys.argv[1]))
+words = json.dumps(answer)
+print(f"rehearse: the organization on the VM is at revision {answer.get('revision')}")
+if f'"{sys.argv[2]}"' not in words:
+    sys.exit(f"rehearse: the organization porelo reads on the VM does not list the host {sys.argv[2]}; see org-on-vm.json")
+EOF
+
 echo "rehearse: the window against $host, at most $budget minutes"
 status=0
 # In a session of its own whose number is kept, so an ending here takes the whole of it down there too.
