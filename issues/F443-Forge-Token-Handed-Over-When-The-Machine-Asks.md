@@ -27,8 +27,8 @@ log or the person's clipboard.
 
 The operator put it in Backlog on 2026-11-10 and gave it the priority High on 2026-11-09.
 
-**Blocked by** the daemon's ask for it on the wire, a missing host forge token answered with the vault key and the
-host command, which Porelo builds after two issues of its own.
+Its Porelo part is on Porelo's main since 2026-11-10: a missing host forge token is answered on the wire with the
+vault key and the host command, in a start's answer and in a build's detail. Nothing blocks it any more.
 
 - On a host, the person's forge token for the host's own forge is made by the host: `porelo-host-forge-token`, run in
   a shell on the host, has the forge make a token for the person's login and puts it into the person's vault there.
