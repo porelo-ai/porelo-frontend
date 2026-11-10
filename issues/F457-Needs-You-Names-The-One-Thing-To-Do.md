@@ -66,6 +66,37 @@ Part 4 first: the pull request on a host's forge and the done task's own state, 
 `PullRequests`/`WatchPullRequests` and the task state `done` (2026-11-10).
 
 - Each part gets one reading of its own new code by another model, its findings fixed once, and no second reading (the coordinator, 2026-11-10).
+- **Part 2's reading fixed** (2026-11-10), each finding checked against the code first:
+  - Taken, red first in `test/app/seen_marks_test.dart`:
+    - Must 1: a seen question its machine says again came back as unseen once its mark's week was over (red:
+      `Expected: empty Actual: [Instance of 'RanOutQuestion']`, past the week); an occurrence already seen is now
+      forgotten as its machine says it again.
+    - Must 6, its first half: work running out on the same question again filed one row per time (red: three ids
+      where one was expected); a later unseen occurrence now takes the earlier one's place.
+    - Must 5: a mark with no time, seen, hid the work's next end for the window's life (red: `Expected: an object
+      with length of <1> Actual: WhereIterable<Tile>:[]`, it ended again), and an older build's mark of an end with
+      no time hid such ends (red: the same line); this window's own marks now go as the stored ones do, and an end
+      with no time is seen only by this window's mark.
+    - Must 8: with no machines stored, the stored machines were never read whole, so a seen set-aside notice was
+      never dropped (red: `Expected: true Actual: <false>`, `machinesRead`).
+  - Taken, red first in `test/app/planning_attention_test.dart`: Must 2, a story's seen end was dropped when another
+    story was seen while its work could not be read, and came back (red: `Expected: empty Actual: ['story ended
+    builder/demo/story']`); a board is read whole only once every story's work is current.
+  - Taken, red first in `test/ui/needs_you_causes_test.dart`: Must 7. The plan's point 2 and this issue name *Seen*
+    as the word of whatever only informs, ran out among them, and [F353](README.md#f353)'s *Got it* came before it, so *Got it* became
+    *Seen*; a failed operation, named by the plan too, gets *Seen* beside *Open what it printed* (red: `Expected:
+    exactly one matching candidate Actual: _DescendantWidgetFinder:<Found 0 widgets with text "Seen" ...`).
+  - Must 9: its first and third gaps are the tests above; its second goes with Must 3.
+  - May 1 taken without a test: the pruning of silence marks runs on the marks as they are when it runs and not
+    after the window is closed, so a mark set in between is kept; the race cannot be placed by a test without
+    reaching into the timing.
+  - Declined: Must 3 and Must 4, marks set or questions run out before the settings are read: the window reads its
+    settings before it builds what needs a person (`_compose` in `lib/main.dart`), so neither can happen there; the
+    window-only marks are the guard. Must 5's empty `at` of a question that ran out: the machine stamps every
+    settled question with its time. Must 6's second half, marks of forgotten machines: bounded by what was marked
+    before the machine was forgotten, as before this part, and nothing grows on its own. May 2, the settings'
+    change running the rows again within a pass: the inner pass works from the same state, so no row is wrong, only
+    worked out twice.
 - **Part 1's reading fixed** (2026-11-10), each finding checked against the code first:
   - Taken, red first in `test/app/attention_causes_test.dart`: a question that ran out no longer also stands under
     *Recently resolved* (red: `Expected: not contains a string starting with 'question '`); a wait that becomes its

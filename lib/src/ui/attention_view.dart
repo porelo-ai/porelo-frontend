@@ -783,6 +783,7 @@ extension on _AttentionViewState {
         return _FailedOperation(
           operation: operation,
           onOpen: resolved || widget.onOpenOperation == null ? null : () => widget.onOpenOperation!(operation),
+          onSeen: resolved ? null : () => attention.operationSeen(operation),
         );
       case AttentionKind.tile:
         return _CauseFacts(tile: row.value as Tile, id: row.id);
@@ -940,12 +941,15 @@ class _ResolvedRow extends StatelessWidget {
 
 /// An operation somebody started that failed, waiting until they have opened it.
 class _FailedOperation extends StatelessWidget {
-  const _FailedOperation({required this.operation, required this.onOpen});
+  const _FailedOperation({required this.operation, required this.onOpen, required this.onSeen});
 
   final Operation operation;
 
   /// Opens what it printed.
   final VoidCallback? onOpen;
+
+  /// Puts it away unopened: a failure only informs.
+  final VoidCallback? onSeen;
 
   @override
   Widget build(BuildContext context) {
@@ -970,9 +974,19 @@ class _FailedOperation extends StatelessWidget {
               ),
               NeedsMachine(operation.machine),
               Text(operation.summary, style: text.bodySmall),
-              TextButton(
-                onPressed: onOpen == null ? null : openAttentionOperationCommand(run: onOpen!).run,
-                child: const Text('Open what it printed'),
+              Wrap(
+                spacing: Space.small,
+                children: <Widget>[
+                  TextButton(
+                    onPressed: onOpen == null ? null : openAttentionOperationCommand(run: onOpen!).run,
+                    child: const Text('Open what it printed'),
+                  ),
+                  TextButton(
+                    key: const Key('failed-operation-seen'),
+                    onPressed: onSeen == null ? null : operationSeenCommand(run: onSeen!).run,
+                    child: const Text('Seen'),
+                  ),
+                ],
               ),
             ],
           ),

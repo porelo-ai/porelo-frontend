@@ -43,6 +43,37 @@ class _Planning extends MockPlanningSource {
   }
 }
 
+/// Two working stories, `story` and `other`, whose work reads fail where [failing] names them.
+class _TwoStories extends _Planning {
+  _TwoStories(String at)
+    : super({
+        ..._snapshot('initial', working: true),
+        'stories': [
+          for (final id in ['story', 'other']) {'id': id, 'state': 'Building', 'issues': <Object>[]},
+        ],
+      }) {
+    status = StoryWorkStatus.from({
+      'work': {
+        'atWork': false,
+        'tasks': [
+          {
+            'task': 'main',
+            'ended': {'at': at, 'outcome': 'BLOCKED', 'why': 'Needs a repository key.', 'answer': ''},
+          },
+        ],
+      },
+    });
+  }
+  final Set<String> failing = {};
+  @override
+  Future<StoryWorkStatus> getStoryWork(String project, String story) async {
+    if (failing.contains(story)) {
+      throw mockRefusal('org.fuin.porelo.Tasks1.Refused', {'detail': 'Work cannot be read.'});
+    }
+    return status;
+  }
+}
+
 class _HeldWatch extends _Planning {
   _HeldWatch(super.snapshot);
   final waiting = StreamController<PlanningSnapshot>();
@@ -232,5 +263,27 @@ void main() {
     planning.push('demo', _snapshot('ended-again', working: true));
     await _turn();
     expect(env.planningRows, ['story ended builder/demo/story'], reason: 'its work ended again');
+  });
+  // Harm: a story's end seen once comes back, because another story was seen while its work could not be read.
+  test("a story's seen end is kept while its work cannot be read", () async {
+    final planning = _TwoStories('2026-11-10T09:00:00Z');
+    final env = _Environment();
+    await env.open(_Backend(planning));
+    addTearDown(env.close);
+    AttentionRow rowOf(String story) => env.attention.openRows.firstWhere((row) => row.id.endsWith('/$story'));
+    expect(env.planningRows, ['story ended builder/demo/story', 'story ended builder/demo/other']);
+    env.attention.storyEndSeen(rowOf('story'));
+    await _turn();
+
+    planning.failing.add('story');
+    planning.push('demo', {...planning.boards['demo']!, 'revision': 'unreadable'});
+    await _turn();
+    env.attention.storyEndSeen(rowOf('other'));
+    await _turn();
+
+    planning.failing.clear();
+    planning.push('demo', {...planning.boards['demo']!, 'revision': 'read again'});
+    await _turn();
+    expect(env.planningRows, isEmpty, reason: 'both were seen');
   });
 }

@@ -1781,15 +1781,13 @@ Command questionDecisionCommand({required bool allow, required VoidCallback run,
 Command seeItsDetailsCommand({required VoidCallback run}) =>
     Command(id: 'work.details', label: 'See its details', group: 'Work', home: Home.tileMenu, run: run);
 
-/// Puts away a settled question only on the work that asked it.
-Command putAwayQuestionCommand({required VoidCallback run, String? unavailable}) => Command(
-  id: 'question.putAway',
-  label: 'Got it',
-  group: 'Work',
-  home: Home.tileMenu,
-  run: run,
-  unavailable: unavailable,
-);
+/// Puts away a question that ran out: it only informs, so it is *Seen*, as everything else that only informs.
+Command putAwayQuestionCommand({required VoidCallback run, String? unavailable}) =>
+    _attentionRowCommand(id: 'question.putAway', label: 'Seen', run: run, unavailable: unavailable);
+
+/// Puts away a failed operation without opening what it printed.
+Command operationSeenCommand({required VoidCallback run, String? unavailable}) =>
+    _attentionRowCommand(id: 'operation.seen', label: 'Seen', run: run, unavailable: unavailable);
 
 /// Project-menu actions for a person with a role in the project, independent of startup roles.
 List<Command> projectTransferCommands({

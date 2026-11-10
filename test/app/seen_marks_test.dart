@@ -71,6 +71,26 @@ List<Task> _ended(String name, {int unpushed = 0, List<Task>? tasks}) => <Task>[
       }),
 ];
 
+/// [name] from [tasks], its agent stopped before its end at no time a machine said, nor when its state began.
+List<Task> _endedAtNoTime(String name, {List<Task>? tasks}) => <Task>[
+  for (final task in tasks ?? World.work)
+    if (task.name != name)
+      task
+    else
+      Task.from(<String, dynamic>{
+        ...wire(task),
+        'activity': 'ENDED',
+        'since': '',
+        'agentEnded': <String, dynamic>{
+          'at': '',
+          'finished': false,
+          'error': 'it stopped',
+          'source': '',
+          'unpushed': 0,
+        },
+      }),
+];
+
 void main() {
   final asked = World.blocked('api.example.test:443');
 
@@ -178,5 +198,86 @@ void main() {
     expect(window.attention.causes.where((each) => each.demand == Demand.ended), isEmpty, reason: 'seen now');
     await window.settings.load();
     expect(window.settings.endedPutAway, contains(stored));
+  });
+  // Harm: a question seen once comes back a week later as never seen, because its machine said it again meanwhile.
+  test('a seen question its machine says again stays seen past the week', () async {
+    var now = DateTime.utc(2026, 11, 10, 9);
+    final window = _Window(MemorySettingsStore(), now: () => now);
+    await window.open();
+    window.backend.asking
+      ..add(asked)
+      ..add(_ranOut(asked, '2026-11-10T09:00:00Z'));
+    await pumpEventQueue();
+    window.attention.ranOutSeen(window.ranOutRows.single);
+    await pumpEventQueue();
+
+    now = now.add(const Duration(days: 1));
+    window.backend.asking
+      ..add(asked)
+      ..add(_ranOut(asked, '2026-11-10T09:00:00Z'));
+    await pumpEventQueue();
+    expect(window.ranOutRows, isEmpty, reason: 'the same occurrence, said again on a new connection');
+
+    now = now.add(const Duration(days: 7));
+    window.backend.publish(window.backend.tasksNow);
+    await pumpEventQueue();
+    expect(window.ranOutRows, isEmpty, reason: 'past the week');
+  });
+
+  // Harm: work retrying a blocked connection fills Needs you and the settings with one row per time it ran out.
+  test('a question that runs out again before anybody looked is one row', () async {
+    final window = _Window(MemorySettingsStore());
+    await window.open();
+    for (final at in ['2026-11-10T09:00:00Z', '2026-11-10T09:05:00Z', '2026-11-10T09:10:00Z']) {
+      window.backend.asking
+        ..add(asked)
+        ..add(_ranOut(asked, at));
+      await pumpEventQueue();
+    }
+    expect(window.ranOutRows.map((each) => each.id), ['this machine/${asked.identity} at 2026-11-10T09:10:00Z']);
+  });
+
+  // Harm: an end with no time, seen once, hides every later end of the same work for as long as the window is open.
+  test('an end with no time is said again when the work ends again', () async {
+    const name = 'porelo-checkout-shell';
+    final window = _Window(MemorySettingsStore(), tasks: _endedAtNoTime(name));
+    await window.open();
+    Iterable<Tile> ends() => window.attention.causes.where((each) => each.demand == Demand.ended);
+    window.attention.putAwayTheEnd(ends().single);
+    await pumpEventQueue();
+    expect(ends(), isEmpty, reason: 'seen');
+
+    window.backend.publish(World.work);
+    await pumpEventQueue();
+    window.backend.publish(_endedAtNoTime(name));
+    await pumpEventQueue();
+    expect(ends(), hasLength(1), reason: 'it ended again');
+  });
+
+  // Harm: a mark an older build kept for an end with no time hides every end of that work with no time.
+  test("an older build's mark of an end with no time hides no end", () async {
+    const name = 'porelo-checkout-shell';
+    final window = _Window(MemorySettingsStore(), tasks: _endedAtNoTime(name));
+    await window.open(
+      stored: <String, Object?>{
+        'endedPutAway': <String>['this machine/$name//false/null/0'],
+      },
+    );
+    expect(window.attention.causes.where((each) => each.demand == Demand.ended), hasLength(1));
+  });
+
+  // Harm: where no machines were ever stored, the notice of machines set aside, once seen, is kept for ever and hides
+  // the next.
+  test('a seen notice of machines set aside goes where no machines are stored', () async {
+    final window = _Window(MemorySettingsStore());
+    await window.open(
+      stored: <String, Object?>{
+        'seenSilent': <String>['set aside: one machine set aside'],
+      },
+    );
+    await window.machines.load();
+    await pumpEventQueue();
+    expect(window.settings.machinesRead, isTrue);
+    expect(window.settings.seenSilent, isNot(contains('set aside: one machine set aside')));
   });
 }

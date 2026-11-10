@@ -227,4 +227,26 @@ void main() {
     expect(World.shell.section, Section.attention, reason: 'the step stays where the scenario is');
     await theTileSays(tester, 'porelo-checkout-shell', 'does not say when');
   });
+  // Harm: what only informs asks for a word nobody agreed on, or can only be put away by opening it.
+  testWidgets('a question that ran out and a failed operation each offer Seen', (tester) async {
+    await World.startBackend(World.work);
+    await World.startApp(tester);
+    World.backend.asking.add(World.blocked('api.example.test:443'));
+    await World.settle(tester);
+    World.backend.asking.add(World.settled(World.blocked('api.example.test:443'), 'timeout'));
+    World.operations.run(
+      title: 'Show what this project would open',
+      output: Stream<Object>.error(Exception('could not read project.yml')),
+    );
+    await _toNeedsYou(tester);
+
+    expect(_in(_rows('ran out '), find.text('Seen')), findsOneWidget);
+    final seen = find.byKey(const Key('failed-operation-seen'));
+    expect(seen, findsOneWidget, reason: 'a failure can be seen without opening what it printed');
+    await tester.ensureVisible(seen);
+    await World.settle(tester);
+    await tester.tap(seen);
+    await World.settle(tester);
+    expect(World.operations.all.where((each) => each.failed && !each.seen), isEmpty);
+  });
 }

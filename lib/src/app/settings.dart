@@ -943,7 +943,13 @@ class Settings extends ChangeNotifier {
   /// The machines an earlier run was watching.
   Future<List<Machine>> machines() async {
     final stored = (await _store.read())['machines'];
-    if (stored is! List) return const <Machine>[];
+    if (stored is! List) {
+      // None stored is read whole too: nothing is set aside, and no mark of a notice can name what is.
+      _setAside = const [];
+      _olderMachines = false;
+      _machinesRead = true;
+      return const <Machine>[];
+    }
     // One unusable entry is dropped and the rest are kept. A machine with no name, or with neither a
     // socket nor a kind of its own, cannot be watched or told apart from another, and losing every
     // other machine over it would be the worse answer. An entry with a kind is kept even without a

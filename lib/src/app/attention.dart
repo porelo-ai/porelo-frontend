@@ -8,6 +8,7 @@ import 'package:porelo_frontend/client.dart';
 import 'package:porelo_planning/porelo_planning.dart'
     show PlanningAttention, PlanningBoard, PlanningBoards, PlanningNeedsYou;
 
+import 'clearance.dart';
 import 'fleet_model.dart';
 import 'host_pull_requests.dart';
 import 'machines.dart';
@@ -566,26 +567,59 @@ class Attention extends ChangeNotifier {
   /// Files each question a machine says ran out, once per occurrence, so it counts until seen and past a restart,
   /// and drops seen ones past [ranOutSeenKeptFor]. A seen one an older build kept says no occurrence and hides none,
   /// so it is dropped too. Nothing is filed or dropped before the settings are read.
+  ///
+  /// An occurrence already seen is forgotten as its machine says it again, so it is not filed again once its mark is
+  /// gone; a later occurrence of a question nobody has seen yet takes the place of the earlier, so work retrying a
+  /// blocked connection is one row.
   void _noteRanOut() {
     if (!_marksRead) return;
+    final seen = {
+      for (final each in _ranOut)
+        if (each.seen) each.id,
+    };
     final oldest = _clock().subtract(ranOutSeenKeptFor);
-    final kept = [
+    var kept = [
       for (final each in _ranOut)
         if (!each.seen || (DateTime.tryParse(each.seenAt)?.isAfter(oldest) ?? false)) each,
     ];
     final known = {for (final each in kept) each.id};
-    final fresh = <RanOutQuestion>[
-      for (final machine in _machines.all)
-        for (final prompt in fleetOf(machine).clearance.settled)
-          if (prompt.expired && known.add(_ranOutId(machine.name, prompt)))
-            RanOutQuestion(
-              id: _ranOutId(machine.name, prompt),
-              machine: machine.name,
-              task: prompt.task,
-              shown: prompt.shown,
-            ),
-    ];
-    if (fresh.isNotEmpty || kept.length != _ranOut.length) _setRanOut([...kept, ...fresh]);
+    final fresh = <RanOutQuestion>[];
+    final again = <({Clearance clearance, Prompt prompt})>[];
+    for (final machine in _machines.all) {
+      final clearance = fleetOf(machine).clearance;
+      for (final prompt in clearance.settled.where((each) => each.expired)) {
+        final id = _ranOutId(machine.name, prompt);
+        if (seen.contains(id)) again.add((clearance: clearance, prompt: prompt));
+        if (!known.add(id)) continue;
+        final question = '${machine.name}/${prompt.identity} at ';
+        kept = [
+          for (final each in kept)
+            if (each.seen || !each.id.startsWith(question)) each,
+        ];
+        fresh.add(RanOutQuestion(id: id, machine: machine.name, task: prompt.task, shown: prompt.shown));
+      }
+    }
+    if (again.isNotEmpty) {
+      // Not now: this runs while rows are worked out, and forgetting changes what they are worked out from.
+      scheduleMicrotask(() {
+        if (_disposed) return;
+        for (final (:clearance, :prompt) in again) {
+          if (clearance.settled.any((each) => each.identity == prompt.identity && each.at == prompt.at)) {
+            clearance.forget(prompt);
+          }
+        }
+      });
+    }
+    final now = [...kept, ...fresh];
+    if (now.length != _ranOut.length || fresh.isNotEmpty) _setRanOut(now);
+  }
+
+  /// Takes a failed operation off what needs a person unopened: somebody has seen it. A row holds a copy, so the
+  /// operation is found by its id.
+  void operationSeen(Operation operation) {
+    final operations = _operations;
+    final kept = operations?.all.where((each) => each.id == operation.id).firstOrNull;
+    if (kept != null) operations!.see(kept);
   }
 
   /// Takes a question that ran out off what needs a person: somebody has seen it.
@@ -830,22 +864,44 @@ class Attention extends ChangeNotifier {
       _changed();
       return;
     }
+    final storyEndGone = _storyEndGone();
+    unawaited(
+      settings.setEndedPutAway(<String>{
+        for (final end in settings.endedPutAway)
+          if (!storyEndGone(end)) end,
+        key,
+      }),
+    );
+  }
+
+  /// Whether a mark of a story's end names one its board no longer says, read whole: live, complete, and every
+  /// story's work read, so a story whose work cannot be read now keeps its mark. False for any other mark.
+  bool Function(String mark) _storyEndGone() {
     final planning = _planning;
     final current = <String>{
       for (final entry in planning?.needsYou ?? const <PlanningNeedsYou>[]) ?_storyEndKey(entry.id, entry.attention),
     };
     final readWhole = <String>[
       for (final board in planning?.sources ?? const <PlanningBoard>[])
-        if (board.live && board.snapshot?.complete == true)
+        if (board.live && board.snapshot?.complete == true && board.stories.every(board.endedCurrent))
           '$_storyEnded${planning!.machineOf(board)}/${board.project}/',
     ];
-    unawaited(
-      settings.setEndedPutAway(<String>{
-        for (final end in settings.endedPutAway)
-          if (!end.startsWith(_storyEnded) || current.contains(end) || !readWhole.any(end.startsWith)) end,
-        key,
-      }),
-    );
+    return (mark) => mark.startsWith(_storyEnded) && !current.contains(mark) && readWhole.any(mark.startsWith);
+  }
+
+  /// Whether a mark of a task's end names one its machine no longer lists, having said its list: one not loaded,
+  /// not answering or still reading its list says nothing, so its ends stay. False for a story's mark.
+  bool Function(String mark) _taskEndGone() {
+    final listed = <String>{
+      for (final machine in _machines.all)
+        for (final each in fleetOf(machine).tasks)
+          if (each.agentEnded case final end?) _endKey(machine.name, each, end),
+    };
+    final saidItsList = <String>[
+      for (final machine in _machines.all)
+        if (fleetOf(machine).reachability == Reachability.connected && fleetOf(machine).listRead) '${machine.name}/',
+    ];
+    return (mark) => !mark.startsWith(_storyEnded) && !listed.contains(mark) && saidItsList.any(mark.startsWith);
   }
 
   /// How the id of a story's ended work begins.
@@ -902,15 +958,19 @@ class Attention extends ChangeNotifier {
             (settings?.machinesRead ?? true) &&
             (setAside == null || mark != _setAsideKey(setAside));
     _silentSession.removeWhere(gone);
-    if (settings != null && settings.loaded) {
-      final stillSilent = {
-        for (final mark in settings.seenSilent)
-          if (!gone(mark)) mark,
-      };
-      if (stillSilent.length != settings.seenSilent.length) {
-        // Not now: this runs while the frame is being drawn, and settings changing would redraw it.
-        scheduleMicrotask(() => settings.setSeenSilent(stillSilent));
-      }
+    if (_endedSession.isNotEmpty) {
+      // This window's own marks go as the stored ones do, so a mark with no time hides no later end.
+      final taskEndGone = _taskEndGone();
+      final storyEndGone = _storyEndGone();
+      _endedSession.removeWhere((mark) => taskEndGone(mark) || storyEndGone(mark));
+    }
+    if (settings != null && settings.loaded && settings.seenSilent.any(gone)) {
+      // Not now: this runs while the frame is being drawn, and settings changing would redraw it. Pruned from the
+      // marks as they are then, so one set meanwhile is kept.
+      scheduleMicrotask(() {
+        if (_disposed || !settings.seenSilent.any(gone)) return;
+        unawaited(settings.setSeenSilent({...settings.seenSilent.where((mark) => !gone(mark))}));
+      });
     }
     _rememberRows();
     notifyListeners();
@@ -1001,9 +1061,13 @@ class Attention extends ChangeNotifier {
 
   /// Whether somebody opened or put away how [task] on [machine] ended. The next end is another one, and an end
   /// that left files outside the gate is never seen away, whatever a mark says: those files are still owed.
+  ///
+  /// An end with no time is seen only by this window's own mark: one an older build kept names no occurrence.
   bool _endSeen(Machine machine, Task task) {
     final ended = task.agentEnded;
-    return ended != null && ended.unpushed == 0 && _endedPutAway.contains(_endKey(machine.name, task, ended));
+    if (ended == null || ended.unpushed > 0) return false;
+    final key = _endKey(machine.name, task, ended);
+    return ended.at.isEmpty && task.since.isEmpty ? _endedSession.contains(key) : _endedPutAway.contains(key);
   }
 
   /// Takes how [tile]'s work ended off what needs a person, because it was opened or put away: what
@@ -1019,21 +1083,11 @@ class Attention extends ChangeNotifier {
       _changed();
       return;
     }
-    // Only ends still listed are kept, or a machine with years of work would fill the settings. Only a
-    // machine that has said its list can say an end is gone: one not loaded, not answering or still
-    // reading its list says nothing, so its ends stay.
-    final listed = <String>{
-      for (final machine in _machines.all)
-        for (final each in fleetOf(machine).tasks)
-          if (each.agentEnded case final end?) _endKey(machine.name, each, end),
-    };
-    final saidItsList = <String>[
-      for (final machine in _machines.all)
-        if (fleetOf(machine).reachability == Reachability.connected && fleetOf(machine).listRead) '${machine.name}/',
-    ];
+    // Only ends still listed are kept, or a machine with years of work would fill the settings.
+    final taskEndGone = _taskEndGone();
     final kept = <String>{
       for (final end in settings.endedPutAway)
-        if (end.startsWith(_storyEnded) || listed.contains(end) || !saidItsList.any(end.startsWith)) end,
+        if (!taskEndGone(end)) end,
       _endKey(tile.machine.name, task, ended),
     };
     unawaited(settings.setEndedPutAway(kept));
