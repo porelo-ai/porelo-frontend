@@ -5,26 +5,18 @@
   "$schema": "issue-1.json",
   "id": "F449",
   "title": "Work On A Story Started From The Board",
-  "state": "Rework",
+  "state": "Implementing",
   "size": "M",
   "priority": "Medium",
   "rank": 4,
   "blockedBy": [],
-  "covers": "*Start work* for a story, filled by the planner's proposal, its tasks started through *Start*: mode, agent, model; the tasks and coordinator shown, not typed; the agent's outcome on its ended run and under *Needs you*."
+  "covers": "*Start work* for a story: the planner's screen orders the tasks, the window starts each with Porelo's *Start* on the machine that carries the project, keeps its offer and opens a task started *With you*."
 }
 ```
 
 **Why this size.** a variant of the start dialog filled by the machine's proposal, the start and stop of a story's work,
 the agent's outcome where its run ended and its entry under *Needs you*, and a feature file; no task name or
 repository typed.
-
-**Why it is in Rework.** *Start work* takes the planner's proposal and starts the tasks itself through the machine's
-*Start*, giving each task all it needs when it starts, a sub-issue a task of its own; the states are set through the
-planner, the local app that now holds the stories and issues, instead of the machine's daemon, which knows them no more.
-The window's planning mock (`lib/src/mock/planning_data.dart`, `planning_moves.dart` and what they serve) moves into the
-planner, which gets a mock mode serving this board; the window's planning tests start the planner in that mode instead
-of a mock in the window, and the Dart mock stays until the planner's mock mode exists. To be built once the planner's
-API is served.
 
 **What must be true.** Dropping a story on a working state (*In analysis*, *Implementing*, …) opens *Start work*: how
 to work (*Unattended* or *With you*, only those the project allows), the agent, and the model the project proposes for
@@ -35,87 +27,76 @@ a *Needs you* entry with the agent's words.
 
 ## What it builds against (in words)
 
+- The planning screen is the planner's package, embedded in the window. It reads the proposal, takes the choices and
+  asks the planner for a checked order: one task per repository's main agent and per kept builder, each with its
+  offer (where the planner gives one), repository, issues, role, agent, model, mode and prompt. The dialog, the
+  proposal, the rounds, the comment, the stop, the reading decisions and the ended rows under *Needs you* are the
+  planner's.
+- The screen hands each task of the order to the window's start hook, one at a time and in order:
+  `PlanningStartTask(source, project, story, task)`, answered by `PlanningTaskStarted(task, container)`. A
+  `PlanningRefusal` thrown by the hook stops the rest of that order and shows on that task alone. Once the order
+  ends, the screen tells the window what was started: `PlanningTaskChanges.started(source, project, story, tasks)`,
+  each task with the order it was started for.
 - The modes are `UNATTENDED` and `AGENT`, shown as *Unattended* and *With you*.
-- The work and the coordinator run on the machine where the operator starts the work; the proposal and the start are
-  asked of that machine.
-- The proposal names, per repository, the agent and the sub-agents the machine proposes for it (builders, testers,
-  and the reader proposed for Reading), each with agent and model. The operator keeps, changes or drops
-  each, and the machine starts what was kept with the work. No agent starts another.
-- The start takes a comment of the operator's; the machine adds it to the work order of the coordinator and of each
-  repository's main agent, so a dropped or changed sub-agent's part is done by the main agent with the operator's
-  reason.
-- The start takes the most reading rounds, per story or per issue; the proposal gives the project's default.
-- A reader's findings are numbered, each `blocking` or `note`; only blocking ones send the issue to Reworking, notes
-  go on to Review. When the rounds are used up with blocking findings left, the issue stops in Reading with an entry
-  under *Needs you* and the last findings, and the operator chooses: Review anyway, one more round, or Rework with
-  own words.
-- Reworking resumes the main agent's same task, with the findings as its order.
-- A chained state (Reading after the build, Reworking and Reading again) is entered by the machine on its own, with
-  no dialog; after three rounds the issue goes to *Needs you*.
-- A proposal for a story and a target working state: the modes allowed, the proposed agent and model, the work order,
-  the tasks (name, repository, the issues each covers), and whether the coordinator is started or only told.
-- A start with the mode, agent and model chosen and the board's revision: the machine sets the working state, starts
-  the tasks and, if none runs, the coordinator, and answers them; refused when the move is not allowed from the
-  story's state, or the revision is stale.
-- The work running on a story (tasks, coordinator, mode, agent, model, since), and a stop of it. A stopped work leaves
-  its items in their working state, marked nobody at work, until the operator moves them. Its tasks are named
-  from the story and the repository (`st294`, `st294-porelo`), the coordinator's task is `coordinator`.
-- A story's work that ended without its done state carries `ended` (the agent's words, why) on the story's work and
-  on the watch of the stories; that is what *Needs you* shows. The machine's event log is not read for it.
-- A task's ended run carries the agent's last answer; the machine reads its last line `Outcome: done` or
-  `Outcome: blocked - <why>` and sets the done state or leaves an entry under *Needs you*.
+- What the window tells the planner of a task it started is `taskEvent(project, task, event)` today, the event
+  `started`, `ended` or `stopped`. The agreed shape adds the offer, the container and, for an ended run, when it
+  ended, whether it finished, why, the agent's answer and what it left unpushed, taken unmapped from the machine's
+  record of the agent's end; the planner's screen does not offer that shape yet.
+- Porelo's `Start` takes the project, the repository, the agent, the model, the mode and the prompt, and answers the
+  container it made on its final reply; a refusal is an action of its own (`RUNNING`, `NEEDS_VAULT`, …) or a named
+  error. It does not answer the task's name within the project, which `List` gives beside the container.
 
 ## Plan
 
-- `lib/src/app/story_work.dart` (new), a `ChangeNotifier` like `StartWork`: asks the proposal, holds the choices,
-  starts, and says the machine's refusal in its words.
-- `lib/src/ui/story_work_dialog.dart` (new), after the design: the story and the move (*Accepted → In analysis*), *How
-  to work* as two choice cards with the machine's words for each, *Agent* and *Model* reusing the start form's
-  pickers (`start_work_view.dart`: the agent list and `start-model`, with the proposal's hint), the tasks list with
-  *Name and repository come from the story and its issues; nothing to type.*, and under each repository its agent,
-  its proposed sub-agents and its reader, each with agent and model and *Keep* (the default), *Change* (agent and
-  model pickers) or *Drop*, a *Comment* field (asked for when a sub-agent is dropped or changed, to say why and what
-  the main agent does instead), *Most reading rounds* prefilled with the project's default for the story and, where
-  the operator unfolds it, per issue, the coordinator's sentence, the work
-  order shown read-only, and two buttons: the start, labelled by what it does (*Start the analysis*, *Start 2 tasks*), and *Cancel*. There is
-  no way to enter a working state without its work: a working state always has an agent at work (the operator,
-  2026-11-09).
-- The machine the work runs on is chosen in the dialog among the watched machines, the one shown first; the proposal
-  is asked again when it changes.
-- *With you*: the terminal opens on `coordinator` with several repositories, on the story's one task otherwise, as a
-  work session opens today (`running_view.dart`).
-- The card and the story screen show the work running from the board's answer; the story screen offers *Stop the
-  work*, asked first, saying the story stays in its working state with nobody at work until it is moved.
-- The ended tile (`attention_view.dart`) shows the agent's last answer where the run ended for a story's work, beside
-  what it already says of the run.
-- A chained Reading needs no dialog: the card says it from the board's answer (the round on the card, from the board).
-- *Needs you* gains a row for an issue stopped in Reading: its last findings (blocking first, then notes) and three
-  buttons, *Review anyway*, *One more round*, *Rework…* (with a text the operator writes), each a call to the machine;
-  the row leaves once the machine moves the issue.
-- *Needs you* (`lib/src/app/attention.dart`) gains a row for a story whose work ended without its done state: the
-  story, the agent's words from `ended`, and *Open story*; it leaves once the story moves on.
-- `test/features/story_work.feature`: a drop on *In analysis* opens the dialog filled by the proposal; only allowed
-  modes are offered; a changed model is the one started; several repositories start several tasks and say the
-  coordinator; a refused start keeps the story where it was with the machine's words; work ended blocked shows under
-  *Needs you* with the agent's words. First red: a mode the project
-  does not allow offered in the dialog.
+- `lib/src/ui/planning_embedding.dart`: `WindowTaskStarts` is the start hook. It picks the machine with
+  `plannedTaskMachine`: of the watched machines that carry the project (list it), its host where a host carries it,
+  else the one the window is connected to first among them; where none carries it, the machine the window is
+  connected to. It starts the task there with `FleetBackend.startOrdered`, exactly as the order gives it, keeps the
+  order's offer beside the machine and the container Start answered, reads the task's name from the machine's list
+  by that container, and answers both. A refusal by Start, an unnamed one with what the machine printed, becomes a
+  `PlanningRefusal` in the machine's words; no machine to start on is refused too. `EmbeddedPlanning.startedOn`
+  says on which machine a started container runs. The former `plannerStartTask`, `startedTasks` and
+  `startedTerminal`, built on the planner's former start answer, are gone.
+- `lib/src/app/fleet_backend.dart`: `startOrdered` sends `Start` with those six arguments and nothing more,
+  certifying what a host asks as every start does, and answers the final reply with what was printed before it
+  (shared with `startAgain`).
+- `lib/src/app/settings.dart`: `planningOffers`, each `{machine, container, offer}`, read field by field and an entry
+  that does not read skipped. `lib/src/app/fleet_model.dart` tells `onRemoved` the container of a task the machine
+  confirmed it removed, and `lib/src/app/machines.dart` drops that task's offer then.
+- `lib/src/ui/shell.dart`: `_storyWorkStarted` opens the terminal of the task started *With you*, the main one where
+  there is one, on the machine it was started on, as a session opens anywhere else in the window: the machine's
+  listed task, or the task as Start answered it until the list shows it.
+- Tests, each seen red first: `test/app/planning_offers_test.dart`, `test/app/fleet_model_test.dart` (a confirmed
+  removal is told, a refused one is not), `test/app/start_ordered_test.dart` (tagged `linux`: the mock daemon on a
+  unix socket), `test/ui/window_task_starts_test.dart`, and the scenario *With you opens the terminal of the task the
+  window started* in `test/features/story_work.feature`.
 
 ## Acceptance
 
-- Nothing in the dialog is typed but the choices; the tasks, names and repositories are the machine's.
-- A dropped sub-agent or reader is not started; a changed one starts with the agent and model chosen; the comment is
-  sent with the start as typed.
-- The rounds the operator set are the ones started, per story or per issue; the field shows the project's default
-  until changed.
-- An issue stopped in Reading shows its findings under *Needs you*, and each of the three choices reaches the machine.
-- After *Start*, the story stands in the working state the machine set, and its card says the work running.
-- A refused start changes nothing on the board and says why.
+- A task of an order starts on the machine that carries its project, its host where one does, with exactly the
+  order's project, repository, agent, model, mode and prompt; the screen gets the task and container Porelo
+  answered.
+- A refusal by Start shows on that task in the machine's words, and the tasks after it are not started.
+- An order's offer is kept beside the machine and container across a restart, and dropped once the machine confirms
+  the task removed; a refused removal keeps it.
+- A task started *With you* opens in its terminal on the machine it runs on.
 
-## Open questions
+## How it stands
 
-- None; *Change state only* is dropped (the operator, 2026-11-09).
+- Built against the planner's screen at the change that hands a story's checked tasks to the window's Start one at
+  a time, which is not on `main` yet: the window builds against it through an untracked `pubspec_overrides.yaml`,
+  and `pubspec.yaml` is repinned once it is.
+- `taskEvent` keeps the planner's present shape; the window calls it nowhere yet. The agreed shape, with the offer,
+  the container and the run's end, waits on the planner's screen.
+- A `Start` with a prompt runs its agent and answers only when the run ends, so the hook answers, and *With you*
+  opens its terminal, only then.
+- A task removed outside the window (the command line, another window) keeps its offer in the settings until the
+  window removes a task of the same container name.
+- Fifteen planning scenarios fail against the planner's present screen, none in the start hook: the reader's
+  *Keep*, *Change* and *Drop* keys are not shown, a move refusal stands where none is expected, and a started story's
+  card is not in its working state. They are the planner's screen's changes, to be met when it is repinned.
 
 ## To be checked
 
-- The names once the daemon's part is served: the comment and rounds on the start, the findings on the issue, and
-  the three choices for an issue stopped in Reading.
+- Against a real machine: that a start which goes through answers `CREATE` or `RESUME` with its container, and how a
+  refusal before anything is made (a model the agent does not take) answers.
