@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F446",
   "title": "The Stories Of A Project On A Planning Board",
-  "state": "Rework",
+  "state": "Implementing",
   "size": "M",
   "priority": "Medium",
   "rank": 1,

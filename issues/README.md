@@ -128,6 +128,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="f203"></a>[F203](F203-This-Repository-Worked-In-A-Porelo-Task.md) | S | - | This repository's agent working in an attended Porelo task on the host, its build green on the host's Forgejo, reached in the room, with a way back. |
+| <a id="f446"></a>[F446](F446-The-Stories-Of-A-Project-On-A-Planning-Board.md) | M | - | *Planning* shows a project's stories on a board, phases as columns with their states, read and watched from the planner. |
 
 ## Review
 
@@ -229,7 +230,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f446"></a>[F446](F446-The-Stories-Of-A-Project-On-A-Planning-Board.md) | M | - | *Planning* shows a project's stories on a board, phases as columns with their states, read and watched from the planner. |
 | <a id="f447"></a>[F447](F447-A-Story-Moved-On-The-Board-And-Saved.md) | M | - | A story dragged to another state, kept pending until saved through the planner or undone; a drop on a working state starts its work instead. |
 | <a id="f448"></a>[F448](F448-A-Story-And-An-Issue-Opened-From-The-Board.md) | M | - | A story's and an issue's screen with a breadcrumb and *Open story*/*Open issue*, an issue moved alone and its sub-issues shown. |
 | <a id="f449"></a>[F449](F449-Work-On-A-Story-Started-From-The-Board.md) | M | - | *Start work* for a story, filled by the planner's proposal, its tasks started through *Start*: mode, agent, model; the tasks and coordinator shown, not typed; the agent's outcome on its ended run and under *Needs you*. |
