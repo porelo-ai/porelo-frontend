@@ -39,18 +39,23 @@ class HostRepositoryCentral {
     'ahead' => '${commits == 1 ? '1 commit' : '$commits commits'} ahead of central',
     'up-to-date' => 'at central',
     'moved-on' => 'central moved on',
-    'cannot-say' =>
-      'cannot say: ${switch (why) {
-        'no-read-key' => 'no key to read the central forge',
-        'unreachable' => 'the central forge cannot be reached',
-        'no-central-main' => 'the central forge has no main branch',
-        'local' => 'no central forge',
-        null => 'the machine did not report its central state',
-        final why => why,
-      }}',
+    'cannot-say' => 'cannot say: ${centralWhyWords(why) ?? 'the machine did not report its central state'}',
     _ => state,
   };
 }
+
+/// Why a host cannot say how its copy stands against central, in words: the host's own reasons and Porelo's when the
+/// host's answer was refused or its command failed; a later one as it comes, null where none was given.
+String? centralWhyWords(String? why) => switch (why) {
+  'no-read-key' => 'no key to read the central forge',
+  'unreachable' => 'the central forge cannot be reached',
+  'no-central-main' => 'the central forge has no main branch',
+  'local' => 'no central forge',
+  'host-answer-refused' => 'the machine refused to answer',
+  'host-command-failed' => "the machine's command failed",
+  null => null,
+  final why => why,
+};
 
 /// A repository's host state and its central state, where it has been taken.
 typedef HostRepositoryProgress = ({String repository, String state, String? why, HostRepositoryCentral? central});

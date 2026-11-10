@@ -116,6 +116,29 @@ void main() {
     expect(words, 'ahead of central, by how much not reported');
   });
 
+  // Harm: why the host cannot say how its copy stands against central reads as the daemon's own token (seen live).
+  test('why the host cannot say against central is said in words, a later reason as it comes', () {
+    final unreported = centralWords(const Repository(name: 'core', central: 'cannot-say'));
+    for (final why in [
+      'no-read-key',
+      'unreachable',
+      'no-central-main',
+      'local',
+      'host-answer-refused',
+      'host-command-failed',
+    ]) {
+      final words = centralWords(Repository(name: 'core', central: 'cannot-say', centralWhy: why));
+      expect(words, isNot(contains(why)), reason: why);
+      expect(words, startsWith('cannot say'), reason: why);
+      expect(words, isNot(unreported), reason: why);
+    }
+    expect(unreported, 'cannot say: no reason reported');
+    expect(
+      centralWords(const Repository(name: 'core', central: 'cannot-say', centralWhy: 'later-reason')),
+      contains('later-reason'),
+    );
+  });
+
   // Harm: work nobody counted reads as no task running.
   group('work the machine did not count is never no task running', () {
     test('a repository only the host names', () {

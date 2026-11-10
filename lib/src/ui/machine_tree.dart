@@ -243,7 +243,7 @@ String? centralWords(Repository repository) {
     'ahead' => 'ahead of central, by how much not reported',
     'up-to-date' => 'at central',
     'moved-on' => 'central moved on',
-    'cannot-say' => 'cannot say: ${repository.centralWhy ?? 'no reason reported'}',
+    'cannot-say' => 'cannot say: ${centralWhyWords(repository.centralWhy) ?? 'no reason reported'}',
     'no-central' => 'no central forge',
     final state => 'central: $state',
   };
