@@ -9,9 +9,11 @@ import 'settings.dart';
 import 'task_certifying.dart';
 import 'host_protocol.dart';
 
-/// Uses the chosen, digest-checked collection when supplied.
-List<String> hostArguments(HostUpRecord record, String project) => [
+/// Uses the chosen, digest-checked collection when supplied. A window run from source asks for `snapshots`,
+/// whatever channel the installed `porelo-host` was built for.
+List<String> hostArguments(HostUpRecord record, String project, {bool release = kReleaseMode}) => [
   ...record.arguments(project),
+  if (!release) ...['--distribution', 'snapshots'],
   if (record.collection.isNotEmpty && record.collectionSha256.isNotEmpty) ...[
     '--collection',
     record.collection,

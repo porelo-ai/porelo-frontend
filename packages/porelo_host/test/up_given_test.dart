@@ -51,7 +51,7 @@ void main() {
     List<String> extra = const [],
     String given = '192.0.2.7',
     String? machine,
-    String version = 'unreleased',
+    String? version,
   }) async => runHostCommand(
     [
       'up',
@@ -124,7 +124,7 @@ void main() {
     expect(variables['porelo_host_kvm'], true);
   });
 
-  Future<Object?> channelOf({required String version, List<String> extra = const []}) async {
+  Future<Object?> channelOf({String? version, List<String> extra = const []}) async {
     expect(
       await up(version: version, extra: extra),
       Exit.done,
@@ -148,7 +148,16 @@ void main() {
 
   // Harm: a development build, with no version compiled in, prepares hosts from releases.
   test('a host prepared by a development build installs from snapshots', () async {
-    expect(await channelOf(version: 'unreleased'), 'snapshots');
+    expect(await channelOf(), 'snapshots');
+  });
+
+  // Harm: a build whose version was left empty or kept as the pubspec's own prepares hosts from releases.
+  test('a host prepared by a porelo-host of no release version installs from snapshots', () async {
+    expect(await channelOf(version: ''), 'snapshots');
+  });
+
+  test('a host prepared by a porelo-host of the pubspec version installs from snapshots', () async {
+    expect(await channelOf(version: '0.5.1-SNAPSHOT'), 'snapshots');
   });
 
   // Harm: a channel asked for on the command line is overruled by the command's own version.

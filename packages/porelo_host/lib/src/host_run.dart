@@ -63,6 +63,9 @@ class HostPlan {
   /// Checks server-only inputs before anything is rented or released.
   void check({bool forSetup = true}) {
     lockNameForTag(tag);
+    if (!const ['snapshots', 'releases'].contains(distribution)) {
+      throw const FormatException('Unknown host distribution.');
+    }
     if (hostName == null) return;
     checkHostName(hostName!);
     if (project.isNotEmpty || account.isNotEmpty || bundle != null) {
@@ -78,9 +81,6 @@ class HostPlan {
       } on HostFilesRefused {
         throw const FormatException('The person identity must be a valid public key.');
       }
-    }
-    if (!const ['snapshots', 'releases'].contains(distribution)) {
-      throw const FormatException('Unknown host distribution.');
     }
   }
 
@@ -102,8 +102,9 @@ class HostPlan {
   /// The image's own user with sudo, which the first steps run as.
   final String loginUser;
 
-  /// Where Porelo's package comes from: `releases` or `snapshots`. The command passes the channel it was
-  /// built for, so a released `porelo-host` needs a released Porelo that carries what the host's plays ask.
+  /// Where Porelo's package comes from: `releases` or `snapshots`, and `snapshots` unless given. The command
+  /// passes the channel it was built for, so a released `porelo-host` needs a released Porelo that carries what
+  /// the host's plays ask.
   final String distribution;
 
   /// This desktop's `machine.yml`, uploaded into the setup's place on the host; a server's holds its organization part.

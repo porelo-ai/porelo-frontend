@@ -13,7 +13,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- A host the window prepares installs Porelo from the window's own channel: `releases` from a released window, `snapshots` from a snapshot or a build from source; `porelo-host --distribution` still wins.
+- A host the window prepares installs Porelo from the window's own channel: `releases` from a released window, `snapshots` from a snapshot or a window run from source; `porelo-host --distribution` still wins, and an unknown one is refused before anything starts.
 - A project added in one step whose repository was refused after the project was added is asked again, with *Try again*, as the same change, so Porelo makes the repository instead of refusing the project as one that exists.
 - The window now reads the planning part as the daemon serves it.
 - Where a host cannot say how its copy of a repository stands against central, the repository's row says why in words, never the daemon's token.

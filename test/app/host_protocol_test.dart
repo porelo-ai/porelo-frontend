@@ -21,6 +21,18 @@ import '../support/host_organization.dart';
 const _record = HostUpRecord(scalewayProject: 'provider', hostName: 'demo', publicKey: '/keys/person.pub');
 
 void main() {
+  // Harm: a window run from source prepares a host from the channel of whatever porelo-host is installed beside it.
+  test('a window run from source prepares its hosts from snapshots', () {
+    final source = hostArguments(_record, 'demo', release: false);
+    expect(source, containsAllInOrder(['--distribution', 'snapshots']));
+    expect(source.where((each) => each == '--distribution'), hasLength(1));
+    expect(
+      hostArguments(_record, 'demo', release: true),
+      isNot(contains('--distribution')),
+      reason: 'a released window leaves the channel to the porelo-host it ships',
+    );
+  });
+
   // Harm: an older record's forge off turns on at a retry, or a host is taken down with choices other than its own.
   test('a record says its forge and VMs once, also to give the host back', () {
     const older = HostUpRecord(givenAddress: '192.0.2.7', givenHostKey: 'k', hostName: 'h', forge: false);

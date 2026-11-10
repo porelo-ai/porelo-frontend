@@ -67,11 +67,11 @@ Future<void> main(List<String> arguments) async {
 const _version = String.fromEnvironment('porelo_host.version', defaultValue: 'unreleased');
 
 /// The channel a host installs Porelo from unless one is asked for: the one this command was built for.
-/// A build from source, with no version compiled in, stays on `snapshots`.
-String _channelOf(String version) =>
-    version == 'unreleased' || version.contains('~snapshot.') ? 'snapshots' : 'releases';
+/// Only a release's own version, `<major>.<minor>.<patch>` as `tool/package.sh` compiles it from a tag, means
+/// `releases`; a snapshot, a pre-release, an empty version and a build from source stay on `snapshots`.
+String channelOf(String version) => RegExp(r'^\d+\.\d+\.\d+$').hasMatch(version) ? 'releases' : 'snapshots';
 
-/// Runs a host command with replaceable SSH and output for contract tests.
+/// Runs a host command with replaceable SSH and output for contract tests; [version] stands in for the compiled-in one.
 Future<int> runHostCommand(
   List<String> arguments, {
   Remote? remote,
@@ -80,8 +80,9 @@ Future<int> runHostCommand(
   Map<String, String>? environment,
   Future<Process> Function(String, List<String>)? startSsh,
   String? resolvedExecutable,
-  String version = _version,
+  String? version,
 }) async {
+  version ??= _version;
   final out = output ?? stdout;
   final err = errors ?? stderr;
   int wrong(String why) => _wrong(why, errors: err);
@@ -189,6 +190,9 @@ Future<int> runHostCommand(
       return wrong('--$flag needs true or false');
     }
   }
+  if (options['distribution'] != null && !const ['snapshots', 'releases'].contains(options['distribution'])) {
+    return wrong('--distribution needs snapshots or releases');
+  }
   final missing = needed.where((n) => !options.containsKey(n)).toList();
   if (missing.isNotEmpty) return wrong('missing ${missing.map((n) => '--$n').join(', ')}');
   final given = options.containsKey('given');
@@ -226,7 +230,7 @@ Future<int> runHostCommand(
     collection: options['collection'],
     collectionSha256: options['collection-sha256'],
     loginUser: options['login-user'] ?? (serverOnly ? 'root' : 'ubuntu'),
-    distribution: options['distribution'] ?? _channelOf(version),
+    distribution: options['distribution'] ?? channelOf(version),
     machineFile: options['machine-file'],
     bundle: options['bundle'],
   );
@@ -339,6 +343,9 @@ Future<int> _check(
     if (options[flag] != null && !const ['true', 'false'].contains(options[flag])) {
       return wrong('--$flag needs true or false');
     }
+  }
+  if (options['distribution'] != null && !const ['snapshots', 'releases'].contains(options['distribution'])) {
+    return wrong('--distribution needs snapshots or releases');
   }
   final missing = const ['given', 'host-key', 'public-key'].where((name) => !options.containsKey(name)).toList();
   if (missing.isNotEmpty) return wrong('missing ${missing.map((name) => '--$name').join(', ')}');
