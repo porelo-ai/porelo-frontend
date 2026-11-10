@@ -950,7 +950,8 @@ class OrganizationRowChange {
   /// A refusal that stays until the person acts on it.
   String? refusal;
 
-  /// Whether retry must replay the original id because the store never answered.
+  /// Whether retry must replay the original id: the store never answered, or a one-step add left its project without
+  /// its repository.
   bool unanswered = false;
 
   /// The row to mark in [scope], including the project row from which a nested change was asked.
@@ -1027,7 +1028,11 @@ class Organization extends ChangeNotifier {
   final DateTime Function() _clock;
   final Random _random;
   final _unanswered = <String, ({String id, String base})>{};
+
+  /// The one-step adds in [_unanswered] because their project stands without its repository, with that project.
+  final _partlyAdded = <String, String>{};
   int _reads = 0;
+  Future<void> _lastRead = Future<void>.value();
   final _addresses = <String, _Kept<KnownAddress>>{};
   final _listed = _Kept<List<ListedProject>>();
   Future<void> _answersInTurn = Future<void>.value();
@@ -1208,7 +1213,17 @@ class Organization extends ChangeNotifier {
   }
 
   /// Reads it again. A read that answers after a later one was asked for says nothing: it may be the older.
-  Future<void> refresh() async {
+  Future<void> refresh() => _lastRead = _read();
+
+  /// Ends once the newest read has, so what it decides on is at least as new as a read asked for before.
+  Future<void> _newestRead() async {
+    for (var reading = _lastRead; ; reading = _lastRead) {
+      await reading;
+      if (identical(reading, _lastRead)) return;
+    }
+  }
+
+  Future<void> _read() async {
     readAnswersAgain();
     final read = ++_reads;
     try {
@@ -1249,6 +1264,12 @@ class Organization extends ChangeNotifier {
     if (current == null && !beforeAny) return 'The Porelo organization has not been read yet.';
     if (busy) return 'Another change is still being asked for.';
     final sameChange = '${change.name} ${[for (final entry in input.entries) '${entry.key}=${entry.value}'].join(' ')}';
+    // A project that no longer stands without its repository was finished or removed: adding it again is a new change.
+    if (_partlyAdded.containsKey(sameChange) && _readWell && !_standsWithoutRepository(input)) {
+      _partlyAdded.remove(sameChange);
+      _unanswered.remove(sameChange);
+    }
+    final keptForRepository = _partlyAdded.containsKey(sameChange);
     // Asked again as it was asked: with no answer it may have been taken, at the revision it was decided on.
     final asked = _unanswered[sameChange] ??= (
       id: _newId(),
@@ -1269,11 +1290,19 @@ class Organization extends ChangeNotifier {
     changeProgress = 'Asking for the change…';
     _changed();
     String? refusal;
+    var mayBeHalfway = false;
     try {
       await source.apply(
         OrganizationWrite(change: change, input: input, person: current?.me ?? '', base: asked.base, id: asked.id),
       );
       _unanswered.remove(sameChange);
+      _partlyAdded.remove(sameChange);
+      if (change == OrganizationChange.createProjectRepository || change == OrganizationChange.removeProject) {
+        for (final kept in [..._partlyAdded.entries.where((kept) => kept.value == input['project'])]) {
+          _partlyAdded.remove(kept.key);
+          _unanswered.remove(kept.key);
+        }
+      }
       if ((change == OrganizationChange.createProjectRepository || change == OrganizationChange.addProject) &&
           input['repository'] == null &&
           input['project'] != null &&
@@ -1285,10 +1314,13 @@ class Organization extends ChangeNotifier {
         _rowChanges.clear();
         _projectBases.clear();
         _unanswered.clear();
+        _partlyAdded.clear();
         _signedReviewChoices.clear();
       }
     } on OrganizationRefused catch (refused) {
       if (refused.answered) _unanswered.remove(sameChange);
+      // Someone else changed the organization first, so nothing of this request was taken.
+      mayBeHalfway = refused.answered && refused.reason != 'moved-on' && _addsWithRepository(change, input);
       if (row != null) {
         row.unanswered = !refused.answered;
         if (refused.answered && row.base != null) _projectBases.remove(input['project']);
@@ -1307,7 +1339,16 @@ class Organization extends ChangeNotifier {
       await refresh();
       // A project added with its repository in one step may stand now without it. Under the same id Porelo finds the
       // project it added and makes the repository; under a new one it refuses the project as one that exists.
-      if (refusal != null && _standsSinceAsked(change, input, before: current)) _unanswered[sameChange] = asked;
+      if (mayBeHalfway) {
+        await _newestRead();
+        if (_addedWithoutRepository(input, before: current, kept: keptForRepository)) {
+          _unanswered[sameChange] = asked;
+          _partlyAdded[sameChange] = input['project']!;
+          row?.unanswered = true;
+        } else {
+          _partlyAdded.remove(sameChange);
+        }
+      }
       if (_writeReads.isNotEmpty) {
         changeProgress = 'Reading the project again…';
         _changed();
@@ -1330,11 +1371,26 @@ class Organization extends ChangeNotifier {
     return refusal;
   }
 
-  /// Whether [change] adds a project with its repository, and the project stands now where it did not [before].
-  bool _standsSinceAsked(OrganizationChange change, Map<String, String> input, {required OrganizationView? before}) {
-    if (change != OrganizationChange.addProject || input['review'] == null) return false;
-    bool stands(OrganizationView? read) => read?.projects.any((project) => project.name == input['project']) ?? false;
-    return !stands(before) && stands(view);
+  /// Whether [change] adds a project with its repository in one step.
+  static bool _addsWithRepository(OrganizationChange change, Map<String, String> input) =>
+      change == OrganizationChange.addProject && input['review'] != null && input['project'] != null;
+
+  /// Whether the last read answered the organization as it stands, rather than failing or keeping an older state.
+  bool get _readWell => problem == null && !(view?.stale ?? true);
+
+  /// Whether [view] holds the project [input] adds, under its admin and still without its repository.
+  bool _standsWithoutRepository(Map<String, String> input) =>
+      view?.projects.any(
+        (project) =>
+            project.name == input['project'] && project.opened != true && project.admins.contains(input['admin']),
+      ) ??
+      false;
+
+  /// Whether a refused one-step add may have added its project without the repository: it was [kept] for that, or the
+  /// project did not stand [before]; and it stands so now, or the read after the refusal cannot tell.
+  bool _addedWithoutRepository(Map<String, String> input, {required OrganizationView? before, required bool kept}) {
+    final stoodBefore = before?.projects.any((project) => project.name == input['project']) ?? false;
+    return (kept || !stoodBefore) && (!_readWell || _standsWithoutRepository(input));
   }
 
   /// Asks Porelo for the entry a project admin writes for [change], which changes a project file that exists.

@@ -55,6 +55,31 @@ OrganizationView _at(String revision) => OrganizationView(
   owners: const [],
 );
 
+/// The organization at [revision], holding [project] beside nothing else.
+OrganizationView _holding(String revision, [OrganizationProject? project, bool stale = false]) => OrganizationView(
+  stale: stale,
+  name: 'acme',
+  keptIn: 'here',
+  vouchedBy: 'GitHub',
+  revision: revision,
+  me: 'olive',
+  projects: [?project],
+);
+
+/// A store that moves to what [whileAsked] answers while a write is asked, taken or refused.
+class _Moving extends FixtureOrganization {
+  _Moving(super.view);
+
+  /// The state the store is in once the write was asked for.
+  OrganizationView Function(OrganizationWrite write)? whileAsked;
+
+  @override
+  Future<void> apply(OrganizationWrite write) {
+    if (whileAsked case final move?) view = move(write);
+    return super.apply(write);
+  }
+}
+
 void main() {
   late _Slow store;
   late Organization organization;
@@ -110,40 +135,180 @@ void main() {
 
   group('a project added with its repository in one step', () {
     const mine = {'project': 'mine', 'admin': 'olive', 'review': 'optional'};
+    const added = OrganizationProject(name: 'mine', admins: ['olive'], opened: false);
+    const halfway = OrganizationRefused(
+      'project mine is added, and its repository is not: the forge refused: ask again with --id 1',
+      reason: 'not-allowed',
+    );
 
-    Future<FixtureOrganization> refusedAndAskedAgain({required bool added}) async {
-      final source = FixtureOrganization(organizationFor('olive'));
+    /// An organization at r1 without the project, whose store moves to [whileAsked]'s answer while a write is asked.
+    Future<(_Moving, Organization)> asking() async {
+      final source = _Moving(_holding('r1'));
       final organization = Organization(source);
       addTearDown(organization.dispose);
       await organization.refresh();
-      if (added) {
-        source.view = organizationFor(
-          'olive',
-          moreProjects: const [
-            OrganizationProject(name: 'mine', admins: ['olive']),
-          ],
-        );
-      }
-      source.refuseNext = const OrganizationRefused(
-        'project mine is added, and its repository is not: the forge refused: ask again',
-        reason: 'not-allowed',
-      );
+      return (source, organization);
+    }
+
+    /// Asks for the project, refused [refusal] while the store moves to [revision] holding [project].
+    Future<void> refused(
+      _Moving source,
+      Organization organization,
+      String revision, {
+      OrganizationProject? project = added,
+      OrganizationRefused refusal = halfway,
+    }) async {
+      source
+        ..whileAsked = ((_) => _holding(revision, project))
+        ..refuseNext = refusal;
       expect(await organization.write(OrganizationChange.addProject, mine), isNotNull);
-      await organization.write(OrganizationChange.addProject, mine);
-      return source;
+      source.whileAsked = null;
     }
 
     // Harm: the project stands without its repository, and asking again under a new id is refused as a project that
     // exists, so the step the refusal says is left can never be finished from here.
-    test('refused after the project stood, is asked again under its id, which finishes it', () async {
-      final source = await refusedAndAskedAgain(added: true);
+    test('refused after the project stood, is asked again under its id and revision, which finishes it', () async {
+      final (source, organization) = await asking();
+      await refused(source, organization, 'r2');
+      expect(await organization.write(OrganizationChange.addProject, mine), isNull);
       expect(source.writes[1].id, source.writes[0].id);
+      expect(source.writes[1].base, 'r1');
     });
 
-    // Harm: a refusal that added nothing is asked again on the revision it was refused against.
-    test('refused before the project stood, is a new change when asked again', () async {
-      final source = await refusedAndAskedAgain(added: false);
+    // Harm: the same, after *Try again* was refused once more while the project still has no repository.
+    test('refused again on asking again, is still asked under its first id', () async {
+      final (source, organization) = await asking();
+      await refused(source, organization, 'r2');
+      await refused(source, organization, 'r3');
+      expect(await organization.write(OrganizationChange.addProject, mine), isNull);
+      expect(source.writes[1].id, source.writes[0].id);
+      expect(source.writes[2].id, source.writes[0].id);
+      expect(source.writes[2].base, 'r1');
+    });
+
+    // Harm: a refusal that added nothing, asked again on the revision it was refused against, is refused as moved on.
+    test('refused before the project stood, is a new change on the newer revision when asked again', () async {
+      final (source, organization) = await asking();
+      await refused(source, organization, 'r2', project: null);
+      await organization.write(OrganizationChange.addProject, mine);
       expect(source.writes[1].id, isNot(source.writes[0].id));
+      expect(source.writes[1].base, 'r2');
+    });
+
+    // Harm: someone else added the same name meanwhile; asked again on the revision it was refused against, it is
+    // refused as moved on for ever.
+    test('refused as moved on while the project came to stand, is a new change when asked again', () async {
+      final (source, organization) = await asking();
+      await refused(
+        source,
+        organization,
+        'r2',
+        refusal: const OrganizationRefused('The organization has moved on.', reason: 'moved-on'),
+      );
+      await organization.write(OrganizationChange.addProject, mine);
+      expect(source.writes[1].id, isNot(source.writes[0].id));
+      expect(source.writes[1].base, 'r2');
+    });
+
+    // Harm: the same, where the project that came to stand is not the one asked for.
+    for (final (what, project) in [
+      ('with another admin', const OrganizationProject(name: 'mine', admins: ['hana'], opened: false)),
+      ('with its repository', const OrganizationProject(name: 'mine', admins: ['olive'], opened: true)),
+    ]) {
+      test('refused while a project of the name came to stand $what, is a new change when asked again', () async {
+        final (source, organization) = await asking();
+        await refused(source, organization, 'r2', project: project);
+        await organization.write(OrganizationChange.addProject, mine);
+        expect(source.writes[1].id, isNot(source.writes[0].id));
+        expect(source.writes[1].base, 'r2');
+      });
+    }
+
+    // Harm: a read that failed or answered an old state says nothing of the project; asked again under a new id, the
+    // project Porelo added is refused as one that exists.
+    for (final (what, after) in [
+      ('failed', (_Moving source) => source.refuseReads = const OrganizationRefused('Porelo cannot be reached.')),
+      ('answered an old state', (_Moving source) => source.view = _holding('r1', null, true)),
+    ]) {
+      test('refused while the read after it $what, is asked again under its id', () async {
+        final (source, organization) = await asking();
+        source.whileAsked = (_) {
+          after(source);
+          return source.view;
+        };
+        source.refuseNext = halfway;
+        await organization.write(OrganizationChange.addProject, mine);
+        source
+          ..whileAsked = null
+          ..refuseReads = null;
+        await organization.write(OrganizationChange.addProject, mine);
+        expect(source.writes[1].id, source.writes[0].id);
+      });
+    }
+
+    // Harm: a read asked for meanwhile overtakes the one after the refusal, which then decides on the old state.
+    test('refused while another read overtakes the one after it, decides on the newer read', () async {
+      await readAt('r1');
+      store.writeFails = halfway;
+      final asked = organization.write(OrganizationChange.addProject, mine);
+      while (store.reads.length < 2) {
+        await pumpEventQueue();
+      }
+      final overtaking = organization.refresh();
+      store.reads[1].complete(_holding('r1'));
+      await pumpEventQueue();
+      store.reads[2].complete(_holding('r2', added));
+      await overtaking;
+      await asked;
+      store.writeFails = null;
+      await answering(organization.write(OrganizationChange.addProject, mine), 'r2');
+      expect(store.writes[1].id, store.writes[0].id);
+    });
+
+    // Harm: the id of a project since finished or removed is asked again for a new project of the same name, which
+    // Porelo takes as the old request.
+    for (final (what, change, input) in [
+      (
+        'its repository was created',
+        OrganizationChange.createProjectRepository,
+        {'project': 'mine', 'review': 'optional'},
+      ),
+      ('it was removed', OrganizationChange.removeProject, {'project': 'mine'}),
+    ]) {
+      test('refused, then $what here, is a new change when asked again', () async {
+        final (source, organization) = await asking();
+        await refused(source, organization, 'r2');
+        source.refuseReads = const OrganizationRefused('Porelo cannot be reached.');
+        expect(await organization.write(change, input), isNull);
+        await organization.write(OrganizationChange.addProject, mine);
+        expect(source.writes[2].id, isNot(source.writes[0].id));
+      });
+    }
+
+    for (final (what, project) in [
+      ('has its repository', const OrganizationProject(name: 'mine', admins: ['olive'], opened: true)),
+      ('is gone', null),
+    ]) {
+      test('refused, then read where the project $what, is a new change when asked again', () async {
+        final (source, organization) = await asking();
+        await refused(source, organization, 'r2');
+        source.view = _holding('r3', project);
+        await organization.refresh();
+        await organization.write(OrganizationChange.addProject, mine);
+        expect(source.writes[1].id, isNot(source.writes[0].id));
+        expect(source.writes[1].base, 'r3');
+      });
+    }
+
+    // Harm: *Try again* is held back to review a project page, while it only finishes what the refusal said is left.
+    test('refused with a revision of its own, may be tried again at once', () async {
+      final (source, organization) = await asking();
+      source
+        ..whileAsked = ((_) => _holding('r2', added))
+        ..refuseNext = halfway;
+      await organization.write(OrganizationChange.addProject, mine, base: 'r1', provisional: true);
+      final row = organization.rowChanges.single;
+      expect(organization.whyNoRetry(row), isNull);
     });
   });
 
