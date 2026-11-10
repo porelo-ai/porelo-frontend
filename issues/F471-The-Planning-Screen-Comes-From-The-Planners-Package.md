@@ -1,6 +1,6 @@
 # F471 — The Planning Screen Comes From The Planner's Package
 
-**Status:** Analyzed.
+**Status:** Implementing (the operator, 2026-11-10).
 **Size:** M - the planning screen, its models and its tests cut out of the window into a Flutter package of
 porelo-planner, with no change in behavior, and the window embedding it through a few hooks.
 
