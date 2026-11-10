@@ -1,6 +1,6 @@
 # F400 — A Join Into A Second Room Says To Accept The Invitation
 
-**Status:** Estimated.
+**Status:** Implementing.
 **Size:** XS - one field read, the steps' words for an invitation, and their test.
 
 **What must be true.** When *Join* in a project's messages invites a Matrix account the person already has, rather
@@ -26,4 +26,5 @@ shown below and that seeing it again means a new one, which is not so for an inv
 
 ## Blocked by
 
-- The daemon serving `invited` in `JoinMessages`, once the transport's change is pushed; Agent Core names the commit.
+- Freed (2026-11-10): Porelo's `JoinMessages` answers `invited: bool`, true only where the transport invited the
+  person's existing account, false otherwise, never absent.

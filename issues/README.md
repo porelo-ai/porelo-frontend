@@ -110,6 +110,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 |---|---|---|---|
 | <a id="f203"></a>[F203](F203-This-Repository-Worked-In-A-Porelo-Task.md) | S | — | This repository's agent working in an attended Porelo task on the host, its build green on the host's Forgejo, reached in the room, with a way back. |
 | <a id="f457"></a>[F457](F457-Needs-You-Names-The-One-Thing-To-Do.md) | L | — | *Needs you* items name one action, close with their cause, can be marked seen, embed no task tile; nothing waits at the gate in class online; a done task shown done; the commit's makers shown. |
+| <a id="f400"></a>[F400](F400-A-Join-Into-A-Second-Room-Says-To-Accept-The-Invitation.md) | XS | — | *Join* that invites an existing Matrix account says to accept the invitation, with no password step. |
 | <a id="f377"></a>[F377](F377-A-Hosts-Channel-Follows-The-Window.md) | S | — | A host the window prepares installs from the window's own channel. |
 | <a id="f379"></a>[F379](F379-Add-A-Project-In-One-Step-From-The-Window.md) | S | — | A person naming themselves Project Admin adds a project in one step from the window. |
 
@@ -211,7 +212,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f400"></a>[F400](F400-A-Join-Into-A-Second-Room-Says-To-Accept-The-Invitation.md) | XS | Core's `invited` in JoinMessages | *Join* that invites an existing Matrix account says to accept the invitation, with no password step. |
 | <a id="f145"></a>[F145](F145-The-Hosts-Forge-Switched-Off-In-The-Server-Setup.md) | S | — | *Set up a forge on the server* in the server setup dialog, on by default; switched off, the host's inventory says `porelo_host_forge: false`. |
 | <a id="f93"></a>[F93](F93-Connections-Rare-Actions-Out-Of-The-Way.md) | S | — | Connections' rare actions in its ⋮. |
 | <a id="f91"></a>[F91](F91-One-Way-To-Show-Loading.md) | M | — | Every view shows the same way that it is reading. |
