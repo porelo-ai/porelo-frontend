@@ -63,8 +63,14 @@ An earlier issue, *A Server Dialog Opens At Once*, settled one dialog, not this 
     it found `removeMember/pat` offered on the last read.
   - *a reread that fails keeps the last read, says why, and says it is the last read*: found 0 widgets with key
     `organization-project-as-last-read`, one expected.
-- **Not met by this:** the first point of the acceptance, a real window measured after the change, has not been done;
-  the measure above is the one before. The press effect is unchanged.
+- **Measured after the change** on a real window, the same way as before: a profile build on a hidden X display, as
+  the test person against its organization, ten clicks on the row of *foo-project*, each held 80 ms. From the release
+  to the page's first frame with its head filled from the list: 10 / 27 / 32 ms (min / median / max), before 17 / 26 /
+  41 ms. From the second click on, that frame already shows the last read, whole, marked "reading again" (nine of
+  nine); the first click shows "Reading foo-project: …" in it. The press effect's frame: 15 / 16 / 27 ms, unchanged.
+  The new read still lands 2.4 / 2.5 / 2.7 s after the release, the time of Core's `porelo project show`; showing
+  Porelo's own kept read with its age is [F469](README.md#f469), once Core's command keeps its last read and says its
+  age.
 - **The reading of the code by another model found six things to fix and two to consider; all were taken, three in
   part.** It grew the change from one page to the organization's model and its source as well, beyond the size first
   set. Now every read again of an open page, after a change, *Try again* or *Review the project*, marks what it shows
