@@ -325,8 +325,11 @@ class _RowWords extends StatelessWidget {
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
-      // The trailing menu has already taken its space; keeping the chip below is safe at the boundary.
-      final beside = WindowSize.chipBeside(ListCardWidth.of(context) ?? constraints.maxWidth);
+      // Beside by the card's width, as every row of it, unless next steps left the words too little room for it.
+      final beside = WindowSize.chipBesideWords(
+        card: ListCardWidth.of(context) ?? constraints.maxWidth,
+        words: constraints.maxWidth,
+      );
       final words = Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

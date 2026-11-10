@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:porelo_frontend/src/app/attention.dart' show AttentionKind;
 import 'package:porelo_frontend/src/app/commands.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
+import 'package:porelo_frontend/src/ui/attention_view.dart' show NeedsYouTitle;
 import 'package:porelo_frontend/src/ui/expandable_list_row.dart';
 import 'package:porelo_frontend/src/ui/tokens.dart';
 
@@ -17,16 +19,6 @@ String _wordsOf(WidgetTester tester, Finder row) => tester
     .widgetList<Text>(find.descendant(of: row, matching: find.byType(Text)))
     .map((text) => text.data ?? text.textSpan?.toPlainText() ?? '')
     .join(' | ');
-
-/// The title of [row], read as the row's first line of words.
-Text _titleOf(WidgetTester tester, Finder row) => tester.widget<Text>(
-  find
-      .descendant(
-        of: find.descendant(of: row, matching: find.byType(Tooltip)),
-        matching: find.byType(Text),
-      )
-      .first,
-);
 
 Future<void> _toNeedsYou(WidgetTester tester, {required Size size}) async {
   tester.view.physicalSize = size;
@@ -61,6 +53,13 @@ void _expectWholeOrUsingTheRoom(WidgetTester tester, Finder row, String title) {
       tester.getRect(find.byWidget(element.widget).first),
   ].where((rect) => rect.left >= box.right).toList()..sort((a, b) => a.left.compareTo(b.left));
   expect(beside, isNotEmpty, reason: 'the disclosure at least stands beside the title');
+  for (final rect in beside) {
+    expect(
+      rect.width,
+      lessThanOrEqualTo(card.width * Sizes.rowSideShare),
+      reason: 'what stands beside "$title" takes ${rect.width} of the row\'s ${card.width} pixels',
+    );
+  }
   final edges = <double>[
     box.right,
     for (final rect in beside) ...[rect.left, rect.right],
@@ -73,6 +72,43 @@ void _expectWholeOrUsingTheRoom(WidgetTester tester, Finder row, String title) {
       reason: '"$title" is cut while ${edges[at + 1] - edges[at]} pixels stand free at ${edges[at]} on its line',
     );
   }
+}
+
+/// Pumps one row of [title] with a short state and a short action, in a card [card] wide or the whole window.
+Future<Finder> _pumpRow(
+  WidgetTester tester, {
+  required Size size,
+  required String title,
+  double? card,
+  List<Widget> steps = const <Widget>[],
+}) async {
+  tester.view.physicalSize = size;
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+  final row = ExpandableListRow(
+    key: const Key('row'),
+    leading: const Icon(Icons.error_outline),
+    title: title,
+    state: 'Failed',
+    onOpen: () {},
+    // A row with next steps of its own offers no single action, as under *Needs you*.
+    primary: steps.isEmpty ? Command(id: 'row.open', label: 'Open', group: 'Details', run: () {}) : null,
+    steps: steps,
+    details: const SizedBox.shrink(),
+  );
+  await tester.pumpWidget(
+    MaterialApp(
+      home: Scaffold(
+        body: card == null
+            ? row
+            : Align(
+                alignment: Alignment.topLeft,
+                child: SizedBox(width: card, child: row),
+              ),
+      ),
+    ),
+  );
+  return find.byKey(const Key('row'));
 }
 
 void main() {
@@ -102,36 +138,57 @@ void main() {
 
       final row = _row('gate $_here/porelo-checkout-migrate');
       expect(row, findsOneWidget);
-      final title = _titleOf(tester, row).data!;
+      const title = 'porelo-checkout-migrate: 1 commit waits at the gate';
       expect(_times(_wordsOf(tester, row), _here), 1, reason: 'its machine is named once, under the title');
       _expectWholeOrUsingTheRoom(tester, row, title);
     });
 
     // Harm: a row's name cut short while the room beside a short state and action stands empty.
     testWidgets('a long title takes what a short state and action leave, at $width wide', (tester) async {
-      tester.view.physicalSize = size;
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
       const title = 'porelo-foo-project-gate-1: 1 commit waits at the gate, under a name too long for any row';
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: ExpandableListRow(
-              key: const Key('row'),
-              leading: const Icon(Icons.error_outline),
-              title: title,
-              state: 'Failed',
-              onOpen: () {},
-              primary: Command(id: 'row.open', label: 'Open', group: 'Details', run: () {}),
-              details: const SizedBox.shrink(),
-            ),
-          ),
-        ),
-      );
-
-      final row = find.byKey(const Key('row'));
+      final row = await _pumpRow(tester, size: size, title: title);
       expect(tester.renderObject<RenderParagraph>(find.text(title)).didExceedMaxLines, isTrue, reason: 'too long');
       _expectWholeOrUsingTheRoom(tester, row, title);
     });
+
+    // Harm: a gate's title cut at half the row, though the whole row would hold it.
+    testWidgets('a title the row can hold is shown whole, at $width wide', (tester) async {
+      const title = 'porelo-foo-project-gate-1: 1 commit waits at the gate';
+      final row = await _pumpRow(tester, size: size, title: title);
+      expect(
+        tester.renderObject<RenderParagraph>(find.text(title)).didExceedMaxLines,
+        width < 1280,
+        reason: 'whole where the row holds it, cut where it cannot',
+      );
+      _expectWholeOrUsingTheRoom(tester, row, title);
+    });
+
+    // Harm: the row breaks its layout, and hides its name, where its next steps leave little room.
+    testWidgets('a row whose steps leave little room lays out without overflow, at $width wide', (tester) async {
+      await _pumpRow(
+        tester,
+        size: size,
+        title: 'porelo-foo-project-gate-1',
+        card: Sizes.rowChipBeside + 120,
+        // About 70 pixels left to the words, between the steps and the disclosure.
+        steps: const <Widget>[SizedBox(width: Sizes.rowChipBeside + 2, height: 1)],
+      );
+      expect(tester.takeException(), isNull, reason: 'the row fits the room its steps leave');
+    });
   }
+
+  // Harm: a server being prepared reads "demo server · demo server", and is taken for two.
+  test("a row's title names its machine once, whatever kind of row it is", () {
+    for (final (kind, title, machine) in <(AttentionKind, String, String)>[
+      (AttentionKind.host, 'demo server', 'demo server'),
+      (AttentionKind.host, 'orchard server', 'orchard'),
+      (AttentionKind.silent, 'this machine', 'this machine'),
+      (AttentionKind.waiting, 'Messages wait', 'this machine'),
+      (AttentionKind.setAside, 'Saved machines not watched', 'This computer'),
+    ]) {
+      final said = NeedsYouTitle.of(kind, title, machine);
+      expect(_times(said, machine), 1, reason: '$kind reads "$said"');
+      expect(said, contains(title), reason: '$kind keeps its title');
+    }
+  });
 }

@@ -489,12 +489,7 @@ extension on _AttentionViewState {
       leading: row.kind == AttentionKind.tile
           ? _StateMark((row.value as Tile).demand, Theme.of(context).colorScheme)
           : Icon(icon),
-      // A token's and a repository's sentence names its own, and a silent machine's title is its name: once.
-      title:
-          said?.title ??
-          (row.kind == AttentionKind.token || row.kind == AttentionKind.repository || row.kind == AttentionKind.silent
-              ? title
-              : '$title · ${row.machine}'),
+      title: said?.title ?? NeedsYouTitle.of(row.kind, title, row.machine),
       subtitle: said?.under ?? subtitle,
       primaryFilled: row.kind == AttentionKind.tile,
       state: resolved ? resolvedState : state,
@@ -1272,6 +1267,16 @@ abstract final class TileSaid {
         ),
     ];
   }
+}
+
+/// The title of a row of *Needs you* that is not work's own sentence.
+abstract final class NeedsYouTitle {
+  /// [title], with the [machine] the row is about named after it once.
+  static String of(AttentionKind kind, String title, String machine) =>
+      // A token's and a repository's sentence names its own; a title that holds the machine's name already says it.
+      kind == AttentionKind.token || kind == AttentionKind.repository || title.contains(machine)
+      ? title
+      : '$title · $machine';
 }
 
 /// What is said of a piece of work, in words: its state's sentence, a question's time and what came out of it.

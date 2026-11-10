@@ -39,6 +39,11 @@ enum WindowSize {
   /// Whether a card can hold a state beside the name.
   static bool chipBeside(double width) => width >= Sizes.rowChipBeside;
 
+  /// Whether a row's words hold its state beside the name: its [card] can, and next steps beside the words leave
+  /// them room of their own for it.
+  static bool chipBesideWords({required double card, required double words}) =>
+      chipBeside(card) && words >= Sizes.rowWordsBesideChip;
+
   /// Whether the projects and the work under them fit side by side.
   ///
   /// Below this the frame shows one at a time: a dense arrangement that merely shrinks becomes

@@ -411,6 +411,9 @@ abstract final class Sizes {
   /// they leave, and is cut only past it.
   static const rowSideShare = 0.3;
 
+  /// The least room a row's words keep beside its state; with less, the state stands under the name.
+  static const rowWordsBesideChip = 160.0;
+
   /// What an icon button in a list's header measures on a desktop window.
   static const iconTarget = 32.0;
 
