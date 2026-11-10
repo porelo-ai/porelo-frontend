@@ -21,14 +21,15 @@ import 'expandable_list_row.dart';
 /// What is true of a repository's name, as for any folder it becomes.
 final _repositoryName = RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$');
 
-/// The role a person has in [project], or null where they have none.
-String? _roleIn(OrganizationView view, OrganizationProject project) => !view.holdsRoles
-    ? null
-    : project.admins.contains(view.me)
-    ? 'Project Admin'
-    : project.members.contains(view.me)
-    ? 'developer'
-    : null;
+/// The person's role in [project] as the organization's lists say it, in the words its page says it: from the
+/// organization's read and what `project list` answered as [listed]. Null for a member whose role it has not said.
+String? _listedRole(OrganizationView view, OrganizationProject project, ListedProject? listed) {
+  if (!project.admins.contains(view.me) && !project.members.contains(view.me)) return 'not a member';
+  if (!view.holdsRoles) return 'no role';
+  if (listed?.locked ?? false) return 'locked';
+  if (project.admins.contains(view.me) || listed?.role == ProjectView.adminRole) return 'Project Admin';
+  return listed?.role;
+}
 
 /// The projects a person is a project admin or a member of, each with the one host carrying it.
 class OrganizationProjectsPage extends StatefulWidget {
@@ -153,6 +154,8 @@ class _OrganizationProjectsPageState extends State<OrganizationProjectsPage> {
   Future<void> _list() async {
     try {
       final listed = await widget.organization.source.myProjects();
+      // A project's page opened from here says the person's role in its head while it reads.
+      widget.organization.keepListed(listed);
       if (mounted) setState(() => _listed = listed);
     } on OrganizationRefused {
       // Said by the organization's own read, whose words are the same.
@@ -243,7 +246,7 @@ class _OrganizationProjectsPageState extends State<OrganizationProjectsPage> {
     ];
     return LeafListRow(
       key: ValueKey('my-project ${project.name}'),
-      state: _isLocked(project) ? 'locked' : _roleIn(view, project)!,
+      state: _listedRole(view, project, _listed.where((listed) => listed.name == project.name).firstOrNull) ?? 'member',
       leading: const Icon(Icons.folder_outlined),
       title: project.name,
       subtitle: Text(
@@ -322,14 +325,27 @@ class _OrganizationProjectsPageState extends State<OrganizationProjectsPage> {
 String _count(int count, String one, String many) => counted(count, one, many);
 
 class _Problem extends StatelessWidget {
-  const _Problem(this.words);
+  const _Problem(this.words, {required this.onRetry});
 
   final String words;
+
+  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.symmetric(vertical: Space.small),
-    child: Text(words, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+    child: Wrap(
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: Space.normal,
+      children: [
+        Text(words, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+        TextButton(
+          key: const Key('organization-project-read-again'),
+          onPressed: onRetry,
+          child: const Text('Try again'),
+        ),
+      ],
+    ),
   );
 }
 
@@ -381,19 +397,39 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
   @override
   void initState() {
     super.initState();
-    _view = widget.organization.lastReadOf(widget.project);
-    _lastRead = _view != null;
-    unawaited(_read());
-    widget.organization.addListener(_organizationChanged);
-    widget.organization.addWriteRead(_read);
-    if (widget.organization.view == null) unawaited(widget.organization.refresh());
+    _bind();
+  }
+
+  @override
+  void didUpdateWidget(OrganizationProjectPage old) {
+    super.didUpdateWidget(old);
+    if (old.organization == widget.organization && old.project == widget.project) return;
+    _unbind(old.organization);
+    // A read still under way is the project before.
+    _reads++;
+    _bind();
   }
 
   @override
   void dispose() {
-    widget.organization.removeListener(_organizationChanged);
-    widget.organization.removeWriteRead(_read);
+    _unbind(widget.organization);
     super.dispose();
+  }
+
+  void _bind() {
+    _view = widget.organization.lastReadOf(widget.project);
+    _lastRead = _view != null;
+    _problem = null;
+    widget.organization.addListener(_organizationChanged);
+    widget.organization.addWriteRead(_read);
+    // First, as a project read answering before it waits for its members' cards.
+    if (widget.organization.view == null) unawaited(widget.organization.refresh());
+    unawaited(_read());
+  }
+
+  void _unbind(Organization organization) {
+    organization.removeListener(_organizationChanged);
+    organization.removeWriteRead(_read);
   }
 
   int _reads = 0;
@@ -404,11 +440,24 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
   Future<void> _read() async {
     if (!mounted) return;
     final read = ++_reads;
-    setState(() => _reading = true);
+    final mark = widget.organization.writeMark;
+    widget.organization.readingProjectAgain(widget.project);
+    setState(() {
+      _reading = true;
+      // Until this read lands, what the page shows is the project as last read.
+      _lastRead = _view != null;
+      _problem = null;
+    });
+    var taken = true;
     try {
       final view = await widget.organization.source.readProject(widget.project);
       // A read that answers after a later one was asked for may be the older.
       if (!mounted || read != _reads) return;
+      // Begun before a change was answered, it may hold the project as it stood before: the change reads it again.
+      if (!widget.organization.readsAfterWrites(mark)) {
+        taken = false;
+        return;
+      }
       widget.organization.rememberProjectRevision(view);
       setState(() {
         _view = view;
@@ -420,7 +469,7 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
     } on Exception {
       if (mounted && read == _reads) setState(() => _problem = 'The project could not be read.');
     } finally {
-      if (mounted && read == _reads) setState(() => _reading = false);
+      if (mounted && read == _reads && taken) setState(() => _reading = false);
     }
   }
 
@@ -437,6 +486,10 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
   Widget build(BuildContext context) {
     final view = _view;
     final organization = widget.organization.view;
+    final listed = organization?.projects.where((each) => each.name == widget.project).firstOrNull;
+    final listedRole = organization == null || listed == null
+        ? null
+        : _listedRole(organization, listed, widget.organization.listedOf(widget.project));
     final isAdmin =
         view != null &&
         organization != null &&
@@ -447,22 +500,22 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
               member.role == ProjectView.adminRole &&
               (member.standing == CardStanding.trusted || member.standing == CardStanding.notYet) &&
               !member.locked,
-        );
+        ) &&
+        // A last read claims no Project Admin the organization's list does not name.
+        (!_lastRead || listedRole == 'Project Admin');
+    final readRole = view == null || organization == null ? null : _myRole(view, organization);
     // Before it is opened there is no project.yml to change: opening it is all there is to do.
     final changes = isAdmin && view.opened && !_lastRead;
     final commands = [
       if (changes)
         for (final policy in ['required', 'optional'])
           if (view.review != policy) _reviewCommand(view, policy),
-      ..._machineCommands(organization),
+      // A last read not yet confirmed offers no change, a machine's neither.
+      if (!_lastRead) ..._machineCommands(organization),
     ];
     final repositoryWords = view == null || !view.opened
         ? 'not read'
         : view.repositoriesProblem ?? '${view.repositories.length} repositories';
-    // Until its first read lands, the head says what the organization's list holds of it, as its row there does.
-    final listed = view == null && _reading && organization != null
-        ? organization.projects.where((each) => each.name == widget.project).firstOrNull
-        : null;
     return ListView(
       key: ValueKey('organization-project ${widget.project}'),
       padding: const EdgeInsets.all(Space.normal),
@@ -475,22 +528,23 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
             'My projects': Key('organization-project-back'),
             'Projects': Key('organization-project-back'),
           },
-          subtitle: view != null && (_lastRead || (_problem == null && !_reading))
+          // Until its first read lands, the head says what the organization's list holds of it, as its row there does.
+          subtitle: view != null
               ? '$repositoryWords · ${counted(view.members.length, 'member', 'members')}'
               : listed != null
               ? '${listed.repositories == null ? '' : '${_count(listed.repositories!, 'repository', 'repositories')} · '}'
                     '${peopleOf(listed)}'
               : 'not read',
-          status: view != null && organization != null
-              ? StateChip(_myRole(view, organization))
-              : listed != null && _roleIn(organization!, listed) != null
-              ? StateChip(_roleIn(organization, listed)!)
+          status: readRole != null
+              ? StateChip(readRole == 'Project Admin' && !isAdmin && _lastRead ? listedRole ?? 'member' : readRole)
+              : listedRole != null
+              ? StateChip(listedRole)
               : null,
           action: commands.isEmpty
               ? null
               : CommandMenu(tooltip: 'What can be done with ${widget.project}', commands: commands),
         ),
-        if (_problem case final problem?) _Problem(problem),
+        if (_problem case final problem?) _Problem(problem, onRetry: () => unawaited(_read())),
         if (_reading && _lastRead)
           Text('Reading ${widget.project} again…', key: const Key('organization-project-reading-again'))
         else if (_reading)
@@ -656,7 +710,8 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
         subtitle: counted(view.repositories.length, 'repository', 'repositories'),
         read: view.opened,
         busy: _reading,
-        problem: _problem ?? view.repositoriesProblem,
+        // A refusal of the read is said once, at the top: what is shown is the last read.
+        problem: view.repositoriesProblem,
         onRetry: () => unawaited(_read()),
         storageId: 'project-repositories ${view.name}',
         emptyWords: isAdmin ? 'No repositories yet. Add one with Add.' : 'No repositories yet.',
@@ -766,7 +821,6 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
       leaf: true,
       subtitle: counted(view.members.length, 'member', 'members'),
       busy: _reading,
-      problem: _problem,
       onRetry: () => unawaited(_read()),
       storageId: 'project-members ${view.name}',
       greyWords: [

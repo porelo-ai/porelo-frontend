@@ -57,12 +57,28 @@ class _HeldReads extends FixtureOrganization {
 
   Completer<void>? held;
 
+  /// How many reads of a project were asked for.
+  int reads = 0;
+
   @override
   Future<ProjectView> readProject(String project) async {
+    reads++;
     await held?.future;
     return super.readProject(project);
   }
 }
+
+/// An action of the page, its machine's among them.
+Finder _command(String id) => id.startsWith('project.')
+    ? find.byWidgetPredicate(
+        (widget) => widget is CommandMenu && widget.commands.any((command) => command.id == id),
+        description: 'the action $id',
+      )
+    : _action(id);
+
+/// The words of the role chip in the page's head, or null where it shows none.
+String? _chip(WidgetTester tester) =>
+    (tester.widget<PageHead>(find.byType(PageHead).first).status as StateChip?)?.words;
 
 /// Opens the project's page of [organization] and draws its first frame, the read still held.
 Future<void> _open(WidgetTester tester, Organization organization) async {
@@ -551,6 +567,8 @@ void main() {
       }
       fixture.held!.complete();
       await tester.pumpAndSettle();
+      await pressOrganizationAction(tester, 'lockMember/pat');
+      expect(fixture.writes.single.base, 'p2', reason: 'a change after the new read carries its revision');
       expect(find.byKey(const Key('organization-project-reading-again')), findsNothing);
       expect(find.text('demo-docs'), findsNothing);
       expect(find.text('demo-site'), findsOneWidget);
@@ -569,11 +587,11 @@ void main() {
       fixture.refuseReads = const OrganizationRefused('Porelo cannot reach the organization.');
       await _open(tester, organization);
       await tester.pumpAndSettle();
-      expect(find.text('Porelo cannot reach the organization.'), findsWidgets);
+      expect(find.text('Porelo cannot reach the organization.'), findsOneWidget, reason: 'said once, at the top');
       expect(find.byKey(const Key('organization-project-as-last-read')), findsOneWidget);
       expect(find.byKey(const Key('organization-project-reading-again')), findsNothing);
       expect(find.text('demo-docs'), findsOneWidget);
-      for (final id in changes) {
+      for (final id in [...changes, 'memberRole/pat', 'removeMember/pat', 'lockMember/pat']) {
         expect(_action(id), findsNothing, reason: id);
       }
     });
@@ -1028,6 +1046,266 @@ void main() {
       expect(find.byKey(const Key('organization-confirm')), findsOneWidget);
       answer.complete();
       await tester.pumpAndSettle();
+    });
+  });
+
+  group('a last read, and a read under way', () {
+    // pat administers demo, and the machine carrying it too.
+    final withMachine = organizationFor(
+      'pat',
+      organizationAdmins: const ['pat'],
+      host: const OrganizationHost(name: 'build', admins: ['pat'], projects: ['demo']),
+    );
+    const everything = ProjectView(
+      name: 'demo',
+      revision: 'p1',
+      host: 'build',
+      roles: ['developer', 'admin'],
+      repositories: [ProjectRepository(name: 'demo', address: 'git@forge.example.org:acme/demo.git', central: '')],
+      members: [
+        ProjectMember(login: 'pat', role: 'admin', standing: CardStanding.trusted),
+        ProjectMember(login: 'mia', role: 'developer', standing: CardStanding.trusted),
+      ],
+    );
+    // Every change the page offers its Project Admin on [everything], the machine's among them.
+    const offered = [
+      'projectReview/required',
+      'projectReview/optional',
+      'changeAddress',
+      'addRepository',
+      'repositoryReview/demo/required',
+      'repositoryReview/demo/optional',
+      'nameCentral/demo',
+      'removeRepository/demo',
+      'addMember',
+      'memberRole/pat',
+      'removeMember/pat',
+      'lockMember/pat',
+      'memberRole/mia',
+      'removeMember/mia',
+      'lockMember/mia',
+      'project.takeOffMachine',
+    ];
+
+    void offers(Matcher matcher) {
+      for (final id in offered) {
+        expect(_command(id), matcher, reason: id);
+      }
+    }
+
+    /// The page of demo in [view], read once and still open.
+    Future<(_HeldReads, Organization)> read(WidgetTester tester, OrganizationView view) async {
+      final fixture = _HeldReads(view)..projects = {'demo': everything};
+      final organization = Organization(fixture);
+      addTearDown(organization.dispose);
+      await organization.refresh();
+      await _open(tester, organization);
+      await tester.pumpAndSettle();
+      return (fixture, organization);
+    }
+
+    // Harm: a change, a machine's among them, is asked against a last read the page has not confirmed.
+    testWidgets('a last read offers no change of any kind, which its own read then offers', (tester) async {
+      final (fixture, organization) = await read(tester, withMachine);
+      offers(findsOneWidget);
+      await _close(tester);
+      fixture.held = Completer<void>();
+      await _open(tester, organization);
+      expect(find.byKey(const Key('organization-project-reading-again')), findsOneWidget);
+      offers(findsNothing);
+      fixture.held!.complete();
+      await tester.pumpAndSettle();
+      offers(findsOneWidget);
+    });
+
+    // Harm: after a change, a reread that fails leaves the page offering changes against the read before it.
+    testWidgets('a reread after a change marks what it shows, and says it is the last read when it fails', (
+      tester,
+    ) async {
+      final (fixture, organization) = await read(tester, withMachine);
+      fixture.held = Completer<void>();
+      final write = organization.write(OrganizationChange.lockProjectMember, {
+        'project': 'demo',
+        'login': 'mia',
+      }, base: 'p1');
+      await tester.pump();
+      await tester.pump();
+      expect(find.byKey(const Key('organization-project-reading-again')), findsOneWidget);
+      fixture.refuseReads = const OrganizationRefused('Porelo cannot reach the organization.');
+      fixture.held!.complete();
+      expect(await write, isNull);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('organization-project-as-last-read')), findsOneWidget);
+      offers(findsNothing);
+    });
+
+    // Harm: the refusal of a read stands on as if the read now under way had failed too.
+    testWidgets('a reread that fails offers its retry, which clears what it said while it reads', (tester) async {
+      final (fixture, organization) = await read(tester, withMachine);
+      await _close(tester);
+      fixture.refuseReads = const OrganizationRefused('Porelo cannot reach the organization.');
+      await _open(tester, organization);
+      await tester.pumpAndSettle();
+      expect(find.text('Porelo cannot reach the organization.'), findsOneWidget);
+      fixture
+        ..refuseReads = null
+        ..held = Completer<void>();
+      await tester.tap(find.byKey(const Key('organization-project-read-again')));
+      await tester.pump();
+      expect(find.text('Porelo cannot reach the organization.'), findsNothing);
+      expect(find.byKey(const Key('organization-project-reading-again')), findsOneWidget);
+      fixture.held!.complete();
+      await tester.pumpAndSettle();
+      offers(findsOneWidget);
+    });
+
+    // Harm: a refused change is asked again against a last read nobody has seen confirmed.
+    testWidgets('a refused change waits for the read under way before it is asked again', (tester) async {
+      final (fixture, organization) = await read(tester, withMachine);
+      fixture.refuseNext = const OrganizationRefused('The forge said no.');
+      await organization.write(
+        OrganizationChange.addProjectMember,
+        {'project': 'demo', 'login': 'hana', 'role': 'developer'},
+        base: 'p1',
+        provisional: true,
+      );
+      await tester.pumpAndSettle();
+      String? whyNot() => tester
+          .widget<CommandMenu>(_action('retryChange/project-members demo/hana'))
+          .commands
+          .singleWhere((command) => command.id == 'organization.retryChange/project-members demo/hana')
+          .unavailable;
+      expect(whyNot(), isNull, reason: 'the page read the project again after the refusal');
+      await _close(tester);
+      fixture.held = Completer<void>();
+      await _open(tester, organization);
+      expect(whyNot(), 'Review the project before asking again.');
+      fixture.held!.complete();
+      await tester.pumpAndSettle();
+      expect(whyNot(), isNull);
+    });
+
+    // Harm: a locked member, who may do nothing, or one who is none, is given a role while the page reads.
+    for (final (me, persons, listed, role) in [
+      (
+        'mia',
+        null,
+        const [ListedProject(name: 'demo', source: 'organization', role: 'developer', locked: true)],
+        'locked',
+      ),
+      ('olive', null, null, 'not a member'),
+      ('mia', const [OrganizationPerson(login: 'mia', standing: CardStanding.revoked)], null, 'no role'),
+    ]) {
+      testWidgets('before its first read, the head names $me as the list does: $role', (tester) async {
+        final fixture = _HeldReads(organizationFor(me, persons: persons ?? organizationFor(me).persons))
+          ..listed = listed;
+        final organization = Organization(fixture);
+        addTearDown(organization.dispose);
+        await _settle(tester, OrganizationProjectsPage(organization: organization, onProject: (_) {}));
+        fixture.held = Completer<void>();
+        await _open(tester, organization);
+        expect(_chip(tester), role);
+        fixture.held!.complete();
+        await tester.pumpAndSettle();
+      });
+    }
+
+    // Harm: a last read calls someone the Project Admin, whose change is signed, after the list has demoted them.
+    testWidgets('a last read claims no Project Admin the list no longer names', (tester) async {
+      final (fixture, organization) = await read(tester, organizationFor('pat'));
+      expect(_chip(tester), 'Project Admin');
+      await _close(tester);
+      final before = organizationFor('pat');
+      fixture
+        ..view = OrganizationView(
+          name: before.name,
+          keptIn: before.keptIn,
+          vouchedBy: before.vouchedBy,
+          revision: 'r2',
+          me: 'pat',
+          persons: before.persons,
+          hosts: before.hosts,
+          owners: before.owners,
+          projects: const [
+            OrganizationProject(name: 'demo', admins: ['mia'], members: ['pat'], host: 'build', repositories: 1),
+          ],
+        )
+        ..held = Completer<void>();
+      await organization.refresh();
+      await _open(tester, organization);
+      expect(_chip(tester), isNot('Project Admin'));
+      expect(find.text('A change is signed with your key.'), findsNothing);
+      fixture.held!.complete();
+      await tester.pumpAndSettle();
+    });
+
+    // Harm: a read begun before a change was answered passes for the project after it, and is kept as its last read.
+    testWidgets('a read begun while a change is asked counts only once the change has read it again', (tester) async {
+      final fixture = _HeldReads(withMachine)..projects = {'demo': everything};
+      final organization = Organization(fixture);
+      addTearDown(organization.dispose);
+      await organization.refresh();
+      final writing = Completer<void>();
+      fixture.holdWrites = writing.future;
+      final write = organization.write(OrganizationChange.addProjectToHost, {'host': 'spare', 'project': 'other'});
+      await _open(tester, organization);
+      await tester.pump();
+      expect(fixture.reads, 1, reason: 'the page read the project while the change was asked');
+      expect(find.textContaining('Reading demo: its address'), findsOneWidget, reason: 'its answer is not taken');
+      expect(_command('addRepository'), findsNothing);
+      await _close(tester);
+      writing.complete();
+      expect(await write, isNull);
+      fixture.held = Completer<void>();
+      await _open(tester, organization);
+      expect(find.byKey(const Key('organization-project-reading-again')), findsNothing, reason: 'nothing was kept');
+      fixture.held!.complete();
+      await tester.pumpAndSettle();
+      offers(findsOneWidget);
+    });
+
+    // Harm: a page given another project goes on showing, and changing, the one before it.
+    testWidgets('a page given another project or organization reads that one', (tester) async {
+      const other = ProjectView(
+        name: 'other',
+        revision: 'o1',
+        roles: ['developer', 'admin'],
+        repositories: [ProjectRepository(name: 'other-api')],
+        members: [ProjectMember(login: 'pat', role: 'admin', standing: CardStanding.trusted)],
+      );
+      final first = _HeldReads(organizationFor('pat'))..projects = {'demo': demoProject, 'other': other};
+      final organization = Organization(first);
+      addTearDown(organization.dispose);
+      await organization.refresh();
+      await _settle(tester, OrganizationProjectPage(organization: organization, project: 'demo', onBack: () {}));
+      expect(find.text('demo-docs'), findsOneWidget);
+      await _settle(tester, OrganizationProjectPage(organization: organization, project: 'other', onBack: () {}));
+      expect(find.text('demo-docs'), findsNothing);
+      expect(find.text('other-api'), findsOneWidget);
+      final second = _HeldReads(organizationFor('pat'))..projects = {'other': other};
+      final next = Organization(second);
+      addTearDown(next.dispose);
+      await next.refresh();
+      await _settle(tester, OrganizationProjectPage(organization: next, project: 'other', onBack: () {}));
+      final reads = second.reads;
+      expect(reads, greaterThan(0), reason: 'the page read the project from the organization it was given');
+      expect(await next.write(OrganizationChange.lockProjectMember, {'project': 'other', 'login': 'pat'}), isNull);
+      await tester.pumpAndSettle();
+      expect(second.reads, reads + 1, reason: "a change in the page's organization reads the project again");
+    });
+
+    // Harm: a first read that fails takes back what the head already said of the project.
+    testWidgets('a first read that fails keeps what the list holds in the head', (tester) async {
+      final fixture = _HeldReads(organizationFor('pat'))..held = Completer<void>();
+      final organization = Organization(fixture);
+      addTearDown(organization.dispose);
+      await organization.refresh();
+      await _open(tester, organization);
+      fixture.refuseReads = const OrganizationRefused('Porelo cannot reach the organization.');
+      fixture.held!.complete();
+      await tester.pumpAndSettle();
+      expect(find.text('Porelo cannot reach the organization.'), findsOneWidget);
+      expect(tester.widget<PageHead>(find.byType(PageHead).first).subtitle, '2 repositories · 2 people');
     });
   });
 

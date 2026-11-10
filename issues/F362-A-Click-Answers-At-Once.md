@@ -63,12 +63,26 @@ An earlier issue, *A Server Dialog Opens At Once*, settled one dialog, not this 
     it found `removeMember/pat` offered on the last read.
   - *a reread that fails keeps the last read, says why, and says it is the last read*: found 0 widgets with key
     `organization-project-as-last-read`, one expected.
-- **One test changed with it:** in `test/ui/organization_changes_test.dart`, a page opened again whose read fails
-  now shows the last read, whose sections say the refusal too, so it is found more than once.
 - **Not met by this:** the first point of the acceptance, a real window measured after the change, has not been done;
-  the measure above is the one before. The press effect is unchanged. The head's role before the first read does not
-  know a lock, which only the list page reads, so a locked member's head names their role until the read lands; no
-  change is offered meanwhile.
+  the measure above is the one before. The press effect is unchanged.
+- **The reading of the code by another model found six things to fix and two to consider; all were taken, three in
+  part.** It grew the change from one page to the organization's model and its source as well, beyond the size first
+  set. Now every read again of an open page, after a change, *Try again* or *Review the project*, marks what it shows
+  as the last read and clears the refusal before; one that fails says "as last read" and offers no change. A last read
+  offers no machine's change either, and a refused change waits until the read lands. The last reads and revisions
+  are forgotten when the organization is chosen or made anew or none is named; a taken change of a project forgets its
+  last read, and a read of the organization without the project, not stale, forgets it too. The head's role before the
+  first read says what the list says, a lock, "not a member" and "no role" among it; a last read names no Project Admin
+  the organization's list does not. A project read begun while a change is asked is not taken until the change reads
+  it again; a project read answering before the organization's first read waits for it, for its members' cards; the
+  page given another project or organization reads that one. A refusal of the read is said once, at the top, with its
+  *Try again*, and a first read that fails keeps the list's words in the head. Each test was seen red, in
+  `test/ui/organization_project_pages_test.dart`, `test/app/organization_test.dart` and
+  `test/app/porelo_organization_source_test.dart`, and `test/ui/organization_changes_test.dart` finds the refusal once
+  again. **Declined in part:** a request that got no answer is still offered *Try again* on a last read, as it is asked
+  again under its own id and revision, never the shown read's; the machine's changes stay offered while a first read
+  runs with no last read shown, as they act on the organization's read; a member whose role `project list` has not
+  said gets no role in the head before the read, rather than a guessed one.
 
 ## What to measure next
 

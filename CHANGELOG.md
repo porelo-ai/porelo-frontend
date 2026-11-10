@@ -13,7 +13,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- A project's page answers a press at once: while Porelo reads the project, its head says what the organization's list holds of it, and a project opened again in the session shows its last read, marked as being read again and offering no change until the new read lands.
+- A project's page answers a press at once: while Porelo reads the project, its head says what the organization's list holds of it, and a project opened again in the session shows its last read, marked as being read again and offering no change until the new read lands. Every read again of an open page does the same, and one that fails says the page shows the project as last read; a project read that answers before the organization's first read waits for it, so its members' cards are no longer all said as not yet asked about.
 - A host the window prepares installs Porelo from the window's own channel: `releases` from a released window, `snapshots` from a snapshot or a window run from source; `porelo-host --distribution` still wins, and an unknown one is refused before anything starts.
 - A project added in one step whose repository was refused after the project was added is asked again, with *Try again*, as the same change, so Porelo makes the repository instead of refusing the project as one that exists.
 - The window now reads the planning part as the daemon serves it.

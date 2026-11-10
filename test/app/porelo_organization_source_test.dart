@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -509,6 +510,31 @@ void main() {
       final fay = view.members.singleWhere((each) => each.login == 'fay');
       expect((fay.role, fay.locked, fay.standing), ('developer', true, CardStanding.notYet));
       expect(view.roles, ['developer', 'admin']);
+    });
+
+    // Harm: a project read answering before the organization's first read calls every member's card "not yet".
+    test("a project read answering before the organization's waits for it, for its members' cards", () async {
+      final organization = Completer<void>();
+      source = PoreloOrganizationSource(
+        run:
+            (
+              String program,
+              List<String> arguments, {
+              String? inDirectory,
+              Map<String, String> environment = const {},
+              String? input,
+            }) async {
+              if (arguments.first == 'org') await organization.future;
+              return says(arguments.first == 'org' ? _org : _project);
+            },
+      );
+      final read = source.read();
+      final project = source.readProject('demo');
+      await pumpEventQueue();
+      organization.complete();
+      await read;
+      final alice = (await project).members.singleWhere((each) => each.login == 'alice');
+      expect(alice.standing, CardStanding.trusted);
     });
 
     // Harm: "could not say" reads as a project with no repositories.

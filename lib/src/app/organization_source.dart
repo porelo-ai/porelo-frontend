@@ -1071,6 +1071,37 @@ class Organization extends ChangeNotifier {
   /// What a page of [project] read last in this session, or null where none did.
   ProjectView? lastReadOf(String project) => _lastReads[project];
 
+  /// Takes [project]'s last read back from what counts as reviewed while a page reads it again: until that read
+  /// lands, a refused change of it waits.
+  void readingProjectAgain(String project) => _projectBases.remove(project);
+
+  /// Forgets every project's last read and revision, as when the organization they belong to is no longer this one.
+  void _forgetProjects() {
+    _projectBases.clear();
+    _lastReads.clear();
+  }
+
+  int _writesAsked = 0;
+  bool _applying = false;
+
+  /// A mark of the writes asked for so far, taken as a project's read starts; null while one is being asked for.
+  int? get writeMark => _applying ? null : _writesAsked;
+
+  /// Whether a project read that started at [mark] answers the project after every write asked for since: one begun
+  /// before a write was answered may hold the project as it stood before, and the write reads it again.
+  bool readsAfterWrites(int? mark) => mark == _writesAsked && !_applying;
+
+  /// How the person stands in [project] as `project list` last answered, or null where it has not.
+  ListedProject? listedOf(String project) => _listed.value?.where((each) => each.name == project).firstOrNull;
+
+  /// Keeps what `project list` answered a page that asked it, for [listedOf] and [whyNoRemoval].
+  void keepListed(List<ListedProject> listed) {
+    _listed
+      ..value = listed
+      ..problem = null
+      ..at = _clock();
+  }
+
   /// The default for a new repository: Core's policy, or this window's last confirmed project choice.
   ///
   /// This does not establish the current policy when Core names none; the project page still says it cannot tell.
@@ -1240,10 +1271,16 @@ class Organization extends ChangeNotifier {
       readAt = _clock();
       problem = null;
       noOrganization = false;
+      // A stale read cannot tell that a project is gone.
+      if (!answer.stale) {
+        final standing = {for (final project in answer.projects) project.name};
+        _lastReads.removeWhere((project, _) => !standing.contains(project));
+      }
     } on OrganizationRefused catch (refused) {
       if (read != _reads) return;
       problem = refused.words;
       noOrganization = refused.reason == 'no-organization';
+      if (noOrganization) _forgetProjects();
     } on Exception {
       if (read != _reads) return;
       problem = 'The Porelo organization could not be read.';
@@ -1299,10 +1336,19 @@ class Organization extends ChangeNotifier {
     String? refusal;
     var mayBeHalfway = false;
     try {
-      await source.apply(
-        OrganizationWrite(change: change, input: input, person: current?.me ?? '', base: asked.base, id: asked.id),
-      );
+      _writesAsked++;
+      _applying = true;
+      try {
+        await source.apply(
+          OrganizationWrite(change: change, input: input, person: current?.me ?? '', base: asked.base, id: asked.id),
+        );
+      } finally {
+        _applying = false;
+      }
       _unanswered.remove(sameChange);
+      // Its page shows it as last read only until it reads it again.
+      if (input['project'] case final project?) _lastReads.remove(project);
+      if (change.standsBeforeAnOrganization) _forgetProjects();
       _partlyAdded.remove(sameChange);
       if (change == OrganizationChange.createProjectRepository || change == OrganizationChange.removeProject) {
         for (final kept in [..._partlyAdded.entries.where((kept) => kept.value == input['project'])]) {
@@ -1319,7 +1365,6 @@ class Organization extends ChangeNotifier {
       afterWrite?.call(change, input);
       if (change == OrganizationChange.chooseOrganization) {
         _rowChanges.clear();
-        _projectBases.clear();
         _unanswered.clear();
         _partlyAdded.clear();
         _signedReviewChoices.clear();
@@ -1416,6 +1461,7 @@ class Organization extends ChangeNotifier {
     try {
       await source.apply(OrganizationWrite(change: change, input: input, person: view?.me ?? '', base: '', id: ''));
       // Made by the source itself, as an older Porelo does: what it holds now is what the page shows next.
+      _writesAsked++;
       changeProgress = 'Reading the Porelo organization again…';
       _changed();
       await refresh();

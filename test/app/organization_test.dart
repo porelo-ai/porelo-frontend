@@ -391,4 +391,66 @@ void main() {
       expect(source.writes.single.base, '');
     });
   });
+
+  group('the last read of a project', () {
+    late OrganizationRowChange refused;
+
+    /// An organization pat reads, whose page of demo read it once after a change of it was refused.
+    Future<(FixtureOrganization, Organization)> remembered() async {
+      final source = FixtureOrganization(organizationFor('pat'))
+        ..refuseNext = const OrganizationRefused('The forge said no.');
+      final organization = Organization(source);
+      addTearDown(organization.dispose);
+      await organization.refresh();
+      const hana = {'project': 'demo', 'login': 'hana', 'role': 'developer'};
+      await organization.write(OrganizationChange.addProjectMember, hana, base: 'p1', provisional: true);
+      organization.rememberProjectRevision(demoProject);
+      expect(organization.lastReadOf('demo'), demoProject);
+      refused = organization.rowChanges.single;
+      expect(organization.whyNoRetry(refused), isNull);
+      return (source, organization);
+    }
+
+    /// Whether demo's refused change may be asked again without its page reading it again.
+    bool reviewed(Organization organization) => organization.whyNoRetry(refused) == null;
+
+    // Harm: another organization's project of the same name is shown at once as this one's.
+    for (final change in [OrganizationChange.chooseOrganization, OrganizationChange.createOrganization]) {
+      test('is forgotten once ${change.name} is taken', () async {
+        final (_, organization) = await remembered();
+        expect(await organization.write(change, const {'address': 'git@forge.example.org:other/org.git'}), isNull);
+        expect(organization.lastReadOf('demo'), isNull);
+        expect(reviewed(organization), isFalse, reason: 'its revision is no longer one of this organization');
+      });
+    }
+
+    test('is forgotten once this computer names no organization', () async {
+      final (source, organization) = await remembered();
+      source.refuseReads = const OrganizationRefused('No organization.', reason: 'no-organization');
+      await organization.refresh();
+      expect(organization.lastReadOf('demo'), isNull);
+      expect(reviewed(organization), isFalse);
+    });
+
+    // Harm: a page opened again shows the project as it stood before a change taken while the page was closed.
+    test('is forgotten once a change of its project is taken', () async {
+      final (_, organization) = await remembered();
+      expect(
+        await organization.write(OrganizationChange.lockProjectMember, const {'project': 'demo', 'login': 'mia'}),
+        isNull,
+      );
+      expect(organization.lastReadOf('demo'), isNull);
+    });
+
+    // Harm: a removed project's page shows it at once as if it stood.
+    test('is forgotten once the organization no longer holds its project, unless that read is stale', () async {
+      final (source, organization) = await remembered();
+      source.view = _holding('r2', null, true);
+      await organization.refresh();
+      expect(organization.lastReadOf('demo'), demoProject, reason: 'a stale read cannot tell it is gone');
+      source.view = _holding('r3');
+      await organization.refresh();
+      expect(organization.lastReadOf('demo'), isNull);
+    });
+  });
 }

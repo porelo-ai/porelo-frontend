@@ -25,8 +25,11 @@ class PoreloOrganizationSource implements OrganizationSource, FoundingChecks {
   /// The roles a project's member can have.
   static const roles = ['developer', 'admin'];
 
-  /// How people stood at the last read, for what `project show` does not say of them.
-  Map<String, CardStanding> _standing = const {};
+  /// How people stood at the last read, for what `project show` does not say of them; null before any read answered.
+  Map<String, CardStanding>? _standing;
+
+  /// The organization's read under way, which a project read answering before the first one waits for.
+  Future<void>? _organizationRead;
 
   Future<Map<String, Object?>> _ask(List<String> arguments, {bool mayTrust = true}) async {
     final Ran ran;
@@ -116,7 +119,13 @@ class PoreloOrganizationSource implements OrganizationSource, FoundingChecks {
   }
 
   @override
-  Future<OrganizationView> read() async {
+  Future<OrganizationView> read() {
+    final reading = _readOrganization();
+    _organizationRead = reading.then<void>((_) {}, onError: (Object _) {});
+    return reading;
+  }
+
+  Future<OrganizationView> _readOrganization() async {
     final answer = await _ask(['org']);
     final view = _reading(() => _view(answer));
     _standing = {for (final person in view.persons) person.login: person.standing};
@@ -244,6 +253,9 @@ class PoreloOrganizationSource implements OrganizationSource, FoundingChecks {
   @override
   Future<ProjectView> readProject(String project) async {
     final answer = await _ask(['project', 'show', project]);
+    // Its members' cards stand in the organization's answer.
+    if (_standing == null) await _organizationRead;
+    final standing = _standing ?? const <String, CardStanding>{};
     return _reading(() {
       final repositories = _maybeMap(answer, 'repositories');
       final state = repositories == null ? null : _text(repositories, 'state');
@@ -277,7 +289,7 @@ class PoreloOrganizationSource implements OrganizationSource, FoundingChecks {
               login: _text(member, 'login'),
               role: _text(member, 'role'),
               locked: member['locked'] == true,
-              standing: _standing[_text(member, 'login')] ?? CardStanding.notYet,
+              standing: standing[_text(member, 'login')] ?? CardStanding.notYet,
             ),
         ],
       );
