@@ -3832,6 +3832,7 @@ class MissingCredential {
   const MissingCredential({
     required this.purpose,
     required this.credential,
+    this.forge = '',
     this.storeCommand = const <String>[],
     this.afterStore = '',
   });
@@ -3841,6 +3842,10 @@ class MissingCredential {
 
   /// The vault key looked for; a name, never a value.
   final String credential;
+
+  /// The forge whose builds it reads, by the name the project's `builds.forge` gives it (`github` for one); empty
+  /// where the machine named none, as an older daemon and a task kept before it was named do.
+  final String forge;
 
   /// What to run on the machine to make it, as arguments, reading nothing on standard input; empty where the
   /// machine named none, or one this window would not run (see [plainWords]).
@@ -3854,6 +3859,7 @@ class MissingCredential {
   factory MissingCredential.from(Map<String, dynamic> map) => MissingCredential(
     purpose: _string(map, 'for'),
     credential: _string(map, 'credential'),
+    forge: _string(map, 'forge'),
     storeCommand: plainWords(map['storeCommand']),
     afterStore: _string(map, 'afterStore'),
   );

@@ -211,7 +211,9 @@ Worth knowing before designing around them:
   is `failure` or final, and a job's `log` is the name of a file in the task, never its text. All
   three are absent from a machine older than builds, which is drawn as saying nothing.
 - **What a host's vault lacks beside the agent is a `MissingCredential`**: `for` (`builds`, or one shown as it
-  comes), the vault key `credential`, the host's `storeCommand`, which reads nothing on standard input, and
+  comes), the vault key `credential`, the `forge` whose builds it reads (by the name the project's `builds.forge`
+  gives it; empty from an older daemon and on a task kept before it, and then the window names the vault key alone),
+  the host's `storeCommand`, which reads nothing on standard input, and
   `afterStore` (`ask-again` or `restart`, or one shown as it comes). `CanStart`'s `missing` lists them; they hold no
   start back, and are empty off a host and with a shut vault. A task's `buildsCredential` is the one its start found
   missing, with `afterStore` `restart`, while `buildProblem` keeps the sentence. The command runs in a terminal on

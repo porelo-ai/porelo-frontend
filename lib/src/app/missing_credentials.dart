@@ -21,13 +21,16 @@ extension MissingCredentialWords on MissingCredential {
   /// The vault key, or words for it where the machine named none.
   String get _key => credential.isEmpty ? 'the entry it looks for' : credential;
 
+  /// What the vault lacks: a token for the forge the machine named, or else its vault key alone.
+  String get _lacked => forge.isEmpty ? '$_key of yours' : 'token of yours for $forge';
+
   /// What [machine] lacks and what that costs a start there, which goes on all the same.
   String atTheStart(String machine) => switch (purpose) {
     'builds' =>
-      "$machine's vault holds no $_key of yours, so a task started there is not told its builds. "
+      "$machine's vault holds no $_lacked, so a task started there is not told its builds. "
           'Work starts all the same.',
     _ =>
-      "$machine's vault holds no $_key of yours, which ${purpose.isEmpty ? 'something' : purpose} needs there. "
+      "$machine's vault holds no $_lacked, which ${purpose.isEmpty ? 'something' : purpose} needs there. "
           'Work starts all the same.',
   };
 

@@ -79,4 +79,26 @@ void main() {
     expect((waiting.purpose, waiting.credential, waiting.afterStore), ('mirrors', 'forge.person', 'reboot'));
     expect(waiting.storeCommand, <String>['porelo', 'host', 'forge-token']);
   });
+
+  // Harm: a start that names no forge, or the wrong one, sends the person to make a token for another forge.
+  test('an entry names the forge whose builds it reads, and an older daemon names none', () {
+    final named = Readiness.from(
+      ready(<String, dynamic>{
+        'missing': <Object?>[
+          <String, dynamic>{...entry(), 'forge': 'github'},
+        ],
+      }),
+    ).missing.single;
+    expect(named.forge, 'github');
+    final older = Readiness.from(
+      ready(<String, dynamic>{
+        'missing': <Object?>[entry()],
+      }),
+    ).missing.single;
+    expect(older.forge, '', reason: 'a daemon before the field names no forge');
+    final odd = task(<String, dynamic>{
+      'buildsCredential': <String, dynamic>{...entry(), 'forge': 7},
+    }).buildsCredential!;
+    expect(odd.forge, '', reason: 'a forge that is no text is none');
+  });
 }

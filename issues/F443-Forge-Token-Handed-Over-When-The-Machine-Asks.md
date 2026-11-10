@@ -46,12 +46,16 @@ host's command, in a start's answer and on a task.
   address starts with a dash offers no press; what the machine names for after the store is said where the window
   does not do it, also where the command is run by hand; and the tests of a WSL distribution reached over ssh and of
   a failed command were made to fail on their own break. Nothing of the reading was declined.
+- The start names the forge too: Porelo's main names it on each entry as `forge`, by the name the project's
+  `builds.forge` gives it, so a start says "<host>'s vault holds no token of yours for github". The client reads it
+  leniently; an entry from an older daemon, or a task kept before the field, names none, and the start then names
+  the vault key as before.
 - Not this issue: the token for the central forge that `porelo-host-push --central` asks for on its terminal; the
   person types that one there.
 
 ## Plan
 
-1. The wire, as Porelo serves it: `MissingCredential(for, credential, storeCommand, afterStore)`, with `for`
+1. The wire, as Porelo serves it: `MissingCredential(for, credential, forge, storeCommand, afterStore)`, with `for`
    `builds` and `afterStore` `ask-again` or `restart` (an unknown value of either shown as it comes), and
    `storeCommand` reading nothing on standard input. `CanStart` carries `missing: []MissingCredential`, which holds
    no start back, each entry `ask-again`, and is empty off a host and with `VAULT_LOCKED`. `Task` carries
@@ -80,8 +84,8 @@ host's command, in a start's answer and on a task.
 
 ## To be checked
 
-- The wire names the vault key but not the forge, so the window says which host and which entry, not which forge;
-  whether the daemon should name the forge is a question for Porelo.
+- Settled: whether the wire names the forge. Porelo's commit "Name the forge of a missing builds credential" adds
+  `forge` to each entry, and a start says it (see How it stands).
 - What the host's command says when the person's vault is shut (exit 65, "the vault refused the person's forge
   token; unlock it and retry") and when the person is not admitted yet (exit 69), and whether the window offers the
   vault's opening there as it does for a start; today the terminal shows what the command prints, and the start is

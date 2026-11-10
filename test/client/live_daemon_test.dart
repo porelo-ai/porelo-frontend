@@ -93,7 +93,7 @@ void main() {
       // Read field by field: a name dropped on the far side would leave a host's ask unread, and no remedy offered.
       final contract = await client.contract();
       final expected = <String, List<String>>{
-        'type MissingCredential (': ['for', 'credential', 'storeCommand', 'afterStore'],
+        'type MissingCredential (': ['for', 'credential', 'forge', 'storeCommand', 'afterStore'],
         'method CanStart(': ['missing'],
         'type Task (': ['buildProblem', 'buildsCredential'],
       };

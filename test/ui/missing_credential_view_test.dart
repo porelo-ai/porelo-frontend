@@ -118,6 +118,53 @@ void main() {
     expect(tester.widget<FilledButton>(find.byKey(const Key('start-go'))).onPressed, isNotNull);
   });
 
+  // Harm: the person makes a token for another forge than the one the host's builds read.
+  testWidgets('a start names the host and the forge it lacks a token for', (tester) async {
+    await _start(
+      tester,
+      const Readiness(
+        ready: true,
+        outcome: StartOutcome.ready,
+        agent: 'an-agent',
+        provider: 'a-provider',
+        credential: 'a-provider',
+        detail: '',
+        missing: <MissingCredential>[
+          MissingCredential(
+            purpose: 'builds',
+            credential: 'forge.person',
+            forge: 'github',
+            storeCommand: <String>['porelo', 'host', 'forge-token'],
+            afterStore: 'ask-again',
+          ),
+        ],
+      ),
+      onStoreTheMissing: (_) async {},
+    );
+    final box = find.byKey(const ValueKey<String>('missing-credential builds forge.person'));
+    expect(
+      find.descendant(of: box, matching: find.textContaining("build's vault holds no token of yours for github")),
+      findsOne,
+    );
+  });
+
+  // Harm: an older daemon's entry read as naming a forge it never named.
+  testWidgets('an entry that names no forge keeps naming the vault key alone', (tester) async {
+    await _start(tester, _ready, onStoreTheMissing: (_) async {});
+    final box = find.byKey(const ValueKey<String>('missing-credential builds forge.person'));
+    expect(find.descendant(of: box, matching: find.textContaining('for github')), findsNothing);
+    expect(
+      find.descendant(
+        of: box,
+        matching: find.text(
+          "build's vault holds no forge.person of yours, so a task started there is not told its builds. "
+          'Work starts all the same.',
+        ),
+      ),
+      findsOne,
+    );
+  });
+
   // Harm: the host's command run for another entry than the one the machine named.
   testWidgets('its press hands the entry the machine named to be stored on the host', (tester) async {
     final stored = <MissingCredential>[];
