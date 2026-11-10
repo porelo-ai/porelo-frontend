@@ -66,6 +66,18 @@ Part 4 first: the pull request on a host's forge and the done task's own state, 
 `PullRequests`/`WatchPullRequests` and the task state `done` (2026-11-10).
 
 - Each part gets one reading of its own new code by another model, its findings fixed once, and no second reading (the coordinator, 2026-11-10).
+- **Part 3's reading fixed** (2026-11-10), each finding checked against the code first:
+  - Must 1 and Must 2, taken: `test/ui/online_class_test.dart` gave the online task an end that needs a person, which
+    `Attention.demandOf` puts before the gate, so the test stayed green with `demandOf` asking `waiting > 0` and
+    with the words of a finished online run removed. A new test of a finished online run whose end needs nobody
+    went red on each break: `Expected: no matching candidates Actual: ... Found 2 widgets with text containing
+    waits for review` (the row's state from `demandOf`), and `... Found 1 widget with text containing waits at the
+    gate` (the run's words). It also holds the rail's count one lower than the same work in a guarded project. It is
+    green on the code as it stands. *Running*'s note derives from the same demand as *Work*'s row and has no test
+    of its own.
+  - May 1, taken: the same test reads the machine tree's project header too, which went red when an online project's
+    pending pushes were hidden there (`Found 0 widgets with text containing 2 waiting at the gate`).
+  - May 2, taken: `Task.waiting`'s doc now says that `hasWorkWaiting` and `atTheGate` ask `online` first.
 - **Part 3 built** (2026-11-10), against the interface as documented (the coordinator agreed):
   - Measured first, read-only, on 2026-11-10: no `online` project was found anywhere readable. The tasks of the one
     project on the rented host all recorded class `guarded`, the person's gate there held no mirror and nothing

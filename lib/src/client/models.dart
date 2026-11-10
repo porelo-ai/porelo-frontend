@@ -444,9 +444,9 @@ class Task {
 
   /// Whether this task's own work is waiting at the gate: `1` when it is, `0` otherwise.
   ///
-  /// **An `online` task always answers `0`, and that is not a smaller number** — its ref is
+  /// **An `online` task answers `0`, and that is not a smaller number** — its ref is
   /// `refs/heads/<task>` and nothing is ever reviewed, so it is a question the class does not
-  /// have.
+  /// have. [hasWorkWaiting] and [atTheGate] ask [online] first, whatever this says.
   ///
   /// Answered here rather than joined, because there is no join to make: [name] is a *container*
   /// name and `PendingPush.name` is a *task* name, and several containers over time share one

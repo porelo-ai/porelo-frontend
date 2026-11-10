@@ -2,12 +2,37 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
+import 'package:porelo_frontend/src/ui/machine_tree.dart';
 
+import '../features/step/i_select_the_project.dart';
 import '../features/support/tiles.dart';
 import '../features/support/world.dart';
 import '../support/expand_list_rows.dart';
 
 const _name = 'porelo-checkout-shell';
+
+/// The usual work, [_name] in a project of [securityClass] saying its work waits, unattended, its agent finished with
+/// nothing outside the gate: nothing of its end needs a person, so only its gate could.
+List<Task> _finishedIn(String securityClass) => <Task>[
+  for (final task in World.work)
+    if (task.name != _name)
+      task
+    else
+      Task.from(<String, dynamic>{
+        ...wire(task),
+        'securityClass': securityClass,
+        'waiting': 1,
+        'mode': 'UNATTENDED',
+        'activity': 'ENDED',
+        'agentEnded': <String, dynamic>{
+          'at': '2026-11-10T09:00:00Z',
+          'finished': true,
+          'error': '',
+          'source': '',
+          'unpushed': 0,
+        },
+      }),
+];
 
 /// The usual work, [_name] in an `online` project saying its work waits and its agent stopped before its end.
 List<Task> _online() => <Task>[
@@ -99,5 +124,38 @@ void main() {
       expect(whatTheRowOfSays(tester, 'checkout'), contains('2 waiting for review'));
       expect(whatTheRowOfSays(tester, 'unrecorded'), contains('1 waiting for review'));
     });
+    await iSelectTheProject(tester, 'checkout');
+    expect(find.byType(ProjectHeader), findsOneWidget);
+    expect(
+      find.descendant(of: find.byType(ProjectHeader), matching: find.textContaining('2 waiting at the gate')),
+      findsOneWidget,
+    );
+  });
+  // Harm: with nothing else of it needing a person, an online task's work is said to wait for review on its row and
+  // counted as needing somebody, though nothing is ever reviewed there.
+  testWidgets('an online task whose end needs nobody is said and counted as needing nobody', (tester) async {
+    await World.startBackend(_finishedIn('online'));
+    await World.startApp(tester);
+    World.shell.goTo(Section.work);
+    await World.settle(tester);
+    await tester.tap(tileFor(_name));
+    await World.settle(tester);
+    for (final words in ['waits for review', 'waits at the gate', 'Needs you']) {
+      expect(_textIn(tileFor(_name), words), findsNothing, reason: words);
+    }
+    final ended = find.descendant(of: tileFor(_name), matching: find.byKey(const Key('tile-run-ended')));
+    expect(
+      tester.widget<Text>(ended).data,
+      'Finished, in an online project, where nothing is reviewed: its output above says what it did.',
+    );
+
+    String badge() => tester
+        .widget<Text>(find.descendant(of: find.byKey(const Key('needing-count-badge')), matching: find.byType(Text)))
+        .data!;
+    final online = badge();
+    World.backend.publish(_finishedIn('guarded'));
+    await World.settle(tester);
+    expect(int.parse(badge()), int.parse(online) + 1, reason: 'the same work, guarded, waits for review');
+    expect(_textIn(tileFor(_name), 'waits for review'), findsWidgets);
   });
 }
