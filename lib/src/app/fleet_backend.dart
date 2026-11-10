@@ -280,7 +280,8 @@ abstract class FleetBackend {
   Future<StartProgress> startAgain({required String project, required String task, String? repository});
 
   /// Starts a task ordered elsewhere with exactly these arguments, naming no task, and answers Start's final reply
-  /// with what it printed: the [StartProgress.container] it made, or its refusal and why.
+  /// with what it printed: the [StartProgress.container] it made, or its refusal and why. **It answers once the task
+  /// stands, not when its agent's run ends.**
   Future<StartProgress> startOrdered({
     required String project,
     required String repository,
@@ -818,6 +819,8 @@ class PoreloBackend implements FleetBackend {
       model: model,
       mode: mode,
       prompt: prompt,
+      // A prompted start would otherwise answer only when the agent's run ends.
+      now: true,
       certify: asksToCertify,
     ),
     project: project,

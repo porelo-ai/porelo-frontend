@@ -57,9 +57,10 @@ a *Needs you* entry with the agent's words.
   `PlanningRefusal` in the machine's words; no machine to start on is refused too. `EmbeddedPlanning.startedOn`
   says on which machine a started container runs. The former `plannerStartTask`, `startedTasks` and
   `startedTerminal`, built on the planner's former start answer, are gone.
-- `lib/src/app/fleet_backend.dart`: `startOrdered` sends `Start` with those six arguments and nothing more,
-  certifying what a host asks as every start does, and answers the final reply with what was printed before it
-  (shared with `startAgain`).
+- `lib/src/app/fleet_backend.dart`: `startOrdered` sends `Start` with those six arguments and `now`, as the window's
+  own start dialog does, certifying what a host asks as every start does, and answers the final reply with what was
+  printed before it (shared with `startAgain`). With `now`, Start answers once the task stands, not when its agent's
+  run ends.
 - `lib/src/app/settings.dart`: `planningOffers`, each `{machine, container, offer}`, read field by field and an entry
   that does not read skipped. `lib/src/app/fleet_model.dart` tells `onRemoved` the container of a task the machine
   confirmed it removed, and `lib/src/app/machines.dart` drops that task's offer then.
@@ -88,8 +89,9 @@ a *Needs you* entry with the agent's words.
   and `pubspec.yaml` is repinned once it is.
 - `taskEvent` keeps the planner's present shape; the window calls it nowhere yet. The agreed shape, with the offer,
   the container and the run's end, waits on the planner's screen.
-- A `Start` with a prompt runs its agent and answers only when the run ends, so the hook answers, and *With you*
-  opens its terminal, only then.
+- The hook sends `Start` with `now`, as the window's own start dialog does: without it, a prompted `Start` answers
+  only when the agent's run ends, so the screen's next task and a *With you* terminal waited on that run. It now
+  answers once the task stands; a test with a stand-in whose `Start` without `now` never ends holds it.
 - A task removed outside the window (the command line, another window) keeps its offer in the settings until the
   window removes a task of the same container name.
 - Fifteen planning scenarios fail against the planner's present screen, none in the start hook: the reader's
