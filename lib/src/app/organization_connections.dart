@@ -208,17 +208,13 @@ class CardHostConnections extends HostConnections {
     final card = await _card(host);
     lines.add('The organization names ${card.name} at ${card.address}, ssh port ${card.sshPort}.');
     final known = _machine(host);
-    _waiting.remove(card.name);
     _forgetFollow(card.name);
+    final letGo = (count: _letGo[card.name] ?? 0, off: _disconnected(card.name));
     // Connected already with what the organization names: nothing to do, whatever number of projects it carries.
     if (known?.hostCard == card && machines.tunnels.of(known!)?.state == TunnelState.up) {
+      _waiting.remove(card.name);
       lines.add('This computer is connected already with what the organization names.');
       return;
-    }
-    if (known != null) {
-      lines.add('A connection kept here is taken down and made anew.');
-      // Listed while it is made anew: the new one takes its place, and only a refusal takes it off.
-      await machines.tunnels.dropAndUnpublish(known);
     }
     final machine = Machine.fromHostCard(
       card,
@@ -230,37 +226,55 @@ class CardHostConnections extends HostConnections {
         windows: desk.isWindows,
       ),
     );
+    // The same connection is raised where it stands: listed, its files kept, as a machine just prepared waits for its
+    // follow or its token. Another is taken down and made anew.
+    final again = known != null && known == machine;
+    if (known != null && !again) {
+      lines.add('A connection kept here is taken down and made anew.');
+      await machines.tunnels.dropAndUnpublish(known);
+      await machines.forget(known);
+    }
     // A new host makes no account before it has a token, and a host admin gives it that as root: the connection's
     // files stay for that, and *Connect* is asked again after it.
     lines.add('Opening the connection.');
-    if (await machines.tunnels.raiseFor(machine)) {
+    final raised = await machines.tunnels.raiseFor(machine);
+    if (await _letGoMeanwhile(card.name, letGo, machine, again: again)) return;
+    if (raised) {
+      _waiting.remove(card.name);
       lines.add('The connection is up.');
     } else {
       if (machines.tunnels.of(machine)?.problem case final problem?) lines.add('ssh said: $problem');
       // The token first: a machine waiting for it makes no account however long one waits for its follow.
-      if (await _waitsForToken(machine, card.name)) {
+      final waits = await _waitsForToken(machine, card.name);
+      if (await _letGoMeanwhile(card.name, letGo, machine, again: again)) return;
+      if (waits) {
         _waiting.add(card.name);
         lines.add('${card.name} says it waits for its first token, and makes no account before it has one.');
       } else if (machines.tunnels.of(machine)?.admitting ?? false) {
+        _waiting.remove(card.name);
         // Kept, as for the token: the machine makes the account on its first follow, and this computer tries again.
         lines.add(
           '${card.name} was prepared moments ago and has not yet made your account; it does on its first '
           'follow, within five minutes.',
         );
       } else {
+        _waiting.remove(card.name);
         final why =
             machine.whyNotReachableHere ??
             sshRefusalWords(machines.tunnels.of(machine)?.problem) ??
             'The connection to ${card.name} could not be opened.';
+        // What watched the entry goes first, so nothing raises it again once its files are taken down.
+        if (again) await machines.forget(known);
         await machines.tunnels.dropAndUnpublish(machine);
-        if (known != null) await machines.forget(known);
         throw OrganizationRefused(why);
       }
     }
+    // Listed and saved as it stands.
+    if (again) return;
     var saved = false;
     try {
       await machines.add(machine);
-      saved = await machines.settings.holdsMachine(machine.name);
+      saved = await machines.settings.holdsMachine(machine);
     } on Exception {
       // Said below.
     }
@@ -274,7 +288,25 @@ class CardHostConnections extends HostConnections {
       }
       throw OrganizationRefused('This computer could not save the connection to ${card.name}, so it was closed.');
     }
-    notifyListeners();
+  }
+
+  bool _disconnected(String host) => machines.all.any((each) => each.name == host && each.disconnected);
+
+  /// Each host's connection let go, counted: a *Connect* still on its way then adds and takes off nothing.
+  final _letGo = <String, int>{};
+
+  /// Whether [host]'s connection was let go since a *Connect* began at [letGo], here or on its row; then the
+  /// connection that *Connect* raised is taken down again, unless it is the entry [again] kept, which the disconnect
+  /// took down itself.
+  Future<bool> _letGoMeanwhile(
+    String host,
+    ({int count, bool off}) letGo,
+    Machine machine, {
+    required bool again,
+  }) async {
+    if (!_disposed && (_letGo[host] ?? 0) == letGo.count && (letGo.off || !_disconnected(host))) return false;
+    if (!again) await machines.tunnels.dropAndUnpublish(machine);
+    return true;
   }
 
   /// Whether [host] says, to its host admin as root, that it waits for its first token.
@@ -334,6 +366,7 @@ class CardHostConnections extends HostConnections {
   @override
   Future<void> disconnect(String host) async {
     final machine = _machine(host);
+    _letGo[host] = (_letGo[host] ?? 0) + 1;
     _waiting.remove(host);
     _attempts.remove(host);
     _forgetFollow(host);

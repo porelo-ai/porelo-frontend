@@ -800,8 +800,7 @@ class Machines extends ChangeNotifier {
       if (old.kind != 'host' || machine.kind != 'host') return;
       tunnels.checkCards([..._machines]..[at] = machine);
       _watching.remove(old.name)?.dispose();
-      // The same machine again keeps the connection raised for it, as Connect raises it before it takes the place.
-      if (old != machine) await tunnels.dropFor(old);
+      await tunnels.dropFor(old);
       try {
         await tunnels.replaceCards(_machines.map((each) => each == old ? machine : each));
       } on Object {
@@ -866,6 +865,8 @@ class Machines extends ChangeNotifier {
   }
 
   Future<void> _forget(Machine machine) async {
+    // Only the entry as it was asked for: one changed meanwhile, as by a disconnect, stays, and so does what watches it.
+    if (!_machines.contains(machine)) return;
     _raiseHolds.remove(machine.name);
     if (_machines.length == 1) {
       if (machine.kind != 'host') return;

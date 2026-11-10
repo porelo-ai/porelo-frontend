@@ -29,25 +29,45 @@ read twice does not appear, vanish and appear again.
 
 - Caught in code, not live: a machine just prepared waits for its first follow or its first token, so its connection
   is not up. *Connect* asked again then, by the token's step or the organization's page, took the kept entry off
-  *My machines* (`machines.forget`) before it raised the connection anew, and put the new one back only once that
-  raise had ended; a refused raise left it off. The count dropped for the whole raise, and for good after a refusal.
-- `CardHostConnections._connect` keeps the entry listed while it raises the connection anew; the new entry takes its
-  place through `Machines.add`, and only a refused raise takes it off, as before.
-- `Machines.add`, given the same host machine again, keeps the connection raised for it instead of taking it down,
-  since *Connect* raises it before the entry takes the place.
-- **Red first:** `organization_connections_test.dart`, *a machine just prepared stays listed while Connect raises it
-  anew*, reading the list on every change while the second raise is held: it read the machine missing.
-- A widget test, *My machines counts a machine being prepared on every frame until it stands*, reads the side bar's
-  count and the row on every frame from the start of a preparation through its end; green on the code before, seen
-  red with the machine added only after its preparation ended.
+  *My machines* (`machines.forget`) and its connection files off the disk before it raised the connection anew, and
+  put the new one back only once that raise had ended. The count dropped for the whole raise.
+- `CardHostConnections._connect` raises the same connection where it stands: the entry, the machine the organization's
+  card describes unchanged, stays listed and watched, its files stay, and no second entry replaces it. A connection
+  the organization's card changed (address, port, host key, key of mine) or one marked disconnected is still taken
+  down and made anew, as before.
+- A refused raise takes the entry off, forgetting it before its files go, so nothing that watched it raises it again.
+- A disconnect while *Connect* runs, on the organization's row or the machine's, stands: *Connect* then adds nothing
+  and takes nothing off, and takes down only a connection it raised itself. It is counted on a count of its own, not
+  on the organization's follow generation, which *Connect* and a down connection's ask also move.
+- `Machines.forget` forgets only the entry as it was asked for; one changed meanwhile stays, still watched.
+- `Settings.holdsMachine` takes the machine as it is now, so a failed save is not read as kept through an older
+  entry of the same name.
+- **Red first**, in `organization_connections_test.dart` with the second raise held before it publishes anything:
+  *a machine just prepared stays listed, its files and its wait kept, while Connect raises it anew* (red: listed
+  while it is raised anew, before the change; its files stay while it is raised anew, after the first round) and
+  *a disconnect while Connect raises it anew stands* (red: the entry was no longer disconnected). In
+  `machines_test.dart`: *forgetting an entry changed meanwhile leaves the entry as it is, still watched* (red: a null
+  check in `Machines.of`) and *the store holds a machine only as it is now* (red: true for the older entry).
+  *A machine just prepared whose raise anew is refused is taken off, its files with it* was green before; seen red
+  with the files left in place.
 
 ## How it stands
 
-- Built and tested in unit and widget tests only; nothing ran against a host.
+- Built and tested in unit tests only; nothing ran against a host.
 - The live capture with a picture stays for the operator's test: prepare a machine through the window, then press
   *Give it your token…* or *Connect* while it waits for its follow or its token, and watch *My machines* and its
   count through the raise.
 - A raise refused on a machine that was listed still takes it off the list, with the refusal said; that is unchanged.
+  A connection the organization's card changed still leaves the list while it is made anew.
+- Reading fixed: a disconnect during *Connect* stands; forgetting a changed entry no longer leaves it unwatched; the
+  same connection is raised in place, so the old watcher neither races a replacement nor republishes files, and the
+  files stay while it is raised; *Connect* keeps the token's wait until its raise has ended; a failed save is no
+  longer read as kept; *Connect* notifies once and never after it was disposed. The widget test that never reached
+  *Connect* is removed.
+- Declined from the reading: the second raise that `Machines.add` starts by itself after a *Connect* that kept a
+  first connection not yet up. It predates this work and does not touch the list; the machine's own raise holds pace
+  its tries. Also declined: saying the admission wait during the raise on a count of its own, since the kept entry's
+  tunnel keeps saying it until the raise starts again.
 
 ## Acceptance
 

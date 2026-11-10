@@ -262,4 +262,31 @@ void main() {
       );
     });
   });
+
+  // Harm: forgetting an entry as it was before a disconnect left the disconnected one listed with nothing watching it,
+  // and the next page that read it failed to draw.
+  test('forgetting an entry changed meanwhile leaves the entry as it is, still watched', () async {
+    final machines = Machines(
+      Settings(MemorySettingsStore()),
+      reach: (machine) => FakeBackend(const <Task>[]),
+      tunnels: FakeTunnels(),
+    );
+    addTearDown(machines.dispose);
+    const remote = Machine(name: 'elsewhere', socketPath: '/unused');
+    await machines.add(remote);
+    await machines.disconnect(remote);
+    await machines.forget(remote);
+    final listed = machines.all.singleWhere((each) => each.name == remote.name);
+    expect(listed.disconnected, isTrue);
+    expect(() => machines.of(listed), returnsNormally);
+  });
+
+  // Harm: a save that failed read as kept, as an older entry of the same name was still stored.
+  test('the store holds a machine only as it is now, not an older entry of its name', () async {
+    final settings = Settings(MemorySettingsStore());
+    const before = Machine(name: 'elsewhere', socketPath: '/unused');
+    await settings.rememberMachines(const [before]);
+    expect(await settings.holdsMachine(before), isTrue);
+    expect(await settings.holdsMachine(before.withDisconnected(true)), isFalse);
+  });
 }

@@ -129,7 +129,6 @@ void main() {
       configEnvironment: {'XDG_CONFIG_HOME': folder.path},
       start: (command) async {
         launches.add(command);
-        await holdStart?.future;
         if (turnedAway) return _Turned();
         final master = _Master();
         masters.add(master);
@@ -141,6 +140,7 @@ void main() {
       },
       keyAvailable: (_) async => true,
       portsAvailable: (card) async {
+        await holdStart?.future;
         if (portsBusy) throw HostFilesRefused('Host ${card.name} cannot start: a port is busy.');
       },
       unlocker: _Unlocked(),
@@ -344,29 +344,71 @@ void main() {
     expect(made.waitsForAdmission('build'), isFalse);
   });
 
-  // Harm: a machine just prepared vanished from My machines while Connect raised it anew; the person took it for
-  // lost, or prepared it a second time.
-  test('a machine just prepared stays listed while Connect raises it anew', () async {
-    final made = await connections(_mia(host: _hostOfMia));
+  /// A connection to build kept while the machine just prepared has not yet made the account, its own raises over,
+  /// and the next raise held before it publishes anything: the hold to let go of, and the second *Connect*.
+  Future<(Completer<void>, Future<void>)> raisedAgainAndHeld(CardHostConnections made, {void Function()? then}) async {
     machines.tunnels.awaitAdmission('build', by: DateTime.now().add(const Duration(minutes: 5)));
     turnedAway = true;
     await made.connect('build');
     expect(made.up('build'), isFalse, reason: 'kept while the machine makes the account');
-    final listed = <bool>[];
-    void read() => listed.add(machines.all.any((each) => each.name == 'build'));
-    machines.addListener(read);
-    addTearDown(() => machines.removeListener(read));
-
+    await machines.of(machines.all.singleWhere((each) => each.name == 'build')).untilAsked();
+    await pumpEventQueue();
     turnedAway = false;
+    then?.call();
     final gate = holdStart = Completer<void>();
     final again = made.connect('build');
     await pumpEventQueue();
+    return (gate, again);
+  }
+
+  // Harm: a machine just prepared vanished from My machines while Connect raised it anew, with its files taken down
+  // and its page saying the connection was down; the person took it for lost, or prepared it a second time.
+  test('a machine just prepared stays listed, its files and its wait kept, while Connect raises it anew', () async {
+    final made = await connections(_mia(host: _hostOfMia));
+    final listed = <bool>[];
+    void read() => listed.add(machines.all.any((each) => each.name == 'build'));
+    addTearDown(() => machines.removeListener(read));
+    final (gate, again) = await raisedAgainAndHeld(made, then: () => machines.addListener(read));
+    final launched = launches.length;
     read();
+    expect(listed.last, isTrue, reason: 'listed while it is raised anew');
+    expect(File(config('build')).existsSync(), isTrue, reason: 'its files stay while it is raised anew');
+    expect(made.waitsForAdmission('build'), isTrue, reason: 'still the wait for its follow, not a connection down');
     gate.complete();
     await again;
     read();
     expect(made.up('build'), isTrue);
+    expect(launches, hasLength(launched + 1), reason: 'raised once by Connect, and not again behind it');
+    expect(masters.single.ended, isFalse);
     expect(listed, isNot(contains(false)), reason: 'listed on every change while it was raised anew');
+  });
+
+  // Harm: a machine let go while Connect raised it was connected again behind the person's back.
+  test('a disconnect while Connect raises it anew stands', () async {
+    final made = await connections(_mia(host: _hostOfMia));
+    final (gate, again) = await raisedAgainAndHeld(made);
+    final off = made.disconnect('build');
+    await pumpEventQueue();
+    gate.complete();
+    await again;
+    await off;
+    await pumpEventQueue();
+    final machine = machines.all.singleWhere((each) => each.name == 'build');
+    expect(machine.disconnected, isTrue);
+    expect(machines.tunnels.of(machine)?.state, isNot(TunnelState.up));
+  });
+
+  // Harm: a refused raise left its connection's files behind, which other programs read as a machine to reach.
+  test('a machine just prepared whose raise anew is refused is taken off, its files with it', () async {
+    final made = await connections(_mia(host: _hostOfMia));
+    final (gate, again) = await raisedAgainAndHeld(made);
+    turnedAway = true;
+    machines.tunnels.awaitAdmission('build', by: DateTime.now().subtract(const Duration(seconds: 1)));
+    gate.complete();
+    await expectLater(again, throwsA(isA<OrganizationRefused>()));
+    await pumpEventQueue();
+    expect(machines.all.where((each) => each.name == 'build'), isEmpty);
+    expect(File(config('build')).existsSync(), isFalse);
   });
 
   // Harm: a machine just prepared that waits for its first token makes no account however long one waits; shown as a
