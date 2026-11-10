@@ -1,6 +1,7 @@
 # F455 — The Organization Read Now From The Window
 
-**Status:** Backlog; blocked by the host's own way to start its follow of the organization on demand.
+**Status:** Backlog; the host's own way to start its follow of the organization on demand is on Porelo's main
+(2026-11-10), in its review.
 **Size:** S - one command on the machine's organization page that asks the host to read the organization now, and
 its answer said.
 

@@ -1,6 +1,7 @@
 # F460 — The Host's Finished Work Brought To Central From The Window
 
-**Status:** Backlog; blocked by the backend's gathered push of a host's `main` to the central forge.
+**Status:** Backlog; the backend's gathered push of a host's `main` to the central forge, taking repository names and
+naming a refused login, is on Porelo's main (2026-11-10), in its review.
 **Size:** M - a release action for a project carried on a host, its question, its run through the backend, and its
 answer, refused in the backend's words.
 
