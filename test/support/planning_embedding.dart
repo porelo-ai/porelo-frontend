@@ -14,12 +14,16 @@ PlanningScreen planningView({
   required void Function(PlanningBoard, String) onTask,
   required String? Function(PlanningBoard, String) taskUnavailable,
   required void Function() onNeedsYou,
-  Future<void> Function(StoryWork)? onStarted,
+  Future<void> Function(PlanningSource, String, String, List<(PlanningTaskOrder, PlanningTaskStarted)>)? onStarted,
 }) => PlanningScreen(
   boards: boards,
   host: ShellPlanningHost(shell, needsYou: onNeedsYou),
   startTask: mockStartTask,
-  taskChanges: WindowTaskChanges(whyNot: taskUnavailable, opening: onTask, onStarted: onStarted ?? (_) async {}),
+  taskChanges: WindowTaskChanges(
+    whyNot: taskUnavailable,
+    opening: onTask,
+    onStarted: onStarted ?? (_, _, _, _) async {},
+  ),
   agents: const BackendAgents(),
 );
 

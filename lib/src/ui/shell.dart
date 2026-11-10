@@ -75,7 +75,14 @@ import 'planning_embedding.dart';
 
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_planning/porelo_planning.dart'
-    show PlanningBoard, PlanningBoards, PlanningScreen, PlanningSource, StoryWork, confirmPlanningLeave;
+    show
+        PlanningBoard,
+        PlanningBoards,
+        PlanningScreen,
+        PlanningSource,
+        PlanningTaskOrder,
+        PlanningTaskStarted,
+        confirmPlanningLeave;
 import 'package:porelo_host/porelo_host.dart'
     show
         CentralToken,
@@ -6607,26 +6614,35 @@ class _ShellState extends State<Shell> {
     }
   }
 
-  Future<void> _storyWorkStarted(StoryWork work) async {
-    if (work.mode != 'AGENT') return;
-    final machine = _planningMachine(work.backend);
-    final name = work.result?.terminalName;
-    final returnedTasks = startedTasks(work.result, work.project);
+  /// Opens the terminal of the first task started *With you*, its main one where it has one, on the machine it runs
+  /// on: as a session opens anywhere else in the window.
+  Future<void> _storyWorkStarted(
+    PlanningSource source,
+    String project,
+    String story,
+    List<(PlanningTaskOrder, PlanningTaskStarted)> tasks,
+  ) async {
+    final withYou = tasks.where((each) => each.$1.mode == Mode.agent.name);
+    final (order, started) =
+        withYou.where((each) => each.$1.role == 'MAIN').firstOrNull ?? withYou.firstOrNull ?? (null, null);
+    if (order == null || started == null || !mounted) return;
+    final machine = widget.planning?.startedOn(project, started.container);
+    if (machine == null || !widget.machines.all.contains(machine)) return;
+    final listed = widget.machines.of(machine).tasks;
+    // Until the machine's list shows it, the task as Start answered it: the container is its name everywhere.
     final task =
-        startedTerminal(work.result, work.project) ??
-        (machine == null
-            ? null
-            : widget.machines
-                  .of(machine)
-                  .tasks
-                  .where((task) => task.project == work.project && task.name == name && task.running)
-                  .firstOrNull);
-    if (!mounted) return;
-    if (machine == null || task == null) {
-      work.board.reportActionProblem('The start answer did not report a terminal task on a watched machine.');
-      return;
-    }
-    _workView.rememberStarted(machine.name, [...returnedTasks], observed: widget.machines.of(machine).tasks);
+        listed.where((each) => each.name == started.container).firstOrNull ??
+        Task.from({
+          'name': started.container,
+          'task': started.task,
+          'project': project,
+          'repository': order.repository,
+          'agent': order.agent,
+          'model': order.model,
+          'mode': order.mode,
+          'running': true,
+        });
+    _workView.rememberStarted(machine.name, [task], observed: listed);
     _workView.showNewTerminal(machine.name, task);
     _openSession(task, on: machine);
   }

@@ -34,6 +34,10 @@ gap here is a backend method that has to be added, not a workaround waiting to b
   and displays a refusal beside its named item. These stand-ins must be served before the flow works
   against a real machine.
 
+- **The task name a start made.** `Start` answers the container on its final reply, not the task's name within the
+  project; the window reads that name from `List` by the container, and refuses to answer a start whose container
+  the list does not show.
+
 - **A pushed commit's whole message** (a `message` on `PendingPush` and `ReviewCommit`, agreed for `Tasks1`, not
   served yet). The window reads it already: until it is served the trailer check cannot be made, since a
   `Co-Authored-By` outside git's trailer block is in no trailer line; the review shows no message body.

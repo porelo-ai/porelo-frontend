@@ -50,6 +50,16 @@ class _Wedged implements FleetBackend {
       throw const VarlinkDisconnected('nothing there');
 
   @override
+  Future<StartProgress> startOrdered({
+    required String project,
+    required String repository,
+    required String agent,
+    required String model,
+    required Mode mode,
+    required String prompt,
+  }) async => throw const VarlinkDisconnected('nothing there');
+
+  @override
   Future<StartProgress> startAgain({required String project, required String task, String? repository}) async =>
       throw const VarlinkDisconnected('nothing there');
 
@@ -478,6 +488,16 @@ class _Machine implements FleetBackend {
 
   @override
   Future<Removed> removeTask(String task, {bool? rescue, bool? force}) async => throw UnimplementedError();
+
+  @override
+  Future<StartProgress> startOrdered({
+    required String project,
+    required String repository,
+    required String agent,
+    required String model,
+    required Mode mode,
+    required String prompt,
+  }) async => throw const VarlinkDisconnected('nothing there');
 
   @override
   Future<StartProgress> startAgain({required String project, required String task, String? repository}) async =>
@@ -951,6 +971,23 @@ void main() {
     fleet.dispose();
   });
 
+  // Harm: a removed task's planning offer stays kept, or a refused removal drops the offer of a task still there.
+  test('only a removal the machine confirmed is told, by the container it named', () async {
+    final told = <String>[];
+    final fleet = FleetModel(_Removing(removes: true), onRemoved: told.add);
+    await fleet.connect();
+
+    await fleet.removeWork('porelo-demo-st1');
+    expect(told, ['porelo-demo-st1']);
+
+    final refusing = FleetModel(_Removing(removes: false), onRemoved: told.add);
+    await refusing.connect();
+    await refusing.removeWork('porelo-demo-st2');
+    expect(told, ['porelo-demo-st1'], reason: 'a refused removal keeps the task');
+    fleet.dispose();
+    refusing.dispose();
+  });
+
   test('connecting again does not hear the same question twice', () async {
     // A dropped tunnel reconnects; every reconnect listening once more would redraw the whole
     // frame once more for every question, for as long as the window is open.
@@ -996,4 +1033,15 @@ void main() {
     expect(busy.tasks, isEmpty);
     fleet.dispose();
   });
+}
+
+/// A machine whose removals are confirmed, or refused as holding work.
+class _Removing extends _Machine {
+  _Removing({required this.removes});
+
+  final bool removes;
+
+  @override
+  Future<Removed> removeTask(String task, {bool? rescue, bool? force}) async =>
+      Removed.from(<String, dynamic>{'outcome': removes ? 'REMOVED' : 'HOLDS_WORK', 'removed': removes});
 }

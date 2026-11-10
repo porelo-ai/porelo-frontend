@@ -279,6 +279,17 @@ abstract class FleetBackend {
   /// [repository] is the one the task works in; none is sent to a machine that names none.
   Future<StartProgress> startAgain({required String project, required String task, String? repository});
 
+  /// Starts a task ordered elsewhere with exactly these arguments, naming no task, and answers Start's final reply
+  /// with what it printed: the [StartProgress.container] it made, or its refusal and why.
+  Future<StartProgress> startOrdered({
+    required String project,
+    required String repository,
+    required String agent,
+    required String model,
+    required Mode mode,
+    required String prompt,
+  });
+
   /// Sets or clears the caption a task reads by. **Nothing about its identity moves.**
   Future<Labelled> labelTask(String task, {String? label});
 
@@ -784,13 +795,40 @@ class PoreloBackend implements FleetBackend {
       _opened().remove(task, rescue: rescue, force: force);
 
   @override
-  Future<StartProgress> startAgain({required String project, required String task, String? repository}) async {
+  Future<StartProgress> startAgain({required String project, required String task, String? repository}) =>
+      _startAnswered(
+        _opened().start(project: project, task: task, repository: repository, certify: asksToCertify),
+        project: project,
+        task: task,
+      );
+
+  @override
+  Future<StartProgress> startOrdered({
+    required String project,
+    required String repository,
+    required String agent,
+    required String model,
+    required Mode mode,
+    required String prompt,
+  }) => _startAnswered(
+    _opened().start(
+      project: project,
+      repository: repository,
+      agent: agent,
+      model: model,
+      mode: mode,
+      prompt: prompt,
+      certify: asksToCertify,
+    ),
+    project: project,
+  );
+
+  /// Follows a start to its final reply, certifying what it asks, and answers that reply with what it printed.
+  Future<StartProgress> _startAnswered(Stream<StartProgress> start, {required String project, String? task}) async {
     var last = const StartProgress();
     final printed = <String>[];
     final certifying = _Certifying();
-    final replies = _opened()
-        .start(project: project, task: task, repository: repository, certify: asksToCertify)
-        .transform(startRefusalsSaid);
+    final replies = start.transform(startRefusalsSaid);
     await for (final progress in replies) {
       final asked = progress.certify;
       if (asked != null) printed.add(await _certified(asked, certifying, project: project, task: task));

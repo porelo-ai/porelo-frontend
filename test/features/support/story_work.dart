@@ -400,7 +400,8 @@ Future<void> proveWork(WidgetTester tester, String proof) async {
       expect(find.text('The board changed or is no longer live.'), findsOneWidget);
     case 'with you terminal':
       expect(workKey('running-name'), findsOneWidget);
-      expect(planningText(tester, workKey('running-name')), contains('coordinator'));
+      // The container Start answered for the story's main task, as the machine names it.
+      expect(planningText(tester, workKey('running-name')), startsWith('mock-st291-porelo-main'));
       expect(workKey('running-none'), findsNothing);
       expect(workKey('terminal'), findsOneWidget);
     case 'narrow dialog usable':

@@ -24,4 +24,5 @@ test/features/story_work.feature
 test/features/story_work_test.dart
 test/features/support/story_work.dart
 test/ui/planning_finder_test.dart
+test/ui/window_task_starts_test.dart
 test/client/planner_mock_test.dart

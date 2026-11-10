@@ -114,8 +114,8 @@ Feature: Start and decide story work from the planning board
         When I choose story work {'start'}
         Then story work proves {'started main model visible'}
 
-    # Harm: With you waits for a lagging task list and never opens its returned coordinator.
-    Scenario: With you uses the returned coordinator
+    # Harm: a task started With you is never opened, or another task's terminal opens in its place.
+    Scenario: With you opens the terminal of the task the window started
         When I open story work for {'ST291'}
         And I choose story work {'with you'}
         And I choose story work {'start'}

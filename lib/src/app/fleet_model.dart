@@ -123,6 +123,7 @@ class FleetModel extends ChangeNotifier {
     this.hostRefusal,
     this.prepareConnection,
     this.mayPrepareOnItsOwn,
+    this.onRemoved,
   }) {
     // Once, here: connect() runs again on every reconnect, and each listener it added stayed.
     clearance.addListener(_notify);
@@ -133,6 +134,9 @@ class FleetModel extends ChangeNotifier {
 
   /// Which machine this is.
   final FleetBackend backend;
+
+  /// Told the container of each task the machine confirmed it removed.
+  final void Function(String task)? onRemoved;
 
   /// Returns a transport refusal before any daemon open, including refresh and retry.
   final Future<String?> Function()? prepareConnection;
@@ -424,6 +428,7 @@ class FleetModel extends ChangeNotifier {
       final result = await backend.removeTask(task, rescue: rescue ? true : null, force: force ? true : null);
       _say(removeWords(task, result));
       _refusal = result.removed ? null : Refusal(task: task, result: result);
+      if (result.removed) onRemoved?.call(task);
       await _readOnce();
     });
   }

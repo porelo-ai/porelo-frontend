@@ -134,7 +134,7 @@ void main() {
       await iChooseStoryWork(tester, 'start');
       await storyWorkProves(tester, 'started main model visible');
     });
-    testWidgets('''With you uses the returned coordinator''', (tester) async {
+    testWidgets('''With you opens the terminal of the task the window started''', (tester) async {
       await bddSetUp(tester);
       await iOpenStoryWorkFor(tester, 'ST291');
       await iChooseStoryWork(tester, 'with you');

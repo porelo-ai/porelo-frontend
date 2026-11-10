@@ -164,7 +164,7 @@ Future<PoreloApp> _compose() async {
     // Reads the organization on every refresh, so only for a person whose role can use it.
     hostAccess: _hostAccess(organizationSource),
     identity: IdentityModel(Identity()),
-    planning: plannerPlanning(planner),
+    planning: plannerPlanning(planner, machines),
     // A development build started with PORELO_WALK=<folder>; a release build never has one.
     walk: _walk(),
   );

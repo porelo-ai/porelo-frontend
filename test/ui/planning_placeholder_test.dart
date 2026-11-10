@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/planner.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
 import 'package:porelo_frontend/src/ui/planning_embedding.dart';
+import 'package:porelo_planning/planning_fake.dart' show mockStartTask;
 import 'package:porelo_planning/porelo_planning.dart';
 
 import '../features/support/world.dart';
@@ -55,6 +56,7 @@ void main() {
           candidates: ['${runtime.path}/porelo-planner'],
           start: (_, _) async => fail('no planner may be started'),
         ),
+        machines,
       ),
     );
     addTearDown(planner.dispose);
@@ -87,7 +89,7 @@ void main() {
     );
     addTearDown(planner.dispose);
     await World.startBackend(World.work);
-    await World.startApp(tester, planning: (_) => plannerPlanning(planner));
+    await World.startApp(tester, planning: (machines) => plannerPlanning(planner, machines));
     World.shell.goTo(Section.planning);
 
     await tester.runAsync(planner.reach);
@@ -102,7 +104,7 @@ void main() {
     final planner = _Unreached();
     addTearDown(planner.dispose);
     await World.startBackend(World.work);
-    await World.startApp(tester, planning: (_) => EmbeddedPlanning(planner, startTask: plannerStartTask));
+    await World.startApp(tester, planning: (_) => EmbeddedPlanning(planner, startTask: mockStartTask));
     World.shell.goTo(Section.planning);
     await World.settle(tester);
     expect(find.text(plannerNotInstalled), findsOneWidget);

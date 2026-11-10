@@ -936,6 +936,8 @@ class Machines extends ChangeNotifier {
     final fleet = FleetModel(
       _reach(machine),
       retryAfter: _retryAfter,
+      // A removed task's planning offer goes with it.
+      onRemoved: (task) => unawaited(_settings.forgetPlanningOffer(machine.name, task)),
       mayPrepareOnItsOwn: () {
         final relay = _relaysBySsh(machine);
         if (machine.hostCard == null && !relay) return null;

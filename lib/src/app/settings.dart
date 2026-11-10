@@ -659,6 +659,16 @@ class Settings extends ChangeNotifier {
         }
       }
     }
+    _planningOffers.clear();
+    if (stored['planningOffers'] case final List<dynamic> offers) {
+      for (final value in offers) {
+        if (value
+            case {'machine': final String machine, 'container': final String container, 'offer': final String offer}
+            when _validOffer(machine, container, offer)) {
+          _planningOffers[(machine, container)] = offer;
+        }
+      }
+    }
     if (draft is Map) _setupDraft = <String, Object?>{for (final e in draft.entries) '${e.key}': e.value};
     final folders = stored['tresorFolders'];
     _tresorFolders = <String, String>{};
@@ -825,6 +835,38 @@ class Settings extends ChangeNotifier {
       [machine, project, task, branch].every((value) => value.trim().isNotEmpty && !value.contains('\x00')) &&
       branch.trim() == branch &&
       !repository.contains('\x00');
+
+  final _planningOffers = <(String, String), String>{};
+
+  /// The offer a planner gave a task this window started, by the machine and the container it runs in.
+  String? planningOffer(String machine, String container) => _planningOffers[(machine, container)];
+
+  /// Keeps [offer] beside the machine and container of the task started for it.
+  Future<void> rememberPlanningOffer({
+    required String machine,
+    required String container,
+    required String offer,
+  }) async {
+    if (!_validOffer(machine, container, offer)) {
+      throw ArgumentError('A machine, a container and an offer of at most 200 characters must be given.');
+    }
+    _planningOffers[(machine, container)] = offer;
+    await _write();
+  }
+
+  /// Drops the offer kept for the task in [container] on [machine], once that task is removed.
+  Future<void> forgetPlanningOffer(String machine, String container) async {
+    if (_planningOffers.remove((machine, container)) != null) await _write();
+  }
+
+  // The planner sends an offer of at most 200 characters; a longer one was not written by this window.
+  static bool _validOffer(String machine, String container, String offer) =>
+      [
+        machine,
+        container,
+        offer,
+      ].every((value) => value.trim().isNotEmpty && !value.contains(RegExp(r'[\x00-\x1f]'))) &&
+      offer.length <= 200;
 
   String? _secretsFile;
 
@@ -1233,6 +1275,10 @@ class Settings extends ChangeNotifier {
     'forwardedBranches': [
       for (final MapEntry(key: (machine, project, repository, task), value: branch) in _forwardedBranches.entries)
         {'machine': machine, 'project': project, 'repository': repository, 'task': task, 'branch': branch},
+    ],
+    'planningOffers': [
+      for (final MapEntry(key: (machine, container), value: offer) in _planningOffers.entries)
+        {'machine': machine, 'container': container, 'offer': offer},
     ],
     'setupDraft': _setupDraft,
     'appearance': _appearance.name,

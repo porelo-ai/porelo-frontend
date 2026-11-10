@@ -614,6 +614,16 @@ class FakeBackend implements FleetBackend {
     return nextStart;
   }
 
+  @override
+  Future<StartProgress> startOrdered({
+    required String project,
+    required String repository,
+    required String agent,
+    required String model,
+    required Mode mode,
+    required String prompt,
+  }) async => throw UnimplementedError('No scenario starts an ordered task on this stand-in.');
+
   /// Lists [task] as the machine would once a start has brought it up.
   void bringsUp(Task task) {
     _tasks = <Task>[
@@ -2993,23 +3003,34 @@ class World {
   static MockPlanningSource get planning => planningOn(backend);
 
   /// Every watched machine as a provider of the planning it serves, named as the machine.
-  static EmbeddedPlanning planningOf(Machines machines) => EmbeddedPlanning(
-    MockPlanningClient(
-      () => [
-        for (final machine in machines.all)
-          PlanningProvider(
-            name: machine.name,
-            connected: machines.of(machine).reachability == Reachability.connected,
-            projects: [for (final project in machines.of(machine).listedProjects) project.name],
-            source: planningOn(machines.of(machine).backend),
-          ),
-      ],
-      changes: machines,
-      currentProvider: () => machines.current.name,
-      chosenProject: () => machines.fleet.selectedProject?.name,
-    ),
-    startTask: mockStartTask,
-  );
+  ///
+  /// A task is started by the stand-in of the machine whose planning ordered it, and runs on that machine.
+  static EmbeddedPlanning planningOf(Machines machines) {
+    final startedOn = <(String, String), Machine>{};
+    return EmbeddedPlanning(
+      MockPlanningClient(
+        () => [
+          for (final machine in machines.all)
+            PlanningProvider(
+              name: machine.name,
+              connected: machines.of(machine).reachability == Reachability.connected,
+              projects: [for (final project in machines.of(machine).listedProjects) project.name],
+              source: planningOn(machines.of(machine).backend),
+            ),
+        ],
+        changes: machines,
+        currentProvider: () => machines.current.name,
+        chosenProject: () => machines.fleet.selectedProject?.name,
+      ),
+      startTask: (source, project, story, task) async {
+        final started = await mockStartTask(source, project, story, task);
+        final machine = machines.all.where((each) => identical(planningOn(machines.of(each).backend), source));
+        if (machine.isNotEmpty) startedOn[(project, started.container)] = machine.first;
+        return started;
+      },
+      startedOn: (project, container) => startedOn[(project, container)],
+    );
+  }
 
   /// What the window answered when it was asked to close, once it has.
   static Future<Object?>? closing;
