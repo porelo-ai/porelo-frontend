@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:guided_walk/guided_walk.dart';
 
+import '../app/central_release.dart';
 import '../app/desk.dart';
 import '../app/identity.dart';
 import '../app/environment_tokens.dart';
@@ -65,6 +66,7 @@ import '../app/key_recovery.dart';
 import 'key_recovery_dialog.dart';
 import 'organization_token_words.dart';
 import 'organization_access_dialogs.dart';
+import 'central_release_view.dart';
 import 'clearing_view.dart';
 import '../app/settings.dart';
 import '../app/shell_model.dart';
@@ -400,6 +402,9 @@ class _ShellState extends State<Shell> {
   /// The card host projects whose push or pull runs now, `<machine>/<project>`: one at a time each.
   final _transfersRunning = <String>{};
 
+  /// The host `main`s brought to central from a project's page, and what each said last.
+  final _centralReleases = CentralReleases();
+
   /// A file being handed to work, and the last one's outcome.
   final _handing = HandingIn();
 
@@ -519,6 +524,7 @@ class _ShellState extends State<Shell> {
     _organization?.addListener(_askHostsOnce);
     _hostConnections?.addListener(_askHostsOnce);
     _tokens.addListener(_homeserversChanged);
+    _centralReleases.addListener(_homeserversChanged);
     if (_organization?.view case final view?) _hostConnections?.askOnce(view);
     // What was joined before is reachable again from the start, at the same port.
     unawaited(_homeservers.restore(widget.machines));
@@ -5722,6 +5728,7 @@ class _ShellState extends State<Shell> {
           project,
           on: machine,
         ).where((command) => project.name != defaultProject || command.id != 'project.clear'),
+      if (watched) ..._centralCommands(machine, project, answering: answering),
       if (watched)
         ...cardHostTransferCommands(
           transfers: _transfers,
@@ -5733,6 +5740,68 @@ class _ShellState extends State<Shell> {
           start: (direction) => unawaited(_transferInATerminal(machine, project.name, direction)),
         ),
     ];
+  }
+
+  /// *Bring it to central…* for [project] on [machine], and, once the machine said it holds no central token, the way
+  /// to store it there; [answering] is whether the machine answers now. Hidden where it is no host of the project.
+  List<Command> _centralCommands(Machine machine, ProjectOnScreen project, {required bool answering}) {
+    final progress = _heardFrom(machine)?.of(project.name);
+    final listed = project.project.repositoryStates;
+    final ahead = aheadOfCentral(listed: listed, progress: progress);
+    final refusal = _centralReleases.said(machine.name, project.name)?.refusal;
+    final store = refusal?.kind == 'MissingCentralToken' && refusal!.storeCommand.isNotEmpty
+        ? onTheMachine(machine, refusal.storeCommand, terminal: true)
+        : null;
+    return [
+      bringToCentralCommand(
+        ahead: ahead,
+        hidden: project.name == defaultProject || !saysOfCentral(listed: listed, progress: progress),
+        running: _centralReleases.running(machine.name, project.name),
+        unavailable: answering ? null : 'This machine is not connected.',
+        run: () => unawaited(_bringToCentral(machine, project.name, ahead)),
+      ),
+      if (store != null)
+        storeCentralTokenCommand(
+          credential: refusal!.credential,
+          unavailable: answering ? null : 'This machine is not connected.',
+          run: () => unawaited(
+            runInATerminal(
+              context,
+              title: 'Store ${refusal.credential} on ${machine.name}',
+              explanation:
+                  'Type or paste your token for the central forge into the terminal. It goes straight to the '
+                  'machine and never through this program, and nothing here keeps it. Then bring it to central again.',
+              machine: machine,
+              command: store,
+              open: widget.sessions.openTerminal,
+            ),
+          ),
+        ),
+    ];
+  }
+
+  /// Asks the person, naming the commits [ahead] brings, then brings [project]'s finished main on [machine] to
+  /// central through its daemon, and reads the machine again once it answered.
+  Future<void> _bringToCentral(Machine machine, String project, List<AheadOfCentral> ahead) async {
+    if (ahead.isEmpty || !widget.machines.all.contains(machine)) return;
+    final agreed = await confirmBringToCentral(
+      context,
+      project: project,
+      host: machine.hostCard?.name ?? machine.name,
+      ahead: ahead,
+    );
+    if (!agreed || !mounted || !widget.machines.all.contains(machine)) return;
+    final fleet = widget.machines.of(machine);
+    await _centralReleases.bring(
+      fleet.backend,
+      machine: machine.name,
+      project: project,
+      repositories: [for (final each in ahead) each.repository],
+      host: machine.hostCard?.name,
+    );
+    if (!mounted || !widget.machines.all.contains(machine)) return;
+    // The rows say again how each stands at central, as the machine now lists it.
+    await fleet.refresh(quietly: true);
   }
 
   /// Pushes the approved main, or takes the central state, in a terminal here: the terminal reads the central token
@@ -6119,6 +6188,9 @@ class _ShellState extends State<Shell> {
           _ => null,
         },
         giveToken: _giveTokenFor(machine, project.name),
+        bringToCentral: commands.where((each) => each.id == 'project.bringToCentral').firstOrNull,
+        centralSaid: _centralReleases.said(machine.name, project.name),
+        storeCentralToken: commands.where((each) => each.id == 'project.storeCentralToken').firstOrNull,
         startUnavailable: !watched
             ? 'This machine is not connected.'
             : waitWhyNot ?? StartWork.whyNot(project.project) ?? notAnswering(widget.machines.of(machine)),
@@ -6653,6 +6725,8 @@ class _ShellState extends State<Shell> {
     _organization?.removeListener(_readStandings);
     _organization?.dispose();
     _transfers.dispose();
+    _centralReleases.removeListener(_homeserversChanged);
+    _centralReleases.dispose();
     for (final run in _runs.values) {
       run.dispose();
     }

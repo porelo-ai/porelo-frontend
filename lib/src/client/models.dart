@@ -5960,3 +5960,34 @@ class Cleared {
     refused: map['refused'] == true,
   );
 }
+
+/// One reply of `PushToCentral`, which brings a host's approved `main` of a project to its central forge: a
+/// repository and the stage it reached (`reading`, `pushing`, `pushed`, `up-to-date`, or a later one), or, last, what
+/// reached central ([pushed]) and what central had already ([upToDate]).
+class CentralPushProgress {
+  /// Constructor taking what the reply said.
+  const CentralPushProgress({this.repository, this.stage, this.pushed, this.upToDate});
+
+  /// Reads one reply leniently: a field of another type is left unsaid, a list keeps its texts alone.
+  factory CentralPushProgress.from(Map<String, dynamic> map) => CentralPushProgress(
+    repository: _optional(map, 'repository'),
+    stage: _optional(map, 'stage'),
+    pushed: map['pushed'] is List ? _strings(map, 'pushed') : null,
+    upToDate: map['upToDate'] is List ? _strings(map, 'upToDate') : null,
+  );
+
+  /// The forge repository this stage is of; null in the final reply.
+  final String? repository;
+
+  /// The stage it reached; null in the final reply.
+  final String? stage;
+
+  /// The repositories confirmed pushed; null in a reply of a stage.
+  final List<String>? pushed;
+
+  /// The repositories confirmed already at central; null in a reply of a stage.
+  final List<String>? upToDate;
+
+  /// Whether this is the final reply, naming what was pushed and what was up to date.
+  bool get isFinal => pushed != null || upToDate != null;
+}

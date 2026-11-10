@@ -435,6 +435,10 @@ abstract class FleetBackend {
   /// error, [MissingHostForgeToken] and [HostPullRequestsRefused] among them.
   Stream<PullRequestsSeen> watchPullRequests(String project);
 
+  /// Brings the host's approved `main` of [project]'s [repositories] to the central forge, stage by stage, ending on
+  /// what was pushed or on a [CentralPushRefusal]; [FeatureNotSupported] from a machine without it.
+  Stream<CentralPushProgress> pushToCentral(String project, {List<String>? repositories});
+
   /// Lets [person] into [project]'s conversation, or gives their account a new password with [reset].
   Future<MessagesJoined> joinMessages(String project, String person, {bool reset = false});
 
@@ -969,6 +973,10 @@ class PoreloBackend implements FleetBackend {
 
   @override
   Stream<PullRequestsSeen> watchPullRequests(String project) => _opened().watchPullRequests(project);
+
+  @override
+  Stream<CentralPushProgress> pushToCentral(String project, {List<String>? repositories}) =>
+      _opened().pushToCentral(project, repositories: repositories);
 
   @override
   Future<MessagesJoined> joinMessages(String project, String person, {bool reset = false}) =>

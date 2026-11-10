@@ -177,6 +177,7 @@ method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
     daemon.method('NarrowTask', _narrowTask);
     daemon.method('SetClearance', _setClearance);
     daemon.stream('Prepare', _prepare);
+    daemon.stream('PushToCentral', _pushToCentral, isFinal: (reply) => reply.containsKey('pushed'));
     daemon.method('Label', _label);
     daemon.method('HandIn', _handIn);
     daemon.method('TakeBack', _takeBack);
@@ -221,6 +222,7 @@ method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
     'no-credential': 'a vault with no credential for the provider a run would use',
     'upstream-unreadable': "a repository whose server refuses this machine's key, with no mirror yet",
     'pull-request': "a pull request waiting on the host's forge, which m merges, and a task that said done",
+    'central-ahead': "a host whose approved main of payments-api is ahead of central, t has central refuse the token",
   };
 
   /// The daemon answering for this machine.
@@ -279,6 +281,58 @@ method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
         'ended': <Map<String, dynamic>>[_pullRequest('merged')],
       },
     ));
+  }
+
+  /// How many commits the host's main of payments-api is ahead of central, in the situation that has one.
+  int _centralAhead = 2;
+  DateTime _centralMeasured = DateTime.now().subtract(const Duration(minutes: 5));
+
+  /// Whether the central forge refuses the token of the next push to it.
+  bool centralRefusesToken = false;
+
+  /// Brings the host's main to central, stage by stage, as `PushToCentral` streams it; refuses the token where
+  /// [centralRefusesToken] says so, before anything is pushed.
+  Stream<Map<String, dynamic>> _pushToCentral(Map<String, dynamic> parameters) async* {
+    final named = switch (parameters['repositories']) {
+      final List<dynamic> names when names.isNotEmpty => names.whereType<String>().toList(),
+      _ => <String>['payments-api'],
+    };
+    if (parameters['project'] != 'checkout' || named.any((name) => name != 'payments-api')) {
+      throw MockRefusal('org.fuin.porelo.Tasks1.HostPushRefused', <String, dynamic>{
+        'reason': 'selection',
+        'code': 64,
+        'repository': '',
+        'pushed': <String>[],
+        'upToDate': <String>[],
+      });
+    }
+    if (centralRefusesToken) {
+      throw MockRefusal('org.fuin.porelo.Tasks1.CentralTokenRefused', <String, dynamic>{
+        'credential': 'mock-forge.central',
+        'storeCommand': <String>[],
+        'repository': 'payments-api',
+        'pushed': <String>[],
+        'upToDate': <String>[],
+        'forge': 'central.example.test',
+        'status': 401,
+      });
+    }
+    if (_centralAhead == 0) {
+      throw MockRefusal('org.fuin.porelo.Tasks1.NothingToPush', <String, dynamic>{
+        'pushed': <String>[],
+        'upToDate': <String>['payments-api'],
+      });
+    }
+    for (final stage in const ['reading', 'pushing', 'pushed']) {
+      await Future<void>.delayed(pace);
+      yield <String, dynamic>{'repository': 'payments-api', 'stage': stage};
+    }
+    _centralAhead = 0;
+    _centralMeasured = DateTime.now();
+    yield <String, dynamic>{
+      'pushed': <String>['payments-api'],
+      'upToDate': <String>[],
+    };
   }
 
   /// Adds a task and tells every open `Watch` about it.
@@ -1587,6 +1641,20 @@ method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
             'own': true,
             'upstream': 'http://127.0.0.1:3001/checkout/checkout.git',
             'carriedHere': true,
+          },
+        ],
+      // A host of the project whose approved main is ahead of central until it is brought there.
+      if (situation == 'central-ahead')
+        'repositories': <Map<String, dynamic>>[
+          <String, dynamic>{'name': 'checkout', 'own': true, 'upstream': '/srv/checkout'},
+          <String, dynamic>{
+            'name': 'payments-api',
+            'own': false,
+            'upstream': 'http://127.0.0.1:3001/checkout/payments-api.git',
+            'carriedHere': true,
+            'central': _centralAhead == 0 ? 'up-to-date' : 'ahead',
+            'ahead': _centralAhead,
+            'aheadMeasured': _centralMeasured.toUtc().toIso8601String(),
           },
         ],
     },

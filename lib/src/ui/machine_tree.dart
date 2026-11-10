@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:porelo_frontend/client.dart';
 
+import '../app/central_release.dart';
 import '../app/commands.dart';
 import '../app/fleet_model.dart';
 import '../app/host_progress.dart';
@@ -317,8 +318,20 @@ class ProjectHeader extends StatelessWidget {
     this.waits,
     this.waitsWhy,
     this.giveToken,
+    this.bringToCentral,
+    this.centralSaid,
+    this.storeCentralToken,
     super.key,
   });
+
+  /// *Bring it to central…*, shown as a button of its own while it can run; null where it is not offered here.
+  final Command? bringToCentral;
+
+  /// What the last bringing of the project to central said, until the next one; null where none ran.
+  final CentralReleaseSaid? centralSaid;
+
+  /// *Store the central token…*, beside [centralSaid] where the machine said it holds none; null otherwise.
+  final Command? storeCentralToken;
 
   /// What the machine waits for before it takes any of the project, as its token, said in place of carried; null
   /// where it waits for nothing of this person's or was not asked.
@@ -462,6 +475,38 @@ class ProjectHeader extends StatelessWidget {
               ),
             ),
         ],
+        if (bringToCentral case final bring? when bring.visible && bring.available)
+          Padding(
+            padding: const EdgeInsets.only(top: Space.small),
+            child: FilledButton.tonal(
+              key: const Key('project-bring-to-central'),
+              onPressed: bring.run,
+              child: Text(bring.label),
+            ),
+          ),
+        if (centralSaid case final said?)
+          Padding(
+            padding: const EdgeInsets.only(top: Space.small),
+            child: Text(
+              said.words,
+              key: const Key('project-central-said'),
+              style: said.refused
+                  ? theme.textTheme.bodySmall?.copyWith(color: scheme.error)
+                  : theme.textTheme.bodySmall,
+            ),
+          ),
+        if (storeCentralToken case final store? when store.visible)
+          Padding(
+            padding: const EdgeInsets.only(top: Space.small),
+            child: Tooltip(
+              message: store.unavailable ?? store.label,
+              child: FilledButton.tonal(
+                key: const Key('project-store-central-token'),
+                onPressed: store.available ? store.run : null,
+                child: Text(store.label),
+              ),
+            ),
+          ),
         // How far behind, for a project whose only repository is its own, and for default.
         if (p.behindReason.isNotEmpty && (isDefault || workRepositories.isEmpty))
           Text(

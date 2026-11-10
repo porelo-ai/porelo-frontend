@@ -154,6 +154,10 @@ class _Wedged implements FleetBackend {
   Stream<PullRequestsSeen> watchPullRequests(String project) => const Stream<PullRequestsSeen>.empty();
 
   @override
+  Stream<CentralPushProgress> pushToCentral(String project, {List<String>? repositories}) =>
+      const Stream<CentralPushProgress>.empty();
+
+  @override
   Future<MessagesJoined> joinMessages(String project, String person, {bool reset = false}) async =>
       throw UnimplementedError();
 
@@ -557,6 +561,10 @@ class _Machine implements FleetBackend {
 
   @override
   Stream<PullRequestsSeen> watchPullRequests(String project) => const Stream<PullRequestsSeen>.empty();
+
+  @override
+  Stream<CentralPushProgress> pushToCentral(String project, {List<String>? repositories}) =>
+      const Stream<CentralPushProgress>.empty();
 
   @override
   Future<MessagesJoined> joinMessages(String project, String person, {bool reset = false}) async =>

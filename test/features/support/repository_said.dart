@@ -4,12 +4,14 @@ import 'package:porelo_frontend/client.dart';
 import 'world.dart';
 
 /// What the machine says of one repository of every project naming it, from now on: its carry, its state at central
-/// and its count of work, each left unsaid unless given, as an older Porelo leaves them.
+/// with how far ahead and when, and its count of work, each left unsaid unless given, as an older Porelo leaves them.
 Future<void> theMachineSaysOfTheRepository(
   WidgetTester tester,
   String repository, {
   bool? carriedHere,
   String? central,
+  int? ahead,
+  String? aheadMeasured,
   int? tasks,
   int? running,
 }) async {
@@ -29,6 +31,9 @@ Future<void> theMachineSaysOfTheRepository(
     goesBy: each.goesBy,
     carriedHere: carriedHere ?? each.carriedHere,
     central: central ?? each.central,
+    centralWhy: each.centralWhy,
+    ahead: ahead ?? each.ahead,
+    aheadMeasured: aheadMeasured ?? each.aheadMeasured,
     tasks: tasks ?? each.tasks,
     running: running ?? each.running,
   );

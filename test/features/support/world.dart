@@ -2241,6 +2241,79 @@ class FakeBackend implements FleetBackend {
     return watch._said.stream;
   }
 
+  /// Every push to central asked of this machine, in order: the project and the repositories named.
+  final List<({String project, List<String>? repositories})> centralPushes =
+      <({String project, List<String>? repositories})>[];
+
+  /// What central answers the next push with instead of taking it; null where it takes it. Set by the scenario.
+  VarlinkException? centralRefuses;
+
+  @override
+  Stream<CentralPushProgress> pushToCentral(String project, {List<String>? repositories}) async* {
+    centralPushes.add((project: project, repositories: repositories));
+    final refusal = centralRefuses;
+    if (refusal != null) throw CentralPushRefusal.typed(refusal);
+    final named =
+        repositories ??
+        [
+          for (final each in theProjectsItHas.where((each) => each.name == project))
+            for (final repository in each.repositoryStates) repository.name,
+        ];
+    for (final repository in named) {
+      yield CentralPushProgress(repository: repository, stage: 'pushing');
+      yield CentralPushProgress(repository: repository, stage: 'pushed');
+    }
+    // Central now holds what was pushed, and the machine says so from its next listing on.
+    theProjectsItHas = <Project>[
+      for (final each in theProjectsItHas)
+        each.name != project
+            ? each
+            : Project(
+                name: each.name,
+                securityClass: each.securityClass,
+                file: each.file,
+                mirror: each.mirror,
+                pending: each.pending,
+                tasks: each.tasks,
+                running: each.running,
+                prepared: each.prepared,
+                preparedState: each.preparedState,
+                behind: each.behind,
+                behindMeasured: each.behindMeasured,
+                behindReason: each.behindReason,
+                repositories: each.repositories,
+                carried: each.carried,
+                repositoryStates: <Repository>[
+                  for (final repository in each.repositoryStates)
+                    named.contains(repository.name)
+                        ? Repository(
+                            name: repository.name,
+                            own: repository.own,
+                            upstream: repository.upstream,
+                            mirror: repository.mirror,
+                            pending: repository.pending,
+                            behind: repository.behind,
+                            behindMeasured: repository.behindMeasured,
+                            behindReason: repository.behindReason,
+                            behindDetail: repository.behindDetail,
+                            limits: repository.limits,
+                            agent: repository.agent,
+                            nickname: repository.nickname,
+                            goesBy: repository.goesBy,
+                            carriedHere: repository.carriedHere,
+                            tasks: repository.tasks,
+                            running: repository.running,
+                            central: 'up-to-date',
+                            ahead: 0,
+                            aheadMeasured: DateTime.now().toUtc().toIso8601String(),
+                          )
+                        : repository,
+                ],
+              ),
+    ];
+    yield CentralPushProgress(pushed: named, upToDate: const <String>[]);
+  }
+
   /// What the machine streams about authorizations a person has to grant; a scenario adds to it.
   final StreamController<AuthorizationNeeded> needing = StreamController<AuthorizationNeeded>.broadcast();
 

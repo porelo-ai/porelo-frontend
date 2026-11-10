@@ -124,6 +124,7 @@ The IDL carries the detail, a comment per method and per field. The shape of it:
 | **The gate** | `Pending`, `Review`, `Approve`, `Reject`; `CredentialTryPush` tries a forward with one ssh key alone |
 | **Clearance** | `Prompts` (streams, and only streams), `Decide` |
 | **A host forge's pull requests** | `WatchPullRequests(project)` (streams), `PullRequests(project)`; refused with `MissingHostForgeToken(credential, storeCommand)` or `HostPullRequestsRefused(reason, message)` |
+| **A host's main brought to central** | `PushToCentral(project, repositories)` (streams each repository's `stage`, then `pushed` and `upToDate`); `NothingToPush` names what central had already, and `CentralVaultShut`, `MissingCentralToken`, `CentralTokenRefused`, `HostPushTokenUnavailable`, `CentralPushRefused`, `CentralPushUncertain` and `HostPushRefused` each refuse with their parts, earlier pushes kept |
 
 Worth knowing before designing around them:
 

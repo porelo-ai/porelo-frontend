@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F460",
   "title": "The Host's Finished Work Brought To Central From The Window",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "M",
   "priority": "Medium",
   "rank": 11,
@@ -19,6 +19,15 @@ answer, refused in the backend's words.
 
 **How it stands.** The backend's gathered push of a host's `main` to the central forge, taking repository names and
 naming a refused login, is on Porelo's main (2026-11-10), in its review.
+- Built against the mock and the feature world: a project's page on its host offers *Bring it to central…* as a
+  button and in its menu once the host says a repository's approved `main` is ahead; the question names the commits,
+  Tasks1 `PushToCentral` streams the stages, and the page says what reached central or why not.
+- A refused token reads as refused, with the forge and its status; a missing central token offers the machine's own
+  store command in a terminal on it; the window never sees a token.
+- *Push the approved main…*, the older terminal transfer through the secrets file, still stands beside it in the
+  project menu.
+- Not yet run against a host: central's `main` at the host's commit after one press, and whether the row then says
+  at central before the host's follow answers again.
 
 **What must be true.** A person brings a host's finished `main` of a project to the central forge from the window, by
 a button where they expect a release, without a command line or a pasted token.
@@ -30,11 +39,18 @@ a button where they expect a release, without a command line or a pasted token.
 
 ## Plan
 
-- A `Command` in `lib/src/app/commands.dart`, homed on the machine's project page (`lib/src/ui/machine_tree.dart`),
-  over the backend's push, read leniently; the state at central already read from the host (`host_progress.dart`)
-  decides whether it is offered.
-- Red first: a feature scenario with the host ahead of central, where the button must be offered, and one with a
-  refusal, said on the page.
+- `CentralReleases` and `bringToCentralCommand` in `lib/src/app/central_release.dart`: the command is homed on the
+  project menu (`Home.projectMenu`) and shown on the page (`ProjectHeader` in `lib/src/ui/machine_tree.dart`) while it
+  can run; hidden where nothing says how the project stands at central. Which repositories it brings is the daemon's
+  `Repository.central`/`ahead`, or, where the daemon says nothing or up to date, the host's own `org status` read
+  (`host_progress.dart`), as the repository's row words it.
+- `confirmBringToCentral` (`lib/src/ui/central_release_view.dart`) asks first, naming the commits; then
+  `PoreloClient.pushToCentral` streams `PushToCentral(project, repositories)` with the repositories named, read
+  leniently, its eight answers typed as `CentralPushRefusal` and worded from their parts; `NothingToPush` reads as
+  central having them already. The machine is read again after the answer.
+- Red first: `test/features/bringing_to_central.feature` (offered and brought after yes; nothing without yes; not
+  offered at central; a refused token said as refused), `test/client/central_push_test.dart`,
+  `test/client/mock_central_push_test.dart` and `test/app/central_release_test.dart`.
 
 ## Acceptance
 

@@ -181,6 +181,106 @@ class HostPullRequestsRefused extends VarlinkException {
   final String message;
 }
 
+/// The machine did not bring a host's `main` to central, and says why, as one of the answers `PushToCentral` names:
+/// [kind] is the answer's name (`CentralVaultShut`, `MissingCentralToken`, `CentralTokenRefused`, `NothingToPush`,
+/// `HostPushTokenUnavailable`, `CentralPushRefused`, `CentralPushUncertain`, `HostPushRefused`), and each field is
+/// what it carried, read leniently: a field of another type is left empty, never guessed.
+class CentralPushRefusal extends VarlinkException {
+  /// Constructor taking the refusal as it came.
+  CentralPushRefusal(VarlinkException refusal)
+    : kind = refusal.simpleName,
+      unlock = _text(refusal.parameters['unlock']),
+      unlockCommand = _command(refusal.parameters['unlockCommand']),
+      credential = _text(refusal.parameters['credential']),
+      storeCommand = _command(refusal.parameters['storeCommand']),
+      repository = _text(refusal.parameters['repository']),
+      reason = _text(refusal.parameters['reason']),
+      branch = _text(refusal.parameters['branch']),
+      forge = _text(refusal.parameters['forge']),
+      status = switch (refusal.parameters['status']) {
+        final int status => status,
+        _ => null,
+      },
+      code = switch (refusal.parameters['code']) {
+        final int code => code,
+        _ => null,
+      },
+      pushed = _texts(refusal.parameters['pushed']),
+      upToDate = _texts(refusal.parameters['upToDate']),
+      super(refusal.name, refusal.parameters);
+
+  /// The answers `PushToCentral` names; another refusal is passed on as it came.
+  static const kinds = {
+    'CentralVaultShut',
+    'MissingCentralToken',
+    'CentralTokenRefused',
+    'NothingToPush',
+    'HostPushTokenUnavailable',
+    'CentralPushRefused',
+    'CentralPushUncertain',
+    'HostPushRefused',
+  };
+
+  /// [refusal] as what it says, where it is one of [kinds].
+  static Object typed(Object refusal) =>
+      refusal is VarlinkException && kinds.contains(refusal.simpleName) ? CentralPushRefusal(refusal) : refusal;
+
+  /// The answer's name.
+  final String kind;
+
+  /// How the shut vault opens: `init`, `passphrase`, `host`, `device`, or a later word; empty where not said.
+  final String unlock;
+
+  /// The command that opens it, as arguments; empty for the enrolled device, or where a word could not be shown.
+  final List<String> unlockCommand;
+
+  /// The vault entry of the central token; a name, never a value.
+  final String credential;
+
+  /// The command that stores the central token, as arguments; empty where none is offered.
+  final List<String> storeCommand;
+
+  /// The forge repository it stopped at; empty where not said.
+  final String repository;
+
+  /// Why, as the machine names it; empty where not said.
+  final String reason;
+
+  /// Where central's own `main` was brought for a merge in a task; empty where it was not.
+  final String branch;
+
+  /// The central forge that refused the token; empty where not said.
+  final String forge;
+
+  /// The HTTP status the forge refused it with, where said.
+  final int? status;
+
+  /// The host command's exit code, where said.
+  final int? code;
+
+  /// The repositories confirmed pushed before it stopped.
+  final List<String> pushed;
+
+  /// The repositories confirmed already at central before it stopped.
+  final List<String> upToDate;
+
+  static final _unsafe = RegExp('[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029]');
+
+  static String _text(Object? value) => value is String && !_unsafe.hasMatch(value) ? value.trim() : '';
+
+  static List<String> _texts(Object? value) => [
+    if (value is List)
+      for (final each in value)
+        if (_text(each) case final text when text.isNotEmpty) text,
+  ];
+
+  static List<String> _command(Object? value) => switch (value) {
+    final List<dynamic> words when words.isNotEmpty && words.every((word) => _text(word).isNotEmpty) =>
+      words.cast<String>().toList(),
+    _ => const <String>[],
+  };
+}
+
 /// What one machine has to run agents with: the ones it can use, the ones it cannot, and the ones
 /// it will never reach.
 ///
@@ -977,6 +1077,17 @@ class PoreloClient {
         (Object refusal) => throw HostPullRequestsRefused.typed(refusal),
         test: (error) => error is VarlinkException,
       );
+
+  /// Brings the host's approved `main` of [project]'s [repositories] (all its push configuration names, where null)
+  /// to the central forge, stage by stage; it ends on the reply naming what was pushed, or on a [CentralPushRefusal].
+  /// Streamed, as a push takes as long as it takes, and a single call's deadline would cut it short.
+  Stream<CentralPushProgress> pushToCentral(String project, {List<String>? repositories}) =>
+      _callMore('PushToCentral', {'project': project, 'repositories': ?repositories})
+          .map(CentralPushProgress.from)
+          .handleError(
+            (Object refusal) => throw CentralPushRefusal.typed(refusal),
+            test: (error) => error is VarlinkException,
+          );
 
   /// What a pending push contains: a diff and a log, and, from a Porelo that ranks the review, its
   /// files in the order to show them and what the task that pushed was asked.

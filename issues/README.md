@@ -120,7 +120,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f117"></a>[F117](F117-What-Walk-8-Left-Unbuilt.md) | M | - | A tile's repository in its heading, a refused release said as an error that stays. |
 | <a id="f111"></a>[F111](F111-All-Of-A-Pieces-Logs-In-One-Timeline.md) | M | - | All of a piece's logs in one timeline, by time, filterable by source. |
 | <a id="f437"></a>[F437](F437-Join-Leave-And-Accept-A-Card-In-The-Window.md) | M | - | Join an organization by a card proposal, an owner accepting it on the person's row, and leaving an organization, from the window. |
-| <a id="f460"></a>[F460](F460-The-Hosts-Finished-Work-Brought-To-Central-From-The-Window.md) | M | - | *Bring it to central…* brings a host's finished `main` to the central forge from the project's page, refusals in the backend's words. |
 | <a id="f461"></a>[F461](F461-Every-Screen-Of-The-Window-Read-For-Look-And-Sense.md) | M | - | Every screen captured headless at three sizes, light and dark, full and empty, read by another model against a visual and a logical checklist; every finding listed with its screen and size, nothing fixed yet. |
 | <a id="f472"></a>[F472](F472-The-Packages-Carry-The-Third-Party-Notices-As-A-File.md) | S | - | The .deb and .rpm carry the licenses of all third-party code built into the window as one plain THIRD-PARTY-NOTICES file, unpacked from Flutter's own notices. |
 | <a id="f467"></a>[F467](F467-A-Board-Without-Streaming-Says-It-Is-Not-Live.md) | XS | - | A planning board read without streaming, or with its stream broken, says it is not live and offers a reload. |
@@ -135,6 +134,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f457"></a>[F457](F457-Needs-You-Names-The-One-Thing-To-Do.md) | L | - | *Needs you* items name one action, close with their cause, can be marked seen, embed no task tile; nothing waits at the gate in class online; a done task shown done; the commit's makers shown. |
 | <a id="f455"></a>[F455](F455-The-Organization-Read-Now-From-The-Window.md) | S | - | *Read the organization now* asks the host to read the organization at once. |
 | <a id="f458"></a>[F458](F458-The-Task-Terminal-Grows-With-The-Window.md) | XS | - | The agent's screen grows with the window. |
+| <a id="f460"></a>[F460](F460-The-Hosts-Finished-Work-Brought-To-Central-From-The-Window.md) | M | - | *Bring it to central…* brings a host's finished `main` to the central forge from the project's page, refusals in the backend's words. |
 | <a id="f464"></a>[F464](F464-My-Machines-Keeps-A-Machine-Being-Prepared.md) | S | - | *My machines* keeps a machine being prepared in its list and count, the drop caught live first. |
 | <a id="f465"></a>[F465](F465-Needs-You-Rows-Say-Their-Name-Once-And-Whole.md) | XS | - | A row under *Needs you* names its machine once, and its title is shown whole where the row has room. |
 
