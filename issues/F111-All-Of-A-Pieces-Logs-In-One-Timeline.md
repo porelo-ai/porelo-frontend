@@ -1,7 +1,20 @@
 # F111 — All Of A Piece's Logs In One Timeline
 
-**Status:** Backlog.
-**Size:** M - a merged view over every log of a piece of work, its filter and the fold for the logs
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F111",
+  "title": "All Of A Piece's Logs In One Timeline",
+  "state": "Backlog",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 7,
+  "blockedBy": [],
+  "covers": "All of a piece's logs in one timeline, by time, filterable by source."
+}
+```
+
+**Why this size.** a merged view over every log of a piece of work, its filter and the fold for the logs
 by source; several modules, no contract change if each source's lines carry their time.
 
 **What must be true.** A person sees everything a piece of work did in one timeline, by time,

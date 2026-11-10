@@ -1,7 +1,22 @@
 # F266 — The Project Screen Shows Its Persons
 
-**Status:** Idea. Held: GUI changes wait until the whole flow has been gone through again.
-**Size:** M - a design, then its screen: a project shows the server it is on and its persons with their roles and state, and its actions are chosen from there.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F266",
+  "title": "The Project Screen Shows Its Persons",
+  "state": "Idea",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 36,
+  "blockedBy": [],
+  "covers": "A project's screen shows its server and its persons with their state; actions chosen from the rows."
+}
+```
+
+**Why this size.** a design, then its screen: a project shows the server it is on and its persons with their roles and state, and its actions are chosen from there.
+
+**How it stands.** Held: GUI changes wait until the whole flow has been gone through again.
 
 **What must be true.** A project's screen shows the server it is on, its project admin and its developers, each with their state (admitted, locked), and offers the project's actions from those rows: change or remove a developer, take the project off its server. The design is filed and agreed before it is built.
 

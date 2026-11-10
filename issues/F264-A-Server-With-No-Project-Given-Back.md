@@ -1,7 +1,20 @@
 # F264 — A Server With No Project Given Back
 
-**Status:** Review.
-**Size:** S - `porelo-host` gives back a server it rented with no project, and the interface takes the VPN down only after the give-back was confirmed.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F264",
+  "title": "A Server With No Project Given Back",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 65,
+  "blockedBy": [],
+  "covers": "A server rented with no project given back; the VPN taken down only after the give-back was confirmed."
+}
+```
+
+**Why this size.** `porelo-host` gives back a server it rented with no project, and the interface takes the VPN down only after the give-back was confirmed.
 
 **What must be true.** A server rented by *Prepare a server…* with no project is given back like any other the package rented: the release accepts a server tagged `porelo-host=<name>` as well as `porelo-project=<project>`, and still refuses a server with neither. The interface's take-down asks the give-back first and takes this computer's VPN down (`porelo-<n>`, its `/etc/hosts` line, its CA) only once the give-back is confirmed. A refused give-back leaves the VPN up, says the server is still rented and costing, and names the refusal. A VPN step that did not finish is never reported done.
 

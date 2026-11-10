@@ -1,7 +1,20 @@
 # F432 — The Token Asks That Show The Way On
 
-**Status:** Review.
-**Size:** S - a refused organization change says when this computer's Porelo-Vault is shut, with the button that opens
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F432",
+  "title": "The Token Asks That Show The Way On",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 19,
+  "blockedBy": [],
+  "covers": "A refusal with this computer's vault shut says so and opens it; the second token ask is one click."
+}
+```
+
+**Why this size.** a refused organization change says when this computer's Porelo-Vault is shut, with the button that opens
 it, and the second token ask of *Put it on a machine…* is one click.
 
 **What must be true.** When an organization change is refused while this computer's Porelo-Vault is shut, the refusal

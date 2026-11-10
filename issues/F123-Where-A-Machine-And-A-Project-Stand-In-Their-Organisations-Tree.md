@@ -1,6 +1,18 @@
 # F123 — Where A Machine And A Project Stand In Their Organisation's Tree
 
-**Status:** Accepted.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F123",
+  "title": "Where A Machine And A Project Stand In Their Organisation's Tree",
+  "state": "Accepted",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 2,
+  "blockedBy": [],
+  "covers": "Where a machine and a project stand in their organisation's tree, and which settings bind them."
+}
+```
 
 **What must be true.** A person sees where a machine and a project stand in their organisation's tree,
 and which settings bind them, before a start fails on one.

@@ -1,7 +1,20 @@
 # F464 — My Machines Keeps A Machine Being Prepared
 
-**Status:** Backlog.
-**Size:** S - the moment *My machines* drops a machine being prepared caught live with a picture, its cause found,
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F464",
+  "title": "My Machines Keeps A Machine Being Prepared",
+  "state": "Backlog",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 13,
+  "blockedBy": [],
+  "covers": "*My machines* keeps a machine being prepared in its list and count, the drop caught live first."
+}
+```
+
+**Why this size.** the moment *My machines* drops a machine being prepared caught live with a picture, its cause found,
 and the list kept whole through it.
 
 **What must be true.** *My machines* keeps a machine being prepared in its list and its count throughout; a machine

@@ -1,7 +1,20 @@
 # F166 — A Host Rented Through OpenTofu
 
-**Status:** Accepted.
-**Size:** M - a provider of `porelo-host` driving `tofu`, its secrets only in `tofu`'s environment, the module's checked arrival, and its tests against a stand-in.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F166",
+  "title": "A Host Rented Through OpenTofu",
+  "state": "Accepted",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 3,
+  "blockedBy": [],
+  "covers": "`porelo-host up` and `down` renting and giving back through the OpenTofu module, its secrets only in `tofu`'s environment; `--given` kept."
+}
+```
+
+**Why this size.** a provider of `porelo-host` driving `tofu`, its secrets only in `tofu`'s environment, the module's checked arrival, and its tests against a stand-in.
 
 **What must be true.** `porelo-host up` rents its host through `porelo-host`'s OpenTofu module
 (`porelo-host`'s issue "A Machine Rented And Given Back By OpenTofu") and `down`

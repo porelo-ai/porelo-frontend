@@ -1,8 +1,23 @@
 # F219 — An Interface Ended Without Asking Leaves No Forward Behind
 
-**Status:** Analyzed; a bug.
-**Size:** S - the forwards this interface raised found again by their socket at the next start, or ended with it, and
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F219",
+  "title": "An Interface Ended Without Asking Leaves No Forward Behind",
+  "state": "Analyzed",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 1,
+  "blockedBy": [],
+  "covers": "The ssh forwards this interface raised ended with it also when it ends without asking, and one left over found again by its socket at the next start."
+}
+```
+
+**Why this size.** the forwards this interface raised found again by their socket at the next start, or ended with it, and
 their tests.
+
+**How it stands.** A bug.
 
 **What must be true.** The ssh forwards this interface raises for a machine end with it, also where it ends without
 asking: `q` in `flutter run`, a crash, a kill. At the next start a forward of this account already up for the same

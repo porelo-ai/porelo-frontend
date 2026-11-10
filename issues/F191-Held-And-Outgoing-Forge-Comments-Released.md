@@ -1,7 +1,20 @@
 # F191 — Held And Outgoing Forge Comments Released
 
-**Status:** Analyzed.
-**Size:** M - two kinds of *Needs you* rows and a read dialog, with list, release, dismiss, send and keep-back calls in
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F191",
+  "title": "Held And Outgoing Forge Comments Released",
+  "state": "Analyzed",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 10,
+  "blockedBy": [],
+  "covers": "Held inbound forge comments and outgoing ones in *Needs you*, each released, dismissed, sent or refused alone, a person's own from IntelliJ too, bound to commit and pull request."
+}
+```
+
+**Why this size.** two kinds of *Needs you* rows and a read dialog, with list, release, dismiss, send and keep-back calls in
 the client and its stand-ins and the contract docs; nothing in the review.
 
 **What must be true.** A comment from an untrusted forge account (`E0`, or `E1` when the project's rule holds it) is

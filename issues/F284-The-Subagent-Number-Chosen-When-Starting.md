@@ -1,6 +1,18 @@
 # F284 — The Subagent Number Chosen When Starting
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F284",
+  "title": "The Subagent Number Chosen When Starting",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 27,
+  "blockedBy": [],
+  "covers": "How many subagents the agent may run at once, chosen when starting, with the number that applies and Core's refusal said before anything is made."
+}
+```
 
 **What must be true.** When work is started, the person can set how many subagents the agent may run at the same
 time in that task. The field shows the number that applies without a choice, and a number Core refuses is said before

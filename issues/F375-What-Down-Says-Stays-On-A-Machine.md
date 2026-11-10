@@ -1,6 +1,20 @@
 # F375 — What Down Says Stays On A Machine
 
-**Status:** Review.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F375",
+  "title": "What Down Says Stays On A Machine",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 36,
+  "blockedBy": [],
+  "covers": "`down`'s note, that the firewall stays and how to take it off, reaches the take-down dialog."
+}
+```
+
+**Why this size.** sized at the move of the issues' data into their heads, from the change built: what `down` says stays, shown in the take-down dialog with its command to copy.
 
 **What must be true.** When `down` says a thing stays on a machine, the person taking Porelo off reads it in the window, in full, and can copy the command it gives.
 

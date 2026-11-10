@@ -1,9 +1,23 @@
 # F293 — Host Deliveries Hardened
 
-**Status:** Idea.
-**Severity:** medium.
-**Size:** M - git's environment and the commands that run in a login shell, across several modules and their tests;
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F293",
+  "title": "Host Deliveries Hardened",
+  "state": "Idea",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 22,
+  "blockedBy": [],
+  "covers": "Host deliveries hardened: git in a clean environment, commands without the login shell or a deliberate exception."
+}
+```
+
+**Why this size.** git's environment and the commands that run in a login shell, across several modules and their tests;
 no contract with another repository.
+
+**Severity.** Medium.
 
 **What must be true.** What the window brings to a host today runs in a clean environment, cannot be redirected or
 replaced between steps, and is never read half placed.

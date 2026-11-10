@@ -1,6 +1,20 @@
 # F373 — A Grey Button In A Row Says Why
 
-**Status:** Review.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F373",
+  "title": "A Grey Button In A Row Says Why",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 35,
+  "blockedBy": [],
+  "covers": "A grey button in a row, a pane or a dialog says why in words."
+}
+```
+
+**Why this size.** the same line, in the places a list's head does not reach.
 
 **What must be true.** A grey button says why in words wherever it stands. A list's head does this; what follows does not yet, and has the reason behind a hover or none.
 

@@ -1,6 +1,20 @@
 # F381 — Fold A Page's Explanation
 
-**Status:** Review.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F381",
+  "title": "Fold A Page's Explanation",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 40,
+  "blockedBy": [],
+  "covers": "Every page has an explanation; closing it folds it, and it stays folded across a restart."
+}
+```
+
+**Why this size.** one shared block, one kept state, one text a page.
 
 **What must be true.** *Work*, *Needs you*, *My machines*, *My forges*, *My projects* and *Organization* each have an explanation. Closing it folds it, and never removes it: a small block stays, a little larger than the `i` icon, with the words "What is ...", and opens it again at any time. A folded explanation stays folded across a restart, kept locally in `frontend.json`.
 

@@ -1,7 +1,20 @@
 # F204 — The Build Runs On The Local Forge As On The Central One
 
-**Status:** Review.
-**Size:** M - the workflows, the leased profile and one test here, no contract another repository reads, and runs of a
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F204",
+  "title": "The Build Runs On The Local Forge As On The Central One",
+  "state": "Review",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 58,
+  "blockedBy": [],
+  "covers": "The build green on the host's Forgejo and the central forge on the same commit, its machine asked for by kind and its registry a variable."
+}
+```
+
+**Why this size.** the workflows, the leased profile and one test here, no contract another repository reads, and runs of a
 Flutter build on a throwaway Forgejo.
 
 **What must be true.** porelo-frontend's `build.yml` runs green on the host's Forgejo and on the central forge on the

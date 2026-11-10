@@ -1,6 +1,18 @@
 # F205 — The Host's Setup Commands Run By Their Paths
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F205",
+  "title": "The Host's Setup Commands Run By Their Paths",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 38,
+  "blockedBy": [],
+  "covers": "Every command `porelo-host` runs on the host over ssh, and through `sudo` above all, named by its absolute path."
+}
+```
 
 **What must be true.** Every command `porelo-host up` and `down` run on the rented host over ssh, and above all those
 it runs through `sudo`, is named by its absolute path (`/usr/bin/mkdir`, `/usr/bin/sha256sum`, `/usr/bin/sudo`,

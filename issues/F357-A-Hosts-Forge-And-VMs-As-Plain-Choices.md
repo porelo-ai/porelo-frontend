@@ -1,6 +1,20 @@
 # F357 — A Host's Forge And VMs As Plain Choices
 
-**Status:** Review.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F357",
+  "title": "A Host's Forge And VMs As Plain Choices",
+  "state": "Review",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 42,
+  "blockedBy": [],
+  "covers": "The put-on-a-host dialog asks in plain words about a forge of its own and VMs in its jobs, with what each costs, and says what the machine can carry."
+}
+```
+
+**Why this size.** the host dialog's two plain choices and what each means, and the inventory's `porelo_host_kvm`.
 
 **What must be true.** Putting a project on a host, a person chooses in plain words whether the host runs a forge of its own and whether it runs VMs in its jobs, reads what each choice costs, and sees what the machine can carry when setting its concurrent jobs. A CPU without virtualization stops only a host that asked for VMs, and says what to do.
 

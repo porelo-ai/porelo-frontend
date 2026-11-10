@@ -1,7 +1,20 @@
 # F81 — The Setup Script Checked By Its Signature
 
-**Status:** Estimated.
-**Size:** M - one module and its scenarios here, but it follows a contract Porelo sets (the
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F81",
+  "title": "The Setup Script Checked By Its Signature",
+  "state": "Estimated",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 13,
+  "blockedBy": [],
+  "covers": "The setup script verified by its signature before it runs."
+}
+```
+
+**Why this size.** one module and its scenarios here, but it follows a contract Porelo sets (the
 key, the signature's form, the versioned names) and a leg on a leased machine.
 
 **What must be true.** A person preparing a new machine can be sure the setup script that runs as root

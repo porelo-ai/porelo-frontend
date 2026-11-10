@@ -1,7 +1,20 @@
 # F360 — A Count Says What It Counts
 
-**Status:** Review.
-**Size:** M - the side bar's names and counts, and a forge entered on creating; the one store is apart.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F360",
+  "title": "A Count Says What It Counts",
+  "state": "Review",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 51,
+  "blockedBy": [],
+  "covers": "Where the side bar and a page count different things under one name, such as *Machines*, the words say the difference."
+}
+```
+
+**Why this size.** the side bar's names and counts, and a forge entered on creating; the one store is apart.
 
 **What must be true.** Two numbers for one word never leave a person wondering which is wrong: where the side bar and a page count different things under the same name, the words say the difference.
 

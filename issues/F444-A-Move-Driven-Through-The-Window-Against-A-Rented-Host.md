@@ -1,7 +1,20 @@
 # F444 — A Move Driven Through The Window Against A Rented Host
 
-**Status:** Review.
-**Size:** M - a local VM that runs the window under a virtual display, one feature file of a move's main scenarios
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F444",
+  "title": "A Move Driven Through The Window Against A Rented Host",
+  "state": "Review",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 77,
+  "blockedBy": [],
+  "covers": "The main scenarios of a move driven through the real window, unattended, in a local VM under a virtual display, against a rented host, each checked on the host."
+}
+```
+
+**Why this size.** a local VM that runs the window under a virtual display, one feature file of a move's main scenarios
 reusing the steps of the suite against a leased machine, its report, and one try on a rented server.
 
 **What must be true.** The main scenarios of a move are driven through the real window, unattended, against a rented

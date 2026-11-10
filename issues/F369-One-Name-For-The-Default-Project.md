@@ -1,7 +1,20 @@
 # F369 — One Name For The Default Project
 
-**Status:** Review.
-**Size:** S - words in eight files with their tests, features and two documents.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F369",
+  "title": "One Name For The Default Project",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 46,
+  "blockedBy": [],
+  "covers": "The project every machine has is called *Default* in the window, as in Core and its documents, in place of \"Without a project\"."
+}
+```
+
+**Why this size.** words in eight files with their tests, features and two documents.
 
 **What must be true.** The project every machine has carries one name everywhere: the *Default* project. In the foo test the row "Without a project" under *Projects* read oddly to the operator, who gave this word. It is a row with a name, a page and tasks of its own, so it is a project and reads as one.
 

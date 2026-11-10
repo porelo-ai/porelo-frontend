@@ -1,6 +1,20 @@
 # F306 — A Work Card Whose Terminal Has Ended
 
-**Status:** Review.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F306",
+  "title": "A Work Card Whose Terminal Has Ended",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 53,
+  "blockedBy": [],
+  "covers": "A *Work* card whose terminal ended says so in words, without an empty black terminal bar."
+}
+```
+
+**Why this size.** built with [F353](README.md#f353), which holds its shape.
 
 **What must be true.** A card under *Work* whose terminal session has ended says so in its own words and offers what
 can be done next; it does not show a full-width black terminal bar that holds only "Its terminal session has ended."

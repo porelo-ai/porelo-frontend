@@ -1,7 +1,20 @@
 # F114 — Windows Notifications From The MSIX
 
-**Status:** Analyzed.
-**Size:** M - a second `Notifier` for Windows through WinRT, the package's identity found at run
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F114",
+  "title": "Windows Notifications From The MSIX",
+  "state": "Analyzed",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 2,
+  "blockedBy": [],
+  "covers": "Windows notifications from the MSIX's identity."
+}
+```
+
+**Why this size.** a second `Notifier` for Windows through WinRT, the package's identity found at run
 time, a manifest change for the notification's action, and tests that run on the Windows runner
 only.
 

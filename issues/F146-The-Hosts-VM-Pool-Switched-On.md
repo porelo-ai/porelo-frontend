@@ -1,6 +1,18 @@
 # F146 — The Host's VM Pool Switched On
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F146",
+  "title": "The Host's VM Pool Switched On",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 40,
+  "blockedBy": [],
+  "covers": "The host's pool of small test VMs switched on on `porelo_host` and in the host dialog, with its systems and accounts."
+}
+```
 
 **What must be true.** A person bringing a host up chooses whether it runs a pool of small test VMs,
 which systems and how many accounts, on `porelo_host`'s command line and in the host dialog.

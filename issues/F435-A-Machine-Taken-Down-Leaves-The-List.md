@@ -1,7 +1,20 @@
 # F435 — A Machine Taken Down Leaves The List
 
-**Status:** Review.
-**Size:** S - after a confirmed take-down the window asks the organization to remove the machine, as its question
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F435",
+  "title": "A Machine Taken Down Leaves The List",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 22,
+  "blockedBy": [],
+  "covers": "After a confirmed take-down with its removal asked, the window removes the machine from the organization's list."
+}
+```
+
+**Why this size.** after a confirmed take-down the window asks the organization to remove the machine, as its question
 promised, and a refusal stands in the take-down's protocol.
 
 **What must be true.** When *Take Porelo off this machine…* was answered with removing the machine from the

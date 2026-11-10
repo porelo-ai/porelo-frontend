@@ -1,7 +1,20 @@
 # F452 — A Project Waiting For The Token Says So Where It Is Shown
 
-**Status:** Review.
-**Size:** M - one state read already (`HostProgress`), said in four places that read it differently today, the token
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F452",
+  "title": "A Project Waiting For The Token Says So Where It Is Shown",
+  "state": "Review",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 7,
+  "blockedBy": [],
+  "covers": "A project the host reports waiting for the token says so, why, and offers the token on its row, the machine's project page and each repository row; never called carried; the placing dialog not grey when opened again."
+}
+```
+
+**Why this size.** one state read already (`HostProgress`), said in four places that read it differently today, the token
 action offered beside each, and the placing dialog opened again.
 
 **What must be true.** Where a host reports a project as waiting for the person's token, every place that shows the

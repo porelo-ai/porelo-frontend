@@ -1,7 +1,20 @@
 # F429 — The Side Bar As A Folding Tree
 
-**Status:** Review.
-**Size:** XL - the side bar, every leaf page in a new look, *Work* and *Needs you* among them, and a machine's tools
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F429",
+  "title": "The Side Bar As A Folding Tree",
+  "state": "Review",
+  "size": "XL",
+  "priority": "Medium",
+  "rank": 17,
+  "blockedBy": [],
+  "covers": "The side bar as a folding tree, as the design *Porelo Window Side Bar* draws it: each machine and organization with its sections, a page with entries under it showing facts and actions, every leaf in one look, the side bar beside the page from 600 wide; in four parts."
+}
+```
+
+**Why this size.** the side bar, every leaf page in a new look, *Work* and *Needs you* among them, and a machine's tools
 moved from overlays into pages are more than one build; it splits into four parts (below), this issue the first.
 estimate=293, the sum of the parts' medians (L 80 + L 80 + M 53 + L 80).
 

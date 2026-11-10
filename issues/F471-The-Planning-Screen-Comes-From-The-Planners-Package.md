@@ -1,7 +1,20 @@
 # F471 — The Planning Screen Comes From The Planner's Package
 
-**Status:** Review.
-**Size:** M - the planning screen, its models and its tests cut out of the window into a Flutter package of
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F471",
+  "title": "The Planning Screen Comes From The Planner's Package",
+  "state": "Review",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 1,
+  "blockedBy": [],
+  "covers": "The planning screen, its models and tests moved into a Flutter package of porelo-planner, with no change in behavior; the window embeds it and hands it the planner's address."
+}
+```
+
+**Why this size.** the planning screen, its models and its tests cut out of the window into a Flutter package of
 porelo-planner, with no change in behavior, and the window embedding it through a few hooks.
 
 **What must be true.** The window's *Planning* place shows the same board, story and issue screens and *Start work*

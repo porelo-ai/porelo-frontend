@@ -1,8 +1,22 @@
 # F302 — Refresh Shows What It Did
 
-**Status:** Idea.
-**Severity:** medium.
-**Size:** S - the shell's Refresh and its status words, with their tests; no contract with another repository.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F302",
+  "title": "Refresh Shows What It Did",
+  "state": "Idea",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 18,
+  "blockedBy": [],
+  "covers": "Refresh shows that it runs and ends with what it read or what failed."
+}
+```
+
+**Why this size.** the shell's Refresh and its status words, with their tests; no contract with another repository.
+
+**Severity.** Medium.
 
 **What must be true.** Pressing *Refresh* shows at once that it runs, where the person is looking, and ends with what
 it read or what failed: machines asked, the registry's revision, projects that changed. "Nothing changed" is said in

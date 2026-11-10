@@ -1,7 +1,20 @@
 # F461 — Every Screen Of The Window Read For Look And Sense
 
-**Status:** Backlog.
-**Size:** M - every screen captured headless at three sizes, light and dark, with data and empty; one reading by
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F461",
+  "title": "Every Screen Of The Window Read For Look And Sense",
+  "state": "Backlog",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 12,
+  "blockedBy": [],
+  "covers": "Every screen captured headless at three sizes, light and dark, full and empty, read by another model against a visual and a logical checklist; every finding listed with its screen and size, nothing fixed yet."
+}
+```
+
+**Why this size.** every screen captured headless at three sizes, light and dark, with data and empty; one reading by
 another model against the checklist below; every finding listed here. Nothing is fixed and no test is written.
 
 **What must be true.** The operator can read, in this issue, every visual and logical finding on every screen of the

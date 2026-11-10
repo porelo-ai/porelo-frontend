@@ -1,9 +1,24 @@
 # F455 — The Organization Read Now From The Window
 
-**Status:** Backlog; the host's own way to start its follow of the organization on demand is on Porelo's main
-(2026-11-10), in its review.
-**Size:** S - one command on the machine's organization page that asks the host to read the organization now, and
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F455",
+  "title": "The Organization Read Now From The Window",
+  "state": "Backlog",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 9,
+  "blockedBy": [],
+  "covers": "*Read the organization now* asks the host to read the organization at once."
+}
+```
+
+**Why this size.** one command on the machine's organization page that asks the host to read the organization now, and
 its answer said.
+
+**How it stands.** The host's own way to start its follow of the organization on demand is on Porelo's main
+(2026-11-10), in its review.
 
 **What must be true.** A person who changed the organization (placed a project, gave a token) asks the host to read
 it now from the window, instead of waiting up to five minutes for its next round.

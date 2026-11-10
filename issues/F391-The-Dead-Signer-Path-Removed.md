@@ -1,7 +1,20 @@
 # F391 — The Dead Signer Path Removed
 
-**Status:** Review.
-**Size:** S - one policy interface, its daemon implementation, two client calls and their models, none with a caller left.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F391",
+  "title": "The Dead Signer Path Removed",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 30,
+  "blockedBy": [],
+  "covers": "Nothing asks a daemon `ProjectSigners` or `CommitVerdict`, which none serves; a commit made here is still checked against the person's own key."
+}
+```
+
+**Why this size.** one policy interface, its daemon implementation, two client calls and their models, none with a caller left.
 
 **What must be true.** The window calls no daemon method the served contract does not hold for who signs: nothing asks `ProjectSigners` or `CommitVerdict`, and the live check of the served contract is green on them.
 

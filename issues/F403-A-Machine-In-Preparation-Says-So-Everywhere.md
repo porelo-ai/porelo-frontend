@@ -1,7 +1,20 @@
 # F403 — A Machine In Preparation Says So Everywhere
 
-**Status:** Review.
-**Size:** S - the organization's machine row and machine page take the preparation *My machines* already holds, and
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F403",
+  "title": "A Machine In Preparation Says So Everywhere",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 23,
+  "blockedBy": [],
+  "covers": "A machine this computer prepares says so on the organization's row and page, offers its protocol and no second start, with a mark of its state."
+}
+```
+
+**Why this size.** the organization's machine row and machine page take the preparation *My machines* already holds, and
 a small mark of a preparation's state beside its words, the same in each place.
 
 **What must be true.** While this computer prepares a machine of the organization, its row on the organization's page

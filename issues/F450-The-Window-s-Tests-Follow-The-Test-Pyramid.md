@@ -1,7 +1,20 @@
 # F450 — The Window's Tests Follow The Test Pyramid
 
-**Status:** Accepted.
-**Size:** L - in slices: XS-S for the waits and processes, S-M for the gaps below the end-to-end and live runs, M-L for
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F450",
+  "title": "The Window's Tests Follow The Test Pyramid",
+  "state": "Accepted",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 1,
+  "blockedBy": [],
+  "covers": "The window's tests moved to the test pyramid's shares: waits, network and processes faked, flows proven below the end-to-end runs, logic out of the widgets."
+}
+```
+
+**Why this size.** in slices: XS-S for the waits and processes, S-M for the gaps below the end-to-end and live runs, M-L for
 moving logic out of the widgets so that its tests become unit tests.
 
 **What must be true.** The window's tests follow the pyramid: about 70-80 % unit tests (one class or method, no outside

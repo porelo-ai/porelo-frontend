@@ -1,6 +1,20 @@
 # F376 — Work And Needs You Closer To The Design
 
-**Status:** Review.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F376",
+  "title": "Work And Needs You Closer To The Design",
+  "state": "Review",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 37,
+  "blockedBy": [],
+  "covers": "The differences from the design the operator named in *Work* and *Needs you*, with *My machines* as the model."
+}
+```
+
+**Why this size.** sized at the move of the issues' data into their heads, from the change built: *Work* and *Needs you* brought closer to the design in four views.
 
 **What must be true.** *Work* and *Needs you* read as the design does where the operator named a difference from it, with *My machines* as the model.
 

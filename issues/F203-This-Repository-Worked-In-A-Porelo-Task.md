@@ -1,7 +1,20 @@
 # F203 — This Repository Worked In A Porelo Task
 
-**Status:** Implementing; its move into a task waits for the host and the task.
-**Size:** S - the image's missing display tool, the local rules that still hold in a task carried into `AGENTS.md`,
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F203",
+  "title": "This Repository Worked In A Porelo Task",
+  "state": "Implementing",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 1,
+  "blockedBy": [],
+  "covers": "This repository's agent working in an attended Porelo task on the host, its build green on the host's Forgejo, reached in the room, with a way back."
+}
+```
+
+**Why this size.** the image's missing display tool, the local rules that still hold in a task carried into `AGENTS.md`,
 and the move's own small change worked in the task; the rest stands already.
 
 **What must be true.** porelo-frontend's agent works in an attended Porelo task of the project `porelo` on the host,
@@ -27,6 +40,8 @@ issue is worked to Review from inside that task, to show the move done.
 - **The name**: `Agent Frontend`, nickname `Frontend` in porelo-project's `project.yml`.
 
 ## How it stands
+
+Its move into a task waits for the host and the task.
 
 - `porelo.yml` installs `xvfb` and `xauth`; `xvfb-run` was seen to give a display on the image's pinned Ubuntu base.
 - `AGENTS.md` carries the rules that hold in a task too: the commit message checked before a commit, and a whole

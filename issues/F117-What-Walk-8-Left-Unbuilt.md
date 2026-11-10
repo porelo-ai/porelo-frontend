@@ -1,7 +1,20 @@
 # F117 — What Walk 8 Left Unbuilt
 
-**Status:** Backlog.
-**Size:** M - two small changes in two modules (the tile and the held message's outcome), each with its
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F117",
+  "title": "What Walk 8 Left Unbuilt",
+  "state": "Backlog",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 6,
+  "blockedBy": [],
+  "covers": "A tile's repository in its heading, a refused release said as an error that stays."
+}
+```
+
+**Why this size.** two small changes in two modules (the tile and the held message's outcome), each with its
 scenario.
 
 **What must be true.** Two points walk 8 found, which the interface does not do yet: a tile names

@@ -1,8 +1,23 @@
 # F145 — The Host's Forge Switched Off In The Server Setup
 
-**Status:** Estimated; revived from Rejected.
-**Size:** S - one choice in the server setup dialog, kept in the host's record, passed to `porelo-host` and written
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F145",
+  "title": "The Host's Forge Switched Off In The Server Setup",
+  "state": "Estimated",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 1,
+  "blockedBy": [],
+  "covers": "*Set up a forge on the server* in the server setup dialog, on by default; switched off, the host's inventory says `porelo_host_forge: false`."
+}
+```
+
+**Why this size.** one choice in the server setup dialog, kept in the host's record, passed to `porelo-host` and written
 into the first inventory; the inventory's value exists already.
+
+**How it stands.** Revived from Rejected.
 
 **What must be true.** The server setup dialog offers *Set up a forge on the server*, on by default; a person whose
 people use a central forge switches it off, and the host's first inventory then says `porelo_host_forge: false`, so

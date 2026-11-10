@@ -1,9 +1,23 @@
 # F295 — No "Ask" Line Naming The Viewer
 
-**Status:** Idea.
-**Severity:** low.
-**Size:** S - `RegistryRefusal`'s words and the places that build its contacts, with their tests; no contract with
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F295",
+  "title": "No \"Ask\" Line Naming The Viewer",
+  "state": "Idea",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 21,
+  "blockedBy": [],
+  "covers": "No refusal ends with \"Ask <name>\" when the named person is the one at this interface."
+}
+```
+
+**Why this size.** `RegistryRefusal`'s words and the places that build its contacts, with their tests; no contract with
 another repository.
+
+**Severity.** Low.
 
 **What must be true.** A refusal never ends with "Ask <name> (<login>)." when the named person is the one at this
 interface, known from their card key. Where the viewer is one of several contacts, only the others are named. Where

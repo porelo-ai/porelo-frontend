@@ -1,9 +1,23 @@
 # F296 — Card Endpoints Per Login
 
-**Status:** Idea.
-**Severity:** medium.
-**Size:** M - the card's ssh paths and local ports, the card tunnel, the join and the homeserver forwards, with their
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F296",
+  "title": "Card Endpoints Per Login",
+  "state": "Idea",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 20,
+  "blockedBy": [],
+  "covers": "Card endpoints per login, so two instances of one account each hold a tunnel to one host; a master this person left ended on raise."
+}
+```
+
+**Why this size.** the card's ssh paths and local ports, the card tunnel, the join and the homeserver forwards, with their
 tests; no contract with another repository.
+
+**Severity.** Medium.
 
 **What must be true.** Two people of one desktop account, such as two instances of this interface, each reach their
 own account on the same host through their own card tunnel at once. A card master left by an earlier run of the

@@ -1,7 +1,20 @@
 # F465 — Needs You Rows Say Their Name Once And Whole
 
-**Status:** Backlog.
-**Size:** XS - a machine's row under *Needs you* named once, and a row's title given the width the row leaves free.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F465",
+  "title": "Needs You Rows Say Their Name Once And Whole",
+  "state": "Backlog",
+  "size": "XS",
+  "priority": "Medium",
+  "rank": 14,
+  "blockedBy": [],
+  "covers": "A row under *Needs you* names its machine once, and its title is shown whole where the row has room."
+}
+```
+
+**Why this size.** a machine's row under *Needs you* named once, and a row's title given the width the row leaves free.
 
 **What must be true.** Each row under *Needs you* names what it is about once and, where the window has room, whole.
 - Seen live (2026-11-10, the move rehearsal against a rented host, window 1280x720): the row of this computer's

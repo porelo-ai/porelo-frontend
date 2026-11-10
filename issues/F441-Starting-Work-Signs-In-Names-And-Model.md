@@ -1,6 +1,20 @@
 # F441 — Starting Work Signs In, Names The Task And Its Model
 
-**Status:** Review.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F441",
+  "title": "Starting Work Signs In, Names The Task And Its Model",
+  "state": "Review",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 76,
+  "blockedBy": [],
+  "covers": "Work starts without a host shell: the agent's sign-in asked in the window, tasks named as named, the model shown and changeable."
+}
+```
+
+**Why this size.** the sign-in and batch, the names and the model, as *Size* below breaks it down.
 
 **What must be true.** Work starts in the window without a host shell: a missing sign-in of the task's agent is asked
 for in the window and waited for, a task is named as the person named it, and the model the task runs is shown and can be changed before it starts.

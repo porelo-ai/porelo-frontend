@@ -1,9 +1,23 @@
 # F300 — One Project, One Entry Across Machines
 
-**Status:** Idea.
-**Severity:** medium.
-**Size:** M - the projects page's rows and its navigation count, with their tests; no contract with another
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F300",
+  "title": "One Project, One Entry Across Machines",
+  "state": "Idea",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 19,
+  "blockedBy": [],
+  "covers": "One project read as one entry under Projects, with the machines it is on under it."
+}
+```
+
+**Why this size.** the projects page's rows and its navigation count, with their tests; no contract with another
 repository.
+
+**Severity.** Medium.
 
 **What must be true.** A project that this computer and a host both hold reads as one entry under *Projects*, with
 the machines it is on under it, so nobody takes two rows of one name for two projects. "Without a project" is shown

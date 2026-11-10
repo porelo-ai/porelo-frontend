@@ -1,7 +1,20 @@
 # F374 — What Founding Needs, Said Before Founding
 
-**Status:** Review.
-**Size:** S - a button in the dialog of creating, on Core's own answer.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F374",
+  "title": "What Founding Needs, Said Before Founding",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 34,
+  "blockedBy": [],
+  "covers": "The dialog of creating asks Core what founding needs at the address, each need with what to do, before anything is filed."
+}
+```
+
+**Why this size.** a button in the dialog of creating, on Core's own answer.
 
 **What must be true.** A person about to create a Porelo organization can ask what that needs at the address they typed, and reads each need with what to do, before anything is filed. In the foo test creating stopped at its end, on things that could be said before it.
 

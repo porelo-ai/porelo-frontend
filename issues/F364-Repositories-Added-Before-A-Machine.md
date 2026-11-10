@@ -1,7 +1,20 @@
 # F364 — Repositories Added Before A Machine
 
-**Status:** Review.
-**Size:** S - the add dialog names `central` always, and a row with none says so.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F364",
+  "title": "Repositories Added Before A Machine",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 47,
+  "blockedBy": [],
+  "covers": "A repository added before the project has a machine is filed with its central address, so that order works; a row without one says so."
+}
+```
+
+**Why this size.** the add dialog names `central` always, and a row with none says so.
 
 **What must be true.** A person's natural order is repositories first and a machine later, and that order works. In the foo test, `foo-1` and `foo-2` were added in the window before any machine carried the project.
 

@@ -1,9 +1,23 @@
 # F303 — Menus Beside What They Act On
 
-**Status:** Idea.
-**Severity:** medium.
-**Size:** M - the item list rows, section headings and page titles with their ⋮ menus, with their golden and widget
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F303",
+  "title": "Menus Beside What They Act On",
+  "state": "Idea",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 17,
+  "blockedBy": [],
+  "covers": "Each ⋮ menu placed with the row, section or title it acts on."
+}
+```
+
+**Why this size.** the item list rows, section headings and page titles with their ⋮ menus, with their golden and widget
 tests; no contract with another repository.
+
+**Severity.** Medium.
 
 **What must be true.** Each ⋮ menu sits visibly with the row, section or page title it acts on, so on a wide window a
 person sees at once which thing a menu belongs to.

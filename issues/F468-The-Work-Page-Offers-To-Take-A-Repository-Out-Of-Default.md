@@ -1,9 +1,24 @@
 # F468 — The Work Page Offers To Take A Repository Out Of Default
 
-**Status:** Backlog; blocked by Porelo's offer to remove a repository from the project `default` once a project of
-the organization names it, and how the daemon says so.
-**Size:** S - one offer on the work page where the daemon says a repository of `default` is named by a project of
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F468",
+  "title": "The Work Page Offers To Take A Repository Out Of Default",
+  "state": "Backlog",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 16,
+  "blockedBy": [],
+  "covers": "The work page offers to take a repository out of `default` once a project of the organization names it."
+}
+```
+
+**Why this size.** one offer on the work page where the daemon says a repository of `default` is named by a project of
 the organization, its removal asked and said, and its test.
+
+**Blocked by** Porelo's offer to remove a repository from the project `default` once a project of the organization names
+it, and how the daemon says so.
 
 **What must be true.** A repository in the project `default` that a project of the organization now names is offered
 for removal from `default` on the work page: the person sees that its next task starts in that project, and removes

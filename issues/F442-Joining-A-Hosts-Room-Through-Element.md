@@ -1,6 +1,20 @@
 # F442 — Joining A Host's Room Through Element
 
-**Status:** Review.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F442",
+  "title": "Joining A Host's Room Through Element",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 16,
+  "blockedBy": [],
+  "covers": "On a host, joining the room opens Element signed in through SSO; elsewhere the join offers the admitted logins only."
+}
+```
+
+**Why this size.** the host's blocks and the Element start, and the admitted logins, as *Size* below breaks it down.
 
 **What must be true.** On a host whose homeserver manages its people itself, joining the project's room sends the
 person to Element signed in to that host, never into a join that can only be refused; elsewhere the join offers only

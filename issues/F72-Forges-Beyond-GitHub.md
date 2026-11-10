@@ -1,10 +1,26 @@
 # F72 — Forges Beyond GitHub
 
-**Status:** Estimated; the next forge is Bitbucket Data Center, Cloud after it; blocked by the
-operator's evaluation licence for the test installation when it is built.
-**Size:** L for Bitbucket Data Center - a second `Forge` beside `GitHub`, on a host the person
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F72",
+  "title": "Forges Beyond GitHub",
+  "state": "Estimated",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 8,
+  "blockedBy": [],
+  "covers": "Forges beyond GitHub: Bitbucket Data Center first, measured against a test installation of its own."
+}
+```
+
+**Why this size.** for Bitbucket Data Center: a second `Forge` beside `GitHub`, on a host the person
 names rather than one known address, the GitHub-only reading of an upstream widened, scenarios, and
 a leg measured against a test installation of its own, set up on a VM. Each forge after it is M.
+
+**How it stands.** The next forge is Bitbucket Data Center, Cloud after it.
+
+**Blocked by** the operator's evaluation license for the test installation, when it is built.
 
 **What must be true.** A person whose repositories are at another forge gets the same way from a
 repository to work as at GitHub, or is told what that forge does not allow.

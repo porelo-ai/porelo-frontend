@@ -1,8 +1,23 @@
 # F59 — A Project From A Repository, Measured Against GitHub
 
-**Status:** Estimated; blocked by the test organisation, its token and signing key from the operator.
-**Size:** S - a measurement against GitHub with the code as it is, and a fix only where one step
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F59",
+  "title": "A Project From A Repository, Measured Against GitHub",
+  "state": "Estimated",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 7,
+  "blockedBy": [],
+  "covers": "Making a project from a repository measured against GitHub."
+}
+```
+
+**Why this size.** a measurement against GitHub with the code as it is, and a fix only where one step
 fails; it waits for the operator's token and test repositories.
+
+**Blocked by** the test organization, its token and signing key from the operator.
 
 **What must be true.** What is left of making a project from a repository is shown to work against
 GitHub itself, not only against stand-ins.

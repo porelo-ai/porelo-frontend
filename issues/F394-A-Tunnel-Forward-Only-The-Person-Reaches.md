@@ -1,7 +1,21 @@
 # F394 — A Tunnel Forward Only The Person Reaches
 
-**Status:** Analyzed.
-**Size:** M - a relay of the window's own in front of every forward, the five ssh forwards moved onto private sockets, its tests and a VM run with a second account; the host's part apart.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F394",
+  "title": "A Tunnel Forward Only The Person Reaches",
+  "state": "Analyzed",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 11,
+  "blockedBy": [],
+  "covers": "What the window forwards from a machine is reached only by the person: a relay of the window's own lets in only the person's connections, the host refusing other sites' requests to the forge's web.",
+  "openQuestions": 2
+}
+```
+
+**Why this size.** a relay of the window's own in front of every forward, the five ssh forwards moved onto private sockets, its tests and a VM run with a second account; the host's part apart.
 
 **What must be true.** What the window forwards from a machine to this computer is reached only by the person the window runs for, not by every other local user of this computer.
 

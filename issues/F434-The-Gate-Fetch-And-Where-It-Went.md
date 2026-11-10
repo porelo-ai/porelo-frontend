@@ -1,7 +1,20 @@
 # F434 — The Gate's Fetch And Where It Went
 
-**Status:** Review.
-**Size:** S - the review page's fetch line works from this computer's own shell, and a forwarded push says where its
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F434",
+  "title": "The Gate's Fetch And Where It Went",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 21,
+  "blockedBy": [],
+  "covers": "The gate's fetch line works from the person's shell; a forwarded push says where its commit stands."
+}
+```
+
+**Why this size.** the review page's fetch line works from this computer's own shell, and a forwarded push says where its
 commit stands.
 
 **What must be true.** For a machine this window reaches through its own ssh config, the fetch line on the gate's

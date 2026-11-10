@@ -1,7 +1,20 @@
 # F445 — What A Rehearsal Cannot Drive In The Window, Stood In For
 
-**Status:** Review.
-**Size:** S - three scenarios added to the move rehearsed through the window, a screenshot on failure, and their
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F445",
+  "title": "What A Rehearsal Cannot Drive In The Window, Stood In For",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 78,
+  "blockedBy": [],
+  "covers": "The sign-in up to its terminal, the host key compared by the test, a screenshot on failure, and the gathered push, each passed, failed or said not run."
+}
+```
+
+**Why this size.** three scenarios added to the move rehearsed through the window, a screenshot on failure, and their
 tests; the gathered push only once the host takes the central token from the person's vault.
 
 **What must be true.** The parts of a move a person does outside the window, or by eye, are covered in the unattended

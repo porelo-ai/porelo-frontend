@@ -1,9 +1,24 @@
 # F437 — Join, Leave And Accept A Card In The Window
 
-**Status:** Backlog; blocked by the backend's card proposal and acceptance, and by its leaving an organization.
-**Size:** M - the organization source's propose, list, accept, turn-down and leave calls with their stand-ins,
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F437",
+  "title": "Join, Leave And Accept A Card In The Window",
+  "state": "Backlog",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 8,
+  "blockedBy": [],
+  "covers": "Join an organization by a card proposal, an owner accepting it on the person's row, and leaving an organization, from the window."
+}
+```
+
+**Why this size.** the organization source's propose, list, accept, turn-down and leave calls with their stand-ins,
 the join's waiting answer, the proposed person's row with its *Accept* and *Turn down*, and the leave's question;
 S the join, S the acceptance, XS the leave.
+
+**Blocked by** the backend's card proposal and acceptance, and by its leaving an organization.
 
 **What must be true.** A person who cannot write an organization's repository asks to join it from the window, by
 filing their card as a proposal; an owner sees the proposal on the waiting person's row in *People* and accepts it

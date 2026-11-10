@@ -1,7 +1,20 @@
 # F428 — A Machine Given Back Only With Its Work At Central
 
-**Status:** Review.
-**Size:** S - the `org status` reader (`lib/src/app/host_progress.dart`), the host's project rows, the give-back
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F428",
+  "title": "A Machine Given Back Only With Its Work At Central",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 74,
+  "blockedBy": [],
+  "covers": "A machine's page says how each taken repository stands with central, and the give-back is refused while one is ahead, moved on or cannot say, with *Give it back anyway*."
+}
+```
+
+**Why this size.** the `org status` reader (`lib/src/app/host_progress.dart`), the host's project rows, the give-back
 dialog (`HostDialog` with `takeDownOnly` in `lib/src/ui/host_dialog.dart`) and their tests.
 
 **What must be true.** A machine's page says for each repository it has taken how it stands with the central forge:

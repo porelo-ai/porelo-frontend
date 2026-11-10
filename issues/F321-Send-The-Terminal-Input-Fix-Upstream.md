@@ -1,8 +1,22 @@
 # F321 — Send The Terminal Input Fix Upstream
 
-**Status:** Backlog.
-**Size:** S - one pull request elsewhere, then removing the copy here.
-**Blocked by:** the third trial move (2026-11-08).
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F321",
+  "title": "Send The Terminal Input Fix Upstream",
+  "state": "Backlog",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 4,
+  "blockedBy": [],
+  "covers": "The terminal input fix offered upstream, and this repository's copy of `xterm` dropped once a release holds it."
+}
+```
+
+**Why this size.** one pull request elsewhere, then removing the copy here.
+
+**Blocked by** the third trial move (2026-11-08).
 
 **The operator's word (2026-11-08).** After the third move: the patch is run against upstream's current tree with
 upstream's own tests; only when they are green is the pull request handed to the coordinator, and the operator sends

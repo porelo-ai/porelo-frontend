@@ -1,7 +1,20 @@
 # F363 — A Grey Button Says Why In Words
 
-**Status:** Review.
-**Size:** S - a line of text beside a disabled action, and a word at creating.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F363",
+  "title": "A Grey Button Says Why In Words",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 49,
+  "blockedBy": [],
+  "covers": "A disabled action says why in text, not a tooltip, and creating at an https address says beforehand that a machine cannot follow it."
+}
+```
+
+**Why this size.** a line of text beside a disabled action, and a word at creating.
 
 **What must be true.** A person never finds a grey button with its reason only behind a hover, and is told at the moment of choosing an address what that address will stop later. In the foo test the Porelo organization stood at an https address, nothing said anything at creating, and later *Prepare a machine…* was simply grey.
 

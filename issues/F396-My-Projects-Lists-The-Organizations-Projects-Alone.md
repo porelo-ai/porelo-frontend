@@ -1,7 +1,20 @@
 # F396 — My Projects Lists The Organization's Projects Alone
 
-**Status:** Review.
-**Size:** S - one page's list, the rail's count and their tests; no contract.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F396",
+  "title": "My Projects Lists The Organization's Projects Alone",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 28,
+  "blockedBy": [],
+  "covers": "*My projects* lists only the organization's projects the person holds a role in; a checkout's local copy and *Default* stand under *All projects on your machines*."
+}
+```
+
+**Why this size.** one page's list, the rail's count and their tests; no contract.
 
 **What must be true.** Where the window reads an organization, *My projects* lists the projects of that organization
 the person holds a role in, and nothing a start in a checkout made. Every other project of a machine stands under

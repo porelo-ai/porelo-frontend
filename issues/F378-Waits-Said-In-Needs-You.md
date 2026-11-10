@@ -1,7 +1,22 @@
 # F378 — Waits Said In Needs You
 
-**Status:** Review; the time left is built, and a review's wait and files wait on the daemon.
-**Size:** S - two facts on rows and a note, if the daemon gives them.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F378",
+  "title": "Waits Said In Needs You",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 32,
+  "blockedBy": [],
+  "covers": "Time left in the Running waits-on-you note; tests, formatting and analysis blocked by the local launcher; review-row facts still need a reliable task association and file count."
+}
+```
+
+**Why this size.** two facts on rows and a note, if the daemon gives them.
+
+**How it stands.** The time left is built, and a review's wait and files wait on the daemon.
 
 **What must be true.** A review in *Needs you* says how long it has waited and how many files it holds, and the waits-on-you note under *Running* says the time left on a question.
 

@@ -1,7 +1,20 @@
 # F91 — One Way To Show Loading
 
-**Status:** Estimated.
-**Size:** M - one small shared widget, but eleven views and a held answer for each in the test
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F91",
+  "title": "One Way To Show Loading",
+  "state": "Estimated",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 3,
+  "blockedBy": [],
+  "covers": "Every view shows the same way that it is reading."
+}
+```
+
+**Why this size.** one small shared widget, but eleven views and a held answer for each in the test
 backend; no contract changes.
 
 **What must be true.** Every view that reads something when it opens shows, the same way, that it is

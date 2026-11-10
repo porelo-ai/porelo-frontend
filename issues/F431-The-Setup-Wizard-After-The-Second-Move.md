@@ -1,7 +1,20 @@
 # F431 — The Setup Wizard After The Second Move
 
-**Status:** Review.
-**Size:** M - the wizard shown as the one dialog it is, a *Run it for me* button for the bootstrap line, and the
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F431",
+  "title": "The Setup Wizard After The Second Move",
+  "state": "Review",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 18,
+  "blockedBy": [],
+  "covers": "*Set up a machine* as one dialog, a *Run it for me* button for the bootstrap line, the row asked again after the token."
+}
+```
+
+**Why this size.** the wizard shown as the one dialog it is, a *Run it for me* button for the bootstrap line, and the
 machine's row asked again once its token was given.
 
 **What must be true.** *Set up a machine* is one card, not a card in an empty frame. On *Hand the login over* a person

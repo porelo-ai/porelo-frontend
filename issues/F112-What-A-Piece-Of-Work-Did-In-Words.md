@@ -1,7 +1,20 @@
 # F112 — What A Piece Of Work Did, In Words
 
-**Status:** Analyzed.
-**Size:** M - a *What it did* section at the top of a piece of work, with two new daemon answers (`lastMessage` and
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F112",
+  "title": "What A Piece Of Work Did, In Words",
+  "state": "Analyzed",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 8,
+  "blockedBy": [],
+  "covers": "What a piece of work did, in words, at its top: last answer, commits as a list with their highest risk class, what waits with its checks, messages, firewall stops; no diff."
+}
+```
+
+**Why this size.** a *What it did* section at the top of a piece of work, with two new daemon answers (`lastMessage` and
 `TaskCommits`) in the client and its stand-ins; no diff on the wire.
 
 **What must be true.** At the top of every piece of work a person reads what it did, in words: the agent's last

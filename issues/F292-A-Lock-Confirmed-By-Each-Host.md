@@ -1,9 +1,23 @@
 # F292 — A Lock Confirmed By Each Host
 
-**Status:** Idea.
-**Severity:** medium.
-**Size:** M - the state of a *Lock* or a *Let back in* under way, per host, read from `org status` and kept on a
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F292",
+  "title": "A Lock Confirmed By Each Host",
+  "state": "Idea",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 23,
+  "blockedBy": [],
+  "covers": "*Lock* and *Let back in* shown as under way on each host until `org status` there confirms them; adding counts as done once signed."
+}
+```
+
+**Why this size.** the state of a *Lock* or a *Let back in* under way, per host, read from `org status` and kept on a
 person's row; built after the foo test.
+
+**Severity.** Medium.
 
 **What must be true.** After *Lock* or *Let back in*, the window shows the change as under way on each host until
 `org status` there confirms it, and says so if the confirmation stays out, also when the host is not running. Adding

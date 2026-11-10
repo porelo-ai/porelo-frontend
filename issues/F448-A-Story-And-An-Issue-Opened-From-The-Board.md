@@ -1,12 +1,27 @@
 # F448 — A Story And An Issue Opened From The Board
 
-**Status:** Rework: the story and the issue are read from the planner, the local app that now holds them, instead of the
-machine's daemon, which knows them no more; an issue's screen also shows its sub-issues. The window's planning mock
-(`lib/src/mock/planning_data.dart`, `planning_moves.dart` and what they serve) moves into the planner, which gets a mock
-mode serving this board; the window's planning tests start the planner in that mode instead of a mock in the window, and
-the Dart mock stays until the planner's mock mode exists. To be built once the planner's API is served.
-**Size:** M - two screens with a breadcrumb, their reads of the contract, one issue moved alone, the web links opened,
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F448",
+  "title": "A Story And An Issue Opened From The Board",
+  "state": "Rework",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 3,
+  "blockedBy": [],
+  "covers": "A story's and an issue's screen with a breadcrumb and *Open story*/*Open issue*, an issue moved alone and its sub-issues shown."
+}
+```
+
+**Why this size.** two screens with a breadcrumb, their reads of the contract, one issue moved alone, the web links opened,
 and a feature file.
+
+**Why it is in Rework.** The story and the issue are read from the planner, the local app that now holds them, instead
+of the machine's daemon, which knows them no more; an issue's screen also shows its sub-issues. The window's planning
+mock (`lib/src/mock/planning_data.dart`, `planning_moves.dart` and what they serve) moves into the planner, which gets a
+mock mode serving this board; the window's planning tests start the planner in that mode instead of a mock in the
+window, and the Dart mock stays until the planner's mock mode exists. To be built once the planner's API is served.
 
 **What must be true.** A click on a card opens the story: its title, priority, state, what it gains, the operator's
 test, its issues with their state and how many are in Review or Finished, and the work running on it; a click on an

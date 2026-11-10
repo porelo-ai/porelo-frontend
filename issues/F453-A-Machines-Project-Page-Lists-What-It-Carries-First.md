@@ -1,7 +1,20 @@
 # F453 — A Machine's Project Page Lists What It Carries First
 
-**Status:** Review.
-**Size:** S - one list sorted and folded, the host's raw words replaced, the forge's names shown as such, one count
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F453",
+  "title": "A Machine's Project Page Lists What It Carries First",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 10,
+  "blockedBy": [],
+  "covers": "A machine's project page lists the carried repositories first and folds the rest with their count; no raw host word; forge names shown as such; zero tasks said as 0."
+}
+```
+
+**Why this size.** one list sorted and folded, the host's raw words replaced, the forge's names shown as such, one count
 said as zero.
 
 **What must be true.** A machine's page of a project shows the repositories it carries first and folds the rest under

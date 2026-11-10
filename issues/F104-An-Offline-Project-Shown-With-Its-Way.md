@@ -1,7 +1,20 @@
 # F104 — An Offline Project Shown With Its Way
 
-**Status:** Estimated.
-**Size:** M - the frontend's part: an offline project's mark and the way named beside it.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F104",
+  "title": "An Offline Project Shown With Its Way",
+  "state": "Estimated",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 12,
+  "blockedBy": [],
+  "covers": "An offline project shown, with the way to make one by hand named."
+}
+```
+
+**Why this size.** the frontend's part: an offline project's mark and the way named beside it.
 
 **What must be true.** An offline project is made by hand only, on the machine. The window shows such a project and
 names the way: `porelo project follow NAME FILE`, with a bundle or a directory there.

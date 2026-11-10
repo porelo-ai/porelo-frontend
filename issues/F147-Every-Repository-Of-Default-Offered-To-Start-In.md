@@ -1,7 +1,20 @@
 # F147 — Every Repository Of Default Offered To Start In
 
-**Status:** Review.
-**Size:** XS - one getter and one line of parsing in `models.dart`, a scenario and a unit test beside the ones it touches.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F147",
+  "title": "Every Repository Of Default Offered To Start In",
+  "state": "Review",
+  "size": "XS",
+  "priority": "Medium",
+  "rank": 31,
+  "blockedBy": [],
+  "covers": "Starting in default offers every repository; the first is no longer hidden as its own."
+}
+```
+
+**Why this size.** one getter and one line of parsing in `models.dart`, a scenario and a unit test beside the ones it touches.
 
 **What must be true.** Starting work in default offers every repository default has. None is
 hidden as the project's own, because default has no own repository: with `utils4j` and `units4j` in

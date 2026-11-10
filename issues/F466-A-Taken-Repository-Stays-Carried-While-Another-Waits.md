@@ -1,7 +1,20 @@
 # F466 — A Taken Repository Stays Carried While Another Waits
 
-**Status:** Review.
-**Size:** S - grown from XS at its reading: a repository the host has taken read as carried, and work started in it,
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F466",
+  "title": "A Taken Repository Stays Carried While Another Waits",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 4,
+  "blockedBy": [],
+  "covers": "A repository the host has taken reads carried while the project waits for the token for another."
+}
+```
+
+**Why this size.** grown from XS at its reading: a repository the host has taken read as carried, and work started in it,
 on every screen that says the project's wait, while the project waits for the token for another.
 
 **What must be true.** Where a host waits for the person's token for one repository of a project, only that

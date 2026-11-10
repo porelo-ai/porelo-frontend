@@ -1,7 +1,20 @@
 # F377 — A Host's Channel Follows The Window
 
-**Status:** Review.
-**Size:** S - the channel `porelo-host` defaults to, read from its own version.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F377",
+  "title": "A Host's Channel Follows The Window",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 80,
+  "blockedBy": [],
+  "covers": "A host the window prepares installs from the window's own channel."
+}
+```
+
+**Why this size.** the channel `porelo-host` defaults to, read from its own version.
 
 **What must be true.** A host the window prepares installs from the window's own channel: a window from `snapshots` makes `snapshots` hosts, one from `releases` makes `releases` hosts.
 

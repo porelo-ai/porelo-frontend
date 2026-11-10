@@ -1,7 +1,20 @@
 # F190 — Approved Work Brought To The Central Forge
 
-**Status:** Analyzed.
-**Size:** M - a pull-request state and a bring-on call in the client and its stand-ins, with the contract docs, drawn
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F190",
+  "title": "Approved Work Brought To The Central Forge",
+  "state": "Analyzed",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 9,
+  "blockedBy": [],
+  "covers": "A host pull request's state and approval, and approved work brought on to the central forge bound to commit, repository and pull request, with level, class and checks in one line."
+}
+```
+
+**Why this size.** a pull-request state and a bring-on call in the client and its stand-ins, with the contract docs, drawn
 as a *Needs you* row and a list on the project's page with one confirmation; no comments, no merging, no token form.
 
 **What must be true.** For a task's pull request on the host's Forgejo, a person sees its state, its approval and the

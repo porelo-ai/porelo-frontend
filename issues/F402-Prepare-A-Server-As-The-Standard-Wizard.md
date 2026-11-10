@@ -1,6 +1,18 @@
 # F402 — Prepare A Server As The Standard Wizard
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F402",
+  "title": "Prepare A Server As The Standard Wizard",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 3,
+  "blockedBy": [],
+  "covers": "*Prepare a server* as steps of the standard wizard, each fitting the window."
+}
+```
 
 **What must be true.** *Prepare a server* fits the window: it runs as steps of the standard wizard (choose the
 machine and its address, compare its host key, the settings, the bootstrap line on the server, the run), each step on

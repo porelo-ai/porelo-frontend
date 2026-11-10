@@ -1,7 +1,22 @@
 # F239 — Known Values Offered In The Wizards
 
-**Status:** Idea. Held: GUI changes wait until the whole flow has been gone through again.
-**Size:** M - the forms of the organization's pages and of a person's identity offer what this computer already knows in a list, the likely one chosen, with free entry only for a new value.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F239",
+  "title": "Known Values Offered In The Wizards",
+  "state": "Idea",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 33,
+  "blockedBy": [],
+  "covers": "Known values offered: the organization's repository address and the KeePassXC database."
+}
+```
+
+**Why this size.** the forms of the organization's pages and of a person's identity offer what this computer already knows in a list, the likely one chosen, with free entry only for a new value.
+
+**How it stands.** Held: GUI changes wait until the whole flow has been gone through again.
 
 **What must be true.** Where the interface already knows the possible values of a field, the wizard offers them in a dropdown, with the likely one preselected. Free entry stays only where a value is new: an account name the person chooses, or a project this computer does not follow. A value taken from a list is checked as a typed one is.
 

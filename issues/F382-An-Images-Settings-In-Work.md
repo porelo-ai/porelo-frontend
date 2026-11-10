@@ -1,7 +1,20 @@
 # F382 — An Image's Settings In Work
 
-**Status:** Review.
-**Size:** S - a step and a dialog, once the daemon says what it was built with.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F382",
+  "title": "An Image's Settings In Work",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 69,
+  "blockedBy": [],
+  "covers": "A button in *Work* shows which settings the task's image was built with, and where each comes from."
+}
+```
+
+**Why this size.** a step and a dialog, once the daemon says what it was built with.
 
 **What must be true.** In *Work*, a button shows which settings the task's image was built with: base image, packages and tools, the agent and its version, security class, and where each comes from: `project.yml`, or Porelo's settings for *Default*.
 

@@ -1,6 +1,20 @@
 # F440 — Agents, The Gate's Review And Builds As Designed
 
-**Status:** Review.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F440",
+  "title": "Agents, The Gate's Review And Builds As Designed",
+  "state": "Review",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 15,
+  "blockedBy": [],
+  "covers": "*Agents & providers* as designed, the gate's review with author, committer and trailer, one line per workflow on a task's tile."
+}
+```
+
+**Why this size.** the agents' page, the review card and the workflows, as *Size* below breaks it down.
 
 **What must be true.** *Agents & providers* reads as one aligned list of agents with their facts, the gate's review
 names who wrote and committed a push and its trailer, and a task's tile names each workflow of its commit with its own

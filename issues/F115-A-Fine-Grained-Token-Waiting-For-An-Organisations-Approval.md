@@ -1,8 +1,23 @@
 # F115 — A Fine-Grained Token Waiting For An Organisation's Approval
 
-**Status:** Analyzed; blocked by the test organisation at GitHub that the operator sets up (the one
-[F59](README.md#f59) needs), which must require approval of fine-grained tokens.
-**Size:** S - one more case in the forge's refusals and its scenario, after one measurement.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F115",
+  "title": "A Fine-Grained Token Waiting For An Organisation's Approval",
+  "state": "Analyzed",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 3,
+  "blockedBy": [],
+  "covers": "A fine-grained token waiting for an organisation's approval said as waiting."
+}
+```
+
+**Why this size.** one more case in the forge's refusals and its scenario, after one measurement.
+
+**Blocked by** the test organization at GitHub that the operator sets up (the one [F59](README.md#f59) needs), which
+must require approval of fine-grained tokens.
 
 **What must be true.** A fine-grained GitHub token whose access to an organisation's repositories
 waits for that organisation's approval is said as waiting, with where an owner approves it, not as

@@ -1,7 +1,20 @@
 # F401 — The Bootstrap Line Says Where It Runs
 
-**Status:** Review.
-**Size:** XS - the root bootstrap line of *Prepare a server* in the shared box with its copy button, and words beside
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F401",
+  "title": "The Bootstrap Line Says Where It Runs",
+  "state": "Review",
+  "size": "XS",
+  "priority": "Medium",
+  "rank": 24,
+  "blockedBy": [],
+  "covers": "The bootstrap line of *Prepare a server* in its own box with a copy button, saying it runs on the server."
+}
+```
+
+**Why this size.** the root bootstrap line of *Prepare a server* in the shared box with its copy button, and words beside
 it that say where it runs.
 
 **What must be true.** In *Prepare a server*, the line a person runs on the server before setup stands on its own, in

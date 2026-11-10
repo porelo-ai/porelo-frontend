@@ -1,7 +1,22 @@
 # F265 — The Server Page Shows What It Holds
 
-**Status:** Idea. Held: GUI changes wait until the whole flow has been gone through again.
-**Size:** M - a design, then its screen: a server shows its own state, its projects and its persons with their state; actions on them are chosen from those lists.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F265",
+  "title": "The Server Page Shows What It Holds",
+  "state": "Idea",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 35,
+  "blockedBy": ["F266"],
+  "covers": "A server's page shows its own state, its projects and its persons with their state; actions chosen from the rows."
+}
+```
+
+**Why this size.** a design, then its screen: a server shows its own state, its projects and its persons with their state; actions on them are chosen from those lists.
+
+**How it stands.** Held: GUI changes wait until the whole flow has been gone through again.
 
 **What must be true.** A server's page shows the server's own state as the host admin reaches it (ssh as root), never "not answering" because no Porelo daemon answers. It lists the projects on it, from the signed organization state, and the persons on it, each with their state (active, locked) from the host; where the host is not reached, their state says unknown. Nothing is kept in a local record. A person's actions (lock out, admit again, delete the account) and a project's (take it off) are chosen from those rows, not typed into free-text dialogs. The design is filed and agreed before it is built.
 

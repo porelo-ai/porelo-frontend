@@ -1,7 +1,20 @@
 # F361 — A Project With No Git Repository Yet
 
-**Status:** Review.
-**Size:** M - a project's new place on the Organization page, its words, a row in *Needs you*, and the same for a machine with no address.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F361",
+  "title": "A Project With No Git Repository Yet",
+  "state": "Review",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 50,
+  "blockedBy": [],
+  "covers": "A project with no Git repository says so on the Organization page, where its Project Admin creates it, told by *Needs you*; it then appears under *My projects*."
+}
+```
+
+**Why this size.** a project's new place on the Organization page, its words, a row in *Needs you*, and the same for a machine with no address.
 
 **What must be true.** A project whose Git repository does not exist yet says exactly that, and the person who can create it learns of it and does it in one place, in words that say what happens. "Opened" is out: today "Open under Projects" names a place in the side bar and goes there, while *Open the project* makes a repository and signs.
 

@@ -1,6 +1,18 @@
 # F99 — An Attached Agent Shown At Rest Or Working
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F99",
+  "title": "An Attached Agent Shown At Rest Or Working",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 4,
+  "blockedBy": [],
+  "covers": "A work tile says whether an attached agent is at rest or working; implementation waits for the verified screen-derived daemon answer."
+}
+```
 
 **What must be true.** A person sees on a work tile whether the agent in an attached session is at
 rest or working, as the machine reads it from the agent's screen, never as a guess from silence.

@@ -1,6 +1,18 @@
 # F351 — A Host Reached From Windows
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F351",
+  "title": "A Host Reached From Windows",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 7,
+  "blockedBy": [],
+  "covers": "A host reached from Windows, measured first, probably by WSL's ssh."
+}
+```
 
 **What must be true.** The Windows build reaches a host, as it reaches a machine over ssh. How is measured first, and is probably WSL's ssh.
 

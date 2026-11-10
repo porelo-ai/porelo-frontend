@@ -1,7 +1,20 @@
 # F95 — A Waiting Push Fetched Here, Into A Clone Chosen
 
-**Status:** Analyzed.
-**Size:** M - a folder dialog, a git run here, the review's own-clone box and its wiring, and a changed decision in
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F95",
+  "title": "A Waiting Push Fetched Here, Into A Clone Chosen",
+  "state": "Analyzed",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 4,
+  "blockedBy": [],
+  "covers": "A waiting push fetched here, into a clone the person chooses, with its source level, risk class, and checkout warning."
+}
+```
+
+**Why this size.** a folder dialog, a git run here, the review's own-clone box and its wiring, and a changed decision in
 `doc/decisions.md`.
 
 **What must be true.** Beside a waiting push, a person can run its `git fetch` here, into a clone they choose, instead

@@ -1,6 +1,18 @@
 # F149 — A Panel Plans The Release
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F149",
+  "title": "A Panel Plans The Release",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 41,
+  "blockedBy": [],
+  "covers": "A panel that shows and edits a project's release plan by dragging issues into sprints and their functions, writing only the plan file."
+}
+```
 
 **What must be true.** The interface has a panel that shows a project's release plan as
 `porelo-project`'s plan page does for `plan/<release>/plan.yml` - each sprint's bar by its issues' states, each function tested or not - and lets the

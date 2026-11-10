@@ -1,6 +1,18 @@
 # F307 — Push And Pull Show Their Progress In The Interface
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F307",
+  "title": "Push And Pull Show Their Progress In The Interface",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 15,
+  "blockedBy": [],
+  "covers": "Push and pull on a card host show each repository's answer in the interface, the terminal only for the master password."
+}
+```
 
 **What must be true.** *Push the approved main…* and *Take the central state…* on a card host show each repository's
 answer in the interface as it comes, and the end in the interface's own words; the terminal is shown only while the

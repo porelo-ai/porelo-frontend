@@ -1,7 +1,20 @@
 # F290 — The Host Functions From A Windows Desktop
 
-**Status:** Idea.
-**Size:** M - the card's ssh config, the card tunnel's arguments, the card machine's relay and their tests in this
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F290",
+  "title": "The Host Functions From A Windows Desktop",
+  "state": "Idea",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 24,
+  "blockedBy": [],
+  "covers": "Connect and Prepare from a Windows desktop: one ssh per host card with loopback TCP ends, the daemon through the relay, no master."
+}
+```
+
+**Why this size.** the card's ssh config, the card tunnel's arguments, the card machine's relay and their tests in this
 repository; Core's and Matrix's parts are their own.
 
 **What must be true.** On Windows, a person connects to a machine, and a Machine Admin prepares it and names its

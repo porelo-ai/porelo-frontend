@@ -1,6 +1,18 @@
 # F395 — Leftovers Of Sprint 6q
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F395",
+  "title": "Leftovers Of Sprint 6q",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 25,
+  "blockedBy": [],
+  "covers": "What sprint 6q's issues named as not built, gathered for the operator to place: organization rows, a machine's page, a project's central state, lists and the card's renewal."
+}
+```
 
 **What must be true.** What sprint 6q's issues named as not built is kept in one place until the operator places each part:
 in an issue of its own, in a sprint, or dropped.

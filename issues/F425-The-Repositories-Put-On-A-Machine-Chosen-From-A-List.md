@@ -1,7 +1,20 @@
 # F425 — The Repositories Put On A Machine Chosen From A List
 
-**Status:** Review.
-**Size:** S - one dialog's choice widget (`CarryChoice` in `lib/src/ui/organization_dialogs.dart`) and its tests.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F425",
+  "title": "The Repositories Put On A Machine Chosen From A List",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 72,
+  "blockedBy": [],
+  "covers": "Putting some of a project's repositories on a machine lists them by full name with the key beside, checkboxes, a search field, *All* and *None*."
+}
+```
+
+**Why this size.** one dialog's choice widget (`CarryChoice` in `lib/src/ui/organization_dialogs.dart`) and its tests.
 
 **What must be true.** Putting some of a project's repositories on a machine lists every repository by its full
 name, the project's key beside it, each with a checkbox, under a search field, with *All* and *None*, so a person

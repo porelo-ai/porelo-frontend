@@ -1,6 +1,20 @@
 # F355 — One Order For A New Person
 
-**Status:** Idea. Nothing is built before the foo test.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F355",
+  "title": "One Order For A New Person",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 45,
+  "blockedBy": [],
+  "covers": "One order in the window for a person starting from a GitHub organization, with or without a key, each step showing its state, so *Create it* is reached only when it can work."
+}
+```
+
+**How it stands.** Nothing is built before the foo test.
 
 **What must be true.** A new person is given one clear order in the window: do A, then B, then C. Each step shows its state, read and checked before the last step, so *Create it* is reached only when it can work, and a refused step says what to do next in plain words. Today each need is met only as a refusal, in the order the code happens to check.
 

@@ -1,7 +1,20 @@
 # F118 — An Upstream That Cannot Be Read Said Before A Start
 
-**Status:** Review.
-**Size:** S - words for four outcomes and one refusal, the fix selectable with a terminal and an
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F118",
+  "title": "An Upstream That Cannot Be Read Said Before A Start",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 60,
+  "blockedBy": [],
+  "covers": "An upstream that cannot be read said before a start, with what fixes it."
+}
+```
+
+**Why this size.** words for four outcomes and one refusal, the fix selectable with a terminal and an
 "ask again" beside it, the refusal for both ways a start goes; the stand-in daemon and tests.
 
 **What must be true.** Where the daemon finds before a start that the repository's upstream cannot

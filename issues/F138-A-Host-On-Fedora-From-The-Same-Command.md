@@ -1,6 +1,18 @@
 # F138 — A Host On Fedora From The Same Command
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F138",
+  "title": "A Host On Fedora From The Same Command",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 39,
+  "blockedBy": [],
+  "covers": "`porelo-host` bringing a Fedora host up and down as it does Ubuntu 26.04."
+}
+```
 
 **What must be true.** `porelo-host up` and `down` bring a Fedora host up and take it off again as
 they do Ubuntu 26.04, with the same steps, the same stop and the same lines, so that porelo-host's

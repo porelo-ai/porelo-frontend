@@ -1,7 +1,20 @@
 # F223 — A Ready Server Runs Its Setup Again
 
-**Status:** Review.
-**Size:** S - a *Run its setup again* action on a ready server's row and menu, through the run the interface already
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F223",
+  "title": "A Ready Server Runs Its Setup Again",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 62,
+  "blockedBy": [],
+  "covers": "A ready rented server offers Run its setup again, which runs `up` in the interface's own run, a stop in it completed from Needs you."
+}
+```
+
+**Why this size.** a *Run its setup again* action on a ready server's row and menu, through the run the interface already
 keeps, and its tests.
 
 **What must be true.** A rented server that is ready offers *Run its setup again* in its row's menu in Machines. It

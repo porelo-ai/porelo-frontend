@@ -1,6 +1,20 @@
 # F383 — The Terminal Stays Dark
 
-**Status:** Review.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F383",
+  "title": "The Terminal Stays Dark",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 39,
+  "blockedBy": [],
+  "covers": "A terminal stays dark in the light theme, and answers a program asking for its colours."
+}
+```
+
+**Why this size.** sized at the move of the issues' data into their heads, from the change built: a terminal kept dark in the light theme.
 
 **What must be true.** In the light theme a terminal stays dark and looks as it does in a console. The tab's head and the page around it follow the theme; the terminal does not. A program asking for the colours hears them, so an agent's own theme picks dark, and tmux's status line reads.
 

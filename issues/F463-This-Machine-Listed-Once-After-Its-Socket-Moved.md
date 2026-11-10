@@ -1,7 +1,20 @@
 # F463 — This Machine Listed Once After Its Socket Moved
 
-**Status:** Review.
-**Size:** XS - the saved entry of this machine taken to where its socket is now, when the window loads.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F463",
+  "title": "This Machine Listed Once After Its Socket Moved",
+  "state": "Review",
+  "size": "XS",
+  "priority": "Medium",
+  "rank": 3,
+  "blockedBy": [],
+  "covers": "This machine listed once, at its socket as it is now, whatever socket was saved for it."
+}
+```
+
+**Why this size.** the saved entry of this machine taken to where its socket is now, when the window loads.
 
 **What must be true.** This machine is listed once, at its socket as it is now, whatever socket was saved for it.
 - Seen live (2026-11-09, the move rehearsal against a rented host): the window's settings held *this machine* at a

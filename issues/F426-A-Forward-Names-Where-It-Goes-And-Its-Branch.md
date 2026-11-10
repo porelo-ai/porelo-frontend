@@ -1,7 +1,20 @@
 # F426 — A Forward Names Where It Goes And Its Branch
 
-**Status:** Review.
-**Size:** S - the forward dialog (`askWhichBranch` in `lib/src/ui/gate_view.dart`), its caller `_approve` in
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F426",
+  "title": "A Forward Names Where It Goes And Its Branch",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 73,
+  "blockedBy": [],
+  "covers": "A forward names the forge and repository it goes to and starts with the task's branch, or the one last used for the task, filled in and changeable."
+}
+```
+
+**Why this size.** the forward dialog (`askWhichBranch` in `lib/src/ui/gate_view.dart`), its caller `_approve` in
 `lib/src/ui/shell.dart`, one new optional `Task` field, one stored setting, and their tests.
 
 **What must be true.** Forwarding a waiting push says which forge and which repository it goes to, and starts with

@@ -1,7 +1,20 @@
 # F320 — A First Organization Without Hand Work
 
-**Status:** Review.
-**Size:** M - a question for Core and Machines first, then one dialog.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F320",
+  "title": "A First Organization Without Hand Work",
+  "state": "Review",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 67,
+  "blockedBy": [],
+  "covers": "A forge's ssh host key confirmed in the interface, so a first organization needs no hand work."
+}
+```
+
+**Why this size.** a question for Core and Machines first, then one dialog.
 
 **What must be true.** A person with a forge that is not GitHub can set up their first organization from the interface
 alone. Today it takes seeding the forge's ssh host key by hand; the forge itself lies outside the host by design.

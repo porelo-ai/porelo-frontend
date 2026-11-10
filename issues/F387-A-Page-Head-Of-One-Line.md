@@ -1,6 +1,20 @@
 # F387 — A Page Head Of One Line
 
-**Status:** Review.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F387",
+  "title": "A Page Head Of One Line",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 41,
+  "blockedBy": [],
+  "covers": "*Organization*'s head is one line, and every page's explanation stands behind an `i`."
+}
+```
+
+**Why this size.** one line on *Organization*, and every page's explanation behind an `i`.
 
 **What must be true.** What is important stands in sight, and the block above the lists no longer pushes it out. The rule: a normal state is not described, a departure is.
 

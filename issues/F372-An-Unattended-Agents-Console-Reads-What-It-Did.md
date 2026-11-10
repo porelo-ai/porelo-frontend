@@ -1,6 +1,18 @@
 # F372 — An Unattended Agent's Console Reads What It Did
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F372",
+  "title": "An Unattended Agent's Console Reads What It Did",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 6,
+  "blockedBy": [],
+  "covers": "An unattended agent's console reads its text and what it did, in summaries, in place of one line per tool."
+}
+```
 
 **What must be true.** An unattended agent's console reads as a terminal does: its text and what it did, in summaries such as "Read 4 files", in place of `[Bash]`-style lines.
 

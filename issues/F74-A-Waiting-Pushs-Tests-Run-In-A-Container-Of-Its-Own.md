@@ -1,7 +1,20 @@
 # F74 — A Waiting Push's Tests Run In A Container Of Its Own
 
-**Status:** Analyzed.
-**Size:** M - one action in `ReviewView` (`lib/src/ui/gate_view.dart`), a command setting in `Settings`
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F74",
+  "title": "A Waiting Push's Tests Run In A Container Of Its Own",
+  "state": "Analyzed",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 7,
+  "blockedBy": [],
+  "covers": "A waiting push's tests run in a container of their own on the machine, pinned to the reviewed commit under its source-level and risk-class isolation."
+}
+```
+
+**Why this size.** one action in `ReviewView` (`lib/src/ui/gate_view.dart`), a command setting in `Settings`
 (`lib/src/app/settings.dart`), and a terminal run in `lib/src/ui/unlock_terminal.dart`, with Gherkin scenarios.
 
 **What must be true.** A person can run a waiting push's build or tests, and later open it in an IDE, in a fresh

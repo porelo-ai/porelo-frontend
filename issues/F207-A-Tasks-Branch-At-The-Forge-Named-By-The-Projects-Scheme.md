@@ -1,6 +1,18 @@
 # F207 — A Task's Branch At The Forge Named By The Project's Scheme
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F207",
+  "title": "A Task's Branch At The Forge Named By The Project's Scheme",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 37,
+  "blockedBy": [],
+  "covers": "A task's branch at the forge from the project's scheme, shown, named at the start and approved to by default."
+}
+```
 
 **What must be true.** In a project whose `project.yml` has a `branch` block, the interface shows each task's branch
 at the forge, lets the person name it at the start where the scheme's template would not, and approves to it by

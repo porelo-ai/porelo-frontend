@@ -1,7 +1,20 @@
 # F105 — A Task's Terminal In The Interface As Outside It
 
-**Status:** Estimated.
-**Size:** M - a measurement on the VM, then the session, its view and its key handling, with
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F105",
+  "title": "A Task's Terminal In The Interface As Outside It",
+  "state": "Estimated",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 6,
+  "blockedBy": [],
+  "covers": "A task's terminal in the interface behaves as in a plain terminal."
+}
+```
+
+**Why this size.** a measurement on the VM, then the session, its view and its key handling, with
 unit tests and a scenario against a real task; no contract changes.
 
 **What must be true.** A task's terminal in the interface behaves as the same task in a plain

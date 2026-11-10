@@ -1,7 +1,20 @@
 # F263 — The Give-Back Confirmation Says What Is Lost
 
-**Status:** Review.
-**Size:** XS - *Take the server down?* shows only the server's name and what is lost, and keeps still while shown.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F263",
+  "title": "The Give-Back Confirmation Says What Is Lost",
+  "state": "Review",
+  "size": "XS",
+  "priority": "Medium",
+  "rank": 64,
+  "blockedBy": [],
+  "covers": "*Take the server down?* shows the name and what is lost, no public values, a steady layout."
+}
+```
+
+**Why this size.** *Take the server down?* shows only the server's name and what is lost, and keeps still while shown.
 
 **What must be true.** The confirmation of taking a server down names the server and says what is lost (the server, its disk, the projects on it, and its VPN on this computer). It shows none of the host's public values (address, keys, `ca_sha256`) and no copy buttons. Its layout does not change while it is open.
 

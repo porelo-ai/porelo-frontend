@@ -1,7 +1,20 @@
 # F397 — A Repository Of Its Own Works In Default
 
-**Status:** Review.
-**Size:** L - a new step in every start from the window on a contract the machine still has to serve, its stand-ins,
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F397",
+  "title": "A Repository Of Its Own Works In Default",
+  "state": "Review",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 27,
+  "blockedBy": [],
+  "covers": "A repository of its own listed and started in Default, its `porelo.yml` allowed at a start, each setting shown with its source; the machine's proposal before a repository's first task there."
+}
+```
+
+**Why this size.** a new step in every start from the window on a contract the machine still has to serve, its stand-ins,
 the words of six views, and the machine's proposal before a repository's first task in `default`.
 
 **What must be true.** A repository worked on outside any project of an organization is listed and started in

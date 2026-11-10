@@ -1,6 +1,18 @@
 # F423 — The Window Laid Out By What Each Part Acts On
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F423",
+  "title": "The Window Laid Out By What Each Part Acts On",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 46,
+  "blockedBy": [],
+  "covers": "The side bar as a folding tree by what each part acts on: each machine with its sections, each organization with its sections, *My cards & keys* in place of its dialog; a page with entries under it shows facts and actions, only a leaf a list."
+}
+```
 
 **What must be true.** The side bar and the pages follow what each part acts on, so a person finds every function where
 its subject is: their own work across machines, one machine, the forges, their projects, their organizations, and their

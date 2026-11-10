@@ -1,6 +1,18 @@
 # F318 — An Owner Makes An Admin A Developer
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F318",
+  "title": "An Owner Makes An Admin A Developer",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 12,
+  "blockedBy": [],
+  "covers": "An Organization Admin turns a project's admin into a developer with an entry on the organization page."
+}
+```
 
 **What must be true.** An Organization Admin turns a project's admin into a developer directly, by an entry *Make a developer* of its own on the organization page, where today they remove the admin and add the person again. An owner has no exception: an owner lists themselves as Organization Admin first. `porelo project member role` is the command.
 

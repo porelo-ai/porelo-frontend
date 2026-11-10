@@ -1,7 +1,20 @@
 # F433 — The Start Dialog Says How Long It Runs
 
-**Status:** Review.
-**Size:** S - the start dialog's modes say how long the work runs, and an unattended run's minutes are a field.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F433",
+  "title": "The Start Dialog Says How Long It Runs",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 20,
+  "blockedBy": [],
+  "covers": "The start dialog's modes say how long they run; an unattended run's minutes are asked and sent."
+}
+```
+
+**Why this size.** the start dialog's modes say how long the work runs, and an unattended run's minutes are a field.
 
 **What must be true.** *A shell, driven by hand* says it has no time limit and runs until it is stopped. *Unattended,
 against a prompt* has *Minutes it may run*, 30 unless changed, and says that at the end the run is stopped and what it

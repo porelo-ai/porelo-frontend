@@ -1,6 +1,18 @@
 # F193 — What A Walk Left Open For Keys And Tasks
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F193",
+  "title": "What A Walk Left Open For Keys And Tasks",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 42,
+  "blockedBy": [],
+  "covers": "Key handling, one way to a running task and the proposed project model, built or decided against."
+}
+```
 
 **What must be true.** Three points a guided walk raised are either built or decided against: how
 keys are handled in the interface, one way to reach a running task, and the project model the

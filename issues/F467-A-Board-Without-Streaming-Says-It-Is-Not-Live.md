@@ -1,7 +1,20 @@
 # F467 — A Board Without Streaming Says It Is Not Live
 
-**Status:** Backlog.
-**Size:** XS - one line on the planning board where the planner does not stream it.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F467",
+  "title": "A Board Without Streaming Says It Is Not Live",
+  "state": "Backlog",
+  "size": "XS",
+  "priority": "Medium",
+  "rank": 15,
+  "blockedBy": [],
+  "covers": "A planning board read without streaming, or with its stream broken, says it is not live and offers a reload."
+}
+```
+
+**Why this size.** one line on the planning board where the planner does not stream it.
 
 **What must be true.** A planning board read from a planner that does not stream it, or whose stream broke, says it is
 not live, and that a reload shows the current state; it never stands as if it followed the planner.

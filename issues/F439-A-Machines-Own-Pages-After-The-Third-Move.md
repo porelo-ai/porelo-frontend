@@ -1,6 +1,20 @@
 # F439 — A Machine's Own Pages After The Third Move
 
-**Status:** Review.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F439",
+  "title": "A Machine's Own Pages After The Third Move",
+  "state": "Review",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 14,
+  "blockedBy": [],
+  "covers": "One header with *Open its forge* in sight, *Machine Admins* alone, a project's repositories on a machine, *New work* without a needless question, a dead forge forward noticed."
+}
+```
+
+**Why this size.** the header and *Machine Admins*, the project's repositories, *New work*, the forward's check.
 
 **What must be true.** A machine's page has one header with its actions in sight, a project opened from the machine
 shows what of the project is on that machine, *Machine Admins* shows the admins alone, *New work* on a machine asks

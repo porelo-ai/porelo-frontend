@@ -1,7 +1,20 @@
 # F399 — Porelo's Command Line Reached In WSL From Windows
 
-**Status:** Review.
-**Size:** M - one way to run Porelo's command line that knows the WSL distribution, taken by the six places that run
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F399",
+  "title": "Porelo's Command Line Reached In WSL From Windows",
+  "state": "Review",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 25,
+  "blockedBy": [],
+  "covers": "On Windows every use of Porelo's command line runs in the WSL distribution through `wsl.exe`."
+}
+```
+
+**Why this size.** one way to run Porelo's command line that knows the WSL distribution, taken by the six places that run
 it, with Windows paths handed over as the distribution reads them, and their tests.
 
 **What must be true.** On Windows every part of the window that asks Porelo's command line - the organization pages,

@@ -1,7 +1,20 @@
 # F459 — The Footer Counts What Runs Where
 
-**Status:** Review.
-**Size:** XS - two lines of the footer worded for the machine they count.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F459",
+  "title": "The Footer Counts What Runs Where",
+  "state": "Review",
+  "size": "XS",
+  "priority": "Medium",
+  "rank": 9,
+  "blockedBy": [],
+  "covers": "The footer's refresh and action counts name the machine and what they count."
+}
+```
+
+**Why this size.** two lines of the footer worded for the machine they count.
 
 **What must be true.** The footer never reads as if nothing runs while a task and its workflows run: each count names
 the machine it counts, and says what it counts.

@@ -1,6 +1,20 @@
 # F353 — The Page With The Work Cards Redesigned
 
-**Status:** Review.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F353",
+  "title": "The Page With The Work Cards Redesigned",
+  "state": "Review",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 52,
+  "blockedBy": [],
+  "covers": "The redesign of *Work* and *Needs you*: a list and one tab per running agent, reviews under *Needs you*, one count; with [F306](README.md#f306) in it."
+}
+```
+
+**Why this size.** the *Work* page and *Needs you* redrawn, their terminals moved to one place, tests with them.
 
 **What must be true.** *Work* shows all work in one list, as the other menu items do, with no decision in it, and every running agent in a tab of its own; what needs a decision is in *Needs you* alone, and one number counts it. A card whose terminal has ended, [F306](README.md#f306), goes into it.
 

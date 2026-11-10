@@ -1,7 +1,20 @@
 # F109 — The Interface On macOS, With Porelo In A Local VM
 
-**Status:** Estimated.
-**Size:** XL - a third desktop build, its signing and its package, and a VM set up from the window;
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F109",
+  "title": "The Interface On macOS, With Porelo In A Local VM",
+  "state": "Estimated",
+  "size": "XL",
+  "priority": "Medium",
+  "rank": 11,
+  "blockedBy": [],
+  "covers": "The interface on macOS, with Porelo in a local Lima VM set up from the window, and remote machines over ssh."
+}
+```
+
+**Why this size.** a third desktop build, its signing and its package, and a VM set up from the window;
 it splits into three issues of L or smaller, as *Plan* says.
 
 **What must be true.** A person on a Mac installs the interface and works with a Porelo that runs in

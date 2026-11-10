@@ -1,7 +1,20 @@
 # F398 — A Windows Start Leads To The WSL Distribution
 
-**Status:** Review.
-**Size:** M - "This computer" on Windows as the WSL distribution, the default one read from `wsl.exe`, an older empty
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F398",
+  "title": "A Windows Start Leads To The WSL Distribution",
+  "state": "Review",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 26,
+  "blockedBy": [],
+  "covers": "On Windows \"This computer\" is the default WSL distribution, reached through `wsl.exe`, never a socket."
+}
+```
+
+**Why this size.** "This computer" on Windows as the WSL distribution, the default one read from `wsl.exe`, an older empty
 entry taken over by it, the first start's choice where there are several, and their tests with a Windows desk.
 
 **What must be true.** On Windows "This computer" is the person's WSL distribution, reached through `wsl.exe` as a

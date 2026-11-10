@@ -1,7 +1,20 @@
 # F379 — Add A Project In One Step From The Window
 
-**Status:** Review.
-**Size:** S - one choice in the dialog, and the refusal's words.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F379",
+  "title": "Add A Project In One Step From The Window",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 13,
+  "blockedBy": [],
+  "covers": "A person naming themselves Project Admin adds a project in one step from the window."
+}
+```
+
+**Why this size.** one choice in the dialog, and the refusal's words.
 
 **What must be true.** A person naming themselves Project Admin adds a project in the window in one step, as `porelo org project add PROJECT --admin LOGIN --create-repository` does. A person who names someone else keeps the two steps.
 

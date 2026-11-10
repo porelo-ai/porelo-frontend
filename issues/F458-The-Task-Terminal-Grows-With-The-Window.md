@@ -1,7 +1,20 @@
 # F458 — The Task Terminal Grows With The Window
 
-**Status:** Backlog; Porelo's session sizing after the latest client is on its main (2026-11-10), in its review.
-**Size:** XS - the window's resize checked to reach the session, and a test of it once the session follows.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F458",
+  "title": "The Task Terminal Grows With The Window",
+  "state": "Backlog",
+  "size": "XS",
+  "priority": "Medium",
+  "rank": 10,
+  "blockedBy": [],
+  "covers": "The agent's screen grows with the window."
+}
+```
+
+**Why this size.** the window's resize checked to reach the session, and a test of it once the session follows.
 
 **What must be true.** When the window grows, the agent's screen in a task's terminal grows with it; no filler of
 dots stands where the screen should be.
@@ -15,6 +28,8 @@ dots stands where the screen should be.
   fills the view against a session that follows the latest client.
 
 ## How it stands
+
+Porelo's session sizing after the latest client is on its main (2026-11-10), in its review.
 
 - The window's part holds today: `test/ui/task_terminal_test.dart` ('a grown window sends the session its new size
   once, and a redraw sends none') shows a redraw at the same size sends nothing and a grown window one new size. It

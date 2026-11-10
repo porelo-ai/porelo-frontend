@@ -1,7 +1,20 @@
 # F424 — Setting Up A Machine, One Question Per Page
 
-**Status:** Review.
-**Size:** L - eight pages, a terminal on the server with a pin of its own, the token page, and `porelo_host` changes
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F424",
+  "title": "Setting Up A Machine, One Question Per Page",
+  "state": "Review",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 71,
+  "blockedBy": [],
+  "covers": "Setting up a server as a machine is one wizard, one question per page, each opening only once its answer holds: name, address answering SSH, the host key fetched by hand and compared, an address known with another key said so, the login handed over in a terminal on the server until root answers, the check passed and any no-answer named; *Add a machine* and *Prepare* become one *Set up…*."
+}
+```
+
+**Why this size.** eight pages, a terminal on the server with a pin of its own, the token page, and `porelo_host` changes
 for the check's answer.
 
 **What must be true.** Setting up a server as a machine of the organization is one wizard that asks one thing per page,

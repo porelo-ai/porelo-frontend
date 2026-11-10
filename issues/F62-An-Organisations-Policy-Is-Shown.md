@@ -1,7 +1,20 @@
 # F62 — An Organisation's Policy Is Shown
 
-**Status:** Estimated.
-**Size:** M - one contract change read from `porelo` (the policy and its refusals) across the
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F62",
+  "title": "An Organisation's Policy Is Shown",
+  "state": "Estimated",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 15,
+  "blockedBy": [],
+  "covers": "An organisation's policy shown."
+}
+```
+
+**Why this size.** one contract change read from `porelo` (the policy and its refusals) across the
 machine, starting work and the clearance prompt, with the mock daemon and the docs.
 
 **What must be true.** A person on a machine whose organisation set a policy sees that it is in

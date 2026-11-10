@@ -1,7 +1,20 @@
 # F456 — The Room Found From A Task And A Project
 
-**Status:** Review.
-**Size:** XS - the existing room action placed where a person looks for it, by its own name.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F456",
+  "title": "The Room Found From A Task And A Project",
+  "state": "Review",
+  "size": "XS",
+  "priority": "Medium",
+  "rank": 8,
+  "blockedBy": [],
+  "covers": "The project's room opened in one step from a task tile and the project's page."
+}
+```
+
+**Why this size.** the existing room action placed where a person looks for it, by its own name.
 
 **What must be true.** A person finds a project's room from the task they work in and from the project's page in one
 step, by a name that says it is the room.

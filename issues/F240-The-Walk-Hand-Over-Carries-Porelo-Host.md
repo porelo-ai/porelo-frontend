@@ -1,7 +1,22 @@
 # F240 — The Walk Hand-Over Carries Porelo-Host
 
-**Status:** Idea. Held: wizard changes wait until the whole flow has been gone through again.
-**Size:** S - the VMs' walk hand-over ships `porelo-host` and the start script points the interface at it; a local command that cannot start says only that.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F240",
+  "title": "The Walk Hand-Over Carries Porelo-Host",
+  "state": "Idea",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 31,
+  "blockedBy": [],
+  "covers": "The walk hand-over ships `porelo-host` and the start script points the interface at it; a missing local program said without the container sentence."
+}
+```
+
+**Why this size.** the VMs' walk hand-over ships `porelo-host` and the start script points the interface at it; a local command that cannot start says only that.
+
+**How it stands.** Held: wizard changes wait until the whole flow has been gone through again.
 
 **What must be true.** A walk's VMs get `porelo-host`, built from the same commit as their interface bundle, in the hand-over with its digest in `SHA256SUMS`. `laptop-b-start.sh` starts the interface with `PORELO_HOST_STANDIN` naming it, so *Connect a forge* and every other call of `porelo-host` work on the VMs as on the Laptop. When a command run in a terminal on this computer cannot start, the dialog names the missing program and nothing about a container.
 

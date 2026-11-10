@@ -1,7 +1,20 @@
 # F93 — Connections: Its Rare Actions Out Of The Way
 
-**Status:** Estimated.
-**Size:** S - one view and its steps change; the wizard and `Connections` stay as they are.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F93",
+  "title": "Connections: Its Rare Actions Out Of The Way",
+  "state": "Estimated",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 2,
+  "blockedBy": [],
+  "covers": "Connections' rare actions in its ⋮."
+}
+```
+
+**Why this size.** one view and its steps change; the wizard and `Connections` stay as they are.
 
 **What must be true.** A machine's Connections shows which key or token the machine reaches each
 outside address with, and its rarely needed actions, "Add a connection" and "Forget", sit in the

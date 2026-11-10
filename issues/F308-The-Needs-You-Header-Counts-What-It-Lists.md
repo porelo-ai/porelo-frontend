@@ -1,6 +1,18 @@
 # F308 — The Needs You Header Counts What It Lists
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F308",
+  "title": "The Needs You Header Counts What It Lists",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 14,
+  "blockedBy": [],
+  "covers": "The *Needs you* header, the rail's badge and the rows agree on what needs the person."
+}
+```
 
 **What must be true.** The *Needs you* page's header, the rail's badge and the rows on the page agree: two tasks
 waiting for review are listed, counted "2 need you" in the header and badged 2 in the rail, never "nothing needs

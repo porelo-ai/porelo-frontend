@@ -1,8 +1,23 @@
 # F97 — Forwarding To A Branch, Measured Against GitHub
 
-**Status:** Estimated; blocked by the test organisation and its token from the operator.
-**Size:** M - no product code changes, but a new acceptance scenario on the VM against GitHub, with
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F97",
+  "title": "Forwarding To A Branch, Measured Against GitHub",
+  "state": "Estimated",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 5,
+  "blockedBy": [],
+  "covers": "Forwarding to a chosen branch measured against GitHub."
+}
+```
+
+**Why this size.** no product code changes, but a new acceptance scenario on the VM against GitHub, with
 its support for a token and a test repository; it waits for both from the operator, as [F59](README.md#f59) does.
+
+**Blocked by** the test organization and its token from the operator.
 
 **What must be true.** Forwarding approved work to a branch the person chose from the repository's
 own lands on that branch at GitHub.

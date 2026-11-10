@@ -1,7 +1,20 @@
 # F400 — A Join Into A Second Room Says To Accept The Invitation
 
-**Status:** Review.
-**Size:** XS - one field read, the steps' words for an invitation, and their test.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F400",
+  "title": "A Join Into A Second Room Says To Accept The Invitation",
+  "state": "Review",
+  "size": "XS",
+  "priority": "Medium",
+  "rank": 5,
+  "blockedBy": [],
+  "covers": "*Join* that invites an existing Matrix account says to accept the invitation, with no password step."
+}
+```
+
+**Why this size.** one field read, the steps' words for an invitation, and their test.
 
 **What must be true.** When *Join* in a project's messages invites a Matrix account the person already has, rather
 than making one, the window says to accept the invitation to the room in the Matrix client they already sign in to,

@@ -1,7 +1,20 @@
 # F388 — The Stub's Pin Stays Fetchable
 
-**Status:** Backlog.
-**Size:** XS - one pin, or a word to the folder's keeper.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F388",
+  "title": "The Stub's Pin Stays Fetchable",
+  "state": "Backlog",
+  "size": "XS",
+  "priority": "Medium",
+  "rank": 5,
+  "blockedBy": [],
+  "covers": "A scenario that needs the stub does not go red because its pinned version left the folder."
+}
+```
+
+**Why this size.** one pin, or a word to the folder's keeper.
 
 **What must be true.** A scenario that needs the stub agent does not go red on a fresh machine because its pinned version left the folder. `integration_test/step/the_test_machine_has_porelos_stub_agent.dart` reads a named version from a folder that keeps the newest 20 versions, so a pin falls out after 20 Builds on `main`, and the step then says the pin may have to move.
 

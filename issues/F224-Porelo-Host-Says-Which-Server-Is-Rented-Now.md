@@ -1,7 +1,20 @@
 # F224 — Porelo-Host Says Which Server Is Rented Now
 
-**Status:** Review.
-**Size:** S - a read-only `porelo-host find` over the provider's existing `find`, and its tests; about 1 hour.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F224",
+  "title": "Porelo-Host Says Which Server Is Rented Now",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 63,
+  "blockedBy": [],
+  "covers": "A read-only `porelo-host find` says which server carries the project's tag now, or that none does."
+}
+```
+
+**Why this size.** a read-only `porelo-host find` over the provider's existing `find`, and its tests; about 1 hour.
 
 **What must be true.** `porelo-host find --project NAME --scaleway-project ID [--zone Z]` asks the provider which
 server carries the project's tag and prints one JSON line with its id, address and whether it is ready, exit 0; where

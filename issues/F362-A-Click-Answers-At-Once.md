@@ -1,7 +1,20 @@
 # F362 — A Click Answers At Once
 
-**Status:** Review.
-**Size:** S - a measurement on a real window first; the size of a fix follows from its cause.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F362",
+  "title": "A Click Answers At Once",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 81,
+  "blockedBy": [],
+  "covers": "A click on a row shows its page and its reading line at once; the delay seen is the read, so the page shows what the list holds while it reads, and a project's last read at once when opened again."
+}
+```
+
+**Why this size.** a measurement on a real window first; the size of a fix follows from its cause.
 
 **What must be true.** Whatever a click starts, a person sees at once that it arrived: on a row that opens a page, the page with its "Reading…" line. In the foo test, clicking a row under *Projects*, for a moment nothing happens and then the page comes.
 

@@ -1,6 +1,20 @@
 # F359 — An Empty List Starts Folded
 
-**Status:** Review.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F359",
+  "title": "An Empty List Starts Folded",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 44,
+  "blockedBy": [],
+  "covers": "A list with no rows starts folded and folds when emptied, a fold the person chose is kept, and the head's actions stay usable."
+}
+```
+
+**Why this size.** the empty state folds a list, in the one list section.
 
 **What must be true.** A list with nothing in it starts folded on a first visit, and folds when it is emptied, so the page shows what holds something; a fold the person chose is kept, and an action on the list's head stays usable while it is folded.
 

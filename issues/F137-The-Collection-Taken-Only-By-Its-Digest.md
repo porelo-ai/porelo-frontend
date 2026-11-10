@@ -1,7 +1,20 @@
 # F137 — The Collection Taken Only By Its Digest
 
-**Status:** Review.
-**Size:** S - one pinned digest, checked twice, with a test seen red on a changed byte.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F137",
+  "title": "The Collection Taken Only By Its Digest",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 11,
+  "blockedBy": [],
+  "covers": "The collection installed on the host only by the digest the package expects, checked here and there."
+}
+```
+
+**Why this size.** one pinned digest, checked twice, with a test seen red on a changed byte.
 
 **What must be true.** `porelo-host up` installs on the host only the porelo-host collection whose
 SHA-256 it was built to expect. A tarball that differs by one byte is refused before anything is

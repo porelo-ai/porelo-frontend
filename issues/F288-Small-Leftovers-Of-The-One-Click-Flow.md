@@ -1,6 +1,18 @@
 # F288 — Small Leftovers Of The One-Click Flow
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F288",
+  "title": "Small Leftovers Of The One-Click Flow",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 26,
+  "blockedBy": [],
+  "covers": "The small edge cases left over from the one-click flow gathered in one place for the operator to place: address forms, test gaps, texts."
+}
+```
 
 **What must be true.** Small edge cases left over from the one-click flow's build are kept in one place, for the operator to place:
 address forms, quoting, encodings, texts and test gaps. A grave finding never goes here; it gets an issue of its own.

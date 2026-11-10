@@ -1,9 +1,20 @@
 # F443 — Forge Token Handed Over When The Machine Asks
 
-**Status:** Backlog (the operator, 2026-11-10); blocked by the daemon's ask for it on the wire, a missing host forge
-token answered with the vault key and the host command, which Porelo builds after two issues of its own.
-**Priority:** High (the operator, 2026-11-09).
-**Size:** S - one more way a start's answer and a build's detail are read, the host's command run in a terminal on
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F443",
+  "title": "Forge Token Handed Over When The Machine Asks",
+  "state": "Backlog",
+  "size": "S",
+  "priority": "High",
+  "rank": 1,
+  "blockedBy": [],
+  "covers": "The person's forge token on a host made by the host's own command, run in a terminal there from the window when the host asks; never through this program."
+}
+```
+
+**Why this size.** one more way a start's answer and a build's detail are read, the host's command run in a terminal on
 it as the store and import commands are, the machine asked again, and their tests; once the daemon says it.
 
 **What must be true.** When a host needs the person's own forge token for its forge, to tell a task its builds or to
@@ -13,6 +24,11 @@ the host's forge and stays in the person's vault there: it never passes through 
 log or the person's clipboard.
 
 ## How it stands
+
+The operator put it in Backlog on 2026-11-10 and gave it the priority High on 2026-11-09.
+
+**Blocked by** the daemon's ask for it on the wire, a missing host forge token answered with the vault key and the
+host command, which Porelo builds after two issues of its own.
 
 - On a host, the person's forge token for the host's own forge is made by the host: `porelo-host-forge-token`, run in
   a shell on the host, has the forge make a token for the person's login and puts it into the person's vault there.

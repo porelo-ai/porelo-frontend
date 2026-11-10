@@ -1,7 +1,20 @@
 # F94 — A Project's Keys Told In One Place
 
-**Status:** Estimated.
-**Size:** M - a new question to the forge, the dialog's one list, and scenarios with a
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F94",
+  "title": "A Project's Keys Told In One Place",
+  "state": "Estimated",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 4,
+  "blockedBy": [],
+  "covers": "A project's keys told in one place, the signing key checked against a branch rule."
+}
+```
+
+**Why this size.** a new question to the forge, the dialog's one list, and scenarios with a
 fake branch rule; nothing another repository reads changes.
 
 **What must be true.** A person sees a project's keys in one place, whose each is and what it is for,

@@ -1,7 +1,20 @@
 # F454 — Placing Says Its Progress In Its Dialog
 
-**Status:** Review.
-**Size:** S - the placing's progress and end said in the dialog that started it.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F454",
+  "title": "Placing Says Its Progress In Its Dialog",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 6,
+  "blockedBy": [],
+  "covers": "Placing shows its progress and end in its dialog."
+}
+```
+
+**Why this size.** the placing's progress and end said in the dialog that started it.
 
 **What must be true.** A person who puts a project on a machine sees its progress and its end in the dialog they
 started it from.

@@ -1,7 +1,20 @@
 # F370 — Start Work In A Project A Machine Carries
 
-**Status:** Review.
-**Size:** S - the button names its project and asks among several; a first start from the page follows the daemon's answer.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F370",
+  "title": "Start Work In A Project A Machine Carries",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 57,
+  "blockedBy": [],
+  "covers": "A machine page's *Start work* leads into the project it carries, not into the Default project asking for an address."
+}
+```
+
+**Why this size.** the button names its project and asks among several; a first start from the page follows the daemon's answer.
 
 **What must be true.** A machine's page that says "Ready to work on: foo-project" leads to work in that project. In the foo test `scaleway-1` said so, and its *Start work* asked for a repository's address, the way into the *Default* project. The wizard *Start an agent for each repository* could not be reached, and the test stopped there.
 

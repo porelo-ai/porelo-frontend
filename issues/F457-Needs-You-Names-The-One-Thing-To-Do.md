@@ -1,8 +1,20 @@
 # F457 — Needs You Names The One Thing To Do
 
-**Status:** Implementing, part 4 first: the pull request on a host's forge and the done task's own state, freed by
-Porelo's `PullRequests`/`WatchPullRequests` and the task state `done` (2026-11-10).
-**Size:** L - grown from M at its plan reading: *Needs you* split into one row per cause across the attention model,
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F457",
+  "title": "Needs You Names The One Thing To Do",
+  "state": "Implementing",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 2,
+  "blockedBy": [],
+  "covers": "*Needs you* items name one action, close with their cause, can be marked seen, embed no task tile; nothing waits at the gate in class online; a done task shown done; the commit's makers shown."
+}
+```
+
+**Why this size.** grown from M at its plan reading: *Needs you* split into one row per cause across the attention model,
 the task model and four views; a seen mark kept safely; a project in class `online` said alike on every screen; built
 in three parts.
 
@@ -49,6 +61,9 @@ Read in today's code at its plan reading; the parts are built in this order, eac
   said as the head commit's alone unless the push's commits were read, and "not reported" where absent.
 
 ## How it stands
+
+Part 4 first: the pull request on a host's forge and the done task's own state, freed by Porelo's
+`PullRequests`/`WatchPullRequests` and the task state `done` (2026-11-10).
 
 - **Part 4 built** (2026-11-10), parts 1-3 not yet:
   - The client reads Porelo's `PullRequests` and `WatchPullRequests` (`HostPullRequest`, `PullRequestsSeen`), with

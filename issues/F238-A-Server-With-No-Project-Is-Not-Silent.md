@@ -1,7 +1,22 @@
 # F238 — A Server With No Project Is Not Silent
 
-**Status:** Idea. Held: wizard changes wait until the whole flow has been gone through again.
-**Size:** XS - a host prepared with no project left out of *Needs you*'s silent machines, and its row saying "no project yet".
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F238",
+  "title": "A Server With No Project Is Not Silent",
+  "state": "Idea",
+  "size": "XS",
+  "priority": "Medium",
+  "rank": 30,
+  "blockedBy": [],
+  "covers": "A server prepared with no project not raised as *Not answering*; its row says \"No project yet\"."
+}
+```
+
+**Why this size.** a host prepared with no project left out of *Needs you*'s silent machines, and its row saying "no project yet".
+
+**How it stands.** Held: wizard changes wait until the whole flow has been gone through again.
 
 **What must be true.** A server prepared with no project, which by design has no project account and no daemon, is not raised under *Needs you* as *Not answering*. Its row in *Machines* says "No project yet", and its way on is *Put it on a machine…* on a project's row under *Organization*.
 

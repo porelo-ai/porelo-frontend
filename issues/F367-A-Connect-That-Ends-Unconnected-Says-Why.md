@@ -1,7 +1,20 @@
 # F367 — A Connect That Ends Unconnected Says Why
 
-**Status:** Review.
-**Size:** M - one reading of the state for row and page, words beside *Connect*, a row in *Needs you*, and a kept attempt.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F367",
+  "title": "A Connect That Ends Unconnected Says Why",
+  "state": "Review",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 48,
+  "blockedBy": [],
+  "covers": "A *Connect* that ends unconnected says why beside the button, a machine waiting for its token leads to giving it, and row and page agree."
+}
+```
+
+**Why this size.** one reading of the state for row and page, words beside *Connect*, a row in *Needs you*, and a kept attempt.
 
 **What must be true.** A person who presses *Connect* is told what came of it, and where to look. In the foo test, *Connect* on the organization's machine row greyed for a moment and returned to the same state, with no words, no log and nothing in *Needs you*. A machine waiting for its token leaves the person with the one button that cannot help.
 

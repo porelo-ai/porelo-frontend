@@ -1,6 +1,18 @@
 # F430 — Leftovers Of The Rental Findings
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F430",
+  "title": "Leftovers Of The Rental Findings",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 2,
+  "blockedBy": [],
+  "covers": "What the fixes of the trial move's findings named as not built, gathered for the operator to place: the wizard's last pages in a test, the old preparing dialog, Forward's stale-push check, a give-back that leaves the machine listed."
+}
+```
 
 **What must be true.** What the fixes of the 2026-11-07 trial move's findings ([F424](README.md#f424) to [F428](README.md#f428)) named as not built is kept
 in one place until the operator places each part: in an issue of its own, in a sprint, or dropped. Each point came from

@@ -1,6 +1,18 @@
 # F282 — The Providers' Usage In A Status Line
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F282",
+  "title": "The Providers' Usage In A Status Line",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 28,
+  "blockedBy": [],
+  "covers": "A status line with one traffic light for the providers' usage, a popup per provider, and a *Needs you* warning past a set threshold."
+}
+```
 
 **What must be true.** A status line at the bottom of the window shows the usage of the providers in use as one
 traffic light for all of them. A click opens a popup with the exact status: one line per provider, each with its own

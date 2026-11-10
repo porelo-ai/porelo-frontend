@@ -1,6 +1,20 @@
 # F438 — Rows And Running Steps After The Third Move
 
-**Status:** Review.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F438",
+  "title": "Rows And Running Steps After The Third Move",
+  "state": "Review",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 12,
+  "blockedBy": [],
+  "covers": "A row keeps its chip and buttons inside, running steps say they run, a machine not yet admitting says it waits, growing output follows its last line."
+}
+```
+
+**Why this size.** the row, the follow mode, the waiting words and the token's state, as *Size* below breaks it down.
 
 **What must be true.** A row keeps its chip and buttons inside itself, a running step says that it runs and how it
 ended, a machine not yet admitting the person says that it waits instead of showing a refusal, and every output that

@@ -1,9 +1,24 @@
 # F37 — Reach A Machine Without An ssh Binary
 
-**Status:** Estimated; Android first, the mobile client beyond the transport as issues of its own.
-**Size:** L - one transport interface over the forward, the trial and the terminal, a `dartssh2`
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F37",
+  "title": "Reach A Machine Without An ssh Binary",
+  "state": "Estimated",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 9,
+  "blockedBy": [],
+  "covers": "A machine reached without an `ssh` binary."
+}
+```
+
+**Why this size.** one transport interface over the forward, the trial and the terminal, a `dartssh2`
 implementation with its own host key store and keychain, and a leg against a real machine; its
 questions decided first. A mobile client itself is not in it, and waits for the operator.
+
+**How it stands.** Android first, the mobile client beyond the transport as issues of its own.
 
 **What must be true.** A person reaches a machine from a device without an `ssh` binary, such as a
 phone, and the machine is trusted, authenticated and supervised to the same standard as from the

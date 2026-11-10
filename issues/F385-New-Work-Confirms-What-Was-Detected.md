@@ -1,7 +1,20 @@
 # F385 — New Work Confirms What Was Detected
 
-**Status:** Review.
-**Size:** S - one dialog, on the daemon's answer.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F385",
+  "title": "New Work Confirms What Was Detected",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 70,
+  "blockedBy": [],
+  "covers": "*New work* on this computer asks the same question as a first start before it writes `project.yml`."
+}
+```
+
+**Why this size.** one dialog, on the daemon's answer.
 
 **What must be true.** On this computer, *New work* shows the same question as a first start in a terminal: the packages and tools found and the network access it opens, yes or no, with `project.yml` written into the checkout for the person to commit. No leaves the start as it is today and nothing kept, and the next start asks again. On another machine the window uses what the repository holds and says if nothing is there; no plugin runs there. A repository of an organization's project has no question.
 

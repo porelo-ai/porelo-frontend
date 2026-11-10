@@ -1,7 +1,22 @@
 # F108 — A Machine Over Ssh From Windows
 
-**Status:** Review. Built for a machine over ssh with no card; a host is [F351](README.md#f351).
-**Size:** M - several modules (the machine list, the relay, the trial, commands, the wizard); no contract changes.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F108",
+  "title": "A Machine Over Ssh From Windows",
+  "state": "Review",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 59,
+  "blockedBy": [],
+  "covers": "On Windows, a machine over ssh is reached through the relay, as a WSL distribution is; a host is [F351](README.md#f351)."
+}
+```
+
+**Why this size.** several modules (the machine list, the relay, the trial, commands, the wizard); no contract changes.
+
+**How it stands.** Built for a machine over ssh with no card; a host is [F351](README.md#f351).
 
 **What must be true.** On Windows the interface reaches a Porelo on a machine over ssh, as it does on
 Linux: its projects, its work, its terminals and its gate, with the key Windows' own ssh agent holds.

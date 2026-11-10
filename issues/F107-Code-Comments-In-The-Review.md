@@ -1,7 +1,20 @@
 # F107 — Code Comments In The Review
 
-**Status:** Analyzed; blocked by [F78](README.md#f78).
-**Size:** M - one review-summary call in the client and its stand-ins, with the contract docs, drawn as one block on
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F107",
+  "title": "Code Comments In The Review",
+  "state": "Analyzed",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 6,
+  "blockedBy": ["F78"],
+  "covers": "Per waiting push the open finding and thread counts and each check's completeness, anything but complete never shown as clean; comments read and written in IntelliJ."
+}
+```
+
+**Why this size.** one review-summary call in the client and its stand-ins, with the contract docs, drawn as one block on
 the push's page and one line in its *Needs you* row; no comment model, composer or rendering.
 
 **What must be true.** For each waiting push a person sees, without an IDE, how many findings and review threads are

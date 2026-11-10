@@ -1,7 +1,22 @@
 # F236 — Root Reached On A Rented Server
 
-**Status:** Idea. Held: wizard changes wait until the whole flow has been gone through again.
-**Size:** S - root's login allowed in the rental's cloud-config, and the "login as" answer refused at once with words that name it.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F236",
+  "title": "Root Reached On A Rented Server",
+  "state": "Idea",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 29,
+  "blockedBy": [],
+  "covers": "Root allowed in the rental's cloud-config; a \"Please login as\" answer refused at once, naming the user."
+}
+```
+
+**Why this size.** root's login allowed in the rental's cloud-config, and the "login as" answer refused at once with words that name it.
+
+**How it stands.** Held: wizard changes wait until the whole flow has been gone through again.
 
 **What must be true.** A server prepared with no project (`up --host-name … --login-user root`) on Scaleway's Ubuntu takes the person's key for root, so *Wait for the server to accept SSH* ends as soon as sshd answers. Where a server still refuses root with "Please login as the user …", `up` stops at once on that answer and says which user the image offers, instead of waiting out its twenty minutes.
 

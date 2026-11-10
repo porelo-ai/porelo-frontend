@@ -1,6 +1,20 @@
 # F380 — Default On My Projects
 
-**Status:** Review.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F380",
+  "title": "Default On My Projects",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 38,
+  "blockedBy": [],
+  "covers": "*Default* stands in *My projects* beside the organization's projects, and is counted."
+}
+```
+
+**Why this size.** sized at the move of the issues' data into their heads, from the change built: *Default* listed and counted beside the organization's projects.
 
 **What must be true.** *Default* stands on the main *My projects* page beside the organization's projects, with a row and a page like any other, and the header and the side bar count it.
 

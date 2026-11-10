@@ -1,9 +1,25 @@
 # F304 — No Message Asks A Step The Interface Can Take
 
-**Status:** Idea. Waits for the foo test.
-**Severity:** high.
-**Size:** M - every refusal and unavailable reason that sends the person to a read, refresh or retry the interface can
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F304",
+  "title": "No Message Asks A Step The Interface Can Take",
+  "state": "Idea",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 16,
+  "blockedBy": [],
+  "covers": "No message tells the person to do a step the interface can take itself; actions read what they need and say so."
+}
+```
+
+**Why this size.** every refusal and unavailable reason that sends the person to a read, refresh or retry the interface can
 run itself, with their tests; no contract with another repository.
+
+**How it stands.** Waits for the foo test.
+
+**Severity.** High.
 
 **What must be true.** No message tells the person to do a step the interface can do itself. Where an action needs a
 fresh read (the registry, the project's verified access, the person's card, a host's state), the action runs that read

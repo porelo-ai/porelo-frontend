@@ -1,7 +1,22 @@
 # F262 — Lock And Purge Say What They Do
 
-**Status:** Idea. Held: GUI changes wait until the whole flow has been gone through again.
-**Size:** XS - a project member's *Lock* says what it does.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F262",
+  "title": "Lock And Purge Say What They Do",
+  "state": "Idea",
+  "size": "XS",
+  "priority": "Medium",
+  "rank": 34,
+  "blockedBy": [],
+  "covers": "A project member's *Lock* says what it does."
+}
+```
+
+**Why this size.** a project member's *Lock* says what it does.
+
+**How it stands.** Held: GUI changes wait until the whole flow has been gone through again.
 
 **What must be true.** A project member's *Lock* says what it does: access is turned off, the account and its home are kept until the deletion day the machine names, and *Unlock* undoes it.
 

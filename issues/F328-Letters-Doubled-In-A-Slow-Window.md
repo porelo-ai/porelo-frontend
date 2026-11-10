@@ -1,6 +1,18 @@
 # F328 — Letters Doubled In A Slow Window
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F328",
+  "title": "Letters Doubled In A Slow Window",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 10,
+  "blockedBy": [],
+  "covers": "A key pressed once reaching a console once, however slowly the window answers."
+}
+```
 
 **What must be true.** A key pressed once reaches a task's console once, however slowly the window answers, and a window
 that answers late does not read as a broken one.

@@ -1,6 +1,18 @@
 # F352 — A Rental State Kept Beyond One Computer
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F352",
+  "title": "A Rental State Kept Beyond One Computer",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 8,
+  "blockedBy": [],
+  "covers": "OpenTofu's state in the organization's repository or at the provider."
+}
+```
 
 **What must be true.** OpenTofu's state of a rented host can be reached from more than the computer that rented it: in the organization's repository, or at the provider.
 

@@ -1,6 +1,18 @@
 # F349 — A Way Without Administration Rights
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F349",
+  "title": "A Way Without Administration Rights",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 9,
+  "blockedBy": [],
+  "covers": "A person creates the repository and enters each deploy key by hand, so their token needs no Administration."
+}
+```
 
 **What must be true.** A person who will not or cannot give a token far-reaching rights can do that part by hand, knowingly at more effort: they create the project's repository and enter the deploy key Porelo shows for each repository themselves. Their token then needs no Administration, only reading contents and members.
 

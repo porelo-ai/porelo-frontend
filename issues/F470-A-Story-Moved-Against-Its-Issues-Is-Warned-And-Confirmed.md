@@ -1,10 +1,26 @@
 # F470 — A Story Moved Against Its Issues Is Warned And Confirmed
 
-**Status:** Backlog; blocked by Porelo's planning keeping a story's explicit state beside its issues and saying where
-the issues do not fit it, through the board's save.
-**Priority:** Medium (the operator, 2026-11-10); filed, not built now.
-**Size:** S - the board's warning before a story is moved into a state its issues do not fit, confirm or cancel, the
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F470",
+  "title": "A Story Moved Against Its Issues Is Warned And Confirmed",
+  "state": "Backlog",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 2,
+  "blockedBy": [],
+  "covers": "A story moved on the board against its issues is warned, naming them, and saved only when confirmed; it keeps that state."
+}
+```
+
+**Why this size.** the board's warning before a story is moved into a state its issues do not fit, confirm or cancel, the
 explicit state kept on the card after the save, and their tests.
+
+**Blocked by** Porelo's planning keeping a story's explicit state beside its issues and saying where the issues do not
+fit it, through the board's save.
+
+**How it stands.** The operator gave it the priority Medium on 2026-11-10: filed, not built now.
 
 **What must be true.** A person who moves a story on the planning board into a state that its issues do not fit by
 the automatic rule is warned before it is saved, naming each issue that does not fit, and confirms or cancels; once

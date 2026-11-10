@@ -1,7 +1,20 @@
 # F427 — A Host's Forge Opened From Its Machine
 
-**Status:** Review.
-**Size:** S - one command on the organization's machine row and the machine's page, from the forward the window
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F427",
+  "title": "A Host's Forge Opened From Its Machine",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 75,
+  "blockedBy": [],
+  "covers": "A connected host's row and machine page offer *Open its forge*, at the address its forge answers to."
+}
+```
+
+**Why this size.** one command on the organization's machine row and the machine's page, from the forward the window
 already raises, and its test.
 
 **What must be true.** While the window is connected to a host with a forge of its own, the host's row under the

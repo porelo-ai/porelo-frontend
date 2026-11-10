@@ -1,6 +1,20 @@
 # F356 — The Porelo Organization Named Apart
 
-**Status:** Review.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F356",
+  "title": "The Porelo Organization Named Apart",
+  "state": "Review",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 43,
+  "blockedBy": [],
+  "covers": "The window says *Porelo organization* wherever a forge's organization could also be meant, and says it lives in a repository inside that one."
+}
+```
+
+**Why this size.** the table's words, then about 95 sentences read one by one.
 
 **What must be true.** A person never has to guess which organization a sentence means. "Create the organization" confuses, because a GitHub organization has the same word and the person has both at that moment; the window says *Porelo organization* wherever both could be meant, and says what it is: it lives in a repository inside the GitHub organization.
 

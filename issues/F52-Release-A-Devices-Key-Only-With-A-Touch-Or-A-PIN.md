@@ -1,7 +1,20 @@
 # F52 — Release A Device's Key Only With A Touch Or A PIN
 
-**Status:** Estimated.
-**Size:** XL - splits into a store that derives the share at unlock behind `DeviceKeyStore`,
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F52",
+  "title": "Release A Device's Key Only With A Touch Or A PIN",
+  "state": "Estimated",
+  "size": "XL",
+  "priority": "Medium",
+  "rank": 10,
+  "blockedBy": [],
+  "covers": "A device's key released only behind a TPM2 PIN; a touch later."
+}
+```
+
+**Why this size.** splits into a store that derives the share at unlock behind `DeviceKeyStore`,
 with its words (M), and a TPM2 object behind a PIN on Linux and Windows (L); FIDO2 `hmac-secret`
 (L) is an issue of its own, later.
 

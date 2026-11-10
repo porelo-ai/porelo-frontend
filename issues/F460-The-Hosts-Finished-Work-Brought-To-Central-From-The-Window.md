@@ -1,9 +1,24 @@
 # F460 — The Host's Finished Work Brought To Central From The Window
 
-**Status:** Backlog; the backend's gathered push of a host's `main` to the central forge, taking repository names and
-naming a refused login, is on Porelo's main (2026-11-10), in its review.
-**Size:** M - a release action for a project carried on a host, its question, its run through the backend, and its
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F460",
+  "title": "The Host's Finished Work Brought To Central From The Window",
+  "state": "Backlog",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 11,
+  "blockedBy": [],
+  "covers": "*Bring it to central…* brings a host's finished `main` to the central forge from the project's page, refusals in the backend's words."
+}
+```
+
+**Why this size.** a release action for a project carried on a host, its question, its run through the backend, and its
 answer, refused in the backend's words.
+
+**How it stands.** The backend's gathered push of a host's `main` to the central forge, taking repository names and
+naming a refused login, is on Porelo's main (2026-11-10), in its review.
 
 **What must be true.** A person brings a host's finished `main` of a project to the central forge from the window, by
 a button where they expect a release, without a command line or a pasted token.

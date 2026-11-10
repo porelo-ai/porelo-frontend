@@ -8,229 +8,229 @@ how it talks to a daemon, and [what the contract does not yet cover](../doc/Cont
 the backend has no method or field for yet.
 
 Grouped by state, the group's heading naming it, as `AGENTS.md` says how an issue moves through
-them; within a group the order is the priority. **Size** is how big what remains is, `—` for an
-issue in Review or not yet analyzed; **Open questions**, in *Analyzed* only, counts what waits on the operator, the
+them; within a group the order is the priority. **Size** is how big the issue is, `—` for an issue
+not yet sized; **Open questions**, in *Analyzed* only, counts what waits on the operator, the
 issue's *Open questions*; what an agent finds out itself stands under *To be checked* and is not
 counted. A finished issue's file is deleted once what outlives it is in `doc/` or `AGENTS.md`;
 its row stays under *Finished*, with one sentence of what was built; decisions are in [doc/decisions.md](../doc/decisions.md).
 
-### Review
+## Idea
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f471"></a>[F471](F471-The-Planning-Screen-Comes-From-The-Planners-Package.md) | M | — | The planning screen, its models and tests moved into a Flutter package of porelo-planner, with no change in behavior; the window embeds it and hands it the planner's address. |
-| <a id="f462"></a>[F462](F462-A-Hosts-Central-Reason-Said-In-Words.md) | — | — | Where the host cannot say how its copy stands against central, the row says why in words, never the daemon's token. |
-| <a id="f463"></a>[F463](F463-This-Machine-Listed-Once-After-Its-Socket-Moved.md) | — | — | This machine listed once, at its socket as it is now, whatever socket was saved for it. |
-| <a id="f466"></a>[F466](F466-A-Taken-Repository-Stays-Carried-While-Another-Waits.md) | — | — | A repository the host has taken reads carried while the project waits for the token for another. |
-| <a id="f400"></a>[F400](F400-A-Join-Into-A-Second-Room-Says-To-Accept-The-Invitation.md) | — | — | *Join* that invites an existing Matrix account says to accept the invitation, with no password step. |
-| <a id="f454"></a>[F454](F454-Placing-Says-Its-Progress-In-Its-Dialog.md) | — | — | Placing shows its progress and end in its dialog. |
-| <a id="f452"></a>[F452](F452-A-Project-Waiting-For-The-Token-Says-So-Where-It-Is-Shown.md) | — | — | A project the host reports waiting for the token says so, why, and offers the token on its row, the machine's project page and each repository row; never called carried; the placing dialog not grey when opened again. |
-| <a id="f456"></a>[F456](F456-The-Room-Found-From-A-Task-And-A-Project.md) | XS | — | The project's room opened in one step from a task tile and the project's page. |
-| <a id="f459"></a>[F459](F459-The-Footer-Counts-What-Runs-Where.md) | XS | — | The footer's refresh and action counts name the machine and what they count. |
-| <a id="f453"></a>[F453](F453-A-Machines-Project-Page-Lists-What-It-Carries-First.md) | S | — | A machine's project page lists the carried repositories first and folds the rest with their count; no raw host word; forge names shown as such; zero tasks said as 0. |
-| <a id="f137"></a>[F137](F137-The-Collection-Taken-Only-By-Its-Digest.md) | — | — | The collection installed on the host only by the digest the package expects, checked here and there. |
-| <a id="f438"></a>[F438](F438-Rows-And-Running-Steps-After-The-Third-Move.md) | M | — | A row keeps its chip and buttons inside, running steps say they run, a machine not yet admitting says it waits, growing output follows its last line. |
-| <a id="f379"></a>[F379](F379-Add-A-Project-In-One-Step-From-The-Window.md) | — | — | A person naming themselves Project Admin adds a project in one step from the window. |
-| <a id="f439"></a>[F439](F439-A-Machines-Own-Pages-After-The-Third-Move.md) | M | — | One header with *Open its forge* in sight, *Machine Admins* alone, a project's repositories on a machine, *New work* without a needless question, a dead forge forward noticed. |
-| <a id="f440"></a>[F440](F440-Agents-Gate-And-Builds-As-Designed.md) | M | — | *Agents & providers* as designed, the gate's review with author, committer and trailer, one line per workflow on a task's tile. |
-| <a id="f442"></a>[F442](F442-Joining-A-Hosts-Room-Through-Element.md) | S | — | On a host, joining the room opens Element signed in through SSO; elsewhere the join offers the admitted logins only. |
-| <a id="f429"></a>[F429](F429-The-Side-Bar-As-A-Folding-Tree.md) | XL | — | The side bar as a folding tree, as the design *Porelo Window Side Bar* draws it: each machine and organization with its sections, a page with entries under it showing facts and actions, every leaf in one look, the side bar beside the page from 600 wide; in four parts. |
-| <a id="f431"></a>[F431](F431-The-Setup-Wizard-After-The-Second-Move.md) | M | — | *Set up a machine* as one dialog, a *Run it for me* button for the bootstrap line, the row asked again after the token. |
-| <a id="f432"></a>[F432](F432-The-Token-Asks-That-Show-The-Way-On.md) | S | — | A refusal with this computer's vault shut says so and opens it; the second token ask is one click. |
-| <a id="f433"></a>[F433](F433-The-Start-Dialog-Says-How-Long-It-Runs.md) | S | — | The start dialog's modes say how long they run; an unattended run's minutes are asked and sent. |
-| <a id="f434"></a>[F434](F434-The-Gate-Fetch-And-Where-It-Went.md) | S | — | The gate's fetch line works from the person's shell; a forwarded push says where its commit stands. |
-| <a id="f435"></a>[F435](F435-A-Machine-Taken-Down-Leaves-The-List.md) | S | — | After a confirmed take-down with its removal asked, the window removes the machine from the organization's list. |
-| <a id="f403"></a>[F403](F403-A-Machine-In-Preparation-Says-So-Everywhere.md) | S | — | A machine this computer prepares says so on the organization's row and page, offers its protocol and no second start, with a mark of its state. |
-| <a id="f401"></a>[F401](F401-The-Bootstrap-Line-Says-Where-It-Runs.md) | XS | — | The bootstrap line of *Prepare a server* in its own box with a copy button, saying it runs on the server. |
-| <a id="f399"></a>[F399](F399-Porelos-Command-Line-Reached-In-WSL-From-Windows.md) | M | — | On Windows every use of Porelo's command line runs in the WSL distribution through `wsl.exe`. |
-| <a id="f398"></a>[F398](F398-A-Windows-Start-Leads-To-The-WSL-Distribution.md) | M | — | On Windows "This computer" is the default WSL distribution, reached through `wsl.exe`, never a socket. |
-| <a id="f397"></a>[F397](F397-A-Repository-Of-Its-Own-Works-In-Default.md) | L | — | A repository of its own listed and started in Default, its `porelo.yml` allowed at a start, each setting shown with its source; the machine's proposal before a repository's first task there. |
-| <a id="f396"></a>[F396](F396-My-Projects-Lists-The-Organizations-Projects-Alone.md) | S | — | *My projects* lists only the organization's projects the person holds a role in; a checkout's local copy and *Default* stand under *All projects on your machines*. |
-| <a id="f392"></a>[F392](F392-Work-Starts-On-Its-Checkouts-Branch.md) | — | — | Work started from a checkout here starts from that checkout's branch, and says which branch it started from and why. |
-| <a id="f391"></a>[F391](F391-The-Dead-Signer-Path-Removed.md) | — | — | Nothing asks a daemon `ProjectSigners` or `CommitVerdict`, which none serves; a commit made here is still checked against the person's own key. |
-| <a id="f147"></a>[F147](F147-Every-Repository-Of-Default-Offered-To-Start-In.md) | — | — | Starting in default offers every repository; the first is no longer hidden as its own. |
-| <a id="f378"></a>[F378](F378-Waits-Said-In-Needs-You.md) | — | — | Time left in the Running waits-on-you note; tests, formatting and analysis blocked by the local launcher; review-row facts still need a reliable task association and file count. |
-| <a id="f358"></a>[F358](F358-A-Hosts-Check-Before-Its-Installation.md) | — | — | The host dialog's first step after the address runs one reading check, lists every finding, and offers the installation only when it passes. |
-| <a id="f374"></a>[F374](F374-What-Founding-Needs-Said-Before-Founding.md) | — | — | The dialog of creating asks Core what founding needs at the address, each need with what to do, before anything is filed. |
-| <a id="f373"></a>[F373](F373-A-Grey-Button-In-A-Row-Says-Why.md) | — | — | A grey button in a row, a pane or a dialog says why in words. |
-| <a id="f375"></a>[F375](F375-What-Down-Says-Stays-On-A-Machine.md) | — | — | `down`'s note, that the firewall stays and how to take it off, reaches the take-down dialog. |
-| <a id="f376"></a>[F376](F376-Work-And-Needs-You-Closer-To-The-Design.md) | — | — | The differences from the design the operator named in *Work* and *Needs you*, with *My machines* as the model. |
-| <a id="f380"></a>[F380](F380-Default-On-My-Projects.md) | — | — | *Default* stands in *My projects* beside the organization's projects, and is counted. |
-| <a id="f383"></a>[F383](F383-The-Terminal-Stays-Dark.md) | — | — | A terminal stays dark in the light theme, and answers a program asking for its colours. |
-| <a id="f381"></a>[F381](F381-Fold-A-Pages-Explanation.md) | — | — | Every page has an explanation; closing it folds it, and it stays folded across a restart. |
-| <a id="f387"></a>[F387](F387-A-Page-Head-Of-One-Line.md) | — | — | *Organization*'s head is one line, and every page's explanation stands behind an `i`. |
-| <a id="f357"></a>[F357](F357-A-Hosts-Forge-And-VMs-As-Plain-Choices.md) | — | — | The put-on-a-host dialog asks in plain words about a forge of its own and VMs in its jobs, with what each costs, and says what the machine can carry. |
-| <a id="f356"></a>[F356](F356-The-Porelo-Organization-Named-Apart.md) | — | — | The window says *Porelo organization* wherever a forge's organization could also be meant, and says it lives in a repository inside that one. |
-| <a id="f359"></a>[F359](F359-An-Empty-List-Starts-Folded.md) | — | — | A list with no rows starts folded and folds when emptied, a fold the person chose is kept, and the head's actions stay usable. |
-| <a id="f365"></a>[F365](F365-A-Host-Key-Fetched-Too-Early.md) | — | — | A machine's host key is compared by one named command and fetched again at *Prepare*; a refused key says what to do, and the name is a choice. |
-| <a id="f369"></a>[F369](F369-One-Name-For-The-Default-Project.md) | — | — | The project every machine has is called *Default* in the window, as in Core and its documents, in place of "Without a project". |
-| <a id="f364"></a>[F364](F364-Repositories-Added-Before-A-Machine.md) | — | — | A repository added before the project has a machine is filed with its central address, so that order works; a row without one says so. |
-| <a id="f367"></a>[F367](F367-A-Connect-That-Ends-Unconnected-Says-Why.md) | — | — | A *Connect* that ends unconnected says why beside the button, a machine waiting for its token leads to giving it, and row and page agree. |
-| <a id="f363"></a>[F363](F363-A-Grey-Button-Says-Why-In-Words.md) | — | — | A disabled action says why in text, not a tooltip, and creating at an https address says beforehand that a machine cannot follow it. |
-| <a id="f361"></a>[F361](F361-A-Project-With-No-Git-Repository-Yet.md) | — | — | A project with no Git repository says so on the Organization page, where its Project Admin creates it, told by *Needs you*; it then appears under *My projects*. |
-| <a id="f360"></a>[F360](F360-A-Count-Says-What-It-Counts.md) | — | — | Where the side bar and a page count different things under one name, such as *Machines*, the words say the difference. |
-| <a id="f353"></a>[F353](F353-The-Page-With-The-Work-Cards-Redesigned.md) | — | — | The redesign of *Work* and *Needs you*: a list and one tab per running agent, reviews under *Needs you*, one count; with [F306](README.md#f306) in it. |
-| <a id="f306"></a>[F306](F306-A-Work-Card-Whose-Terminal-Has-Ended.md) | — | — | A *Work* card whose terminal ended says so in words, without an empty black terminal bar. |
-| <a id="f366"></a>[F366](F366-Preparing-A-Machine-Says-What-It-Waits-For.md) | — | — | *Prepare a machine* says beside its button what it waits for, and a stopped login shows its words and exit code, naming root still closed. |
-| <a id="f368"></a>[F368](F368-A-Machines-Token-Given-In-The-Same-Flow.md) | — | — | *Put it on a machine…* ends in giving the machine its token, saying what for, from the token the window keeps if so decided. |
-| <a id="f371"></a>[F371](F371-A-Task-Certified-From-The-Window.md) | — | — | Work started from the window on a host is certified by the desk's agent, never forwarded, and can be renewed from there. |
-| <a id="f370"></a>[F370](F370-Start-Work-In-A-Project-A-Machine-Carries.md) | — | — | A machine page's *Start work* leads into the project it carries, not into the Default project asking for an address. |
-| <a id="f204"></a>[F204](F204-The-Build-Runs-On-The-Local-Forge-As-On-The-Central-One.md) | — | — | The build green on the host's Forgejo and the central forge on the same commit, its machine asked for by kind and its registry a variable. |
-| <a id="f108"></a>[F108](F108-A-Machine-Over-Ssh-From-Windows.md) | — | — | On Windows, a machine over ssh is reached through the relay, as a WSL distribution is; a host is [F351](README.md#f351). |
-| <a id="f118"></a>[F118](F118-An-Upstream-That-Cannot-Be-Read-Said-Before-A-Start.md) | — | — | An upstream that cannot be read said before a start, with what fixes it. |
-| <a id="f192"></a>[F192](F192-A-Machine-That-Refuses-Every-Key-Said-So.md) | — | — | A machine refusing every offered key said so, with the key it expects. |
-| <a id="f223"></a>[F223](F223-A-Ready-Server-Runs-Its-Setup-Again.md) | S | — | A ready rented server offers Run its setup again, which runs `up` in the interface's own run, a stop in it completed from Needs you. |
-| <a id="f224"></a>[F224](F224-Porelo-Host-Says-Which-Server-Is-Rented-Now.md) | S | — | A read-only `porelo-host find` says which server carries the project's tag now, or that none does. |
-| <a id="f263"></a>[F263](F263-The-Give-Back-Confirmation-Says-What-Is-Lost.md) | — | — | *Take the server down?* shows the name and what is lost, no public values, a steady layout. |
-| <a id="f264"></a>[F264](F264-A-Server-With-No-Project-Given-Back.md) | S | — | A server rented with no project given back; the VPN taken down only after the give-back was confirmed. |
-| <a id="f316"></a>[F316](F316-An-Owner-Accepts-A-Lost-Keys-New-Card.md) | — | — | An owner puts a person's new card in place of a lost key from their row under *People*. |
-| <a id="f320"></a>[F320](F320-A-First-Organization-Without-Hand-Work.md) | M | — | A forge's ssh host key confirmed in the interface, so a first organization needs no hand work. |
-| <a id="f323"></a>[F323](F323-Refuse-An-Organization-A-Host-Cannot-Follow.md) | — | — | An organization a host cannot follow refused before the host is prepared. |
-| <a id="f382"></a>[F382](F382-An-Images-Settings-In-Work.md) | — | — | A button in *Work* shows which settings the task's image was built with, and where each comes from. |
-| <a id="f385"></a>[F385](F385-New-Work-Confirms-What-Was-Detected.md) | — | — | *New work* on this computer asks the same question as a first start before it writes `project.yml`. |
-| <a id="f424"></a>[F424](F424-Setting-Up-A-Machine-One-Question-Per-Page.md) | L | — | Setting up a server as a machine is one wizard, one question per page, each opening only once its answer holds: name, address answering SSH, the host key fetched by hand and compared, an address known with another key said so, the login handed over in a terminal on the server until root answers, the check passed and any no-answer named; *Add a machine* and *Prepare* become one *Set up…*. |
-| <a id="f425"></a>[F425](F425-The-Repositories-Put-On-A-Machine-Chosen-From-A-List.md) | S | — | Putting some of a project's repositories on a machine lists them by full name with the key beside, checkboxes, a search field, *All* and *None*. |
-| <a id="f426"></a>[F426](F426-A-Forward-Names-Where-It-Goes-And-Its-Branch.md) | S | — | A forward names the forge and repository it goes to and starts with the task's branch, or the one last used for the task, filled in and changeable. |
-| <a id="f428"></a>[F428](F428-A-Machine-Given-Back-Only-With-Its-Work-At-Central.md) | S | — | A machine's page says how each taken repository stands with central, and the give-back is refused while one is ahead, moved on or cannot say, with *Give it back anyway*. |
-| <a id="f427"></a>[F427](F427-A-Hosts-Forge-Opened-From-Its-Machine.md) | S | — | A connected host's row and machine page offer *Open its forge*, at the address its forge answers to. |
-| <a id="f441"></a>[F441](F441-Starting-Work-Signs-In-Names-And-Model.md) | L | — | Work starts without a host shell: the agent's sign-in asked in the window, tasks named as named, the model shown and changeable. |
-| <a id="f444"></a>[F444](F444-A-Move-Driven-Through-The-Window-Against-A-Rented-Host.md) | M | a rented host set up for a test organization of one test person | The main scenarios of a move driven through the real window, unattended, in a local VM under a virtual display, against a rented host, each checked on the host. |
-| <a id="f445"></a>[F445](F445-What-A-Rehearsal-Cannot-Drive-In-The-Window-Stood-In-For.md) | S | the rehearsed move through the window; the host reading the central token from the vault, for its last part | The sign-in up to its terminal, the host key compared by the test, a screenshot on failure, and the gathered push, each passed, failed or said not run. |
-| <a id="f451"></a>[F451](F451-Leftovers-Of-The-Planning-Board.md) | — | — | The mock's planning board under the interface's rule for a story's state, and a story's move taking the issues that rule names, in the mock and the client. |
-| <a id="f377"></a>[F377](F377-A-Hosts-Channel-Follows-The-Window.md) | — | — | A host the window prepares installs from the window's own channel. |
-| <a id="f362"></a>[F362](F362-A-Click-Answers-At-Once.md) | — | — | A click on a row shows its page and its reading line at once; the delay seen is the read, so the page shows what the list holds while it reads, and a project's last read at once when opened again. |
+| <a id="f436"></a>[F436](F436-Every-Task-Run-Kept-And-Read-In-The-Window.md) | L | - | Every task that runs or ran, removed ones too, in a history view: who started and stopped it, its timeline and numbers, its logs as views of the one log stream, after it is gone too. |
+| <a id="f430"></a>[F430](F430-Leftovers-Of-The-Rental-Findings.md) | - | - | What the fixes of the trial move's findings named as not built, gathered for the operator to place: the wizard's last pages in a test, the old preparing dialog, Forward's stale-push check, a give-back that leaves the machine listed. |
+| <a id="f402"></a>[F402](F402-Prepare-A-Server-As-The-Standard-Wizard.md) | - | - | *Prepare a server* as steps of the standard wizard, each fitting the window. |
+| <a id="f99"></a>[F99](F99-An-Attached-Agent-Shown-At-Rest-Or-Working.md) | - | - | A work tile says whether an attached agent is at rest or working; implementation waits for the verified screen-derived daemon answer. |
+| <a id="f384"></a>[F384](F384-Configure-The-Terminal.md) | - | - | The window's terminal can be configured: font sizes, colours and so on. |
+| <a id="f372"></a>[F372](F372-An-Unattended-Agents-Console-Reads-What-It-Did.md) | - | - | An unattended agent's console reads its text and what it did, in summaries, in place of one line per tool. |
+| <a id="f351"></a>[F351](F351-A-Host-Reached-From-Windows.md) | - | - | A host reached from Windows, measured first, probably by WSL's ssh. |
+| <a id="f352"></a>[F352](F352-A-Rental-State-Kept-Beyond-One-Computer.md) | - | - | OpenTofu's state in the organization's repository or at the provider. |
+| <a id="f349"></a>[F349](F349-A-Way-Without-Administration-Rights.md) | - | - | A person creates the repository and enters each deploy key by hand, so their token needs no Administration. |
+| <a id="f328"></a>[F328](F328-Letters-Doubled-In-A-Slow-Window.md) | - | - | A key pressed once reaching a console once, however slowly the window answers. |
+| <a id="f324"></a>[F324](F324-Removing-A-Project-On-Windows.md) | - | - | A local project removed from the interface on Windows, where it runs in a WSL distribution. |
+| <a id="f318"></a>[F318](F318-An-Owner-Makes-An-Admin-A-Developer.md) | - | - | An Organization Admin turns a project's admin into a developer with an entry on the organization page. |
+| <a id="f317"></a>[F317](F317-A-Homeservers-Token-Reaches-The-Host.md) | - | - | A homeserver's registration token comes along with `porelo host unlock` through Core, and lies in the host's vault. |
+| <a id="f308"></a>[F308](F308-The-Needs-You-Header-Counts-What-It-Lists.md) | - | - | The *Needs you* header, the rail's badge and the rows agree on what needs the person. |
+| <a id="f307"></a>[F307](F307-Push-And-Pull-Show-Their-Progress-In-The-Interface.md) | - | - | Push and pull on a card host show each repository's answer in the interface, the terminal only for the master password. |
+| <a id="f304"></a>[F304](F304-No-Message-Asks-A-Step-The-Interface-Can-Take.md) | M | - | No message tells the person to do a step the interface can take itself; actions read what they need and say so. |
+| <a id="f303"></a>[F303](F303-Menus-Beside-What-They-Act-On.md) | M | - | Each ⋮ menu placed with the row, section or title it acts on. |
+| <a id="f302"></a>[F302](F302-Refresh-Shows-What-It-Did.md) | S | - | Refresh shows that it runs and ends with what it read or what failed. |
+| <a id="f300"></a>[F300](F300-One-Project-One-Entry-Across-Machines.md) | M | - | One project read as one entry under Projects, with the machines it is on under it. |
+| <a id="f296"></a>[F296](F296-Card-Endpoints-Per-Login.md) | M | - | Card endpoints per login, so two instances of one account each hold a tunnel to one host; a master this person left ended on raise. |
+| <a id="f295"></a>[F295](F295-No-Ask-Line-Naming-The-Viewer.md) | S | - | No refusal ends with "Ask <name>" when the named person is the one at this interface. |
+| <a id="f293"></a>[F293](F293-Host-Deliveries-Hardened.md) | M | - | Host deliveries hardened: git in a clean environment, commands without the login shell or a deliberate exception. |
+| <a id="f292"></a>[F292](F292-A-Lock-Confirmed-By-Each-Host.md) | M | - | *Lock* and *Let back in* shown as under way on each host until `org status` there confirms them; adding counts as done once signed. |
+| <a id="f290"></a>[F290](F290-The-Host-Functions-From-A-Windows-Desktop.md) | M | - | Connect and Prepare from a Windows desktop: one ssh per host card with loopback TCP ends, the daemon through the relay, no master. |
+| <a id="f395"></a>[F395](F395-Leftovers-Of-Sprint-6q.md) | - | - | What sprint 6q's issues named as not built, gathered for the operator to place: organization rows, a machine's page, a project's central state, lists and the card's renewal. |
+| <a id="f288"></a>[F288](F288-Small-Leftovers-Of-The-One-Click-Flow.md) | - | - | The small edge cases left over from the one-click flow gathered in one place for the operator to place: address forms, test gaps, texts. |
+| <a id="f284"></a>[F284](F284-The-Subagent-Number-Chosen-When-Starting.md) | - | - | How many subagents the agent may run at once, chosen when starting, with the number that applies and Core's refusal said before anything is made. |
+| <a id="f282"></a>[F282](F282-The-Providers-Usage-In-A-Status-Line.md) | - | - | A status line with one traffic light for the providers' usage, a popup per provider, and a *Needs you* warning past a set threshold. |
+| <a id="f236"></a>[F236](F236-Root-Reached-On-A-Rented-Server.md) | S | - | Root allowed in the rental's cloud-config; a "Please login as" answer refused at once, naming the user. |
+| <a id="f238"></a>[F238](F238-A-Server-With-No-Project-Is-Not-Silent.md) | XS | - | A server prepared with no project not raised as *Not answering*; its row says "No project yet". |
+| <a id="f240"></a>[F240](F240-The-Walk-Hand-Over-Carries-Porelo-Host.md) | S | - | The walk hand-over ships `porelo-host` and the start script points the interface at it; a missing local program said without the container sentence. |
+| <a id="f242"></a>[F242](F242-A-File-Chooser-Beside-Every-Path-Field.md) | S | - | A *Choose…* button and the known default beside the KeePassXC database fields. |
+| <a id="f239"></a>[F239](F239-Known-Values-Offered-In-The-Wizards.md) | M | - | Known values offered: the organization's repository address and the KeePassXC database. |
+| <a id="f262"></a>[F262](F262-Lock-And-Purge-Say-What-They-Do.md) | XS | - | A project member's *Lock* says what it does. |
+| <a id="f265"></a>[F265](F265-The-Server-Page-Shows-What-It-Holds.md) | M | [F266](README.md#f266) | A server's page shows its own state, its projects and its persons with their state; actions chosen from the rows. |
+| <a id="f266"></a>[F266](F266-The-Project-Screen-Shows-Its-Persons.md) | M | - | A project's screen shows its server and its persons with their state; actions chosen from the rows. |
+| <a id="f207"></a>[F207](F207-A-Tasks-Branch-At-The-Forge-Named-By-The-Projects-Scheme.md) | - | - | A task's branch at the forge from the project's scheme, shown, named at the start and approved to by default. |
+| <a id="f205"></a>[F205](F205-The-Hosts-Setup-Commands-Run-By-Their-Paths.md) | - | - | Every command `porelo-host` runs on the host over ssh, and through `sudo` above all, named by its absolute path. |
+| <a id="f138"></a>[F138](F138-A-Host-On-Fedora-From-The-Same-Command.md) | - | - | `porelo-host` bringing a Fedora host up and down as it does Ubuntu 26.04. |
+| <a id="f146"></a>[F146](F146-The-Hosts-VM-Pool-Switched-On.md) | - | - | The host's pool of small test VMs switched on on `porelo_host` and in the host dialog, with its systems and accounts. |
+| <a id="f149"></a>[F149](F149-A-Panel-Plans-The-Release.md) | - | - | A panel that shows and edits a project's release plan by dragging issues into sprints and their functions, writing only the plan file. |
+| <a id="f193"></a>[F193](F193-What-A-Walk-Left-Open-For-Keys-And-Tasks.md) | - | - | Key handling, one way to a running task and the proposed project model, built or decided against. |
+| <a id="f200"></a>[F200](F200-KeePassXC-Shipped-On-Windows-And-macOS.md) | - | - | KeePassXC's signed build shipped with the interface on Windows and macOS, with its license and source offer, for the person's secrets file. |
+| <a id="f354"></a>[F354](F354-The-Integration-Leg-On-A-Machine-Of-The-Hosts-Pool.md) | - | - | The Build's integration leg on a host's Forgejo against a machine its pool lends by kind. |
+| <a id="f355"></a>[F355](F355-One-Order-For-A-New-Person.md) | - | - | One order in the window for a person starting from a GitHub organization, with or without a key, each step showing its state, so *Create it* is reached only when it can work. |
+| <a id="f423"></a>[F423](F423-The-Window-Laid-Out-By-What-Each-Part-Acts-On.md) | - | - | The side bar as a folding tree by what each part acts on: each machine with its sections, each organization with its sections, *My cards & keys* in place of its dialog; a page with entries under it shows facts and actions, only a leaf a list. |
 
-### Rework
+## Accepted
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f446"></a>[F446](F446-The-Stories-Of-A-Project-On-A-Planning-Board.md) | M | — | *Planning* shows a project's stories on a board, phases as columns with their states, read and watched from the planner. |
-| <a id="f447"></a>[F447](F447-A-Story-Moved-On-The-Board-And-Saved.md) | M | — | A story dragged to another state, kept pending until saved through the planner or undone; a drop on a working state starts its work instead. |
-| <a id="f448"></a>[F448](F448-A-Story-And-An-Issue-Opened-From-The-Board.md) | M | — | A story's and an issue's screen with a breadcrumb and *Open story*/*Open issue*, an issue moved alone and its sub-issues shown. |
-| <a id="f449"></a>[F449](F449-Work-On-A-Story-Started-From-The-Board.md) | M | — | *Start work* for a story, filled by the planner's proposal, its tasks started through *Start*: mode, agent, model; the tasks and coordinator shown, not typed; the agent's outcome on its ended run and under *Needs you*. |
+| <a id="f450"></a>[F450](F450-The-Window-s-Tests-Follow-The-Test-Pyramid.md) | L | - | The window's tests moved to the test pyramid's shares: waits, network and processes faked, flows proven below the end-to-end runs, logic out of the widgets. |
+| <a id="f123"></a>[F123](F123-Where-A-Machine-And-A-Project-Stand-In-Their-Organisations-Tree.md) | - | - | Where a machine and a project stand in their organisation's tree, and which settings bind them. |
+| <a id="f166"></a>[F166](F166-A-Host-Rented-Through-OpenTofu.md) | M | - | `porelo-host up` and `down` renting and giving back through the OpenTofu module, its secrets only in `tofu`'s environment; `--given` kept. |
 
-### Implementing
-
-| # | Size | Blocked by | What it covers |
-|---|---|---|---|
-| <a id="f203"></a>[F203](F203-This-Repository-Worked-In-A-Porelo-Task.md) | S | — | This repository's agent working in an attended Porelo task on the host, its build green on the host's Forgejo, reached in the room, with a way back. |
-| <a id="f457"></a>[F457](F457-Needs-You-Names-The-One-Thing-To-Do.md) | L | — | *Needs you* items name one action, close with their cause, can be marked seen, embed no task tile; nothing waits at the gate in class online; a done task shown done; the commit's makers shown. |
-
-### Backlog
-
-| # | Size | Blocked by | What it covers |
-|---|---|---|---|
-| <a id="f443"></a>[F443](F443-Forge-Token-Handed-Over-When-The-Machine-Asks.md) | S | the daemon's ask for the person's forge token on a host, with its command | The person's forge token on a host made by the host's own command, run in a terminal there from the window when the host asks; never through this program. |
-| <a id="f470"></a>[F470](F470-A-Story-Moved-Against-Its-Issues-Is-Warned-And-Confirmed.md) | S | Porelo's planning keeping a story's explicit state and saying a mismatch | A story moved on the board against its issues is warned, naming them, and saved only when confirmed; it keeps that state. |
-| <a id="f469"></a>[F469](F469-A-Project-Page-Shows-Porelos-Kept-Read-And-Its-Age.md) | S | Porelo answering `project show` and `org` from its kept state with its age, and `--refresh` | A project page shows Porelo's kept read at once with its age, then the fresh one; nothing old shown as just read. |
-| <a id="f321"></a>[F321](F321-Send-The-Terminal-Input-Fix-Upstream.md) | S | the third move | The terminal input fix offered upstream, and this repository's copy of `xterm` dropped once a release holds it. |
-| <a id="f388"></a>[F388](F388-The-Stubs-Pin-Stays-Fetchable.md) | XS | — | A scenario that needs the stub does not go red because its pinned version left the folder. |
-| <a id="f117"></a>[F117](F117-What-Walk-8-Left-Unbuilt.md) | M | — | A tile's repository in its heading, a refused release said as an error that stays. |
-| <a id="f111"></a>[F111](F111-All-Of-A-Pieces-Logs-In-One-Timeline.md) | M | — | All of a piece's logs in one timeline, by time, filterable by source. |
-| <a id="f437"></a>[F437](F437-Join-Leave-And-Accept-A-Card-In-The-Window.md) | M | the backend's card proposal and leave | Join an organization by a card proposal, an owner accepting it on the person's row, and leaving an organization, from the window. |
-| <a id="f455"></a>[F455](F455-The-Organization-Read-Now-From-The-Window.md) | S | — | *Read the organization now* asks the host to read the organization at once. |
-| <a id="f458"></a>[F458](F458-The-Task-Terminal-Grows-With-The-Window.md) | XS | — | The agent's screen grows with the window. |
-| <a id="f460"></a>[F460](F460-The-Hosts-Finished-Work-Brought-To-Central-From-The-Window.md) | M | — | *Bring it to central…* brings a host's finished `main` to the central forge from the project's page, refusals in the backend's words. |
-| <a id="f461"></a>[F461](F461-Every-Screen-Of-The-Window-Read-For-Look-And-Sense.md) | M | — | Every screen captured headless at three sizes, light and dark, full and empty, read by another model against a visual and a logical checklist; every finding listed with its screen and size, nothing fixed yet. |
-| <a id="f464"></a>[F464](F464-My-Machines-Keeps-A-Machine-Being-Prepared.md) | S | — | *My machines* keeps a machine being prepared in its list and count, the drop caught live first. |
-| <a id="f465"></a>[F465](F465-Needs-You-Rows-Say-Their-Name-Once-And-Whole.md) | XS | — | A row under *Needs you* names its machine once, and its title is shown whole where the row has room. |
-| <a id="f467"></a>[F467](F467-A-Board-Without-Streaming-Says-It-Is-Not-Live.md) | XS | — | A planning board read without streaming, or with its stream broken, says it is not live and offers a reload. |
-| <a id="f468"></a>[F468](F468-The-Work-Page-Offers-To-Take-A-Repository-Out-Of-Default.md) | S | Porelo's offer to remove a repository from `default` once a project names it | The work page offers to take a repository out of `default` once a project of the organization names it. |
-
-### Analyzed
+## Analyzed
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
-| <a id="f219"></a>[F219](F219-An-Interface-Ended-Without-Asking-Leaves-No-Forward-Behind.md) | S | — | The ssh forwards this interface raised ended with it also when it ends without asking, and one left over found again by its socket at the next start. | — |
-| <a id="f114"></a>[F114](F114-Windows-Notifications-From-The-MSIX.md) | M | — | Windows notifications from the MSIX's identity. | — |
-| <a id="f115"></a>[F115](F115-A-Fine-Grained-Token-Waiting-For-An-Organisations-Approval.md) | S | the test organisation at GitHub from the operator | A fine-grained token waiting for an organisation's approval said as waiting. | — |
-| <a id="f95"></a>[F95](F95-A-Waiting-Push-Fetched-Here.md) | M | — | A waiting push fetched here, into a clone the person chooses, with its source level, risk class, and checkout warning. | — |
-| <a id="f78"></a>[F78](F78-A-Waiting-Push-Is-Reviewed-As-At-A-Forge.md) | S | — | A waiting push decided without an IDE: source level, highest risk class, files in risk order with their class, *Let it through…* or *Turn it away*, a second ask for `C3` files; the code read in IntelliJ. | — |
-| <a id="f107"></a>[F107](F107-Code-Comments-In-The-Review.md) | M | [F78](README.md#f78) | Per waiting push the open finding and thread counts and each check's completeness, anything but complete never shown as clean; comments read and written in IntelliJ. | — |
-| <a id="f74"></a>[F74](F74-A-Waiting-Pushs-Tests-Run-In-A-Container-Of-Its-Own.md) | M | — | A waiting push's tests run in a container of their own on the machine, pinned to the reviewed commit under its source-level and risk-class isolation. | — |
-| <a id="f112"></a>[F112](F112-What-A-Piece-Of-Work-Did-In-Words.md) | M | — | What a piece of work did, in words, at its top: last answer, commits as a list with their highest risk class, what waits with its checks, messages, firewall stops; no diff. | — |
-| <a id="f190"></a>[F190](F190-Approved-Work-Brought-To-The-Central-Forge.md) | M | — | A host pull request's state and approval, and approved work brought on to the central forge bound to commit, repository and pull request, with level, class and checks in one line. | — |
-| <a id="f191"></a>[F191](F191-Held-And-Outgoing-Forge-Comments-Released.md) | M | — | Held inbound forge comments and outgoing ones in *Needs you*, each released, dismissed, sent or refused alone, a person's own from IntelliJ too, bound to commit and pull request. | — |
-| <a id="f394"></a>[F394](F394-A-Tunnel-Forward-Only-The-Person-Reaches.md) | M | — | What the window forwards from a machine is reached only by the person: a relay of the window's own lets in only the person's connections, the host refusing other sites' requests to the forge's web. | 2 |
+| <a id="f219"></a>[F219](F219-An-Interface-Ended-Without-Asking-Leaves-No-Forward-Behind.md) | S | - | The ssh forwards this interface raised ended with it also when it ends without asking, and one left over found again by its socket at the next start. | - |
+| <a id="f114"></a>[F114](F114-Windows-Notifications-From-The-MSIX.md) | M | - | Windows notifications from the MSIX's identity. | - |
+| <a id="f115"></a>[F115](F115-A-Fine-Grained-Token-Waiting-For-An-Organisations-Approval.md) | S | - | A fine-grained token waiting for an organisation's approval said as waiting. | - |
+| <a id="f95"></a>[F95](F95-A-Waiting-Push-Fetched-Here.md) | M | - | A waiting push fetched here, into a clone the person chooses, with its source level, risk class, and checkout warning. | - |
+| <a id="f78"></a>[F78](F78-A-Waiting-Push-Is-Reviewed-As-At-A-Forge.md) | S | - | A waiting push decided without an IDE: source level, highest risk class, files in risk order with their class, *Let it through…* or *Turn it away*, a second ask for `C3` files; the code read in IntelliJ. | - |
+| <a id="f107"></a>[F107](F107-Code-Comments-In-The-Review.md) | M | [F78](README.md#f78) | Per waiting push the open finding and thread counts and each check's completeness, anything but complete never shown as clean; comments read and written in IntelliJ. | - |
+| <a id="f74"></a>[F74](F74-A-Waiting-Pushs-Tests-Run-In-A-Container-Of-Its-Own.md) | M | - | A waiting push's tests run in a container of their own on the machine, pinned to the reviewed commit under its source-level and risk-class isolation. | - |
+| <a id="f112"></a>[F112](F112-What-A-Piece-Of-Work-Did-In-Words.md) | M | - | What a piece of work did, in words, at its top: last answer, commits as a list with their highest risk class, what waits with its checks, messages, firewall stops; no diff. | - |
+| <a id="f190"></a>[F190](F190-Approved-Work-Brought-To-The-Central-Forge.md) | M | - | A host pull request's state and approval, and approved work brought on to the central forge bound to commit, repository and pull request, with level, class and checks in one line. | - |
+| <a id="f191"></a>[F191](F191-Held-And-Outgoing-Forge-Comments-Released.md) | M | - | Held inbound forge comments and outgoing ones in *Needs you*, each released, dismissed, sent or refused alone, a person's own from IntelliJ too, bound to commit and pull request. | - |
+| <a id="f394"></a>[F394](F394-A-Tunnel-Forward-Only-The-Person-Reaches.md) | M | - | What the window forwards from a machine is reached only by the person: a relay of the window's own lets in only the person's connections, the host refusing other sites' requests to the forge's web. | 2 |
 
-### Accepted
-
-| # | Size | Blocked by | What it covers |
-|---|---|---|---|
-| <a id="f450"></a>[F450](F450-The-Window-s-Tests-Follow-The-Test-Pyramid.md) | L | — | The window's tests moved to the test pyramid's shares: waits, network and processes faked, flows proven below the end-to-end runs, logic out of the widgets. |
-| <a id="f123"></a>[F123](F123-Where-A-Machine-And-A-Project-Stand-In-Their-Organisations-Tree.md) | — | — | Where a machine and a project stand in their organisation's tree, and which settings bind them. |
-| <a id="f166"></a>[F166](F166-A-Host-Rented-Through-OpenTofu.md) | M | — | `porelo-host up` and `down` renting and giving back through the OpenTofu module, its secrets only in `tofu`'s environment; `--given` kept. |
-
-### Idea
+## Estimated
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f436"></a>[F436](F436-Every-Task-Run-Kept-And-Read-In-The-Window.md) | L | the backend's task timeline | Every task that runs or ran, removed ones too, in a history view: who started and stopped it, its timeline and numbers, its logs as views of the one log stream, after it is gone too. |
-| <a id="f430"></a>[F430](F430-Leftovers-Of-The-Rental-Findings.md) | — | — | What the fixes of the trial move's findings named as not built, gathered for the operator to place: the wizard's last pages in a test, the old preparing dialog, Forward's stale-push check, a give-back that leaves the machine listed. |
-| <a id="f402"></a>[F402](F402-Prepare-A-Server-As-The-Standard-Wizard.md) | — | — | *Prepare a server* as steps of the standard wizard, each fitting the window. |
-| <a id="f99"></a>[F99](F99-An-Attached-Agent-Shown-At-Rest-Or-Working.md) | — | — | A work tile says whether an attached agent is at rest or working; implementation waits for the verified screen-derived daemon answer. |
-| <a id="f384"></a>[F384](F384-Configure-The-Terminal.md) | — | — | The window's terminal can be configured: font sizes, colours and so on. |
-| <a id="f372"></a>[F372](F372-An-Unattended-Agents-Console-Reads-What-It-Did.md) | — | — | An unattended agent's console reads its text and what it did, in summaries, in place of one line per tool. |
-| <a id="f351"></a>[F351](F351-A-Host-Reached-From-Windows.md) | — | — | A host reached from Windows, measured first, probably by WSL's ssh. |
-| <a id="f352"></a>[F352](F352-A-Rental-State-Kept-Beyond-One-Computer.md) | — | — | OpenTofu's state in the organization's repository or at the provider. |
-| <a id="f349"></a>[F349](F349-A-Way-Without-Administration-Rights.md) | — | — | A person creates the repository and enters each deploy key by hand, so their token needs no Administration. |
-| <a id="f328"></a>[F328](F328-Letters-Doubled-In-A-Slow-Window.md) | — | — | A key pressed once reaching a console once, however slowly the window answers. |
-| <a id="f324"></a>[F324](F324-Removing-A-Project-On-Windows.md) | — | — | A local project removed from the interface on Windows, where it runs in a WSL distribution. |
-| <a id="f318"></a>[F318](F318-An-Owner-Makes-An-Admin-A-Developer.md) | — | — | An Organization Admin turns a project's admin into a developer with an entry on the organization page. |
-| <a id="f317"></a>[F317](F317-A-Homeservers-Token-Reaches-The-Host.md) | — | — | A homeserver's registration token comes along with `porelo host unlock` through Core, and lies in the host's vault. |
-| <a id="f308"></a>[F308](F308-The-Needs-You-Header-Counts-What-It-Lists.md) | — | — | The *Needs you* header, the rail's badge and the rows agree on what needs the person. |
-| <a id="f307"></a>[F307](F307-Push-And-Pull-Show-Their-Progress-In-The-Interface.md) | — | — | Push and pull on a card host show each repository's answer in the interface, the terminal only for the master password. |
-| <a id="f304"></a>[F304](F304-No-Message-Asks-A-Step-The-Interface-Can-Take.md) | M | — | No message tells the person to do a step the interface can take itself; actions read what they need and say so. |
-| <a id="f303"></a>[F303](F303-Menus-Beside-What-They-Act-On.md) | M | — | Each ⋮ menu placed with the row, section or title it acts on. |
-| <a id="f302"></a>[F302](F302-Refresh-Shows-What-It-Did.md) | S | — | Refresh shows that it runs and ends with what it read or what failed. |
-| <a id="f300"></a>[F300](F300-One-Project-One-Entry-Across-Machines.md) | M | — | One project read as one entry under Projects, with the machines it is on under it. |
-| <a id="f296"></a>[F296](F296-Card-Endpoints-Per-Login.md) | M | — | Card endpoints per login, so two instances of one account each hold a tunnel to one host; a master this person left ended on raise. |
-| <a id="f295"></a>[F295](F295-No-Ask-Line-Naming-The-Viewer.md) | S | — | No refusal ends with "Ask <name>" when the named person is the one at this interface. |
-| <a id="f293"></a>[F293](F293-Host-Deliveries-Hardened.md) | M | — | Host deliveries hardened: git in a clean environment, commands without the login shell or a deliberate exception. |
-| <a id="f292"></a>[F292](F292-A-Lock-Confirmed-By-Each-Host.md) | M | — | *Lock* and *Let back in* shown as under way on each host until `org status` there confirms them; adding counts as done once signed. |
-| <a id="f290"></a>[F290](F290-The-Host-Functions-From-A-Windows-Desktop.md) | M | — | Connect and Prepare from a Windows desktop: one ssh per host card with loopback TCP ends, the daemon through the relay, no master. |
-| <a id="f395"></a>[F395](F395-Leftovers-Of-Sprint-6q.md) | — | — | What sprint 6q's issues named as not built, gathered for the operator to place: organization rows, a machine's page, a project's central state, lists and the card's renewal. |
-| <a id="f288"></a>[F288](F288-Small-Leftovers-Of-The-One-Click-Flow.md) | — | — | The small edge cases left over from the one-click flow gathered in one place for the operator to place: address forms, test gaps, texts. |
-| <a id="f284"></a>[F284](F284-The-Subagent-Number-Chosen-When-Starting.md) | — | — | How many subagents the agent may run at once, chosen when starting, with the number that applies and Core's refusal said before anything is made. |
-| <a id="f282"></a>[F282](F282-The-Providers-Usage-In-A-Status-Line.md) | — | — | A status line with one traffic light for the providers' usage, a popup per provider, and a *Needs you* warning past a set threshold. |
-| <a id="f236"></a>[F236](F236-Root-Reached-On-A-Rented-Server.md) | — | — | Root allowed in the rental's cloud-config; a "Please login as" answer refused at once, naming the user. |
-| <a id="f238"></a>[F238](F238-A-Server-With-No-Project-Is-Not-Silent.md) | — | — | A server prepared with no project not raised as *Not answering*; its row says "No project yet". |
-| <a id="f240"></a>[F240](F240-The-Walk-Hand-Over-Carries-Porelo-Host.md) | — | — | The walk hand-over ships `porelo-host` and the start script points the interface at it; a missing local program said without the container sentence. |
-| <a id="f242"></a>[F242](F242-A-File-Chooser-Beside-Every-Path-Field.md) | — | — | A *Choose…* button and the known default beside the KeePassXC database fields. |
-| <a id="f239"></a>[F239](F239-Known-Values-Offered-In-The-Wizards.md) | — | — | Known values offered: the organization's repository address and the KeePassXC database. |
-| <a id="f262"></a>[F262](F262-Lock-And-Purge-Say-What-They-Do.md) | — | — | A project member's *Lock* says what it does. |
-| <a id="f265"></a>[F265](F265-The-Server-Page-Shows-What-It-Holds.md) | — | [F266](README.md#f266) | A server's page shows its own state, its projects and its persons with their state; actions chosen from the rows. |
-| <a id="f266"></a>[F266](F266-The-Project-Screen-Shows-Its-Persons.md) | — | — | A project's screen shows its server and its persons with their state; actions chosen from the rows. |
-| <a id="f207"></a>[F207](F207-A-Tasks-Branch-At-The-Forge-Named-By-The-Projects-Scheme.md) | — | — | A task's branch at the forge from the project's scheme, shown, named at the start and approved to by default. |
-| <a id="f205"></a>[F205](F205-The-Hosts-Setup-Commands-Run-By-Their-Paths.md) | — | — | Every command `porelo-host` runs on the host over ssh, and through `sudo` above all, named by its absolute path. |
-| <a id="f138"></a>[F138](F138-A-Host-On-Fedora-From-The-Same-Command.md) | — | — | `porelo-host` bringing a Fedora host up and down as it does Ubuntu 26.04. |
-| <a id="f146"></a>[F146](F146-The-Hosts-VM-Pool-Switched-On.md) | — | — | The host's pool of small test VMs switched on on `porelo_host` and in the host dialog, with its systems and accounts. |
-| <a id="f149"></a>[F149](F149-A-Panel-Plans-The-Release.md) | — | — | A panel that shows and edits a project's release plan by dragging issues into sprints and their functions, writing only the plan file. |
-| <a id="f193"></a>[F193](F193-What-A-Walk-Left-Open-For-Keys-And-Tasks.md) | — | — | Key handling, one way to a running task and the proposed project model, built or decided against. |
-| <a id="f200"></a>[F200](F200-KeePassXC-Shipped-On-Windows-And-macOS.md) | — | — | KeePassXC's signed build shipped with the interface on Windows and macOS, with its license and source offer, for the person's secrets file. |
-| <a id="f354"></a>[F354](F354-The-Integration-Leg-On-A-Machine-Of-The-Hosts-Pool.md) | — | — | The Build's integration leg on a host's Forgejo against a machine its pool lends by kind. |
-| <a id="f355"></a>[F355](F355-One-Order-For-A-New-Person.md) | — | — | One order in the window for a person starting from a GitHub organization, with or without a key, each step showing its state, so *Create it* is reached only when it can work. |
-| <a id="f423"></a>[F423](F423-The-Window-Laid-Out-By-What-Each-Part-Acts-On.md) | — | — | The side bar as a folding tree by what each part acts on: each machine with its sections, each organization with its sections, *My cards & keys* in place of its dialog; a page with entries under it shows facts and actions, only a leaf a list. |
+| <a id="f145"></a>[F145](F145-The-Hosts-Forge-Switched-Off-In-The-Server-Setup.md) | S | - | *Set up a forge on the server* in the server setup dialog, on by default; switched off, the host's inventory says `porelo_host_forge: false`. |
+| <a id="f93"></a>[F93](F93-Connections-Rare-Actions-Out-Of-The-Way.md) | S | - | Connections' rare actions in its ⋮. |
+| <a id="f91"></a>[F91](F91-One-Way-To-Show-Loading.md) | M | - | Every view shows the same way that it is reading. |
+| <a id="f94"></a>[F94](F94-A-Projects-Keys-Told-In-One-Place.md) | M | - | A project's keys told in one place, the signing key checked against a branch rule. |
+| <a id="f97"></a>[F97](F97-Forwarding-Measured-Against-GitHub.md) | M | - | Forwarding to a chosen branch measured against GitHub. |
+| <a id="f105"></a>[F105](F105-A-Tasks-Terminal-In-The-Interface-As-Outside-It.md) | M | - | A task's terminal in the interface behaves as in a plain terminal. |
+| <a id="f59"></a>[F59](F59-A-Project-From-A-Repository-Measured-Against-GitHub.md) | S | - | Making a project from a repository measured against GitHub. |
+| <a id="f72"></a>[F72](F72-Forges-Beyond-GitHub.md) | L | - | Forges beyond GitHub: Bitbucket Data Center first, measured against a test installation of its own. |
+| <a id="f37"></a>[F37](F37-Reach-A-Machine-Without-An-ssh-Binary.md) | L | - | A machine reached without an `ssh` binary. |
+| <a id="f52"></a>[F52](F52-Release-A-Devices-Key-Only-With-A-Touch-Or-A-PIN.md) | XL | - | A device's key released only behind a TPM2 PIN; a touch later. |
+| <a id="f109"></a>[F109](F109-The-Interface-On-macOS-With-Porelo-In-A-Local-VM.md) | XL | - | The interface on macOS, with Porelo in a local Lima VM set up from the window, and remote machines over ssh. |
+| <a id="f104"></a>[F104](F104-An-Offline-Project-Shown-With-Its-Way.md) | M | - | An offline project shown, with the way to make one by hand named. |
+| <a id="f81"></a>[F81](F81-The-Setup-Script-Checked-By-Its-Signature.md) | M | - | The setup script verified by its signature before it runs. |
+| <a id="f88"></a>[F88](F88-A-Nickname-For-Each-Agent.md) | M | - | A nickname for each agent. |
+| <a id="f62"></a>[F62](F62-An-Organisations-Policy-Is-Shown.md) | M | - | An organisation's policy shown. |
 
-### Estimated
+## Backlog
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f145"></a>[F145](F145-The-Hosts-Forge-Switched-Off-In-The-Server-Setup.md) | S | — | *Set up a forge on the server* in the server setup dialog, on by default; switched off, the host's inventory says `porelo_host_forge: false`. |
-| <a id="f93"></a>[F93](F93-Connections-Rare-Actions-Out-Of-The-Way.md) | S | — | Connections' rare actions in its ⋮. |
-| <a id="f91"></a>[F91](F91-One-Way-To-Show-Loading.md) | M | — | Every view shows the same way that it is reading. |
-| <a id="f94"></a>[F94](F94-A-Projects-Keys-Told-In-One-Place.md) | M | — | A project's keys told in one place, the signing key checked against a branch rule. |
-| <a id="f97"></a>[F97](F97-Forwarding-Measured-Against-GitHub.md) | M | the test organisation and its token from the operator | Forwarding to a chosen branch measured against GitHub. |
-| <a id="f105"></a>[F105](F105-A-Tasks-Terminal-In-The-Interface-As-Outside-It.md) | M | — | A task's terminal in the interface behaves as in a plain terminal. |
-| <a id="f59"></a>[F59](F59-A-Project-From-A-Repository-Measured-Against-GitHub.md) | S | the test organisation, its token and signing key from the operator | Making a project from a repository measured against GitHub. |
-| <a id="f72"></a>[F72](F72-Forges-Beyond-GitHub.md) | L | the operator's evaluation licence for Bitbucket Data Center | Forges beyond GitHub: Bitbucket Data Center first, measured against a test installation of its own. |
-| <a id="f37"></a>[F37](F37-Reach-A-Machine-Without-An-ssh-Binary.md) | L | — | A machine reached without an `ssh` binary. |
-| <a id="f52"></a>[F52](F52-Release-A-Devices-Key-Only-With-A-Touch-Or-A-PIN.md) | XL | — | A device's key released only behind a TPM2 PIN; a touch later. |
-| <a id="f109"></a>[F109](F109-The-Interface-On-macOS-With-Porelo-In-A-Local-VM.md) | XL | — | The interface on macOS, with Porelo in a local Lima VM set up from the window, and remote machines over ssh. |
-| <a id="f104"></a>[F104](F104-An-Offline-Project-Shown-With-Its-Way.md) | M | — | An offline project shown, with the way to make one by hand named. |
-| <a id="f81"></a>[F81](F81-The-Setup-Script-Checked-By-Its-Signature.md) | M | — | The setup script verified by its signature before it runs. |
-| <a id="f88"></a>[F88](F88-A-Nickname-For-Each-Agent.md) | M | — | A nickname for each agent. |
-| <a id="f62"></a>[F62](F62-An-Organisations-Policy-Is-Shown.md) | M | — | An organisation's policy shown. |
+| <a id="f443"></a>[F443](F443-Forge-Token-Handed-Over-When-The-Machine-Asks.md) | S | - | The person's forge token on a host made by the host's own command, run in a terminal there from the window when the host asks; never through this program. |
+| <a id="f470"></a>[F470](F470-A-Story-Moved-Against-Its-Issues-Is-Warned-And-Confirmed.md) | S | - | A story moved on the board against its issues is warned, naming them, and saved only when confirmed; it keeps that state. |
+| <a id="f469"></a>[F469](F469-A-Project-Page-Shows-Porelos-Kept-Read-And-Its-Age.md) | S | - | A project page shows Porelo's kept read at once with its age, then the fresh one; nothing old shown as just read. |
+| <a id="f321"></a>[F321](F321-Send-The-Terminal-Input-Fix-Upstream.md) | S | - | The terminal input fix offered upstream, and this repository's copy of `xterm` dropped once a release holds it. |
+| <a id="f388"></a>[F388](F388-The-Stubs-Pin-Stays-Fetchable.md) | XS | - | A scenario that needs the stub does not go red because its pinned version left the folder. |
+| <a id="f117"></a>[F117](F117-What-Walk-8-Left-Unbuilt.md) | M | - | A tile's repository in its heading, a refused release said as an error that stays. |
+| <a id="f111"></a>[F111](F111-All-Of-A-Pieces-Logs-In-One-Timeline.md) | M | - | All of a piece's logs in one timeline, by time, filterable by source. |
+| <a id="f437"></a>[F437](F437-Join-Leave-And-Accept-A-Card-In-The-Window.md) | M | - | Join an organization by a card proposal, an owner accepting it on the person's row, and leaving an organization, from the window. |
+| <a id="f455"></a>[F455](F455-The-Organization-Read-Now-From-The-Window.md) | S | - | *Read the organization now* asks the host to read the organization at once. |
+| <a id="f458"></a>[F458](F458-The-Task-Terminal-Grows-With-The-Window.md) | XS | - | The agent's screen grows with the window. |
+| <a id="f460"></a>[F460](F460-The-Hosts-Finished-Work-Brought-To-Central-From-The-Window.md) | M | - | *Bring it to central…* brings a host's finished `main` to the central forge from the project's page, refusals in the backend's words. |
+| <a id="f461"></a>[F461](F461-Every-Screen-Of-The-Window-Read-For-Look-And-Sense.md) | M | - | Every screen captured headless at three sizes, light and dark, full and empty, read by another model against a visual and a logical checklist; every finding listed with its screen and size, nothing fixed yet. |
+| <a id="f464"></a>[F464](F464-My-Machines-Keeps-A-Machine-Being-Prepared.md) | S | - | *My machines* keeps a machine being prepared in its list and count, the drop caught live first. |
+| <a id="f465"></a>[F465](F465-Needs-You-Rows-Say-Their-Name-Once-And-Whole.md) | XS | - | A row under *Needs you* names its machine once, and its title is shown whole where the row has room. |
+| <a id="f467"></a>[F467](F467-A-Board-Without-Streaming-Says-It-Is-Not-Live.md) | XS | - | A planning board read without streaming, or with its stream broken, says it is not live and offers a reload. |
+| <a id="f468"></a>[F468](F468-The-Work-Page-Offers-To-Take-A-Repository-Out-Of-Default.md) | S | - | The work page offers to take a repository out of `default` once a project of the organization names it. |
+
+## Implementing
+
+| # | Size | Blocked by | What it covers |
+|---|---|---|---|
+| <a id="f203"></a>[F203](F203-This-Repository-Worked-In-A-Porelo-Task.md) | S | - | This repository's agent working in an attended Porelo task on the host, its build green on the host's Forgejo, reached in the room, with a way back. |
+| <a id="f457"></a>[F457](F457-Needs-You-Names-The-One-Thing-To-Do.md) | L | - | *Needs you* items name one action, close with their cause, can be marked seen, embed no task tile; nothing waits at the gate in class online; a done task shown done; the commit's makers shown. |
+
+## Review
+
+| # | Size | Blocked by | What it covers |
+|---|---|---|---|
+| <a id="f471"></a>[F471](F471-The-Planning-Screen-Comes-From-The-Planners-Package.md) | M | - | The planning screen, its models and tests moved into a Flutter package of porelo-planner, with no change in behavior; the window embeds it and hands it the planner's address. |
+| <a id="f462"></a>[F462](F462-A-Hosts-Central-Reason-Said-In-Words.md) | XS | - | Where the host cannot say how its copy stands against central, the row says why in words, never the daemon's token. |
+| <a id="f463"></a>[F463](F463-This-Machine-Listed-Once-After-Its-Socket-Moved.md) | XS | - | This machine listed once, at its socket as it is now, whatever socket was saved for it. |
+| <a id="f466"></a>[F466](F466-A-Taken-Repository-Stays-Carried-While-Another-Waits.md) | S | - | A repository the host has taken reads carried while the project waits for the token for another. |
+| <a id="f400"></a>[F400](F400-A-Join-Into-A-Second-Room-Says-To-Accept-The-Invitation.md) | XS | - | *Join* that invites an existing Matrix account says to accept the invitation, with no password step. |
+| <a id="f454"></a>[F454](F454-Placing-Says-Its-Progress-In-Its-Dialog.md) | S | - | Placing shows its progress and end in its dialog. |
+| <a id="f452"></a>[F452](F452-A-Project-Waiting-For-The-Token-Says-So-Where-It-Is-Shown.md) | M | - | A project the host reports waiting for the token says so, why, and offers the token on its row, the machine's project page and each repository row; never called carried; the placing dialog not grey when opened again. |
+| <a id="f456"></a>[F456](F456-The-Room-Found-From-A-Task-And-A-Project.md) | XS | - | The project's room opened in one step from a task tile and the project's page. |
+| <a id="f459"></a>[F459](F459-The-Footer-Counts-What-Runs-Where.md) | XS | - | The footer's refresh and action counts name the machine and what they count. |
+| <a id="f453"></a>[F453](F453-A-Machines-Project-Page-Lists-What-It-Carries-First.md) | S | - | A machine's project page lists the carried repositories first and folds the rest with their count; no raw host word; forge names shown as such; zero tasks said as 0. |
+| <a id="f137"></a>[F137](F137-The-Collection-Taken-Only-By-Its-Digest.md) | S | - | The collection installed on the host only by the digest the package expects, checked here and there. |
+| <a id="f438"></a>[F438](F438-Rows-And-Running-Steps-After-The-Third-Move.md) | M | - | A row keeps its chip and buttons inside, running steps say they run, a machine not yet admitting says it waits, growing output follows its last line. |
+| <a id="f379"></a>[F379](F379-Add-A-Project-In-One-Step-From-The-Window.md) | S | - | A person naming themselves Project Admin adds a project in one step from the window. |
+| <a id="f439"></a>[F439](F439-A-Machines-Own-Pages-After-The-Third-Move.md) | M | - | One header with *Open its forge* in sight, *Machine Admins* alone, a project's repositories on a machine, *New work* without a needless question, a dead forge forward noticed. |
+| <a id="f440"></a>[F440](F440-Agents-Gate-And-Builds-As-Designed.md) | M | - | *Agents & providers* as designed, the gate's review with author, committer and trailer, one line per workflow on a task's tile. |
+| <a id="f442"></a>[F442](F442-Joining-A-Hosts-Room-Through-Element.md) | S | - | On a host, joining the room opens Element signed in through SSO; elsewhere the join offers the admitted logins only. |
+| <a id="f429"></a>[F429](F429-The-Side-Bar-As-A-Folding-Tree.md) | XL | - | The side bar as a folding tree, as the design *Porelo Window Side Bar* draws it: each machine and organization with its sections, a page with entries under it showing facts and actions, every leaf in one look, the side bar beside the page from 600 wide; in four parts. |
+| <a id="f431"></a>[F431](F431-The-Setup-Wizard-After-The-Second-Move.md) | M | - | *Set up a machine* as one dialog, a *Run it for me* button for the bootstrap line, the row asked again after the token. |
+| <a id="f432"></a>[F432](F432-The-Token-Asks-That-Show-The-Way-On.md) | S | - | A refusal with this computer's vault shut says so and opens it; the second token ask is one click. |
+| <a id="f433"></a>[F433](F433-The-Start-Dialog-Says-How-Long-It-Runs.md) | S | - | The start dialog's modes say how long they run; an unattended run's minutes are asked and sent. |
+| <a id="f434"></a>[F434](F434-The-Gate-Fetch-And-Where-It-Went.md) | S | - | The gate's fetch line works from the person's shell; a forwarded push says where its commit stands. |
+| <a id="f435"></a>[F435](F435-A-Machine-Taken-Down-Leaves-The-List.md) | S | - | After a confirmed take-down with its removal asked, the window removes the machine from the organization's list. |
+| <a id="f403"></a>[F403](F403-A-Machine-In-Preparation-Says-So-Everywhere.md) | S | - | A machine this computer prepares says so on the organization's row and page, offers its protocol and no second start, with a mark of its state. |
+| <a id="f401"></a>[F401](F401-The-Bootstrap-Line-Says-Where-It-Runs.md) | XS | - | The bootstrap line of *Prepare a server* in its own box with a copy button, saying it runs on the server. |
+| <a id="f399"></a>[F399](F399-Porelos-Command-Line-Reached-In-WSL-From-Windows.md) | M | - | On Windows every use of Porelo's command line runs in the WSL distribution through `wsl.exe`. |
+| <a id="f398"></a>[F398](F398-A-Windows-Start-Leads-To-The-WSL-Distribution.md) | M | - | On Windows "This computer" is the default WSL distribution, reached through `wsl.exe`, never a socket. |
+| <a id="f397"></a>[F397](F397-A-Repository-Of-Its-Own-Works-In-Default.md) | L | - | A repository of its own listed and started in Default, its `porelo.yml` allowed at a start, each setting shown with its source; the machine's proposal before a repository's first task there. |
+| <a id="f396"></a>[F396](F396-My-Projects-Lists-The-Organizations-Projects-Alone.md) | S | - | *My projects* lists only the organization's projects the person holds a role in; a checkout's local copy and *Default* stand under *All projects on your machines*. |
+| <a id="f392"></a>[F392](F392-Work-Starts-On-Its-Checkouts-Branch.md) | M | - | Work started from a checkout here starts from that checkout's branch, and says which branch it started from and why. |
+| <a id="f391"></a>[F391](F391-The-Dead-Signer-Path-Removed.md) | S | - | Nothing asks a daemon `ProjectSigners` or `CommitVerdict`, which none serves; a commit made here is still checked against the person's own key. |
+| <a id="f147"></a>[F147](F147-Every-Repository-Of-Default-Offered-To-Start-In.md) | XS | - | Starting in default offers every repository; the first is no longer hidden as its own. |
+| <a id="f378"></a>[F378](F378-Waits-Said-In-Needs-You.md) | S | - | Time left in the Running waits-on-you note; tests, formatting and analysis blocked by the local launcher; review-row facts still need a reliable task association and file count. |
+| <a id="f358"></a>[F358](F358-A-Hosts-Check-Before-Its-Installation.md) | L | - | The host dialog's first step after the address runs one reading check, lists every finding, and offers the installation only when it passes. |
+| <a id="f374"></a>[F374](F374-What-Founding-Needs-Said-Before-Founding.md) | S | - | The dialog of creating asks Core what founding needs at the address, each need with what to do, before anything is filed. |
+| <a id="f373"></a>[F373](F373-A-Grey-Button-In-A-Row-Says-Why.md) | S | - | A grey button in a row, a pane or a dialog says why in words. |
+| <a id="f375"></a>[F375](F375-What-Down-Says-Stays-On-A-Machine.md) | S | - | `down`'s note, that the firewall stays and how to take it off, reaches the take-down dialog. |
+| <a id="f376"></a>[F376](F376-Work-And-Needs-You-Closer-To-The-Design.md) | M | - | The differences from the design the operator named in *Work* and *Needs you*, with *My machines* as the model. |
+| <a id="f380"></a>[F380](F380-Default-On-My-Projects.md) | S | - | *Default* stands in *My projects* beside the organization's projects, and is counted. |
+| <a id="f383"></a>[F383](F383-The-Terminal-Stays-Dark.md) | S | - | A terminal stays dark in the light theme, and answers a program asking for its colours. |
+| <a id="f381"></a>[F381](F381-Fold-A-Pages-Explanation.md) | S | - | Every page has an explanation; closing it folds it, and it stays folded across a restart. |
+| <a id="f387"></a>[F387](F387-A-Page-Head-Of-One-Line.md) | S | - | *Organization*'s head is one line, and every page's explanation stands behind an `i`. |
+| <a id="f357"></a>[F357](F357-A-Hosts-Forge-And-VMs-As-Plain-Choices.md) | M | - | The put-on-a-host dialog asks in plain words about a forge of its own and VMs in its jobs, with what each costs, and says what the machine can carry. |
+| <a id="f356"></a>[F356](F356-The-Porelo-Organization-Named-Apart.md) | M | - | The window says *Porelo organization* wherever a forge's organization could also be meant, and says it lives in a repository inside that one. |
+| <a id="f359"></a>[F359](F359-An-Empty-List-Starts-Folded.md) | S | - | A list with no rows starts folded and folds when emptied, a fold the person chose is kept, and the head's actions stay usable. |
+| <a id="f365"></a>[F365](F365-A-Host-Key-Fetched-Too-Early.md) | M | - | A machine's host key is compared by one named command and fetched again at *Prepare*; a refused key says what to do, and the name is a choice. |
+| <a id="f369"></a>[F369](F369-One-Name-For-The-Default-Project.md) | S | - | The project every machine has is called *Default* in the window, as in Core and its documents, in place of "Without a project". |
+| <a id="f364"></a>[F364](F364-Repositories-Added-Before-A-Machine.md) | S | - | A repository added before the project has a machine is filed with its central address, so that order works; a row without one says so. |
+| <a id="f367"></a>[F367](F367-A-Connect-That-Ends-Unconnected-Says-Why.md) | M | - | A *Connect* that ends unconnected says why beside the button, a machine waiting for its token leads to giving it, and row and page agree. |
+| <a id="f363"></a>[F363](F363-A-Grey-Button-Says-Why-In-Words.md) | S | - | A disabled action says why in text, not a tooltip, and creating at an https address says beforehand that a machine cannot follow it. |
+| <a id="f361"></a>[F361](F361-A-Project-With-No-Git-Repository-Yet.md) | M | - | A project with no Git repository says so on the Organization page, where its Project Admin creates it, told by *Needs you*; it then appears under *My projects*. |
+| <a id="f360"></a>[F360](F360-A-Count-Says-What-It-Counts.md) | M | - | Where the side bar and a page count different things under one name, such as *Machines*, the words say the difference. |
+| <a id="f353"></a>[F353](F353-The-Page-With-The-Work-Cards-Redesigned.md) | L | - | The redesign of *Work* and *Needs you*: a list and one tab per running agent, reviews under *Needs you*, one count; with [F306](README.md#f306) in it. |
+| <a id="f306"></a>[F306](F306-A-Work-Card-Whose-Terminal-Has-Ended.md) | S | - | A *Work* card whose terminal ended says so in words, without an empty black terminal bar. |
+| <a id="f366"></a>[F366](F366-Preparing-A-Machine-Says-What-It-Waits-For.md) | M | - | *Prepare a machine* says beside its button what it waits for, and a stopped login shows its words and exit code, naming root still closed. |
+| <a id="f368"></a>[F368](F368-A-Machines-Token-Given-In-The-Same-Flow.md) | M | - | *Put it on a machine…* ends in giving the machine its token, saying what for, from the token the window keeps if so decided. |
+| <a id="f371"></a>[F371](F371-A-Task-Certified-From-The-Window.md) | M | - | Work started from the window on a host is certified by the desk's agent, never forwarded, and can be renewed from there. |
+| <a id="f370"></a>[F370](F370-Start-Work-In-A-Project-A-Machine-Carries.md) | S | - | A machine page's *Start work* leads into the project it carries, not into the Default project asking for an address. |
+| <a id="f204"></a>[F204](F204-The-Build-Runs-On-The-Local-Forge-As-On-The-Central-One.md) | M | - | The build green on the host's Forgejo and the central forge on the same commit, its machine asked for by kind and its registry a variable. |
+| <a id="f108"></a>[F108](F108-A-Machine-Over-Ssh-From-Windows.md) | M | - | On Windows, a machine over ssh is reached through the relay, as a WSL distribution is; a host is [F351](README.md#f351). |
+| <a id="f118"></a>[F118](F118-An-Upstream-That-Cannot-Be-Read-Said-Before-A-Start.md) | S | - | An upstream that cannot be read said before a start, with what fixes it. |
+| <a id="f192"></a>[F192](F192-A-Machine-That-Refuses-Every-Key-Said-So.md) | S | - | A machine refusing every offered key said so, with the key it expects. |
+| <a id="f223"></a>[F223](F223-A-Ready-Server-Runs-Its-Setup-Again.md) | S | - | A ready rented server offers Run its setup again, which runs `up` in the interface's own run, a stop in it completed from Needs you. |
+| <a id="f224"></a>[F224](F224-Porelo-Host-Says-Which-Server-Is-Rented-Now.md) | S | - | A read-only `porelo-host find` says which server carries the project's tag now, or that none does. |
+| <a id="f263"></a>[F263](F263-The-Give-Back-Confirmation-Says-What-Is-Lost.md) | XS | - | *Take the server down?* shows the name and what is lost, no public values, a steady layout. |
+| <a id="f264"></a>[F264](F264-A-Server-With-No-Project-Given-Back.md) | S | - | A server rented with no project given back; the VPN taken down only after the give-back was confirmed. |
+| <a id="f316"></a>[F316](F316-An-Owner-Accepts-A-Lost-Keys-New-Card.md) | M | - | An owner puts a person's new card in place of a lost key from their row under *People*. |
+| <a id="f320"></a>[F320](F320-A-First-Organization-Without-Hand-Work.md) | M | - | A forge's ssh host key confirmed in the interface, so a first organization needs no hand work. |
+| <a id="f323"></a>[F323](F323-Refuse-An-Organization-A-Host-Cannot-Follow.md) | S | - | An organization a host cannot follow refused before the host is prepared. |
+| <a id="f382"></a>[F382](F382-An-Images-Settings-In-Work.md) | S | - | A button in *Work* shows which settings the task's image was built with, and where each comes from. |
+| <a id="f385"></a>[F385](F385-New-Work-Confirms-What-Was-Detected.md) | S | - | *New work* on this computer asks the same question as a first start before it writes `project.yml`. |
+| <a id="f424"></a>[F424](F424-Setting-Up-A-Machine-One-Question-Per-Page.md) | L | - | Setting up a server as a machine is one wizard, one question per page, each opening only once its answer holds: name, address answering SSH, the host key fetched by hand and compared, an address known with another key said so, the login handed over in a terminal on the server until root answers, the check passed and any no-answer named; *Add a machine* and *Prepare* become one *Set up…*. |
+| <a id="f425"></a>[F425](F425-The-Repositories-Put-On-A-Machine-Chosen-From-A-List.md) | S | - | Putting some of a project's repositories on a machine lists them by full name with the key beside, checkboxes, a search field, *All* and *None*. |
+| <a id="f426"></a>[F426](F426-A-Forward-Names-Where-It-Goes-And-Its-Branch.md) | S | - | A forward names the forge and repository it goes to and starts with the task's branch, or the one last used for the task, filled in and changeable. |
+| <a id="f428"></a>[F428](F428-A-Machine-Given-Back-Only-With-Its-Work-At-Central.md) | S | - | A machine's page says how each taken repository stands with central, and the give-back is refused while one is ahead, moved on or cannot say, with *Give it back anyway*. |
+| <a id="f427"></a>[F427](F427-A-Hosts-Forge-Opened-From-Its-Machine.md) | S | - | A connected host's row and machine page offer *Open its forge*, at the address its forge answers to. |
+| <a id="f441"></a>[F441](F441-Starting-Work-Signs-In-Names-And-Model.md) | L | - | Work starts without a host shell: the agent's sign-in asked in the window, tasks named as named, the model shown and changeable. |
+| <a id="f444"></a>[F444](F444-A-Move-Driven-Through-The-Window-Against-A-Rented-Host.md) | M | - | The main scenarios of a move driven through the real window, unattended, in a local VM under a virtual display, against a rented host, each checked on the host. |
+| <a id="f445"></a>[F445](F445-What-A-Rehearsal-Cannot-Drive-In-The-Window-Stood-In-For.md) | S | - | The sign-in up to its terminal, the host key compared by the test, a screenshot on failure, and the gathered push, each passed, failed or said not run. |
+| <a id="f451"></a>[F451](F451-Leftovers-Of-The-Planning-Board.md) | S | - | The mock's planning board under the interface's rule for a story's state, and a story's move taking the issues that rule names, in the mock and the client. |
+| <a id="f377"></a>[F377](F377-A-Hosts-Channel-Follows-The-Window.md) | S | - | A host the window prepares installs from the window's own channel. |
+| <a id="f362"></a>[F362](F362-A-Click-Answers-At-Once.md) | S | - | A click on a row shows its page and its reading line at once; the delay seen is the read, so the page shows what the list holds while it reads, and a project's last read at once when opened again. |
+
+## Rework
+
+| # | Size | Blocked by | What it covers |
+|---|---|---|---|
+| <a id="f446"></a>[F446](F446-The-Stories-Of-A-Project-On-A-Planning-Board.md) | M | - | *Planning* shows a project's stories on a board, phases as columns with their states, read and watched from the planner. |
+| <a id="f447"></a>[F447](F447-A-Story-Moved-On-The-Board-And-Saved.md) | M | - | A story dragged to another state, kept pending until saved through the planner or undone; a drop on a working state starts its work instead. |
+| <a id="f448"></a>[F448](F448-A-Story-And-An-Issue-Opened-From-The-Board.md) | M | - | A story's and an issue's screen with a breadcrumb and *Open story*/*Open issue*, an issue moved alone and its sub-issues shown. |
+| <a id="f449"></a>[F449](F449-Work-On-A-Story-Started-From-The-Board.md) | M | - | *Start work* for a story, filled by the planner's proposal, its tasks started through *Start*: mode, agent, model; the tasks and coordinator shown, not typed; the agent's outcome on its ended run and under *Needs you*. |
 
 ### Finished
 

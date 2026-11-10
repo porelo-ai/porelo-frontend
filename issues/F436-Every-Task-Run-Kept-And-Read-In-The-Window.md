@@ -1,6 +1,20 @@
 # F436 — Every Task Run Kept And Read In The Window
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F436",
+  "title": "Every Task Run Kept And Read In The Window",
+  "state": "Idea",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 1,
+  "blockedBy": [],
+  "covers": "Every task that runs or ran, removed ones too, in a history view: who started and stopped it, its timeline and numbers, its logs as views of the one log stream, after it is gone too."
+}
+```
+
+**Why this size.** the history view and the timeline, and the stream's view with its filters, as *Size* below breaks it down.
 
 **What must be true.** The window shows every task that runs or ran, a removed one too, with who started and stopped
 it, and opens its timeline and its logs after it is gone. Nothing of a task's life vanishes from the window with the

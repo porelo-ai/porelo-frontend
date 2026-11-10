@@ -1,7 +1,20 @@
 # F392 — Work Starts On Its Checkout's Branch
 
-**Status:** Review.
-**Size:** M - a checkout's branch read with its origin, carried to `Start` as `from`, and the branch the machine settled said.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F392",
+  "title": "Work Starts On Its Checkout's Branch",
+  "state": "Review",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 29,
+  "blockedBy": [],
+  "covers": "Work started from a checkout here starts from that checkout's branch, and says which branch it started from and why."
+}
+```
+
+**Why this size.** a checkout's branch read with its origin, carried to `Start` as `from`, and the branch the machine settled said.
 
 **What must be true.** Work a person starts from a checkout on this computer starts from the branch that checkout is on, and says which branch it started from and why that one: the checkout's, the project's base branch, or the repository's default. The person only sees which branch is used; the window names no other.
 

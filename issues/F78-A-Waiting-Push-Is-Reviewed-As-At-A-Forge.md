@@ -1,7 +1,20 @@
 # F78 — A Waiting Push Is Reviewed As At A Forge
 
-**Status:** Analyzed.
-**Size:** S - one view (`lib/src/ui/gate_view.dart`) and the gate's model reading two fields the daemon adds; no
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F78",
+  "title": "A Waiting Push Is Reviewed As At A Forge",
+  "state": "Analyzed",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 5,
+  "blockedBy": [],
+  "covers": "A waiting push decided without an IDE: source level, highest risk class, files in risk order with their class, *Let it through…* or *Turn it away*, a second ask for `C3` files; the code read in IntelliJ."
+}
+```
+
+**Why this size.** one view (`lib/src/ui/gate_view.dart`) and the gate's model reading two fields the daemon adds; no
 diff rendering, no new package, no state kept on disk.
 
 **What must be true.** A person decides a waiting push in the interface without an IDE: its page shows the push's

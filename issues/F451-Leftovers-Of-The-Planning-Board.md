@@ -1,7 +1,20 @@
 # F451 — Leftovers Of The Planning Board
 
-**Status:** Review.
-**Size:** S - the mock's board brought under the interface's rule for a story's state, and a story's move
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "F451",
+  "title": "Leftovers Of The Planning Board",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 79,
+  "blockedBy": [],
+  "covers": "The mock's planning board under the interface's rule for a story's state, and a story's move taking the issues that rule names, in the mock and the client."
+}
+```
+
+**Why this size.** the mock's board brought under the interface's rule for a story's state, and a story's move
 taking the issues that rule names, in the mock and the client alike.
 
 **What must be true.** What fitting the planning board to the daemon's interface ([F446](README.md#f446) to
