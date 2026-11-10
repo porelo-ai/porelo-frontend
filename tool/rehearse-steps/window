@@ -32,14 +32,21 @@ rehearse=$REHEARSAL_WINDOW_CHECKOUT/tool/rehearse_window.sh
 [ -x "$rehearse" ] || skip "the checkout has no executable tool/rehearse_window.sh"
 vm=(--vm "$REHEARSAL_WINDOW_VM" --vm-key "$REHEARSAL_WINDOW_VM_KEY")
 
-# Without the VM, or with one that lacks something, the rehearsal goes on without the window.
-if ! said=$(env -u SSH_AUTH_SOCK "$rehearse" check "${vm[@]}" 2>&1); then
-    printf '%s\n' "$said"
+# Five minutes kept for the script's own cleanup, and every call ended half a minute before the deadline.
+left=$((REHEARSAL_DEADLINE - $(date +%s)))
+[ "$((left / 60 - 5))" -ge 10 ] || skip "only $((left / 60 - 5)) minutes left for the window, fewer than 10"
+
+# Without the VM, or with one that lacks something, the rehearsal goes on without the window. The check gets at most
+# a minute: a VM that does not answer must not hold the rehearsal.
+status=0
+said=$(env -u SSH_AUTH_SOCK timeout --signal=TERM --kill-after=10 60 "$rehearse" check "${vm[@]}" 2>&1) || status=$?
+if [ "$status" -ne 0 ]; then
+    [ -z "$said" ] || printf '%s\n' "$said"
+    [ "$status" -ne 124 ] && [ "$status" -ne 137 ] || skip "$REHEARSAL_WINDOW_VM did not answer the check within a minute"
     skip "$(printf '%s\n' "$said" | tail -n 1)"
 fi
 printf '%s\n' "$said"
 
-# Five minutes kept for the script's own cleanup, and the call itself ended half a minute before the deadline.
 left=$((REHEARSAL_DEADLINE - $(date +%s)))
 budget=$((left / 60 - 5))
 [ "$budget" -ge 10 ] || skip "only $budget minutes left for the window, fewer than 10"
