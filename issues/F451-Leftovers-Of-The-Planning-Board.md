@@ -1,6 +1,6 @@
 # F451 — Leftovers Of The Planning Board
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** S - the mock's board brought under the interface's rule for a story's state, and a story's move
 taking the issues that rule names, in the mock and the client alike.
 
