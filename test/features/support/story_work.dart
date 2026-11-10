@@ -170,8 +170,8 @@ Future<void> chooseWork(WidgetTester tester, String choice) async {
       await workTap(tester, 'story-work-cancel');
     case 'start':
       await workTap(tester, 'story-work-start');
-    case 'drop reader':
-      await workTap(tester, 'story-work-choice ${workRepository()} porelo/B540/READER DROP');
+    case 'drop builder':
+      await workTap(tester, 'story-work-choice ${workRepository()} porelo/B540/BUILDER DROP');
     case 'comment and start':
       await workText(tester, 'story-work-comment', 'Use the chosen reading setup.');
       await workTap(tester, 'story-work-start');
@@ -183,10 +183,10 @@ Future<void> chooseWork(WidgetTester tester, String choice) async {
       await World.settle(tester);
     case 'change main model':
       await workText(tester, 'story-work-main-model porelo', 'chosen-main-model');
-    case 'change reader':
-      await workTap(tester, 'story-work-choice porelo porelo/B540/READER CHANGE');
-    case 'change reader agent':
-      await workTap(tester, 'story-work-agent porelo porelo/B540/READER');
+    case 'change builder':
+      await workTap(tester, 'story-work-choice porelo porelo/B540/BUILDER CHANGE');
+    case 'change builder agent':
+      await workTap(tester, 'story-work-agent porelo porelo/B540/BUILDER');
       await tester.tap(find.byKey(const Key('start-agent-choice an-agent')).last);
       await World.settle(tester);
     case 'comment':
@@ -202,9 +202,9 @@ Future<void> chooseWork(WidgetTester tester, String choice) async {
     case 'show closed cards':
       await workTap(tester, 'planning-show-closed');
       await workTap(tester, 'planning-fold-phase Done');
-    case 'change reader and rounds':
-      await workTap(tester, 'story-work-choice ${workRepository()} porelo/B540/READER CHANGE');
-      await workText(tester, 'story-work-model ${workRepository()} porelo/B540/READER', 'chosen-reader-model');
+    case 'change builder and rounds':
+      await workTap(tester, 'story-work-choice ${workRepository()} porelo/B540/BUILDER CHANGE');
+      await workText(tester, 'story-work-model ${workRepository()} porelo/B540/BUILDER', 'chosen-builder-model');
       await workText(tester, 'story-work-rounds', '5');
       final perIssue = find.text('Per issue');
       await tester.ensureVisible(perIssue);
@@ -231,9 +231,9 @@ Future<void> chooseWork(WidgetTester tester, String choice) async {
 Future<void> proveWork(WidgetTester tester, String proof) async {
   Finder cardIn(String state) =>
       find.descendant(of: workKey('planning-state $state'), matching: workKey('planning-card ST291'));
-  Future<void> revealWork() async {
-    if (find.descendant(of: cardIn('In analysis'), matching: find.textContaining('tasks')).evaluate().isEmpty) {
-      await workTap(tester, 'planning-fold-state In analysis');
+  Future<void> revealWork(String state) async {
+    if (find.descendant(of: cardIn(state), matching: find.textContaining('tasks')).evaluate().isEmpty) {
+      await workTap(tester, 'planning-fold-state $state');
     }
   }
 
@@ -247,9 +247,9 @@ Future<void> proveWork(WidgetTester tester, String proof) async {
       expect(workKey('story-work-task porelo'), findsOneWidget);
       expect(workKey('story-work-task porelo-host'), findsOneWidget);
       expect(find.textContaining('B540, B541'), findsOneWidget);
-      expect(tester.widget<ChoiceChip>(workKey('story-work-choice porelo porelo/B540/READER KEEP')).selected, isTrue);
+      expect(tester.widget<ChoiceChip>(workKey('story-work-choice porelo porelo/B540/BUILDER KEEP')).selected, isTrue);
       expect(
-        tester.widget<ChoiceChip>(workKey('story-work-choice porelo-host porelo-host/HO156/READER KEEP')).selected,
+        tester.widget<ChoiceChip>(workKey('story-work-choice porelo-host porelo-host/HO156/BUILDER KEEP')).selected,
         isTrue,
       );
       expect(find.text('The agents work unattended.'), findsOneWidget);
@@ -273,9 +273,10 @@ Future<void> proveWork(WidgetTester tester, String proof) async {
       expect(tester.widget<FilledButton>(workKey('story-work-start')).onPressed, isNull);
     case 'running work visible':
       expect(workKey('story-work-dialog'), findsNothing);
-      expect(cardIn('In analysis'), findsOneWidget);
-      await revealWork();
-      expect(cardText(), contains('coordinator'));
+      // The planner moves the story once it is told its tasks started, which the window does not tell yet.
+      expect(cardIn('Backlog'), findsOneWidget);
+      await revealWork('Backlog');
+      // The work names a coordinator only once the planner's run records one.
       expect(cardText(), contains('2 tasks'));
       expect(cardText(), contains('codex'));
       expect(cardText(), contains('proposed-model'));
@@ -291,33 +292,33 @@ Future<void> proveWork(WidgetTester tester, String proof) async {
       expect(planningText(tester, card), isNot(contains('Work not reported')));
       expect(planningText(tester, card), isNot(contains('nobody at work')));
     case 'working work missing':
-      await revealWork();
+      await revealWork('In analysis');
       expect(cardText(), contains('Work not reported'));
     case 'start available':
       expect(tester.widget<PopupMenuItem<String>>(workKey('planning-start ST291')).enabled, isTrue);
     case 'started main model visible':
       expect(workKey('story-work-dialog'), findsNothing);
-      await revealWork();
+      await revealWork('Backlog');
       expect(cardText(), contains('chosen-main-model'));
       expect(cardText(), contains('an-agent'));
     case 'change proposal prefilled':
       expect(
         tester
-            .widget<DropdownButtonFormField<String>>(workKey('story-work-agent porelo porelo/B540/READER'))
+            .widget<DropdownButtonFormField<String>>(workKey('story-work-agent porelo porelo/B540/BUILDER'))
             .initialValue,
-        'claude-code',
+        'codex',
       );
       expect(
         tester
             .widget<EditableText>(
               find.descendant(
-                of: workKey('story-work-model porelo porelo/B540/READER'),
+                of: workKey('story-work-model porelo porelo/B540/BUILDER'),
                 matching: find.byType(EditableText),
               ),
             )
             .controller
             .text,
-        'reader-model',
+        'proposed-model',
       );
     case 'per issue rounds retained':
       expect(
@@ -345,10 +346,10 @@ Future<void> proveWork(WidgetTester tester, String proof) async {
       expect(cardIn('Backlog'), findsOneWidget);
       expect(cardIn('In analysis'), findsNothing);
       expect(workKey('story-work-dialog'), findsOneWidget);
-    case 'stopped in working state':
-      expect(cardIn('In analysis'), findsOneWidget);
-      await revealWork();
-      expect(cardText(), contains('nobody at work'));
+    case 'stopped where it stands':
+      expect(cardIn('Backlog'), findsOneWidget);
+      // A waiting card shows no work once nobody is at work; while it ran, it showed its tasks.
+      expect(cardText(), isNot(contains('tasks')));
       expect(cardIn('Review'), findsNothing);
     case 'ended task answer visible':
       expect(find.byKey(const Key('tile-last-answer')), findsWidgets);
@@ -416,13 +417,16 @@ Future<void> proveWork(WidgetTester tester, String proof) async {
         expect(text.data, key == 'story-work-task porelo' ? 'porelo' : 'porelo-host');
         expect(tester.getSize(name).width, lessThanOrEqualTo(390));
       }
-      await workTap(tester, 'story-work-choice porelo porelo/B540/READER CHANGE');
-      for (final key in ['story-work-agent porelo porelo/B540/READER', 'story-work-model porelo porelo/B540/READER']) {
+      await workTap(tester, 'story-work-choice porelo porelo/B540/BUILDER CHANGE');
+      for (final key in [
+        'story-work-agent porelo porelo/B540/BUILDER',
+        'story-work-model porelo porelo/B540/BUILDER',
+      ]) {
         await tester.ensureVisible(workKey(key));
         await tester.pump();
         expect(workKey(key).hitTestable(), findsOneWidget);
       }
-      await workText(tester, 'story-work-model porelo porelo/B540/READER', 'narrow-reader-model');
+      await workText(tester, 'story-work-model porelo porelo/B540/BUILDER', 'narrow-builder-model');
       final perIssue = find.text('Per issue');
       await tester.ensureVisible(perIssue);
       await tester.tap(perIssue);

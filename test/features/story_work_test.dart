@@ -37,10 +37,10 @@ void main() {
       await iChooseStoryWork(tester, 'cancel');
       await storyWorkProves(tester, 'nothing started');
     });
-    testWidgets('''Dropping the reader requires a comment''', (tester) async {
+    testWidgets('''Dropping a builder requires a comment''', (tester) async {
       await bddSetUp(tester);
       await iOpenStoryWorkFor(tester, 'ST291');
-      await iChooseStoryWork(tester, 'drop reader');
+      await iChooseStoryWork(tester, 'drop builder');
       await storyWorkProves(tester, 'start disabled');
       await iChooseStoryWork(tester, 'comment and start');
       await storyWorkProves(tester, 'running work visible');
@@ -48,7 +48,7 @@ void main() {
     testWidgets('''Changed participants and reading limits reach the daemon''', (tester) async {
       await bddSetUp(tester);
       await iOpenStoryWorkFor(tester, 'ST291');
-      await iChooseStoryWork(tester, 'change reader and rounds');
+      await iChooseStoryWork(tester, 'change builder and rounds');
       await iChooseStoryWork(tester, 'refold issue rounds');
       await storyWorkProves(tester, 'per issue rounds retained');
       await storyWorkProves(tester, 'start disabled');
@@ -68,12 +68,12 @@ void main() {
       await storyWorkIsPreparedWith(tester, 'new revision');
       await storyWorkProves(tester, 'start disabled');
     });
-    testWidgets('''Stop leaves the story in its working state''', (tester) async {
+    testWidgets('''Stop leaves the story where it stands''', (tester) async {
       await bddSetUp(tester);
       await iOpenStoryWorkFor(tester, 'ST291');
       await iChooseStoryWork(tester, 'start');
       await iChooseStoryWork(tester, 'stop');
-      await storyWorkProves(tester, 'stopped in working state');
+      await storyWorkProves(tester, 'stopped where it stands');
     });
     testWidgets('''Ended work appears in Needs you''', (tester) async {
       await bddSetUp(tester);
@@ -191,11 +191,11 @@ void main() {
     testWidgets('''Sub-agent Change begins with the proposal and requires a difference''', (tester) async {
       await bddSetUp(tester);
       await iOpenStoryWorkFor(tester, 'ST291');
-      await iChooseStoryWork(tester, 'change reader');
+      await iChooseStoryWork(tester, 'change builder');
       await storyWorkProves(tester, 'change proposal prefilled');
       await iChooseStoryWork(tester, 'comment');
       await storyWorkProves(tester, 'start disabled');
-      await iChooseStoryWork(tester, 'change reader agent');
+      await iChooseStoryWork(tester, 'change builder agent');
       await iChooseStoryWork(tester, 'start');
       await storyWorkProves(tester, 'running work visible');
     });

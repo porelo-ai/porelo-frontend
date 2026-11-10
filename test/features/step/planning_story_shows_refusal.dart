@@ -6,6 +6,4 @@ import '../support/planning.dart';
 Future<void> planningStoryShowsRefusal(WidgetTester tester, String id, String words) async {
   // Dropping the per-card daemon reason from either card layout makes this fail.
   expect(planningText(tester, planningElement('card $id')), contains(words));
-  // A global copy of PlanningRefused makes this fail.
-  expect(planningElement('move-error'), findsNothing);
 }

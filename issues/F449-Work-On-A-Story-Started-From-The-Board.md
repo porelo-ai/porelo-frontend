@@ -85,8 +85,7 @@ a *Needs you* entry with the agent's words.
 ## How it stands
 
 - Built against the planner's screen at the change that hands a story's checked tasks to the window's Start one at
-  a time, which is not on `main` yet: the window builds against it through an untracked `pubspec_overrides.yaml`,
-  and `pubspec.yaml` is repinned once it is.
+  a time, pinned in `pubspec.yaml` by its commit on the planner's `main`.
 - `taskEvent` keeps the planner's present shape; the window calls it nowhere yet. The agreed shape, with the offer,
   the container and the run's end, waits on the planner's screen.
 - The hook sends `Start` with `now`, as the window's own start dialog does: without it, a prompted `Start` answers
@@ -94,9 +93,10 @@ a *Needs you* entry with the agent's words.
   answers once the task stands; a test with a stand-in whose `Start` without `now` never ends holds it.
 - A task removed outside the window (the command line, another window) keeps its offer in the settings until the
   window removes a task of the same container name.
-- Fifteen planning scenarios fail against the planner's present screen, none in the start hook: the reader's
-  *Keep*, *Change* and *Drop* keys are not shown, a move refusal stands where none is expected, and a started story's
-  card is not in its working state. They are the planner's screen's changes, to be met when it is repinned.
+- The planning scenarios follow the pinned screen: a refused save refuses its whole batch, every card of it shows
+  the refusal and the board's banner stays until the batch is saved or undone; a proposal offers only builders to
+  keep, change or drop, since readers follow the building; a started story stays in its state, and its work names no
+  coordinator, until the planner is told its tasks started.
 
 ## To be checked
 

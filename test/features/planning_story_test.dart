@@ -78,7 +78,6 @@ import './step/no_planning_moves_are_pending.dart';
 import './step/the_planning_move_revision_becomes_stale.dart';
 import './step/the_planning_move_is_refused_with.dart';
 import './step/the_planning_move_for_says.dart';
-import './step/the_planning_move_for_has_no_refusal.dart';
 
 void main() {
   group('''Open stories and issues from planning''', () {
@@ -477,7 +476,7 @@ void main() {
       await planningIssueChangesAreSaved(tester);
     });
     testWidgets(
-      '''Outline: Daemon refusals identify the affected pending issue (MoveNotAllowed, Policy refused this move)''',
+      '''Outline: Daemon refusals stay on every pending issue of the refused batch (MoveNotAllowed, Policy refused this move)''',
       (tester) async {
         await bddSetUp(tester);
         await thePlanningMoveIsRefusedWith(tester, 'MoveNotAllowed');
@@ -486,14 +485,14 @@ void main() {
         await iMovePlanningIssueTo(tester, 'B541', 'Review');
         await iSaveThePlanningMoves(tester);
         await thePlanningMoveForSays(tester, 'B541', 'Policy refused this move');
-        await thePlanningMoveForHasNoRefusal(tester, 'B540');
+        await thePlanningMoveForSays(tester, 'B540', 'Policy refused this move');
         await thePlanningIssueReports(tester, 'B540', 'Implementing');
         await thePlanningIssueReports(tester, 'B541', 'Implementing');
         await thereArePendingPlanningMoves(tester, 2);
       },
     );
     testWidgets(
-      '''Outline: Daemon refusals identify the affected pending issue (StateNotAllowed, Policy refused this move)''',
+      '''Outline: Daemon refusals stay on every pending issue of the refused batch (StateNotAllowed, Policy refused this move)''',
       (tester) async {
         await bddSetUp(tester);
         await thePlanningMoveIsRefusedWith(tester, 'StateNotAllowed');
@@ -502,14 +501,14 @@ void main() {
         await iMovePlanningIssueTo(tester, 'B541', 'Review');
         await iSaveThePlanningMoves(tester);
         await thePlanningMoveForSays(tester, 'B541', 'Policy refused this move');
-        await thePlanningMoveForHasNoRefusal(tester, 'B540');
+        await thePlanningMoveForSays(tester, 'B540', 'Policy refused this move');
         await thePlanningIssueReports(tester, 'B540', 'Implementing');
         await thePlanningIssueReports(tester, 'B541', 'Implementing');
         await thereArePendingPlanningMoves(tester, 2);
       },
     );
     testWidgets(
-      '''Outline: Daemon refusals identify the affected pending issue (EnteredOnlyByWork, entered only by work)''',
+      '''Outline: Daemon refusals stay on every pending issue of the refused batch (EnteredOnlyByWork, entered only by work)''',
       (tester) async {
         await bddSetUp(tester);
         await thePlanningMoveIsRefusedWith(tester, 'EnteredOnlyByWork');
@@ -518,7 +517,7 @@ void main() {
         await iMovePlanningIssueTo(tester, 'B541', 'Review');
         await iSaveThePlanningMoves(tester);
         await thePlanningMoveForSays(tester, 'B541', 'entered only by work');
-        await thePlanningMoveForHasNoRefusal(tester, 'B540');
+        await thePlanningMoveForSays(tester, 'B540', 'entered only by work');
         await thePlanningIssueReports(tester, 'B540', 'Implementing');
         await thePlanningIssueReports(tester, 'B541', 'Implementing');
         await thereArePendingPlanningMoves(tester, 2);

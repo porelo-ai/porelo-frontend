@@ -42,6 +42,7 @@ import './step/i_undo_all_planning_moves.dart';
 import './step/the_planning_machine_refuses_story_with.dart';
 import './step/i_fold_the_planning_phase.dart';
 import './step/the_planning_save_refuses_for_story_with.dart';
+import './step/planning_story_no_longer_shows_refusal.dart';
 import './step/no_planning_move_notice_is_shown.dart';
 import './step/no_planning_drop_hint_names.dart';
 import './step/no_planning_start_is_requested.dart';
@@ -184,11 +185,12 @@ void main() {
       await iDragPlanningStoryTo(tester, 'ST293', 'Review');
       await iSavePlanningMoves(tester);
       await planningStoryShowsRefusal(tester, 'ST291', 'Work is still running');
-      await planningStoryIsMarkedMoved(tester, 'ST293');
+      await planningStoryShowsRefusal(tester, 'ST293', 'Work is still running');
+      await planningStoryIsNotMarkedMoved(tester, 'ST293');
       await iUndoPlanningStory(tester, 'ST291');
-      await noPlanningMoveErrorIsShown(tester);
       await planningSaveIsUsable(tester);
       await iSavePlanningMoves(tester);
+      await noPlanningMoveErrorIsShown(tester);
       await planningStoryHasNoPendingMove(tester, 'ST293');
       await thePlanningStoryIsIn(tester, 'ST293', 'Review');
       await thePlanningStoryIsIn(tester, 'ST291', 'Backlog');
@@ -212,16 +214,18 @@ void main() {
       await thePlanningPageIsShown(tester);
       await planningStoryHasAPendingMove(tester, 'ST291');
     });
-    testWidgets('''An unknown-story refusal stays beside the named card''', (tester) async {
+    testWidgets('''A refusal naming one story returns the whole batch''', (tester) async {
       await bddSetUp(tester);
       await thePlanningSaveRefusesForStoryWith(tester, 'NoSuchStory', 'ST291', 'The story is unknown');
       await iDragPlanningStoryTo(tester, 'ST291', 'Review');
       await iDragPlanningStoryTo(tester, 'ST292', 'Review');
       await iSavePlanningMoves(tester);
       await planningStoryShowsRefusal(tester, 'ST291', 'The story is unknown');
+      await planningStoryShowsRefusal(tester, 'ST292', 'The story is unknown');
       await planningStoryIsNotMarkedMoved(tester, 'ST291');
+      await planningStoryIsNotMarkedMoved(tester, 'ST292');
       await thePlanningStoryIsIn(tester, 'ST291', 'Backlog');
-      await planningStoryIsMarkedMoved(tester, 'ST292');
+      await thePlanningStoryIsIn(tester, 'ST292', 'Backlog');
     });
     testWidgets('''An unnamed refusal returns every submitted card to its reported column''', (tester) async {
       await bddSetUp(tester);
@@ -245,9 +249,10 @@ void main() {
       await planningStoryShowsRefusal(tester, 'ST291', 'Work is still running');
       await thePlanningSaveRefusesForStoryWith(tester, 'AnotherRefusal', 'ST292', 'This story cannot move');
       await iSavePlanningMoves(tester);
-      await planningStoryIsMarkedMoved(tester, 'ST291');
-      await thePlanningStoryIsIn(tester, 'ST291', 'Review');
+      await planningStoryShowsRefusal(tester, 'ST291', 'This story cannot move');
+      await planningStoryNoLongerShowsRefusal(tester, 'ST291', 'Work is still running');
       await planningStoryShowsRefusal(tester, 'ST292', 'This story cannot move');
+      await planningStoryNoLongerShowsRefusal(tester, 'ST292', 'Work is still running');
       await planningStoryIsNotMarkedMoved(tester, 'ST292');
       await thePlanningStoryIsIn(tester, 'ST292', 'Backlog');
     });

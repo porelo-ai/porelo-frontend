@@ -17,10 +17,10 @@ Feature: Start and decide story work from the planning board
         And I choose story work {'cancel'}
         Then story work proves {'nothing started'}
 
-    # Harm: a reader is silently dropped without explaining the decision.
-    Scenario: Dropping the reader requires a comment
+    # Harm: a builder is silently dropped without explaining the decision.
+    Scenario: Dropping a builder requires a comment
         When I open story work for {'ST291'}
-        And I choose story work {'drop reader'}
+        And I choose story work {'drop builder'}
         Then story work proves {'start disabled'}
         When I choose story work {'comment and start'}
         Then story work proves {'running work visible'}
@@ -28,7 +28,7 @@ Feature: Start and decide story work from the planning board
     # Harm: a changed model or reading limit is lost before start.
     Scenario: Changed participants and reading limits reach the daemon
         When I open story work for {'ST291'}
-        And I choose story work {'change reader and rounds'}
+        And I choose story work {'change builder and rounds'}
         And I choose story work {'refold issue rounds'}
         Then story work proves {'per issue rounds retained'}
         And story work proves {'start disabled'}
@@ -49,11 +49,11 @@ Feature: Start and decide story work from the planning board
         Then story work proves {'start disabled'}
 
     # Harm: stopped work appears to have moved to a completed state.
-    Scenario: Stop leaves the story in its working state
+    Scenario: Stop leaves the story where it stands
         When I open story work for {'ST291'}
         And I choose story work {'start'}
         And I choose story work {'stop'}
-        Then story work proves {'stopped in working state'}
+        Then story work proves {'stopped where it stands'}
 
     # Harm: a blocked story outcome goes unseen and loses the agent's words.
     Scenario: Ended work appears in Needs you
@@ -171,10 +171,10 @@ Feature: Start and decide story work from the planning board
     # Harm: changing only an agent loses its proposed model or an unchanged Change silently starts.
     Scenario: Sub-agent Change begins with the proposal and requires a difference
         When I open story work for {'ST291'}
-        And I choose story work {'change reader'}
+        And I choose story work {'change builder'}
         Then story work proves {'change proposal prefilled'}
         When I choose story work {'comment'}
         Then story work proves {'start disabled'}
-        When I choose story work {'change reader agent'}
+        When I choose story work {'change builder agent'}
         And I choose story work {'start'}
         Then story work proves {'running work visible'}

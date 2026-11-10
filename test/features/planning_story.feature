@@ -375,15 +375,15 @@ Feature: Open stories and issues from planning
         Then the planning issue {'B541'} reports {'Review'}
         And planning issue changes are saved
 
-    # Harm: a refused batch changes another issue or places the refusal on the wrong row.
-    Scenario Outline: Daemon refusals identify the affected pending issue
+    # Harm: a refused batch changes another issue or hides the refusal on one of its rows.
+    Scenario Outline: Daemon refusals stay on every pending issue of the refused batch
         Given the planning move is refused with {'<error>'}
         When I open planning story {'ST291'}
         And I move planning issue {'B540'} to {'Review'}
         And I move planning issue {'B541'} to {'Review'}
         And I save the planning moves
         Then the planning move for {'B541'} says {'<words>'}
-        And the planning move for {'B540'} has no refusal
+        And the planning move for {'B540'} says {'<words>'}
         And the planning issue {'B540'} reports {'Implementing'}
         And the planning issue {'B541'} reports {'Implementing'}
         And there are {2} pending planning moves

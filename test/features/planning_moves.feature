@@ -135,12 +135,13 @@ Feature: Planning moves stay pending until saved
         And I drag planning story {'ST293'} to {'Review'}
         And I save planning moves
         Then planning story {'ST291'} shows refusal {'Work is still running'}
-        And planning story {'ST293'} is marked moved
+        And planning story {'ST293'} shows refusal {'Work is still running'}
+        And planning story {'ST293'} is not marked moved
         When I undo planning story {'ST291'}
-        Then no planning move error is shown
-        And planning Save is usable
+        Then planning Save is usable
         When I save planning moves
-        Then planning story {'ST293'} has no pending move
+        Then no planning move error is shown
+        And planning story {'ST293'} has no pending move
         And the planning story {'ST293'} is in {'Review'}
         And the planning story {'ST291'} is in {'Backlog'}
 
@@ -163,16 +164,18 @@ Feature: Planning moves stay pending until saved
         Then the planning page is shown
         And planning story {'ST291'} has a pending move
 
-    # Harm: an unknown-story refusal leaves its card in a destination the daemon rejected.
-    Scenario: An unknown-story refusal stays beside the named card
+    # Harm: a refusal naming one story leaves another card of the refused batch in a destination never saved.
+    Scenario: A refusal naming one story returns the whole batch
         Given the planning save refuses {'NoSuchStory'} for story {'ST291'} with {'The story is unknown'}
         When I drag planning story {'ST291'} to {'Review'}
         And I drag planning story {'ST292'} to {'Review'}
         And I save planning moves
         Then planning story {'ST291'} shows refusal {'The story is unknown'}
+        And planning story {'ST292'} shows refusal {'The story is unknown'}
         And planning story {'ST291'} is not marked moved
+        And planning story {'ST292'} is not marked moved
         And the planning story {'ST291'} is in {'Backlog'}
-        And planning story {'ST292'} is marked moved
+        And the planning story {'ST292'} is in {'Backlog'}
 
     # Harm: an unnamed batch refusal leaves all refused cards marked as moved.
     Scenario: An unnamed refusal returns every submitted card to its reported column
@@ -187,7 +190,7 @@ Feature: Planning moves stay pending until saved
         And the planning story {'ST291'} is in {'Backlog'}
         And the planning story {'ST292'} is in {'Backlog'}
 
-    # Harm: retrying leaves the previous refusal on a card the new answer did not refuse.
+    # Harm: retrying leaves the previous refusal beside the new one, so a card reads as refused for a reason gone.
     Scenario: A new save clears the previous problems before showing its new refusal
         Given the planning machine refuses story {'ST291'} with {'Work is still running'}
         When I drag planning story {'ST291'} to {'Review'}
@@ -196,9 +199,10 @@ Feature: Planning moves stay pending until saved
         Then planning story {'ST291'} shows refusal {'Work is still running'}
         Given the planning save refuses {'AnotherRefusal'} for story {'ST292'} with {'This story cannot move'}
         When I save planning moves
-        Then planning story {'ST291'} is marked moved
-        And the planning story {'ST291'} is in {'Review'}
+        Then planning story {'ST291'} shows refusal {'This story cannot move'}
+        And planning story {'ST291'} no longer shows refusal {'Work is still running'}
         And planning story {'ST292'} shows refusal {'This story cannot move'}
+        And planning story {'ST292'} no longer shows refusal {'Work is still running'}
         And planning story {'ST292'} is not marked moved
         And the planning story {'ST292'} is in {'Backlog'}
 
