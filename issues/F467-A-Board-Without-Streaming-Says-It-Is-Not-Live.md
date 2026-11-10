@@ -21,6 +21,13 @@ not live, and that a reload shows the current state; it never stands as if it fo
 - Placed by the operator (2026-11-10) from [F451](README.md#f451), point 3: today the board keeps showing what it
   read, with no word that it no longer follows.
 
+## How it stands
+
+- The board and whether it is live are porelo-planner's package now, so nothing of this is left in the window.
+  Since the package's event stream, a lost connection ends after 45 seconds and shows its words with *Retry* and
+  *Reload*. What is left (a board that closes after one answer, a reconnect in progress, and the "not live: Reload
+  shows the current state" line) is filed in the planner's package. This issue waits to be rejected as moved there.
+
 ## Plan
 
 - Where the board's read comes without a stream (`lib/src/app/planning*`, the board's source), the board says so in
