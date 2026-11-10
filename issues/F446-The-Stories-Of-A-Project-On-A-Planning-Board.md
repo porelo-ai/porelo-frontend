@@ -41,25 +41,33 @@ it reaches no planner it says why in words.
 ## Plan
 
 - `lib/src/app/planner.dart`: `LocalPlanner`, the window's `PlanningClient` and its one provider. `reach()` reads the
-  address file through `HttpPlanningSource.fromAddressFile`, which parses it; where none is there it starts the
-  planner from `/usr/libexec/porelo/planner` or `porelo-planner` on the path (never a relative path entry), detached,
-  with the runtime directory it reads, once per window, and polls for the address for at most 20 s. Its words for the
-  place (`PlanningReach.notReached`): looking, not installed, cannot be reached (the package's refusal, such as an
-  address file others may read), or started without an address in time. It lists the watched machines' projects but
+  address file through `HttpPlanningSource.fromAddressFile`, which parses it. Only a missing address (`NoAddress`)
+  means no planner runs: then it starts the planner from `/usr/libexec/porelo/planner` or `porelo-planner` on the path
+  (only absolute path entries without a `..` segment), detached, with the runtime directory it reads, once per window,
+  and polls for the address for at most 20 s. A candidate whose start fails with a `ProcessException` gives way to the
+  next. Every other refusal, and any other failure while reading, is said and starts nothing; a relative runtime
+  directory is refused before any start, and a blank one is none, for the start and the read alike. A reach that did
+  not end in a planner can be tried again, and never starts a second planner. Its words for the place
+  (`PlanningReach.notReached`): looking, not installed, cannot be reached (the package's refusal, such as an address
+  file others may read), or started without an address in time. It lists the watched machines' projects but
   `default`, and answers each project's repository with the upstream of its own repository as a watched machine
-  names it, the machine shown first; with none it refuses in words (`NoRepository`), shown on the board.
-  `taskEvent` tells nothing: the planner takes no report of the window's tasks.
+  names it: the first remote clone URL, the machine shown first, else the first upstream at all; with none it
+  refuses in words (`NoRepository`, its sentence also as the `detail` the board reads). `taskEvent` tells nothing:
+  the planner takes no report of the window's tasks.
 - `lib/src/ui/planning_embedding.dart`: `plannerPlanning` builds `EmbeddedPlanning` around the `LocalPlanner`; its
   start of story work answers `PlanningUnsupported` until the planner offers one.
 - `lib/src/ui/shell.dart`: the planning place shows the planner's words while it is not reached, and the rail counts
-  nothing until it is; `lib/main.dart` passes the planning into `PoreloApp` and reaches the planner after the first
-  frame.
+  nothing until it is; *Refresh every machine now* tries `reach()` again while planning is not reached.
+  `lib/main.dart` passes the planning into `PoreloApp` and reaches the planner after the first frame.
 - `pubspec.yaml`: `porelo_planning` pinned to the planner's commit that brings its HTTP client.
 - Tests: `test/app/planner_test.dart` (finding the address, telling the repository, the start once, the bounded wait,
-  not installed, an address others may read, where the planner is looked for, the project's own upstream);
-  `test/ui/planning_placeholder_test.dart` (the place's words and the screen once reached, wired into `PoreloApp`);
-  `test/client/planner_mock_test.dart` against `porelo-planner --mock` in a runtime directory of its own, skipped with
-  its reason where no planner is installed.
+  not installed, an address others may read or that is not JSON, a relative or blank runtime directory, a failure
+  other than a refusal, a reach tried again, the next candidate, where the planner is looked for, the project's own
+  upstream and a remote one preferred, the refusal's words on the board, and the watched machines through
+  `plannedProjects`, `plannerProjectOf` and `LocalPlanner.of`); `test/ui/planning_placeholder_test.dart` (the place's
+  words and the screen once reached, wired into `PoreloApp`, and the refresh that tries again);
+  `test/client/planner_mock_test.dart` against `porelo-planner --mock` in a runtime directory of its own, counting
+  every start and stopping each, skipped with its reason where no planner is installed.
 
 ## Acceptance
 
@@ -71,9 +79,12 @@ it reaches no planner it says why in words.
   reach that never ends.
 - With no planner installed, nothing is started, and the place says so in words with no board and no count. Seen to
   fail: a candidate taken without its execute bit; the place without the reach's words; the rail counting.
-- An address file other accounts may read is refused in the package's words, and nothing is started.
-- A project the planner refuses (`NotACloneUrl`) or the window cannot name a repository for (`NoRepository`) shows the
-  refusal by name on the board; nothing hangs.
+- An address file other accounts may read, or one that is not the planner's, is refused in the package's words, and
+  nothing is started. Seen to fail: every refusal taken for a planner that is not running.
+- A project the planner refuses (`NotACloneUrl`) shows the refusal on the board; one the window cannot name a
+  repository for (`NoRepository`) shows the window's sentence; nothing hangs.
+- A remote clone URL any watched machine names is told before a local path. Seen to fail: the shown machine's local
+  path told first.
 - Against `porelo-planner --mock`, the window starts it, reads the mock board, and keeps the planner's refusal of a
   local path. Seen to fail: the start without the window's runtime directory.
 
@@ -89,6 +100,22 @@ it reaches no planner it says why in words.
 - A task on the board is opened only through a watched machine that is its provider; the planner names no machine for
   its tasks, so opening one from the board says the window does not know its machine.
 - The window's own Dart planning mock was removed before this work; nothing of it is left.
+- The reading of the window's part was taken: a refused address file starts nothing and keeps its words; the
+  window's `NoRepository` carries its sentence where the board reads it; a remote clone URL is preferred; a blank
+  runtime directory is none, for start and read alike; a failure other than a refusal is said; a failed reach can be
+  tried again, also from the refresh, without a second start; a candidate that fails to start gives way to the next;
+  path entries with `..` are skipped; and the tests count starts, assert the refusal's words and cover the watched
+  machines. Three findings belong to the planner's package and went to it: the board's words ignore a refusal's
+  description, so the planner's own refusals (`NotACloneUrl`, unreachable, timed out) still show by name; a failed
+  board is never read again when the project's repository becomes known or changes; and the address file's
+  directories, their owner and an absolute runtime directory are not checked when the address is read.
+- The first build's tests were written after the code and shown red by breaking it; this round's tests were red
+  first, except those for behavior that already held (a refused address file starting nothing, the watched
+  machines' projects and their order), which were shown red by breaking the code.
+- The planner's answers: it installs as `/usr/libexec/porelo/planner`; its live stream comes in the package after
+  the planner's events work; starting story work comes later, so until then "does not offer starting story work
+  yet" is right; a task's machine is to be reported by the window and kept by the planner, and until then the window
+  is to use the machine it is connected to, which this branch does not do yet (see the bullet on opening a task).
 
 ## To be checked
 
