@@ -48,5 +48,10 @@ together by hand.
 
 ## To be checked
 
-- **Whether every source's line carries its time**, read on the VM; a source without one is asked
-  of Agent Core as a time field from `Tail`. (Agent Frontend's, then Agent Core's)
+- **Whether every source's line carries its time:** read on 2026-11-11 in Core's code (porelo main 79177cb40), not
+  on a VM: no. `gate.log`, `vault.log`, `relay.log` and `clearance.log` are each a side process's standard output
+  redirected into the file (`GateWiring`, `CredentialWiring`, `ClearanceWiring`), plain lines such as the gate's
+  "task <name>" with no time of their own; `hooks.log` lines start with an ISO time, `events.jsonl` carries one per
+  line. So a timeline merged by time cannot be read from these lines: it waits for Core's `Tail` to answer each line
+  with the time it was written (a time field beside the line), to be asked of Agent Core. Until then the merge would
+  have to guess the order, which this issue's acceptance refuses. (Agent Frontend's reading; the ask is Agent Core's)
