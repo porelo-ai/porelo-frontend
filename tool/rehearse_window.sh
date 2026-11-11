@@ -14,7 +14,9 @@
 # The test person's key never enters the VM: SSH_AUTH_SOCK must name an agent holding it (a throwaway one, never
 # the operator's), and only the VM's connection forwards it, for the run alone. The VM is reached with --vm-key.
 # The host's key is the one the rehearsal read when the server was rented; nothing that answers is trusted on its
-# own word.
+# own word. REHEARSAL_CENTRAL_TOKEN, where set, names a program that prints the test identity's token for the central
+# forge: it goes into the VM person's vault on standard input alone, for the run, and is taken off again on every
+# ending, so that porelo on the VM can ask the forge who holds which key.
 set -euo pipefail
 
 usage() {
@@ -108,10 +110,10 @@ check() {
         return 1
     fi
     # The organization is read only with the test person's agent, named in REHEARSAL_PERSON_AGENT as the rehearsal
-    # names it; never with the agent of whoever calls the check. Not checked fresh here: porelod on the VM checks with
-    # an agent of its own, which holds the person's key only once a run points it at the forwarded one.
+    # names it; never with the agent of whoever calls the check. Read fresh, in this call: a read of what porelo kept
+    # starts a check of its own after it, which outlives this connection and its forwarded agent.
     if [ -n "${REHEARSAL_PERSON_AGENT:-}" ] &&
-        ! SSH_AUTH_SOCK=$REHEARSAL_PERSON_AGENT as_the_person_on_vm 'porelo org --json >/dev/null 2>&1'; then
+        ! SSH_AUTH_SOCK=$REHEARSAL_PERSON_AGENT as_the_person_on_vm 'porelo org --json --refresh >/dev/null 2>&1'; then
         echo "rehearse: porelo on $vm cannot read the organization with the agent given" >&2
         return 1
     fi
@@ -139,11 +141,20 @@ mkdir -p "$report"
 rm -f "$report/results.json" "$report/run.log" "$report/report.html" "$report/results.xml" "$report/scenarios.txt"
 rm -rf "$report/pictures"
 
-# Taken away on every ending: what still runs of the window's part, porelod's agent put back where this run pointed
-# it at the person's, the run's copy, and the host's key where this run added it.
-added_key='' pointed='' agent_before='' holder=''
+# Taken away on every ending: the central forge's token and its declaration where this run put them, what still
+# runs of the window's part, porelod's agent put back where this run pointed it at the person's, the run's copy, and
+# the host's key where this run added it.
+added_key='' pointed='' agent_before='' holder='' central_match='' token_put='' declared=''
 # shellcheck disable=SC2329
 cleanup() {
+    if [ -n "$declared" ]; then
+        as_the_person_on_vm "porelo credentials forget '$central_match'" </dev/null >/dev/null 2>&1 ||
+            echo "rehearse: the declaration of $central_match could not be taken off $vm; forget it there" >&2
+    fi
+    if [ -n "$token_put" ]; then
+        as_the_person_on_vm "porelo vault remove --without-revoking central-forge" </dev/null >/dev/null 2>&1 ||
+            echo "rehearse: the central-forge token could not be taken off $vm; remove it there" >&2
+    fi
     if [ -n "$pointed" ]; then
         on_vm "if [ -n '$agent_before' ]; then systemctl --user set-environment SSH_AUTH_SOCK='$agent_before'
             else systemctl --user unset-environment SSH_AUTH_SOCK; fi; systemctl --user restart porelod" ||
@@ -219,6 +230,53 @@ on_vm "set -e; systemctl --user set-environment SSH_AUTH_SOCK=\$HOME/$run/agent.
     echo "rehearse: porelod on $vm could not be started on the person's agent" >&2
     exit 1
 }
+
+# The central forge's token, for the organization's forge and owner as porelo on the VM names them. An entry or a
+# declaration the VM person already has is used and left as it is; only what this run puts there is taken off.
+if [ -n "${REHEARSAL_CENTRAL_TOKEN:-}" ]; then
+    [ -x "$REHEARSAL_CENTRAL_TOKEN" ] || {
+        echo "rehearse: REHEARSAL_CENTRAL_TOKEN names no program" >&2
+        exit 1
+    }
+    central_match=$(as_the_person_on_vm "porelo org --json --refresh" 2>/dev/null | python3 -I -c 'import json, re, sys
+a = json.load(sys.stdin)
+m = re.search(re.escape(a["forge"]) + r"[:/]+([A-Za-z0-9_.-]+)/", a["address"])
+print(a["forge"] + "/" + m[1] + "/" if m else "")') || true
+    shaped 'the organization forge' "$central_match" '[A-Za-z0-9.-]+/[A-Za-z0-9_.-]+/'
+    [ -n "$central_match" ] || {
+        echo "rehearse: porelo on $vm names no forge and owner of the organization" >&2
+        exit 1
+    }
+    if as_the_person_on_vm "porelo vault list" </dev/null | awk '{print $1}' | grep -qx central-forge; then
+        echo "rehearse: the person on $vm keeps a central-forge token already; it is used and left there"
+    else
+        token=$("$REHEARSAL_CENTRAL_TOKEN") || {
+            echo "rehearse: the central token program failed" >&2
+            exit 1
+        }
+        [ -n "$token" ] || {
+            echo "rehearse: the central token program gave nothing" >&2
+            exit 1
+        }
+        token_put=yes
+        printf '%s\n' "$token" | as_the_person_on_vm "porelo vault put --json central-forge" >/dev/null || {
+            token=''
+            echo "rehearse: the central-forge token could not be put on $vm" >&2
+            exit 1
+        }
+        token=''
+    fi
+    if as_the_person_on_vm "porelo credentials list" </dev/null | awk '{print $1}' | grep -qxF "$central_match"; then
+        echo "rehearse: the person on $vm declares $central_match already; that declaration is used"
+    else
+        declared=yes
+        as_the_person_on_vm "porelo credentials declare '$central_match' --kind token --vault central-forge" \
+            </dev/null >/dev/null || {
+            echo "rehearse: $central_match could not be declared on $vm" >&2
+            exit 1
+        }
+    fi
+fi
 
 # Who porelo on the VM takes itself to be, kept beside it: an organization read as someone not in it lists no host.
 as_the_person_on_vm "porelo identity show --json" >"$report/identity-on-vm.json" 2>&1 || true

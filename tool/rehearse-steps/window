@@ -9,7 +9,8 @@
 #
 # Exits 0 when every scenario is OK, 77 (SKIP, the last line says why) when the VM, the checkout or the time is
 # missing, and 1 for a failed rehearsal or a contract value missing. The report goes to REHEARSAL_REPORT/window.d.
-# The test person's key reaches the run only through the agent REHEARSAL_PERSON_AGENT names, for that one call.
+# The test person's key reaches the run only through the agent REHEARSAL_PERSON_AGENT names, for that one call; the
+# central forge's token only through the program REHEARSAL_CENTRAL_TOKEN names, where the rehearsal sets it.
 set -euo pipefail
 
 skip() {
