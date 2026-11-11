@@ -1939,6 +1939,9 @@ class FakeBackend implements FleetBackend {
   /// What waits for a person on this machine, as `Held` lists it. Set by the scenario.
   final List<HeldMessage> heldForAPerson = <HeldMessage>[];
 
+  /// Porelo's words where it answers every release that the message cannot be sent, or null where it does not.
+  String? notDeliverable;
+
   /// What `ReadHeld` answers, by the message's file name.
   final Map<String, HeldMessageRead> readable = <String, HeldMessageRead>{};
 
@@ -1973,6 +1976,14 @@ class FakeBackend implements FleetBackend {
       return MessageRelease.from(const <String, dynamic>{'outcome': 'NO_SUCH_MESSAGE'});
     }
     final message = heldForAPerson[index];
+    if (notDeliverable case final detail?) {
+      return MessageRelease.from(<String, dynamic>{
+        'outcome': 'NOT_DELIVERABLE',
+        'message': message.message,
+        'id': message.id,
+        'detail': detail,
+      });
+    }
     final outcome = switch ((message.standing, refuse)) {
       ('held', false) => 'RELEASED',
       ('refused-by-filter', false) => 'DELIVERED_DESPITE_FILTER',

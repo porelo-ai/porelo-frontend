@@ -133,6 +133,18 @@ Feature: Reading and deciding about what work says to other work
         Then what needs a person shows no message
         And the count of what needs a person is {'1 need you'}
 
+    # Walk 8: a refused release was a plain notice, gone with the dialog before it was read.
+    Scenario: a release Porelo refuses is said as an error that stays, with its words whole
+        Given a backend with work on it
+        And {'porelo-checkout-shell'} has a message held for {'reviewer'} saying {'please look at the diff'}
+        And Porelo answers a release that it cannot be sent, saying {'the task is not in the conversation of its project; start it again, then release the message'}
+        And the app is running
+        And I go to what needs a person
+        When I read the message from {'porelo-checkout-shell'}
+        And I release the message
+        Then the message is still open
+        And it says as an error {'Nothing was sent. Porelo says: the task is not in the conversation of its project; start it again, then release the message'}
+
     Scenario: a message decided somewhere else meanwhile is said to be gone, and nothing is decided
         Given a backend with work on it
         And {'porelo-checkout-shell'} has a message held for {'reviewer'} saying {'please look at the diff'}

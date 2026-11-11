@@ -5,17 +5,26 @@
   "$schema": "issue-1.json",
   "id": "F117",
   "title": "What Walk 8 Left Unbuilt",
-  "state": "Backlog",
-  "size": "M",
+  "state": "Review",
+  "size": "S",
   "priority": "Medium",
   "rank": 6,
   "blockedBy": [],
-  "covers": "A tile's repository in its heading, a refused release said as an error that stays."
+  "covers": "A release Porelo refuses said as an error that stays, with its words whole; the repository on a row is F491."
 }
 ```
 
 **Why this size.** two small changes in two modules (the tile and the held message's outcome), each with its
 scenario.
+
+**How it stands.** Built for the refused release, in Review; the tile's repository is split off as
+[F491](README.md#f491), as the row under *Work* has been rebuilt since this plan and where it
+names the repository is a choice to make there.
+- `HeldMessageDialog` (`lib/src/ui/held_message_view.dart`): a release answered `NOT_DELIVERABLE` keeps the dialog
+  open, its outcome in the error's colour: "Nothing was sent. Porelo says: <detail>", Porelo's words whole and
+  unmatched. Every other outcome closes the dialog as before, said behind it.
+- Test: `moderating_messages.feature`, "a release Porelo refuses is said as an error that stays, with its words
+  whole".
 
 **What must be true.** Two points walk 8 found, which the interface does not do yet: a tile names
 its repository in its heading, and a release Porelo refuses is said as an error that stays.

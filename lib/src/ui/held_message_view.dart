@@ -251,7 +251,9 @@ class _HeldMessageDialogState extends State<HeldMessageDialog> {
         if (done.outcome == 'RELEASED' && done.detail.isNotEmpty) done.detail,
       ].join(' ');
       final messenger = ScaffoldMessenger.maybeOf(context);
-      if (messenger == null) {
+      // A release Porelo refuses stays, as an error: a notice behind a closed dialog was gone before it was read
+      // (walk 8), and what to do is in Porelo's words.
+      if (messenger == null || done.outcome == 'NOT_DELIVERABLE') {
         setState(() {
           _done = done;
           _refusedWith = reason;
@@ -357,7 +359,10 @@ class _HeldMessageDialogState extends State<HeldMessageDialog> {
                 Text(
                   _outcome(done, widget.message.direction, withWords: _refusedWith.isNotEmpty),
                   key: const Key('held-message-outcome'),
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: done.outcome == 'NOT_DELIVERABLE' ? Theme.of(context).colorScheme.error : null,
+                  ),
                 ),
                 // The machine's own words under ours, where it says more.
                 if (done.outcome == 'RELEASED' && done.detail.isNotEmpty)
@@ -422,7 +427,8 @@ class _HeldMessageDialogState extends State<HeldMessageDialog> {
     'REFUSED' => 'Refused for good. The task that wrote it is told${withWords ? ', with your words' : ''}.',
     'DELIVERED_DESPITE_FILTER' =>
       'Delivered despite the filter. The record says a person sent it after the filter refused it.',
-    'NOT_DELIVERABLE' => 'It cannot be sent${done.detail.isEmpty ? '' : ': ${done.detail}'}.',
+    // Porelo's words whole and unmatched: they are no contract, and where it names what to do, it is in them.
+    'NOT_DELIVERABLE' => done.detail.isEmpty ? 'Nothing was sent.' : 'Nothing was sent. Porelo says: ${done.detail}',
     'NO_SUCH_MESSAGE' => 'It was no longer there, so nothing was decided.',
     'AMBIGUOUS' => 'The machine could not tell which message this is, so nothing was decided.',
     _ => 'The machine answered ${done.outcome}.',

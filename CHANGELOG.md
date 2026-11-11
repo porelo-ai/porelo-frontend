@@ -13,6 +13,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- A release of a held message that Porelo refuses keeps its dialog open and says, in the error's colour, that nothing was sent, with Porelo's words whole; before, it was a plain notice gone with the dialog.
 - A project's page and the organization's pages show the state Porelo kept at once, saying when it was checked last, and replace it with the checked state when that answers; a project's page offers no change until then, and a read whose check failed says so, with when and why, instead of passing for the project as it stands.
 - *Reload planning* has porelo-planner fetch the project's repositories again before it reads the board, so a story or issue pushed meanwhile is no longer said to be missing. The board's faults stand in one folded line that opens on demand, and the board takes all the height left below it.
 - The window follows porelo-planner to a new address: it reads the planner's address file again every two seconds, so a planner restarted on another port is reached without restarting the window, and one gone for good is started again.

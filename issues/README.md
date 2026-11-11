@@ -18,6 +18,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f491"></a>[F491](F491-A-Work-Row-Names-Its-Repository.md) | S | - | A row under Work names the repository its work is in, also in a project of one repository; where it says so is the person's to decide. |
 | <a id="f480"></a>[F480](F480-The-Window-Says-It-Started-The-Installed-Planner.md) | S | - | Where no planner was serving and the window started one itself, the planning place says so, with the program it started, so a person expecting their own planner sees that another one answers. |
 | <a id="f481"></a>[F481](F481-The-Board-Shows-Each-Size-As-A-Badge.md) | XS | - | The window carries the planning screen whose story cards and issue tiles show their T-shirt size as a badge beside the priority chip, and a test of the window sees the badge on its embedded board. |
 | <a id="f482"></a>[F482](F482-Every-Row-In-Needs-You-Can-Be-Put-Away.md) | S | - | Every row in Needs you, a planner's reading stop among them, carries Seen; a row put away stays away past a restart of the window until its cause comes again, and is kept in the window's log. |
@@ -120,7 +121,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f476"></a>[F476](F476-The-Window-Starts-The-Planner-On-Windows.md) | S | - | On Windows the window finds and starts porelo-planner's Windows build as it does on Linux, and reads the board through it, instead of saying planning is not offered there. |
 | <a id="f470"></a>[F470](F470-A-Story-Moved-Against-Its-Issues-Is-Warned-And-Confirmed.md) | S | - | A story moved on the board against its issues is warned, naming them, and saved only when confirmed; it keeps that state. |
 | <a id="f321"></a>[F321](F321-Send-The-Terminal-Input-Fix-Upstream.md) | S | - | The terminal input fix offered upstream, and this repository's copy of `xterm` dropped once a release holds it. |
-| <a id="f117"></a>[F117](F117-What-Walk-8-Left-Unbuilt.md) | M | - | A tile's repository in its heading, a refused release said as an error that stays. |
 | <a id="f111"></a>[F111](F111-All-Of-A-Pieces-Logs-In-One-Timeline.md) | M | - | All of a piece's logs in one timeline, by time, filterable by source. |
 | <a id="f437"></a>[F437](F437-Join-Leave-And-Accept-A-Card-In-The-Window.md) | M | - | Join an organization by a card proposal, an owner accepting it on the person's row, and leaving an organization, from the window. |
 | <a id="f488"></a>[F488](F488-An-Ended-Discussion-Hands-Its-Idea-To-The-Planner.md) | M | [F487](#f487) | When a discussion task ends, the window reads the idea file it named from the machine it ran on and sends its content to the planner once, with the offer it came from; a file missing, too large or not an idea is said to the person, and nothing is sent. |
@@ -141,6 +141,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f468"></a>[F468](F468-The-Work-Page-Offers-To-Take-A-Repository-Out-Of-Default.md) | S | - | The work page offers to take a repository out of `default` once a project of the organization names it. |
 | <a id="f487"></a>[F487](F487-The-Window-Starts-A-Discussion-Of-An-Idea.md) | S | - | When the planner orders a discussion of an idea, the window opens its Start with the project set and no repository to choose, the person picks the agent and the model, and the window starts the read-only task over all of the project's repositories that Core offers, the person driving it. |
 | <a id="f472"></a>[F472](F472-The-Packages-Carry-The-Third-Party-Notices-As-A-File.md) | S | - | The .deb and .rpm carry the licenses of all third-party code built into the window as one plain THIRD-PARTY-NOTICES file, unpacked from Flutter's own notices. |
+| <a id="f117"></a>[F117](F117-What-Walk-8-Left-Unbuilt.md) | S | - | A release Porelo refuses said as an error that stays, with its words whole; the repository on a row is [F491](#f491). |
 | <a id="f469"></a>[F469](F469-A-Project-Page-Shows-Porelos-Kept-Read-And-Its-Age.md) | S | - | A project page shows Porelo's kept read at once with its age, then the fresh one; nothing old shown as just read. |
 | <a id="f486"></a>[F486](F486-The-Window-Opens-Each-Log-File.md) | S | [F483](#f483) | The window shows a link for its own log and one for the planner's, each opening that file on this computer with the program the desktop opens such a file with, and saying so where the file is not there yet. |
 | <a id="f446"></a>[F446](F446-The-Stories-Of-A-Project-On-A-Planning-Board.md) | M | - | *Planning* shows a project's stories on a board, phases as columns with their states, read and watched from the planner. |

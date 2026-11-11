@@ -39,6 +39,9 @@ import './step/has_a_message_the_filter_refused_for_saying.dart';
 import './step/the_row_of_the_message_from_previews.dart';
 import './step/the_message_can_be_delivered_despite_the_filter_or_kept_refused.dart';
 import './step/has_a_message_the_filter_could_not_check.dart';
+import './step/porelo_answers_a_release_that_it_cannot_be_sent_saying.dart';
+import './step/the_message_is_still_open.dart';
+import './step/it_says_as_an_error.dart';
 import './step/the_message_was_decided_somewhere_else.dart';
 import './step/the_message_cannot_be_decided_here.dart';
 import './step/the_machine_cannot_list_held_messages.dart';
@@ -184,6 +187,23 @@ void main() {
       await iGoToWhatNeedsAPerson(tester);
       await whatNeedsAPersonShowsNoMessage(tester);
       await theCountOfWhatNeedsAPersonIs(tester, '1 need you');
+    });
+    testWidgets('''a release Porelo refuses is said as an error that stays, with its words whole''', (tester) async {
+      await aBackendWithWorkOnIt(tester);
+      await hasAMessageHeldForSaying(tester, 'porelo-checkout-shell', 'reviewer', 'please look at the diff');
+      await poreloAnswersAReleaseThatItCannotBeSentSaying(
+        tester,
+        'the task is not in the conversation of its project; start it again, then release the message',
+      );
+      await theAppIsRunning(tester);
+      await iGoToWhatNeedsAPerson(tester);
+      await iReadTheMessageFrom(tester, 'porelo-checkout-shell');
+      await iReleaseTheMessage(tester);
+      await theMessageIsStillOpen(tester);
+      await itSaysAsAnError(
+        tester,
+        'Nothing was sent. Porelo says: the task is not in the conversation of its project; start it again, then release the message',
+      );
     });
     testWidgets('''a message decided somewhere else meanwhile is said to be gone, and nothing is decided''', (
       tester,
