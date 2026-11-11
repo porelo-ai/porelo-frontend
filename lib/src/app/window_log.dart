@@ -34,7 +34,7 @@ enum LogLevel {
 /// **Bounded**: past [maxBytes] the file becomes `frontend.log.1`, the older ones move up one, and only [kept] of
 /// them stay.
 ///
-/// **Never in the way**: a folder that cannot be written is said once, through [complain], and the window goes on
+/// **Never in the way**: a folder that cannot be written is said once, on standard error, and the window goes on
 /// without its log.
 class WindowLog {
   /// A log writing into [directory] at [level], INFO where none is given. [clock], [complain] and [keepPrivate] are
@@ -103,7 +103,8 @@ class WindowLog {
     final folder = directory;
     if (folder == null || at.index < level.value.index) return;
     final about = machine == null || machine.isEmpty ? '' : '[${_oneLine(machine)}] ';
-    final line = '${_clock().toUtc().toIso8601String()} ${at.word.padRight(5)} $about${_oneLine(words)}\n';
+    final now = DateTime.fromMillisecondsSinceEpoch(_clock().millisecondsSinceEpoch, isUtc: true);
+    final line = '${now.toIso8601String()} ${at.word.padRight(5)} $about${_oneLine(words)}\n';
     try {
       _prepare(folder);
       final bytes = utf8.encode(line).length;

@@ -9,6 +9,7 @@ import 'mailboxes.dart';
 import 'fleet_backend.dart';
 import 'host_pull_requests.dart';
 import 'outcome_words.dart';
+import 'window_log.dart';
 
 /// Whether the interface can currently reach the backend it is pointed at.
 enum Reachability {
@@ -124,6 +125,7 @@ class FleetModel extends ChangeNotifier {
     this.prepareConnection,
     this.mayPrepareOnItsOwn,
     this.onRemoved,
+    this.machine,
   }) {
     // Once, here: connect() runs again on every reconnect, and each listener it added stayed.
     clearance.addListener(_notify);
@@ -134,6 +136,9 @@ class FleetModel extends ChangeNotifier {
 
   /// Which machine this is.
   final FleetBackend backend;
+
+  /// The machine's name as the window shows it, which its lines in the window's log carry; null where none is known.
+  final String? machine;
 
   /// Told the container of each task the machine confirmed it removed.
   final void Function(String task)? onRemoved;
@@ -338,7 +343,7 @@ class FleetModel extends ChangeNotifier {
     if (!onItsOwn) _askedTry = true;
     _reachability = Reachability.connecting;
     _listRead = false;
-    _say('Connecting to ${backend.label}.');
+    _say('Connecting to ${backend.label}.', LogLevel.debug);
     try {
       final held = onItsOwn ? mayPrepareOnItsOwn?.call() : null;
       final transportRefusal = held ?? await prepareConnection?.call();
@@ -348,7 +353,7 @@ class FleetModel extends ChangeNotifier {
       _retry?.cancel();
       _reachability = Reachability.connected;
       _answered = true;
-      _say('Connected to ${backend.label}, ${info.product} ${info.version}.');
+      _say('Connected to ${backend.label}, ${info.product} ${info.version}.', LogLevel.info);
       // Whatever its watches said before is asked again on this connection.
       pullRequests.reconnected();
       await _readOnce();
@@ -365,11 +370,12 @@ class FleetModel extends ChangeNotifier {
         hostReachability == HostReachability.reached || hostReachability == HostReachability.waitingForKey
             ? '$hostState: ${backend.label}. Daemon unavailable: ${ex.message}'
             : 'Cannot reach ${backend.label}: ${ex.message}',
+        LogLevel.warn,
       );
       _tryAgainLater();
     } on StateError catch (ex) {
       _reachability = Reachability.incompatible;
-      _say(ex.message);
+      _say(ex.message, LogLevel.warn);
     }
   }
 
@@ -393,7 +399,10 @@ class FleetModel extends ChangeNotifier {
       // Lost contact is said by the read, and a count of the tasks last known would replace it.
       if (!await _readOnce()) return;
       // Named for its machine: a count of none here read as none running while a host's task ran.
-      _say('Refreshed ${backend.label}: ${_tasks.length} ${_tasks.length == 1 ? 'task' : 'tasks'} there.');
+      _say(
+        'Refreshed ${backend.label}: ${_tasks.length} ${_tasks.length == 1 ? 'task' : 'tasks'} there.',
+        LogLevel.info,
+      );
     } finally {
       _busy = false;
       _notify();
@@ -414,7 +423,7 @@ class FleetModel extends ChangeNotifier {
   /// Stops a task, keeping it: its container is its workspace, and removing is [removeWork].
   Future<void> stopWork(String task) async {
     await _acting(about: task, () async {
-      _say(stopWords(task, await backend.stopTask(task)));
+      _say(stopWords(task, await backend.stopTask(task)), LogLevel.info);
       await _readOnce();
     });
   }
@@ -426,7 +435,7 @@ class FleetModel extends ChangeNotifier {
   Future<void> removeWork(String task, {bool rescue = false, bool force = false}) async {
     await _acting(about: task, () async {
       final result = await backend.removeTask(task, rescue: rescue ? true : null, force: force ? true : null);
-      _say(removeWords(task, result));
+      _say(removeWords(task, result), LogLevel.info);
       _refusal = result.removed ? null : Refusal(task: task, result: result);
       if (result.removed) onRemoved?.call(task);
       await _readOnce();
@@ -463,10 +472,10 @@ class FleetModel extends ChangeNotifier {
     var cleared = false;
     await _acting(about: task, () async {
       if (_tasks.any((each) => each.name == task && each.running)) {
-        _say(stopWords(task, await backend.stopTask(task)));
+        _say(stopWords(task, await backend.stopTask(task)), LogLevel.info);
       }
       final removed = await backend.removeTask(task);
-      _say(removeWords(task, removed));
+      _say(removeWords(task, removed), LogLevel.info);
       _refusal = removed.removed ? null : Refusal(task: task, result: removed);
       cleared = removed.removed;
       await _readOnce();
@@ -486,6 +495,7 @@ class FleetModel extends ChangeNotifier {
           await backend.startAgain(project: file, task: task.task, repository: repository),
           afterARestart: task.takenDownByARestart,
         ),
+        LogLevel.info,
       );
       await _readOnce();
     });
@@ -521,9 +531,9 @@ class FleetModel extends ChangeNotifier {
       _lostContact(ex);
     } on VarlinkException catch (ex) {
       // A named refusal from the daemon is an answer. It gets said, not swallowed.
-      _say('Refused: ${ex.simpleName}.');
+      _say('Refused: ${ex.simpleName}.', LogLevel.warn);
     } on FeatureNotSupported catch (ex) {
-      _say('$ex');
+      _say('$ex', LogLevel.warn);
     } finally {
       if (about != null) _said[about] = _status;
       _busy = false;
@@ -570,6 +580,10 @@ class FleetModel extends ChangeNotifier {
       _known = await backend.projects();
       _followPullRequests();
       _adopt(await backend.tasks());
+      windowLog.debug(
+        'Asked ${backend.label} for its projects and tasks: ${_known.length} projects, ${_tasks.length} tasks.',
+        machine: machine,
+      );
       return true;
     } on VarlinkDisconnected catch (ex) {
       _lostContact(ex);
@@ -594,14 +608,14 @@ class FleetModel extends ChangeNotifier {
           // Per feature, not per connection: this backend is older, so the list stops arriving
           // by itself and everything else carries on.
           _live = false;
-          _say('This backend cannot push changes; refresh to see them.');
+          _say('This backend cannot push changes; refresh to see them.', LogLevel.info);
           return;
         }
         if (error is VarlinkDisconnected) {
           _lostContact(error);
           return;
         }
-        _say('Watching failed: $error');
+        _say('Watching failed: $error', LogLevel.warn);
       },
     );
   }
@@ -637,7 +651,7 @@ class FleetModel extends ChangeNotifier {
     _reachability = Reachability.unreachable;
     _live = false;
     pullRequests.lostContact();
-    _say('Lost contact with ${backend.label}: ${ex.message}');
+    _say('Lost contact with ${backend.label}: ${ex.message}', LogLevel.warn);
     _tryAgainLater();
   }
 
@@ -673,10 +687,22 @@ class FleetModel extends ChangeNotifier {
   /// Says something in the status line, for an action that happened elsewhere.
   void say(String words) => _say(words);
 
-  void _say(String status) {
+  /// Puts [status] on the status line and, at [level] where one is given, into the window's log.
+  ///
+  /// The same words again are not logged again until something else was: a machine that stays unreachable is tried
+  /// every few seconds, and its log would hold nothing else.
+  void _say(String status, [LogLevel? level]) {
     _status = status;
+    if (level == LogLevel.debug) {
+      windowLog.debug(status, machine: machine);
+    } else if (level != null && status != _lastLogged) {
+      _lastLogged = status;
+      windowLog.write(level, status, machine: machine);
+    }
     _notify();
   }
+
+  String? _lastLogged;
 
   void _notify() {
     if (_disposed) return;

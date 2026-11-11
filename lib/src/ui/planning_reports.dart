@@ -1,10 +1,10 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:porelo_planning/porelo_planning.dart';
 
 import '../app/machines.dart';
 import '../app/settings.dart';
+import '../app/window_log.dart';
 import '../client/models.dart' show AgentEnded, Task;
 import 'planning_embedding.dart';
 
@@ -308,7 +308,7 @@ class WindowTaskReports {
     if (onProblem case final say?) {
       say(provider, project, error);
     } else {
-      debugPrint('Planning: ${planningFailureWords(error)}');
+      windowLog.warn('Planning: ${planningFailureWords(error)}');
     }
   }
 

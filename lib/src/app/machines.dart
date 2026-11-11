@@ -935,6 +935,7 @@ class Machines extends ChangeNotifier {
   void _open(Machine machine) {
     final fleet = FleetModel(
       _reach(machine),
+      machine: machine.name,
       retryAfter: _retryAfter,
       // A removed task's planning offer goes with it.
       onRemoved: (task) => unawaited(_settings.forgetPlanningOffer(machine.name, task)),

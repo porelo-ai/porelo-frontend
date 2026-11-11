@@ -7,6 +7,7 @@ import 'package:porelo_frontend/src/app/desk.dart';
 
 import '../client/models.dart';
 import 'fleet_backend.dart';
+import 'window_log.dart';
 
 /// Where a long operation got to.
 enum OperationState {
@@ -366,6 +367,7 @@ class Operations extends ChangeNotifier {
       machine: machine,
     );
     _all.add(operation);
+    windowLog.info('Started: $title.', machine: machine);
 
     _running[operation.id] = output.listen(
       (event) {
@@ -403,6 +405,11 @@ class Operations extends ChangeNotifier {
     operation.state = state;
     operation.summary = summary;
     operation.finishedAt = DateTime.now();
+    if (state == OperationState.failed) {
+      windowLog.warn('Failed: ${operation.title}${summary.isEmpty ? '' : ': $summary'}', machine: operation.machine);
+    } else {
+      windowLog.info('Finished: ${operation.title}.', machine: operation.machine);
+    }
     _running.remove(operation.id)?.cancel();
     _notify();
     _saveNow();

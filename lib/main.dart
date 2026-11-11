@@ -14,6 +14,7 @@ import 'src/app/narrowing.dart';
 import 'src/app/newer_version.dart';
 import 'src/app/one_instance.dart';
 import 'src/app/where_you_were.dart';
+import 'src/app/window_log.dart';
 import 'src/app/agent_inventory.dart';
 import 'src/app/authentication.dart';
 import 'src/app/emergency_stop.dart';
@@ -96,6 +97,7 @@ HostAccess _hostAccess(OrganizationSource source) {
 }
 
 Future<PoreloApp> _compose() async {
+  windowLog = WindowLog(desk.join(<String>[desk.state, 'logs']));
   final settingsStore = FileSettingsStore();
   final settingsDropped = await settingsStore.dropOldForm();
   final settings = Settings(settingsStore);
@@ -113,12 +115,15 @@ Future<PoreloApp> _compose() async {
   // then leaves, saying so — a launch that simply vanished would read as one that crashed.
   final only = await OneInstance.take(comeForward: Window.comeForward);
   if (!only.inCharge) {
-    stderr.writeln(
-      'Porelo is already open, and has been brought to the front. '
-      'One interface watches each machine: a second would raise every decision twice.',
-    );
+    const words =
+        'Porelo is already open, and has been brought to the front. '
+        'One interface watches each machine: a second would raise every decision twice.';
+    windowLog.info(words);
+    // Said on the terminal too: a launch from one that simply ended would read as one that crashed.
+    stderr.writeln(words);
     exit(0);
   }
+  windowLog.info('The window started.');
 
   // A card copy a crash left behind is removed now, not only when the next replacement runs.
   final newerVersion = NewerVersion()..watch();
