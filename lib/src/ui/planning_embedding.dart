@@ -108,7 +108,13 @@ class WindowTaskStarts {
     }
     final backend = backendOf(machine);
     // Handed before Start is asked: whatever Start answers, this offer is never started again.
-    if (task.offer case final offer?) await settings.handPlanningOffer(offer);
+    if (task.offer case final offer?) {
+      if (settings.planningOfferHanded(offer)) {
+        const words = 'This offer has already been handed to Start.';
+        throw const PlanningRefusal('OfferConsumed', {'detail': words}, words);
+      }
+      await settings.handPlanningOffer(offer);
+    }
     final StartProgress answer;
     try {
       answer = await backend.startOrdered(
@@ -135,9 +141,6 @@ class WindowTaskStarts {
       throw PlanningRefusal('StartRefused', {'detail': words}, words);
     }
     _startedOn[(project, container)] = machine;
-    if (task.offer case final offer?) {
-      await settings.rememberPlanningOffer(machine: machine.name, container: container, offer: offer);
-    }
     // Start answers the container alone; the task's name within the project is what the machine lists for it.
     final listed = (await backend.tasks()).where((each) => each.name == container).firstOrNull;
     final name = listed?.task ?? '';

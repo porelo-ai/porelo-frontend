@@ -119,6 +119,16 @@ void main() {
       );
     });
 
+    // Harm: a planner's order runs twice, as two agents on the same work.
+    test('an offer handed to Start before is refused, and nothing is started again', () async {
+      final order = (await plannedOrders()).first;
+      final source = MockPlanningSource('planner');
+      await starts()(source, 'demo', 'ST291', order);
+
+      await expectLater(starts()(source, 'demo', 'ST291', order), throwsA(isA<PlanningRefusal>()));
+      expect(machine.started, hasLength(1));
+    });
+
     // Harm: a task is started on no machine, or on one the person did not watch.
     test('no machine to start on is refused, and nothing is started', () async {
       final order = (await plannedOrders()).first;

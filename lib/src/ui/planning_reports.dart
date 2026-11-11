@@ -94,11 +94,12 @@ class WindowTaskReports {
   /// change of a machine.
   bool _unreachedSaid = false;
 
-  /// Reports refused for good in this window's life, so a refusal is not sent again on every change of the machine.
-  final _refused = <(String, String, String)>{};
+  /// Reports refused for good in this window's life, by offer and event, so a refusal is not sent again on every change
+  /// of the machine.
+  final _refused = <(String, String)>{};
 
-  /// Tasks a stop took over: whatever report of them still waits is not sent.
-  final _voided = <(String, String)>{};
+  /// The offers of tasks a stop took over: whatever report of them still waits is not sent, nor its answer followed.
+  final _voided = <String>{};
 
   /// Completes once nothing is left to report.
   Future<void> get idle async {
@@ -160,7 +161,7 @@ class WindowTaskReports {
         _say(provider, project, PlanningRefusal('NoMachine', {'detail': words}, words));
         continue;
       }
-      _voided.add((machine.name, task.container));
+      if (settings.planningOffer(machine.name, task.container) case final offer?) _voided.add(offer);
       try {
         await stopOn(machine, task.container);
       } on Object catch (error) {
@@ -171,7 +172,7 @@ class WindowTaskReports {
   }
 
   Future<void> _sweepNow() async {
-    for (final kept in settings.plannedOffers) {
+    for (var kept in settings.plannedOffers) {
       if (!kept.reportable) {
         _sayOlder(kept);
         continue;
@@ -180,7 +181,12 @@ class WindowTaskReports {
       if (task == null) continue;
       if (!kept.startedReported) {
         await _quietly(kept, () => _deliver(kept, PlanningTaskEvent.started));
-        continue;
+        // An end that came before the start was told goes right after it.
+        if (settings.plannedOffer(kept.machine, kept.container) case final told? when told.startedReported) {
+          kept = told;
+        } else {
+          continue;
+        }
       }
       if (task.agentEnded case final ended? when plannedEndKey(ended) != kept.ended) {
         await _quietly(kept, () => _deliver(kept, PlanningTaskEvent.ended, ended: plannedTaskEnded(ended)));
@@ -189,12 +195,15 @@ class WindowTaskReports {
   }
 
   /// Sends one report and starts what its answer orders; a refusal that will not change by itself is not sent again in
-  /// this window's life.
-  Future<void> _deliver(PlannedOffer kept, PlanningTaskEvent event, {PlanningTaskEnded? ended}) async {
+  /// this window's life. A report told meanwhile, of the same offer, is not sent again.
+  Future<void> _deliver(PlannedOffer asked, PlanningTaskEvent event, {PlanningTaskEnded? ended}) async {
+    final kept = settings.plannedOffer(asked.machine, asked.container);
+    if (kept == null || kept.offer != asked.offer || !kept.reportable) return;
     final project = kept.project!, task = kept.task!, provider = kept.provider!;
     final endKey = ended == null ? null : _endKey(ended);
-    final attempt = (kept.machine, kept.container, endKey ?? event.name);
-    if (_voided.contains((kept.machine, kept.container)) || _refused.contains(attempt)) return;
+    if (event == PlanningTaskEvent.started && kept.startedReported || endKey != null && endKey == kept.ended) return;
+    final attempt = (kept.offer, endKey ?? event.name);
+    if (_voided.contains(kept.offer) || _refused.contains(attempt)) return;
     if (plannerMachineNameProblem(kept.machine) case final words?) {
       _refused.add(attempt);
       throw PlanningRefusal('InvalidSettings', {'detail': words}, words);
@@ -221,18 +230,20 @@ class WindowTaskReports {
       rethrow;
     }
     _unreachedSaid = false;
+    // A stop took the task over while its report waited: the answer's follow-ups belong to a stopped run.
+    if (_voided.contains(kept.offer)) return;
     await settings.planningOfferReported(
       kept.machine,
       kept.container,
       started: event == PlanningTaskEvent.started ? true : null,
       ended: endKey,
     );
-    await _startFollowUps(source, provider, project, kept.story!, answer.tasks);
+    await _startFollowUps(source, provider, project, kept.story!, answer.tasks, kept.offer);
   }
 
   /// The planner voided the task's offer: the task stops, its offer goes, and nothing of it is reported again.
   Future<void> _voidTask(PlannedOffer kept) async {
-    _voided.add((kept.machine, kept.container));
+    _voided.add(kept.offer);
     if (starts.machineNamed(kept.machine) case final machine?) {
       try {
         await stopOn(machine, kept.container);
@@ -250,9 +261,11 @@ class WindowTaskReports {
     String project,
     String story,
     List<PlanningTaskOrder> orders,
+    String reported,
   ) async {
     final started = <(PlanningTaskOrder, PlanningTaskStarted)>[];
     for (final order in orders) {
+      if (_voided.contains(reported)) break;
       final offer = order.offer;
       if (offer == null || settings.planningOfferHanded(offer)) continue;
       try {
@@ -302,7 +315,8 @@ class WindowTaskReports {
   static String _endKey(PlanningTaskEnded ended) =>
       plannedEndKey(AgentEnded(at: ended.at, finished: ended.finished, unpushed: ended.unpushed));
 
-  // The planner did not answer at all; a later change of the machine tries again.
+  // The planner did not answer at all, or was not asked since no watched machine named the project's repository yet; a
+  // later change of a machine tries again.
   static bool _transient(PlanningRefusal refusal) =>
-      const {'PlannerUnreachable', 'TimedOut', 'NoAddress'}.contains(refusal.name);
+      const {'PlannerUnreachable', 'TimedOut', 'NoAddress', 'NoRepository'}.contains(refusal.name);
 }

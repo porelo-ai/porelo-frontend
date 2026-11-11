@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/fleet_backend.dart';
@@ -176,13 +178,17 @@ void main() {
     expect(planner.calls.map((call) => call.event), [PlanningTaskEvent.started, PlanningTaskEvent.ended]);
   });
 
-  // Harm: the planner's next task is never started, or started twice after a retry or a restart.
+  // Harm: the planner's next task is never started, or started twice when a later answer or a restart carries it again.
   test('a follow-up order is started once, for the project and story it came for, and shown', () async {
     final (starts, reports) = window();
     final orders = await plannedOrders();
     final followUp = _followUp(1);
     planner.answers.addAll([
+      // To the screen's task's start: the follow-up, started.
       _answer([followUp]),
+      // To the follow-up's own start: nothing.
+      _answer(const []),
+      // To the screen's task's end: the same offer again, not started again.
       _answer([followUp]),
     ]);
     final started = await starts(planner, 'demo', 'ST291', orders.first);
@@ -190,7 +196,13 @@ void main() {
     machine.end(started.container, {'at': 'the end', 'finished': true});
     reports.sweep();
     await reports.idle;
+    expect(planner.calls.map((call) => (call.event, call.offer)), [
+      (PlanningTaskEvent.started, orders.first.offer),
+      (PlanningTaskEvent.started, followUp['offer']),
+      (PlanningTaskEvent.ended, orders.first.offer),
+    ], reason: 'each answer went to the report it was meant for');
 
+    // After a restart, an answer carrying it once more.
     final (_, reopened) = window(kept: await loaded());
     planner.answers.add(_answer([followUp]));
     await reopened.report(
@@ -203,17 +215,19 @@ void main() {
     );
     await reopened.idle;
 
+    expect(planner.answers, isEmpty, reason: 'every answer was given');
     expect(machine.started.map((each) => each['repository']), [orders.first.repository, 'builder-one']);
     expect(shown.map((each) => (each.$1, each.$2, each.$3.single.$1.offer)), [('demo', 'ST291', followUp['offer'])]);
   });
 
-  // Harm: the follow-ups after a refused one start anyway, or the refusal goes unsaid.
-  test('a refused follow-up stops the rest of the answer\'s orders and says why', () async {
+  // Harm: the follow-ups after a refused one start anyway, a refused one is tried again, or the refusal goes unsaid.
+  test('a refused follow-up stops the rest of the answer\'s orders, says why and is not tried again', () async {
     final (starts, reports) = window();
     final problems = <String>[];
     reports.onProblem = (provider, project, error) => problems.add(planningFailureWords(error));
-    planner.answers.add(_answer([_followUp(1), _followUp(2, repository: 'builder-two')]));
-    await starts(planner, 'demo', 'ST291', (await plannedOrders()).first);
+    final orders = [_followUp(1), _followUp(2, repository: 'builder-two')];
+    planner.answers.add(_answer(orders));
+    final started = await starts(planner, 'demo', 'ST291', (await plannedOrders()).first);
     machine.refuseNext = 'porelo: the vault is locked';
 
     await reports.idle;
@@ -221,6 +235,14 @@ void main() {
     expect(machine.started, hasLength(1), reason: 'only the order the screen started');
     expect(problems.single, contains('porelo: the vault is locked'));
     expect(shown, isEmpty);
+
+    // The end's answer carries both again: the refused one was handed to Start and is not, the other one is.
+    planner.answers.add(_answer(orders));
+    machine.end(started.container, {'at': 'the end', 'finished': true});
+    reports.sweep();
+    await reports.idle;
+
+    expect(machine.started.skip(1).map((each) => each['repository']), ['builder-two']);
   });
 
   // Harm: a task whose offer the planner voided goes on running, or is reported again and again.
@@ -270,6 +292,9 @@ void main() {
   test('a machine name the planner refuses is refused here, and nothing is sent', () async {
     for (final name in ['x' * 129, 'line\u2028break', 'delete\x7fhere', 'lone\ud800surrogate']) {
       planner.calls.clear();
+      // A window of its own for each name: an offer handed to Start once is never started again.
+      store = MemorySettingsStore();
+      settings = await loaded();
       final named = Machine(name: name, socketPath: '/run/named.sock');
       final (starts, reports) = window(on: named);
       final problems = <String>[];
@@ -344,7 +369,110 @@ void main() {
 
     expect(planner.calls.map((call) => call.event), [PlanningTaskEvent.started, PlanningTaskEvent.stopped]);
   });
+
+  // Harm: the planner is told a task started twice, so it counts one run as two.
+  test('a start the sweep reported while its own report waited is not reported again', () async {
+    final (starts, reports) = window();
+    final order = (await plannedOrders()).first;
+    planner.answers.add(_answer([_followUp(1)]));
+    // The follow-up's start lists the machine's tasks while the report that ordered it is still sent: the machine
+    // changes meanwhile, and a sweep waits behind that report.
+    machine.whileListing = (listing) async {
+      if (listing == 2) reports.sweep();
+    };
+
+    await starts(planner, 'demo', 'ST291', order);
+    await reports.idle;
+
+    final starting = planner.calls.where((call) => call.event == PlanningTaskEvent.started).map((call) => call.offer);
+    expect(starting, [order.offer, _followUp(1)['offer']]);
+  });
+
+  // Harm: a task started again in the container of a stopped one is never reported, so its story looks idle.
+  test('a new offer in the container of a stopped task is reported', () async {
+    final (starts, reports) = window();
+    final first = (await plannedOrders()).first;
+    final started = await starts(planner, 'demo', 'ST291', first);
+    await reports.idle;
+    await reports.stop(planner, 'demo', 'ST291', [started]);
+    await reports.idle;
+
+    final again = _order(_followUp(1, repository: first.repository));
+    final restarted = await starts(planner, 'demo', 'ST291', again);
+    await reports.idle;
+
+    expect(restarted.container, started.container);
+    expect(planner.calls.map((call) => (call.event, call.offer)), [
+      (PlanningTaskEvent.started, first.offer),
+      (PlanningTaskEvent.started, again.offer),
+    ]);
+  });
+
+  // Harm: an end that came while the planner was not reached is never told, so the story looks at work for ever.
+  test('a start and an end that came while the planner was not reached are both told once it is', () async {
+    var reached = false;
+    final (starts, reports) = window(reached: () => reached);
+    final started = await starts(planner, 'demo', 'ST291', (await plannedOrders()).first);
+    await reports.idle;
+    machine.end(started.container, {'at': 'the end', 'finished': true});
+
+    reached = true;
+    reports.sweep();
+    await reports.idle;
+
+    expect(planner.calls.map((call) => call.event), [PlanningTaskEvent.started, PlanningTaskEvent.ended]);
+  });
+
+  // Harm: a follow-up of a task the planner voided by a stop runs for a story that was stopped.
+  test('a stop while a report waits for its answer starts none of the answer\'s follow-ups', () async {
+    final (starts, reports) = window();
+    planner.hold = Completer<void>();
+    planner.answers.add(_answer([_followUp(1)]));
+    final started = await starts(planner, 'demo', 'ST291', (await plannedOrders()).first);
+    await pumpEventQueue();
+    expect(planner.calls, hasLength(1), reason: 'the start\'s report waits for its answer');
+
+    await reports.stop(planner, 'demo', 'ST291', [started]);
+    planner.hold!.complete();
+    await reports.idle;
+
+    expect(machine.started, hasLength(1), reason: 'only the task the screen started');
+    expect(shown, isEmpty);
+  });
+
+  // Harm: a task just started is said to go unreported, so the person stops or redoes work the planner is told of.
+  test('a sweep while a start waits for the machine\'s list says nothing of an earlier build', () async {
+    final (starts, reports) = window();
+    final problems = <String>[];
+    reports.onProblem = (provider, project, error) => problems.add(planningFailureWords(error));
+    machine.whileListing = (_) async {
+      reports.sweep();
+      await reports.idle;
+    };
+
+    await starts(planner, 'demo', 'ST291', (await plannedOrders()).first);
+    await reports.idle;
+
+    expect(problems, isEmpty);
+    expect(planner.calls.map((call) => call.event), [PlanningTaskEvent.started]);
+  });
+
+  // Harm: a report refused only because no watched machine had named the project's repository yet is never sent.
+  test('a report refused for want of the project\'s repository goes once a machine names it', () async {
+    final (starts, reports) = window();
+    planner.answers.add(const PlanningRefusal('NoRepository', {}, 'No watched machine names demo\'s repository.'));
+    await starts(planner, 'demo', 'ST291', (await plannedOrders()).first);
+    await reports.idle;
+
+    reports.sweep();
+    await reports.idle;
+
+    expect(planner.calls.map((call) => call.event), [PlanningTaskEvent.started, PlanningTaskEvent.started]);
+  });
 }
+
+/// The planner's order [followUp], as an answer carries it.
+PlanningTaskOrder _order(Map<String, dynamic> followUp) => TaskEventResolution.from(_answer([followUp])).tasks.single;
 
 /// A follow-up order of the planner, a builder of B540 in [repository].
 Map<String, dynamic> _followUp(int number, {String repository = 'builder-one'}) => {
@@ -413,6 +541,9 @@ class _Planner extends Fake implements PlanningSource {
   final calls = <_Call>[];
   final answers = <Object>[];
 
+  /// Held until completed: the answer a report waits for meanwhile.
+  Completer<void>? hold;
+
   @override
   String get label => 'planner';
 
@@ -435,6 +566,7 @@ class _Planner extends Fake implements PlanningSource {
       machine: machine,
       ended: ended,
     ));
+    await hold?.future;
     final next = answers.isEmpty ? _answer(const []) : answers.removeAt(0);
     if (next is Exception) throw next;
     return TaskEventResolution.from(next as Map<String, dynamic>);
@@ -447,6 +579,10 @@ class _Machine extends Fake implements FleetBackend {
   final listed = <Task>[];
   Map<String, dynamic>? endBeforeStart;
   String? refuseNext;
+
+  /// Runs before each listing of the tasks is answered, numbered from 1: what the window does meanwhile.
+  Future<void> Function(int listing)? whileListing;
+  int _listings = 0;
 
   /// The agent of [container] ended as [ended] says.
   void end(String container, Map<String, dynamic> ended) {
@@ -493,5 +629,8 @@ class _Machine extends Fake implements FleetBackend {
   }
 
   @override
-  Future<List<Task>> tasks() async => List.of(listed);
+  Future<List<Task>> tasks() async {
+    await whileListing?.call(++_listings);
+    return List.of(listed);
+  }
 }
