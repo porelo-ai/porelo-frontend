@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../support/remote.dart';
 
-/// Usage: the inbox of {'porelo-e2e-talk-e2e-talk'} holds {'not before the tests pass'}
+/// Usage: the inbox of {'porelo-e2e-talk_e2e-talk'} holds {'not before the tests pass'}
 Future<void> theInboxOfHolds(WidgetTester tester, String task, String words) async {
   expect(await inboxOf(task, words), contains(words), reason: 'nothing in the inbox of $task says it');
 }
