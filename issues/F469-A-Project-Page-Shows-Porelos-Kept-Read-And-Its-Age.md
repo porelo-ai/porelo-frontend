@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F469",
   "title": "A Project Page Shows Porelo's Kept Read And Its Age",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "Medium",
   "rank": 3,
@@ -26,7 +26,17 @@ it is, and replace it with a fresh read when that comes; nothing old is shown as
 - Today the window reads `stale` from `porelo org` but not from `porelo project show`. Once Porelo answers from its
   kept state, a project's page that ignores it would show an old read as fresh.
 
-## Plan
+## How it stands
+
+- `porelo project show` and `porelo org` answer the kept state at once with `stale`, `checked_at`, `age_seconds` and
+  `stale_why` (`kept` while the check runs after the answer), and wait for a check only with `--refresh`.
+- A source that can, `ReadsKeptFirst` (`PoreloOrganizationSource`), hands the kept state to the page before it asks
+  with `--refresh`; the project's page shows it at once as a last read, with no change offered, saying when it was
+  checked last, and the checked read replaces it; the organization's model shows a kept state only where no checked
+  one is shown. A kept project is shown at once only where its members' cards are known, never as "not yet".
+- A read that stays stale, its check refused or timed out, says so on the project's page with when and why; a
+  Porelo that answers no `stale` is asked once, as before.
+
 
 - Read the age and `stale` of `porelo project show` into the project's view, as `porelo org`'s are read.
 - A project's page and the organization's pages: show the kept read with its age where it is stale or old, then ask

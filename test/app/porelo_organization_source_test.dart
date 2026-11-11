@@ -751,6 +751,59 @@ void main() {
       expect(view.repositories, isNotEmpty);
     });
 
+    // Harm: the page waits for the check before it shows anything, or shows the kept state as if it were just read.
+    test('the kept project is handed over at once, marked stale with its age, and the checked one answered', () async {
+      final checked = Completer<Ran>();
+      answer = (arguments) => switch ((arguments.first, arguments.contains('--refresh'))) {
+        ('org', true) => says(_org),
+        ('org', false) => says(kept(_org)),
+        (_, true) => checked.future,
+        _ => says(kept(_project)),
+      };
+      await source.read();
+      final shown = <ProjectView>[];
+      final reading = source.readProjectKeptFirst('demo', shown.add);
+      await pumpEventQueue();
+      expect(shown, hasLength(1), reason: 'the kept state is shown before the check answers');
+      expect(shown.single.stale, isTrue);
+      expect(shown.single.checkedAt, DateTime.utc(2026, 11, 11, 5, 33));
+      checked.complete(says(_project));
+      final view = await reading;
+      expect(view.stale, isFalse, reason: 'the checked state replaces the kept one');
+      expect(view.repositories, isNotEmpty);
+      expect(shown, hasLength(1));
+    });
+
+    // Harm: the organization's page stays empty for as long as the check takes.
+    test('the kept organization is handed over at once, and the checked one answered', () async {
+      final checked = Completer<Ran>();
+      answer = (arguments) => arguments.contains('--refresh') ? checked.future : says(kept(_org));
+      final shown = <OrganizationView>[];
+      final reading = source.readKeptFirst(shown.add);
+      await pumpEventQueue();
+      expect(shown, hasLength(1));
+      expect(shown.single.stale, isTrue);
+      checked.complete(says(_org));
+      expect((await reading).stale, isFalse);
+    });
+
+    // Harm: a member's card nobody has read is shown as "not yet", which holds its roles.
+    test('a kept project is not handed over while no card of its members is known', () async {
+      answer = (arguments) => says(arguments.contains('--refresh') ? _project : kept(_project));
+      final shown = <ProjectView>[];
+      await source.readProjectKeptFirst('demo', shown.add);
+      expect(shown, isEmpty);
+    });
+
+    // Harm: a check that failed leaves the state Porelo kept passing for the project as it stands.
+    test('a project whose check stays stale is said to be stale, with when and why', () async {
+      answer = (arguments) => says(arguments.contains('--refresh') ? refused(_project) : kept(_project));
+      final view = await source.readProject('demo');
+      expect(view.stale, isTrue);
+      expect(view.checkedAt, DateTime.utc(2026, 11, 11, 5, 33));
+      expect(view.staleWhy?.cause, 'key-refused');
+    });
+
     // Harm: a person cannot tell why the organization stays out of reach, and tries again blind.
     test("a check that stays stale says why, in git's words", () async {
       answer = (arguments) => says(arguments.contains('--refresh') ? refused(_org) : kept(_org));

@@ -135,12 +135,12 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f469"></a>[F469](F469-A-Project-Page-Shows-Porelos-Kept-Read-And-Its-Age.md) | S | - | A project page shows Porelo's kept read at once with its age, then the fresh one; nothing old shown as just read. |
 
 ## Review
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f469"></a>[F469](F469-A-Project-Page-Shows-Porelos-Kept-Read-And-Its-Age.md) | S | - | A project page shows Porelo's kept read at once with its age, then the fresh one; nothing old shown as just read. |
 | <a id="f486"></a>[F486](F486-The-Window-Opens-Each-Log-File.md) | S | [F483](#f483) | The window shows a link for its own log and one for the planner's, each opening that file on this computer with the program the desktop opens such a file with, and saying so where the file is not there yet. |
 | <a id="f446"></a>[F446](F446-The-Stories-Of-A-Project-On-A-Planning-Board.md) | M | - | *Planning* shows a project's stories on a board, phases as columns with their states, read and watched from the planner. |
 | <a id="f447"></a>[F447](F447-A-Story-Moved-On-The-Board-And-Saved.md) | M | - | A story dragged to another state, kept pending until saved through the planner or undone; a drop on a working state starts its work instead. |

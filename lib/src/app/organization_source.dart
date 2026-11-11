@@ -475,7 +475,19 @@ class ProjectView {
     this.repositories = const [],
     this.members = const [],
     this.roles = const [],
+    this.stale = false,
+    this.checkedAt,
+    this.staleWhy,
   });
+
+  /// Whether this is the state Porelo kept rather than one it checked for this read: shown as such, never as just read.
+  final bool stale;
+
+  /// When the state was checked last, on a stale read; absent where Porelo does not say.
+  final DateTime? checkedAt;
+
+  /// Why a stale read is stale, where Porelo says.
+  final StaleWhy? staleWhy;
 
   /// The project repository's revision, the base of a change to its repositories; absent where they were not read.
   final String? repositoriesRevision;
@@ -810,6 +822,16 @@ class OrganizationRefused implements Exception {
 
   @override
   String toString() => words;
+}
+
+/// A source that answers the state Porelo kept at once, before it waits for that state to be checked: a page shows it
+/// with its age and replaces it with the checked one.
+abstract interface class ReadsKeptFirst {
+  /// As [OrganizationSource.read], handing [kept] the kept state first where the answer is not a checked one.
+  Future<OrganizationView> readKeptFirst(void Function(OrganizationView kept) kept);
+
+  /// As [OrganizationSource.readProject], handing [kept] the kept state first where the answer is not a checked one.
+  Future<ProjectView> readProjectKeptFirst(String project, void Function(ProjectView kept) kept);
 }
 
 /// Where the organization is read and changed, whatever keeps it.
@@ -1362,7 +1384,10 @@ class Organization extends ChangeNotifier {
     readAnswersAgain();
     final read = ++_reads;
     try {
-      final answer = await source.read();
+      final answer = await switch (source) {
+        final ReadsKeptFirst keptFirst => keptFirst.readKeptFirst((kept) => _showKept(read, kept)),
+        _ => source.read(),
+      };
       if (read != _reads) return;
       view = answer;
       // A stale state is as old as the store's last answer, and unknown where Porelo does not say.
@@ -1386,6 +1411,17 @@ class Organization extends ChangeNotifier {
       problem = 'The Porelo organization could not be read.';
       noOrganization = false;
     }
+    _changed();
+  }
+
+  /// Shows [kept], the state Porelo kept, while read [read] waits for its check: only where nothing newer is shown, as
+  /// a stale state with its age.
+  void _showKept(int read, OrganizationView kept) {
+    if (read != _reads || !(view?.stale ?? true)) return;
+    view = kept;
+    readAt = kept.checkedAt;
+    problem = null;
+    noOrganization = false;
     _changed();
   }
 

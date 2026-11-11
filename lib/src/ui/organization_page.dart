@@ -384,7 +384,7 @@ class _OrganizationPageState extends State<OrganizationPage> {
         Text(
           key: const Key('organization-stale'),
           [
-            'Porelo could not check the organization just now, so this is the state it kept; it may have moved on.',
+            'This is the state Porelo kept, not one it checked just now; it may have moved on.',
             lastChecked(view.checkedAt),
             if (view.staleWhy case final why?) 'Why: ${why.words}',
           ].join(' '),

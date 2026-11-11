@@ -13,6 +13,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- A project's page and the organization's pages show the state Porelo kept at once, saying when it was checked last, and replace it with the checked state when that answers; a project's page offers no change until then, and a read whose check failed says so, with when and why, instead of passing for the project as it stands.
 - *Reload planning* has porelo-planner fetch the project's repositories again before it reads the board, so a story or issue pushed meanwhile is no longer said to be missing. The board's faults stand in one folded line that opens on demand, and the board takes all the height left below it.
 - The window follows porelo-planner to a new address: it reads the planner's address file again every two seconds, so a planner restarted on another port is reached without restarting the window, and one gone for good is started again.
 - A project page and the organization's pages no longer stay on the state Porelo kept on the machine: a stale answer is checked again before it is shown, for at most a minute, and a declined forge host key stops that read. One that stays stale says when it was checked last and why - Porelo's cause, such as a key the forge refused, with git's own lines - instead of only that the repositories could not be read; the project page's head says only that they were not read.

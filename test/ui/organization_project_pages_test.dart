@@ -83,6 +83,31 @@ class _HeldReads extends FixtureOrganization {
   }
 }
 
+/// The project as Porelo kept it: older than the checked read, with a repository that read no longer has.
+final _keptDemo = ProjectView(
+  name: 'demo',
+  revision: 'p0',
+  roles: const ['developer', 'admin'],
+  repositories: const [ProjectRepository(name: 'demo-old', address: 'git@forge.example.org:acme/old.git')],
+  members: const [ProjectMember(login: 'pat', role: 'admin', standing: CardStanding.trusted)],
+  stale: true,
+  checkedAt: DateTime.utc(2026, 11, 11, 5, 33),
+);
+
+/// Hands the project as Porelo kept it at once, then holds the checked read as [_HeldReads] does.
+class _KeptFirst extends _HeldReads implements ReadsKeptFirst {
+  _KeptFirst(super.view);
+
+  @override
+  Future<OrganizationView> readKeptFirst(void Function(OrganizationView kept) kept) => read();
+
+  @override
+  Future<ProjectView> readProjectKeptFirst(String project, void Function(ProjectView kept) kept) {
+    kept(_keptDemo);
+    return readProject(project);
+  }
+}
+
 /// Holds the organization's reads until the test lets one answer, and counts them.
 class _HeldOrganization extends _HeldReads {
   _HeldOrganization(super.view);
@@ -589,6 +614,49 @@ void main() {
       expect(find.text('demo-docs'), findsNothing);
       expect(find.text('demo-site'), findsOneWidget);
       expect(_action('addRepository'), findsOneWidget);
+    });
+
+    // Harm: a person changes the project from the state Porelo kept, shown as if it were just read, or waits seconds
+    // on an empty page for the check.
+    testWidgets('opened first, it shows the kept state at once with its age, with no change until the checked read', (
+      tester,
+    ) async {
+      final fixture = _KeptFirst(organizationFor('pat', organizationAdmins: ['pat']))..held = Completer<void>();
+      final organization = Organization(fixture);
+      addTearDown(organization.dispose);
+      await organization.refresh();
+      await _open(tester, organization);
+      await tester.pump();
+      final kept = find.byKey(const Key('organization-project-kept'));
+      expect(kept, findsOneWidget);
+      expect(tester.widget<Text>(kept).data, allOf(contains('as Porelo kept it'), contains('checked last at')));
+      expect(find.text('demo-old'), findsOneWidget);
+      for (final id in changes) {
+        expect(_action(id), findsNothing, reason: id);
+      }
+      fixture.held!.complete();
+      await tester.pumpAndSettle();
+      expect(kept, findsNothing, reason: 'the checked read replaces the kept one');
+      expect(find.text('demo-old'), findsNothing);
+      expect(_action('addRepository'), findsOneWidget);
+    });
+
+    // Harm: a check that failed leaves the state Porelo kept passing for the project as it stands.
+    testWidgets('a read that stays stale says so, when it was checked last and why', (tester) async {
+      await _page(
+        tester,
+        'pat',
+        project: ProjectView(
+          name: 'demo',
+          revision: 'p0',
+          stale: true,
+          checkedAt: DateTime.utc(2026, 11, 11, 5, 33),
+          staleWhy: const StaleWhy('timeout'),
+        ),
+      );
+      final kept = find.byKey(const Key('organization-project-kept'));
+      expect(kept, findsOneWidget);
+      expect(tester.widget<Text>(kept).data, allOf(contains('checked last at'), contains('Why: ')));
     });
 
     // Harm: a reread that fails empties the page, or leaves the last read passing for the project as it stands.

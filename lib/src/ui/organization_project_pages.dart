@@ -451,7 +451,13 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
     });
     var taken = true;
     try {
-      final view = await widget.organization.source.readProject(widget.project);
+      final view = await switch (widget.organization.source) {
+        final ReadsKeptFirst keptFirst => keptFirst.readProjectKeptFirst(
+          widget.project,
+          (kept) => _showKept(read, kept),
+        ),
+        final source => source.readProject(widget.project),
+      };
       // A read that answers after a later one was asked for may be the older.
       if (!mounted || read != _reads) return;
       // Begun before a change was answered, it may hold the project as it stood before: the change reads it again.
@@ -472,6 +478,16 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
     } finally {
       if (mounted && read == _reads && taken) setState(() => _reading = false);
     }
+  }
+
+  /// Shows [kept], the state Porelo kept, while read [read] waits for its check, where nothing newer is shown: as a
+  /// last read, so nothing is changed from it.
+  void _showKept(int read, ProjectView kept) {
+    if (!mounted || read != _reads || (_view != null && !_lastRead)) return;
+    setState(() {
+      _view = kept;
+      _lastRead = true;
+    });
   }
 
   void _show(Widget dialog) => unawaited(
@@ -557,6 +573,15 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
           Text(
             'This is ${widget.project} as last read; it could not be read again.',
             key: const Key('organization-project-as-last-read'),
+          ),
+        if (view != null && view.stale)
+          Text(
+            [
+              'This is ${widget.project} as Porelo kept it, not as checked just now; it may have moved on.',
+              lastChecked(view.checkedAt),
+              if (!_reading && view.staleWhy != null) 'Why: ${view.staleWhy!.words}',
+            ].join(' '),
+            key: const Key('organization-project-kept'),
           ),
         OrganizationChangeMark(widget.organization),
         for (final change in widget.organization.rowChanges)

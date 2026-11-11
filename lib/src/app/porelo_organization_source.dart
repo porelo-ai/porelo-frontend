@@ -17,7 +17,7 @@ const _declined = 'host-key-declined';
 ///
 /// Each answer is read field by field, and a field it does not know is passed over, since the answers may grow. A word
 /// Porelo says goes to the person as it came; what the program wrote elsewhere never does.
-class PoreloOrganizationSource implements OrganizationSource, FoundingChecks {
+class PoreloOrganizationSource implements OrganizationSource, ReadsKeptFirst, FoundingChecks {
   /// Runs Porelo through [run].
   PoreloOrganizationSource({RunHere? run}) : _run = run ?? runPorelo;
 
@@ -133,9 +133,14 @@ class PoreloOrganizationSource implements OrganizationSource, FoundingChecks {
   }
 
   @override
-  Future<OrganizationView> read() {
+  Future<OrganizationView> read() => _readSettled(null);
+
+  @override
+  Future<OrganizationView> readKeptFirst(void Function(OrganizationView kept) kept) => _readSettled(kept);
+
+  Future<OrganizationView> _readSettled(void Function(OrganizationView kept)? kept) {
     _organizationAsked = true;
-    final reading = _readOrganization();
+    final reading = _readOrganization(kept);
     final settled = reading.then<void>((_) {}, onError: (Object _) {});
     _organizationRead = settled;
     unawaited(
@@ -146,9 +151,16 @@ class PoreloOrganizationSource implements OrganizationSource, FoundingChecks {
     return reading;
   }
 
-  Future<OrganizationView> _readOrganization() async {
+  Future<OrganizationView> _readOrganization(void Function(OrganizationView kept)? kept) async {
     final read = ++_organizationReads;
-    final (answer, notChecked) = await _checkedAgain(['org'], await _ask(['org']));
+    final first = await _ask(['org']);
+    if (kept != null && _reading(() => _flag(first, 'stale'))) {
+      final view = _reading(() => _view(first));
+      // The kept cards stand for a kept project read until a checked answer says how they stand now.
+      _standing ??= {for (final person in view.persons) person.login: person.standing};
+      kept(view);
+    }
+    final (answer, notChecked) = await _checkedAgain(['org'], first);
     final view = _reading(() => _view(answer, notChecked));
     // An older read ending after a newer one says nothing of how the cards stand now.
     if (read != _organizationReads) return view;
@@ -299,26 +311,40 @@ class PoreloOrganizationSource implements OrganizationSource, FoundingChecks {
   }
 
   @override
-  Future<ProjectView> readProject(String project) async {
-    final (answer, notChecked) = await _checkedAgain([
-      'project',
-      'show',
-      project,
-    ], await _ask(['project', 'show', project]));
+  Future<ProjectView> readProject(String project) => _readProject(project, null);
+
+  @override
+  Future<ProjectView> readProjectKeptFirst(String project, void Function(ProjectView kept) kept) =>
+      _readProject(project, kept);
+
+  Future<ProjectView> _readProject(String project, void Function(ProjectView kept)? kept) async {
+    final first = await _ask(['project', 'show', project]);
+    // Shown at once only where its members' cards are known: an unknown card is never shown as "not yet".
+    if (kept != null && _reading(() => _flag(first, 'stale'))) {
+      if (_standing case final standing?) {
+        kept(_projectView(first, null, standing));
+      } else if (_reading(() => _maps(first, 'members').isEmpty)) {
+        kept(_projectView(first, null, const {}));
+      }
+    }
+    final (answer, notChecked) = await _checkedAgain(['project', 'show', project], first);
     // Its members' cards stand in the organization's answer: the newest under way, or else the last that answered.
     for (var reading = _organizationRead; reading != null; reading = _organizationRead) {
       await reading;
     }
     final known = _standing;
-    final standing = known ?? const <String, CardStanding>{};
+    // A card no answer said is no card "not yet" vouched for, which holds its roles: the read waits for one.
+    if (known == null && _organizationAsked && _reading(() => _maps(answer, 'members').isNotEmpty)) {
+      throw const OrganizationRefused(
+        'The Porelo organization could not be read, so how the members of this project stand cannot be said.',
+        answered: false,
+      );
+    }
+    return _projectView(answer, notChecked, known ?? const {});
+  }
+
+  ProjectView _projectView(Map<String, Object?> answer, String? notChecked, Map<String, CardStanding> standing) {
     return _reading(() {
-      // A card no answer said is no card "not yet" vouched for, which holds its roles: the read waits for one.
-      if (known == null && _organizationAsked && _maps(answer, 'members').isNotEmpty) {
-        throw const OrganizationRefused(
-          'The Porelo organization could not be read, so how the members of this project stand cannot be said.',
-          answered: false,
-        );
-      }
       final repositories = _maybeMap(answer, 'repositories');
       final state = repositories == null ? null : _text(repositories, 'state');
       return ProjectView(
@@ -338,6 +364,9 @@ class PoreloOrganizationSource implements OrganizationSource, FoundingChecks {
         host: _maybeText(answer, 'host'),
         address: _maybeText(answer, 'address'),
         opened: answer['opened'] == true,
+        stale: _flag(answer, 'stale'),
+        checkedAt: DateTime.tryParse(_maybeText(answer, 'checked_at') ?? ''),
+        staleWhy: _flag(answer, 'stale') ? _staleWhy(answer, notChecked) : null,
         review: repositories == null ? null : _maybeText(repositories, 'review'),
         roles: roles,
         repositories: [
@@ -364,7 +393,7 @@ class PoreloOrganizationSource implements OrganizationSource, FoundingChecks {
   }
 
   static String _unreached(String? checkedAt, StaleWhy? why) => [
-    'Porelo could not check the organization just now, so its repositories are not shown.',
+    'Porelo has not checked the organization just now, so its repositories are not shown.',
     lastChecked(checkedAt == null ? null : DateTime.tryParse(checkedAt)),
     if (why != null) 'Why: ${why.words}',
   ].join(' ');
