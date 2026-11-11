@@ -106,6 +106,11 @@ test "$("$bundle/porelo-host" --version)" = "$version" || {
     exit 1
 }
 
+# The licenses of the third-party code built in, as one plain file where each system looks for them: Flutter writes
+# them, gzip-compressed, into the bundle's assets, the text the window's *View licenses* shows.
+say "Unpacking the third-party notices"
+dart tool/third_party_notices.dart "$bundle/data/flutter_assets/NOTICES.Z" LICENSE build/notices
+
 # The ELF objects that decide what this package needs: the launcher and everything shipped beside
 # it. libapp.so is our own AOT-compiled Dart and libflutter_linux_gtk.so is vendored, so neither is
 # a dependency — but both are scanned, because what *they* link is.

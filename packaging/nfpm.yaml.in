@@ -49,13 +49,24 @@ contents:
   - src: packaging/porelo-frontend.svg
     dst: /usr/share/icons/hicolor/scalable/apps/porelo-frontend.svg
 
-  # The licence text travels with the package, where each packaging system looks for it.
-  - src: LICENSE
+  # The licence text travels with the package, where each packaging system looks for it. The deb's copyright is the
+  # LICENSE after a line naming the third-party notices; tool/package.sh writes both under build/notices.
+  - src: build/notices/copyright
     dst: /usr/share/doc/porelo-frontend/copyright
+    packager: deb
+
+  - src: build/notices/THIRD-PARTY-NOTICES
+    dst: /usr/share/doc/porelo-frontend/THIRD-PARTY-NOTICES
     packager: deb
 
   - src: LICENSE
     dst: /usr/share/licenses/porelo-frontend/LICENSE
+    type: license
+    packager: rpm
+
+  # Fedora has no shared license directory, so the rpm carries the full texts itself.
+  - src: build/notices/THIRD-PARTY-NOTICES
+    dst: /usr/share/licenses/porelo-frontend/THIRD-PARTY-NOTICES
     type: license
     packager: rpm
 

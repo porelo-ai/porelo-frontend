@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F472",
   "title": "The Packages Carry The Third-Party Notices As A File",
-  "state": "Backlog",
+  "state": "Review",
   "size": "S",
   "priority": "Medium",
   "rank": 12,
@@ -17,11 +17,18 @@
 **Why this size.** one build step that unpacks a file Flutter already writes, two entries in the package description,
 and a test of the unpacked file.
 
-**How it stands.** The operator decided on 2026-11-10 that every repository that ships a .deb or .rpm with third-party
-code built in ships its notices as one THIRD-PARTY-NOTICES file, with the full license texts, and gave this issue the
-priority Medium. The Java repositories take a generator from porelo-buildtools, on its main since 2026-11-10; the window
-needs none, since Flutter already collects its notices. Backlog (operator, 2026-11-10): it is built after
-[F443](README.md#f443), [F455](README.md#f455) and [F460](README.md#f460).
+**How it stands.** Built, in Review. The operator decided on 2026-11-10 that every repository that ships a .deb or
+.rpm with third-party code built in ships its notices as one THIRD-PARTY-NOTICES file, with the full license texts.
+- `tool/third_party_notices.dart` unpacks the bundle's `data/flutter_assets/NOTICES.Z` (gzip, as Flutter's own
+  `LicenseRegistry` reads it; not zlib, as the plan below first said) into `build/notices/THIRD-PARTY-NOTICES`, and
+  writes `build/notices/copyright`: a line naming `/usr/share/doc/porelo-frontend/THIRD-PARTY-NOTICES`, then the
+  window's own `LICENSE`. A NOTICES.Z that is not gzip, not UTF-8 or empty stops the packaging.
+- `tool/package.sh` runs it after the release build; `packaging/nfpm.yaml.in` installs the notices to the deb's doc
+  folder beside that copyright, and as a second `type: license` file of the rpm.
+- The MSIX keeps the notices inside its bundle, as before.
+- Tests: test/tool/third_party_notices_test.dart. Checked by hand on a NOTICES.Z from a local release build: plain
+  ASCII text, 1.4 MB, naming xterm, porelo_planning and the engine's libraries (skia among them).
+- Not checked: a .deb and .rpm built and installed; the release build's packaging is its check.
 
 **What must be true.** Someone who installs the window's .deb or .rpm finds the licenses of all third-party code built
 into it as a plain text file, in the place their system looks: `/usr/share/doc/porelo-frontend/THIRD-PARTY-NOTICES`,
