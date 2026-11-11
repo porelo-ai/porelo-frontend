@@ -23,16 +23,16 @@ come back until its cause happens again.
 ## Why
 
 The operator found 18 planner rows in *Needs you*, one for each issue in Implementing (an issue's id, its repository and
-"reading ? of ?"), with nothing to press. Today *Seen* is offered on failed operations, missed questions, machine notices and
-ended work; a planner row gets it only where a story's work ended (`attention_view.dart:253`). A reading stop has none:
-it leaves only when the planner stops saying it.
+"reading ? of ?"), with nothing to press. Today *Seen* is offered on failed operations, missed questions, machine
+notices and ended work; a planner row gets it only where a story's work ended (`attention_view.dart:253`). A reading
+stop has none: it leaves only when the planner stops saying it.
 
 ## Plan
 
 - A reading stop is marked as put away by its issue and the reading round it stopped at, kept in Settings like a story
   end's mark, so a later stop of the same issue is said again.
 - The mark is dropped once the board, read whole, no longer says that stop, as for a story's end.
-- A row put away is written to the window's log (F483).
+- A row put away is written to the window's log ([F483](README.md#f483)).
 
 ## To be checked
 
