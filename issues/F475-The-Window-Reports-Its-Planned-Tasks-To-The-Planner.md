@@ -45,8 +45,9 @@ while a run ended.
   reported (or the end the task already showed when it started, which is no end of this run). An entry an earlier build
   kept loads and stays, but is not reportable. `planningOffersHanded` keeps every offer handed to Start, the newest
   2000, so a follow-up is never started twice.
-- `lib/src/ui/planning_embedding.dart`: `WindowTaskStarts.call` hands the offer before Start is asked, keeps the
-  provider, project, story and task once the machine lists the task's name, and tells the reports. `startedOn` falls
+- `lib/src/ui/planning_embedding.dart`: `WindowTaskStarts.call` refuses an offer handed to Start before, hands the
+  offer before Start is asked, keeps it with the provider, project, story and task only once the machine lists the
+  task's name, and tells the reports. `startedOn` falls
   back to the kept offer after a restart.
 - `lib/src/ui/planning_reports.dart`: `WindowTaskReports` sends one report at a time through the provider's
   `PlanningSource.taskEvent`: STARTED right after a confirmed start, ENDED for each new `agentEnded` of a watched
@@ -56,12 +57,17 @@ while a run ended.
   another refusal is said on the project's board (the window's status line where no board is open) and not sent again
   in that window's life; a planner not reached is said once and tried again on the next change. The answer's follow-up orders start
   through `WindowTaskStarts` once each, a refused one stopping the rest, and show as the screen's own starts do. `stop`
-  stops each task on the machine it was started on, reports nothing and forgets the offer.
+  stops each task on the machine it was started on, reports nothing and forgets the offer. Each report reads its kept
+  offer again right before it is sent, so a start or an end told meanwhile is not told twice; refusals and stops are
+  kept by offer, so a new offer in the container of a stopped task is reported; an end found beside an untold start is
+  told right after it; `NoRepository` (no watched machine named the project's repository yet) is tried again like a
+  planner not reached; an answer that arrives after a stop of its task starts none of its follow-ups.
 - `lib/src/app/planner.dart`: `LocalPlanner.taskEvent` routes to the window's reports, which take it only for an offer
   they keep and send it to the provider kept with that offer.
-- Tests, each seen red first: `test/app/planning_offers_test.dart`, `test/ui/window_task_reports_test.dart`; the
-  scenario *The end of a task the window started reaches the planner* in `test/features/story_work.feature`, on the
-  package's stand-in.
+- Tests, each seen red first: `test/app/planning_offers_test.dart`, `test/ui/window_task_reports_test.dart`,
+  `test/ui/window_task_starts_test.dart`; the scenario *The end of a task the window started reaches the planner* in
+  `test/features/story_work.feature`, on the package's stand-in, starting through `WindowTaskStarts` with the
+  stand-in's start as the machine's Start.
 
 ## Acceptance
 
@@ -83,9 +89,18 @@ while a run ended.
   the same two values read as one.
 - A report a crash cut off between the planner's answer and the settings write is sent again after the restart.
 - A STARTED report already sent when a stop arrives for that task reaches the planner; it answers as for any voided
-  offer.
+  offer, and none of the follow-ups of its answer are started.
+- A report refused for good (anything but a planner not reached or no repository named yet) is not sent again in that
+  window's life; the next start of the window sends it once more.
+- An offer is kept per machine and container: a new offer in the same container replaces the entry, and an entry is
+  forgotten on a stop or a `TaskNotAnswered`. An ended task's entry stays until its container is used again; the
+  offers handed to Start are the newest 2000.
+- The window learns of a story stopped on the board only through the package's stop hook, which names only the tasks
+  whose Start was in flight; the package keeps its cancellation to itself. A follow-up the planner ordered in an
+  answer that crossed such a stop is started, and stopped when its STARTED report is answered `TaskNotAnswered`.
 
 ## To be checked
 
 - Against a real planner and machine: a report's round trip, `TaskNotAnswered` for a voided offer, and follow-up
-  orders the planner answers after an end.
+  orders the planner answers after an end, and `TaskNotAnswered` for a follow-up ordered in an answer that crossed a
+  story's stop.
