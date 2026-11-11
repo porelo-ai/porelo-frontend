@@ -795,6 +795,55 @@ void main() {
       expect(shown, isEmpty);
     });
 
+    // Harm: a member whose card no answer said is shown as "not yet", which holds its roles.
+    test('a kept project is not handed over while the card of one of its members is not known', () async {
+      final withoutFay = {
+        ..._org,
+        'people': [
+          for (final person in _org['people']! as List<Object?>)
+            if ((person! as Map<String, Object?>)['login'] != 'fay') person,
+        ],
+      };
+      final checked = Completer<Ran>();
+      answer = (arguments) => switch ((arguments.first, arguments.contains('--refresh'))) {
+        ('org', true) => checked.future,
+        ('org', false) => says(kept(withoutFay)),
+        (_, true) => says(_project),
+        _ => says(kept(_project)),
+      };
+      final organization = source.readKeptFirst((_) {});
+      await pumpEventQueue();
+      final shown = <ProjectView>[];
+      final project = source.readProjectKeptFirst('demo', shown.add);
+      await pumpEventQueue();
+      expect(shown, isEmpty, reason: "fay's card is in no answer");
+      checked.complete(says(_org));
+      await organization;
+      await project;
+    });
+
+    // Harm: the cards of an organization Porelo kept, never checked, stand in a project read as checked.
+    test("a kept organization's cards never stand in a checked project", () async {
+      var confirms = 0;
+      source.confirmForgeHost = (_) async {
+        confirms++;
+        return false;
+      };
+      const words = "the forge's ssh host key is not trusted: see 'porelo credentials trust-host forge.example.org'";
+      answer = (arguments) => switch ((arguments.first, arguments.contains('--refresh'))) {
+        ('org', true) => (code: 70, out: jsonEncode({'reason': 'unknown-host-key', 'words': words}), err: ''),
+        ('org', false) => says(kept(_org)),
+        _ => says(_project),
+      };
+      await expectLater(source.readKeptFirst((_) {}), throwsA(isA<OrganizationRefused>()));
+      expect(confirms, 1);
+      await expectLater(
+        source.readProject('demo'),
+        throwsA(isA<OrganizationRefused>()),
+        reason: 'no checked answer said how its members stand',
+      );
+    });
+
     // Harm: a check that failed leaves the state Porelo kept passing for the project as it stands.
     test('a project whose check stays stale is said to be stale, with when and why', () async {
       answer = (arguments) => says(arguments.contains('--refresh') ? refused(_project) : kept(_project));

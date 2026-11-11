@@ -393,6 +393,10 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
   /// revision, so none is offered.
   bool _lastRead = false;
 
+  /// Whether [_view] is not confirmed as the project stands: the session's last read, or the state Porelo kept and has
+  /// not checked. A change would carry its revision, so none is offered.
+  bool get _unconfirmed => _lastRead || (_view?.stale ?? false);
+
   @override
   void initState() {
     super.initState();
@@ -480,14 +484,11 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
     }
   }
 
-  /// Shows [kept], the state Porelo kept, while read [read] waits for its check, where nothing newer is shown: as a
-  /// last read, so nothing is changed from it.
+  /// Shows [kept], the state Porelo kept, while read [read] waits for its check, where nothing checked is shown: a
+  /// last read that was checked stays until this read's check answers. Stale, nothing is changed from it.
   void _showKept(int read, ProjectView kept) {
-    if (!mounted || read != _reads || (_view != null && !_lastRead)) return;
-    setState(() {
-      _view = kept;
-      _lastRead = true;
-    });
+    if (!mounted || read != _reads || !(_view?.stale ?? true)) return;
+    setState(() => _view = kept);
   }
 
   void _show(Widget dialog) => unawaited(
@@ -519,16 +520,16 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
               !member.locked,
         ) &&
         // A last read claims no Project Admin the organization's list does not name.
-        (!_lastRead || listedRole == 'Project Admin');
+        (!_unconfirmed || listedRole == 'Project Admin');
     final readRole = view == null || organization == null ? null : _myRole(view, organization);
     // Before it is opened there is no project.yml to change: opening it is all there is to do.
-    final changes = isAdmin && view.opened && !_lastRead;
+    final changes = isAdmin && view.opened && !_unconfirmed;
     final commands = [
       if (changes)
         for (final policy in ['required', 'optional'])
           if (view.review != policy) _reviewCommand(view, policy),
       // A last read not yet confirmed offers no change, a machine's neither.
-      if (!_lastRead) ..._machineCommands(organization),
+      if (!_unconfirmed) ..._machineCommands(organization),
     ];
     final repositoryWords = view == null || !view.opened
         ? 'not read'
@@ -556,7 +557,7 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
                     '${peopleOf(listed)}'
               : 'not read',
           // A last read's role may have changed since: the head says the list's, or none where it has not said it.
-          status: switch (_lastRead || readRole == null ? listedRole : readRole) {
+          status: switch (_unconfirmed || readRole == null ? listedRole : readRole) {
             final role? => StateChip(role),
             null => null,
           },
@@ -595,7 +596,7 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
               widget.organization,
               change,
               onReview: () => unawaited(_read()),
-              unconfirmed: _lastRead,
+              unconfirmed: _unconfirmed,
             ),
         if (view != null && !view.opened) _notOpened(view),
         if (view != null && view.opened) ...[
@@ -603,7 +604,7 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
           // A last read's Project Admins may have changed since: the list's are named where it holds the project.
           if (!isAdmin)
             Text(
-              '${_adminsWords(_lastRead && listed != null ? listed.admins : view.admins)} Only they change this project.',
+              '${_adminsWords(_unconfirmed && listed != null ? listed.admins : view.admins)} Only they change this project.',
             ),
           const SizedBox(height: Space.normal),
           _address(view, changes),
@@ -909,10 +910,11 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
               // Removing or demoting the last project admin is the store's to refuse.
               // A developer is their Project Admin's; an admin, or a role to or from it, the Organization Admin's.
               // A last read not yet confirmed offers no change: it would carry that read's revision.
-              changes: !_lastRead && (organization?.mayChangeMember(member.role, isProjectAdmin: isAdmin) ?? isAdmin),
+              changes:
+                  !_unconfirmed && (organization?.mayChangeMember(member.role, isProjectAdmin: isAdmin) ?? isAdmin),
               roles: [
                 for (final role in view.roles)
-                  if (!_lastRead && (organization?.mayChangeMember(role, isProjectAdmin: isAdmin) ?? isAdmin)) role,
+                  if (!_unconfirmed && (organization?.mayChangeMember(role, isProjectAdmin: isAdmin) ?? isAdmin)) role,
               ],
               organization: widget.organization,
               view: view,

@@ -32,10 +32,12 @@ it is, and replace it with a fresh read when that comes; nothing old is shown as
   `stale_why` (`kept` while the check runs after the answer), and wait for a check only with `--refresh`.
 - A source that can, `ReadsKeptFirst` (`PoreloOrganizationSource`), hands the kept state to the page before it asks
   with `--refresh`; the project's page shows it at once as a last read, with no change offered, saying when it was
-  checked last, and the checked read replaces it; the organization's model shows a kept state only where no checked
-  one is shown. A kept project is shown at once only where its members' cards are known, never as "not yet".
-- A read that stays stale, its check refused or timed out, says so on the project's page with when and why; a
-  Porelo that answers no `stale` is asked once, as before.
+  checked last, and the checked read replaces it; neither the project's page nor the organization's model shows a
+  kept state over a checked one. A kept project is shown at once only where every member's card is known from an
+  answer, never as "not yet"; a kept organization's cards never stand in a checked project.
+- A read that stays stale, its check refused or timed out, says so on the project's page with when and why, offers
+  no change and leaves no revision a change is asked from again; a Porelo that answers no `stale` is asked once, as
+  before. The organization's page says why it is stale only once its check has stopped.
 
 
 - Read the age and `stale` of `porelo project show` into the project's view, as `porelo org`'s are read.

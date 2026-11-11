@@ -1151,7 +1151,8 @@ class Organization extends ChangeNotifier {
   /// Keeps what a project's page read: its revision for an answered request's next attempt, the whole view to show at
   /// once, marked as the last read, when the page opens again.
   void rememberProjectRevision(ProjectView project) {
-    _projectBases[project.name] = project.revision;
+    // A state Porelo kept and did not check is no base a change can be asked from again.
+    if (!project.stale) _projectBases[project.name] = project.revision;
     _lastReads[project.name] = project;
   }
 

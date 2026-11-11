@@ -659,6 +659,48 @@ void main() {
       expect(tester.widget<Text>(kept).data, allOf(contains('checked last at'), contains('Why: ')));
     });
 
+    // Harm: a change is asked from the state Porelo kept and could not check, with that state's revision.
+    testWidgets('a read that stays stale offers no change', (tester) async {
+      await _page(
+        tester,
+        'pat',
+        project: ProjectView(
+          name: demoProject.name,
+          revision: demoProject.revision,
+          host: demoProject.host,
+          address: demoProject.address,
+          roles: demoProject.roles,
+          repositories: demoProject.repositories,
+          members: demoProject.members,
+          stale: true,
+          checkedAt: DateTime.utc(2026, 11, 11, 5, 33),
+          staleWhy: const StaleWhy('timeout'),
+        ),
+      );
+      expect(find.text('demo-docs'), findsOneWidget);
+      for (final id in changes) {
+        expect(_action(id), findsNothing, reason: id);
+      }
+    });
+
+    // Harm: a reread shows an older state Porelo kept over the project as checked a moment ago.
+    testWidgets('a reread shows no kept state over a checked one', (tester) async {
+      final fixture = _KeptFirst(organizationFor('pat', organizationAdmins: ['pat']));
+      final organization = Organization(fixture);
+      addTearDown(organization.dispose);
+      await organization.refresh();
+      await _open(tester, organization);
+      await tester.pumpAndSettle();
+      await _close(tester);
+      fixture.held = Completer<void>();
+      await _open(tester, organization);
+      await tester.pump();
+      expect(find.text('demo-old'), findsNothing, reason: 'the checked read stays until the new check answers');
+      expect(find.byKey(const Key('organization-project-kept')), findsNothing);
+      fixture.held!.complete();
+      await tester.pumpAndSettle();
+    });
+
     // Harm: a reread that fails empties the page, or leaves the last read passing for the project as it stands.
     testWidgets('a reread that fails keeps the last read, says why, and says it is the last read', (tester) async {
       final fixture = _HeldReads(organizationFor('pat'));

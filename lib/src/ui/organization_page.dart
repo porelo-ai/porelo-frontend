@@ -386,7 +386,8 @@ class _OrganizationPageState extends State<OrganizationPage> {
           [
             'This is the state Porelo kept, not one it checked just now; it may have moved on.',
             lastChecked(view.checkedAt),
-            if (view.staleWhy case final why?) 'Why: ${why.words}',
+            // While its check runs, nothing has stopped it yet.
+            if (view.staleWhy case final why? when !organization.reading) 'Why: ${why.words}',
           ].join(' '),
           style: TextStyle(color: Theme.of(context).colorScheme.error),
         ),

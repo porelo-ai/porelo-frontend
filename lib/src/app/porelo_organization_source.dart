@@ -35,6 +35,10 @@ class PoreloOrganizationSource implements OrganizationSource, ReadsKeptFirst, Fo
   /// How people stood at the last read, for what `project show` does not say of them; null before any read answered.
   Map<String, CardStanding>? _standing;
 
+  /// How the cards stand in the newest organization answer, kept or checked: for a kept project shown before its
+  /// check, never for a checked one.
+  Map<String, CardStanding>? _cards;
+
   /// The organization's newest read while it is under way, which a project read answering meanwhile waits for.
   Future<void>? _organizationRead;
 
@@ -154,17 +158,19 @@ class PoreloOrganizationSource implements OrganizationSource, ReadsKeptFirst, Fo
   Future<OrganizationView> _readOrganization(void Function(OrganizationView kept)? kept) async {
     final read = ++_organizationReads;
     final first = await _ask(['org']);
+    // Overtaken while it asked: a newer read shows and checks the organization.
+    if (read != _organizationReads) return _reading(() => _view(first));
     if (kept != null && _reading(() => _flag(first, 'stale'))) {
       final view = _reading(() => _view(first));
-      // The kept cards stand for a kept project read until a checked answer says how they stand now.
-      _standing ??= {for (final person in view.persons) person.login: person.standing};
+      // Porelo's kept state is at least as new as anything it answered before.
+      _cards = {for (final person in view.persons) person.login: person.standing};
       kept(view);
     }
     final (answer, notChecked) = await _checkedAgain(['org'], first);
     final view = _reading(() => _view(answer, notChecked));
     // An older read ending after a newer one says nothing of how the cards stand now.
     if (read != _organizationReads) return view;
-    _standing = {for (final person in view.persons) person.login: person.standing};
+    _standing = _cards = {for (final person in view.persons) person.login: person.standing};
     return view;
   }
 
@@ -319,12 +325,11 @@ class PoreloOrganizationSource implements OrganizationSource, ReadsKeptFirst, Fo
 
   Future<ProjectView> _readProject(String project, void Function(ProjectView kept)? kept) async {
     final first = await _ask(['project', 'show', project]);
-    // Shown at once only where its members' cards are known: an unknown card is never shown as "not yet".
+    // Shown at once only where every member's card is known: an unknown card is never shown as "not yet".
     if (kept != null && _reading(() => _flag(first, 'stale'))) {
-      if (_standing case final standing?) {
-        kept(_projectView(first, null, standing));
-      } else if (_reading(() => _maps(first, 'members').isEmpty)) {
-        kept(_projectView(first, null, const {}));
+      final cards = _cards ?? const <String, CardStanding>{};
+      if (_reading(() => _maps(first, 'members').every((member) => cards.containsKey(_text(member, 'login'))))) {
+        kept(_projectView(first, null, cards));
       }
     }
     final (answer, notChecked) = await _checkedAgain(['project', 'show', project], first);
