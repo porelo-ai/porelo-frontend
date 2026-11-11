@@ -22,8 +22,8 @@ come back until its cause happens again.
 
 ## Why
 
-The operator found 18 planner rows in *Needs you*, one for each issue in Implementing ("HO158 · porelo-host · reading
-? of ?"), with nothing to press. Today *Seen* is offered on failed operations, missed questions, machine notices and
+The operator found 18 planner rows in *Needs you*, one for each issue in Implementing (an issue's id, its repository and
+"reading ? of ?"), with nothing to press. Today *Seen* is offered on failed operations, missed questions, machine notices and
 ended work; a planner row gets it only where a story's work ended (`attention_view.dart:253`). A reading stop has none:
 it leaves only when the planner stops saying it.
 
