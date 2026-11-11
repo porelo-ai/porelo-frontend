@@ -72,10 +72,17 @@ void main() {
   test('the CLI passes each named purge to teardown once', () async {
     final remote = ScriptedRemote([]);
     expect(await invoke(['--purge', 'alice', '--purge', 'bob', '--purge', 'alice'], remote), Exit.done);
-    expect(remote.commands.where((command) => command.startsWith('/usr/sbin/porelo-host person purge ')), [
-      '/usr/sbin/porelo-host person purge alice',
-      '/usr/sbin/porelo-host person purge bob',
-    ]);
+    expect(
+      remote.commands.where(
+        (command) => command.startsWith(
+          'env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin LANG=C.UTF-8 /usr/sbin/porelo-host person purge ',
+        ),
+      ),
+      [
+        'env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin LANG=C.UTF-8 /usr/sbin/porelo-host person purge alice',
+        'env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin LANG=C.UTF-8 /usr/sbin/porelo-host person purge bob',
+      ],
+    );
   });
 
   // Harm: a status-only option must never fall through to teardown or a forced release.
@@ -83,7 +90,9 @@ void main() {
     final remote = ScriptedRemote([]);
     final output = StringBuffer();
     expect(await invoke(['--memberships'], remote, output: output), Exit.done);
-    expect(remote.commands, ['/usr/sbin/porelo-host org status --json']);
+    expect(remote.commands, [
+      'env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin LANG=C.UTF-8 /usr/sbin/porelo-host org status --json',
+    ]);
     expect(LineSplitter.split(output.toString()).map(Step.fromLine).last!.step, 'org-status');
   });
 

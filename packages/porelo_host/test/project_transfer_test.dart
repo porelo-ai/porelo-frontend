@@ -20,7 +20,10 @@ void main() {
     );
     final script = command.last;
     expect(script, contains('root@alpha'));
-    expect(script, contains("'/usr/sbin/porelo-host org refresh'"));
+    expect(
+      script,
+      contains("'env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin LANG=C.UTF-8 /usr/sbin/porelo-host org refresh'"),
+    );
     expect(script, contains(r'''{ printf '%s\n' "$transfer_token"; } |'''));
     expect(script, isNot(contains('__PORELO_CENTRAL')));
   });
@@ -41,7 +44,10 @@ void main() {
     ).last;
     expect(arguments.first, '/usr/bin/ssh');
     expect(arguments.sublist(1, 3), ['-F', config]);
-    expect(arguments.sublist(arguments.length - 2), ['root@alpha', '/usr/sbin/porelo-host org refresh']);
+    expect(arguments.sublist(arguments.length - 2), [
+      'root@alpha',
+      'env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin LANG=C.UTF-8 /usr/sbin/porelo-host org refresh',
+    ]);
     // The same ssh as the way through a terminal, so neither pins less than the other.
     for (final each in arguments.skip(1).where((word) => word.contains('='))) {
       expect(feeding, contains(each));
@@ -308,7 +314,7 @@ required = ['BatchMode=yes', 'StrictHostKeyChecking=yes', 'ForwardAgent=no', 'Pr
     'UserKnownHostsFile="/config/porelo/ssh/alpha.conf.known_hosts"', 'GlobalKnownHostsFile=none',
     'KnownHostsCommand=none', 'VerifyHostKeyDNS=no', 'UpdateHostKeys=no', 'IdentitiesOnly=yes', 'ForwardX11=no']
 if any(option not in sys.argv for option in required): sys.exit(91)
-if ['-T', '--', 'root@alpha', '/usr/sbin/porelo-host org refresh'] != sys.argv[-4:]: sys.exit(92)
+if ['-T', '--', 'root@alpha', 'env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin LANG=C.UTF-8 /usr/sbin/porelo-host org refresh'] != sys.argv[-4:]: sys.exit(92)
 if os.environ.get('TRANSFER_MODE') == 'pty':
     tty = os.open('/dev/tty', os.O_RDWR)
     os.write(tty, b'ssh phase\n'); os.read(tty, 1024); os.close(tty)

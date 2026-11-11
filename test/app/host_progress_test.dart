@@ -148,10 +148,25 @@ void main() {
     // asked without `--json` the host answers in words nothing here can read.
     test("root is asked by the host's own program, its status as JSON", () async {
       await progress.status('/c/build.conf', 'build');
-      expect(asked.sublist(asked.length - 2), ['root@build', '/usr/sbin/porelo-host org status --json']);
+      expect(asked.sublist(asked.length - 2), [
+        'root@build',
+        'env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin LANG=C.UTF-8 /usr/sbin/porelo-host org status --json',
+      ]);
       await progress.refresh('/c/build.conf', 'build');
-      expect(asked.sublist(asked.length - 2), ['root@build', '/usr/sbin/porelo-host org refresh']);
+      expect(asked.sublist(asked.length - 2), [
+        'root@build',
+        'env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin LANG=C.UTF-8 /usr/sbin/porelo-host org refresh',
+      ]);
       expect(fed, '', reason: 'a refresh from here carries no token');
+    });
+
+    // Harm: root's session carries DBUS_SESSION_BUS_ADDRESS and XDG_* from pam_systemd, which porelo-host refuses at
+    // its entry, so every host page says the host did not say how it stands.
+    test('porelo-host is run with none of the session\'s environment, only a path and a locale', () async {
+      await progress.status('/c/build.conf', 'build');
+      expect(asked.last, startsWith('env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin LANG=C.UTF-8 /usr/sbin/porelo-host '));
+      await progress.refresh('/c/build.conf', 'build');
+      expect(asked.last, startsWith('env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin LANG=C.UTF-8 /usr/sbin/porelo-host '));
     });
 
     // Harm: a host admin gives a token that cannot help, as the host took no address for the project, and is told

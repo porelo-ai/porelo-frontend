@@ -1,4 +1,7 @@
 import 'dart:async';
+
+import 'host_command.dart';
+
 import 'dart:convert';
 import 'dart:io';
 
@@ -657,7 +660,7 @@ done''',
       final result = await remote.run(
         address,
         plan.loginUser,
-        '/usr/sbin/porelo-host org status --json',
+        poreloHostCommand('org status --json'),
         onLine: answer.writeln,
       );
       final words = [result.stderr, answer.toString()].where((part) => part.isNotEmpty).join('\n');
@@ -715,7 +718,7 @@ done''',
       final result = await remote.run(
         address,
         plan.loginUser,
-        '/usr/sbin/porelo-host person purge $login',
+        poreloHostCommand('person purge $login'),
         onLine: output.writeln,
       );
       final words = [result.stderr, output.toString()].where((part) => part.isNotEmpty).join('\n');

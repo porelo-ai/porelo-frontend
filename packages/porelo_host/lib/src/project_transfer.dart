@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'host_command.dart';
 import 'host_card_ssh.dart';
 import 'secrets_file.dart';
 import 'ssh.dart';
@@ -27,7 +28,7 @@ List<String> organizationRefreshFeedCommand({
   bool? windows,
   String ssh = '/usr/bin/ssh',
 }) => _tokenFeedCommand(
-  remote: '/usr/sbin/porelo-host org refresh',
+  remote: poreloHostCommand('org refresh'),
   target: 'root@${card.name}',
   marked: marked,
   ownConnection: true,
@@ -57,7 +58,7 @@ List<String> organizationRefreshArguments({
     config: config,
     ownConnection: true,
     target: 'root@${card.name}',
-    remote: '/usr/sbin/porelo-host org refresh',
+    remote: poreloHostCommand('org refresh'),
   );
 }
 

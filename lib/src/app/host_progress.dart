@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:porelo_frontend/client.dart' show Repository;
+import 'package:porelo_host/porelo_host.dart' show poreloHostCommand;
 
 import 'organization_source.dart';
 import 'run_here.dart';
@@ -309,10 +310,10 @@ class SshHostProgress {
   final RunHere _run;
 
   /// The host's read-only answer, as JSON: without `--json` it says it in words.
-  static const statusVerb = '/usr/sbin/porelo-host org status --json';
+  static final statusVerb = poreloHostCommand('org status --json');
 
   /// Makes the host fetch now, with nothing on its standard input: a token goes only by the terminal.
-  static const refreshVerb = '/usr/sbin/porelo-host org refresh';
+  static final refreshVerb = poreloHostCommand('org refresh');
 
   /// What the host keeps of a project, and whether it took an address for it. Read-only.
   static String projectFileVerb(String project) => 'cat /etc/porelo-host/organization/projects/$project.json';

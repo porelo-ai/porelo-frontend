@@ -17,5 +17,6 @@ export 'src/step_output.dart';
 export 'src/host_files.dart';
 export 'src/host_file_writer.dart';
 export 'src/server_contract.dart';
+export 'src/host_command.dart';
 export 'src/project_transfer.dart';
 export 'src/host_record.dart' show PreparedHost, checkHostName, checkedEd25519, isCardAddress, isUsableHostAddress;
