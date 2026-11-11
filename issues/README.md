@@ -18,6 +18,8 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f479"></a>[F479](F479-A-Planner-The-Window-Started-Ends-With-It.md) | M | - | A planner the window started because none was serving ends when the window ends, so it neither holds the planner's address file nor stands in the way of the next planner; a planner the window found serving is left running. |
+| <a id="f480"></a>[F480](F480-The-Window-Says-It-Started-The-Installed-Planner.md) | S | - | Where no planner was serving and the window started one itself, the planning place says so, with the program it started, so a person expecting their own planner sees that another one answers. |
 | <a id="f436"></a>[F436](F436-Every-Task-Run-Kept-And-Read-In-The-Window.md) | L | - | Every task that runs or ran, removed ones too, in a history view: who started and stopped it, its timeline and numbers, its logs as views of the one log stream, after it is gone too. |
 | <a id="f430"></a>[F430](F430-Leftovers-Of-The-Rental-Findings.md) | - | - | What the fixes of the trial move's findings named as not built, gathered for the operator to place: the wizard's last pages in a test, the old preparing dialog, Forward's stale-push check, a give-back that leaves the machine listed. |
 | <a id="f402"></a>[F402](F402-Prepare-A-Server-As-The-Standard-Wizard.md) | - | - | *Prepare a server* as steps of the standard wizard, each fitting the window. |
