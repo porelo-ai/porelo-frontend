@@ -311,7 +311,7 @@ status=0
 # In a session of its own whose number is kept, so an ending here takes the whole of it down there too.
 as_the_person_on_vm \
     "cd ~/$run && exec setsid sh -c 'echo \$\$ >pid; exec \"\$@\"' rehearse env -u DISPLAY -u WAYLAND_DISPLAY -u DBUS_SESSION_BUS_ADDRESS \
-        PATH=\$HOME/$flutter_dir/bin:\$PATH PORELO_E2E_HOST='$host' PORELO_E2E_REMOTE_SOCKET='$socket' PORELO_E2E_OWN_SETTINGS=1 $in_vault\
+        PATH=\$HOME/$flutter_dir/bin:\$PATH PORELO_E2E_HOST='$host' PORELO_E2E_REMOTE_SOCKET='$socket' PORELO_E2E_OWN_SETTINGS=1 $in_vault \
         PORELO_REHEARSAL_HOST_NAME='$host_name' PORELO_REHEARSAL_PROJECT='$project' \
         PORELO_REHEARSAL_HOST_KEY='$host_key' PORELO_REHEARSAL_SHOTS=\$HOME/$run/pictures \
         timeout --signal=TERM ${budget}m dbus-run-session -- \
