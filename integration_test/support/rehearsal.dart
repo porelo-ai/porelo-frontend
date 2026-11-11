@@ -255,11 +255,20 @@ Future<void> chooseFromTheMenu(WidgetTester tester, Finder menu, String label) a
   await pumpFor(tester);
 }
 
+/// How long the start form may ask the machine for its agents: a busy host was seen to take more than 15 seconds.
+const _agentsAsked = Duration(minutes: 2);
+
 /// Chooses the first agent the form offers where the repository names none and the form asks for one, as a person
 /// would; where an agent is named, or the machine chooses, the form is left as it is.
 Future<void> chooseAnAgentWhereNoneIsNamed(WidgetTester tester) async {
   final field = find.byKey(const Key('start-agent'));
-  await pumpUntil(tester, () => field.evaluate().isNotEmpty, what: 'the form to offer its agents');
+  // The machine asks each installed agent before it answers; a host busy with many tasks takes its time.
+  await pumpUntil(
+    tester,
+    () => field.evaluate().isNotEmpty,
+    timeout: _agentsAsked,
+    what: 'the form to offer its agents',
+  );
   if (find.descendant(of: field, matching: find.text('Choose an agent')).evaluate().isEmpty) return;
   await tester.ensureVisible(field.first);
   await tester.tap(field.first);
@@ -274,7 +283,13 @@ Future<void> chooseAnAgentWhereNoneIsNamed(WidgetTester tester) async {
 /// sign-in the rented host never gets, so Start would never come.
 Future<void> chooseTheAgentTheHostCanStart(WidgetTester tester) async {
   final field = find.byKey(const Key('start-agent'));
-  await pumpUntil(tester, () => field.evaluate().isNotEmpty, what: 'the form to offer its agents');
+  // The machine asks each installed agent before it answers; a host busy with many tasks takes its time.
+  await pumpUntil(
+    tester,
+    () => field.evaluate().isNotEmpty,
+    timeout: _agentsAsked,
+    what: 'the form to offer its agents',
+  );
   await tester.ensureVisible(field.first);
   await tester.tap(field.first);
   await pumpFor(tester);
