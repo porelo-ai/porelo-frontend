@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F487",
   "title": "The Window Starts A Discussion Of An Idea",
-  "state": "Idea",
+  "state": "Backlog",
   "size": "S",
   "priority": "High",
   "rank": 9,

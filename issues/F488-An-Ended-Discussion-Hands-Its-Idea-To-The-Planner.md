@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F488",
   "title": "An Ended Discussion Hands Its Idea To The Planner",
-  "state": "Idea",
+  "state": "Backlog",
   "size": "M",
   "priority": "High",
   "rank": 10,
