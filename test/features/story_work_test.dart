@@ -141,6 +141,14 @@ void main() {
       await iChooseStoryWork(tester, 'start');
       await storyWorkProves(tester, 'with you terminal');
     });
+    testWidgets('''The end of a task the window started reaches the planner''', (tester) async {
+      await bddSetUp(tester);
+      await iOpenStoryWorkFor(tester, 'ST291');
+      await iChooseStoryWork(tester, 'start');
+      await storyWorkIsPreparedWith(tester, 'started main task ended');
+      await iChooseStoryWork(tester, 'needs you');
+      await storyWorkProves(tester, 'reported end visible');
+    });
     testWidgets('''Dropping on a working state opens its proposal''', (tester) async {
       await bddSetUp(tester);
       await iDropStoryOnWorkingState(tester, 'ST291', 'In analysis');

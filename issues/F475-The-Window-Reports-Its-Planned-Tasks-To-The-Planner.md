@@ -40,7 +40,28 @@ while a run ended.
 
 ## Plan
 
-- Written while building; see *How it stands*.
+- `lib/src/app/settings.dart`: each `planningOffers` entry is a `PlannedOffer`, keyed by machine and container: the
+  offer, the provider's name, the project, the story, the task's name, whether its start was reported and the end last
+  reported (or the end the task already showed when it started, which is no end of this run). An entry an earlier build
+  kept loads and stays, but is not reportable. `planningOffersHanded` keeps every offer handed to Start, the newest
+  2000, so a follow-up is never started twice.
+- `lib/src/ui/planning_embedding.dart`: `WindowTaskStarts.call` hands the offer before Start is asked, keeps the
+  provider, project, story and task once the machine lists the task's name, and tells the reports. `startedOn` falls
+  back to the kept offer after a restart.
+- `lib/src/ui/planning_reports.dart`: `WindowTaskReports` sends one report at a time through the provider's
+  `PlanningSource.taskEvent`: STARTED right after a confirmed start, ENDED for each new `agentEnded` of a watched
+  machine's task, with Porelo's record unmapped (`at`, `finished`, `why` from its error, `answer` from its last
+  answer, `unpushed`). It looks at the kept offers whenever a machine or the planner changes. A machine name the planner
+  must refuse is refused before any call. `TaskNotAnswered` stops the task, forgets its offer and is never sent again;
+  another refusal is said on the project's board (the window's status line where no board is open) and not sent again
+  in that window's life; a planner not reached is tried again on the next change. The answer's follow-up orders start
+  through `WindowTaskStarts` once each, a refused one stopping the rest, and show as the screen's own starts do. `stop`
+  stops each task on the machine it was started on, reports nothing and forgets the offer.
+- `lib/src/app/planner.dart`: `LocalPlanner.taskEvent` routes to the window's reports, which take it only for an offer
+  they keep and send it to the provider kept with that offer.
+- Tests, each seen red first: `test/app/planning_offers_test.dart`, `test/ui/window_task_reports_test.dart`; the
+  scenario *The end of a task the window started reaches the planner* in `test/features/story_work.feature`, on the
+  package's stand-in.
 
 ## Acceptance
 
@@ -55,3 +76,16 @@ while a run ended.
 ## How it stands
 
 - Pinned to the planner's screen package at the change that follows, stops and reports a story's work.
+- The pin changes what the board shows: offers are UUIDs, findings carry a number, a stop keeps the story's tasks shown
+  until reports confirm them ended, and the working count counts stories with tasks at work.
+- The feature scenarios' machine names a task started for a story by its container, as Porelo does.
+- An end is told apart by its time, whether it finished and how many files it left unpushed; two ends with no time and
+  the same two values read as one.
+- A report a crash cut off between the planner's answer and the settings write is sent again after the restart.
+- A STARTED report already sent when a stop arrives for that task reaches the planner; it answers as for any voided
+  offer.
+
+## To be checked
+
+- Against a real planner and machine: a report's round trip, `TaskNotAnswered` for a voided offer, and follow-up
+  orders the planner answers after an end.

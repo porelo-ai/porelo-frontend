@@ -22,9 +22,10 @@ import '../app/machines.dart';
 import '../app/planner.dart';
 import '../app/settings.dart';
 import '../app/shell_model.dart';
-import '../client/models.dart' show Mode;
+import '../client/models.dart' show AgentEnded, Mode;
 import '../client/porelo_client.dart' show FeatureNotSupported, StartProgress;
 import '../wire/varlink_exception.dart';
+import 'planning_reports.dart';
 import 'start_work_view.dart' show StartAgentChoice;
 
 /// What the planning place says where the window was given no planning: planning is the planner's, not the window's.
@@ -44,10 +45,16 @@ Machine? plannedTaskMachine(Iterable<Machine> watched, Machine? current, bool Fu
 /// offer beside the machine and the container Start made.
 class WindowTaskStarts {
   /// Takes where a project's tasks run, how that machine is asked, and where an offer is kept.
-  WindowTaskStarts({required this.machineFor, required this.backendOf, required this.settings});
+  WindowTaskStarts({
+    required this.machineFor,
+    required this.backendOf,
+    required this.settings,
+    required this.providerOf,
+    this.machineNamed = _noMachine,
+  });
 
   /// The watched machines' own: a project's tasks run where [plannedTaskMachine] says.
-  factory WindowTaskStarts.of(Machines machines) => WindowTaskStarts(
+  factory WindowTaskStarts.of(Machines machines, PlanningClient client) => WindowTaskStarts(
     machineFor: (project) => plannedTaskMachine(
       machines.all,
       machines.all.isEmpty ? null : machines.current,
@@ -55,6 +62,8 @@ class WindowTaskStarts {
     ),
     backendOf: (machine) => machines.of(machine).backend,
     settings: machines.settings,
+    providerOf: (source) => client.providers.where((provider) => identical(provider.source, source)).firstOrNull?.name,
+    machineNamed: (name) => machines.all.where((machine) => machine.name == name).firstOrNull,
   );
 
   /// The machine a project's tasks run on, or null where none is watched.
@@ -66,10 +75,27 @@ class WindowTaskStarts {
   /// Where an offer is kept.
   final Settings settings;
 
+  /// The name of the provider of planning whose source this is, or null where none is.
+  final String? Function(PlanningSource source) providerOf;
+
+  /// The watched machine by that name, or null where none is.
+  final Machine? Function(String name) machineNamed;
+
+  /// Told each start confirmed with its task's name.
+  void Function(PlannedOffer kept)? onConfirmed;
+
+  static Machine? _noMachine(String name) => null;
+
   final _startedOn = <(String, String), Machine>{};
 
-  /// The machine a task this window started for [project] runs on, by the container Start made.
-  Machine? startedOn(String project, String container) => _startedOn[(project, container)];
+  /// The machine a task this window started for [project] runs on, by the container Start made; after a restart, the
+  /// watched machine its kept offer names.
+  Machine? startedOn(String project, String container) =>
+      _startedOn[(project, container)] ??
+      switch (settings.plannedOffers.where((kept) => kept.container == container && kept.project == project).toList()) {
+        [final kept] => machineNamed(kept.machine),
+        _ => null,
+      };
 
   /// Starts [task] of [story] for [project] with exactly what the order gives, as the planning screen's start hook.
   ///
@@ -81,6 +107,8 @@ class WindowTaskStarts {
       throw PlanningRefusal('NoMachine', {'detail': words}, words);
     }
     final backend = backendOf(machine);
+    // Handed before Start is asked: whatever Start answers, this offer is never started again.
+    if (task.offer case final offer?) await settings.handPlanningOffer(offer);
     final StartProgress answer;
     try {
       answer = await backend.startOrdered(
@@ -111,10 +139,28 @@ class WindowTaskStarts {
       await settings.rememberPlanningOffer(machine: machine.name, container: container, offer: offer);
     }
     // Start answers the container alone; the task's name within the project is what the machine lists for it.
-    final name = (await backend.tasks()).where((each) => each.name == container).firstOrNull?.task ?? '';
+    final listed = (await backend.tasks()).where((each) => each.name == container).firstOrNull;
+    final name = listed?.task ?? '';
     if (name.isEmpty) {
       final words = '${machine.name} started $container but does not list its task name.';
       throw PlanningRefusal('NotListed', {'detail': words}, words);
+    }
+    if ((task.offer, providerOf(source)) case (final offer?, final provider?)) {
+      // An end the task showed as it started is an earlier run's, never this one's.
+      await settings.rememberPlanningOffer(
+        machine: machine.name,
+        container: container,
+        offer: offer,
+        provider: provider,
+        project: project,
+        story: story,
+        task: name,
+        ended: switch (listed?.agentEnded) {
+          final ended? => plannedEndKey(ended),
+          null => null,
+        },
+      );
+      if (settings.plannedOffer(machine.name, container) case final kept?) onConfirmed?.call(kept);
     }
     return PlanningTaskStarted(task: name, container: container);
   }
@@ -123,10 +169,17 @@ class WindowTaskStarts {
   static bool _started(StartProgress answer) => answer.action == null ? answer.exitCode == 0 : answer.action!.starts;
 }
 
+/// How the window tells one end of a task's agent from another: when it ended, whether it finished, what it left.
+/// Kept as a short line, whatever the machine wrote into its time.
+String plannedEndKey(AgentEnded ended) {
+  final key = '${ended.at}|${ended.finished}|${ended.unpushed}'.replaceAll(RegExp(r'[\x00-\x1f]'), '?');
+  return key.length > 300 ? key.substring(key.length - 300) : key;
+}
+
 /// Where the window's planning place reads its boards, and how a start of story work it confirms reaches them.
 class EmbeddedPlanning {
   /// Takes the providers of planning, how a start reaches a machine, and where a started task runs.
-  const EmbeddedPlanning(this.client, {required this.startTask, this.startedOn = _nowhere});
+  const EmbeddedPlanning(this.client, {required this.startTask, this.startedOn = _nowhere, this.reports});
 
   /// The providers of planning, one per machine that serves it.
   final PlanningClient client;
@@ -137,14 +190,24 @@ class EmbeddedPlanning {
   /// The machine a task [startTask] started for a project runs on, by its container, or null where it does not know.
   final Machine? Function(String project, String container) startedOn;
 
+  /// How the tasks [startTask] started are reported, followed and stopped, absent where nothing reports them.
+  final WindowTaskReports? reports;
+
   static Machine? _nowhere(String project, String container) => null;
 }
 
 /// The window's planning: this computer's planner, found or started once, its board read through the planner's own
 /// client, its tasks started on the watched machines.
+///
+/// Its reports look at the kept offers whenever a machine or the planner changes, so an end that came while the window
+/// was closed is reported once both answer.
 EmbeddedPlanning plannerPlanning(LocalPlanner planner, Machines machines) {
-  final starts = WindowTaskStarts.of(machines);
-  return EmbeddedPlanning(planner, startTask: starts.call, startedOn: starts.startedOn);
+  final starts = WindowTaskStarts.of(machines, planner);
+  final reports = WindowTaskReports.of(machines, planner, starts);
+  planner.reports = reports.report;
+  machines.addListener(reports.sweep);
+  planner.addListener(reports.sweep);
+  return EmbeddedPlanning(planner, startTask: starts.call, startedOn: starts.startedOn, reports: reports);
 }
 
 /// The watched machine that [client] names as the provider of [source], if one still is.

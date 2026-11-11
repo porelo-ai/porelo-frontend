@@ -52,7 +52,8 @@ import 'package:porelo_frontend/src/app/host_access.dart';
 import 'package:porelo_frontend/src/app/settings.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
 import 'package:porelo_frontend/src/app/porelo_app.dart';
-import 'package:porelo_frontend/src/ui/planning_embedding.dart' show EmbeddedPlanning;
+import 'package:porelo_frontend/src/ui/planning_embedding.dart' show EmbeddedPlanning, WindowTaskStarts;
+import 'package:porelo_frontend/src/ui/planning_reports.dart';
 import 'package:porelo_planning/planning_fake.dart' show MockPlanningClient, MockPlanningSource, mockStartTask;
 import 'package:porelo_planning/porelo_planning.dart' show PlanningProvider, PlanningSource;
 
@@ -98,7 +99,8 @@ class FakeBackend implements FleetBackend {
   /// Runs the tasks of story work started on this machine's planning, as the machine runs what it started.
   void tookStoryWork(String project, Map<String, dynamic> work) {
     final participants = (work['tasks'] as List).cast<Map<String, dynamic>>();
-    final names = participants.map((task) => task['task']).toSet();
+    // A machine names a task by the container Start made; its name within the project stands beside it.
+    final names = participants.map((task) => task['containerId']).toSet();
     final coordinator = work['coordinator'];
     if (coordinator is String) names.add(coordinator);
     _tasks = [
@@ -106,7 +108,7 @@ class FakeBackend implements FleetBackend {
       for (final task in participants)
         Task.from({
           ...task,
-          'name': task['task'],
+          'name': task['containerId'],
           'project': project,
           'running': task['atWork'],
           'mode': task['mode'] == 'AGENT' ? 'SHELL' : task['mode'],
@@ -3005,30 +3007,52 @@ class World {
   /// Every watched machine as a provider of the planning it serves, named as the machine.
   ///
   /// A task is started by the stand-in of the machine whose planning ordered it, and runs on that machine.
+  ///
+  /// The window's reports go to the stand-in of the machine that started the task, as they go to the planner: a task
+  /// the stand-in started is kept by its offer and the container the machine lists it under.
   static EmbeddedPlanning planningOf(Machines machines) {
     final startedOn = <(String, String), Machine>{};
+    final client = MockPlanningClient(
+      () => [
+        for (final machine in machines.all)
+          PlanningProvider(
+            name: machine.name,
+            connected: machines.of(machine).reachability == Reachability.connected,
+            projects: [for (final project in machines.of(machine).listedProjects) project.name],
+            source: planningOn(machines.of(machine).backend),
+          ),
+      ],
+      changes: machines,
+      currentProvider: () => machines.current.name,
+      chosenProject: () => machines.fleet.selectedProject?.name,
+    );
+    final starts = WindowTaskStarts.of(machines, client);
+    final reports = WindowTaskReports.of(machines, client, starts);
+    machines.addListener(reports.sweep);
     return EmbeddedPlanning(
-      MockPlanningClient(
-        () => [
-          for (final machine in machines.all)
-            PlanningProvider(
-              name: machine.name,
-              connected: machines.of(machine).reachability == Reachability.connected,
-              projects: [for (final project in machines.of(machine).listedProjects) project.name],
-              source: planningOn(machines.of(machine).backend),
-            ),
-        ],
-        changes: machines,
-        currentProvider: () => machines.current.name,
-        chosenProject: () => machines.fleet.selectedProject?.name,
-      ),
+      client,
       startTask: (source, project, story, task) async {
         final started = await mockStartTask(source, project, story, task);
         final machine = machines.all.where((each) => identical(planningOn(machines.of(each).backend), source));
-        if (machine.isNotEmpty) startedOn[(project, started.container)] = machine.first;
+        if (machine.isNotEmpty) {
+          startedOn[(project, started.container)] = machine.first;
+          await machines.settings.rememberPlanningOffer(
+            machine: machine.first.name,
+            container: started.container,
+            offer: task.offer!,
+            provider: machine.first.name,
+            project: project,
+            story: story,
+            task: started.task,
+          );
+          if (machines.settings.plannedOffer(machine.first.name, started.container) case final kept?) {
+            reports.started(kept);
+          }
+        }
         return started;
       },
       startedOn: (project, container) => startedOn[(project, container)],
+      reports: reports,
     );
   }
 

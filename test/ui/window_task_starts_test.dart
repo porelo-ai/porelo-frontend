@@ -45,7 +45,7 @@ void main() {
     });
 
     WindowTaskStarts starts({Machine? on = laptop}) =>
-        WindowTaskStarts(machineFor: (_) => on, backendOf: (_) => machine, settings: settings);
+        WindowTaskStarts(machineFor: (_) => on, backendOf: (_) => machine, settings: settings, providerOf: (_) => 'p');
 
     // Harm: a task starts with arguments the planner did not order, or the screen keeps names Start did not give.
     test('Start gets the order as given, and the task and container Porelo answered come back', () async {

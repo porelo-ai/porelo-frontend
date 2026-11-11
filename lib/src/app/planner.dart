@@ -35,6 +35,17 @@ const plannerNotOnWindows =
 /// What the planning place says while the window looks for the planner or waits for the one it started.
 const plannerLookedFor = 'Looking for porelo-planner…';
 
+/// Reports a change of a task the window started, through the offer it keeps for it.
+typedef PlanningReport = Future<void> Function(
+  String project,
+  String task,
+  PlanningTaskEvent event, {
+  required String offer,
+  required String container,
+  required String machine,
+  PlanningTaskEnded? ended,
+});
+
 /// Starts the planner at [executable] with [environment] added to the window's own, returning once it was started.
 typedef StartPlanner = Future<void> Function(String executable, Map<String, String> environment);
 
@@ -218,7 +229,12 @@ class LocalPlanner extends ChangeNotifier implements PlanningClient, PlanningRea
   @override
   String? get chosenProject => _chosen?.call();
 
-  /// Nothing told yet: the window reports none of its tasks so far.
+  /// How the window reports a task it started.
+  PlanningReport? reports;
+
+  /// Reports a task the window started through the offer it keeps for it, to the provider kept with that offer, and
+  /// starts what the planner answers: the window's reports, which go through the provider's source since only its
+  /// answer carries the follow-up orders. Refused where the window does not report its tasks.
   @override
   Future<void> taskEvent(
     String project,
@@ -228,7 +244,13 @@ class LocalPlanner extends ChangeNotifier implements PlanningClient, PlanningRea
     required String container,
     required String machine,
     PlanningTaskEnded? ended,
-  }) async {}
+  }) async {
+    final report = reports;
+    if (report == null) {
+      throw const PlanningRefusal('NotReporting', {}, 'This window does not report the tasks it starts.');
+    }
+    await report(project, task, event, offer: offer, container: container, machine: machine, ended: ended);
+  }
 
   @override
   void dispose() {

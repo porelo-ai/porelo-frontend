@@ -139,6 +139,14 @@ Future<void> prepareWork(WidgetTester tester, String condition) async {
         ],
       };
       await pushPlanning(tester, board);
+    case 'started main task ended':
+      final main = World.backend.tasksNow.firstWhere((task) => task.name.startsWith('mock-st291-porelo-main'));
+      World.theWorkIs(
+        main.name,
+        activity: 'ENDED',
+        running: false,
+        agentEnded: {'at': 'the end', 'finished': false, 'error': 'Outcome: blocked - the key is missing.'},
+      );
     case 'stopped reading':
     case 'stopped reading without echo':
       final board = planningFixture();
@@ -397,6 +405,9 @@ Future<void> proveWork(WidgetTester tester, String proof) async {
       expect(key, findsOneWidget);
       expect(tester.widget<OutlinedButton>(key).onPressed, isNull);
       expect(find.text('The board changed or is no longer live.'), findsOneWidget);
+    case 'reported end visible':
+      expect(workKey('story-work-ended ST291'), findsOneWidget);
+      expect(find.textContaining('Outcome: blocked - the key is missing.'), findsWidgets);
     case 'with you terminal':
       expect(workKey('running-name'), findsOneWidget);
       // The container Start answered for the story's main task, as the machine names it.

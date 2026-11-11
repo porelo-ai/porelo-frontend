@@ -82,7 +82,8 @@ import 'package:porelo_planning/porelo_planning.dart'
         PlanningSource,
         PlanningTaskOrder,
         PlanningTaskStarted,
-        confirmPlanningLeave;
+        confirmPlanningLeave,
+        planningFailureWords;
 import 'package:porelo_host/porelo_host.dart'
     show
         CentralToken,
@@ -497,6 +498,10 @@ class _ShellState extends State<Shell> {
     _attention = Attention(widget.machines, widget.settings, widget.operations)
       ..hostRuns = _hostRuns
       ..planning = _planning;
+    if (widget.planning?.reports case final reports?) {
+      reports.onProblem = _planningReportProblem;
+      reports.onFollowUps = _storyWorkStarted;
+    }
     _homeservers = HomeserverForwards(widget.settings);
     // One that cannot be raised is said under Needs you; the project's page says the address.
     _attention.homeservers = _homeservers;
@@ -4173,7 +4178,7 @@ class _ShellState extends State<Shell> {
             whyNot: _planningTaskUnavailable,
             opening: _openPlanningTask,
             onStarted: _storyWorkStarted,
-            onStop: (_, _, _, _) async {},
+            onStop: _storyWorkStopped,
           ),
           agents: MachinePlanningAgents(widget.machines, planning.client),
         ),
@@ -6648,6 +6653,25 @@ class _ShellState extends State<Shell> {
     _openSession(task, on: machine);
   }
 
+  /// Stops the tasks the planner no longer answers for, on the machines they were started on, reporting nothing.
+  Future<void> _storyWorkStopped(
+    PlanningSource source,
+    String project,
+    String story,
+    List<PlanningTaskStarted> tasks,
+  ) async => widget.planning?.reports?.stop(source, project, story, tasks);
+
+  /// A refused report of a planned task, or a refused follow-up start: on its project's board where the window shows
+  /// one, else where the window says what a machine answered.
+  void _planningReportProblem(String? provider, String? project, Object error) {
+    if (!mounted) return;
+    if (_planning?.at(provider, project) case final board?) {
+      board.reportActionProblem(error);
+    } else {
+      _fleet.say(planningFailureWords(error));
+    }
+  }
+
   /// Opens a session on [task] in its tab under *Running*, the one place a terminal is, leaving the one
   /// that was open: **one at a time**.
   void _openSession(Task task, {Machine? on}) {
@@ -6661,6 +6685,10 @@ class _ShellState extends State<Shell> {
 
   @override
   void dispose() {
+    if (widget.planning?.reports case final reports?) {
+      reports.onProblem = null;
+      reports.onFollowUps = null;
+    }
     _attention.dispose();
     _planning?.dispose();
     widget.machines.pauseAutomaticRetries();

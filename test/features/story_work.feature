@@ -121,6 +121,14 @@ Feature: Start and decide story work from the planning board
         And I choose story work {'start'}
         Then story work proves {'with you terminal'}
 
+    # Harm: the end of a task the window started never reaches the planner, so its story looks at work for ever.
+    Scenario: The end of a task the window started reaches the planner
+        When I open story work for {'ST291'}
+        And I choose story work {'start'}
+        Given story work is prepared with {'started main task ended'}
+        When I choose story work {'needs you'}
+        Then story work proves {'reported end visible'}
+
     # Harm: a dropped story moves to a working state without choosing its work.
     Scenario: Dropping on a working state opens its proposal
         When I drop story {'ST291'} on working state {'In analysis'}
