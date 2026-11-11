@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F479",
   "title": "A Planner The Window Started Ends With It",
-  "state": "Idea",
+  "state": "Accepted",
   "size": "M",
   "priority": "Medium",
   "rank": 1,
@@ -25,11 +25,6 @@ start another planner at once.
 The window starts the installed planner, detached, when none serves (`LocalPlanner._startDetached`). After the window
 ended, that planner kept running and kept `planner.json` under the runtime directory, so a planner started next, for
 instance one built from source, could not start until it was killed by hand.
-
-## Open questions
-
-- Should the planner the window started end with the window, or keep serving other clients of the same account? It
-  may be the only planner another client of the account reaches.
 
 ## To be checked
 
