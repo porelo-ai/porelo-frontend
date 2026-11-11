@@ -13,6 +13,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- The window follows porelo-planner to a new address: it reads the planner's address file again every two seconds, so a planner restarted on another port is reached without restarting the window, and one gone for good is started again.
 - A project page and the organization's pages no longer stay on the state Porelo kept on the machine: a stale answer is checked again before it is shown, for at most a minute, and a declined forge host key stops that read. One that stays stale says when it was checked last and why - Porelo's cause, such as a key the forge refused, with git's own lines - instead of only that the repositories could not be read; the project page's head says only that they were not read.
 - A view of the organization kept from before, when its store cannot be reached, says how old it is: its read time is when the store answered last, no longer when the window asked.
 - *Needs you* has one row per thing a piece of work waits for: each question, an ended agent nobody has looked at and a push at the gate stand apart, so none hides another, and each row offers only its own action. A row no longer holds the task's tile, menu or buttons, which stay in *Work*; what the tile said - no enforcement, let through before, a question's deadline, changed files that never reached the gate, a question about work not listed yet - is said on the row. What came out of a question goes under *Recently resolved* even where its work still holds a push.

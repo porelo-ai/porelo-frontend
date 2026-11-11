@@ -5,12 +5,12 @@
   "$schema": "issue-1.json",
   "id": "F478",
   "title": "A Retry Finds The Planner On Its New Port",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "High",
   "rank": 1,
   "blockedBy": [],
-  "covers": "When the planner cannot be reached, the window reads its address again, starting the planner where none answers, so Retry planning reaches a planner that came back on another port."
+  "covers": "The window keeps reading the planner's address file and follows the planner to a new address, starting it again where it is gone, so planning reaches a planner that came back on another port without a restart of the window."
 }
 ```
 
@@ -29,14 +29,17 @@ refused"; only a restart of the window reads the file again.
 
 ## Plan
 
-- `lib/src/app/planner.dart`: the window hands the screen a source of its own that passes every call to the source it
-  opened. A call or a watch that fails as `PlannerUnreachable` makes it read `planner.json` again; an address found
-  there replaces the source, and where none is found the planner is started as on the first reach, never two at once.
-  The failed call itself is not sent again, since a write may have arrived; the next call, as *Retry planning*,
-  goes to the planner found.
-- Tests in `test/app/planner_test.dart`, red first: after the opened source refuses as unreachable, the next call
-  reaches the source opened from the new address; a write that failed is asked once; a planner that answers is not
-  started a second time.
+- `lib/src/app/planner.dart`: once a planner is found, `LocalPlanner` reads `planner.json` again every two seconds.
+  A new address is opened and handed to the screen as the provider's source; the screen's boards move to a new source
+  of their own accord, and the old one is closed after. A file gone at two reads in a row means the planner is gone:
+  the planner is looked for and started as at first, one at a time, and a planner of the window's that has not
+  answered is never started twice. A closed window reads and starts nothing.
+- A source of the window's own wrapped around the screen's was tried and dropped: the screen keys a story's work and
+  its stop by the source object, so a wrapper would split a stop from the work it stops.
+- Tests in `test/app/planner_test.dart`, both seen red with the following switched off: after the planner restarts on
+  another port the window follows it there; where the planner found is gone, one is started once and reached. That
+  a closed window starts nothing has no test: in a test build the notifier's own assertion stops it first, so a
+  break of the guard is never seen red.
 
 ## Acceptance
 

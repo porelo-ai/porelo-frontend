@@ -61,8 +61,9 @@ abstract interface class PlanningReach implements Listenable {
   Future<void> reach();
 }
 
-/// This computer's planner as the window's one provider of planning: found by its address file, started once where
-/// none runs, told each project's repository as the window knows it.
+/// This computer's planner as the window's one provider of planning: found by its address file, started where none
+/// runs, told each project's repository as the window knows it, and followed to a new address when the planner writes
+/// one, as after a restart on another port.
 class LocalPlanner extends ChangeNotifier implements PlanningClient, PlanningReach {
   /// Takes the projects the window knows and their repositories; [runtimeDirectory] is the one the planner writes its
   /// address under, `XDG_RUNTIME_DIR` when null, and [candidates] where the planner may be, in the order they are tried.
@@ -78,6 +79,7 @@ class LocalPlanner extends ChangeNotifier implements PlanningClient, PlanningRea
     OpenPlanner? open,
     this.wait = const Duration(seconds: 20),
     this.poll = const Duration(milliseconds: 200),
+    this.follow = const Duration(seconds: 2),
     bool? onWindows,
   }) : _onWindows = onWindows ?? Platform.isWindows,
        _chosen = chosenProject,
@@ -121,6 +123,9 @@ class LocalPlanner extends ChangeNotifier implements PlanningClient, PlanningRea
   /// How often it looks for that address meanwhile.
   final Duration poll;
 
+  /// How often the address file of a planner found is read again, to follow the planner to a new address.
+  final Duration follow;
+
   final List<String> Function() _projects;
   final PlannerProjects _repositories;
   final String? Function()? _chosen;
@@ -131,10 +136,16 @@ class LocalPlanner extends ChangeNotifier implements PlanningClient, PlanningRea
 
   Future<void>? _reaching;
   HttpPlanningSource? _source;
+
+  /// The address file's text the source was opened from, and how the window keeps reading it.
+  String? _address;
+  Timer? _following;
+  bool _checking = false;
+  int _missing = 0;
   String? _notReached = plannerLookedFor;
   bool _disposed = false;
 
-  /// Whether this window started a planner; it starts at most one in its life.
+  /// Whether this window started a planner that has not gone since; it starts another only once one it found is gone.
   bool get started => _started;
   bool _started = false;
 
@@ -149,6 +160,7 @@ class LocalPlanner extends ChangeNotifier implements PlanningClient, PlanningRea
   });
 
   Future<void> _reach() async {
+    if (_disposed) return;
     if (_onWindows) return _say(plannerNotOnWindows);
     if (await _look() != _Look.notRunning) return;
     if (_started) {
@@ -159,6 +171,7 @@ class LocalPlanner extends ChangeNotifier implements PlanningClient, PlanningRea
     }
     final programs = candidates.where(_runnable).toList();
     if (programs.isEmpty) return _say(plannerNotInstalled);
+    if (_disposed) return;
     if (await _startOneOf(programs) case final failure?) return _say('porelo-planner could not be started: $failure');
     final waited = Stopwatch()..start();
     while (!_disposed) {
@@ -189,25 +202,74 @@ class LocalPlanner extends ChangeNotifier implements PlanningClient, PlanningRea
     return failure;
   }
 
-  /// Reads the planner's address; only a missing one means no planner runs, every other failure is said.
-  Future<_Look> _look() async {
+  /// Reads the planner's address; only a missing one means no planner runs, every other failure is said, but
+  /// [quietly] where the board of the planner found still stands and says what fails.
+  Future<_Look> _look({bool quietly = false}) async {
     try {
+      final address = await _addressNow();
       final source = await _open(_repositories, runtimeDirectory: runtimeDirectory);
       if (_disposed) {
         source.close();
         return _Look.found;
       }
+      // The boards move to the new source when told, so the old one is closed only after.
+      final old = _source;
       _source = source;
+      _address = address;
+      _missing = 0;
       _notReached = null;
       notifyListeners();
+      old?.close();
+      _following ??= Timer.periodic(follow, (_) => unawaited(_follow()));
       return _Look.found;
     } on PlanningRefusal catch (refusal) {
       if (refusal.name == 'NoAddress') return _Look.notRunning;
-      _say('porelo-planner cannot be reached: $refusal');
+      if (!quietly) _say('porelo-planner cannot be reached: $refusal');
       return _Look.refused;
     } on Object catch (error) {
-      _say('porelo-planner cannot be reached: $error');
+      if (!quietly) _say('porelo-planner cannot be reached: $error');
       return _Look.refused;
+    }
+  }
+
+  /// The planner's address file as it reads now, or null where there is none to read.
+  Future<String?> _addressNow() async {
+    final runtime = runtimeDirectory ?? Platform.environment['XDG_RUNTIME_DIR'];
+    if (runtime == null || runtime.trim().isEmpty) return null;
+    try {
+      return await File('$runtime/porelo-planner/planner.json').readAsString();
+    } on FileSystemException {
+      return null;
+    }
+  }
+
+  /// Reads the address file of the planner found again: a new address is opened in place of the old one, and a file
+  /// gone at two reads in a row means that planner is gone, so the planner is looked for, and started, as at first.
+  Future<void> _follow() async {
+    if (_disposed || _checking || _source == null) return;
+    _checking = true;
+    try {
+      final address = await _addressNow();
+      if (_disposed) return;
+      if (address != null) {
+        _missing = 0;
+        if (address != _address) await _look(quietly: true);
+        return;
+      }
+      // Twice, so a planner writing its file anew is not taken for none.
+      if (++_missing < 2) return;
+      final gone = _source;
+      _source = null;
+      _address = null;
+      _missing = 0;
+      _reaching = null;
+      // The planner found has gone: a planner of this window's among them, so another may be started.
+      _started = false;
+      notifyListeners();
+      gone?.close();
+      await reach();
+    } finally {
+      _checking = false;
     }
   }
 
@@ -255,6 +317,7 @@ class LocalPlanner extends ChangeNotifier implements PlanningClient, PlanningRea
   @override
   void dispose() {
     _disposed = true;
+    _following?.cancel();
     _changes?.removeListener(notifyListeners);
     _source?.close();
     super.dispose();

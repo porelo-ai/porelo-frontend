@@ -98,6 +98,7 @@ void main() {
     Duration? wait,
     String? Function()? runtimeDirectory,
     OpenPlanner? open,
+    Duration? follow,
   }) => LocalPlanner(
     projects: () => ['demo'],
     repositories: (project) => PlannerProject('https://example.org/$project.git'),
@@ -107,6 +108,7 @@ void main() {
     open: open,
     wait: wait ?? const Duration(seconds: 5),
     poll: const Duration(milliseconds: 20),
+    follow: follow ?? const Duration(seconds: 2),
   )..let(clients.add);
 
   // Harm: the window reads a board from somewhere other than the planner that runs, or before the planner knows where
@@ -478,6 +480,60 @@ void main() {
       expect(told!('demo'), const PlannerProject('https://example.org/demo.git'));
       expect(local.chosenProject, 'demo');
     });
+  });
+
+  /// Waits until [done] holds, failing after a few seconds.
+  Future<void> until(bool Function() done) async {
+    for (var tries = 0; !done(); tries++) {
+      if (tries > 200) fail('it did not happen');
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+    }
+  }
+
+  // Harm: after the planner restarts on another port, planning stays out of reach until the window is restarted.
+  test('after the planner restarts on another port, the window follows it there', () async {
+    final first = await planner();
+    await first.announce(runtime.path);
+    final local = client(follow: const Duration(milliseconds: 20));
+    await local.reach();
+    final before = local.providers.single.source;
+    await first.server.close(force: true);
+    final second = await planner();
+    await second.announce(runtime.path, token: 'token-after-the-restart');
+
+    await until(() => !identical(local.providers.single.source, before));
+    await local.providers.single.source.stories('demo');
+
+    expect(local.notReached, isNull);
+    expect(second.calls.map((call) => call.$3), everyElement('Bearer token-after-the-restart'));
+    expect(second.calls.map((call) => call.$2), contains('/projects/demo/stories'));
+  });
+
+  // Harm: a planner that ended for good leaves planning out of reach until the window is restarted.
+  test('where the planner found is gone, one is started once and reached', () async {
+    final first = await planner();
+    await first.announce(runtime.path);
+    final second = await planner();
+    var starts = 0;
+    final local = client(
+      candidates: [await program()],
+      follow: const Duration(milliseconds: 20),
+      start: (_, _) async {
+        starts++;
+        await second.announce(runtime.path, token: 'token-of-the-new-one');
+      },
+    );
+    await local.reach();
+    final before = local.providers.single.source;
+    await first.server.close(force: true);
+    await File('${runtime.path}/porelo-planner/planner.json').delete();
+
+    await until(() => local.providers.isNotEmpty && !identical(local.providers.single.source, before));
+    await local.providers.single.source.stories('demo');
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+
+    expect(starts, 1, reason: 'the planner started answers, so no second one is started');
+    expect(second.calls.map((call) => call.$3), everyElement('Bearer token-of-the-new-one'));
   });
 }
 

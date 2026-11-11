@@ -127,7 +127,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f478"></a>[F478](F478-A-Retry-Finds-The-Planner-On-Its-New-Port.md) | S | - | When the planner cannot be reached, the window reads its address again, starting the planner where none answers, so Retry planning reaches a planner that came back on another port. |
 | <a id="f203"></a>[F203](F203-This-Repository-Worked-In-A-Porelo-Task.md) | S | - | This repository's agent working in an attended Porelo task on the host, its build green on the host's Forgejo, reached in the room, with a way back. |
 | <a id="f446"></a>[F446](F446-The-Stories-Of-A-Project-On-A-Planning-Board.md) | M | - | *Planning* shows a project's stories on a board, phases as columns with their states, read and watched from the planner. |
 | <a id="f447"></a>[F447](F447-A-Story-Moved-On-The-Board-And-Saved.md) | M | - | A story dragged to another state, kept pending until saved through the planner or undone; a drop on a working state starts its work instead. |
@@ -139,6 +138,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f478"></a>[F478](F478-A-Retry-Finds-The-Planner-On-Its-New-Port.md) | S | - | The window keeps reading the planner's address file and follows the planner to a new address, starting it again where it is gone, so planning reaches a planner that came back on another port without a restart of the window. |
 | <a id="f477"></a>[F477](F477-An-Unreached-Organization-Says-When-And-Why.md) | S | - | A stale organization answer is checked again before it is shown, and one that stays stale says when it was checked last and why, in Porelo's cause and git's own words, instead of only that its repositories could not be read. |
 | <a id="f443"></a>[F443](F443-Forge-Token-Handed-Over-When-The-Machine-Asks.md) | S | - | The person's forge token on a host made by the host's own command, run in a terminal there from the window when the host asks; never through this program. |
 | <a id="f473"></a>[F473](F473-The-Window-Calls-The-Host-Programs-It-Has-Now.md) | S | - | Every call the window makes on a host names a program the host has now: root's org status, org refresh and person purge by /usr/sbin/porelo-host, and a project's central state from the person's own daemon there, so no machine page fails on a removed program. |
