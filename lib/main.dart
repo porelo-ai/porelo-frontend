@@ -97,10 +97,11 @@ HostAccess _hostAccess(OrganizationSource source) {
 }
 
 Future<PoreloApp> _compose() async {
-  windowLog = WindowLog(windowLogFolder(desk));
   final settingsStore = FileSettingsStore();
   final settingsDropped = await settingsStore.dropOldForm();
   final settings = Settings(settingsStore);
+  // At the level the person chose, from the first entry after the settings are read and from each change on.
+  windowLog = WindowLog(windowLogFolder(desk), level: settings.logLevel);
   await settings.load();
 
   final shell = ShellModel();
@@ -136,7 +137,7 @@ Future<PoreloApp> _compose() async {
   final notifications = Notifications(DesktopNotifier(), settings)..watchOperations(operations, open: (_) {});
   await notifications.load();
   final organizationSource = PoreloOrganizationSource();
-  final planner = LocalPlanner.of(machines);
+  final planner = LocalPlanner.of(machines, logLevel: settings.logLevel);
   final app = PoreloApp(
     settingsDropped: settingsDropped,
     organizationSource: organizationSource,

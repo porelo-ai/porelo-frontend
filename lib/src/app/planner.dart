@@ -17,6 +17,8 @@ import 'package:porelo_planning/porelo_planning.dart'
 
 import '../client/models.dart' show Project, defaultProject;
 import 'machines.dart';
+import 'planner_log_level.dart';
+import 'window_log.dart' show LogLevel;
 
 /// Where the package puts the planner, which the window starts as it needs it.
 const plannerInstalled = '/usr/libexec/porelo/planner';
@@ -76,6 +78,15 @@ String? plannerLogOf(String address) {
 
 final _control = RegExp(r'[\x00-\x1f]');
 
+/// A planner told the level the person chose for the logs: what its log is at, and why it did not take the level.
+abstract interface class TakesTheLogLevel {
+  /// The level the planner's log is at, as it answered the window's last level; null until it answered.
+  LogLevel? get plannerLevel;
+
+  /// Why the planner did not take the window's level, in words, or null where it did.
+  String? get levelProblem;
+}
+
 /// A planning client that may not have reached its planning yet, and says why.
 abstract interface class PlanningReach implements Listenable {
   /// What the planning place says instead of a board, or null once planning is reached.
@@ -88,7 +99,7 @@ abstract interface class PlanningReach implements Listenable {
 /// This computer's planner as the window's one provider of planning: found by its address file, started where none
 /// runs, told each project's repository as the window knows it, and followed to a new address when the planner writes
 /// one, as after a restart on another port.
-class LocalPlanner extends ChangeNotifier implements PlanningClient, PlanningReach, NamesItsLog {
+class LocalPlanner extends ChangeNotifier implements PlanningClient, PlanningReach, NamesItsLog, TakesTheLogLevel {
   /// Takes the projects the window knows and their repositories; [runtimeDirectory] is the one the planner writes its
   /// address under, `XDG_RUNTIME_DIR` when null, and [candidates] where the planner may be, in the order they are tried.
   /// [onWindows] is whether the window runs on Windows, where no planner is looked for or started.
@@ -105,13 +116,17 @@ class LocalPlanner extends ChangeNotifier implements PlanningClient, PlanningRea
     this.poll = const Duration(milliseconds: 200),
     this.follow = const Duration(seconds: 2),
     bool? onWindows,
+    this._logLevel,
+    TellPlannerLevel? tellLevel,
   }) : _onWindows = onWindows ?? Platform.isWindows,
+       _tellLevel = tellLevel ?? tellPlannerLevel,
        _chosen = chosenProject,
        runtimeDirectory = runtimeDirectory == null || runtimeDirectory.trim().isEmpty ? null : runtimeDirectory,
        candidates = candidates ?? plannerCandidates(Platform.environment),
        _start = start ?? _startDetached,
        _open = open ?? HttpPlanningSource.fromAddressFile {
     _changes?.addListener(notifyListeners);
+    _logLevel?.addListener(_levelChosen);
   }
 
   /// The watched machines' projects, each told to the planner with its own repository's upstream as its clone URL.
@@ -121,7 +136,9 @@ class LocalPlanner extends ChangeNotifier implements PlanningClient, PlanningRea
     List<String>? candidates,
     StartPlanner? start,
     OpenPlanner? open,
+    ValueListenable<LogLevel>? logLevel,
   }) => LocalPlanner(
+    logLevel: logLevel,
     projects: () => plannedProjects(machines),
     repositories: (project) => plannerProjectOf(machines, project),
     chosenProject: () => machines.fleet.selectedProject?.name,
@@ -157,6 +174,17 @@ class LocalPlanner extends ChangeNotifier implements PlanningClient, PlanningRea
   final StartPlanner _start;
   final OpenPlanner _open;
   final bool _onWindows;
+  final ValueListenable<LogLevel>? _logLevel;
+  final TellPlannerLevel _tellLevel;
+  int _levelsTold = 0;
+
+  @override
+  LogLevel? get plannerLevel => _plannerLevel;
+  LogLevel? _plannerLevel;
+
+  @override
+  String? get levelProblem => _levelProblem;
+  String? _levelProblem;
 
   Future<void>? _reaching;
   HttpPlanningSource? _source;
@@ -253,6 +281,8 @@ class LocalPlanner extends ChangeNotifier implements PlanningClient, PlanningRea
       notifyListeners();
       old?.close();
       _following ??= Timer.periodic(follow, (_) => unawaited(_follow()));
+      // A planner found, or found anew after a restart, is told the level the person chose.
+      unawaited(_tellTheLevel());
       return _Look.found;
     } on PlanningRefusal catch (refusal) {
       if (refusal.name == 'NoAddress') return _Look.notRunning;
@@ -305,6 +335,31 @@ class LocalPlanner extends ChangeNotifier implements PlanningClient, PlanningRea
     }
   }
 
+  void _levelChosen() => unawaited(_tellTheLevel());
+
+  /// Tells the planner found the level the person chose, and keeps what it answered; an answer overtaken by a later
+  /// level is dropped.
+  Future<void> _tellTheLevel() async {
+    final level = _logLevel?.value;
+    if (level == null || _source == null || _disposed) return;
+    final told = ++_levelsTold;
+    LogLevel? answered;
+    String? problem;
+    try {
+      answered = await _tellLevel(level, runtimeDirectory: runtimeDirectory);
+    } on PlannerLevelRefused catch (refusal) {
+      problem = refusal.words;
+    } on PlanningRefusal catch (refusal) {
+      problem = refusal.toString();
+    } on Exception catch (error) {
+      problem = '$error';
+    }
+    if (_disposed || told != _levelsTold) return;
+    _plannerLevel = answered;
+    _levelProblem = problem;
+    notifyListeners();
+  }
+
   void _say(String words) {
     if (_disposed) return;
     _notReached = words;
@@ -351,6 +406,7 @@ class LocalPlanner extends ChangeNotifier implements PlanningClient, PlanningRea
     _disposed = true;
     _following?.cancel();
     _changes?.removeListener(notifyListeners);
+    _logLevel?.removeListener(_levelChosen);
     _source?.close();
     super.dispose();
   }

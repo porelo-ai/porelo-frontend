@@ -31,6 +31,7 @@ import 'links.dart';
 import 'log_files.dart';
 import 'organization_source.dart';
 import 'widening.dart';
+import 'window_log.dart' show LogLevel;
 
 /// Where an action lives on screen, so the finder can go there and show it.
 enum Home {
@@ -1027,10 +1028,17 @@ const logsGroup = 'Logs';
 
 /// The links that open the window's log at [windowsLog] and the planner's at [plannersLog], each naming its file; the
 /// planner's says so where the planner names none. [open] opens one and tells the person what came of it.
+///
+/// Beside them, how much both logs hold: [level] is the person's choice, [choose] makes another; where the planner
+/// answered another level ([plannersLevel]) or did not take it ([plannersProblem]), a line says so.
 List<Command> logCommands({
   required String windowsLog,
   required String? plannersLog,
   required void Function(String what, String? path) open,
+  LogLevel level = LogLevel.info,
+  void Function(LogLevel level)? choose,
+  LogLevel? plannersLevel,
+  String? plannersProblem,
 }) => [
   Command(
     id: 'log.window',
@@ -1046,6 +1054,35 @@ List<Command> logCommands({
     home: Home.appBar,
     run: () => open('the planner’s log', plannersLog),
   ),
+  if (choose != null) ...[
+    for (final each in LogLevel.values.reversed)
+      Command(
+        id: 'log.level.${each.word.toLowerCase()}',
+        label: 'Log level: ${each.word}${each == LogLevel.info ? ' (the usual)' : ''}',
+        group: logsGroup,
+        home: Home.appBar,
+        checked: each == level,
+        run: () => choose(each),
+      ),
+    if (plannersProblem != null)
+      Command(
+        id: 'log.level.planner',
+        label: 'The planner’s log keeps its own level: $plannersProblem',
+        group: logsGroup,
+        home: Home.appBar,
+        unavailable: 'only the planner sets it',
+        run: () {},
+      )
+    else if (plannersLevel != null && plannersLevel != level)
+      Command(
+        id: 'log.level.planner',
+        label: 'The planner’s log is at ${plannersLevel.word}, not ${level.word}',
+        group: logsGroup,
+        home: Home.appBar,
+        unavailable: 'only the planner sets it',
+        run: () {},
+      ),
+  ],
 ];
 
 /// Opens Element without sending any part of the once-shown login to its website.

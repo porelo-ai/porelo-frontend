@@ -86,6 +86,9 @@ class WindowLog {
   bool _complained = false;
   int _size = 0;
 
+  /// The lines written while the folder this log made is closed to others, kept for when it is.
+  List<String>? _held;
+
   /// What the window asked and was answered.
   void debug(String words, {String? machine}) => write(LogLevel.debug, words, machine: machine);
 
@@ -107,21 +110,33 @@ class WindowLog {
     final line = '${now.toIso8601String()} ${at.word.padRight(5)} $about${_oneLine(words)}\n';
     try {
       _prepare(folder);
-      final bytes = utf8.encode(line).length;
-      final file = File('$folder/$fileName');
-      if (_size + bytes > maxBytes) {
-        // Another window may have written to it, or started it anew: its own length decides, not this count.
-        _size = file.existsSync() ? file.lengthSync() : 0;
-        if (_size > 0 && _size + bytes > maxBytes) _rotate(folder);
+      if (_held case final held?) {
+        held.add(line);
+        return;
       }
-      file.writeAsStringSync(line, mode: FileMode.append);
-      _size += bytes;
+      _append(folder, line);
     } on FileSystemException catch (failure) {
-      _ready = false;
-      if (_complained) return;
-      _complained = true;
-      _complain('Porelo cannot write its log in $folder, and goes on without it: ${failure.message}.');
+      _failed(folder, failure);
     }
+  }
+
+  void _append(String folder, String line) {
+    final bytes = utf8.encode(line).length;
+    final file = File('$folder/$fileName');
+    if (_size + bytes > maxBytes) {
+      // Another window may have written to it, or started it anew: its own length decides, not this count.
+      _size = file.existsSync() ? file.lengthSync() : 0;
+      if (_size > 0 && _size + bytes > maxBytes) _rotate(folder);
+    }
+    file.writeAsStringSync(line, mode: FileMode.append);
+    _size += bytes;
+  }
+
+  void _failed(String folder, FileSystemException failure) {
+    _ready = false;
+    if (_complained) return;
+    _complained = true;
+    _complain('Porelo cannot write its log in $folder, and goes on without it: ${failure.message}.');
   }
 
   void _prepare(String folder) {
@@ -129,7 +144,20 @@ class WindowLog {
     final logs = Directory(folder);
     if (!logs.existsSync()) {
       logs.createSync(recursive: true);
-      _keepPrivate(folder).ignore();
+      // Shared with the planner's log: no line is written before the folder this log made is closed to others, and
+      // what was said meanwhile follows once it is, closed or not.
+      final held = _held = <String>[];
+      Future.sync(() => _keepPrivate(folder)).then<void>((_) {}, onError: (Object _) {}).whenComplete(() {
+        if (!identical(_held, held)) return;
+        _held = null;
+        try {
+          for (final line in held) {
+            _append(folder, line);
+          }
+        } on FileSystemException catch (failure) {
+          _failed(folder, failure);
+        }
+      });
     }
     final file = File('$folder/$fileName');
     _size = file.existsSync() ? file.lengthSync() : 0;

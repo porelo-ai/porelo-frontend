@@ -47,7 +47,7 @@ import '../app/templates.dart';
 import '../app/tunnel.dart';
 import '../app/vault.dart';
 import '../app/widening.dart';
-import '../app/window_log.dart' show windowLogFile;
+import '../app/window_log.dart' show LogLevel, windowLogFile;
 import '../app/work_held.dart';
 import '../app/gate.dart';
 import '../app/host_readiness.dart';
@@ -72,7 +72,7 @@ import 'central_release_view.dart';
 import 'clearing_view.dart';
 import '../app/settings.dart';
 import '../app/shell_model.dart';
-import '../app/planner.dart' show NamesItsLog, PlanningReach;
+import '../app/planner.dart' show NamesItsLog, PlanningReach, TakesTheLogLevel;
 import 'discussion_start_dialog.dart';
 import 'planning_embedding.dart';
 
@@ -472,6 +472,7 @@ class _ShellState extends State<Shell> {
     _observedMachine = widget.machines.current;
     widget.machines.addListener(_machineChanged);
     _plannersLog = _plannersLogNow;
+    _plannersLevel = _plannersLevelNow;
     if (widget.planning?.client case final Listenable planner) planner.addListener(_plannersLogChanged);
     final source = widget.organizationSource;
     if (source is PoreloOrganizationSource) {
@@ -909,6 +910,10 @@ class _ShellState extends State<Shell> {
         windowsLog: windowLogFile(desk),
         plannersLog: _plannersLog,
         open: (what, path) => unawaited(_openTheLog(what, path)),
+        level: widget.settings.logLevel.value,
+        choose: (level) => unawaited(widget.settings.setLogLevel(level)),
+        plannersLevel: _plannersLevel?.level,
+        plannersProblem: _plannersLevel?.problem,
       ),
     ],
     fleet: _fleet,
@@ -998,11 +1003,24 @@ class _ShellState extends State<Shell> {
 
   String? _plannersLog;
 
-  /// Builds Options anew once the planner names another log, as when it is found after the window started.
+  /// The level the planner's log is at, as it answered the window's, and why it did not take it.
+  ({LogLevel? level, String? problem})? get _plannersLevelNow => switch (widget.planning?.client) {
+    final TakesTheLogLevel planner => (level: planner.plannerLevel, problem: planner.levelProblem),
+    _ => null,
+  };
+
+  ({LogLevel? level, String? problem})? _plannersLevel;
+
+  /// Builds Options anew once the planner names another log, as when it is found after the window started, or answers
+  /// another level.
   void _plannersLogChanged() {
     final now = _plannersLogNow;
-    if (!mounted || now == _plannersLog) return;
-    setState(() => _plannersLog = now);
+    final level = _plannersLevelNow;
+    if (!mounted || (now == _plannersLog && level == _plannersLevel)) return;
+    setState(() {
+      _plannersLog = now;
+      _plannersLevel = level;
+    });
   }
 
   /// Opens a log and says what came of it where every page shows it, since not every page has a status line.

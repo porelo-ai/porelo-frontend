@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as path;
 import 'package:porelo_host/porelo_host.dart'
@@ -10,6 +11,7 @@ import 'package:porelo_host/porelo_host.dart'
 import 'desk.dart';
 import 'host_protocol.dart';
 import 'machines.dart';
+import 'window_log.dart' show LogLevel;
 
 bool _sameStored(Object? left, Object? right) {
   if (left is Map && right is Map) {
@@ -596,6 +598,20 @@ class Settings extends ChangeNotifier {
 
   ThemeMode _appearance = ThemeMode.system;
 
+  final _logLevel = ValueNotifier<LogLevel>(LogLevel.info);
+
+  /// How much the window's log and the planner's hold, INFO where none was chosen; a change counts from the next
+  /// entry, without a restart.
+  ValueListenable<LogLevel> get logLevel => _logLevel;
+
+  /// Chooses how much the logs hold and remembers it for the next run.
+  Future<void> setLogLevel(LogLevel level) async {
+    if (level == _logLevel.value) return;
+    _logLevel.value = level;
+    notifyListeners();
+    await _write();
+  }
+
   /// Light, dark, or whatever the desktop says.
   ThemeMode get appearance => _appearance;
 
@@ -665,6 +681,7 @@ class Settings extends ChangeNotifier {
       };
     }
     _appearance = _appearanceNamed(stored['appearance']);
+    _logLevel.value = LogLevel.values.where((each) => each.word == stored['logLevel']).firstOrNull ?? LogLevel.info;
     final every = stored['refreshSeconds'];
     if (every is int && every >= 0) _refreshSeconds = every;
     final retention = stored['keepResolvedMinutes'];
@@ -1434,6 +1451,7 @@ class Settings extends ChangeNotifier {
     ..._storedPlanningOffers,
     'setupDraft': _setupDraft,
     'appearance': _appearance.name,
+    'logLevel': _logLevel.value.word,
     'machines': _machines,
     'muted': _muted,
     'homeservers': <Map<String, Object?>>[

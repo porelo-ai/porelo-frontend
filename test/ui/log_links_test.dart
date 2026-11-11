@@ -6,6 +6,7 @@ import 'package:porelo_frontend/src/app/desk.dart';
 import 'package:porelo_frontend/src/app/log_files.dart';
 import 'package:porelo_frontend/src/app/planner.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
+import 'package:porelo_frontend/src/app/window_log.dart' show LogLevel;
 import 'package:porelo_frontend/src/ui/planning_embedding.dart';
 import 'package:porelo_planning/planning_fake.dart' show mockStartTask;
 import 'package:porelo_planning/porelo_planning.dart';
@@ -39,8 +40,8 @@ void main() {
     scratch.deleteSync(recursive: true);
   });
 
-  Future<void> start(WidgetTester tester, {String? plannerLog}) async {
-    final planner = _Planner(plannerLog);
+  Future<void> start(WidgetTester tester, {String? plannerLog, LogLevel? plannerLevel}) async {
+    final planner = _Planner(plannerLog)..plannerLevel = plannerLevel;
     addTearDown(planner.dispose);
     await World.startBackend(World.work);
     await World.startApp(tester, planning: (_) => EmbeddedPlanning(planner, startTask: mockStartTask));
@@ -107,6 +108,16 @@ void main() {
     ]);
   });
 
+  // Harm: a person who wants to see more finds no way to say so, or the window's log does not follow the choice.
+  testWidgets('a level chosen in Options is the window\'s, and the planner at another level is said', (tester) async {
+    await start(tester, plannerLevel: LogLevel.error);
+    await openOptions(tester, 1280);
+    expect(find.text('The planner’s log is at ERROR, not INFO'), findsOneWidget);
+
+    await World.tapInView(tester, 'log.level.debug');
+    expect(World.settings.logLevel.value, LogLevel.debug);
+  });
+
   // Harm: a guessed path is opened where the planner names none, or the person is told nothing.
   testWidgets('a planner that names no log is said so, and nothing is opened', (tester) async {
     await start(tester);
@@ -119,8 +130,14 @@ void main() {
 }
 
 /// A planner the window reached, naming [log] in its address file.
-class _Planner extends ChangeNotifier implements PlanningClient, NamesItsLog {
+class _Planner extends ChangeNotifier implements PlanningClient, NamesItsLog, TakesTheLogLevel {
   _Planner(this.log);
+
+  @override
+  LogLevel? plannerLevel;
+
+  @override
+  String? get levelProblem => null;
 
   @override
   final String? log;

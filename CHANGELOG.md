@@ -13,6 +13,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- A `logs` folder the window makes itself takes no line of its log before it is closed to others; what was said meanwhile follows once it is.
 - A release of a held message that Porelo refuses keeps its dialog open and says, in the error's colour, that nothing was sent, with Porelo's words whole; before, it was a plain notice gone with the dialog.
 - A project's page and the organization's pages show the state Porelo kept at once, saying when it was checked last, and replace it with the checked state when that answers; a project's page offers no change until then, and a read whose check failed says so, with when and why, instead of passing for the project as it stands.
 - *Reload planning* has porelo-planner fetch the project's repositories again before it reads the board, so a story or issue pushed meanwhile is no longer said to be missing. The board's faults stand in one folded line that opens on demand, and the board takes all the height left below it.
@@ -55,6 +56,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- *Options* → *Logs* sets how much the logs hold, *ERROR*, *WARN*, *INFO* (the usual) or *DEBUG*: the window's log follows at once, and the planner is told the level when the window finds it and on each change; where the planner is at another level, or cannot take it, *Logs* says so.
 - `tool/e2e.sh` says before a run when the stub agent the scenarios pin is about to leave its folder on Artifactory, which keeps the newest 20 versions, or has left it, naming the pin to move; the pin moved to 0.5.1~snapshot.497.
 - The work page shows each repository of Default that a project of the organization now names, saying that its next task starts in that project, and offers *Take it out of Default…*, asked once; a task still working on it keeps it there, and that is said.
 - The .deb and .rpm carry the licenses of all third-party code built into the window as one plain file, `THIRD-PARTY-NOTICES`, the text *View licenses* shows: in `/usr/share/doc/porelo-frontend/`, named by the deb's `copyright`, and in `/usr/share/licenses/porelo-frontend/` for the rpm.

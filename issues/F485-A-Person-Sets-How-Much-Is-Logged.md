@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F485",
   "title": "A Person Sets How Much Is Logged",
-  "state": "Backlog",
+  "state": "Review",
   "size": "S",
   "priority": "High",
   "rank": 7,
@@ -16,6 +16,23 @@
 
 **Why this size.** One setting in the window's settings, its control on the settings page, and handing it to the
 planner the way the planner names; with widget and model tests.
+
+**How it stands.** Built, in Review.
+- `Settings.logLevel` (`lib/src/app/settings.dart`) keeps the level, INFO where none was chosen, stored as `logLevel`;
+  the window's log takes it as its level from the first entry after the settings are read, and each change from the
+  next entry (`lib/main.dart`).
+- *Options* → *Logs* (also in *Find a command*) offers *Log level: ERROR*, *WARN*, *INFO (the usual)* and *DEBUG*,
+  the one in force checked.
+- The planner is told with `PUT /log/level` (`lib/src/app/planner_log_level.dart`), at the address and with the
+  token its `planner.json` names, loopback only and never through a proxy: when the window finds a planner, again
+  after it restarts, and on each change. `LocalPlanner` keeps what the planner answered; where it is at another level,
+  or did not take it (a planner without `/log/level` is said to need a newer planner; a refusal in its own words),
+  *Logs* says so in a line of its own. `GET /log/level` is not needed: the PUT answers the level in force.
+- With it, as promised to the planner for its log beside the window's: a `logs` folder the window makes itself takes
+  no line before it is closed to others (`WindowLog`); the lines said meanwhile follow once it is, and a folder that
+  could not be closed takes them all the same.
+- Tests: test/app/planner_log_level_test.dart, test/app/log_level_commands_test.dart, test/app/window_log_test.dart,
+  test/ui/log_links_test.dart.
 
 **What must be true.** A person who wants to see more, or less, raises or lowers the level in the window, and both the
 window's and the planner's log write from then on at that level, without a restart of either.
@@ -35,4 +52,5 @@ window's and the planner's log write from then on at that level, without a resta
 
 ## To be checked
 
-- The planner's issue that serves `/log/level`, which this waits for.
+- The planner serves `/log/level` since porelo-planner c021299; this window was tested against a stand-in of it, not
+  against that planner.
