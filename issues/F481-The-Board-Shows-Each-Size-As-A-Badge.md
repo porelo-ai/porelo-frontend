@@ -27,6 +27,9 @@ chip.
 The operator wants the size on the board at a glance. Today an issue row shows it only as plain text after its state
 ("Analyzed  M", `planning_view.dart:827` at the pinned 09d560b7), and a story card shows none.
 
+- Serves porelo-project's *Visual adjustments in the planner* (story ST316, porelo-project a08b69f), which groups the
+  board's look: the size badge on every card and tile, and a folded state's box that keeps its column's width.
+
 ## What the contract already carries
 
 An issue's size is in the board contract today: the screen's model reads `size` (`models.dart:216`) and the issue view
