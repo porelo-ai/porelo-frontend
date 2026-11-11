@@ -112,7 +112,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f478"></a>[F478](F478-A-Retry-Finds-The-Planner-On-Its-New-Port.md) | S | - | When the planner cannot be reached, the window reads its address again, starting the planner where none answers, so Retry planning reaches a planner that came back on another port. |
 | <a id="f476"></a>[F476](F476-The-Window-Starts-The-Planner-On-Windows.md) | S | - | On Windows the window finds and starts porelo-planner's Windows build as it does on Linux, and reads the board through it, instead of saying planning is not offered there. |
 | <a id="f470"></a>[F470](F470-A-Story-Moved-Against-Its-Issues-Is-Warned-And-Confirmed.md) | S | - | A story moved on the board against its issues is warned, naming them, and saved only when confirmed; it keeps that state. |
 | <a id="f469"></a>[F469](F469-A-Project-Page-Shows-Porelos-Kept-Read-And-Its-Age.md) | S | - | A project page shows Porelo's kept read at once with its age, then the fresh one; nothing old shown as just read. |
@@ -128,6 +127,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f478"></a>[F478](F478-A-Retry-Finds-The-Planner-On-Its-New-Port.md) | S | - | When the planner cannot be reached, the window reads its address again, starting the planner where none answers, so Retry planning reaches a planner that came back on another port. |
 | <a id="f203"></a>[F203](F203-This-Repository-Worked-In-A-Porelo-Task.md) | S | - | This repository's agent working in an attended Porelo task on the host, its build green on the host's Forgejo, reached in the room, with a way back. |
 | <a id="f446"></a>[F446](F446-The-Stories-Of-A-Project-On-A-Planning-Board.md) | M | - | *Planning* shows a project's stories on a board, phases as columns with their states, read and watched from the planner. |
 | <a id="f447"></a>[F447](F447-A-Story-Moved-On-The-Board-And-Saved.md) | M | - | A story dragged to another state, kept pending until saved through the planner or undone; a drop on a working state starts its work instead. |

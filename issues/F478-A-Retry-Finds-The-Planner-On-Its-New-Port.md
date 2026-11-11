@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F478",
   "title": "A Retry Finds The Planner On Its New Port",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "High",
   "rank": 1,
