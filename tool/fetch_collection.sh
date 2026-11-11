@@ -35,10 +35,18 @@ else
     # The one rule by which every pinned download here is tried again (porelo-buildtools doc/pinned-downloads.md).
     # shellcheck source=../.github/actions/pinned-jdk/pinned.sh
     . "$(dirname -- "$0")/../.github/actions/pinned-jdk/pinned.sh"
-    pinned_fetch "$release/$file" "$expected" "$stage/$file" || fail "$file could not be fetched"
-    # SHA256SUMS has no pinned digest of its own: it is tried again by the same pauses and then must agree.
-    pinned_retry 'SHA256SUMS' curl -fsSL --proto '=https' --proto-redir '=https' --connect-timeout 30 --max-time 600 \
-        -o "$stage/SHA256SUMS" "$release/SHA256SUMS"
+    # A cache directory, the build's, keeps both files by the pinned digest: a file already there is taken only when
+    # it matches the digest, and either way both are checked below as after a download.
+    cache=${PORELO_COLLECTION_CACHE:-$stage/.fetched}
+    pinned_fetch "$release/$file" "$expected" "$cache/$file" || fail "$file could not be fetched"
+    if [ ! -s "$cache/SHA256SUMS" ] || [ -L "$cache/SHA256SUMS" ]; then
+        rm -f -- "$cache/SHA256SUMS"
+        # SHA256SUMS has no pinned digest of its own: it is tried again by the same pauses and then must agree.
+        pinned_retry 'SHA256SUMS' curl -fsSL --proto '=https' --proto-redir '=https' --connect-timeout 30 \
+            --max-time 600 -o "$cache/SHA256SUMS" "$release/SHA256SUMS"
+    fi
+    cp -- "$cache/$file" "$stage/$file"
+    cp -- "$cache/SHA256SUMS" "$stage/SHA256SUMS"
 fi
 
 named=$(awk -v name="$file" '

@@ -1,0 +1,81 @@
+# Ubuntu's packages a job installs on the runner, taken from the cache when this runner image fetched them once, so
+# a mirror that does not answer does not turn the build red.
+#
+# The cache holds the package lists and the .debs, keyed by the job's family, the runner image (ImageOS and
+# ImageVersion, which GitHub moves about weekly) and the list of packages. A miss reads the lists from the mirror and
+# downloads, tried again by pinned.sh's rule; a hit reaches no mirror. Either way the packages are then installed with
+# `--no-download` from the cache alone, so a miss proves the entry it saves before saving it. Every source but
+# Ubuntu's own goes first: `apt-get update` exits 100 when any index fails, and everything installed here is Ubuntu's.
+name: Ubuntu's packages, cached
+description: Installs Ubuntu packages on the runner from a cache keyed by the runner image and the package list.
+inputs:
+    family:
+        description: The job's own name for its entry; the newest entry of each family is the one kept.
+        required: true
+    packages:
+        description: The packages, separated by spaces.
+        required: true
+runs:
+    using: composite
+    steps:
+        - name: The key of Ubuntu's packages
+          id: apt-key
+          shell: bash
+          env:
+              FAMILY: ${{ inputs.family }}
+              PACKAGES: ${{ inputs.packages }}
+          run: |
+              set -eu
+              # Sorted, so the same packages in another order are the same entry.
+              list=$(printf '%s\n' $PACKAGES | sort -u | sha256sum | cut -c1-16)
+              echo "key=pinned-apt-$FAMILY-${ImageOS:-unknown}-${ImageVersion:-unknown}.$list" >> "$GITHUB_OUTPUT"
+
+        - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+          id: apt-cache
+          with:
+              path: ~/.cache/porelo-pinned/apt
+              key: ${{ steps.apt-key.outputs.key }}
+
+        - name: Fetch Ubuntu's packages from the mirror
+          if: steps.apt-cache.outputs.cache-hit != 'true'
+          shell: bash
+          env:
+              PACKAGES: ${{ inputs.packages }}
+          run: |
+              set -eu
+              . "$GITHUB_ACTION_PATH/../pinned-jdk/pinned.sh"
+              # Ubuntu's own is ubuntu.sources there since 24.04, which a host's runner has.
+              sudo find /etc/apt/sources.list.d -maxdepth 1 -type f \( -name '*.list' -o -name '*.sources' \) \
+                ! -name ubuntu.sources -delete
+              cache="$HOME/.cache/porelo-pinned/apt"
+              rm -rf "$cache"
+              mkdir -p "$cache/lists/partial" "$cache/archives/partial"
+              apt_cached() {
+                  sudo apt-get -o Dir::State::lists="$cache/lists" -o Dir::Cache::archives="$cache/archives" \
+                      -o APT::Sandbox::User=root -o Acquire::Retries=3 "$@"
+              }
+              pinned_retry "Ubuntu's package lists" apt_cached update
+              # shellcheck disable=SC2086 # the list is split on purpose
+              pinned_retry "Ubuntu's packages" apt_cached install --download-only --no-install-recommends -y $PACKAGES
+
+        - name: Install Ubuntu's packages from the cache
+          shell: bash
+          env:
+              PACKAGES: ${{ inputs.packages }}
+          run: |
+              set -eu
+              sudo find /etc/apt/sources.list.d -maxdepth 1 -type f \( -name '*.list' -o -name '*.sources' \) \
+                ! -name ubuntu.sources -delete
+              cache="$HOME/.cache/porelo-pinned/apt"
+              mkdir -p "$cache/lists/partial" "$cache/archives/partial"
+              # shellcheck disable=SC2086 # the list is split on purpose
+              sudo apt-get -o Dir::State::lists="$cache/lists" -o Dir::Cache::archives="$cache/archives" \
+                  -o APT::Sandbox::User=root install --no-download --no-install-recommends -y $PACKAGES
+              # apt wrote as root; the cache is saved as the runner's user.
+              sudo chown -R "$(id -u):$(id -g)" "$cache"
+
+        - if: steps.apt-cache.outputs.cache-hit != 'true'
+          uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+          with:
+              path: ~/.cache/porelo-pinned/apt
+              key: ${{ steps.apt-key.outputs.key }}

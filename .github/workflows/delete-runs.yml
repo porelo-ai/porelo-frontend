@@ -1,14 +1,18 @@
-# Deletes this repository's workflow run history up to a date, to keep the Actions list readable.
+# Deletes this repository's workflow run history up to a date, to keep the Actions list readable, and every cache entry
+# but the newest of its kind, so the cache never fills up.
 name: Delete old runs
 
 on:
+    # Every day, the cache entries alone.
+    schedule:
+        - cron: '17 3 * * *'
     workflow_dispatch:
         inputs:
             before:
                 description: 'Delete runs from this day and earlier (YYYY-MM-DD)'
                 required: true
             delete:
-                description: 'Actually delete. Left unticked, this only says what would go.'
+                description: 'Actually delete runs and cache entries. Left unticked, this only says what would go.'
                 type: boolean
                 default: false
 
@@ -17,7 +21,7 @@ permissions: {}
 
 jobs:
     delete:
-        name: Runs up to ${{ inputs.before }}
+        name: Old runs and cache entries
         # It calls the central forge's API.
         if: vars.PORELO_PUBLISH == 'true'
         # The only permission this needs, and it is the one that lets it delete.
@@ -26,7 +30,9 @@ jobs:
         runs-on: ubuntu-26.04
         timeout-minutes: 10
         steps:
-            - name: What would go, and go if asked
+            # Only when asked, with a date.
+            - name: Runs up to ${{ inputs.before }} - what would go, and go if asked
+              if: github.event_name == 'workflow_dispatch'
               env:
                   GH_TOKEN: ${{ github.token }}
                   BEFORE: ${{ inputs.before }}
@@ -85,4 +91,62 @@ jobs:
 
                   echo "deleted $gone, could not delete $kept"
                   echo "" >> "$GITHUB_STEP_SUMMARY"
+                  echo "Deleted \`$gone\`, could not delete \`$kept\`." >> "$GITHUB_STEP_SUMMARY"
+
+            # Only the newest entry of each kind is kept. A build keys what it takes from outside by its pin - a
+            # digest, a version, a hash of a list - as the last part of the key after a `-`; what comes before
+            # it names the kind, such as `pinned-image-debian:13` or `pinned-apt-build-ubuntu22`. A ref's entries
+            # are its own, so of the entries of one kind on one ref all but the newest go. GitHub itself still
+            # removes an entry nobody read for seven days, which takes what a kind no longer in use left behind.
+            - name: Cache entries not the newest of their kind - what would go, and go on schedule or if asked
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  DELETE: ${{ github.event_name == 'schedule' || inputs.delete }}
+              run: |
+                  set -euo pipefail
+
+                  gh api --paginate "/repos/$GITHUB_REPOSITORY/actions/caches?per_page=100" \
+                      --jq '.actions_caches[] | [.id, .ref, .key, .created_at] | @tsv' > caches.tsv
+
+                  # Newest first; times in this form compare as text exactly as they do in time. The first of a
+                  # kind on a ref is kept, every later one goes.
+                  sort -t $'\t' -k4,4r caches.tsv | awk -F'\t' '{
+                      kind = $3
+                      sub(/-[^-]*$/, "", kind)
+                      if (($2, kind) in kept) print
+                      else kept[$2, kind] = 1
+                  }' > stale.tsv
+
+                  total=$(wc -l < caches.tsv)
+                  count=$(wc -l < stale.tsv)
+                  echo "$count of $total cache entries are not the newest of their kind"
+                  {
+                      echo "## Cache entries"
+                      echo ""
+                      echo "\`$count\` of \`$total\` entries are not the newest of their kind."
+                  } >> "$GITHUB_STEP_SUMMARY"
+                  cut -f2,3,4 stale.tsv
+
+                  if [ "$count" -eq 0 ]; then
+                      exit 0
+                  fi
+                  if [ "$DELETE" != "true" ]; then
+                      echo "nothing was deleted - run again with 'delete' ticked"
+                      echo "**Nothing was deleted.** Run again with \`delete\` ticked." >> "$GITHUB_STEP_SUMMARY"
+                      exit 0
+                  fi
+
+                  # An entry another run removed meanwhile answers 404: a warning, and the sweep goes on.
+                  gone=0
+                  kept=0
+                  while IFS=$'\t' read -r id ref key created; do
+                      if gh api -X DELETE "/repos/$GITHUB_REPOSITORY/actions/caches/$id" >/dev/null 2>&1; then
+                          gone=$((gone + 1))
+                      else
+                          kept=$((kept + 1))
+                          echo "::warning::could not delete cache entry $key of $ref from $created"
+                      fi
+                  done < stale.tsv
+
+                  echo "deleted $gone, could not delete $kept"
                   echo "Deleted \`$gone\`, could not delete \`$kept\`." >> "$GITHUB_STEP_SUMMARY"

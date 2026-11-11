@@ -27,11 +27,21 @@ jobs:
             - name: Every step pinned to a commit
               run: java -cp "$(cat build/jdk-cp.txt)" org.fuin.porelo.release.Main check-actions
 
+            # A host's job image has Python without it; then it comes from the cache once this image fetched it.
+            - name: Whether Python reads YAML
+              id: yaml
+              run: |
+                  if python3 -c 'import yaml' 2>/dev/null; then echo "missing=no"; else echo "missing=yes"; fi >> "$GITHUB_OUTPUT"
+
+            - if: steps.yaml.outputs.missing == 'yes'
+              uses: ./.github/actions/cached-apt
+              with:
+                  family: workflows
+                  packages: python3-yaml
+
             # A file that does not load, or names no trigger or no job, is a workflow GitHub would not run.
             - name: Every workflow loads, with its triggers and jobs
               run: |
-                  # A host's job image has Python without it.
-                  python3 -c 'import yaml' 2>/dev/null || { sudo apt-get update -qq; sudo apt-get install --no-install-recommends -y -qq python3-yaml; }
                   python3 - <<'PY'
                   import pathlib, sys, yaml
                   bad = []

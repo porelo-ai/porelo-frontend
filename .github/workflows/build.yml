@@ -163,18 +163,17 @@ jobs:
                   java -cp "$(cat build/jdk-cp.txt)" org.fuin.porelo.release.Main check-releases \
                     build/effective-pom.xml --requires org.fuin.porelo:porelo-release
 
-            # GTK and the toolchain, which the runner has by default in neither case. The third-party
-            # lists go first: `apt-get update` exits 100 when any index fails, and everything installed
-            # here is Ubuntu's own. Chrome's cost run 93144262860.
+            # GTK and the toolchain, which the runner has by default in neither case, from the cache once
+            # this runner image fetched them. The third-party lists go first: `apt-get update` exits 100
+            # when any index fails, and everything installed here is Ubuntu's own. Chrome's cost run
+            # 93144262860.
             - name: Install what a Linux desktop build needs
-              run: |
-                  # Ubuntu's own is ubuntu.sources there since 24.04, which a host's runner has.
-                  sudo find /etc/apt/sources.list.d -maxdepth 1 -type f \( -name '*.list' -o -name '*.sources' \) \
-                    ! -name ubuntu.sources -delete
-                  sudo apt-get update
-                  sudo apt-get install --no-install-recommends -y \
-                    clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libsecret-1-dev gnome-keyring \
-                    libstdc++-12-dev dpkg-dev binutils rpm
+              uses: ./.github/actions/cached-apt
+              with:
+                  family: build
+                  packages: >-
+                      clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libsecret-1-dev gnome-keyring
+                      libstdc++-12-dev dpkg-dev binutils rpm
 
             - name: Get dependencies
               run: flutter pub get
@@ -205,28 +204,71 @@ jobs:
                   dart tool/test_report.dart
                   exit $built
 
+            # The collection is kept in the cache by its SHA-256 and checked against it after a hit as
+            # after a download.
+            - name: The pinned host collection's digest
+              id: collection
+              run: |
+                  read -r version digest file <<< "$(dart packages/porelo_host/bin/porelo_host.dart --collection-info)"
+                  { echo "version=$version"; echo "digest=$digest"; echo "file=$file"; } >> "$GITHUB_OUTPUT"
+
+            - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              id: collection-cache
+              with:
+                  path: ~/.cache/porelo-pinned/collection
+                  key: pinned-collection-${{ runner.os }}-${{ steps.collection.outputs.digest }}
+
             - name: Fetch the pinned host collection
               env:
                   # The job's token, for a download from https://github.com alone; none on a host's forge.
                   PORELO_PINNED_GITHUB_TOKEN: ${{ github.server_url == 'https://github.com' && github.token || '' }}
+                  VERSION: ${{ steps.collection.outputs.version }}
+                  DIGEST: ${{ steps.collection.outputs.digest }}
+                  FILE: ${{ steps.collection.outputs.file }}
               run: |
-                  collection=$(dart packages/porelo_host/bin/porelo_host.dart --collection-info)
-                  read -r version digest file <<< "$collection"
-                  tool/fetch_collection.sh "$version" "$digest" build/collection "$file"
+                  PORELO_COLLECTION_CACHE="$HOME/.cache/porelo-pinned/collection" \
+                    tool/fetch_collection.sh "$VERSION" "$DIGEST" build/collection "$FILE"
+
+            - if: steps.collection-cache.outputs.cache-hit != 'true'
+              uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              with:
+                  path: ~/.cache/porelo-pinned/collection
+                  key: pinned-collection-${{ runner.os }}-${{ steps.collection.outputs.digest }}
 
             # The builder is pinned by digest, not by version. A version names what was *meant*; the
             # digest is what arrives. This binary writes the packages that this workflow then publishes,
-            # so an asset replaced upstream would be a package nobody here ever inspected.
+            # so an asset replaced upstream would be a package nobody here ever inspected. It is kept in
+            # the cache by that digest, and checked against it after a hit as after a download.
+            - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              id: nfpm-cache
+              with:
+                  path: ~/.cache/porelo-pinned/nfpm
+                  key: pinned-nfpm-a80d5f724ed70b192ffa8a2bde469c013cef559c8afa3441eb51dd9a918beb6b
+
             - name: Package
+              env:
+                  # The job's token, for a download from https://github.com alone; none on a host's forge.
+                  PORELO_PINNED_GITHUB_TOKEN: ${{ github.server_url == 'https://github.com' && github.token || '' }}
               run: |
+                  set -eu
+                  . .github/actions/pinned-jdk/pinned.sh
+                  # The same digest as the cache's key above.
                   nfpm_sha=a80d5f724ed70b192ffa8a2bde469c013cef559c8afa3441eb51dd9a918beb6b
-                  curl -sSL --fail --retry 5 --retry-all-errors -o nfpm.tar.gz \
-                    https://github.com/goreleaser/nfpm/releases/download/v2.43.0/nfpm_2.43.0_Linux_x86_64.tar.gz
+                  release=https://github.com/goreleaser/nfpm/releases/download/v2.43.0
+                  pinned_fetch "$release/nfpm_2.43.0_Linux_x86_64.tar.gz" "$nfpm_sha" \
+                    "$HOME/.cache/porelo-pinned/nfpm/nfpm.tar.gz"
+                  cp "$HOME/.cache/porelo-pinned/nfpm/nfpm.tar.gz" nfpm.tar.gz
                   echo "$nfpm_sha  nfpm.tar.gz" | sha256sum -c -
                   tar xzf nfpm.tar.gz nfpm
                   # Each build supersedes the last, or a repository called `snapshots` never updates
                   # anybody. Locally this defaults to 0.
                   NFPM="$PWD/nfpm" SNAPSHOT_RUN="${{ github.run_number }}" tool/package.sh
+
+            - if: steps.nfpm-cache.outputs.cache-hit != 'true'
+              uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              with:
+                  path: ~/.cache/porelo-pinned/nfpm
+                  key: pinned-nfpm-a80d5f724ed70b192ffa8a2bde469c013cef559c8afa3441eb51dd9a918beb6b
 
             # What was built, named once. The backend learned this the hard way: two lists of files drift,
             # and the symptom is a publish failing after the tests have already passed.
@@ -330,15 +372,37 @@ jobs:
               timeout-minutes: 20
               run: flutter build windows --release
 
+            # Kept in the cache by its SHA-256, as in the Linux job, and checked against it after a hit.
+            - name: The pinned host collection's digest
+              id: collection
+              shell: bash
+              run: |
+                  read -r version digest file <<< "$(dart packages/porelo_host/bin/porelo_host.dart --collection-info)"
+                  { echo "version=$version"; echo "digest=$digest"; echo "file=$file"; } >> "$GITHUB_OUTPUT"
+
+            - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              id: collection-cache
+              with:
+                  path: ~/.cache/porelo-pinned/collection
+                  key: pinned-collection-${{ runner.os }}-${{ steps.collection.outputs.digest }}
+
             - name: Fetch the pinned host collection
               shell: bash
               env:
                   # The job's token, for a download from https://github.com alone; none on a host's forge.
                   PORELO_PINNED_GITHUB_TOKEN: ${{ github.server_url == 'https://github.com' && github.token || '' }}
+                  VERSION: ${{ steps.collection.outputs.version }}
+                  DIGEST: ${{ steps.collection.outputs.digest }}
+                  FILE: ${{ steps.collection.outputs.file }}
               run: |
-                  collection=$(dart packages/porelo_host/bin/porelo_host.dart --collection-info)
-                  read -r version digest file <<< "$collection"
-                  tool/fetch_collection.sh "$version" "$digest" build/windows/x64/runner/Release "$file"
+                  PORELO_COLLECTION_CACHE="$HOME/.cache/porelo-pinned/collection" \
+                    tool/fetch_collection.sh "$VERSION" "$DIGEST" build/windows/x64/runner/Release "$FILE"
+
+            - if: steps.collection-cache.outputs.cache-hit != 'true'
+              uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              with:
+                  path: ~/.cache/porelo-pinned/collection
+                  key: pinned-collection-${{ runner.os }}-${{ steps.collection.outputs.digest }}
 
             # The ZIP, and the MSIX signed with the certificate the two secrets hold, named as the Linux
             # packages are; tool/windows-package.ps1 says how. Without the secrets the MSIX is packed to
@@ -466,15 +530,14 @@ jobs:
 
             - uses: ./.github/actions/pinned-jdk
 
+            # From the cache once this runner image fetched them, as in the Linux job.
             - name: Install what a headless desktop test needs
-              run: |
-                  # Third-party sources go; Ubuntu's own is ubuntu.sources there since 24.04.
-                  sudo find /etc/apt/sources.list.d -maxdepth 1 -type f \( -name '*.list' -o -name '*.sources' \) \
-                    ! -name ubuntu.sources -delete
-                  sudo apt-get update
-                  sudo apt-get install --no-install-recommends -y \
-                    clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libsecret-1-dev \
-                    libstdc++-12-dev xvfb
+              uses: ./.github/actions/cached-apt
+              with:
+                  family: integration
+                  packages: >-
+                      clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libsecret-1-dev
+                      libstdc++-12-dev xvfb
 
             # Before anything is rented, so the sweep at the end always has a tool to run.
             - name: Resolve the machine tool
@@ -516,7 +579,9 @@ jobs:
         # Containers need a socket, which a host's runner does not give a job; what it builds is not published.
         if: vars.PORELO_PUBLISH == 'true' && github.event_name != 'pull_request'
         runs-on: ubuntu-26.04
-        timeout-minutes: 5
+        # A miss may wait out a registry or a mirror by pinned.sh's rule, up to 15 minutes of pauses; a hit
+        # takes a minute.
+        timeout-minutes: 30
         # The systems Porelo supports, and only those: Ubuntu 26.04, Debian 13, Fedora 43 and 44. Each
         # image is pinned by its digest, as every action is, so what is proven is what was read.
         strategy:
@@ -531,28 +596,135 @@ jobs:
                       image: fedora:43@sha256:a651ddf48ea28a06ed4e1e6519f51c9f47e7a5a138722ade87369b8fbb7e5b42
                     - system: fedora:44
                       image: fedora:44@sha256:43b29f65a41eb9c35e1cd5323e3bdf3b655c2357a9f4f1ff2f9c2798e5045d80
+        env:
+            IMAGE: ${{ matrix.image }}
         steps:
+            # For pinned.sh alone, the rule by which a download is tried again.
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+                  sparse-checkout: .github/actions
+
             - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
               with:
                   name: packages
                   path: packages
 
-            # A package that does not install is worth catching here rather than in somebody's apt. The
-            # container is clean, so a dependency that was only ever satisfied by the build machine
-            # fails loudly.
-            - name: Install it in a clean ${{ matrix.system }}
+            # Neither the image nor what the package needs in it comes from outside once it was fetched: the image
+            # is kept in the cache by its digest, saved with `docker save` and loaded again with `docker load`, and
+            # run by a name of this job's own, so Docker never asks the registry for it.
+            - name: The image's digest
+              id: image
               run: |
-                  docker run --rm -v "$PWD/packages:/packages" ${{ matrix.image }} sh -c '
+                  digest=${IMAGE##*@sha256:}
+                  [[ $digest =~ ^[0-9a-f]{64}$ ]] || { echo "::error::$IMAGE is not pinned by a digest"; exit 1; }
+                  echo "digest=$digest" >> "$GITHUB_OUTPUT"
+                  echo "LOCAL_IMAGE=porelo-pinned-image:$digest" >> "$GITHUB_ENV"
+
+            - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              id: image-cache
+              with:
+                  path: ~/.cache/porelo-pinned/image
+                  key: pinned-image-${{ matrix.system }}-${{ steps.image.outputs.digest }}
+
+            - name: The image, from the cache or the registry
+              run: |
+                  set -eu
+                  . .github/actions/pinned-jdk/pinned.sh
+                  saved="$HOME/.cache/porelo-pinned/image/image.tar"
+                  if [ -f "$saved" ]; then
+                      docker load -i "$saved"
+                  else
+                      pinned_retry "$IMAGE" docker pull "$IMAGE"
+                      docker tag "$IMAGE" "$LOCAL_IMAGE"
+                      mkdir -p "$(dirname "$saved")"
+                      # Only the runner's platform was pulled; an image store that keeps the whole index saves that
+                      # one when asked, and an older Docker without --platform saves what it has.
+                      docker save --platform linux/amd64 -o "$saved" "$LOCAL_IMAGE" ||
+                          docker save -o "$saved" "$LOCAL_IMAGE"
+                  fi
+                  docker image inspect --format '{{.Id}}' "$LOCAL_IMAGE"
+
+            - if: steps.image-cache.outputs.cache-hit != 'true'
+              uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              with:
+                  path: ~/.cache/porelo-pinned/image
+                  key: pinned-image-${{ matrix.system }}-${{ steps.image.outputs.digest }}
+
+            # What the package asks of the system, read in the image itself with no network: the packages it
+            # pulls in are kept in the cache under the image's digest and this, so a dependency that changes
+            # is a miss, and an unchanged one a hit that reaches no mirror.
+            - name: What the package needs
+              id: needs
+              run: |
+                  set -euo pipefail
+                  needs=$(docker run --rm --network none -v "$PWD/packages:/packages:ro" "$LOCAL_IMAGE" sh -c '
+                    set -e
+                    if command -v dpkg-deb >/dev/null; then
+                      dpkg-deb -f /packages/*.deb Pre-Depends Depends Recommends
+                    else
+                      rpm -qp --requires /packages/*.rpm
+                      rpm -qp --recommends /packages/*.rpm
+                    fi
+                  ' | sha256sum | cut -c1-16)
+                  echo "needs=$needs" >> "$GITHUB_OUTPUT"
+
+            - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              id: needs-cache
+              with:
+                  path: ~/.cache/porelo-pinned/install
+                  key: pinned-install-${{ matrix.system }}-${{ steps.image.outputs.digest }}.${{ steps.needs.outputs.needs }}
+
+            # Only on a miss: the lists and the packages, fetched into folders of the runner, tried again by
+            # pinned.sh's rule. The image's own apt rule that deletes downloaded packages is covered by an empty
+            # file, and dnf is told to keep them.
+            - name: Fetch what the package needs from ${{ matrix.system }}'s mirror
+              if: steps.needs-cache.outputs.cache-hit != 'true'
+              run: |
+                  set -eu
+                  . .github/actions/pinned-jdk/pinned.sh
+                  cache="$HOME/.cache/porelo-pinned/install"
+                  rm -rf "$cache"
+                  mkdir -p "$cache/lists/partial" "$cache/archives/partial" "$cache/dnf"
+                  : > "$RUNNER_TEMP/docker-clean"
+                  pinned_retry "what the package needs from $IMAGE's mirror" \
+                    docker run --rm -v "$PWD/packages:/packages:ro" -v "$cache/lists:/var/lib/apt/lists" \
+                      -v "$cache/archives:/var/cache/apt/archives" -v "$cache/dnf:/var/cache/libdnf5" \
+                      -v "$RUNNER_TEMP/docker-clean:/etc/apt/apt.conf.d/docker-clean:ro" "$LOCAL_IMAGE" sh -c '
                     set -e
                     if command -v apt-get >/dev/null; then
-                      apt-get update
+                      apt-get -o Acquire::Retries=3 update
+                      apt-get -o Acquire::Retries=3 install -y --download-only /packages/*.deb
+                    else
+                      dnf install -y --downloadonly --setopt=keepcache=True /packages/*.rpm
+                    fi
+                  '
+                  sudo chown -R "$(id -u):$(id -g)" "$cache"
+
+            # A package that does not install is worth catching here rather than in somebody's apt. The
+            # container is clean, so a dependency that was only ever satisfied by the build machine
+            # fails loudly. It has no network: what it installs comes from the cache alone, after a miss as
+            # after a hit, so the entry a miss saves is proven to be enough before it is saved. apt is not
+            # given --no-download, which refuses a package named by its path; without a network it can
+            # download nothing anyway.
+            - name: Install it in a clean ${{ matrix.system }}
+              run: |
+                  set -eu
+                  cache="$HOME/.cache/porelo-pinned/install"
+                  mkdir -p "$cache/lists/partial" "$cache/archives/partial" "$cache/dnf"
+                  : > "$RUNNER_TEMP/docker-clean"
+                  docker run --rm --network none -v "$PWD/packages:/packages" -v "$cache/lists:/var/lib/apt/lists" \
+                    -v "$cache/archives:/var/cache/apt/archives" -v "$cache/dnf:/var/cache/libdnf5" \
+                    -v "$RUNNER_TEMP/docker-clean:/etc/apt/apt.conf.d/docker-clean:ro" "$LOCAL_IMAGE" sh -c '
+                    set -e
+                    if command -v apt-get >/dev/null; then
                       apt-get install -y /packages/*.deb
                       test -x /usr/bin/porelo-frontend
                       test -f /usr/lib/porelo-frontend/lib/libapp.so
                       test -f /usr/lib/porelo-frontend/data/icudtl.dat
                       test "$(/usr/lib/porelo-frontend/porelo-host --version)" = "$(dpkg-query -W -f "\${Version}" porelo-frontend)"
                     else
-                      dnf install -y /packages/*.rpm
+                      dnf install -y --cacheonly --setopt=keepcache=True /packages/*.rpm
                       test -x /usr/bin/porelo-frontend
                       test -f /usr/lib/porelo-frontend/lib/libapp.so
                       test -f /usr/lib/porelo-frontend/data/icudtl.dat
@@ -560,6 +732,14 @@ jobs:
                     fi
                     test -f /usr/share/applications/porelo-frontend.desktop
                   '
+                  # The containers wrote as root; the cache is saved as the runner's user.
+                  sudo chown -R "$(id -u):$(id -g)" "$cache"
+
+            - if: steps.needs-cache.outputs.cache-hit != 'true'
+              uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              with:
+                  path: ~/.cache/porelo-pinned/install
+                  key: pinned-install-${{ matrix.system }}-${{ steps.image.outputs.digest }}.${{ steps.needs.outputs.needs }}
 
     publish:
         name: Publish to Artifactory
