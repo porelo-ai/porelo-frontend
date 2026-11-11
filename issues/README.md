@@ -132,6 +132,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f447"></a>[F447](F447-A-Story-Moved-On-The-Board-And-Saved.md) | M | - | A story dragged to another state, kept pending until saved through the planner or undone; a drop on a working state starts its work instead. |
 | <a id="f448"></a>[F448](F448-A-Story-And-An-Issue-Opened-From-The-Board.md) | M | - | A story's and an issue's screen with a breadcrumb and *Open story*/*Open issue*, an issue moved alone and its sub-issues shown. |
 | <a id="f449"></a>[F449](F449-Work-On-A-Story-Started-From-The-Board.md) | M | - | *Start work* for a story: the planner's screen orders the tasks, the window starts each with Porelo's *Start* on the machine that carries the project, keeps its offer and opens a task started *With you*. |
+| <a id="f475"></a>[F475](F475-The-Window-Reports-Its-Planned-Tasks-To-The-Planner.md) | M | - | Each task the window started for a story is reported to the planner when it starts and when its agent ends, once per end and across restarts; the planner's follow-up tasks are started once, a stop stops the tasks without a report. |
 
 ## Review
 
