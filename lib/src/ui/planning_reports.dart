@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:porelo_planning/porelo_planning.dart';
 
 import '../app/machines.dart';
+import '../app/planner.dart' show plannerProjectOf;
 import '../app/planner_ideas.dart';
 import '../app/settings.dart';
 import '../app/window_log.dart';
@@ -48,6 +49,7 @@ class WindowTaskReports {
     this.resultOf = _noResult,
     this.hand = handIdea,
     this.runtimeDirectory,
+    this.projects,
   }) {
     starts.onConfirmed = started;
   }
@@ -72,6 +74,7 @@ class WindowTaskReports {
       null => Future.error(StateError('$name is not watched.')),
     },
     runtimeDirectory: runtimeDirectory,
+    projects: (project) => plannerProjectOf(machines, project),
   );
 
   /// Where offers are kept.
@@ -97,6 +100,9 @@ class WindowTaskReports {
 
   /// Where the planner writes its address file, the account's own when null.
   final String? runtimeDirectory;
+
+  /// The repository of each project, told a planner that was not given the project since it started.
+  final PlannerProjects? projects;
 
   /// Told the story an ended discussion's idea was saved as.
   void Function(KeptDiscussion discussion, String story)? onIdeaHanded;
@@ -274,7 +280,7 @@ class WindowTaskReports {
     if (idea is! Map<String, Object?>) return _noIdea(kept, end, '${result.name} holds no JSON object');
     final String story;
     try {
-      story = await hand(kept.project, kept.offer, idea, runtimeDirectory: runtimeDirectory);
+      story = await hand(kept.project, kept.offer, idea, runtimeDirectory: runtimeDirectory, projects: projects);
     } on IdeaNotSaved catch (refusal) {
       if (refusal.transient) {
         if (_ideaUnreachedSaid) return;

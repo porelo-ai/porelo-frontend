@@ -7,6 +7,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/planner_ideas.dart';
+import 'package:porelo_planning/porelo_planning.dart' show PlannerProject;
 
 /// A stand-in planner on the loopback address: what `POST /projects/{project}/ideas` was sent, and what it answers.
 class _Planner {
@@ -14,7 +15,12 @@ class _Planner {
     server.listen((request) async {
       final body = await utf8.decodeStream(request);
       calls.add((request.method, request.uri.path, request.headers.value(HttpHeaders.authorizationHeader), body));
-      final (status, text) = answer;
+      if (request.method == 'PUT') given.add(request.uri.path);
+      final (status, text) = request.method == 'PUT'
+          ? (204, '')
+          : given.isEmpty && unknownUntilGiven
+          ? (404, jsonEncode({'title': 'NoSuchProject', 'detail': 'The planner was not given project demo'}))
+          : answer;
       request.response
         ..statusCode = status
         ..headers.contentType = ContentType.json
@@ -29,6 +35,12 @@ class _Planner {
 
   /// Each call: its method, its path, its Authorization header and its body.
   final calls = <(String, String, String?, String)>[];
+
+  /// The projects it was given, by path.
+  final given = <String>[];
+
+  /// Whether it knows no project until it is given one, as after its start.
+  bool unknownUntilGiven = false;
 
   /// The status and body it answers.
   (int, String) answer = (201, jsonEncode({'id': 'ST42'}));
@@ -79,6 +91,28 @@ void main() {
       expect(jsonDecode(body), {'offer': offer, 'idea': idea});
     },
   );
+
+  // Harm: an idea that ends after the planner restarted, before the board was read again, is refused for a project
+  // the planner was not given, and never reaches it.
+  test('a planner not given the project is given it with its repository, and asked once more', () async {
+    planner.unknownUntilGiven = true;
+
+    final story = await handIdea(
+      'demo',
+      offer,
+      idea,
+      runtimeDirectory: runtime.path,
+      projects: (project) => PlannerProject('https://example.org/$project.git'),
+    );
+
+    expect(story, 'ST42');
+    expect(planner.calls.map((call) => (call.$1, call.$2)), [
+      ('POST', '/projects/demo/ideas'),
+      ('PUT', '/projects/demo'),
+      ('POST', '/projects/demo/ideas'),
+    ]);
+    expect(jsonDecode(planner.calls[1].$4), {'repository': 'https://example.org/demo.git'});
+  });
 
   // Harm: the person never learns what in their idea the planner refused, or a refusal is tried again forever.
   test('a refused idea names the planner\'s faults, and is no failure to try again', () async {

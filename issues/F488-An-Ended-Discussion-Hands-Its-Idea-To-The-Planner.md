@@ -28,7 +28,9 @@ end, a missing file and a refusal.
   agent whose result file stands *handed* is asked of the machine with `Result`, bounded at 64 KiB, read as a JSON
   object and sent with the discussion's offer as `POST /projects/{project}/ideas` (`lib/src/app/planner_ideas.dart`),
   to the planner of this account at the address and with the token its `planner.json` names, loopback only and never
-  through a proxy. The planner's answer names the story; it is said in the window's log.
+  through a proxy. A planner that was not given the project since it started (`NoSuchProject`, as after its restart
+  before the board is read again) is given it with its repository (`PUT /projects/{project}`) and asked once more, as
+  the board's reads do. The planner's answer names the story; it is said in the window's log.
 - Each end is handed once, also across restarts: the end is kept once the idea is saved, once the planner refused it
   for its faults, and once the discussion left none (no result file, one not handed, past the bound, no JSON object).
   A planner not running, or not able to save now, is said once and the idea goes once it answers; any other failure
@@ -60,4 +62,6 @@ copying a file by hand, also when the task ran on a rented host.
 ## To be checked
 
 - The content is asked of the ended task with `Result`; the task's end names the file and how it stood.
-- Tested against a stand-in of the planner's `POST /projects/{project}/ideas`, not against a planner that serves it.
+- Tested against a stand-in of the planner's `POST /projects/{project}/ideas`, and once against porelo-planner 4c3e9c9
+  in its mock mode: an idea saved as a story in state Idea with its issues, the same offer again answered with the
+  same story, a malformed idea refused with its faults.

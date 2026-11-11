@@ -52,7 +52,7 @@ void main() {
       stopOn: (machine, container) async => stopped.add((machine, container)),
       resultOf: (name, container) async =>
           name == on.name ? results[container] ?? fail('no result for $container') : fail('$name is not watched'),
-      hand: (project, offer, idea, {runtimeDirectory}) async {
+      hand: (project, offer, idea, {runtimeDirectory, projects}) async {
         handed.add((project, offer, idea));
         final next = handAnswers.isEmpty ? 'ST900' : handAnswers.removeAt(0);
         if (next is Exception) throw next;

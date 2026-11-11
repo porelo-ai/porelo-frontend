@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:porelo_planning/porelo_planning.dart' show PlannerAddress;
+import 'package:porelo_planning/porelo_planning.dart' show PlannerAddress, PlannerProject, PlannerProjects;
 
 /// Hands the [idea] a discussion of [offer] wrote in [project] to the planner of this account, and answers the id of
 /// the story it was saved as.
@@ -11,6 +11,7 @@ typedef HandIdea = Future<String> Function(
   String offer,
   Map<String, Object?> idea, {
   String? runtimeDirectory,
+  PlannerProjects? projects,
 });
 
 /// Why the planner did not save an idea, in words: its own where it gave some.
@@ -37,6 +38,9 @@ const mostIdeaBytes = 65536;
 /// The planner's `POST /projects/{project}/ideas`, at the address its `planner.json` under [runtimeDirectory] names:
 /// the body `{"offer": ..., "idea": ...}`, answered with the id of the story saved.
 ///
+/// A planner that was not given [project] since it started (`NoSuchProject`) is given it, with the repository
+/// [projects] names, as `PUT /projects/{project}`, and is asked once more, as the board's reads do.
+///
 /// Only to the loopback address the address file names, with its token, never through a proxy; an answer is waited
 /// for [within].
 Future<String> handIdea(
@@ -44,6 +48,7 @@ Future<String> handIdea(
   String offer,
   Map<String, Object?> idea, {
   String? runtimeDirectory,
+  PlannerProjects? projects,
   Duration within = const Duration(seconds: 30),
 }) async {
   final body = utf8.encode(jsonEncode({'offer': offer, 'idea': idea}));
@@ -60,24 +65,50 @@ Future<String> handIdea(
     ..connectionTimeout = within
     ..autoUncompress = false
     ..findProxy = ((_) => 'DIRECT');
-  try {
-    final request = await client
-        .postUrl(address.base.replace(pathSegments: ['projects', project, 'ideas']))
-        .timeout(within);
+  Future<(int, String)> send(String method, List<String> path, List<int> body) async {
+    final request = await client.openUrl(method, address.base.replace(pathSegments: path)).timeout(within);
     request.headers
       ..set(HttpHeaders.authorizationHeader, 'Bearer ${address.token}')
       ..contentType = ContentType.json
       ..contentLength = body.length;
     request.add(body);
     final response = await request.close().timeout(within);
-    final answer = await utf8.decodeStream(response.take(256 * 1024)).timeout(within);
-    return ideaAnswered(response.statusCode, answer);
+    return (response.statusCode, await utf8.decodeStream(response.take(256 * 1024)).timeout(within));
+  }
+
+  try {
+    final ideas = ['projects', project, 'ideas'];
+    var (status, answer) = await send('POST', ideas, body);
+    if (projects != null && status == 404 && _title(answer) == 'NoSuchProject') {
+      final PlannerProject given;
+      try {
+        given = await projects(project);
+      } on Object {
+        throw IdeaNotSaved('no watched machine names the repository of $project yet', transient: true);
+      }
+      final told = await send('PUT', [
+        'projects',
+        project,
+      ], utf8.encode(jsonEncode({'repository': given.repository, 'branch': ?given.branch})));
+      if (told.$1 < 200 || told.$1 > 299) return ideaAnswered(told.$1, told.$2);
+      (status, answer) = await send('POST', ideas, body);
+    }
+    return ideaAnswered(status, answer);
   } on TimeoutException {
     throw IdeaNotSaved('the planner did not answer within ${within.inSeconds} s', transient: true);
   } on SocketException catch (error) {
     throw IdeaNotSaved('the planner could not be reached: ${error.message}', transient: true);
   } finally {
     client.close(force: true);
+  }
+}
+
+String? _title(String body) {
+  try {
+    final json = jsonDecode(body);
+    return json is Map<String, dynamic> && json['title'] is String ? json['title'] as String : null;
+  } on FormatException {
+    return null;
   }
 }
 
