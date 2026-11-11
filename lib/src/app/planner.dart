@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as p;
 import 'package:porelo_planning/porelo_planning.dart'
     show
         HttpPlanningSource,
@@ -52,6 +54,28 @@ typedef StartPlanner = Future<void> Function(String executable, Map<String, Stri
 /// Opens the planner's board reads from the address file under [runtimeDirectory], the account's own when null.
 typedef OpenPlanner = Future<HttpPlanningSource> Function(PlannerProjects projects, {String? runtimeDirectory});
 
+/// A planner that names the file it writes its log into.
+abstract interface class NamesItsLog {
+  /// The log file the planner names, or null where it names none yet.
+  String? get log;
+}
+
+/// The log file [address], the text of the planner's `planner.json`, names: null where it names none, or names it
+/// as anything but an absolute path.
+String? plannerLogOf(String address) {
+  try {
+    if (jsonDecode(address) case {'log': final String log}
+        when log.trim().isNotEmpty && p.isAbsolute(log) && !_control.hasMatch(log)) {
+      return log;
+    }
+  } on FormatException {
+    // Not the planner's address: it names no log.
+  }
+  return null;
+}
+
+final _control = RegExp(r'[\x00-\x1f]');
+
 /// A planning client that may not have reached its planning yet, and says why.
 abstract interface class PlanningReach implements Listenable {
   /// What the planning place says instead of a board, or null once planning is reached.
@@ -64,7 +88,7 @@ abstract interface class PlanningReach implements Listenable {
 /// This computer's planner as the window's one provider of planning: found by its address file, started where none
 /// runs, told each project's repository as the window knows it, and followed to a new address when the planner writes
 /// one, as after a restart on another port.
-class LocalPlanner extends ChangeNotifier implements PlanningClient, PlanningReach {
+class LocalPlanner extends ChangeNotifier implements PlanningClient, PlanningReach, NamesItsLog {
   /// Takes the projects the window knows and their repositories; [runtimeDirectory] is the one the planner writes its
   /// address under, `XDG_RUNTIME_DIR` when null, and [candidates] where the planner may be, in the order they are tried.
   /// [onWindows] is whether the window runs on Windows, where no planner is looked for or started.
@@ -152,6 +176,13 @@ class LocalPlanner extends ChangeNotifier implements PlanningClient, PlanningRea
   @override
   String? get notReached => _notReached;
 
+  /// The log file the planner's address file named when it was read last naming one: kept once that planner has gone,
+  /// whose log tells why.
+  @override
+  String? get log => _log;
+
+  String? _log;
+
   /// Finds the planner, starting it where none runs; asked while it looks, it answers that look's end, and asked
   /// after a failed look, it looks again, never starting a second planner.
   @override
@@ -216,6 +247,7 @@ class LocalPlanner extends ChangeNotifier implements PlanningClient, PlanningRea
       final old = _source;
       _source = source;
       _address = address;
+      if (address != null) _log = plannerLogOf(address) ?? _log;
       _missing = 0;
       _notReached = null;
       notifyListeners();

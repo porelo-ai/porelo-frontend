@@ -28,6 +28,7 @@ import 'vault.dart';
 import 'central_reviews.dart';
 import 'forge.dart';
 import 'links.dart';
+import 'log_files.dart';
 import 'organization_source.dart';
 import 'widening.dart';
 
@@ -1020,6 +1021,32 @@ Command newMessagePasswordCommand({required bool busy, required VoidCallback run
   unavailable: busy ? 'the machine is still answering' : null,
   run: run,
 );
+
+/// The group of the links to the logs, a section of their own under Options.
+const logsGroup = 'Logs';
+
+/// The links that open the window's log at [windowsLog] and the planner's at [plannersLog], each naming its file; the
+/// planner's says so where the planner names none. [open] opens one and tells the person what came of it.
+List<Command> logCommands({
+  required String windowsLog,
+  required String? plannersLog,
+  required void Function(String what, String? path) open,
+}) => [
+  Command(
+    id: 'log.window',
+    label: 'Open the window’s log: $windowsLog',
+    group: logsGroup,
+    home: Home.appBar,
+    run: () => open('the window’s log', windowsLog),
+  ),
+  Command(
+    id: 'log.planner',
+    label: plannersLog == null ? 'Open the planner’s log — $plannerNamesNoLog' : 'Open the planner’s log: $plannersLog',
+    group: logsGroup,
+    home: Home.appBar,
+    run: () => open('the planner’s log', plannersLog),
+  ),
+];
 
 /// Opens Element without sending any part of the once-shown login to its website.
 Command openElementCommand() => Command(

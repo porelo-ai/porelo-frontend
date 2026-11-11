@@ -8,6 +8,7 @@ import 'package:guided_walk/guided_walk.dart';
 
 import '../app/central_release.dart';
 import '../app/desk.dart';
+import '../app/log_files.dart';
 import '../app/identity.dart';
 import '../app/environment_tokens.dart';
 import '../app/homeserver_forwards.dart';
@@ -46,6 +47,7 @@ import '../app/templates.dart';
 import '../app/tunnel.dart';
 import '../app/vault.dart';
 import '../app/widening.dart';
+import '../app/window_log.dart' show windowLogFile;
 import '../app/work_held.dart';
 import '../app/gate.dart';
 import '../app/host_readiness.dart';
@@ -70,7 +72,7 @@ import 'central_release_view.dart';
 import 'clearing_view.dart';
 import '../app/settings.dart';
 import '../app/shell_model.dart';
-import '../app/planner.dart' show PlanningReach;
+import '../app/planner.dart' show NamesItsLog, PlanningReach;
 import 'discussion_start_dialog.dart';
 import 'planning_embedding.dart';
 
@@ -469,6 +471,8 @@ class _ShellState extends State<Shell> {
     _organization?.addListener(_checkOrganizationPlace);
     _observedMachine = widget.machines.current;
     widget.machines.addListener(_machineChanged);
+    _plannersLog = _plannersLogNow;
+    if (widget.planning?.client case final Listenable planner) planner.addListener(_plannersLogChanged);
     final source = widget.organizationSource;
     if (source is PoreloOrganizationSource) {
       source.prepareForgeWrite = (repository) =>
@@ -890,6 +894,11 @@ class _ShellState extends State<Shell> {
       ..._viewActions(),
       ..._organizationFactsCommands(),
       myKeyCommand(open: () => unawaited(showIdentity(context, model: widget.identity))),
+      ...logCommands(
+        windowsLog: windowLogFile(desk),
+        plannersLog: _plannersLog,
+        open: (what, path) => unawaited(_openTheLog(what, path)),
+      ),
     ],
     fleet: _fleet,
     machine: widget.machines.current,
@@ -969,6 +978,37 @@ class _ShellState extends State<Shell> {
     unlockWithThePassphrase: _canUnlockHere ? () => unawaited(_unlockHere()) : null,
     makeTheVault: _canMakeHere ? () => unawaited(_makeTheVault()) : null,
   );
+
+  /// The planner's log as the planner names it now, which Options shows.
+  String? get _plannersLogNow => switch (widget.planning?.client) {
+    final NamesItsLog planner => planner.log,
+    _ => null,
+  };
+
+  String? _plannersLog;
+
+  /// Builds Options anew once the planner names another log, as when it is found after the window started.
+  void _plannersLogChanged() {
+    final now = _plannersLogNow;
+    if (!mounted || now == _plannersLog) return;
+    setState(() => _plannersLog = now);
+  }
+
+  /// Opens a log and says what came of it where every page shows it, since not every page has a status line.
+  Future<void> _openTheLog(String what, String? path) async {
+    final words = await openTheLog(what, path);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          key: const Key('log-said'),
+          content: Text(words),
+          duration: const Duration(seconds: 10),
+          showCloseIcon: true,
+        ),
+      );
+  }
 
   UnattendedRun? get _openedRun => switch (widget.shell.opened) {
     OperationOpened(:final id) => _runs[id],
@@ -4143,18 +4183,25 @@ class _ShellState extends State<Shell> {
             builder: (context) => SimpleDialog(
               title: const Text('Options'),
               children: [
-                for (final command in commands)
-                  if (command.home == Home.appBar && command.group == 'Options')
-                    SimpleDialogOption(
-                      key: Key(command.id),
-                      onPressed: command.available
-                          ? () {
-                              Navigator.pop(context);
-                              command.run();
-                            }
-                          : null,
-                      child: Text(command.label),
+                for (final group in const ['Options', logsGroup]) ...[
+                  if (group == logsGroup)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(Space.wide, Space.normal, Space.wide, Space.tight),
+                      child: Text(logsGroup, style: Theme.of(context).textTheme.titleSmall),
                     ),
+                  for (final command in commands)
+                    if (command.home == Home.appBar && command.group == group)
+                      SimpleDialogOption(
+                        key: Key(command.id),
+                        onPressed: command.available
+                            ? () {
+                                Navigator.pop(context);
+                                command.run();
+                              }
+                            : null,
+                        child: Text(command.label),
+                      ),
+                ],
               ],
             ),
           ),
@@ -5143,6 +5190,11 @@ class _ShellState extends State<Shell> {
                     checked: command.checked ?? false,
                     child: Text(command.label),
                   ),
+              const PopupMenuDivider(),
+              const PopupMenuItem<String>(enabled: false, child: Text(logsGroup)),
+              for (final command in commands)
+                if (command.home == Home.appBar && command.group == logsGroup)
+                  PopupMenuItem<String>(key: Key(command.id), value: command.id, child: Text(command.label)),
             ],
           ),
           if (widget.walk case final walk?)
@@ -6714,6 +6766,7 @@ class _ShellState extends State<Shell> {
     widget.shell.removeListener(_checkOrganizationPlace);
     _organization?.removeListener(_checkOrganizationPlace);
     widget.machines.removeListener(_machineChanged);
+    if (widget.planning?.client case final Listenable planner) planner.removeListener(_plannersLogChanged);
     for (final tools in _machineTools.values) {
       _releaseTools(tools);
     }

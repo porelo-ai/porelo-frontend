@@ -45,12 +45,12 @@ class _Planner {
   final calls = <(String, String, String?, String)>[];
 
   /// Writes the address file as the planner does: owner-only, in an owner-only directory, in one step.
-  Future<void> announce(String runtime, {String token = 'token-of-the-test', int mode = 384}) async {
+  Future<void> announce(String runtime, {String token = 'token-of-the-test', int mode = 384, Object? log}) async {
     final directory = await Directory('$runtime/porelo-planner').create(recursive: true);
     await Process.run('chmod', ['700', directory.path]);
     // Written beside it and renamed over, so a window looking meanwhile never sees it before its mode is set.
     final written = File('${directory.path}/planner.json.new');
-    await written.writeAsString(jsonEncode({'port': server.port, 'token': token}));
+    await written.writeAsString(jsonEncode({'port': server.port, 'token': token, 'log': ?log}));
     await Process.run('chmod', [mode.toRadixString(8), written.path]);
     await written.rename('${directory.path}/planner.json');
   }
@@ -507,6 +507,19 @@ void main() {
     expect(local.notReached, isNull);
     expect(second.calls.map((call) => call.$3), everyElement('Bearer token-after-the-restart'));
     expect(second.calls.map((call) => call.$2), contains('/projects/demo/stories'));
+  });
+
+  // Harm: a guessed path is opened as the planner's log, or the one the planner names is not the one opened.
+  test('the planner\'s log is the path its address file names, and none where it names none', () async {
+    final running = await planner();
+    await running.announce(runtime.path);
+    final local = client(follow: const Duration(milliseconds: 20));
+    await local.reach();
+    expect(local.log, isNull, reason: 'the planner names no log yet');
+
+    await running.announce(runtime.path, log: '${runtime.path}/planner.log');
+    await until(() => local.log != null);
+    expect(local.log, '${runtime.path}/planner.log');
   });
 
   // Harm: a planner that ended for good leaves planning out of reach until the window is restarted.

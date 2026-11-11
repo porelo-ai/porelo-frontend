@@ -154,6 +154,12 @@ class WindowLog {
   static Future<void> _none(String _) async {}
 }
 
+/// The folder the window's log is written into: `logs` under the window's state folder on [desk].
+String windowLogFolder(Desk desk) => desk.join(<String>[desk.state, 'logs']);
+
+/// The file the window writes its log into now, in [windowLogFolder].
+String windowLogFile(Desk desk) => desk.join(<String>[windowLogFolder(desk), WindowLog.fileName]);
+
 /// The window's log. Off until `main` names its folder; a test that reads the log sets one of its own and puts this
 /// back.
 WindowLog windowLog = WindowLog.off();

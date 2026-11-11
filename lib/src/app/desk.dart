@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:porelo_frontend/src/client/environment.dart';
@@ -7,6 +9,10 @@ typedef RunProgram = Future<ProcessResult> Function(String executable, List<Stri
 
 /// Starts a program that outlives nothing here and is not waited for. Injectable likewise.
 typedef StartDetached = Future<void> Function(String executable, List<String> arguments);
+
+/// Starts an opener and answers its exit code and what it said on standard error, without waiting for what it opened.
+/// Injectable likewise, so no test runs the desktop's opener.
+typedef OpenAndWait = Future<ProcessResult> Function(String executable, List<String> arguments);
 
 /// What differs between the desktops the interface runs on: where its own files are kept, how a
 /// file is kept to its owner, and how a file or an address is opened.
@@ -20,9 +26,10 @@ typedef StartDetached = Future<void> Function(String executable, List<String> ar
 /// here: they are the machine's, whatever this computer is.
 abstract class Desk {
   /// Constructor taking the environment and, for a test, how a program is run and one started.
-  Desk(this.environment, {RunProgram? run, StartDetached? startDetached})
+  Desk(this.environment, {RunProgram? run, StartDetached? startDetached, OpenAndWait? openAndWait})
     : run = run ?? Process.run,
-      startDetached = startDetached ?? _detached;
+      startDetached = startDetached ?? _detached,
+      openAndWait = openAndWait ?? runOpener;
 
   /// The desk for [operatingSystem], as `Platform.operatingSystem` names it.
   factory Desk.of(
@@ -30,9 +37,10 @@ abstract class Desk {
     Map<String, String> environment, {
     RunProgram? run,
     StartDetached? startDetached,
+    OpenAndWait? openAndWait,
   }) => operatingSystem == 'windows'
-      ? WindowsDesk(environment, run: run, startDetached: startDetached)
-      : LinuxDesk(environment, run: run, startDetached: startDetached);
+      ? WindowsDesk(environment, run: run, startDetached: startDetached, openAndWait: openAndWait)
+      : LinuxDesk(environment, run: run, startDetached: startDetached, openAndWait: openAndWait);
 
   /// The environment the folders are read from.
   final Map<String, String> environment;
@@ -42,6 +50,9 @@ abstract class Desk {
 
   /// How a program is started without waiting for it, to open a file or an address.
   final StartDetached startDetached;
+
+  /// How the opener is run where its answer is said, as for a log file.
+  final OpenAndWait openAndWait;
 
   /// Whether this is Windows.
   bool get isWindows;
@@ -95,6 +106,20 @@ abstract class Desk {
   /// The program and arguments that open [target] here.
   List<String> openCommand(String target);
 
+  /// Opens the file at [path] with whatever this desktop opens it with, and answers why it could not, or null once the
+  /// opener took it.
+  Future<String?> openFile(String path) async {
+    final command = openCommand(path);
+    try {
+      final result = await openAndWait(command.first, command.sublist(1));
+      if (result.exitCode == 0) return null;
+      final said = '${result.stderr}'.trim();
+      return '${command.first} ended with exit code ${result.exitCode}${said.isEmpty ? '' : ': $said'}';
+    } on ProcessException catch (failure) {
+      return '${command.first} could not be started: ${failure.message}';
+    }
+  }
+
   /// [name]'s value, or null when it is unset or empty, without a trailing separator.
   String? _set(String name) {
     final value = setIn(name, environment);
@@ -110,7 +135,7 @@ abstract class Desk {
 /// Linux: the XDG folders, `chmod`, and `xdg-open`.
 class LinuxDesk extends Desk {
   /// Constructor taking the environment and, for a test, how programs are run.
-  LinuxDesk(super.environment, {super.run, super.startDetached});
+  LinuxDesk(super.environment, {super.run, super.startDetached, super.openAndWait});
 
   String get _home => _set('HOME') ?? '.';
 
@@ -143,7 +168,7 @@ class LinuxDesk extends Desk {
 /// Windows: the folders under the user's profile, `icacls`, and the shell's file association.
 class WindowsDesk extends Desk {
   /// Constructor taking the environment and, for a test, how programs are run.
-  WindowsDesk(super.environment, {super.run, super.startDetached});
+  WindowsDesk(super.environment, {super.run, super.startDetached, super.openAndWait});
 
   String get _profile => _set('USERPROFILE') ?? '.';
 
@@ -187,3 +212,41 @@ class WindowsDesk extends Desk {
 /// Windows program by accident on a Windows runner. A test of the Windows way builds a [Desk] of its
 /// own, or sets this and puts it back.
 Desk desk = Desk.of(Platform.operatingSystem, Platform.environment);
+
+/// Runs an opener and answers its exit code and what it said on standard error, waiting for its exit alone: a program
+/// it starts may keep the opener's output open for as long as that program runs. An opener still running after
+/// [patience] runs what it opened itself, so it has taken the file and is answered as having opened it.
+Future<ProcessResult> runOpener(
+  String executable,
+  List<String> arguments, {
+  Duration patience = const Duration(seconds: 10),
+}) async {
+  final process = await Process.start(executable, arguments);
+  process.stdout.drain<void>().ignore();
+  final said = <int>[];
+  final saying = Completer<void>();
+  final listening = process.stderr.listen(
+    (chunk) {
+      if (said.length < _mostSaid) said.addAll(chunk.take(_mostSaid - said.length));
+    },
+    onDone: saying.complete,
+    onError: (Object _) => saying.isCompleted ? null : saying.complete(),
+    cancelOnError: true,
+  );
+  final code = await process.exitCode.timeout(patience, onTimeout: () => 0);
+  // What it said before it ended, without waiting on a program it left holding the stream.
+  await saying.future.timeout(const Duration(seconds: 1), onTimeout: () {});
+  await listening.cancel();
+  return ProcessResult(process.pid, code, '', _decoded(said));
+}
+
+/// [bytes] as text: cut at [_mostSaid] or not the system's encoding, it is read as UTF-8 with what is broken replaced.
+String _decoded(List<int> bytes) {
+  try {
+    return systemEncoding.decode(bytes);
+  } on FormatException {
+    return utf8.decode(bytes, allowMalformed: true);
+  }
+}
+
+const _mostSaid = 4096;

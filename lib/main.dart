@@ -97,7 +97,7 @@ HostAccess _hostAccess(OrganizationSource source) {
 }
 
 Future<PoreloApp> _compose() async {
-  windowLog = WindowLog(desk.join(<String>[desk.state, 'logs']));
+  windowLog = WindowLog(windowLogFolder(desk));
   final settingsStore = FileSettingsStore();
   final settingsDropped = await settingsStore.dropOldForm();
   final settings = Settings(settingsStore);

@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F486",
   "title": "The Window Opens Each Log File",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "High",
   "rank": 8,
@@ -28,12 +28,20 @@ on Linux and on Windows.
 
 ## Plan
 
-- Under the log level in the settings, and in the window's menu: *Open the window's log* and *Open the planner's log*,
-  each naming the file's path.
+- In a *Logs* section of *Options* (the title bar's menu at full width, its dialog behind ⋮ on a narrow window), where
+  the log level's control stands above them, and in *Find a command*: *Open the window's log* and *Open the planner's
+  log*, each naming the file's path; the result is said in a message every page shows, since not every page has a
+  status line.
 - The window's path is its own ([F483](README.md#f483)); the planner's is the `log` field of `planner.json`, the
-  address file the window already reads, so a planner that stopped serving, or one the window did not start, is
-  found too. Both lie in the shared `logs` directory.
-- A file not there yet is said so, with its path, instead of the opener failing silently.
+  address file the window already reads, kept once that planner has gone, so a planner that stopped serving, or one
+  the window did not start, is found too. Both lie in the shared `logs` directory, and only a file of its own directly
+  there is opened: a path elsewhere, with `..`, or a link is refused, since the opener runs or opens whatever lies at
+  the path it is given.
+- A file not there yet is said so, with its path, instead of the opener failing silently. An opener still running
+  after ten seconds runs what it opened itself and counts as having opened it; what it said is read as UTF-8 where it
+  is not the system's encoding.
+- On Windows, `rundll32 url.dll,FileProtocolHandler` ends with exit code 0 whether or not a program took the file, so
+  there a failure to open is not seen and the log reads as opened.
 
 ## To be checked
 
