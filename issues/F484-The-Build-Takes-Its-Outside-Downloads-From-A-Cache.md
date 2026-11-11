@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F484",
   "title": "The Build Takes Its Outside Downloads From A Cache",
-  "state": "Idea",
+  "state": "Implementing",
   "size": "M",
   "priority": "Medium",
   "rank": 6,
