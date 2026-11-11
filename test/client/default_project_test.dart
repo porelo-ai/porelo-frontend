@@ -98,4 +98,35 @@ void main() {
     expect(done.removed, isFalse);
     expect(done.keys, isEmpty);
   });
+
+  // Harm: a repository a project names is taken out while a task of Default works on it, or a machine without
+  // LeaveDefault cannot take it out at all.
+  test('one a project names leaves by LeaveDefault, and a Porelo without it is asked RemoveFromDefault', () async {
+    answering('LeaveDefault', <String, dynamic>{
+      'removed': <String, dynamic>{
+        'name': 'checkout',
+        'upstream': 'u',
+        'checkout': '',
+        'source': 'REMOTE',
+        'remote': '',
+        'claimedBy': 'payments',
+      },
+      'keys': <Object>[],
+    });
+    final left = await (await connect()).leaveDefault('checkout');
+    expect(asked, <String, dynamic>{'name': 'checkout'});
+    expect(left.removed, isTrue);
+
+    final older = MockDaemon();
+    await older.start();
+    addTearDown(older.stop);
+    var removed = <String, dynamic>{};
+    older.method('RemoveFromDefault', (parameters) {
+      removed = parameters;
+      return <String, dynamic>{'removed': true, 'keys': <Object>[]};
+    });
+    final client = await PoreloClient.connect(Backend(socketPath: older.socketPath, label: 'older'));
+    expect((await client.leaveDefault('checkout')).removed, isTrue);
+    expect(removed, <String, dynamic>{'name': 'checkout'});
+  });
 }

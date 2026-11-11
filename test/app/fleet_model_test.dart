@@ -213,6 +213,10 @@ class _Wedged implements FleetBackend {
       (removed: false, keys: const <MachineDeployKey>[]);
 
   @override
+  Future<({bool removed, List<MachineDeployKey> keys})> leaveDefault(String name) async =>
+      (removed: false, keys: const <MachineDeployKey>[]);
+
+  @override
   Future<({List<int> bundle, int bytes})> pendingBundle(
     String project,
     String name, {
@@ -642,6 +646,10 @@ class _Machine implements FleetBackend {
 
   @override
   Future<({bool removed, List<MachineDeployKey> keys})> removeFromDefault(String name) async =>
+      (removed: false, keys: const <MachineDeployKey>[]);
+
+  @override
+  Future<({bool removed, List<MachineDeployKey> keys})> leaveDefault(String name) async =>
       (removed: false, keys: const <MachineDeployKey>[]);
 
   @override

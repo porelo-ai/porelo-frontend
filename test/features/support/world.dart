@@ -2118,6 +2118,9 @@ class FakeBackend implements FleetBackend {
   }
 
   @override
+  Future<({bool removed, List<MachineDeployKey> keys})> leaveDefault(String name) => removeFromDefault(name);
+
+  @override
   Future<({bool removed, List<MachineDeployKey> keys})> removeFromDefault(String name) async {
     final before = inDefault.length;
     inDefault = <DefaultRepository>[

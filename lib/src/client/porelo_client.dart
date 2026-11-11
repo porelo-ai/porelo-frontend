@@ -1337,6 +1337,26 @@ class PoreloClient {
     );
   }
 
+  /// Takes [name], which a project of the organization names now, out of [defaultProject], through the removal
+  /// [removeFromDefault] makes; refused with `DefaultRepositoryInUse` while a task of it works on the repository, and
+  /// with `NoSuchDefaultRepository` for a name it does not have. A Porelo without LeaveDefault is asked
+  /// RemoveFromDefault instead.
+  Future<({bool removed, List<MachineDeployKey> keys})> leaveDefault(String name) async {
+    final Map<String, dynamic> reply;
+    try {
+      reply = await _call('LeaveDefault', <String, dynamic>{'name': name});
+    } on FeatureNotSupported {
+      return removeFromDefault(name);
+    }
+    final keys = reply['keys'];
+    return (
+      removed: reply['removed'] is Map,
+      keys: keys is List
+          ? keys.whereType<Map<String, dynamic>>().map(MachineDeployKey.from).toList()
+          : const <MachineDeployKey>[],
+    );
+  }
+
   /// The keys a project file may hold, as this machine's Porelo knows them.
   Future<ProjectFileSchema> projectFileSchema() async => ProjectFileSchema.from(await _call('ProjectFileSchema'));
 

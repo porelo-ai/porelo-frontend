@@ -9,6 +9,7 @@ import '../app/attention.dart';
 import '../app/fleet_model.dart';
 import '../app/machines.dart';
 import 'attention_view.dart';
+import 'claimed_default_rows.dart';
 import 'filtered_list_section.dart';
 import 'page_explanation.dart';
 import 'tokens.dart';
@@ -621,6 +622,15 @@ class _WorkPageState extends State<WorkPage> {
       key: const Key('work-page'),
       padding: const EdgeInsets.symmetric(horizontal: Space.normal),
       children: <Widget>[
+        // A repository of Default a project of the organization now names: its next task starts there.
+        ClaimedDefaultRows(
+          machines: [
+            for (final machine in widget.machines.all)
+              if ((widget.onlyMachine == null || machine == widget.onlyMachine) &&
+                  widget.machines.of(machine).reachability == Reachability.connected)
+                (name: machine.name, backend: widget.machines.of(machine).backend),
+          ],
+        ),
         if (tiles.isEmpty && widget.onlyMachine == null)
           _firstSteps(context)
         else

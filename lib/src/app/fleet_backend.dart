@@ -484,6 +484,11 @@ abstract class FleetBackend {
   /// Takes [name] out of `default`; its mirror stays, and the key the machine forgot is answered.
   Future<({bool removed, List<MachineDeployKey> keys})> removeFromDefault(String name);
 
+  /// Takes [name], which a project of the organization names now, out of `default` on the person's word: refused with
+  /// `DefaultRepositoryInUse` while a task of `default` works on it. A Porelo without it takes it out as
+  /// [removeFromDefault] does.
+  Future<({bool removed, List<MachineDeployKey> keys})> leaveDefault(String name);
+
   /// The contract, as the machine serves it: what it can be asked, read before a step that needs a
   /// newer Porelo rather than found out in the middle of it.
   Future<String> contract();
@@ -1081,6 +1086,9 @@ class PoreloBackend implements FleetBackend {
   @override
   Future<({bool removed, List<MachineDeployKey> keys})> removeFromDefault(String name) =>
       _opened().removeFromDefault(name);
+
+  @override
+  Future<({bool removed, List<MachineDeployKey> keys})> leaveDefault(String name) => _opened().leaveDefault(name);
 
   @override
   Future<String> contract() => _opened().contract();
