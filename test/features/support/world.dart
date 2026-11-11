@@ -55,7 +55,7 @@ import 'package:porelo_frontend/src/app/porelo_app.dart';
 import 'package:porelo_frontend/src/ui/planning_embedding.dart' show EmbeddedPlanning, WindowTaskStarts;
 import 'package:porelo_frontend/src/ui/planning_reports.dart';
 import 'package:porelo_planning/planning_fake.dart' show MockPlanningClient, MockPlanningSource, mockStartTask;
-import 'package:porelo_planning/porelo_planning.dart' show PlanningProvider, PlanningSource;
+import 'package:porelo_planning/porelo_planning.dart' show PlanningProvider, PlanningSource, PlanningTaskStarted;
 
 /// A backend that answers whatever a scenario needs it to.
 ///
@@ -624,7 +624,15 @@ class FakeBackend implements FleetBackend {
     required String model,
     required Mode mode,
     required String prompt,
-  }) async => throw UnimplementedError('No scenario starts an ordered task on this stand-in.');
+  }) async {
+    final ordered = FakeBackend.ordered;
+    if (ordered == null) throw UnimplementedError('No scenario starts an ordered task on this stand-in.');
+    final started = await ordered();
+    return StartProgress(container: started.container, exitCode: 0, action: StartAction.create);
+  }
+
+  /// The planning stand-in's start of the order the window hands to Start now, or null where it hands none.
+  static Future<PlanningTaskStarted> Function()? ordered;
 
   /// Lists [task] as the machine would once a start has brought it up.
   void bringsUp(Task task) {
@@ -3008,10 +3016,9 @@ class World {
   ///
   /// A task is started by the stand-in of the machine whose planning ordered it, and runs on that machine.
   ///
-  /// The window's reports go to the stand-in of the machine that started the task, as they go to the planner: a task
-  /// the stand-in started is kept by its offer and the container the machine lists it under.
+  /// The window starts and reports as it does with the planner: its Start of an order is the stand-in's start, and the
+  /// reports go to the stand-in of the provider that gave the offer.
   static EmbeddedPlanning planningOf(Machines machines) {
-    final startedOn = <(String, String), Machine>{};
     final client = MockPlanningClient(
       () => [
         for (final machine in machines.all)
@@ -3032,26 +3039,14 @@ class World {
     return EmbeddedPlanning(
       client,
       startTask: (source, project, story, task) async {
-        final started = await mockStartTask(source, project, story, task);
-        final machine = machines.all.where((each) => identical(planningOn(machines.of(each).backend), source));
-        if (machine.isNotEmpty) {
-          startedOn[(project, started.container)] = machine.first;
-          await machines.settings.rememberPlanningOffer(
-            machine: machine.first.name,
-            container: started.container,
-            offer: task.offer!,
-            provider: machine.first.name,
-            project: project,
-            story: story,
-            task: started.task,
-          );
-          if (machines.settings.plannedOffer(machine.first.name, started.container) case final kept?) {
-            reports.started(kept);
-          }
+        FakeBackend.ordered = () => mockStartTask(source, project, story, task);
+        try {
+          return await starts(source, project, story, task);
+        } finally {
+          FakeBackend.ordered = null;
         }
-        return started;
       },
-      startedOn: (project, container) => startedOn[(project, container)],
+      startedOn: starts.startedOn,
       reports: reports,
     );
   }
