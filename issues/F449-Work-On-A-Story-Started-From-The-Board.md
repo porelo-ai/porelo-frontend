@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F449",
   "title": "Work On A Story Started From The Board",
-  "state": "Implementing",
+  "state": "Review",
   "size": "M",
   "priority": "Medium",
   "rank": 4,

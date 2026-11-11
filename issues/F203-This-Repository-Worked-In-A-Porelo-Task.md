@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F203",
   "title": "This Repository Worked In A Porelo Task",
-  "state": "Implementing",
+  "state": "Backlog",
   "size": "S",
   "priority": "Medium",
   "rank": 1,

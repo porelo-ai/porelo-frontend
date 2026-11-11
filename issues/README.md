@@ -131,23 +131,23 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f488"></a>[F488](F488-An-Ended-Discussion-Hands-Its-Idea-To-The-Planner.md) | M | [F487](#f487) | When a discussion task ends, the window reads the idea file it named from the machine it ran on and sends its content to the planner once, with the offer it came from; a file missing, too large or not an idea is said to the person, and nothing is sent. |
 | <a id="f485"></a>[F485](F485-A-Person-Sets-How-Much-Is-Logged.md) | S | [F483](#f483) | Settings carries the log level, DEBUG, INFO, WARN or ERROR, INFO by default; a change takes effect at once in the window's log and reaches the planner's, by the way the planner takes it. |
 | <a id="f486"></a>[F486](F486-The-Window-Opens-Each-Log-File.md) | S | [F483](#f483) | The window shows a link for its own log and one for the planner's, each opening that file on this computer with the program the desktop opens such a file with, and saying so where the file is not there yet. |
+| <a id="f203"></a>[F203](F203-This-Repository-Worked-In-A-Porelo-Task.md) | S | - | This repository's agent working in an attended Porelo task on the host, its build green on the host's Forgejo, reached in the room, with a way back. |
 
 ## Implementing
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f203"></a>[F203](F203-This-Repository-Worked-In-A-Porelo-Task.md) | S | - | This repository's agent working in an attended Porelo task on the host, its build green on the host's Forgejo, reached in the room, with a way back. |
+
+## Review
+
+| # | Size | Blocked by | What it covers |
+|---|---|---|---|
 | <a id="f446"></a>[F446](F446-The-Stories-Of-A-Project-On-A-Planning-Board.md) | M | - | *Planning* shows a project's stories on a board, phases as columns with their states, read and watched from the planner. |
 | <a id="f447"></a>[F447](F447-A-Story-Moved-On-The-Board-And-Saved.md) | M | - | A story dragged to another state, kept pending until saved through the planner or undone; a drop on a working state starts its work instead. |
 | <a id="f448"></a>[F448](F448-A-Story-And-An-Issue-Opened-From-The-Board.md) | M | - | A story's and an issue's screen with a breadcrumb and *Open story*/*Open issue*, an issue moved alone and its sub-issues shown. |
 | <a id="f449"></a>[F449](F449-Work-On-A-Story-Started-From-The-Board.md) | M | - | *Start work* for a story: the planner's screen orders the tasks, the window starts each with Porelo's *Start* on the machine that carries the project, keeps its offer and opens a task started *With you*. |
 | <a id="f475"></a>[F475](F475-The-Window-Reports-Its-Planned-Tasks-To-The-Planner.md) | M | - | Each task the window started for a story is reported to the planner when it starts and when its agent ends, once per end and across restarts; the planner's follow-up tasks are started once, a stop stops the tasks without a report. |
 | <a id="f484"></a>[F484](F484-The-Build-Takes-Its-Outside-Downloads-From-A-Cache.md) | M | - | Every download the frontend's workflows take from outside, pinned by digest or version, comes from a cache keyed by that pin, with only the newest entry of each kept, so an outside registry or mirror that does not answer does not turn a build red. |
-
-## Review
-
-| # | Size | Blocked by | What it covers |
-|---|---|---|---|
 | <a id="f483"></a>[F483](F483-The-Window-Keeps-A-Log-Of-What-Only-Informs.md) | M | - | The window writes a log of its own with levels, DEBUG, INFO, WARN and ERROR, in the log directory it shares with the planner, at the level set, INFO by default; what only informs, and every row put away, goes there, and Needs you keeps only what a person must act on, each row naming its action. |
 | <a id="f478"></a>[F478](F478-A-Retry-Finds-The-Planner-On-Its-New-Port.md) | S | - | The window keeps reading the planner's address file and follows the planner to a new address, starting it again where it is gone, so planning reaches a planner that came back on another port without a restart of the window. |
 | <a id="f477"></a>[F477](F477-An-Unreached-Organization-Says-When-And-Why.md) | S | - | A stale organization answer is checked again before it is shown, and one that stays stale says when it was checked last and why, in Porelo's cause and git's own words, instead of only that its repositories could not be read. |

@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F475",
   "title": "The Window Reports Its Planned Tasks To The Planner",
-  "state": "Implementing",
+  "state": "Review",
   "size": "M",
   "priority": "Medium",
   "rank": 5,
