@@ -41,6 +41,7 @@ runs:
           shell: bash
           env:
               PACKAGES: ${{ inputs.packages }}
+              FALLBACK_MIRROR: https://mirrors.edge.kernel.org/ubuntu/
           run: |
               set -eu
               . "$GITHUB_ACTION_PATH/../pinned-jdk/pinned.sh"
@@ -54,9 +55,26 @@ runs:
                   sudo apt-get -o Dir::State::lists="$cache/lists" -o Dir::Cache::archives="$cache/archives" \
                       -o APT::Sandbox::User=root -o Acquire::Retries=3 "$@"
               }
-              pinned_retry "Ubuntu's package lists" apt_cached update
               # shellcheck disable=SC2086 # the list is split on purpose
-              pinned_retry "Ubuntu's packages" apt_cached install --download-only --no-install-recommends -y $PACKAGES
+              fetch() {
+                  pinned_retry "Ubuntu's package lists" apt_cached update &&
+                      pinned_retry "Ubuntu's packages" apt_cached install --download-only --no-install-recommends \
+                          -y $PACKAGES
+              }
+              # Temporary, for Canonical's outage of 2026-11-11: once Canonical's archive was given up on, Ubuntu's
+              # own sources are pointed at a public mirror of the same suites, and the fetch is tried again. apt still
+              # checks every Release file against Ubuntu's keyring. Removed once Canonical's archive answers again.
+              fetch || {
+                  echo "::warning::Canonical's archive was given up on; trying the fallback mirror $FALLBACK_MIRROR" >&2
+                  for sources in /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list; do
+                      [ -f "$sources" ] || continue
+                      sudo sed -i -E \
+                        "s#https?://([a-z0-9-]+\.)?(archive|security)\.ubuntu\.com/ubuntu/?#$FALLBACK_MIRROR#g" "$sources"
+                  done
+                  rm -rf "$cache"
+                  mkdir -p "$cache/lists/partial" "$cache/archives/partial"
+                  fetch
+              }
 
         - name: Install Ubuntu's packages from the cache
           shell: bash
