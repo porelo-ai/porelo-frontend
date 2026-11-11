@@ -130,13 +130,13 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f487"></a>[F487](F487-The-Window-Starts-A-Discussion-Of-An-Idea.md) | S | - | When the planner orders a discussion of an idea, the window opens its Start with the project set and no repository to choose, the person picks the agent and the model, and the window starts the read-only task over all of the project's repositories that Core offers, the person driving it. |
 | <a id="f488"></a>[F488](F488-An-Ended-Discussion-Hands-Its-Idea-To-The-Planner.md) | M | [F487](#f487) | When a discussion task ends, the window reads the idea file it named from the machine it ran on and sends its content to the planner once, with the offer it came from; a file missing, too large or not an idea is said to the person, and nothing is sent. |
 | <a id="f485"></a>[F485](F485-A-Person-Sets-How-Much-Is-Logged.md) | S | [F483](#f483) | Settings carries the log level, DEBUG, INFO, WARN or ERROR, INFO by default; a change takes effect at once in the window's log and reaches the planner's, by the way the planner takes it. |
-| <a id="f486"></a>[F486](F486-The-Window-Opens-Each-Log-File.md) | S | [F483](#f483) | The window shows a link for its own log and one for the planner's, each opening that file on this computer with the program the desktop opens such a file with, and saying so where the file is not there yet. |
 | <a id="f203"></a>[F203](F203-This-Repository-Worked-In-A-Porelo-Task.md) | S | - | This repository's agent working in an attended Porelo task on the host, its build green on the host's Forgejo, reached in the room, with a way back. |
 
 ## Implementing
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f486"></a>[F486](F486-The-Window-Opens-Each-Log-File.md) | S | [F483](#f483) | The window shows a link for its own log and one for the planner's, each opening that file on this computer with the program the desktop opens such a file with, and saying so where the file is not there yet. |
 
 ## Review
 

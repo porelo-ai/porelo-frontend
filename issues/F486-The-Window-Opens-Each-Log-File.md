@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F486",
   "title": "The Window Opens Each Log File",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "High",
   "rank": 8,
