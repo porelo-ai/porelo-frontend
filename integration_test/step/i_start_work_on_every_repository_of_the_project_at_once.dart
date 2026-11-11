@@ -31,6 +31,7 @@ Future<void> iStartWorkOnEveryRepositoryOfTheProjectAtOnce(WidgetTester tester) 
     await pumpFor(tester);
   }
   await pumpUntil(tester, () => enabled(start), timeout: const Duration(minutes: 3), what: 'the batch to offer Start');
+  await noteTheHostsTasks();
   await tester.tap(start.first);
   await pumpFor(tester);
   // Its last step holds Finish until every start has its answer.

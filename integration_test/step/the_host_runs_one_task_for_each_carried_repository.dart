@@ -13,7 +13,8 @@ Future<void> theHostRunsOneTaskForEachCarriedRepository(WidgetTester tester) => 
     tester,
     () async {
       running = {for (final each in carried) each: 0};
-      for (final task in await theProjectsTasksOnTheHost()) {
+      // Only the tasks this batch made: the run's earlier steps and scenarios may leave tasks running.
+      for (final task in await theTasksStartedSince()) {
         final repository = task['repository'];
         if (task['running'] == true && running.containsKey(repository)) {
           running[repository as String] = running[repository]! + 1;
@@ -24,8 +25,8 @@ Future<void> theHostRunsOneTaskForEachCarriedRepository(WidgetTester tester) => 
     timeout: const Duration(minutes: 5),
     what: 'a task on every carried repository',
   );
-  // One each: a second task on a repository is a start made twice. The scenario before may have started one.
+  // One each: a second task on a repository is a start made twice.
   for (final MapEntry(:key, :value) in running.entries) {
-    expect(value, lessThanOrEqualTo(key == Rehearsal.startedRepository ? 2 : 1), reason: key);
+    expect(value, 1, reason: key);
   }
 });

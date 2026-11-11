@@ -54,6 +54,10 @@ abstract final class Rehearsal {
   /// The task whose work waited at its gate.
   static String? waitingTask;
 
+  /// The project's tasks on the host before the window's last start: a check reads only the ones that start made,
+  /// never one the run's earlier steps left running.
+  static Set<String> tasksBefore = {};
+
   /// The commit the gate's review named.
   static String? reviewedCommit;
 
@@ -100,6 +104,57 @@ Future<List<Map<String, dynamic>>> theProjectsTasksOnTheHost() async {
     for (final each in tasks.cast<Map<String, dynamic>>())
       if (each['project'] == Rehearsal.project) each,
   ];
+}
+
+/// Notes the project's tasks on the host, so [theTasksStartedSince] leaves them out.
+Future<void> noteTheHostsTasks() async =>
+    Rehearsal.tasksBefore = {for (final task in await theProjectsTasksOnTheHost()) task['name'] as String};
+
+/// The project's tasks on the host that were not there when [noteTheHostsTasks] last noted them.
+Future<List<Map<String, dynamic>>> theTasksStartedSince() async => [
+  for (final task in await theProjectsTasksOnTheHost())
+    if (!Rehearsal.tasksBefore.contains(task['name'])) task,
+];
+
+/// Starts work on [repository] from the project on the host, with the run's agent and model; named [name] and run
+/// unattended against [prompt] where given.
+Future<void> startWorkOn(WidgetTester tester, String repository, {String? name, String? prompt}) async {
+  await toTheProjectOnTheHost(tester);
+  await chooseFromTheMenu(tester, find.byKey(Key('repository-menu $repository')), 'Start work in $repository');
+  await chooseTheAgentTheHostCanStart(tester);
+  if (name != null) {
+    final field = find.byKey(const Key('start-name'));
+    await tester.ensureVisible(field.first);
+    await tester.enterText(field.first, name);
+    await pumpFor(tester);
+  }
+  if (prompt != null) {
+    await choose(tester, 'start-mode', 'start-mode-unattended');
+    final field = find.byKey(const Key('start-prompt'));
+    await pumpUntil(tester, () => field.evaluate().isNotEmpty, what: 'the form to take a prompt');
+    await tester.ensureVisible(field.first);
+    await tester.enterText(field.first, prompt);
+    await pumpFor(tester);
+  }
+  // The form asks the machine before Start is offered: whether it can start, the sign-in, the model.
+  final go = find.byKey(const Key('start-go'));
+  await pumpUntil(
+    tester,
+    () => go.evaluate().isNotEmpty && tester.widget<ButtonStyleButton>(go.first).onPressed != null,
+    timeout: const Duration(minutes: 2),
+    what: 'the form to offer Start',
+  );
+  Rehearsal.startedName = theFieldsText(tester, const Key('start-name'));
+  Rehearsal.startedModel = theFieldsText(tester, const Key('start-model'));
+  await noteTheHostsTasks();
+  await tester.tap(go.first);
+  await pumpFor(tester);
+  await pumpUntil(
+    tester,
+    () => go.evaluate().isEmpty,
+    timeout: const Duration(minutes: 10),
+    what: 'the start to finish',
+  );
 }
 
 /// The host's entry under *My machines*, unfolded, once it is connected.

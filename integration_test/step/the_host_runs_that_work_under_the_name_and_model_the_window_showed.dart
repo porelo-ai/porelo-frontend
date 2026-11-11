@@ -10,7 +10,8 @@ Future<void> theHostRunsThatWorkUnderTheNameAndModelTheWindowShowed(WidgetTester
   await pumpUntil(
     tester,
     () async {
-      for (final each in await theProjectsTasksOnTheHost()) {
+      // Only a task this start made: the run's earlier steps may leave tasks running on the same repository.
+      for (final each in await theTasksStartedSince()) {
         if (each['repository'] == repository && each['running'] == true) task = each;
       }
       return task != null;
