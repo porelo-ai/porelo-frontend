@@ -42,6 +42,9 @@ Future<void> iStartWorkOnEveryRepositoryOfTheProjectAtOnce(WidgetTester tester) 
     timeout: const Duration(minutes: 15),
     what: 'the batch to finish',
   );
+  // Each start's answer, in the machine's words, is on this page alone: kept in the run's log before it closes.
+  final shown = tester.widgetList<Text>(find.byType(Text)).map((each) => each.data).nonNulls.join(' | ');
+  debugPrint('the batch answered: $shown');
   await tester.tap(finish.first);
   await pumpFor(tester);
 });
