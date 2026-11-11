@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F388",
   "title": "The Stub's Pin Stays Fetchable",
-  "state": "Backlog",
+  "state": "Review",
   "size": "XS",
   "priority": "Medium",
   "rank": 5,
@@ -31,8 +31,22 @@
 
 ## Decided while building
 
-## Open questions
+- The second way (the coordinator, 2026-11-11): the pin stays a named version, and `tool/stub_pin.sh` says ahead when
+  it is to move. The folder's retention, Core's publishing, is not changed.
 
-- Which of the two ways. The first needs the folder's retention to change, in the repository that publishes it.
+## How it stands
+
+- `tool/stub_pin.sh` reads the folder's listing anonymously (Artifactory's storage API) and the pin from the step,
+  and says on stderr when the folder no longer holds the pin, or holds 15 or more newer versions, naming the file to
+  move it in; versions are compared as versions, so snapshot.1000 comes after snapshot.999. A listing that cannot be
+  read is said. It never stops a run; the step's own refusal stays the last word.
+- `tool/e2e.sh` runs it before every run.
+- Read live on 2026-11-11 it named 0.5.1~snapshot.466 with 17 newer versions, three Builds from falling out: the pin
+  moved to 0.5.1~snapshot.497, the newest, its digest the one Artifactory gives for it and the one the file fetched
+  had.
+- Test: test/tool/stub_pin_test.dart (few newer said nothing; 15 newer named to move; gone said; version order),
+  seen red first.
+
+## Open questions
 
 ## To be checked
