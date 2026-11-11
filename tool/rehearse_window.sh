@@ -68,12 +68,20 @@ flutter_dir=".cache/porelo-frontend/flutter-$flutter_version"
 # The VM is reached with its own key alone: never the operator's agent, never a password asked.
 # No forwarding of a display either way: the window has a virtual display of its own on the VM.
 on_vm() {
-    env -u SSH_AUTH_SOCK SSH_ASKPASS_REQUIRE=never ssh -x -o BatchMode=yes -o IdentitiesOnly=yes -i "$vm_key" "$vm" "$@"
+    env -u SSH_AUTH_SOCK SSH_ASKPASS_REQUIRE=never ssh -x -o BatchMode=yes -o IdentitiesOnly=yes -i "$vm_key" "$vm" \
+        "$(in_the_login_shell "$@")"
 }
 
 # The VM with the test person's agent forwarded, for the calls that reach the host as that person.
 as_the_person_on_vm() {
-    SSH_ASKPASS_REQUIRE=never ssh -x -A -o BatchMode=yes -o IdentitiesOnly=yes -i "$vm_key" "$vm" "$@"
+    SSH_ASKPASS_REQUIRE=never ssh -x -A -o BatchMode=yes -o IdentitiesOnly=yes -i "$vm_key" "$vm" \
+        "$(in_the_login_shell "$@")"
+}
+
+# A command over ssh runs in the account's login shell: without it, it meets the machine-wide porelo instead of the
+# account's own, and the window with it.
+in_the_login_shell() {
+    printf 'exec bash -lc %q' "$*"
 }
 
 # What the run needs on the VM, each named; a missing one is said with the line that installs it.
