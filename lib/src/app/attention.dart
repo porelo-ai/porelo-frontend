@@ -15,6 +15,7 @@ import 'machines.dart';
 import 'operations.dart';
 import 'organization_source.dart';
 import 'settings.dart';
+import 'window_log.dart';
 
 /// Why a tile sits where it does. Earlier is more urgent.
 enum Demand {
@@ -489,6 +490,7 @@ class Attention extends ChangeNotifier {
     }
     final ids = rows.map((row) => row.id).toSet();
     _readMessages.removeWhere((id) => !ids.contains(id));
+    final shown = _openRows;
     _openRows = rows.where((row) => !_readMessages.contains(row.id)).toList();
     final open = {for (final row in _openRows) row.id: row};
     // A wait that ends became its question or went on, and a question that ran out has its own row: neither is
@@ -534,6 +536,16 @@ class Attention extends ChangeNotifier {
     );
     _prune();
     _scheduleExpiry();
+    _logLeaving(shown, open);
+  }
+
+  /// Writes each row [shown] before and no longer [open] to the window's log, so what it said can still be found.
+  void _logLeaving(List<AttentionRow> shown, Map<String, AttentionRow> open) {
+    for (final row in shown) {
+      if (open.containsKey(row.id)) continue;
+      final how = _resolved.containsKey(row.id) ? 'resolved' : 'put away or gone';
+      windowLog.info('Needs you no longer shows ${row.kind.name} row "${row.id}": $how.', machine: row.machine);
+    }
   }
 
   /// Questions that ran out, where no settings keep them.
