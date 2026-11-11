@@ -120,7 +120,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f111"></a>[F111](F111-All-Of-A-Pieces-Logs-In-One-Timeline.md) | M | - | All of a piece's logs in one timeline, by time, filterable by source. |
 | <a id="f437"></a>[F437](F437-Join-Leave-And-Accept-A-Card-In-The-Window.md) | M | - | Join an organization by a card proposal, an owner accepting it on the person's row, and leaving an organization, from the window. |
 | <a id="f472"></a>[F472](F472-The-Packages-Carry-The-Third-Party-Notices-As-A-File.md) | S | - | The .deb and .rpm carry the licenses of all third-party code built into the window as one plain THIRD-PARTY-NOTICES file, unpacked from Flutter's own notices. |
-| <a id="f467"></a>[F467](F467-A-Board-Without-Streaming-Says-It-Is-Not-Live.md) | XS | - | A planning board read without streaming, or with its stream broken, says it is not live and offers a reload. |
 | <a id="f468"></a>[F468](F468-The-Work-Page-Offers-To-Take-A-Repository-Out-Of-Default.md) | S | - | The work page offers to take a repository out of `default` once a project of the organization names it. |
 
 ## Implementing
@@ -404,6 +403,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Title | Why |
 |---|---|---|
+| <a id="f467"></a>F467 | A Board Without Streaming Says It Is Not Live | Moved to the planner's package: porelo-planner's PL23, on its `main`, builds the board's stream, its lost connection, *Retry* and *Reload* (operator, 2026-11-11). |
 | <a id="f307"></a>F307 | Push And Pull Show Their Progress In The Interface | Nothing left to apply to: the terminal push and pull were removed for *Bring it to central…*, which says each repository's answer in the interface ([F460](#f460); operator, 2026-11-10). |
 | <a id="f386"></a>F386 | A Short Name People Read | The operator's word (2026-11-08): a problem with long task names is handled when one is seen. |
 | <a id="f142"></a>F142 | The Drafts Offered Before The First Task In Default | Folded into [F397](#f397): the proposal is the first-start question for a repository in Default, writing its `porelo.yml`, with no project draft to keep. |
