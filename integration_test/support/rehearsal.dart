@@ -118,6 +118,24 @@ Future<List<Map<String, dynamic>>> theProjectsTasksOnTheHost() async {
   ];
 }
 
+/// Stops the project's tasks that run an agent attended on [repositories], and waits until the host says so: a start
+/// for every repository leaves such a task alone, so one an earlier scenario left running would stand in for a start.
+/// Stopped, the batch brings it back, which counts as that repository's start.
+Future<void> stopTheAttendedAgentsOn(WidgetTester tester, Iterable<String> repositories) async {
+  bool attended(Map<String, dynamic> task) =>
+      task['running'] == true && task['mode'] == 'AGENT' && repositories.contains(task['repository']);
+  for (final task in (await theProjectsTasksOnTheHost()).where(attended)) {
+    debugPrint('stopping ${task['name']}, left running by an earlier scenario');
+    await askTheHostsDaemon('Stop', {'task': task['name']});
+  }
+  await pumpUntil(
+    tester,
+    () async => !(await theProjectsTasksOnTheHost()).any(attended),
+    timeout: const Duration(minutes: 2),
+    what: 'the attended agents on ${repositories.join(', ')} to stop',
+  );
+}
+
 /// Notes the project's running tasks on the host, so [theTasksStartedSince] leaves them out.
 Future<void> noteTheHostsTasks() async => Rehearsal.tasksBefore = {
   for (final task in await theProjectsTasksOnTheHost())
@@ -284,12 +302,13 @@ Finder theTileOf(String task) => find.byWidgetPredicate(
       RegExp('^tile .* ${RegExp.escape(task)}\$').hasMatch((w.key! as ValueKey<String>).value),
 );
 
-/// The row of [task] under *Needs you*.
-Finder theRowOf(String task) => find.byWidgetPredicate(
+/// The row of [task]'s push at the gate under *Needs you*: work that ended and pushed has a row for its end as well,
+/// listed first, and that row opens the task under *Work*.
+Finder theGateRowOf(String task) => find.byWidgetPredicate(
   (w) =>
       w.key is ValueKey<String> &&
-      // `attention-row <kind> <machine>/<task>`: one row per cause, such as `gate` for a push at the gate.
-      RegExp('^attention-row [a-z]+ .*/${RegExp.escape(task)}\$').hasMatch((w.key! as ValueKey<String>).value),
+      // `attention-row <cause> <machine>/<task>`: one row per cause, `gate` for a push at the gate.
+      RegExp('^attention-row gate .*/${RegExp.escape(task)}\$').hasMatch((w.key! as ValueKey<String>).value),
 );
 
 /// What the widgets under [of] say, joined.

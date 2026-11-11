@@ -7,27 +7,16 @@ import '../support/rehearsal.dart';
 
 /// Usage: I review that work at the gate
 Future<void> iReviewThatWorkAtTheGate(WidgetTester tester) => pictured(tester, () async {
-  // Waiting work is answered under Needs you, from its row there.
-  final tile = theRowOf(Rehearsal.waitingTask!);
+  // A push at the gate is answered under Needs you, from its own row; never from the row of the work's end, whose
+  // tap opens the task under Work instead.
+  final row = theGateRowOf(Rehearsal.waitingTask!);
+  final review = find.descendant(of: row, matching: find.byKey(const Key('gate-review')));
   await toThePlace(tester, 'attention');
   await pumpUntil(
     tester,
-    () => tile.evaluate().isNotEmpty,
+    () => review.evaluate().isNotEmpty && tester.widget<ButtonStyleButton>(review.first).onPressed != null,
     timeout: const Duration(minutes: 2),
-    what: 'the row of ${Rehearsal.waitingTask} under Needs you',
-  );
-  await tester.ensureVisible(tile.first);
-  final review = find.descendant(of: tile.first, matching: find.text('Review at the gate'));
-  if (review.evaluate().isEmpty) {
-    // Folded, the row shows its work alone; unfolded, its answers.
-    await tester.tap(tile.first);
-    await pumpFor(tester);
-  }
-  await pumpUntil(
-    tester,
-    () => review.evaluate().isNotEmpty,
-    timeout: const Duration(minutes: 2),
-    what: 'its review to be offered',
+    what: 'the review of ${Rehearsal.waitingTask} offered on its row under Needs you',
   );
   await tester.ensureVisible(review.first);
   await tester.tap(review.first);

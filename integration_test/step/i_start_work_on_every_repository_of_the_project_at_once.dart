@@ -13,6 +13,8 @@ Future<void> iStartWorkOnEveryRepositoryOfTheProjectAtOnce(WidgetTester tester) 
       case final why?) {
     return notRunBecause('the project menu holds back a start for every repository: $why');
   }
+  // Isolated from the scenarios before it: an agent one of them left running would pass for this batch's start.
+  await stopTheAttendedAgentsOn(tester, await theCarriedRepositoriesOnceSaid(tester));
   await chooseFromTheMenu(tester, find.byKey(const Key('project-menu')), 'Start an agent for each repository…');
   // Which repositories, then the sign-ins, each held until the machine has answered; then the check and Start.
   final next = find.byKey(const Key('wizard-next'));
