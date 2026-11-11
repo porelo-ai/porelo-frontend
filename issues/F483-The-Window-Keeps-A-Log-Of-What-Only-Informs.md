@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F483",
   "title": "The Window Keeps A Log Of What Only Informs",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "M",
   "priority": "High",
   "rank": 5,
