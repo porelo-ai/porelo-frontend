@@ -343,7 +343,7 @@ class FleetModel extends ChangeNotifier {
     if (!onItsOwn) _askedTry = true;
     _reachability = Reachability.connecting;
     _listRead = false;
-    _say('Connecting to ${backend.label}.', LogLevel.debug);
+    _say('Connecting to ${backend.label}.', LogLevel.debug, onItsOwn);
     try {
       final held = onItsOwn ? mayPrepareOnItsOwn?.call() : null;
       final transportRefusal = held ?? await prepareConnection?.call();
@@ -353,7 +353,7 @@ class FleetModel extends ChangeNotifier {
       _retry?.cancel();
       _reachability = Reachability.connected;
       _answered = true;
-      _say('Connected to ${backend.label}, ${info.product} ${info.version}.', LogLevel.info);
+      _say('Connected to ${backend.label}, ${info.product} ${info.version}.', LogLevel.info, onItsOwn);
       // Whatever its watches said before is asked again on this connection.
       pullRequests.reconnected();
       await _readOnce();
@@ -371,11 +371,12 @@ class FleetModel extends ChangeNotifier {
             ? '$hostState: ${backend.label}. Daemon unavailable: ${ex.message}'
             : 'Cannot reach ${backend.label}: ${ex.message}',
         LogLevel.warn,
+        onItsOwn,
       );
       _tryAgainLater();
     } on StateError catch (ex) {
       _reachability = Reachability.incompatible;
-      _say(ex.message, LogLevel.warn);
+      _say(ex.message, LogLevel.warn, onItsOwn);
     }
   }
 
@@ -423,7 +424,7 @@ class FleetModel extends ChangeNotifier {
   /// Stops a task, keeping it: its container is its workspace, and removing is [removeWork].
   Future<void> stopWork(String task) async {
     await _acting(about: task, () async {
-      _say(stopWords(task, await backend.stopTask(task)), LogLevel.info);
+      _sayStopped(task, await backend.stopTask(task));
       await _readOnce();
     });
   }
@@ -435,7 +436,7 @@ class FleetModel extends ChangeNotifier {
   Future<void> removeWork(String task, {bool rescue = false, bool force = false}) async {
     await _acting(about: task, () async {
       final result = await backend.removeTask(task, rescue: rescue ? true : null, force: force ? true : null);
-      _say(removeWords(task, result), LogLevel.info);
+      _say(removeWords(task, result), result.removed ? LogLevel.info : LogLevel.warn);
       _refusal = result.removed ? null : Refusal(task: task, result: result);
       if (result.removed) onRemoved?.call(task);
       await _readOnce();
@@ -472,10 +473,10 @@ class FleetModel extends ChangeNotifier {
     var cleared = false;
     await _acting(about: task, () async {
       if (_tasks.any((each) => each.name == task && each.running)) {
-        _say(stopWords(task, await backend.stopTask(task)), LogLevel.info);
+        _sayStopped(task, await backend.stopTask(task));
       }
       final removed = await backend.removeTask(task);
-      _say(removeWords(task, removed), LogLevel.info);
+      _say(removeWords(task, removed), removed.removed ? LogLevel.info : LogLevel.warn);
       _refusal = removed.removed ? null : Refusal(task: task, result: removed);
       cleared = removed.removed;
       await _readOnce();
@@ -489,14 +490,8 @@ class FleetModel extends ChangeNotifier {
     if (file == null || task.task.isEmpty) return;
     final repository = projectOf(task)?.repositoryOf(task);
     await _acting(about: task.name, () async {
-      _say(
-        startWords(
-          task.name,
-          await backend.startAgain(project: file, task: task.task, repository: repository),
-          afterARestart: task.takenDownByARestart,
-        ),
-        LogLevel.info,
-      );
+      final started = await backend.startAgain(project: file, task: task.task, repository: repository);
+      _say(startWords(task.name, started, afterARestart: task.takenDownByARestart), _startLevel(started));
       await _readOnce();
     });
   }
@@ -687,16 +682,33 @@ class FleetModel extends ChangeNotifier {
   /// Says something in the status line, for an action that happened elsewhere.
   void say(String words) => _say(words);
 
+  /// Says what a stop did: at WARN unless it stopped the task and left nothing running.
+  void _sayStopped(String task, Stopped result) {
+    final clean = result.outcome == Outcome.stopped && (result.surviving ?? 0) == 0 && result.survivors.isEmpty;
+    _say(stopWords(task, result), clean ? LogLevel.info : LogLevel.warn);
+  }
+
+  /// INFO for a start that worked or found the task running, WARN for a failure, a refusal or a partial start.
+  static LogLevel _startLevel(StartProgress result) {
+    final started = result.helpersStarted;
+    final recorded = result.helpersRecorded;
+    return switch (result.action) {
+      null => (result.exitCode ?? 0) == 0 ? LogLevel.info : LogLevel.warn,
+      StartAction.resume when started != null && recorded != null && started < recorded => LogLevel.warn,
+      StartAction.resume || StartAction.create || StartAction.running => LogLevel.info,
+      _ => LogLevel.warn,
+    };
+  }
+
   /// Puts [status] on the status line and, at [level] where one is given, into the window's log.
   ///
-  /// The same words again are not logged again until something else was: a machine that stays unreachable is tried
-  /// every few seconds, and its log would hold nothing else.
-  void _say(String status, [LogLevel? level]) {
+  /// A line of a try nobody asked for ([onItsOwn]) is not logged in the same words as the last one: a machine that
+  /// stays unreachable is tried every few seconds, and its log would hold nothing else. What a person asked for is
+  /// logged every time.
+  void _say(String status, [LogLevel? level, bool onItsOwn = false]) {
     _status = status;
-    if (level == LogLevel.debug) {
-      windowLog.debug(status, machine: machine);
-    } else if (level != null && status != _lastLogged) {
-      _lastLogged = status;
+    if (level != null && !(onItsOwn && status == _lastLogged)) {
+      if (level != LogLevel.debug) _lastLogged = status;
       windowLog.write(level, status, machine: machine);
     }
     _notify();
