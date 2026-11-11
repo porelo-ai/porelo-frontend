@@ -28,7 +28,7 @@ void main() {
   }
 
   /// The window's starts and reports as they stand after a start of the window on [settings].
-  (WindowTaskStarts, WindowTaskReports) window({Machine on = _laptop, Settings? kept}) {
+  (WindowTaskStarts, WindowTaskReports) window({Machine on = _laptop, Settings? kept, bool Function()? reached}) {
     final starts = WindowTaskStarts(
       machineFor: (_) => on,
       backendOf: (_) => machine,
@@ -39,7 +39,7 @@ void main() {
     final reports = WindowTaskReports(
       settings: kept ?? settings,
       starts: starts,
-      sourceNamed: (name) => name == _provider ? planner : null,
+      sourceNamed: (name) => name == _provider && (reached?.call() ?? true) ? planner : null,
       tasksOn: (name) => name == on.name ? machine.listed : null,
       stopOn: (machine, container) async => stopped.add((machine, container)),
     );
@@ -121,6 +121,29 @@ void main() {
       'answer': 'Outcome: blocked.',
       'unpushed': 2,
     });
+  });
+
+  // Harm: a planner not reached floods the window with the same line on every change of a machine, or its reports
+  // are never sent once it answers.
+  test('a planner not reached is said once, and the report goes once it is reached', () async {
+    var reached = false;
+    final (starts, reports) = window(reached: () => reached);
+    final problems = <String>[];
+    reports.onProblem = (provider, project, error) => problems.add(planningFailureWords(error));
+
+    await starts(planner, 'demo', 'ST291', (await plannedOrders()).first);
+    await reports.idle;
+    for (var change = 0; change < 3; change++) {
+      reports.sweep();
+      await reports.idle;
+    }
+    expect(planner.calls, isEmpty);
+    reached = true;
+    reports.sweep();
+    await reports.idle;
+
+    expect(problems, hasLength(1));
+    expect(planner.calls.map((call) => call.event), [PlanningTaskEvent.started]);
   });
 
   // Harm: an end that was there before the task started again is reported as this run's end.

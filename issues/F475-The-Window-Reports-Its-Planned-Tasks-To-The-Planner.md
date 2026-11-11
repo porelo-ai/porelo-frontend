@@ -54,7 +54,7 @@ while a run ended.
   answer, `unpushed`). It looks at the kept offers whenever a machine or the planner changes. A machine name the planner
   must refuse is refused before any call. `TaskNotAnswered` stops the task, forgets its offer and is never sent again;
   another refusal is said on the project's board (the window's status line where no board is open) and not sent again
-  in that window's life; a planner not reached is tried again on the next change. The answer's follow-up orders start
+  in that window's life; a planner not reached is said once and tried again on the next change. The answer's follow-up orders start
   through `WindowTaskStarts` once each, a refused one stopping the rest, and show as the screen's own starts do. `stop`
   stops each task on the machine it was started on, reports nothing and forgets the offer.
 - `lib/src/app/planner.dart`: `LocalPlanner.taskEvent` routes to the window's reports, which take it only for an offer

@@ -90,6 +90,10 @@ class WindowTaskReports {
   bool _sweepWaiting = false;
   bool _olderSaid = false;
 
+  /// Whether a planner not reached was said since the last report that went through, so it is said once, not on every
+  /// change of a machine.
+  bool _unreachedSaid = false;
+
   /// Reports refused for good in this window's life, so a refusal is not sent again on every change of the machine.
   final _refused = <(String, String, String)>{};
 
@@ -216,6 +220,7 @@ class WindowTaskReports {
       _refused.add(attempt);
       rethrow;
     }
+    _unreachedSaid = false;
     await settings.planningOfferReported(
       kept.machine,
       kept.container,
@@ -269,6 +274,10 @@ class WindowTaskReports {
     try {
       await report();
     } on Object catch (error) {
+      if (error is PlanningRefusal && _transient(error)) {
+        if (_unreachedSaid) return;
+        _unreachedSaid = true;
+      }
       _say(kept.provider, kept.project, error);
     }
   }
