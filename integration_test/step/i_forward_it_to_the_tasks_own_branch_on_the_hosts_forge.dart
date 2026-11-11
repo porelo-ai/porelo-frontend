@@ -9,7 +9,7 @@ import '../support/remote.dart';
 Future<void> iForwardItToTheTasksOwnBranchOnTheHostsForge(WidgetTester tester) => pictured(tester, () async {
   // The task's builds are the runs of its own forge branch, as the host names it; a forward elsewhere is the person's
   // push and builds nothing of the task's.
-  final short = Rehearsal.waitingTask!.replaceFirst('porelo-${Rehearsal.project}-', '');
+  final short = Rehearsal.waitingTask!.replaceFirst(RegExp('^porelo-${RegExp.escape(Rehearsal.project)}[-_]'), '');
   final named = await onTheTestMachine(
     'porelo task status "$short" 2>&1 | awk \'\$1 == "forge" { print \$2 }\' || true',
   );

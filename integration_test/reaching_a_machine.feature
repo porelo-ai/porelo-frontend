@@ -123,16 +123,16 @@ Feature: Reaching a real machine, reading it, and working in a project
         Given the test machine is being watched
         And the test machine has an open vault
         And the test machine has a task {'e2e-talk'} with a message held for {'reviewer'} saying {'look at **this** https://evil.example/x'}
-        Then the interface shows a message held in {'porelo-e2e-talk-e2e-talk'}
+        Then the interface shows a message held in {'porelo-e2e-talk_e2e-talk'}
         And the interface says {'you wrote, going out through'}
         When I read it and refuse it from the interface, saying {'not before the tests pass'}
         Then the message read as {'look at **this** https://evil.example/x'}
         And the interface says {'Refused for good. The task that wrote it is told, with your words.'}
         And the machine lists that message as refused by a person
-        And the inbox of {'porelo-e2e-talk-e2e-talk'} holds {'not before the tests pass'}
-        When I write {'stop, the schema changed'} to the agent of {'porelo-e2e-talk-e2e-talk'} from the interface
-        Then the inbox of {'porelo-e2e-talk-e2e-talk'} holds {'stop, the schema changed'} from a person
-        And the task {'porelo-e2e-talk-e2e-talk'} and the project {'e2e-talk'} are removed again
+        And the inbox of {'porelo-e2e-talk_e2e-talk'} holds {'not before the tests pass'}
+        When I write {'stop, the schema changed'} to the agent of {'porelo-e2e-talk_e2e-talk'} from the interface
+        Then the inbox of {'porelo-e2e-talk_e2e-talk'} holds {'stop, the schema changed'} from a person
+        And the task {'porelo-e2e-talk_e2e-talk'} and the project {'e2e-talk'} are removed again
 
     # What a console can do with a destination, the interface can - checked by the machine first.
     Scenario: a destination is checked by the machine, written from the interface, and removed again

@@ -18,7 +18,7 @@ Future<void> itsLogShowsWhatItsAgentWrote(WidgetTester tester) async {
   }
   // A row is folded until it is opened, and reads nothing until then. One past the window's edge is not
   // drawn at all, so it is scrolled to.
-  final fold = find.byKey(const ValueKey<String>('tile-fold $refusedTask'));
+  final fold = find.byKey(ValueKey<String>('tile-fold $refusedTask'));
   final page = find.descendant(of: find.byKey(const Key('work-page')), matching: find.byType(Scrollable));
   await pumpUntil(
     tester,

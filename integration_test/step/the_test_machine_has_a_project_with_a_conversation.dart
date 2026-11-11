@@ -17,15 +17,15 @@ Future<void> theTestMachineHasAProjectWithAConversation(WidgetTester tester, Str
     return;
   }
   removeAfterwards(
-    remove: removingTheWork('porelo-$name-write', name),
+    remove: removingTheWork(containerOf(name, 'write'), name),
     leftOver: listingTheWork,
-    names: <String>['porelo-$name-write'],
+    names: <String>[containerOf(name, 'write')],
   );
   await onTheTestMachine('''
 set -eu
 PATH="\$HOME/.local/bin:\$PATH"
-porelo task stop porelo-$name-write >/dev/null 2>&1 || true
-porelo task remove porelo-$name-write >/dev/null 2>&1 || true
+porelo task stop ${containerOf(name, 'write')} >/dev/null 2>&1 || true
+porelo task remove ${containerOf(name, 'write')} >/dev/null 2>&1 || true
 porelo project remove $name >/dev/null 2>&1 || true
 ${removingTheProjectFiles(name)}
 repo="\$HOME/$name"; git init -q --bare -b main "\$repo-backend.git"

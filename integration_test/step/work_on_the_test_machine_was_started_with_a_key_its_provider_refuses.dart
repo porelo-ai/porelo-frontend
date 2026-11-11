@@ -7,7 +7,7 @@ import '../support/remote.dart';
 const refusedByItsProvider = 'e2e-ended';
 
 /// The task the machine makes of it.
-const refusedTask = 'porelo-$refusedByItsProvider-ended';
+final refusedTask = containerOf(refusedByItsProvider, 'ended');
 
 /// Usage: work on the test machine was started with a key {'anthropic'} its provider refuses
 ///

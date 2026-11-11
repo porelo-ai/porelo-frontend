@@ -89,6 +89,10 @@ void removeAfterwards({required String remove, required String leftOver, require
 
 /// What removes a task and its project, whichever is still there: tolerant, since the scenario's own
 /// step may have removed them already.
+/// The container Porelo makes for task [task] of [project]: `porelo-<task>` in project `porelo`, otherwise
+/// `porelo-<project>_<task>`. The test projects set no short spelling.
+String containerOf(String project, String task) => project == 'porelo' ? 'porelo-$task' : 'porelo-${project}_$task';
+
 String removingTheWork(String task, String project) =>
     '''
 porelo task stop "$task" >/dev/null 2>&1 || true

@@ -215,16 +215,16 @@ void main() {
         'reviewer',
         'look at **this** https://evil.example/x',
       );
-      await theInterfaceShowsAMessageHeldIn(tester, 'porelo-e2e-talk-e2e-talk');
+      await theInterfaceShowsAMessageHeldIn(tester, 'porelo-e2e-talk_e2e-talk');
       await theInterfaceSays(tester, 'you wrote, going out through');
       await iReadItAndRefuseItFromTheInterfaceSaying(tester, 'not before the tests pass');
       await theMessageReadAs(tester, 'look at **this** https://evil.example/x');
       await theInterfaceSays(tester, 'Refused for good. The task that wrote it is told, with your words.');
       await theMachineListsThatMessageAsRefusedByAPerson(tester);
-      await theInboxOfHolds(tester, 'porelo-e2e-talk-e2e-talk', 'not before the tests pass');
-      await iWriteToTheAgentOfFromTheInterface(tester, 'stop, the schema changed', 'porelo-e2e-talk-e2e-talk');
-      await theInboxOfHoldsFromAPerson(tester, 'porelo-e2e-talk-e2e-talk', 'stop, the schema changed');
-      await theTaskAndTheProjectAreRemovedAgain(tester, 'porelo-e2e-talk-e2e-talk', 'e2e-talk');
+      await theInboxOfHolds(tester, 'porelo-e2e-talk_e2e-talk', 'not before the tests pass');
+      await iWriteToTheAgentOfFromTheInterface(tester, 'stop, the schema changed', 'porelo-e2e-talk_e2e-talk');
+      await theInboxOfHoldsFromAPerson(tester, 'porelo-e2e-talk_e2e-talk', 'stop, the schema changed');
+      await theTaskAndTheProjectAreRemovedAgain(tester, 'porelo-e2e-talk_e2e-talk', 'e2e-talk');
     });
     testWidgets('''a destination is checked by the machine, written from the interface, and removed again''', (
       tester,

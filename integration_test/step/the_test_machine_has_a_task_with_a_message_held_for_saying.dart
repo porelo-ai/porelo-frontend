@@ -18,16 +18,16 @@ Future<void> theTestMachineHasATaskWithAMessageHeldForSaying(
   // would have no peers to hold a message for.
   expect(await matrixInTheAccount(), isTrue, reason: 'the Matrix transport could not be installed');
   removeAfterwards(
-    remove: removingTheWork('porelo-$name-$name', name),
+    remove: removingTheWork(containerOf(name, name), name),
     leftOver: listingTheWork,
-    names: <String>['porelo-$name-$name'],
+    names: <String>[containerOf(name, name)],
   );
   theHeldMessage = await onTheTestMachine('''
 \$unpackPorelo
 set -eu
 PATH="\$HOME/.local/bin:\$PATH"
 repo="\$HOME/$name"
-task="porelo-$name-$name"
+task="${containerOf(name, name)}"
 porelo task stop "\$task" >/dev/null 2>&1 || true
 porelo task remove "\$task" >/dev/null 2>&1 || true
 porelo project remove "$name" >/dev/null 2>&1 || true

@@ -8,11 +8,11 @@ Future<void> theWorkStartedWithoutIsRemovedAgain(WidgetTester tester, String ent
   await onTheTestMachine('''
 PATH="\$HOME/.local/bin:\$PATH"
 set -e
-porelo task remove --force porelo-$refusedProject-auth >/dev/null
+porelo task remove --force ${containerOf(refusedProject, 'auth')} >/dev/null
 porelo project remove $refusedProject >/dev/null
 ${removingTheProjectFiles(refusedProject)}
 rm -f "\${XDG_DATA_HOME:-\$HOME/.local/share}/porelo/destinations/e2e-api.yaml"
 ''');
   final left = await onTheTestMachine('PATH="\$HOME/.local/bin:\$PATH"; porelo task list');
-  expect(left, isNot(contains('porelo-$refusedProject-auth')));
+  expect(left, isNot(contains(containerOf(refusedProject, 'auth'))));
 }
