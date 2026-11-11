@@ -64,6 +64,18 @@ void main() {
     expect(lines('frontend.log.3').first, contains('entry 8 '), reason: 'the oldest kept is the one three files back');
   });
 
+  // Harm: a second window writes to the same file and starts a new one; the first, counting only its own lines,
+  // would start yet another too early and delete the oldest file kept.
+  test('a file another writer started anew is not rotated early', () {
+    final log = WindowLog(logs(), clock: () => at, maxBytes: 100, keepPrivate: (_) async {});
+    log.info('first ${'x' * 30}');
+    File('${logs()}/${WindowLog.fileName}').renameSync('${logs()}/${WindowLog.fileName}.1');
+    File('${logs()}/${WindowLog.fileName}').writeAsStringSync('');
+    log.info('second ${'x' * 30}');
+    expect(lines(), hasLength(1), reason: 'the new file takes the line');
+    expect(File('${logs()}/${WindowLog.fileName}.2').existsSync(), isFalse, reason: 'nothing was rotated');
+  });
+
   // Harm: a log that cannot be written stops the window, or says so on every line until the terminal is unreadable.
   test('a directory that cannot be written is said once, and the window goes on', () {
     File('${scratch.path}/blocked').writeAsStringSync('a file where the directory should be');

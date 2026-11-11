@@ -108,8 +108,13 @@ class WindowLog {
     try {
       _prepare(folder);
       final bytes = utf8.encode(line).length;
-      if (_size > 0 && _size + bytes > maxBytes) _rotate(folder);
-      File('$folder/$fileName').writeAsStringSync(line, mode: FileMode.append);
+      final file = File('$folder/$fileName');
+      if (_size + bytes > maxBytes) {
+        // Another window may have written to it, or started it anew: its own length decides, not this count.
+        _size = file.existsSync() ? file.lengthSync() : 0;
+        if (_size > 0 && _size + bytes > maxBytes) _rotate(folder);
+      }
+      file.writeAsStringSync(line, mode: FileMode.append);
       _size += bytes;
     } on FileSystemException catch (failure) {
       _ready = false;
