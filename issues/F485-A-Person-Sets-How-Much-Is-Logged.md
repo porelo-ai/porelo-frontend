@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F485",
   "title": "A Person Sets How Much Is Logged",
-  "state": "Idea",
+  "state": "Backlog",
   "size": "S",
   "priority": "High",
   "rank": 7,
