@@ -201,7 +201,8 @@ socket=$(as_the_person_on_vm "ssh -x -o BatchMode=yes '$host' 'printf /run/user/
 
 # porelod on the VM checks the organization with the agent its user service was given, which on the VM is not the
 # person's. For the run it is given the forwarded one: a session of the person's held open, its agent named at a
-# path of the run's, and porelod restarted on it; put back as it was on every ending.
+# path of the run's, and porelod restarted on it; put back as it was on every ending. porelod's own environment
+# cannot be read (it makes itself undumpable), so the fresh read of the organization below is the proof it holds.
 as_the_person_on_vm "echo \$\$ >~/$run/agent.pid && ln -sfn \"\$SSH_AUTH_SOCK\" ~/$run/agent.sock && exec sleep infinity" </dev/null >/dev/null 2>&1 &
 holder=$!
 on_vm "for _ in \$(seq 50); do [ -S ~/$run/agent.sock ] && exit 0; sleep 0.2; done; exit 1" || {
@@ -213,8 +214,8 @@ shaped 'porelod agent' "$agent_before" '/[A-Za-z0-9/._-]*'
 pointed=yes
 on_vm "set -e; systemctl --user set-environment SSH_AUTH_SOCK=\$HOME/$run/agent.sock; systemctl --user restart porelod
     for _ in \$(seq 50); do [ -S /run/user/\$(id -u)/porelo/porelod.sock ] && break; sleep 0.2; done
-    pid=\$(systemctl --user show -p MainPID --value porelod)
-    tr '\\0' '\\n' </proc/\$pid/environ | grep -qx \"SSH_AUTH_SOCK=\$HOME/$run/agent.sock\"" || {
+    systemctl --user is-active --quiet porelod
+    systemctl --user show-environment | grep -qx \"SSH_AUTH_SOCK=\$HOME/$run/agent.sock\"" || {
     echo "rehearse: porelod on $vm could not be started on the person's agent" >&2
     exit 1
 }
