@@ -136,5 +136,13 @@ class _Unreached extends ChangeNotifier implements PlanningClient, PlanningReach
   String? get chosenProject => null;
 
   @override
-  Future<void> taskEvent(String project, String task, PlanningTaskEvent event) async {}
+  Future<void> taskEvent(
+    String project,
+    String task,
+    PlanningTaskEvent event, {
+    required String offer,
+    required String container,
+    required String machine,
+    PlanningTaskEnded? ended,
+  }) async {}
 }

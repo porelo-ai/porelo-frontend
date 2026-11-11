@@ -23,6 +23,7 @@ PlanningScreen planningView({
     whyNot: taskUnavailable,
     opening: onTask,
     onStarted: onStarted ?? (_, _, _, _) async {},
+    onStop: (_, _, _, _) async {},
   ),
   agents: const BackendAgents(),
 );

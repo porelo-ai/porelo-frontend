@@ -4173,6 +4173,7 @@ class _ShellState extends State<Shell> {
             whyNot: _planningTaskUnavailable,
             opening: _openPlanningTask,
             onStarted: _storyWorkStarted,
+            onStop: (_, _, _, _) async {},
           ),
           agents: MachinePlanningAgents(widget.machines, planning.client),
         ),

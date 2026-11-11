@@ -202,7 +202,7 @@ class ShellPlanningHost implements PlanningHost {
 /// What the planning screen shows of a run, answered by the window's own task list.
 class WindowTaskChanges implements PlanningTaskChanges {
   /// Takes the window's answers.
-  const WindowTaskChanges({required this.whyNot, required this.opening, required this.onStarted});
+  const WindowTaskChanges({required this.whyNot, required this.opening, required this.onStarted, required this.onStop});
 
   /// Why a task cannot be opened now.
   final String? Function(PlanningBoard, String) whyNot;
@@ -219,6 +219,10 @@ class WindowTaskChanges implements PlanningTaskChanges {
   )
   onStarted;
 
+  /// Stops tasks the planner no longer answers for, reporting nothing.
+  final Future<void> Function(PlanningSource source, String project, String story, List<PlanningTaskStarted> tasks)
+  onStop;
+
   @override
   String? unavailable(PlanningBoard board, String task) => whyNot(board, task);
 
@@ -232,6 +236,10 @@ class WindowTaskChanges implements PlanningTaskChanges {
     String story,
     List<(PlanningTaskOrder, PlanningTaskStarted)> tasks,
   ) => onStarted(source, project, story, tasks);
+
+  @override
+  Future<void> stop(PlanningSource source, String project, String story, List<PlanningTaskStarted> tasks) =>
+      onStop(source, project, story, tasks);
 }
 
 /// The agents the machine of a provider offers a start, shown as the window's start shows them.

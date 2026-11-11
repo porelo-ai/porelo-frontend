@@ -10,6 +10,7 @@ import 'package:porelo_planning/porelo_planning.dart'
         PlanningClient,
         PlanningProvider,
         PlanningRefusal,
+        PlanningTaskEnded,
         PlanningTaskEvent;
 
 import '../client/models.dart' show Project, defaultProject;
@@ -217,9 +218,17 @@ class LocalPlanner extends ChangeNotifier implements PlanningClient, PlanningRea
   @override
   String? get chosenProject => _chosen?.call();
 
-  /// Nothing to tell: the planner takes no report of the window's tasks.
+  /// Nothing told yet: the window reports none of its tasks so far.
   @override
-  Future<void> taskEvent(String project, String task, PlanningTaskEvent event) async {}
+  Future<void> taskEvent(
+    String project,
+    String task,
+    PlanningTaskEvent event, {
+    required String offer,
+    required String container,
+    required String machine,
+    PlanningTaskEnded? ended,
+  }) async {}
 
   @override
   void dispose() {

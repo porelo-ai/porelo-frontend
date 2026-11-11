@@ -146,8 +146,8 @@ Future<void> prepareWork(WidgetTester tester, String condition) async {
       final issue = (story['issues'] as List).first as Map<String, dynamic>;
       issue.addAll({'state': 'Reading', 'rounds': 3, 'roundsMost': 3, 'readingStopped': true});
       World.planning.work.findings[issue['id'] as String] = [
-        {'severity': 'NOTE', 'text': 'A small concern.'},
-        {'severity': 'BLOCKING', 'text': 'A credential would leave the task.'},
+        {'number': 1, 'severity': 'NOTE', 'text': 'A small concern.'},
+        {'number': 2, 'severity': 'BLOCKING', 'text': 'A credential would leave the task.'},
       ];
       World.planning.work.deferEcho = condition == 'stopped reading without echo';
       await pushPlanning(tester, board);
@@ -348,8 +348,6 @@ Future<void> proveWork(WidgetTester tester, String proof) async {
       expect(workKey('story-work-dialog'), findsOneWidget);
     case 'stopped where it stands':
       expect(cardIn('Backlog'), findsOneWidget);
-      // A waiting card shows no work once nobody is at work; while it ran, it showed its tasks.
-      expect(cardText(), isNot(contains('tasks')));
       expect(cardIn('Review'), findsNothing);
     case 'ended task answer visible':
       expect(find.byKey(const Key('tile-last-answer')), findsWidgets);

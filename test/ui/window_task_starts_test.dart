@@ -161,7 +161,7 @@ Future<List<PlanningTaskOrder>> plannedOrders() async {
       'tasks': [
         for (final (index, task) in served.tasks.indexed)
           {
-            'offer': 'offer-$index',
+            'offer': '00000000-0000-4000-8000-${'$index'.padLeft(12, '0')}',
             'repository': task.repository,
             'issues': task.issues,
             'role': task.role,
