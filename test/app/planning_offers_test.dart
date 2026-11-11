@@ -65,4 +65,63 @@ void main() {
       expect(settings.planningOffer(machine, container), isNull, reason: '$container is no readable entry');
     }
   });
+
+  // Harm: an end is reported for another project or task than the one started, or a restart loses what a report needs
+  // and so reports an end twice or never.
+  test('an offer keeps its provider, project, story, task and what was reported of it, across a restart', () async {
+    final store = MemorySettingsStore();
+    final settings = await loaded(store);
+    await settings.rememberPlanningOffer(
+      machine: 'laptop',
+      container: 'porelo-demo-st1',
+      offer: 'offer-1',
+      provider: 'porelo-planner',
+      project: 'demo',
+      story: 'ST1',
+      task: 'main',
+      ended: 'an end before the start',
+    );
+
+    await settings.planningOfferReported('laptop', 'porelo-demo-st1', started: true);
+    await settings.planningOfferReported('laptop', 'porelo-demo-st1', ended: 'the end reported');
+
+    final kept = (await loaded(store)).plannedOffer('laptop', 'porelo-demo-st1')!;
+    expect(
+      (kept.offer, kept.provider, kept.project, kept.story, kept.task, kept.reportable),
+      ('offer-1', 'porelo-planner', 'demo', 'ST1', 'main', true),
+    );
+    expect(kept.startedReported, isTrue);
+    expect(kept.ended, 'the end reported');
+  });
+
+  // Harm: an entry an earlier build kept breaks the load or is lost, or is reported with names guessed for it.
+  test('an older entry without project and task loads and is kept, but cannot be reported', () async {
+    final store = MemorySettingsStore({
+      'planningOffers': [
+        {'machine': 'laptop', 'container': 'porelo-demo-st1', 'offer': 'offer-1'},
+      ],
+    });
+    final settings = await loaded(store);
+
+    expect(settings.planningOffer('laptop', 'porelo-demo-st1'), 'offer-1');
+    expect(settings.plannedOffer('laptop', 'porelo-demo-st1')!.reportable, isFalse);
+    await settings.rememberPlanningOffer(machine: 'laptop', container: 'porelo-demo-st2', offer: 'offer-2');
+
+    final again = await loaded(store);
+    expect(again.planningOffer('laptop', 'porelo-demo-st1'), 'offer-1', reason: 'a later write keeps it');
+    expect(again.plannedOffer('laptop', 'porelo-demo-st1')!.reportable, isFalse);
+  });
+
+  // Harm: a follow-up task the planner offered is started twice, after a retry or a restart of the window.
+  test('an offer handed to Start stays handed across a restart', () async {
+    final store = MemorySettingsStore();
+    final settings = await loaded(store);
+    expect(settings.planningOfferHanded('offer-1'), isFalse);
+
+    await settings.handPlanningOffer('offer-1');
+
+    final again = await loaded(store);
+    expect(again.planningOfferHanded('offer-1'), isTrue);
+    expect(again.planningOfferHanded('offer-2'), isFalse);
+  });
 }

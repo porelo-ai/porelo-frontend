@@ -23,6 +23,63 @@ bool _sameStored(Object? left, Object? right) {
   return left == right;
 }
 
+/// A task this window started for a planner's offer, kept by its machine and container with what a report needs.
+@immutable
+class PlannedOffer {
+  /// Takes what is kept; an entry an earlier build kept has no provider, project, story or task.
+  const PlannedOffer({
+    required this.machine,
+    required this.container,
+    required this.offer,
+    this.provider,
+    this.project,
+    this.story,
+    this.task,
+    this.startedReported = false,
+    this.ended,
+  });
+
+  /// The machine's name, as the window shows it.
+  final String machine;
+
+  /// The container Start made.
+  final String container;
+
+  /// The planner's offer the task was started for.
+  final String offer;
+
+  /// The name of the provider of planning that gave the offer.
+  final String? provider;
+
+  /// The project and story the task was started for.
+  final String? project, story;
+
+  /// The task's name within the project, as the machine lists it.
+  final String? task;
+
+  /// Whether its start was reported.
+  final bool startedReported;
+
+  /// The end of its agent last reported, or seen when it started, as the window keys an end; null for none.
+  final String? ended;
+
+  /// Whether it can be reported: an earlier build kept no project or task for it.
+  bool get reportable => provider != null && project != null && story != null && task != null;
+
+  /// The same, with what was reported since.
+  PlannedOffer copyWith({bool? startedReported, String? ended}) => PlannedOffer(
+    machine: machine,
+    container: container,
+    offer: offer,
+    provider: provider,
+    project: project,
+    story: story,
+    task: task,
+    startedReported: startedReported ?? this.startedReported,
+    ended: ended ?? this.ended,
+  );
+}
+
 /// A validated rental identity and optional signed-state setup progress.
 @immutable
 class HostUpRecord {
@@ -659,16 +716,7 @@ class Settings extends ChangeNotifier {
         }
       }
     }
-    _planningOffers.clear();
-    if (stored['planningOffers'] case final List<dynamic> offers) {
-      for (final value in offers) {
-        if (value
-            case {'machine': final String machine, 'container': final String container, 'offer': final String offer}
-            when _validOffer(machine, container, offer)) {
-          _planningOffers[(machine, container)] = offer;
-        }
-      }
-    }
+    _readPlanningOffers(stored);
     if (draft is Map) _setupDraft = <String, Object?>{for (final e in draft.entries) '${e.key}': e.value};
     final folders = stored['tresorFolders'];
     _tresorFolders = <String, String>{};
@@ -836,21 +884,74 @@ class Settings extends ChangeNotifier {
       branch.trim() == branch &&
       !repository.contains('\x00');
 
-  final _planningOffers = <(String, String), String>{};
+  final _planningOffers = <(String, String), PlannedOffer>{};
+
+  /// The offers handed to Start, oldest first, so a follow-up is never started twice.
+  final _handedOffers = <String>{};
+
+  /// How many handed offers are kept: far more than a story's runs hand out between two restarts.
+  static const mostHandedOffers = 2000;
 
   /// The offer a planner gave a task this window started, by the machine and the container it runs in.
-  String? planningOffer(String machine, String container) => _planningOffers[(machine, container)];
+  String? planningOffer(String machine, String container) => _planningOffers[(machine, container)]?.offer;
 
-  /// Keeps [offer] beside the machine and container of the task started for it.
+  /// Every task this window started for a planner's offer and still keeps.
+  List<PlannedOffer> get plannedOffers => List.unmodifiable(_planningOffers.values);
+
+  /// Keeps [offer] beside the machine and container of the task started for it, with the provider, project, story and
+  /// task a report names, and the end its agent showed when it started ([ended]), which is no new end.
   Future<void> rememberPlanningOffer({
     required String machine,
     required String container,
     required String offer,
+    String? provider,
+    String? project,
+    String? story,
+    String? task,
+    String? ended,
   }) async {
     if (!_validOffer(machine, container, offer)) {
       throw ArgumentError('A machine, a container and an offer of at most 200 characters must be given.');
     }
-    _planningOffers[(machine, container)] = offer;
+    final named = [provider, project, story, task];
+    if (named.any((value) => value != null) && !named.every((value) => value != null && _validLabel(value))) {
+      throw ArgumentError('A provider, a project, a story and a task must all be given, or none.');
+    }
+    if (ended != null && !_validEnd(ended)) throw ArgumentError('An end must be a short line.');
+    _planningOffers[(machine, container)] = PlannedOffer(
+      machine: machine,
+      container: container,
+      offer: offer,
+      provider: provider,
+      project: project,
+      story: story,
+      task: task,
+      ended: ended,
+    );
+    await _write();
+  }
+
+  /// What is kept of the task in [container] on [machine] that this window started for a planner.
+  PlannedOffer? plannedOffer(String machine, String container) => _planningOffers[(machine, container)];
+
+  /// Notes what was reported of the task in [container] on [machine]: that it started, or the end last reported.
+  Future<void> planningOfferReported(String machine, String container, {bool? started, String? ended}) async {
+    final kept = _planningOffers[(machine, container)];
+    if (kept == null) return;
+    if (ended != null && !_validEnd(ended)) throw ArgumentError('An end must be a short line.');
+    _planningOffers[(machine, container)] = kept.copyWith(startedReported: started, ended: ended);
+    await _write();
+  }
+
+  /// Whether [offer] was handed to Start by this window, so it is never started again.
+  bool planningOfferHanded(String offer) => _handedOffers.contains(offer);
+
+  /// Notes that [offer] is handed to Start, before Start is asked.
+  Future<void> handPlanningOffer(String offer) async {
+    if (!_handedOffers.add(offer)) return;
+    while (_handedOffers.length > mostHandedOffers) {
+      _handedOffers.remove(_handedOffers.first);
+    }
     await _write();
   }
 
@@ -861,12 +962,66 @@ class Settings extends ChangeNotifier {
 
   // The planner sends an offer of at most 200 characters; a longer one was not written by this window.
   static bool _validOffer(String machine, String container, String offer) =>
-      [
-        machine,
-        container,
-        offer,
-      ].every((value) => value.trim().isNotEmpty && !value.contains(RegExp(r'[\x00-\x1f]'))) &&
-      offer.length <= 200;
+      [machine, container, offer].every(_validName) && offer.length <= 200;
+
+  static bool _validName(String value) => value.trim().isNotEmpty && !value.contains(RegExp(r'[\x00-\x1f]'));
+
+  // A provider, a project, a story and a task are short names; a longer one was not written by this window.
+  static bool _validLabel(String value) => _validName(value) && value.length <= 200;
+
+  static bool _validEnd(String value) => value.length <= 400 && !value.contains(RegExp(r'[\x00-\x1f]'));
+
+  void _readPlanningOffers(Map<String, Object?> stored) {
+    _planningOffers.clear();
+    if (stored['planningOffers'] case final List<dynamic> offers) {
+      for (final value in offers) {
+        if (value
+            case {'machine': final String machine, 'container': final String container, 'offer': final String offer}
+            when _validOffer(machine, container, offer)) {
+          final named = [
+            for (final key in ['provider', 'project', 'story', 'task']) value[key],
+          ];
+          final reportable = named.every((each) => each is String && _validLabel(each));
+          final ended = value['ended'];
+          _planningOffers[(machine, container)] = PlannedOffer(
+            machine: machine,
+            container: container,
+            offer: offer,
+            provider: reportable ? named[0] as String : null,
+            project: reportable ? named[1] as String : null,
+            story: reportable ? named[2] as String : null,
+            task: reportable ? named[3] as String : null,
+            startedReported: reportable && value['startedReported'] == true,
+            ended: reportable && ended is String && _validEnd(ended) ? ended : null,
+          );
+        }
+      }
+    }
+    _handedOffers.clear();
+    if (stored['planningOffersHanded'] case final List<dynamic> handed) {
+      _handedOffers.addAll(handed.whereType<String>().where(_validLabel));
+    }
+  }
+
+  Map<String, Object?> get _storedPlanningOffers => {
+    'planningOffers': [
+      for (final kept in _planningOffers.values)
+        {
+          'machine': kept.machine,
+          'container': kept.container,
+          'offer': kept.offer,
+          if (kept.reportable) ...{
+            'provider': kept.provider,
+            'project': kept.project,
+            'story': kept.story,
+            'task': kept.task,
+            'startedReported': kept.startedReported,
+            'ended': ?kept.ended,
+          },
+        },
+    ],
+    'planningOffersHanded': _handedOffers.toList(),
+  };
 
   String? _secretsFile;
 
@@ -1276,10 +1431,7 @@ class Settings extends ChangeNotifier {
       for (final MapEntry(key: (machine, project, repository, task), value: branch) in _forwardedBranches.entries)
         {'machine': machine, 'project': project, 'repository': repository, 'task': task, 'branch': branch},
     ],
-    'planningOffers': [
-      for (final MapEntry(key: (machine, container), value: offer) in _planningOffers.entries)
-        {'machine': machine, 'container': container, 'offer': offer},
-    ],
+    ..._storedPlanningOffers,
     'setupDraft': _setupDraft,
     'appearance': _appearance.name,
     'machines': _machines,
