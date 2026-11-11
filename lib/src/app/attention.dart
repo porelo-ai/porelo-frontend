@@ -279,7 +279,7 @@ class Attention extends ChangeNotifier {
     final row = _lastRows.remove(id);
     if (row == null) return;
     _readMessages.add(id);
-    _resolved[id] = ResolvedAttention(AttentionRow(row.kind, row.id, row.machine, row.value, read: read), _clock());
+    _resolve(AttentionRow(row.kind, row.id, row.machine, row.value, read: read));
     _changed();
   }
 
@@ -490,7 +490,7 @@ class Attention extends ChangeNotifier {
     }
     final ids = rows.map((row) => row.id).toSet();
     _readMessages.removeWhere((id) => !ids.contains(id));
-    final shown = _openRows;
+    final wasOpen = {for (final row in _openRows) row.id};
     _openRows = rows.where((row) => !_readMessages.contains(row.id)).toList();
     final open = {for (final row in _openRows) row.id: row};
     // A wait that ends became its question or went on, and a question that ran out has its own row: neither is
@@ -511,7 +511,7 @@ class Attention extends ChangeNotifier {
               (fleetOf(machine).reachability == Reachability.connected &&
                       (row.kind != AttentionKind.message || fleetOf(machine).mailboxes.problem == null) ||
                   row.kind == AttentionKind.silent && _seenMarks.contains(row.machine)));
-      if (resolved) _resolved[row.id] = ResolvedAttention(_asItEnded(row, machine), _clock());
+      if (resolved) _resolve(_asItEnded(row, machine));
     }
     _keepOutcomes(open);
     _lastRows.removeWhere(
@@ -527,6 +527,10 @@ class Attention extends ChangeNotifier {
     for (final id in open.keys) {
       _resolved.remove(id);
     }
+    // A row that came back is a new occurrence, and a row gone with nobody resolving it needs no mark.
+    _saidPutAway.removeWhere(
+      (id) => open.containsKey(id) && !wasOpen.contains(id) || !_lastRows.containsKey(id) && !open.containsKey(id),
+    );
     _resolved.removeWhere(
       (_, each) =>
           each.row.kind != AttentionKind.operation &&
@@ -536,16 +540,66 @@ class Attention extends ChangeNotifier {
     );
     _prune();
     _scheduleExpiry();
-    _logLeaving(shown, open);
   }
 
-  /// Writes each row [shown] before and no longer [open] to the window's log, so what it said can still be found.
-  void _logLeaving(List<AttentionRow> shown, Map<String, AttentionRow> open) {
-    for (final row in shown) {
-      if (open.containsKey(row.id)) continue;
-      final how = _resolved.containsKey(row.id) ? 'resolved' : 'put away or gone';
-      windowLog.info('Needs you no longer shows ${row.kind.name} row "${row.id}": $how.', machine: row.machine);
-    }
+  /// Places [row] under *Recently resolved*, writing to the window's log once that it was, unless a person put it
+  /// away and that was written already.
+  void _resolve(AttentionRow row) {
+    final already = _resolved.containsKey(row.id);
+    _resolved[row.id] = ResolvedAttention(row, _clock());
+    if (already || _saidPutAway.remove(row.id)) return;
+    windowLog.info('Needs you: resolved ${_wordsOf(row)}', machine: row.machine);
+  }
+
+  /// Rows whose putting away was written to the log, so their resolution is not written again.
+  final Set<String> _saidPutAway = <String>{};
+
+  /// Writes to the window's log that a person put away the open row [id], with what it said.
+  void _putAway(String id) {
+    final row = _openRows.where((each) => each.id == id).firstOrNull;
+    if (row == null) return;
+    _saidPutAway.add(id);
+    windowLog.info('Needs you: put away ${_wordsOf(row)}', machine: row.machine);
+  }
+
+  /// What [row] said, on one line, by its kind; never a message's or a credential's content.
+  static String _wordsOf(AttentionRow row) {
+    final words = switch (row.value) {
+      (machine: Machine _, words: final String words) => words,
+      (machine: Machine _, problem: final String problem) => problem,
+      (machine: Machine _, count: final int count) => '$count questions were dropped unseen',
+      (machine: Machine _, message: final HeldMessage message) =>
+        'a ${message.kind.isEmpty ? 'message' : message.kind} of ${message.task} is held for you',
+      (machine: Machine _, needed: final AuthorizationNeeded needed) => '${needed.credential} needs a grant',
+      (machine: String _, project: final String project, words: final String words) => '$project: $words',
+      final WaitingMessages waiting => 'messages wait: ${waiting.waits}',
+      final Tile tile => _tileWords(tile),
+      final Operation operation => '${operation.title}: ${operation.summary}',
+      final RanOutQuestion question => '${question.task} asked to reach ${question.shown}, and it ran out',
+      final HostStop stop => '${stop.project} server: ${stop.text}',
+      final PullRequestRow each => 'pull request ${each.request.title} of ${each.project.name}',
+      final PullRequestsRefusedRow each => each.words,
+      final PlanningAttention planning =>
+        'story ${planning.story.id} of ${planning.project}'
+            '${planning.ended == null ? '' : ', its work ended'}${planning.reason.isEmpty ? '' : ': ${planning.reason}'}',
+      final String words when row.kind == AttentionKind.setAside => words,
+      final String name when row.kind == AttentionKind.token => '$name waits for your token',
+      final String name when row.kind == AttentionKind.repository => '$name waits for its Git repository',
+      _ => row.id,
+    };
+    return '(${row.kind.name}) $words';
+  }
+
+  static String _tileWords(Tile tile) {
+    final work = tile.task?.name ?? tile.questions.firstOrNull?.task ?? tile.settled?.task ?? 'work not listed yet';
+    final asked = tile.questions.firstOrNull ?? tile.settled;
+    return switch (tile.demand) {
+      Demand.question when asked != null =>
+        '$work asked to reach ${asked.shown}${asked.verdict == null ? '' : ', answered ${asked.verdict}'}',
+      Demand.question => '$work waits on a person',
+      Demand.ended => '$work ended, and nobody had looked',
+      _ => '$work has a push waiting at the gate',
+    };
   }
 
   /// Questions that ran out, where no settings keep them.
@@ -629,6 +683,7 @@ class Attention extends ChangeNotifier {
   /// Takes a failed operation off what needs a person unopened: somebody has seen it. A row holds a copy, so the
   /// operation is found by its id.
   void operationSeen(Operation operation) {
+    _putAway('operation ${operation.id}');
     final operations = _operations;
     final kept = operations?.all.where((each) => each.id == operation.id).firstOrNull;
     if (kept != null) operations!.see(kept);
@@ -636,6 +691,7 @@ class Attention extends ChangeNotifier {
 
   /// Takes a question that ran out off what needs a person: somebody has seen it.
   void ranOutSeen(RanOutQuestion question) {
+    _putAway('ran out ${question.id}');
     final seen = [
       for (final each in _ranOut)
         if (each.id != question.id && each.seen) each,
@@ -680,7 +736,7 @@ class Attention extends ChangeNotifier {
           ),
         );
         if (open.containsKey(row.id) || !_outcomesKept.add(keyOf(machine.name, settled))) continue;
-        _resolved[row.id] = ResolvedAttention(row, _clock());
+        _resolve(row);
       }
     }
     _outcomesKept.retainAll(<String>{
@@ -869,6 +925,7 @@ class Attention extends ChangeNotifier {
     final attention = row.value as PlanningAttention;
     final key = _storyEndKey(row.id, attention);
     if (key == null) return;
+    _putAway(row.id);
     final settings = _settings;
     if (settings == null || !_marksRead || attention.ended!.at.isEmpty) {
       // Without a time, a mark could hide the story's next end; it lasts as long as this window.
@@ -926,6 +983,7 @@ class Attention extends ChangeNotifier {
   void setAsideSeen() {
     final words = _machines.setAside;
     if (words == null) return;
+    _putAway('set aside');
     final settings = _settings;
     if (settings == null || !_marksRead) {
       _silentSession.add(_setAsideKey(words));
@@ -943,6 +1001,7 @@ class Attention extends ChangeNotifier {
 
   /// Stops saying that [machine] is silent, until it has answered again.
   Future<void> markSeen(Machine machine) async {
+    _putAway('silent ${machine.name}');
     final settings = _settings;
     if (settings == null || !_marksRead) {
       _silentSession.add(machine.name);
@@ -1088,6 +1147,7 @@ class Attention extends ChangeNotifier {
     final task = tile.task;
     final ended = task?.agentEnded;
     if (task == null || ended == null || ended.unpushed > 0) return;
+    _putAway(causeId(Tile(machine: tile.machine, fleet: tile.fleet, demand: Demand.ended, task: task)));
     final settings = _settings;
     if (settings == null || !_marksRead || ended.at.isEmpty && task.since.isEmpty) {
       // Without a time, a mark could hide the next end; it lasts as long as this window.
