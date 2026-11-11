@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
 import 'package:porelo_frontend/src/ui/start_work_view.dart';
@@ -18,6 +19,13 @@ abstract final class Rehearsal {
 
   /// The project the organization put on the host.
   static String get project => _required('PORELO_REHEARSAL_PROJECT');
+
+  /// The agent the host can start without a sign-in: the one the rehearsal's tasks step starts, its provider's key
+  /// already in the person's vault there.
+  static String get agent => _required('PORELO_REHEARSAL_AGENT');
+
+  /// The model that agent runs, the tasks step's.
+  static String get model => _required('PORELO_REHEARSAL_MODEL');
 
   static String _required(String variable) {
     final value = Platform.environment[variable] ?? '';
@@ -122,6 +130,30 @@ Future<void> toTheProjectOnTheHost(WidgetTester tester) async {
   await pumpUntil(tester, () => find.byKey(const Key('project-repositories')).evaluate().isNotEmpty, what: 'its page');
 }
 
+/// The words the popup menu opened by [menu] gives for holding back its item [label], or null where it offers it. The
+/// menu is closed again either way.
+Future<String?> theMenuItemIsHeldBack(WidgetTester tester, Finder menu, String label) async {
+  await pumpUntil(tester, () => menu.evaluate().isNotEmpty, what: 'the menu for $label');
+  await tester.ensureVisible(menu.first);
+  await tester.tap(menu.first);
+  await pumpFor(tester);
+  final item = find.ancestor(of: find.text(label), matching: find.byWidgetPredicate((w) => w is PopupMenuItem));
+  await pumpUntil(tester, () => item.evaluate().isNotEmpty, what: 'the menu to offer $label');
+  final held = !tester.widget<PopupMenuItem<Object?>>(item.first).enabled;
+  final why = held
+      ? find
+            .descendant(of: item.first, matching: find.byType(Text))
+            .evaluate()
+            .map((each) => (each.widget as Text).data ?? '')
+            .where((words) => words.isNotEmpty && words != label)
+            .join(' ')
+            .replaceFirst('Unavailable: ', '')
+      : null;
+  await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+  await pumpFor(tester);
+  return held ? (why!.isEmpty ? 'it is unavailable' : why) : null;
+}
+
 /// Presses the item [label] of the popup menu opened by the button keyed [menu], scrolling inside a tall menu.
 Future<void> chooseFromTheMenu(WidgetTester tester, Finder menu, String label) async {
   // The page draws its rows once the machine answered, after its frame is there.
@@ -148,6 +180,24 @@ Future<void> chooseAnAgentWhereNoneIsNamed(WidgetTester tester) async {
   await pumpUntil(tester, () => offered.evaluate().isNotEmpty, what: 'an agent to choose');
   await tester.tap(offered.first);
   await pumpFor(tester, const Duration(seconds: 2));
+}
+
+/// Chooses [Rehearsal.agent] in the start form and gives it [Rehearsal.model]: the form's own first agent may need a
+/// sign-in the rented host never gets, so Start would never come.
+Future<void> chooseTheAgentTheHostCanStart(WidgetTester tester) async {
+  final field = find.byKey(const Key('start-agent'));
+  await pumpUntil(tester, () => field.evaluate().isNotEmpty, what: 'the form to offer its agents');
+  await tester.ensureVisible(field.first);
+  await tester.tap(field.first);
+  await pumpFor(tester);
+  final offered = find.byKey(ValueKey<String>('start-agent-choice ${Rehearsal.agent}'));
+  await pumpUntil(tester, () => offered.evaluate().isNotEmpty, what: 'the host to offer ${Rehearsal.agent}');
+  await tester.tap(offered.last);
+  await pumpFor(tester, const Duration(seconds: 2));
+  final model = find.byKey(const Key('start-model'));
+  await tester.ensureVisible(model.first);
+  await tester.enterText(model.first, Rehearsal.model);
+  await pumpFor(tester);
 }
 
 /// The text a field shows, or "" where it is not there.

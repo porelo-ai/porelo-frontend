@@ -7,6 +7,12 @@ import '../support/rehearsal.dart';
 /// Usage: I start work on every repository of the project at once
 Future<void> iStartWorkOnEveryRepositoryOfTheProjectAtOnce(WidgetTester tester) => pictured(tester, () async {
   await toTheProjectOnTheHost(tester);
+  // Offered only where a repository's project.yml names an agent; the rehearsal's project, signed by the operator,
+  // names none yet, and that is said rather than failed.
+  if (await theMenuItemIsHeldBack(tester, find.byKey(const Key('project-menu')), 'Start an agent for each repository…')
+      case final why?) {
+    return notRunBecause('the project menu holds back a start for every repository: $why');
+  }
   await chooseFromTheMenu(tester, find.byKey(const Key('project-menu')), 'Start an agent for each repository…');
   // Which repositories, then the sign-ins, each held until the machine has answered; then the check and Start.
   final next = find.byKey(const Key('wizard-next'));

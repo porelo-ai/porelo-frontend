@@ -46,6 +46,9 @@ done
 case "$mode" in check | run) ;; *) usage ;; esac
 [ -n "$vm" ] && [ -n "$vm_key" ] || usage
 case "$budget" in '' | *[!0-9]*) echo "rehearse: --budget-minutes is a whole number of minutes" >&2 && exit 64 ;; esac
+# The agent the window starts on the host, and its model: the rehearsal's tasks step's, whose provider key is in the
+# person's vault there, so a start needs no sign-in.
+task_model=${REHEARSAL_TASK_MODEL:-z-ai/glm-5.3-flash}
 # Every value goes into a command line on the VM, so each is held to what it can be: no quote, no space, no option.
 shaped() {
     [ -z "$2" ] || printf '%s\n' "$2" | grep -Eqx "$3" || {
@@ -58,6 +61,7 @@ shaped --host "$host" '[A-Za-z0-9_][A-Za-z0-9._-]*@[A-Za-z0-9][A-Za-z0-9.:-]*'
 shaped --host-key "$host_key" '(ssh|ecdsa-sha2|sk-ssh)-[a-z0-9@.-]+ [A-Za-z0-9+/]+={0,2}'
 shaped --host-name "$host_name" '[A-Za-z0-9][A-Za-z0-9._-]*'
 shaped --project "$project" '[A-Za-z0-9][A-Za-z0-9._-]*'
+shaped REHEARSAL_TASK_MODEL "$task_model" '[A-Za-z0-9][A-Za-z0-9._/:-]*'
 
 here=$(cd "$(dirname "$0")/.." && pwd)
 flutter_version=$(sed -n 's/^ *flutter: *\([0-9][0-9.]*\) *$/\1/p' "$here/pubspec.yaml" | head -1)
@@ -313,6 +317,7 @@ as_the_person_on_vm \
     "cd ~/$run && exec setsid sh -c 'echo \$\$ >pid; exec \"\$@\"' rehearse env -u DISPLAY -u WAYLAND_DISPLAY -u DBUS_SESSION_BUS_ADDRESS \
         PATH=\$HOME/$flutter_dir/bin:\$PATH PORELO_E2E_HOST='$host' PORELO_E2E_REMOTE_SOCKET='$socket' PORELO_E2E_OWN_SETTINGS=1 $in_vault \
         PORELO_REHEARSAL_HOST_NAME='$host_name' PORELO_REHEARSAL_PROJECT='$project' \
+        PORELO_REHEARSAL_AGENT=pi PORELO_REHEARSAL_MODEL='$task_model' \
         PORELO_REHEARSAL_HOST_KEY='$host_key' PORELO_REHEARSAL_SHOTS=\$HOME/$run/pictures \
         timeout --signal=TERM ${budget}m dbus-run-session -- \
         tool/e2e.sh --machine integration_test/rehearsing_a_move_test.dart" \
