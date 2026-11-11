@@ -15,8 +15,8 @@
 # the operator's), and only the VM's connection forwards it, for the run alone. The VM is reached with --vm-key.
 # The host's key is the one the rehearsal read when the server was rented; nothing that answers is trusted on its
 # own word. REHEARSAL_CENTRAL_TOKEN, where set, names a program that prints the test identity's token for the central
-# forge: it goes into the VM person's vault on standard input alone, for the run, and is taken off again on every
-# ending, so that porelo on the VM can ask the forge who holds which key.
+# forge: it goes on standard input alone into a vault of the run's own on the VM, never the account's, and goes with
+# the run's copy on every ending, so that porelo on the VM can ask the forge who holds which key.
 set -euo pipefail
 
 usage() {
@@ -144,16 +144,15 @@ rm -rf "$report/pictures"
 # Taken away on every ending: the central forge's token and its declaration where this run put them, what still
 # runs of the window's part, porelod's agent put back where this run pointed it at the person's, the run's copy, and
 # the host's key where this run added it.
-added_key='' pointed='' agent_before='' holder='' central_match='' token_put='' declared=''
+added_key='' pointed='' agent_before='' holder='' central_match='' vault='' declared=''
 # shellcheck disable=SC2329
 cleanup() {
     if [ -n "$declared" ]; then
         as_the_person_on_vm "porelo credentials forget '$central_match'" </dev/null >/dev/null 2>&1 ||
             echo "rehearse: the declaration of $central_match could not be taken off $vm; forget it there" >&2
     fi
-    if [ -n "$token_put" ]; then
-        as_the_person_on_vm "porelo vault remove --without-revoking central-forge" </dev/null >/dev/null 2>&1 ||
-            echo "rehearse: the central-forge token could not be taken off $vm; remove it there" >&2
+    if [ -n "$vault" ]; then
+        on_vm "PORELO_VAULT=$vault porelo vault lock" </dev/null >/dev/null 2>&1 || true
     fi
     if [ -n "$pointed" ]; then
         on_vm "if [ -n '$agent_before' ]; then systemctl --user set-environment SSH_AUTH_SOCK='$agent_before'
@@ -231,8 +230,11 @@ on_vm "set -e; systemctl --user set-environment SSH_AUTH_SOCK=\$HOME/$run/agent.
     exit 1
 }
 
-# The central forge's token, for the organization's forge and owner as porelo on the VM names them. An entry or a
-# declaration the VM person already has is used and left as it is; only what this run puts there is taken off.
+# The central forge's token, for the organization's forge and owner as porelo on the VM names them, in a vault of the
+# run's own: the account's vault is never opened, read or changed. Its passphrase is made on the VM and goes to the
+# vault on standard input alone, kept nowhere but the cache the unlock fills; the vault goes with the run's copy. Every
+# porelo call of the run names it in PORELO_VAULT. A declaration the VM person already has is used and left there.
+in_vault=''
 if [ -n "${REHEARSAL_CENTRAL_TOKEN:-}" ]; then
     [ -x "$REHEARSAL_CENTRAL_TOKEN" ] || {
         echo "rehearse: REHEARSAL_CENTRAL_TOKEN names no program" >&2
@@ -247,25 +249,28 @@ print(a["forge"] + "/" + m[1] + "/" if m else "")') || true
         echo "rehearse: porelo on $vm names no forge and owner of the organization" >&2
         exit 1
     }
-    if as_the_person_on_vm "porelo vault list" </dev/null | awk '{print $1}' | grep -qx central-forge; then
-        echo "rehearse: the person on $vm keeps a central-forge token already; it is used and left there"
-    else
-        token=$("$REHEARSAL_CENTRAL_TOKEN") || {
-            echo "rehearse: the central token program failed" >&2
-            exit 1
-        }
-        [ -n "$token" ] || {
-            echo "rehearse: the central token program gave nothing" >&2
-            exit 1
-        }
-        token_put=yes
-        printf '%s\n' "$token" | as_the_person_on_vm "porelo vault put --json central-forge" >/dev/null || {
-            token=''
-            echo "rehearse: the central-forge token could not be put on $vm" >&2
-            exit 1
-        }
+    vault="\$HOME/$run/vault/vault.bin"
+    in_vault="PORELO_VAULT=$vault "
+    on_vm "set -e; umask 077; mkdir ~/$run/vault
+        head -c 32 /dev/urandom | base64 -w0 | { cat; echo; } | ${in_vault}porelo vault init --passphrase-stdin >/dev/null" \
+        </dev/null || {
+        echo "rehearse: a vault of the run's own could not be made on $vm" >&2
+        exit 1
+    }
+    token=$("$REHEARSAL_CENTRAL_TOKEN") || {
+        echo "rehearse: the central token program failed" >&2
+        exit 1
+    }
+    [ -n "$token" ] || {
+        echo "rehearse: the central token program gave nothing" >&2
+        exit 1
+    }
+    printf '%s\n' "$token" | on_vm "${in_vault}porelo vault put --json central-forge" >/dev/null || {
         token=''
-    fi
+        echo "rehearse: the central-forge token could not be put into the run's vault on $vm" >&2
+        exit 1
+    }
+    token=''
     if as_the_person_on_vm "porelo credentials list" </dev/null | awk '{print $1}' | grep -qxF "$central_match"; then
         echo "rehearse: the person on $vm declares $central_match already; that declaration is used"
     else
@@ -279,11 +284,11 @@ print(a["forge"] + "/" + m[1] + "/" if m else "")') || true
 fi
 
 # Who porelo on the VM takes itself to be, kept beside it: an organization read as someone not in it lists no host.
-as_the_person_on_vm "porelo identity show --json" >"$report/identity-on-vm.json" 2>&1 || true
+as_the_person_on_vm "${in_vault}porelo identity show --json" >"$report/identity-on-vm.json" 2>&1 || true
 # What the window will read of the organization, as the person on the VM, checked now rather than taken from what
 # porelo kept: kept in the report, and the run stops here with its words where the answer is still the kept one or the
 # host is not in it, instead of every scenario waiting for a host that cannot appear.
-as_the_person_on_vm "porelo org --json --refresh" >"$report/org-on-vm.json" 2>"$report/org-on-vm.err" || {
+as_the_person_on_vm "${in_vault}porelo org --json --refresh" >"$report/org-on-vm.json" 2>"$report/org-on-vm.err" || {
     echo "rehearse: porelo on $vm cannot read the organization as the person: $(tail -n 1 "$report/org-on-vm.err")" >&2
     exit 1
 }
@@ -305,7 +310,7 @@ status=0
 # In a session of its own whose number is kept, so an ending here takes the whole of it down there too.
 as_the_person_on_vm \
     "cd ~/$run && exec setsid sh -c 'echo \$\$ >pid; exec \"\$@\"' rehearse env -u DISPLAY -u WAYLAND_DISPLAY -u DBUS_SESSION_BUS_ADDRESS \
-        PATH=\$HOME/$flutter_dir/bin:\$PATH PORELO_E2E_HOST='$host' PORELO_E2E_REMOTE_SOCKET='$socket' PORELO_E2E_OWN_SETTINGS=1 \
+        PATH=\$HOME/$flutter_dir/bin:\$PATH PORELO_E2E_HOST='$host' PORELO_E2E_REMOTE_SOCKET='$socket' PORELO_E2E_OWN_SETTINGS=1 $in_vault\
         PORELO_REHEARSAL_HOST_NAME='$host_name' PORELO_REHEARSAL_PROJECT='$project' \
         PORELO_REHEARSAL_HOST_KEY='$host_key' PORELO_REHEARSAL_SHOTS=\$HOME/$run/pictures \
         timeout --signal=TERM ${budget}m dbus-run-session -- \
