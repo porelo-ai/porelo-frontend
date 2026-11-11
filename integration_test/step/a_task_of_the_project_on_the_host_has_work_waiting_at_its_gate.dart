@@ -6,7 +6,7 @@ import '../support/rehearsal.dart';
 /// Usage: a task of the project on the host has work waiting at its gate
 Future<void> aTaskOfTheProjectOnTheHostHasWorkWaitingAtItsGate(WidgetTester tester) => pictured(tester, () async {
   // No other task is asked to push: this one is, from the window, unattended, under a name no other start used.
-  final carried = await theCarriedRepositories();
+  final carried = await theCarriedRepositoriesOnceSaid(tester);
   expect(carried, isNotEmpty, reason: 'the host carries a repository of ${Rehearsal.project}');
   final stamp = DateTime.now().toUtc().millisecondsSinceEpoch;
   await startWorkOn(

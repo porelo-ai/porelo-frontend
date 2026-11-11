@@ -54,8 +54,8 @@ abstract final class Rehearsal {
   /// The task whose work waited at its gate.
   static String? waitingTask;
 
-  /// The project's tasks on the host before the window's last start: a check reads only the ones that start made,
-  /// never one the run's earlier steps left running.
+  /// The project's tasks running on the host before the window's last start: a check reads only the ones that start
+  /// made run, a new one or a stopped one brought back, never one the run's earlier steps left running.
   static Set<String> tasksBefore = {};
 
   /// The commit the gate's review named.
@@ -87,6 +87,18 @@ Future<Map<String, dynamic>?> theProjectOnTheHost() async {
 }
 
 /// The project's repositories the host says it carries, by name.
+/// The repositories the host carries, once the host has said: asked again until it names one, for at most 3 minutes.
+Future<List<String>> theCarriedRepositoriesOnceSaid(WidgetTester tester) async {
+  var carried = <String>[];
+  await pumpUntil(
+    tester,
+    () async => (carried = await theCarriedRepositories()).isNotEmpty,
+    timeout: const Duration(minutes: 3),
+    what: 'the host to say which repositories of ${Rehearsal.project} it carries',
+  );
+  return carried;
+}
+
 Future<List<String>> theCarriedRepositories() async {
   final project = await theProjectOnTheHost();
   final repositories = (project?['repositories'] as List<dynamic>? ?? const []).whereType<Map<String, dynamic>>();
@@ -106,11 +118,14 @@ Future<List<Map<String, dynamic>>> theProjectsTasksOnTheHost() async {
   ];
 }
 
-/// Notes the project's tasks on the host, so [theTasksStartedSince] leaves them out.
-Future<void> noteTheHostsTasks() async =>
-    Rehearsal.tasksBefore = {for (final task in await theProjectsTasksOnTheHost()) task['name'] as String};
+/// Notes the project's running tasks on the host, so [theTasksStartedSince] leaves them out.
+Future<void> noteTheHostsTasks() async => Rehearsal.tasksBefore = {
+  for (final task in await theProjectsTasksOnTheHost())
+    if (task['running'] == true) task['name'] as String,
+};
 
-/// The project's tasks on the host that were not there when [noteTheHostsTasks] last noted them.
+/// The project's tasks on the host that were not running when [noteTheHostsTasks] last noted them: a start may bring
+/// a stopped one back rather than make a new one.
 Future<List<Map<String, dynamic>>> theTasksStartedSince() async => [
   for (final task in await theProjectsTasksOnTheHost())
     if (!Rehearsal.tasksBefore.contains(task['name'])) task,
@@ -273,7 +288,8 @@ Finder theTileOf(String task) => find.byWidgetPredicate(
 Finder theRowOf(String task) => find.byWidgetPredicate(
   (w) =>
       w.key is ValueKey<String> &&
-      RegExp('^attention-row tile .*/${RegExp.escape(task)}\$').hasMatch((w.key! as ValueKey<String>).value),
+      // `attention-row <kind> <machine>/<task>`: one row per cause, such as `gate` for a push at the gate.
+      RegExp('^attention-row [a-z]+ .*/${RegExp.escape(task)}\$').hasMatch((w.key! as ValueKey<String>).value),
 );
 
 /// What the widgets under [of] say, joined.

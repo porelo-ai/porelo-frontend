@@ -6,7 +6,7 @@ import '../support/rehearsal.dart';
 
 /// Usage: I sign in to the agent of the first carried repository from New work
 Future<void> iSignInToTheAgentOfTheFirstCarriedRepositoryFromNewWork(WidgetTester tester) => pictured(tester, () async {
-  final carried = await theCarriedRepositories();
+  final carried = await theCarriedRepositoriesOnceSaid(tester);
   expect(carried, isNotEmpty, reason: 'the host carries a repository of ${Rehearsal.project}');
   // The agents the host says are not signed in, before the window asks: the one it signs in is among them.
   Rehearsal.notSignedIn = await theAgentsNotSignedInOnTheHost();

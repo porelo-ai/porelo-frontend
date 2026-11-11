@@ -6,7 +6,7 @@ import '../support/rehearsal.dart';
 /// Usage: the host runs one task for each carried repository
 Future<void> theHostRunsOneTaskForEachCarriedRepository(WidgetTester tester) => pictured(tester, () async {
   if (Rehearsal.notRun != null) return;
-  final carried = await theCarriedRepositories();
+  final carried = await theCarriedRepositoriesOnceSaid(tester);
   expect(carried, isNotEmpty);
   late Map<String, int> running;
   await pumpUntil(
