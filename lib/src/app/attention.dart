@@ -554,9 +554,10 @@ class Attention extends ChangeNotifier {
   /// Rows whose putting away was written to the log, so their resolution is not written again.
   final Set<String> _saidPutAway = <String>{};
 
-  /// Writes to the window's log that a person put away the open row [id], with what it said.
+  /// Writes to the window's log that a person put away the row [id], with what it said: the open one, or the one last
+  /// shown where it is out for a moment while its machine is tried again.
   void _putAway(String id) {
-    final row = _openRows.where((each) => each.id == id).firstOrNull;
+    final row = _openRows.where((each) => each.id == id).firstOrNull ?? _lastRows[id];
     if (row == null) return;
     _saidPutAway.add(id);
     windowLog.info('Needs you: put away ${_wordsOf(row)}', machine: row.machine);
