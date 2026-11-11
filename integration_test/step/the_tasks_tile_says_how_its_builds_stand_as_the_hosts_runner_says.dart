@@ -24,6 +24,19 @@ Future<void> theTasksTileSaysHowItsBuildsStandAsTheHostsRunnerSays(WidgetTester 
   await toThePlace(tester, 'work');
   final tile = theTileOf(Rehearsal.waitingTask!);
   await pumpUntil(tester, () => tile.evaluate().isNotEmpty, what: 'the tile of ${Rehearsal.waitingTask}');
+  // A row is folded until it is opened, and a folded tile says the build's headline alone: its commit is in the
+  // detail, shown once the row is open.
+  final detail = find.descendant(of: tile.first, matching: find.byKey(const Key('tile-build-detail')));
+  final fold = find.descendant(
+    of: tile.first,
+    matching: find.byKey(ValueKey<String>('tile-fold ${Rehearsal.waitingTask}')),
+  );
+  if (detail.evaluate().isEmpty && fold.evaluate().isNotEmpty) {
+    await tester.ensureVisible(fold.first);
+    await tester.pump();
+    await tester.tap(fold.first);
+    await tester.pump();
+  }
   final line = find.descendant(of: tile.first, matching: find.byKey(const Key('tile-build-headline')));
   await pumpUntil(
     tester,
