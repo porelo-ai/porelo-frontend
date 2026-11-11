@@ -324,6 +324,8 @@ class CardHostConnections extends HostConnections {
 
   /// The card [host]'s connection is written from, or the words of what is missing.
   Future<HostCardSsh> _card(String host) async {
+    // The state Porelo kept is shown while its check runs: a connection waits for the check rather than refuse.
+    if ((organization.view?.stale ?? false) && organization.reading) await organization.newestRead();
     final view = organization.view;
     final entry = view?.hosts.where((each) => each.name == host).firstOrNull;
     if (view == null || entry == null) throw OrganizationRefused('The organization names no machine $host.');

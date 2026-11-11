@@ -1373,6 +1373,10 @@ class Organization extends ChangeNotifier {
   /// Whether a read of it is under way.
   bool get reading => _readsRunning > 0;
 
+  /// Ends once the newest read under way has: what must not rest on a kept state shown while its check runs waits
+  /// for that check.
+  Future<void> newestRead() => _newestRead();
+
   /// Ends once the newest read has, so what it decides on is at least as new as a read asked for before.
   Future<void> _newestRead() async {
     for (var reading = _lastRead; ; reading = _lastRead) {

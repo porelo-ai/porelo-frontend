@@ -77,11 +77,12 @@ final _hostOfMia = OrganizationHost(
   projects: const ['demo'],
 );
 
-OrganizationView _mia({OrganizationHost host = buildHost}) {
+OrganizationView _mia({OrganizationHost host = buildHost, bool stale = false}) {
   final view = organizationFor('mia', host: host);
   return organizationFor(
     'mia',
     host: host,
+    stale: stale,
     persons: [
       for (final person in view.persons)
         person.login == 'mia'
@@ -89,6 +90,24 @@ OrganizationView _mia({OrganizationHost host = buildHost}) {
             : person,
     ],
   );
+}
+
+/// Hands the organization as Porelo kept it at once, then answers its check when the test lets it.
+class _KeptFirst extends FixtureOrganization implements ReadsKeptFirst {
+  _KeptFirst(super.view);
+
+  final check = Completer<void>();
+
+  @override
+  Future<OrganizationView> readKeptFirst(void Function(OrganizationView kept) kept) async {
+    kept(_mia(stale: true));
+    await check.future;
+    return read();
+  }
+
+  @override
+  Future<ProjectView> readProjectKeptFirst(String project, void Function(ProjectView kept) kept) =>
+      readProject(project);
 }
 
 /// Settings kept in memory, whose saving can be made to fail.
@@ -661,6 +680,33 @@ void main() {
     await expectLater(made.connect('build'), throwsA(isA<OrganizationRefused>()));
     expect(launches, isEmpty);
     expect(made.connected('build'), isFalse);
+  });
+
+  // Harm: Connect, pressed while the state Porelo kept is shown and its check runs, is refused for good.
+  test('a Connect while the kept organization is checked waits for the check, then connects', () async {
+    final source = _KeptFirst(_mia());
+    final organization = Organization(source);
+    addTearDown(organization.dispose);
+    final reading = organization.refresh();
+    await pumpEventQueue();
+    expect(organization.view?.stale, isTrue, reason: 'the kept state is shown while its check runs');
+    final made = CardHostConnections(
+      organization: organization,
+      machines: machines,
+      publicKey: () async => _key,
+      hostProgress: SshHostProgress(
+        run: (program, arguments, {inDirectory, environment = const {}, input}) async => (code: 0, out: '{}', err: ''),
+      ),
+      endpoint: (host) => path.join(folder.path, '$host.socket'),
+    );
+    addTearDown(made.dispose);
+    final connecting = made.connect('build');
+    await pumpEventQueue();
+    expect(launches, isEmpty, reason: 'nothing is raised from the kept state');
+    source.check.complete();
+    await reading;
+    await connecting;
+    expect(made.connected('build'), isTrue);
   });
 
   // Harm: a save that fails spins the button for good, with a tunnel up that nothing here says is up.
