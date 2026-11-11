@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F469",
   "title": "A Project Page Shows Porelo's Kept Read And Its Age",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "Medium",
   "rank": 3,
@@ -16,9 +16,6 @@
 
 **Why this size.** the age and `stale` of a project's read and the organization's read shown, one fresh read with
 `--refresh` after the kept one, and their tests.
-
-**Blocked by** Porelo answering `porelo project show` and `porelo org` at once from its kept, checked state with its age
-and `stale`, and reading fresh with `--refresh`, released on the hosts the window reaches.
 
 **What must be true.** A project's page and the organization's pages show Porelo's kept read at once, saying how old
 it is, and replace it with a fresh read when that comes; nothing old is shown as if it were just read.
