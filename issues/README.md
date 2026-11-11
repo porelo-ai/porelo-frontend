@@ -130,6 +130,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f488"></a>[F488](F488-An-Ended-Discussion-Hands-Its-Idea-To-The-Planner.md) | M | [F487](#f487) | When a discussion task ends, the window reads the idea file it named from the machine it ran on and sends its content to the planner once, with the offer it came from; a file missing, too large or not an idea is said to the person, and nothing is sent. |
 | <a id="f485"></a>[F485](F485-A-Person-Sets-How-Much-Is-Logged.md) | S | [F483](#f483) | Settings carries the log level, DEBUG, INFO, WARN or ERROR, INFO by default; a change takes effect at once in the window's log and reaches the planner's, by the way the planner takes it. |
 | <a id="f203"></a>[F203](F203-This-Repository-Worked-In-A-Porelo-Task.md) | S | - | This repository's agent working in an attended Porelo task on the host, its build green on the host's Forgejo, reached in the room, with a way back. |
+| <a id="f490"></a>[F490](F490-The-Command-Finder-Offers-A-Planning-Actions-Way-On.md) | S | - | An unavailable planning action in the command finder offers its way on, a runnable step to what holds it, beside the disabled action. |
 
 ## Implementing
 
