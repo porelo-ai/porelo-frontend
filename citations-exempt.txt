@@ -27,3 +27,4 @@ test/ui/planning_finder_test.dart
 test/ui/window_task_starts_test.dart
 test/ui/window_task_reports_test.dart
 test/client/planner_mock_test.dart
+test/app/planner_ideas_test.dart

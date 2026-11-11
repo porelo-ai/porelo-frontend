@@ -201,7 +201,23 @@ class WindowTaskStarts {
       final words = '${machine.name} started $container but does not list its task name.';
       throw PlanningRefusal('NotListed', {'detail': words}, words);
     }
-    if ((discussion, listed) case (true, final started?)) onDiscussionStarted?.call(machine, started);
+    if ((discussion, listed) case (true, final started?)) {
+      // Its idea is handed in when it ends, with its offer; an end it showed as it started is an earlier run's.
+      if ((task.offer, providerOf(source)) case (final offer?, final provider?)) {
+        await settings.rememberDiscussion(
+          machine: machine.name,
+          container: container,
+          offer: offer,
+          provider: provider,
+          project: project,
+          ended: switch (started.agentEnded) {
+            final ended? => plannedEndKey(ended),
+            null => null,
+          },
+        );
+      }
+      onDiscussionStarted?.call(machine, started);
+    }
     // A discussion is no story's task: its end is the person's, not a run's to report.
     if ((task.offer, providerOf(source)) case (final offer?, final provider?) when !discussion) {
       // An end the task showed as it started is an earlier run's, never this one's.
@@ -267,7 +283,7 @@ class EmbeddedPlanning {
 /// was closed is reported once both answer.
 EmbeddedPlanning plannerPlanning(LocalPlanner planner, Machines machines) {
   final starts = WindowTaskStarts.of(machines, planner);
-  final reports = WindowTaskReports.of(machines, planner, starts);
+  final reports = WindowTaskReports.of(machines, planner, starts, runtimeDirectory: planner.runtimeDirectory);
   planner.reports = reports.report;
   machines.addListener(reports.sweep);
   planner.addListener(reports.sweep);

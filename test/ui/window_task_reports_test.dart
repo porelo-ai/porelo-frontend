@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
@@ -10,7 +11,9 @@ import 'package:porelo_frontend/src/ui/planning_embedding.dart';
 import 'package:porelo_frontend/src/ui/planning_reports.dart';
 import 'package:porelo_planning/porelo_planning.dart';
 
-import 'window_task_starts_test.dart' show plannedOrders;
+import 'package:porelo_frontend/src/app/planner_ideas.dart';
+
+import 'window_task_starts_test.dart' show discussionOrder, plannedOrders;
 
 const _laptop = Machine(name: 'laptop', socketPath: '/run/laptop.sock');
 const _provider = 'porelo-planner';
@@ -22,6 +25,9 @@ void main() {
   late _Planner planner;
   late List<(Machine, String)> stopped;
   late List<(String, String, List<(PlanningTaskOrder, PlanningTaskStarted)>)> shown;
+  late List<(String, String, Map<String, Object?>)> handed;
+  late List<Object> handAnswers;
+  late Map<String, TaskResult> results;
 
   Future<Settings> loaded() async {
     final again = Settings(store);
@@ -44,6 +50,14 @@ void main() {
       sourceNamed: (name) => name == _provider && (reached?.call() ?? true) ? planner : null,
       tasksOn: (name) => name == on.name ? machine.listed : null,
       stopOn: (machine, container) async => stopped.add((machine, container)),
+      resultOf: (name, container) async =>
+          name == on.name ? results[container] ?? fail('no result for $container') : fail('$name is not watched'),
+      hand: (project, offer, idea, {runtimeDirectory}) async {
+        handed.add((project, offer, idea));
+        final next = handAnswers.isEmpty ? 'ST900' : handAnswers.removeAt(0);
+        if (next is Exception) throw next;
+        return next as String;
+      },
     );
     reports.onFollowUps = (source, project, story, tasks) async => shown.add((project, story, tasks));
     return (starts, reports);
@@ -56,6 +70,9 @@ void main() {
     planner = _Planner();
     stopped = [];
     shown = [];
+    handed = [];
+    handAnswers = [];
+    results = {};
   });
 
   // Harm: the planner never learns that a task it ordered runs, or learns it for another machine or task.
@@ -458,6 +475,119 @@ void main() {
   });
 
   // Harm: a report refused only because no watched machine had named the project's repository yet is never sent.
+  group('an ended discussion', () {
+    const idea = {
+      'story': {'title': 'Night lights', 'gain': 'Less glare.', 'test': 'The lights dim.', 'priority': 3},
+      'issues': [
+        {'repository': 'porelo', 'title': 'Dim the lights', 'mustBeTrue': 'The lights dim.', 'worker': 'Agent'},
+      ],
+    };
+    final ideaFile = {'name': 'idea.json', 'state': 'handed', 'bytes': 10};
+
+    Map<String, dynamic> endAt(String at, {Map<String, Object>? result}) => {
+      'at': at,
+      'finished': true,
+      'result': ?result,
+    };
+
+    Future<(WindowTaskReports, List<String>, List<String>)> discussed({Settings? kept}) async {
+      final (starts, reports) = window(kept: kept);
+      final problems = <String>[], saved = <String>[];
+      reports.onProblem = (provider, project, error) =>
+          problems.add('$provider $project ${planningFailureWords(error)}');
+      reports.onIdeaHanded = (discussion, story) => saved.add('${discussion.project} $story');
+      await starts(planner, 'demo', '', discussionOrder());
+      await reports.idle;
+      return (reports, problems, saved);
+    }
+
+    Future<void> sweeps(WindowTaskReports reports) async {
+      for (var change = 0; change < 3; change++) {
+        reports.sweep();
+        await reports.idle;
+      }
+    }
+
+    // Harm: the idea a person agreed on is lost, handed twice, handed with another offer, or handed again after a
+    // restart as a second story.
+    test('hands its idea once, with its offer, and says the story it was saved as', () async {
+      final (reports, problems, saved) = await discussed();
+      results['porelo-demo-discussion'] = TaskResult.from({...ideaFile, 'content': jsonEncode(idea)});
+      machine.end('porelo-demo-discussion', endAt('2026-11-12T01:00:00Z', result: ideaFile));
+
+      await sweeps(reports);
+      expect(handed.map((each) => (each.$1, each.$2)), [('demo', discussionOrder().offer)]);
+      expect(handed.single.$3, idea);
+      expect(saved, ['demo ST900']);
+      expect(problems, isEmpty);
+      expect(planner.calls, isEmpty, reason: 'a discussion is no story\'s task');
+
+      final (_, again) = window(kept: await loaded());
+      await sweeps(again);
+      expect(handed, hasLength(1));
+
+      // Kept no longer than its task: a removed task's discussion is forgotten.
+      await settings.forgetPlanningOffer('laptop', 'porelo-demo-discussion');
+      expect((await loaded()).keptDiscussions, isEmpty);
+    });
+
+    // Harm: an idea an earlier run of the container wrote is handed in as this discussion's, under its offer.
+    test('an end the discussion showed when it started hands nothing', () async {
+      machine.endBeforeStart = endAt('0', result: ideaFile);
+      results['porelo-demo-discussion'] = TaskResult.from({...ideaFile, 'content': jsonEncode(idea)});
+      final (reports, problems, _) = await discussed();
+
+      await sweeps(reports);
+      expect(handed, isEmpty);
+      expect(problems, isEmpty);
+    });
+
+    // Harm: a discussion that ended without an idea, or before the window watched it, hands something else or nothing
+    // is said, or the same line comes on every change of a machine.
+    test('one that left no idea, or no JSON object, hands nothing and says why once', () async {
+      final (reports, problems, _) = await discussed();
+      machine.end('porelo-demo-discussion', endAt('1', result: {'name': 'idea.json', 'state': 'missing'}));
+      await sweeps(reports);
+      results['porelo-demo-discussion'] = TaskResult.from({...ideaFile, 'content': '[1, 2]'});
+      machine.end('porelo-demo-discussion', endAt('2', result: ideaFile));
+      await sweeps(reports);
+
+      expect(handed, isEmpty);
+      expect(problems, [
+        'porelo-planner demo The discussion porelo-demo-discussion ended with no idea to hand to the planner: it '
+            'wrote no idea.json.',
+        'porelo-planner demo The discussion porelo-demo-discussion ended with no idea to hand to the planner: '
+            'idea.json holds no JSON object.',
+      ]);
+    });
+
+    // Harm: the planner's faults never reach the person, a refused idea is sent again and again, or a planner not
+    // running loses the idea for good.
+    test('a refused idea says its faults once; one the planner could not take yet goes once it can', () async {
+      final (reports, problems, saved) = await discussed();
+      results['porelo-demo-discussion'] = TaskResult.from({...ideaFile, 'content': jsonEncode(idea)});
+      handAnswers.addAll([
+        const IdeaNotSaved('no planner is running for this account', transient: true),
+        const IdeaNotSaved('no planner is running for this account', transient: true),
+        'ST901',
+        const IdeaNotSaved('The idea does not follow the idea format.', faults: ['story.title: Too long.']),
+      ]);
+      machine.end('porelo-demo-discussion', endAt('1', result: ideaFile));
+      await sweeps(reports);
+      expect(saved, ['demo ST901']);
+
+      machine.end('porelo-demo-discussion', endAt('2', result: ideaFile));
+      await sweeps(reports);
+      expect(handed, hasLength(4));
+      expect(problems, [
+        'porelo-planner demo The idea of the discussion porelo-demo-discussion is not handed in yet: no planner is '
+            'running for this account',
+        'porelo-planner demo The planner did not save the idea of the discussion porelo-demo-discussion: The idea '
+            'does not follow the idea format. story.title: Too long. Its result file stays in the task.',
+      ]);
+    });
+  });
+
   test('a report refused for want of the project\'s repository goes once a machine names it', () async {
     final (starts, reports) = window();
     planner.answers.add(const PlanningRefusal('NoRepository', {}, 'No watched machine names demo\'s repository.'));
@@ -620,6 +750,32 @@ class _Machine extends Fake implements FleetBackend {
       Task.from({
         'name': container,
         'task': repository,
+        'project': project,
+        'running': true,
+        'agentEnded': ?endBeforeStart,
+      }),
+    );
+    return StartProgress(container: container, exitCode: 0, action: StartAction.create);
+  }
+
+  @override
+  Future<String?> whyNoDiscussion() async => null;
+
+  @override
+  Future<StartProgress> startDiscussion({
+    required String project,
+    required String agent,
+    required String model,
+    required Mode mode,
+    required String prompt,
+    required String result,
+  }) async {
+    final container = 'porelo-$project-discussion';
+    listed.removeWhere((task) => task.name == container);
+    listed.add(
+      Task.from({
+        'name': container,
+        'task': 'discussion',
         'project': project,
         'running': true,
         'agentEnded': ?endBeforeStart,

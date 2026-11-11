@@ -1,11 +1,13 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:porelo_planning/porelo_planning.dart';
 
 import '../app/machines.dart';
+import '../app/planner_ideas.dart';
 import '../app/settings.dart';
 import '../app/window_log.dart';
-import '../client/models.dart' show AgentEnded, Task;
+import '../client/models.dart' show AgentEnded, ResultState, Task, TaskResult;
 import 'planning_embedding.dart';
 
 /// Why the planner must refuse [machine] as a task's machine, or null where it takes it: the planner keeps the name as
@@ -43,12 +45,20 @@ class WindowTaskReports {
     required this.sourceNamed,
     required this.tasksOn,
     required this.stopOn,
+    this.resultOf = _noResult,
+    this.hand = handIdea,
+    this.runtimeDirectory,
   }) {
     starts.onConfirmed = started;
   }
 
   /// The watched machines' own, reporting to [client]'s providers, starting through [starts].
-  factory WindowTaskReports.of(Machines machines, PlanningClient client, WindowTaskStarts starts) => WindowTaskReports(
+  factory WindowTaskReports.of(
+    Machines machines,
+    PlanningClient client,
+    WindowTaskStarts starts, {
+    String? runtimeDirectory,
+  }) => WindowTaskReports(
     settings: machines.settings,
     starts: starts,
     sourceNamed: (name) => client.providers.where((provider) => provider.name == name).firstOrNull?.source,
@@ -57,6 +67,11 @@ class WindowTaskReports {
       null => null,
     },
     stopOn: (machine, container) => machines.of(machine).stopWork(container),
+    resultOf: (name, container) => switch (machines.all.where((machine) => machine.name == name).firstOrNull) {
+      final machine? => machines.of(machine).backend.taskResult(container),
+      null => Future.error(StateError('$name is not watched.')),
+    },
+    runtimeDirectory: runtimeDirectory,
   );
 
   /// Where offers are kept.
@@ -73,6 +88,18 @@ class WindowTaskReports {
 
   /// Stops a container on the machine it runs on.
   final Future<void> Function(Machine machine, String container) stopOn;
+
+  /// The result file the task in a container handed back on the machine by that name, with its content.
+  final Future<TaskResult> Function(String machine, String container) resultOf;
+
+  /// How an ended discussion's idea is handed to the planner.
+  final HandIdea hand;
+
+  /// Where the planner writes its address file, the account's own when null.
+  final String? runtimeDirectory;
+
+  /// Told the story an ended discussion's idea was saved as.
+  void Function(KeptDiscussion discussion, String story)? onIdeaHanded;
 
   /// Says a refused report or start where the window shows planning problems: the board of that provider's project.
   void Function(String? provider, String? project, Object error)? onProblem;
@@ -97,6 +124,13 @@ class WindowTaskReports {
   /// Reports refused for good in this window's life, by offer and event, so a refusal is not sent again on every change
   /// of the machine.
   final _refused = <(String, String)>{};
+
+  /// Discussion ends whose idea could not be handed in this window's life, by offer and end, so it is not tried again
+  /// on every change of the machine; the next start of the window tries once more.
+  final _ideasNotHanded = <(String, String)>{};
+
+  /// Whether a planner not reached for an idea was said since the last idea that went through.
+  bool _ideaUnreachedSaid = false;
 
   /// The offers of tasks a stop took over: whatever report of them still waits is not sent, nor its answer followed.
   final _voided = <String>{};
@@ -192,7 +226,91 @@ class WindowTaskReports {
         await _quietly(kept, () => _deliver(kept, PlanningTaskEvent.ended, ended: plannedTaskEnded(ended)));
       }
     }
+    for (final kept in settings.keptDiscussions) {
+      final task = tasksOn(kept.machine)?.where((each) => each.name == kept.container).firstOrNull;
+      if (task?.agentEnded case final ended?) {
+        final end = plannedEndKey(ended);
+        if (end != kept.ended && !_ideasNotHanded.contains((kept.offer, end))) await _handIdea(kept, ended, end);
+      }
+    }
   }
+
+  /// Hands the idea [kept]'s discussion wrote to the planner, once for its [end]: an idea handed in, refused for its
+  /// faults or never written is not handed again, also across restarts; the result file stays in the task either way.
+  Future<void> _handIdea(KeptDiscussion kept, AgentEnded ended, String end) async {
+    final named = ended.result;
+    if (named == null) return _noIdea(kept, end, 'it was asked for no result file');
+    if (named.state != ResultState.handed) {
+      return _noIdea(kept, end, switch (named.state) {
+        ResultState.missing => 'it wrote no ${named.name}',
+        ResultState.tooLarge => '${named.name} is larger than the machine takes',
+        ResultState.unreadable => '${named.name} could not be read as text',
+        _ => '${named.name} was not handed back',
+      });
+    }
+    final TaskResult result;
+    try {
+      result = await resultOf(kept.machine, kept.container);
+    } on Object catch (error) {
+      _ideasNotHanded.add((kept.offer, end));
+      return _sayIdea(
+        kept,
+        'The idea of the discussion ${kept.container} could not be read from ${kept.machine}: $error',
+      );
+    }
+    final content = result.content;
+    if (result.state != ResultState.handed || content == null) {
+      return _noIdea(kept, end, '${result.name} was not handed back');
+    }
+    if (utf8.encode(content).length > mostIdeaBytes) {
+      return _noIdea(kept, end, '${result.name} is larger than the planner takes (64 KiB)');
+    }
+    final Object? idea;
+    try {
+      idea = jsonDecode(content);
+    } on FormatException {
+      return _noIdea(kept, end, '${result.name} holds no JSON');
+    }
+    if (idea is! Map<String, Object?>) return _noIdea(kept, end, '${result.name} holds no JSON object');
+    final String story;
+    try {
+      story = await hand(kept.project, kept.offer, idea, runtimeDirectory: runtimeDirectory);
+    } on IdeaNotSaved catch (refusal) {
+      if (refusal.transient) {
+        if (_ideaUnreachedSaid) return;
+        _ideaUnreachedSaid = true;
+        return _sayIdea(kept, 'The idea of the discussion ${kept.container} is not handed in yet: ${refusal.words}');
+      }
+      if (refusal.faults.isNotEmpty) {
+        await settings.discussionHanded(kept.machine, kept.container, end);
+      } else {
+        _ideasNotHanded.add((kept.offer, end));
+      }
+      return _sayIdea(kept, _refusedIdea(kept, refusal));
+    }
+    _ideaUnreachedSaid = false;
+    await settings.discussionHanded(kept.machine, kept.container, end);
+    if (onIdeaHanded case final told?) {
+      told(kept, story);
+    } else {
+      windowLog.info('Planning: the idea of the discussion ${kept.container} was saved as $story in ${kept.project}.');
+    }
+  }
+
+  /// Says that [kept]'s discussion left no idea to hand in at [end], once.
+  Future<void> _noIdea(KeptDiscussion kept, String end, String why) async {
+    await settings.discussionHanded(kept.machine, kept.container, end);
+    _sayIdea(kept, 'The discussion ${kept.container} ended with no idea to hand to the planner: $why.');
+  }
+
+  static String _refusedIdea(KeptDiscussion kept, IdeaNotSaved refusal) {
+    final faults = [for (final fault in refusal.faults) fault.endsWith('.') ? ' $fault' : ' $fault.'].join();
+    return 'The planner did not save the idea of the discussion ${kept.container}: ${refusal.words}$faults '
+        'Its result file stays in the task.';
+  }
+
+  void _sayIdea(KeptDiscussion kept, String words) =>
+      _say(kept.provider, kept.project, PlanningRefusal('IdeaNotHanded', {'detail': words}, words));
 
   /// Sends one report and starts what its answer orders; a refusal that will not change by itself is not sent again in
   /// this window's life. A report told meanwhile, of the same offer, is not sent again.
@@ -311,6 +429,9 @@ class WindowTaskReports {
       windowLog.warn('Planning: ${planningFailureWords(error)}');
     }
   }
+
+  static Future<TaskResult> _noResult(String machine, String container) =>
+      Future.error(StateError('$machine answers no result files here.'));
 
   static String _endKey(PlanningTaskEnded ended) =>
       plannedEndKey(AgentEnded(at: ended.at, finished: ended.finished, unpushed: ended.unpushed));

@@ -82,6 +82,39 @@ class PlannedOffer {
   );
 }
 
+/// A discussion of an idea this window started for a planner's offer: where it runs, and whose idea it hands in
+/// when it ends.
+@immutable
+class KeptDiscussion {
+  /// Takes what is kept.
+  const KeptDiscussion({
+    required this.machine,
+    required this.container,
+    required this.offer,
+    required this.provider,
+    required this.project,
+    this.ended,
+  });
+
+  /// The machine's name, as the window shows it.
+  final String machine;
+
+  /// The container Start made.
+  final String container;
+
+  /// The discussion's offer, which goes with its idea.
+  final String offer;
+
+  /// The name of the provider of planning that gave the offer.
+  final String provider;
+
+  /// The project the discussion was about.
+  final String project;
+
+  /// The end whose idea was handed in, or said not to be, or seen when the discussion started; null for none.
+  final String? ended;
+}
+
 /// A validated rental identity and optional signed-state setup progress.
 @immutable
 class HostUpRecord {
@@ -972,9 +1005,64 @@ class Settings extends ChangeNotifier {
     await _write();
   }
 
-  /// Drops the offer kept for the task in [container] on [machine], once that task is removed.
+  final _discussions = <(String, String), KeptDiscussion>{};
+
+  /// How many discussions are kept: far more than a person starts between two removals of their tasks.
+  static const mostDiscussions = 200;
+
+  /// Every discussion this window started for a planner and still keeps.
+  List<KeptDiscussion> get keptDiscussions => List.unmodifiable(_discussions.values);
+
+  /// Keeps the discussion started in [container] on [machine] for [offer] of [provider]'s [project], with the end its
+  /// agent showed when it started ([ended]), which is no new end.
+  Future<void> rememberDiscussion({
+    required String machine,
+    required String container,
+    required String offer,
+    required String provider,
+    required String project,
+    String? ended,
+  }) async {
+    if (!_validOffer(machine, container, offer) || !_validLabel(provider) || !_validLabel(project)) {
+      throw ArgumentError('A machine, a container, an offer, a provider and a project must be given.');
+    }
+    if (ended != null && !_validEnd(ended)) throw ArgumentError('An end must be a short line.');
+    _discussions.remove((machine, container));
+    _discussions[(machine, container)] = KeptDiscussion(
+      machine: machine,
+      container: container,
+      offer: offer,
+      provider: provider,
+      project: project,
+      ended: ended,
+    );
+    while (_discussions.length > mostDiscussions) {
+      _discussions.remove(_discussions.keys.first);
+    }
+    await _write();
+  }
+
+  /// Notes that the idea of the discussion in [container] on [machine] was handed in at [ended], or said not to be.
+  Future<void> discussionHanded(String machine, String container, String ended) async {
+    final kept = _discussions[(machine, container)];
+    if (kept == null) return;
+    if (!_validEnd(ended)) throw ArgumentError('An end must be a short line.');
+    _discussions[(machine, container)] = KeptDiscussion(
+      machine: kept.machine,
+      container: kept.container,
+      offer: kept.offer,
+      provider: kept.provider,
+      project: kept.project,
+      ended: ended,
+    );
+    await _write();
+  }
+
+  /// Drops the offer and the discussion kept for the task in [container] on [machine], once that task is removed.
   Future<void> forgetPlanningOffer(String machine, String container) async {
-    if (_planningOffers.remove((machine, container)) != null) await _write();
+    final offer = _planningOffers.remove((machine, container));
+    final discussion = _discussions.remove((machine, container));
+    if (offer != null || discussion != null) await _write();
   }
 
   // The planner sends an offer of at most 200 characters; a longer one was not written by this window.
@@ -1014,6 +1102,30 @@ class Settings extends ChangeNotifier {
         }
       }
     }
+    _discussions.clear();
+    if (stored['discussions'] case final List<dynamic> discussions) {
+      for (final value in discussions) {
+        if (value
+            case {
+              'machine': final String machine,
+              'container': final String container,
+              'offer': final String offer,
+              'provider': final String provider,
+              'project': final String project,
+            }
+            when _validOffer(machine, container, offer) && _validLabel(provider) && _validLabel(project)) {
+          final ended = value['ended'];
+          _discussions[(machine, container)] = KeptDiscussion(
+            machine: machine,
+            container: container,
+            offer: offer,
+            provider: provider,
+            project: project,
+            ended: ended is String && _validEnd(ended) ? ended : null,
+          );
+        }
+      }
+    }
     _handedOffers.clear();
     if (stored['planningOffersHanded'] case final List<dynamic> handed) {
       _handedOffers.addAll(handed.whereType<String>().where(_validLabel));
@@ -1038,6 +1150,17 @@ class Settings extends ChangeNotifier {
         },
     ],
     'planningOffersHanded': _handedOffers.toList(),
+    'discussions': [
+      for (final kept in _discussions.values)
+        {
+          'machine': kept.machine,
+          'container': kept.container,
+          'offer': kept.offer,
+          'provider': kept.provider,
+          'project': kept.project,
+          'ended': ?kept.ended,
+        },
+    ],
   };
 
   String? _secretsFile;
