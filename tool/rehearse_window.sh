@@ -230,10 +230,11 @@ on_vm "set -e; systemctl --user set-environment SSH_AUTH_SOCK=\$HOME/$run/agent.
     exit 1
 }
 
-# The central forge's token, for the organization's forge and owner as porelo on the VM names them, in a vault of the
-# run's own: the account's vault is never opened, read or changed. Its passphrase is made on the VM and goes to the
-# vault on standard input alone, kept nowhere but the cache the unlock fills; the vault goes with the run's copy. Every
-# porelo call of the run names it in PORELO_VAULT. A declaration the VM person already has is used and left there.
+# The central forge's token, declared for https://<forge>/<owner>/ as porelo on the VM names forge and owner: porelo
+# looks the token up under the organization's address over https. It is kept in a vault of the run's own; the
+# account's vault is never opened, read or changed. Its passphrase is made on the VM and goes to the vault on standard
+# input alone, kept nowhere but the cache the unlock fills; the vault goes with the run's copy. Every porelo call of
+# the run names it in PORELO_VAULT. A declaration the VM person already has is used and left there.
 in_vault=''
 if [ -n "${REHEARSAL_CENTRAL_TOKEN:-}" ]; then
     [ -x "$REHEARSAL_CENTRAL_TOKEN" ] || {
@@ -243,8 +244,8 @@ if [ -n "${REHEARSAL_CENTRAL_TOKEN:-}" ]; then
     central_match=$(as_the_person_on_vm "porelo org --json --refresh" 2>/dev/null | python3 -I -c 'import json, re, sys
 a = json.load(sys.stdin)
 m = re.search(re.escape(a["forge"]) + r"[:/]+([A-Za-z0-9_.-]+)/", a["address"])
-print(a["forge"] + "/" + m[1] + "/" if m else "")') || true
-    shaped 'the organization forge' "$central_match" '[A-Za-z0-9.-]+/[A-Za-z0-9_.-]+/'
+print("https://" + a["forge"] + "/" + m[1] + "/" if m else "")') || true
+    shaped 'the organization forge' "$central_match" 'https://[A-Za-z0-9.-]+/[A-Za-z0-9_.-]+/'
     [ -n "$central_match" ] || {
         echo "rehearse: porelo on $vm names no forge and owner of the organization" >&2
         exit 1
