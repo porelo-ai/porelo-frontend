@@ -71,6 +71,7 @@ import 'clearing_view.dart';
 import '../app/settings.dart';
 import '../app/shell_model.dart';
 import '../app/planner.dart' show PlanningReach;
+import 'discussion_start_dialog.dart';
 import 'planning_embedding.dart';
 
 import 'package:porelo_frontend/client.dart';
@@ -502,6 +503,7 @@ class _ShellState extends State<Shell> {
       reports.onProblem = _planningReportProblem;
       reports.onFollowUps = _storyWorkStarted;
     }
+    widget.planning?.starts?.chooseDiscussion = _chooseDiscussion;
     _homeservers = HomeserverForwards(widget.settings);
     // One that cannot be raised is said under Needs you; the project's page says the address.
     _attention.homeservers = _homeservers;
@@ -554,6 +556,20 @@ class _ShellState extends State<Shell> {
     null => null,
   };
   late final _planningHost = ShellPlanningHost(widget.shell, needsYou: () => widget.shell.goTo(Section.attention));
+
+  /// Start's form for a discussion the planner ordered, on [machine]: the person's agent and model, or null.
+  Future<DiscussionChoice?> _chooseDiscussion(Machine machine, String project, PlanningTaskOrder task) async {
+    if (!mounted) return null;
+    return showDialog<DiscussionChoice>(
+      context: context,
+      builder: (_) => DiscussionStartDialog(
+        machine: machine.name,
+        project: project,
+        task: task,
+        agents: widget.machines.of(machine).backend.agentsOn,
+      ),
+    );
+  }
 
   /// The watched machine that provides [source], if one still is.
   Machine? _planningMachine(PlanningSource source) => switch (widget.planning) {
@@ -6689,6 +6705,7 @@ class _ShellState extends State<Shell> {
       reports.onProblem = null;
       reports.onFollowUps = null;
     }
+    widget.planning?.starts?.chooseDiscussion = null;
     _attention.dispose();
     _planning?.dispose();
     widget.machines.pauseAutomaticRetries();

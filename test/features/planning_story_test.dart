@@ -222,7 +222,7 @@ void main() {
       await bddSetUp(tester);
       await thePlanningStoryReadIsDelayed(tester);
       await iOpenPlanningStory(tester, 'ST291');
-      await thePlanningMessageAppearsOnce(tester, 'Waiting for the machine’s planning answer.');
+      await thePlanningMessageAppearsOnce(tester, 'Waiting for the planner’s answer.');
       await iPressPlanningBreadcrumb(tester, 0);
       await theDelayedPlanningStoryArrives(tester);
       await thePlanningBoardIsVisible(tester);

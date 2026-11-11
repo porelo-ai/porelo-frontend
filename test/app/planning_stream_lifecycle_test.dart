@@ -59,7 +59,7 @@ void main() {
       clock.flushMicrotasks();
       try {
         expect(board.problem, isNull);
-        expect(board.live, isTrue);
+        expect(board.live, isFalse, reason: 'a watch that ended is no longer live, and says no problem');
         expect(backend.watchers, 0);
       } finally {
         board.dispose();

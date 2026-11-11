@@ -139,8 +139,97 @@ void main() {
       );
       expect(machine.started, isEmpty);
     });
+
+    // Harm: a discussion starts with an agent the person never chose, or as an ordinary task that may push.
+    test('a discussion asks the person for agent and model and starts over every repository, read only', () async {
+      final order = discussionOrder();
+      final hook = starts();
+      final asked = <(Machine, String, PlanningTaskOrder)>[];
+      hook.chooseDiscussion = (machine, project, task) async {
+        asked.add((machine, project, task));
+        return (agent: 'pi', model: 'z-ai/glm-5.3-flash');
+      };
+
+      final started = await hook(MockPlanningSource('planner'), 'demo', '', order);
+
+      expect(asked.single, (laptop, 'demo', order));
+      expect(machine.started, isEmpty, reason: 'no repository is started on its own');
+      expect(machine.discussed.single, {
+        'project': 'demo',
+        'agent': 'pi',
+        'model': 'z-ai/glm-5.3-flash',
+        'mode': 'AGENT',
+        'prompt': order.prompt,
+        'result': 'idea.json',
+      });
+      expect(started.container, 'porelo-demo-discussion');
+      expect(started.task, 'discussion');
+      expect(hook.startedOn('demo', started.container), laptop);
+    });
+
+    // Harm: a discussion the person turned away starts all the same, or uses up its offer.
+    test('a discussion the person turns away starts nothing and keeps its offer unhanded', () async {
+      final order = discussionOrder();
+      final hook = starts()..chooseDiscussion = (machine, project, task) async => null;
+
+      await expectLater(
+        hook(MockPlanningSource('planner'), 'demo', '', order),
+        throwsA(isA<PlanningRefusal>().having((refusal) => refusal.name, 'name', 'NotStarted')),
+      );
+      expect(machine.discussed, isEmpty);
+      expect(settings.planningOfferHanded(order.offer!), isFalse);
+    });
+
+    // Harm: a discussion's offer is started twice, as two agents in the same talk.
+    test('a discussion\'s offer is handed once, and a second start of it is refused', () async {
+      final order = discussionOrder();
+      final hook = starts()..chooseDiscussion = (machine, project, task) async => (agent: 'pi', model: 'm');
+      await hook(MockPlanningSource('planner'), 'demo', '', order);
+
+      await expectLater(hook(MockPlanningSource('planner'), 'demo', '', order), throwsA(isA<PlanningRefusal>()));
+      expect(machine.discussed, hasLength(1));
+    });
+
+    // Harm: a machine that cannot read every repository fails as a crash, not in its own words.
+    test('a machine that cannot start a discussion is a planning refusal in its words', () async {
+      machine.refusal = const VarlinkException('org.fuin.porelo.Tasks1.NoRepositoryReadable', {
+        'detail': 'No repository of demo can be read here.',
+      });
+      final hook = starts()..chooseDiscussion = (machine, project, task) async => (agent: 'pi', model: 'm');
+
+      await expectLater(
+        hook(MockPlanningSource('planner'), 'demo', '', discussionOrder()),
+        throwsA(
+          isA<PlanningRefusal>()
+              .having((refusal) => refusal.name, 'name', 'NoRepositoryReadable')
+              .having(planningFailureWords, 'words', contains('No repository of demo can be read here.')),
+        ),
+      );
+    });
+
+    // Harm: the end of a discussion is reported to a story it does not belong to.
+    test('a discussion is kept as no story\'s task', () async {
+      final order = discussionOrder();
+      final hook = starts()..chooseDiscussion = (machine, project, task) async => (agent: 'pi', model: 'm');
+
+      final started = await hook(MockPlanningSource('planner'), 'demo', '', order);
+
+      expect(settings.planningOffer('laptop', started.container), isNull);
+    });
   });
 }
+
+/// A planner's order to discuss an idea: no repository, no issue, the person driving it, a result file to hand back.
+PlanningTaskOrder discussionOrder() => PlanningTaskOrder.from({
+  'offer': '00000000-0000-4000-8000-00000000d15c',
+  'issues': <String>[],
+  'role': 'DISCUSSION',
+  'agent': 'codex',
+  'model': 'mock-model',
+  'mode': 'AGENT',
+  'prompt': 'Discuss this idea with the person, change nothing, and once they agree write idea.json.',
+  'result': 'idea.json',
+});
 
 /// The tasks a planner orders for ST291's analysis, each with an offer and a prompt of its own.
 Future<List<PlanningTaskOrder>> plannedOrders() async {
@@ -221,6 +310,31 @@ class _Starting extends Fake implements FleetBackend {
       _listed.add(Task.from({'name': container, 'task': repository, 'project': project, 'running': true}));
     }
     return answer;
+  }
+
+  final discussed = <Map<String, Object>>[];
+
+  @override
+  Future<StartProgress> startDiscussion({
+    required String project,
+    required String agent,
+    required String model,
+    required Mode mode,
+    required String prompt,
+    required String result,
+  }) async {
+    if (refusal case final refusal?) throw refusal;
+    discussed.add({
+      'project': project,
+      'agent': agent,
+      'model': model,
+      'mode': mode.name,
+      'prompt': prompt,
+      'result': result,
+    });
+    final container = 'porelo-$project-discussion';
+    _listed.add(Task.from({'name': container, 'task': 'discussion', 'project': project, 'running': true}));
+    return StartProgress(container: container, exitCode: 0, action: StartAction.create);
   }
 
   @override

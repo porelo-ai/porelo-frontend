@@ -131,7 +131,7 @@ Feature: Open stories and issues from planning
     Scenario: A late story reply cannot reopen details
         Given the planning story read is delayed
         When I open planning story {'ST291'}
-        Then the planning message {'Waiting for the machine’s planning answer.'} appears once
+        Then the planning message {'Waiting for the planner’s answer.'} appears once
         When I press planning breadcrumb {0}
         And the delayed planning story arrives
         Then the planning board is visible

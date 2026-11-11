@@ -397,7 +397,7 @@ void main() {
     await reports.stop(planner, 'demo', 'ST291', [started]);
     await reports.idle;
 
-    final again = _order(_followUp(1, repository: first.repository));
+    final again = _order(_followUp(1, repository: first.repository!));
     final restarted = await starts(planner, 'demo', 'ST291', again);
     await reports.idle;
 

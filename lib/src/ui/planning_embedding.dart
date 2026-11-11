@@ -41,6 +41,12 @@ Machine? plannedTaskMachine(Iterable<Machine> watched, Machine? current, bool Fu
   return carrying.where((machine) => machine.kind == 'host').firstOrNull ?? carrying.firstOrNull ?? current;
 }
 
+/// The agent and model a person chose for a discussion of an idea, or null where they turned it away.
+typedef DiscussionChoice = ({String agent, String model});
+
+/// Asks the person on [machine] which agent and model discuss [task]'s idea for [project].
+typedef ChooseDiscussion = Future<DiscussionChoice?> Function(Machine machine, String project, PlanningTaskOrder task);
+
 /// Starts each task the planner orders with Porelo's Start, on the machine that carries its project, and keeps its
 /// offer beside the machine and the container Start made.
 class WindowTaskStarts {
@@ -84,6 +90,9 @@ class WindowTaskStarts {
   /// Told each start confirmed with its task's name.
   void Function(PlannedOffer kept)? onConfirmed;
 
+  /// Asks the person for a discussion's agent and model; where none asks, the order's own are taken.
+  ChooseDiscussion? chooseDiscussion;
+
   static Machine? _noMachine(String name) => null;
 
   final _startedOn = <(String, String), Machine>{};
@@ -99,6 +108,9 @@ class WindowTaskStarts {
 
   /// Starts [task] of [story] for [project] with exactly what the order gives, as the planning screen's start hook.
   ///
+  /// A discussion of an idea is the person's: they choose its agent and model through [chooseDiscussion], and it starts
+  /// over every repository of the project, read only, as no story's task.
+  ///
   /// A refusal, by the machine or for want of one, is a [PlanningRefusal] in the machine's words.
   Future<PlanningTaskStarted> call(PlanningSource source, String project, String story, PlanningTaskOrder task) async {
     final machine = machineFor(project);
@@ -107,6 +119,36 @@ class WindowTaskStarts {
       throw PlanningRefusal('NoMachine', {'detail': words}, words);
     }
     final backend = backendOf(machine);
+    final discussion = task.role == 'DISCUSSION';
+    final Future<StartProgress> Function() start;
+    switch ((discussion, task.repository, task.result)) {
+      case (true, _, final result?):
+        final chosen = await (chooseDiscussion ?? _asOrdered)(machine, project, task);
+        if (chosen == null) {
+          const words = 'The discussion was not started.';
+          throw const PlanningRefusal('NotStarted', {'detail': words}, words);
+        }
+        start = () => backend.startDiscussion(
+          project: project,
+          agent: chosen.agent,
+          model: chosen.model,
+          mode: Mode(task.mode),
+          prompt: task.prompt,
+          result: result,
+        );
+      case (false, final repository?, _):
+        start = () => backend.startOrdered(
+          project: project,
+          repository: repository,
+          agent: task.agent,
+          model: task.model,
+          mode: Mode(task.mode),
+          prompt: task.prompt,
+        );
+      default:
+        final words = 'The planner ordered a ${task.role} task this window cannot start.';
+        throw PlanningRefusal('UnknownOrder', {'detail': words}, words);
+    }
     // Handed before Start is asked: whatever Start answers, this offer is never started again.
     if (task.offer case final offer?) {
       if (settings.planningOfferHanded(offer)) {
@@ -117,14 +159,7 @@ class WindowTaskStarts {
     }
     final StartProgress answer;
     try {
-      answer = await backend.startOrdered(
-        project: project,
-        repository: task.repository,
-        agent: task.agent,
-        model: task.model,
-        mode: Mode(task.mode),
-        prompt: task.prompt,
-      );
+      answer = await start();
     } on VarlinkException catch (error) {
       throw PlanningRefusal(error.simpleName, error.parameters, error.toString(), error.isMethodNotFound);
     } on Exception catch (error) {
@@ -148,7 +183,8 @@ class WindowTaskStarts {
       final words = '${machine.name} started $container but does not list its task name.';
       throw PlanningRefusal('NotListed', {'detail': words}, words);
     }
-    if ((task.offer, providerOf(source)) case (final offer?, final provider?)) {
+    // A discussion is no story's task: its end is the person's, not a run's to report.
+    if ((task.offer, providerOf(source)) case (final offer?, final provider?) when !discussion) {
       // An end the task showed as it started is an earlier run's, never this one's.
       await settings.rememberPlanningOffer(
         machine: machine.name,
@@ -168,6 +204,9 @@ class WindowTaskStarts {
     return PlanningTaskStarted(task: name, container: container);
   }
 
+  static Future<DiscussionChoice?> _asOrdered(Machine machine, String project, PlanningTaskOrder task) async =>
+      (agent: task.agent, model: task.model);
+
   // A start that went through answers CREATE or RESUME; an older Porelo bringing a task back answers no action, exit 0.
   static bool _started(StartProgress answer) => answer.action == null ? answer.exitCode == 0 : answer.action!.starts;
 }
@@ -182,7 +221,7 @@ String plannedEndKey(AgentEnded ended) {
 /// Where the window's planning place reads its boards, and how a start of story work it confirms reaches them.
 class EmbeddedPlanning {
   /// Takes the providers of planning, how a start reaches a machine, and where a started task runs.
-  const EmbeddedPlanning(this.client, {required this.startTask, this.startedOn = _nowhere, this.reports});
+  const EmbeddedPlanning(this.client, {required this.startTask, this.startedOn = _nowhere, this.reports, this.starts});
 
   /// The providers of planning, one per machine that serves it.
   final PlanningClient client;
@@ -195,6 +234,9 @@ class EmbeddedPlanning {
 
   /// How the tasks [startTask] started are reported, followed and stopped, absent where nothing reports them.
   final WindowTaskReports? reports;
+
+  /// The window's start of the planner's orders, where the window asks the person through it.
+  final WindowTaskStarts? starts;
 
   static Machine? _nowhere(String project, String container) => null;
 }
@@ -210,7 +252,13 @@ EmbeddedPlanning plannerPlanning(LocalPlanner planner, Machines machines) {
   planner.reports = reports.report;
   machines.addListener(reports.sweep);
   planner.addListener(reports.sweep);
-  return EmbeddedPlanning(planner, startTask: starts.call, startedOn: starts.startedOn, reports: reports);
+  return EmbeddedPlanning(
+    planner,
+    startTask: starts.call,
+    startedOn: starts.startedOn,
+    reports: reports,
+    starts: starts,
+  );
 }
 
 /// The watched machine that [client] names as the provider of [source], if one still is.
