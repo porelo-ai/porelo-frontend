@@ -108,7 +108,8 @@ check() {
         return 1
     fi
     # The organization is read only with the test person's agent, named in REHEARSAL_PERSON_AGENT as the rehearsal
-    # names it; never with the agent of whoever calls the check.
+    # names it; never with the agent of whoever calls the check. Not checked fresh here: porelod on the VM checks with
+    # an agent of its own, which holds the person's key only once a run points it at the forwarded one.
     if [ -n "${REHEARSAL_PERSON_AGENT:-}" ] &&
         ! SSH_AUTH_SOCK=$REHEARSAL_PERSON_AGENT as_the_person_on_vm 'porelo org --json >/dev/null 2>&1'; then
         echo "rehearse: porelo on $vm cannot read the organization with the agent given" >&2
@@ -138,12 +139,19 @@ mkdir -p "$report"
 rm -f "$report/results.json" "$report/run.log" "$report/report.html" "$report/results.xml" "$report/scenarios.txt"
 rm -rf "$report/pictures"
 
-# Taken away on every ending: what still runs of the window's part, the run's copy, and the host's key where this
-# run added it.
-added_key=''
+# Taken away on every ending: what still runs of the window's part, porelod's agent put back where this run pointed
+# it at the person's, the run's copy, and the host's key where this run added it.
+added_key='' pointed='' agent_before='' holder=''
 # shellcheck disable=SC2329
 cleanup() {
-    on_vm "if [ -f ~/$run/pid ]; then kill -TERM -- -\$(cat ~/$run/pid) 2>/dev/null || true; fi; rm -rf ~/$run
+    if [ -n "$pointed" ]; then
+        on_vm "if [ -n '$agent_before' ]; then systemctl --user set-environment SSH_AUTH_SOCK='$agent_before'
+            else systemctl --user unset-environment SSH_AUTH_SOCK; fi; systemctl --user restart porelod" ||
+            echo "rehearse: porelod on $vm could not be given its own agent back; restart it there" >&2
+    fi
+    [ -z "$holder" ] || kill "$holder" 2>/dev/null || true
+    on_vm "if [ -f ~/$run/pid ]; then kill -TERM -- -\$(cat ~/$run/pid) 2>/dev/null || true; fi
+        if [ -f ~/$run/agent.pid ]; then kill -TERM \$(cat ~/$run/agent.pid) 2>/dev/null || true; fi; rm -rf ~/$run
         if [ -n '$added_key' ]; then ssh-keygen -R '$address' >/dev/null 2>&1 || true; fi" || true
 }
 trap cleanup EXIT
@@ -191,11 +199,32 @@ socket=$(as_the_person_on_vm "ssh -x -o BatchMode=yes '$host' 'printf /run/user/
     exit 1
 }
 
+# porelod on the VM checks the organization with the agent its user service was given, which on the VM is not the
+# person's. For the run it is given the forwarded one: a session of the person's held open, its agent named at a
+# path of the run's, and porelod restarted on it; put back as it was on every ending.
+as_the_person_on_vm "echo \$\$ >~/$run/agent.pid && ln -sfn \"\$SSH_AUTH_SOCK\" ~/$run/agent.sock && exec sleep infinity" </dev/null >/dev/null 2>&1 &
+holder=$!
+on_vm "for _ in \$(seq 50); do [ -S ~/$run/agent.sock ] && exit 0; sleep 0.2; done; exit 1" || {
+    echo "rehearse: the person's agent could not be held open on $vm for porelod" >&2
+    exit 1
+}
+agent_before=$(on_vm "systemctl --user show-environment | sed -n 's/^SSH_AUTH_SOCK=//p'")
+shaped 'porelod agent' "$agent_before" '/[A-Za-z0-9/._-]*'
+pointed=yes
+on_vm "set -e; systemctl --user set-environment SSH_AUTH_SOCK=\$HOME/$run/agent.sock; systemctl --user restart porelod
+    for _ in \$(seq 50); do [ -S /run/user/\$(id -u)/porelo/porelod.sock ] && break; sleep 0.2; done
+    pid=\$(systemctl --user show -p MainPID --value porelod)
+    tr '\\0' '\\n' </proc/\$pid/environ | grep -qx \"SSH_AUTH_SOCK=\$HOME/$run/agent.sock\"" || {
+    echo "rehearse: porelod on $vm could not be started on the person's agent" >&2
+    exit 1
+}
+
 # Who porelo on the VM takes itself to be, kept beside it: an organization read as someone not in it lists no host.
 as_the_person_on_vm "porelo identity show --json" >"$report/identity-on-vm.json" 2>&1 || true
-# What the window will read of the organization, as the person on the VM: kept in the report, and the run stops here
-# with its words where the host is not in it, instead of every scenario waiting for a host that cannot appear.
-as_the_person_on_vm "porelo org --json" >"$report/org-on-vm.json" 2>"$report/org-on-vm.err" || {
+# What the window will read of the organization, as the person on the VM, checked now rather than taken from what
+# porelo kept: kept in the report, and the run stops here with its words where the answer is still the kept one or the
+# host is not in it, instead of every scenario waiting for a host that cannot appear.
+as_the_person_on_vm "porelo org --json --refresh" >"$report/org-on-vm.json" 2>"$report/org-on-vm.err" || {
     echo "rehearse: porelo on $vm cannot read the organization as the person: $(tail -n 1 "$report/org-on-vm.err")" >&2
     exit 1
 }
@@ -204,6 +233,10 @@ import json, sys
 answer = json.load(open(sys.argv[1]))
 words = json.dumps(answer)
 print(f"rehearse: the organization on the VM is at revision {answer.get('revision')}")
+if answer.get('stale'):
+    why = answer.get('stale_why') or {}
+    sys.exit(f"rehearse: porelo on the VM could not check the organization and answers what it kept from "
+             f"{answer.get('checked_at')}: {why.get('cause', 'no reason given')}; see org-on-vm.json")
 if f'"{sys.argv[2]}"' not in words:
     sys.exit(f"rehearse: the organization porelo reads on the VM does not list the host {sys.argv[2]}; see org-on-vm.json")
 EOF
