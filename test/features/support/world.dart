@@ -652,6 +652,12 @@ class FakeBackend implements FleetBackend {
   final discussed = <({String project, String agent, String model, Mode mode, String prompt, String result})>[];
 
   @override
+  Future<String?> whyNoDiscussion() async => discussionRefused;
+
+  /// Why this stand-in says it cannot start a discussion, or null where it can.
+  String? discussionRefused;
+
+  @override
   Future<TaskResult> taskResult(String task) =>
       throw UnimplementedError('No scenario asks a task\'s result of this stand-in.');
 

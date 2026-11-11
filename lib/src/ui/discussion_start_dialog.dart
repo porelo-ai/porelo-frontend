@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:porelo_planning/porelo_planning.dart' show PlanningTaskOrder;
 
 import '../client/porelo_client.dart' show AgentsOnTheMachine;
+import 'dialog_scroll.dart' show DialogScroll;
 import 'planning_embedding.dart' show DiscussionChoice;
 import 'start_work_view.dart' show StartAgentChoice;
 import 'tokens.dart' show Sizes, Space;
@@ -17,6 +18,7 @@ class DiscussionStartDialog extends StatefulWidget {
     required this.project,
     required this.task,
     required this.agents,
+    required this.whyNot,
     super.key,
   });
 
@@ -32,6 +34,9 @@ class DiscussionStartDialog extends StatefulWidget {
   /// The agents the machine can start.
   final Future<AgentsOnTheMachine> Function() agents;
 
+  /// Why the machine cannot start a discussion, in words, or null where it can.
+  final Future<String?> Function() whyNot;
+
   @override
   State<DiscussionStartDialog> createState() => _DiscussionStartDialogState();
 }
@@ -40,12 +45,35 @@ class _DiscussionStartDialogState extends State<DiscussionStartDialog> {
   late final _model = TextEditingController(text: widget.task.model)..addListener(() => setState(() {}));
   AgentsOnTheMachine? _listed;
   Object? _problem;
+
+  /// Why the machine cannot start it, once it said; null while it has not, or where it can.
+  String? _notOffered;
+
+  /// Whether the machine has said if it can start a discussion: until it has, Start waits.
+  var _asked = false;
   String? _agent;
 
   @override
   void initState() {
     super.initState();
-    widget.agents().then(
+    Future.sync(widget.whyNot).then(
+      (why) {
+        if (mounted) {
+          setState(() {
+            _asked = true;
+            _notOffered = why;
+          });
+        }
+      },
+      onError: (Object error) {
+        if (!mounted) return;
+        setState(() {
+          _asked = true;
+          _notOffered = 'Whether ${widget.machine} can start a discussion could not be read: $error';
+        });
+      },
+    );
+    Future.sync(widget.agents).then(
       (listed) {
         if (!mounted) return;
         final names = listed.agents.map((agent) => agent.name);
@@ -72,34 +100,44 @@ class _DiscussionStartDialogState extends State<DiscussionStartDialog> {
     title: Text('Discuss an idea in ${widget.project}'),
     content: SizedBox(
       width: Sizes.dialog,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(
-            'On ${widget.machine}, every repository of the project, read only: the agent changes nothing and pushes '
-            'nothing. You lead the talk; once you agree, it writes ${widget.task.result ?? 'its result'}.',
-          ),
-          const SizedBox(height: Space.normal),
-          ...switch ((_problem, _listed)) {
-            (final problem?, _) => [Text('The agents of ${widget.machine} could not be read: $problem')],
-            (_, final listed?) => _choices(context, listed),
-            _ => const [LinearProgressIndicator()],
-          },
-          const SizedBox(height: Space.normal),
-          TextField(
-            key: const Key('discussion-model'),
-            controller: _model,
-            decoration: const InputDecoration(labelText: 'Model', border: OutlineInputBorder()),
-          ),
-        ],
+      child: DialogScroll(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              'On ${widget.machine}, every repository of the project, read only: the agent changes nothing and pushes '
+              'nothing. You lead the talk; once you agree, it writes ${widget.task.result ?? 'its result'}.',
+            ),
+            if (_notOffered case final why?) ...[
+              const SizedBox(height: Space.normal),
+              Text(
+                why,
+                key: const Key('discussion-not-offered'),
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ],
+            const SizedBox(height: Space.normal),
+            ...switch ((_problem, _listed)) {
+              (final problem?, _) => [Text('The agents of ${widget.machine} could not be read: $problem')],
+              (_, final listed?) => _choices(context, listed),
+              _ => const [LinearProgressIndicator()],
+            },
+            const SizedBox(height: Space.normal),
+            TextField(
+              key: const Key('discussion-model'),
+              controller: _model,
+              decoration: const InputDecoration(labelText: 'Model', border: OutlineInputBorder()),
+            ),
+          ],
+        ),
       ),
     ),
     actions: <Widget>[
       TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
       FilledButton(
         key: const Key('discussion-start'),
-        onPressed: switch ((_agent, _model.text.trim())) {
+        onPressed: switch ((_asked && _notOffered == null ? _agent : null, _model.text.trim())) {
           // Read as pressed, so the last letter typed is never lost.
           (final agent?, final model) when model.isNotEmpty => () => Navigator.pop<DiscussionChoice>(context, (
             agent: agent,

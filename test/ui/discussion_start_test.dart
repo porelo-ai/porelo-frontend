@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:io' show SocketException;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
@@ -22,7 +25,11 @@ void main() {
   Future<AgentsOnTheMachine> listed({Map<String, String> failures = const {}}) async =>
       (agents: [agent('pi'), agent('codex')], failures: failures, shadowed: const <ShadowedAgent>[]);
 
-  Future<Future<DiscussionChoice?>> show(WidgetTester tester, Future<AgentsOnTheMachine> Function() agents) async {
+  Future<Future<DiscussionChoice?>> show(
+    WidgetTester tester,
+    Future<AgentsOnTheMachine> Function() agents, {
+    Future<String?> Function()? whyNot,
+  }) async {
     late Future<DiscussionChoice?> chosen;
     await tester.pumpWidget(
       MaterialApp(
@@ -30,7 +37,13 @@ void main() {
           builder: (context) => TextButton(
             onPressed: () => chosen = showDialog<DiscussionChoice>(
               context: context,
-              builder: (_) => DiscussionStartDialog(machine: 'laptop', project: 'demo', task: order, agents: agents),
+              builder: (_) => DiscussionStartDialog(
+                machine: 'laptop',
+                project: 'demo',
+                task: order,
+                agents: agents,
+                whyNot: whyNot ?? () async => null,
+              ),
             ),
             child: const Text('open'),
           ),
@@ -41,6 +54,35 @@ void main() {
     await tester.pumpAndSettle();
     return chosen;
   }
+
+  // Harm: the person picks an agent and a model for a discussion the machine cannot start, and learns it only after.
+  testWidgets('a machine that cannot read every repository says so, and offers no Start', (tester) async {
+    const words =
+        "laptop's Porelo cannot read every repository of a project for a discussion; it needs a newer Porelo.";
+    await show(tester, listed, whyNot: () async => words);
+
+    expect(find.text(words), findsOneWidget);
+    expect(tester.widget<FilledButton>(find.byKey(const Key('discussion-start'))).onPressed, isNull);
+  });
+
+  // Harm: Start is pressed before the machine said it cannot, and the person learns it only after choosing.
+  testWidgets('Start waits until the machine said whether it can start a discussion', (tester) async {
+    final answer = Completer<String?>();
+    await show(tester, listed, whyNot: () => answer.future);
+
+    expect(tester.widget<FilledButton>(find.byKey(const Key('discussion-start'))).onPressed, isNull);
+    answer.complete(null);
+    await tester.pumpAndSettle();
+    expect(tester.widget<FilledButton>(find.byKey(const Key('discussion-start'))).onPressed, isNotNull);
+  });
+
+  // Harm: a check that failed - even at once - breaks the form, or lets Start go ahead unknowing.
+  testWidgets('a machine that could not say whether it can is said, and offers no Start', (tester) async {
+    await show(tester, listed, whyNot: () => throw const SocketException('socket gone'));
+
+    expect(find.textContaining('could not be read: SocketException: socket gone'), findsOneWidget);
+    expect(tester.widget<FilledButton>(find.byKey(const Key('discussion-start'))).onPressed, isNull);
+  });
 
   // Harm: the person cannot tell that the agent reads the whole project and changes nothing.
   testWidgets('it says the project, every repository read only, and the file it hands back', (tester) async {

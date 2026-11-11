@@ -22,7 +22,7 @@ import '../app/machines.dart';
 import '../app/planner.dart';
 import '../app/settings.dart';
 import '../app/shell_model.dart';
-import '../client/models.dart' show AgentEnded, Mode;
+import '../client/models.dart' show AgentEnded, Mode, Task;
 import '../client/porelo_client.dart' show FeatureNotSupported, StartProgress;
 import '../wire/varlink_exception.dart';
 import 'planning_reports.dart';
@@ -93,6 +93,9 @@ class WindowTaskStarts {
   /// Asks the person for a discussion's agent and model; where none asks, the order's own are taken.
   ChooseDiscussion? chooseDiscussion;
 
+  /// Told the task a discussion started, as the machine lists it, so the person is shown its session.
+  void Function(Machine machine, Task task)? onDiscussionStarted;
+
   static Machine? _noMachine(String name) => null;
 
   final _startedOn = <(String, String), Machine>{};
@@ -123,10 +126,25 @@ class WindowTaskStarts {
     final Future<StartProgress> Function() start;
     switch ((discussion, task.repository, task.result)) {
       case (true, _, final result?):
+        // Asked before the offer is handed and before the person chooses: a machine that cannot is said at once.
+        final String? why;
+        try {
+          why = await Future.sync(backend.whyNoDiscussion);
+        } on Exception catch (error) {
+          final words = 'Whether ${machine.name} can start a discussion could not be read: $error';
+          throw PlanningRefusal('StartRefused', {'detail': words}, words);
+        }
+        if (why != null) throw PlanningRefusal('NoDiscussion', {'detail': why}, why);
         final chosen = await (chooseDiscussion ?? _asOrdered)(machine, project, task);
         if (chosen == null) {
           const words = 'The discussion was not started.';
           throw const PlanningRefusal('NotStarted', {'detail': words}, words);
+        }
+        // The person chose for the machine the form named; one no longer watched, or no longer the project's, is
+        // never started on in its place.
+        if (!identical(machineFor(project), machine)) {
+          final words = '${machine.name} no longer carries $project for this window; the discussion was not started.';
+          throw PlanningRefusal('NoMachine', {'detail': words}, words);
         }
         start = () => backend.startDiscussion(
           project: project,
@@ -183,6 +201,7 @@ class WindowTaskStarts {
       final words = '${machine.name} started $container but does not list its task name.';
       throw PlanningRefusal('NotListed', {'detail': words}, words);
     }
+    if ((discussion, listed) case (true, final started?)) onDiscussionStarted?.call(machine, started);
     // A discussion is no story's task: its end is the person's, not a run's to report.
     if ((task.offer, providerOf(source)) case (final offer?, final provider?) when !discussion) {
       // An end the task showed as it started is an earlier run's, never this one's.

@@ -207,6 +207,69 @@ void main() {
       );
     });
 
+    // Harm: the person chooses an agent and a model for a discussion the machine cannot start, and the offer is used up.
+    test(
+      'a machine that cannot start a discussion is refused before the person is asked, its offer unhanded',
+      () async {
+        machine.noDiscussion = 'It needs a newer Porelo.';
+        final order = discussionOrder();
+        var asked = false;
+        final hook = starts()
+          ..chooseDiscussion = (machine, project, task) async {
+            asked = true;
+            return (agent: 'pi', model: 'm');
+          };
+
+        await expectLater(
+          hook(MockPlanningSource('planner'), 'demo', '', order),
+          throwsA(
+            isA<PlanningRefusal>()
+                .having((refusal) => refusal.name, 'name', 'NoDiscussion')
+                .having(planningFailureWords, 'words', contains('It needs a newer Porelo.')),
+          ),
+        );
+        expect(asked, isFalse);
+        expect(machine.discussed, isEmpty);
+        expect(settings.planningOfferHanded(order.offer!), isFalse);
+      },
+    );
+
+    // Harm: the person chose for one machine, and the discussion starts on another, or on one no longer watched.
+    test('a machine that no longer carries the project once the person chose starts nothing', () async {
+      final order = discussionOrder();
+      Machine? carrying = laptop;
+      final hook =
+          WindowTaskStarts(
+              machineFor: (_) => carrying,
+              backendOf: (_) => machine,
+              settings: settings,
+              providerOf: (_) => 'p',
+            )
+            ..chooseDiscussion = (machine, project, task) async {
+              carrying = builder;
+              return (agent: 'pi', model: 'm');
+            };
+
+      await expectLater(
+        hook(MockPlanningSource('planner'), 'demo', '', order),
+        throwsA(isA<PlanningRefusal>().having((refusal) => refusal.name, 'name', 'NoMachine')),
+      );
+      expect(machine.discussed, isEmpty);
+      expect(settings.planningOfferHanded(order.offer!), isFalse);
+    });
+
+    // Harm: a discussion starts and the person is never shown its session, so nobody leads the talk.
+    test('a started discussion is told with the task the machine lists for it', () async {
+      final shown = <(Machine, String)>[];
+      final hook = starts()
+        ..chooseDiscussion = ((machine, project, task) async => (agent: 'pi', model: 'm'))
+        ..onDiscussionStarted = (machine, task) => shown.add((machine, task.name));
+
+      await hook(MockPlanningSource('planner'), 'demo', '', discussionOrder());
+
+      expect(shown, [(laptop, 'porelo-demo-discussion')]);
+    });
+
     // Harm: the end of a discussion is reported to a story it does not belong to.
     test('a discussion is kept as no story\'s task', () async {
       final order = discussionOrder();
@@ -339,4 +402,10 @@ class _Starting extends Fake implements FleetBackend {
 
   @override
   Future<List<Task>> tasks() async => List.of(_listed);
+
+  /// Why this machine cannot start a discussion, or null where it can.
+  String? noDiscussion;
+
+  @override
+  Future<String?> whyNoDiscussion() async => noDiscussion;
 }

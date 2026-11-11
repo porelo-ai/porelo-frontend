@@ -354,10 +354,30 @@ class PoreloClient {
   Future<bool>? _startSteps;
   Future<bool>? _startCertify;
   Future<bool>? _startFrom;
-  Future<bool>? _startAll;
-  Future<bool>? _startResult;
+  final _startDeclared = <String, Future<bool>>{};
+
+  /// Whether Start declares [input], asked once; a read that failed is forgotten, so the next ask reads again.
+  Future<bool> _startDeclares(String input) async {
+    final asked = _startDeclared[input] ??= _declaresStartInput(input);
+    try {
+      return await asked;
+    } on Object {
+      if (identical(_startDeclared[input], asked)) _startDeclared.remove(input);
+      rethrow;
+    }
+  }
 
   Future<bool> _declaresStartSteps() => _declaresStartInput('steps');
+
+  /// Why this machine's Porelo cannot start a discussion of an idea - every repository of a project read only, a
+  /// result file handed back - in words, or null where it can.
+  Future<String?> whyNoDiscussion() async {
+    if (!await _startDeclares('allRepositories') || !await _startDeclares('result')) {
+      return "This machine's Porelo cannot read every repository of a project for a discussion; it needs a newer "
+          'Porelo.';
+    }
+    return null;
+  }
 
   Future<bool> _declaresStartInput(String input) async {
     final String description;
@@ -577,10 +597,10 @@ class PoreloClient {
   }) async* {
     // Never dropped where the machine lacks them: without them the start would be an ordinary one, a repository
     // writable, where every repository read only and a file handed back were asked.
-    if (allRepositories != null && !await (_startAll ??= _declaresStartInput('allRepositories'))) {
+    if (allRepositories != null && !await _startDeclares('allRepositories')) {
       throw const FeatureNotSupported('Start(allRepositories)');
     }
-    if (result != null && !await (_startResult ??= _declaresStartInput('result'))) {
+    if (result != null && !await _startDeclares('result')) {
       throw const FeatureNotSupported('Start(result)');
     }
     // Only what the caller named is sent, so the backend's own defaults stay the only defaults.

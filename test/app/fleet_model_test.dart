@@ -63,6 +63,9 @@ class _Wedged implements FleetBackend {
   Future<TaskResult> taskResult(String task) => throw UnimplementedError();
 
   @override
+  Future<String?> whyNoDiscussion() => throw UnimplementedError();
+
+  @override
   Future<StartProgress> startOrdered({
     required String project,
     required String repository,
@@ -518,6 +521,9 @@ class _Machine implements FleetBackend {
 
   @override
   Future<TaskResult> taskResult(String task) => throw UnimplementedError();
+
+  @override
+  Future<String?> whyNoDiscussion() => throw UnimplementedError();
 
   @override
   Future<StartProgress> startOrdered({

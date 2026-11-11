@@ -13,6 +13,7 @@ import './step/i_start_the_discussion_with_the_agent.dart';
 import './step/the_machine_starts_a_discussion_over_every_repository_with_the_agent.dart';
 import './step/i_turn_the_discussions_start_away.dart';
 import './step/no_discussion_is_started.dart';
+import './step/the_discussions_session_is_on_screen.dart';
 
 void main() {
   group('''Discuss an idea with an agent from the planning board''', () {
@@ -34,6 +35,12 @@ void main() {
       await iOfferTheIdeaForDiscussion(tester, 'Let the board show who is at work');
       await iTurnTheDiscussionsStartAway(tester);
       await noDiscussionIsStarted(tester);
+    });
+    testWidgets('''A started discussion opens its session''', (tester) async {
+      await bddSetUp(tester);
+      await iOfferTheIdeaForDiscussion(tester, 'Let the board show who is at work');
+      await iStartTheDiscussionWithTheAgent(tester, 'other-agent');
+      await theDiscussionsSessionIsOnScreen(tester);
     });
   });
 }

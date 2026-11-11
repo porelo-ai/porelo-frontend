@@ -507,7 +507,9 @@ class _ShellState extends State<Shell> {
       reports.onProblem = _planningReportProblem;
       reports.onFollowUps = _storyWorkStarted;
     }
-    widget.planning?.starts?.chooseDiscussion = _chooseDiscussion;
+    widget.planning?.starts
+      ?..chooseDiscussion = _chooseDiscussion
+      ..onDiscussionStarted = _discussionStarted;
     _homeservers = HomeserverForwards(widget.settings);
     // One that cannot be raised is said under Needs you; the project's page says the address.
     _attention.homeservers = _homeservers;
@@ -571,8 +573,17 @@ class _ShellState extends State<Shell> {
         project: project,
         task: task,
         agents: widget.machines.of(machine).backend.agentsOn,
+        whyNot: widget.machines.of(machine).backend.whyNoDiscussion,
       ),
     );
+  }
+
+  /// A discussion the person started is shown at once: its session open under *Running*, as a task started by hand.
+  void _discussionStarted(Machine machine, Task task) {
+    if (!mounted || !widget.machines.all.contains(machine)) return;
+    _workView.rememberStarted(machine.name, [task], observed: widget.machines.of(machine).tasks);
+    _workView.showNewTerminal(machine.name, task);
+    _openSession(task, on: machine);
   }
 
   /// The watched machine that provides [source], if one still is.
@@ -6757,7 +6768,9 @@ class _ShellState extends State<Shell> {
       reports.onProblem = null;
       reports.onFollowUps = null;
     }
-    widget.planning?.starts?.chooseDiscussion = null;
+    widget.planning?.starts
+      ?..chooseDiscussion = null
+      ..onDiscussionStarted = null;
     _attention.dispose();
     _planning?.dispose();
     widget.machines.pauseAutomaticRetries();

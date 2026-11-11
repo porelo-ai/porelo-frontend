@@ -303,6 +303,9 @@ abstract class FleetBackend {
     required String result,
   });
 
+  /// Why this machine cannot start a discussion ([startDiscussion]), in words, or null where it can.
+  Future<String?> whyNoDiscussion();
+
   /// The result file [task] handed back at its end, with its content.
   Future<TaskResult> taskResult(String task);
 
@@ -868,6 +871,9 @@ class PoreloBackend implements FleetBackend {
     ),
     project: project,
   );
+
+  @override
+  Future<String?> whyNoDiscussion() => _opened().whyNoDiscussion();
 
   @override
   Future<TaskResult> taskResult(String task) => _opened().result(task);

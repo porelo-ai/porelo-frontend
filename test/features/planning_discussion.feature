@@ -17,3 +17,9 @@ Feature: Discuss an idea with an agent from the planning board
         When I offer the idea {'Let the board show who is at work'} for discussion
         And I turn the discussion's Start away
         Then no discussion is started
+
+    # Harm: a discussion starts and the person is never shown its session, so nobody leads the talk.
+    Scenario: A started discussion opens its session
+        When I offer the idea {'Let the board show who is at work'} for discussion
+        And I start the discussion with the agent {'other-agent'}
+        Then the discussion's session is on screen

@@ -72,6 +72,32 @@ void main() {
     });
   }
 
+  // Harm: the person chooses an agent and a model for a discussion the machine cannot start, and learns it only after.
+  test('a machine says ahead whether it can start a discussion', () async {
+    daemon.description = declares;
+    expect(await (await connect()).whyNoDiscussion(), isNull);
+    for (final lacking in <String?>[
+      null,
+      'method Start(task: ?string, result: ?string) -> (exitCode: ?int)',
+      'method Start(task: ?string, allRepositories: ?bool) -> (exitCode: ?int)',
+    ]) {
+      daemon.description = lacking;
+      expect(await (await connect()).whyNoDiscussion(), contains('newer Porelo'), reason: '$lacking');
+    }
+  });
+
+  // Harm: one failed read of the contract leaves a machine unable to start a discussion until the window restarts.
+  test('a read of the contract that failed is asked again, not kept', () async {
+    final client = await connect();
+    daemon.describeRefusal = 'org.fuin.porelo.Tasks1.Busy';
+    await expectLater(client.whyNoDiscussion(), throwsA(isA<VarlinkException>()));
+
+    daemon
+      ..describeRefusal = null
+      ..description = declares;
+    expect(await client.whyNoDiscussion(), isNull);
+  });
+
   test('CanStart is asked about every repository where the start is', () async {
     Map<String, dynamic>? asked;
     daemon.method('CanStart', (parameters) {

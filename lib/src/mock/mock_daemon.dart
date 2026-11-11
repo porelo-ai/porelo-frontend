@@ -69,6 +69,9 @@ class MockDaemon {
   /// What this returns from `GetInterfaceDescription`, when anything.
   String? description;
 
+  /// The error `GetInterfaceDescription` answers instead, while one is set.
+  String? describeRefusal;
+
   /// Cuts every open connection the moment the next reply would be sent.
   ///
   /// For the requirement that a lost tunnel reads as a disconnection and never as a machine with
@@ -213,6 +216,7 @@ class MockDaemon {
       });
     }
     if (method == 'org.varlink.service.GetInterfaceDescription') {
+      if (describeRefusal case final error?) return _send(client, {'error': error, 'parameters': <String, dynamic>{}});
       if (description == null) {
         return _send(client, {
           'error': 'org.varlink.service.InterfaceNotFound',
