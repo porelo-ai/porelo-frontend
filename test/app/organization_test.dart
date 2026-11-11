@@ -507,4 +507,29 @@ void main() {
       expect(reviewed(organization), isFalse);
     });
   });
+
+  // Harm: a state kept from before reads as just read, so keys revoked since look current.
+  test('a stale read says when the store was reached last, never the time it was asked', () async {
+    final asked = DateTime.utc(2026, 11, 11, 9);
+    final reached = DateTime.utc(2026, 11, 11, 6, 33);
+    final store = FixtureOrganization(
+      OrganizationView(
+        stale: true,
+        checkedAt: reached,
+        name: 'acme',
+        keptIn: 'here',
+        vouchedBy: 'GitHub',
+        revision: 'r1',
+        me: 'olive',
+      ),
+    );
+    final stale = Organization(store, clock: () => asked);
+    addTearDown(stale.dispose);
+    await stale.refresh();
+    expect(stale.readAt, reached, reason: 'a stale state is as old as the last time the store was reached');
+
+    store.view = OrganizationView(name: 'acme', keptIn: 'here', vouchedBy: 'GitHub', revision: 'r2', me: 'olive');
+    await stale.refresh();
+    expect(stale.readAt, asked, reason: 'a fresh state is as new as the read that brought it');
+  });
 }

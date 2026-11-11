@@ -383,7 +383,11 @@ class _OrganizationPageState extends State<OrganizationPage> {
       if (view.stale)
         Text(
           key: const Key('organization-stale'),
-          'The store could not be reached, so this is the last state read; it may have moved on.',
+          [
+            'Porelo could not check the organization just now, so this is the state it kept; it may have moved on.',
+            lastChecked(view.checkedAt),
+            if (view.staleWhy case final why?) 'Why: ${why.words}',
+          ].join(' '),
           style: TextStyle(color: Theme.of(context).colorScheme.error),
         ),
       for (final note in view.notes) Text(note),

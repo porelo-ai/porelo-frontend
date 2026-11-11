@@ -158,12 +158,64 @@ class OrganizationHost {
   bool carriesWhole(String project) => projects.contains(project) && !repositories.containsKey(project);
 }
 
+/// Says when a stale state was checked last: [checkedAt] in local time, with its date when that is not [now]'s day.
+String lastChecked(DateTime? checkedAt, {DateTime? now}) {
+  final at = checkedAt?.toLocal();
+  if (at == null) return 'Porelo does not say when it was checked last.';
+  String two(int n) => n.toString().padLeft(2, '0');
+  final today = (now ?? DateTime.now()).toLocal();
+  final day = at.year == today.year && at.month == today.month && at.day == today.day
+      ? ''
+      : ' on ${at.year}-${two(at.month)}-${two(at.day)}';
+  return 'It was checked last at ${two(at.hour)}:${two(at.minute)}$day.';
+}
+
+/// Why Porelo answered the state it kept rather than one it checked now.
+@immutable
+class StaleWhy {
+  /// Keeps Porelo's cause and git's own lines.
+  const StaleWhy(this.cause, {this.said}) : _notChecked = null;
+
+  /// The window's own check of the kept state was refused or did not end, as [words] say.
+  const StaleWhy.notChecked(String words) : cause = 'not-checked', said = null, _notChecked = words;
+
+  final String? _notChecked;
+
+  /// Porelo's word for the cause: `kept`, `host-key`, `key-refused`, `no-network`, `timeout`, `unreachable`,
+  /// `incomplete`, `failed`, or one this build does not know.
+  final String cause;
+
+  /// Git's own lines, never the forge's, where it wrote any.
+  final String? said;
+
+  /// The cause as a sentence, with git's lines where there are any; a cause this build does not know is named.
+  String get words {
+    final why = switch (cause) {
+      'not-checked' => _notChecked ?? 'the check did not answer',
+      'kept' => 'Porelo showed the state it kept and had not checked it again yet',
+      'host-key' => "the forge's SSH host key is not trusted on this machine",
+      'key-refused' => 'the forge refused the key offered: check that your SSH agent is running and holds your key',
+      'no-network' => 'this machine has no network',
+      'timeout' => 'the forge did not answer in time',
+      'unreachable' => 'the forge could not be reached',
+      'incomplete' => 'the check could not judge everything new',
+      'failed' => 'the check failed, and Porelo keeps its words back since they may quote a secret',
+      _ => 'Porelo names the cause "$cause"',
+    };
+    // Porelo keeps a failed check's words back, and so does the window if they came anyway.
+    final git = cause == 'failed' ? '' : said?.trim() ?? '';
+    return git.isEmpty ? '$why.' : '$why. Git said: $git';
+  }
+}
+
 /// One state of the organization, as the store answered it for the person asking.
 @immutable
 class OrganizationView {
   /// Keeps everything one read answered, at one revision.
   const OrganizationView({
     this.stale = false,
+    this.checkedAt,
+    this.staleWhy,
     this.notes = const [],
     required this.name,
     required this.keptIn,
@@ -225,6 +277,12 @@ class OrganizationView {
 
   /// Whether this is the last state read because the store could not be reached.
   final bool stale;
+
+  /// When the store answered this state; on a stale read the last time it was reached, absent where not said.
+  final DateTime? checkedAt;
+
+  /// Why a stale read is stale, where Porelo says; null on a fresh read and from a Porelo that does not say.
+  final StaleWhy? staleWhy;
 
   /// What the store warns of: changes it refused, a sole holder with no backup key.
   final List<String> notes;
@@ -1176,7 +1234,7 @@ class Organization extends ChangeNotifier {
   /// The last state read, or null before any.
   OrganizationView? view;
 
-  /// When [view] was read.
+  /// When the store answered [view]: on a stale read its last answer, null where Porelo does not say.
   DateTime? readAt;
 
   /// Why the last read gave nothing, or null where it did.
@@ -1307,7 +1365,8 @@ class Organization extends ChangeNotifier {
       final answer = await source.read();
       if (read != _reads) return;
       view = answer;
-      readAt = _clock();
+      // A stale state is as old as the store's last answer, and unknown where Porelo does not say.
+      readAt = answer.stale ? answer.checkedAt : _clock();
       problem = null;
       noOrganization = false;
       // A stale read cannot tell that a project is gone.

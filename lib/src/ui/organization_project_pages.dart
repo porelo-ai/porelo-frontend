@@ -516,7 +516,10 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
     ];
     final repositoryWords = view == null || !view.opened
         ? 'not read'
-        : view.repositoriesProblem ?? '${view.repositories.length} repositories';
+        // The whole sentence stands above the list; the head only says that.
+        : view.repositoriesProblem != null
+        ? 'repositories not read'
+        : '${view.repositories.length} repositories';
     return ListView(
       key: ValueKey('organization-project ${widget.project}'),
       padding: const EdgeInsets.all(Space.normal),

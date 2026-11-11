@@ -118,7 +118,7 @@ const _project = {
 
 void main() {
   late List<List<String>> asked;
-  late Ran Function(List<String>) answer;
+  late FutureOr<Ran> Function(List<String>) answer;
 
   Future<Ran> run(
     String program,
@@ -708,6 +708,142 @@ void main() {
       expect(asked.single, ['identity', 'keys', '--json']);
       expect(keys.map((key) => key.vouched), [true, false, null]);
       expect(keys.first.label, 'mine');
+    });
+  });
+
+  group('a stale answer', () {
+    Map<String, Object?> kept(Map<String, Object?> fresh) => {
+      ...fresh,
+      'stale': true,
+      'checked_at': '2026-11-11T05:33:00Z',
+      'stale_why': {'cause': 'kept', 'said': null, 'at': null},
+      // As Porelo answers a stale project: its repositories cannot be judged by keys read earlier.
+      if (fresh.containsKey('repositories'))
+        'repositories': {'state': 'cannot-say', 'revision': null, 'names': <Object>[], 'why': 'kept'},
+    };
+    Map<String, Object?> refused(Map<String, Object?> fresh) => {
+      ...fresh,
+      'stale': true,
+      'checked_at': '2026-11-11T05:33:00Z',
+      'stale_why': {'cause': 'key-refused', 'said': 'git@github.com: Permission denied (publickey).', 'at': null},
+      // As Porelo answers a stale project: its repositories cannot be judged by keys read earlier.
+      if (fresh.containsKey('repositories'))
+        'repositories': {'state': 'cannot-say', 'revision': null, 'names': <Object>[], 'why': 'kept'},
+    };
+
+    // Harm: the kept state stands although a check would succeed, so the page shows no repositories and no keys.
+    test('a kept organization is checked again before it is shown', () async {
+      answer = (arguments) => says(arguments.contains('--refresh') ? _org : kept(_org));
+      final view = await source.read();
+      expect(asked, [
+        ['org', '--json'],
+        ['org', '--refresh', '--json'],
+      ]);
+      expect(view.stale, isFalse, reason: 'the checked state replaces the kept one');
+    });
+
+    // Harm: a project page stays without repositories although a fresh read of them would succeed.
+    test('a kept project is checked again before it is shown', () async {
+      answer = (arguments) => says(arguments.contains('--refresh') ? _project : kept(_project));
+      final view = await source.readProject('demo');
+      expect(asked.last, ['project', 'show', 'demo', '--refresh', '--json']);
+      expect(view.repositoriesProblem, isNull, reason: 'the checked repositories replace the unread ones');
+      expect(view.repositories, isNotEmpty);
+    });
+
+    // Harm: a person cannot tell why the organization stays out of reach, and tries again blind.
+    test("a check that stays stale says why, in git's words", () async {
+      answer = (arguments) => says(arguments.contains('--refresh') ? refused(_org) : kept(_org));
+      final view = await source.read();
+      expect(view.stale, isTrue);
+      expect(view.staleWhy?.cause, 'key-refused');
+      expect(view.staleWhy?.words, contains('Permission denied (publickey)'));
+      answer = (arguments) => says(arguments.contains('--refresh') ? refused(_project) : kept(_project));
+      final project = await source.readProject('demo');
+      expect(project.repositoriesProblem, contains('SSH agent'), reason: 'the cause is worded for the person');
+      expect(project.repositoriesProblem, contains('Permission denied (publickey)'));
+    });
+
+    // Harm: a failed check takes away the kept state, so the person sees nothing at all.
+    test('a check that is refused leaves the kept state shown', () async {
+      answer = (arguments) => arguments.contains('--refresh')
+          ? (code: 69, out: '{"reason": "cannot-say", "words": "the store cannot be reached"}', err: '')
+          : says(kept(_org));
+      final view = await source.read();
+      expect(view.stale, isTrue);
+      expect(view.revision, '56420b3');
+      expect(view.staleWhy?.words, contains('the store cannot be reached'), reason: "the check's refusal is the why");
+      expect(view.staleWhy?.words, isNot(contains('not checked')), reason: 'it was checked, and refused');
+    });
+
+    // Harm: a person declines to trust the forge's host key, and the write goes on to the forge regardless.
+    test('a declined host key on the check stops the read, and is asked once', () async {
+      var confirms = 0;
+      source.confirmForgeHost = (_) async {
+        confirms++;
+        return false;
+      };
+      const words = "the forge's ssh host key is not trusted: see 'porelo credentials trust-host forge.example.org'";
+      answer = (arguments) => arguments.contains('--refresh')
+          ? (code: 70, out: jsonEncode({'reason': 'unknown-host-key', 'words': words}), err: '')
+          : says(kept(_org));
+      await expectLater(source.read(), throwsA(isA<OrganizationRefused>()));
+      expect(confirms, 1);
+    });
+
+    // Harm: a card revoked in the newer read is called trusted again by an older read that ends later.
+    test('an older read ending late does not undo how a newer one stands the cards', () async {
+      final late = Completer<Ran>();
+      final revoked = {
+        ..._org,
+        'people': [
+          for (final person in _org['people']! as List<Object?>)
+            if ((person! as Map<String, Object?>)['login'] == 'alice')
+              {...person as Map<String, Object?>, 'revoked': true}
+            else
+              person,
+        ],
+      };
+      answer = (arguments) => arguments.contains('--refresh') ? late.future : says(kept(_org));
+      final older = source.read();
+      await pumpEventQueue();
+      answer = (_) => says(revoked);
+      await source.read();
+      late.complete((code: 69, out: '{"reason": "cannot-say", "words": "the store cannot be reached"}', err: ''));
+      await older;
+      answer = (_) => says(_project);
+      final alice = (await source.readProject('demo')).members.singleWhere((each) => each.login == 'alice');
+      expect(alice.standing, CardStanding.revoked);
+    });
+
+    // Harm: git's words for a check that failed may quote a secret, and Porelo keeps them back for that.
+    test("a failed check never shows git's words", () async {
+      answer = (_) => says({
+        ..._org,
+        'stale': true,
+        'stale_why': {'cause': 'failed', 'said': 'https://alice:s3cret@example.org/org.git', 'at': null},
+      });
+      final view = await source.read();
+      expect(view.staleWhy?.words, isNot(contains('s3cret')));
+    });
+
+    // Harm: a check that hangs holds the whole page empty until the command's limit of minutes.
+    test('a check that does not end in time leaves the kept state shown, and says so', () async {
+      final limit = refreshLimit;
+      refreshLimit = const Duration(milliseconds: 50);
+      addTearDown(() => refreshLimit = limit);
+      answer = (arguments) => arguments.contains('--refresh') ? Completer<Ran>().future : says(kept(_org));
+      final view = await source.read();
+      expect(view.stale, isTrue);
+      expect(view.staleWhy?.words, contains('did not end'));
+    });
+
+    // Harm: a fresh answer is asked twice, doubling every read's wait.
+    test('a fresh answer is not checked again', () async {
+      await source.read();
+      expect(asked, [
+        ['org', '--json'],
+      ]);
     });
   });
 

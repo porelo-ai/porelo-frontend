@@ -7,6 +7,12 @@ import 'core_credentials.dart';
 import 'run_here.dart';
 import 'run_porelo.dart';
 
+/// How long a stale answer's check is waited for before the kept state is shown.
+Duration refreshLimit = const Duration(seconds: 60);
+
+/// The reason of a refusal that is the person's own choice not to trust a forge's host key.
+const _declined = 'host-key-declined';
+
 /// The organization as Porelo's own commands answer: the interface reads no organization file and keeps no checkout.
 ///
 /// Each answer is read field by field, and a field it does not know is passed over, since the answers may grow. A word
@@ -34,6 +40,9 @@ class PoreloOrganizationSource implements OrganizationSource, FoundingChecks {
 
   /// Whether the organization was asked for: once it was, a project read names no card it has not answered.
   bool _organizationAsked = false;
+
+  /// How many organization reads were begun, so one that ends after a newer one leaves the cards as that one stood them.
+  var _organizationReads = 0;
 
   Future<Map<String, Object?>> _ask(List<String> arguments, {bool mayTrust = true}) async {
     final Ran ran;
@@ -63,6 +72,7 @@ class PoreloOrganizationSource implements OrganizationSource, FoundingChecks {
           throw const OrganizationRefused(
             'The SSH host key was not trusted, so the request did not continue. Refresh asks again.',
             answered: false,
+            reason: _declined,
           );
         }
       }
@@ -137,13 +147,38 @@ class PoreloOrganizationSource implements OrganizationSource, FoundingChecks {
   }
 
   Future<OrganizationView> _readOrganization() async {
-    final answer = await _ask(['org']);
-    final view = _reading(() => _view(answer));
+    final read = ++_organizationReads;
+    final (answer, notChecked) = await _checkedAgain(['org'], await _ask(['org']));
+    final view = _reading(() => _view(answer, notChecked));
+    // An older read ending after a newer one says nothing of how the cards stand now.
+    if (read != _organizationReads) return view;
     _standing = {for (final person in view.persons) person.login: person.standing};
     return view;
   }
 
-  OrganizationView _view(Map<String, Object?> answer) {
+  /// A stale answer is the state Porelo kept, shown before its check: asked once more, it waits for the check. A check
+  /// that is refused or does not end leaves the kept state, which still says that it is stale, beside what stopped it;
+  /// only a host key the person declined to trust stops the read.
+  Future<(Map<String, Object?>, String?)> _checkedAgain(List<String> arguments, Map<String, Object?> kept) async {
+    if (!_reading(() => _flag(kept, 'stale'))) return (kept, null);
+    try {
+      // A check left behind is ended by the command's own limit.
+      return (await _ask([...arguments, '--refresh']).timeout(refreshLimit), null);
+    } on TimeoutException {
+      return (kept, 'the check did not end within ${refreshLimit.inSeconds} seconds');
+    } on OrganizationRefused catch (refused) {
+      if (refused.reason == _declined) rethrow;
+      return (kept, 'the check was refused: ${refused.words}');
+    }
+  }
+
+  StaleWhy? _staleWhy(Map<String, Object?> answer, String? notChecked) {
+    if (notChecked != null) return StaleWhy.notChecked(notChecked);
+    final why = _maybeMap(answer, 'stale_why');
+    return why == null ? null : StaleWhy(_text(why, 'cause'), said: _maybeText(why, 'said'));
+  }
+
+  OrganizationView _view(Map<String, Object?> answer, [String? notChecked]) {
     final vouchedBy = _text(answer, 'vouched_by');
     final me = _maybeMap(answer, 'me');
     return OrganizationView(
@@ -155,6 +190,8 @@ class PoreloOrganizationSource implements OrganizationSource, FoundingChecks {
       vouchedBy: vouchedBy,
       revision: _maybeText(answer, 'revision') ?? '',
       stale: _flag(answer, 'stale'),
+      checkedAt: DateTime.tryParse(_maybeText(answer, 'checked_at') ?? ''),
+      staleWhy: _flag(answer, 'stale') ? _staleWhy(answer, notChecked) : null,
       // No card here: nobody is named, and the person sees *Add me*.
       me: me == null ? '' : _text(me, 'login'),
       owners: _holders(_maps(answer, 'owners')),
@@ -263,7 +300,11 @@ class PoreloOrganizationSource implements OrganizationSource, FoundingChecks {
 
   @override
   Future<ProjectView> readProject(String project) async {
-    final answer = await _ask(['project', 'show', project]);
+    final (answer, notChecked) = await _checkedAgain([
+      'project',
+      'show',
+      project,
+    ], await _ask(['project', 'show', project]));
     // Its members' cards stand in the organization's answer: the newest under way, or else the last that answered.
     for (var reading = _organizationRead; reading != null; reading = _organizationRead) {
       await reading;
@@ -285,6 +326,11 @@ class PoreloOrganizationSource implements OrganizationSource, FoundingChecks {
         revision: _maybeText(answer, 'revision') ?? '',
         repositoriesRevision: repositories == null ? null : _maybeText(repositories, 'revision'),
         repositoriesProblem: switch (state) {
+          // Stale: the organization was not reached, and what it said last cannot judge the repositories' signatures.
+          'cannot-say' when _flag(answer, 'stale') => _unreached(
+            _maybeText(answer, 'checked_at'),
+            _staleWhy(answer, notChecked),
+          ),
           'cannot-say' => 'Its repositories could not be read just now.',
           'refused' => 'Its repositories were refused: ${_maybeText(repositories!, 'why') ?? 'no reason given'}.',
           _ => null,
@@ -316,6 +362,12 @@ class PoreloOrganizationSource implements OrganizationSource, FoundingChecks {
       );
     });
   }
+
+  static String _unreached(String? checkedAt, StaleWhy? why) => [
+    'Porelo could not check the organization just now, so its repositories are not shown.',
+    lastChecked(checkedAt == null ? null : DateTime.tryParse(checkedAt)),
+    if (why != null) 'Why: ${why.words}',
+  ].join(' ');
 
   @override
   Future<ProjectInitDraft> readProjectInit(String checkout, {String? project, String? name, String? upstream}) async {
