@@ -83,6 +83,18 @@ class PullRequestsRefusedRow {
     _ => 'the machine refused.',
   };
 
+  /// What the person does about it, and where: the row's action lies on the machine, not in this window.
+  String get action {
+    final on = machine.name;
+    return switch (refusal) {
+      MissingHostForgeToken() => 'Store your forge token on $on; Open details shows how.',
+      HostPullRequestsRefused(reason: 'vault-unreadable') => 'Unlock the vault on $on.',
+      HostPullRequestsRefused(reason: 'settings') => "Put the forge settings of $on in order there.",
+      HostPullRequestsRefused(reason: 'not-carried') => 'Ask an admin of $on to carry $project for you.',
+      _ => 'If this stays, look at the forge of $on; the window asks again by itself.',
+    };
+  }
+
   /// The command that stores the missing token, to be run on the machine by the person; null where none is named.
   String? get storeCommand => switch (refusal) {
     MissingHostForgeToken(:final storeCommand) when storeCommand.isNotEmpty =>

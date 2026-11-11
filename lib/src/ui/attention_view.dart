@@ -355,6 +355,9 @@ extension on _AttentionViewState {
             attention.fleetOf(each.machine),
             widget.unlockFor?.call(each.machine),
           ).unless(reason);
+        } else {
+          // Nothing here acts on a dependency the window does not know: the row says where it is settled.
+          subtitle = 'Settle on ${each.machine.name} what Open details names; the messages then move on by themselves.';
         }
       case AttentionKind.unlisted:
         final each = row.value as ({Machine machine, String problem});
@@ -415,6 +418,7 @@ extension on _AttentionViewState {
             : each.refusal is HostPullRequestsRefused
             ? 'Refused'
             : 'Not answered';
+        subtitle = each.action;
         icon = Icons.key_off_outlined;
       case AttentionKind.operation:
         final operation = row.value as Operation;

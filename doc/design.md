@@ -313,7 +313,7 @@ distribution.
 - **Notifications are not raised on Windows yet**, and that is said once: Windows' own need the
   application registered with the shell, which the MSIX's identity would give.
 - **The files:** `%APPDATA%\porelo\frontend.json`; the operations record under
-  `%LOCALAPPDATA%\porelo`; a file kept to its owner with `icacls`; one window over a loopback port
+  `%LOCALAPPDATA%\porelo`, the window's log in `%LOCALAPPDATA%\porelo\logs`; a file kept to its owner with `icacls`; one window over a loopback port
   named in `%LOCALAPPDATA%\porelo\frontend.port`.
 - **The packages,** made by `tool/windows-package.ps1` in the Build's job *Windows* on GitHub's
   Windows runner: a ZIP, not signed, and an MSIX signed by `CN=porelo.ai`, with one `SHA256SUMS` and

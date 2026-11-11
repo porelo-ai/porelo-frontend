@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F483",
   "title": "The Window Keeps A Log Of What Only Informs",
-  "state": "Implementing",
+  "state": "Review",
   "size": "M",
   "priority": "High",
   "rank": 5,
@@ -42,7 +42,7 @@ do; what only informs is in the window's log, at the level set, and still is aft
 - The window's own lines go there: what `debugPrint` and `stderr` say today, a call to a machine that failed (WARN),
   what a refresh or a start did (INFO), what the window asked and was answered (DEBUG).
 - `Attention` writes a row it no longer shows, put away or resolved, to the log at INFO; a planner entry the planner
-  marks as information goes to the log alone.
+  marks as information goes to the log alone, once the planner says which entries those are (below).
 - Each row left in *Needs you* names its action: a button, or words saying what to do where the action is elsewhere.
 
 ## To be checked
