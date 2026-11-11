@@ -354,6 +354,8 @@ class PoreloClient {
   Future<bool>? _startSteps;
   Future<bool>? _startCertify;
   Future<bool>? _startFrom;
+  Future<bool>? _startAll;
+  Future<bool>? _startResult;
 
   Future<bool> _declaresStartSteps() => _declaresStartInput('steps');
 
@@ -570,7 +572,17 @@ class PoreloClient {
     Map<String, String>? credentials,
     String? from,
     bool certify = false,
+    bool? allRepositories,
+    String? result,
   }) async* {
+    // Never dropped where the machine lacks them: without them the start would be an ordinary one, a repository
+    // writable, where every repository read only and a file handed back were asked.
+    if (allRepositories != null && !await (_startAll ??= _declaresStartInput('allRepositories'))) {
+      throw const FeatureNotSupported('Start(allRepositories)');
+    }
+    if (result != null && !await (_startResult ??= _declaresStartInput('result'))) {
+      throw const FeatureNotSupported('Start(result)');
+    }
     // Only what the caller named is sent, so the backend's own defaults stay the only defaults.
     // Restating them here would be a second place for them to drift.
     final parameters = <String, dynamic>{
@@ -602,6 +614,8 @@ class PoreloClient {
       if (await (_startSteps ??= _declaresStartSteps())) 'steps': true,
       // Only one that says what to do with a request asks; an older daemon has no such input.
       if (certify && await (_startCertify ??= _declaresStartInput('certify'))) 'certify': true,
+      'allRepositories': ?allRepositories,
+      'result': ?result,
     };
     yield* _callMore('Start', parameters).map(StartProgress.from);
   }
@@ -814,8 +828,10 @@ class PoreloClient {
     String? credentialType,
     String? repository,
     Map<String, String>? credentials,
+    bool? allRepositories,
   }) async => Readiness.from(
     await _call('CanStart', {
+      'allRepositories': ?allRepositories,
       'project': ?project,
       'agent': ?agent,
       'task': ?task,
@@ -826,6 +842,9 @@ class PoreloClient {
       if (credentials != null && credentials.isNotEmpty) 'credentials': credentials,
     }),
   );
+
+  /// The result file [task] handed back at its end, with its content: kept until the task's next start or its removal.
+  Future<TaskResult> result(String task) async => TaskResult.from(await _call('Result', {'task': task}));
 
   /// Stops every running task and its helpers at once.
   ///

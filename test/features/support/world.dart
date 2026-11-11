@@ -631,6 +631,20 @@ class FakeBackend implements FleetBackend {
     return StartProgress(container: started.container, exitCode: 0, action: StartAction.create);
   }
 
+  @override
+  Future<StartProgress> startDiscussion({
+    required String project,
+    required String agent,
+    required String model,
+    required Mode mode,
+    required String prompt,
+    required String result,
+  }) => throw UnimplementedError('No scenario starts a discussion on this stand-in.');
+
+  @override
+  Future<TaskResult> taskResult(String task) =>
+      throw UnimplementedError('No scenario asks a task\'s result of this stand-in.');
+
   /// The planning stand-in's start of the order the window hands to Start now, or null where it hands none.
   static Future<PlanningTaskStarted> Function()? ordered;
 

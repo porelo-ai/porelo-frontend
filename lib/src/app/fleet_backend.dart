@@ -291,6 +291,21 @@ abstract class FleetBackend {
     required String prompt,
   });
 
+  /// Starts a discussion a planner ordered: every repository of [project] read only, nothing writable and nothing
+  /// pushed, and [result] the file the task is to hand back when it ends. Answers as [startOrdered] does; a machine
+  /// that cannot read every repository refuses with `FeatureNotSupported`.
+  Future<StartProgress> startDiscussion({
+    required String project,
+    required String agent,
+    required String model,
+    required Mode mode,
+    required String prompt,
+    required String result,
+  });
+
+  /// The result file [task] handed back at its end, with its content.
+  Future<TaskResult> taskResult(String task);
+
   /// Sets or clears the caption a task reads by. **Nothing about its identity moves.**
   Future<Labelled> labelTask(String task, {String? label});
 
@@ -825,6 +840,32 @@ class PoreloBackend implements FleetBackend {
     ),
     project: project,
   );
+
+  @override
+  Future<StartProgress> startDiscussion({
+    required String project,
+    required String agent,
+    required String model,
+    required Mode mode,
+    required String prompt,
+    required String result,
+  }) => _startAnswered(
+    _opened().start(
+      project: project,
+      agent: agent,
+      model: model,
+      mode: mode,
+      prompt: prompt,
+      now: true,
+      certify: asksToCertify,
+      allRepositories: true,
+      result: result,
+    ),
+    project: project,
+  );
+
+  @override
+  Future<TaskResult> taskResult(String task) => _opened().result(task);
 
   /// Follows a start to its final reply, certifying what it asks, and answers that reply with what it printed.
   Future<StartProgress> _startAnswered(Stream<StartProgress> start, {required String project, String? task}) async {

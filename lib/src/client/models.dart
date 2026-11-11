@@ -1032,6 +1032,59 @@ class UsageCount {
   final int missing;
 }
 
+/// How a task's result file stood when the task ended.
+enum ResultState {
+  /// Taken and kept; `Result` answers its content.
+  handed,
+
+  /// The task wrote no such file.
+  missing,
+
+  /// Past the machine's bound, 1 MiB.
+  tooLarge,
+
+  /// Not readable, or not UTF-8 text.
+  unreadable,
+
+  /// A state this window does not know; never taken for handed.
+  unknown;
+
+  /// Reads the word the machine answers.
+  static ResultState of(String word) => switch (word) {
+    'handed' => handed,
+    'missing' => missing,
+    'too-large' => tooLarge,
+    'unreadable' => unreadable,
+    _ => unknown,
+  };
+}
+
+/// A task's result file: its name, how it stood, its size and, asked with `Result`, its content.
+class TaskResult {
+  /// Constructor taking every field.
+  const TaskResult({required this.name, required this.state, this.bytes = 0, this.content});
+
+  /// Reads one from a reply.
+  factory TaskResult.from(Map<String, dynamic> map) => TaskResult(
+    name: _string(map, 'name'),
+    state: ResultState.of(_string(map, 'state')),
+    bytes: _int(map, 'bytes'),
+    content: map['content'] is String ? map['content'] as String : null,
+  );
+
+  /// The file's name, with no directory.
+  final String name;
+
+  /// How it stood at the task's end.
+  final ResultState state;
+
+  /// Its size in bytes.
+  final int bytes;
+
+  /// Its text, where `Result` answered it; null in a task's end, which names the file only.
+  final String? content;
+}
+
 /// How a task's agent ended, as its adapter read its last event.
 class AgentEnded {
   /// Constructor taking every field.
@@ -1043,6 +1096,7 @@ class AgentEnded {
     this.status,
     this.unpushed = 0,
     this.lastAnswer = '',
+    this.result,
   });
 
   /// Reads one from a reply.
@@ -1054,6 +1108,7 @@ class AgentEnded {
     status: map['status'] is int ? map['status'] as int : null,
     unpushed: _int(map, 'unpushed'),
     lastAnswer: _string(map, 'lastAnswer'),
+    result: map['result'] is Map<String, dynamic> ? TaskResult.from(map['result'] as Map<String, dynamic>) : null,
   );
 
   /// When the log's last line was written.
@@ -1076,6 +1131,9 @@ class AgentEnded {
 
   /// The agent's last answer at the end of the run, when reported.
   final String lastAnswer;
+
+  /// The result file the task was asked to hand back and how it stood at the end; null where none was asked.
+  final TaskResult? result;
 
   /// Whether a person has to look: it stopped before its end, or left work that never reached the
   /// gate.

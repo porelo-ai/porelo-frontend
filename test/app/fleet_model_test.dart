@@ -50,6 +50,19 @@ class _Wedged implements FleetBackend {
       throw const VarlinkDisconnected('nothing there');
 
   @override
+  Future<StartProgress> startDiscussion({
+    required String project,
+    required String agent,
+    required String model,
+    required Mode mode,
+    required String prompt,
+    required String result,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<TaskResult> taskResult(String task) => throw UnimplementedError();
+
+  @override
   Future<StartProgress> startOrdered({
     required String project,
     required String repository,
@@ -488,6 +501,19 @@ class _Machine implements FleetBackend {
 
   @override
   Future<Removed> removeTask(String task, {bool? rescue, bool? force}) async => throw UnimplementedError();
+
+  @override
+  Future<StartProgress> startDiscussion({
+    required String project,
+    required String agent,
+    required String model,
+    required Mode mode,
+    required String prompt,
+    required String result,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<TaskResult> taskResult(String task) => throw UnimplementedError();
 
   @override
   Future<StartProgress> startOrdered({
