@@ -42,16 +42,31 @@ void main() {
     expect([for (final command in commands) command.id], ['planning.start/ST1']);
   });
 
-  // Harm: an action without a way on loses its entry or its reason.
-  test('an action without a way on lists as before', () {
+  // Harm: an action without a way on loses its entry or its reason, gains a way on of another, or a way on leaves the
+  // action it leads around and stands beside another.
+  test('an action without a way on lists as before, and a way on stays beside its own action', () {
     final commands = planningActionCommands([
       PlanningAction(id: 'planning.open/ST1', label: 'Open story ST1', unavailable: 'Not watched.', run: () {}),
-      PlanningAction(id: 'planning.open/ST2', label: 'Open story ST2', run: () {}),
+      PlanningAction(
+        id: 'planning.start/ST2',
+        label: 'Start ST2',
+        unavailable: 'A run needs attention.',
+        run: () {},
+        wayOn: PlanningWayOn(label: 'Open the run that needs attention', run: () {}),
+      ),
+      PlanningAction(id: 'planning.open/ST3', label: 'Open story ST3', unavailable: 'Not watched.', run: () {}),
+      PlanningAction(id: 'planning.open/ST4', label: 'Open story ST4', run: () {}),
     ]);
 
     expect(
-      [for (final command in commands) (command.id, command.unavailable)],
-      [('planning.open/ST1', 'Not watched.'), ('planning.open/ST2', null)],
+      [for (final command in commands) (command.id, command.label, command.unavailable)],
+      [
+        ('planning.open/ST1', 'Open story ST1', 'Not watched.'),
+        ('planning.start/ST2', 'Start ST2', 'A run needs attention.'),
+        ('planning.start/ST2 way-on', 'Open the run that needs attention', null),
+        ('planning.open/ST3', 'Open story ST3', 'Not watched.'),
+        ('planning.open/ST4', 'Open story ST4', null),
+      ],
     );
   });
 }
