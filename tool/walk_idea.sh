@@ -681,7 +681,7 @@ as_the_person_on_vm \
     "cd ~/$run && exec setsid sh -c 'echo \$\$ >pid; exec \"\$@\"' walk env -u DISPLAY -u WAYLAND_DISPLAY -u DBUS_SESSION_BUS_ADDRESS \
         PATH=\$HOME/$run/bin:\$HOME/$flutter_dir/bin:\$PATH \
         PORELO_E2E_HOST=localhost PORELO_E2E_REMOTE_SOCKET=/run/user/\$(id -u)/porelo/porelod.sock \
-        PORELO_E2E_LINK_SOCKET=/run/user/\$(id -u)/porelo/porelod.sock \
+        PORELO_E2E_ACCOUNT_RUNTIME=1 XDG_RUNTIME_DIR=/run/user/\$(id -u) \
         PORELO_E2E_OWN_SETTINGS=1 $in_vault \
         GIT_CONFIG_GLOBAL=\$HOME/$run/gitconfig \
         PORELO_WALK_PROJECT='$project' PORELO_WALK_PORELO_PROJECT='$porelo_project' PORELO_WALK_AGENT='$agent' PORELO_WALK_MODEL='$task_model' \

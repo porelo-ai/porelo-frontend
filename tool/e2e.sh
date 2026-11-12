@@ -68,12 +68,10 @@ cleanup() {
 trap cleanup EXIT
 mkdir -p "$here/run" "$here/config"
 chmod 700 "$here/run"
-# A walk on the machine itself keeps the account's own entry for this machine, which looks for porelod in the window's
-# runtime directory: the daemon's socket is linked there.
-if [ -n "${PORELO_E2E_LINK_SOCKET:-}" ]; then
-    mkdir -p "$here/run/porelo"
-    ln -s "$PORELO_E2E_LINK_SOCKET" "$here/run/porelo/porelod.sock"
-fi
+# A walk on the machine itself runs in the account's own runtime directory: its entry for this machine looks for
+# porelod there, and the porelo a terminal of the window runs finds a task's records only where porelod wrote them.
+runtime="$here/run"
+if [ "${PORELO_E2E_ACCOUNT_RUNTIME:-}" = 1 ]; then runtime=${XDG_RUNTIME_DIR:?name the runtime directory of the account}; fi
 
 if [ -n "${PORELO_E2E_KEY:-}" ] || [ -n "${PORELO_MACHINES_SSH:-}" ]; then
     eval "$(ssh-agent -s -a "$here/agent.sock")" >/dev/null
@@ -95,7 +93,7 @@ command -v xvfb-run >/dev/null || {
     exit 1
 }
 unset WAYLAND_DISPLAY
-export GDK_BACKEND=x11 XDG_RUNTIME_DIR="$here/run"
+export GDK_BACKEND=x11 XDG_RUNTIME_DIR="$runtime"
 # A rehearsed move keeps the account's own settings: its window reads the person's organization through the local
 # porelo, from the card that account holds. Everything else starts from nothing.
 if [ "${PORELO_E2E_OWN_SETTINGS:-}" != 1 ]; then export XDG_CONFIG_HOME="$here/config"; fi
