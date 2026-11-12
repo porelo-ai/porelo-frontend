@@ -10,7 +10,7 @@
   "priority": "Medium",
   "rank": 6,
   "blockedBy": [],
-  "covers": "A release Porelo refuses said as an error that stays, with its words whole; the repository on a row is F491."
+  "covers": "A release Porelo refuses said as an error that stays, with its words whole; the repository on a row is left to its own issue."
 }
 ```
 

@@ -25,7 +25,7 @@ only. The window reports each task's end with the branch porelo says its work la
 so the planner can put it into the reader's order. Work still held at the gate is not landed; the planner offers the
 reader only once it has.
 
-Found in F492's run 26, step 9: the reader was ordered to read `porelo/foo-1`, polled
+Found in [F492](README.md#f492)'s run 26, step 9: the reader was ordered to read `porelo/foo-1`, polled
 `git ls-remote origin` for half an hour and never saw it, because porelo hides every other task's branch from a task.
 
 ## Plan

@@ -19,8 +19,8 @@
 **What must be true.** A person who chooses a place, Planning for one, while the window is still reading its machines
 stays there. The place saved from the window's last session is put back only where the person has chosen none yet.
 
-Found in F492's walk on the VM (runs 15 and 19): the walk chose Planning, and the first read of the machines took the
-window back to Work, the place saved before.
+Found in [F492](README.md#f492)'s walk on the VM (runs 15 and 19): the walk chose Planning, and the first read of the
+machines took the window back to Work, the place saved before.
 
 ## Plan
 

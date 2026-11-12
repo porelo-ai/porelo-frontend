@@ -22,7 +22,7 @@ with the task from its creation and given back by List and Watch.
 also when the window ended between Start's answer and keeping the offer with its container. Today the window keeps
 the pair after Start answers; an end in between leaves a task no window reports, and the offer is held as handed.
 
-Found in F492's runs 24 to 26.
+Found in [F492](README.md#f492)'s runs 24 to 26.
 
 ## Plan
 

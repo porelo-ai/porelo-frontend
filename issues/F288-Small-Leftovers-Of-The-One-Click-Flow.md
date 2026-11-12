@@ -22,8 +22,8 @@ review policy it does not have, as the project's menu does.
 
 ## Decided by the operator (2026-11-12)
 
-- F288 shrinks to its two gathered points. The lists of what the finished one-click issues left open and of what was
-  declined from the reading of the walk's fixes are dropped here; git history keeps them.
+- This issue shrinks to its two gathered points. The lists of what the finished one-click issues left open and of what
+  was declined from the reading of the walk's fixes are dropped here; git history keeps them.
 
 ## How it stands
 

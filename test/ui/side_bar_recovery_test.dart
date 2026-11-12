@@ -216,7 +216,7 @@ void main() {
   });
 
   // Harm: the person chooses Planning while the window starts, and the first read of the machines takes them back to
-  // the place saved before (runs 15 and 19 of F492).
+  // the place saved before (the walk's runs 15 and 19).
   testWidgets('a place the person chose before the machines loaded stands over the saved one', (tester) async {
     const current = Machine(name: 'current', socketPath: '/unused');
     final shell = ShellModel();

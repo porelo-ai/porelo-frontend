@@ -22,8 +22,8 @@ the planner the window runs, for example "planner: porelo-planner <version>". Wh
 the planner says no version, About says so in words instead of leaving the line out. Today About names porelo's
 version alone, and "built from source" for the window itself.
 
-Asked by the operator during F492's walks, where the planner was swapped between builds (daace48, f9e58ea, f1dbbcd)
-and nothing in the window told which one answered.
+Asked by the operator during [F492](README.md#f492)'s walks, where the planner was swapped between builds (daace48,
+f9e58ea, f1dbbcd) and nothing in the window told which one answered.
 
 ## To be checked
 
