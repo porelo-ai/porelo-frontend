@@ -40,7 +40,8 @@ judged by its observed effect - the board, the files, the forge - never by what 
   in a discussion task; it is handed in as a story with issues in Idea; a person moves each issue to Backlog; the work
   is proposed and ordered; the builder task is started and its STARTED posted; the agent works under a deadline; its
   ENDED is posted; the offered reader task is started and ended; a person sets the story Finished; then the clean-up.
-- All three tasks - discussion, builder, reader - run `pi` with `z-ai/glm-5.3-flash`, as the window rehearsal does. The forge token of the test identity
+- All three tasks - discussion, builder, reader - run `pi` with `z-ai/glm-5.3-flash`, as the window rehearsal does.
+  The discussion runs in its terminal, the walk typing as the person does; builder and reader run unattended. The forge token of the test identity
   goes, as there, on standard input alone into a vault of the run's own, removed on every ending.
 - The clean-up runs on every ending, after a failure too: the task branches and pull requests carrying the run's name
   are deleted, and each repository the planner's store wrote to gets one new commit restoring the tree it had when the
