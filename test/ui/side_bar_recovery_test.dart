@@ -215,6 +215,59 @@ void main() {
     expect(shell.foldedOpen, contains(organization));
   });
 
+  // Harm: the person chooses Planning while the window starts, and the first read of the machines takes them back to
+  // the place saved before (runs 15 and 19 of F492).
+  testWidgets('a place the person chose before the machines loaded stands over the saved one', (tester) async {
+    const current = Machine(name: 'current', socketPath: '/unused');
+    final shell = ShellModel();
+    addTearDown(shell.dispose);
+    shell.initializeNavigation(current);
+    shell.choosePlace(const ShellPlace(Section.planning));
+    shell.restoreNavigation({'section': 'work'}, [current], current);
+    expect(shell.place.section, Section.planning);
+    expect(shell.section, Section.planning);
+    expect(shell.foldedOpen, contains(ShellPlace.machineKey(current.name)));
+  });
+
+  // Harm: a command the person found with the finder while the window starts is replaced by the place saved before.
+  testWidgets('a place the finder showed before the machines loaded stands over the saved one', (tester) async {
+    const current = Machine(name: 'current', socketPath: '/unused');
+    final shell = ShellModel();
+    addTearDown(shell.dispose);
+    shell.initializeNavigation(current);
+    shell.show('a command', section: Section.planning);
+    shell.restoreNavigation({'section': 'work'}, [current], current);
+    expect(shell.place.section, Section.planning);
+  });
+
+  // Harm: the person chose Work while the window started, and the restore selects the saved machine, project and
+  // task under it anyway, so Work opens on a selection the person never made.
+  testWidgets('a place chosen before the restore keeps the saved selection away', (tester) async {
+    final settings = Settings(
+      MemorySettingsStore({
+        'machines': [
+          const Machine(name: 'chosen', socketPath: '/unused').stored,
+          const Machine(name: 'loaded', socketPath: '/unused').stored,
+        ],
+      }),
+    );
+    await settings.load();
+    await settings.rememberWhereYouWere({'machine': 'loaded', 'project': 'saved-project'});
+    final machines = Machines(settings, reach: (_) => FakeBackend([]), tunnels: FakeTunnels());
+    final shell = ShellModel();
+    final restoration = WhereYouWere(settings, machines, shell);
+    addTearDown(restoration.dispose);
+    addTearDown(machines.dispose);
+    addTearDown(shell.dispose);
+    addTearDown(settings.dispose);
+    await machines.load();
+    expect(machines.current.name, 'chosen');
+    shell.choosePlace(const ShellPlace(Section.work));
+    await restoration.restore();
+    expect(shell.place.section, Section.work);
+    expect(machines.current.name, 'chosen');
+  });
+
   // Harm: a second restoration silently changes nothing without letting the window redraw.
   testWidgets('an already restored navigation still notifies its listeners', (tester) async {
     const current = Machine(name: 'current', socketPath: '/unused');

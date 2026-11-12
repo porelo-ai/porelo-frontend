@@ -34,6 +34,13 @@ class WhereYouWere {
   /// decided honestly.
   Future<void> restore() async {
     final place = await _settings.whereYouWere();
+    // A place the person chose while the window started stands, and the saved selection with it goes.
+    if (_shell.movedBeforeRestore) {
+      _shell.restoreNavigation(_savedNavigation, _machines.all, _machines.current);
+      _restored = true;
+      _remember();
+      return;
+    }
 
     final machine = place['machine'];
     if (machine != null) {

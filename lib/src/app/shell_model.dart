@@ -264,6 +264,12 @@ class ShellModel extends ChangeNotifier {
   final Set<String> _foldedOpen = {};
   bool _navigationInitialized = false;
 
+  // Whether a place was chosen before the saved one was restored: that choice stands over the saved one.
+  bool _movedBeforeRestore = false;
+
+  /// Whether the person chose a place before the saved one was restored, which then stands over the saved one.
+  bool get movedBeforeRestore => _movedBeforeRestore;
+
   /// The chosen destination and its owner.
   ShellPlace get place => _place;
 
@@ -282,6 +288,10 @@ class ShellModel extends ChangeNotifier {
     try {
       if (_navigationInitialized) return;
       _navigationInitialized = true;
+      if (_movedBeforeRestore) {
+        _foldedOpen.addAll(['machines', ShellPlace.machineKey(current.name)]);
+        return;
+      }
       _foldedOpen
         ..clear()
         ..addAll(['machines', ShellPlace.machineKey(current.name)]);
@@ -379,6 +389,7 @@ class ShellModel extends ChangeNotifier {
       return;
     }
     if (branch) _foldedOpen.add(next.key);
+    _movedBeforeRestore = !_navigationInitialized;
     _place = next;
     itemMachine = next.machine;
     itemProject = null;
@@ -403,6 +414,7 @@ class ShellModel extends ChangeNotifier {
     if (!(beforeNavigation?.call(Section.machine, () => openMachine(machine)) ?? true)) return;
     itemMachine = machine;
     itemProject = null;
+    _movedBeforeRestore = !_navigationInitialized;
     _place = ShellPlace(Section.machine, machine: machine);
     _foldedOpen.addAll(['machines', ShellPlace.machineKey(machine.name)]);
     _goTo(Section.machine);
@@ -414,6 +426,7 @@ class ShellModel extends ChangeNotifier {
     if (!(beforeNavigation?.call(Section.project, () => openProject(machine, project)) ?? true)) return;
     itemMachine = machine;
     itemProject = project;
+    _movedBeforeRestore = !_navigationInitialized;
     _place = ShellPlace(Section.project, machine: machine);
     _foldedOpen.addAll(['machines', ShellPlace.machineKey(machine.name)]);
     _goTo(Section.project);
@@ -445,6 +458,7 @@ class ShellModel extends ChangeNotifier {
     final hadItem = itemMachine != null || itemProject != null || _place.story != null;
     itemMachine = null;
     itemProject = null;
+    _movedBeforeRestore = !_navigationInitialized;
     _place = ShellPlace(section);
     if (section == Section.machines || section == Section.organizations) _foldedOpen.add(section.name);
     _goTo(section);
@@ -465,6 +479,7 @@ class ShellModel extends ChangeNotifier {
     if (!(beforeNavigation?.call(section, () => show(command, section: section)) ?? true)) return;
     itemMachine = null;
     itemProject = null;
+    _movedBeforeRestore = !_navigationInitialized;
     _place = ShellPlace(section);
     _section = section;
     _opened = const NothingOpened();
