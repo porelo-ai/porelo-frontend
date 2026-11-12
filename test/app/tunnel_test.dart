@@ -9,6 +9,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/connections.dart';
 import 'package:porelo_frontend/src/app/desk.dart';
+import 'package:porelo_frontend/src/app/forward_records.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/tunnel.dart';
 import 'package:porelo_host/porelo_host.dart' show poreloHostKnownHosts;
@@ -940,6 +941,272 @@ void main() {
       );
     });
   });
+
+  group('a forward a run that ended without asking left behind', _leftBehind);
+}
+
+/// The forwards a run that ended without asking left behind: found again by their record, and nothing else ended.
+void _leftBehind() {
+  late Directory where;
+  late String records;
+  late List<Process> started;
+  late Set<Process> ended;
+
+  setUp(() {
+    ended = <Process>{};
+    where = Directory.systemTemp.createTempSync('lb-');
+    // As XDG_RUNTIME_DIR is: the records' parent is this account's alone.
+    Process.runSync('chmod', <String>['700', where.path]);
+    records = '${where.path}/records';
+    started = <Process>[];
+  });
+
+  tearDown(() async {
+    for (final process in started) {
+      process.kill(ProcessSignal.sigkill);
+      await process.exitCode;
+    }
+    where.deleteSync(recursive: true);
+  });
+
+  Machine machineAt(String socket) => Machine(
+    name: 'the build machine',
+    socketPath: socket,
+    host: 'user@build',
+    remoteSocket: '/run/user/1001/porelo/porelod.sock',
+  );
+
+  /// A process serving [socket] whose own command line forwards [forwarding] as ssh's would; it ignores SIGTERM where
+  /// [stubborn].
+  Future<({Process process, List<String> command})> serving(
+    String socket, {
+    String? forwarding,
+    bool stubborn = false,
+  }) async {
+    final command = <String>[
+      'python3',
+      '-c',
+      'import socket,time,signal;'
+          '${stubborn ? 'signal.signal(signal.SIGTERM,signal.SIG_IGN);' : ''}'
+          's=socket.socket(socket.AF_UNIX);s.bind("$socket");s.listen(8);time.sleep(300)',
+      '-L',
+      '${forwarding ?? socket}:/run/user/1001/porelo/porelod.sock',
+      'user@build',
+    ];
+    final process = await Process.start(command.first, command.sublist(1));
+    started.add(process);
+    unawaited(process.exitCode.then((_) => ended.add(process)));
+    for (var i = 0; i < 100 && FileSystemEntity.typeSync(socket) != FileSystemEntityType.unixDomainSock; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+    }
+    return (process: process, command: command);
+  }
+
+  /// Whether [process] is still running after a moment.
+  Future<bool> alive(Process process) async {
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    return !ended.contains(process);
+  }
+
+  /// A forward a run of this interface raised at [socket] and recorded, then ended without asking.
+  Future<Process> leftBy(ForwardRecords earlier, String socket, {String? forwarding, bool stubborn = false}) async {
+    final left = await serving(socket, forwarding: forwarding, stubborn: stubborn);
+    earlier.record(left.process.pid, left.command);
+    return left.process;
+  }
+
+  Future<Tunnel> raisedAgain(String socket, ForwardRecords now) async {
+    final tunnel = Tunnel(machineAt(socket), records: now, start: (_) async => (await serving(socket)).process);
+    addTearDown(tunnel.drop);
+    await tunnel.raise();
+    return tunnel;
+  }
+
+  // Harm: after a kill or `q`, a machine shown down at every later start while the forward it left still serves.
+  test('a forward a killed run left at the socket is ended and the machine raised', () async {
+    final socket = '${where.path}/left.sock';
+    final left = await leftBy(ForwardRecords(records), socket);
+
+    final tunnel = await raisedAgain(socket, ForwardRecords(records));
+
+    expect(tunnel.problem, isNull);
+    expect(tunnel.state, TunnelState.up);
+    expect(await alive(left), isFalse, reason: 'the forward left behind was ended');
+  });
+
+  // Harm: another program of this person that sits at the socket path ended by the window.
+  test('an answering socket with no record of ours is still left alone', () async {
+    final socket = '${where.path}/theirs.sock';
+    final theirs = (await serving(socket)).process;
+
+    final tunnel = await raisedAgain(socket, ForwardRecords(records));
+
+    expect(tunnel.state, TunnelState.down);
+    expect(tunnel.problem, contains('already serving'));
+    expect(await alive(theirs), isTrue);
+  });
+
+  /// [tunnel] refused the endpoint as served by somebody else, and [left] still runs.
+  Future<void> leftAlone(Tunnel tunnel, Process left) async {
+    expect(tunnel.state, TunnelState.down);
+    expect(tunnel.problem, contains('already serving'));
+    expect(await alive(left), isTrue, reason: 'nothing provably ours was there to end');
+  }
+
+  // Harm, for each guard below: a process that is not the forward this interface left, ended by its pid.
+  test('a recorded pid that now runs another command line is not ended', () async {
+    final socket = '${where.path}/other-line.sock';
+    final left = await serving(socket);
+    ForwardRecords(records).record(left.process.pid, <String>[...left.command, 'more']);
+
+    await leftAlone(await raisedAgain(socket, ForwardRecords(records)), left.process);
+  });
+
+  test('a recorded pid with another start time is not ended', () async {
+    final socket = '${where.path}/other-start.sock';
+    final left = await leftBy(ForwardRecords(records, table: _Told(startTime: '1')), socket);
+
+    await leftAlone(await raisedAgain(socket, ForwardRecords(records)), left);
+  });
+
+  test('a recorded pid of another boot is not ended', () async {
+    final socket = '${where.path}/other-boot.sock';
+    final left = await leftBy(ForwardRecords(records, table: _Told(bootId: 'another boot')), socket);
+
+    await leftAlone(await raisedAgain(socket, ForwardRecords(records)), left);
+  });
+
+  test('a recorded forward of another socket is not ended for this one', () async {
+    final socket = '${where.path}/this.sock';
+    final left = await leftBy(ForwardRecords(records), socket, forwarding: '${where.path}/that.sock');
+
+    await leftAlone(await raisedAgain(socket, ForwardRecords(records)), left);
+  });
+
+  test('a recorded pid that runs as another account is not ended', () async {
+    final socket = '${where.path}/other-account.sock';
+    final left = await leftBy(ForwardRecords(records), socket);
+    final me = const LinuxProcessTable().myUid!;
+
+    await leftAlone(await raisedAgain(socket, ForwardRecords(records, table: _Told(owner: me + 1))), left);
+  });
+
+  test('without a pidfd nothing is ended, never by a bare pid', () async {
+    final socket = '${where.path}/no-pidfd.sock';
+    final left = await leftBy(ForwardRecords(records), socket);
+
+    await leftAlone(await raisedAgain(socket, ForwardRecords(records, table: _Told(pins: false))), left);
+  });
+
+  test('a record owned by another uid is ignored', () async {
+    final socket = '${where.path}/foreign.sock';
+    final left = await leftBy(ForwardRecords(records), socket);
+    PathFacts? foreign(String path) => switch (pathFactsOf(path)) {
+      final facts? when path.endsWith('.forward') => PathFacts(
+        owner: facts.owner + 1,
+        permissions: facts.permissions,
+        type: facts.type,
+      ),
+      final facts => facts,
+    };
+
+    await leftAlone(await raisedAgain(socket, ForwardRecords(records, facts: foreign)), left);
+  });
+
+  test('a record wider than 0600 is ignored', () async {
+    final socket = '${where.path}/wide.sock';
+    final left = await leftBy(ForwardRecords(records), socket);
+    Process.runSync('chmod', <String>['640', '$records/${left.pid}.forward']);
+
+    await leftAlone(await raisedAgain(socket, ForwardRecords(records)), left);
+  });
+
+  test('a record that is a link is ignored', () async {
+    final socket = '${where.path}/linked.sock';
+    final left = await leftBy(ForwardRecords(records), socket);
+    final record = '$records/${left.pid}.forward';
+    File(record).renameSync('${where.path}/elsewhere');
+    Link(record).createSync('${where.path}/elsewhere');
+
+    await leftAlone(await raisedAgain(socket, ForwardRecords(records)), left);
+  });
+
+  test('records in a directory others may write are ignored', () async {
+    final socket = '${where.path}/shared.sock';
+    final left = await leftBy(ForwardRecords(records), socket);
+    Process.runSync('chmod', <String>['770', records]);
+
+    await leftAlone(await raisedAgain(socket, ForwardRecords(records)), left);
+  });
+
+  test('records under a runtime directory that is not 0700 are ignored', () async {
+    final socket = '${where.path}/open-runtime.sock';
+    final left = await leftBy(ForwardRecords(records), socket);
+    Process.runSync('chmod', <String>['750', where.path]);
+
+    await leftAlone(await raisedAgain(socket, ForwardRecords(records)), left);
+  });
+
+  test('a pid this run holds is not ended', () async {
+    final socket = '${where.path}/held.sock';
+    final now = ForwardRecords(records);
+    final left = await leftBy(now, socket);
+
+    await leftAlone(await raisedAgain(socket, now), left);
+  });
+
+  // Harm: a start that waits without end, or a SIGKILL sent where SIGTERM was not heeded.
+  test('an endpoint still answered after the end is refused after a bounded wait, and nothing is killed', () async {
+    final socket = '${where.path}/stubborn.sock';
+    final left = await leftBy(ForwardRecords(records), socket, stubborn: true);
+    final began = DateTime.now();
+
+    final tunnel = await raisedAgain(socket, ForwardRecords(records));
+
+    expect(DateTime.now().difference(began), lessThan(const Duration(seconds: 5)));
+    await leftAlone(tunnel, left);
+  });
+
+  // Harm: a record left for a forward that ended normally, to be matched against whatever later takes its pid.
+  test('a record is gone after a normal close', () async {
+    final socket = '${where.path}/closed.sock';
+    final tunnel = await raisedAgain(socket, ForwardRecords(records));
+    expect(tunnel.state, TunnelState.up);
+    expect(Directory(records).listSync().where((each) => each.path.endsWith('.forward')), hasLength(1));
+
+    await tunnel.drop();
+
+    expect(Directory(records).listSync().where((each) => each.path.endsWith('.forward')), isEmpty);
+  });
+}
+
+/// The real process table, except for what a test tells it to say instead.
+class _Told implements ProcessTable {
+  _Told({this.startTime, String? bootId, this.owner, this.pins = true}) : _boot = bootId;
+
+  static const _real = LinuxProcessTable();
+  final String? startTime;
+  final String? _boot;
+  final int? owner;
+  final bool pins;
+
+  @override
+  int? get myUid => _real.myUid;
+
+  @override
+  String? get bootId => _boot ?? _real.bootId;
+
+  @override
+  int? ownerOf(int pid) => owner ?? _real.ownerOf(pid);
+
+  @override
+  String? startTimeOf(int pid) => startTime ?? _real.startTimeOf(pid);
+
+  @override
+  List<String>? argumentsOf(int pid) => _real.argumentsOf(pid);
+
+  @override
+  PinnedProcess? pin(int pid) => pins ? _real.pin(pid) : null;
 }
 
 class _ControlledProcess extends Fake implements Process {

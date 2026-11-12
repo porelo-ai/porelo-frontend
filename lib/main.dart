@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:guided_walk/guided_walk.dart';
 
 import 'src/app/egress.dart';
+import 'src/app/ending_signals.dart';
+import 'src/app/forward_records.dart';
 import 'src/app/gate.dart';
 import 'src/app/host_readiness.dart';
 import 'src/app/logs.dart';
@@ -21,8 +23,10 @@ import 'src/app/emergency_stop.dart';
 import 'src/app/start_work.dart';
 import 'src/app/templates.dart';
 import 'src/app/keystore.dart';
+import 'src/app/login_forward.dart';
 import 'src/app/vault.dart';
 import 'src/app/widening.dart';
+import 'src/client/environment.dart';
 import 'src/app/work_held.dart';
 import 'src/app/window.dart';
 import 'src/app/operations.dart';
@@ -125,6 +129,16 @@ Future<PoreloApp> _compose() async {
     exit(0);
   }
   windowLog.info('The window started.');
+  // Only once in charge: a launch about to be turned away records and ends nothing.
+  forwardRecords = ForwardRecords.inRuntime(setIn('XDG_RUNTIME_DIR'))?..removeStale();
+  letGoOnSignals(
+    endingSignals(),
+    letGo: () async {
+      await machines.letGoOfTheTunnels();
+      await letGoOfTheForwards();
+    },
+    exit: exit,
+  );
 
   // A card copy a crash left behind is removed now, not only when the next replacement runs.
   final newerVersion = NewerVersion()..watch();

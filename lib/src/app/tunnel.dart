@@ -9,6 +9,7 @@ import 'connections.dart';
 import 'machines.dart';
 import 'host_keys.dart';
 import 'fleet_backend.dart';
+import 'forward_records.dart';
 import 'owned_process.dart';
 import 'ssh_words.dart';
 
@@ -74,7 +75,9 @@ class Tunnel {
     this.configEnvironment,
     this.awaitsAdmission,
     this.onTurnedAway,
-  }) : _launch = start ?? _runIt,
+    ForwardRecords? records,
+  }) : _ownRecords = records,
+       _launch = start ?? _runIt,
        _tighten = run ?? _runAndWait,
        _untilItBinds = appears,
        _untilExplained = explains,
@@ -82,6 +85,11 @@ class Tunnel {
 
   /// The local public-key availability check, without agent forwarding.
   final Future<bool> Function(HostCardSsh)? keyAvailable;
+
+  final ForwardRecords? _ownRecords;
+
+  // Read when it is used: the run's records exist only once it took charge of the window.
+  ForwardRecords? get _records => _ownRecords ?? forwardRecords;
 
   /// The fixed-port preflight, injectable without changing endpoint selection.
   final Future<void> Function(HostCardSsh)? portsAvailable;
@@ -221,8 +229,17 @@ class Tunnel {
     // happens to sit at that path, and taking its endpoint away to put ours there would break it
     // silently. Refused instead, and said. Told apart by connecting, exactly as
     // [OneInstance.take] tells its own leftover from a running interface.
-    final alreadyServing = await _somebodyIsServing();
+    var alreadyServing = await _somebodyIsServing();
     if (generation != _generation) return;
+    // Unless it is the very forward a run of this interface left behind when it ended without asking.
+    if (alreadyServing && (_records?.endLeftovers((line) => forwardsSocket(line, machine.socketPath)) ?? false)) {
+      for (var wait = 0; wait < 20 && await _somebodyIsServing(); wait++) {
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+      }
+      if (generation != _generation) return;
+      alreadyServing = await _somebodyIsServing();
+      if (generation != _generation) return;
+    }
     if (alreadyServing) {
       state = TunnelState.down;
       problem = 'something is already serving ${machine.socketPath}, and it was left alone';
@@ -236,19 +253,23 @@ class Tunnel {
 
     final stopped = Completer<void>();
     try {
-      final process = await _launch(command);
+      final line = command;
+      final process = await _launch(line);
       if (generation != _generation) {
         process.kill();
         return;
       }
       _process = process;
       raised++;
+      // Recorded so that a run ended without asking leaves a forward the next one can prove was its own.
+      final records = _records?..record(process.pid, line);
       // Collected as one future rather than read line by line, because **the process can exit
       // before a subscription has delivered anything**: `ssh` prints one line and dies, and the
       // first version of this reported "exit code 255" with the sentence still in the pipe.
       final saying = process.stderr.transform(utf8.decoder).transform(const LineSplitter()).toList();
       unawaited(
         process.exitCode.then((code) async {
+          records?.forget(process.pid);
           await _itEnded(code, saying, generation);
           if (!stopped.isCompleted) stopped.complete();
         }),

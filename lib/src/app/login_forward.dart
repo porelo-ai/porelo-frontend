@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'forward_records.dart';
 import 'machines.dart';
 
 /// A forward held open for one agent login, taken down when the login's terminal goes.
@@ -74,11 +75,14 @@ class _Tracked implements HeldForward {
 Future<HeldForward> _withSsh(Machine machine, int port) async {
   if (machine.host.startsWith('-')) throw const ForwardRefused('A machine’s ssh address must not start with a dash.');
   if (machine.host.isEmpty) return const _Nothing();
+  // A forward a run of this interface left behind when it ended without asking holds the port: it is ended first.
+  if (forwardRecords?.endLeftovers((line) => forwardsPort(line, port)) ?? false) {
+    for (var wait = 0; wait < 20 && !await _free(port); wait++) {
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
+  }
   // Asked before, because ssh with ExitOnForwardFailure says only that it failed.
-  try {
-    final taken = await ServerSocket.bind(InternetAddress.loopbackIPv4, port);
-    await taken.close();
-  } on SocketException {
+  if (!await _free(port)) {
     throw ForwardRefused(
       'Port $port is already in use on this computer, so the browser’s answer '
       'could not reach ${machine.name}. Close what uses it and try again.',
@@ -86,6 +90,8 @@ Future<HeldForward> _withSsh(Machine machine, int port) async {
   }
   final command = loginForwardCommand(machine, port);
   final ssh = await startLoginForward(command);
+  final records = forwardRecords?..record(ssh.pid, command);
+  unawaited(ssh.exitCode.then((_) => records?.forget(ssh.pid)));
 
   final said = ssh.stderr.transform(const SystemEncoding().decoder).join();
   // Proven by connecting through it, never by ssh staying up: the login's listener answers.
@@ -105,7 +111,7 @@ Future<HeldForward> _withSsh(Machine machine, int port) async {
         timeout: const Duration(milliseconds: 200),
       );
       through.destroy();
-      return _Ssh(ssh);
+      return _Ssh(ssh, records);
     } on SocketException {
       // Not yet: ssh binds, then the login on the far end is asked.
     }
@@ -114,13 +120,27 @@ Future<HeldForward> _withSsh(Machine machine, int port) async {
   throw ForwardRefused('Nothing on ${machine.name} answered on port $port for the browser’s answer.');
 }
 
+Future<bool> _free(int port) async {
+  try {
+    final taken = await ServerSocket.bind(InternetAddress.loopbackIPv4, port);
+    await taken.close();
+    return true;
+  } on SocketException {
+    return false;
+  }
+}
+
 class _Ssh implements HeldForward {
-  _Ssh(this._process);
+  _Ssh(this._process, this._records);
 
   final Process _process;
+  final ForwardRecords? _records;
 
   @override
-  Future<void> close() async => _process.kill();
+  Future<void> close() async {
+    _records?.forget(_process.pid);
+    _process.kill();
+  }
 }
 
 class _Nothing implements HeldForward {
