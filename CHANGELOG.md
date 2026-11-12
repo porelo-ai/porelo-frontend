@@ -10,6 +10,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Security
 
 - A host's forge and homeserver forwards listen on `::1` as well as on 127.0.0.1, so a browser that resolves `<host>.localhost` to `::1` first reaches the card's own forward, never another program listening there; a port already held on either loopback refuses the host before its connection starts. A computer without an IPv6 loopback forwards 127.0.0.1 alone and gives the forge and Element `http://127.0.0.1:<port>/` instead of the host's name.
+- A host's forge or a pull request on it is not opened when raising its forward anew failed, and a forward ssh raised again on one loopback only is cancelled, not left half up; Element is not opened at a host's homeserver while the connection to that host is not up, and says to connect first.
 - `porelo-host up` checks the collection's SHA-256 again on the host, right before `ansible-galaxy` installs it, and refuses a tarball changed there after the copy; both refusals name the digest found and the one expected.
 
 ### Changed

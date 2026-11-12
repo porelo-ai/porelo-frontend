@@ -157,21 +157,25 @@ Command readOrganizationNowCommand({
 );
 
 /// Opens [host]'s forge, raising this computer's forward to it anew first where the forge gave no answer through it.
-/// Answers why the forward could not be raised anew, or null; the forge is opened whatever the forward now says, as the
-/// browser then shows what it gets.
+/// Answers why the forward could not be raised anew, or null. **Nothing is opened then**: raising it anew cancels the
+/// forward first, and one only partly raised again leaves its port to whatever program took it meanwhile, which a
+/// browser would hand the person's sign-in.
 Future<String?> openHostForge({required String host, required HostConnections? connections}) async {
   if (connections == null) return null;
   final refused = await _forgeForwardAnswers(host, connections);
+  if (refused != null) return refused;
   if (connections.forgeUrl(host) case final address?) await openLink(Uri.parse(address));
-  return refused;
+  return null;
 }
 
 /// Opens [address], a page on [host]'s forge through this computer's forward to it, raising the forward anew first as
-/// [openHostForge] does where [connections] can; answers why it could not be raised anew, or null.
+/// [openHostForge] does where [connections] can; answers why it could not be raised anew, or null, and then opens
+/// nothing, as [openHostForge] does not.
 Future<String?> openOnHostForge(Uri address, {required String host, required HostConnections? connections}) async {
   final refused = connections == null ? null : await _forgeForwardAnswers(host, connections);
+  if (refused != null) return refused;
   await openLink(address);
-  return refused;
+  return null;
 }
 
 /// Raises the forward to [host]'s forge anew where the forge gave no answer through it; why that failed, or null.

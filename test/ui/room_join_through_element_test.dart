@@ -81,6 +81,7 @@ Future<ProjectConversation> _open(
   String project = 'demo',
   List<MessageMember> members = const [],
   FakeBackend? backend,
+  ValueNotifier<bool>? reached,
 }) async {
   final asked = (backend ?? _Backend())..membersOf[project] = members.toList();
   final model = ProjectConversation(
@@ -89,6 +90,8 @@ Future<ProjectConversation> _open(
     Project.from({'name': project}),
     settings: Settings(MemorySettingsStore()),
     admission: admission,
+    hostReached: reached == null ? null : () => reached.value,
+    hostChanges: reached,
   );
   addTearDown(model.dispose);
   await model.load();
@@ -125,6 +128,26 @@ void main() {
     await tester.tap(find.byKey(const Key('open-element-signed-in')));
     await tester.pumpAndSettle();
     expect(element.opened.last, (homeserver: 'http://alpha.localhost:18082/', profile: null));
+  });
+
+  // Harm: the connection to the host dropped while the dialog was open and another program took its homeserver's port;
+  // Element, opened at that address, hands that program the person's sign-in.
+  testWidgets('Element is not opened at a host whose connection is not up', (tester) async {
+    final element = _Element(there: true);
+    final reached = ValueNotifier<bool>(true);
+    addTearDown(reached.dispose);
+    await _open(tester, machine: _host, element: element, reached: reached);
+    reached.value = false;
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('open-element-signed-in')));
+    await tester.pumpAndSettle();
+    expect(element.opened, isEmpty);
+    expect(find.textContaining('Connect to alpha first'), findsOneWidget);
+    reached.value = true;
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('open-element-signed-in')));
+    await tester.pumpAndSettle();
+    expect(element.opened, [(homeserver: 'http://alpha.localhost:18082/', profile: 'alpha')]);
   });
 
   // Harm: a start that fails without a word leaves the person waiting for an Element that never comes.

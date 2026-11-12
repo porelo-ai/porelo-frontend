@@ -24,11 +24,27 @@ class ProjectConversation extends ChangeNotifier {
     this._forwards,
     this._admission,
     this._admissionChanges,
+    this._hostReached,
+    this._hostChanges,
   }) : _settings = settings,
        _person = settings.messagePerson(machine.name, project.name) {
     _forwards?.addListener(_forwardsChanged);
     _admissionChanges?.addListener(_notify);
+    _hostChanges?.addListener(_notify);
   }
+
+  /// Whether this computer's connection to the host is up now, and what tells when that changes; null where nothing
+  /// is told, as in a test without a host's connection.
+  final bool Function()? _hostReached;
+  final Listenable? _hostChanges;
+
+  /// Why Element may not be opened at [hostHomeserver] now, or null. The address is this computer's forward to the
+  /// host: while the connection is not up, nothing of the window holds that port, and whatever program took it would
+  /// be handed the person's sign-in.
+  String? get whyElementCannotOpen => _hostReached == null || _hostReached()
+      ? null
+      : 'Connect to ${machine.hostCard?.name ?? machine.name} first: its homeserver is reached only through this '
+            "computer's connection to it.";
 
   final RoomAdmission Function()? _admission;
   final Listenable? _admissionChanges;
@@ -276,6 +292,7 @@ class ProjectConversation extends ChangeNotifier {
     // The login goes with the dialog: nothing of it is kept.
     _forwards?.removeListener(_forwardsChanged);
     _admissionChanges?.removeListener(_notify);
+    _hostChanges?.removeListener(_notify);
     _joined = null;
     _pendingJoin = null;
     _pendingPerson = null;

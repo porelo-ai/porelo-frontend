@@ -1582,6 +1582,12 @@ class _ShellState extends State<Shell> {
         problem: _organization?.problem,
       ),
       admissionChanges: _organization,
+      // A host's homeserver is this computer's forward to it: Element goes there only while the connection is up.
+      hostReached: switch (widget.machines.current) {
+        final host when host.hostCard != null => () => widget.machines.tunnels.of(host)?.state == TunnelState.up,
+        _ => null,
+      },
+      hostChanges: widget.machines.tunnels,
     );
   }
 

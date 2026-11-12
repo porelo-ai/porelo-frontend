@@ -9,7 +9,7 @@ import 'package:porelo_frontend/src/app/settings.dart';
 
 import 'package:porelo_frontend/src/app/commands.dart';
 import 'package:porelo_frontend/src/app/links.dart';
-import 'package:porelo_frontend/src/app/organization_source.dart' show HostConnections;
+import 'package:porelo_frontend/src/app/organization_source.dart' show HostConnections, OrganizationRefused;
 
 import '../features/support/world.dart';
 import '../support/organization_fixtures.dart';
@@ -25,6 +25,17 @@ class _SilentForge extends FixtureConnections {
 
   @override
   Future<void> raiseForwardAnew(String host) async => said.add('raise $host');
+}
+
+/// A forge that gives no answer and whose forward is refused when raised anew.
+class _RefusedForge extends _SilentForge {
+  _RefusedForge(super.said);
+
+  @override
+  Future<void> raiseForwardAnew(String host) async {
+    said.add('raise $host');
+    throw const OrganizationRefused('[::1]:3000 is held by another program.');
+  }
 }
 
 const _key = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
@@ -368,6 +379,28 @@ void main() {
     );
 
     expect(said, <String>['raise build', 'open http://build.localhost:3000/foo/foo-1/pulls/1']);
+  });
+
+  // Harm: the forward was cancelled and only partly raised again, and the browser sends the person's sign-in to
+  // whatever program took the port meanwhile.
+  test('a pull request or the forge is not opened where its forward could not be raised anew', () async {
+    final said = <String>[];
+    final previous = openLink;
+    openLink = (address) async => said.add('open $address');
+    addTearDown(() => openLink = previous);
+    final connections = _RefusedForge(said);
+    addTearDown(connections.dispose);
+
+    final pull = await openOnHostForge(
+      Uri.parse('http://build.localhost:3000/foo/foo-1/pulls/1'),
+      host: 'build',
+      connections: connections,
+    );
+    final forge = await openHostForge(host: 'build', connections: connections);
+
+    expect(said, <String>['raise build', 'raise build']);
+    expect(pull, contains('held by another program'));
+    expect(forge, contains('held by another program'));
   });
 
   // Harm: a pull request is offered while the connection that reaches its forge is down, and opens nothing.

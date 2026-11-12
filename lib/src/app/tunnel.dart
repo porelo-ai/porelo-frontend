@@ -1172,6 +1172,9 @@ class Tunnels extends ChangeNotifier {
     await _run([openSsh('ssh'), '-F', machine.sshConfig, '-O', 'cancel', ...spec]);
     final added = await _run([openSsh('ssh'), '-F', machine.sshConfig, '-O', 'forward', ...spec]);
     if (added.exitCode == 0) return null;
+    // A master raises each listen on its own: one family may be up while another program took the port on the other.
+    // Half a forward is none, or a browser trying that other family first hands that program the person's sign-in.
+    await _run([openSsh('ssh'), '-F', machine.sshConfig, '-O', 'cancel', ...spec]);
     final said = '${added.stderr}'.trim();
     return said.isEmpty ? 'ssh did not add the forward again.' : said;
   }

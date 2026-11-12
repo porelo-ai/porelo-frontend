@@ -27,6 +27,8 @@ Future<void> showProjectMessages(
   HomeserverForwards? forwards,
   RoomAdmission Function()? admission,
   Listenable? admissionChanges,
+  bool Function()? hostReached,
+  Listenable? hostChanges,
 }) async {
   final conversation = ProjectConversation(
     backend,
@@ -36,6 +38,8 @@ Future<void> showProjectMessages(
     forwards: forwards,
     admission: admission,
     admissionChanges: admissionChanges,
+    hostReached: hostReached,
+    hostChanges: hostChanges,
   );
   unawaited(conversation.load());
   await showDialog<void>(
@@ -400,9 +404,12 @@ class _MessagesDialogState extends State<MessagesDialog> {
             // An Element already open takes only the address from a start that is not separate: it is not signed
             // in to this host by it.
             label: Text(_separate ? 'Open Element signed in to this host' : 'Open Element with this host’s address'),
-            onPressed: () => unawaited(_startElement(homeserver, _separate ? host : null)),
+            onPressed: model.whyElementCannotOpen == null
+                ? () => unawaited(_startElement(homeserver, _separate ? host : null))
+                : null,
           ),
         ),
+        if (model.whyElementCannotOpen case final why?) Text(why, key: const Key('element-not-reached')),
         SelectableText(
           _separate
               ? 'Sets the homeserver to $homeserver and goes straight to Continue with SSO'
@@ -462,6 +469,11 @@ class _MessagesDialogState extends State<MessagesDialog> {
   }
 
   Future<void> _startElement(String homeserver, String? profile) async {
+    // Asked again at the press: the connection may have dropped since the button was drawn.
+    if (widget.conversation.whyElementCannotOpen case final why?) {
+      setState(() => _elementProblem = why);
+      return;
+    }
     setState(() => _elementProblem = null);
     String? problem;
     try {

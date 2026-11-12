@@ -133,12 +133,14 @@ void main() {
   late List<_Master> masters;
   late String hostSays;
   late List<List<String>> ran;
+  late bool forwardRefused;
   late Completer<void>? holdStart;
   late FakeBackend daemon;
 
   setUp(() {
     daemon = FakeBackend(const []);
     ran = [];
+    forwardRefused = false;
     holdStart = null;
     masters = [];
     turnedAway = false;
@@ -158,6 +160,9 @@ void main() {
       },
       run: (command) async {
         ran.add(command);
+        if (forwardRefused && command.contains('forward')) {
+          return ProcessResult(0, 255, '', 'Port forwarding failed: [::1]:8081 is in use');
+        }
         return ProcessResult(0, 0, '', '');
       },
       keyAvailable: (_) async => true,
@@ -950,6 +955,23 @@ void main() {
         ['-F', config('build'), '-O', 'forward', ...forward],
       ],
     );
+  });
+
+  // Harm: ssh cancelled the forward, raised it again on 127.0.0.1 alone and refused [::1], where another program had
+  // taken the port meanwhile; the forward left half up sends a browser that tries ::1 first to that program.
+  test('a forward refused when raised anew is cancelled again, not left half up', () async {
+    final before = HostCardSsh.ipv6Loopback;
+    addTearDown(() => HostCardSsh.ipv6Loopback = before);
+    HostCardSsh.ipv6Loopback = true;
+    final made = await connections(_mia());
+    await made.connect('build');
+    ran.clear();
+    forwardRefused = true;
+    await expectLater(
+      made.raiseForwardAnew('build'),
+      throwsA(isA<OrganizationRefused>().having((refused) => refused.words, 'words', contains('in use'))),
+    );
+    expect([for (final command in ran) command[command.indexOf('-O') + 1]], ['cancel', 'forward', 'cancel']);
   });
 
   // Harm: every click raises the forward again while the cause is on the host.
