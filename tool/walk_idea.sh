@@ -247,7 +247,7 @@ cleanup() {
         on_vm "PORELO_VAULT=$vault porelo vault lock" </dev/null >/dev/null 2>&1 || true
     fi
     if [ -n "$pointed" ]; then
-        on_vm "if [ -n '$agent_before' ]; then systemctl --user set-environment SSH_AUTH_SOCK='$agent_before'
+        on_vm "systemctl --user unset-environment PORELO_VAULT; if [ -n '$agent_before' ]; then systemctl --user set-environment SSH_AUTH_SOCK='$agent_before'
             else systemctl --user unset-environment SSH_AUTH_SOCK; fi; systemctl --user restart porelod" </dev/null ||
             left+=("porelod on $vm still pointed at the person's agent (restart it there)")
     fi
@@ -527,6 +527,13 @@ else
         exit 1
     }
 fi
+# porelod reads the organization's https addresses with the vault it was started with: for the run, the run's own.
+on_vm "set -e; systemctl --user set-environment PORELO_VAULT=$vault; systemctl --user restart porelod
+    for _ in \$(seq 50); do [ -S /run/user/\$(id -u)/porelo/porelod.sock ] && break; sleep 0.2; done
+    systemctl --user is-active --quiet porelod" </dev/null || {
+    echo "walk: porelod on $vm could not be started on the run's vault" >&2
+    exit 1
+}
 
 # The seed's diffs, read before anything is touched, each to apply to a file of a seeded repository as it is at T0; other top-level files are not
 # seeded.
