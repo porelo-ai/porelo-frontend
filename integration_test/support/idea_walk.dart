@@ -464,9 +464,17 @@ Future<List<String>> theMovesOffered(WidgetTester tester, String issue) async {
 /// Moves [issue] to [state] on the story's page and saves it, as a person does; fails with the board's words where the
 /// planner refused it.
 Future<void> moveAndSave(WidgetTester tester, String issue, String state) async {
-  await tester.tap(find.byKey(Key('planning-move $issue')).first);
-  await pumpFor(tester);
+  final move = find.byKey(Key('planning-move $issue'));
   final to = find.byKey(Key('planning-move-to $issue $state'));
+  // Right after a saved move the board is drawn again, and a tap on the next issue's menu may land on the old one:
+  // the menu is opened again until it offers the move.
+  final by = DateTime.now().add(const Duration(minutes: 1));
+  while (to.evaluate().isEmpty && DateTime.now().isBefore(by)) {
+    await pumpUntil(tester, () => move.evaluate().isNotEmpty, what: 'the move menu of $issue');
+    await tester.tap(move.first);
+    await pumpFor(tester);
+    if (to.evaluate().isEmpty) await pumpFor(tester, const Duration(seconds: 5));
+  }
   await pumpUntil(tester, () => to.evaluate().isNotEmpty, what: 'the move of $issue to $state');
   await tester.tap(to.last);
   await pumpFor(tester);
