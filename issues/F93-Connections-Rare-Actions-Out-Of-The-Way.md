@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F93",
   "title": "Connections: Its Rare Actions Out Of The Way",
-  "state": "Backlog",
+  "state": "Review",
   "size": "S",
   "priority": "Medium",
   "rank": 11,
@@ -34,19 +34,20 @@ meet the requirement to put them in the view's ⋮.
 ## Plan
 
 - **The view.** In `lib/src/ui/connections_view.dart`, `ConnectionsView.build` drops the
-  `FilledButton.icon` keyed `add-connection` and gives `PaneHeader` a ⋮ beside the close button: a
-  `CommandMenu` as `forgeMenu` in `lib/src/ui/forges_page.dart` builds it, with "Add a
-  connection" (disabled while `Connections.busy`) and one "Forget <address>" entry per connection.
+  `FilledButton.icon` keyed `add-connection` and gives its `FilteredListSection` a ⋮ in its `actions`: a
+  `CommandMenu` keyed `connections-menu`, with "Add a connection" (disabled while `Connections.busy`) and one
+  "Forget <address>" entry per connection, marked as dangerous and disabled while busy or while the rows are stale.
 - **The row.** `_ConnectionRow` loses its trailing `TextButton.icon` keyed `forget <match>`; it keeps
   what it shows: the kind, the purpose, where the value is kept, and whether it is there.
 - **The callbacks stay.** `onAdd` and `onForget` keep their types, so `_ShellState` in
   `lib/src/ui/shell.dart` (which builds `ConnectionsView` and owns `_addAConnection`) is not touched.
 - **The steps.** `test/features/step/i_add_a_connection_to.dart` and
   `i_forget_the_connection.dart` open the ⋮ first; `adding_a_connection_is_offered.dart` and
-  `the_connections_of_the_machine_are_open.dart` look for the menu entry, not the button.
-- **The wizard's last step.** Where the new-machine wizard ends in this view, it opens "Add a
-  connection" at once; whoever needs none closes it. `adding_a_machine.feature`'s step "adding a
-  connection is offered" then finds the open dialog.
+  `the_connections_of_the_machine_are_open.dart` look for the menu entry, not the button; so do
+  `integration_test/support/e2e.dart` and `integration_test/step/i_forget_the_connection_from_the_interface.dart`.
+- **No dialog opened by itself at the wizard's end.** It would touch `_ShellState`, could ask a machine that has not
+  answered yet, and adding is rare; `adding_a_machine.feature`'s step "adding a connection is offered" finds the entry
+  in the ⋮.
 - **Red first.** A new scenario in `test/features/connections.feature`, "adding and forgetting are
   in the view's menu, not in the view": it finds no `add-connection` and no `forget ...` outside the
   open menu, then adds and forgets through it. The existing add and forget scenarios must stay green
@@ -58,7 +59,6 @@ meet the requirement to put them in the view's ⋮.
   offers neither. Seen to fail: a scenario in `test/features/connections.feature` that finds either
   action in the view outside the ⋮, or cannot add or forget a connection through the ⋮.
 
-## To be checked
+## Checked
 
-- With many connections, is one "Forget <address>" entry per connection in the ⋮ right, or a
-  chooser behind one "Forget…" entry? (Agent Frontend's)
+- One "Forget <address>" entry per connection in the ⋮, as planned.

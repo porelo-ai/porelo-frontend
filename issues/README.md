@@ -127,7 +127,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f437"></a>[F437](F437-Join-Leave-And-Accept-A-Card-In-The-Window.md) | M | - | Join an organization by a card proposal, an owner accepting it on the person's row, and leaving an organization, from the window. |
 | <a id="f219"></a>[F219](F219-An-Interface-Ended-Without-Asking-Leaves-No-Forward-Behind.md) | M | - | The ssh forwards this interface raised ended with it also when it ends without asking, and one left over found again by its socket at the next start. |
 | <a id="f91"></a>[F91](F91-One-Way-To-Show-Loading.md) | M | - | Every view shows the same way that it is reading. |
-| <a id="f93"></a>[F93](F93-Connections-Rare-Actions-Out-Of-The-Way.md) | S | - | Connections' rare actions in its ⋮. |
 | <a id="f99"></a>[F99](F99-An-Attached-Agent-Shown-At-Rest-Or-Working.md) | M | - | A work tile says whether an attached agent is at rest or working; waits for a Tasks1 answer that says an attached agent is at rest. |
 | <a id="f479"></a>[F479](F479-A-Planner-The-Window-Started-Ends-With-It.md) | M | - | A planner the window started because none was serving ends when the window ends, so it neither holds the planner's address file nor stands in the way of the next planner; a planner the window found serving is left running. |
 | <a id="f505"></a>[F505](F505-The-Issue-Heads-Are-Checked-Every-Day.md) | XS | - | The repository's daily shared-rules run checks its issues' heads with `issues check issues` from the released porelo-release, as the build tools' own shared rules do. |
@@ -180,6 +179,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f459"></a>[F459](F459-The-Footer-Counts-What-Runs-Where.md) | XS | - | The footer's refresh and action counts name the machine and what they count. |
 | <a id="f453"></a>[F453](F453-A-Machines-Project-Page-Lists-What-It-Carries-First.md) | S | - | A machine's project page lists the carried repositories first and folds the rest with their count; no raw host word; forge names shown as such; zero tasks said as 0. |
 | <a id="f458"></a>[F458](F458-The-Task-Terminal-Grows-With-The-Window.md) | XS | - | The agent's screen grows with the window. |
+| <a id="f93"></a>[F93](F93-Connections-Rare-Actions-Out-Of-The-Way.md) | S | - | Connections' rare actions in its ⋮. |
 | <a id="f137"></a>[F137](F137-The-Collection-Taken-Only-By-Its-Digest.md) | S | - | The collection installed on the host only by the digest the package expects, checked here and there. |
 | <a id="f460"></a>[F460](F460-The-Hosts-Finished-Work-Brought-To-Central-From-The-Window.md) | M | - | *Bring it to central…* brings a host's finished `main` to the central forge from the project's page, refusals in the backend's words. |
 | <a id="f438"></a>[F438](F438-Rows-And-Running-Steps-After-The-Third-Move.md) | M | - | A row keeps its chip and buttons inside, running steps say they run, a machine not yet admitting says it waits, growing output follows its last line. |
