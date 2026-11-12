@@ -24,6 +24,20 @@ void main() {
     expect(offered.agents.map((each) => each.name), ['an-agent', 'other-agent']);
   });
 
+  test('a board whose project the window is not told offers the agents of the machine its planner lists', () async {
+    final machines = Machines(
+      Settings(MemorySettingsStore()),
+      reach: (_) => FakeBackend(const []),
+      tunnels: FakeTunnels(),
+    );
+    addTearDown(machines.dispose);
+    final source = _Source();
+
+    // The planning screen chose the board's project itself; neither the place nor Work names it.
+    final offered = await MachinePlanningAgents(machines, _PathPlanner(source)).on(source);
+    expect(offered.agents.map((each) => each.name), ['an-agent', 'other-agent']);
+  });
+
   test('a refusal of the agents says which part of the machine is not known', () async {
     final machines = Machines(
       Settings(MemorySettingsStore()),
@@ -32,7 +46,7 @@ void main() {
     );
     addTearDown(machines.dispose);
     final source = _Source();
-    final client = _PathPlanner(source);
+    final client = _PathPlanner(source, projects: const []);
 
     await expectLater(
       MachinePlanningAgents(machines, client).on(source),
@@ -47,13 +61,15 @@ void main() {
 
 /// The planner found on the path: a provider named as no watched machine is.
 class _PathPlanner extends ChangeNotifier implements PlanningClient {
-  _PathPlanner(this.source);
+  _PathPlanner(this.source, {this.projects = const ['foo-project']});
 
   final PlanningSource source;
 
+  final List<String> projects;
+
   @override
   List<PlanningProvider> get providers => [
-    PlanningProvider(name: 'porelo-planner', connected: true, projects: const ['foo-project'], source: source),
+    PlanningProvider(name: 'porelo-planner', connected: true, projects: projects, source: source),
   ];
 
   @override

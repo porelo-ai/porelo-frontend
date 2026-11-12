@@ -305,18 +305,22 @@ EmbeddedPlanning plannerPlanning(LocalPlanner planner, Machines machines) {
 ///
 /// A provider is named as the machine it stands for, so the window finds the tasks of a run where the machine keeps
 /// them. A provider named as no machine, as the planner on the path is, has its tasks where the window starts them:
-/// on the machine that carries [project], by default the client's chosen one.
+/// on the machine that carries [project], by default the client's chosen one; where neither is known, as when the
+/// planning screen chose its board's project itself, a project the provider lists.
 Machine? planningMachineOf(Machines machines, PlanningClient client, PlanningSource source, {String? project}) {
-  final name = client.providers.where((provider) => identical(provider.source, source)).firstOrNull?.name;
-  if (name == null) return null;
-  final named = machines.all.where((machine) => machine.name == name).firstOrNull;
+  final provider = client.providers.where((provider) => identical(provider.source, source)).firstOrNull;
+  if (provider == null) return null;
+  final named = machines.all.where((machine) => machine.name == provider.name).firstOrNull;
   if (named != null) return named;
-  final carried = project ?? client.chosenProject;
-  if (carried == null) return null;
+  final carried = switch (project ?? client.chosenProject) {
+    final known? => {known},
+    null => provider.projects.toSet(),
+  };
+  if (carried.isEmpty) return null;
   return plannedTaskMachine(
     machines.all,
     machines.all.isEmpty ? null : machines.current,
-    (machine) => machines.of(machine).listedProjects.any((each) => each.name == carried),
+    (machine) => machines.of(machine).listedProjects.any((each) => carried.contains(each.name)),
   );
 }
 
