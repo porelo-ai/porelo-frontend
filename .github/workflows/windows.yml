@@ -98,6 +98,39 @@ jobs:
                     $certificate.Dispose()
                   }
 
+            # The carried collection beside the build, as the release's Windows job fetches it: the next step checks it.
+            - name: The pinned host collection's digest
+              id: collection
+              shell: bash
+              run: |
+                  dart pub get --directory=packages/porelo_host >/dev/null
+                  read -r version digest file <<< "$(dart packages/porelo_host/bin/porelo_host.dart --collection-info)"
+                  { echo "version=$version"; echo "digest=$digest"; echo "file=$file"; } >> "$GITHUB_OUTPUT"
+
+            - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              id: collection-cache
+              with:
+                  path: ~/.cache/porelo-pinned/collection
+                  key: pinned-collection-${{ runner.os }}-${{ steps.collection.outputs.digest }}
+
+            - name: Fetch the pinned host collection
+              shell: bash
+              env:
+                  # The job's token, for a download from https://github.com alone; none on a host's forge.
+                  PORELO_PINNED_GITHUB_TOKEN: ${{ github.server_url == 'https://github.com' && github.token || '' }}
+                  VERSION: ${{ steps.collection.outputs.version }}
+                  DIGEST: ${{ steps.collection.outputs.digest }}
+                  FILE: ${{ steps.collection.outputs.file }}
+              run: |
+                  PORELO_COLLECTION_CACHE="$HOME/.cache/porelo-pinned/collection" \
+                    tool/fetch_collection.sh "$VERSION" "$DIGEST" build/windows/x64/runner/Release "$FILE"
+
+            - if: steps.collection-cache.outputs.cache-hit != 'true'
+              uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              with:
+                  path: ~/.cache/porelo-pinned/collection
+                  key: pinned-collection-${{ runner.os }}-${{ steps.collection.outputs.digest }}
+
             - name: Ready the window's build
               shell: pwsh
               run: ./tool/windows-prepare.ps1
