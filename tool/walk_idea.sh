@@ -599,7 +599,7 @@ status=0
 # The planner fetches the project's https repositories with git, as a person's own login would: a git configuration of
 # the run's own names porelo's credential helper for the organization, which answers from the run's vault, so the token
 # is in no file and on no command line. The planner passes git no other GIT_ variable than this one.
-on_vm "set -e; umask 077; printf '[credential \"https://github.com/%s\"]\\n\\thelper = \"!porelo vault credential\"\\n' '$org' >~/$run/gitconfig
+on_vm "set -e; umask 077; printf '[credential \"https://github.com/%s\"]\\n\\thelper = \"!porelo vault credential --entry central-forge\"\\n' '$org' >~/$run/gitconfig
     ${in_vault}GIT_CONFIG_GLOBAL=\$HOME/$run/gitconfig GIT_TERMINAL_PROMPT=0 git -c credential.interactive=never \
         ls-remote https://github.com/$org/$porelo_project HEAD >/dev/null" </dev/null || {
     echo "walk: git on $vm cannot read https://github.com/$org/$porelo_project through the run's vault" >&2
