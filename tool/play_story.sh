@@ -36,7 +36,9 @@
 # --seed, --issue-repo and --porelo-project go to it as they are, its test is the story's and its project goes without
 # mail, and its environment is the walk's own (SSH_AUTH_SOCK holding the test person's key, WALK_FORGE_TOKEN,
 # WALK_PROVIDER_KEY_FILE; tool/walk_idea.sh says what each is). Its report, in DIR/walk, becomes this one's; a run it
-# kept after a red step is taken up or away with tool/walk_idea.sh, as it says.
+# kept after a red step is taken up or away with tool/walk_idea.sh, as it says. The walk numbers its own steps, one
+# number for a doing and its reading, so its lines are taken in order for the feature's steps that note one: every
+# step but `the interface is running`.
 set -euo pipefail
 
 usage() {
@@ -94,6 +96,11 @@ the_window_and_the_planner_on_windows)
 forwarding_to_a_branch)
     # The forge's seed, token and branches are the walk's; forwarding to a chosen branch at GitHub is what it measures.
     machine=linux needs='' handed=walk leans_on='forward-github'
+    ;;
+a_tasks_results_land)
+    # The idea walk up to its reading, on a seed the reader finds fault with; then the findings, the rework and the idea
+    # brought back, read in fresh clones of the forge.
+    machine=linux needs='' handed=walk leans_on='idea-walk'
     ;;
 *)
     echo "play: no story $story here; tool/play_story.sh names each in its case" >&2
@@ -528,12 +535,12 @@ fi
 # for a step that noted nothing, and the parts expected missing; then the closing line. Its exit is the run's.
 played=0
 python3 -I - "$here/integration_test/$story.feature" "$report/noted.txt" "$report/scenarios.txt" "$story" \
-    "$report/before.txt" "$report/after.txt" "$waiting_on" "$leans_on" "${expects[@]}" >"$report/steps.txt" <<'EOF' ||
-    played=$?
+    "$report/before.txt" "$report/after.txt" "$waiting_on" "$leans_on" "$handed" "${expects[@]}" >"$report/steps.txt" \
+    <<'EOF' || played=$?
 import re, sys
 
-feature, noted_file, scenarios_file, story, before_file, after_file, machine, leans_on = sys.argv[1:9]
-expected = dict(each.split("=", 1) for each in sys.argv[9:])
+feature, noted_file, scenarios_file, story, before_file, after_file, machine, leans_on, in_order = sys.argv[1:10]
+expected = dict(each.split("=", 1) for each in sys.argv[10:])
 # The steps, numbered through the whole feature, each with the scenario it is in.
 steps, scenario = [], ""
 for line in open(feature, encoding="utf-8"):
@@ -549,11 +556,23 @@ def driver(path):
 
 
 before, after = driver(before_file), driver(after_file)
-noted = {}
-for line in open(noted_file, encoding="utf-8", errors="replace"):
-    m = re.match(r"(OK|FAIL) (\d+) (?:\[([a-z0-9-]+)\] )?(.*)", line.rstrip("\n"))
-    if m:
-        noted[int(m.group(2))] = (m.group(1), m.group(3), m.group(4))
+lines = [
+    m
+    for m in (
+        re.match(r"(OK|FAIL|SKIPPED) (\d+) (?:\[([a-z0-9-]+)\] )?(.*)", line.rstrip("\n"))
+        for line in open(noted_file, encoding="utf-8", errors="replace")
+    )
+    if m
+]
+if in_order:
+    # A step taken up again from a later one was passed by an earlier attempt.
+    noting = [n for n, (_, sentence) in enumerate(steps, 1) if sentence != "the interface is running"]
+    # Said in the feature's words where it held; in the walk's, with what was asked and got, where it failed.
+    noted = {
+        n: ("OK", m[3], steps[n - 1][1]) if m[1] != "FAIL" else (m[1], m[3], m[4]) for n, m in zip(noting, lines)
+    }
+else:
+    noted = {int(m[2]): (m[1], m[3], m[4]) for m in lines if m[1] != "SKIPPED"}
 try:
     results = [line.rstrip("\n") for line in open(scenarios_file, encoding="utf-8", errors="replace")]
 except FileNotFoundError:
