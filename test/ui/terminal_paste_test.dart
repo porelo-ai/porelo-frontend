@@ -26,6 +26,11 @@ void main() {
           : '$kind terminal sends the clipboard once for each paste shortcut',
       (tester) async {
         debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+        // The test's own time, so what it pumps is what the window waits.
+        final clockBefore = sessionClock;
+        sessionClock = () =>
+            () => Duration(microseconds: tester.binding.clock.now().microsecondsSinceEpoch);
+        addTearDown(() => sessionClock = clockBefore);
         try {
           tester.view.physicalSize = const Size(1280, 800);
           tester.view.devicePixelRatio = 1;
@@ -86,6 +91,7 @@ void main() {
           await World.settle(tester);
           final key = kind == 'session' ? 'terminal' : '$kind-terminal';
           if (asks) {
+            await tester.pump(const Duration(seconds: 5));
             final copied = <String>[];
             final before = copyToClipboard;
             copyToClipboard = (text) async => copied.add(text);

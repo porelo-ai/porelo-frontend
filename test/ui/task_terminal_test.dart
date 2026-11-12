@@ -10,6 +10,7 @@ import 'package:porelo_frontend/src/ui/tokens.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/pty.dart';
 import 'package:porelo_frontend/src/app/session.dart';
+import 'package:porelo_frontend/src/ui/session_terminal.dart';
 import 'package:porelo_frontend/src/ui/session_view.dart';
 import 'package:xterm/xterm.dart';
 
@@ -41,6 +42,8 @@ void main() {
       machine: const Machine(name: 'laptop', socketPath: ''),
       open: (executable, arguments, {int columns = 80, int rows = 24}) => channel,
       startedAt: startedAt,
+      // The test's own time, so what it pumps is what the window waits.
+      clock: () => Duration(microseconds: tester.binding.clock.now().microsecondsSinceEpoch),
     );
     atTheTestSize(tester);
     final focus = FocusNode();
@@ -476,6 +479,34 @@ void main() {
       expect(copied, isEmpty);
     });
 
+    // Harm: Space typed for the far end copies what the task wrote.
+    testWidgets('Copy never takes the keyboard, so Space never presses it', (tester) async {
+      final (_, channel) = await open(tester);
+      await prints(tester, channel, write('by Space'));
+      final button = Focus.of(tester.element(find.descendant(of: allow, matching: find.text('Copy'))));
+      button.requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.space);
+      await tester.pump();
+      expect(button.hasFocus, isFalse);
+      expect(copied, isEmpty);
+    });
+
+    // Harm: a task waiting a while after the person's key still writes without a word.
+    testWidgets('two seconds of the test clock after a key still copy, a moment more asks', (tester) async {
+      final (_, channel) = await open(tester);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyA);
+      await tester.pump(const Duration(seconds: 2));
+      await prints(tester, channel, write('just inside'));
+      expect(copied, <String>['just inside']);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyA);
+      await tester.pump(const Duration(seconds: 2, milliseconds: 1));
+      await prints(tester, channel, write('just past'));
+      expect(copied, <String>['just inside']);
+      expect(preview(tester), 'just past');
+    });
+
     // Harm: a pointer only passing over the terminal opens the way for the task's copy.
     testWidgets('a pointer passing over the terminal does not count, a click does', (tester) async {
       final (_, channel) = await open(tester);
@@ -494,6 +525,51 @@ void main() {
       expect(copied, <String>['after a click']);
       expect(ask, findsNothing);
       await mouse.removePointer();
+    });
+  });
+
+  group('the preview of a copy', () {
+    // Harm: a character that shows as nothing, or two texts that look alike, pass the person's check unseen.
+    test('marks every default-ignorable character and every combining mark', () {
+      const hidden = <int>[
+        0x17B4, 0x17B5, 0x180B, 0x180C, 0x180D, 0x180F, 0x2065, 0xFFF0, 0x1BCA0, 0x1D173, 0xE0001, 0xE01F0, 0x3164, //
+      ];
+      for (final rune in hidden) {
+        expect(
+          CopyPreview.of('a${String.fromCharCode(rune)}b').preview,
+          'a⟨U+${rune.toRadixString(16).toUpperCase().padLeft(4, '0')}⟩b',
+          reason: 'U+${rune.toRadixString(16)}',
+        );
+      }
+      expect(CopyPreview.of('é').preview, 'e⟨U+0301⟩', reason: 'é written as e and a combining accent');
+      expect(CopyPreview.of('é').preview, 'é');
+    });
+
+    // Harm: the size said left out is the display's, not what lands on the clipboard.
+    test('counts what is left out on the text copied, and never splits a marker', () {
+      final lines = <String>[for (var i = 0; i < 40; i++) 'z\u200b$i', 'last'];
+      final leftOut = lines.sublist(6, 40).fold<int>(0, (sum, line) => sum + line.runes.length + 1);
+      expect(CopyPreview.of(lines.join('\n')).preview, contains('… $leftOut characters in 34 lines left out …'));
+
+      final long = CopyPreview.of('\u200b' * 1300).preview;
+      expect(long, contains('… 1100 characters left out …'));
+      expect('⟨U+200B⟩'.allMatches(long), hasLength(200));
+      expect(long.replaceAll('⟨U+200B⟩', ''), isNot(contains(RegExp('[⟨⟩]'))), reason: 'no marker cut in two');
+
+      final wide = CopyPreview.of(
+        <String>['\u200b' * 250, 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n'].join('\n'),
+      ).preview;
+      expect(wide, contains('… 50 more characters'));
+      expect(wide.replaceAll('⟨U+200B⟩', ''), isNot(contains(RegExp('[⟨⟩]'))));
+    });
+
+    // Harm: a carriage return runs a line in a shell as a newline does, unsaid.
+    test('says a text ends in a line break for CR, LF and CRLF alike', () {
+      for (final end in <String>['\r', '\n', '\r\n']) {
+        expect(CopyPreview.of('ls$end').size, contains('1 line, ending in a line break'), reason: end.codeUnits.join());
+      }
+      expect(CopyPreview.of('a\rb').size, contains('2 lines, with no line break at the end'));
+      expect(CopyPreview.of('a\rb\r\nc').preview, 'a␍\nb␍⏎\nc');
     });
   });
 }

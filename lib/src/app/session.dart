@@ -23,6 +23,13 @@ typedef CopyToClipboard = Future<void> Function(String text);
 /// What a terminal's program copies goes here: the desktop's clipboard.
 CopyToClipboard copyToClipboard = (text) => Clipboard.setData(ClipboardData(text: text));
 
+/// Makes the clock a session reads how long ago the person acted on, one that never goes back. Injectable, so a
+/// widget test drives it with its own time.
+Duration Function() Function() sessionClock = () {
+  final watch = Stopwatch()..start();
+  return () => watch.elapsed;
+};
+
 /// How a terminal is opened. Injectable, so everything above it runs without a process.
 typedef OpenTerminal = SessionChannel Function(String executable, List<String> arguments, {int columns, int rows});
 
@@ -91,7 +98,7 @@ class Session extends ChangeNotifier with QuietAfterDispose {
     this.startedAt,
     Duration Function()? clock,
   }) : _open = open ?? openHere,
-       _now = clock ?? _monotonic() {
+       _now = clock ?? sessionClock() {
     terminal = Terminal(maxLines: scrollback)
       ..inputHandler = CascadeInputHandler(<TerminalInputHandler>[
         _modifiedKeys,
@@ -119,11 +126,6 @@ class Session extends ChangeNotifier with QuietAfterDispose {
 
   /// Time on a clock that never goes back, for how long ago the person last acted here.
   final Duration Function() _now;
-
-  static Duration Function() _monotonic() {
-    final watch = Stopwatch()..start();
-    return () => watch.elapsed;
-  }
 
   /// When the person last pressed a key, pressed or released the mouse, or pasted in this terminal, and no write
   /// has used it since; null otherwise.

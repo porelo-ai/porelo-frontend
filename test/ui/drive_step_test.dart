@@ -1,9 +1,11 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/machine_setup.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
+import 'package:porelo_frontend/src/app/session.dart';
 import 'package:porelo_frontend/src/app/setup_run.dart';
 import 'package:porelo_frontend/src/ui/new_machine.dart';
 
@@ -108,5 +110,62 @@ void main() {
     await World.settle(tester);
     expect(machine.commands.last, contains("sync --start 'my files'"));
     expect(run.driveSynced, 'my files');
+  });
+
+  // Harm: Tresorit's terminal writing the clipboard without a word, or holding a write with nothing to ask about it.
+  testWidgets('the drive terminal asks before its program writes the clipboard, and takes a click in it', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1280, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final copied = <String>[];
+    final before = copyToClipboard;
+    copyToClipboard = (text) async => copied.add(text);
+    addTearDown(() => copyToClipboard = before);
+    final clockBefore = sessionClock;
+    sessionClock = () =>
+        () => Duration(microseconds: tester.binding.clock.now().microsecondsSinceEpoch);
+    addTearDown(() => sessionClock = clockBefore);
+    const reached = Machine(name: 'test machine', socketPath: '/unused');
+    final run = SetupRun(name: 'test machine', workUser: 'alice', setup: _Machine())
+      ..step = SetupStep.drive
+      ..driveInstalled = true
+      ..ready = reached;
+    addTearDown(run.dispose);
+    final terminals = <FakeTerminal>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: NewMachineSteps(
+              run: run,
+              openTerminal: (executable, arguments, {int columns = 80, int rows = 24}) {
+                final terminal = FakeTerminal([executable, ...arguments]);
+                terminals.add(terminal);
+                return terminal;
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.enterText(find.byKey(const Key('drive-email')), 'me@example.org');
+    await tester.pump(const Duration(seconds: 5));
+    await tester.tap(find.byKey(const Key('open-drive-terminal')));
+    await World.settle(tester);
+    await tester.pump(const Duration(seconds: 5));
+
+    terminals.single.prints('\x1b]52;c;${base64.encode(utf8.encode('by itself'))}\x07');
+    await World.settle(tester);
+    expect(copied, isEmpty, reason: 'a write the program makes by itself is held');
+    expect(find.byKey(const Key('terminal-copy-ask')), findsOneWidget, reason: 'and asked about under its terminal');
+
+    await tester.tap(find.byKey(const Key('drive-terminal')));
+    await tester.pump();
+    terminals.single.prints('\x1b]52;c;${base64.encode(utf8.encode('after a click'))}\x07');
+    await World.settle(tester);
+    expect(copied, <String>['after a click']);
+    expect(find.byKey(const Key('terminal-copy-ask')), findsNothing);
   });
 }

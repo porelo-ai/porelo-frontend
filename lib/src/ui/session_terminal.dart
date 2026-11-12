@@ -192,34 +192,32 @@ class _Ask extends StatelessWidget {
 }
 
 /// The text a task would copy, as a person can judge it: every character that would not show, shows.
+///
+/// **Clipped before it is escaped**, so what is said left out counts what would land on the clipboard, and no marker
+/// is ever cut in two.
 class CopyPreview {
   CopyPreview._(this.size, this.preview, this.shortened);
 
   /// Its preview for [text], shortened in the middle where long.
   factory CopyPreview.of(String text) {
+    final lines = _lines(text);
     final characters = text.runes.length;
-    final breaks = '\n'.allMatches(text).length;
-    final endsInABreak = text.endsWith('\n');
-    final lineCount = breaks + (endsInABreak ? 0 : 1);
+    final endsInABreak = lines.last.end.isNotEmpty;
     final size =
-        '$characters ${characters == 1 ? 'character' : 'characters'} in $lineCount '
-        '${lineCount == 1 ? 'line' : 'lines'}, ${endsInABreak ? 'ending in a line break' : 'with no line break at the end'}';
-    final lines = (endsInABreak ? text.substring(0, text.length - 1) : text).split('\n');
-    final shownLines = <String>[
-      for (final (i, line) in lines.indexed) _line(line, i < lines.length - 1 || endsInABreak),
-    ];
-    final whole = shownLines.join('\n');
-    if (shownLines.length <= _mostLines && whole.length <= _mostShown) return CopyPreview._(size, whole, false);
+        '$characters ${characters == 1 ? 'character' : 'characters'} in ${lines.length} '
+        '${lines.length == 1 ? 'line' : 'lines'}, '
+        '${endsInABreak ? 'ending in a line break' : 'with no line break at the end'}';
+    if (lines.length <= _mostLines && characters <= _mostShown) return CopyPreview._(size, _shownAll(lines), false);
+    if (lines.length == 1) return CopyPreview._(size, _clippedMiddle(lines.single), true);
 
-    if (shownLines.length == 1) return CopyPreview._(size, _clippedMiddle(whole), true);
-    final head = shownLines.take(_headLines < shownLines.length - 1 ? _headLines : shownLines.length - 1);
+    final head = lines.take(_headLines < lines.length - 1 ? _headLines : lines.length - 1).toList();
     final leftOut = lines.sublist(head.length, lines.length - 1);
-    final leftOutCharacters = leftOut.fold<int>(0, (sum, line) => sum + line.runes.length + 1);
+    final leftOutCharacters = leftOut.fold<int>(0, (sum, line) => sum + line.characters);
     final preview = <String>[
       ...head.map(_clippedEnd),
       if (leftOut.isNotEmpty)
         '… $leftOutCharacters characters in ${leftOut.length} ${leftOut.length == 1 ? 'line' : 'lines'} left out …',
-      _clippedStart(shownLines.last),
+      _clippedStart(lines.last),
     ].join('\n');
     return CopyPreview._(size, preview, true);
   }
@@ -234,75 +232,80 @@ class CopyPreview {
   final bool shortened;
 
   /// All of [text], escaped the same way as the preview.
-  static String shown(String text) {
-    final endsInABreak = text.endsWith('\n');
-    final lines = (endsInABreak ? text.substring(0, text.length - 1) : text).split('\n');
-    return <String>[for (final (i, line) in lines.indexed) _line(line, i < lines.length - 1 || endsInABreak)]
-        .join('\n');
-  }
+  static String shown(String text) => _shownAll(_lines(text));
 
   static const int _mostLines = 12;
   static const int _mostShown = 1200;
   static const int _headLines = 6;
   static const int _mostPerLine = 200;
 
-  static String _clippedEnd(String line) {
-    final runes = line.runes.toList();
-    if (runes.length <= _mostPerLine) return line;
-    return '${String.fromCharCodes(runes.take(_mostPerLine))} … ${runes.length - _mostPerLine} more characters';
-  }
-
-  static String _clippedStart(String line) {
-    final runes = line.runes.toList();
-    if (runes.length <= _mostPerLine) return line;
-    return '${runes.length - _mostPerLine} characters before … '
-        '${String.fromCharCodes(runes.skip(runes.length - _mostPerLine))}';
-  }
-
-  static String _clippedMiddle(String line) {
-    final runes = line.runes.toList();
-    final half = _mostPerLine ~/ 2;
-    return '${String.fromCharCodes(runes.take(half))} … ${runes.length - 2 * half} characters left out … '
-        '${String.fromCharCodes(runes.skip(runes.length - half))}';
-  }
-
-  static String _line(String line, bool broken) {
-    final out = StringBuffer();
-    for (final rune in line.runes) {
-      out.write(_visible(rune));
+  /// The text's lines, each with the break that ends it: LF, CR and CRLF alike, since a shell runs on each.
+  static List<_Line> _lines(String text) {
+    final lines = <_Line>[];
+    var from = 0;
+    for (final match in _break.allMatches(text)) {
+      lines.add(_Line(text.substring(from, match.start).runes.toList(), match[0]!));
+      from = match.end;
     }
-    if (broken) out.write('⏎');
-    return out.toString();
+    if (from < text.length || lines.isEmpty) lines.add(_Line(text.substring(from).runes.toList(), ''));
+    return lines;
   }
+
+  static final _break = RegExp('\r\n|\r|\n');
+
+  static String _shownAll(List<_Line> lines) => lines.map((line) => _escaped(line.runes) + line.mark).join('\n');
+
+  static String _clippedEnd(_Line line) => line.runes.length <= _mostPerLine
+      ? _escaped(line.runes) + line.mark
+      : '${_escaped(line.runes.take(_mostPerLine))} … ${line.runes.length - _mostPerLine} more characters${line.mark}';
+
+  static String _clippedStart(_Line line) => line.runes.length <= _mostPerLine
+      ? _escaped(line.runes) + line.mark
+      : '${line.runes.length - _mostPerLine} characters before … '
+            '${_escaped(line.runes.skip(line.runes.length - _mostPerLine))}${line.mark}';
+
+  static String _clippedMiddle(_Line line) {
+    const half = _mostPerLine ~/ 2;
+    final runes = line.runes;
+    if (runes.length <= _mostPerLine) return _escaped(runes) + line.mark;
+    return '${_escaped(runes.take(half))} … ${runes.length - 2 * half} characters left out … '
+        '${_escaped(runes.skip(runes.length - half))}${line.mark}';
+  }
+
+  static String _escaped(Iterable<int> runes) =>
+      String.fromCharCodes(runes).replaceAllMapped(_hidden, (match) => _visible(match[0]!.runes.single));
 
   static String _visible(int rune) {
     if (rune == 0x09) return '⇥';
     if (rune < 0x20) return String.fromCharCode(0x2400 + rune);
     if (rune == 0x7F) return '␡';
-    if (_hidden(rune)) return '⟨U+${rune.toRadixString(16).toUpperCase().padLeft(4, '0')}⟩';
-    return String.fromCharCode(rune);
+    return '⟨U+${rune.toRadixString(16).toUpperCase().padLeft(4, '0')}⟩';
   }
 
-  /// A character that shows as nothing, as a space, or that turns the text around it.
-  static bool _hidden(int rune) =>
-      (rune >= 0x80 && rune <= 0x9F) || // C1 controls
-      rune == 0xA0 || // no-break space
-      rune == 0xAD || // soft hyphen
-      rune == 0x034F || // combining grapheme joiner
-      rune == 0x061C || // Arabic letter mark
-      rune == 0x115F ||
-      rune == 0x1160 ||
-      rune == 0x1680 ||
-      rune == 0x180E ||
-      (rune >= 0x2000 && rune <= 0x200F) || // spaces of width, zero-width, direction marks
-      (rune >= 0x2028 && rune <= 0x202F) || // line and paragraph separators, embeddings, narrow no-break space
-      (rune >= 0x205F && rune <= 0x206F) || // word joiner, invisible operators, isolates
-      rune == 0x3000 ||
-      rune == 0x3164 ||
-      (rune >= 0xFE00 && rune <= 0xFE0F) || // variation selectors
-      rune == 0xFEFF ||
-      rune == 0xFFA0 ||
-      (rune >= 0xFFF9 && rune <= 0xFFFB) ||
-      (rune >= 0xE0000 && rune <= 0xE007F) || // tag characters
-      (rune >= 0xE0100 && rune <= 0xE01EF); // variation selectors supplement
+  /// A character that shows as nothing or as a space, turns the text around it, or changes the one before it:
+  /// controls, format characters, every default-ignorable code point, combining marks, and spaces but the plain one.
+  static final _hidden = RegExp(
+    r'[\p{Cc}\p{Cf}\p{M}\p{Default_Ignorable_Code_Point}\p{Zl}\p{Zp}'
+    r'   -   　ᅟᅠㅤﾠ￹-￻]',
+    unicode: true,
+  );
+}
+
+/// One line of a copy, and the break that ends it, or none.
+class _Line {
+  _Line(this.runes, this.end);
+
+  final List<int> runes;
+  final String end;
+
+  /// Its characters as copied, its break included.
+  int get characters => runes.length + end.length;
+
+  /// Its break, as shown: ⏎ for LF, ␍ for CR.
+  String get mark => switch (end) {
+    '\n' => '⏎',
+    '\r' => '␍',
+    '\r\n' => '␍⏎',
+    _ => '',
+  };
 }

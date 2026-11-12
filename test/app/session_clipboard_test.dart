@@ -241,6 +241,17 @@ void main() {
     expect(copied, isEmpty, reason: 'it ended long after the key');
     expect(session.held?.text, 'split');
   });
+
+  test('a write begun before the action and ended after it counts by its end, as one written after it', () async {
+    final (session, channel) = open();
+    final whole = write('begun before');
+    now += const Duration(seconds: 10);
+    await prints(channel, whole.substring(0, 10));
+    session.ownKey(keyA);
+    await prints(channel, whole.substring(10));
+    expect(copied, <String>['begun before']);
+    expect(session.held, isNull);
+  });
 }
 
 class _Channel implements SessionChannel {
