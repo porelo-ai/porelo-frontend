@@ -29,4 +29,12 @@ Future<void> iOpenThePlanningOfTheWalkProject(WidgetTester tester) =>
         timeout: const Duration(minutes: 2),
         what: 'the board of ${Walk.project}',
       );
+      // The heading stands before the planner has read the project; its first answer is what the steps build on.
+      final waiting = find.text('Waiting for the planner’s answer.');
+      await pumpUntil(
+        tester,
+        () => waiting.evaluate().isEmpty,
+        timeout: const Duration(minutes: 5),
+        what: 'the planner to answer for the board of ${Walk.project}',
+      );
     });

@@ -233,8 +233,9 @@ cleanup() {
     local tasks=''
     tasks=$(on_vm "tr ' ' '\\n' <~/$run/tasks.txt 2>/dev/null" </dev/null | grep -Ex '[A-Za-z0-9][A-Za-z0-9._-]{2,}' || true)
     if [ -n "$taken" ]; then
-        as_the_person_on_vm "${in_vault:-}porelo project clear --yes '$porelo_project'" </dev/null >/dev/null 2>&1 ||
-            left+=("$porelo_project placed on $vm (porelo project clear --yes $porelo_project there)")
+        # Judged by what porelod lists afterwards: the clear's exit also counts what it could not reach of the run's vault.
+        as_the_person_on_vm "${in_vault:-}porelo project clear --yes '$porelo_project'" </dev/null >/dev/null 2>&1 || true
+        [ "$(placed)" != True ] || left+=("$porelo_project placed on $vm (porelo project clear --yes $porelo_project there)")
     fi
     [ -z "${t0_of[$issue_repo]:-}" ] || take_back_the_tasks_work "$tasks"
     local each
@@ -595,6 +596,8 @@ fi
 
 echo "walk: the window walks $project, at most $budget minutes"
 status=0
+# The planner fetches the project's https repositories with git, as a person's own login would: git asks the run's
+# vault through porelo's credential helper, so the token is in no file and on no command line.
 # In a session of its own whose number is kept, so an ending here takes the whole of it down there too. The window
 # reaches this VM's own porelod and keeps the account's settings; tool/e2e.sh insists on a machine, which is this one.
 as_the_person_on_vm \
@@ -603,6 +606,7 @@ as_the_person_on_vm \
         PORELO_E2E_HOST=localhost PORELO_E2E_REMOTE_SOCKET=/run/user/\$(id -u)/porelo/porelod.sock \
         PORELO_E2E_LINK_SOCKET=/run/user/\$(id -u)/porelo/porelod.sock \
         PORELO_E2E_OWN_SETTINGS=1 $in_vault \
+        GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=credential.helper GIT_CONFIG_VALUE_0='!porelo vault credential' \
         PORELO_WALK_PROJECT='$project' PORELO_WALK_PORELO_PROJECT='$porelo_project' PORELO_WALK_AGENT='$agent' PORELO_WALK_MODEL='$task_model' \
         PORELO_WALK_PROBE=\$HOME/$run/bin/planner-probe.sh PORELO_WALK_PLANNER=\$HOME/$run/bin/porelo-planner \
         PORELO_WALK_OWN_URL='https://github.com/$org/$project' PORELO_WALK_ISSUE_REPO='$issue_repo' \
