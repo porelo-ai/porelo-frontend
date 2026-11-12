@@ -10,13 +10,12 @@
   "priority": "Medium",
   "rank": 12,
   "blockedBy": [],
-  "covers": "A work tile says whether an attached agent is at rest or working; waits for a Tasks1 answer that says an attached agent is at rest."
+  "covers": "A work tile says whether an attached agent is at rest or working, from the AT_REST activity the machine serves for it."
 }
 ```
 
 **Why this size.** M: one new answer of the daemon read through the model, the attention order, two views, the
-stand-in, two features and one doc page; no contract of this repository changes. It cannot start before the daemon
-serves that answer.
+stand-in, two features and two doc pages; no contract of this repository changes.
 
 **What must be true.** A person sees on a work tile whether the agent in an attached session is at
 rest or working, as the machine reads it from the agent's screen, never as a guess from silence.
@@ -28,17 +27,18 @@ read the agent's declared rest from its screen, as it reads waiting.
 
 ## Plan
 
-- **Blocked on the daemon's contract.** Tasks1's `Activity` has `DONE`, `DEAD`, `WAITING`, `WORKING`, `IDLE`, `ENDED`
-  and `UNKNOWN`, and an attached task answers `UNKNOWN`. `Task.screen` (`WAITING`, `NOT_WAITING`, `UNDECLARED`,
-  `UNSEEN`) reads the screen for waiting on a person, not for rest. Porelo reads an agent's declared screen at rest
-  only inside the daemon, to wake it; Tasks1 serves no at-rest answer. `DONE` is no stand-in: it is the agent's
-  declaration that its work is done, not a rest between turns. Nothing here is built until Tasks1 has that answer.
+- **The daemon's contract.** Tasks1's `Activity` gains `AT_REST`, served in `Task.activity` by `List` and `Watch`
+  alike: up and attached, and its agent's screen shows it at its prompt by the agent's own declaration of rest, on two
+  looks at least 1.5 s apart. An attached agent that declares its rest and is not at rest answers `WORKING`; one that
+  declares none, or whose screen shows a question to a person, answers `UNKNOWN`, as an older daemon does for every
+  attached task. `Watch` takes its next read of the screen as the second look, so a tile may read *Working* before
+  *At rest*. A recorded done declaration does not apply to `AT_REST`. The answer is an `Activity` value, not a field
+  of `Task`, and `Task.screen` stays unread.
 - **Red first:** a scenario in `test/features/work_tiles.feature` whose stand-in answers at rest for an attached
   task (`Mode.agent`) and expects the tile to say *At rest* and not be marked as a guess; one beside it that answers
   working and expects *Working*.
 - **The value:** in `lib/src/client/models.dart`, `Activity` (a class, not an enum, so a new value breaks nothing)
-  gains the daemon's value in `known` and `label`; if the answer is a field of `Task` instead, such as a value of
-  `screen`, `Task.from` reads it. `Task.from` reads no `screen` today. Absent, a task reads as today.
+  gains `AT_REST` in `known` and `label`. An older daemon never sends it, so its tasks read as today.
 - **The demand:** `Attention.demandOf` in `lib/src/app/attention.dart` maps it to a new `Demand` value, never
   `Demand.quiet`, so `Tile.inferred` stays false. Waiting, ended, the gate, done and stopped keep their place before
   it; an attached task's working answer maps to `Demand.working`.
@@ -52,7 +52,7 @@ read the agent's declared rest from its screen, as it reads waiting.
 - **Older machines:** a scenario in `test/features/task_state.feature`, beside *work nothing can see is not reported
   as idle*: an attached task that answers `UNKNOWN` with no at-rest answer is still shown as *Running*.
 - **Docs:** in `doc/Contract-Gaps.md`, the sentence that a quiet task is shown as a guess no longer covers an
-  attached agent that declares its rest.
+  attached agent that declares its rest; `doc/Backend-API.md` says how `AT_REST` is read.
 
 ## Acceptance
 
@@ -65,9 +65,3 @@ read the agent's declared rest from its screen, as it reads waiting.
   Seen to fail: a scenario against such an answer that shows *at rest* or *working*.
 - `doc/Contract-Gaps.md` no longer lists a quiet attached task as a guess. Seen to fail: the page
   still says it once this is built.
-
-## To be checked
-
-- Ask porelo's agent (Agent Core) for the Tasks1 answer that says an attached agent is at rest, and working, read
-  from the screen its agent declares (`session.at_rest`): its name, whether it is an `Activity` value or a field of
-  `Task`, what an agent that declares no rest answers, and what an older daemon answers.
