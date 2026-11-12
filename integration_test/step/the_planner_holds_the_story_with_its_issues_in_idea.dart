@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
+import '../support/e2e.dart';
 import '../support/idea_walk.dart';
 
 /// Usage: the planner holds the story with its issues in Idea
@@ -15,4 +16,11 @@ Future<void> thePlannerHoldsTheStoryWithItsIssuesInIdea(WidgetTester tester) =>
         await probe(['store-issue', Walk.urlOf(issue.repository), issue.id, 'Idea']);
       }
       await probe(['events', '20']);
+      // Its idea saved, the window removed the ended discussion: porelo on the machine lists it no longer.
+      await pumpUntil(
+        tester,
+        () => isGone(Walk.discussion!),
+        timeout: const Duration(minutes: 1),
+        what: 'porelo to list ${Walk.discussion} no longer',
+      );
     });
