@@ -119,6 +119,8 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f500"></a>[F500](F500-A-Reader-Is-Started-Naming-The-Work-It-Reads.md) | M | - | A reader the planner offers is started naming the tasks whose work it reads, and each task's end is reported to the planner with the branch its work landed on, so the reader is handed that work and its order names it. |
+| <a id="f501"></a>[F501](F501-A-Started-Offer-Is-Found-Again-By-Its-Key.md) | S | - | The window gives each task it starts for a planner's offer the offer as the start's own key, and finds the offer of every listed task by that key after a restart, so a window that dies between Start and keeping the pair loses no offer. |
 | <a id="f493"></a>[F493](F493-A-Place-Chosen-While-The-Window-Starts-Stands.md) | XS | - | A place the person chooses while the window still reads its machines stands; the place saved from before does not replace it when the read ends. |
 | <a id="f494"></a>[F494](F494-About-Names-The-Planners-Version.md) | S | - | The window's About names the version of the planner the window runs beside porelo's, so a person can tell which planner build answers the planning. |
 | <a id="f476"></a>[F476](F476-The-Window-Starts-The-Planner-On-Windows.md) | S | - | On Windows the window finds and starts porelo-planner's Windows build as it does on Linux, and reads the board through it, instead of saying planning is not offered there. |
