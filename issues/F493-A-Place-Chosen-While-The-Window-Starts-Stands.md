@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F493",
   "title": "A Place Chosen While The Window Starts Stands",
-  "state": "Backlog",
+  "state": "Review",
   "size": "XS",
   "priority": "High",
   "rank": 1,
@@ -21,6 +21,11 @@ stays there. The place saved from the window's last session is put back only whe
 
 Found in [F492](README.md#f492)'s walk on the VM (runs 15 and 19): the walk chose Planning, and the first read of the
 machines took the window back to Work, the place saved before.
+
+## How it stands
+
+Built and on main ("Keep the place a person chose before the window restored the saved one"), with its test in
+`test/ui/side_bar_recovery_test.dart`; waiting for the operator's test.
 
 ## Plan
 
