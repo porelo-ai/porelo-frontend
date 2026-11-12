@@ -12,6 +12,13 @@ Future<void> thePlannerHoldsTheStoryWithItsIssuesInIdea(WidgetTester tester) =>
       expect(issues, isNotEmpty, reason: '$story has issues');
       for (final issue in issues) {
         expect(issue.state, 'Idea', reason: '${issue.id} stands in Idea');
+        // The planner answers before its push has reached the forge.
+        await pumpUntil(
+          tester,
+          () => probeHolds(['store-story', Walk.ownUrl, story, issue.id, 'Idea']),
+          timeout: const Duration(minutes: 2),
+          what: 'the forge to hold the story file of $story',
+        );
         await probe(['store-story', Walk.ownUrl, story, issue.id, 'Idea']);
         await probe(['store-issue', Walk.urlOf(issue.repository), issue.id, 'Idea']);
       }

@@ -263,6 +263,14 @@ github() {
     printf '%s\n' "${code:-000}"
 }
 
+# The token's person, whose name the planner's commits carry: the run's git configuration hides the account's own.
+[ "$(github GET /user)" = 200 ] && login=$(python3 -I -c 'import json, sys; print(json.load(open(sys.argv[1]))["login"])' \
+    "$work/answer") && [[ $login =~ ^[A-Za-z0-9-]+$ ]] || {
+    echo "walk: the forge does not name the token's person" >&2
+    rm -rf "$work"
+    exit 1
+}
+
 # Taken away on every ending, in this order: what still runs of the window's part and the planner it started, the
 # task branches and pull requests in the issue repository, each noted repository's tree as at its T0, the forge's
 # token and its declaration, porelod's agent put back, the run's copy.
@@ -707,7 +715,7 @@ status=0
 # The planner fetches the project's https repositories with git, as a person's own login would: a git configuration of
 # the run's own names porelo's credential helper for the organization, which answers from the run's vault, so the token
 # is in no file and on no command line. The planner passes git no other GIT_ variable than this one.
-on_vm "set -e; umask 077; printf '[credential \"https://github.com/%s\"]\\n\\thelper = \"!porelo vault credential --entry central-forge\"\\n' '$org' >~/$run/gitconfig
+on_vm "set -e; umask 077; printf '[credential \"https://github.com/%s\"]\\n\\thelper = \"!porelo vault credential --entry central-forge\"\\n[user]\\n\\tname = %s\\n\\temail = %s@users.noreply.github.com\\n' '$org' '$login' '$login' >~/$run/gitconfig
     ${in_vault}GIT_CONFIG_GLOBAL=\$HOME/$run/gitconfig GIT_TERMINAL_PROMPT=0 git -c credential.interactive=never \
         ls-remote https://github.com/$org/$porelo_project HEAD >/dev/null" </dev/null || {
     echo "walk: git on $vm cannot read https://github.com/$org/$porelo_project through the run's vault" >&2
