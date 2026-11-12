@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The Windows trial's second app: a console program started through an app execution alias, signed
+  with the trial's throwaway certificate under the window's publisher. It proves that
+  tool/windows-package.ps1 and tool/windows-install-check.ps1 serve an app other than the window.
+-->
+<Package
+    xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+    xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+    xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
+    xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5"
+    xmlns:desktop4="http://schemas.microsoft.com/appx/manifest/desktop/windows10/4"
+    xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+    xmlns:desktop6="http://schemas.microsoft.com/appx/manifest/desktop/windows10/6"
+    IgnorableNamespaces="uap uap3 uap5 desktop4 rescap desktop6">
+  <Identity Name="ai.porelo.windows-trial" Publisher="CN=porelo.ai" Version="@VERSION@"
+      ProcessorArchitecture="x64"/>
+  <Properties>
+    <DisplayName>Porelo Windows trial</DisplayName>
+    <PublisherDisplayName>porelo.ai</PublisherDisplayName>
+    <Logo>assets\StoreLogo.png</Logo>
+    <desktop6:FileSystemWriteVirtualization>disabled</desktop6:FileSystemWriteVirtualization>
+  </Properties>
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.19041.0" MaxVersionTested="10.0.26100.0"/>
+  </Dependencies>
+  <Resources>
+    <Resource Language="en-us"/>
+  </Resources>
+  <Applications>
+    <Application Id="PoreloTrial" Executable="porelo_trial.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements DisplayName="Porelo Windows trial" Description="The Windows trial's second app"
+          BackgroundColor="transparent" Square150x150Logo="assets\Square150x150Logo.png"
+          Square44x44Logo="assets\Square44x44Logo.png" AppListEntry="none"/>
+      <Extensions>
+        <uap5:Extension Category="windows.appExecutionAlias" Executable="porelo_trial.exe"
+            EntryPoint="Windows.FullTrustApplication">
+          <uap5:AppExecutionAlias desktop4:Subsystem="console">
+            <uap5:ExecutionAlias Alias="porelo-trial.exe"/>
+          </uap5:AppExecutionAlias>
+        </uap5:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust"/>
+    <rescap:Capability Name="unvirtualizedResources"/>
+  </Capabilities>
+</Package>

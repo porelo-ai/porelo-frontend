@@ -315,12 +315,15 @@ distribution.
 - **The files:** `%APPDATA%\porelo\frontend.json`; the operations record under
   `%LOCALAPPDATA%\porelo`, the window's log in `%LOCALAPPDATA%\porelo\logs`; a file kept to its owner with `icacls`; one window over a loopback port
   named in `%LOCALAPPDATA%\porelo\frontend.port`.
-- **The packages,** made by `tool/windows-package.ps1` in the Build's job *Windows* on GitHub's
-  Windows runner: a ZIP, not signed, and an MSIX signed by `CN=porelo.ai`, with one `SHA256SUMS` and
+- **The packages,** readied by `tool/windows-prepare.ps1` and made by `tool/windows-package.ps1` in
+  the Build's job *Windows* on GitHub's Windows runner: a ZIP, not signed, and an MSIX signed by `CN=porelo.ai`, with one `SHA256SUMS` and
   the build's provenance attestation, in Artifactory's `porelo-dist-windows`. The MSIX's writes to
   AppData are not redirected (`unvirtualizedResources`), so it reads the same `frontend.json` as the
   ZIP and the IntelliJ plugin. The MSIX version takes four numbers: `0.4.2~snapshot.141` becomes
-  `0.4.2.141`.
+  `0.4.2.141`. The packer and `tool/windows-install-check.ps1` take the app as parameters, written in
+  their heads: another repository's Windows build calls them at a pinned commit, so a change to those
+  parameters is a change it pins against. Neither leaves a signing key's container or the started app's
+  files behind; the Windows trial packs and installs a second app to prove both.
 
 ### The machine file, which the IntelliJ plugin reads too
 
