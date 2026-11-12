@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F502",
   "title": "A Task's Declared Outcome Goes With Its End",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "High",
   "rank": 18,
