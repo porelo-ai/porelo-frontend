@@ -554,6 +554,33 @@ void main() {
       expect(removed, [('laptop', 'porelo-demo-discussion')]);
     });
 
+    // Harm: the idea of a discussion the person left is never handed in, since an attended session records no agent
+    // end; or it is handed while the session still runs, or twice.
+    test('hands the idea of a discussion whose session was left, once, by its result alone', () async {
+      final (reports, problems, saved) = await discussed();
+      results['porelo-demo-discussion'] = TaskResult.from({...ideaFile, 'content': jsonEncode(idea)});
+      machine.leave('porelo-demo-discussion', ideaFile);
+
+      await sweeps(reports);
+      expect(handed.map((each) => each.$3), [idea]);
+      expect(saved, ['demo ST900']);
+      expect(problems, isEmpty);
+      expect(removed, [('laptop', 'porelo-demo-discussion')]);
+    });
+
+    // Harm: a left discussion that wrote no idea says nothing, and the person waits for a story that never comes.
+    test('says once that a discussion whose session was left wrote no idea', () async {
+      final (reports, problems, _) = await discussed();
+      machine.leave('porelo-demo-discussion', {'name': 'idea.json', 'state': 'missing'});
+
+      await sweeps(reports);
+      expect(handed, isEmpty);
+      expect(problems, [
+        'porelo-planner demo The discussion porelo-demo-discussion ended with no idea to hand to the planner: it '
+            'wrote no idea.json.',
+      ]);
+    });
+
     // Harm: an idea an earlier run of the container wrote is handed in as this discussion's, under its offer.
     test('an end the discussion showed when it started hands nothing', () async {
       machine.endBeforeStart = endAt('0', result: ideaFile);
@@ -736,6 +763,20 @@ class _Machine extends Fake implements FleetBackend {
   /// Runs before each listing of the tasks is answered, numbered from 1: what the window does meanwhile.
   Future<void> Function(int listing)? whileListing;
   int _listings = 0;
+
+  /// The attended session of [container] was left, as [result] stood: no agent end is recorded for one.
+  void leave(String container, Map<String, Object> result, {String since = '1'}) {
+    final index = listed.indexWhere((task) => task.name == container);
+    final task = listed[index];
+    listed[index] = Task.from({
+      'name': task.name,
+      'task': task.task,
+      'project': task.project,
+      'running': false,
+      'since': since,
+      'result': result,
+    });
+  }
 
   /// The agent of [container] ended as [ended] says.
   void end(String container, Map<String, dynamic> ended) {

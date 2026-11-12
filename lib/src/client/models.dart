@@ -597,6 +597,7 @@ class Task {
     this.credentials = const <String, String>{},
     this.grants = const <String, Authorization>{},
     this.agentEnded,
+    this.result,
     this.run,
     this.handInLimit,
     this.files,
@@ -608,6 +609,10 @@ class Task {
 
   /// How its agent ended, or null while it has not or the machine does not say.
   final AgentEnded? agentEnded;
+
+  /// The result file it was asked to hand back and how it stands now, also where no agent end is recorded (an attended
+  /// session that was left); null where none was asked or the machine does not say.
+  final TaskResult? result;
 
   /// The container this task is, which tells its hand-in record from that of a later task with the
   /// same name. Null from a machine that does not say.
@@ -677,6 +682,7 @@ class Task {
     repository: _string(map, 'repository'),
     credentials: _stringMap(map, 'credentials'),
     grants: Authorization.allIn(map, 'grants'),
+    result: map['result'] is Map<String, dynamic> ? TaskResult.from(map['result'] as Map<String, dynamic>) : null,
     agentEnded: map['agentEnded'] is Map<String, dynamic>
         ? AgentEnded.from(map['agentEnded'] as Map<String, dynamic>)
         : null,

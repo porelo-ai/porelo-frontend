@@ -243,17 +243,23 @@ class WindowTaskReports {
     }
     for (final kept in settings.keptDiscussions) {
       final task = tasksOn(kept.machine)?.where((each) => each.name == kept.container).firstOrNull;
-      if (task?.agentEnded case final ended?) {
-        final end = plannedEndKey(ended);
-        if (end != kept.ended && !_ideasNotHanded.contains((kept.offer, end))) await _handIdea(kept, ended, end);
+      if (task == null) continue;
+      final (String, TaskResult?)? ending = switch (task) {
+        // A prompt run records how its agent ended, with its result.
+        Task(agentEnded: final ended?) => (plannedEndKey(ended), ended.result),
+        // An attended session records no end of its agent: a stopped task with its result file is its end.
+        Task(running: false, result: final result?) => ('left|${task.since}', result),
+        _ => null,
+      };
+      if (ending case (final end, final named) when end != kept.ended && !_ideasNotHanded.contains((kept.offer, end))) {
+        await _handIdea(kept, named, end);
       }
     }
   }
 
   /// Hands the idea [kept]'s discussion wrote to the planner, once for its [end]: an idea handed in, refused for its
   /// faults or never written is not handed again, also across restarts; the result file stays in the task either way.
-  Future<void> _handIdea(KeptDiscussion kept, AgentEnded ended, String end) async {
-    final named = ended.result;
+  Future<void> _handIdea(KeptDiscussion kept, TaskResult? named, String end) async {
     if (named == null) return _noIdea(kept, end, 'it was asked for no result file');
     if (named.state != ResultState.handed) {
       return _noIdea(kept, end, switch (named.state) {
