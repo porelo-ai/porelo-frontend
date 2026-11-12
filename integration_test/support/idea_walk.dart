@@ -226,7 +226,10 @@ print(b.rstrip(b"\0").decode())'
 ''';
 
 /// The project's tasks as porelo on the machine lists them, never as the window shows them.
-Future<List<Map<String, dynamic>>> theProjectsTasks() async {
+Future<List<Map<String, dynamic>>> theProjectsTasks() => tasksOf(Walk.poreloProject);
+
+/// The tasks of [project] as porelo on the machine lists them, never as the window shows them.
+Future<List<Map<String, dynamic>>> tasksOf(String project) async {
   // `porelo task list` prints no JSON, so the daemon's own List is asked over its socket, as the window asks it.
   final said = await inTheAccount(_listOverTheSocket);
   final Object? listed;
@@ -241,7 +244,7 @@ Future<List<Map<String, dynamic>>> theProjectsTasks() async {
   };
   return [
     for (final each in tasks.whereType<Map<String, dynamic>>())
-      if (each['project'] == Walk.poreloProject) each,
+      if (each['project'] == project) each,
   ];
 }
 

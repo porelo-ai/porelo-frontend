@@ -326,3 +326,39 @@ Future<void> showOnTheMachines(WidgetTester tester, Finder target) async {
   if (target.evaluate().isNotEmpty) await tester.ensureVisible(target.first);
   await pumpFor(tester, const Duration(milliseconds: 100));
 }
+
+/// Chooses [label] from the menu of the tile of [task] on the work page, as a person would: the page scrolled until
+/// the tile shows, and the menu scrolled until the entry can be pressed.
+Future<void> chooseFromTheMenuOfTheTile(WidgetTester tester, String task, String label) async {
+  // Every machine's work is on the work page.
+  await toThePlace(tester, 'work');
+  // The work page draws each tile as a list row, a Material rather than a Card: found by its key alone.
+  final tile = find.byWidgetPredicate(
+    (widget) =>
+        widget.key is ValueKey<String> &&
+        (widget.key! as ValueKey<String>).value.startsWith('tile ') &&
+        (widget.key! as ValueKey<String>).value.endsWith(' $task'),
+  );
+  final page = find.descendant(of: find.byKey(const Key('work-page')), matching: find.byType(Scrollable));
+  for (var i = 0; i < 40 && tile.evaluate().isEmpty && page.evaluate().isNotEmpty; i++) {
+    await tester.drag(page.first, const Offset(0, -120));
+    await pumpFor(tester, const Duration(milliseconds: 100));
+  }
+  if (tile.evaluate().isNotEmpty) await tester.ensureVisible(tile.first);
+  await pumpFor(tester);
+  expect(tile, findsOneWidget, reason: 'no tile of $task on any machine');
+  // Keyed by its work, so each tile's menu can be told apart.
+  await tester.tap(find.descendant(of: tile, matching: find.byKey(ValueKey<String>('tile-menu $task'))));
+  await pumpFor(tester);
+  final item = find.ancestor(of: find.text(label), matching: find.byWidgetPredicate((w) => w is PopupMenuItem));
+  // The menu is taller than a 720-pixel window when the tile sits low (CI's leased machine, run
+  // 36884349003): scrolled inside the menu until the entry can be pressed, not only made "visible".
+  await pumpFor(tester);
+  final menu = find.ancestor(of: item, matching: find.byType(Scrollable));
+  if (item.hitTestable().evaluate().isEmpty && menu.evaluate().isNotEmpty) {
+    await tester.scrollUntilVisible(item.hitTestable(), 60, scrollable: menu.first);
+    await pumpFor(tester);
+  }
+  await tester.tap(item.hitTestable());
+  await pumpFor(tester);
+}

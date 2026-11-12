@@ -361,20 +361,20 @@ Future<List<Map<String, dynamic>>> _theSignIns() async =>
         .toList();
 
 /// Runs one step of the rehearsal, and where it fails keeps a picture of the window in `PORELO_REHEARSAL_SHOTS`,
-/// named after the scenario, before the failure goes on unchanged.
+/// named after the scenario, or [name] where a scenario keeps one per step, before the failure goes on unchanged.
 ///
 /// Taken inside the step, while the frame still stands: Flutter checks after every test that its exception
 /// reporter was left as it was, so a picture is never hung on that.
-Future<void> pictured(WidgetTester tester, Future<void> Function() step) async {
+Future<void> pictured(WidgetTester tester, Future<void> Function() step, {String? name}) async {
   try {
     await step();
   } catch (_) {
-    await _keepAPicture(tester);
+    await _keepAPicture(tester, name ?? tester.testDescription);
     rethrow;
   }
 }
 
-Future<void> _keepAPicture(WidgetTester tester) async {
+Future<void> _keepAPicture(WidgetTester tester, String named) async {
   final into = Platform.environment['PORELO_REHEARSAL_SHOTS'] ?? '';
   if (into.isEmpty) return;
   try {
@@ -389,7 +389,7 @@ Future<void> _keepAPicture(WidgetTester tester) async {
     final image = await layer.toImage(bounds);
     final png = await image.toByteData(format: ui.ImageByteFormat.png);
     if (png == null) return;
-    final name = tester.testDescription.replaceAll(RegExp(r'[^A-Za-z0-9]+'), '-').replaceAll(RegExp(r'^-|-$'), '');
+    final name = named.replaceAll(RegExp(r'[^A-Za-z0-9]+'), '-').replaceAll(RegExp(r'^-|-$'), '');
     await Directory(into).create(recursive: true);
     await File('$into/$name.png').writeAsBytes(png.buffer.asUint8List());
   } on Object catch (missed) {
