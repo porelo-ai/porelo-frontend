@@ -264,13 +264,14 @@ try {
       }
     } catch { $cleanupFailures.Add("Remove '$path': $_") }
   }
-  # The app's own files only once it was started: before, any of them is somebody else's.
-  foreach ($path in @(
-    $(if ($trustAttempted) { $trustedPath }),
-    $copy,
-    $workDir,
-    $(if ($deploymentAttempted) { $leftoverPaths })
-  )) {
+  # The app's own files only once it was started: before, any of them is somebody else's. One flat list: the
+  # leftovers given as an element of the list would be one array, removed and tested as one path.
+  $cleanupPaths = [System.Collections.Generic.List[string]]::new()
+  if ($trustAttempted -and $trustedPath) { $cleanupPaths.Add($trustedPath) }
+  if ($copy) { $cleanupPaths.Add($copy) }
+  if ($workDir) { $cleanupPaths.Add($workDir) }
+  if ($deploymentAttempted) { foreach ($leftover in $leftoverPaths) { $cleanupPaths.Add($leftover) } }
+  foreach ($path in $cleanupPaths) {
     if (-not $path) { continue }
     try {
       if (Test-Path -LiteralPath $path) {
