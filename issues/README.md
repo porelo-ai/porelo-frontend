@@ -118,6 +118,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f492"></a>[F492](F492-A-Real-Idea-Walks-To-Finished-Through-The-Window.md) | L | - | On a local VM, an Idea made in the real window against a real porelo and planner goes through every state to its story Finished, one real low-cost task included, each step read from its effect. |
 | <a id="f476"></a>[F476](F476-The-Window-Starts-The-Planner-On-Windows.md) | S | - | On Windows the window finds and starts porelo-planner's Windows build as it does on Linux, and reads the board through it, instead of saying planning is not offered there. |
 | <a id="f470"></a>[F470](F470-A-Story-Moved-Against-Its-Issues-Is-Warned-And-Confirmed.md) | S | - | A story moved on the board against its issues is warned, naming them, and saved only when confirmed; it keeps that state. |
 | <a id="f321"></a>[F321](F321-Send-The-Terminal-Input-Fix-Upstream.md) | S | - | The terminal input fix offered upstream, and this repository's copy of `xterm` dropped once a release holds it. |
