@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:guided_walk/guided_walk.dart';
 import 'package:porelo_frontend/client.dart';
 
+import '../app/commands.dart';
 import '../app/connections.dart';
+import 'command_menu.dart';
 import 'connection_wizard.dart';
 import 'expandable_list_row.dart';
 import 'filtered_list_section.dart';
@@ -85,12 +87,37 @@ class ConnectionsView extends StatelessWidget {
           problem: connections.problem,
           staleRows: head.stale,
           subtitle: counted(connections.all.length, 'connection', 'connections'),
+          // Rarely needed — a repository on no forge set up here, or a key a machine must stop using — so
+          // kept out of the everyday view.
           actions: <Widget>[
-            FilledButton.icon(
-              key: const Key('add-connection'),
-              onPressed: connections.busy ? null : onAdd,
-              icon: const Icon(Icons.add, size: Sizes.rowIcon),
-              label: const Text('Add a connection'),
+            CommandMenu(
+              key: const Key('connections-menu'),
+              tooltip: 'Add or forget a connection',
+              commands: <Command>[
+                Command(
+                  id: 'add-connection',
+                  label: 'Add a connection',
+                  group: 'Connections',
+                  home: Home.openedView,
+                  unavailable: connections.busy ? 'Still reading or changing the connections.' : null,
+                  run: onAdd,
+                ),
+                for (final each in connections.all)
+                  Command(
+                    id: 'forget ${each.match}',
+                    label: 'Forget ${each.match} — its value stays where it is',
+                    group: 'Connections',
+                    home: Home.openedView,
+                    danger: true,
+                    // As greyed out as the rows it stands for, while they are only the last ones read.
+                    unavailable: head.stale
+                        ? 'The machine does not answer; these are the connections it last listed.'
+                        : connections.busy
+                        ? 'Still reading or changing the connections.'
+                        : null,
+                    run: () => onForget(each.match),
+                  ),
+              ],
             ),
           ],
           beforeRows: <Widget>[
@@ -136,11 +163,7 @@ class ConnectionsView extends StatelessWidget {
             for (final each in connections.all)
               (
                 words: '${each.match} ${each.kindWords} ${each.purpose}',
-                child: _ConnectionRow(
-                  connection: each,
-                  vaultOpen: connections.vaultOpen,
-                  onForget: () => onForget(each.match),
-                ),
+                child: _ConnectionRow(connection: each, vaultOpen: connections.vaultOpen),
               ),
           ],
           afterRows: <Widget>[?destinations],
@@ -151,11 +174,10 @@ class ConnectionsView extends StatelessWidget {
 }
 
 class _ConnectionRow extends StatelessWidget {
-  const _ConnectionRow({required this.connection, required this.vaultOpen, required this.onForget});
+  const _ConnectionRow({required this.connection, required this.vaultOpen});
 
   final Connection connection;
   final bool vaultOpen;
-  final VoidCallback onForget;
 
   @override
   Widget build(BuildContext context) {
@@ -198,16 +220,6 @@ class _ConnectionRow extends StatelessWidget {
               style: text.bodySmall,
             ),
         ],
-      ),
-      // Named, not an icon: this is where a wrong key is taken away, and it has to be found.
-      trailing: Tooltip(
-        message: 'Forget this record — its value stays where it is',
-        child: TextButton.icon(
-          key: ValueKey<String>('forget ${c.match}'),
-          icon: const Icon(Icons.link_off, size: Sizes.rowIcon),
-          label: const Text('Forget'),
-          onPressed: onForget,
-        ),
       ),
     );
   }

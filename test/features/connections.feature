@@ -308,6 +308,16 @@ Feature: How a machine connects out, and giving it a credential
         Then nothing was declared
 
 
+    # Adding and forgetting are rarely needed, so the everyday view keeps them in its menu.
+    Scenario: adding and forgetting stand in the menu of the connections, not in the view
+        Given the machine connects to {'ssh://github.com'} with a key in the vault
+        When I choose the command {'Connections — how this machine connects out'}
+        Then adding and forgetting stand only in the menu of the connections
+        When I forget the connection {'ssh://github.com'}
+        Then it says {'Its value is still there'}
+        When I add a connection to {'https://gitlab.example/acme/'}
+        Then the dialog offers {'any use'}
+
     Scenario: forgetting a connection says the value is still there
         Given the machine connects to {'ssh://github.com'} with a key in the vault
         When I choose the command {'Connections — how this machine connects out'}

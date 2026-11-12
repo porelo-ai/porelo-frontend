@@ -67,6 +67,7 @@ import './step/i_make_the_vault_from_the_check.dart';
 import './step/the_unlock_terminal_ends_and_is_put_away.dart';
 import './step/the_machine_was_asked_again_whether_it_would_work.dart';
 import './step/i_open_the_vault_from_the_check.dart';
+import './step/adding_and_forgetting_stand_only_in_the_menu_of_the_connections.dart';
 import './step/i_forget_the_connection.dart';
 import './step/storing_on_the_machine_will_fail.dart';
 import './step/the_way_to_store_it_is_still_offered.dart';
@@ -387,6 +388,16 @@ void main() {
       await iGoOn(tester);
       await iChoose(tester, 'Leave it');
       await nothingWasDeclared(tester);
+    });
+    testWidgets('''adding and forgetting stand in the menu of the connections, not in the view''', (tester) async {
+      await bddSetUp(tester);
+      await theMachineConnectsToWithAKeyInTheVault(tester, 'ssh://github.com');
+      await iChooseTheCommand(tester, 'Connections — how this machine connects out');
+      await addingAndForgettingStandOnlyInTheMenuOfTheConnections(tester);
+      await iForgetTheConnection(tester, 'ssh://github.com');
+      await itSays(tester, 'Its value is still there');
+      await iAddAConnectionTo(tester, 'https://gitlab.example/acme/');
+      await theDialogOffers(tester, 'any use');
     });
     testWidgets('''forgetting a connection says the value is still there''', (tester) async {
       await bddSetUp(tester);

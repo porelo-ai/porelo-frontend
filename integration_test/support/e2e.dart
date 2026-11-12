@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/main.dart' as app;
 import 'package:porelo_frontend/src/app/porelo_app.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
+import 'package:porelo_frontend/src/ui/command_menu.dart';
 import 'package:porelo_frontend/src/ui/choice_field.dart';
 
 import 'remote.dart';
@@ -207,20 +208,31 @@ Future<void> openTheConnectionWizard(WidgetTester tester) async {
   // Found is not in place: the menu is still growing, and a tap during it lands beside the entry.
   await pumpFor(tester);
   await tester.tap(find.text('Connections — how this machine connects out').last);
-  // Drawn while the machine is still being asked, and only pressable once it has answered.
+  // Drawn while the machine is still being asked, and only runnable once it has answered.
+  final menu = find.byKey(const Key('connections-menu'));
   await pumpUntil(
     tester,
     () =>
-        find.byKey(const Key('add-connection')).evaluate().isNotEmpty &&
-        tester.widget<ButtonStyleButton>(find.byKey(const Key('add-connection'))).onPressed != null,
+        menu.evaluate().isNotEmpty &&
+        tester.widget<CommandMenu>(menu).commands.any((each) => each.id == 'add-connection' && each.available),
     what: 'the connections of the machine, read',
   );
-  await tester.tap(find.byKey(const Key('add-connection')));
+  await tapInTheConnectionsMenu(tester, 'add-connection');
   await pumpUntil(
     tester,
     () => find.byKey(const Key('connection-match')).evaluate().isNotEmpty,
     what: 'the wizard asking what connection to add',
   );
+}
+
+/// Opens the menu of the connections on screen and runs its entry [id], where adding and forgetting stand.
+Future<void> tapInTheConnectionsMenu(WidgetTester tester, String id) async {
+  await tester.tap(find.byKey(const Key('connections-menu')));
+  final entry = find.byKey(ValueKey<String>(id));
+  await pumpUntil(tester, () => entry.evaluate().isNotEmpty, what: 'the entry $id in the menu of the connections');
+  // Found is not in place: the menu is still growing, and a tap during it lands beside the entry.
+  await pumpFor(tester);
+  await tester.tap(entry.last);
 }
 
 /// Opens the machine's destinations from its menu, unless they are open already.
