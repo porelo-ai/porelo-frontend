@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F507",
   "title": "The Window's Windows Scripts Package Another App",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "M",
   "priority": "High",
   "rank": 20,
