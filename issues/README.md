@@ -129,6 +129,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f91"></a>[F91](F91-One-Way-To-Show-Loading.md) | M | - | Every view shows the same way that it is reading. |
 | <a id="f99"></a>[F99](F99-An-Attached-Agent-Shown-At-Rest-Or-Working.md) | M | - | A work tile says whether an attached agent is at rest or working; waits for a Tasks1 answer that says an attached agent is at rest. |
 | <a id="f479"></a>[F479](F479-A-Planner-The-Window-Started-Ends-With-It.md) | M | - | A planner the window started because none was serving ends when the window ends, so it neither holds the planner's address file nor stands in the way of the next planner; a planner the window found serving is left running. |
+| <a id="f510"></a>[F510](F510-Small-Points-Of-The-Walk-27-Reading.md) | S | - | The small points a reading by another model found in the window's start and end reports built for walk 27: a task found again only within its own project, a start that is never kept ended, the right task paired when two starts run at once. |
 | <a id="f505"></a>[F505](F505-The-Issue-Heads-Are-Checked-Every-Day.md) | XS | - | The repository's daily shared-rules run checks its issues' heads with `issues check issues` from the released porelo-release, as the build tools' own shared rules do. |
 
 ## Implementing
