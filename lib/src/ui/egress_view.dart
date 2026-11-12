@@ -3,6 +3,7 @@ import 'package:porelo_frontend/client.dart';
 
 import '../app/egress.dart';
 import 'panes.dart';
+import 'reading.dart';
 import 'image_settings_view.dart' show removedWords;
 import 'tokens.dart';
 
@@ -21,6 +22,9 @@ class EgressView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final subject = egress.repository == null
+        ? egress.project?.name ?? ''
+        : '${egress.project?.name ?? ''} · ${egress.repository}';
     final using = <String>{
       for (final host in egress.reachable)
         if (host.origin.startsWith('set ')) host.origin.substring(4),
@@ -44,6 +48,8 @@ class EgressView extends StatelessWidget {
             padding: const EdgeInsets.all(Space.normal),
             child: Text(egress.problem!, key: const Key('egress-problem')),
           ),
+        if (egress.busy)
+          Reading(words: egress.read ? null : 'Asking the machine what $subject may reach…', inset: true),
         Expanded(
           child: ListView(
             padding: const EdgeInsets.symmetric(vertical: Space.small),
@@ -104,7 +110,7 @@ class EgressView extends StatelessWidget {
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ),
-              if (egress.sets.isEmpty)
+              if (egress.read && egress.sets.isEmpty)
                 const Padding(
                   padding: EdgeInsets.all(Space.normal),
                   child: Text('None is installed. That is a state, not a failure.'),

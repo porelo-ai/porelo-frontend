@@ -67,3 +67,13 @@ Feature: The services a credential can be for, managed from here
         When I choose the command {'Destinations — the services a credential can be for'}
         And I put my own in the place of {'search'} at {'https://search.internal.example'}
         Then it says {'Installed by a package, and not in force'}
+
+    Scenario: while the machine is asked, the destinations say what is being read
+        Given the machine declares the destination {'weather'} at {'https://api.weather.example/v1'}
+        And the machine is slow to answer
+        When I choose the command {'Destinations — the services a credential can be for'}
+        Then it shows that it is reading {'which destinations this machine declares'}
+        And it does not say {'No destination is declared'}
+        When the machine has answered
+        Then it no longer shows that it is reading
+        And it says {'https://api.weather.example/v1'}

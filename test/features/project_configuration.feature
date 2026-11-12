@@ -126,3 +126,25 @@ Feature: What a project may reach, and removing one
         Then it says {'knows no project called checkout'}
         And it says {'Nothing was removed'}
 
+    # Read in the open: without a sign, the sets' "None is installed" stood while they were still asked for.
+    Scenario: while the machine is asked, what a project may reach says what it is reading
+        Given the machine is slow to answer
+        When I open what this project may reach
+        Then it shows that it is reading {'what checkout may reach'}
+        And it does not say {'None is installed'}
+        And it does not say {'api.anthropic.com'}
+        When the machine has answered
+        Then it no longer shows that it is reading
+        And it says {'api.anthropic.com'}
+
+    # One view serves every project: the one asked before is not shown under the next one's name.
+    Scenario: another project's hosts are not shown while its own are read
+        When I open what this project may reach
+        And the machine has the project {'api'} from {'git@github.com:acme/api.git'}
+        And I select the project {'api'}
+        And the machine is slow to answer
+        And I choose the command {'What this project may reach'}
+        Then it does not say {'api.anthropic.com'}
+        And it shows that it is reading {'what api may reach'}
+        When the machine has answered
+        Then it no longer shows that it is reading

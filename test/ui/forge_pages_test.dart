@@ -73,7 +73,8 @@ void main() {
     await tester.pump();
     expect(find.text('No forges yet.'), findsNothing);
     expect(find.text('0 forges'), findsNothing);
-    expect(find.text('not read'), findsNWidgets(2));
+    expect(find.text('not read'), findsOneWidget, reason: 'the head explains the missing rows');
+    expect(find.text('Reading…'), findsOneWidget, reason: 'the card says they are being read');
     await tester.pumpWidget(const SizedBox.shrink());
     tokens.answer.complete(null);
     await World.settle(tester);

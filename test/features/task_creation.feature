@@ -14,8 +14,10 @@ Feature: Starting work with an agent, a mode and a credential
         Given reading the agents is slow
         When I start work in this project
         Then it says {'Asking the machine what it has'}
+        And it shows that it is reading {'Asking the machine what it has'}
         When the machine has answered
         Then it does not say {'Asking the machine what it has'}
+        And it no longer shows that it is reading
 
     # Measured on the test machine: CanStart said the agent was not installed while Agents listed it,
     # and asking again answered ready. Start it stayed off until somebody chose the agent again.

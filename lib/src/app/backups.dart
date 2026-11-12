@@ -50,6 +50,11 @@ class Backups extends ChangeNotifier {
 
   /// Reads what has been taken.
   Future<void> look(FleetBackend backend, String name, {String? repository}) async {
+    // Another project's or repository's record is never shown under this one's name while it is asked.
+    if (project != name || this.repository != repository) {
+      taken = const <Backup>[];
+      _read = false;
+    }
     project = name;
     this.repository = repository;
     busy = true;

@@ -74,3 +74,14 @@ Feature: A project's conversation, and a person joining it
         Given the project {'checkout'} has a conversation over {'matrix'} reaching {'127.0.0.1:8008'}, ready
         When I choose the command {'Messages and the project’s room'}
         Then joining is not offered yet
+
+    Scenario: while the machine is asked, the room says what it is reading
+        Given the project {'checkout'} has a conversation over {'matrix'} reaching {'127.0.0.1:8008'}, ready
+        And I select the project {'checkout'}
+        And the machine is slow to answer
+        When I choose the command {'Messages and the project’s room'}
+        Then it shows that it is reading {'who is in the room of checkout'}
+        And it does not say {'Nobody has joined yet'}
+        When the machine has answered
+        Then it no longer shows that it is reading
+        And it says {'Nobody has joined yet'}

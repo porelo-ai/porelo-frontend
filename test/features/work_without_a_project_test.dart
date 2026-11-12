@@ -51,6 +51,11 @@ import './step/the_machine_the_start_was_pressed_on_is_forgotten.dart';
 import './step/i_agree_to_the_first_task.dart';
 import './step/no_first_task_was_agreed_to_on_any_machine.dart';
 import './step/nothing_was_started.dart';
+import './step/the_machine_is_slow_to_answer.dart';
+import './step/it_shows_that_it_is_reading.dart';
+import './step/it_does_not_say.dart';
+import './step/the_machine_has_answered.dart';
+import './step/it_no_longer_shows_that_it_is_reading.dart';
 
 void main() {
   group('''Work on a repository without writing a project first''', () {
@@ -178,5 +183,17 @@ void main() {
         await nothingWasStarted(tester);
       },
     );
+    testWidgets('''while the machine is asked, default says once what it is reading''', (tester) async {
+      await bddSetUp(tester);
+      await defaultHoldsAtAlready(tester, 'tools', 'git@example.org:acme/tools.git');
+      await iSelectTheProject(tester, 'default');
+      await theMachineIsSlowToAnswer(tester);
+      await iPressTheStartTile(tester);
+      await itShowsThatItIsReading(tester, 'which repositories default holds');
+      await itDoesNotSay(tester, 'Any failure will appear here');
+      await theMachineHasAnswered(tester);
+      await itNoLongerShowsThatItIsReading(tester);
+      await itSays(tester, 'git@example.org:acme/tools.git');
+    });
   });
 }

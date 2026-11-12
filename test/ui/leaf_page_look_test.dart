@@ -308,8 +308,29 @@ void main() {
       ),
     );
     expect(find.text('No forges yet.'), findsNothing);
-    expect(find.text('not read'), findsNWidgets(2), reason: 'both the head and the open card explain missing rows');
+    expect(find.text('not read'), findsOneWidget, reason: 'the head explains the missing rows');
+    expect(find.text('Reading…'), findsOneWidget, reason: 'the open card says they are being read');
+    expect(find.byKey(const Key('reading')), findsOneWidget, reason: 'the bar every reading view shows');
     expect(find.text('0 entries'), findsNothing);
+  });
+
+  // Harm: a list nobody is asking for reads as one being read, and the person waits for nothing.
+  testWidgets('an unread leaf nobody is reading says not read, without a bar', (tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: FilteredListSection(title: 'Forges', storageId: 'unread', leaf: true, read: false, rows: []),
+          ),
+        ),
+      ),
+    );
+    expect(find.text('not read'), findsNWidgets(2), reason: 'both the head and the open card explain missing rows');
+    expect(find.text('Reading…'), findsNothing);
+    expect(find.byKey(const Key('reading')), findsNothing);
   });
 
   // Harm: the project machine has answered, but its chip tells the person that nothing was read.

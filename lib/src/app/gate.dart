@@ -104,6 +104,13 @@ class Gate extends ChangeNotifier {
 
   /// Reads what is waiting at [project]'s gate.
   Future<void> lookAt(FleetBackend backend, Project project) async {
+    // Another project's waiting pushes are never shown under this one's name while it is asked.
+    if (this.project?.name != project.name) {
+      waiting = const <PendingPush>[];
+      repositories = const <String>[];
+      mirror = '';
+      mode = '';
+    }
     this.project = project;
     looking = null;
     _forgetTheRefusal();

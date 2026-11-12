@@ -8,6 +8,7 @@ import '../app/gate.dart';
 import '../app/machines.dart' show Machine;
 import '../app/makers.dart';
 import 'panes.dart';
+import 'reading.dart';
 import 'refused_key.dart';
 import 'selection_list.dart';
 import 'tokens.dart';
@@ -42,7 +43,15 @@ class GateView extends StatelessWidget {
         title: 'Waiting at the gate · ${gate.project?.name ?? ''}',
         trailing: IconButton(icon: const Icon(Icons.close), tooltip: 'Close (Esc)', onPressed: onClose),
       ),
-      if (gate.reading > 0) _Reading(count: gate.reading),
+      if (gate.reading > 0)
+        Reading(
+          words: gate.waiting.isNotEmpty
+              ? null
+              : gate.reading == 1
+              ? 'Reading the gate of ${gate.project?.name ?? ''}…'
+              : 'Reading the gate of ${gate.project?.name ?? ''}, ${gate.reading} repositories…',
+          inset: true,
+        ),
       if (gate.unread.isNotEmpty) _Unread(unread: gate.unread),
       if (gate.otherProblem != null) GateProblem(words: gate.otherProblem!),
       if (gate.mode.isNotEmpty)
@@ -58,7 +67,10 @@ class GateView extends StatelessWidget {
           onSelect: (id) => onOpen(gate.waiting.firstWhere((push) => push.id == id)),
           onActivate: (id) => onOpen(gate.waiting.firstWhere((push) => push.id == id)),
           focusNode: focusNode,
-          emptyMessage: gate.problem != null
+          // Said only once answered: while the gate is read, an empty list is no answer yet.
+          emptyMessage: gate.reading > 0
+              ? ''
+              : gate.problem != null
               ? 'Nothing could be read.'
               : 'Nothing is waiting. Everything this project pushed has been decided.',
           rowOf: (context, push, selected) => _WaitingRow(
@@ -267,7 +279,10 @@ class ReviewView extends StatelessWidget {
         if (gate.problem != null) GateProblem(words: gate.problem!),
         Expanded(
           child: gate.busy && files.isEmpty
-              ? const Center(child: CircularProgressIndicator())
+              ? const Align(
+                  alignment: Alignment.topCenter,
+                  child: Reading(words: 'Reading what this push changes…', inset: true),
+                )
               : ListView(
                   padding: const EdgeInsets.symmetric(vertical: Space.small),
                   children: gate.ranked.isEmpty
@@ -816,34 +831,6 @@ class _ProblemBoxState extends State<_ProblemBox> {
         thumbVisibility: true,
         child: SingleChildScrollView(controller: _scroll, child: widget.child),
       ),
-    ),
-  );
-}
-
-/// Says that the gate is being read, and how many repositories are asked.
-class _Reading extends StatelessWidget {
-  const _Reading({required this.count});
-
-  final int count;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    key: const Key('gate-reading'),
-    padding: const EdgeInsets.symmetric(horizontal: Space.normal, vertical: Space.small),
-    child: Row(
-      children: <Widget>[
-        const SizedBox.square(
-          dimension: Sizes.operationSpinner,
-          child: CircularProgressIndicator(strokeWidth: Sizes.spinnerStroke),
-        ),
-        const SizedBox(width: Space.small),
-        Expanded(
-          child: Text(
-            count == 1 ? 'Reading the gate…' : 'Reading the gate of $count repositories…',
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-        ),
-      ],
     ),
   );
 }

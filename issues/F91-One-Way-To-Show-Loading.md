@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F91",
   "title": "One Way To Show Loading",
-  "state": "Backlog",
+  "state": "Review",
   "size": "M",
   "priority": "Medium",
   "rank": 10,
@@ -48,8 +48,9 @@ while they read:
 
 ## The shape
 
-- While a view reads, a thin bar stands at the top of its content. In a dialog the bar sits at the top of the
-  dialog's content; the dialog gets no header of its own.
+- While a view reads, a thin bar stands at the top of its content. In a dialog whose other parts already stand, the
+  bar and its sentence stand where the answer will, so the bar is never apart from what it reads; the dialog gets no
+  header of its own.
 - Until the first answer for what the view shows, one sentence stands under the bar, in the place of the answer,
   saying what is read and from where ("Asking vm which backups of foo are recorded…"), never the view's empty words.
 - Then the answer, or why there is none. Reading the same thing again keeps the answer under the bar, as the list
@@ -79,7 +80,7 @@ while they read:
     this push changes…") in place of the centred spinner.
   - `StartWorkDialog`: `Reading` in place of the bare words, which stay "Asking the machine what it has…", since
     `task_creation.feature` finds them.
-  - `MessagesDialog`: `Reading` at the top of the dialog's content while `members` is null and nothing was refused.
+  - `MessagesDialog`: `Reading` under *Who is in it* while `members` is null and nothing was refused.
   - `DestinationsView` (both places): `Reading` while `widget.answering` and nothing is read.
   - `DefaultDialog`: one `Reading` while the first read runs, its `_busy` line only for an action.
 
@@ -98,9 +99,10 @@ while they read:
   it is reading": slow, open what the project may reach, find `reading` and its sentence and no "None is installed";
   the machine has answered; find the hosts and no `reading`. Then one scenario of the same shape in `backups.feature`,
   `work_handover.feature` (the gate's list and a push), `task_creation.feature` (extending the scenario there),
-  `project_messages.feature`, `destinations.feature` and `work_without_a_project.feature` (the Default dialog). Two
-  scenarios prove the dropped answer: backups of one project, then another's opened slowly, finds none of the first's;
-  the same for the gate. One widget test in `test/ui/leaf_page_look_test.dart` finds "Reading…" on a busy, unread
+  `project_messages.feature`, `destinations.feature` and `work_without_a_project.feature` (the Default dialog). Three
+  scenarios prove the dropped answer, for what a project may reach, the backups and the gate: one project's view, then
+  a second guarded project's (`billing` is offline, which has no egress) opened by its command while slow, finds none
+  of the first's before the reading, then the answer. One widget test in `test/ui/leaf_page_look_test.dart` finds "Reading…" on a busy, unread
   section and "not read" on an idle one; the test there that finds "not read" twice on a busy, empty section
   (`leaf_page_look_test.dart:311`) changes with it. The other tests that find "not read"
   (`test/ui/work_and_attention_counts_test.dart`, `repository_on_the_machine_test.dart`,

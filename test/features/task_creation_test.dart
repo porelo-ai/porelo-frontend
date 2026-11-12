@@ -11,8 +11,10 @@ import './step/i_select_the_project.dart';
 import './step/reading_the_agents_is_slow.dart';
 import './step/i_start_work_in_this_project.dart';
 import './step/it_says.dart';
+import './step/it_shows_that_it_is_reading.dart';
 import './step/the_machine_has_answered.dart';
 import './step/it_does_not_say.dart';
+import './step/it_no_longer_shows_that_it_is_reading.dart';
 import './step/the_machine_refuses_the_agent_as_not_installed_times.dart';
 import './step/i_call_it.dart';
 import './step/i_choose_the_agent.dart';
@@ -160,8 +162,10 @@ void main() {
       await readingTheAgentsIsSlow(tester);
       await iStartWorkInThisProject(tester);
       await itSays(tester, 'Asking the machine what it has');
+      await itShowsThatItIsReading(tester, 'Asking the machine what it has');
       await theMachineHasAnswered(tester);
       await itDoesNotSay(tester, 'Asking the machine what it has');
+      await itNoLongerShowsThatItIsReading(tester);
     });
     testWidgets('''an agent the machine lists, refused once as not installed, is asked about again''', (tester) async {
       await bddSetUp(tester);

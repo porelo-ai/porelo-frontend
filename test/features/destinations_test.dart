@@ -25,6 +25,11 @@ import './step/i_remove_the_destination.dart';
 import './step/a_package_declares_the_destination_at.dart';
 import './step/the_destination_offers_no_removal.dart';
 import './step/i_put_my_own_in_the_place_of_at.dart';
+import './step/the_machine_is_slow_to_answer.dart';
+import './step/it_shows_that_it_is_reading.dart';
+import './step/it_does_not_say.dart';
+import './step/the_machine_has_answered.dart';
+import './step/it_no_longer_shows_that_it_is_reading.dart';
 
 void main() {
   group('''The services a credential can be for, managed from here''', () {
@@ -100,6 +105,17 @@ void main() {
       await iChooseTheCommand(tester, 'Destinations — the services a credential can be for');
       await iPutMyOwnInThePlaceOfAt(tester, 'search', 'https://search.internal.example');
       await itSays(tester, 'Installed by a package, and not in force');
+    });
+    testWidgets('''while the machine is asked, the destinations say what is being read''', (tester) async {
+      await bddSetUp(tester);
+      await theMachineDeclaresTheDestinationAt(tester, 'weather', 'https://api.weather.example/v1');
+      await theMachineIsSlowToAnswer(tester);
+      await iChooseTheCommand(tester, 'Destinations — the services a credential can be for');
+      await itShowsThatItIsReading(tester, 'which destinations this machine declares');
+      await itDoesNotSay(tester, 'No destination is declared');
+      await theMachineHasAnswered(tester);
+      await itNoLongerShowsThatItIsReading(tester);
+      await itSays(tester, 'https://api.weather.example/v1');
     });
   });
 }

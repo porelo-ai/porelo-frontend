@@ -7,6 +7,7 @@ import 'expandable_list_row.dart' show ListCardWidth;
 import 'tokens.dart';
 import 'window_size.dart';
 import 'page_explanation.dart';
+import 'reading.dart';
 import 'how_long.dart';
 
 /// One searchable row, with its independent item identity retained by its widget key.
@@ -553,7 +554,7 @@ class _FilteredListSectionState extends State<FilteredListSection> {
           else if (scope != null && scope.parts.isNotEmpty)
             PageExplanation(id: scope.id, settings: scope.settings, parts: scope.parts),
           ...widget.beforeRows,
-          if (widget.busy) const LinearProgressIndicator(),
+          if (widget.busy) const Reading(),
           if (!widget.collapsible || _open || widget.problem != null)
             _staleOrNot(
               LayoutBuilder(
@@ -604,7 +605,9 @@ class _FilteredListSectionState extends State<FilteredListSection> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      unread
+                                      unread && widget.busy
+                                          ? 'Reading…'
+                                          : unread
                                           ? 'not read'
                                           : widget.rows.isEmpty
                                           ? widget.emptyWords ??

@@ -143,3 +143,23 @@ Feature: Backups of a mirror: listing, removing, restoring, and upstream
         And the menu of the repository {'payments-api'} says {'processes 512'}
         And the menu of the repository {'payments-api'} does not say {'processes 512 (its own)'}
 
+    Scenario: while the machine is asked, the backups say what is being read
+        Given the machine is slow to answer
+        When I show what has been backed up here
+        Then it shows that it is reading {'which backups of checkout are recorded'}
+        And it does not say {'Nothing is recorded for this project'}
+        When the machine has answered
+        Then it no longer shows that it is reading
+        And it says {'/srv/checkout/backups/before-sync.bundle'}
+
+    # One view serves every project: the one asked before is not shown under the next one's name.
+    Scenario: another project's backups are not shown while its own are read
+        When I show what has been backed up here
+        And the machine has the project {'api'} from {'git@github.com:acme/api.git'}
+        And I select the project {'api'}
+        And the machine is slow to answer
+        And I show what has been backed up here
+        Then it does not say {'/srv/checkout/backups/before-sync.bundle'}
+        And it shows that it is reading {'which backups of api are recorded'}
+        When the machine has answered
+        Then it no longer shows that it is reading

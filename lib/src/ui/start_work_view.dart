@@ -6,6 +6,7 @@ import 'package:porelo_frontend/client.dart';
 import '../app/start_work.dart';
 import '../app/templates.dart';
 import 'choice_field.dart';
+import 'reading.dart';
 import 'tokens.dart';
 import 'dialog_scroll.dart';
 import 'missing_credentials_view.dart';
@@ -309,7 +310,7 @@ class _StartWorkDialogState extends State<StartWorkDialog> {
                 const SizedBox(height: Space.wide),
                 Text('Which agent', style: Theme.of(context).textTheme.labelLarge),
                 if (starting.busy)
-                  const Padding(padding: EdgeInsets.all(Space.normal), child: Text('Asking the machine what it has…'))
+                  const Reading(words: 'Asking the machine what it has…')
                 else if (starting.agents.isEmpty)
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: Space.small),

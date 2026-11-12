@@ -4,6 +4,7 @@ import 'package:porelo_frontend/client.dart';
 import '../app/backups.dart';
 import 'how_long.dart';
 import 'panes.dart';
+import 'reading.dart';
 import 'tokens.dart';
 
 /// What has been backed up of a project's mirror.
@@ -51,6 +52,7 @@ class BackupsView extends StatelessWidget {
     animation: backups,
     builder: (context, _) {
       final scheme = Theme.of(context).colorScheme;
+      final subject = backups.repository == null ? backups.project : '${backups.project} · ${backups.repository}';
 
       return Column(
         children: <Widget>[
@@ -142,13 +144,16 @@ class BackupsView extends StatelessWidget {
                 ],
               ),
             ),
+          if (backups.busy)
+            Reading(
+              words: backups.asked ? null : 'Asking the machine which backups of $subject are recorded…',
+              inset: true,
+            ),
           Expanded(
             child: ListView(
               padding: const EdgeInsets.symmetric(vertical: Space.small),
               children: <Widget>[
-                if (backups.busy && backups.taken.isEmpty)
-                  const Padding(padding: EdgeInsets.all(Space.normal), child: Text('Asking the machine…'))
-                else if (backups.taken.isEmpty && backups.problem == null)
+                if (backups.asked && backups.taken.isEmpty && backups.problem == null)
                   const Padding(
                     padding: EdgeInsets.all(Space.normal),
                     // **Nothing recorded, never nothing exists.** A bundle written by hand, or

@@ -7,6 +7,7 @@ import '../app/fleet_backend.dart';
 import 'dialog_scroll.dart';
 import 'expandable_list_row.dart';
 import 'filtered_list_section.dart';
+import 'reading.dart';
 import 'tokens.dart';
 
 /// Shows the machine's destinations, and lets a person add, change and remove their own.
@@ -149,7 +150,9 @@ class _DestinationsDialogState extends State<DestinationsDialog> {
         if (_said != null) Text(_said!, key: const Key('destinations-said')),
         if (_problem != null) TextButton(onPressed: () => unawaited(_read()), child: const Text('Try again')),
         if (destinations == null && _problem == null)
-          Text(widget.answering ? 'Asking the machine…' : 'The machine has not answered.'),
+          widget.answering
+              ? const Reading(words: 'Asking the machine which destinations this machine declares…')
+              : const Text('The machine has not answered.'),
         if (destinations != null && destinations.isEmpty)
           const Text('No destination is declared on this machine.', key: Key('no-destinations')),
         for (final each in destinations ?? const <Destination>[]) _row(context, each),
@@ -173,6 +176,8 @@ class _DestinationsDialogState extends State<DestinationsDialog> {
         builder: (context, _) => Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
+            if (destinations == null && _problem == null && widget.answering)
+              const Reading(words: 'Asking the machine which destinations this machine declares…'),
             LeafRowsCard(
               title: 'Destinations',
               count: destinations == null ? 'not read' : '${destinations.length}',
@@ -209,7 +214,6 @@ class _DestinationsDialogState extends State<DestinationsDialog> {
                 alignment: Alignment.centerLeft,
                 child: TextButton(onPressed: () => unawaited(_read()), child: const Text('Try again')),
               ),
-            if (destinations == null && _problem == null && widget.answering) const Text('Asking the machine…'),
             const SizedBox(height: Space.small),
             if (draft == null)
               Align(

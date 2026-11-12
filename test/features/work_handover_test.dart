@@ -77,6 +77,12 @@ import './step/the_trailer_check_reads.dart';
 import './step/the_machine_names_the_commit_as_written_by_with_the_trailers_and.dart';
 import './step/the_window_is_pixels_wide.dart';
 import './step/the_waiting_push_names_its_author_and_the_trailers_and.dart';
+import './step/the_machine_is_slow_to_answer.dart';
+import './step/it_shows_that_it_is_reading.dart';
+import './step/the_machine_has_answered.dart';
+import './step/it_no_longer_shows_that_it_is_reading.dart';
+import './step/the_machine_has_the_project_from.dart';
+import './step/i_choose_the_command.dart';
 
 void main() {
   group('''Reviewing what work pushed, and what it holds back''', () {
@@ -559,6 +565,38 @@ void main() {
       await iOpenTheWaitingPush(tester);
       await theReviewShowsTheFile(tester, 'lib/money.dart');
       await itDoesNotSay(tester, 'What the task was asked');
+    });
+    testWidgets('''while the machine is asked, the gate says what it is reading''', (tester) async {
+      await bddSetUp(tester);
+      await theMachineIsSlowToAnswer(tester);
+      await iReviewWhatIsWaitingAtTheGate(tester);
+      await itShowsThatItIsReading(tester, 'the gate of checkout');
+      await itDoesNotSay(tester, 'Nothing is waiting');
+      await theMachineHasAnswered(tester);
+      await itNoLongerShowsThatItIsReading(tester);
+      await itSays(tester, '9a3c1f2');
+    });
+    testWidgets('''a push being opened says what is read, then what it changes''', (tester) async {
+      await bddSetUp(tester);
+      await iReviewWhatIsWaitingAtTheGate(tester);
+      await theMachineIsSlowToAnswer(tester);
+      await iOpenTheWaitingPush(tester);
+      await itShowsThatItIsReading(tester, 'what this push changes');
+      await theMachineHasAnswered(tester);
+      await itNoLongerShowsThatItIsReading(tester);
+      await theReviewShowsTheFile(tester, 'lib/money.dart');
+    });
+    testWidgets('''another project's waiting pushes are not shown while its own gate is read''', (tester) async {
+      await bddSetUp(tester);
+      await iReviewWhatIsWaitingAtTheGate(tester);
+      await theMachineHasTheProjectFrom(tester, 'api', 'git@github.com:acme/api.git');
+      await iSelectTheProject(tester, 'api');
+      await theMachineIsSlowToAnswer(tester);
+      await iChooseTheCommand(tester, 'Review what is waiting at the gate');
+      await itDoesNotSay(tester, '9a3c1f2');
+      await itShowsThatItIsReading(tester, 'the gate of api');
+      await theMachineHasAnswered(tester);
+      await itNoLongerShowsThatItIsReading(tester);
     });
   });
 }

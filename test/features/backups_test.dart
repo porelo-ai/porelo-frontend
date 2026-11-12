@@ -37,6 +37,12 @@ import './step/no_repository_was_named_for_the_backups_or_the_upstream.dart';
 import './step/the_repository_limits_its_memory_to.dart';
 import './step/the_menu_of_the_repository_says.dart';
 import './step/the_menu_of_the_repository_does_not_say.dart';
+import './step/the_machine_is_slow_to_answer.dart';
+import './step/it_shows_that_it_is_reading.dart';
+import './step/it_does_not_say.dart';
+import './step/the_machine_has_answered.dart';
+import './step/it_no_longer_shows_that_it_is_reading.dart';
+import './step/the_machine_has_the_project_from.dart';
 
 void main() {
   group('''Backups of a mirror: listing, removing, restoring, and upstream''', () {
@@ -174,6 +180,28 @@ void main() {
       await theMenuOfTheRepositorySays(tester, 'payments-api', 'memory 4g (its own)');
       await theMenuOfTheRepositorySays(tester, 'payments-api', 'processes 512');
       await theMenuOfTheRepositoryDoesNotSay(tester, 'payments-api', 'processes 512 (its own)');
+    });
+    testWidgets('''while the machine is asked, the backups say what is being read''', (tester) async {
+      await bddSetUp(tester);
+      await theMachineIsSlowToAnswer(tester);
+      await iShowWhatHasBeenBackedUpHere(tester);
+      await itShowsThatItIsReading(tester, 'which backups of checkout are recorded');
+      await itDoesNotSay(tester, 'Nothing is recorded for this project');
+      await theMachineHasAnswered(tester);
+      await itNoLongerShowsThatItIsReading(tester);
+      await itSays(tester, '/srv/checkout/backups/before-sync.bundle');
+    });
+    testWidgets('''another project's backups are not shown while its own are read''', (tester) async {
+      await bddSetUp(tester);
+      await iShowWhatHasBeenBackedUpHere(tester);
+      await theMachineHasTheProjectFrom(tester, 'api', 'git@github.com:acme/api.git');
+      await iSelectTheProject(tester, 'api');
+      await theMachineIsSlowToAnswer(tester);
+      await iShowWhatHasBeenBackedUpHere(tester);
+      await itDoesNotSay(tester, '/srv/checkout/backups/before-sync.bundle');
+      await itShowsThatItIsReading(tester, 'which backups of api are recorded');
+      await theMachineHasAnswered(tester);
+      await itNoLongerShowsThatItIsReading(tester);
     });
   });
 }

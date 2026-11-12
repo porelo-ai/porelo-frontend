@@ -18,6 +18,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Every view that reads when it opens says so the same way: a thin bar and, until the first answer, one sentence of what is read where the answer will stand. What a project may reach, its backups, the gate and a push there, the start form, a project's room, the destinations and *Default* no longer show their empty words while still asking, and the first three no longer show the previous project's answer under the next one's name while it is read. A list still being read says *Reading…* in its card instead of *not read*.
 - A repository's menu on a project's page offers only the review policy the repository does not have, as the project's own menu does; a repository whose policy was not read still offers both.
 - A machine's *Credentials* page keeps *Add a connection* and each connection's *Forget* in its ⋮ menu instead of on the page and on every row; a row now only says what the machine reaches its address with.
 - A task's terminal sends the cursor and page keys with Shift, Alt or Ctrl as xterm writes them - `ESC [ 1 ; m A` for an arrow, Home or End and `ESC [ 5 ; m ~` for the page keys - so Alt+Up no longer reaches the far end as Ctrl+Up and Shift+PageUp reaches tmux on the alternate screen, where it scrolls back. Once the far end asks for focus reports, the terminal tells it when it gains and loses the keyboard (`ESC [ I`, `ESC [ O`), also when another session is shown in its place.

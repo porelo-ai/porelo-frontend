@@ -15,6 +15,7 @@ import '../app/homeserver_forwards.dart';
 import '../app/machines.dart';
 import '../app/settings.dart';
 import 'dialog_scroll.dart';
+import 'reading.dart';
 import 'tokens.dart';
 
 /// Shows [project]'s conversation, who has joined it, and lets a person join.
@@ -159,7 +160,8 @@ class _MessagesDialogState extends State<MessagesDialog> {
                 const SizedBox(height: Space.small),
                 if (hostHomeserver != null) ..._throughElement(context, hostHomeserver),
                 Text(hostHomeserver == null ? 'Who is in it' : 'Already in the room', style: text.titleSmall),
-                if (members == null && model.problem == null) const Text('Asking the machine…'),
+                if (members == null && model.problem == null)
+                  Reading(words: 'Asking the machine who is in the room of ${model.project.name}…'),
                 if (members != null && members.isEmpty) const Text('Nobody has joined yet.', key: Key('no-members')),
                 // On a host its homeserver manages its people: who is in reads by name alone, with nothing to do.
                 if (hostHomeserver != null)

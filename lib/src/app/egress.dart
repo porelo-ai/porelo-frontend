@@ -38,6 +38,9 @@ class Egress extends ChangeNotifier {
   /// Whether something is being asked for right now.
   bool busy = false;
 
+  /// Whether what [project] may reach has been answered, so an empty list is an answer and not one still asked for.
+  bool read = false;
+
   /// Why it could not be read, in words.
   String? problem;
 
@@ -49,6 +52,15 @@ class Egress extends ChangeNotifier {
 
   /// Reads what a project may reach, and what sets are installed.
   Future<void> lookAt(FleetBackend backend, Project project, {String? repository}) async {
+    // Another project's or repository's answer is never shown under this one's name while it is asked.
+    if (this.project?.name != project.name || this.repository != repository) {
+      reachable = const <EgressHost>[];
+      refused = const <String>[];
+      removed = const <RemovedSetting>[];
+      sets = const <EgressSet>[];
+      locations = const <String>[];
+      read = false;
+    }
     this.project = project;
     this.repository = repository;
     if (!project.canBeActedOn) {
@@ -69,6 +81,7 @@ class Egress extends ChangeNotifier {
       removed = takenAway;
       sets = installed;
       locations = where;
+      read = true;
     });
   }
 

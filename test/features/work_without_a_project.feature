@@ -113,3 +113,15 @@ Feature: Work on a repository without writing a project first
         And I agree to the first task
         Then no first task was agreed to on any machine
         And nothing was started
+
+    # Said once: the dialog said "Asking the machine" twice while it read what default holds.
+    Scenario: while the machine is asked, default says once what it is reading
+        Given default holds {'tools'} at {'git@example.org:acme/tools.git'} already
+        When I select the project {'default'}
+        And the machine is slow to answer
+        And I press the start tile
+        Then it shows that it is reading {'which repositories default holds'}
+        And it does not say {'Any failure will appear here'}
+        When the machine has answered
+        Then it no longer shows that it is reading
+        And it says {'git@example.org:acme/tools.git'}

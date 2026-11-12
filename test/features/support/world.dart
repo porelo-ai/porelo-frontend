@@ -223,6 +223,14 @@ class FakeBackend implements FleetBackend {
   /// How long the machine takes to say which agents it has.
   Duration agentsTake = Duration.zero;
 
+  /// How long the machine takes to answer what a view reads when it opens: what a project may reach, its
+  /// backups, its gate and a push there, a room's members, the destinations and what Default holds.
+  Duration readsTake = Duration.zero;
+
+  Future<void> _answering() async {
+    if (readsTake > Duration.zero) await Future<void>.delayed(readsTake);
+  }
+
   @override
   String get label => 'mock';
 
@@ -1507,6 +1515,7 @@ class FakeBackend implements FleetBackend {
 
   @override
   Future<List<Backup>> backups(String project, {String? repository}) async {
+    await _answering();
     backupsAskedIn.add(repository);
     return theBackupsItHas;
   }
@@ -2075,8 +2084,10 @@ class FakeBackend implements FleetBackend {
   }
 
   @override
-  Future<List<MessageMember>> messageMembers(String project) async =>
-      List<MessageMember>.of(membersOf[project] ?? const <MessageMember>[]);
+  Future<List<MessageMember>> messageMembers(String project) async {
+    await _answering();
+    return List<MessageMember>.of(membersOf[project] ?? const <MessageMember>[]);
+  }
 
   /// The deploy keys this machine made, in order, as it answers them.
   final List<MachineDeployKey> deployKeysMade = <MachineDeployKey>[];
@@ -2122,7 +2133,10 @@ class FakeBackend implements FleetBackend {
   final List<String> addedToDefault = <String>[];
 
   @override
-  Future<List<DefaultRepository>> defaultRepositories() async => List<DefaultRepository>.of(inDefault);
+  Future<List<DefaultRepository>> defaultRepositories() async {
+    await _answering();
+    return List<DefaultRepository>.of(inDefault);
+  }
 
   @override
   Future<DefaultRepository> addToDefault(String upstream, {String? name}) async {
@@ -2422,7 +2436,10 @@ class FakeBackend implements FleetBackend {
       <({String name, String upstream, String? authPrefix, bool dryRun})>[];
 
   @override
-  Future<List<Destination>> destinations() async => List<Destination>.of(destinationsHere);
+  Future<List<Destination>> destinations() async {
+    await _answering();
+    return List<Destination>.of(destinationsHere);
+  }
 
   @override
   Future<({Destination destination, bool written})> writeDestination({
@@ -2657,6 +2674,7 @@ diff --git a/lib/money.dart b/lib/money.dart
     String projectFile, {
     String? repository,
   }) async {
+    await _answering();
     mustBeAProject(projectFile);
     egressAskedIn.add(repository);
     final adds = theRepositoryAdds[repository];
@@ -2766,6 +2784,7 @@ diff --git a/lib/money.dart b/lib/money.dart
 
   @override
   Future<GateState> gateOf(String projectFile, {String? repository}) async {
+    await _answering();
     mustBeAProject(projectFile);
     gateAskedIn.add(repository);
     final refusal = refuseTheGate ?? refuseTheGateIn[repository];
@@ -2786,6 +2805,7 @@ diff --git a/lib/money.dart b/lib/money.dart
     String? repository,
     bool? ignoreLineEndings,
   }) async {
+    await _answering();
     mustBeAProject(projectFile);
     if (ignoreLineEndings != null && !servesWithoutLineEndings) {
       throw const VarlinkException('org.varlink.service.InvalidParameter', <String, dynamic>{

@@ -416,3 +416,34 @@ Feature: Reviewing what work pushed, and what it holds back
         And I open the waiting push
         Then the review shows the file {'lib/money.dart'}
         And it does not say {'What the task was asked'}
+
+    # Read in the open: the list said nothing was waiting while it was still asked.
+    Scenario: while the machine is asked, the gate says what it is reading
+        Given the machine is slow to answer
+        When I review what is waiting at the gate
+        Then it shows that it is reading {'the gate of checkout'}
+        And it does not say {'Nothing is waiting'}
+        When the machine has answered
+        Then it no longer shows that it is reading
+        And it says {'9a3c1f2'}
+
+    Scenario: a push being opened says what is read, then what it changes
+        When I review what is waiting at the gate
+        And the machine is slow to answer
+        And I open the waiting push
+        Then it shows that it is reading {'what this push changes'}
+        When the machine has answered
+        Then it no longer shows that it is reading
+        And the review shows the file {'lib/money.dart'}
+
+    # One view serves every project: the one asked before is not shown under the next one's name.
+    Scenario: another project's waiting pushes are not shown while its own gate is read
+        When I review what is waiting at the gate
+        And the machine has the project {'api'} from {'git@github.com:acme/api.git'}
+        And I select the project {'api'}
+        And the machine is slow to answer
+        And I choose the command {'Review what is waiting at the gate'}
+        Then it does not say {'9a3c1f2'}
+        And it shows that it is reading {'the gate of api'}
+        When the machine has answered
+        Then it no longer shows that it is reading

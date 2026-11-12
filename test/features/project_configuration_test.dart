@@ -35,6 +35,12 @@ import './step/the_command_is_offered.dart';
 import './step/the_project_is_left_over_with_no_file.dart';
 import './step/the_command_is_unavailable_because.dart';
 import './step/the_machine_knows_nothing_called_it.dart';
+import './step/the_machine_is_slow_to_answer.dart';
+import './step/it_shows_that_it_is_reading.dart';
+import './step/the_machine_has_answered.dart';
+import './step/it_no_longer_shows_that_it_is_reading.dart';
+import './step/the_machine_has_the_project_from.dart';
+import './step/i_choose_the_command.dart';
 
 void main() {
   group('''What a project may reach, and removing one''', () {
@@ -161,5 +167,28 @@ void main() {
       await itSays(tester, 'knows no project called checkout');
       await itSays(tester, 'Nothing was removed');
     }, tags: ['linux']);
+    testWidgets('''while the machine is asked, what a project may reach says what it is reading''', (tester) async {
+      await bddSetUp(tester);
+      await theMachineIsSlowToAnswer(tester);
+      await iOpenWhatThisProjectMayReach(tester);
+      await itShowsThatItIsReading(tester, 'what checkout may reach');
+      await itDoesNotSay(tester, 'None is installed');
+      await itDoesNotSay(tester, 'api.anthropic.com');
+      await theMachineHasAnswered(tester);
+      await itNoLongerShowsThatItIsReading(tester);
+      await itSays(tester, 'api.anthropic.com');
+    });
+    testWidgets('''another project's hosts are not shown while its own are read''', (tester) async {
+      await bddSetUp(tester);
+      await iOpenWhatThisProjectMayReach(tester);
+      await theMachineHasTheProjectFrom(tester, 'api', 'git@github.com:acme/api.git');
+      await iSelectTheProject(tester, 'api');
+      await theMachineIsSlowToAnswer(tester);
+      await iChooseTheCommand(tester, 'What this project may reach');
+      await itDoesNotSay(tester, 'api.anthropic.com');
+      await itShowsThatItIsReading(tester, 'what api may reach');
+      await theMachineHasAnswered(tester);
+      await itNoLongerShowsThatItIsReading(tester);
+    });
   });
 }

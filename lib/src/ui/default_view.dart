@@ -10,6 +10,7 @@ import '../app/start_work.dart' show CheckoutHere, sameAddress;
 import 'first_start_view.dart';
 import 'pick_a_file.dart';
 import 'dialog_scroll.dart';
+import 'reading.dart';
 import 'tokens.dart';
 
 /// What a checkout is picked with: the desktop's folder dialog, stood in for in tests.
@@ -343,8 +344,11 @@ class _DefaultDialogState extends State<DefaultDialog> {
                 ),
               if (_said != null) Text(_said!, key: const Key('default-said')),
               for (final (at, note) in _notes.indexed) SelectableText(note, key: ValueKey<String>('default-note $at')),
-              if (_busy) const Text('Asking the machine… Any failure will appear here.'),
-              if (repositories == null && _problem == null) const Text('Asking the machine…'),
+              // The first read says once what it reads; the line below is for what is asked of the machine after it.
+              if (repositories == null && _problem == null)
+                Reading(words: 'Asking ${widget.machineName} which repositories default holds…')
+              else if (_busy)
+                const Text('Asking the machine… Any failure will appear here.'),
               if (repositories != null && repositories.isEmpty && !starting)
                 const Text('No repository yet.', key: Key('default-none')),
               if (starting && (repositories ?? const <DefaultRepository>[]).isNotEmpty)
