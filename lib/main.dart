@@ -119,6 +119,15 @@ Future<PoreloApp> _compose() async {
   // whichever window somebody happened to see. A second launch asks the first to come forward and
   // then leaves, saying so — a launch that simply vanished would read as one that crashed.
   final only = await OneInstance.take(comeForward: Window.comeForward);
+  if (only.unsure case final why?) {
+    // Neither in charge nor sure another window is: said, and nothing at that path is touched.
+    final words =
+        'Porelo did not start: $why. One interface watches each machine, and whether one already does could '
+        'not be told.';
+    windowLog.warn(words);
+    stderr.writeln(words);
+    exit(1);
+  }
   if (!only.inCharge) {
     const words =
         'Porelo is already open, and has been brought to the front. '

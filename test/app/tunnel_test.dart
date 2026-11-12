@@ -11,10 +11,12 @@ import 'package:porelo_frontend/src/app/connections.dart';
 import 'package:porelo_frontend/src/app/desk.dart';
 import 'package:porelo_frontend/src/app/forward_records.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
+import 'package:porelo_frontend/src/app/own_sockets.dart';
 import 'package:porelo_frontend/src/app/tunnel.dart';
 import 'package:porelo_host/porelo_host.dart' show poreloHostKnownHosts;
 
 import '../../packages/porelo_host/test/support/pinned_ssh.dart';
+import '../support/other_sockets.dart';
 
 /// Forwards this interface raises and owns.
 ///
@@ -28,6 +30,8 @@ void main() {
 
   setUp(() {
     where = Directory.systemTemp.createTempSync('tn-');
+    // This account's alone, as the runtime directory is: the one place a socket the window made is later removed.
+    Process.runSync('chmod', <String>['700', where.path]);
     addTearDown(() {
       if (where.existsSync()) where.deleteSync(recursive: true);
     });
@@ -448,13 +452,124 @@ void main() {
     // Otherwise one crash means the machine can never be opened again without somebody knowing to
     // delete a file they have never heard of. ssh refuses to bind a path that exists.
     final socket = '${where.path}/leftover.sock';
-    File(socket).writeAsStringSync('');
+    leftBehindAt(socket);
     final tunnel = Tunnel(machineAt(socket), start: bindsAndStays(socket));
     addTearDown(tunnel.drop);
 
     await tunnel.raise();
 
-    expect(tunnel.state, TunnelState.up);
+    expect(tunnel.state, TunnelState.up, reason: tunnel.problem ?? '');
+  });
+
+  // Harm: a file of somebody's at the socket path is deleted, since a connect to a file is refused as to a dead socket.
+  test('a plain file at the socket path survives raise and drop', () async {
+    final socket = '${where.path}/a-file.sock';
+    File(socket).writeAsStringSync('somebody else\'s');
+    var started = false;
+    final tunnel = Tunnel(
+      machineAt(socket),
+      start: (command) {
+        started = true;
+        return bindsAndStays(socket)(command);
+      },
+    );
+
+    await tunnel.raise();
+    await tunnel.drop();
+
+    expect(File(socket).readAsStringSync(), 'somebody else\'s');
+    expect(started, isFalse, reason: 'nothing can bind over a file');
+  });
+
+  // Harm: the socket another program put at the path after this window's ssh made its own is deleted by drop or by a
+  // reconnect, as if it were the one ssh made.
+  test('a socket put in place after the raise survives drop and reconnect, and still answers', () async {
+    final socket = '${where.path}/replaced.sock';
+    final tunnel = Tunnel(machineAt(socket), start: bindsAndStays(socket));
+    await tunnel.raise();
+    expect(tunnel.state, TunnelState.up, reason: tunnel.problem ?? '');
+
+    await anotherProgramAt(socket);
+    await tunnel.raise();
+    expect(tunnel.problem, contains('already serving'));
+    await tunnel.drop();
+
+    expect(await answersAt(socket), isTrue, reason: 'another program\'s socket was removed');
+  });
+
+  // Harm: a socket another program bound while this window's ssh was still logging in is taken for the forward, and
+  // deleted with it.
+  test('a socket somebody else bound after the launch is never taken for the forward', () async {
+    final socket = '${where.path}/not-ours.sock';
+    final tunnel = Tunnel(
+      machineAt(socket),
+      start: (_) async {
+        final ssh = await Process.start('sh', const <String>['-c', 'exec sleep 30']);
+        await anotherProgramAt(socket);
+        return ssh;
+      },
+      appears: const Duration(milliseconds: 600),
+    );
+
+    await tunnel.raise();
+    expect(tunnel.state, TunnelState.down);
+    await tunnel.drop();
+
+    expect(await answersAt(socket), isTrue, reason: 'another program\'s socket was removed');
+  });
+
+  // Harm: a socket bound and not listening yet refuses a connect as a dead one does, and is deleted under its program.
+  test('a socket that is bound and does not listen yet is no leftover', () async {
+    final socket = '${where.path}/not-yet.sock';
+    await anotherProgramAt(socket, listens: false);
+    var started = false;
+    final tunnel = Tunnel(
+      machineAt(socket),
+      start: (command) {
+        started = true;
+        return bindsAndStays(socket)(command);
+      },
+    );
+
+    await tunnel.raise();
+    await tunnel.drop();
+
+    expect(tunnel.problem, contains('no leftover'));
+    expect(started, isFalse);
+    expect(FileSystemEntity.typeSync(socket, followLinks: false), FileSystemEntityType.unixDomainSock);
+  });
+
+  // Harm: an endpoint made where others may put files, whose leftover can later never be told from theirs.
+  test('a folder others may write is refused before anything is launched', () async {
+    Process.runSync('chmod', <String>['770', where.path]);
+    final socket = '${where.path}/shared.sock';
+    var started = false;
+    final tunnel = Tunnel(
+      machineAt(socket),
+      start: (command) {
+        started = true;
+        return bindsAndStays(socket)(command);
+      },
+    );
+
+    await tunnel.raise();
+
+    expect(tunnel.state, TunnelState.down);
+    expect(tunnel.problem, contains('not yours alone'));
+    expect(started, isFalse);
+  });
+
+  // Harm: a leftover replaced by a live socket between the probe and the removal, and the live one deleted.
+  test('a socket swapped in between the probe and the removal survives', () async {
+    final socket = '${where.path}/swapped.sock';
+    final theirs = '${where.path}/theirs.sock';
+    leftBehindAt(socket);
+    await anotherProgramAt(theirs);
+
+    final removed = await removeLeftover(socket, afterProbe: () => File(theirs).renameSync(socket));
+
+    expect(removed, isFalse);
+    expect(await answersAt(socket), isTrue, reason: 'another program\'s socket was removed');
   });
 
   test('a socket that answers is left alone, and the forward is refused', () async {

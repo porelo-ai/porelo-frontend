@@ -1,8 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:porelo_frontend/src/app/desk.dart';
+import 'package:porelo_frontend/src/app/forward_records.dart';
+import 'package:porelo_frontend/src/app/own_sockets.dart';
+import 'package:porelo_frontend/src/app/tunnel.dart' show ConnectToSocket, SocketProbe, connectToSocket, probeSocket;
 import 'package:porelo_frontend/src/client/environment.dart';
 
 /// Keeps one interface in charge of a machine.
@@ -19,12 +24,20 @@ import 'package:porelo_frontend/src/client/environment.dart';
 /// `dart:io` has no unix socket there. The running interface greets whoever connects, so a port
 /// that some other program took over after a crash is told from this interface's own.
 class OneInstance {
-  OneInstance._(this._listening, this.socketPath);
+  OneInstance._(this._listening, this.socketPath, {this.unsure}) : _held = null;
+
+  OneInstance._held(this._listening, this.socketPath, HeldSocket this._held) : unsure = null;
 
   final ServerSocket? _listening;
 
+  // The socket file this run listens through at [socketPath], held while it is in charge: only that file is removed.
+  final HeldSocket? _held;
+
   /// Where the running interface listens.
   final String socketPath;
+
+  /// Why it could not be told whether another interface is in charge, where it could not; null otherwise.
+  final String? unsure;
 
   /// Whether this process is the one in charge.
   bool get inCharge => _listening != null;
@@ -33,40 +46,94 @@ class OneInstance {
   ///
   /// [comeForward] runs when another launch asks for the window. [at] is injectable so this can be
   /// tested without fighting over the real one.
-  static Future<OneInstance> take({required void Function() comeForward, String? at, bool? overLoopback}) async {
+  static Future<OneInstance> take({
+    required void Function() comeForward,
+    String? at,
+    bool? overLoopback,
+    @visibleForTesting ConnectToSocket connect = connectToSocket,
+  }) async {
     if (overLoopback ?? desk.isWindows) {
       return _takeOverLoopback(comeForward, at ?? desk.join(<String>[desk.state, 'frontend.port']));
     }
     final path = at ?? _besideTheRuntime();
+    // A socket at the shared name is only ever told apart from somebody else's where nobody else can put one.
+    if (!inOwnDirectory(path)) {
+      return OneInstance._(null, path, unsure: 'the folder of $path is not yours alone');
+    }
+    // Bound at a name of its own, then linked to the shared name: `link` takes a name only while it is free, so two
+    // launches never both take charge, and closing the listener later removes only that private name, never whatever
+    // is at the shared one by then.
+    final private = '${path.substring(0, path.lastIndexOf('/'))}/.porelo-frontend-$pid-${_token()}.sock';
+    final ServerSocket listening;
     try {
-      final listening = await ServerSocket.bind(InternetAddress(path, type: InternetAddressType.unix), 0);
-      listening.listen((from) {
-        comeForward();
-        from.destroy();
-      });
-      return OneInstance._(listening, path);
-    } on SocketException {
-      // Either somebody is there, or a previous run died without tidying up. Asking settles it:
-      // a socket nobody answers is a leftover, and deleting it is the only way back.
-      if (await _somebodyAnswered(path)) return OneInstance._(null, path);
-      try {
-        File(path).deleteSync();
-      } on FileSystemException {
-        return OneInstance._(null, path);
+      listening = await ServerSocket.bind(InternetAddress(private, type: InternetAddressType.unix), 0);
+    } on SocketException catch (failure) {
+      return OneInstance._(null, path, unsure: 'a socket could not be made beside $path: ${failure.message}');
+    }
+    final held = HeldSocket.at(private);
+    if (held == null) {
+      await listening.close();
+      return OneInstance._(null, path, unsure: 'the socket made beside $path could not be held');
+    }
+    var leftovers = 0;
+    while (true) {
+      final linked = linkSocketName(private, path);
+      if (linked == 0) {
+        removeSocketIfStill(private, held);
+        listening.listen((from) {
+          comeForward();
+          from.destroy();
+        });
+        return OneInstance._held(listening, path, held);
       }
-      return take(comeForward: comeForward, at: path);
+      // Not linked, so the private name is the only one: closing removes it.
+      Future<OneInstance> giveUp({String? unsure}) async {
+        held.release();
+        await listening.close();
+        return OneInstance._(null, path, unsure: unsure);
+      }
+
+      if (linked != 17) return giveUp(unsure: 'the name $path could not be taken (errno $linked)'); // EEXIST
+      // Somebody is there, or a run that died left its socket. Asking settles it: one that answers is in charge.
+      switch (await probeSocket(path, connect)) {
+        case SocketProbe.answers:
+          return giveUp();
+        case SocketProbe.unknown:
+          return giveUp(unsure: 'whether another window listens at $path could not be told');
+        case SocketProbe.nobody:
+          // A leftover nobody holds is removed, and only that; anything else at the name stays and is said.
+          if (++leftovers > 3 || !await removeLeftover(path, connect: connect)) {
+            if (FileSystemEntity.typeSync(path, followLinks: false) == FileSystemEntityType.notFound) continue;
+            return giveUp(unsure: 'something that is no leftover of this window is at $path, and it was left alone');
+          }
+      }
     }
   }
 
-  /// Stops listening and tidies up, so the next launch is not met by a leftover.
+  static String _token() {
+    final random = Random.secure();
+    return List<String>.generate(8, (_) => random.nextInt(256).toRadixString(16).padLeft(2, '0')).join();
+  }
+
+  /// Stops listening and removes its socket, so the next launch is not met by a leftover: only while the shared name
+  /// is still the socket this run listens through, never one put there since.
   Future<void> release() async {
-    if (_listening == null) return;
-    await _listening.close();
-    try {
-      File(socketPath).deleteSync();
-    } on FileSystemException {
-      // Something else removed it. Nothing to do and nothing worth saying.
+    final listening = _listening;
+    if (listening == null) return;
+    final held = _held;
+    if (held == null) {
+      // Over the loopback address: the file that names the port.
+      await listening.close();
+      try {
+        File(socketPath).deleteSync();
+      } on FileSystemException {
+        // Something else removed it. Nothing to do and nothing worth saying.
+      }
+      return;
     }
+    removeSocketIfStill(socketPath, held);
+    held.release();
+    await listening.close();
   }
 
   /// What the running interface says to whoever connects on the loopback port.
@@ -105,20 +172,6 @@ class OneInstance {
           .timeout(const Duration(seconds: 1), onTimeout: () => '');
       socket.destroy();
       return said == _greeting;
-    } on SocketException {
-      return false;
-    }
-  }
-
-  static Future<bool> _somebodyAnswered(String path) async {
-    try {
-      final socket = await Socket.connect(
-        InternetAddress(path, type: InternetAddressType.unix),
-        0,
-        timeout: const Duration(seconds: 1),
-      );
-      socket.destroy();
-      return true;
     } on SocketException {
       return false;
     }

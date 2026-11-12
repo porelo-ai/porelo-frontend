@@ -24,6 +24,7 @@ import 'package:porelo_frontend/src/ui/machines_page.dart' show machineRowWords;
 import 'package:porelo_host/porelo_host.dart';
 
 import '../features/support/world.dart' show FakeTerminal;
+import '../support/other_sockets.dart';
 
 const publicKey = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
 const hostKeyFingerprint = 'SHA256:kmYcvdi2GkPeWxB6XLjrZB8JHsy2Hm8luHMFp9GMvqk';
@@ -42,6 +43,8 @@ void main() {
 
   setUp(() {
     folder = Directory.systemTemp.createTempSync('h-');
+    // This account's alone, as the runtime directory is: the one place a socket the window made is later removed.
+    Process.runSync('chmod', <String>['700', folder.path]);
     final card = HostCardSsh(
       name: 'alpha',
       address: 'alpha.example.org',
@@ -1830,9 +1833,9 @@ void main() {
     expect(FileSystemEntity.typeSync(host.socketPath), FileSystemEntityType.unixDomainSock);
   });
 
-  // Prevents a real stand-in process and its owned Unix endpoints from surviving shutdown.
-  test('shutdown removes both owned sockets and the SSH stand-in process', () async {
-    Process? child;
+  /// Tunnels whose `ssh` is a real stand-in process that binds and listens on the daemon endpoint and the control
+  /// socket, as a card's master does; each one started is added to [children].
+  Tunnels masterStandIn(List<Process> children) {
     final control = host.hostCard!.controlSocket(host.sshConfig);
     final owned = Tunnels(
       configEnvironment: {'XDG_CONFIG_HOME': folder.path},
@@ -1847,7 +1850,7 @@ void main() {
             .single
             .split(':')
             .first;
-        child = await Process.start('python3', [
+        final child = await Process.start('python3', [
           '-c',
           'import socket,sys,time,os; os.umask(0o177); '
               'a=socket.socket(socket.AF_UNIX); a.bind(sys.argv[1]); a.listen(1); '
@@ -1855,7 +1858,8 @@ void main() {
           daemon,
           control,
         ]);
-        return child!;
+        children.add(child);
+        return child;
       },
       run: (_) async =>
           ProcessResult(0, FileSystemEntity.typeSync(control) == FileSystemEntityType.unixDomainSock ? 0 : 1, '', ''),
@@ -1864,13 +1868,54 @@ void main() {
       await owned.dropEverything();
       owned.dispose();
     });
+    return owned;
+  }
+
+  // Prevents a real stand-in process and its owned Unix endpoints from surviving shutdown.
+  test('shutdown removes both owned sockets and the SSH stand-in process', () async {
+    final children = <Process>[];
+    final control = host.hostCard!.controlSocket(host.sshConfig);
+    final owned = masterStandIn(children);
     expect(await owned.raiseFor(host), isTrue);
     expect(FileSystemEntity.typeSync(host.socketPath), FileSystemEntityType.unixDomainSock);
     expect(FileStat.statSync(host.socketPath).mode & 0x1ff, 0x180);
     await owned.dropEverything();
-    await child!.exitCode.timeout(const Duration(seconds: 1));
+    await children.single.exitCode.timeout(const Duration(seconds: 1));
     expect(FileSystemEntity.typeSync(host.socketPath), FileSystemEntityType.notFound);
     expect(FileSystemEntity.typeSync(control), FileSystemEntityType.notFound);
+  });
+
+  // Harm: another program's socket put at a card's endpoint after its master answered is deleted at shutdown.
+  test('a card endpoint replaced after its master answered survives shutdown, and still answers', () async {
+    final children = <Process>[];
+    final owned = masterStandIn(children);
+    expect(await owned.raiseFor(host), isTrue);
+
+    await anotherProgramAt(host.socketPath);
+    await owned.dropEverything();
+    await children.single.exitCode.timeout(const Duration(seconds: 1));
+
+    expect(await answersAt(host.socketPath), isTrue, reason: 'another program\'s socket was removed');
+  });
+
+  // Harm: a forward left by a master that never answered blocks every later raise once its control socket is gone.
+  test('a forward endpoint left without its control socket is cleared, and the card raised', () async {
+    final children = <Process>[];
+    final owned = masterStandIn(children);
+    leftBehindAt(host.socketPath);
+
+    expect(await owned.raiseFor(host), isTrue, reason: owned.of(host)?.problem);
+    expect(children, hasLength(1));
+  });
+
+  // Harm: endpoints made where others may put files, whose leftovers can later never be told from theirs.
+  test('a card whose endpoint folder others may write is refused before anything is launched', () async {
+    Process.runSync('chmod', <String>['770', folder.path]);
+
+    expect(await tunnels.raiseFor(host), isFalse);
+
+    expect(tunnels.of(host)!.problem, contains('not yours alone'));
+    expect(launches, isEmpty);
   });
 }
 

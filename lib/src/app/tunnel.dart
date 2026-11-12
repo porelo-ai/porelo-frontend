@@ -8,6 +8,7 @@ import 'package:porelo_host/porelo_host.dart' show HostCardSsh, HostFileWriter, 
 import 'connections.dart';
 import 'machines.dart';
 import 'host_keys.dart';
+import 'own_sockets.dart';
 import 'fleet_backend.dart';
 import 'forward_records.dart';
 import 'owned_process.dart';
@@ -92,8 +93,9 @@ class Tunnel {
 
   final ConnectToSocket _connect;
 
-  // Whether the endpoint at the socket path is one this tunnel's ssh made: only that one is removed when it is dropped.
-  bool _madeTheSocket = false;
+  // The socket file this tunnel's ssh made at the socket path, held since its process was seen listening through it:
+  // only that one is removed, never a socket put there after it nor a file.
+  HeldSocket? _made;
 
   // Read when it is used: the run's records exist only once it took charge of the window.
   ForwardRecords? get _records => _ownRecords ?? forwardRecords;
@@ -116,7 +118,9 @@ class Tunnel {
 
   /// Core's last public vault result, separate from SSH readiness.
   HostUnlockState? vaultState;
-  bool _ownsEndpoints = false;
+
+  // The card's endpoints its master made, by path, seen listening through it once it answered: only these are removed.
+  final Map<String, HeldSocket> _ownEndpoints = {};
 
   /// The machine this forwards to.
   final Machine machine;
@@ -231,7 +235,7 @@ class Tunnel {
     // otherwise meet its socket below and refuse it as somebody else's.
     await _stopWhatWeStarted();
     if (generation != _generation) return;
-    _madeTheSocket = false;
+    _removeWhatWeMade();
 
     // **A socket that answers belongs to somebody.** It may be another program of this user that
     // happens to sit at that path, and taking its endpoint away to put ours there would break it
@@ -260,10 +264,25 @@ class Tunnel {
       return;
     }
 
-    // ssh refuses to bind a path that already exists. A socket left by a run that died answers
-    // nothing - refused, or gone - so it is a leftover, and the alternative is a machine that can never be opened
-    // again without somebody knowing to delete a file they have never heard of.
-    _clearTheWay();
+    // Only where nobody else can put a file is what is found there later told apart; anywhere else it is not raised.
+    if (Platform.isLinux && !inOwnDirectory(machine.socketPath)) {
+      state = TunnelState.down;
+      problem = 'the folder of ${machine.socketPath} is not yours alone, so no endpoint is made there';
+      return;
+    }
+
+    // ssh refuses to bind a path that already exists. A socket left by a run that died is a leftover nobody holds, and
+    // the alternative is a machine that can never be opened again without somebody knowing to delete a file they have
+    // never heard of. Anything else there - a file, a socket somebody still holds - is not this window's to remove.
+    if (FileSystemEntity.typeSync(machine.socketPath, followLinks: false) != FileSystemEntityType.notFound) {
+      await removeLeftover(machine.socketPath, connect: _connect);
+      if (generation != _generation) return;
+      if (FileSystemEntity.typeSync(machine.socketPath, followLinks: false) != FileSystemEntityType.notFound) {
+        state = TunnelState.down;
+        problem = 'something that is no leftover of this window is at ${machine.socketPath}, and it was left alone';
+        return;
+      }
+    }
 
     final stopped = Completer<void>();
     try {
@@ -274,7 +293,6 @@ class Tunnel {
         return;
       }
       _process = process;
-      _madeTheSocket = true;
       raised++;
       // Recorded so that a run ended without asking leaves a forward the next one can prove was its own.
       final records = _records?..record(process.pid, line);
@@ -306,7 +324,14 @@ class Tunnel {
       }
       // A *socket*, not merely a file. Anything left at that path would otherwise read as a
       // working forward — which is exactly what a leftover from a run that died looks like.
-      if (FileSystemEntity.typeSync(machine.socketPath) == FileSystemEntityType.unixDomainSock) {
+      // Ours only once its process is seen listening there: a socket somebody else put at the path is waited past.
+      if (_process case final process?
+          when _made == null &&
+              FileSystemEntity.typeSync(machine.socketPath, followLinks: false) ==
+                  FileSystemEntityType.unixDomainSock) {
+        _made = madeBy(process.pid, machine.socketPath);
+      }
+      if (_made != null) {
         final ownerOnly = await _ownerOnly();
         if (generation != _generation) return;
         if (!ownerOnly) {
@@ -314,7 +339,7 @@ class Tunnel {
           // the requirement names. A forward anybody on the machine can read is not the thing
           // that was asked for, so it is taken down rather than reported as working.
           await _stopWhatWeStarted();
-          _clearTheWay();
+          _removeWhatWeMade();
           state = TunnelState.down;
           problem = 'the endpoint could not be made readable by nobody but you';
           return;
@@ -355,6 +380,11 @@ class Tunnel {
       await _endOrphanedMaster(card);
       if (generation != _generation) return;
       for (final endpoint in [machine.socketPath, card.controlSocket(machine.sshConfig)]) {
+        // A leftover nobody holds goes; anything else stays and is said.
+        if (FileSystemEntity.typeSync(endpoint, followLinks: false) != FileSystemEntityType.notFound) {
+          await removeLeftover(endpoint, connect: _connect);
+        }
+        if (generation != _generation) return;
         if (FileSystemEntity.typeSync(endpoint, followLinks: false) != FileSystemEntityType.notFound) {
           state = TunnelState.down;
           problem = 'Machine ${card.name} cannot connect: an endpoint already exists and was left alone.';
@@ -371,11 +401,17 @@ class Tunnel {
       }
       await card.publish(machine.sshConfig, writer: writer, environment: configEnvironment);
       if (generation != _generation) return;
+      // Only where nobody else can put a file is what is found there later told apart; anywhere else nothing is launched.
+      for (final endpoint in [machine.socketPath, card.controlSocket(machine.sshConfig)]) {
+        if (Platform.isLinux && !inOwnDirectory(endpoint)) {
+          state = TunnelState.down;
+          problem = 'Machine ${card.name} cannot connect: the folder of $endpoint is not yours alone.';
+          return;
+        }
+      }
       final process = await _launch(command);
       if (generation != _generation) {
         await stopOwnedProcess(process);
-        _ownsEndpoints = true;
-        _clearOwnedCardEndpoints();
         return;
       }
       _process = process;
@@ -386,7 +422,6 @@ class Tunnel {
           _mastersHere.remove(card.controlSocket(machine.sshConfig));
         }
       }).ignore();
-      _ownsEndpoints = true;
       raised++;
       unawaited(process.stdout.drain<void>());
       final saying = process.stderr.transform(utf8.decoder).transform(const LineSplitter()).toList();
@@ -397,6 +432,13 @@ class Tunnel {
             .timeout(_untilExplained);
         if (generation != _generation || state != TunnelState.raising) return;
         if (check.exitCode == 0) {
+          // Its endpoints, as bound by this master, once it answers: only these are ever removed by this tunnel.
+          for (final endpoint in [machine.socketPath, card.controlSocket(machine.sshConfig)]) {
+            if (FileSystemEntity.typeSync(endpoint, followLinks: false) != FileSystemEntityType.unixDomainSock) {
+              continue;
+            }
+            if (madeBy(process.pid, endpoint) case final made?) _ownEndpoints[endpoint] = made;
+          }
           problem = null;
           state = TunnelState.up;
           await unlockVault();
@@ -453,13 +495,7 @@ class Tunnel {
       await Future<void>.delayed(const Duration(milliseconds: 100));
     }
     for (final endpoint in [control, machine.socketPath]) {
-      if (FileSystemEntity.typeSync(endpoint, followLinks: false) != FileSystemEntityType.unixDomainSock) continue;
-      if (await probeSocket(endpoint, connectToSocket) != SocketProbe.nobody) continue;
-      try {
-        File(endpoint).deleteSync();
-      } on PathNotFoundException {
-        // The exiting master removed it meanwhile.
-      }
+      await removeLeftover(endpoint);
     }
   }
 
@@ -499,20 +535,22 @@ class Tunnel {
     return '${result.stdout}'.split('\n').any((line) => line.split(' ').take(2).join(' ') == card.publicKey);
   }
 
+  /// Removes the card's endpoints its master made, each only while it is still that socket.
   void _clearOwnedCardEndpoints() {
-    if (!_ownsEndpoints) return;
-    FileSystemException? failure;
-    for (final endpoint in [machine.socketPath, machine.hostCard!.controlSocket(machine.sshConfig)]) {
-      try {
-        if (FileSystemEntity.typeSync(endpoint, followLinks: false) == FileSystemEntityType.unixDomainSock) {
-          File(endpoint).deleteSync();
-        }
-      } on FileSystemException catch (error) {
-        if (error.osError?.errorCode != 2) failure ??= error;
-      }
+    for (final MapEntry(key: endpoint, value: made) in _ownEndpoints.entries) {
+      removeSocketIfStill(endpoint, made);
+      made.release();
     }
-    if (failure != null) throw failure;
-    _ownsEndpoints = false;
+    _ownEndpoints.clear();
+  }
+
+  /// Removes the socket this tunnel's ssh made at the socket path, only while it is still that socket.
+  void _removeWhatWeMade() {
+    if (_made case final made?) {
+      removeSocketIfStill(machine.socketPath, made);
+      made.release();
+    }
+    _made = null;
   }
 
   /// Takes it down and removes what it left.
@@ -527,8 +565,7 @@ class Tunnel {
     await _stopWhatWeStarted();
     if (machine.hostCard == null) {
       // Only an endpoint this tunnel's ssh made: one refused as somebody else's stays where it is.
-      if (_madeTheSocket) _clearTheWay();
-      _madeTheSocket = false;
+      _removeWhatWeMade();
     } else {
       _clearOwnedCardEndpoints();
     }
@@ -611,15 +648,6 @@ class Tunnel {
       onChanged?.call();
     } on TimeoutException {
       // The transport already said why it stopped; a stalled explanation adds nothing.
-    }
-  }
-
-  void _clearTheWay() {
-    try {
-      final left = File(machine.socketPath);
-      if (left.existsSync()) left.deleteSync();
-    } on FileSystemException {
-      // Something else owns it. Raising will fail and say so, which is better than deciding here.
     }
   }
 

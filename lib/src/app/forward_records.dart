@@ -669,6 +669,23 @@ class _Libc {
             'write',
           ),
       close = library.lookupFunction<Int32 Function(Int32), int Function(int)>('close'),
+      getuid = library.lookupFunction<Uint32 Function(), int Function()>('getuid'),
+      socket = library.lookupFunction<Int32 Function(Int32, Int32, Int32), int Function(int, int, int)>('socket'),
+      send = library
+          .lookupFunction<
+            IntPtr Function(Int32, Pointer<Uint8>, IntPtr, Int32),
+            int Function(int, Pointer<Uint8>, int, int)
+          >('send'),
+      recv = library
+          .lookupFunction<
+            IntPtr Function(Int32, Pointer<Uint8>, IntPtr, Int32),
+            int Function(int, Pointer<Uint8>, int, int)
+          >('recv'),
+      linkat = library
+          .lookupFunction<
+            Int32 Function(Int32, Pointer<Uint8>, Int32, Pointer<Uint8>, Int32),
+            int Function(int, Pointer<Uint8>, int, Pointer<Uint8>, int)
+          >('linkat'),
       statx = library
           .lookupFunction<
             Int32 Function(Int32, Pointer<Uint8>, Int32, Uint32, Pointer<Void>),
@@ -687,8 +704,253 @@ class _Libc {
   final int Function(int, Pointer<Uint8>, int) read;
   final int Function(int, Pointer<Uint8>, int) write;
   final int Function(int) close;
+  final int Function() getuid;
+  final int Function(int, int, int) socket;
+  final int Function(int, Pointer<Uint8>, int, int) send;
+  final int Function(int, Pointer<Uint8>, int, int) recv;
+  final int Function(int, Pointer<Uint8>, int, Pointer<Uint8>, int) linkat;
   final int Function(int, Pointer<Uint8>, int, int, Pointer<Void>) statx;
 }
+
+/// A socket file's identity: the device it lies on and its inode.
+@immutable
+class SocketIdentity {
+  /// Constructor taking the device's numbers and the inode.
+  const SocketIdentity(this.deviceMajor, this.deviceMinor, this.inode);
+
+  /// The device's major number.
+  final int deviceMajor;
+
+  /// The device's minor number.
+  final int deviceMinor;
+
+  /// The inode.
+  final int inode;
+
+  @override
+  bool operator ==(Object other) =>
+      other is SocketIdentity &&
+      other.deviceMajor == deviceMajor &&
+      other.deviceMinor == deviceMinor &&
+      other.inode == inode;
+
+  @override
+  int get hashCode => Object.hash(deviceMajor, deviceMinor, inode);
+
+  @override
+  String toString() => '$deviceMajor:$deviceMinor/$inode';
+}
+
+/// A socket file held open by a descriptor of its own (`O_PATH`), so its inode cannot be freed and given to another
+/// file while it is held: its identity keeps naming that very file until [release].
+class HeldSocket {
+  HeldSocket._(this._descriptor, this.identity);
+
+  /// Holds the socket file at [path], a link not followed, reached through its directory opened one component at a
+  /// time from `/`; null where it is no socket or cannot be held.
+  static HeldSocket? at(String path) {
+    final flags = _Flags.here;
+    final named = _split(path);
+    if (flags == null || named == null) return null;
+    final parent = ForwardRecords._openChain(named.parent, flags);
+    if (parent == null) return null;
+    final libc = _Libc.instance;
+    try {
+      final held = _native(
+        (libc, arena) => libc.openat(parent, arena.string(named.name), _oPath | flags.noFollow | _oCloexec, 0),
+      );
+      if (held < 0) return null;
+      final identity = _identityAt(held, '', emptyPath: true);
+      // The held file and the name as it stands now: the same socket, or nothing is held.
+      if (identity == null || _identityAt(parent, named.name) != identity) {
+        libc.close(held);
+        return null;
+      }
+      return HeldSocket._(held, identity);
+    } finally {
+      libc.close(parent);
+    }
+  }
+
+  int _descriptor;
+
+  /// The held file's identity.
+  final SocketIdentity identity;
+
+  /// Lets go of the file.
+  void release() {
+    if (_descriptor < 0) return;
+    _Libc.instance.close(_descriptor);
+    _descriptor = -1;
+  }
+}
+
+({String parent, String name})? _split(String path) {
+  final cut = path.lastIndexOf('/');
+  if (!path.startsWith('/') || cut < 0) return null;
+  final name = path.substring(cut + 1);
+  if (name.isEmpty || name == '.' || name == '..') return null;
+  return (parent: cut == 0 ? '/' : path.substring(0, cut), name: name);
+}
+
+/// The identity of the socket at [path], a link not followed; null where nothing, or anything but a socket, is there.
+SocketIdentity? socketIdentityOf(String path) => _Flags.here == null ? null : _identityAt(-100, path); // AT_FDCWD
+
+SocketIdentity? _identityAt(int at, String name, {bool emptyPath = false}) => _native((libc, arena) {
+  final buffer = arena.allocate(256);
+  // AT_SYMLINK_NOFOLLOW (| AT_EMPTY_PATH); STATX_TYPE | STATX_INO. struct statx: stx_mask at 0, stx_mode at 28, stx_ino
+  // at 32, stx_dev_major at 136, stx_dev_minor at 140, the same on every architecture.
+  if (libc.statx(at, arena.string(name), 0x100 | (emptyPath ? 0x1000 : 0), 0x1 | 0x100, buffer) != 0) return null;
+  final data = ByteData.sublistView(buffer.cast<Uint8>().asTypedList(256));
+  if (data.getUint32(0, Endian.host) & 0x101 != 0x101) return null;
+  if (data.getUint16(28, Endian.host) & 0xf000 != 0xc000) return null; // S_IFSOCK
+  return SocketIdentity(
+    data.getUint32(136, Endian.host),
+    data.getUint32(140, Endian.host),
+    data.getUint64(32, Endian.host),
+  );
+});
+
+/// Whether [directory] is this account's alone to change: a directory owned by it that nobody else may write, reached
+/// one component at a time from `/` following no link. Only there is a socket removed or a name linked.
+bool isOwnDirectory(String directory) {
+  final flags = _Flags.here;
+  if (flags == null) return false;
+  final opened = ForwardRecords._openChain(directory, flags);
+  if (opened == null) return false;
+  try {
+    return _isOwn(directory, opened);
+  } finally {
+    _Libc.instance.close(opened);
+  }
+}
+
+bool _isOwn(String path, int descriptor) {
+  final facts = pathFactsOf(path, descriptor);
+  return facts != null &&
+      facts.type == FileSystemEntityType.directory &&
+      facts.owner == _Libc.instance.getuid() &&
+      facts.permissions & 0x12 == 0; // no group or other write
+}
+
+/// Removes the socket at [path] only while it is still [held]'s file, and answers whether it did. The name is removed
+/// through its directory, opened one component at a time from `/` following no link, and only where that directory is
+/// this account's alone; there the identity is read once more right before the unlink. Linux has no unlink of a name
+/// only while it is a given inode, so between that read and the unlink only a process of this account could put
+/// another object there; the held file keeps its inode from being given to another meanwhile.
+bool removeSocketIfStill(String path, HeldSocket held) {
+  final flags = _Flags.here;
+  final named = _split(path);
+  if (flags == null || named == null || held._descriptor < 0) return false;
+  final parent = ForwardRecords._openChain(named.parent, flags);
+  if (parent == null) return false;
+  try {
+    if (!_isOwn(named.parent, parent)) return false;
+    if (_identityAt(parent, named.name) != held.identity) return false;
+    return _native((libc, arena) => libc.unlinkat(parent, arena.string(named.name), 0)) == 0;
+  } finally {
+    _Libc.instance.close(parent);
+  }
+}
+
+/// Gives the socket file at [from] the second name [to] in the same directory, failing where [to] exists: `link(2)`
+/// takes a name only while it is free, so whoever links first holds it. Answers 0, or the errno.
+int linkSocketName(String from, String to) {
+  final flags = _Flags.here;
+  final a = _split(from), b = _split(to);
+  if (flags == null || a == null || b == null || a.parent != b.parent) return 22; // EINVAL
+  final parent = ForwardRecords._openChain(a.parent, flags);
+  if (parent == null) return 2;
+  try {
+    if (!_isOwn(a.parent, parent)) return 13; // EACCES
+    return _native((libc, arena) {
+      final done = libc.linkat(parent, arena.string(a.name), parent, arena.string(b.name), 0);
+      return done == 0 ? 0 : _errno();
+    });
+  } finally {
+    _Libc.instance.close(parent);
+  }
+}
+
+int _errno() => _errnoLocation().value;
+
+final Pointer<Int32> Function() _errnoLocation = DynamicLibrary.process()
+    .lookupFunction<Pointer<Int32> Function(), Pointer<Int32> Function()>('__errno_location');
+
+/// One unix socket of this network namespace bound to a file, as the kernel reports it (`sock_diag`): the socket's own
+/// inode, whether it listens, and the file it is bound to, whatever name it was bound by.
+typedef BoundSocket = ({int socket, bool listening, SocketIdentity file});
+
+/// Whether [socket] is bound to [file]. The kernel names a bound file's inode in 32 bits, so only those of [file]'s
+/// inode are compared; two socket files on one device that share them are taken for one, which only ever keeps a path.
+bool boundTo(BoundSocket socket, SocketIdentity file) =>
+    socket.file.deviceMajor == file.deviceMajor &&
+    socket.file.deviceMinor == file.deviceMinor &&
+    socket.file.inode == file.inode & 0xffffffff;
+
+/// Every unix socket of this network namespace bound to a file, or null where the kernel could not be asked. A socket
+/// bound in another network namespace, such as a container's with the directory mounted, is not among them.
+List<BoundSocket>? boundSockets() {
+  if (_Flags.here == null) return null;
+  final libc = _Libc.instance;
+  // AF_NETLINK, SOCK_DGRAM | SOCK_CLOEXEC, NETLINK_SOCK_DIAG.
+  final link = libc.socket(16, 2 | 0x80000, 4);
+  if (link < 0) return null;
+  try {
+    return _native((libc, arena) {
+      final request = arena.allocate(40).cast<Uint8>();
+      final out = ByteData.sublistView(request.asTypedList(40))
+        ..setUint32(0, 40, Endian.host) // nlmsg_len
+        ..setUint16(4, 20, Endian.host) // SOCK_DIAG_BY_FAMILY
+        ..setUint16(6, 0x1 | 0x300, Endian.host) // NLM_F_REQUEST | NLM_F_DUMP
+        ..setUint32(8, 1, Endian.host)
+        ..setUint8(16, 1) // AF_UNIX
+        ..setUint32(20, 0xffffffff, Endian.host) // every state
+        ..setUint32(28, 0x2, Endian.host); // UDIAG_SHOW_VFS
+      if (out.lengthInBytes != 40 || libc.send(link, request, 40, 0) != 40) return null;
+      const size = 1 << 16;
+      final buffer = arena.allocate(size).cast<Uint8>();
+      final found = <BoundSocket>[];
+      while (true) {
+        final read = libc.recv(link, buffer, size, 0);
+        if (read <= 0) return null;
+        final data = ByteData.sublistView(buffer.asTypedList(read));
+        var at = 0;
+        while (at + 16 <= read) {
+          final length = data.getUint32(at, Endian.host), type = data.getUint16(at + 4, Endian.host);
+          if (length < 16 || at + length > read) return null;
+          if (type == 3) return found; // NLMSG_DONE
+          if (type == 2) return null; // NLMSG_ERROR
+          // struct unix_diag_msg after the header: family, type, state, pad, ino, cookie[2]; then attributes.
+          final message = at + 16;
+          final state = data.getUint8(message + 2);
+          final socket = data.getUint32(message + 4, Endian.host);
+          var attribute = message + 16;
+          while (attribute + 4 <= at + length) {
+            final attributeLength = data.getUint16(attribute, Endian.host);
+            if (attributeLength < 4) break;
+            // UNIX_DIAG_VFS: the inode and the device of the file it is bound to, the device in the kernel's own encoding.
+            if (data.getUint16(attribute + 2, Endian.host) == 1 && attributeLength >= 12) {
+              final inode = data.getUint32(attribute + 4, Endian.host);
+              final device = data.getUint32(attribute + 8, Endian.host);
+              found.add((
+                socket: socket,
+                listening: state == 10, // TCP_LISTEN
+                file: SocketIdentity(device >> 20, device & 0xfffff, inode),
+              ));
+            }
+            attribute += (attributeLength + 3) & ~3;
+          }
+          at += (length + 3) & ~3;
+        }
+      }
+    });
+  } finally {
+    libc.close(link);
+  }
+}
+
+const _oPath = 0x200000;
 
 /// The records of this run, set once it took charge of the window: until then, and in a run that is turned away,
 /// nothing is recorded or ended.
