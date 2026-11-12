@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F492",
   "title": "A Real Idea Walks To Finished Through The Window",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "L",
   "priority": "High",
   "rank": 1,
