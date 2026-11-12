@@ -290,19 +290,20 @@ class HostCardSsh {
 
   /// Refuses stored paths outside the platform location shared with Core.
   static void checkConfigPath(String host, String config, {Map<String, String>? environment, bool windows = false}) {
-    _path(config);
+    _path(config, windows: windows);
     if (config != _configPath(host, environment: environment, windows: windows)) {
       throw const HostFilesRefused('The SSH config must use the platform host config directory.');
     }
   }
 
   /// Publishes private public-only files, refusing changed pins or identity files.
-  Future<void> publish(String config, {HostFileWriter? writer, Map<String, String>? environment}) async {
-    checkConfigPath(name, config, environment: environment, windows: Platform.isWindows);
+  Future<void> publish(String config, {HostFileWriter? writer, Map<String, String>? environment, bool? windows}) async {
+    final onWindows = windows ?? Platform.isWindows;
+    checkConfigPath(name, config, environment: environment, windows: onWindows);
     final files = writer ?? HostFileWriter();
     final folder = File(config).absolute.parent;
-    _path(config);
-    if (path.basename(config) != '$name.conf') {
+    _path(config, windows: onWindows);
+    if ((onWindows ? path.windows : path.posix).basename(config) != '$name.conf') {
       throw const HostFilesRefused('The SSH config must be named for its host.');
     }
     for (var ancestor = folder; ; ancestor = ancestor.parent) {
@@ -317,7 +318,7 @@ class HostCardSsh {
       throw const HostFilesRefused('The SSH config directory must not be a link.');
     }
     await files.protectDirectory(folder);
-    final contents = _contents(config);
+    final contents = _contents(config, windows: onWindows);
     for (final entry in contents.entries) {
       await files.check(File(entry.key), utf8.encode(entry.value));
     }
@@ -327,10 +328,16 @@ class HostCardSsh {
   }
 
   /// Refuses unless every file [publish] writes for this card at [config] is there and holds exactly its bytes.
-  Future<void> checkPublished(String config, {HostFileWriter? writer, Map<String, String>? environment}) async {
-    checkConfigPath(name, config, environment: environment, windows: Platform.isWindows);
+  Future<void> checkPublished(
+    String config, {
+    HostFileWriter? writer,
+    Map<String, String>? environment,
+    bool? windows,
+  }) async {
+    final onWindows = windows ?? Platform.isWindows;
+    checkConfigPath(name, config, environment: environment, windows: onWindows);
     final files = writer ?? HostFileWriter();
-    for (final entry in _contents(config).entries) {
+    for (final entry in _contents(config, windows: onWindows).entries) {
       if (!await files.check(File(entry.key), utf8.encode(entry.value))) {
         throw HostFilesRefused('${entry.key} is missing. Join $name again to publish its card.');
       }
@@ -342,10 +349,11 @@ class HostCardSsh {
   ///
   /// A card tunnel raised for a join that was never confirmed leaves no pin behind, so a later card of the host, with
   /// another key or address, is not refused for it; the files of another card, or any changed by hand, stay whole.
-  Future<void> unpublish(String config, {Map<String, String>? environment}) async {
-    checkConfigPath(name, config, environment: environment, windows: Platform.isWindows);
+  Future<void> unpublish(String config, {Map<String, String>? environment, bool? windows}) async {
+    final onWindows = windows ?? Platform.isWindows;
+    checkConfigPath(name, config, environment: environment, windows: onWindows);
     final ours = <File>[];
-    for (final entry in _contents(config).entries) {
+    for (final entry in _contents(config, windows: onWindows).entries) {
       final file = File(entry.key);
       final type = await FileSystemEntity.type(file.path, followLinks: false);
       if (type == FileSystemEntityType.notFound) continue;
@@ -358,22 +366,25 @@ class HostCardSsh {
   }
 
   /// The files [publish] writes at [config], by path.
-  Map<String, String> _contents(String config) {
+  Map<String, String> _contents(String config, {required bool windows}) {
     final known = '$config.known_hosts';
     final identity = '$config.pub';
-    final control = controlSocket(config);
-    checkLocalSocket(control);
+    // Windows' OpenSSH holds no master: every connection there is its own.
+    final control = windows ? null : controlSocket(config);
+    if (control != null) checkLocalSocket(control);
     final host = sshPort == 22 ? address : '[$address]:$sshPort';
+    // OpenSSH may read a backslash in its config as an escape; Windows takes a forward slash in a path as well.
+    String inFile(String value) => windows ? value.replaceAll(r'\', '/') : value;
     return {
       known: '$host $hostKey\n',
       identity: '$publicKey\n',
       config:
           'Host $name\n'
           '  HostName ${address.replaceAll('%', '%%')}\n  Port $sshPort\n  User $login\n'
-          '${pinnedHostSshPolicy(known.replaceAll('%', '%%')).entries.map((entry) => '  ${entry.key} ${entry.value}\n').join()}'
-          '  IdentityFile ${_quote(identity)}\n'
+          '${pinnedHostSshPolicy(inFile(known).replaceAll('%', '%%')).entries.map((entry) => '  ${entry.key} ${entry.value}\n').join()}'
+          '  IdentityFile ${_quote(inFile(identity))}\n'
           '  StreamLocalBindMask 0177\n'
-          '  ControlMaster auto\n  ControlPath ${_quote(control)}\n  ControlPersist no\n',
+          '${control == null ? '' : '  ControlMaster auto\n  ControlPath ${_quote(control)}\n  ControlPersist no\n'}',
     };
   }
 
@@ -422,8 +433,11 @@ class HostCardSsh {
     }
   }
 
-  static void _path(String value) {
-    if (!path.isAbsolute(value) || value.contains(RegExp(r'[\x00-\x1f\x7f"\\$]')) || value.contains('~')) {
+  /// On Windows a backslash is the separator and allowed; elsewhere it is refused with the rest.
+  static void _path(String value, {bool windows = false}) {
+    final absolute = windows ? path.windows.isAbsolute(value) : path.isAbsolute(value);
+    final refused = windows ? RegExp(r'[\x00-\x1f\x7f"$]') : RegExp(r'[\x00-\x1f\x7f"\\$]');
+    if (!absolute || value.contains(refused) || value.contains('~')) {
       throw const HostFilesRefused('An SSH path must be absolute and contain no control characters or expansions.');
     }
   }

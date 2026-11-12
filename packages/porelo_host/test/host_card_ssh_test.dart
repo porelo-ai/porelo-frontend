@@ -2,6 +2,7 @@
 @Tags(['linux'])
 library;
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:porelo_host/porelo_host.dart';
@@ -314,6 +315,70 @@ void main() {
     );
   });
 
+  // Harm: on Windows every card is refused before a file is written, or its config asks Windows' OpenSSH for a master
+  // it cannot hold, so no host is reached from a Windows desktop.
+  test('a Windows card config is published under APPDATA without a master and with its paths in the file', () async {
+    final card = HostCardSsh.fromStored(cardValues());
+    final environment = {'APPDATA': r'C:\Users\Alice\AppData\Roaming'};
+    final config = card.configPath(environment: environment, windows: true);
+    final written = _Recorder();
+
+    await card.checkPublished(config, writer: written, environment: environment, windows: true);
+
+    expect(written.files.keys, {config, '$config.known_hosts', '$config.pub'});
+    final text = written.files[config]!;
+    for (final master in ['ControlMaster', 'ControlPath', 'ControlPersist']) {
+      expect(text, isNot(contains(master)), reason: 'Windows OpenSSH holds no master');
+    }
+    expect(text, contains('  IdentityFile "C:/Users/Alice/AppData/Roaming/porelo/ssh/alpha.conf.pub"\n'));
+    expect(text, contains('  UserKnownHostsFile "C:/Users/Alice/AppData/Roaming/porelo/ssh/alpha.conf.known_hosts"\n'));
+    expect(text, isNot(contains(r'\')), reason: 'OpenSSH may read a backslash in its config as an escape');
+  });
+
+  // Harm: on Linux the card's config loses its master, and Core's and the plugins' commands no longer share it.
+  test('a Linux card config keeps its master', () async {
+    final card = HostCardSsh.fromStored(cardValues());
+    final environment = {'XDG_CONFIG_HOME': '/config'};
+    final config = card.configPath(environment: environment);
+    final written = _Recorder();
+
+    await card.checkPublished(config, writer: written, environment: environment, windows: false);
+
+    expect(
+      written.files[config],
+      endsWith('  ControlMaster auto\n  ControlPath "${card.controlSocket(config)}"\n  ControlPersist no\n'),
+    );
+  });
+
+  // Harm: a stored Windows path that is not the card's own, or carries an expansion, selects another file.
+  test('a Windows config path outside APPDATA or with an expansion is refused', () {
+    final environment = {'APPDATA': r'C:\Users\Alice\AppData\Roaming'};
+    for (final config in [
+      r'C:\Users\Mallory\AppData\Roaming\porelo\ssh\alpha.conf',
+      r'C:\Users\Alice\AppData\Roaming\porelo\ssh\alpha.conf"',
+      r'porelo\ssh\alpha.conf',
+    ]) {
+      expect(
+        () => HostCardSsh.checkConfigPath('alpha', config, environment: environment, windows: true),
+        throwsA(isA<HostFilesRefused>()),
+        reason: config,
+      );
+    }
+    for (final root in [r'C:\Users\~Alice', r'C:\Users\$Alice', 'C:\\Users\\A\u0007lice']) {
+      final card = HostCardSsh.fromStored(cardValues());
+      expect(
+        () => HostCardSsh.checkConfigPath(
+          'alpha',
+          card.configPath(environment: {'APPDATA': root}, windows: true),
+          environment: {'APPDATA': root},
+          windows: true,
+        ),
+        throwsA(isA<HostFilesRefused>()),
+        reason: root,
+      );
+    }
+  });
+
   test('OpenSSH reads quoted config paths and the public identity without personal config', () async {
     final root = await Directory.systemTemp.createTemp('c-');
     addTearDown(() => root.delete(recursive: true));
@@ -415,4 +480,15 @@ void main() {
       throwsA(isA<HostFilesRefused>()),
     );
   });
+}
+
+/// Answers every published file as already there, keeping the bytes it was asked about.
+class _Recorder extends HostFileWriter {
+  final files = <String, String>{};
+
+  @override
+  Future<bool> check(File file, List<int> bytes) async {
+    files[file.path] = utf8.decode(bytes);
+    return true;
+  }
 }
