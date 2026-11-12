@@ -6,6 +6,12 @@
 #   tool/walk_idea.sh run   --vm USER@VM --vm-key FILE --planner DIR --seed DIR --org ORG --report DIR \
 #                           [--porelo-project foo-project] [--mail keep|drop] [--project NAME] [--issue-repo foo-1] [--budget-minutes 180]
 #                           [--porelo DIR]
+#   tool/walk_idea.sh resume --vm USER@VM --vm-key FILE --report DIR --from N
+#   tool/walk_idea.sh clean  --vm USER@VM --vm-key FILE --report DIR
+#
+# A red step keeps the run: nothing is cleaned up, the VM's state stays for a repair by hand, and the report DIR holds
+# the run's state. `resume` copies this checkout's HEAD there again and walks on from step N (step 1, which opens the
+# planning, always runs); `clean` takes the kept run away as a run's own ending does.
 #
 # `check` says what the VM lacks and changes nothing. `run` checks first, then seeds the existing repositories of ORG:
 # the seed holds one directory per repository, named as it is, whose files are written over that repository's at the
@@ -35,14 +41,14 @@
 set -euo pipefail
 
 usage() {
-    sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//' >&2
+    sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//' >&2
     exit 64
 }
 
 [ $# -ge 1 ] || usage
 mode=$1
 shift
-vm='' vm_key='' porelo_dir='' planner='' seed='' org='' project='' issue_repo=foo-1 porelo_project=foo-project mail=keep report='' budget=180
+from=1 vm='' vm_key='' porelo_dir='' planner='' seed='' org='' project='' issue_repo=foo-1 porelo_project=foo-project mail=keep report='' budget=180
 while [ $# -gt 0 ]; do
     [ $# -ge 2 ] || usage
     case "$1" in
@@ -50,6 +56,7 @@ while [ $# -gt 0 ]; do
     --vm-key) vm_key=$2 ;;
     --planner) planner=$2 ;;
     --porelo) porelo_dir=$2 ;;
+    --from) from=$2 ;;
     --seed) seed=$2 ;;
     --org) org=$2 ;;
     --project) project=$2 ;;
@@ -62,7 +69,8 @@ while [ $# -gt 0 ]; do
     esac
     shift 2
 done
-case "$mode" in check | run) ;; *) usage ;; esac
+case "$mode" in check | run | resume | clean) ;; *) usage ;; esac
+case "$from" in '' | *[!0-9]*) echo "walk: --from is a step's number" >&2 && exit 64 ;; esac
 case "$mail" in keep | drop) ;; *) usage ;; esac
 [ -n "$vm" ] && [ -n "$vm_key" ] || usage
 case "$budget" in '' | *[!0-9]*) echo "walk: --budget-minutes is a whole number of minutes" >&2 && exit 64 ;; esac
@@ -189,16 +197,21 @@ if [ "$mode" = check ]; then
     exit
 fi
 
-[ -n "$planner" ] && [ -n "$seed" ] && [ -n "$org" ] && [ -n "$report" ] || usage
+[ -n "$report" ] || usage
+if [ "$mode" = run ] && { [ -z "$planner" ] || [ -z "$seed" ] || [ -z "$org" ]; }; then usage; fi
+[ "$mode" = run ] || [ -f "$report/state.sh" ] || {
+    echo "walk: $report holds no kept run to $mode" >&2
+    exit 1
+}
 # The repositories to seed, each a directory of the seed named as the repository is.
 seeded=()
-for each in "$seed"/*/; do
+[ "$mode" != run ] || for each in "$seed"/*/; do
     [ -d "$each" ] || continue
     each=$(basename "$each")
     shaped "the seed's directory" "$each" '[A-Za-z0-9][A-Za-z0-9._-]{0,99}'
     seeded+=("$each")
 done
-[ ${#seeded[@]} -gt 0 ] || {
+[ "$mode" != run ] || [ ${#seeded[@]} -gt 0 ] || {
     echo "walk: $seed holds no directory named for a repository to seed" >&2
     exit 1
 }
@@ -206,7 +219,7 @@ done
     echo "walk: WALK_FORGE_TOKEN names no program printing the forge's token" >&2
     exit 1
 }
-[ -n "${WALK_PROVIDER_KEY_FILE:-}" ] && [ -r "$WALK_PROVIDER_KEY_FILE" ] && [ -s "$WALK_PROVIDER_KEY_FILE" ] || {
+[ "$mode" != run ] || { [ -n "${WALK_PROVIDER_KEY_FILE:-}" ] && [ -r "$WALK_PROVIDER_KEY_FILE" ] && [ -s "$WALK_PROVIDER_KEY_FILE" ]; } || {
     echo "walk: WALK_PROVIDER_KEY_FILE names no readable file holding the OpenRouter key" >&2
     exit 1
 }
@@ -257,8 +270,24 @@ porelo_commit='' swapped='' pointed='' agent_before='' holder='' central_match='
 # Each noted repository's default branch and its tip at T0, by name; only a noted one is restored.
 declare -A branch_of=() t0_of=()
 left=()
+# A kept run is taken up again as it was left; a red step keeps it so.
+kept=''
+if [ "$mode" != run ]; then
+    # shellcheck source=/dev/null
+    . "$report/state.sh"
+fi
 # shellcheck disable=SC2329
 cleanup() {
+    if [ -n "$kept" ]; then
+        # Only the window's part goes; the state stays for a repair by hand and the next step.
+        on_vm "if [ -f ~/$run/pid ]; then kill -TERM -- -\$(cat ~/$run/pid) 2>/dev/null || true; fi" </dev/null || true
+        [ -z "$holder" ] || kill "$holder" 2>/dev/null || true
+        token=''
+        rm -rf "$work"
+        echo "walk: the run is kept on $vm as ~/$run; go on with: tool/walk_idea.sh resume --vm $vm --vm-key $vm_key --report $report --from <step>" >&2
+        echo "walk: or take it away with: tool/walk_idea.sh clean --vm $vm --vm-key $vm_key --report $report" >&2
+        return
+    fi
     on_vm "if [ -f ~/$run/pid ]; then kill -TERM -- -\$(cat ~/$run/pid) 2>/dev/null || true; fi
         for p in /proc/[0-9]*; do
             [ \"\$(readlink \$p/exe 2>/dev/null)\" != \$HOME/$run/bin/porelo-planner ] || kill -TERM \${p#/proc/} 2>/dev/null || true
@@ -488,36 +517,53 @@ tip_of() {
     shaped "the tip of $1" "$tip" '[0-9a-f]{40,64}'
     printf '%s\n' "$tip"
 }
+porelod_call() {
+    on_vm "python3 -I -c 'import json, os, socket, sys
+s = socket.socket(socket.AF_UNIX)
+s.connect(\"/run/user/%d/porelo/porelod.sock\" % os.getuid())
+s.sendall(json.dumps({\"method\": \"org.fuin.porelo.Tasks1.\" + sys.argv[1], \"parameters\": json.loads(sys.argv[2])}).encode() + bytes(1))
+b = b\"\"
+while not b.endswith(bytes(1)):
+    got = s.recv(65536)
+    if not got:
+        break
+    b += got
+print(b.rstrip(bytes(1)).decode())' $1 '$2'" </dev/null
+}
+placed() { porelod_call Projects '{}' | python3 -I -c 'import json, sys
+print(any(p.get("name") == sys.argv[1] for p in json.load(sys.stdin)["parameters"]["projects"]))' "$porelo_project"; }
 trap cleanup EXIT
+[ "$mode" != clean ] || exit 0
 
 echo "walk: $commit to $vm:~/$run as $name"
 git -C "$here" archive --format=tar HEAD | on_vm "mkdir -p ~/$run/bin && tar -x -C ~/$run"
-tar -C "$planner" -c porelo-planner planner-probe.sh SHA256SUMS | on_vm "tar -x -C ~/$run/bin"
-# Checked again where it runs: what arrived is what was checked here.
-on_vm "cd ~/$run/bin && sha256sum --strict --quiet -c SHA256SUMS && chmod 755 porelo-planner planner-probe.sh" </dev/null || {
-    echo "walk: the planner copied to $vm is not what SHA256SUMS names" >&2
-    exit 1
-}
-if [ -n "$porelo_dir" ]; then
-    porelo_commit=$(cat "$porelo_dir/COMMIT")
-    tar -C "$porelo_dir" -c porelo porelod SHA256SUMS | on_vm "mkdir -p ~/$run/porelo && tar -x -C ~/$run/porelo"
-    swapped=yes
-    # Checked again where it runs; the person's own ones are kept beside, never overwritten by a second run's.
-    on_vm "set -e; cd ~/$run/porelo; sha256sum --strict --quiet -c SHA256SUMS; chmod 755 porelo porelod
+if [ "$mode" = run ]; then
+    tar -C "$planner" -c porelo-planner planner-probe.sh SHA256SUMS | on_vm "tar -x -C ~/$run/bin"
+    # Checked again where it runs: what arrived is what was checked here.
+    on_vm "cd ~/$run/bin && sha256sum --strict --quiet -c SHA256SUMS && chmod 755 porelo-planner planner-probe.sh" </dev/null || {
+        echo "walk: the planner copied to $vm is not what SHA256SUMS names" >&2
+        exit 1
+    }
+    if [ -n "$porelo_dir" ]; then
+        porelo_commit=$(cat "$porelo_dir/COMMIT")
+        tar -C "$porelo_dir" -c porelo porelod SHA256SUMS | on_vm "mkdir -p ~/$run/porelo && tar -x -C ~/$run/porelo"
+        swapped=yes
+        # Checked again where it runs; the person's own ones are kept beside, never overwritten by a second run's.
+        on_vm "set -e; cd ~/$run/porelo; sha256sum --strict --quiet -c SHA256SUMS; chmod 755 porelo porelod
         cd ~/.local/bin; for f in porelo porelod; do [ -f \$f.walk-kept ] || mv \$f \$f.walk-kept; cp ~/$run/porelo/\$f \$f; done
         systemctl --user restart porelod
         for _ in \$(seq 50); do [ -S /run/user/\$(id -u)/porelo/porelod.sock ] && break; sleep 0.2; done
         systemctl --user is-active --quiet porelod" </dev/null || {
-        echo "walk: porelo of $porelo_commit could not be put in place on $vm" >&2
-        exit 1
-    }
-    {
-        echo "porelo $porelo_commit"
-        on_vm "porelo --version" </dev/null
-    } | tee "$report/porelo.txt"
-fi
+            echo "walk: porelo of $porelo_commit could not be put in place on $vm" >&2
+            exit 1
+        }
+        {
+            echo "porelo $porelo_commit"
+            on_vm "porelo --version" </dev/null
+        } | tee "$report/porelo.txt"
+    fi
 
-on_vm "set -e
+    on_vm "set -e
     if [ ! -x ~/$flutter_dir/bin/flutter ]; then
         mkdir -p ~/.cache/porelo-frontend && cd ~/.cache/porelo-frontend
         listed=\$(curl -fsSL https://storage.googleapis.com/flutter_infra_release/releases/releases_linux.json)
@@ -534,137 +580,129 @@ print(r[0][\"archive\"], r[0][\"sha256\"]) if r else None')
         rm -rf ~/$flutter_dir && mv flutter-$flutter_version.part/flutter ~/$flutter_dir && rmdir flutter-$flutter_version.part
     fi" </dev/null
 
-# The account's card is the person's only while the forwarded agent holds its key.
-holds=$(as_the_person_on_vm "porelo identity show --json" </dev/null | python3 -I -c 'import json,sys; print(json.load(sys.stdin).get("agent_holds_key"))' || true)
-[ "$holds" = True ] || {
-    echo "walk: the agent forwarded to $vm does not hold the key of the card there" >&2
-    exit 1
-}
+    # The account's card is the person's only while the forwarded agent holds its key.
+    holds=$(as_the_person_on_vm "porelo identity show --json" </dev/null | python3 -I -c 'import json,sys; print(json.load(sys.stdin).get("agent_holds_key"))' || true)
+    [ "$holds" = True ] || {
+        echo "walk: the agent forwarded to $vm does not hold the key of the card there" >&2
+        exit 1
+    }
 
+fi
 # porelod on the VM is given the person's forwarded agent for the run, as tool/rehearse_window.sh does it, and put
-# back as it was on every ending.
+# back as it was on every ending. A resumed run holds it again under the same name, which porelod still points at.
 as_the_person_on_vm "echo \$\$ >~/$run/agent.pid && ln -sfn \"\$SSH_AUTH_SOCK\" ~/$run/agent.sock && exec sleep infinity" </dev/null >/dev/null 2>&1 &
 holder=$!
 on_vm "for _ in \$(seq 50); do [ -S ~/$run/agent.sock ] && exit 0; sleep 0.2; done; exit 1" </dev/null || {
     echo "walk: the person's agent could not be held open on $vm for porelod" >&2
     exit 1
 }
-agent_before=$(on_vm "systemctl --user show-environment | sed -n 's/^SSH_AUTH_SOCK=//p'" </dev/null)
-shaped 'porelod agent' "$agent_before" '/[A-Za-z0-9/._-]*'
-pointed=yes
-on_vm "set -e; systemctl --user set-environment SSH_AUTH_SOCK=\$HOME/$run/agent.sock; systemctl --user restart porelod
+if [ "$mode" = run ]; then
+    agent_before=$(on_vm "systemctl --user show-environment | sed -n 's/^SSH_AUTH_SOCK=//p'" </dev/null)
+    shaped 'porelod agent' "$agent_before" '/[A-Za-z0-9/._-]*'
+    pointed=yes
+    on_vm "set -e; systemctl --user set-environment SSH_AUTH_SOCK=\$HOME/$run/agent.sock; systemctl --user restart porelod
     for _ in \$(seq 50); do [ -S /run/user/\$(id -u)/porelo/porelod.sock ] && break; sleep 0.2; done
     systemctl --user is-active --quiet porelod
     systemctl --user show-environment | grep -qx \"SSH_AUTH_SOCK=\$HOME/$run/agent.sock\"" </dev/null || {
-    echo "walk: porelod on $vm could not be started on the person's agent" >&2
-    exit 1
-}
+        echo "walk: porelod on $vm could not be started on the person's agent" >&2
+        exit 1
+    }
 
-# The forge's token in a vault of the run's own, declared for the organization's forge, as tool/rehearse_window.sh
-# does it with REHEARSAL_CENTRAL_TOKEN: the account's vault is never opened, read or changed.
-central_match=$(as_the_person_on_vm "porelo org --json --refresh" </dev/null 2>/dev/null | python3 -I -c 'import json, re, sys
+    # The forge's token in a vault of the run's own, declared for the organization's forge, as tool/rehearse_window.sh
+    # does it with REHEARSAL_CENTRAL_TOKEN: the account's vault is never opened, read or changed.
+    central_match=$(as_the_person_on_vm "porelo org --json --refresh" </dev/null 2>/dev/null | python3 -I -c 'import json, re, sys
 a = json.load(sys.stdin)
 m = re.search(re.escape(a["forge"]) + r"[:/]+([A-Za-z0-9_.-]+)/", a["address"])
 print("https://" + a["forge"] + "/" + m[1] + "/" if m else "")') || true
-shaped 'the organization forge' "$central_match" 'https://[A-Za-z0-9.-]+/[A-Za-z0-9_.-]+/'
-[ -n "$central_match" ] || {
-    echo "walk: porelo on $vm names no forge and owner of the organization" >&2
-    exit 1
-}
-vault="\$HOME/$run/vault/vault.bin"
-in_vault="PORELO_VAULT=$vault "
-on_vm "set -e; umask 077; mkdir ~/$run/vault
-    head -c 32 /dev/urandom | base64 -w0 | { cat; echo; } | ${in_vault}porelo vault init --passphrase-stdin >/dev/null" \
-    </dev/null || {
-    echo "walk: a vault of the run's own could not be made on $vm" >&2
-    exit 1
-}
-printf '%s\n' "$token" | on_vm "${in_vault}porelo vault put --json central-forge" >/dev/null || {
-    echo "walk: the forge token could not be put into the run's vault on $vm" >&2
-    exit 1
-}
-# The tasks' agent pi signs in at OpenRouter with the key stored under the provider's name in porelod's vault.
-on_vm "${in_vault}porelo vault put --json openrouter" <"$WALK_PROVIDER_KEY_FILE" >/dev/null || {
-    echo "walk: the OpenRouter key could not be put into the run's vault on $vm" >&2
-    exit 1
-}
-if as_the_person_on_vm "porelo credentials list" </dev/null | awk '{print $1}' | grep -qxF "$central_match"; then
-    echo "walk: the person on $vm declares $central_match already; that declaration is used"
-else
-    declared=yes
-    as_the_person_on_vm "porelo credentials declare '$central_match' --kind token --vault central-forge" \
-        </dev/null >/dev/null || {
-        echo "walk: $central_match could not be declared on $vm" >&2
+    shaped 'the organization forge' "$central_match" 'https://[A-Za-z0-9.-]+/[A-Za-z0-9_.-]+/'
+    [ -n "$central_match" ] || {
+        echo "walk: porelo on $vm names no forge and owner of the organization" >&2
         exit 1
     }
-fi
-# porelod reads the organization's https addresses with the vault it was started with: for the run, the run's own.
-on_vm "set -e; systemctl --user set-environment PORELO_VAULT=$vault; systemctl --user restart porelod
+    vault="\$HOME/$run/vault/vault.bin"
+    in_vault="PORELO_VAULT=$vault "
+    on_vm "set -e; umask 077; mkdir ~/$run/vault
+    head -c 32 /dev/urandom | base64 -w0 | { cat; echo; } | ${in_vault}porelo vault init --passphrase-stdin >/dev/null" \
+        </dev/null || {
+        echo "walk: a vault of the run's own could not be made on $vm" >&2
+        exit 1
+    }
+    printf '%s\n' "$token" | on_vm "${in_vault}porelo vault put --json central-forge" >/dev/null || {
+        echo "walk: the forge token could not be put into the run's vault on $vm" >&2
+        exit 1
+    }
+    # The tasks' agent pi signs in at OpenRouter with the key stored under the provider's name in porelod's vault.
+    on_vm "${in_vault}porelo vault put --json openrouter" <"$WALK_PROVIDER_KEY_FILE" >/dev/null || {
+        echo "walk: the OpenRouter key could not be put into the run's vault on $vm" >&2
+        exit 1
+    }
+    if as_the_person_on_vm "porelo credentials list" </dev/null | awk '{print $1}' | grep -qxF "$central_match"; then
+        echo "walk: the person on $vm declares $central_match already; that declaration is used"
+    else
+        declared=yes
+        as_the_person_on_vm "porelo credentials declare '$central_match' --kind token --vault central-forge" \
+            </dev/null >/dev/null || {
+            echo "walk: $central_match could not be declared on $vm" >&2
+            exit 1
+        }
+    fi
+    # porelod reads the organization's https addresses with the vault it was started with: for the run, the run's own.
+    on_vm "set -e; systemctl --user set-environment PORELO_VAULT=$vault; systemctl --user restart porelod
     for _ in \$(seq 50); do [ -S /run/user/\$(id -u)/porelo/porelod.sock ] && break; sleep 0.2; done
     systemctl --user is-active --quiet porelod" </dev/null || {
-    echo "walk: porelod on $vm could not be started on the run's vault" >&2
-    exit 1
-}
-
-# The seed's diffs, read before anything is touched, each to apply to a file of a seeded repository as it is at T0; other top-level files are not
-# seeded.
-diffs=()
-for each in "$seed"/*.diff; do
-    [ -f "$each" ] || continue
-    target=$(diff_target "$each")
-    case " ${seeded[*]} " in *" ${target%%/*} "*) ;; *)
-        echo "walk: $(basename "$each") names ${target%%/*}, which the seed does not hold" >&2
-        exit 1
-        ;;
-    esac
-    diffs+=("$each")
-done
-# T0 of every repository the run may change, then the seed written over the seeded ones.
-for each in "${seeded[@]}"; do note_t0 "$each"; done
-[ -n "${t0_of[$issue_repo]:-}" ] || note_t0 "$issue_repo"
-# Every seeded repository is prepared before any is pushed: a diff that does not apply stops the run with nothing pushed.
-for each in "${seeded[@]}"; do prepare_seed "$each"; done
-for each in "${seeded[@]}"; do push_seed "$each"; done
-# A changed project.yml counts only once its newest change is signed by a Project Admin.
-case " ${seeded[*]} " in *" $porelo_project "*)
-    sign_the_project "$(tip_of "$porelo_project")" || {
-        echo "walk: $porelo_project could not be signed anew on $vm" >&2
+        echo "walk: porelod on $vm could not be started on the run's vault" >&2
         exit 1
     }
-    echo "walk: $org/$porelo_project stands signed at $(tip_of "$porelo_project")"
-    ;;
-esac
-issue_head=$(tip_of "$issue_repo")
 
-# The person's own machine takes the organization's project as a person's laptop does, on the person's agent, so porelod lists it and the
-# window tells the planner of it; one already placed there is not the run's to take or to clear.
-porelod_call() {
-    on_vm "python3 -I -c 'import json, os, socket, sys
-s = socket.socket(socket.AF_UNIX)
-s.connect(\"/run/user/%d/porelo/porelod.sock\" % os.getuid())
-s.sendall(json.dumps({\"method\": \"org.fuin.porelo.Tasks1.\" + sys.argv[1], \"parameters\": json.loads(sys.argv[2])}).encode() + bytes(1))
-b = b\"\"
-while not b.endswith(bytes(1)):
-    got = s.recv(65536)
-    if not got:
-        break
-    b += got
-print(b.rstrip(bytes(1)).decode())' $1 '$2'" </dev/null
-}
-placed() { porelod_call Projects '{}' | python3 -I -c 'import json, sys
-print(any(p.get("name") == sys.argv[1] for p in json.load(sys.stdin)["parameters"]["projects"]))' "$porelo_project"; }
-if [ "$(placed)" != True ]; then
-    taken=yes
-    # Off a host only a start or its question takes a project; the question starts nothing.
-    answer=$(porelod_call CanStart "{\"project\": \"$porelo_project\", \"repository\": \"$issue_repo\"}") || answer=''
-    echo "walk: porelod asked whether $porelo_project can start: $answer"
+    # The seed's diffs, read before anything is touched, each to apply to a file of a seeded repository as it is at T0; other top-level files are not
+    # seeded.
+    diffs=()
+    for each in "$seed"/*.diff; do
+        [ -f "$each" ] || continue
+        target=$(diff_target "$each")
+        case " ${seeded[*]} " in *" ${target%%/*} "*) ;; *)
+            echo "walk: $(basename "$each") names ${target%%/*}, which the seed does not hold" >&2
+            exit 1
+            ;;
+        esac
+        diffs+=("$each")
+    done
+    # T0 of every repository the run may change, then the seed written over the seeded ones.
+    for each in "${seeded[@]}"; do note_t0 "$each"; done
+    [ -n "${t0_of[$issue_repo]:-}" ] || note_t0 "$issue_repo"
+    # Every seeded repository is prepared before any is pushed: a diff that does not apply stops the run with nothing pushed.
+    for each in "${seeded[@]}"; do prepare_seed "$each"; done
+    for each in "${seeded[@]}"; do push_seed "$each"; done
+    # A changed project.yml counts only once its newest change is signed by a Project Admin.
+    case " ${seeded[*]} " in *" $porelo_project "*)
+        sign_the_project "$(tip_of "$porelo_project")" || {
+            echo "walk: $porelo_project could not be signed anew on $vm" >&2
+            exit 1
+        }
+        echo "walk: $org/$porelo_project stands signed at $(tip_of "$porelo_project")"
+        ;;
+    esac
+    issue_head=$(tip_of "$issue_repo")
+
+    # The person's own machine takes the organization's project as a person's laptop does, on the person's agent, so porelod lists it and the
+    # window tells the planner of it; one already placed there is not the run's to take or to clear.
     if [ "$(placed)" != True ]; then
-        echo "walk: porelod on $vm does not list $porelo_project after taking it" >&2
-        exit 1
+        taken=yes
+        # Off a host only a start or its question takes a project; the question starts nothing.
+        answer=$(porelod_call CanStart "{\"project\": \"$porelo_project\", \"repository\": \"$issue_repo\"}") || answer=''
+        echo "walk: porelod asked whether $porelo_project can start: $answer"
+        if [ "$(placed)" != True ]; then
+            echo "walk: porelod on $vm does not list $porelo_project after taking it" >&2
+            exit 1
+        fi
     fi
+
+    # What a resume or a clean takes the run up with.
+    declare -p vm org planner project porelo_project mail issue_repo name run since issue_head vault in_vault central_match \
+        declared pointed agent_before swapped porelo_commit taken branch_of t0_of | sed 's/^declare -A/declare -gA/' >"$report/state.sh"
 fi
 
-echo "walk: the window walks $project, at most $budget minutes"
+echo "walk: the window walks $project from step $from, at most $budget minutes"
 status=0
 # The planner fetches the project's https repositories with git, as a person's own login would: a git configuration of
 # the run's own names porelo's credential helper for the organization, which answers from the run's vault, so the token
@@ -691,6 +729,7 @@ as_the_person_on_vm \
         PORELO_WALK_OWN_URL='https://github.com/$org/$project' PORELO_WALK_ISSUE_REPO='$issue_repo' \
         PORELO_WALK_ISSUE_HEAD='$issue_head' PORELO_WALK_SINCE='$since' PORELO_WALK_TASK_MINUTES='$task_minutes' \
         PORELO_WALK_AGENT_QUIT='$agent_quit' \
+        PORELO_WALK_FROM='$from' PORELO_WALK_STATE=\$HOME/$run/walk-state.json \
         PORELO_WALK_STEPS=\$HOME/$run/steps.txt PORELO_WALK_TASKS=\$HOME/$run/tasks.txt \
         PORELO_REHEARSAL_SHOTS=\$HOME/$run/pictures \
         timeout --signal=TERM ${budget}m dbus-run-session -- \
@@ -709,4 +748,6 @@ if ! grep -q '^OK ' "$report/steps.txt" || grep -q '^FAIL ' "$report/steps.txt" 
     [ "$status" -ne 0 ] || status=1
 fi
 cat "$report/steps.txt"
+# A red step keeps the run for a repair by hand and the next step.
+if grep -q '^FAIL ' "$report/steps.txt"; then kept=yes; fi
 exit "$status"
