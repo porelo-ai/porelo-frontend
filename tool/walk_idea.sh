@@ -5,7 +5,7 @@
 #   tool/walk_idea.sh check --vm USER@VM --vm-key FILE [--planner DIR]
 #   tool/walk_idea.sh run   --vm USER@VM --vm-key FILE --planner DIR --seed DIR --org ORG --report DIR \
 #                           [--porelo-project foo-project] [--mail keep|drop] [--project NAME] [--issue-repo foo-1]... [--budget-minutes 180]
-#                           [--porelo DIR]
+#                           [--porelo DIR] [--test walking_an_idea|forwarding_to_a_branch]
 #   tool/walk_idea.sh resume --vm USER@VM --vm-key FILE --report DIR --from N
 #   tool/walk_idea.sh clean  --vm USER@VM --vm-key FILE --report DIR
 #
@@ -24,6 +24,11 @@
 # integration_test/walking_an_idea_test.dart there through tool/e2e.sh, and writes the report into DIR: one line per
 # step (`OK` or `FAIL` with what was asked and got), a picture of the window where it failed, the HTML and JUnit
 # report, and the test's own output.
+#
+# --test names the integration test the window runs: walking_an_idea (the default) needs --planner and --seed;
+# forwarding_to_a_branch needs neither. It has a task of the first --issue-repo push to its gate and the person forward
+# it upstream at GitHub, onto a branch the script made at the default branch's tip and onto a new one typed: both are
+# named for the run, so its ending deletes them; the window reaches GitHub with the run's token from the run's vault.
 #
 # DIR of --porelo, where given, holds porelo and porelod, a SHA256SUMS naming both and a COMMIT naming what they were
 # built from: for the run they stand in the person's ~/.local/bin on the VM, the ones there kept beside them as
@@ -48,7 +53,7 @@ usage() {
 [ $# -ge 1 ] || usage
 mode=$1
 shift
-from=1 vm='' vm_key='' porelo_dir='' planner='' seed='' org='' project='' issue_repos=() porelo_project=foo-project mail=keep report='' budget=180
+test=walking_an_idea from=1 vm='' vm_key='' porelo_dir='' planner='' seed='' org='' project='' issue_repos=() porelo_project=foo-project mail=keep report='' budget=180
 while [ $# -gt 0 ]; do
     [ $# -ge 2 ] || usage
     case "$1" in
@@ -57,6 +62,7 @@ while [ $# -gt 0 ]; do
     --planner) planner=$2 ;;
     --porelo) porelo_dir=$2 ;;
     --from) from=$2 ;;
+    --test) test=$2 ;;
     --seed) seed=$2 ;;
     --org) org=$2 ;;
     --project) project=$2 ;;
@@ -72,6 +78,7 @@ done
 case "$mode" in check | run | resume | clean) ;; *) usage ;; esac
 case "$from" in '' | *[!0-9]*) echo "walk: --from is a step's number" >&2 && exit 64 ;; esac
 case "$mail" in keep | drop) ;; *) usage ;; esac
+case "$test" in walking_an_idea | forwarding_to_a_branch) ;; *) usage ;; esac
 [ -n "$vm" ] && [ -n "$vm_key" ] || usage
 case "$budget" in '' | *[!0-9]*) echo "walk: --budget-minutes is a whole number of minutes" >&2 && exit 64 ;; esac
 # Every task of the walk runs this agent and model: the discussion, the builder and the reader.
@@ -200,20 +207,22 @@ if [ "$mode" = check ]; then
 fi
 
 [ -n "$report" ] || usage
-if [ "$mode" = run ] && { [ -z "$planner" ] || [ -z "$seed" ] || [ -z "$org" ]; }; then usage; fi
+if [ "$mode" = run ] && { [ -z "$org" ] || { [ "$test" = walking_an_idea ] && { [ -z "$planner" ] || [ -z "$seed" ]; }; }; }; then
+    usage
+fi
 [ "$mode" = run ] || [ -f "$report/state.sh" ] || {
     echo "walk: $report holds no kept run to $mode" >&2
     exit 1
 }
 # The repositories to seed, each a directory of the seed named as the repository is.
 seeded=()
-[ "$mode" != run ] || for each in "$seed"/*/; do
+[ "$mode" != run ] || [ -z "$seed" ] || for each in "$seed"/*/; do
     [ -d "$each" ] || continue
     each=$(basename "$each")
     shaped "the seed's directory" "$each" '[A-Za-z0-9][A-Za-z0-9._-]{0,99}'
     seeded+=("$each")
 done
-[ "$mode" != run ] || [ ${#seeded[@]} -gt 0 ] || {
+[ "$mode" != run ] || [ "$test" != walking_an_idea ] || [ ${#seeded[@]} -gt 0 ] || {
     echo "walk: $seed holds no directory named for a repository to seed" >&2
     exit 1
 }
@@ -569,13 +578,15 @@ trap cleanup EXIT
 
 echo "walk: $commit to $vm:~/$run as $name"
 git -C "$here" archive --format=tar HEAD | on_vm "mkdir -p ~/$run/bin && tar -x -C ~/$run"
-if [ "$mode" = run ]; then
+if [ "$mode" = run ] && [ -n "$planner" ]; then
     tar -C "$planner" -c porelo-planner planner-probe.sh SHA256SUMS | on_vm "tar -x -C ~/$run/bin"
     # Checked again where it runs: what arrived is what was checked here.
     on_vm "cd ~/$run/bin && sha256sum --strict --quiet -c SHA256SUMS && chmod 755 porelo-planner planner-probe.sh" </dev/null || {
         echo "walk: the planner copied to $vm is not what SHA256SUMS names" >&2
         exit 1
     }
+fi
+if [ "$mode" = run ]; then
     if [ -n "$porelo_dir" ]; then
         porelo_commit=$(cat "$porelo_dir/COMMIT")
         tar -C "$porelo_dir" -c porelo porelod SHA256SUMS | on_vm "mkdir -p ~/$run/porelo && tar -x -C ~/$run/porelo"
@@ -689,7 +700,7 @@ print("https://" + a["forge"] + "/" + m[1] + "/" if m else "")') || true
     # The seed's diffs, read before anything is touched, each to apply to a file of a seeded repository as it is at T0; other top-level files are not
     # seeded.
     diffs=()
-    for each in "$seed"/*.diff; do
+    for each in ${seed:+"$seed"/*.diff}; do
         [ -f "$each" ] || continue
         target=$(diff_target "$each")
         case " ${seeded[*]} " in *" ${target%%/*} "*) ;; *)
@@ -733,15 +744,30 @@ print("https://" + a["forge"] + "/" + m[1] + "/" if m else "")') || true
 
     # The planner's state of the project as before the run, put back on every ending; none stands for a project new to
     # the planner. Kept beside the run's copy, which goes first.
-    on_vm "set -e; rm -f ~/$run.planner-state.tar; d=~/.local/state/porelo-planner
-        if [ -d \$d/'$project' ]; then tar -C \$d -cf ~/$run.planner-state.tar -- '$project'; fi" </dev/null || {
-        echo "walk: the planner's state of $project on $vm could not be kept" >&2
-        exit 1
-    }
-    planned=yes
+    if [ -n "$planner" ]; then
+        on_vm "set -e; rm -f ~/$run.planner-state.tar; d=~/.local/state/porelo-planner
+            if [ -d \$d/'$project' ]; then tar -C \$d -cf ~/$run.planner-state.tar -- '$project'; fi" </dev/null || {
+            echo "walk: the planner's state of $project on $vm could not be kept" >&2
+            exit 1
+        }
+        planned=yes
+    fi
+
+    # The branch the forwarding test chooses, made at the default branch's tip; named for the run, so the ending
+    # deletes it with the one the person types.
+    if [ "$test" = forwarding_to_a_branch ]; then
+        case $(github POST "/repos/$org/${issue_repos[0]}/git/refs" \
+            "{\"ref\": \"refs/heads/walk-$name-existing\", \"sha\": \"${t0_of[${issue_repos[0]}]}\"}") in
+        201) echo "walk: $org/${issue_repos[0]} has walk-$name-existing at ${t0_of[${issue_repos[0]}]}" ;;
+        *)
+            echo "walk: walk-$name-existing could not be made in $org/${issue_repos[0]}" >&2
+            exit 1
+            ;;
+        esac
+    fi
 
     # What a resume or a clean takes the run up with.
-    declare -p vm org planner project porelo_project mail issue_repos name run since issue_heads vault in_vault central_match \
+    declare -p test vm org planner project porelo_project mail issue_repos name run since issue_heads vault in_vault central_match \
         declared pointed agent_before swapped porelo_commit taken planned branch_of t0_of | sed 's/^declare -A/declare -gA/' >"$report/state.sh"
 fi
 
@@ -762,8 +788,19 @@ steps_before=$(on_vm "cat ~/$run/steps.txt 2>/dev/null | wc -l" </dev/null) && [
 # the account's user manager, as a window on a desktop is: a terminal's podman exec under the ssh login's own scope may
 # not move into the task's cgroup ("OCI permission denied"). The window
 # reaches this VM's own porelod and keeps the account's settings; tool/e2e.sh insists on a machine, which is this one.
+# The forwarding test's window reaches GitHub as a person's own does, with the token from the run's vault in its
+# environment alone: never on a command line, never in a file.
+forwarding=''
+[ "$test" != forwarding_to_a_branch ] || forwarding="export PORELO_FORGE_TOKEN PORELO_FORGE_TOKEN_FORGE=github.com
+    PORELO_FORGE_TOKEN=\$(printf 'protocol=https\\nhost=github.com\\n\\n' | ${in_vault}porelo vault credential --entry central-forge get | sed -n 's/^password=//p')
+    [ -n \"\$PORELO_FORGE_TOKEN\" ] || { echo 'walk: the run vault gave no forge token' >&2; exit 1; }
+    export PORELO_FORWARD_URL='https://github.com/$org/${issue_repos[0]}' PORELO_FORWARD_REPOSITORY='${issue_repos[0]}'
+    export PORELO_FORWARD_EXISTING='walk-$name-existing' PORELO_FORWARD_TYPED='walk-$name-typed'
+    export PORELO_REHEARSAL_HOST_NAME='this machine' PORELO_REHEARSAL_PROJECT='$porelo_project'
+    export PORELO_REHEARSAL_AGENT='$agent' PORELO_REHEARSAL_MODEL='$task_model'
+    "
 as_the_person_on_vm \
-    "cd ~/$run && exec systemd-run --user --scope --quiet setsid sh -c 'echo \$\$ >pid; exec \"\$@\"' walk env -u DISPLAY -u WAYLAND_DISPLAY -u DBUS_SESSION_BUS_ADDRESS \
+    "$forwarding cd ~/$run && exec systemd-run --user --scope --quiet setsid sh -c 'echo \$\$ >pid; exec \"\$@\"' walk env -u DISPLAY -u WAYLAND_DISPLAY -u DBUS_SESSION_BUS_ADDRESS \
         PATH=\$HOME/$run/bin:\$HOME/$flutter_dir/bin:\$PATH \
         PORELO_E2E_HOST=localhost PORELO_E2E_REMOTE_SOCKET=/run/user/\$(id -u)/porelo/porelod.sock \
         PORELO_E2E_ACCOUNT_RUNTIME=1 XDG_RUNTIME_DIR=/run/user/\$(id -u) \
@@ -778,7 +815,7 @@ as_the_person_on_vm \
         PORELO_WALK_STEPS=\$HOME/$run/steps.txt PORELO_WALK_TASKS=\$HOME/$run/tasks.txt \
         PORELO_REHEARSAL_SHOTS=\$HOME/$run/pictures \
         timeout --signal=TERM ${budget}m dbus-run-session -- \
-        tool/e2e.sh --machine integration_test/walking_an_idea_test.dart" \
+        tool/e2e.sh --machine integration_test/${test}_test.dart" \
     </dev/null >"$report/results.json" 2>"$report/run.log" || status=$?
 # The steps and pictures, before the run's copy is taken away; a run taken up again adds its steps to the earlier ones.
 on_vm "cat ~/$run/steps.txt 2>/dev/null" </dev/null >"$report/steps.txt" || true
@@ -787,7 +824,7 @@ if on_vm "[ -d ~/$run/pictures ]" </dev/null; then on_vm "tar -C ~/$run -c pictu
 [ "$status" -ne 124 ] || echo "walk: the window's part ran out its $budget minutes and was stopped" | tee -a "$report/run.log" >&2
 
 (cd "$here" && dart tool/test_report.dart "$report/results.json" "$report/report.html" "$report/results.xml" \
-    --heading='A real idea walked in the window' --against="$vm, project $project" --lines="$report/scenarios.txt") || true
+    --heading="$([ "$test" = walking_an_idea ] && echo 'A real idea walked in the window' || echo 'Work forwarded to a branch at GitHub')" --against="$vm, project $project" --lines="$report/scenarios.txt") || true
 # Passed only where a step of this attempt was read and none failed, and the scenario passed.
 if ! grep -q '^OK ' "$work/these-steps" || grep -q '^FAIL ' "$work/these-steps" ||
     ! grep -q '^OK ' "$report/scenarios.txt" 2>/dev/null; then
