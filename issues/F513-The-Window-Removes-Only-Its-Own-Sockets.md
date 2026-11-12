@@ -42,20 +42,57 @@ socket:
 
 ## Plan
 
-- One helper decides whether a socket path may go: `lstat` says socket (not file, not link), and its (device, inode)
-  equals the one recorded when this window's ssh or instance bound it, read right after the bind is seen. Paths with
-  nothing recorded, such as orphans from an earlier run, are checked like this: the probe connects and is refused, and
-  the same (device, inode) is read before and after it. Only then is the path unlinked, through the directory
-  descriptor of its parent with `unlinkat`. The parent is opened with `O_NOFOLLOW|O_DIRECTORY` and checked as the
-  forward records' directory is.
-- The one-instance probe uses the tunnel's three answers (nobody, somebody, could not tell). Only "nobody" lets its
-  path go; `release()` goes through the helper.
+Corrected after a reading of the first plan by another model; its six points and what became of them are below.
+
+- **What the window made, proved by the kernel.** A socket path is the window's own only once the kernel shows that the
+  process it launched holds a listening socket bound to that very file: `sock_diag` names the file each unix socket is
+  bound to by device and inode, and `/proc/<pid>/fd` names the sockets the process holds. A launch, a bind seen at the
+  path, or an answering `-O check` proves nothing about who bound it. The file is then held by an
+  `O_PATH|O_NOFOLLOW` descriptor until it is removed, so its inode cannot be freed and given to a replacement that
+  would compare equal.
+- **Removed only while it is still that file.** The parent is opened one component at a time from `/` with
+  `O_NOFOLLOW|O_DIRECTORY`, must be this account's alone (owned by it, no group or other write), the name's device
+  and inode are read once more through it with `statx` and `AT_SYMLINK_NOFOLLOW`, must be a socket and equal the held
+  one, and only then is it removed with `unlinkat`.
+- **A leftover.** A path nothing recorded, such as one left by a run that crashed, goes only when it is a socket, the
+  kernel names no socket of this network namespace bound to it, a connect is refused, and the same checks hold after
+  the probe. `/proc/net/unix` is not used: it names a socket by the spelling it was bound with, and its inode is the
+  socket's, not the file's.
+- **Each card endpoint is recovered on its own**, before the orphaned master is looked for, so a forward left by a
+  launch that never answered does not block every raise when its control socket is gone.
+- **The directory is checked before anything is bound or launched.** A machine socket, a card's control socket or the
+  one-instance socket in a folder that is not this account's alone is refused and said, not raised.
+- **The one-instance socket is bound at a private name and linked to the shared name.** `link` takes a name only while
+  it is free, so two launches never both take charge, and `dart:io`'s close, which unlinks the path it bound whatever
+  is there by then, removes only the private name. The probe keeps its three answers: only nobody lets a leftover go,
+  answers joins the running window, could-not-tell ends the launch with words and touches nothing. `release()` removes
+  the shared name only while it is still the held socket.
 - Red first:
   - a regular file at the socket path survives raise and drop
-  - a socket put in place after the raise survives drop and reconnect
+  - a socket put in place after the raise survives drop and reconnect, and still answers
+  - a socket somebody else bound at the path before the launch's own is not recorded and survives drop
   - a probe failing with EMFILE leaves the one-instance socket
   - a socket swapped between probe and unlink survives, through a seam between the two
-  - the leftover-socket test is changed to a real socket
+  - the one-instance shared name replaced while running survives `release()`
+  - a card endpoint replaced after the master answered survives drop
+  - the leftover-socket tests are changed to real sockets whose holder ended, made by another process
+  - a folder that is not this account's alone is refused before anything is launched
+
+### What the reading found, and what was done
+
+1. *Implicit removals bypass the helper* - `dart:io`'s close unlinks its path, ssh unlinks its control path on exit.
+   The one-instance socket now closes only its private name. ssh's own unlink of its control socket stays: it lies in a
+   folder only this account can change.
+2. *A bind seen does not prove who bound* - ownership now needs the launched process to hold the listener bound to the
+   file.
+3. *`/proc/net/unix` cannot authorize removal* - replaced by the kernel's device and inode per socket; the probe stays.
+4. *A numeric identity can be reused* - the file is held by an `O_PATH` descriptor through cleanup.
+5. *An unchecked card launch can leave a forward that blocks every raise* - each endpoint is recovered on its own.
+6. *Binding where cleanup refuses* - the folder is checked before binding or launching.
+
+What stays and is said: between the last read of the identity and the unlink, only a process of this account can put
+another object at the name; ssh unlinks its own control path on exit; a socket only bound, not listening, in another
+network namespace that shares the folder is not seen.
 
 ## Acceptance
 
