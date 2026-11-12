@@ -48,10 +48,17 @@ class _CommandMenuState extends State<CommandMenu> {
   /// a change that begins while it is open turns an entry runnable or grey without opening it again.
   late final ValueNotifier<List<Command>> _now = ValueNotifier<List<Command>>(widget.commands);
 
+  /// What the menu is for: its key and the thing its tooltip names. A list that draws another row in this one's place
+  /// keeps this State, and an open menu then offers nothing of that row.
+  (Key?, String) get _subject => (widget.key, widget.tooltip);
+
+  /// What the open menu was opened for.
+  (Key?, String)? _openedAs;
+
   @override
   void didUpdateWidget(CommandMenu oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final commands = widget.commands;
+    final commands = _openedAs == null || _openedAs == _subject ? widget.commands : const <Command>[];
     // The open menu is another route: it is told after this frame's build, never during it.
     SchedulerBinding.instance.addPostFrameCallback((_) {
       if (mounted) _now.value = commands;
@@ -86,8 +93,14 @@ class _CommandMenuState extends State<CommandMenu> {
       tooltip: widget.tooltip,
       icon: const Icon(Icons.more_vert, size: Sizes.rowIcon),
       initialValue: mine,
-      onSelected: (id) => _run(widget.commands, id),
-      itemBuilder: (context) => commandMenuEntries(context, widget.commands, highlight: mine, following: _now),
+      onSelected: (id) {
+        if (_openedAs == _subject) _run(widget.commands, id);
+      },
+      itemBuilder: (context) {
+        _openedAs = _subject;
+        _now.value = widget.commands;
+        return commandMenuEntries(context, widget.commands, highlight: mine, following: _now);
+      },
     );
   }
 }
@@ -169,6 +182,8 @@ class _FollowingEntryState extends State<_FollowingEntry> {
               label: widget.opened.label,
               group: widget.opened.group,
               home: widget.opened.home,
+              danger: widget.opened.danger,
+              checked: widget.opened.checked,
               unavailable: 'no longer offered here',
               run: () {},
             ),
