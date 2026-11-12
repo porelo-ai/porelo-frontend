@@ -220,7 +220,7 @@ github() {
 # Taken away on every ending, in this order: what still runs of the window's part and the planner it started, the
 # task branches and pull requests in the issue repository, each noted repository's tree as at its T0, the forge's
 # token and its declaration, porelod's agent put back, the run's copy.
-pointed='' agent_before='' holder='' central_match='' vault='' declared=''
+pointed='' agent_before='' holder='' central_match='' vault='' declared='' taken=''
 # Each noted repository's default branch and its tip at T0, by name; only a noted one is restored.
 declare -A branch_of=() t0_of=()
 left=()
@@ -232,6 +232,10 @@ cleanup() {
         done" </dev/null || true
     local tasks=''
     tasks=$(on_vm "tr ' ' '\\n' <~/$run/tasks.txt 2>/dev/null" </dev/null | grep -Ex '[A-Za-z0-9][A-Za-z0-9._-]{2,}' || true)
+    if [ -n "$taken" ]; then
+        as_the_person_on_vm "${in_vault:-}porelo project clear --yes '$porelo_project'" </dev/null >/dev/null 2>&1 ||
+            left+=("$porelo_project placed on $vm (porelo project clear --yes $porelo_project there)")
+    fi
     [ -z "${t0_of[$issue_repo]:-}" ] || take_back_the_tasks_work "$tasks"
     local each
     for each in "${!t0_of[@]}"; do restore "$each"; done
@@ -553,6 +557,33 @@ case " ${seeded[*]} " in *" $porelo_project "*)
     ;;
 esac
 issue_head=$(tip_of "$issue_repo")
+
+# The person's own machine takes the organization's project as a person's laptop does, so porelod lists it and the
+# window tells the planner of it; one already placed there is not the run's to take or to clear.
+porelod_call() {
+    on_vm "python3 -I -c 'import json, os, socket, sys
+s = socket.socket(socket.AF_UNIX)
+s.connect(\"/run/user/%d/porelo/porelod.sock\" % os.getuid())
+s.sendall(json.dumps({\"method\": \"org.fuin.porelo.Tasks1.\" + sys.argv[1], \"parameters\": json.loads(sys.argv[2])}).encode() + bytes(1))
+b = b\"\"
+while not b.endswith(bytes(1)):
+    got = s.recv(65536)
+    if not got:
+        break
+    b += got
+print(b.rstrip(bytes(1)).decode())' $1 '$2'" </dev/null
+}
+placed() { porelod_call Projects '{}' | python3 -I -c 'import json, sys
+print(any(p.get("name") == sys.argv[1] for p in json.load(sys.stdin)["parameters"]["projects"]))' "$porelo_project"; }
+if [ "$(placed)" != True ]; then
+    taken=yes
+    answer=$(porelod_call TakeProject "{\"project\": \"$porelo_project\"}") || answer=''
+    echo "walk: porelod took $porelo_project: $answer"
+    if [ "$(placed)" != True ]; then
+        echo "walk: porelod on $vm does not list $porelo_project after taking it" >&2
+        exit 1
+    fi
+fi
 
 echo "walk: the window walks $project, at most $budget minutes"
 status=0
