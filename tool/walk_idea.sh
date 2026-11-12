@@ -342,6 +342,13 @@ cleanup() {
         fi
     fi
     local each
+    # A task the window noted that the project's clear did not take (a project placed before the run is not cleared):
+    # stopped and removed by its name.
+    for each in $tasks; do
+        as_the_person_on_vm "if porelo task list | awk 'NR > 1 {print \$1}' | grep -qx -- '$each'; then
+                porelo task stop -- '$each' >/dev/null 2>&1; porelo task remove --force -- '$each' >/dev/null; fi" </dev/null ||
+            left+=("the task $each on $vm (porelo task remove --force $each there)")
+    done
     for each in "${!t0_of[@]}"; do take_back_the_tasks_work "$each" "$tasks"; done
     for each in "${!t0_of[@]}"; do restore "$each"; done
     if [ -n "$declared" ]; then
@@ -832,9 +839,11 @@ if on_vm "[ -d ~/$run/pictures ]" </dev/null; then on_vm "tar -C ~/$run -c pictu
 
 (cd "$here" && dart tool/test_report.dart "$report/results.json" "$report/report.html" "$report/results.xml" \
     --heading="$([ "$test" = walking_an_idea ] && echo 'A real idea walked in the window' || echo 'Work forwarded to a branch at GitHub')" --against="$vm, project $project" --lines="$report/scenarios.txt") || true
-# Passed only where a step of this attempt was read and none failed, and the scenario passed.
-if ! grep -q '^OK ' "$work/these-steps" || grep -q '^FAIL ' "$work/these-steps" ||
-    ! grep -q '^OK ' "$report/scenarios.txt" 2>/dev/null; then
+# Passed only where the scenarios passed and none failed, and, for the walk that notes its steps, a step of this attempt
+# was read and none failed.
+if ! grep -q '^OK ' "$report/scenarios.txt" 2>/dev/null || grep -q '^FAIL ' "$report/scenarios.txt" ||
+    grep -q '^FAIL ' "$work/these-steps" ||
+    { [ "$test" = walking_an_idea ] && ! grep -q '^OK ' "$work/these-steps"; }; then
     [ "$status" -ne 0 ] || status=1
 fi
 cat "$report/steps.txt"

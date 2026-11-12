@@ -43,6 +43,9 @@ The test organization `porelo-ai-test` and its token exist now; the idea walk ru
   pushes. Nothing of this changes unless the measurement finds a fault.
 - **A waiting push.** A task of foo-project in foo-1, started from the window unattended, commits one file and
   pushes it to its gate, as the move rehearsal's gate step does; the person reviews it at the gate.
+  foo-project stays in the security class `guarded` for the run: in `online` the gate hands a push on to the
+  forge at once and nothing waits, so a seed for this run leaves the class as it is. The test notes its task for the
+  walk, which stops and removes it at its ending even where the project was placed before the run.
 - **The scenarios.** One forwards onto the branch the repository has, one onto a new branch typed. Each checks that
   the dialog offers the default branch first, that GitHub has the chosen branch at the reviewed commit, and that the
   default branch did not move.
