@@ -54,6 +54,9 @@ import 'package:porelo_frontend/src/app/shell_model.dart';
 import 'package:porelo_frontend/src/app/porelo_app.dart';
 import 'package:porelo_frontend/src/ui/planning_embedding.dart' show EmbeddedPlanning, WindowTaskStarts;
 import 'package:porelo_frontend/src/ui/planning_reports.dart';
+
+import 'planning.dart' show planningFixture;
+
 import 'package:porelo_planning/planning_fake.dart' show MockPlanningClient, MockPlanningSource, mockStartTask;
 import 'package:porelo_planning/porelo_planning.dart' show PlanningProvider, PlanningSource, PlanningTaskStarted;
 
@@ -3046,6 +3049,8 @@ class World {
   static MockPlanningSource planningOn(FleetBackend backend) {
     if (_planningSources[backend] case final source?) return source;
     final source = MockPlanningSource(backend.label)..onStarted = backend is FakeBackend ? backend.tookStoryWork : null;
+    // The project's board as a planner gives it, with the agents its Reworking rule may run (planning.dart).
+    source.boards['checkout'] = planningFixture();
     _planningBackends[source] = backend;
     return _planningSources[backend] = source;
   }

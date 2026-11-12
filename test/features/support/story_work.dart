@@ -149,13 +149,16 @@ Future<void> prepareWork(WidgetTester tester, String condition) async {
       );
     case 'stopped reading':
     case 'stopped reading without echo':
+    case 'stopped reading without blocking findings':
       final board = planningFixture();
       final story = planningMaps(board, 'stories').firstWhere((story) => story['id'] == 'ST291');
       final issue = (story['issues'] as List).first as Map<String, dynamic>;
       issue.addAll({'state': 'Reading', 'rounds': 3, 'roundsMost': 3, 'readingStopped': true});
       World.planning.work.findings[issue['id'] as String] = [
         {'number': 1, 'severity': 'NOTE', 'text': 'A small concern.'},
-        {'number': 2, 'severity': 'BLOCKING', 'text': 'A credential would leave the task.'},
+        // Rework with a blocking finding takes it as its reason; only without one does it need the person's words.
+        if (condition != 'stopped reading without blocking findings')
+          {'number': 2, 'severity': 'BLOCKING', 'text': 'A credential would leave the task.'},
       ];
       World.planning.work.deferEcho = condition == 'stopped reading without echo';
       await pushPlanning(tester, board);

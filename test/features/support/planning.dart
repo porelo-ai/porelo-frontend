@@ -5,7 +5,15 @@ import 'package:porelo_planning/planning_fake.dart';
 import 'world.dart';
 
 /// An independently mutable snapshot, with the exact design story set.
-Map<String, dynamic> planningFixture() => mockPlanningBoard();
+Map<String, dynamic> planningFixture() {
+  final board = mockPlanningBoard();
+  // The Reworking rule names the agents a rework may run with, as a planner's project file gives them; the screen's
+  // board names none, which leaves its Rework dialog nothing to send.
+  for (final rule in planningMaps(board, 'work').where((rule) => rule['state'] == 'Reworking')) {
+    rule['models'] = <String, dynamic>{'pi': 'z-ai/glm-5.3-flash'};
+  }
+  return board;
+}
 
 /// Pushes one complete answer for the scenario's known project.
 Future<void> pushPlanning(WidgetTester tester, Map<String, dynamic> snapshot) async {

@@ -202,7 +202,9 @@ void malformedPlanningFindings() => _issue()['findings'] = [false];
 
 /// Scrolls a populated board while keeping the intended card reachable.
 Future<void> scrollPlanningBoard(WidgetTester tester) async {
-  await tester.ensureVisible(planningElement('story ST291'));
+  // Centred first: the card shows its issues, so a card brought only to the edge leaves the view with the drag.
+  await Scrollable.ensureVisible(tester.element(planningElement('story ST291')), alignment: 0.5);
+  await World.settle(tester);
   await tester.drag(planningElement('board-scroll'), const Offset(0, -60));
   await World.settle(tester);
   final horizontal = find.descendant(

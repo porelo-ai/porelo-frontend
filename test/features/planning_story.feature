@@ -9,7 +9,7 @@ Feature: Open stories and issues from planning
     Scenario: A card opens its story
         When I open planning story {'ST291'}
         Then planning details contain {'# Story source'}
-        And planning details contain {'0 of 15 in Review or Finished'}
+        And planning details contain {'0 of 16 in Review or Finished'}
         And the planning issue table is shown
         And the planning breadcrumb is {'Planning,ST291'}
         And Planning is selected in the rail
@@ -90,7 +90,7 @@ Feature: Open stories and issues from planning
         Then planning details contain {'Updated issue title'}
         When I press planning breadcrumb {1}
         Then planning details contain {'Updated story title'}
-        And planning details contain {'1 of 15 in Review or Finished'}
+        And planning details contain {'1 of 16 in Review or Finished'}
 
     # Harm: a detail refusal becomes a successful empty screen and loses its explanation.
     Scenario: A detail refusal keeps the daemon words

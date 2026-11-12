@@ -91,7 +91,7 @@ void main() {
       await bddSetUp(tester);
       await iOpenPlanningStory(tester, 'ST291');
       await planningDetailsContain(tester, '# Story source');
-      await planningDetailsContain(tester, '0 of 15 in Review or Finished');
+      await planningDetailsContain(tester, '0 of 16 in Review or Finished');
       await thePlanningIssueTableIsShown(tester);
       await thePlanningBreadcrumbIs(tester, 'Planning,ST291');
       await planningIsSelectedInTheRail(tester);
@@ -181,7 +181,7 @@ void main() {
       await planningDetailsContain(tester, 'Updated issue title');
       await iPressPlanningBreadcrumb(tester, 1);
       await planningDetailsContain(tester, 'Updated story title');
-      await planningDetailsContain(tester, '1 of 15 in Review or Finished');
+      await planningDetailsContain(tester, '1 of 16 in Review or Finished');
     });
     testWidgets('''A detail refusal keeps the daemon words''', (tester) async {
       await bddSetUp(tester);

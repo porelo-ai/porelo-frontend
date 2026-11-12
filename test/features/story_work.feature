@@ -76,9 +76,9 @@ Feature: Start and decide story work from the planning board
         And I resolve the story reading with {'ONE_MORE_ROUND'}
         Then story work proves {'decision waits for echo'}
 
-    # Harm: rework begins without the person's instructions.
+    # Harm: rework without a blocking finding begins without the person's instructions.
     Scenario: Rework requires text
-        Given story work is prepared with {'stopped reading'}
+        Given story work is prepared with {'stopped reading without blocking findings'}
         When I choose story work {'needs you'}
         And I resolve the story reading with {'REWORK'}
         Then story work proves {'rework text required'}

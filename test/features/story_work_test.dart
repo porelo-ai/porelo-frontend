@@ -98,7 +98,7 @@ void main() {
     });
     testWidgets('''Rework requires text''', (tester) async {
       await bddSetUp(tester);
-      await storyWorkIsPreparedWith(tester, 'stopped reading');
+      await storyWorkIsPreparedWith(tester, 'stopped reading without blocking findings');
       await iChooseStoryWork(tester, 'needs you');
       await iResolveTheStoryReadingWith(tester, 'REWORK');
       await storyWorkProves(tester, 'rework text required');
