@@ -6,7 +6,7 @@
   "id": "F219",
   "title": "An Interface Ended Without Asking Leaves No Forward Behind",
   "state": "Backlog",
-  "size": "S",
+  "size": "M",
   "priority": "Medium",
   "rank": 9,
   "blockedBy": [],
@@ -14,8 +14,9 @@
 }
 ```
 
-**Why this size.** S: a record of each forward's pid and command line beside its endpoint, a sweep of a recorded one at
-the next start in the tunnel and the login forward, SIGTERM and SIGINT watched, and their tests; Linux only.
+**Why this size.** M: a record of each forward that only this account can have written, a sweep that ends a recorded
+forward only while it is still that very process and still serves that endpoint, in the tunnel and the login forward,
+SIGTERM and SIGINT watched with a bounded end, and their tests, many of them guards of what is not ended; Linux only.
 
 **How it stands.** A bug.
 
@@ -39,25 +40,44 @@ Card control masters are already ended at the start by `Tunnel._endOrphanedMaste
 
 ## Plan
 
-- **A record of each forward:** right after its ssh starts, the interface writes beside its endpoint (the socket's
-  path, or the state directory keyed by the port) the pid and its `/proc/<pid>/cmdline`.
+- **A record of each forward:** right after its ssh starts, the interface writes the pid, its start time (field 22 of
+  `/proc/<pid>/stat`) and the command it launched (its arguments joined with NUL, never read back from `/proc` at once,
+  where the child may still show the window's own) into a directory of this account's own: created 0700, checked with
+  lstat to be owned by this uid and writable by no group or other, else no record is written or read. A socket's path
+  comes from the person's settings and may lie in a shared directory, so the record never lies beside it. Each record
+  is written 0600, atomically (a temporary file renamed), following no link; one owned by another uid or wider than
+  0600 is ignored. It is removed when its forward ends (`_itEnded`, `close`), and a stale one (pid gone, start time or
+  command line differing) at the next start.
 - **Found again at the start:** before the "already serving" refusal in `Tunnel.raise`, and before the port check in
-  the login forward, a recorded pid that is alive, runs as this account and still has the recorded command line is
-  ended, and the start waits until its endpoint stops answering. An endpoint with no record of ours, or whose pid now
-  runs another command line, is left alone as today. A command-line pattern is not enough: a `host` machine's forward
-  and a login forward with its own ssh options write other ones.
+  the login forward, a recorded pid is ended only when it is alive, runs as this account, has the recorded start time,
+  has byte for byte the recorded command line, and that command line forwards this very endpoint (`-L <socket>:` or
+  `-L <port>:localhost:<port>`); start time and command line are read again right before the SIGTERM (Dart has no
+  pidfd; the leftover is an orphan of init, so the window is small, not none). Never a pid this run holds
+  (`Tunnel._process`, the login forward's `_held`). The start then waits at most 20 × 100 ms, as `_endOrphanedMaster`
+  does, for the endpoint to stop answering; still answered, it is refused as today, with no SIGKILL. An endpoint with
+  no record of ours is left alone as today. A command-line pattern is not enough: a `host` machine's forward and a
+  login forward with its own ssh options write other ones.
+- The sweep runs only after `OneInstance.take`: a second instance about to be turned away ends nothing.
+- A card machine's own refusal in `_raiseCard` ("an endpoint already exists and was left alone") is not part of this
+  issue; its master is already ended at the start.
 - The sweep reads `/proc` through a seam of its own, not through the tunnel's `run:`, so the existing fakes are
   unchanged. The login forward's `Process.start` gets a seam (`startLoginForward`, like `raiseLoginForward`), landed
   first without a change of behaviour.
-- **Ended on SIGTERM and SIGINT:** `lib/main.dart` watches both, lets go of the tunnels and forwards, and exits (a
-  watched signal no longer ends the process by itself).
+- **Ended on SIGTERM and SIGINT:** `lib/main.dart` watches both through a function of its own that a test calls, lets
+  go of the tunnels and forwards, and exits after them or after five seconds, whichever comes first (a watched signal
+  no longer ends the process by itself). On Windows SIGTERM cannot be watched: only SIGINT is.
 - No parent-death signal: on Linux it fires when the thread that started the child ends, and Dart starts processes
   from pool threads that end when idle, so forwards would die at random.
-- Linux only. Windows has no `/proc` and only SIGINT; a job object that ends its children would be its own issue.
+- Linux only. The `/proc` seam answers "not ours" elsewhere (Windows, macOS), so nothing is swept there; a job object
+  that ends its children would be Windows' own issue.
 - **Red first:** in `test/app/tunnel_test.dart`, a forward a killed run left at the socket is ended and the machine
   raised (today: down, "already serving", the old one alive); an answering socket with no record of ours is still left
-  alone; a recorded pid that now runs another command line is not ended. In `test/app/login_reply_test.dart`, a login
-  forward a killed run left on the port is ended and raised again (today: "already in use").
+  alone; a recorded pid that now runs another command line, has another start time, or forwards another socket is not
+  ended; a record owned by another uid, wider than 0600 or in a directory others may write is ignored; a pid this run
+  holds is not ended; an endpoint still answered after the end is refused after the bounded wait; a record is gone
+  after a normal close. In `test/app/login_reply_test.dart`, a login forward a killed run left on the port is ended
+  and raised again (today: "already in use"), and a second forward for a port this run holds ends nothing. The signal
+  function lets go and exits, also when letting go hangs.
 
 ## Acceptance
 
