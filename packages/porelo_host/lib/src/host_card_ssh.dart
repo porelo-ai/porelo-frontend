@@ -136,10 +136,37 @@ class HostCardSsh {
   String get returnSocket => '/run/porelo-host/people/$login/return.sock';
 
   /// The forge web address advertised to browsers, or null with no forge.
-  String? get forgeUrl => webPort == null ? null : 'http://$name.localhost:$webPort/';
+  String? get forgeUrl => webPort == null ? null : _browserUrl(webPort!);
 
   /// The homeserver address advertised to Element, or null with no homeserver.
-  String? get matrixUrl => matrixPort == null ? null : 'http://$name.localhost:$matrixPort/';
+  String? get matrixUrl => matrixPort == null ? null : _browserUrl(matrixPort!);
+
+  /// A browser may resolve `<host>.localhost` to `::1` first, so the name is given only while the forwards hold both
+  /// loopback families; without an IPv6 loopback they hold 127.0.0.1 alone, and the address names it.
+  String _browserUrl(int port) => ipv6Loopback ? 'http://$name.localhost:$port/' : 'http://127.0.0.1:$port/';
+
+  /// Whether this computer has an IPv6 loopback, read once at start; tests set it.
+  static bool ipv6Loopback = hasIpv6Loopback();
+
+  /// The loopback addresses every forward listens on, as ssh's `-L` writes them.
+  static List<String> get _listenAddresses => ipv6Loopback ? const ['127.0.0.1', '[::1]'] : const ['127.0.0.1'];
+
+  /// Whether [ifInet6], Linux's `/proc/net/if_inet6` (read when not given), lists `::1`; elsewhere there always is one.
+  static bool hasIpv6Loopback({String? ifInet6}) {
+    if (ifInet6 == null && !Platform.isLinux) return true;
+    try {
+      final listed = ifInet6 ?? File('/proc/net/if_inet6').readAsStringSync();
+      return listed.split('\n').any((line) => line.startsWith('00000000000000000000000000000001 '));
+    } on FileSystemException {
+      return false;
+    }
+  }
+
+  /// The `-L` arguments that forward local [port] to [socket] on the host, one per loopback family the browser addresses
+  /// may resolve to, so no other program can hold the port on the family left out.
+  static List<String> listenSpecs(int port, String socket) => [
+    for (final address in _listenAddresses) '$address:$port:$socket',
+  ];
 
   /// The short control endpoint inside the private config directory.
   String controlSocket(String config) => path.join(
@@ -196,21 +223,25 @@ class HostCardSsh {
   /// Checks all fixed binds, retaining them together until the check finishes.
   Future<void> checkPortsAvailable({Future<({String program, int pid})?> Function(int port)? holder}) async {
     final held = <ServerSocket>[];
+    final loopbacks = [InternetAddress.loopbackIPv4, if (ipv6Loopback) InternetAddress.loopbackIPv6];
     try {
       for (final port in ports) {
-        try {
-          held.add(await ServerSocket.bind(InternetAddress.loopbackIPv4, port, shared: false));
-        } on SocketException {
-          // Who holds it, so a tunnel started by hand is found and ended; only its program's name and pid, never its
-          // command line, which may carry anything.
-          final who = await (holder ?? portHolder)(port);
-          throw HostFilesRefused(
-            who == null
-                ? 'Host $name cannot start: port $port is busy on 127.0.0.1.'
-                : 'Host $name cannot start: port $port is busy on 127.0.0.1, held by ${who.program} (pid ${who.pid}), not by '
-                      'this window. If another Porelo window on this computer has this host open, close that one; if '
-                      'you started it by hand, end it with kill ${who.pid}. Then try again.',
-          );
+        for (final loopback in loopbacks) {
+          try {
+            held.add(await ServerSocket.bind(loopback, port, v6Only: true, shared: false));
+          } on SocketException {
+            // Who holds it, so a tunnel started by hand is found and ended; only its program's name and pid, never its
+            // command line, which may carry anything.
+            final who = await (holder ?? portHolder)(port);
+            final on = loopback.address;
+            throw HostFilesRefused(
+              who == null
+                  ? 'Host $name cannot start: port $port is busy on $on.'
+                  : 'Host $name cannot start: port $port is busy on $on, held by ${who.program} (pid ${who.pid}), not by '
+                        'this window. If another Porelo window on this computer has this host open, close that one; if '
+                        'you started it by hand, end it with kill ${who.pid}. Then try again.',
+            );
+          }
         }
       }
     } finally {
@@ -220,7 +251,7 @@ class HostCardSsh {
     }
   }
 
-  /// The program listening on [port] on 127.0.0.1 and its pid, as `ss` names them, or null where it cannot say.
+  /// The program listening on [port] on either loopback and its pid, as `ss` names them, or null where it cannot say.
   static Future<({String program, int pid})?> portHolder(int port) async {
     try {
       final listed = await Process.run('ss', ['-ltnpH', 'sport = :$port']);

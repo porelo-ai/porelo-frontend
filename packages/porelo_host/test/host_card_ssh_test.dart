@@ -218,6 +218,64 @@ void main() {
     expect(occupied.address.address, '127.0.0.1');
   });
 
+  // Harm: another program of any account listening on [::1] at a card's port receives the person's sign-ins.
+  test('a fixed port held on ::1 by another program refuses the card before its tunnel', () async {
+    final before = HostCardSsh.ipv6Loopback;
+    addTearDown(() => HostCardSsh.ipv6Loopback = before);
+    HostCardSsh.ipv6Loopback = true;
+    final ServerSocket occupied;
+    try {
+      occupied = await ServerSocket.bind(InternetAddress.loopbackIPv6, 0);
+    } on SocketException {
+      markTestSkipped('this computer has no IPv6 loopback to listen on');
+      return;
+    }
+    addTearDown(occupied.close);
+    final card = HostCardSsh.fromStored({
+      ...cardValues(),
+      'services': {
+        'forge': {'web_port': occupied.port, 'git_port': occupied.port == 18081 ? 18084 : 18081},
+        'matrix': {'port': occupied.port == 18082 ? 18085 : 18082},
+      },
+    });
+    await expectLater(
+      card.checkPortsAvailable(holder: (_) async => null),
+      throwsA(
+        isA<HostFilesRefused>().having(
+          (error) => error.message,
+          'refusal',
+          allOf(contains('alpha'), contains('${occupied.port}'), contains('::1')),
+        ),
+      ),
+    );
+  });
+
+  // Harm: a browser resolving the address to a loopback family the card's forward does not hold reaches whoever does.
+  for (final ipv6 in [true, false]) {
+    test('the browser addresses name only what the forwards hold ${ipv6 ? 'with' : 'without'} an IPv6 loopback', () {
+      final before = HostCardSsh.ipv6Loopback;
+      addTearDown(() => HostCardSsh.ipv6Loopback = before);
+      HostCardSsh.ipv6Loopback = ipv6;
+      final card = HostCardSsh.fromStored(cardValues());
+      const socket = '/run/porelo-forge/web.sock';
+      expect(
+        HostCardSsh.listenSpecs(18080, socket),
+        ipv6 ? ['127.0.0.1:18080:$socket', '[::1]:18080:$socket'] : ['127.0.0.1:18080:$socket'],
+      );
+      expect(card.forgeUrl, ipv6 ? 'http://alpha.localhost:18080/' : 'http://127.0.0.1:18080/');
+      expect(card.matrixUrl, ipv6 ? 'http://alpha.localhost:18082/' : 'http://127.0.0.1:18082/');
+    });
+  }
+
+  // Harm: a computer without ::1 asked to forward on it fails every card's tunnel.
+  test('an IPv6 loopback is found only where Linux lists ::1', () {
+    const loopback = '00000000000000000000000000000001 01 80 10 80       lo\n';
+    const linkLocal = 'fe80000000000000eceeeefffeeeeeee 0b 40 20 80 cali4d42ad3a4ec\n';
+    expect(HostCardSsh.hasIpv6Loopback(ifInet6: linkLocal + loopback), isTrue);
+    expect(HostCardSsh.hasIpv6Loopback(ifInet6: linkLocal), isFalse);
+    expect(HostCardSsh.hasIpv6Loopback(ifInet6: ''), isFalse);
+  });
+
   // Harm: a tunnel started by hand on a fixed port blocks the host's own, and nobody can tell which process to end.
   test('an occupied fixed port names the program and pid that hold it', () async {
     final occupied = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);

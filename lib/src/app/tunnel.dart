@@ -195,7 +195,8 @@ class Tunnel {
       'ServerAliveInterval=15',
       '-o',
       'ServerAliveCountMax=2',
-      for (final (port, socket) in card.forwards) ...['-L', '127.0.0.1:$port:$socket'],
+      for (final (port, socket) in card.forwards)
+        for (final spec in HostCardSsh.listenSpecs(port, socket)) ...['-L', spec],
       '-L',
       '${machine.socketPath}:${card.daemonSocket}',
       if (messengerSocket != null) ...['-R', '${card.returnSocket}:$messengerSocket'],
@@ -1163,7 +1164,10 @@ class Tunnels extends ChangeNotifier {
     final forward = card?.forwards.where((each) => each.$1 == card.webPort).firstOrNull;
     if (card == null || forward == null) return 'This machine has no forge to forward.';
     if (of(machine)?.state != TunnelState.up) return 'The connection to ${card.name} is not up.';
-    final spec = ['-L', '127.0.0.1:${forward.$1}:${forward.$2}', card.name];
+    final spec = [
+      for (final listen in HostCardSsh.listenSpecs(forward.$1, forward.$2)) ...['-L', listen],
+      card.name,
+    ];
     // A forward that is gone already cannot be cancelled, which is no reason not to add it again.
     await _run([openSsh('ssh'), '-F', machine.sshConfig, '-O', 'cancel', ...spec]);
     final added = await _run([openSsh('ssh'), '-F', machine.sshConfig, '-O', 'forward', ...spec]);

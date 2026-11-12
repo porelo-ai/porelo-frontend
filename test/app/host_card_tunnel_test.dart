@@ -1290,7 +1290,11 @@ void main() {
     expect(tunnels.manages(host), isFalse);
   });
 
+  // Harm: a browser resolving <host>.localhost to ::1 first reaches another program listening there, not the card.
   test('publishes a pinned public identity and launches all fixed forwards on one owned master', () async {
+    final before = HostCardSsh.ipv6Loopback;
+    addTearDown(() => HostCardSsh.ipv6Loopback = before);
+    HostCardSsh.ipv6Loopback = true;
     expect(await tunnels.raiseFor(host), isTrue);
     final config = File(host.sshConfig).readAsStringSync();
     expect(config, contains('Host alpha\n'));
@@ -1322,8 +1326,11 @@ void main() {
     ];
     expect(forwards, [
       '127.0.0.1:18080:/run/porelo-forge/web.sock',
+      '[::1]:18080:/run/porelo-forge/web.sock',
       '127.0.0.1:18081:/run/porelo-forge/git.sock',
+      '[::1]:18081:/run/porelo-forge/git.sock',
       '127.0.0.1:18082:/run/porelo-matrix/client.sock',
+      '[::1]:18082:/run/porelo-matrix/client.sock',
       '${host.socketPath}:/run/porelo-host/people/alice/porelod.sock',
     ]);
     expect(command.where((word) => word == '-R'), hasLength(1));
@@ -1333,6 +1340,30 @@ void main() {
     expect(host.stored, isNot(contains('identity')));
     expect(host.hostCard!.forgeUrl, 'http://alpha.localhost:18080/');
     expect(host.hostCard!.matrixUrl, 'http://alpha.localhost:18082/');
+  });
+
+  // Harm: without ::1 a forward asked there fails every tunnel, and an address by name may leave the forward unused.
+  test('without an IPv6 loopback the forwards and the addresses hold 127.0.0.1 alone', () async {
+    final before = HostCardSsh.ipv6Loopback;
+    addTearDown(() => HostCardSsh.ipv6Loopback = before);
+    HostCardSsh.ipv6Loopback = false;
+    expect(await tunnels.raiseFor(host), isTrue);
+    final command = launches.single;
+    expect(command, contains('ExitOnForwardFailure=yes'));
+    expect(
+      [
+        for (var i = 0; i < command.length - 1; i++)
+          if (command[i] == '-L') command[i + 1],
+      ],
+      [
+        '127.0.0.1:18080:/run/porelo-forge/web.sock',
+        '127.0.0.1:18081:/run/porelo-forge/git.sock',
+        '127.0.0.1:18082:/run/porelo-matrix/client.sock',
+        '${host.socketPath}:/run/porelo-host/people/alice/porelod.sock',
+      ],
+    );
+    expect(host.hostCard!.forgeUrl, 'http://127.0.0.1:18080/');
+    expect(host.hostCard!.matrixUrl, 'http://127.0.0.1:18082/');
   });
 
   // Prevents account commands from bypassing the pin or disabling the host's shared master.

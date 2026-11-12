@@ -918,7 +918,11 @@ void main() {
 
   // Harm: a forward that stopped answering stays as it is, and Open its forge opens the same empty reply.
   // Harm: raising the forge's forward anew cuts the person's terminals, daemon link and vault over the same master.
+  // Harm: the forward raised anew holds 127.0.0.1 alone, and ::1 is left to whoever listens there.
   test("raising the forward anew re-adds only the forge's forward on the live master", () async {
+    final before = HostCardSsh.ipv6Loopback;
+    addTearDown(() => HostCardSsh.ipv6Loopback = before);
+    HostCardSsh.ipv6Loopback = true;
     final made = await connections(_mia());
     await made.connect('build');
     final tunnel = machines.tunnels.of(machines.all.singleWhere((machine) => machine.name == 'build'));
@@ -932,7 +936,13 @@ void main() {
       reason: 'the tunnel was not dropped',
     );
     expect(made.up('build'), isTrue);
-    const forward = ['-L', '127.0.0.1:8081:/run/porelo-forge/web.sock', 'build'];
+    const forward = [
+      '-L',
+      '127.0.0.1:8081:/run/porelo-forge/web.sock',
+      '-L',
+      '[::1]:8081:/run/porelo-forge/web.sock',
+      'build',
+    ];
     expect(
       [for (final command in ran) command.sublist(1)],
       [
