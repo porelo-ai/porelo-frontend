@@ -14,11 +14,13 @@ void main() {
     final exited = Completer<int>();
     letGoOnSignals(
       [signal.stream],
-      letGo: () async {
-        happened.add('let go');
-        await Future<void>.delayed(const Duration(milliseconds: 20));
-        happened.add('let go done');
-      },
+      letGo: [
+        () async {
+          happened.add('let go');
+          await Future<void>.delayed(const Duration(milliseconds: 20));
+          happened.add('let go done');
+        },
+      ],
       exit: (code) {
         happened.add('exit');
         exited.complete(code);
@@ -38,7 +40,7 @@ void main() {
     final exited = Completer<int>();
     letGoOnSignals(
       [signal.stream],
-      letGo: () => Completer<void>().future,
+      letGo: [() => Completer<void>().future],
       exit: exited.complete,
       within: const Duration(milliseconds: 100),
     );
@@ -46,5 +48,28 @@ void main() {
     signal.add(ProcessSignal.sigint);
 
     expect(await exited.future.timeout(const Duration(seconds: 2)), 128 + ProcessSignal.sigint.signalNumber);
+  });
+
+  // Harm: the login forwards left running because letting go of the tunnels hung or threw.
+  test('one clean-up that hangs or throws stops none of the others', () async {
+    final signal = StreamController<ProcessSignal>();
+    addTearDown(signal.close);
+    final done = <String>[];
+    final exited = Completer<int>();
+    letGoOnSignals(
+      [signal.stream],
+      letGo: [
+        () => Completer<void>().future,
+        () async => throw StateError('the tunnels would not go'),
+        () async => done.add('forwards'),
+      ],
+      exit: exited.complete,
+      within: const Duration(milliseconds: 200),
+    );
+
+    signal.add(ProcessSignal.sigterm);
+    await exited.future.timeout(const Duration(seconds: 2));
+
+    expect(done, <String>['forwards']);
   });
 }

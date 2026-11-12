@@ -982,16 +982,21 @@ void _leftBehind() {
     String socket, {
     String? forwarding,
     bool stubborn = false,
+    bool slow = false,
+    List<String> more = const <String>[],
   }) async {
     final command = <String>[
       'python3',
       '-c',
-      'import socket,time,signal;'
+      'import socket,time,signal,sys;'
           '${stubborn ? 'signal.signal(signal.SIGTERM,signal.SIG_IGN);' : ''}'
+          // Ends a second after it was asked to, still answering meanwhile.
+          '${slow ? 'signal.signal(signal.SIGTERM,lambda *_:(time.sleep(1),sys.exit(0)));' : ''}'
           's=socket.socket(socket.AF_UNIX);s.bind("$socket");s.listen(8);time.sleep(300)',
       '-L',
       '${forwarding ?? socket}:/run/user/1001/porelo/porelod.sock',
       'user@build',
+      ...more,
     ];
     final process = await Process.start(command.first, command.sublist(1));
     started.add(process);
@@ -1009,8 +1014,14 @@ void _leftBehind() {
   }
 
   /// A forward a run of this interface raised at [socket] and recorded, then ended without asking.
-  Future<Process> leftBy(ForwardRecords earlier, String socket, {String? forwarding, bool stubborn = false}) async {
-    final left = await serving(socket, forwarding: forwarding, stubborn: stubborn);
+  Future<Process> leftBy(
+    ForwardRecords earlier,
+    String socket, {
+    String? forwarding,
+    bool stubborn = false,
+    bool slow = false,
+  }) async {
+    final left = await serving(socket, forwarding: forwarding, stubborn: stubborn, slow: slow);
     earlier.record(left.process.pid, left.command);
     return left.process;
   }
@@ -1101,7 +1112,7 @@ void _leftBehind() {
   test('a record owned by another uid is ignored', () async {
     final socket = '${where.path}/foreign.sock';
     final left = await leftBy(ForwardRecords(records), socket);
-    PathFacts? foreign(String path) => switch (pathFactsOf(path)) {
+    PathFacts? foreign(String path, int? descriptor) => switch (pathFactsOf(path, descriptor)) {
       final facts? when path.endsWith('.forward') => PathFacts(
         owner: facts.owner + 1,
         permissions: facts.permissions,
@@ -1139,6 +1150,14 @@ void _leftBehind() {
     await leftAlone(await raisedAgain(socket, ForwardRecords(records)), left);
   });
 
+  test('records in a directory others may read are ignored', () async {
+    final socket = '${where.path}/readable.sock';
+    final left = await leftBy(ForwardRecords(records), socket);
+    Process.runSync('chmod', <String>['750', records]);
+
+    await leftAlone(await raisedAgain(socket, ForwardRecords(records)), left);
+  });
+
   test('records under a runtime directory that is not 0700 are ignored', () async {
     final socket = '${where.path}/open-runtime.sock';
     final left = await leftBy(ForwardRecords(records), socket);
@@ -1165,6 +1184,77 @@ void _leftBehind() {
 
     expect(DateTime.now().difference(began), lessThan(const Duration(seconds: 5)));
     await leftAlone(tunnel, left);
+    // Harm: an ssh that ignored the end forgotten, and never found again.
+    expect(File('$records/${left.pid}.forward').existsSync(), isTrue, reason: 'it is still running, so still recorded');
+  });
+
+  // Harm: a machine refused because the start did not wait for a leftover that takes a moment to end.
+  test('a leftover that takes a moment to end is waited for, and the machine raised', () async {
+    final socket = '${where.path}/slow.sock';
+    final left = await leftBy(ForwardRecords(records), socket, slow: true);
+
+    final tunnel = await raisedAgain(socket, ForwardRecords(records));
+
+    expect(tunnel.problem, isNull);
+    expect(tunnel.state, TunnelState.up);
+    expect(await alive(left), isFalse);
+  });
+
+  test('a recorded pid whose program differs only in argv[0] is not ended', () async {
+    final socket = '${where.path}/argv0.sock';
+    final left = await serving(socket);
+    ForwardRecords(records).record(left.process.pid, <String>['python', ...left.command.skip(1)]);
+
+    await leftAlone(await raisedAgain(socket, ForwardRecords(records)), left.process);
+  });
+
+  for (final (joint, name) in [('\u0000', 'a NUL'), (' ', 'a space')]) {
+    test('a recorded argument that joins two running ones with $name is not ended', () async {
+      final socket = '${where.path}/joined-${name.length}.sock';
+      final left = await serving(socket, more: <String>['x', 'y']);
+      final recorded = <String>[...left.command.take(left.command.length - 2), 'x${joint}y'];
+      ForwardRecords(records).record(left.process.pid, recorded);
+
+      await leftAlone(await raisedAgain(socket, ForwardRecords(records)), left.process);
+    });
+  }
+
+  // The pid ended and was taken by another process between the check and the pidfd: what the pidfd holds is checked.
+  test('a pid taken by another process before it is pinned is not ended', () async {
+    final socket = '${where.path}/reused.sock';
+    final left = await leftBy(ForwardRecords(records), socket);
+
+    await leftAlone(await raisedAgain(socket, ForwardRecords(records, table: _Told(reusedOnPin: true))), left);
+  });
+
+  // Harm: a pidfd per leftover kept open for the window's whole life.
+  test('every pidfd taken is let go', () async {
+    final socket = '${where.path}/released.sock';
+    await leftBy(ForwardRecords(records), socket);
+    final table = _Told();
+
+    await raisedAgain(socket, ForwardRecords(records, table: table));
+
+    expect(table.pinned, 1);
+    expect(table.released, table.pinned);
+  });
+
+  test('a record replaced after it was checked is not what is read', () async {
+    final socket = '${where.path}/replaced.sock';
+    final left = await serving(socket);
+    // The record as listed and checked names other arguments; what replaces it would name this very forward.
+    ForwardRecords(records).record(left.process.pid, <String>[...left.command, 'other']);
+    final record = '$records/${left.process.pid}.forward';
+    final forged = '${where.path}/forged';
+    ForwardRecords('${where.path}/forging').record(left.process.pid, left.command);
+    File('${where.path}/forging/${left.process.pid}.forward').copySync(forged);
+    final now = ForwardRecords(records)
+      ..afterChecking = (name) {
+        File(record).deleteSync();
+        Link(record).createSync(forged);
+      };
+
+    await leftAlone(await raisedAgain(socket, now), left.process);
   });
 
   // Harm: a record left for a forward that ended normally, to be matched against whatever later takes its pid.
@@ -1182,13 +1272,18 @@ void _leftBehind() {
 
 /// The real process table, except for what a test tells it to say instead.
 class _Told implements ProcessTable {
-  _Told({this.startTime, String? bootId, this.owner, this.pins = true}) : _boot = bootId;
+  _Told({this.startTime, String? bootId, this.owner, this.pins = true, this.reusedOnPin = false}) : _boot = bootId;
 
   static const _real = LinuxProcessTable();
   final String? startTime;
   final String? _boot;
   final int? owner;
   final bool pins;
+
+  /// Once pinned, the pid is another process: one started later.
+  final bool reusedOnPin;
+  int pinned = 0;
+  int released = 0;
 
   @override
   int? get myUid => _real.myUid;
@@ -1200,13 +1295,34 @@ class _Told implements ProcessTable {
   int? ownerOf(int pid) => owner ?? _real.ownerOf(pid);
 
   @override
-  String? startTimeOf(int pid) => startTime ?? _real.startTimeOf(pid);
+  String? startTimeOf(int pid) => startTime ?? (reusedOnPin && pinned > 0 ? '1' : _real.startTimeOf(pid));
 
   @override
   List<String>? argumentsOf(int pid) => _real.argumentsOf(pid);
 
   @override
-  PinnedProcess? pin(int pid) => pins ? _real.pin(pid) : null;
+  PinnedProcess? pin(int pid) {
+    final real = pins ? _real.pin(pid) : null;
+    if (real == null) return null;
+    pinned++;
+    return _Counted(real, () => released++);
+  }
+}
+
+class _Counted implements PinnedProcess {
+  _Counted(this._real, this._released);
+
+  final PinnedProcess _real;
+  final void Function() _released;
+
+  @override
+  bool terminate() => _real.terminate();
+
+  @override
+  void release() {
+    _released();
+    _real.release();
+  }
 }
 
 class _ControlledProcess extends Fake implements Process {

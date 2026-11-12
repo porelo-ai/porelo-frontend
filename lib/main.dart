@@ -131,14 +131,7 @@ Future<PoreloApp> _compose() async {
   windowLog.info('The window started.');
   // Only once in charge: a launch about to be turned away records and ends nothing.
   forwardRecords = ForwardRecords.inRuntime(setIn('XDG_RUNTIME_DIR'))?..removeStale();
-  letGoOnSignals(
-    endingSignals(),
-    letGo: () async {
-      await machines.letGoOfTheTunnels();
-      await letGoOfTheForwards();
-    },
-    exit: exit,
-  );
+  letGoOnSignals(endingSignals(), letGo: [machines.letGoOfTheTunnels, letGoOfTheForwards], exit: exit);
 
   // A card copy a crash left behind is removed now, not only when the next replacement runs.
   final newerVersion = NewerVersion()..watch();

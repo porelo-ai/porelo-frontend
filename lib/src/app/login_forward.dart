@@ -77,7 +77,8 @@ Future<HeldForward> _withSsh(Machine machine, int port) async {
   if (machine.host.isEmpty) return const _Nothing();
   // A forward a run of this interface left behind when it ended without asking holds the port: it is ended first.
   if (forwardRecords?.endLeftovers((line) => forwardsPort(line, port)) ?? false) {
-    for (var wait = 0; wait < 20 && !await _free(port); wait++) {
+    final waited = Stopwatch()..start();
+    while (waited.elapsed < const Duration(seconds: 2) && !await _free(port)) {
       await Future<void>.delayed(const Duration(milliseconds: 100));
     }
   }
@@ -111,7 +112,7 @@ Future<HeldForward> _withSsh(Machine machine, int port) async {
         timeout: const Duration(milliseconds: 200),
       );
       through.destroy();
-      return _Ssh(ssh, records);
+      return _Ssh(ssh);
     } on SocketException {
       // Not yet: ssh binds, then the login on the far end is asked.
     }
@@ -131,15 +132,15 @@ Future<bool> _free(int port) async {
 }
 
 class _Ssh implements HeldForward {
-  _Ssh(this._process, this._records);
+  _Ssh(this._process);
 
   final Process _process;
-  final ForwardRecords? _records;
 
+  // The record goes once the process is seen gone, by the listener on its exit: one that ignores the end stays found.
   @override
   Future<void> close() async {
-    _records?.forget(_process.pid);
     _process.kill();
+    await _process.exitCode.timeout(const Duration(seconds: 2), onTimeout: () => -1);
   }
 }
 

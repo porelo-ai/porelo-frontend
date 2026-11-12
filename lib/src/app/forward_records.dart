@@ -20,8 +20,9 @@ class PathFacts {
   final FileSystemEntityType type;
 }
 
-/// Reads [PathFacts] without following a link, or null where it cannot.
-typedef ReadPathFacts = PathFacts? Function(String path);
+/// Reads [PathFacts] of [path] without following a link, or of the open [descriptor] where one is given (then [path]
+/// only names it), or null where it cannot.
+typedef ReadPathFacts = PathFacts? Function(String path, int? descriptor);
 
 /// One process held by a handle of its own (a pidfd): its pid can no longer be taken by another while it is held.
 abstract interface class PinnedProcess {
@@ -205,7 +206,8 @@ bool _forwards(List<String> command, bool Function(String spec) matches) {
 /// **Only what is provably that very forward is ended**: a recorded pid of this boot, held by a pidfd first, then
 /// still of this account, with the recorded start time and exactly the recorded arguments, which forward the endpoint
 /// asked about, and signalled through that pidfd. A record or directory anybody else could have written is not read,
-/// and a pid this run holds is never ended.
+/// and a pid this run holds is never ended. Every read, write, rename and removal goes through the descriptor of the
+/// directory once it was checked, and a record is checked on the descriptor it is read from.
 class ForwardRecords {
   /// Constructor taking the directory, and for a test the process table and how a path is read.
   ///
@@ -213,7 +215,7 @@ class ForwardRecords {
   /// read or ended.
   ForwardRecords(this.directory, {ProcessTable? table, ReadPathFacts? facts})
     : table = table ?? ProcessTable.of(Platform.operatingSystem),
-      _facts = facts ?? (Platform.isLinux ? pathFactsOf : (_) => null);
+      _facts = facts ?? (Platform.isLinux ? pathFactsOf : (_, _) => null);
 
   /// The records of this desktop session, in `porelo-forwards` under [runtime], the session's `XDG_RUNTIME_DIR`; null
   /// where there is none, or it is no absolute path.
@@ -228,133 +230,80 @@ class ForwardRecords {
 
   final ReadPathFacts _facts;
 
+  /// Told the name of each record once it was checked and before it is read, so a test can replace it in between.
+  @visibleForTesting
+  void Function(String name)? afterChecking;
+
   /// The pids this run started and has not let go of yet.
   final Set<int> _holding = <int>{};
 
-  String _recordOf(int pid) => '$directory/$pid.forward';
+  static String _nameOf(int pid) => '$pid.forward';
 
   /// Records [pid], just started from [command]. A forward without a record is only not found again; nothing is
   /// written where the directory is not this account's alone.
   void record(int pid, List<String> command) {
     _holding.add(pid);
-    final me = table.myUid;
     final boot = table.bootId;
-    if (me == null || boot == null || !_directoryIsMine(me, create: true)) return;
     final start = table.startTimeOf(pid);
-    if (start == null) return;
+    if (boot == null || start == null) return;
     final body = utf8.encode(
       jsonEncode(<String, Object>{'pid': pid, 'boot': boot, 'start': start, 'command': command}),
     );
-    final temporary = '$directory/.$pid.${DateTime.now().microsecondsSinceEpoch}';
-    try {
-      _writeNew(temporary, body);
-      File(temporary).renameSync(_recordOf(pid));
-    } on FileSystemException {
-      _remove(temporary);
-    }
+    _inDirectory(create: true, (folder, _) {
+      final temporary = '.$pid.${DateTime.now().microsecondsSinceEpoch}';
+      if (!_writeNew(folder, temporary, body) || !_rename(folder, temporary, _nameOf(pid))) _unlink(folder, temporary);
+    });
   }
 
-  /// Lets go of [pid], whose forward ended or is being ended, and removes its record.
+  /// Lets go of [pid], whose forward is seen gone, and removes its record.
   void forget(int pid) {
     _holding.remove(pid);
-    final me = table.myUid;
-    if (me == null || !_directoryIsMine(me)) return;
-    _remove(_recordOf(pid));
-  }
-
-  static void _remove(String path) {
-    try {
-      File(path).deleteSync();
-    } on FileSystemException {
-      // Gone already.
-    }
-  }
-
-  bool _directoryIsMine(int me, {bool create = false}) {
-    final parent = _facts(Directory(directory).parent.path);
-    if (parent == null ||
-        parent.type != FileSystemEntityType.directory ||
-        parent.owner != me ||
-        parent.permissions != 0x1c0) {
-      return false; // not 0700
-    }
-    if (create && FileSystemEntity.typeSync(directory, followLinks: false) == FileSystemEntityType.notFound) {
-      try {
-        _makeDirectory(directory);
-      } on FileSystemException {
-        return false;
-      }
-    }
-    final facts = _facts(directory);
-    return facts != null &&
-        facts.type == FileSystemEntityType.directory &&
-        facts.owner == me &&
-        facts.permissions & 0x12 == 0; // no group or other write (0022)
-  }
-
-  static void _makeDirectory(String path) {
-    final made = _native((libc, arena) => libc.mkdir(arena.string(path), 0x1c0)); // 0700
-    if (made != 0) throw FileSystemException('Cannot make the directory', path);
-  }
-
-  static void _writeNew(String path, List<int> bytes) {
-    final written = _native((libc, arena) {
-      // O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0600: with O_EXCL a link at the path is never followed.
-      final descriptor = libc.open(arena.string(path), 0x1 | 0x40 | 0x80 | 0x80000, 0x180);
-      if (descriptor < 0) return false;
-      final buffer = arena.bytes(bytes);
-      var done = 0;
-      var failed = false;
-      while (done < bytes.length) {
-        final wrote = libc.write(descriptor, Pointer<Uint8>.fromAddress(buffer.address + done), bytes.length - done);
-        if (wrote <= 0) {
-          failed = true;
-          break;
-        }
-        done += wrote;
-      }
-      return libc.close(descriptor) == 0 && !failed;
-    });
-    if (!written) throw FileSystemException('Cannot write the record', path);
+    _inDirectory((folder, _) => _unlink(folder, _nameOf(pid)));
   }
 
   /// Ends every forward an earlier run of this interface left that [forwardsIt] says serves the endpoint, and answers
-  /// whether it sent any an end. A record of a forward that is gone is removed.
+  /// whether it sent any an end. A record stays until its process is seen gone, so one that ignores the end is still
+  /// found; a record of a forward that is gone is removed.
   bool endLeftovers(bool Function(List<String> command) forwardsIt) {
-    final me = table.myUid;
     final boot = table.bootId;
-    if (me == null || boot == null || !_directoryIsMine(me)) return false;
-    var ended = false;
-    for (final record in _records(me)) {
-      if (record.boot != boot || _holding.contains(record.pid) || record.pid == pid) continue;
-      if (!forwardsIt(record.command)) continue;
-      // Held first, then checked: once pinned, the pid cannot be taken by another process before the signal.
-      final pinned = table.pin(record.pid);
-      if (pinned == null) continue;
-      try {
-        if (!_stillThat(record)) {
-          _remove(_recordOf(record.pid));
-          continue;
-        }
-        if (table.ownerOf(record.pid) != me || !pinned.terminate()) continue;
-        _remove(_recordOf(record.pid));
-        ended = true;
-      } finally {
-        pinned.release();
-      }
-    }
-    return ended;
+    if (boot == null) return false;
+    return _inDirectory((folder, me) {
+          var ended = false;
+          for (final record in _records(folder, me)) {
+            if (record.boot != boot || _holding.contains(record.pid) || record.pid == pid) continue;
+            if (!forwardsIt(record.command)) continue;
+            // Held first, then checked: once pinned, the pid cannot be taken by another process before the signal.
+            final pinned = table.pin(record.pid);
+            if (pinned == null) {
+              if (table.startTimeOf(record.pid) == null) _unlink(folder, _nameOf(record.pid));
+              continue;
+            }
+            try {
+              if (!_stillThat(record)) {
+                _unlink(folder, _nameOf(record.pid));
+                continue;
+              }
+              if (table.ownerOf(record.pid) != me) continue;
+              if (pinned.terminate()) ended = true;
+            } finally {
+              pinned.release();
+            }
+          }
+          return ended;
+        }) ??
+        false;
   }
 
-  /// Removes the records of forwards that are gone.
+  /// Removes the records of forwards that are gone or of another boot.
   void removeStale() {
-    final me = table.myUid;
-    if (me == null || !_directoryIsMine(me)) return;
-    for (final record in _records(me)) {
-      if (!_holding.contains(record.pid) && (record.boot != table.bootId || !_stillThat(record))) {
-        _remove(_recordOf(record.pid));
+    final boot = table.bootId;
+    _inDirectory((folder, me) {
+      for (final record in _records(folder, me)) {
+        if (!_holding.contains(record.pid) && (record.boot != boot || !_stillThat(record))) {
+          _unlink(folder, _nameOf(record.pid));
+        }
       }
-    }
+    });
   }
 
   // The same process: alive, started at the recorded time, and running exactly the recorded arguments.
@@ -364,37 +313,134 @@ class ForwardRecords {
     return running != null && listEquals(running, record.command);
   }
 
-  /// The records this account alone wrote: regular files, owned by [me], readable and writable by nobody else.
-  Iterable<_Recorded> _records(int me) sync* {
+  /// Runs [work] with the descriptor of the directory, once it and its parent are this account's alone (`0700`).
+  T? _inDirectory<T>(T Function(int folder, int me) work, {bool create = false}) {
+    final me = table.myUid;
+    final flags = _Flags.here;
+    if (me == null || flags == null) return null;
+    final parent = _facts(Directory(directory).parent.path, null);
+    if (parent == null ||
+        parent.type != FileSystemEntityType.directory ||
+        parent.owner != me ||
+        parent.permissions != 0x1c0) {
+      return null;
+    }
+    final libc = _Libc.instance;
+    if (create && FileSystemEntity.typeSync(directory, followLinks: false) == FileSystemEntityType.notFound) {
+      _native((libc, arena) => libc.mkdir(arena.string(directory), 0x1c0));
+    }
+    final folder = _native(
+      (libc, arena) => libc.open(arena.string(directory), flags.directory | flags.noFollow | _oCloexec, 0),
+    );
+    if (folder < 0) return null;
+    try {
+      final facts = _facts(directory, folder);
+      if (facts == null ||
+          facts.type != FileSystemEntityType.directory ||
+          facts.owner != me ||
+          facts.permissions != 0x1c0) {
+        return null;
+      }
+      return work(folder, me);
+    } finally {
+      libc.close(folder);
+    }
+  }
+
+  /// The records this account alone wrote: regular files, owned by [me], readable and writable by nobody else, each
+  /// checked and read on one descriptor.
+  Iterable<_Recorded> _records(int folder, int me) {
     final List<FileSystemEntity> entries;
     try {
-      entries = Directory(directory).listSync(followLinks: false);
+      entries = Directory('/proc/self/fd/$folder').listSync(followLinks: false);
     } on FileSystemException {
-      return;
+      return const <_Recorded>[];
     }
+    final records = <_Recorded>[];
     for (final entry in entries) {
       final name = entry.path.substring(entry.path.lastIndexOf('/') + 1);
       if (!name.endsWith('.forward')) continue;
-      final facts = _facts(entry.path);
+      final bytes = _readRecord(folder, name, me);
+      final record = bytes == null ? null : _parse(name, bytes);
+      if (record != null) records.add(record);
+    }
+    return records;
+  }
+
+  List<int>? _readRecord(int folder, String name, int me) {
+    final flags = _Flags.here!;
+    final libc = _Libc.instance;
+    final file = _native(
+      (libc, arena) => libc.openat(folder, arena.string(name), flags.noFollow | _oNonblock | _oCloexec, 0),
+    );
+    if (file < 0) return null;
+    try {
+      final facts = _facts(name, file);
       if (facts == null ||
           facts.type != FileSystemEntityType.file ||
           facts.owner != me ||
           facts.permissions & 0x3f != 0) {
-        continue; // wider than 0600
+        return null; // wider than 0600
       }
-      final List<int> bytes;
-      try {
-        bytes = File(entry.path).readAsBytesSync();
-      } on FileSystemException {
-        continue;
-      }
-      if (bytes.length > _mostBytes) continue;
-      final record = _parse(name, bytes);
-      if (record != null) yield record;
+      afterChecking?.call(name);
+      return _native((libc, arena) {
+        final buffer = arena.allocate(_mostBytes + 1).cast<Uint8>();
+        var done = 0;
+        while (done <= _mostBytes) {
+          final read = libc.read(file, Pointer<Uint8>.fromAddress(buffer.address + done), _mostBytes + 1 - done);
+          if (read < 0) return null;
+          if (read == 0) break;
+          done += read;
+        }
+        return done > _mostBytes ? null : List<int>.of(buffer.asTypedList(done));
+      });
+    } finally {
+      libc.close(file);
     }
   }
 
+  static bool _writeNew(int folder, String name, List<int> bytes) => _native((libc, arena) {
+    // O_WRONLY | O_CREAT | O_EXCL, 0600: with O_EXCL a link at the name is never followed.
+    final descriptor = libc.openat(folder, arena.string(name), 0x1 | 0x40 | 0x80 | _oCloexec, 0x180);
+    if (descriptor < 0) return false;
+    final buffer = arena.bytes(bytes);
+    var done = 0;
+    var failed = false;
+    while (done < bytes.length) {
+      final wrote = libc.write(descriptor, Pointer<Uint8>.fromAddress(buffer.address + done), bytes.length - done);
+      if (wrote <= 0) {
+        failed = true;
+        break;
+      }
+      done += wrote;
+    }
+    return libc.close(descriptor) == 0 && !failed;
+  });
+
+  static bool _rename(int folder, String from, String to) =>
+      _native((libc, arena) => libc.renameat(folder, arena.string(from), folder, arena.string(to)) == 0);
+
+  static void _unlink(int folder, String name) =>
+      _native((libc, arena) => libc.unlinkat(folder, arena.string(name), 0));
+
   static const _mostBytes = 64 * 1024;
+}
+
+const _oCloexec = 0x80000;
+const _oNonblock = 0x800;
+
+/// The open flags whose values differ between the architectures this runs on; null on any other.
+class _Flags {
+  const _Flags(this.directory, this.noFollow);
+
+  final int directory;
+  final int noFollow;
+
+  static final _Flags? here = switch (Abi.current()) {
+    Abi.linuxX64 => const _Flags(0x10000, 0x20000),
+    Abi.linuxArm64 => const _Flags(0x4000, 0x8000),
+    _ => null,
+  };
 }
 
 /// One record, as read.
@@ -432,12 +478,16 @@ _Recorded? _parse(String name, List<int> bytes) {
   return null;
 }
 
-/// What [path] is on Linux, read with `statx` without following a link, or null where it cannot be read.
-PathFacts? pathFactsOf(String path) => _native((libc, arena) {
+/// What [path] is on Linux, read with `statx` without following a link, or what the open [descriptor] is where one is
+/// given; null where it cannot be read.
+PathFacts? pathFactsOf(String path, int? descriptor) => _native((libc, arena) {
   final buffer = arena.allocate(256);
-  // AT_FDCWD, AT_SYMLINK_NOFOLLOW, STATX_TYPE | STATX_MODE | STATX_UID; the layout of struct statx is the same on
-  // every architecture: stx_uid at 20, stx_mode at 28.
-  if (libc.statx(-100, arena.string(path), 0x100, 0x1 | 0x2 | 0x8, buffer) != 0) return null;
+  // AT_FDCWD or the descriptor with AT_EMPTY_PATH, AT_SYMLINK_NOFOLLOW, STATX_TYPE | STATX_MODE | STATX_UID; the layout
+  // of struct statx is the same on every architecture: stx_uid at 20, stx_mode at 28.
+  final asked = descriptor == null
+      ? libc.statx(-100, arena.string(path), 0x100, 0x1 | 0x2 | 0x8, buffer)
+      : libc.statx(descriptor, arena.string(''), 0x1000 | 0x100, 0x1 | 0x2 | 0x8, buffer);
+  if (asked != 0) return null;
   final data = ByteData.sublistView(buffer.cast<Uint8>().asTypedList(256));
   final mode = data.getUint16(28, Endian.host);
   final type = switch (mode & 0xf000) {
@@ -469,9 +519,7 @@ class _Arena {
     final pointer = _libc.malloc(bytes);
     if (pointer.address == 0) throw const FileSystemException('Out of memory');
     _held.add(pointer);
-    for (var i = 0; i < bytes; i++) {
-      pointer.cast<Uint8>()[i] = 0;
-    }
+    pointer.cast<Uint8>().asTypedList(bytes).fillRange(0, bytes, 0);
     return pointer;
   }
 
@@ -501,6 +549,24 @@ class _Libc {
           .lookupFunction<Int32 Function(Pointer<Uint8>, Int32, Uint32), int Function(Pointer<Uint8>, int, int)>(
             'open',
           ),
+      openat = library
+          .lookupFunction<
+            Int32 Function(Int32, Pointer<Uint8>, Int32, Uint32),
+            int Function(int, Pointer<Uint8>, int, int)
+          >('openat'),
+      renameat = library
+          .lookupFunction<
+            Int32 Function(Int32, Pointer<Uint8>, Int32, Pointer<Uint8>),
+            int Function(int, Pointer<Uint8>, int, Pointer<Uint8>)
+          >('renameat'),
+      unlinkat = library
+          .lookupFunction<Int32 Function(Int32, Pointer<Uint8>, Int32), int Function(int, Pointer<Uint8>, int)>(
+            'unlinkat',
+          ),
+      read = library
+          .lookupFunction<IntPtr Function(Int32, Pointer<Uint8>, IntPtr), int Function(int, Pointer<Uint8>, int)>(
+            'read',
+          ),
       write = library
           .lookupFunction<IntPtr Function(Int32, Pointer<Uint8>, IntPtr), int Function(int, Pointer<Uint8>, int)>(
             'write',
@@ -518,6 +584,10 @@ class _Libc {
   final void Function(Pointer<Void>) free;
   final int Function(Pointer<Uint8>, int) mkdir;
   final int Function(Pointer<Uint8>, int, int) open;
+  final int Function(int, Pointer<Uint8>, int, int) openat;
+  final int Function(int, Pointer<Uint8>, int, Pointer<Uint8>) renameat;
+  final int Function(int, Pointer<Uint8>, int) unlinkat;
+  final int Function(int, Pointer<Uint8>, int) read;
   final int Function(int, Pointer<Uint8>, int) write;
   final int Function(int) close;
   final int Function(int, Pointer<Uint8>, int, int, Pointer<Void>) statx;

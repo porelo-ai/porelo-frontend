@@ -233,11 +233,12 @@ class Tunnel {
     if (generation != _generation) return;
     // Unless it is the very forward a run of this interface left behind when it ended without asking.
     if (alreadyServing && (_records?.endLeftovers((line) => forwardsSocket(line, machine.socketPath)) ?? false)) {
-      for (var wait = 0; wait < 20 && await _somebodyIsServing(); wait++) {
-        await Future<void>.delayed(const Duration(milliseconds: 100));
+      // A monotonic deadline, each probe capped by what is left of it: a probe that hangs cannot stretch the wait.
+      final waited = Stopwatch()..start();
+      while (alreadyServing && waited.elapsed < leftoverEnds) {
+        alreadyServing = await _somebodyIsServing(within: _leftOf(waited, const Duration(seconds: 1)));
+        if (alreadyServing) await Future<void>.delayed(_leftOf(waited, const Duration(milliseconds: 100)));
       }
-      if (generation != _generation) return;
-      alreadyServing = await _somebodyIsServing();
       if (generation != _generation) return;
     }
     if (alreadyServing) {
@@ -545,17 +546,29 @@ class Tunnel {
   // not among them was left by an earlier run of this interface, or is another instance's.
   static final Map<String, Tunnel> _mastersHere = {};
 
-  /// Whether something answers at the endpoint. A leftover socket does not.
-  Future<bool> _somebodyIsServing() async {
+  /// How long a forward left behind is given to stop answering once it was asked to end.
+  static const leftoverEnds = Duration(seconds: 2);
+
+  static Duration _leftOf(Stopwatch waited, Duration most) {
+    final left = leftoverEnds - waited.elapsed;
+    if (left <= Duration.zero) return const Duration(milliseconds: 1);
+    return left < most ? left : most;
+  }
+
+  /// Whether something answers at the endpoint. A leftover socket does not; one that has not answered within [within]
+  /// may still, so it counts as answering.
+  Future<bool> _somebodyIsServing({Duration within = const Duration(seconds: 1)}) async {
+    final connecting = Socket.connect(InternetAddress(machine.socketPath, type: InternetAddressType.unix), 0);
     try {
-      final socket = await Socket.connect(
-        InternetAddress(machine.socketPath, type: InternetAddressType.unix),
-        0,
-        timeout: const Duration(seconds: 1),
-      );
-      socket.destroy();
+      (await connecting.timeout(within)).destroy();
+      return true;
+    } on TimeoutException {
+      unawaited(connecting.then((socket) => socket.destroy(), onError: (Object _) {}));
       return true;
     } on SocketException {
+      return false;
+    } on OSError {
+      // A listener that went while being connected to resets the connection, raised bare.
       return false;
     }
   }

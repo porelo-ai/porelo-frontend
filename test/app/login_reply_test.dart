@@ -221,11 +221,12 @@ void main() {
     }
 
     /// A process listening on [port] whose own command line forwards it as a login forward's ssh does.
-    Future<({Process process, List<String> command})> listening(int port) async {
+    Future<({Process process, List<String> command})> listening(int port, {bool stubborn = false}) async {
       final command = <String>[
         'python3',
         '-c',
-        'import socket,time;s=socket.socket();s.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1);'
+        'import socket,time,signal;${stubborn ? 'signal.signal(signal.SIGTERM,signal.SIG_IGN);' : ''}'
+            's=socket.socket();s.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1);'
             's.bind(("127.0.0.1",$port));s.listen(8);time.sleep(300)',
         '-L',
         '$port:localhost:$port',
@@ -262,6 +263,18 @@ void main() {
       addTearDown(held.close);
 
       expect(await alive(left.process), isFalse, reason: 'the forward left behind was ended');
+    });
+
+    // Harm: an ssh that ignored being taken down forgotten, and never found again at the next start.
+    test('a forward taken down stays recorded while its process still runs', () async {
+      final port = await freePort();
+      forwardRecords = ForwardRecords(records);
+      startLoginForward = (_) async => (await listening(port, stubborn: true)).process;
+
+      final held = await withSsh(vm, port);
+      await held.close();
+
+      expect(File('$records/${started.last.pid}.forward').existsSync(), isTrue);
     });
 
     // Harm: a forward this run holds for one login ended by another login asking for the same port.
