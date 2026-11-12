@@ -16,6 +16,7 @@
 
 **Why this size.** M: the planner's start keeps what it started and the pipe to it, the window's end runs on closing
 and on SIGTERM and SIGINT, which it does not catch today, and a test of each; no contract changes on the window's side.
+`StartPlanner` answering the `Process` touches the 16 fake starts of the planner's tests.
 The planner's end on a closed pipe is the planner's own part, `--end-with-input`.
 
 **What must be true.** A person who ends the window finds no planner left running that the window started, and can
@@ -53,10 +54,12 @@ instance one built from source, could not start until it was killed by hand.
   `ProcessSignal.sigterm` and `sigint` watches in `lib/main.dart`, which run the same end and then `exit(0)`
   (watching them takes their default end away, so they must end the window themselves). A hard kill (SIGKILL, a
   crash, `q` in `flutter run`) runs neither; the closed pipe ends the planner then.
-- Tests, red first: `test/client/planner_end_test.dart` with a fake start and a fake address file: the start asks for
-  `--end-with-input` and keeps the standard input open; a planner the window started is ended on `end()`; one it found
-  serving is not; one whose address file names another address is not; one that ignores SIGTERM is killed. The signal
-  watches get a test of the function they call, not of a real signal.
+- `_letGo` reaches the planner through `widget.planning?.client`, by a small interface beside `NamesItsLog`
+  (`EndsWithTheWindow`) that `LocalPlanner` implements.
+- Tests, red first: `test/app/planner_end_test.dart`, beside the planner's other tests, with a fake start and a fake
+  address file: the start asks for `--end-with-input` and keeps the standard input open; a planner the window started
+  is ended on `end()`; one it found serving is not; one whose address file names another address is not; one that
+  ignores SIGTERM is killed. The signal watches get a test of the function they call, not of a real signal.
 
 ## Acceptance
 
@@ -66,7 +69,9 @@ instance one built from source, could not start until it was killed by hand.
   started runs.
 - A planner that served before the window started still serves after it ended.
 
-## To be checked
+## Checked
 
-- Whether the planner removes `planner.json` on SIGTERM; if it does not, `end()` removes it only while it still names
-  the address the window started.
+- The planner removes `planner.json` itself on a graceful stop (its address file closes with the planner's context and
+  deletes the file while it holds the lock), so `end()` only ends the planner and leaves the file alone.
+- porelo-planner does not serve `--end-with-input` yet; a planner started with an option it does not know refuses to
+  start, so this issue is built only after it does.
