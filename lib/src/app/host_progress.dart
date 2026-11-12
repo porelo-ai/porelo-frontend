@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:porelo_frontend/client.dart' show Repository;
 import 'package:porelo_host/porelo_host.dart' show poreloHostCommand;
 
+import 'machines.dart' show openSsh;
 import 'organization_source.dart';
 import 'run_here.dart';
 
@@ -359,7 +360,7 @@ class SshHostProgress {
     }
   }
 
-  Future<Ran> _ssh(String config, String host, String verb) => _run('ssh', [
+  Future<Ran> _ssh(String config, String host, String verb) => _run(openSsh('ssh'), [
     '-F',
     config,
     '-T',

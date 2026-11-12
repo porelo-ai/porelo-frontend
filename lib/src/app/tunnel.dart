@@ -3,14 +3,17 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:porelo_frontend/client.dart' show PoreloClient;
 import 'package:porelo_host/porelo_host.dart' show HostCardSsh, HostFileWriter, HostFilesRefused;
 
 import 'connections.dart';
+import 'desk.dart';
 import 'machines.dart';
 import 'host_keys.dart';
 import 'own_sockets.dart';
 import 'fleet_backend.dart';
 import 'forward_records.dart';
+import 'loopback_carrier.dart';
 import 'owned_process.dart';
 import 'ssh_words.dart';
 
@@ -78,13 +81,15 @@ class Tunnel {
     this.onTurnedAway,
     ForwardRecords? records,
     ConnectToSocket? connect,
+    CarrierBudget? budget,
   }) : _ownRecords = records,
        _connect = connect ?? connectToSocket,
        _launch = start ?? _runIt,
        _tighten = run ?? _runAndWait,
        _untilItBinds = appears,
        _untilExplained = explains,
-       _unlocker = unlocker ?? CoreHostUnlocker(environment: configEnvironment);
+       _unlocker = unlocker ?? CoreHostUnlocker(environment: configEnvironment),
+       _budget = budget ?? CarrierBudget();
 
   /// The local public-key availability check, without agent forwarding.
   final Future<bool> Function(HostCardSsh)? keyAvailable;
@@ -113,8 +118,17 @@ class Tunnel {
   final Map<String, String>? configEnvironment;
   final HostUnlocker _unlocker;
 
+  /// What the connections carried on Windows may spend, shared with every card of the window.
+  final CarrierBudget _budget;
+
+  /// On Windows, the card's ports the window holds itself, from the first raise until [drop].
+  LoopbackCarrier? _carrier;
+
   /// The vault refusal beside an SSH-reached host, independent of daemon readiness.
   String? vaultProblem;
+
+  /// On Windows, why the last connection to one of the card's services was refused by the host, or null.
+  String? serviceProblem;
 
   /// Core's last public vault result, separate from SSH readiness.
   HostUnlockState? vaultState;
@@ -227,6 +241,26 @@ class Tunnel {
       card.name,
     ];
   }
+
+  /// The command that carries one connection of [role] to [machine]'s card host on Windows: an ssh of its own through
+  /// the card's config, running the host's relay for that role alone. The host maps the role to its fixed socket and
+  /// refuses any other word, a path, an option or a second argument.
+  static List<String> carryCommand(Machine machine, CarriedRole role) => [
+    openSsh('ssh'),
+    '-F',
+    machine.sshConfig,
+    '-T',
+    '--',
+    machine.hostCard!.name,
+    inTheLoginShell('porelo service connect ${role.word}'),
+  ];
+
+  /// Each port of [card] with the role it carries to.
+  static Map<int, CarriedRole> _rolesOf(HostCardSsh card) => {
+    ?card.webPort: CarriedRole.forgeWeb,
+    ?card.gitPort: CarriedRole.forgeGit,
+    ?card.matrixPort: CarriedRole.homeserver,
+  };
 
   /// Raises it, and waits until the socket is there or the transport says why not.
   Future<void> raise() async {
@@ -369,9 +403,13 @@ class Tunnel {
   Future<void> _raiseCard() async {
     final generation = ++_generation;
     final card = machine.hostCard!;
+    final windows = desk.isWindows;
     _wanted = true;
     if (state != TunnelState.down && state != TunnelState.waitingForKey) problem = null;
     state = TunnelState.raising;
+    // Nothing is carried while it is not up: what was carried before is closed, and what comes is closed at once.
+    _carrier?.stopCarrying();
+    serviceProblem = null;
     vaultProblem = null;
     vaultState = null;
     try {
@@ -379,6 +417,7 @@ class Tunnel {
       await _unlocker.cancel(card.name);
       if (generation != _generation) return;
       _clearOwnedCardEndpoints();
+      if (windows) return await _raiseOnWindows(generation, card);
       HostCardSsh.checkLocalSocket(machine.socketPath);
       HostCardSsh.checkLocalSocket(card.controlSocket(machine.sshConfig));
       if (messengerSocket != null) HostCardSsh.checkMessengerSocket(messengerSocket!);
@@ -404,7 +443,7 @@ class Tunnel {
         problem = 'Waiting for your key. Unlock KeePassXC with your selected key available.';
         return;
       }
-      await card.publish(machine.sshConfig, writer: writer, environment: configEnvironment);
+      await card.publish(machine.sshConfig, writer: writer, environment: configEnvironment, windows: false);
       if (generation != _generation) return;
       // Only where nobody else can put a file is what is found there later told apart; anywhere else nothing is launched.
       for (final endpoint in [machine.socketPath, card.controlSocket(machine.sshConfig)]) {
@@ -480,6 +519,178 @@ class Tunnel {
     }
   }
 
+  /// On Windows, whose OpenSSH holds no master and binds a `-L` port it cannot prove its own, the window holds the
+  /// card's ports itself, on both families, from the first raise until [drop], through every reconnect; each
+  /// connection goes over an ssh of its own. Up only once the daemon answered through the relay.
+  Future<void> _raiseOnWindows(int generation, HostCardSsh card) async {
+    var carrier = _carrier;
+    if (carrier == null) {
+      carrier = LoopbackCarrier(
+        _rolesOf(card),
+        carry: (role) => _launch(carryCommand(machine, role)),
+        budget: _budget,
+        onExit: _carriedExited,
+      );
+      _carrier = carrier;
+      try {
+        await carrier.hold();
+      } on CarrierRefused catch (refused) {
+        if (identical(_carrier, carrier)) _carrier = null;
+        if (generation != _generation) return;
+        state = TunnelState.down;
+        problem = 'Machine ${card.name} cannot connect: ${refused.message}';
+        return;
+      }
+      if (generation != _generation || !identical(_carrier, carrier)) return;
+    }
+    final available = await (keyAvailable?.call(card) ?? _agentHasKey(card));
+    if (generation != _generation) return;
+    if (!available) {
+      state = TunnelState.waitingForKey;
+      problem = 'Waiting for your key. Unlock KeePassXC with your selected key available.';
+      return;
+    }
+    await card.publish(machine.sshConfig, writer: writer, environment: configEnvironment, windows: true);
+    if (generation != _generation) return;
+    final refused = await _askTheDaemon(generation);
+    if (generation != _generation || state != TunnelState.raising) return;
+    if (refused != null) {
+      state = TunnelState.down;
+      problem = refused.words;
+      _turnedAway = refused.turnedAway;
+      if (_turnedAway) onTurnedAway?.call();
+      return;
+    }
+    carrier.carrying = true;
+    problem = null;
+    state = TunnelState.up;
+    await unlockVault();
+  }
+
+  /// Says why the host's relay refused a carried connection: 64, a role the host does not offer; 69, a service that
+  /// does not answer there. Any other end, such as the client leaving, says nothing.
+  void _carriedExited(CarriedRole role, int code) {
+    final service = switch (role) {
+      CarriedRole.forgeWeb => "forge's web interface",
+      CarriedRole.forgeGit => "forge's Git service",
+      CarriedRole.homeserver => 'homeserver',
+    };
+    final name = machine.hostCard!.name;
+    final said = switch (code) {
+      64 => 'Machine $name does not offer its $service: its card names none, or its porelo does not know it.',
+      69 => "Machine $name's $service does not answer there; it is down or still starting on the host.",
+      _ => null,
+    };
+    if (said == null || said == serviceProblem) return;
+    serviceProblem = said;
+    onChanged?.call();
+  }
+
+  /// Asks the daemon what it is through the relay's own ssh, the card's config pinning its host key and key: null once
+  /// it answered as a Porelo daemon this window speaks to, else why not. Nothing ssh says on its own is believed.
+  Future<({String words, bool turnedAway})?> _askTheDaemon(int generation) async {
+    final relay = machine.relay?.command;
+    if (relay == null) return (words: 'This computer has no way to reach the machine\'s daemon.', turnedAway: false);
+    // The probe's ssh uses the person's key like a carried connection's, so it counts under the same cap of all.
+    if (!_budget.take()) {
+      return (
+        words:
+            'This computer already holds as many connections to machines as it allows; Connect again once some '
+            'have ended.',
+        turnedAway: false,
+      );
+    }
+    final Process process;
+    try {
+      process = await _launch(relay);
+    } on Object {
+      _budget.giveBack();
+      rethrow;
+    }
+    // Its place is free only once it exited.
+    unawaited(process.exitCode.then<void>((_) => _budget.giveBack(), onError: (Object _) => _budget.giveBack()));
+    if (generation != _generation) {
+      await stopOwnedProcess(process);
+      return null;
+    }
+    _process = process;
+    raised++;
+    final said = <int>[];
+    // Bounded, as a relay may print without end.
+    final saying = process.stderr.forEach((bytes) {
+      said.addAll(bytes);
+      if (said.length > 8192) said.removeRange(0, said.length - 8192);
+    });
+    // A relay gone before it was asked fails here, unawaited otherwise.
+    unawaited(process.stdin.done.then<void>((_) {}, onError: (Object _) {}));
+    try {
+      process.stdin.add(utf8.encode('{"method":"org.varlink.service.GetInfo","parameters":{}}\x00'));
+      final frame = await _firstFrame(process.stdout).timeout(_untilItBinds);
+      if (_isPoreloInfo(frame)) return null;
+      return (
+        words: 'Machine ${machine.hostCard!.name} answered, but not as a Porelo daemon this window speaks to.',
+        turnedAway: false,
+      );
+    } on Object {
+      if (generation != _generation) return null;
+      final code = await process.exitCode.timeout(const Duration(seconds: 1), onTimeout: () => -1);
+      await saying.timeout(const Duration(seconds: 1), onTimeout: () {}).catchError((Object _) {});
+      final lines = const LineSplitter().convert(utf8.decode(said, allowMalformed: true));
+      final words = lines.join(' ');
+      return (
+        words: code == -1 && lines.isEmpty
+            ? 'The machine\'s daemon did not answer within ${_untilItBinds.inSeconds} seconds.'
+            : _cardStopped(lines, code),
+        turnedAway: words.contains('Permission denied'),
+      );
+    } finally {
+      if (identical(_process, process)) await _stopWhatWeStarted();
+    }
+  }
+
+  /// The first NUL-ended frame on [stdout], decoded; a frame past 64 KiB, or output that ends first, throws.
+  static Future<Object?> _firstFrame(Stream<List<int>> stdout) async {
+    final bytes = <int>[];
+    await for (final chunk in stdout) {
+      final end = chunk.indexOf(0);
+      bytes.addAll(end < 0 ? chunk : chunk.take(end));
+      if (bytes.length > 64 * 1024) throw const FormatException('The answer passed 64 KiB without ending.');
+      if (end >= 0) return jsonDecode(utf8.decode(bytes));
+    }
+    throw const FormatException('The relay ended before an answer.');
+  }
+
+  /// Whether [frame] is a complete, final GetInfo answer of a daemon serving an interface this window speaks: no
+  /// error, not one of several, and every field GetInfo promises.
+  static bool _isPoreloInfo(Object? frame) {
+    if (frame is! Map<String, dynamic> || frame.containsKey('error')) return false;
+    if (frame['continues'] != null && frame['continues'] != false) return false;
+    final info = frame['parameters'];
+    if (info is! Map<String, dynamic>) return false;
+    if (info['product'] is! String || info['version'] is! String || info['vendor'] is! String) return false;
+    final interfaces = info['interfaces'];
+    return interfaces is List &&
+        interfaces.every((each) => each is String) &&
+        interfaces.any(PoreloClient.supported.contains);
+  }
+
+  /// Why a card's ssh stopped, from its own words, for the person.
+  static String _cardStopped(List<String> said, int code) {
+    final words = said.join(' ');
+    return words.contains('Host key verification failed') || words.contains('REMOTE HOST IDENTIFICATION HAS CHANGED')
+        ? hostKeyPinRefusal
+        : words.contains('Permission denied')
+        ? 'The machine refused this account or its selected key. A machine makes your account only after it has read '
+              'the organization, up to five minutes after your project is on it, and a machine still waiting for a '
+              'token has made none yet.'
+        : words.contains('forwarding failed') || words.contains('Address already in use')
+        ? 'The machine connection could not use its required local port or socket.'
+        : switch (sshLastWords(said)) {
+            final reason? => 'The SSH connection stopped: $reason',
+            null => 'The SSH connection stopped (exit $code).',
+          };
+  }
+
   /// Ends a master of this card that no tunnel of this program started, and the endpoints it left: its control socket
   /// lies where only this desktop's card puts one. One whose configuration is gone is no tunnel anybody can use or
   /// raise again; one whose configuration names this card's own login was left by an earlier run of this interface for
@@ -531,6 +742,7 @@ class Tunnel {
     _generation++;
     _wanted = false;
     state = TunnelState.down;
+    _carrier?.stopCarrying();
     if (machine.hostCard != null) await _unlocker.cancel(machine.hostCard!.name);
   }
 
@@ -568,6 +780,9 @@ class Tunnel {
     _wanted = false;
     if (machine.hostCard != null && wasWanted) await _unlocker.cancel(machine.hostCard!.name);
     await _stopWhatWeStarted();
+    final carrier = _carrier;
+    _carrier = null;
+    await carrier?.release();
     if (machine.hostCard == null) {
       // Only an endpoint this tunnel's ssh made: one refused as somebody else's stays where it is.
       _removeWhatWeMade();
@@ -605,7 +820,7 @@ class Tunnel {
     TunnelState.down => problem,
     TunnelState.waitingForKey => problem,
     // Up, and the host vault not opened from here: why is said, since every project on it waits.
-    TunnelState.up => vaultProblem,
+    TunnelState.up => vaultProblem ?? serviceProblem,
     _ => null,
   };
 
@@ -617,19 +832,7 @@ class Tunnel {
     final words = said.join(' ');
     state = TunnelState.down;
     if (machine.hostCard != null) {
-      problem =
-          words.contains('Host key verification failed') || words.contains('REMOTE HOST IDENTIFICATION HAS CHANGED')
-          ? hostKeyPinRefusal
-          : words.contains('Permission denied')
-          ? 'The machine refused this account or its selected key. A machine makes your account only after it has read '
-                'the organization, up to five minutes after your project is on it, and a machine still waiting for a '
-                'token has made none yet.'
-          : words.contains('forwarding failed') || words.contains('Address already in use')
-          ? 'The machine connection could not use its required local port or socket.'
-          : switch (sshLastWords(said)) {
-              final reason? => 'The SSH connection stopped: $reason',
-              null => 'The SSH connection stopped (exit $code).',
-            };
+      problem = _cardStopped(said, code);
       _turnedAway = words.contains('Permission denied');
       if (_turnedAway) onTurnedAway?.call();
       await _unlocker.cancel(machine.hostCard!.name);
@@ -695,7 +898,9 @@ class Tunnels extends ChangeNotifier {
     this.messengerSocket,
     this.writer,
     this.configEnvironment,
-  }) : _launch = start,
+    CarrierBudget? carrierBudget,
+  }) : _budget = carrierBudget ?? CarrierBudget(),
+       _launch = start,
        _run = run ?? _runIt,
        _untilItBinds = appears,
        _unlocker = unlocker ?? CoreHostUnlocker(environment: configEnvironment);
@@ -708,6 +913,9 @@ class Tunnels extends ChangeNotifier {
 
   /// The local messenger return endpoint, if needed.
   final String? messengerSocket;
+
+  /// What every card's carried connections may spend together, on Windows.
+  final CarrierBudget _budget;
 
   /// The private public-file publisher.
   final HostFileWriter? writer;
@@ -902,10 +1110,15 @@ class Tunnels extends ChangeNotifier {
   Future<bool> _raiseFor(Machine machine, _TunnelRequest request) async {
     // A machine this build cannot reach is said so where it is opened, never forwarded.
     if (machine.hostCard != null && machine.whyNotReachableHere != null) return false;
-    if (!machine.needsATunnel || machine.whyNotReachableHere != null || machine.relay != null) return true;
+    // A card's relay carries only the daemon; its services, the return path and Core's unlock still need the tunnel.
+    if (!machine.needsATunnel ||
+        machine.whyNotReachableHere != null ||
+        (machine.relay != null && machine.hostCard == null)) {
+      return true;
+    }
     final tunnel = _mine.putIfAbsent(_key(machine), () => _newTunnel(machine));
     request.interrupt = tunnel._cancelRaise;
-    if (tunnel.state == TunnelState.up) {
+    if (tunnel.state == TunnelState.up && !request.asksAgain) {
       if (machine.hostCard != null && tunnel.vaultState != HostUnlockState.unlocked) await tunnel.unlockVault();
       return tunnel.state == TunnelState.up;
     }
@@ -962,6 +1175,7 @@ class Tunnels extends ChangeNotifier {
     unlocker: _unlocker,
     messengerSocket: messengerSocket,
     writer: writer,
+    budget: _budget,
     configEnvironment: configEnvironment,
     awaitsAdmission: () => machine.hostCard != null && awaitsAdmission(machine.hostCard!.name),
     onTurnedAway: () {
@@ -993,13 +1207,20 @@ class Tunnels extends ChangeNotifier {
       () => _serial.run<void>([_queueKey(machine)], () async {
         try {
           final tunnel = _mine[_key(machine)];
+          // A card carried on Windows has no ssh of its own whose end says it dropped: its daemon is asked again.
+          final asksAgain = tunnel?._carrier != null && tunnel?.state == TunnelState.up;
           if (_closing ||
               request.canceled ||
               !_retained.contains(_key(machine)) ||
-              (tunnel != null && tunnel.state != TunnelState.down && tunnel.state != TunnelState.waitingForKey)) {
+              (tunnel != null &&
+                  !asksAgain &&
+                  tunnel.state != TunnelState.down &&
+                  tunnel.state != TunnelState.waitingForKey)) {
             return;
           }
-          request.started = true;
+          request
+            ..started = true
+            ..asksAgain = asksAgain;
           await _raiseShared(machine, request);
         } finally {
           _requests.remove(request);
@@ -1215,6 +1436,8 @@ class Tunnels extends ChangeNotifier {
     final forward = card?.forwards.where((each) => each.$1 == card.webPort).firstOrNull;
     if (card == null || forward == null) return 'This machine has no forge to forward.';
     if (of(machine)?.state != TunnelState.up) return 'The connection to ${card.name} is not up.';
+    // On Windows the window holds the forge's port itself and each connection opens its own ssh: nothing to raise anew.
+    if (of(machine)?._carrier != null) return null;
     final spec = [
       for (final listen in HostCardSsh.listenSpecs(forward.$1, forward.$2)) ...['-L', listen],
       card.name,
@@ -1259,7 +1482,7 @@ class Tunnels extends ChangeNotifier {
     if (card == null) return;
     await _serial.run<void>([_queueKey(machine)], () async {
       if (_cardOwners.containsKey(card.name) || _mine.containsKey(_key(machine))) return;
-      await card.unpublish(machine.sshConfig, environment: configEnvironment);
+      await card.unpublish(machine.sshConfig, environment: configEnvironment, windows: desk.isWindows);
     });
   }
 
@@ -1331,6 +1554,9 @@ class _TunnelRequest {
   final bool trial;
   bool started = false;
   bool canceled = false;
+
+  /// Whether a tunnel that is up is raised again all the same, to ask its daemon anew.
+  bool asksAgain = false;
   Future<void> Function()? interrupt;
 }
 

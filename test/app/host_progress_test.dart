@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:porelo_frontend/src/app/desk.dart';
 import 'package:porelo_frontend/src/app/host_progress.dart';
 import 'package:porelo_frontend/src/app/organization_source.dart';
 
@@ -142,6 +143,17 @@ void main() {
       expect(asked, containsAll(['ForwardAgent=no', 'BatchMode=yes', 'root@build']));
       expect(asked.last, SshHostProgress.refreshVerb);
       expect(fed, '');
+    });
+
+    // Harm: on Windows another ssh.exe, on the PATH or in the current folder, is handed the person's key to reach root.
+    test("on Windows root is asked through Windows' own OpenSSH", () async {
+      final before = desk;
+      desk = Desk.of('windows', const {'SystemRoot': r'D:\Windows'});
+      addTearDown(() => desk = before);
+
+      await progress.status(r'C:\c\build.conf', 'build');
+
+      expect(asked.first, r'D:\Windows\System32\OpenSSH\ssh.exe');
     });
 
     // Harm: the window asks for a program the host no longer has, so every machine page says the host refused, and

@@ -219,7 +219,8 @@ class CardHostConnections extends HostConnections {
     }
     final machine = Machine.fromHostCard(
       card,
-      socketPath: _endpoint(card.name),
+      // On Windows the daemon goes through the relay: there is no local socket, nor a runtime folder for one.
+      socketPath: desk.isWindows ? '' : _endpoint(card.name),
       // A server this computer prepared stays one it can give back.
       hostProject: machines.settings.hostUp(card.name) == null ? '' : card.name,
       sshConfig: card.configPath(

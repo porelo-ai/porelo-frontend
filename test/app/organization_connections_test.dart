@@ -8,6 +8,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as path;
 import 'package:porelo_frontend/client.dart' show Project;
+import 'package:porelo_frontend/src/app/desk.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/host_follow.dart';
 import 'package:porelo_frontend/src/app/host_progress.dart';
@@ -58,6 +59,51 @@ class _Turned extends Fake implements Process {
 }
 
 /// The host vault, opened at once.
+/// The daemon's relay stand-in: answers GetInfo as a Porelo daemon does, on the relay's own byte streams.
+class _Relay extends Fake implements Process {
+  final _out = StreamController<List<int>>();
+  final _exit = Completer<int>();
+  late final IOSink _in = IOSink(
+    _Calls((call) {
+      if (!call.contains(0) || _out.isClosed) return;
+      final info = {
+        'parameters': {
+          'product': 'porelo',
+          'version': '1',
+          'vendor': 'fuin',
+          'interfaces': ['org.fuin.porelo.Tasks1'],
+        },
+      };
+      _out.add(utf8.encode('${jsonEncode(info)}\x00'));
+    }),
+  );
+
+  @override
+  IOSink get stdin => _in;
+  @override
+  Stream<List<int>> get stdout => _out.stream;
+  @override
+  Stream<List<int>> get stderr => const Stream.empty();
+  @override
+  Future<int> get exitCode => _exit.future;
+  @override
+  bool kill([ProcessSignal signal = ProcessSignal.sigterm]) {
+    unawaited(_out.close());
+    if (!_exit.isCompleted) _exit.complete(-1);
+    return true;
+  }
+}
+
+class _Calls implements StreamConsumer<List<int>> {
+  _Calls(this.heard);
+  final void Function(List<int>) heard;
+
+  @override
+  Future<void> addStream(Stream<List<int>> stream) => stream.forEach(heard);
+  @override
+  Future<void> close() async {}
+}
+
 class _Unlocked implements HostUnlocker {
   @override
   Future<HostUnlockResult> unlock(HostCardSsh card, String config) async =>
@@ -366,6 +412,65 @@ void main() {
     final made = await connections(_mia(host: plain));
     await made.connect('build');
     expect(made.connected('build'), isTrue);
+  });
+
+  // Harm: Connect on Windows asks for a local unix socket, which Windows has no runtime folder for, and fails.
+  test('Connect on Windows lists the host with no local socket, its daemon reached through the relay', () async {
+    final before = desk;
+    final started = <List<String>>[];
+    final environment = {'SystemRoot': r'C:\Windows', 'APPDATA': folder.path};
+    desk = Desk.of('windows', environment);
+    addTearDown(() => desk = before);
+    final tunnels = Tunnels(
+      configEnvironment: environment,
+      start: (command) async {
+        started.add(command);
+        return _Relay();
+      },
+      keyAvailable: (_) async => true,
+      portsAvailable: (_) async {},
+      unlocker: _Unlocked(),
+      writer: _Unprotected(),
+    );
+    final settings = Settings(_Saves());
+    final windows = Machines(settings, reach: (_) => daemon, tunnels: tunnels);
+    addTearDown(() async {
+      await tunnels.dropEverything();
+      windows.dispose();
+      settings.dispose();
+    });
+    final organization = Organization(
+      FixtureOrganization(
+        _mia(
+          host: OrganizationHost(
+            name: 'build',
+            address: '203.0.113.7',
+            port: 22,
+            hostKey: buildHost.hostKey,
+            admins: const ['mia'],
+          ),
+        ),
+      ),
+    );
+    addTearDown(organization.dispose);
+    await organization.refresh();
+    final made = CardHostConnections(
+      organization: organization,
+      machines: windows,
+      publicKey: () async => _key,
+      // As Windows answers asking for a runtime folder's unix socket.
+      endpoint: (host) => throw const ProcessException('id', ['-u'], 'The system cannot find the file specified.'),
+    );
+    addTearDown(made.dispose);
+
+    await made.connect('build');
+
+    expect(made.connected('build'), isTrue);
+    final machine = windows.all.singleWhere((machine) => machine.name == 'build');
+    expect(machine.socketPath, isEmpty);
+    expect(machine.relay?.command, containsAllInOrder(['-F', machine.sshConfig]));
+    expect(started, [machine.relay?.command], reason: 'the daemon was asked through the relay, and nothing else ran');
+    expect(File(machine.sshConfig).readAsStringSync(), contains('203.0.113.7'), reason: 'the relay reads it');
   });
 
   // Harm: *Open its forge* opens a forwarded address that no longer leads anywhere, or never one at all.
@@ -1062,4 +1167,10 @@ void main() {
       expect(await forgeAnswersAt(port), isFalse);
     });
   });
+}
+
+/// Writes as on Linux, but leaves the folder's permissions alone: Windows' ACLs are not this test's.
+class _Unprotected extends HostFileWriter {
+  @override
+  Future<void> protectDirectory(Directory directory) async {}
 }
