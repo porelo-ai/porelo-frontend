@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:porelo_planning/porelo_planning.dart';
 
 import '../app/machines.dart';
+import '../app/outcome_words.dart' show removeWords;
 import '../app/planner.dart' show plannerProjectOf;
 import '../app/planner_ideas.dart';
 import '../app/settings.dart';
@@ -70,11 +71,7 @@ class WindowTaskReports {
       null => null,
     },
     stopOn: (machine, container) => machines.of(machine).stopWork(container),
-    removeOn: (name, container) async {
-      if (machines.all.where((machine) => machine.name == name).firstOrNull case final machine?) {
-        await machines.of(machine).removeWork(container);
-      }
-    },
+    removeOn: (name, container) => removeHandedDiscussion(machines, name, container),
     resultOf: (name, container) => switch (machines.all.where((machine) => machine.name == name).firstOrNull) {
       final machine? => machines.of(machine).backend.taskResult(container),
       null => Future.error(StateError('$name is not watched.')),
@@ -475,4 +472,17 @@ class WindowTaskReports {
   // later change of a machine tries again.
   static bool _transient(PlanningRefusal refusal) =>
       const {'PlannerUnreachable', 'TimedOut', 'NoAddress', 'NoRepository'}.contains(refusal.name);
+}
+
+/// Removes the handed-in discussion in [container] on the watched machine [name], as a person would. A refusal is the
+/// hand-in's to say, not a question to the person, who never asked for this removal: it is put away and thrown.
+Future<void> removeHandedDiscussion(Machines machines, String name, String container) async {
+  final machine = machines.all.where((machine) => machine.name == name).firstOrNull;
+  if (machine == null) return;
+  final fleet = machines.of(machine);
+  await fleet.removeWork(container);
+  if (fleet.refusal case final refused? when refused.task == container) {
+    fleet.letItBe();
+    throw StateError(removeWords(container, refused.result));
+  }
 }
