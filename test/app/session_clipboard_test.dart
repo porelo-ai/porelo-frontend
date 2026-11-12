@@ -127,12 +127,22 @@ void main() {
 
   test('only a write naming the clipboard is taken', () async {
     final (session, channel) = open();
-    for (final selection in <String>['p', 's', '0', '']) {
+    for (final selection in <String>['p', 's', '0', 'q7']) {
       session.ownKey(keyA);
       await prints(channel, write('to $selection', selection: selection));
     }
     expect(copied, isEmpty);
     expect(session.held, isNull);
+  });
+
+  test('an empty selection is the clipboard, behind the same gate', () async {
+    final (session, channel) = open();
+    await prints(channel, write('by itself', selection: ''));
+    expect(copied, isEmpty);
+    expect(session.held?.text, 'by itself');
+    session.ownKey(keyA);
+    await prints(channel, write('after a key', selection: ''));
+    expect(copied, <String>['after a key']);
   });
 
   test('unpadded base64 is read as padded', () async {

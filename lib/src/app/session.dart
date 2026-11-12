@@ -221,8 +221,9 @@ class Session extends ChangeNotifier with QuietAfterDispose {
   void _copied(List<String> arguments) {
     if (!live || arguments.length != 2) return;
     final [selection, encoded] = arguments;
-    // Only the clipboard: another selection, written here, would land on the clipboard too.
-    if (!selection.contains('c') || encoded.isEmpty || encoded == '?' || encoded.length > _mostCopied) return;
+    // Only the clipboard, which an empty selection means too: another, written here, would land on it as well.
+    final forTheClipboard = selection.isEmpty || selection.contains('c');
+    if (!forTheClipboard || encoded.isEmpty || encoded == '?' || encoded.length > _mostCopied) return;
     final String text;
     try {
       text = utf8.decode(base64.decode(base64.normalize(encoded)), allowMalformed: true);
