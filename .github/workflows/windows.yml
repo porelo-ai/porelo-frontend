@@ -63,6 +63,16 @@ jobs:
               timeout-minutes: 20
               run: flutter build windows --release
 
+            # The key containers of this user before any key of the trial: the same list must stand at its end.
+            - name: List the key containers before
+              shell: pwsh
+              timeout-minutes: 2
+              run: |
+                  $ErrorActionPreference = 'Stop'
+                  certutil -user -key | Select-String -Pattern '^\s{2}\S' | ForEach-Object { $_.Line.Trim() } | Sort-Object |
+                    Set-Content (Join-Path $env:RUNNER_TEMP 'keys-before.txt')
+                  Get-Content (Join-Path $env:RUNNER_TEMP 'keys-before.txt')
+
             # The trial proves installing without the real certificate ever reaching a branch.
             - name: Make a throwaway signing certificate
               shell: pwsh
@@ -80,13 +90,52 @@ jobs:
                     "WINDOWS_SIGNING_PFX=$pfx" >> $env:GITHUB_ENV
                     "WINDOWS_SIGNING_PFX_PASSWORD=$password" >> $env:GITHUB_ENV
                   } catch {
-                    Remove-Item "Cert:\CurrentUser\My\$($certificate.Thumbprint)" -Force
+                    Remove-Item "Cert:\CurrentUser\My\$($certificate.Thumbprint)" -DeleteKey -Force
                     throw
                   } finally { $certificate.Dispose() }
 
+            - name: Ready the window's build
+              shell: pwsh
+              run: ./tool/windows-prepare.ps1
+
+            # Refused before anything is packed or any key is touched: a secret is empty.
+            - name: Refuse to pack unsigned where signing is required
+              shell: pwsh
+              timeout-minutes: 5
+              run: |
+                  $ErrorActionPreference = 'Stop'
+                  $env:WINDOWS_SIGNING_PFX = ''
+                  $said = $null
+                  try {
+                    ./tool/windows-package.ps1 -Source build/windows/x64/runner/Release -Prefix porelo-frontend `
+                      -Version $env:PORELO_WINDOWS_VERSION -Run $env:PORELO_WINDOWS_RUN -Out "$env:RUNNER_TEMP/refused" -RequireSigning
+                  } catch { $said = "$_" }
+                  if ($said -notmatch 'WINDOWS_SIGNING_PFX is empty') { throw "Asked for a refusal naming WINDOWS_SIGNING_PFX; got '$said'" }
+                  if (Test-Path "$env:RUNNER_TEMP/refused/*.zip") { throw 'Asked to pack nothing; got a ZIP' }
+                  "Refused: $said"
+
+            # A failure between the key's import and SignTool leaves no key: the list at the end proves it.
+            - name: Fail between the key's import and SignTool
+              shell: pwsh
+              timeout-minutes: 10
+              run: |
+                  $ErrorActionPreference = 'Stop'
+                  $env:PORELO_WINDOWS_FAIL_BEFORE_SIGNING = 'yes'
+                  $said = $null
+                  try {
+                    ./tool/windows-package.ps1 -Source build/windows/x64/runner/Release -Prefix porelo-frontend `
+                      -Version $env:PORELO_WINDOWS_VERSION -Run $env:PORELO_WINDOWS_RUN -Out "$env:RUNNER_TEMP/failed" `
+                      -ExpectedSignerThumbprint $env:WINDOWS_TRIAL_CERTIFICATE
+                  } catch { $said = "$_" }
+                  if ($said -notmatch 'fail before SignTool') { throw "Asked for the failure before SignTool; got '$said'" }
+                  "Failed as asked: $said"
+
             - name: Pack
               shell: pwsh
-              run: ./tool/windows-package.ps1 -ExpectedSignerThumbprint $env:WINDOWS_TRIAL_CERTIFICATE
+              run: |
+                  ./tool/windows-package.ps1 -Source build/windows/x64/runner/Release -Prefix porelo-frontend `
+                    -Version $env:PORELO_WINDOWS_VERSION -Run $env:PORELO_WINDOWS_RUN `
+                    -ExpectedSignerThumbprint $env:WINDOWS_TRIAL_CERTIFICATE
 
             - name: Install and start the MSIX
               shell: pwsh
@@ -100,9 +149,52 @@ jobs:
                     exit 0
                   }
                   if ($msix.Count -ne 1) { throw "Asked for one MSIX; got $($msix.Count)" }
-                  ./tool/windows-install-check.ps1 -Msix $msix[0].FullName -Cer build/windows-zip/porelo-msix.cer
+                  ./tool/windows-install-check.ps1 -Msix $msix[0].FullName -Cer build/windows-zip/porelo-msix.cer `
+                    -ExpectedIdentity ai.porelo.frontend `
+                    -Leftovers '%APPDATA%\porelo', '%LOCALAPPDATA%\porelo', '%LOCALAPPDATA%\porelo-frontend'
               env:
                   WINDOWS_SIGNING_CONFIGURED: ${{ env.WINDOWS_SIGNING_PFX != '' }}
+
+            # The same scripts serve another app: a console program from a ZIP made elsewhere, started
+            # through its alias. A ZIP whose program is not the tested one is refused first.
+            - name: Pack and install a second app
+              shell: pwsh
+              timeout-minutes: 15
+              run: |
+                  $ErrorActionPreference = 'Stop'
+                  $work = Join-Path $env:RUNNER_TEMP 'second-app'
+                  $files = Join-Path $work 'files'
+                  $packaging = Join-Path $work 'packaging'
+                  New-Item -ItemType Directory -Force -Path $files, $packaging | Out-Null
+                  dart compile exe tool/windows-trial/sleeper.dart -o (Join-Path $work 'porelo_trial.exe')
+                  if ($LASTEXITCODE -ne 0) { throw "Asked dart to compile the trial app; got exit $LASTEXITCODE" }
+                  Copy-Item tool/windows-trial/AppxManifest.xml.in $packaging
+                  Copy-Item -Recurse packaging/windows/assets (Join-Path $packaging 'assets')
+                  $version = '0.0.1'
+                  $zip = Join-Path $work "porelo-trial-$version-windows-x64.zip"
+
+                  # Another program under the tested one's name.
+                  Copy-Item "$env:SystemRoot\System32\whoami.exe" (Join-Path $files 'porelo_trial.exe')
+                  Compress-Archive -Path (Join-Path $files '*') -DestinationPath $zip -Force
+                  $said = $null
+                  try {
+                    ./tool/windows-package.ps1 -Zip $zip -Prefix porelo-trial -Version $version -Run 1 `
+                      -Packaging $packaging -TestedExecutable (Join-Path $work 'porelo_trial.exe') `
+                      -Out (Join-Path $work 'refused') -ExpectedSignerThumbprint $env:WINDOWS_TRIAL_CERTIFICATE
+                  } catch { $said = "$_" }
+                  if ($said -notmatch 'tested porelo_trial.exe') { throw "Asked for a refusal of the untested program; got '$said'" }
+                  "Refused: $said"
+
+                  Copy-Item -Force (Join-Path $work 'porelo_trial.exe') (Join-Path $files 'porelo_trial.exe')
+                  Compress-Archive -Path (Join-Path $files '*') -DestinationPath $zip -Force
+                  $out = Join-Path $work 'out'
+                  ./tool/windows-package.ps1 -Zip $zip -Prefix porelo-trial -Version $version -Run 1 `
+                    -Packaging $packaging -TestedExecutable (Join-Path $work 'porelo_trial.exe') `
+                    -Out $out -ExpectedSignerThumbprint $env:WINDOWS_TRIAL_CERTIFICATE -RequireSigning
+                  ./tool/windows-install-check.ps1 -Msix (Join-Path $out "porelo-trial-$version-windows-x64.msix") `
+                    -Cer (Join-Path $out 'porelo-msix.cer') -ExpectedIdentity ai.porelo.windows-trial `
+                    -Alias porelo-trial.exe -ReadyScript tool/windows-trial/ready.ps1 `
+                    -Leftovers '%LOCALAPPDATA%\porelo-windows-trial'
 
             - name: Remove the throwaway signing certificate
               if: always()
@@ -118,9 +210,33 @@ jobs:
                     throw 'Asked for a trial certificate thumbprint; got an invalid thumbprint'
                   }
                   $path = "Cert:\CurrentUser\My\$env:WINDOWS_TRIAL_CERTIFICATE"
-                  if (Test-Path $path) { Remove-Item $path -Force }
+                  if (Test-Path $path) { Remove-Item $path -DeleteKey -Force }
                   if (Test-Path $path) { throw "Asked to remove '$path'; got an existing certificate" }
-                  "Removed trial certificate $path (or already removed by Pack)"
+                  "Removed trial certificate $path with its key (or already removed by Pack)"
+
+            # Nothing of the trial's keys and apps is left on the machine, whatever failed before.
+            - name: Find no key and no app file left
+              if: always()
+              shell: pwsh
+              timeout-minutes: 2
+              run: |
+                  $ErrorActionPreference = 'Stop'
+                  $before = Join-Path $env:RUNNER_TEMP 'keys-before.txt'
+                  if (-not (Test-Path $before)) { 'No list of key containers was made'; exit 0 }
+                  $now = @(certutil -user -key | Select-String -Pattern '^\s{2}\S' | ForEach-Object { $_.Line.Trim() } | Sort-Object)
+                  $was = @(Get-Content $before)
+                  $added = @($now | Where-Object { $_ -notin $was })
+                  $left = [Collections.Generic.List[string]]::new()
+                  if ($added.Count) { $left.Add("key containers $($added -join ', ')") }
+                  foreach ($path in "$env:APPDATA\porelo", "$env:LOCALAPPDATA\porelo", "$env:LOCALAPPDATA\porelo-frontend",
+                      "$env:LOCALAPPDATA\porelo-windows-trial") {
+                    if (Test-Path -LiteralPath $path) { $left.Add($path) }
+                  }
+                  $packages = @(Get-ChildItem "$env:LOCALAPPDATA\Packages" -Directory -ErrorAction SilentlyContinue |
+                    Where-Object { $_.Name -like 'ai.porelo.*' })
+                  foreach ($each in $packages) { $left.Add($each.FullName) }
+                  if ($left.Count) { throw "Asked for nothing left of the trial; got $($left -join '; ')" }
+                  "No key container and no app file left ($($now.Count) key containers, as before)"
 
             # The built folder as it is, for a person to try on Windows: unpacked whole into a folder of
             # its own, since the code is in `data\app.so` beside the `.exe`.

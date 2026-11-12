@@ -407,12 +407,18 @@ jobs:
             # The ZIP, and the MSIX signed with the certificate the two secrets hold, named as the Linux
             # packages are; tool/windows-package.ps1 says how. Without the secrets the MSIX is packed to
             # prove it and not kept.
+            - name: Ready the window's build
+              shell: pwsh
+              run: ./tool/windows-prepare.ps1
+
             - name: Pack the ZIP and the MSIX
               shell: pwsh
               env:
                   WINDOWS_SIGNING_PFX: ${{ secrets.WINDOWS_SIGNING_PFX }}
                   WINDOWS_SIGNING_PFX_PASSWORD: ${{ secrets.WINDOWS_SIGNING_PFX_PASSWORD }}
-              run: ./tool/windows-package.ps1
+              run: |
+                  ./tool/windows-package.ps1 -Source build/windows/x64/runner/Release -Prefix porelo-frontend `
+                    -Version $env:PORELO_WINDOWS_VERSION -Run $env:PORELO_WINDOWS_RUN
 
             - name: Install and start the MSIX
               shell: pwsh
@@ -426,7 +432,9 @@ jobs:
                     exit 0
                   }
                   if ($msix.Count -ne 1) { throw "Asked for one MSIX; got $($msix.Count)" }
-                  ./tool/windows-install-check.ps1 -Msix $msix[0].FullName -Cer build/windows-zip/porelo-msix.cer
+                  ./tool/windows-install-check.ps1 -Msix $msix[0].FullName -Cer build/windows-zip/porelo-msix.cer `
+                    -ExpectedIdentity ai.porelo.frontend `
+                    -Leftovers '%APPDATA%\porelo', '%LOCALAPPDATA%\porelo', '%LOCALAPPDATA%\porelo-frontend'
               env:
                   WINDOWS_SIGNING_CONFIGURED: ${{ secrets.WINDOWS_SIGNING_PFX != '' }}
 
