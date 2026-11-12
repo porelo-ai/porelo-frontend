@@ -103,6 +103,7 @@ class LoopbackCarrier {
     BindLoopback? bind,
     CarrierBudget? budget,
     this.onExit,
+    this.onLost,
   }) : ports = Map.unmodifiable(ports),
        _bind = bind ?? bindExclusive,
        budget = budget ?? CarrierBudget();
@@ -118,6 +119,10 @@ class LoopbackCarrier {
 
   /// Told how each connection's process exited, with the role it carried.
   final void Function(CarriedRole role, int code)? onExit;
+
+  /// Told once, with its port and address, when the system closed a listener: every port is let go then, and nothing is
+  /// carried any more; a new carrier has to hold them again.
+  final void Function(int port, InternetAddress address)? onLost;
 
   /// Whether an accepted connection is carried; while false it is closed at once.
   bool carrying = false;
@@ -135,9 +140,9 @@ class LoopbackCarrier {
   ///
   /// Nothing is accepted before every port is bound; a [release] meanwhile leaves nothing bound.
   Future<void> hold() async {
-    final bound = <(RawServerSocket, CarriedRole)>[];
+    final bound = <(RawServerSocket, CarriedRole, int, InternetAddress)>[];
     Future<void> letGo() async {
-      for (final (listener, _) in bound) {
+      for (final (listener, _, _, _) in bound) {
         await listener.close();
       }
     }
@@ -151,22 +156,45 @@ class LoopbackCarrier {
           await letGo();
           throw CarrierRefused(port, address, refused.osError?.message ?? refused.message);
         }
-        bound.add((listener, role));
+        bound.add((listener, role, port, address));
         if (_released) {
           await letGo();
           return;
         }
       }
     }
-    for (final (listener, role) in bound) {
+    for (final (listener, role, port, address) in bound) {
       _listeners.add(listener);
-      // An error accepting one connection is that connection's; the port stays held.
-      listener.listen((client) => _accepted(client, role), onError: (Object _) {});
+      // The system closes a listener on an error, and the port is then free for anyone: the card no longer holds it.
+      listener.listen(
+        (client) => _accepted(client, role),
+        onError: (Object _) => _lose(port, address),
+        onDone: () => _lose(port, address),
+        cancelOnError: true,
+      );
     }
   }
 
+  bool _lost = false;
+
+  /// Whether the system closed one of its listeners: it carries nothing any more and holds no port.
+  bool get lost => _lost;
+
+  /// A listener closed that [release] did not close: nothing is carried, every port is let go, and [onLost] is told.
+  void _lose(int port, InternetAddress address) {
+    if (_released || _lost) return;
+    _lost = true;
+    unawaited(release());
+    onLost?.call(port, address);
+  }
+
   void _accepted(RawSocket client, CarriedRole role) {
-    if (_released || !carrying || _carried.length >= budget.perCard || budget._held >= budget.inAll || !_mayStart()) {
+    if (_released ||
+        _lost ||
+        !carrying ||
+        _carried.length >= budget.perCard ||
+        budget._held >= budget.inAll ||
+        !_mayStart()) {
       client.close();
       return;
     }

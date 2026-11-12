@@ -313,6 +313,41 @@ void main() {
     }
   });
 
+  // Harm: a listener the system closed on an error leaves its port to whatever binds it next, while the card still counts
+  // as holding it and carries on the other family.
+  for (final (how, fail) in <(String, void Function(StreamController<RawSocket>))>[
+    ('an error', (listener) => listener.addError(const SocketException('accept failed'))),
+    ('its end', (listener) => unawaited(listener.close())),
+  ]) {
+    test('a listener lost to $how stops carrying, lets every port go and says which', () async {
+      final port = await freePort();
+      final failing = <StreamController<RawSocket>>[];
+      final lost = <(int, InternetAddress)>[];
+      final held = LoopbackCarrier(
+        {port: CarriedRole.forgeWeb},
+        carry: carry,
+        bind: (address, port) async {
+          final listener = _Failing(await LoopbackCarrier.bindExclusive(address, port));
+          failing.add(listener.events);
+          return listener;
+        },
+        onLost: (int port, InternetAddress address) => lost.add((port, address)),
+      )..carrying = true;
+      carriers.add(held);
+      await held.hold();
+
+      fail(failing.first);
+      await until(() => lost.isNotEmpty);
+
+      expect(lost, [(port, InternetAddress.loopbackIPv4)]);
+      expect(held.carrying, isFalse);
+      await until(() => failing.every((each) => each.isClosed));
+      for (final family in families) {
+        expect(await bindable(family, port), isTrue, reason: 'nothing of the card is held on ${family.address}');
+      }
+    });
+  }
+
   // Harm: a released card's ssh children still run with the person's key after release answered, and their places
   // under the caps go to new children meanwhile.
   test('release waits for its children to exit, and a place is free only once its child exited', () async {
@@ -471,6 +506,39 @@ class _Stdin extends Fake implements IOSink {
 
   @override
   Future<void> get done => _done.future;
+}
+
+/// A real listener whose accepted connections, errors and end the test gives instead of the system.
+class _Failing extends Stream<RawSocket> implements RawServerSocket {
+  _Failing(this._real) {
+    events.onCancel = () async {
+      await _real.close();
+    };
+  }
+
+  final RawServerSocket _real;
+  final events = StreamController<RawSocket>();
+
+  @override
+  InternetAddress get address => _real.address;
+
+  @override
+  int get port => _real.port;
+
+  @override
+  Future<RawServerSocket> close() async {
+    await _real.close();
+    if (!events.isClosed) unawaited(events.close());
+    return this;
+  }
+
+  @override
+  StreamSubscription<RawSocket> listen(
+    void Function(RawSocket event)? onData, {
+    Function? onError,
+    void Function()? onDone,
+    bool? cancelOnError,
+  }) => events.stream.listen(onData, onError: onError, onDone: onDone, cancelOnError: cancelOnError);
 }
 
 /// A listener made through Winsock itself, with SO_REUSEADDR set before its bind, as another program would.

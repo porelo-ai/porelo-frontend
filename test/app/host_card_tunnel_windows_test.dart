@@ -77,9 +77,10 @@ void main() {
     }
   }
 
-  Tunnels tunnelsWith({Duration appears = const Duration(seconds: 5), CarrierBudget? budget}) {
+  Tunnels tunnelsWith({Duration appears = const Duration(seconds: 5), CarrierBudget? budget, BindLoopback? bind}) {
     final tunnels = Tunnels(
       carrierBudget: budget,
+      carrierBind: bind,
       configEnvironment: environment,
       appears: appears,
       start: (command) async {
@@ -282,6 +283,29 @@ void main() {
     expect(newcomerClosed, isTrue, reason: 'nothing is carried while it raises');
     expect(carried, hasLength(1));
     expect(carryingChildren.single.killed, isTrue, reason: 'its ssh is ended');
+  });
+
+  // Harm: a listener the system closed leaves its port to whatever program binds it next, while the card stays up and
+  // its forge's address goes to that program.
+  test('a port the system let go takes the card down, naming it, and Connect holds every port anew', () async {
+    final listeners = <_Failing>[];
+    final tunnels = tunnelsWith(
+      bind: (address, port) async {
+        final listener = _Failing(await LoopbackCarrier.bindExclusive(address, port));
+        listeners.add(listener);
+        return listener;
+      },
+    );
+    expect(await tunnels.raiseFor(host), isTrue, reason: '${tunnels.of(host)?.problem}');
+    final held = listeners.length;
+
+    listeners.first.events.addError(const SocketException('accept failed'));
+    await until(() => tunnels.of(host)?.state == TunnelState.down);
+
+    expect(tunnels.of(host)?.state, TunnelState.down);
+    expect(tunnels.of(host)?.problem, contains('${ports[0]}'));
+    expect(await tunnels.raiseFor(host), isTrue, reason: '${tunnels.of(host)?.problem}');
+    expect(listeners, hasLength(held * 2), reason: 'every port is bound again');
   });
 
   // Harm: connecting many cards at once starts an ssh for each, with the person's key, beyond the window's cap.
@@ -494,4 +518,37 @@ class _In extends Fake implements IOSink {
 
   @override
   Future<void> get done => _done.future;
+}
+
+/// A real listener whose errors the test gives instead of the system.
+class _Failing extends Stream<RawSocket> implements RawServerSocket {
+  _Failing(this._real) {
+    _accepting = _real.listen(events.add, onError: events.addError, onDone: events.close);
+  }
+
+  final RawServerSocket _real;
+  final events = StreamController<RawSocket>();
+  late final StreamSubscription<RawSocket> _accepting;
+
+  @override
+  InternetAddress get address => _real.address;
+
+  @override
+  int get port => _real.port;
+
+  @override
+  Future<RawServerSocket> close() async {
+    await _accepting.cancel();
+    await _real.close();
+    if (!events.isClosed) unawaited(events.close());
+    return this;
+  }
+
+  @override
+  StreamSubscription<RawSocket> listen(
+    void Function(RawSocket event)? onData, {
+    Function? onError,
+    void Function()? onDone,
+    bool? cancelOnError,
+  }) => events.stream.listen(onData, onError: onError, onDone: onDone, cancelOnError: cancelOnError);
 }

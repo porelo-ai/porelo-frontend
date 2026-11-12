@@ -82,6 +82,7 @@ class Tunnel {
     ForwardRecords? records,
     ConnectToSocket? connect,
     CarrierBudget? budget,
+    this.bindLoopback,
   }) : _ownRecords = records,
        _connect = connect ?? connectToSocket,
        _launch = start ?? _runIt,
@@ -93,6 +94,9 @@ class Tunnel {
 
   /// The local public-key availability check, without agent forwarding.
   final Future<bool> Function(HostCardSsh)? keyAvailable;
+
+  /// How the carrier binds a card's port on Windows, injectable for tests; null for the exclusive bind.
+  final BindLoopback? bindLoopback;
 
   final ForwardRecords? _ownRecords;
 
@@ -525,11 +529,14 @@ class Tunnel {
   Future<void> _raiseOnWindows(int generation, HostCardSsh card) async {
     var carrier = _carrier;
     if (carrier == null) {
-      carrier = LoopbackCarrier(
+      late final LoopbackCarrier made;
+      made = carrier = LoopbackCarrier(
         _rolesOf(card),
         carry: (role) => _launch(carryCommand(machine, role)),
         budget: _budget,
+        bind: bindLoopback,
         onExit: _carriedExited,
+        onLost: (port, address) => _carrierLost(made, port, address),
       );
       _carrier = carrier;
       try {
@@ -565,6 +572,20 @@ class Tunnel {
     problem = null;
     state = TunnelState.up;
     await unlockVault();
+  }
+
+  /// The system closed one of [carrier]'s listeners, so its port is anyone's: the card is down, nothing of it is held
+  /// any more, and the next raise binds every port anew, refusing where another program took one meanwhile.
+  void _carrierLost(LoopbackCarrier carrier, int port, InternetAddress address) {
+    if (!identical(_carrier, carrier)) return;
+    _carrier = null;
+    // A raise under way stops where it is: what it would set is no longer true.
+    _generation++;
+    state = TunnelState.down;
+    problem =
+        'Machine ${machine.hostCard!.name} lost hold of its port $port on ${address.address}, so nothing of it is held '
+        'any more. Connect again.';
+    onChanged?.call();
   }
 
   /// Says why the host's relay ended a carried connection, by Core's exits of `porelo service connect`: 64, a role the
@@ -904,6 +925,7 @@ class Tunnels extends ChangeNotifier {
     this.writer,
     this.configEnvironment,
     CarrierBudget? carrierBudget,
+    this.carrierBind,
   }) : _budget = carrierBudget ?? CarrierBudget(),
        _launch = start,
        _run = run ?? _runIt,
@@ -921,6 +943,9 @@ class Tunnels extends ChangeNotifier {
 
   /// What every card's carried connections may spend together, on Windows.
   final CarrierBudget _budget;
+
+  /// How a carrier binds a card's port on Windows, injectable for tests; null for the exclusive bind.
+  final BindLoopback? carrierBind;
 
   /// The private public-file publisher.
   final HostFileWriter? writer;
@@ -1181,6 +1206,7 @@ class Tunnels extends ChangeNotifier {
     messengerSocket: messengerSocket,
     writer: writer,
     budget: _budget,
+    bindLoopback: carrierBind,
     configEnvironment: configEnvironment,
     awaitsAdmission: () => machine.hostCard != null && awaitsAdmission(machine.hostCard!.name),
     onTurnedAway: () {
