@@ -5,6 +5,7 @@
 #   tool/walk_idea.sh check --vm USER@VM --vm-key FILE [--planner DIR]
 #   tool/walk_idea.sh run   --vm USER@VM --vm-key FILE --planner DIR --seed DIR --org ORG --report DIR \
 #                           [--porelo-project foo-project] [--mail keep|drop] [--project NAME] [--issue-repo foo-1] [--budget-minutes 180]
+#                           [--porelo DIR]
 #
 # `check` says what the VM lacks and changes nothing. `run` checks first, then seeds the existing repositories of ORG:
 # the seed holds one directory per repository, named as it is, whose files are written over that repository's at the
@@ -18,6 +19,9 @@
 # step (`OK` or `FAIL` with what was asked and got), a picture of the window where it failed, the HTML and JUnit
 # report, and the test's own output.
 #
+# DIR of --porelo, where given, holds porelo and porelod, a SHA256SUMS naming both and a COMMIT naming what they were
+# built from: for the run they stand in the person's ~/.local/bin on the VM, the ones there kept beside them as
+# *.walk-kept and put back on every ending, porelod restarted each time; the report names the commit.
 # DIR of --planner holds porelo-planner, planner-probe.sh and SHA256SUMS naming both; nothing unchecked is copied.
 # The test person's key never enters the VM: SSH_AUTH_SOCK must name an agent holding it (a throwaway one, never the
 # operator's), forwarded for the run alone. WALK_FORGE_TOKEN names a program that prints the test identity's token
@@ -38,13 +42,14 @@ usage() {
 [ $# -ge 1 ] || usage
 mode=$1
 shift
-vm='' vm_key='' planner='' seed='' org='' project='' issue_repo=foo-1 porelo_project=foo-project mail=keep report='' budget=180
+vm='' vm_key='' porelo_dir='' planner='' seed='' org='' project='' issue_repo=foo-1 porelo_project=foo-project mail=keep report='' budget=180
 while [ $# -gt 0 ]; do
     [ $# -ge 2 ] || usage
     case "$1" in
     --vm) vm=$2 ;;
     --vm-key) vm_key=$2 ;;
     --planner) planner=$2 ;;
+    --porelo) porelo_dir=$2 ;;
     --seed) seed=$2 ;;
     --org) org=$2 ;;
     --project) project=$2 ;;
@@ -130,10 +135,30 @@ planner_checked() {
     }
 }
 
+porelo_checked() {
+    [ -n "$porelo_dir" ] || return 0
+    local file
+    for file in porelo porelod; do
+        grep -Eq "^[0-9a-f]{64} [ *]$file\$" "$porelo_dir/SHA256SUMS" 2>/dev/null || {
+            echo "walk: $porelo_dir/SHA256SUMS names no digest of $file" >&2
+            return 1
+        }
+    done
+    grep -Eqx '[0-9a-f]{7,64}' "$porelo_dir/COMMIT" 2>/dev/null || {
+        echo "walk: $porelo_dir/COMMIT names no commit" >&2
+        return 1
+    }
+    (cd "$porelo_dir" && sha256sum --strict --quiet -c SHA256SUMS) || {
+        echo "walk: what $porelo_dir holds is not what its SHA256SUMS names" >&2
+        return 1
+    }
+}
+
 # What the run needs on the VM, each named; a missing one is said with the line that installs it.
 check() {
     local missing
     planner_checked
+    porelo_checked
     # shellcheck disable=SC2016 # expanded on the VM, not here
     missing=$(on_vm 'for t in xvfb-run dbus-run-session clang cmake ninja pkg-config git curl jq xz python3 porelo; do
             command -v "$t" >/dev/null || echo "tool $t"
@@ -228,7 +253,7 @@ github() {
 # Taken away on every ending, in this order: what still runs of the window's part and the planner it started, the
 # task branches and pull requests in the issue repository, each noted repository's tree as at its T0, the forge's
 # token and its declaration, porelod's agent put back, the run's copy.
-pointed='' agent_before='' holder='' central_match='' vault='' declared='' taken=''
+porelo_commit='' swapped='' pointed='' agent_before='' holder='' central_match='' vault='' declared='' taken=''
 # Each noted repository's default branch and its tip at T0, by name; only a noted one is restored.
 declare -A branch_of=() t0_of=()
 left=()
@@ -254,6 +279,12 @@ cleanup() {
     fi
     if [ -n "$vault" ]; then
         on_vm "PORELO_VAULT=$vault porelo vault lock" </dev/null >/dev/null 2>&1 || true
+    fi
+    if [ -n "$swapped" ]; then
+        # The kept ones go back over the run's; porelod is restarted on them below, or here where nothing else does.
+        on_vm "set -e; cd ~/.local/bin; for f in porelo porelod; do [ ! -f \$f.walk-kept ] || mv -f \$f.walk-kept \$f; done
+            [ -n '$pointed' ] || systemctl --user restart porelod" </dev/null ||
+            left+=("porelo and porelod of $porelo_commit in ~/.local/bin on $vm (the *.walk-kept ones there go back)")
     fi
     if [ -n "$pointed" ]; then
         on_vm "systemctl --user unset-environment PORELO_VAULT; if [ -n '$agent_before' ]; then systemctl --user set-environment SSH_AUTH_SOCK='$agent_before'
@@ -466,6 +497,24 @@ on_vm "cd ~/$run/bin && sha256sum --strict --quiet -c SHA256SUMS && chmod 755 po
     echo "walk: the planner copied to $vm is not what SHA256SUMS names" >&2
     exit 1
 }
+if [ -n "$porelo_dir" ]; then
+    porelo_commit=$(cat "$porelo_dir/COMMIT")
+    tar -C "$porelo_dir" -c porelo porelod SHA256SUMS | on_vm "mkdir -p ~/$run/porelo && tar -x -C ~/$run/porelo"
+    swapped=yes
+    # Checked again where it runs; the person's own ones are kept beside, never overwritten by a second run's.
+    on_vm "set -e; cd ~/$run/porelo; sha256sum --strict --quiet -c SHA256SUMS; chmod 755 porelo porelod
+        cd ~/.local/bin; for f in porelo porelod; do [ -f \$f.walk-kept ] || mv \$f \$f.walk-kept; cp ~/$run/porelo/\$f \$f; done
+        systemctl --user restart porelod
+        for _ in \$(seq 50); do [ -S /run/user/\$(id -u)/porelo/porelod.sock ] && break; sleep 0.2; done
+        systemctl --user is-active --quiet porelod" </dev/null || {
+        echo "walk: porelo of $porelo_commit could not be put in place on $vm" >&2
+        exit 1
+    }
+    {
+        echo "porelo $porelo_commit"
+        on_vm "porelo --version" </dev/null
+    } | tee "$report/porelo.txt"
+fi
 
 on_vm "set -e
     if [ ! -x ~/$flutter_dir/bin/flutter ]; then
