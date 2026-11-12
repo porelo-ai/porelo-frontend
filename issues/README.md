@@ -64,6 +64,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f354"></a>[F354](F354-The-Integration-Leg-On-A-Machine-Of-The-Hosts-Pool.md) | - | - | The Build's integration leg on a host's Forgejo against a machine its pool lends by kind. |
 | <a id="f355"></a>[F355](F355-One-Order-For-A-New-Person.md) | - | - | One order in the window for a person starting from a GitHub organization, with or without a key, each step showing its state, so *Create it* is reached only when it can work. |
 | <a id="f423"></a>[F423](F423-The-Window-Laid-Out-By-What-Each-Part-Acts-On.md) | - | - | The side bar as a folding tree by what each part acts on: each machine with its sections, each organization with its sections, *My cards & keys* in place of its dialog; a page with entries under it shows facts and actions, only a leaf a list. |
+| <a id="f506"></a>[F506](F506-The-Setup-Chat-Lets-The-Person-Choose-Its-Provider.md) | - | - | The chat beside the setup wizard answers through a provider the person chooses, not only through the agent they signed in. |
 
 ## Accepted
 
@@ -135,6 +136,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f288"></a>[F288](F288-Small-Leftovers-Of-The-One-Click-Flow.md) | S | - | Two leftovers of the one-click flow: the terminal close test bounded per wait under load, and a repository's menu offering only the review policy it does not have. |
 | <a id="f479"></a>[F479](F479-A-Planner-The-Window-Started-Ends-With-It.md) | M | - | A planner the window started because none was serving ends when the window ends, so it neither holds the planner's address file nor stands in the way of the next planner; a planner the window found serving is left running. |
 | <a id="f490"></a>[F490](F490-The-Command-Finder-Offers-A-Planning-Actions-Way-On.md) | S | - | An unavailable planning action in the command finder offers its way on, a runnable step to what holds it, beside the disabled action. |
+| <a id="f505"></a>[F505](F505-The-Issue-Heads-Are-Checked-Every-Day.md) | XS | - | The repository's daily shared-rules run checks its issues' heads with `issues check issues` from the released porelo-release, as the build tools' own shared rules do. |
 
 ## Implementing
 
