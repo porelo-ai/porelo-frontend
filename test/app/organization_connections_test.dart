@@ -146,6 +146,8 @@ void main() {
     turnedAway = false;
     hostSays = '{}';
     folder = Directory.systemTemp.createTempSync('c-');
+    // This account's alone, as the runtime directory is: the one place a socket the window made is later removed.
+    Process.runSync('chmod', <String>['700', folder.path]);
     portsBusy = false;
     launches = [];
     refreshed = [];
