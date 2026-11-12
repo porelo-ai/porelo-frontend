@@ -22,8 +22,8 @@ streams the step `AGENT` in state `STARTED` once the task stands and its agent r
 that step: it tells the planner the task started and starts the story's next offer right away. Today it waits for the
 final reply, so a builder that works for half an hour holds every other task of the story and its STARTED for that long.
 
-Found in F492's run 27, step 6: foo-1's agent worked and pushed, but the window waited on Start for ten minutes, never
-told the planner and never started foo-2. The same cause explains run 26's late STARTED of foo-2.
+Found in [F492](README.md#f492)'s run 27, step 6: foo-1's agent worked and pushed, but the window waited on Start for
+ten minutes, never told the planner and never started foo-2. The same cause explains run 26's late STARTED of foo-2.
 
 ## Plan
 

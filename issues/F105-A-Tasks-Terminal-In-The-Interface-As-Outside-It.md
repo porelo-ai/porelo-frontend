@@ -48,7 +48,7 @@ passed through it, not tmux's history.
   uses: the interface's own or tmux's. They must not fight over the same keys.
 
 The clipboard's consent, a write through OSC 52 asked for first unless the person just acted, is
-[F508](F508-A-Tasks-Clipboard-Write-Asks-First.md) of its own; here OSC 52 is measured as it comes through.
+[F508](README.md#f508) of its own; here OSC 52 is measured as it comes through.
 
 ## How it stands
 
