@@ -378,6 +378,8 @@ class _Starting extends Fake implements FleetBackend {
     required String model,
     required Mode mode,
     required String prompt,
+    String? callerKey,
+    List<String> reads = const [],
   }) async {
     if (refusal case final refusal?) throw refusal;
     started.add({
@@ -406,6 +408,7 @@ class _Starting extends Fake implements FleetBackend {
     required Mode mode,
     required String prompt,
     required String result,
+    String? callerKey,
   }) async {
     if (refusal case final refusal?) throw refusal;
     discussed.add({

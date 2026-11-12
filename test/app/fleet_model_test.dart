@@ -57,6 +57,7 @@ class _Wedged implements FleetBackend {
     required Mode mode,
     required String prompt,
     required String result,
+    String? callerKey,
   }) => throw UnimplementedError();
 
   @override
@@ -73,6 +74,8 @@ class _Wedged implements FleetBackend {
     required String model,
     required Mode mode,
     required String prompt,
+    String? callerKey,
+    List<String> reads = const [],
   }) async => throw const VarlinkDisconnected('nothing there');
 
   @override
@@ -517,6 +520,7 @@ class _Machine implements FleetBackend {
     required Mode mode,
     required String prompt,
     required String result,
+    String? callerKey,
   }) => throw UnimplementedError();
 
   @override
@@ -533,6 +537,8 @@ class _Machine implements FleetBackend {
     required String model,
     required Mode mode,
     required String prompt,
+    String? callerKey,
+    List<String> reads = const [],
   }) async => throw const VarlinkDisconnected('nothing there');
 
   @override

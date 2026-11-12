@@ -260,6 +260,41 @@ void main() {
     expect(planner.calls.map((call) => call.event), [PlanningTaskEvent.started, PlanningTaskEvent.ended]);
   });
 
+  // Harm: a window that ended between Start's answer and keeping the offer leaves a task no window reports.
+  test('a task started just before the window ended is found by its key and reported under its offer', () async {
+    final (starts, _) = window();
+    final order = (await plannedOrders()).first;
+    machine.hangAfterStart = true;
+    unawaited(starts(planner, 'demo', 'ST291', order));
+    await pumpEventQueue();
+    expect((await loaded()).plannedOffers, isEmpty);
+
+    final (_, reopened) = window(kept: await loaded());
+    reopened.sweep();
+    await reopened.idle;
+    final (_, again) = window(kept: await loaded());
+    again.sweep();
+    await again.idle;
+
+    expect(machine.started.single['callerKey'], order.offer);
+    expect(planner.calls.map((call) => (call.project, call.task, call.event, call.offer, call.container)), [
+      ('demo', 'porelo', PlanningTaskEvent.started, order.offer, 'porelo-demo-porelo'),
+    ]);
+  });
+
+  // Harm: a task some other caller started is reported under an offer of this window.
+  test('a listed task whose key names no offer this window handed is not reported', () async {
+    final (_, reports) = window();
+    machine.listed.add(
+      Task.from({'name': 'porelo-demo-other', 'task': 'other', 'project': 'demo', 'running': true, 'callerKey': 'x'}),
+    );
+
+    reports.sweep();
+    await reports.idle;
+
+    expect(planner.calls, isEmpty);
+  });
+
   // Harm: the planner's next task is never started, or started twice when a later answer or a restart carries it again.
   test('a follow-up order is started once, for the project and story it came for, and shown', () async {
     final (starts, reports) = window();
@@ -822,6 +857,9 @@ class _Machine extends Fake implements FleetBackend {
   Map<String, dynamic>? endBeforeStart;
   String? refuseNext;
 
+  /// Start answers, but the window ends before it hears it: the call never returns.
+  bool hangAfterStart = false;
+
   /// Runs before each listing of the tasks is answered, numbered from 1: what the window does meanwhile.
   Future<void> Function(int listing)? whileListing;
   int _listings = 0;
@@ -865,12 +903,14 @@ class _Machine extends Fake implements FleetBackend {
     required String model,
     required Mode mode,
     required String prompt,
+    String? callerKey,
+    List<String> reads = const [],
   }) async {
     if (refuseNext case final words?) {
       refuseNext = null;
       return StartProgress(exitCode: 1, output: [words]);
     }
-    started.add({'project': project, 'repository': repository});
+    started.add({'project': project, 'repository': repository, 'callerKey': ?callerKey, 'reads': reads});
     final container = 'porelo-$project-$repository';
     listed.removeWhere((task) => task.name == container);
     listed.add(
@@ -880,9 +920,11 @@ class _Machine extends Fake implements FleetBackend {
         'project': project,
         'running': true,
         'run': 'run-${started.length}',
+        'callerKey': ?callerKey,
         'agentEnded': ?endBeforeStart,
       }),
     );
+    if (hangAfterStart) await Completer<void>().future;
     return StartProgress(container: container, exitCode: 0, action: StartAction.create);
   }
 
@@ -897,6 +939,7 @@ class _Machine extends Fake implements FleetBackend {
     required Mode mode,
     required String prompt,
     required String result,
+    String? callerKey,
   }) async {
     final container = 'porelo-$project-discussion';
     listed.removeWhere((task) => task.name == container);
@@ -907,6 +950,7 @@ class _Machine extends Fake implements FleetBackend {
         'project': project,
         'running': true,
         'run': 'run-${started.length}',
+        'callerKey': ?callerKey,
         'agentEnded': ?endBeforeStart,
       }),
     );

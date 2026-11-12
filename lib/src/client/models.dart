@@ -599,6 +599,7 @@ class Task {
     this.agentEnded,
     this.result,
     this.run,
+    this.callerKey = '',
     this.handInLimit,
     this.files,
     this.builds,
@@ -617,6 +618,10 @@ class Task {
   /// The container this task is, which tells its hand-in record from that of a later task with the
   /// same name. Null from a machine that does not say.
   final String? run;
+
+  /// The key its starter gave Start, kept from the task's creation; empty where none was given or the machine keeps
+  /// none.
+  final String callerKey;
 
   /// The bytes one file handed to this task may have. Null from a machine without hand-in, which
   /// is no limit of zero.
@@ -687,6 +692,7 @@ class Task {
         ? AgentEnded.from(map['agentEnded'] as Map<String, dynamic>)
         : null,
     run: map['run'] is String ? map['run'] as String : null,
+    callerKey: _string(map, 'callerKey'),
     handInLimit: map['handInLimit'] is num ? (map['handInLimit'] as num).toInt() : null,
     files: map['files'] is List
         ? (map['files'] as List).whereType<Map<String, dynamic>>().map(HandedFile.from).toList()

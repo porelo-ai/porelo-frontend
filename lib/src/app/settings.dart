@@ -25,6 +25,31 @@ bool _sameStored(Object? left, Object? right) {
   return left == right;
 }
 
+/// An offer handed to Start whose task is not kept yet: what keeping it needs, should the window end before Start
+/// answered. The task is found again by the offer, which Start was given as the task's key.
+@immutable
+class PendingStart {
+  /// What keeping [offer]'s task needs.
+  const PendingStart({
+    required this.offer,
+    required this.machine,
+    required this.provider,
+    required this.project,
+    required this.story,
+    this.discussion = false,
+  });
+
+  /// The offer, which is also the task's key, and the machine it was handed to Start on.
+  final String offer, machine;
+
+  /// The provider, project and story a report of its task names; a discussion is no story's task, and its story may
+  /// be empty.
+  final String provider, project, story;
+
+  /// Whether it starts a discussion, which is kept as one, not as a story's task.
+  final bool discussion;
+}
+
 /// A task this window started for a planner's offer, kept by its machine and container with what a report needs.
 @immutable
 class PlannedOffer {
@@ -988,6 +1013,7 @@ class Settings extends ChangeNotifier {
       ended: ended,
       run: run,
     );
+    _kept(offer);
     await _write();
   }
 
@@ -1006,14 +1032,37 @@ class Settings extends ChangeNotifier {
   /// Whether [offer] was handed to Start by this window, so it is never started again.
   bool planningOfferHanded(String offer) => _handedOffers.contains(offer);
 
-  /// Notes that [offer] is handed to Start, before Start is asked.
-  Future<void> handPlanningOffer(String offer) async {
-    if (!_handedOffers.add(offer)) return;
+  /// Notes that [offer] is handed to Start, before Start is asked, with what keeping its task needs ([pending]) until
+  /// it is kept or its start refused.
+  Future<void> handPlanningOffer(String offer, {PendingStart? pending}) async {
+    if (pending != null) {
+      if (pending.offer != offer || !_validPending(pending)) throw ArgumentError('A pending start must be complete.');
+      _pendingStarts[offer] = pending;
+    }
+    if (!_handedOffers.add(offer) && pending == null) return;
     while (_handedOffers.length > mostHandedOffers) {
+      _pendingStarts.remove(_handedOffers.first);
       _handedOffers.remove(_handedOffers.first);
     }
     await _write();
   }
+
+  final _pendingStarts = <String, PendingStart>{};
+
+  /// The offers handed to Start whose task is not kept yet, oldest first.
+  List<PendingStart> get pendingStarts => List.unmodifiable(_pendingStarts.values);
+
+  /// Forgets what keeping [offer]'s task needed: its start was refused. The offer stays handed.
+  Future<void> forgetPendingStart(String offer) async {
+    if (_pendingStarts.remove(offer) != null) await _write();
+  }
+
+  static bool _validPending(PendingStart pending) =>
+      _validOffer(pending.machine, 'container', pending.offer) &&
+      [pending.provider, pending.project].every(_validLabel) &&
+      (pending.discussion || _validLabel(pending.story));
+
+  void _kept(String offer) => _pendingStarts.remove(offer);
 
   final _discussions = <(String, String), KeptDiscussion>{};
 
@@ -1049,6 +1098,7 @@ class Settings extends ChangeNotifier {
     while (_discussions.length > mostDiscussions) {
       _discussions.remove(_discussions.keys.first);
     }
+    _kept(offer);
     await _write();
   }
 
@@ -1148,6 +1198,28 @@ class Settings extends ChangeNotifier {
     if (stored['planningOffersHanded'] case final List<dynamic> handed) {
       _handedOffers.addAll(handed.whereType<String>().where(_validLabel));
     }
+    _pendingStarts.clear();
+    if (stored['planningStartsPending'] case final List<dynamic> pending) {
+      for (final value in pending) {
+        if (value case {
+          'offer': final String offer,
+          'machine': final String machine,
+          'provider': final String provider,
+          'project': final String project,
+          'story': final String story,
+        }) {
+          final kept = PendingStart(
+            offer: offer,
+            machine: machine,
+            provider: provider,
+            project: project,
+            story: story,
+            discussion: value['discussion'] == true,
+          );
+          if (_handedOffers.contains(offer) && _validPending(kept)) _pendingStarts[offer] = kept;
+        }
+      }
+    }
   }
 
   Map<String, Object?> get _storedPlanningOffers => {
@@ -1169,6 +1241,17 @@ class Settings extends ChangeNotifier {
         },
     ],
     'planningOffersHanded': _handedOffers.toList(),
+    'planningStartsPending': [
+      for (final pending in _pendingStarts.values)
+        {
+          'offer': pending.offer,
+          'machine': pending.machine,
+          'provider': pending.provider,
+          'project': pending.project,
+          'story': pending.story,
+          'discussion': pending.discussion,
+        },
+    ],
     'discussions': [
       for (final kept in _discussions.values)
         {

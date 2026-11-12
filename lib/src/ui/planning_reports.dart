@@ -218,6 +218,7 @@ class WindowTaskReports {
   }
 
   Future<void> _sweepNow() async {
+    await _keepFoundAgain();
     for (var kept in settings.plannedOffers) {
       if (!kept.reportable) {
         _sayOlder(kept);
@@ -255,6 +256,36 @@ class WindowTaskReports {
       };
       if (ending case (final end, final named) when end != kept.ended && !_ideasNotHanded.contains((kept.offer, end))) {
         await _handIdea(kept, named, end);
+      }
+    }
+  }
+
+  /// Keeps each task Start made for an offer this window handed but never kept, found by the offer given as its key:
+  /// the window ended before it heard Start's answer. Any end such a task shows is its own.
+  Future<void> _keepFoundAgain() async {
+    for (final pending in settings.pendingStarts) {
+      if (starts.isStarting(pending.offer)) continue;
+      final task = tasksOn(pending.machine)?.where((each) => each.callerKey == pending.offer).firstOrNull;
+      if (task == null) continue;
+      if (pending.discussion) {
+        await settings.rememberDiscussion(
+          machine: pending.machine,
+          container: task.name,
+          offer: pending.offer,
+          provider: pending.provider,
+          project: pending.project,
+        );
+      } else if (task.task.isNotEmpty) {
+        await settings.rememberPlanningOffer(
+          machine: pending.machine,
+          container: task.name,
+          offer: pending.offer,
+          provider: pending.provider,
+          project: pending.project,
+          story: pending.story,
+          task: task.task,
+          run: task.run,
+        );
       }
     }
   }

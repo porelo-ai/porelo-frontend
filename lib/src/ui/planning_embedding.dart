@@ -116,6 +116,26 @@ class WindowTaskStarts {
   ///
   /// A refusal, by the machine or for want of one, is a [PlanningRefusal] in the machine's words.
   Future<PlanningTaskStarted> call(PlanningSource source, String project, String story, PlanningTaskOrder task) async {
+    final offer = task.offer;
+    if (offer != null) _starting.add(offer);
+    try {
+      return await _start(source, project, story, task);
+    } finally {
+      if (offer != null) _starting.remove(offer);
+    }
+  }
+
+  final _starting = <String>[];
+
+  /// Whether a start of [offer] runs in this window: its task is kept by that start, never by a sweep.
+  bool isStarting(String offer) => _starting.contains(offer);
+
+  Future<PlanningTaskStarted> _start(
+    PlanningSource source,
+    String project,
+    String story,
+    PlanningTaskOrder task,
+  ) async {
     final machine = machineFor(project);
     if (machine == null) {
       const words = 'No watched machine to start the task on. Watch the machine that carries the project.';
@@ -153,6 +173,7 @@ class WindowTaskStarts {
           mode: Mode(task.mode),
           prompt: task.prompt,
           result: result,
+          callerKey: task.offer,
         );
       case (false, final repository?, _):
         start = () => backend.startOrdered(
@@ -162,6 +183,7 @@ class WindowTaskStarts {
           model: task.model,
           mode: Mode(task.mode),
           prompt: task.prompt,
+          callerKey: task.offer,
         );
       default:
         final words = 'The planner ordered a ${task.role} task this window cannot start.';
@@ -173,19 +195,36 @@ class WindowTaskStarts {
         const words = 'This offer has already been handed to Start.';
         throw const PlanningRefusal('OfferConsumed', {'detail': words}, words);
       }
-      await settings.handPlanningOffer(offer);
+      // Kept until its task is: a window that ends before Start answers finds the task again by the offer.
+      await settings.handPlanningOffer(
+        offer,
+        pending: switch (providerOf(source)) {
+          final provider? => PendingStart(
+            offer: offer,
+            machine: machine.name,
+            provider: provider,
+            project: project,
+            story: story,
+            discussion: discussion,
+          ),
+          null => null,
+        },
+      );
     }
     final StartProgress answer;
     try {
       answer = await start();
     } on VarlinkException catch (error) {
+      await _refused(task.offer);
       throw PlanningRefusal(error.simpleName, error.parameters, error.toString(), error.isMethodNotFound);
     } on Exception catch (error) {
+      await _refused(task.offer);
       // The window's refusals of a start, each already in words.
       throw PlanningRefusal('StartRefused', {'detail': '$error'}, '$error');
     }
     final container = answer.container ?? '';
     if (container.isEmpty || !_started(answer)) {
+      await _refused(task.offer);
       final printed = answer.output.join('\n').trim();
       final words = printed.isNotEmpty
           ? printed
@@ -238,6 +277,11 @@ class WindowTaskStarts {
       if (settings.plannedOffer(machine.name, container) case final kept?) onConfirmed?.call(kept);
     }
     return PlanningTaskStarted(task: name, container: container);
+  }
+
+  /// No task stands for [offer]: nothing is left to find again.
+  Future<void> _refused(String? offer) async {
+    if (offer != null) await settings.forgetPendingStart(offer);
   }
 
   static Future<DiscussionChoice?> _asOrdered(Machine machine, String project, PlanningTaskOrder task) async =>

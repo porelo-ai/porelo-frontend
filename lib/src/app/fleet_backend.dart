@@ -282,6 +282,10 @@ abstract class FleetBackend {
   /// Starts a task ordered elsewhere with exactly these arguments, naming no task, and answers Start's final reply
   /// with what it printed: the [StartProgress.container] it made, or its refusal and why. **It answers once the task
   /// stands, not when its agent's run ends.**
+  ///
+  /// [callerKey] is kept with the task from its creation and listed with it, so a window that ended before it heard
+  /// Start's answer finds the task again; a machine that keeps none is started without it. [reads] names the tasks
+  /// whose landed work the task reads; a machine that cannot hand it refuses with `FeatureNotSupported`.
   Future<StartProgress> startOrdered({
     required String project,
     required String repository,
@@ -289,6 +293,8 @@ abstract class FleetBackend {
     required String model,
     required Mode mode,
     required String prompt,
+    String? callerKey,
+    List<String> reads = const [],
   });
 
   /// Starts a discussion a planner ordered: every repository of [project] read only, nothing writable and nothing
@@ -301,6 +307,7 @@ abstract class FleetBackend {
     required Mode mode,
     required String prompt,
     required String result,
+    String? callerKey,
   });
 
   /// Why this machine cannot start a discussion ([startDiscussion]), in words, or null where it can.
@@ -834,6 +841,8 @@ class PoreloBackend implements FleetBackend {
     required String model,
     required Mode mode,
     required String prompt,
+    String? callerKey,
+    List<String> reads = const [],
   }) => _startAnswered(
     _opened().start(
       project: project,
@@ -842,6 +851,8 @@ class PoreloBackend implements FleetBackend {
       model: model,
       mode: mode,
       prompt: prompt,
+      callerKey: callerKey,
+      reads: reads.isEmpty ? null : reads,
       // A prompted start would otherwise answer only when the agent's run ends.
       now: true,
       certify: asksToCertify,
@@ -857,9 +868,11 @@ class PoreloBackend implements FleetBackend {
     required Mode mode,
     required String prompt,
     required String result,
+    String? callerKey,
   }) => _startAnswered(
     _opened().start(
       project: project,
+      callerKey: callerKey,
       agent: agent,
       model: model,
       mode: mode,

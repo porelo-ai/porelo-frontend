@@ -627,6 +627,8 @@ class FakeBackend implements FleetBackend {
     required String model,
     required Mode mode,
     required String prompt,
+    String? callerKey,
+    List<String> reads = const [],
   }) async {
     final ordered = FakeBackend.ordered;
     if (ordered == null) throw UnimplementedError('No scenario starts an ordered task on this stand-in.');
@@ -642,6 +644,7 @@ class FakeBackend implements FleetBackend {
     required Mode mode,
     required String prompt,
     required String result,
+    String? callerKey,
   }) async {
     discussed.add((project: project, agent: agent, model: model, mode: mode, prompt: prompt, result: result));
     final ordered = FakeBackend.ordered;
