@@ -7,16 +7,17 @@ import '../support/idea_walk.dart';
 /// Usage: I open the planning of the walk project
 Future<void> iOpenThePlanningOfTheWalkProject(WidgetTester tester) =>
     walked(tester, '1 the window opens the planning of ${Walk.project}', () async {
-      await toThePlace(tester, 'planning');
       final board = find.text('The stories of project ${Walk.project} by state, the most important first.');
       final field = find.byKey(const Key('planning-project'));
-      // The window starts the planner itself, which takes a while on a fresh account.
-      await pumpUntil(
-        tester,
-        () => board.evaluate().isNotEmpty || field.evaluate().isNotEmpty,
-        timeout: const Duration(minutes: 2),
-        what: 'the planning of a project',
-      );
+      // The window starts the planner itself, which takes a while on a fresh account. Its first read of the machine
+      // may still take it to Work after the person chose Planning; the person then chooses Planning again.
+      bool shown() => board.evaluate().isNotEmpty || field.evaluate().isNotEmpty;
+      for (var chosen = 1; !shown() && chosen < 12; chosen++) {
+        await toThePlace(tester, 'planning');
+        await pumpFor(tester, const Duration(seconds: 10));
+      }
+      if (!shown()) await toThePlace(tester, 'planning');
+      await pumpUntil(tester, shown, timeout: const Duration(seconds: 10), what: 'the planning of a project');
       if (board.evaluate().isEmpty) {
         await tester.tap(field.first);
         await pumpFor(tester);
