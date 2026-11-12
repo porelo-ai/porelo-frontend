@@ -5,8 +5,8 @@
   "$schema": "issue-1.json",
   "id": "F450",
   "title": "The Window's Tests Follow The Test Pyramid",
-  "state": "Accepted",
-  "size": "L",
+  "state": "Analyzed",
+  "size": "XL",
   "priority": "Medium",
   "rank": 1,
   "blockedBy": [],
@@ -14,8 +14,8 @@
 }
 ```
 
-**Why this size.** in slices: XS-S for the waits and processes, S-M for the gaps below the end-to-end and live runs, M-L for
-moving logic out of the widgets so that its tests become unit tests.
+**Why this size.** XL: the measured work below sums to well over a week (shell.dart's controller alone is L), so it
+is built as the five issues of L or smaller that *Plan* names, each green and pushed on its own.
 
 **What must be true.** The window's tests follow the pyramid: about 70-80 % unit tests (one class or method, no outside
 system, milliseconds), 15-20 % integration tests (components together, or against a real socket, a daemon or a
@@ -94,7 +94,8 @@ full-tree frames (0 + 350 + 350 ms) per action.
 
 - `task_creation` (142 s, 78 scenarios): name rules, defaults and retries on `StartWork` in `test/app`, about eight
   dialog tests left. **M**
-- `machine_sections` (124 s, 52): which machine a leaf's command acts on, resolved in `ShellModel`/`Commands`. **M**
+- `machine_sections` (124 s, 52): which machine a leaf's command acts on, resolved in `ShellModel` and
+  `commands.dart`. **M**
 - `adding_a_machine` (103 s, 45) and `managed_tunnels` (54 s, 21): a plain wizard model with its transitions. **M**
 - `agent_sign_in` (93 s, 32): the state matrix on `AgentSignIn` and `StartWork`, three widget tests left. **S**
 - `live_logs` (93 s, 12; one scenario pumps 400 frames): coalescing, caps and truncation in `test/app/logs_test.dart`
@@ -114,9 +115,34 @@ model-less dialogs `connection_wizard.dart`, `destinations_view.dart`, `held_mes
 
 ## Plan
 
-Not planned yet; in this order once accepted for the build: the waits, network and processes; the gaps below the
-end-to-end and live runs; then the logic out of the widgets, slice by slice, each slice's unit tests seen red first
-and the widget scenarios they replace removed with them.
+Read in today's code (`test/features/support/world.dart`'s `World.startApp` and `World.settle`, `lib/src/ui/shell.dart`
+at 7 k lines, 124 files in `test/app`). Split into five issues, built in this order; each sees its new unit tests red
+first, and removes the widget scenarios and the waits they replace in the same commit:
+
+1. **Waits, network and processes faked** (M): an injected clock (a `clock:` function, as `Organization` takes) and
+   `fakeAsync` for the real waits listed above; an in-memory varlink connection under `fakeAsync` in `test/client`, one
+   socket test kept; the `start:` parameters the classes under `tunnel_test.dart`, `machine_setup_test.dart`,
+   `host_card_tunnel_test.dart` and `pinned_ssh_test.dart` take given fakes, one process smoke test each;
+   `published_key_test.dart`'s live fetch moved to the release workflow. First red test:
+   `organization_connections_test.dart` under `fakeAsync`, which fails while a real wait remains in it.
+2. **The flows proven only end-to-end or live, proven below** (M): the `MockMachine` handlers and wire tests listed
+   above, and a test in `test/client` that every method `PoreloClient` calls is known to `MockMachine`, red first for
+   `destinations`. Also the two placed from F451: a finder test per planning command, and the start dialog's rejected
+   machine change.
+3. **The Gherkin suites' rules as unit tests** (L): the slow suites listed above, slice by slice, their rules on
+   `StartWork`, `ShellModel` and `commands.dart`, a wizard model for adding a machine and tunnels, `AgentSignIn`, `Logs`
+   and the organization projections; each feature keeps the scenarios that show what the window adds. `World.settle`
+   pumps only the frames a scenario needs.
+4. **The shell's controller out of `_ShellState`** (L): task start, sign-in recovery and gate forwarding into plain
+   classes in `lib/src/app` behind the interfaces the shell already holds (`Machines`, `Gate`, `StartWork`), in M
+   slices, each with its unit tests and the shell's widget tests that become redundant removed.
+5. **The model-less dialogs** (L): `host_dialog.dart`'s state machine, the organization pages and dialogs,
+   `identity_view.dart`, `machine_switcher.dart` with `new_machine.dart`, `connection_wizard.dart`,
+   `destinations_view.dart`, `held_message_view.dart`, `default_view.dart`, `forges_page.dart` and
+   `attention_view.dart`'s work facts, each given a model with unit tests.
+
+After each, the table above is measured again the same way (`flutter test --reporter json`, summed per folder) and the
+shares written into this issue.
 
 ## Acceptance
 
@@ -126,7 +152,11 @@ and the widget scenarios they replace removed with them.
 
 ## Open questions
 
-- None yet.
+- Split F450 into the five issues of *Plan*, each with its own number, size and place in the backlog (the
+  operator's to order), with F450 closed once they are filed; or kept as one issue built in five pushes?
+- The Gherkin features are read as the window's specification (`test/features/*.feature`, 51 files). Moving a
+  feature's rules into unit tests removes most of its scenarios. May a feature keep only the scenarios that show
+  what the window adds, its rules then specified by the unit tests' names, or must every scenario stay?
 
 ## Placed here from F451
 

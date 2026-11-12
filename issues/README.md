@@ -73,7 +73,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f450"></a>[F450](F450-The-Window-s-Tests-Follow-The-Test-Pyramid.md) | L | - | The window's tests moved to the test pyramid's shares: waits, network and processes faked, flows proven below the end-to-end runs, logic out of the widgets. |
 | <a id="f123"></a>[F123](F123-Where-A-Machine-And-A-Project-Stand-In-Their-Organisations-Tree.md) | - | - | Where a machine and a project stand in their organisation's tree, and which settings bind them. |
 | <a id="f166"></a>[F166](F166-A-Host-Rented-Through-OpenTofu.md) | M | - | `porelo-host up` and `down` renting and giving back through the OpenTofu module, its secrets only in `tofu`'s environment; `--given` kept. |
 
@@ -82,6 +81,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
 | <a id="f479"></a>[F479](F479-A-Planner-The-Window-Started-Ends-With-It.md) | M | - | A planner the window started because none was serving ends when the window ends, so it neither holds the planner's address file nor stands in the way of the next planner; a planner the window found serving is left running. | 1 |
+| <a id="f450"></a>[F450](F450-The-Window-s-Tests-Follow-The-Test-Pyramid.md) | XL | - | The window's tests moved to the test pyramid's shares: waits, network and processes faked, flows proven below the end-to-end runs, logic out of the widgets. | 2 |
 | <a id="f219"></a>[F219](F219-An-Interface-Ended-Without-Asking-Leaves-No-Forward-Behind.md) | S | - | The ssh forwards this interface raised ended with it also when it ends without asking, and one left over found again by its socket at the next start. | - |
 | <a id="f114"></a>[F114](F114-Windows-Notifications-From-The-MSIX.md) | M | - | Windows notifications from the MSIX's identity. | - |
 | <a id="f115"></a>[F115](F115-A-Fine-Grained-Token-Waiting-For-An-Organisations-Approval.md) | S | - | A fine-grained token waiting for an organisation's approval said as waiting. | - |
