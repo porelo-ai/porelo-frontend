@@ -111,6 +111,9 @@ class _DestinationsDialogState extends State<DestinationsDialog> {
       }
     } on VarlinkDisconnected catch (ex) {
       if (mounted) setState(() => _problem = 'Lost contact with the machine: ${ex.message}');
+    } on Object catch (fault) {
+      // Whatever went wrong ends the asking and is said, never a reading that does not stop.
+      if (mounted) setState(() => _problem = 'It could not be asked: $fault');
     }
   }
 

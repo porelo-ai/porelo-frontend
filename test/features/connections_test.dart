@@ -74,6 +74,11 @@ import './step/the_way_to_store_it_is_still_offered.dart';
 import './step/nothing_pasted_is_left_on_screen.dart';
 import './step/i_paste_and_send_it.dart';
 import './step/the_way_to_store_it_says.dart';
+import './step/the_machine_declares_the_destination_at.dart';
+import './step/the_machine_is_slow_to_answer.dart';
+import './step/it_shows_that_it_is_reading.dart';
+import './step/the_machine_has_answered.dart';
+import './step/it_no_longer_shows_that_it_is_reading.dart';
 
 void main() {
   group('''How a machine connects out, and giving it a credential''', () {
@@ -438,5 +443,18 @@ void main() {
       await nothingPastedIsLeftOnScreen(tester);
       await theIsBlankedInAWalksPicture(tester, 'store-paste');
     });
+    testWidgets(
+      '''while the machine is asked, the destinations card on the credentials page says what is being read''',
+      (tester) async {
+        await bddSetUp(tester);
+        await theMachineDeclaresTheDestinationAt(tester, 'weather', 'https://api.weather.example/v1');
+        await theMachineIsSlowToAnswer(tester);
+        await iChooseTheCommand(tester, 'Connections — how this machine connects out');
+        await itShowsThatItIsReading(tester, 'which destinations this machine declares');
+        await theMachineHasAnswered(tester);
+        await itNoLongerShowsThatItIsReading(tester);
+        await itSays(tester, 'weather');
+      },
+    );
   });
 }

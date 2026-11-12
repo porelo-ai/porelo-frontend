@@ -52,8 +52,9 @@ class Egress extends ChangeNotifier {
 
   /// Reads what a project may reach, and what sets are installed.
   Future<void> lookAt(FleetBackend backend, Project project, {String? repository}) async {
-    // Another project's or repository's answer is never shown under this one's name while it is asked.
-    if (this.project?.name != project.name || this.repository != repository) {
+    // Another project's, repository's or machine's answer is never shown under this one's name while it is
+    // asked.
+    if (this.project?.name != project.name || this.repository != repository || !identical(_from, backend)) {
       reachable = const <EgressHost>[];
       refused = const <String>[];
       removed = const <RemovedSetting>[];
@@ -61,6 +62,8 @@ class Egress extends ChangeNotifier {
       locations = const <String>[];
       read = false;
     }
+    final round = ++_round;
+    _from = backend;
     this.project = project;
     this.repository = repository;
     if (!project.canBeActedOn) {
@@ -73,9 +76,10 @@ class Egress extends ChangeNotifier {
       notifyListeners();
       return;
     }
-    await _asking(() async {
+    await _asking(round, () async {
       final (hosts, notGiven, takenAway) = await backend.egressOf(project.name, repository: repository);
       final (installed, where) = await backend.egressSets();
+      if (round != _round) return;
       reachable = hosts;
       refused = notGiven;
       removed = takenAway;
@@ -85,23 +89,32 @@ class Egress extends ChangeNotifier {
     });
   }
 
-  Future<void> _asking(Future<void> Function() ask) async {
+  /// The machine the shown answer was read from, and which read is the newest: an answer to an older one is
+  /// for a project, repository or machine no longer shown, and is dropped.
+  FleetBackend? _from;
+  int _round = 0;
+
+  Future<void> _asking(int round, Future<void> Function() ask) async {
     busy = true;
     problem = null;
     notifyListeners();
     try {
       await ask();
     } on VarlinkException catch (refusal) {
-      problem = refusal.simpleName == 'ProjectRequired'
-          ? 'No project file was given, and every call about egress takes one.'
-          : 'Refused: ${refusal.simpleName}.';
+      if (round == _round) {
+        problem = refusal.simpleName == 'ProjectRequired'
+            ? 'No project file was given, and every call about egress takes one.'
+            : 'Refused: ${refusal.simpleName}.';
+      }
     } on VarlinkDisconnected catch (ex) {
-      problem = 'Lost contact with the machine: ${ex.message}';
+      if (round == _round) problem = 'Lost contact with the machine: ${ex.message}';
     } on FeatureNotSupported catch (ex) {
-      problem = '$ex';
+      if (round == _round) problem = '$ex';
     } finally {
-      busy = false;
-      notifyListeners();
+      if (round == _round) {
+        busy = false;
+        notifyListeners();
+      }
     }
   }
 }

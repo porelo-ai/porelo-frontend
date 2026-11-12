@@ -104,13 +104,15 @@ class Gate extends ChangeNotifier {
 
   /// Reads what is waiting at [project]'s gate.
   Future<void> lookAt(FleetBackend backend, Project project) async {
-    // Another project's waiting pushes are never shown under this one's name while it is asked.
-    if (this.project?.name != project.name) {
+    // Another project's or machine's waiting pushes are never shown under this one's name while it is asked.
+    if (this.project?.name != project.name || !identical(_from, backend)) {
       waiting = const <PendingPush>[];
       repositories = const <String>[];
       mirror = '';
       mode = '';
     }
+    final round = ++_round;
+    _from = backend;
     this.project = project;
     looking = null;
     _forgetTheRefusal();
@@ -128,7 +130,7 @@ class Gate extends ChangeNotifier {
       notifyListeners();
       return;
     }
-    await _asking(() => _readAgain(backend, project.name));
+    await _asking(() => _readAgain(backend, project.name, round: round), round: round);
   }
 
   /// Opens one waiting push, so it can be judged before it is forwarded.
@@ -145,6 +147,7 @@ class Gate extends ChangeNotifier {
     final file = project?.name;
     if (file == null || file.isEmpty) return;
     _against = against;
+    final round = _round;
     await _asking(() async {
       servesWithoutLineEndings = await _reviewTakes(backend, 'ignoreLineEndings');
       // Never sent to a machine that does not take it, which would refuse the whole review; what the
@@ -157,6 +160,8 @@ class Gate extends ChangeNotifier {
         repository: _where(push),
         ignoreLineEndings: withoutLineEndings ? true : null,
       );
+      // A push of a project no longer shown is not drawn under the one shown now.
+      if (round != _round) return;
       diff = review.diff;
       log = review.log;
       ranked = review.files;
@@ -364,22 +369,24 @@ class Gate extends ChangeNotifier {
   /// nobody is shown it.
   ///
   /// One repository that cannot be read is named, and does not hide what the others hold.
-  Future<void> _readAgain(FleetBackend backend, String file) async {
+  Future<void> _readAgain(FleetBackend backend, String file, {int? round}) async {
+    final mine = round ?? _round;
     final names = project?.repositories ?? const <String>[];
     unread = const <({String name, String words})>[];
     _unreadSaid = null;
     reading = names.isEmpty ? 1 : names.length;
     notifyListeners();
     try {
-      await _readEach(backend, file, names);
+      await _readEach(backend, file, names, mine);
     } finally {
-      reading = 0;
+      if (mine == _round) reading = 0;
     }
   }
 
-  Future<void> _readEach(FleetBackend backend, String file, List<String> names) async {
+  Future<void> _readEach(FleetBackend backend, String file, List<String> names, int round) async {
     if (names.isEmpty) {
       final gate = await backend.gateOf(file);
+      if (round != _round) return;
       mirror = gate.mirror;
       mode = gate.mode;
       waiting = gate.pending;
@@ -389,6 +396,7 @@ class Gate extends ChangeNotifier {
     final answers = await Future.wait(<Future<(String, GateState?, String?)>>[
       for (final name in names) _gateIn(backend, file, name),
     ]);
+    if (round != _round) return;
     final read = <(String, GateState)>[
       for (final (name, gate, _) in answers)
         if (gate != null) (name, gate),
@@ -423,7 +431,13 @@ class Gate extends ChangeNotifier {
     }
   }
 
-  Future<void> _asking(Future<void> Function() ask) async {
+  /// The machine the shown gate was read from, and which read is the newest: an answer to an older one is for
+  /// a project or machine no longer shown, and is dropped.
+  FleetBackend? _from;
+  int _round = 0;
+
+  Future<void> _asking(Future<void> Function() ask, {int? round}) async {
+    final mine = round ?? _round;
     busy = true;
     problem = null;
     notifyListeners();
@@ -432,14 +446,16 @@ class Gate extends ChangeNotifier {
     } on VarlinkException catch (refusal) {
       // A named refusal is an answer: BranchRequired and ProjectRequired both land here, and both
       // are things somebody did rather than things that broke.
-      problem = _wordsFor(refusal);
+      if (mine == _round) problem = _wordsFor(refusal);
     } on VarlinkDisconnected catch (ex) {
-      problem = 'Lost contact with the machine: ${ex.message}';
+      if (mine == _round) problem = 'Lost contact with the machine: ${ex.message}';
     } on FeatureNotSupported catch (ex) {
-      problem = '$ex';
+      if (mine == _round) problem = '$ex';
     } finally {
-      busy = false;
-      notifyListeners();
+      if (mine == _round) {
+        busy = false;
+        notifyListeners();
+      }
     }
   }
 

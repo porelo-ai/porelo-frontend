@@ -265,6 +265,9 @@ class ProjectConversation extends ChangeNotifier {
       }
     } on VarlinkDisconnected catch (ex) {
       problem = 'Lost contact with the machine: ${ex.message}';
+    } on Object catch (fault) {
+      // Whatever went wrong ends the asking and is said, never a reading that does not stop.
+      problem = 'It could not be asked: $fault';
     } finally {
       busy = false;
       _notify();

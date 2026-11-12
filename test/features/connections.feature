@@ -357,3 +357,13 @@ Feature: How a machine connects out, and giving it a credential
         Then the way to store it says {'That is the public half of a key'}
         And nothing pasted is left on screen
         And the {'store-paste'} is blanked in a walk's picture
+
+    # The machine's credentials page carries its destinations as a card of its own, read the same way.
+    Scenario: while the machine is asked, the destinations card on the credentials page says what is being read
+        Given the machine declares the destination {'weather'} at {'https://api.weather.example/v1'}
+        And the machine is slow to answer
+        When I choose the command {'Connections — how this machine connects out'}
+        Then it shows that it is reading {'which destinations this machine declares'}
+        When the machine has answered
+        Then it no longer shows that it is reading
+        And it says {'weather'}

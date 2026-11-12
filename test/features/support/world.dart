@@ -227,8 +227,12 @@ class FakeBackend implements FleetBackend {
   /// backups, its gate and a push there, a room's members, the destinations and what Default holds.
   Duration readsTake = Duration.zero;
 
+  /// What those reads throw instead of answering: something no handler names, as a fault in the window would.
+  Object? readsFail;
+
   Future<void> _answering() async {
     if (readsTake > Duration.zero) await Future<void>.delayed(readsTake);
+    if (readsFail case final fault?) throw fault;
   }
 
   @override

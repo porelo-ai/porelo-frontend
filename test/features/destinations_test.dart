@@ -27,9 +27,9 @@ import './step/the_destination_offers_no_removal.dart';
 import './step/i_put_my_own_in_the_place_of_at.dart';
 import './step/the_machine_is_slow_to_answer.dart';
 import './step/it_shows_that_it_is_reading.dart';
-import './step/it_does_not_say.dart';
 import './step/the_machine_has_answered.dart';
 import './step/it_no_longer_shows_that_it_is_reading.dart';
+import './step/the_machine_answers_what_nobody_expected.dart';
 
 void main() {
   group('''The services a credential can be for, managed from here''', () {
@@ -112,10 +112,16 @@ void main() {
       await theMachineIsSlowToAnswer(tester);
       await iChooseTheCommand(tester, 'Destinations — the services a credential can be for');
       await itShowsThatItIsReading(tester, 'which destinations this machine declares');
-      await itDoesNotSay(tester, 'No destination is declared');
       await theMachineHasAnswered(tester);
       await itNoLongerShowsThatItIsReading(tester);
       await itSays(tester, 'https://api.weather.example/v1');
+    });
+    testWidgets('''an answer nobody expected ends the destinations' reading with what went wrong''', (tester) async {
+      await bddSetUp(tester);
+      await theMachineAnswersWhatNobodyExpected(tester);
+      await iChooseTheCommand(tester, 'Destinations — the services a credential can be for');
+      await itNoLongerShowsThatItIsReading(tester);
+      await itSays(tester, 'an answer nobody expected');
     });
   });
 }

@@ -48,13 +48,24 @@ class Backups extends ChangeNotifier {
   bool get asked => problem != null || taken.isNotEmpty || _read;
   bool _read = false;
 
+  /// The machine the shown record was read from, and which read is the newest: an answer to an older one
+  /// is for a project, repository or machine no longer shown, and is dropped.
+  FleetBackend? _from;
+  int _round = 0;
+
   /// Reads what has been taken.
   Future<void> look(FleetBackend backend, String name, {String? repository}) async {
-    // Another project's or repository's record is never shown under this one's name while it is asked.
-    if (project != name || this.repository != repository) {
+    // Another project's, repository's or machine's record is never shown under this one's name while it is
+    // asked, nor a restore or removal considered for it.
+    if (project != name || this.repository != repository || !identical(_from, backend)) {
       taken = const <Backup>[];
       _read = false;
+      bundle = null;
+      restoring = null;
+      restoringFrom = null;
     }
+    final round = ++_round;
+    _from = backend;
     project = name;
     this.repository = repository;
     busy = true;
@@ -63,17 +74,21 @@ class Backups extends ChangeNotifier {
     removed = null;
     notifyListeners();
     try {
-      taken = await backend.backups(name, repository: repository);
+      final read = await backend.backups(name, repository: repository);
+      if (round != _round) return;
+      taken = read;
       _read = true;
     } on VarlinkException catch (refusal) {
-      problem = 'Refused: ${refusal.simpleName}.';
+      if (round == _round) problem = 'Refused: ${refusal.simpleName}.';
     } on VarlinkDisconnected catch (ex) {
-      problem = 'Lost contact with the machine: ${ex.message}';
+      if (round == _round) problem = 'Lost contact with the machine: ${ex.message}';
     } on FeatureNotSupported catch (ex) {
-      problem = '$ex';
+      if (round == _round) problem = '$ex';
     } finally {
-      busy = false;
-      notifyListeners();
+      if (round == _round) {
+        busy = false;
+        notifyListeners();
+      }
     }
   }
 

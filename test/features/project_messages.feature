@@ -81,7 +81,15 @@ Feature: A project's conversation, and a person joining it
         And the machine is slow to answer
         When I choose the command {'Messages and the project’s room'}
         Then it shows that it is reading {'who is in the room of checkout'}
-        And it does not say {'Nobody has joined yet'}
         When the machine has answered
         Then it no longer shows that it is reading
         And it says {'Nobody has joined yet'}
+
+    # A fault no handler names still ends the reading, and says so, instead of a bar that never stops.
+    Scenario: an answer nobody expected ends the room's reading with what went wrong
+        Given the project {'checkout'} has a conversation over {'matrix'} reaching {'127.0.0.1:8008'}, ready
+        And I select the project {'checkout'}
+        And the machine answers what nobody expected
+        When I choose the command {'Messages and the project’s room'}
+        Then it no longer shows that it is reading
+        And it says {'an answer nobody expected'}

@@ -33,9 +33,9 @@ import './step/nothing_was_forwarded.dart';
 import './step/joining_is_not_offered_yet.dart';
 import './step/the_machine_is_slow_to_answer.dart';
 import './step/it_shows_that_it_is_reading.dart';
-import './step/it_does_not_say.dart';
 import './step/the_machine_has_answered.dart';
 import './step/it_no_longer_shows_that_it_is_reading.dart';
+import './step/the_machine_answers_what_nobody_expected.dart';
 
 void main() {
   group('''A project's conversation, and a person joining it''', () {
@@ -128,10 +128,18 @@ void main() {
       await theMachineIsSlowToAnswer(tester);
       await iChooseTheCommand(tester, 'Messages and the project’s room');
       await itShowsThatItIsReading(tester, 'who is in the room of checkout');
-      await itDoesNotSay(tester, 'Nobody has joined yet');
       await theMachineHasAnswered(tester);
       await itNoLongerShowsThatItIsReading(tester);
       await itSays(tester, 'Nobody has joined yet');
+    });
+    testWidgets('''an answer nobody expected ends the room's reading with what went wrong''', (tester) async {
+      await bddSetUp(tester);
+      await theProjectHasAConversationOverReachingReady(tester, 'checkout', 'matrix', '127.0.0.1:8008');
+      await iSelectTheProject(tester, 'checkout');
+      await theMachineAnswersWhatNobodyExpected(tester);
+      await iChooseTheCommand(tester, 'Messages and the project’s room');
+      await itNoLongerShowsThatItIsReading(tester);
+      await itSays(tester, 'an answer nobody expected');
     });
   });
 }

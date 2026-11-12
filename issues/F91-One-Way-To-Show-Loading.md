@@ -70,7 +70,12 @@ while they read:
   a re-read of the same keeps it. All three are one instance each in the shell (`shell.dart:266`, `:272`, `:317`),
   opened before they read, which is why the previous answer shows today. `Egress` gets a `read` flag, cleared with the
   rest and set by its first answer, as `Backups` has `_read` (`backups.dart:49`); a project not on this machine keeps
-  its problem's words, which stand in place of the reading.
+  its problem's words, which stand in place of the reading. "Another" also means another machine (another backend), and
+  `Backups` drops a restore or removal it considered with the rest, so *Restore it anyway* never restores one project
+  from another's bundle. Each read carries its round: an answer that comes after a newer read began, for whichever
+  project, is dropped, and it neither ends the newer one's reading nor says its problem
+  (`test/app/one_project_at_a_time_test.dart`). A read that fails with a fault nobody named (the room's members, the
+  destinations) ends its bar and says what went wrong.
 - **The views, in order.**
   - `EgressView`: `Reading` under the header while `busy` ("Asking <machine> what <project> may reach…"); the
     reachable list, "None is installed" and the sets only once `read`.
@@ -102,8 +107,10 @@ while they read:
   `project_messages.feature`, `destinations.feature` and `work_without_a_project.feature` (the Default dialog). Three
   scenarios prove the dropped answer, for what a project may reach, the backups and the gate: one project's view, then
   a second guarded project's (`billing` is offline, which has no egress) opened by its command while slow, finds none
-  of the first's before the reading, then the answer. One widget test in `test/ui/leaf_page_look_test.dart` finds "Reading…" on a busy, unread
-  section and "not read" on an idle one; the test there that finds "not read" twice on a busy, empty section
+  of the first's before the reading, then the answer. The Messages and destinations scenarios check no empty words:
+  those were already held back until the first answer. The destinations card on the credentials page has its own
+  scenario in `connections.feature`. One widget test in `test/ui/leaf_page_look_test.dart` finds "Reading…" on a busy,
+  unread section and "not read" on an idle one; the test there that finds "not read" twice on a busy, empty section
   (`leaf_page_look_test.dart:311`) changes with it. The other tests that find "not read"
   (`test/ui/work_and_attention_counts_test.dart`, `repository_on_the_machine_test.dart`,
   `organization_host_pages_test.dart`, `forge_pages_test.dart`) are run before the change; one that finds it while a

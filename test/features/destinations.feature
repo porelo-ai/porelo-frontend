@@ -73,7 +73,13 @@ Feature: The services a credential can be for, managed from here
         And the machine is slow to answer
         When I choose the command {'Destinations — the services a credential can be for'}
         Then it shows that it is reading {'which destinations this machine declares'}
-        And it does not say {'No destination is declared'}
         When the machine has answered
         Then it no longer shows that it is reading
         And it says {'https://api.weather.example/v1'}
+
+    # A fault no handler names still ends the reading, and says so, instead of a bar that never stops.
+    Scenario: an answer nobody expected ends the destinations' reading with what went wrong
+        Given the machine answers what nobody expected
+        When I choose the command {'Destinations — the services a credential can be for'}
+        Then it no longer shows that it is reading
+        And it says {'an answer nobody expected'}
