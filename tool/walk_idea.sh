@@ -675,10 +675,12 @@ on_vm "set -e; umask 077; printf '[credential \"https://github.com/%s\"]\\n\\the
     echo "walk: git on $vm cannot read https://github.com/$org/$porelo_project through the run's vault" >&2
     exit 1
 }
-# In a session of its own whose number is kept, so an ending here takes the whole of it down there too. The window
+# In a session of its own whose number is kept, so an ending here takes the whole of it down there too. In a scope of
+# the account's user manager, as a window on a desktop is: a terminal's podman exec under the ssh login's own scope may
+# not move into the task's cgroup ("OCI permission denied"). The window
 # reaches this VM's own porelod and keeps the account's settings; tool/e2e.sh insists on a machine, which is this one.
 as_the_person_on_vm \
-    "cd ~/$run && exec setsid sh -c 'echo \$\$ >pid; exec \"\$@\"' walk env -u DISPLAY -u WAYLAND_DISPLAY -u DBUS_SESSION_BUS_ADDRESS \
+    "cd ~/$run && exec systemd-run --user --scope --quiet setsid sh -c 'echo \$\$ >pid; exec \"\$@\"' walk env -u DISPLAY -u WAYLAND_DISPLAY -u DBUS_SESSION_BUS_ADDRESS \
         PATH=\$HOME/$run/bin:\$HOME/$flutter_dir/bin:\$PATH \
         PORELO_E2E_HOST=localhost PORELO_E2E_REMOTE_SOCKET=/run/user/\$(id -u)/porelo/porelod.sock \
         PORELO_E2E_ACCOUNT_RUNTIME=1 XDG_RUNTIME_DIR=/run/user/\$(id -u) \
