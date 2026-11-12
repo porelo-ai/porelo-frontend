@@ -102,7 +102,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f81"></a>[F81](F81-The-Setup-Script-Checked-By-Its-Signature.md) | M | - | The setup script verified by its signature before it runs. |
 | <a id="f88"></a>[F88](F88-A-Nickname-For-Each-Agent.md) | M | - | A nickname for each agent. |
 | <a id="f62"></a>[F62](F62-An-Organisations-Policy-Is-Shown.md) | M | - | An organisation's policy shown. |
-| <a id="f479"></a>[F479](F479-A-Planner-The-Window-Started-Ends-With-It.md) | M | - | A planner the window started because none was serving ends when the window ends, so it neither holds the planner's address file nor stands in the way of the next planner; a planner the window found serving is left running. |
 | <a id="f495"></a>[F495](F495-The-Windows-Tests-Wait-On-No-Clock-Network-Or-Process.md) | M | - | The window's unit tests wait on no real time, network or process: an injected clock under fakeAsync, an in-memory varlink connection, fake process starts, one smoke test each. |
 | <a id="f496"></a>[F496](F496-Flows-Proven-Only-End-To-End-Proven-Below.md) | M | - | The flows proven only by the end-to-end or live runs proven below them: MockMachine handlers and wire tests, a test that every client method is known to the mock, the planning commands and the start dialog's machine change. |
 | <a id="f497"></a>[F497](F497-The-Gherkin-Suites-Rules-As-Unit-Tests.md) | L | [F495](README.md#f495) | The slow Gherkin suites' rules moved into unit tests on StartWork, ShellModel, commands.dart, a wizard model, AgentSignIn, Logs and the organization projections; each feature keeps what the window adds. |
@@ -131,6 +130,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f99"></a>[F99](F99-An-Attached-Agent-Shown-At-Rest-Or-Working.md) | M | - | A work tile says whether an attached agent is at rest or working; waits for a Tasks1 answer that says an attached agent is at rest. |
 | <a id="f290"></a>[F290](F290-The-Host-Functions-From-A-Windows-Desktop.md) | M | - | Connect and Prepare from a Windows desktop: one ssh per host card with loopback TCP ends, the daemon through the relay, no master. |
 | <a id="f288"></a>[F288](F288-Small-Leftovers-Of-The-One-Click-Flow.md) | S | - | Two leftovers of the one-click flow: the terminal close test bounded per wait under load, and a repository's menu offering only the review policy it does not have. |
+| <a id="f479"></a>[F479](F479-A-Planner-The-Window-Started-Ends-With-It.md) | M | - | A planner the window started because none was serving ends when the window ends, so it neither holds the planner's address file nor stands in the way of the next planner; a planner the window found serving is left running. |
 | <a id="f490"></a>[F490](F490-The-Command-Finder-Offers-A-Planning-Actions-Way-On.md) | S | - | An unavailable planning action in the command finder offers its way on, a runnable step to what holds it, beside the disabled action. |
 
 ## Implementing

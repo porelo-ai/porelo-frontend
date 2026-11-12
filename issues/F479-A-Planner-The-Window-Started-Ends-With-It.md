@@ -5,10 +5,10 @@
   "$schema": "issue-1.json",
   "id": "F479",
   "title": "A Planner The Window Started Ends With It",
-  "state": "Estimated",
+  "state": "Backlog",
   "size": "M",
   "priority": "Medium",
-  "rank": 16,
+  "rank": 15,
   "blockedBy": [],
   "covers": "A planner the window started because none was serving ends when the window ends, so it neither holds the planner's address file nor stands in the way of the next planner; a planner the window found serving is left running."
 }
