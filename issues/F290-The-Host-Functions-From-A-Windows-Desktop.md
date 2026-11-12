@@ -6,7 +6,7 @@
   "id": "F290",
   "title": "The Host Functions From A Windows Desktop",
   "state": "Implementing",
-  "size": "L",
+  "size": "XL",
   "priority": "Medium",
   "rank": 13,
   "blockedBy": [],
@@ -14,9 +14,10 @@
 }
 ```
 
-**Why this size.** L: the card's ssh config, a loopback listener the window holds on both families and a carrier of
-each connection over its own ssh, the card machine's reach and relay, the host reads' ssh, and their tests, some of
-them run on Windows; Core's and Matrix's parts are their own.
+**Why this size.** XL: the card's ssh config; a loopback listener the window holds on both families through every
+reconnect; a carrier of each connection over its own ssh, bounded in children, rate and buffers; readiness proven by
+the daemon's own answer; Core's unlock given the card's config; the host reads' ssh; and their tests, several of them
+run on Windows against a native contender; Core's and Matrix's parts are their own.
 
 **What must be true.** On Windows, a person connects to a machine, and a Machine Admin prepares it and names its
 people, as on Linux: through the host's card, with the same `-F` file and the same fixed ports. Linux stays as it is.
@@ -54,8 +55,20 @@ people, as on Linux: through the host's card, with the same `-F` file and the sa
   that ssh. Nothing else is accepted: a port carries only to its own agreed remote socket.
 - **The daemon through [F108](README.md#f108)'s relay:** `ssh -F <card config> -T <host> porelo daemon connect --socket
   <daemon socket>`, spoken over its byte streams through `Backend.relay`, as now.
-- **Up** once the listeners are held and the relay to the daemon answers through the card: that proves the card's key
-  and host key; nothing is believed from ssh's own words.
+- **Up** only on a valid answer of the daemon's (GetInfo) through the current relay's own ssh connection, pinned host
+  key and card key, also for a card with no ports; nothing is believed from ssh's own words or stderr, and an answer
+  that arrives after the card was released sets nothing. The fast path that counts a card with no services as up
+  without asking goes.
+- **Held through every reconnect.** The listeners are bound once, every one of them before any connection is carried
+  (a partial bind releases what it bound and refuses), and kept while ssh fails, a key is awaited or the card
+  reconnects; while the card is not up, a connection is accepted and closed at once, never left to another program.
+  They are released only when the person disconnects the card or the window ends.
+- **Bounded.** Each connection's ssh uses the person's key, so the carrier caps the children per card and in all
+  (pending and active), the rate of new ones, and the bytes buffered per connection, gives each handshake a deadline,
+  and reaps a child that starts after its connection was cancelled. Past a cap a connection is closed at once.
+- **The relay command is a contract:** the host command takes exactly one argument, a role among `forge-web`,
+  `forge-git` and `homeserver`, mapped on the host to its fixed socket; an unknown role, a path, a second argument or
+  an option is refused before anything is opened. The carrier passes only the role of the port it holds.
 - **No `ControlMaster` on Windows.** The config written there leaves out `ControlMaster`, `ControlPath` and
   `ControlPersist`. Whoever else needs the host, such as Core's `porelo host unlock`, opens a connection of its own
   through the same `-F` file.
@@ -85,8 +98,15 @@ goes; what replaces it:
   port another socket holds refuses the hold on either family; while held, a second bind of the port fails (on
   Windows too, with `SO_REUSEADDR` set by the other side); a connection is carried to the process `carry` gives and
   its bytes arrive both ways; closing either end ends the process; `release` closes everything.
-  `test/app/host_card_tunnel_windows_test.dart`: the Windows card tunnel starts no ssh with `-L` or `-R`, holds both
-  families of each port, and is up only once the relay answers; a squatter on a port refuses the connection.
+  The Windows exclusivity tests use a native contender (FFI) that sets `SO_REUSEADDR` before its bind, on both
+  families, and check where a connection is delivered; a second Dart bind alone proves nothing. A flood of connections
+  against stalled ssh children stays within the caps and keeps the listeners; a partial bind and a cancel during
+  start leave nothing bound or running; each port reaches its own role, with a fake that records the role (an echo
+  cannot tell a misroute). `test/app/host_card_tunnel_windows_test.dart`: the Windows card tunnel starts no ssh with
+  `-L` or `-R`, holds both families of each port through a reconnect, and is up only on the daemon's answer: stderr
+  with a banner alone, malformed output, failed authentication and an answer after release leave it down.
+- `CoreHostUnlocker` (`lib/src/app/fleet_backend.dart`) passes the card's config to Core's unlock (as Core names the
+  option) and stops refusing a port other than 22 and an IPv6 host; tests show the card's endpoint and pins are used.
 
 ## Parts of other repositories
 
@@ -103,8 +123,12 @@ Each is its own piece, agreed in the room before this is built:
 - On Windows, with the ssh stand-in: each card port held by the window on both families, exclusively; each connection
   carried over its own ssh; no ssh with `-L` or `-R`; the daemon reached through the relay; nothing is a local unix
   socket and nothing asks for a master.
-- A program that holds or tries to share a card's port, on either family, never receives a connection meant for the
-  card: the connection is refused while it holds the port, and it cannot bind while the window holds it.
+- While the window holds a card's ports (from the first Connect to the card's disconnect or the window's end), no
+  other program receives a connection meant for the card on either family: it cannot bind or share them. Before
+  that, a program that already holds a port makes Connect refuse, and the window opens no forge or Element address of
+  that card until the card is up. Outside that time a saved address in a browser is the person's own; protecting it
+  would need an authenticated endpoint, which is not part of this issue.
+- A flood of local connections leaves the card's ports held and the person's key used within the caps.
 - On Linux, the card tunnel's arguments and config are unchanged; the existing tests stay green unchanged.
 - In the operator's Windows test: Connect and Prepare against a real host, asking for no confirmation of the key per
   connection once KeePassXC's database is open.
@@ -117,4 +141,4 @@ Each is its own piece, agreed in the room before this is built:
 
 ## Estimate
 
-`F290 size=L est=150 basis=no measured L median; M median 61 (24 records), about two and a half times`
+`F290 size=XL est=240 basis=no measured XL median; M median 61 (24 records), about four times`
