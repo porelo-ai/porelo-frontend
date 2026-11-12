@@ -4,22 +4,28 @@
 #
 #   tool/walk_idea.sh check --vm USER@VM --vm-key FILE [--planner DIR]
 #   tool/walk_idea.sh run   --vm USER@VM --vm-key FILE --planner DIR --seed DIR --org ORG --report DIR \
-#                           [--project NAME] [--issue-repo NAME] [--budget-minutes 180]
+#                           [--porelo-project foo-project] [--project NAME] [--issue-repo foo-1] [--budget-minutes 180]
 #
-# `check` says what the VM lacks and changes nothing. `run` checks first, then makes the run's project: the seed's
-# `st314-RUN/` as a new private repository of ORG named for the run, and the seed's `foo-1/` files pushed onto the
-# issue repository (foo-1 unless named) after its tip was noted as T0. It copies this checkout's HEAD to the VM, puts
-# the planner of DIR first on the window's path and runs integration_test/walking_an_idea_test.dart there through
-# tool/e2e.sh, and writes the report into DIR: one line per step (`OK` or `FAIL` with what was asked and got), a
-# picture of the window where it failed, the HTML and JUnit report, and the test's own output.
+# `check` says what the VM lacks and changes nothing. `run` checks first, then seeds the existing repositories of ORG:
+# the seed holds one directory per repository, named as it is, whose files are written over that repository's at the
+# same paths and pushed as one commit, after each repository's tip was noted as T0; the issue repository's T0 is noted
+# whether it is seeded or not. A top-level <name>.diff whose first line is `--- <repository>/<file>` is applied to that
+# file as it is at T0 instead of copying it, and the run stops before any push where it does not apply. The porelo
+# project's repository, where seeded, is signed anew as the person (`porelo project sign`) on the pushed tip. The
+# planner's project is the porelo project (--project defaults to --porelo-project), whose own repository is the one of
+# that name. It copies this checkout's HEAD to the VM, puts the planner of DIR first on the window's path and runs
+# integration_test/walking_an_idea_test.dart there through tool/e2e.sh, and writes the report into DIR: one line per
+# step (`OK` or `FAIL` with what was asked and got), a picture of the window where it failed, the HTML and JUnit
+# report, and the test's own output.
 #
 # DIR of --planner holds porelo-planner, planner-probe.sh and SHA256SUMS naming both; nothing unchecked is copied.
 # The test person's key never enters the VM: SSH_AUTH_SOCK must name an agent holding it (a throwaway one, never the
 # operator's), forwarded for the run alone. WALK_FORGE_TOKEN names a program that prints the test identity's token
 # for the forge: it goes on standard input alone into a vault of the run's own on the VM, and to GitHub's API as a
-# curl config on standard input, never on a command line. Every ending takes away what the run made: its project
-# repository, the task branches and pull requests in the issue repository, the issue repository's tree back to T0 in
-# one new commit (never a force push), the run's vault and copy on the VM; it exits non-zero naming what it left.
+# curl config on standard input, never on a command line. Every ending takes away what the run made: the task branches
+# and pull requests in the issue repository, each noted repository's tree back to its T0 in one new commit where it
+# differs (never a force push), the porelo project's repository signed anew on that commit, the run's vault and copy
+# on the VM; it exits non-zero naming what it left.
 set -euo pipefail
 
 usage() {
@@ -30,7 +36,7 @@ usage() {
 [ $# -ge 1 ] || usage
 mode=$1
 shift
-vm='' vm_key='' planner='' seed='' org='' project='' issue_repo=foo-1 report='' budget=180
+vm='' vm_key='' planner='' seed='' org='' project='' issue_repo=foo-1 porelo_project=foo-project report='' budget=180
 while [ $# -gt 0 ]; do
     [ $# -ge 2 ] || usage
     case "$1" in
@@ -40,6 +46,7 @@ while [ $# -gt 0 ]; do
     --seed) seed=$2 ;;
     --org) org=$2 ;;
     --project) project=$2 ;;
+    --porelo-project) porelo_project=$2 ;;
     --issue-repo) issue_repo=$2 ;;
     --report) report=$2 ;;
     --budget-minutes) budget=$2 ;;
@@ -68,6 +75,7 @@ shaped --vm "$vm" '[A-Za-z0-9_][A-Za-z0-9._-]*@[A-Za-z0-9][A-Za-z0-9.:-]*'
 shaped --org "$org" '[A-Za-z0-9][A-Za-z0-9-]{0,38}'
 # The planner and its probe take a project name in lower case alone.
 shaped --project "$project" '[a-z0-9][a-z0-9._-]{0,99}'
+shaped --porelo-project "$porelo_project" '[A-Za-z0-9][A-Za-z0-9._-]*'
 shaped --issue-repo "$issue_repo" '[A-Za-z0-9][A-Za-z0-9._-]{0,99}'
 shaped WALK_AGENT "$agent" '[A-Za-z0-9][A-Za-z0-9._-]*'
 shaped WALK_TASK_MODEL "$task_model" '[A-Za-z0-9][A-Za-z0-9._/:-]*'
@@ -153,8 +161,16 @@ if [ "$mode" = check ]; then
 fi
 
 [ -n "$planner" ] && [ -n "$seed" ] && [ -n "$org" ] && [ -n "$report" ] || usage
-[ -s "$seed/st314-RUN/project.yml" ] && [ -d "$seed/foo-1" ] || {
-    echo "walk: $seed holds no st314-RUN/project.yml and foo-1/ to seed the run from" >&2
+# The repositories to seed, each a directory of the seed named as the repository is.
+seeded=()
+for each in "$seed"/*/; do
+    [ -d "$each" ] || continue
+    each=$(basename "$each")
+    shaped "the seed's directory" "$each" '[A-Za-z0-9][A-Za-z0-9._-]{0,99}'
+    seeded+=("$each")
+done
+[ ${#seeded[@]} -gt 0 ] || {
+    echo "walk: $seed holds no directory named for a repository to seed" >&2
     exit 1
 }
 [ -n "${WALK_FORGE_TOKEN:-}" ] && [ -x "$WALK_FORGE_TOKEN" ] || {
@@ -170,7 +186,7 @@ check
 commit=$(git -C "$here" rev-parse --short HEAD)
 name="walk-$(date -u +%Y%m%d-%H%M%S)-$commit"
 since=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-project=${project:-$name}
+project=${project:-$porelo_project}
 run="walk/$name"
 mkdir -p "$report"
 # A report left from an earlier run would be read as this one's.
@@ -192,6 +208,7 @@ work=$(mktemp -d)
 
 # One call of GitHub's API: the token reaches curl on its standard input as a config line. Prints the status; the
 # answer's body is in $work/answer.
+# shellcheck disable=SC2329 # run by cleanup, on the EXIT trap
 github() {
     local method=$1 path=$2 data=${3:-} code
     code=$(printf 'header = "Authorization: Bearer %s"\n' "$token" |
@@ -201,10 +218,11 @@ github() {
 }
 
 # Taken away on every ending, in this order: what still runs of the window's part and the planner it started, the
-# project on the VM, the run's repository, its branches and pull requests in the issue repository and that
-# repository's tree as at T0, the forge's token and its declaration, porelod's agent put back, the run's copy.
-pointed='' agent_before='' holder='' central_match='' vault='' declared='' registered='' created='' issue_t0=''
-issue_branch=''
+# task branches and pull requests in the issue repository, each noted repository's tree as at its T0, the forge's
+# token and its declaration, porelod's agent put back, the run's copy.
+pointed='' agent_before='' holder='' central_match='' vault='' declared=''
+# Each noted repository's default branch and its tip at T0, by name; only a noted one is restored.
+declare -A branch_of=() t0_of=()
 left=()
 # shellcheck disable=SC2329
 cleanup() {
@@ -214,16 +232,9 @@ cleanup() {
         done" </dev/null || true
     local tasks=''
     tasks=$(on_vm "tr ' ' '\\n' <~/$run/tasks.txt 2>/dev/null" </dev/null | grep -Ex '[A-Za-z0-9][A-Za-z0-9._-]{2,}' || true)
-    if [ -n "$registered" ]; then
-        as_the_person_on_vm "${in_vault:-}porelo project clear --yes '$project' >/dev/null 2>&1
-            rm -rf \"\${XDG_CONFIG_HOME:-\$HOME/.config}/porelo/projects/$project\"" </dev/null ||
-            left+=("the project $project on $vm (porelo project clear --yes $project there)")
-    fi
-    if [ -n "$created" ]; then
-        case $(github DELETE "/repos/$org/$name") in 204 | 404) ;; *) left+=("the repository $org/$name") ;; esac
-    fi
-    [ -z "$issue_t0" ] || take_back_the_tasks_work "$tasks"
-    [ -z "$issue_t0" ] || restore_the_issue_repository
+    [ -z "${t0_of[$issue_repo]:-}" ] || take_back_the_tasks_work "$tasks"
+    local each
+    for each in "${!t0_of[@]}"; do restore "$each"; done
     if [ -n "$declared" ]; then
         as_the_person_on_vm "porelo credentials forget '$central_match'" </dev/null >/dev/null 2>&1 ||
             left+=("the declaration of $central_match on $vm (porelo credentials forget there)")
@@ -289,18 +300,141 @@ carries_the_run() {
     return 1
 }
 
-# One new commit on the issue repository's tip holding T0's tree, where the tip moved: never a force push.
+# One new commit on the repository's tip holding its T0 tree, where the tree differs: never a force push. The porelo
+# project's repository is signed anew on it, since porelo judges its project.yml by its newest change.
 # shellcheck disable=SC2329 # run by cleanup, on the EXIT trap
-restore_the_issue_repository() {
-    as_the_person_on_vm "set -e; d=~/$run/restore; rm -rf \$d
-        git clone -q --bare --filter=blob:none --single-branch --branch '$issue_branch' 'git@github.com:$org/$issue_repo.git' \$d
-        tip=\$(git -C \$d rev-parse 'refs/heads/$issue_branch')
-        tree=\$(git -C \$d rev-parse '$issue_t0^{tree}')
+restore() {
+    local repository=$1 branch=${branch_of[$1]} t0=${t0_of[$1]} pushed
+    pushed=$(as_the_person_on_vm "set -e; d=~/$run/restore/$repository; rm -rf \$d
+        git clone -q --bare --filter=blob:none --single-branch --branch '$branch' 'git@github.com:$org/$repository.git' \$d
+        tip=\$(git -C \$d rev-parse 'refs/heads/$branch')
+        tree=\$(git -C \$d rev-parse '$t0^{tree}')
         [ \"\$(git -C \$d rev-parse \$tip^{tree})\" != \"\$tree\" ] || exit 0
         c=\$(git -C \$d -c user.name='Porelo walk' -c user.email=walk@example.org commit-tree \$tree -p \$tip \
             -m 'Restore the tree before the walk $name')
-        git -C \$d push -q origin \$c:'refs/heads/$issue_branch'" </dev/null >&2 ||
-        left+=("$org/$issue_repo is not back at the tree of $issue_t0")
+        git -C \$d push -q origin \$c:'refs/heads/$branch' >&2; echo \$c" </dev/null) || {
+        left+=("$org/$repository is not back at the tree of $t0")
+        return
+    }
+    if [ "$repository" = "$porelo_project" ] && [ -n "$pushed" ]; then
+        sign_the_project "$pushed" || left+=("the signature of $porelo_project on the restore commit $pushed")
+    fi
+}
+
+# Signs the porelo project's project.yml anew on [base] as the person, its admin, whose card key is the forwarded one.
+sign_the_project() {
+    # Refused here rather than by shaped, whose exit would cut the clean-up short.
+    printf '%s\n' "$1" | grep -Eqx '[0-9a-f]{40,64}' || return 1
+    as_the_person_on_vm "${in_vault:-}porelo project sign '$porelo_project' --yes --base '$1'" </dev/null >&2
+}
+
+# Notes the repository's default branch and tip as its T0, read through the forwarded agent before the run touches it.
+note_t0() {
+    local repository=$1 heads branch t0
+    heads=$(as_the_person_on_vm "git ls-remote --symref 'git@github.com:$org/$repository.git' HEAD" </dev/null) || {
+        echo "walk: $org/$repository cannot be read from $vm with the test person's key" >&2
+        exit 1
+    }
+    branch=$(printf '%s\n' "$heads" | sed -n 's|^ref: refs/heads/\([^[:space:]]*\)[[:space:]]*HEAD$|\1|p')
+    t0=$(printf '%s\n' "$heads" | awk '$2 == "HEAD" && $1 ~ /^[0-9a-f]{40,64}$/ {print $1}')
+    shaped "the default branch of $repository" "$branch" '[A-Za-z0-9][A-Za-z0-9._/-]*'
+    [ -n "$branch" ] && [ -n "$t0" ] || {
+        echo "walk: $org/$repository answers no default branch and tip" >&2
+        exit 1
+    }
+    branch_of[$repository]=$branch
+    # From here on every ending takes the repository back to this tree.
+    t0_of[$repository]=$t0
+    echo "walk: $org/$repository stands at $t0 on $branch (T0, $since)"
+}
+
+# The seed's files written over the repository's clone on the VM and committed there, nothing pushed yet; a file a
+# diff of the seed names is not copied but that diff applied to the file as it is at T0.
+prepare_seed() {
+    local repository=$1 branch=${branch_of[$1]} diff path file
+    as_the_person_on_vm "set -e; mkdir -p ~/$run/seed; cd ~/$run/seed
+        git clone -q --depth 1 --branch '$branch' 'git@github.com:$org/$repository.git' '$repository'" </dev/null >&2 || {
+        echo "walk: $org/$repository could not be cloned on $vm" >&2
+        exit 1
+    }
+    tar -C "$seed/$repository" -c . | on_vm "mkdir -p ~/$run/seed/$repository.files && tar -x -C ~/$run/seed/$repository.files"
+    for diff in "${diffs[@]}"; do
+        path=$(diff_target "$diff")
+        [ "${path%%/*}" = "$repository" ] || continue
+        file=${path#*/}
+        on_vm "cat ~/$run/seed/'$repository/$file'" </dev/null >"$work/t0" || {
+            echo "walk: $org/$repository holds no $file at T0 for $(basename "$diff") to apply to" >&2
+            exit 1
+        }
+        python3 -I - "$diff" "$work/t0" >"$work/applied" <<'EOF' || exit 1
+import re, sys
+# A hunk is headed by the YAML path it is under (`@@ repositories.foo-1:`): its context and removed lines must stand
+# under that path, first after it; its context and added lines replace them there.
+hunks, hunk = [], None
+for line in open(sys.argv[1]).read().splitlines():
+    if line.startswith(("--- ", "+++ ")):
+        continue
+    if line.startswith("@@"):
+        hunk = {"name": line, "path": line[2:].strip().rstrip(":").split("."), "old": [], "new": []}
+        hunks.append(hunk)
+        continue
+    if hunk is None or line[:1] not in (" ", "-", "+"):
+        sys.exit(f"walk: {sys.argv[1]}: {line!r} is no line of a hunk")
+    if line[:1] in " -":
+        hunk["old"].append(line[1:])
+    if line[:1] in " +":
+        hunk["new"].append(line[1:])
+lines = open(sys.argv[2]).read().split("\n")
+for hunk in hunks:
+    start = 0
+    for key in hunk["path"]:
+        found = [i for i in range(start, len(lines)) if re.match(r"\s*" + re.escape(key) + r"\s*:", lines[i])]
+        if not found:
+            sys.exit(f"walk: {sys.argv[1]} does not apply to the file at T0: no {key} under {hunk['name']}")
+        start = found[0]
+    n = len(hunk["old"])
+    at = [i for i in range(start, len(lines) - n + 1) if n and lines[i:i + n] == hunk["old"]]
+    if not at:
+        sys.exit(f"walk: {sys.argv[1]} does not apply to the file at T0: {hunk['name']} has not its context there")
+    lines[at[0]:at[0] + n] = hunk["new"]
+sys.stdout.write("\n".join(lines))
+EOF
+        on_vm "cat >~/$run/seed/'$repository.files/$file'" <"$work/applied"
+    done
+    as_the_person_on_vm "set -e; cd ~/$run/seed; cp -R '$repository.files/.' '$repository/'; cd '$repository'; git add -A
+        git -c user.name='Porelo walk' -c user.email=walk@example.org commit -q --allow-empty -m 'Seed the walk $name'" \
+        </dev/null >&2 || {
+        echo "walk: the seed could not be committed to $org/$repository on $vm" >&2
+        exit 1
+    }
+}
+
+# The seed's commit pushed onto the repository's default branch, never forced.
+push_seed() {
+    as_the_person_on_vm "cd ~/$run/seed/'$1' && git push -q origin HEAD:'refs/heads/${branch_of[$1]}'" </dev/null >&2 || {
+        echo "walk: the seed could not be pushed to $org/$1" >&2
+        exit 1
+    }
+}
+
+# The repository and file a diff of the seed names on its first line, `--- <repository>/<file> ...`.
+diff_target() {
+    local path
+    path=$(sed -n '1s/^--- \([^[:space:]]*\).*/\1/p' "$1")
+    shaped "the file $(basename "$1") names" "$path" '[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._/-]*'
+    [ -n "$path" ] || {
+        echo "walk: $(basename "$1") names no file on its first line" >&2
+        exit 1
+    }
+    printf '%s\n' "$path"
+}
+
+# The repository's tip as the forge has it now.
+tip_of() {
+    local tip
+    tip=$(as_the_person_on_vm "git ls-remote 'git@github.com:$org/$1.git' 'refs/heads/${branch_of[$1]}'" </dev/null | cut -f1)
+    shaped "the tip of $1" "$tip" '[0-9a-f]{40,64}'
+    printf '%s\n' "$tip"
 }
 trap cleanup EXIT
 
@@ -390,58 +524,35 @@ else
     }
 fi
 
-# T0 of the issue repository, read through the forwarded agent before anything of the run touches it.
-heads=$(as_the_person_on_vm "git ls-remote --symref 'git@github.com:$org/$issue_repo.git' HEAD" </dev/null) || {
-    echo "walk: $org/$issue_repo cannot be read from $vm with the test person's key" >&2
-    exit 1
-}
-issue_branch=$(printf '%s\n' "$heads" | sed -n 's|^ref: refs/heads/\([^[:space:]]*\)[[:space:]]*HEAD$|\1|p')
-t0=$(printf '%s\n' "$heads" | awk '$2 == "HEAD" && $1 ~ /^[0-9a-f]{40,64}$/ {print $1}')
-shaped 'the issue repository branch' "$issue_branch" '[A-Za-z0-9][A-Za-z0-9._/-]*'
-[ -n "$issue_branch" ] && [ -n "$t0" ] || {
-    echo "walk: $org/$issue_repo answers no default branch and tip" >&2
-    exit 1
-}
-# From here on every ending takes the issue repository back to this tree.
-issue_t0=$t0
-echo "walk: $org/$issue_repo stands at $issue_t0 on $issue_branch (T0, $since)"
-
-# The run's project repository: the seed's, named for the run, made private in the organization and pushed as the
-# person through the forwarded agent.
-cp -R "$seed/st314-RUN" "$work/$name"
-grep -rlZ st314-RUN "$work/$name" | xargs -0 -r sed -i "s/st314-RUN/$name/g"
-if ! grep -q "/$org/$name" "$work/$name/project.yml" || ! grep -q "^ *$issue_repo:" "$work/$name/project.yml"; then
-    echo "walk: the seed's project.yml names no central in $org or no repository $issue_repo" >&2
-    exit 1
-fi
-status=$(github POST "/orgs/$org/repos" "{\"name\":\"$name\",\"private\":true}")
-[ "$status" = 201 ] || {
-    echo "walk: GitHub did not make $org/$name ($status): $(jq -r '.message // empty' "$work/answer" 2>/dev/null)" >&2
-    exit 1
-}
-created=yes
-tar -C "$work" -c "$name" | on_vm "mkdir -p ~/$run/seed && tar -x -C ~/$run/seed"
-tar -C "$seed/foo-1" -c . | on_vm "mkdir -p ~/$run/seed/issue-files && tar -x -C ~/$run/seed/issue-files"
-as_the_person_on_vm "set -e; cd ~/$run/seed/$name; git init -q -b main; git add -A
-    git -c user.name='Porelo walk' -c user.email=walk@example.org commit -q -m 'Seed the walk $name'
-    git push -q 'git@github.com:$org/$name.git' main
-    cd ~/$run/seed; git clone -q --depth 1 --branch '$issue_branch' 'git@github.com:$org/$issue_repo.git' issue
-    cp -R issue-files/. issue/; cd issue; git add -A
-    git -c user.name='Porelo walk' -c user.email=walk@example.org commit -q -m 'Seed the walk $name'
-    git push -q origin HEAD:'refs/heads/$issue_branch'" </dev/null >&2 || {
-    echo "walk: the seed could not be pushed to $org/$name and $org/$issue_repo" >&2
-    exit 1
-}
-issue_head=$(as_the_person_on_vm "git ls-remote 'git@github.com:$org/$issue_repo.git' 'refs/heads/$issue_branch'" </dev/null | cut -f1)
-shaped 'the seeded tip' "$issue_head" '[0-9a-f]{40,64}'
-
-# The project as this account's own, where porelo reads such a project from; cleared again on every ending.
-registered=yes
-on_vm "set -e; d=\"\${XDG_CONFIG_HOME:-\$HOME/.config}/porelo/projects/$project\"; mkdir -p \"\$d\"
-    cp ~/$run/seed/$name/project.yml \"\$d/project.yml\"" </dev/null || {
-    echo "walk: the project $project could not be placed on $vm" >&2
-    exit 1
-}
+# The seed's diffs, read before anything is touched, each to apply to a file of a seeded repository as it is at T0; other top-level files are not
+# seeded.
+diffs=()
+for each in "$seed"/*.diff; do
+    [ -f "$each" ] || continue
+    target=$(diff_target "$each")
+    case " ${seeded[*]} " in *" ${target%%/*} "*) ;; *)
+        echo "walk: $(basename "$each") names ${target%%/*}, which the seed does not hold" >&2
+        exit 1
+        ;;
+    esac
+    diffs+=("$each")
+done
+# T0 of every repository the run may change, then the seed written over the seeded ones.
+for each in "${seeded[@]}"; do note_t0 "$each"; done
+[ -n "${t0_of[$issue_repo]:-}" ] || note_t0 "$issue_repo"
+# Every seeded repository is prepared before any is pushed: a diff that does not apply stops the run with nothing pushed.
+for each in "${seeded[@]}"; do prepare_seed "$each"; done
+for each in "${seeded[@]}"; do push_seed "$each"; done
+# A changed project.yml counts only once its newest change is signed by a Project Admin.
+case " ${seeded[*]} " in *" $porelo_project "*)
+    sign_the_project "$(tip_of "$porelo_project")" || {
+        echo "walk: $porelo_project could not be signed anew on $vm" >&2
+        exit 1
+    }
+    echo "walk: $org/$porelo_project stands signed at $(tip_of "$porelo_project")"
+    ;;
+esac
+issue_head=$(tip_of "$issue_repo")
 
 echo "walk: the window walks $project, at most $budget minutes"
 status=0
@@ -452,9 +563,9 @@ as_the_person_on_vm \
         PATH=\$HOME/$run/bin:\$HOME/$flutter_dir/bin:\$PATH PORELO_SOCKET=/run/user/\$(id -u)/porelo/porelod.sock \
         PORELO_E2E_HOST=localhost PORELO_E2E_REMOTE_SOCKET=/run/user/\$(id -u)/porelo/porelod.sock \
         PORELO_E2E_OWN_SETTINGS=1 $in_vault \
-        PORELO_WALK_PROJECT='$project' PORELO_WALK_AGENT='$agent' PORELO_WALK_MODEL='$task_model' \
+        PORELO_WALK_PROJECT='$project' PORELO_WALK_PORELO_PROJECT='$porelo_project' PORELO_WALK_AGENT='$agent' PORELO_WALK_MODEL='$task_model' \
         PORELO_WALK_PROBE=\$HOME/$run/bin/planner-probe.sh PORELO_WALK_PLANNER=\$HOME/$run/bin/porelo-planner \
-        PORELO_WALK_OWN_URL='https://github.com/$org/$name' PORELO_WALK_ISSUE_REPO='$issue_repo' \
+        PORELO_WALK_OWN_URL='https://github.com/$org/$project' PORELO_WALK_ISSUE_REPO='$issue_repo' \
         PORELO_WALK_ISSUE_HEAD='$issue_head' PORELO_WALK_SINCE='$since' PORELO_WALK_TASK_MINUTES='$task_minutes' \
         PORELO_WALK_AGENT_QUIT='$agent_quit' \
         PORELO_WALK_STEPS=\$HOME/$run/steps.txt PORELO_WALK_TASKS=\$HOME/$run/tasks.txt \

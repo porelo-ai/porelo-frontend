@@ -14,6 +14,9 @@ abstract final class Walk {
   /// The project the window and the probe name.
   static String get project => _required('PORELO_WALK_PROJECT');
 
+  /// The project porelo runs the walk's tasks under, which knows the issue repository.
+  static String get poreloProject => _required('PORELO_WALK_PORELO_PROJECT');
+
   /// The agent every task of the walk runs.
   static String get agent => _required('PORELO_WALK_AGENT');
 
@@ -126,6 +129,7 @@ Future<ProcessResult> _probe(List<String> check) async {
     check,
     environment: {
       'PLANNER_PROJECT': Walk.project,
+      'PORELO_PROJECT': Walk.poreloProject,
       'PLANNER_ADDRESS_FILE': '$windows/porelo-planner/planner.json',
       'XDG_RUNTIME_DIR': await theAccountsRuntime(),
     },
@@ -169,7 +173,7 @@ Future<List<Map<String, dynamic>>> theProjectsTasks() async {
   };
   return [
     for (final each in tasks.whereType<Map<String, dynamic>>())
-      if (each['project'] == Walk.project) each,
+      if (each['project'] == Walk.poreloProject) each,
   ];
 }
 
@@ -198,7 +202,7 @@ Future<Map<String, dynamic>> theNewTask(
       return found != null;
     },
     timeout: within,
-    what: 'porelo to list $what of ${Walk.project}',
+    what: 'porelo to list $what of ${Walk.poreloProject}',
   );
   // The driver's clean-up takes the forge's branches and pull requests of these tasks away.
   final into = Platform.environment['PORELO_WALK_TASKS'] ?? '';
