@@ -28,7 +28,9 @@
     <Resource Language="en-us"/>
   </Resources>
   <Applications>
-    <Application Id="PoreloTrial" Executable="porelo_trial.exe" EntryPoint="Windows.FullTrustApplication">
+    <!-- A console alias needs the app to allow several instances, or MakeAppx refuses the manifest. -->
+    <Application Id="PoreloTrial" Executable="porelo_trial.exe" EntryPoint="Windows.FullTrustApplication"
+        desktop4:SupportsMultipleInstances="true">
       <uap:VisualElements DisplayName="Porelo Windows trial" Description="The Windows trial's second app"
           BackgroundColor="transparent" Square150x150Logo="assets\Square150x150Logo.png"
           Square44x44Logo="assets\Square44x44Logo.png" AppListEntry="none"/>
