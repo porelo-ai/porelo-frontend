@@ -121,7 +121,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f502"></a>[F502](F502-A-Tasks-Declared-Outcome-Goes-With-Its-End.md) | S | - | The window reports each task's end to the planner with the outcome the task declared, DONE or BLOCKED, and its why, as Porelo's List and Watch give them, so the planner can keep a blocked issue where it is instead of moving it on. |
 | <a id="f503"></a>[F503](F503-A-Tasks-Proposed-Idea-Becomes-An-Issue-In-Idea.md) | S | - | Each idea a task on a watched machine proposes is handed once to the planner as a new issue in Idea of the task's repository, naming the task it came from, also across restarts of the window; a refusal is said once, a planner not reached is tried again. |
 | <a id="f203"></a>[F203](F203-This-Repository-Worked-In-A-Porelo-Task.md) | S | - | This repository's agent working in an attended Porelo task on the host, its build green on the host's Forgejo, reached in the room, with a way back. |
-| <a id="f470"></a>[F470](F470-A-Story-Moved-Against-Its-Issues-Is-Warned-And-Confirmed.md) | S | - | A story moved on the board against its issues is warned, naming them, and saved only when confirmed; it keeps that state. |
 | <a id="f321"></a>[F321](F321-Send-The-Terminal-Input-Fix-Upstream.md) | S | - | The terminal input fix offered upstream, and this repository's copy of `xterm` dropped once a release holds it. |
 | <a id="f97"></a>[F97](F97-Forwarding-Measured-Against-GitHub.md) | M | - | Forwarding to a chosen branch measured against GitHub. |
 | <a id="f105"></a>[F105](F105-A-Tasks-Terminal-In-The-Interface-As-Outside-It.md) | M | - | A task's terminal in the interface behaves as in a plain terminal. |
@@ -432,6 +431,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Title | Why |
 |---|---|---|
+| <a id="f470"></a>F470 | A Story Moved Against Its Issues Is Warned And Confirmed | Moved to the planner's package: the board's move, its warning and *confirm*, and a story's given state on its card are porelo-planner's (PL38, PL84); the planner already keeps a given state and takes `confirm` (2026-11-12). |
 | <a id="f450"></a>F450 | The Window's Tests Follow The Test Pyramid | Split by the operator (2026-11-12) into five issues of their own: [F495](#f495), [F496](#f496), [F497](#f497), [F498](#f498) and [F499](#f499), which keeps its measurement. |
 | <a id="f284"></a>F284 | The Subagent Number Chosen When Starting | The number of subagents now follows the number of Agent issues in the story, so it is not chosen when starting (operator, 2026-11-12; ST52 rejected). |
 | <a id="f467"></a>F467 | A Board Without Streaming Says It Is Not Live | Moved to the planner's package: porelo-planner's PL23, on its `main`, builds the board's stream, its lost connection, *Retry* and *Reload* (operator, 2026-11-11). |
