@@ -35,13 +35,14 @@ shell later, a trailing newline running it.
 
 ## Plan
 
-- `lib/src/app/session.dart`: the time of the person's last own action in that terminal, on a monotonic clock
-  (a `Stopwatch`, injected): a key down (`KeyDownEvent`, never `KeyRepeatEvent`, so a held key does not keep the gate
-  open), a pointer down or up (never hover, move or scroll), a paste. Set in the view's `onKeyEvent`
-  (`SessionView.onKey`, which runs first, Ctrl+Shift+V included), not in the input cascade: typed letters go through
-  `textInput` straight to `onOutput` and never reach the cascade. Never from `onOutput` or `type()`: the terminal sends
-  its own answers there (cursor position, device attributes, size), mouse reports and focus reports, so a task could
-  ask for one and count it as typed. IME composing does not count, which fails safe.
+- `lib/src/app/session.dart`: the time of the person's last own action in that terminal, on a monotonic clock (a
+  `Stopwatch`, injected): a key down (`KeyDownEvent`, never `KeyRepeatEvent`, so a held key does not keep the gate open;
+  one the framework synthesized, `event.synthesized`, does not count), a pointer down or up (never hover, move or
+  scroll), a paste. Set in the view's `onKeyEvent` (`SessionView.onKey`, which runs first, Ctrl+Shift+V included), not
+  in the input cascade: typed letters go through `textInput` straight to `onOutput` and never reach the cascade. Never
+  from `onOutput` or `type()`: the terminal sends its own answers there (cursor position, device attributes, size),
+  mouse reports and focus reports, so a task could ask for one and count it as typed. IME composing does not count,
+  which fails safe.
 - An OSC 52 write within two seconds of that action is copied at once and uses the action up: one action lets one
   write through. Any other is held as the one pending copy, a newer one replacing it, and the session tells its
   listeners. The held copy is dropped when the session is left. An empty write is ignored; unpadded base64 is
@@ -55,7 +56,8 @@ shell later, a trailing newline running it.
   of the decoded text as it would be written, with line breaks, control, bidi, zero-width and invisible characters
   (U+200B, U+2060, U+FEFF, U+00AD, variation selectors, tag characters, no-break spaces) made visible. Where long it is
   shortened in the middle with the size and lines left out said, always showing the last line and whether the text ends
-  in a line break. *Copy* and *Don't copy*; *Copy* takes no keyboard focus and no Enter, and copies the very item shown:
+  in a line break; the whole text, escaped the same way, can be opened and scrolled from the bar. *Copy* and *Don't
+  copy*; *Copy* takes no keyboard focus and no Enter, and copies the very item shown:
   a newer write replaces the bar and a click on the old one does nothing.
 - The vault sign-in and the setup's terminals (`new_machine.dart`) build a bare `TerminalView`, and the unlock
   terminal has the bar but no key hook: the hook and the bar go into one widget each of them uses, so no write is held
@@ -75,7 +77,9 @@ shell later, a trailing newline running it.
 
 ## Acceptance
 
-- A task's write to the clipboard right after the person's own action is copied without a word, once.
+- A task's write to the clipboard right after the person's own action is copied without a word, once. This is a rule
+  of time, not of consent: a task that writes in a loop gets one write through after each key or click in its
+  terminal, and the person accepts that exposure with this issue.
 - Any other write asks in that task's view with its preview and is copied only when confirmed.
 - An empty write changes nothing; a held write is gone once the task's terminal is closed.
 
