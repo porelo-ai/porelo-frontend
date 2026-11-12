@@ -20,7 +20,11 @@ Future<void> iOrderTheWorkAndStartItsBuilderTask(WidgetTester tester) =>
         what: 'the work to be ordered and started',
       );
       if (refused.evaluate().isNotEmpty) fail('the start was refused: ${tester.widget<Text>(refused).data}');
-      Walk.builder = theContainerOf(await theNewTask(tester, 'the builder task'));
-      // The reader is offered once the builder ends, and found as the task after it.
-      Walk.tasksBefore = {...Walk.tasksBefore, Walk.builder!};
+      // One builder for each issue, each in the issue's repository.
+      Walk.builders = [
+        for (final each in await theNewTasks(tester, 'the builder tasks', Walk.issues.length)) theContainerOf(each),
+      ];
+      noteStep('   the builders run in ${Walk.builders.join(', ')}');
+      // The readers are offered once the builders end, and found as the tasks after them.
+      Walk.tasksBefore = {...Walk.tasksBefore, ...Walk.builders};
     });

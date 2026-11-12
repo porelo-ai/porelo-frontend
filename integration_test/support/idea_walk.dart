@@ -36,11 +36,16 @@ abstract final class Walk {
   static String urlOf(String name) =>
       '${ownUrl.substring(0, ownUrl.lastIndexOf('/') + 1)}$name${ownUrl.endsWith('.git') ? '.git' : ''}';
 
-  /// The repository the issues are worked in.
-  static String get issueRepository => _required('PORELO_WALK_ISSUE_REPO');
+  /// The repositories the issues are worked in, one issue, one builder and one reader each.
+  static List<String> get issueRepositories => _required('PORELO_WALK_ISSUE_REPOS').split(' ');
 
-  /// That repository's tip when the run started.
-  static String get issueHead => _required('PORELO_WALK_ISSUE_HEAD');
+  /// The tip of the issue repository [repository] when the run started.
+  static String issueHeadOf(String repository) {
+    for (final each in _required('PORELO_WALK_ISSUE_HEADS').split(' ')) {
+      if (each.startsWith('$repository=')) return each.substring(repository.length + 1);
+    }
+    throw StateError('PORELO_WALK_ISSUE_HEADS names no tip of $repository');
+  }
 
   /// When the run started, UTC, as the probe's `records` takes it.
   static String get since => _required('PORELO_WALK_SINCE');
@@ -59,11 +64,20 @@ abstract final class Walk {
   static String get title => 'A hello file for $project';
 
   /// The idea in the person's first words: everything the discussion's brief asks, so its agent need not ask.
-  static String get idea =>
-      'Title: $title. A user gains a file hello.txt at the top of the repository $issueRepository that says '
-      'hello. The test that shows it works: hello.txt is in $issueRepository and says hello. Priority: Low. It '
-      'concerns the repository $issueRepository alone, with one issue of size S that an Agent works. I agree with '
-      'this as written: write it down without asking further.';
+  static String get idea => switch (issueRepositories) {
+    [final one] =>
+      'Title: $title. A user gains a file hello.txt at the top of the repository $one that says hello. The test '
+          'that shows it works: hello.txt is in $one and says hello. Priority: Low. It concerns the repository $one '
+          'alone, with one issue of size S that an Agent works. I agree with this as written: write it down without '
+          'asking further.',
+    final several =>
+      'Title: $title. A user gains a file hello.txt at the top of each of the repositories ${_named(several)} that '
+          'says hello. The test that shows it works: hello.txt is in each of them and says hello. Priority: Low. It '
+          'concerns the repositories ${_named(several)}, with one issue of size S in each that an Agent works. I '
+          'agree with this as written: write it down without asking further.',
+  };
+
+  static String _named(List<String> names) => '${names.sublist(0, names.length - 1).join(', ')} and ${names.last}';
 
   static String _required(String variable) {
     final value = Platform.environment[variable] ?? '';
@@ -80,8 +94,11 @@ abstract final class Walk {
   /// The containers of the project's tasks before the step that starts one.
   static Set<String> tasksBefore = {};
 
-  /// The discussion's, the builder's and the reader's container, once each was seen.
-  static String? discussion, builder, reader;
+  /// The discussion's container, once it was seen.
+  static String? discussion;
+
+  /// The builders' and the readers' containers, one per issue, once each was seen.
+  static List<String> builders = [], readers = [];
 }
 
 /// Runs one step of the walk: a picture of the window where it fails, and one line `OK` or `FAIL` in the steps file
@@ -125,8 +142,8 @@ void _writeState() => _stateFile?.writeAsStringSync(
     ],
     'tasksBefore': Walk.tasksBefore.toList(),
     'discussion': Walk.discussion,
-    'builder': Walk.builder,
-    'reader': Walk.reader,
+    'builders': Walk.builders,
+    'readers': Walk.readers,
   }),
   flush: true,
 );
@@ -142,8 +159,8 @@ void _readState() {
   ];
   Walk.tasksBefore = {...(state['tasksBefore'] as List? ?? const []).cast<String>()};
   Walk.discussion = state['discussion'] as String?;
-  Walk.builder = state['builder'] as String?;
-  Walk.reader = state['reader'] as String?;
+  Walk.builders = [...(state['builders'] as List? ?? const []).cast<String>()];
+  Walk.readers = [...(state['readers'] as List? ?? const []).cast<String>()];
 }
 
 /// Adds [line] to the steps file the driver reads, where it names one.
@@ -243,24 +260,42 @@ Future<Map<String, dynamic>> theNewTask(
   WidgetTester tester,
   String what, {
   Duration within = const Duration(minutes: 5),
+}) async => (await theNewTasks(tester, what, 1, within: within)).single;
+
+/// The [count] tasks porelo lists that were not there when [noteTheTasks] last noted, once there are: at most
+/// [within].
+Future<List<Map<String, dynamic>>> theNewTasks(
+  WidgetTester tester,
+  String what,
+  int count, {
+  Duration within = const Duration(minutes: 5),
 }) async {
-  Map<String, dynamic>? found;
+  var found = <Map<String, dynamic>>[];
   await pumpUntil(
     tester,
     () async {
-      found = (await theProjectsTasks()).where((each) => !Walk.tasksBefore.contains(theContainerOf(each))).firstOrNull;
-      return found != null;
+      found = (await theProjectsTasks()).where((each) => !Walk.tasksBefore.contains(theContainerOf(each))).toList();
+      return found.length >= count;
     },
     timeout: within,
-    what: 'porelo to list $what of ${Walk.poreloProject}',
+    what: 'porelo to list $what of ${Walk.poreloProject}, $count of them',
   );
+  found = found.sublist(0, count);
   // The driver's clean-up takes the forge's branches and pull requests of these tasks away.
   final into = Platform.environment['PORELO_WALK_TASKS'] ?? '';
   if (into.isNotEmpty) {
-    File(into)
-        .writeAsStringSync('${theContainerOf(found!)} ${found!['task'] ?? ''}\n', mode: FileMode.append, flush: true);
+    for (final each in found) {
+      File(into)
+          .writeAsStringSync('${theContainerOf(each)} ${each['task'] ?? ''}\n', mode: FileMode.append, flush: true);
+    }
   }
-  return found!;
+  return found;
+}
+
+/// The issue the task in [container] works, by the repository porelo lists it in; null where no issue is in it.
+Future<String?> theIssueOf(String container) async {
+  final repository = (await theTask(container))['repository'];
+  return Walk.issues.where((issue) => issue.repository == repository).firstOrNull?.id;
 }
 
 /// Whether porelo lists [container] no longer.

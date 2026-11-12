@@ -5,5 +5,7 @@ import '../support/idea_walk.dart';
 /// Usage: the builder agent works until its task ends
 Future<void> theBuilderAgentWorksUntilItsTaskEnds(WidgetTester tester) =>
     walked(tester, '7 the builder agent works until its task ends', () async {
-      await untilItEnds(tester, Walk.builder!, within: Walk.taskDeadline, issue: Walk.issues.first.id);
+      for (final builder in Walk.builders) {
+        await untilItEnds(tester, builder, within: Walk.taskDeadline, issue: await theIssueOf(builder));
+      }
     });

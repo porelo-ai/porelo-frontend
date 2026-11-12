@@ -8,11 +8,18 @@ Future<void> theStoryStandsInReview(WidgetTester tester) =>
     walked(tester, '9 read: the story stands in Review', () async {
       // The window posts the reader's end once porelo lists it; the planner's move follows, or the reader's findings
       // could not be read.
+      Future<bool> readOrRaised(String issue) async =>
+          await probeHolds(['issue-state', issue, 'Review']) ||
+          await probeHolds(['attention', issue, 'INVALID_FINDINGS']);
       await pumpUntil(
         tester,
-        () async =>
-            await probeHolds(['story-state', Walk.story!, 'Review']) ||
-            await probeHolds(['attention', Walk.issues.first.id, 'INVALID_FINDINGS']),
+        () async {
+          if (await probeHolds(['story-state', Walk.story!, 'Review'])) return true;
+          for (final issue in Walk.issues) {
+            if (!await readOrRaised(issue.id)) return false;
+          }
+          return true;
+        },
         timeout: const Duration(minutes: 5),
         what: 'the planner to move ${Walk.story} to Review',
       );

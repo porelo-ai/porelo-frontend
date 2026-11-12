@@ -4,7 +4,7 @@
 #
 #   tool/walk_idea.sh check --vm USER@VM --vm-key FILE [--planner DIR]
 #   tool/walk_idea.sh run   --vm USER@VM --vm-key FILE --planner DIR --seed DIR --org ORG --report DIR \
-#                           [--porelo-project foo-project] [--mail keep|drop] [--project NAME] [--issue-repo foo-1] [--budget-minutes 180]
+#                           [--porelo-project foo-project] [--mail keep|drop] [--project NAME] [--issue-repo foo-1]... [--budget-minutes 180]
 #                           [--porelo DIR]
 #   tool/walk_idea.sh resume --vm USER@VM --vm-key FILE --report DIR --from N
 #   tool/walk_idea.sh clean  --vm USER@VM --vm-key FILE --report DIR
@@ -48,7 +48,7 @@ usage() {
 [ $# -ge 1 ] || usage
 mode=$1
 shift
-from=1 vm='' vm_key='' porelo_dir='' planner='' seed='' org='' project='' issue_repo=foo-1 porelo_project=foo-project mail=keep report='' budget=180
+from=1 vm='' vm_key='' porelo_dir='' planner='' seed='' org='' project='' issue_repos=() porelo_project=foo-project mail=keep report='' budget=180
 while [ $# -gt 0 ]; do
     [ $# -ge 2 ] || usage
     case "$1" in
@@ -62,7 +62,7 @@ while [ $# -gt 0 ]; do
     --project) project=$2 ;;
     --porelo-project) porelo_project=$2 ;;
     --mail) mail=$2 ;;
-    --issue-repo) issue_repo=$2 ;;
+    --issue-repo) issue_repos+=("$2") ;;
     --report) report=$2 ;;
     --budget-minutes) budget=$2 ;;
     *) usage ;;
@@ -93,7 +93,9 @@ shaped --org "$org" '[A-Za-z0-9][A-Za-z0-9-]{0,38}'
 # The planner and its probe take a project name in lower case alone.
 shaped --project "$project" '[a-z0-9][a-z0-9._-]{0,99}'
 shaped --porelo-project "$porelo_project" '[A-Za-z0-9][A-Za-z0-9._-]*'
-shaped --issue-repo "$issue_repo" '[A-Za-z0-9][A-Za-z0-9._-]{0,99}'
+# The repositories the story's issues are worked in, each with its builder and reader; foo-1 alone where none is named.
+[ ${#issue_repos[@]} -gt 0 ] || issue_repos=(foo-1)
+for each in "${issue_repos[@]}"; do shaped --issue-repo "$each" '[A-Za-z0-9][A-Za-z0-9._-]{0,99}'; done
 shaped WALK_AGENT "$agent" '[A-Za-z0-9][A-Za-z0-9._-]*'
 shaped WALK_TASK_MODEL "$task_model" '[A-Za-z0-9][A-Za-z0-9._/:-]*'
 shaped WALK_AGENT_QUIT "$agent_quit" '[/A-Za-z0-9._-]+'
@@ -312,8 +314,8 @@ cleanup() {
             left+=("$porelo_project placed on $vm (PORELO_VAULT=~/$run.vault/vault.bin porelo project clear --yes --force $porelo_project there)")
         fi
     fi
-    [ -z "${t0_of[$issue_repo]:-}" ] || take_back_the_tasks_work "$tasks"
     local each
+    for each in "${!t0_of[@]}"; do take_back_the_tasks_work "$each" "$tasks"; done
     for each in "${!t0_of[@]}"; do restore "$each"; done
     if [ -n "$declared" ]; then
         as_the_person_on_vm "porelo credentials forget '$central_match'" </dev/null >/dev/null 2>&1 ||
@@ -345,34 +347,34 @@ cleanup() {
     fi
 }
 
-# The issue repository's branches named for the run's project or one of its tasks go, each open pull request from one
+# A noted repository's branches named for the run's project or one of its tasks go, each open pull request from one
 # of them closed first: the API deletes no pull request, so a closed one with its branch gone is all that can go.
 # shellcheck disable=SC2329 # run by cleanup, on the EXIT trap
 take_back_the_tasks_work() {
-    local names=$1 status branch number
-    status=$(github GET "/repos/$org/$issue_repo/pulls?state=open&per_page=100")
+    local repository=$1 names=$2 status branch number
+    status=$(github GET "/repos/$org/$repository/pulls?state=open&per_page=100")
     if [ "$status" = 200 ]; then
         while read -r number branch; do
             if carries_the_run "$branch" "$names"; then
-                case $(github PATCH "/repos/$org/$issue_repo/pulls/$number" '{"state":"closed"}') in
-                200) ;; *) left+=("pull request #$number of $org/$issue_repo") ;;
+                case $(github PATCH "/repos/$org/$repository/pulls/$number" '{"state":"closed"}') in
+                200) ;; *) left+=("pull request #$number of $org/$repository") ;;
                 esac
             fi
         done < <(jq -r '.[] | "\(.number) \(.head.ref)"' "$work/answer")
     else
-        left+=("the pull requests of $org/$issue_repo could not be listed ($status)")
+        left+=("the pull requests of $org/$repository could not be listed ($status)")
     fi
-    status=$(github GET "/repos/$org/$issue_repo/branches?per_page=100")
+    status=$(github GET "/repos/$org/$repository/branches?per_page=100")
     if [ "$status" = 200 ]; then
         while read -r branch; do
             if carries_the_run "$branch" "$names"; then
-                case $(github DELETE "/repos/$org/$issue_repo/git/refs/heads/$branch") in
-                204 | 422) ;; *) left+=("the branch $branch of $org/$issue_repo") ;;
+                case $(github DELETE "/repos/$org/$repository/git/refs/heads/$branch") in
+                204 | 422) ;; *) left+=("the branch $branch of $org/$repository") ;;
                 esac
             fi
         done < <(jq -r '.[].name' "$work/answer" | grep -Ex '[A-Za-z0-9][A-Za-z0-9._/-]*' || true)
     else
-        left+=("the branches of $org/$issue_repo could not be listed ($status)")
+        left+=("the branches of $org/$repository could not be listed ($status)")
     fi
 }
 
@@ -681,7 +683,7 @@ print("https://" + a["forge"] + "/" + m[1] + "/" if m else "")') || true
     done
     # T0 of every repository the run may change, then the seed written over the seeded ones.
     for each in "${seeded[@]}"; do note_t0 "$each"; done
-    [ -n "${t0_of[$issue_repo]:-}" ] || note_t0 "$issue_repo"
+    for each in "${issue_repos[@]}"; do [ -n "${t0_of[$each]:-}" ] || note_t0 "$each"; done
     # Every seeded repository is prepared before any is pushed: a diff that does not apply stops the run with nothing pushed.
     for each in "${seeded[@]}"; do prepare_seed "$each"; done
     for each in "${seeded[@]}"; do push_seed "$each"; done
@@ -694,14 +696,16 @@ print("https://" + a["forge"] + "/" + m[1] + "/" if m else "")') || true
         echo "walk: $org/$porelo_project stands signed at $(tip_of "$porelo_project")"
         ;;
     esac
-    issue_head=$(tip_of "$issue_repo")
+    # Each issue repository's tip once seeded, as the window's walk reads its builder's work against it.
+    issue_heads=''
+    for each in "${issue_repos[@]}"; do issue_heads+="${issue_heads:+ }$each=$(tip_of "$each")"; done
 
     # The person's own machine takes the organization's project as a person's laptop does, on the person's agent, so porelod lists it and the
     # window tells the planner of it; one already placed there is not the run's to take or to clear.
     if [ "$(placed)" != True ]; then
         taken=yes
         # Off a host only a start or its question takes a project; the question starts nothing.
-        answer=$(porelod_call CanStart "{\"project\": \"$porelo_project\", \"repository\": \"$issue_repo\"}") || answer=''
+        answer=$(porelod_call CanStart "{\"project\": \"$porelo_project\", \"repository\": \"${issue_repos[0]}\"}") || answer=''
         echo "walk: porelod asked whether $porelo_project can start: $answer"
         if [ "$(placed)" != True ]; then
             echo "walk: porelod on $vm does not list $porelo_project after taking it" >&2
@@ -710,7 +714,7 @@ print("https://" + a["forge"] + "/" + m[1] + "/" if m else "")') || true
     fi
 
     # What a resume or a clean takes the run up with.
-    declare -p vm org planner project porelo_project mail issue_repo name run since issue_head vault in_vault central_match \
+    declare -p vm org planner project porelo_project mail issue_repos name run since issue_heads vault in_vault central_match \
         declared pointed agent_before swapped porelo_commit taken branch_of t0_of | sed 's/^declare -A/declare -gA/' >"$report/state.sh"
 fi
 
@@ -740,8 +744,8 @@ as_the_person_on_vm \
         GIT_CONFIG_GLOBAL=\$HOME/$run/gitconfig \
         PORELO_WALK_PROJECT='$project' PORELO_WALK_PORELO_PROJECT='$porelo_project' PORELO_WALK_AGENT='$agent' PORELO_WALK_MODEL='$task_model' \
         PORELO_WALK_PROBE=\$HOME/$run/bin/planner-probe.sh PORELO_WALK_PLANNER=\$HOME/$run/bin/porelo-planner \
-        PORELO_WALK_OWN_URL='https://github.com/$org/$project' PORELO_WALK_ISSUE_REPO='$issue_repo' \
-        PORELO_WALK_ISSUE_HEAD='$issue_head' PORELO_WALK_SINCE='$since' PORELO_WALK_TASK_MINUTES='$task_minutes' \
+        PORELO_WALK_OWN_URL='https://github.com/$org/$project' PORELO_WALK_ISSUE_REPOS='${issue_repos[*]}' \
+        PORELO_WALK_ISSUE_HEADS='$issue_heads' PORELO_WALK_SINCE='$since' PORELO_WALK_TASK_MINUTES='$task_minutes' \
         PORELO_WALK_AGENT_QUIT='$agent_quit' \
         PORELO_WALK_FROM='$from' PORELO_WALK_STATE=\$HOME/$run/walk-state.json \
         PORELO_WALK_STEPS=\$HOME/$run/steps.txt PORELO_WALK_TASKS=\$HOME/$run/tasks.txt \
