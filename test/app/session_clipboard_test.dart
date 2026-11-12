@@ -133,6 +133,73 @@ void main() {
     expect(copied, <String>['first   \nsecond', 'first\nsecon'], reason: 'end cell left out, spaces dropped');
   });
 
+  // Harm: a dragged command copied with a carriage return or another control after it, which runs it when pasted.
+  test('a control after the dragged text is held, only plain spaces at a line end are dropped', () async {
+    final (session, channel) = open();
+    for (final text in <String>['command\r', 'command\t', 'command \r', 'command\x0b', 'command\x0c', 'command\x85']) {
+      await dragOver(session, channel, 'command');
+      await prints(channel, write(text));
+      expect(copied, isEmpty, reason: '${jsonEncode(text)} is not what was dragged');
+      expect(session.held?.text, text);
+    }
+    await prints(channel, '\x1b[2J\x1b[Hfirst\r\nsecond');
+    session.dragged(const CellOffset(0, 0), const CellOffset(5, 1));
+    await prints(channel, write('first\r\nsecond'));
+    expect(copied, isEmpty, reason: 'a carriage return between the lines was not dragged');
+  });
+
+  // Harm: a gap the cursor skipped shows as a space, and a copy without it is another command.
+  test('a gap the cursor skipped counts as the space it shows', () async {
+    final (session, channel) = open();
+    await prints(channel, '\x1b[2J\x1b[Hr\x1b[Cm -rf');
+    session.dragged(const CellOffset(0, 0), const CellOffset(6, 0));
+    await prints(channel, write('rm -rf'));
+    expect(copied, isEmpty, reason: 'the screen showed "r m -rf"');
+    expect(session.held?.text, 'rm -rf');
+
+    session.dragged(const CellOffset(0, 0), const CellOffset(6, 0));
+    await prints(channel, write('r m -rf'));
+    expect(copied, <String>['r m -rf']);
+  });
+
+  test('a wide character whose first cell the drag ends on counts', () async {
+    final (session, channel) = open();
+    await prints(channel, '\x1b[2J\x1b[Hab漢字');
+    session.dragged(const CellOffset(0, 0), const CellOffset(2, 0));
+    await prints(channel, write('ab漢'));
+    expect(copied, <String>['ab漢']);
+  });
+
+  // Harm: a drag the task heard was the task's to turn into any copy, whatever the screen showed.
+  test('while the task hears the mouse a drag lets nothing through', () async {
+    final (session, channel) = open();
+    await prints(channel, '\x1b[?1002h');
+    await dragOver(session, channel, 'copy me');
+    await prints(channel, write('copy me'));
+    expect(copied, isEmpty);
+    expect(session.held?.text, 'copy me');
+  });
+
+  // Harm: text the person typed through an input method, which no key reports, copied as the drag's.
+  test('text the terminal sends after the drag ends what it lets through', () async {
+    final (session, channel) = open();
+    await dragOver(session, channel, 'copy me');
+    session.terminal.textInput('漢');
+    await prints(channel, write('copy me'));
+    expect(copied, isEmpty);
+    expect(session.held?.text, 'copy me');
+  });
+
+  test('after the session is over a drag lets nothing through, nor is anything held', () async {
+    final (session, channel) = open();
+    await dragOver(session, channel, 'copy me');
+    channel.ends();
+    await pumpEventQueue();
+    await prints(channel, write('copy me'));
+    expect(copied, isEmpty);
+    expect(session.held, isNull);
+  });
+
   test('typing lets no write through', () async {
     final (session, channel) = open();
     await prints(channel, 'typed');

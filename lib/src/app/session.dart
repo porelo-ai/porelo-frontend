@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:xterm/xterm.dart';
 
+import '../ui/terminal_copy.dart';
 import 'connections.dart';
 import 'conpty.dart';
 import 'desk.dart';
@@ -128,7 +129,8 @@ class Session extends ChangeNotifier with QuietAfterDispose {
   final Duration Function() _now;
 
   /// The text the person last dragged across here, as a copy of it would read, and when; null once a key, a press,
-  /// the keyboard leaving or a write of that text has ended it.
+  /// the keyboard leaving, anything this terminal sends of its own, the session's end or a write of that text has
+  /// ended it.
   ({Set<String> texts, Duration at})? _drag;
 
   /// What the task asked to put on this computer's clipboard on its own, waiting for the person to allow it.
@@ -142,14 +144,17 @@ class Session extends ChangeNotifier with QuietAfterDispose {
   }
 
   /// The person dragged the pointer from cell [from] to cell [to] of this terminal's buffer: **a write of the very
-  /// text between them** goes through without a word, once, shortly after. The text is read now, from what this
-  /// window shows, so whatever took the drag can copy nothing else silently; the end cell may count or not.
+  /// text between them** goes through without a word, once, shortly after. The text is read now, as this window
+  /// shows it — a gap the cursor skipped is the space it shows — so whatever took the drag can copy nothing else
+  /// silently; the end cell may count or not. **Nothing while the task hears the mouse**: the drag went to it then,
+  /// and what it copies is its own choice.
   void dragged(CellOffset from, CellOffset to) {
+    _drag = null;
+    if (terminal.mouseMode != MouseMode.none) return;
     final range = BufferRangeLine(from, to).normalized;
-    final buffer = terminal.buffer;
     final through = BufferRangeLine(range.begin, CellOffset(range.end.x + 1, range.end.y));
-    final texts = {_asCopied(buffer.getText(range)), _asCopied(buffer.getText(through))}..remove('');
-    _drag = texts.isEmpty ? null : (texts: texts, at: _now());
+    final texts = {_asCopied(copiedText(terminal, range)), _asCopied(copiedText(terminal, through))}..remove('');
+    if (texts.isNotEmpty) _drag = (texts: texts, at: _now());
   }
 
   /// The person pressed the pointer in this terminal: whatever an earlier drag let through ends.
@@ -158,8 +163,11 @@ class Session extends ChangeNotifier with QuietAfterDispose {
   /// This terminal lost the keyboard: whatever a drag let through ends.
   void lostFocus() => _drag = null;
 
-  /// [text] as compared with a drag: each line without the spaces at its end, which a copy may drop or keep.
-  static String _asCopied(String text) => text.split('\n').map((line) => line.trimRight()).join('\n');
+  /// [text] as compared with a drag: each line without the plain spaces at its end, which a copy may drop or keep.
+  /// **Nothing else is dropped**: a carriage return or any other control is kept, and so never matches a drag.
+  static String _asCopied(String text) => text.split('\n').map((line) => line.replaceFirst(_endSpaces, '')).join('\n');
+
+  static final _endSpaces = RegExp(r' +$');
 
   /// Puts [copy] on this computer's clipboard, the person having allowed it — only while it is the one shown.
   void copyHeld(HeldCopy copy) {
@@ -361,6 +369,7 @@ class Session extends ChangeNotifier with QuietAfterDispose {
   Future<void> leave() async {
     _gone = true;
     _held = null;
+    _drag = null;
     final reading = _reading;
     _reading = null;
     final channel = _channel;
@@ -425,7 +434,12 @@ class Session extends ChangeNotifier with QuietAfterDispose {
     notifyListeners();
   }
 
-  void _typed(String data) => type(data);
+  /// What this terminal sends of its own — typed text, an input method's, a paste, a mouse report or an answer —
+  /// ends what a drag lets through: the person acted, or the task did.
+  void _typed(String data) {
+    _drag = null;
+    type(data);
+  }
 
   void _resized(int width, int height, int pixelWidth, int pixelHeight) =>
       _channel?.resize(columns: width, rows: height);
@@ -439,6 +453,7 @@ class Session extends ChangeNotifier with QuietAfterDispose {
       return;
     }
     _held = null;
+    _drag = null;
     // The login is over, so its reply has nothing left to reach.
     exitCode = code;
     final forward = _forward;
