@@ -10,7 +10,8 @@ Future<void> theStoryStandsInReview(WidgetTester tester) =>
       // could not be read.
       Future<bool> readOrRaised(String issue) async =>
           await probeHolds(['issue-state', issue, 'Review']) ||
-          await probeHolds(['attention', issue, 'INVALID_FINDINGS']);
+          await probeHolds(['attention', issue, 'INVALID_FINDINGS']) ||
+          await probeHolds(['attention', issue, 'FAILED']);
       await pumpUntil(
         tester,
         () async {
@@ -25,9 +26,14 @@ Future<void> theStoryStandsInReview(WidgetTester tester) =>
       );
       // The operator's order for this run: findings the planner cannot read are corrected by hand, in the window,
       // by moving the issue on to Review, and noted.
+      // A reader that failed is repaired by hand the same way, so the run goes on to its end; the failure is noted.
       for (final issue in Walk.issues) {
-        if (await probeHolds(['attention', issue.id, 'INVALID_FINDINGS'])) {
-          noteStep('   HAND: ${issue.id} has INVALID_FINDINGS; the person moves it from Reading to Review');
+        final raised = [
+          for (final reason in ['INVALID_FINDINGS', 'FAILED'])
+            if (await probeHolds(['attention', issue.id, reason])) reason,
+        ].firstOrNull;
+        if (raised != null) {
+          noteStep('   HAND: ${issue.id} has $raised; the person moves it from Reading to Review');
           await toTheStory(tester);
           await moveAndSave(tester, issue.id, 'Review');
         }
