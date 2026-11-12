@@ -20,7 +20,7 @@ Future<void> thePlannerHoldsTheStoryWithItsIssuesInIdea(WidgetTester tester) =>
           what: 'the forge to hold the story file of $story',
         );
         await probe(['store-story', Walk.ownUrl, story, issue.id, 'Idea']);
-        await probe(['store-issue', Walk.urlOf(issue.repository), issue.id, 'Idea']);
+        await inTheForge(['store-issue', Walk.urlOf(issue.repository), issue.id, 'Idea']);
       }
       await probe(['events', '20']);
       // Its idea saved, the window removed the ended discussion: porelo on the machine lists it no longer.

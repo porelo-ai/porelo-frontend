@@ -456,5 +456,14 @@ Future<void> moveAndSave(WidgetTester tester, String issue, String state) async 
 /// The probe's reads that an issue stands in [state] on the board and in its repository's file.
 Future<void> theIssueStandsIn(String issue, String repository, String state) async {
   await probe(['issue-state', issue, state]);
-  await probe(['store-issue', Walk.urlOf(repository), issue, state]);
+  await inTheForge(['store-issue', Walk.urlOf(repository), issue, state]);
+}
+
+/// Probes [check], a read of the forge: the planner answers before its push lands, so this asks again for two minutes.
+Future<String> inTheForge(List<String> check) async {
+  final by = DateTime.now().add(const Duration(minutes: 2));
+  while (!await probeHolds(check) && DateTime.now().isBefore(by)) {
+    await Future<void>.delayed(const Duration(seconds: 5));
+  }
+  return probe(check);
 }
