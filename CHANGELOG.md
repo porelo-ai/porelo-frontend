@@ -45,6 +45,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- A machine's socket path that something else serves is no longer removed when the window closes or lets go of the machine, and a socket is removed before a forward is raised only where connecting to it was refused or found nothing; a probe that fails for another reason, or gets no answer in time, leaves it alone and says that it could not tell.
 - The ssh forwards the window raises for a machine, a homeserver or a login end with it also when it ends without asking: SIGTERM and SIGINT (such as `q` in `flutter run`) take them down before it exits, within five seconds. One a kill or a crash left behind is found again at the next start by the record the window kept of it, under `XDG_RUNTIME_DIR`, ended and raised anew, so its machine is no longer shown down as already served, nor its port refused as in use; only a process provably that very forward is ended, and an endpoint anything else serves is still left alone.
 - A *Needs you* row put away with *Seen* while its machine was being tried again is written to the window's log as put away, not as resolved.
 - A host's pages say how it stands again: the window runs `porelo-host` over root's SSH with none of the session's environment, only a path and a locale, as `porelo-host` refuses the `DBUS_SESSION_BUS_ADDRESS` and `XDG_*` a root login carries. Its status, a refresh, a refresh with the central token and a person's purge when a host is taken down are run so.

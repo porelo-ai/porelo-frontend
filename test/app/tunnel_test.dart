@@ -1057,6 +1057,70 @@ void _leftBehind() {
     expect(await alive(theirs), isTrue);
   });
 
+  /// Whether something accepts a connection at [socket] now.
+  Future<bool> answersAt(String socket) async {
+    try {
+      (await Socket.connect(InternetAddress(socket, type: InternetAddressType.unix), 0)).destroy();
+      return true;
+    } on SocketException {
+      return false;
+    }
+  }
+
+  // Harm: another program's endpoint unlinked by the window, so nobody can connect to it any more.
+  test('an endpoint refused as somebody else’s still answers after the tunnel is dropped', () async {
+    final socket = '${where.path}/kept.sock';
+    final theirs = (await serving(socket)).process;
+    final tunnel = await raisedAgain(socket, ForwardRecords(records));
+    expect(tunnel.problem, contains('already serving'));
+
+    await tunnel.drop();
+
+    expect(await answersAt(socket), isTrue, reason: 'their endpoint is still there to connect to');
+    expect(await alive(theirs), isTrue);
+  });
+
+  // Harm: a live endpoint unlinked because a probe failed here, such as with too many open files.
+  test('a probe that fails for a reason of its own never removes the endpoint', () async {
+    final socket = '${where.path}/unprobed.sock';
+    final theirs = (await serving(socket)).process;
+    final tunnel = Tunnel(
+      machineAt(socket),
+      records: ForwardRecords(records),
+      start: (_) async => (await serving(socket)).process,
+      connect: (_) async => throw const SocketException('probe', osError: OSError('Too many open files', 24)),
+    );
+    addTearDown(tunnel.drop);
+
+    await tunnel.raise();
+
+    expect(tunnel.state, TunnelState.down);
+    expect(tunnel.problem, contains('could not be told'));
+    expect(await answersAt(socket), isTrue, reason: 'their endpoint is still there to connect to');
+    expect(await alive(theirs), isTrue);
+  });
+
+  // Harm: a pending connection kept for every raise of a machine whose endpoint never answers.
+  test('a probe that gets no answer in time is cancelled and the endpoint left alone', () async {
+    final socket = '${where.path}/silent.sock';
+    final theirs = (await serving(socket)).process;
+    var cancelled = 0;
+    final tunnel = Tunnel(
+      machineAt(socket),
+      records: ForwardRecords(records),
+      start: (_) async => (await serving(socket)).process,
+      connect: (_) async => ConnectionTask.fromSocket(Completer<Socket>().future, () => cancelled++),
+    );
+    addTearDown(tunnel.drop);
+
+    await tunnel.raise();
+
+    expect(cancelled, 1);
+    expect(tunnel.state, TunnelState.down);
+    expect(await answersAt(socket), isTrue);
+    expect(await alive(theirs), isTrue);
+  });
+
   /// [tunnel] refused the endpoint as served by somebody else, and [left] still runs.
   Future<void> leftAlone(Tunnel tunnel, Process left) async {
     expect(tunnel.state, TunnelState.down);

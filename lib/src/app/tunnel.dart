@@ -76,7 +76,9 @@ class Tunnel {
     this.awaitsAdmission,
     this.onTurnedAway,
     ForwardRecords? records,
+    ConnectToSocket? connect,
   }) : _ownRecords = records,
+       _connect = connect ?? connectToSocket,
        _launch = start ?? _runIt,
        _tighten = run ?? _runAndWait,
        _untilItBinds = appears,
@@ -87,6 +89,11 @@ class Tunnel {
   final Future<bool> Function(HostCardSsh)? keyAvailable;
 
   final ForwardRecords? _ownRecords;
+
+  final ConnectToSocket _connect;
+
+  // Whether the endpoint at the socket path is one this tunnel's ssh made: only that one is removed when it is dropped.
+  bool _madeTheSocket = false;
 
   // Read when it is used: the run's records exist only once it took charge of the window.
   ForwardRecords? get _records => _ownRecords ?? forwardRecords;
@@ -224,31 +231,37 @@ class Tunnel {
     // otherwise meet its socket below and refuse it as somebody else's.
     await _stopWhatWeStarted();
     if (generation != _generation) return;
+    _madeTheSocket = false;
 
     // **A socket that answers belongs to somebody.** It may be another program of this user that
     // happens to sit at that path, and taking its endpoint away to put ours there would break it
     // silently. Refused instead, and said. Told apart by connecting, exactly as
     // [OneInstance.take] tells its own leftover from a running interface.
-    var alreadyServing = await _somebodyIsServing();
+    var found = await probeSocket(machine.socketPath, _connect);
     if (generation != _generation) return;
     // Unless it is the very forward a run of this interface left behind when it ended without asking.
-    if (alreadyServing && (_records?.endLeftovers((line) => forwardsSocket(line, machine.socketPath)) ?? false)) {
+    if (found != SocketProbe.nobody &&
+        (_records?.endLeftovers((line) => forwardsSocket(line, machine.socketPath)) ?? false)) {
       // A monotonic deadline, each probe capped by what is left of it: a probe that hangs cannot stretch the wait.
       final waited = Stopwatch()..start();
-      while (alreadyServing && waited.elapsed < leftoverEnds) {
-        alreadyServing = await _somebodyIsServing(within: _leftOf(waited, const Duration(seconds: 1)));
-        if (alreadyServing) await Future<void>.delayed(_leftOf(waited, const Duration(milliseconds: 100)));
+      while (found != SocketProbe.nobody && waited.elapsed < leftoverEnds) {
+        found = await probeSocket(machine.socketPath, _connect, within: _leftOf(waited, const Duration(seconds: 1)));
+        if (found != SocketProbe.nobody) {
+          await Future<void>.delayed(_leftOf(waited, const Duration(milliseconds: 100)));
+        }
       }
       if (generation != _generation) return;
     }
-    if (alreadyServing) {
+    if (found != SocketProbe.nobody) {
       state = TunnelState.down;
-      problem = 'something is already serving ${machine.socketPath}, and it was left alone';
+      problem = found == SocketProbe.answers
+          ? 'something is already serving ${machine.socketPath}, and it was left alone'
+          : 'whether something serves ${machine.socketPath} could not be told, and it was left alone';
       return;
     }
 
     // ssh refuses to bind a path that already exists. A socket left by a run that died answers
-    // nothing, so it is a leftover, and the alternative is a machine that can never be opened
+    // nothing - refused, or gone - so it is a leftover, and the alternative is a machine that can never be opened
     // again without somebody knowing to delete a file they have never heard of.
     _clearTheWay();
 
@@ -261,6 +274,7 @@ class Tunnel {
         return;
       }
       _process = process;
+      _madeTheSocket = true;
       raised++;
       // Recorded so that a run ended without asking leaves a forward the next one can prove was its own.
       final records = _records?..record(process.pid, line);
@@ -435,12 +449,12 @@ class Tunnel {
     await _tighten([openSsh('ssh'), '-F', '/dev/null', '-o', 'ControlPath=$control', '-O', 'exit', card.name])
         .timeout(_untilExplained);
     // The master ends after it answered; its endpoints stop answering within a moment.
-    for (var wait = 0; wait < 20 && await _answers(control); wait++) {
+    for (var wait = 0; wait < 20 && await probeSocket(control, connectToSocket) != SocketProbe.nobody; wait++) {
       await Future<void>.delayed(const Duration(milliseconds: 100));
     }
     for (final endpoint in [control, machine.socketPath]) {
       if (FileSystemEntity.typeSync(endpoint, followLinks: false) != FileSystemEntityType.unixDomainSock) continue;
-      if (await _answers(endpoint)) continue;
+      if (await probeSocket(endpoint, connectToSocket) != SocketProbe.nobody) continue;
       try {
         File(endpoint).deleteSync();
       } on PathNotFoundException {
@@ -454,20 +468,6 @@ class Tunnel {
     try {
       return File(config).readAsLinesSync().any((line) => line.trim() == 'User $login');
     } on FileSystemException {
-      return false;
-    }
-  }
-
-  static Future<bool> _answers(String endpoint) async {
-    try {
-      final socket = await Socket.connect(
-        InternetAddress(endpoint, type: InternetAddressType.unix),
-        0,
-        timeout: const Duration(seconds: 1),
-      );
-      socket.destroy();
-      return true;
-    } on SocketException {
       return false;
     }
   }
@@ -526,7 +526,9 @@ class Tunnel {
     if (machine.hostCard != null && wasWanted) await _unlocker.cancel(machine.hostCard!.name);
     await _stopWhatWeStarted();
     if (machine.hostCard == null) {
-      _clearTheWay();
+      // Only an endpoint this tunnel's ssh made: one refused as somebody else's stays where it is.
+      if (_madeTheSocket) _clearTheWay();
+      _madeTheSocket = false;
     } else {
       _clearOwnedCardEndpoints();
     }
@@ -553,24 +555,6 @@ class Tunnel {
     final left = leftoverEnds - waited.elapsed;
     if (left <= Duration.zero) return const Duration(milliseconds: 1);
     return left < most ? left : most;
-  }
-
-  /// Whether something answers at the endpoint. A leftover socket does not; one that has not answered within [within]
-  /// may still, so it counts as answering.
-  Future<bool> _somebodyIsServing({Duration within = const Duration(seconds: 1)}) async {
-    final connecting = Socket.connect(InternetAddress(machine.socketPath, type: InternetAddressType.unix), 0);
-    try {
-      (await connecting.timeout(within)).destroy();
-      return true;
-    } on TimeoutException {
-      unawaited(connecting.then((socket) => socket.destroy(), onError: (Object _) {}));
-      return true;
-    } on SocketException {
-      return false;
-    } on OSError {
-      // A listener that went while being connected to resets the connection, raised bare.
-      return false;
-    }
   }
 
   /// What is worth saying about it, or null when there is nothing.
@@ -1466,3 +1450,50 @@ String keySshWouldUse(String sshConfig, [String? host]) {
       ? 'No key is named for the machine in ~/.ssh/config.'
       : 'No key is named for $host in ~/.ssh/config.';
 }
+
+/// What a connection to a unix socket found.
+enum SocketProbe {
+  /// Something accepted it.
+  answers,
+
+  /// Nothing listens there: the connection was refused, or there is no such path.
+  nobody,
+
+  /// It could not be told: no answer in time, or a failure that proves nothing about the endpoint (such as too many
+  /// open files here). Counted as answering, so the endpoint is never removed on it.
+  unknown,
+}
+
+/// Starts a connection to the unix socket at [path]. Injectable, so a test can make a probe fail or hang.
+typedef ConnectToSocket = Future<ConnectionTask<Socket>> Function(String path);
+
+/// Starts a real connection.
+Future<ConnectionTask<Socket>> connectToSocket(String path) =>
+    Socket.startConnect(InternetAddress(path, type: InternetAddressType.unix), 0);
+
+/// Connects to [path] within [within], and cancels a connection that did not finish in time, so no probe is left
+/// pending.
+Future<SocketProbe> probeSocket(
+  String path,
+  ConnectToSocket connect, {
+  Duration within = const Duration(seconds: 1),
+}) async {
+  ConnectionTask<Socket>? task;
+  try {
+    final waited = Stopwatch()..start();
+    task = await connect(path).timeout(within);
+    final left = within - waited.elapsed;
+    (await task.socket.timeout(left > Duration.zero ? left : Duration.zero)).destroy();
+    return SocketProbe.answers;
+  } on TimeoutException {
+    task?.cancel();
+    return SocketProbe.unknown;
+  } on SocketException catch (failure) {
+    return _nobodyThere(failure.osError?.errorCode) ? SocketProbe.nobody : SocketProbe.unknown;
+  } on OSError catch (failure) {
+    return _nobodyThere(failure.errorCode) ? SocketProbe.nobody : SocketProbe.unknown;
+  }
+}
+
+// ECONNREFUSED and ENOENT on Linux, WSAECONNREFUSED on Windows: the only answers that prove nothing listens there.
+bool _nobodyThere(int? errno) => errno == 111 || errno == 2 || errno == 10061;
