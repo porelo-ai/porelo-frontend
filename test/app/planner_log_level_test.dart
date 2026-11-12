@@ -167,7 +167,10 @@ void main() {
 
       planner.answer = (404, '');
       level.value = LogLevel.info;
-      await answered();
+      // The first call is still counted, so this waits for the refusal itself, which a loaded machine reads late.
+      for (var i = 0; i < 500 && local.levelProblem == null; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
       expect(local.plannerLevel, isNull);
       expect(local.levelProblem, contains('newer planner'));
     });
